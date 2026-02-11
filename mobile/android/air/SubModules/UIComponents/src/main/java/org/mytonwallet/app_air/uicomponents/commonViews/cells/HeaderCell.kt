@@ -35,11 +35,11 @@ class HeaderCell(
         get() {
             return when (topRounding) {
                 TopRounding.FIRST_ITEM -> {
-                    ViewConstants.TOP_RADIUS.dp
+                    ViewConstants.TOOLBAR_RADIUS.dp
                 }
 
                 TopRounding.NORMAL -> {
-                    ViewConstants.BIG_RADIUS.dp
+                    ViewConstants.BLOCK_RADIUS.dp
                 }
 
                 TopRounding.ZERO -> {

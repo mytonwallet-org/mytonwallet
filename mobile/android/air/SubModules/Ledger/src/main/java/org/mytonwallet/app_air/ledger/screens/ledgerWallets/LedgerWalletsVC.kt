@@ -173,7 +173,7 @@ class LedgerWalletsVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 continueButton,
-                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
         }

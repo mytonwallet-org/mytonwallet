@@ -145,31 +145,22 @@ class SettingsVM {
             WalletCore.getAllAccounts().filter { it.accountId != AccountStore.activeAccountId }
         val firstAccounts =
             allAccountsExceptActive.take(if (allAccountsExceptActive.size > 6) 5 else 6)
-        val next3Accounts = allAccountsExceptActive.drop(firstAccounts.size).take(3)
         for (account in firstAccounts) {
             if (account.accountId == AccountStore.activeAccountId) continue
-
-            val balanceAmount = BalanceStore.totalBalanceInBaseCurrency(account.accountId)
-            val balance = balanceAmount?.toString(
-                WalletCore.baseCurrency.decimalsCount,
-                WalletCore.baseCurrency.sign,
-                WalletCore.baseCurrency.decimalsCount,
-                true
-            )
 
             items.add(
                 SettingsItem(
                     identifier = SettingsItem.Identifier.ACCOUNT,
                     icon = null,
                     title = account.name,
-                    value = balance,
+                    value = null,
                     hasTintColor = false,
-                    accounts = listOf(account)
+                    account = account
                 )
             )
         }
 
-        if (next3Accounts.isNotEmpty()) {
+        if (firstAccounts.size != allAccountsExceptActive.size) {
             items.add(
                 SettingsItem(
                     identifier = SettingsItem.Identifier.SHOW_ALL_WALLETS,
@@ -177,7 +168,6 @@ class SettingsVM {
                     title = LocaleController.getString("Show All Wallets"),
                     value = null,
                     hasTintColor = true,
-                    accounts = next3Accounts
                 )
             )
         }

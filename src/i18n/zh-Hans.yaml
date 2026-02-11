@@ -58,9 +58,6 @@ Search...: 搜索···
 Main menu: 主菜单
 TON Proxy: TON 代理
 Toggle TON Proxy: 切换 TON 代理
-TON Magic: TON Magic
-Toggle TON Magic: 切换 TON Magic
-Open Telegram Web: 开启 Telegram 网页
 Back Up Secret Words: 备份助记词
 Settings: 设置
 About %app_name%: 关于 %app_name%
@@ -74,10 +71,7 @@ $about_description2: 您的钱包是**非托管**且**安全**的。开发人员
 What is TON Proxy?: 什么是 TON 代理?
 $about_extension_description1: TON 代理 支持匿名访问 TON 网站 ，这创造了通往**去中心化网络**的新方式！
 More info and demo.: 更多信息和演示。
-$about_extension_description2: TON Magic 通过修补官方 Telegram 网页应用程序来整合 Telegram。
-$about_extension_description3: 打开它，将可以与任何 Telegram 用户发送和接收 Toncoin。
-$about_proxy_magic_title: 什么是 %ninja% TON 代理 和 %unicorn% TON Magic?
-$about_proxy_magic_description: 要享受去中心化网络、浏览 Ton 网站并使用 Telegram 网页应用，请安装 %extension_link% 拓展程序。
+$about_proxy_magic_description: 要享受去中心化网络和浏览 Ton 网站，请安装 %extension_link% 拓展程序。
 $about_extension_link_text: "**%app_name% 拓展程序**"
 Is it open source?: 它是开源的吗？
 $about_wallet_github: 是的，欢迎查看我们的 %github_link%
@@ -196,6 +190,7 @@ Coins have been sent!: 代币已送出!
 Transaction Sent!: 交易已发送!
 Data Signed!: 数据已签名!
 Details: 明细
+View details: 查看详情
 Change password visibility: 改变密码可见
 Amount value: 资产总额
 Save Address: 储存地址
@@ -295,7 +290,6 @@ No active connections: 没有活动连接
 Other: 其他的
 Assets & Activity: 资产 & 活动记录
 Token Settings: 代币设置
-My Tokens: 我的代币
 Add Token: 添加令牌
 Delete Token: 删除令牌
 Are you sure you want to delete?: 您确定要删除 %token% 吗？
@@ -1031,6 +1025,7 @@ $connected_apps:
   otherValue: "%1$d 已连接"
 Night Mode, Palette, Card: 夜间模式、调色板、卡片
 Back Up, Passcode, Auto-Lock: 备份、密码、自动锁定
+Back Up, Password, Auto-Lock: 备份、密码、自动锁定
 Base Currency, Token Order, Hidden NFTs: 基础货币、代币顺序、隐藏的 NFT
 Your assets on other contracts: 您在其他合约上的资产
 Wallets, Sounds: 钱包、声音
@@ -1042,3 +1037,7 @@ Open in %app_name%: 在 %app_name% 中打开
 Blog: 博客
 Apps: 应用
 $nft_not_found: 未找到 NFT
+Pin: 固定
+Unpin: 取消固定
+My Assets: 我的资产
+Owner: 所有者

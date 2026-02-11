@@ -163,12 +163,12 @@ class WalletSelectionVC(
                         item = SettingsItem(
                             identifier = SettingsItem.Identifier.ACCOUNT,
                             title = account.name,
-                            accounts = listOf(account),
+                            account = account,
                             hasTintColor = false,
                             icon = null,
                             value = null
                         ),
-                        value = null,
+                        subtitle = null,
                         isFirst = isFirst,
                         isLast = isLast,
                         onTap = {

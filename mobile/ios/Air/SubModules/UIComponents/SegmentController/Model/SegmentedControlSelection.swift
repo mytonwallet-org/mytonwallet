@@ -13,4 +13,11 @@ public struct SegmentedControlSelection: Equatable, Hashable {
         self.item2 = item2
         self.progress = progress
     }
+    
+    var effectiveSelectedItemID: SegmentedControlItem.ID {
+        if let item2, let progress, progress > 0.5 {
+            return item2
+        }
+        return item1
+    }
 }

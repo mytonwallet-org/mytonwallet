@@ -95,8 +95,8 @@ class SkeletonCell(
             WColor.SecondaryBackground.color,
             SUBTITLE_SKELETON_RADIUS
         )
-        backgroundDrawable.topRadius = if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f.dp
-        backgroundDrawable.bottomRadius = if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp
+        backgroundDrawable.topRadius = if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f.dp
+        backgroundDrawable.bottomRadius = if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f.dp
         backgroundDrawable.invalidateSelf()
     }
 

@@ -17,7 +17,7 @@ import UIComponents
 private let log = Log("AppSwitcher")
 
 
-@MainActor class AppSwitcher: NSObject {
+@MainActor final class AppSwitcher: NSObject {
     
     let window: WWindow
 

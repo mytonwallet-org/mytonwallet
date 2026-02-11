@@ -13,7 +13,7 @@
   opacity: 0;
   background: var(--color-tint);
 
-  @include mixins.transition(opacity 200ms);
+  @include mixins.transition(opacity 200ms, !important);
 }
 
 .visible {

@@ -30,7 +30,7 @@ class NotificationSettingsHeaderCell(
         context,
         title = LocaleController.getString("Push Notifications"),
         isChecked = false,
-        isFirst = ViewConstants.TOP_RADIUS > 0,
+        isFirst = ViewConstants.TOOLBAR_RADIUS > 0,
         isLast = true,
         onChange = { isChecked ->
             if (pushNotificationsChecked != isChecked) {
@@ -67,7 +67,7 @@ class NotificationSettingsHeaderCell(
 
     override fun updateTheme() {
         pushNotificationsRow.updateTheme()
-        hintLabel.setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp, 0f)
+        hintLabel.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp, 0f)
     }
 
     fun configure(isPushNotificationsChecked: Boolean, showHint: Boolean) {

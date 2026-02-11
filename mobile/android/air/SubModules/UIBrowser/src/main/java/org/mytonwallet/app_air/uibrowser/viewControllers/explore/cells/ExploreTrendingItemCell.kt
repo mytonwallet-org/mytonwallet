@@ -97,7 +97,7 @@ class ExploreTrendingItemCell(
     private val bottomBlurView = WBlurryBackgroundView(
         context,
         fadeSide = WBlurryBackgroundView.Side.TOP,
-        overrideBlurRadius = 30f
+        overrideBlurRadius = 25f
     ).apply {
         setupWith(imageViewContainer)
         setOverlayColor(WColor.Transparent, 130)

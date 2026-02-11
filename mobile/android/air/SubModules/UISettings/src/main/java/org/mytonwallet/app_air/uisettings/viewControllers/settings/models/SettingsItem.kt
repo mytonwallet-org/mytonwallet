@@ -9,7 +9,7 @@ data class SettingsItem(
     val subtitle: String? = null,
     val value: String? = null,
     val hasTintColor: Boolean,
-    val accounts: List<MAccount>? = null
+    val account: MAccount? = null
 ) {
     enum class Identifier {
         ACCOUNT,
@@ -40,6 +40,6 @@ data class SettingsItem(
     }
 
     override fun hashCode(): Int {
-        return (identifier.toString() + '_' + accounts?.joinToString("_") { it.accountId }).hashCode()
+        return (identifier.toString() + '_' + account?.accountId).hashCode()
     }
 }

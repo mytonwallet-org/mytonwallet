@@ -43,7 +43,7 @@ class SkeletonView(
         updateTheme()
     }
 
-    private val topCornerRadius = ViewConstants.BIG_RADIUS.dp
+    private val topCornerRadius = ViewConstants.BLOCK_RADIUS.dp
     private var maskViews = emptyList<View>()
     private var maskCornerRadius: HashMap<Int, Float>? = null
     override fun onDraw(canvas: Canvas) {

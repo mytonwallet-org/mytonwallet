@@ -6,6 +6,8 @@ import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
+import SwiftNavigation
 
 public class SendDappVC: WViewController, UISheetPresentationControllerDelegate {
     
@@ -16,6 +18,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     var placeholderAccountId: String?
     
     var hostingController: UIHostingController<SendDappViewOrPlaceholder>?
+    private var sendButtonObserver: ObserveToken?
     
     @AccountContext(source: .current) var account: MAccount
     
@@ -50,14 +53,13 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         withAnimation {
             self.hostingController?.rootView = makeView()
         }
-        UIView.animate(withDuration: 0.3) {
-            self.sendButton.isEnabled = !request.combinedInfo.isScam && request.hasSufficientBalance(accountContext: self.$account)
-        }
+        updateSendButtonState(animated: true)
     }
 
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
+        setupObservers()
     }
     
     private lazy var cancelButton = {
@@ -117,13 +119,34 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
 
         updateTheme()
         
-        sendButton.isEnabled = if let request {
+        updateSendButtonState()
+        
+        sheetPresentationController?.delegate = self
+    }
+
+    private func setupObservers() {
+        sendButtonObserver = observe { [weak self] in
+            guard let self else { return }
+            _ = account.id
+            _ = $account.balances
+            updateSendButtonState()
+        }
+    }
+
+    private func updateSendButtonState(animated: Bool = false) {
+        let isEnabled = if let request {
             !request.combinedInfo.isScam && request.hasSufficientBalance(accountContext: $account)
         } else {
             false
         }
-        
-        sheetPresentationController?.delegate = self
+        guard sendButton.isEnabled != isEnabled else { return }
+        if animated {
+            UIView.animate(withDuration: 0.3) {
+                self.sendButton.isEnabled = isEnabled
+            }
+        } else {
+            sendButton.isEnabled = isEnabled
+        }
     }
     
     private func makeView() -> SendDappViewOrPlaceholder {

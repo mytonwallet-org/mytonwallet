@@ -4,11 +4,12 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiBaseCurrency, ApiNft } from '../../api/types';
+import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft, ApiStakingState } from '../../api/types';
 import { SettingsState, type UserToken } from '../../global/types';
 
 import { CURRENCIES, IS_CAPACITOR, TINY_TRANSFER_MAX_COST } from '../../config';
 import {
+  selectAccountStakingStates,
   selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
@@ -22,6 +23,7 @@ import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useScrolledState from '../../hooks/useScrolledState';
+import useTokensWithStaking from '../../hooks/useTokensWithStaking';
 
 import Button from '../ui/Button';
 import Dropdown, { type DropdownItem } from '../ui/Dropdown';
@@ -40,41 +42,44 @@ interface OwnProps {
 
 interface StateProps {
   isInvestorViewEnabled?: boolean;
-  isSortByValueEnabled?: boolean;
   areTinyTransfersHidden?: boolean;
   areTokensWithNoCostHidden?: boolean;
   isSensitiveDataHidden?: true;
   baseCurrency: ApiBaseCurrency;
   isMultichainAccount: boolean;
   tokens?: UserToken[];
-  orderedSlugs?: string[];
+  pinnedSlugs?: string[];
+  alwaysHiddenSlugs?: string[];
   nftsByAddress?: Record<string, ApiNft>;
   blacklistedNftAddresses: string[];
   whitelistedNftAddresses: string[];
+  states?: ApiStakingState[];
+  currencyRates?: ApiCurrencyRates;
 }
 
 function SettingsAssets({
   isActive,
   isInsideModal,
   isInvestorViewEnabled,
-  isSortByValueEnabled,
   isSensitiveDataHidden,
   areTinyTransfersHidden,
   areTokensWithNoCostHidden,
   baseCurrency,
   isMultichainAccount,
   tokens,
-  orderedSlugs,
+  pinnedSlugs,
+  alwaysHiddenSlugs = MEMO_EMPTY_ARRAY,
   nftsByAddress,
   blacklistedNftAddresses,
   whitelistedNftAddresses,
+  states,
+  currencyRates,
   onBack,
 }: OwnProps & StateProps) {
   const {
     toggleTinyTransfersHidden,
     toggleInvestorView,
     toggleTokensWithNoCost,
-    toggleSortByValue,
     changeBaseCurrency,
     setSettingsState,
   } = getActions();
@@ -82,6 +87,15 @@ function SettingsAssets({
   const lang = useLang();
 
   const scrollContainerRef = useRef<HTMLDivElement>();
+
+  const tokensWithStaking = useTokensWithStaking({
+    tokens,
+    states,
+    baseCurrency,
+    currencyRates,
+    pinnedSlugs,
+    alwaysHiddenSlugs,
+  });
 
   useHistoryBack({ isActive, onBack });
 
@@ -109,10 +123,6 @@ function SettingsAssets({
 
   const handleTokensWithNoPriceToggle = useLastCallback(() => {
     toggleTokensWithNoCost({ isEnabled: !areTokensWithNoCostHidden });
-  });
-
-  const handleSortByValueToggle = useLastCallback(() => {
-    toggleSortByValue({ isEnabled: !isSortByValueEnabled });
   });
 
   const [localBaseCurrency, setLocalBaseCurrency] = useState(baseCurrency);
@@ -229,15 +239,6 @@ function SettingsAssets({
         }
         <p className={styles.blockTitle}>{lang('Token Settings')}</p>
         <div className={styles.settingsBlock}>
-          <div className={buildClassName(styles.item, styles.item_small)} onClick={handleSortByValueToggle}>
-            {lang('Sort By Cost')}
-
-            <Switcher
-              className={styles.menuSwitcher}
-              label={lang('Sort By Cost')}
-              checked={isSortByValueEnabled}
-            />
-          </div>
           <div className={buildClassName(styles.item, styles.item_small)} onClick={handleTokensWithNoPriceToggle}>
             <div>
               {lang('Hide Tokens With No Cost')}
@@ -264,10 +265,8 @@ function SettingsAssets({
 
         <SettingsTokens
           isSensitiveDataHidden={isSensitiveDataHidden}
-          parentContainer={scrollContainerRef}
-          tokens={tokens}
-          orderedSlugs={orderedSlugs}
-          isSortByValueEnabled={isSortByValueEnabled}
+          tokens={tokensWithStaking}
+          pinnedSlugs={pinnedSlugs}
           baseCurrency={baseCurrency}
           withChainIcon={isMultichainAccount}
         />
@@ -279,16 +278,13 @@ function SettingsAssets({
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   const {
     isInvestorViewEnabled,
-    isSortByValueEnabled,
     areTinyTransfersHidden,
     areTokensWithNoCostHidden,
     baseCurrency,
     isSensitiveDataHidden,
   } = global.settings;
 
-  const {
-    orderedSlugs,
-  } = selectCurrentAccountSettings(global) ?? {};
+  const { pinnedSlugs, alwaysHiddenSlugs } = selectCurrentAccountSettings(global) ?? {};
 
   const currentAccountId = selectCurrentAccountId(global);
   const {
@@ -301,16 +297,18 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
 
   return {
     isInvestorViewEnabled,
-    isSortByValueEnabled,
     areTinyTransfersHidden,
     areTokensWithNoCostHidden,
     baseCurrency,
     isMultichainAccount: selectIsMultichainAccount(global, currentAccountId!),
     tokens: selectCurrentAccountTokens(global),
-    orderedSlugs,
+    pinnedSlugs,
+    alwaysHiddenSlugs,
     nftsByAddress,
     blacklistedNftAddresses,
     whitelistedNftAddresses,
     isSensitiveDataHidden,
+    states: selectAccountStakingStates(global, currentAccountId!),
+    currencyRates: global.currencyRates,
   };
 })(SettingsAssets));

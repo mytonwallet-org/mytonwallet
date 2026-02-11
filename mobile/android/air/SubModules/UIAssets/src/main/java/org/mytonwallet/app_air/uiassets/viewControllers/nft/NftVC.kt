@@ -632,8 +632,8 @@ class NftVC(
         recyclerView.setBackgroundColor(WColor.SecondaryBackground.color)
         descriptionView.setBackgroundColor(
             WColor.Background.color,
-            if (headerView.targetIsCollapsed) ViewConstants.BIG_RADIUS.dp else 0f,
-            ViewConstants.BIG_RADIUS.dp
+            if (headerView.targetIsCollapsed) ViewConstants.BLOCK_RADIUS.dp else 0f,
+            ViewConstants.BLOCK_RADIUS.dp
         )
         navigationBar?.setTint(
             if (headerView.targetIsCollapsed) WColor.PrimaryLightText else WColor.White,
@@ -694,7 +694,7 @@ class NftVC(
         if (!nft.metadata?.attributes.isNullOrEmpty())
             attributesView.setBackgroundColor(
                 WColor.Background.color,
-                ViewConstants.BIG_RADIUS.dp,
+                ViewConstants.BLOCK_RADIUS.dp,
                 true
             )
         if (isAttributesSectionExpandable) {
@@ -738,7 +738,7 @@ class NftVC(
         WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
     }
 
-    private var currentVal = ViewConstants.BIG_RADIUS.dp
+    private var currentVal = ViewConstants.BLOCK_RADIUS.dp
     private fun animateDescriptionRadius(newVal: Float) {
         val prevVal = currentVal
         currentVal = newVal
@@ -749,7 +749,7 @@ class NftVC(
                 descriptionView.setBackgroundColor(
                     WColor.Background.color,
                     animation.animatedValue as Float,
-                    ViewConstants.BIG_RADIUS.dp
+                    ViewConstants.BLOCK_RADIUS.dp
                 )
             }
             start()
@@ -875,7 +875,7 @@ class NftVC(
 
     override fun onHeaderCollapsed() {
         window?.forceStatusBarLight = null
-        animateDescriptionRadius(ViewConstants.BIG_RADIUS.dp)
+        animateDescriptionRadius(ViewConstants.BLOCK_RADIUS.dp)
         navigationBar?.setTint(WColor.PrimaryLightText, animated = true)
     }
 

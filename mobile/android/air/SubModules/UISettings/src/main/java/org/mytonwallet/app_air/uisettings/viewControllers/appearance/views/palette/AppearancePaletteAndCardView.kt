@@ -69,7 +69,7 @@ class AppearancePaletteAndCardView(
     }
 
     private val rippleBackground =
-        WRippleDrawable.create(0f, 0f, ViewConstants.BIG_RADIUS.dp, ViewConstants.BIG_RADIUS.dp)
+        WRippleDrawable.create(0f, 0f, ViewConstants.BLOCK_RADIUS.dp, ViewConstants.BLOCK_RADIUS.dp)
             .apply {
                 rippleColor = WColor.BackgroundRipple.color
             }
@@ -117,7 +117,7 @@ class AppearancePaletteAndCardView(
     override fun updateTheme() {
         setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         circleDrawable?.setTint(WColor.Tint.color)
         rippleBackground.rippleColor = WColor.BackgroundRipple.color

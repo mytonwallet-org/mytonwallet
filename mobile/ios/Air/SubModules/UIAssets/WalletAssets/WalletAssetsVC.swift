@@ -8,15 +8,16 @@ import WalletContext
 private let log = Log("Home-WalletAssets")
 
 @MainActor public protocol WalletAssetsDelegate: AnyObject {
-    func headerHeightChanged(animated: Bool)
+    func walletAssetDidChangeHeight(animated: Bool)
+    func walletAssetDidChangeReorderingState()
 }
 
-@MainActor public final class WalletAssetsVC: WViewController, WalletCoreData.EventsObserver, WalletAssetsViewModelDelegate, Sendable {
+@MainActor public final class WalletAssetsVC: WViewController, WalletCoreData.EventsObserver, Sendable {
+    private var walletAssetsView: WalletAssetsView { view as! WalletAssetsView }
     
-    private let compactMode: Bool
-    
-    var walletAssetsView: WalletAssetsView { view as! WalletAssetsView }
     public weak var delegate: (any WalletAssetsDelegate)?
+    
+    public var isReordering: Bool { tabsViewModel.isReordering }
     
     private var tokensVC: WalletTokensVC?
     private var nftsVC: NftsVC?
@@ -26,9 +27,9 @@ private let log = Log("Home-WalletAssets")
     
     @AppStorage("debug_hideSegmentedControls") private var hideSegmentedControls = false
     
-    var tabsViewModel: WalletAssetsViewModel
+    private var tabsViewModel: WalletAssetsViewModel
     
-    var tabViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]
+    private var tabViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]
     
     private var menuContexts: [DisplayAssetTab: MenuContext] = [:]
     
@@ -40,11 +41,11 @@ private let log = Log("Home-WalletAssets")
             ctx.sourceView = self.walletAssetsView.segmentedController.segmentedControl
             switch tab {
             case .tokens:
-                configureTokensMenu(menuContext: ctx, onReorder: { self.onReorder() })
+                configureTokensMenu(menuContext: ctx, onReorder: { [weak self] in self?.onSegmentsReorder() })
             case .nfts:
-                configureCollectiblesMenu(accountSource: accountSource, menuContext: ctx, onReorder: { self.onReorder() })
+                configureCollectiblesMenu(accountSource: accountSource, menuContext: ctx, onReorder: { [weak self] in self?.onSegmentsReorder() })
             case .nftCollectionFilter(let filter):
-                configureNftCollectionMenu(menuContext: ctx, onReorder: { self.onReorder() }, onHide: { [weak self] in
+                configureNftCollectionMenu(menuContext: ctx, onReorder: { [weak self] in self?.onSegmentsReorder() }, onHide: { [weak self] in
                     Task {
                         try? await self?.tabsViewModel.setIsFavorited(filter: filter, isFavorited: false)
                     }
@@ -55,9 +56,8 @@ private let log = Log("Home-WalletAssets")
         }
     }
     
-    public init(accountSource: AccountSource, compactMode: Bool = true) {
+    public init(accountSource: AccountSource) {
         self.accountIdProvider = AccountIdProvider(source: accountSource)
-        self.compactMode = compactMode
         self.tabsViewModel = WalletAssetsViewModel(accountSource: accountSource)
         super.init(nibName: nil, bundle: nil)
     }
@@ -65,7 +65,7 @@ private let log = Log("Home-WalletAssets")
     @MainActor public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+        
     private var changeAccountTask: Task<Void, any Error>?
     private var snapshot: UIView?
     
@@ -110,22 +110,24 @@ private let log = Log("Home-WalletAssets")
             snapshot?.removeFromSuperview()
         }
     }
-    
-    public func displayTabsChanged() {
-        _displayTabsChanged(force: false)
-    }
-    
+        
     func _displayTabsChanged(force: Bool) {
         let displayTabs = tabsViewModel.displayTabs
+        var tabViewControllersToRemove = tabViewControllers
+        var newTabsViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]
         for tab in displayTabs {
-            if tabViewControllers[tab] == nil {
+            if let oldVC = tabViewControllersToRemove.removeValue(forKey: tab) {
+                newTabsViewControllers[tab] = oldVC
+            } else {
                 let vc = makeViewControllerForTab(tab)
                 addChild(vc)
                 _ = vc.view
-                tabViewControllers[tab] = vc
+                newTabsViewControllers[tab] = vc
                 vc.didMove(toParent: self)
             }
         }
+        self.tabViewControllers = newTabsViewControllers
+                
         let vcs = displayTabs.map { tabViewControllers[$0]! }
         let items: [SegmentedControlItem] = displayTabs.enumerated().map { index, tab in
             let menuContext = getMenuContext(tab: tab)
@@ -136,6 +138,7 @@ private let log = Log("Home-WalletAssets")
                     title: lang("Assets"),
                     menuContext: menuContext,
                     hidesMenuIcon: true,
+                    isDeletable: false,
                     viewController: vcs[index],
                 )
             case .nfts:
@@ -143,6 +146,7 @@ private let log = Log("Home-WalletAssets")
                     id: "nfts",
                     title: lang("Collectibles"),
                     menuContext: menuContext,
+                    isDeletable: false,
                     viewController: vcs[index],
                 )
             case .nftCollectionFilter(let filter):
@@ -158,17 +162,18 @@ private let log = Log("Home-WalletAssets")
             items: items,
             force: force
         )
+        
+        // now remove "orphaned" tabs
+        tabViewControllersToRemove.values.forEach { removeChild($0) }
     }
     
-    func makeViewControllerForTab(_ tab: DisplayAssetTab) -> any WSegmentedControllerContent & UIViewController {
+    private func makeViewControllerForTab(_ tab: DisplayAssetTab) -> any WSegmentedControllerContent & UIViewController {
         switch tab {
         case .tokens, .nfts:
             fatalError("created once")
         case .nftCollectionFilter(let filter):
-            let vc = NftsVC(accountSource: accountSource, compactMode: compactMode, filter: filter)
-            vc.onHeightChanged = { [weak self] animated in
-                self?.delegate?.headerHeightChanged(animated: animated)
-            }
+            let vc = NftsVC(accountSource: accountSource, mode: .compact, filter: filter)
+            vc.delegate = self
             return vc
         }
     }
@@ -179,7 +184,7 @@ private let log = Log("Home-WalletAssets")
         addChild(tokensVC)
         tokensVC.didMove(toParent: self)
 
-        let nftsVC = NftsVC(accountSource: accountSource, compactMode: true, filter: .none)
+        let nftsVC = NftsVC(accountSource: accountSource, mode: .compact, filter: .none)
         self.nftsVC = nftsVC
         addChild(nftsVC)
         nftsVC.didMove(toParent: self)
@@ -192,13 +197,10 @@ private let log = Log("Home-WalletAssets")
         tokensVC?.onHeightChanged = { [weak self] animated in
             self?.headerHeightChanged(animated: animated)
         }
-        nftsVC?.onHeightChanged = { [weak self] animated in
-            self?.headerHeightChanged(animated: animated)
-        }
+        nftsVC?.delegate = self
         walletAssetsView.onScrollingOffsetChanged = { [weak self] offset in
-            self?.delegate?.headerHeightChanged(animated: true)
-//            self?.nftsVC?.updateIsVisible(offset >= 0.2)
-        }        
+            self?.headerHeightChanged(animated: true)
+        }
         
         walletAssetsView.layer.cornerRadius = S.homeInsetSectionCornerRadius
         walletAssetsView.layer.masksToBounds = true
@@ -212,10 +214,10 @@ private let log = Log("Home-WalletAssets")
         
         tabsViewModel.delegate = self
         _displayTabsChanged(force: true)
-        
-        let collections = NftStore.getCollections(accountId: accountIdProvider.accountId).collections
-        
-        walletAssetsView.segmentedController.model.onItemsReordered = { items in
+                
+        walletAssetsView.segmentedController.model.onItemsReorder = { [weak self] items in
+            guard let self else { return }            
+            let collections = NftStore.getCollections(accountId: accountIdProvider.accountId).collections
             let displayTabs: [DisplayAssetTab] = items.compactMap { item in
                 switch item.id {
                 case "tokens": return .tokens
@@ -228,7 +230,7 @@ private let log = Log("Home-WalletAssets")
                     return nil
                 }
             }
-            try! await self.tabsViewModel.setOrder(displayTabs: displayTabs)
+            try? await self.tabsViewModel.setOrder(displayTabs: displayTabs)
         }
     }
     
@@ -253,7 +255,7 @@ private let log = Log("Home-WalletAssets")
     }
     
     private func headerHeightChanged(animated: Bool) {
-        delegate?.headerHeightChanged(animated: animated)
+        delegate?.walletAssetDidChangeHeight(animated: animated)
     }
     
     public override func viewDidLayoutSubviews() {
@@ -282,7 +284,61 @@ private let log = Log("Home-WalletAssets")
         walletAssetsView.walletTokensVC.visibleCells
     }
     
-    func onReorder() {
+    private func onSegmentsReorder() {
+        tabsViewModel.startOrdering()
+    }
+    
+    /// Called from parent (`HomeVC`)
+    public func stopReordering(isCanceled: Bool) {
+        tabsViewModel.stopReordering(isCanceled: isCanceled, restoreTabsOnCancel: true)
+    }
+}
+
+extension WalletAssetsVC: WalletAssetsViewModelDelegate {
+    private func forEachNftsVC(_ body: (NftsVC) -> Void)  {
+        if let nftsVC {
+            body(nftsVC)
+        }
+        for vc in tabViewControllers.values {
+            if let vc = vc as? NftsVC {
+                body(vc)
+            }
+        }
+    }
+    
+    func walletAssetModelDidStartReordering() {
+        delegate?.walletAssetDidChangeReorderingState()
+        forEachNftsVC {
+            $0.startReordering()
+        }
+        
         walletAssetsView.segmentedController.model.startReordering()
+    }
+    
+    func walletAssetModelDidStopReordering(isCanceled: Bool) {
+        delegate?.walletAssetDidChangeReorderingState()
+        forEachNftsVC {
+            $0.stopReordering(isCanceled: isCanceled)
+        }
+        
+        walletAssetsView.segmentedController.model.stopReordering()
+    }
+        
+    func walletAssetModelDidChangeDisplayTabs() {
+        _displayTabsChanged(force: false)
+    }
+}
+
+extension WalletAssetsVC: NftsViewControllerDelegate {
+    func nftsViewControllerDidChangeReorderingState(_ vc: NftsVC) {
+        // nothing. The tabsViewModel will handle all changes itself
+    }
+    
+    func nftsViewControllerRequestReordering(_ vc: NftsVC) {
+        tabsViewModel.startOrdering()
+    }
+    
+    func nftsViewControllerDidChangeHeightAnimated(_ animated: Bool) {
+        headerHeightChanged(animated: animated)
     }
 }

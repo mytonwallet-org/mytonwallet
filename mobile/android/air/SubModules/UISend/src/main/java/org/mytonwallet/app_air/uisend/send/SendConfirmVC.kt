@@ -14,6 +14,8 @@ import androidx.appcompat.widget.AppCompatTextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.constraintlayout.widget.ConstraintSet
+import androidx.core.text.buildSpannedString
+import androidx.core.text.inSpans
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListGapCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -21,8 +23,10 @@ import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpside
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
@@ -37,12 +41,13 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.Passco
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
 import org.mytonwallet.app_air.uisend.send.lauouts.ConfirmAmountView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.replaceSpacesWithNbsp
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
@@ -54,13 +59,15 @@ class SendConfirmVC(
     context: Context,
     private val config: SendViewModel.DraftResult.Result,
     private val transferOptions: MApiSubmitTransferOptions,
-    private val slug: String
+    private val slug: String,
+    private val name: String? = null
 ) : WViewController(context) {
     override val TAG = "SendConfirm"
 
     override val displayedAccount =
         DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
-    private var isShowingAccountMultichain = WGlobalStorage.isMultichain(AccountStore.activeAccountId!!)
+    private var isShowingAccountMultichain =
+        WGlobalStorage.isMultichain(AccountStore.activeAccountId!!)
 
     private var task: ((passcode: String?) -> Unit)? = null
 
@@ -107,7 +114,20 @@ class SendConfirmVC(
 
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-            text = config.resolvedAddress
+            val resolvedAddress = config.resolvedAddress
+            val displayText = if (name != null && resolvedAddress != null) {
+                buildSpannedString {
+                    inSpans(WTypefaceSpan(WFont.Medium.typeface, WColor.PrimaryText.color)) {
+                        append(name)
+                    }
+                    inSpans(WTypefaceSpan(WFont.Regular.typeface, WColor.SecondaryText.color)) {
+                        append(" · $resolvedAddress")
+                    }.styleDots()
+                }.replaceSpacesWithNbsp()
+            } else {
+                resolvedAddress
+            }
+            setText(displayText, resolvedAddress ?: "")
             clipLabel = "Address"
             clipToast = LocaleController.getString("Address was copied!")
         }
@@ -323,7 +343,7 @@ class SendConfirmVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 cancelButton,
-                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             topToTop(confirmButton, cancelButton)
@@ -365,7 +385,7 @@ class SendConfirmVC(
         topRoundedItems.forEach {
             it.setBackgroundColor(
                 WColor.Background.color,
-                ViewConstants.BAR_ROUNDS.dp,
+                ViewConstants.TOOLBAR_RADIUS.dp,
                 0f
             )
         }
@@ -374,7 +394,7 @@ class SendConfirmVC(
             it.setBackgroundColor(
                 WColor.Background.color,
                 0f,
-                ViewConstants.BIG_RADIUS.dp
+                ViewConstants.BLOCK_RADIUS.dp
             )
         }
 
@@ -407,7 +427,10 @@ class SendConfirmVC(
     }
 
     private fun confirmHardware(transferOptions: MApiSubmitTransferOptions) {
-        Logger.d(Logger.LogTag.SEND, "confirmHardware: Confirming send with hardware wallet slug=$slug")
+        Logger.d(
+            Logger.LogTag.SEND,
+            "confirmHardware: Confirming send with hardware wallet slug=$slug"
+        )
         confirmButton.lockView()
         val account = AccountStore.activeAccount!!
         val ledgerConnectVC = LedgerConnectVC(
@@ -440,7 +463,10 @@ class SendConfirmVC(
     }
 
     private fun confirmWithPassword() {
-        Logger.d(Logger.LogTag.SEND, "confirmWithPassword: Confirming send with passcode slug=$slug")
+        Logger.d(
+            Logger.LogTag.SEND,
+            "confirmWithPassword: Confirming send with passcode slug=$slug"
+        )
         push(
             PasscodeConfirmVC(
                 context,

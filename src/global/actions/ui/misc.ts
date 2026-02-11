@@ -57,7 +57,6 @@ import {
   setIsPinAccepted,
   updateAccounts,
   updateAuth,
-  updateCurrentAccountSettings,
   updateCurrentAccountState,
   updateCurrentDomainLinking,
   updateCurrentSwap,
@@ -68,7 +67,6 @@ import {
 import {
   selectCurrentAccount,
   selectCurrentAccountId,
-  selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectCurrentNetwork,
   selectIsPasswordPresent,
@@ -351,7 +349,7 @@ addActionHandler('clearAccountError', (global) => {
 });
 
 addActionHandler('openAddAccountModal', (global, _, props) => {
-  const { forceAddingTonOnlyAccount, initialState } = props || {};
+  const { forceAddingTonOnlyAccount, initialState, shouldHideBackButton } = props || {};
 
   if (IS_DELEGATED_BOTTOM_SHEET && !global.areSettingsOpen) {
     callActionInMain('openAddAccountModal', props);
@@ -360,10 +358,11 @@ addActionHandler('openAddAccountModal', (global, _, props) => {
 
   global = { ...global, isAccountSelectorOpen: true };
 
-  if (forceAddingTonOnlyAccount || initialState !== undefined) {
+  if (forceAddingTonOnlyAccount || initialState !== undefined || shouldHideBackButton) {
     global = updateAuth(global, {
       forceAddingTonOnlyAccount,
       initialAddAccountState: initialState,
+      shouldHideAddAccountBackButton: shouldHideBackButton,
     });
   }
 
@@ -378,6 +377,7 @@ addActionHandler('closeAddAccountModal', (global, _, props) => {
   global = updateAuth(global, {
     forceAddingTonOnlyAccount: undefined,
     initialAddAccountState: undefined,
+    shouldHideAddAccountBackButton: undefined,
   });
   global = { ...global, isAccountSelectorOpen: undefined };
 
@@ -489,6 +489,27 @@ addActionHandler('toggleSeasonalTheming', (global, actions, { isEnabled }) => {
   };
 });
 
+addActionHandler('setDeveloperSettingsOverride', (global, actions, { key, value }) => {
+  if (value === undefined) {
+    if (global.settings.developerSettingsOverrides?.[key] === undefined) {
+      return global;
+    }
+
+    const rest = omit(global.settings.developerSettingsOverrides, [key]);
+
+    return updateSettings(global, {
+      developerSettingsOverrides: Object.keys(rest).length ? rest : undefined,
+    });
+  }
+
+  return updateSettings(global, {
+    developerSettingsOverrides: {
+      ...global.settings.developerSettingsOverrides,
+      [key]: value,
+    },
+  });
+});
+
 addActionHandler('setLandscapeActionsActiveTabIndex', (global, actions, { index }) => {
   return updateCurrentAccountState(global, {
     landscapeActionsActiveTabIndex: index,
@@ -503,55 +524,6 @@ addActionHandler('closeSecurityWarning', (global) => {
       isSecurityWarningHidden: true,
     },
   };
-});
-
-addActionHandler('toggleTokensWithNoCost', (global, actions, { isEnabled }) => {
-  return updateSettings(global, { areTokensWithNoCostHidden: isEnabled });
-});
-
-addActionHandler('toggleSortByValue', (global, actions, { isEnabled }) => {
-  return updateSettings(global, { isSortByValueEnabled: isEnabled });
-});
-
-addActionHandler('updateOrderedSlugs', (global, actions, { orderedSlugs }) => {
-  const accountSettings = selectCurrentAccountSettings(global);
-  return updateCurrentAccountSettings(global, {
-    ...accountSettings,
-    orderedSlugs,
-  });
-});
-
-addActionHandler('toggleTokenVisibility', (global, actions, { slug, shouldShow }) => {
-  const accountSettings = selectCurrentAccountSettings(global) ?? {};
-  const { alwaysShownSlugs = [], alwaysHiddenSlugs = [] } = accountSettings;
-  const alwaysShownSlugsSet = new Set(alwaysShownSlugs);
-  const alwaysHiddenSlugsSet = new Set(alwaysHiddenSlugs);
-
-  if (shouldShow) {
-    alwaysHiddenSlugsSet.delete(slug);
-    alwaysShownSlugsSet.add(slug);
-  } else {
-    alwaysShownSlugsSet.delete(slug);
-    alwaysHiddenSlugsSet.add(slug);
-  }
-
-  return updateCurrentAccountSettings(global, {
-    ...accountSettings,
-    alwaysHiddenSlugs: Array.from(alwaysHiddenSlugsSet),
-    alwaysShownSlugs: Array.from(alwaysShownSlugsSet),
-  });
-});
-
-addActionHandler('deleteToken', (global, actions, { slug }) => {
-  const accountSettings = selectCurrentAccountSettings(global) ?? {};
-  return updateCurrentAccountSettings(global, {
-    ...accountSettings,
-    orderedSlugs: accountSettings.orderedSlugs?.filter((s) => s !== slug),
-    alwaysHiddenSlugs: accountSettings.alwaysHiddenSlugs?.filter((s) => s !== slug),
-    alwaysShownSlugs: accountSettings.alwaysShownSlugs?.filter((s) => s !== slug),
-    deletedSlugs: [...accountSettings.deletedSlugs ?? [], slug],
-    importedSlugs: accountSettings.importedSlugs?.filter((s) => s !== slug),
-  });
 });
 
 addActionHandler('checkAppVersion', (global) => {

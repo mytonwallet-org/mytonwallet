@@ -243,7 +243,7 @@ class AssetsAndActivitiesHeaderCell(
     override fun updateTheme() {
         baseCurrencyView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.TOP_RADIUS.dp,
+            ViewConstants.TOOLBAR_RADIUS.dp,
             0f,
         )
         baseCurrencyView.addRippleEffect(WColor.SecondaryBackground.color)
@@ -259,7 +259,7 @@ class AssetsAndActivitiesHeaderCell(
         hideTinyTransfersRow.setBackgroundColor(
             WColor.Background.color,
             0f,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         hideTokensWithNoCostRow.setBackgroundColor(
             WColor.Background.color,

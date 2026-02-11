@@ -3,7 +3,7 @@ import React from '../../../../lib/teact/teact';
 
 import buildClassName from '../../../../util/buildClassName';
 
-import useActivityListEntry from './hooks/useActivityListEntry';
+import useListItemAnimation from '../../../../hooks/useListItemAnimation';
 
 import styles from './Activities.module.scss';
 
@@ -19,7 +19,7 @@ function ActivityListItem({
   withAnimation,
   children,
 }: OwnProps) {
-  const { ref: animationRef } = useActivityListEntry(withAnimation, topOffset);
+  const { ref: animationRef } = useListItemAnimation(styles, withAnimation, topOffset);
 
   return (
     <div

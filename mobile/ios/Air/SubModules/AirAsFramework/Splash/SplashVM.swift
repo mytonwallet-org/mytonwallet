@@ -20,7 +20,7 @@ protocol SplashVMDelegate: AnyObject {
 
 }
 
-class SplashVM: NSObject {
+final class SplashVM: NSObject {
     
     private weak var splashVMDelegate: SplashVMDelegate?
     init(splashVMDelegate: SplashVMDelegate) {

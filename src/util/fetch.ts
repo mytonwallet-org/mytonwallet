@@ -9,6 +9,12 @@ import { ApiServerError } from '../api/errors';
 import { logDebug } from './logs';
 import { pause } from './schedulers';
 
+type FetchOptions = {
+  retries?: number;
+  timeouts?: number | number[];
+  shouldSkipRetryFn?: (message?: string, statusCode?: number) => boolean;
+};
+
 type QueryParams = Record<string, string | number | boolean | string[]>;
 
 const MAX_TIMEOUT = 30000; // 30 sec
@@ -17,7 +23,12 @@ export function fetchJsonWithProxy(url: string | URL, data?: QueryParams, init?:
   return fetchJson(getProxiedJsonUrl(url.toString()), data, init);
 }
 
-export async function fetchJson(url: string | URL, data?: QueryParams, init?: RequestInit) {
+export async function fetchJson<T extends AnyLiteral>(
+  url: string | URL,
+  data?: QueryParams,
+  init?: RequestInit,
+  options?: FetchOptions,
+): Promise<T> {
   const urlObject = new URL(url);
   if (data) {
     Object.entries(data).forEach(([key, value]) => {
@@ -35,16 +46,12 @@ export async function fetchJson(url: string | URL, data?: QueryParams, init?: Re
     });
   }
 
-  const response = await fetchWithRetry(urlObject, init);
+  const response = await fetchWithRetry(urlObject, init, options);
 
-  return response.json();
+  return (await response.json()) as T;
 }
 
-export async function fetchWithRetry(url: string | URL, init?: RequestInit, options?: {
-  retries?: number;
-  timeouts?: number | number[];
-  shouldSkipRetryFn?: (message?: string, statusCode?: number) => boolean;
-}) {
+export async function fetchWithRetry(url: string | URL, init?: RequestInit, options?: FetchOptions) {
   const {
     retries = DEFAULT_RETRIES,
     timeouts = DEFAULT_TIMEOUT,

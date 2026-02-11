@@ -408,7 +408,7 @@ class WAutoCompleteAddressView(
         val blockchain = MBlockchain.valueOfOrNull(savedAddress.chain) ?: return
         val addressText = savedAddress.name
         val windowBackgroundStyle =
-            WMenuPopup.BackgroundStyle.Cutout(view.frameAsPath(ViewConstants.BIG_RADIUS.dp))
+            WMenuPopup.BackgroundStyle.Cutout(view.frameAsPath(ViewConstants.BLOCK_RADIUS.dp))
 
         val keyboardHeight = viewController.window?.imeInsets?.bottom ?: 0
         val windowHeight = viewController.navigationController?.height ?: 0

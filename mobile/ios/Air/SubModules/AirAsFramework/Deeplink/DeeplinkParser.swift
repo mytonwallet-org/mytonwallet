@@ -164,7 +164,8 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
         return .receive
         
     case "explore":
-        return .explore
+        let pathComponents = url.pathComponents.filter { $0 != "/" }
+        return .explore(siteHost: pathComponents.first?.nilIfEmpty)
 
     case "token":
         let pathComponents = url.pathComponents.filter { $0 != "/" }
@@ -188,6 +189,11 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
         let txId = pathComponents.dropFirst().joined(separator: "/")
         guard let chain = ApiChain(rawValue: chain) else { return nil }
         return .transaction(chain: chain, txId: txId)
+
+    case "nft":
+        let pathComponents = url.pathComponents.filter { $0 != "/" }
+        guard let nftAddress = pathComponents.first?.nilIfEmpty else { return nil }
+        return .nftAddress(nftAddress: nftAddress)
         
     case "view":
         var addressOrDomainByChain: [String: String] = [:]

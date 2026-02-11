@@ -11,8 +11,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-public class AssetsTabVC: WViewController, WSegmentedController.Delegate, WalletCoreData.EventsObserver {
-
+public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsViewControllerDelegate {
     public enum Tab: String {
         case tokens
         case nfts
@@ -24,6 +23,7 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
     
     private var segmentedController: WSegmentedController!
     private let defaultTabIndex: Int
+    private var nftsVC: NftsVC!
 
     public init(accountSource: AccountSource, defaultTabIndex: Int) {
         self.accountIdProvider = AccountIdProvider(source: accountSource)
@@ -34,7 +34,7 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
+    
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
         default:
@@ -47,7 +47,7 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
         setupViews()
         WalletCoreData.add(eventObserver: self)
     }
-
+    
     func setupViews() {
         
         if let sheet = self.sheetPresentationController {
@@ -57,13 +57,13 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
                 sheet.prefersGrabberVisible = true
             }
         }
-                
         let tokensVC = WalletTokensVC(accountSource: accountIdProvider.source, compactMode: false)
-        let nftsVC = NftsVC(accountSource: accountIdProvider.source, compactMode: false, filter: .none, topInset: 0)
+        nftsVC = NftsVC(accountSource: accountIdProvider.source, mode: .embedded, filter: .none)
         addChild(tokensVC)
         addChild(nftsVC)
         tokensVC.didMove(toParent: self)
         nftsVC.didMove(toParent: self)
+        nftsVC.delegate = self
 
         segmentedController = WSegmentedController(
             items: [
@@ -81,10 +81,8 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
             defaultItemId: defaultTabIndex == 1 ? Tab.nfts.rawValue : Tab.tokens.rawValue,
             barHeight: 0,
             goUnderNavBar: true,
-            animationSpeed: .slow,
-            delegate: self
+            animationSpeed: .slow
         )
-        segmentedController(scrollOffsetChangedTo: 0)
         segmentedController.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(segmentedController)
         NSLayoutConstraint.activate([
@@ -96,7 +94,7 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
         segmentedController.separator.isHidden = true
         segmentedController.blurView.isHidden = true
         
-        addCloseNavigationItemIfNeeded()
+        updateNavigationAppearance()
         configureNavigationItemWithTransparentBackground()
         addCustomNavigationBarBackground()
         
@@ -104,7 +102,7 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
         segmentedControl.removeFromSuperview()
         navigationItem.titleView = segmentedControl
         segmentedControl.widthAnchor.constraint(equalToConstant: 200).isActive = true
-        
+                
         updateTheme()
     }
 
@@ -112,6 +110,32 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
         super.viewWillAppear(animated)
         if let sheet = self.sheetPresentationController {
             sheet.configureAllowsInteractiveDismiss(true)
+        }
+    }
+    
+    private func stopReordering(isCanceled: Bool) {
+        nftsVC.stopReordering(isCanceled: isCanceled)
+        updateNavigationAppearance()
+        updateReorderingBehavior()
+    }
+    
+    private func updateReorderingBehavior(){
+        navigationController?.allowBackSwipeToDismiss(!nftsVC.isReordering)
+        navigationController?.isModalInPresentation = nftsVC.isReordering
+    }
+    
+    private func updateNavigationAppearance() {
+        if nftsVC.isReordering {
+            segmentedController.segmentedControl?.isHidden = true
+            segmentedController.scrollView.isScrollEnabled = false
+            let doneItem = UIBarButtonItem.doneButtonItem { [weak self] in self?.stopReordering(isCanceled: false) }
+            navigationItem.trailingItemGroups = [doneItem.asSingleItemGroup()]
+            navigationItem.leftBarButtonItem = .cancelTextButtonItem { [weak self] in self?.stopReordering(isCanceled: true)}
+        } else {
+            segmentedController.scrollView.isScrollEnabled = true
+            segmentedController.segmentedControl?.isHidden = false
+            addCloseNavigationItemIfNeeded()
+            navigationItem.leftBarButtonItem = nil
         }
     }
     
@@ -124,9 +148,10 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
         segmentedController?.scrollToTop(animated: animated)
     }
 
-    // MARK: - Segmented controller delegate
-
-    public func segmentedController(scrollOffsetChangedTo progress: CGFloat) {
-        (children.last as? NftsVC)?.updateIsVisible(progress > 0.3)
+    // MARK: - NftsViewControllerDelegate
+        
+    func nftsViewControllerDidChangeReorderingState(_ vc: NftsVC) {
+        updateNavigationAppearance()
+        updateReorderingBehavior()
     }
 }

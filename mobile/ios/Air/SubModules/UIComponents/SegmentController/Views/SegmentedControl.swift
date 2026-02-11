@@ -28,14 +28,14 @@ public struct SegmentedControl: View {
                                 }
                                 .backportScrollClipDisabled()
                                 .backportScrollBounceBehaviorBasedOnSize()
-                                .backportContentMargins(16)
+                                .backportContentMargins(SegmentedControlConstants.scrollContentMargin)
                                 .scrollIndicators(.hidden)
                             } else {
                                 _SegmentedControlContent(model: model, ns: ns)
                                     .fixedSize()
                                     .frame(maxWidth: .infinity)
                             }
-                        }
+                        }.padding(.top, SegmentedControlConstants.topInset)
                     }
                     .overlay {
                         SegmentedControlReordering(model: model)
@@ -86,7 +86,12 @@ struct SegmentedControlSelectionView: View {
 
 enum SegmentedControlConstants {
     static let spacing: CGFloat = 8
+    /// Height of tab (text, capsule) view.
     static let height: CGFloat = 24
+    /// Extra space over tabs to place "delete" button thumbnails in reordering
+    static let topInset: CGFloat = 9
     static let innerPadding: CGFloat = 10
     static let accessoryWidth: CGFloat = 9.333
+    static let scrollContentMargin: CGFloat = 16
+    static var fullHeight: CGFloat { height + topInset }
 }

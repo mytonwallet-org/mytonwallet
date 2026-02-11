@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.walletbasecontext.localization
 
 import android.content.Context
+import android.os.Build
 import android.text.SpannableStringBuilder
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -54,17 +55,21 @@ object LocaleController {
     )
 
     private var dictionary = emptyMap<String, String>()
-    lateinit var activeLanguage: WLanguage
-        private set
+    private var _activeLanguage: WLanguage? = null
+    val activeLanguage: WLanguage get() = requireNotNull(_activeLanguage) { "LocaleController not initialized yet" }
 
-    fun init(context: Context, langCode: String?) {
+    fun init(context: Context, langCode: String?): Boolean {
         var langCode = langCode
-        activeLanguage = WLanguage.entries.firstOrNull {
+        val activeLanguage = WLanguage.entries.firstOrNull {
             it.langCode == langCode
         } ?: run {
             langCode = "en"
             WLanguage.ENGLISH
         }
+        if (_activeLanguage == activeLanguage) {
+            return false
+        }
+        _activeLanguage = activeLanguage
 
         var jsonObject: JSONObject
         try {
@@ -90,6 +95,18 @@ object LocaleController {
         }
 
         dictionary = jsonObject.toHashMapStringNested()
+        return true
+    }
+
+    fun resolveSystemLanguageCode(context: Context): String? {
+        val configuration = context.resources.configuration
+        val locales = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            (0 until configuration.locales.size()).map { configuration.locales[it] }
+        } else {
+            listOf(configuration.locale)
+        }
+
+        return locales.firstNotNullOfOrNull { locale -> WLanguage.valueOfLocale(locale)?.langCode }
     }
 
     fun getString(key: String): String {

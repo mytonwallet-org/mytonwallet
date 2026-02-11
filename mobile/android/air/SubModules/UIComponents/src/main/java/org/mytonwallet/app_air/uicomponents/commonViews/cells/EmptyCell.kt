@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uicomponents.commonViews.cells
 
 import android.content.Context
-import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.commonViews.WEmptyView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -19,7 +18,7 @@ class EmptyCell(context: Context) : WCell(context), WThemedView {
     override fun setupViews() {
         super.setupViews()
 
-        addView(emptyView, LayoutParams(WRAP_CONTENT, 120.dp))
+        addView(emptyView, LayoutParams(0, 120.dp))
         setConstraints {
             toTop(emptyView)
             toCenterX(emptyView, 8f)

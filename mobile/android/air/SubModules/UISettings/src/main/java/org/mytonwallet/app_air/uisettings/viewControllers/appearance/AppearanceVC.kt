@@ -33,7 +33,6 @@ import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.Settin
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.WalletCustomizationVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -154,8 +153,8 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
                 if (!roundedToolbarsRow.isChecked) roundedToolbarsRow.isChecked = true
                 if (!sideGuttersRow.isChecked) sideGuttersRow.isChecked = true
             } else {
-                ViewConstants.BIG_RADIUS = 0f
-                ViewConstants.STANDARD_ROUNDS = 0f
+                ViewConstants.BLOCK_RADIUS = 0f
+                ViewConstants.BLOCK_RADIUS = 0f
                 // Turn off and disable dependent settings
                 if (roundedToolbarsRow.isChecked) roundedToolbarsRow.isChecked = false
                 roundedToolbarsRow.isEnabled = false
@@ -171,25 +170,21 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
     private val roundedToolbarsRow = SwitchCell(
         context,
         title = LocaleController.getString("Rounded Toolbars"),
-        isChecked = ThemeManager.uiMode == ThemeManager.UIMode.BIG_RADIUS,
+        isChecked = WGlobalStorage.getAreRoundedToolbarsActive(),
         onChange = { isChecked ->
             Logger.d(Logger.LogTag.SETTINGS, "roundedToolbarsRow: isChecked=$isChecked")
-            val uiMode = if (isChecked) {
-                ThemeManager.UIMode.BIG_RADIUS
-            } else {
-                ThemeManager.UIMode.COMPOUND
-            }
             val prevBarRounds = topReversedCornerView?.cornerRadius ?: 0f
-            WGlobalStorage.setActiveUiMode(uiMode)
-            ThemeManager.uiMode = uiMode
+            WGlobalStorage.setAreRoundedToolbarsActive(isChecked)
+            ViewConstants.TOOLBAR_RADIUS = if (isChecked) 24f else 0f
+            ViewConstants.TOOLBAR_RADIUS = if (isChecked) 24f else 0f
             pendingThemeChange = true
             WalletContextManager.delegate?.themeChanged()
             topReversedCornerView?.animateRadius(
                 prevBarRounds,
-                ViewConstants.BAR_ROUNDS.dp
+                ViewConstants.TOOLBAR_RADIUS.dp
             )
             radiusAnimator?.cancel()
-            radiusAnimator = ValueAnimator.ofFloat(prevBarRounds, ViewConstants.BAR_ROUNDS.dp)
+            radiusAnimator = ValueAnimator.ofFloat(prevBarRounds, ViewConstants.TOOLBAR_RADIUS.dp)
                 .apply {
                     duration = AnimationConstants.QUICK_ANIMATION
                     interpolator = AccelerateDecelerateInterpolator()
@@ -199,7 +194,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
                         switchToLegacyCell.setBackgroundColor(
                             WColor.Background.color,
                             radius,
-                            ViewConstants.BIG_RADIUS.dp,
+                            ViewConstants.BLOCK_RADIUS.dp,
                         )
                     }
 
@@ -266,10 +261,21 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         context,
         title = LocaleController.getString("Enable Animations"),
         isChecked = WGlobalStorage.getAreAnimationsActive(),
-        isLast = true,
         onChange = { isChecked ->
             Logger.d(Logger.LogTag.SETTINGS, "animationsRow: isChecked=$isChecked")
             WGlobalStorage.setAreAnimationsActive(isChecked)
+        }
+    )
+
+    private val seasonalThemingRow = SwitchCell(
+        context,
+        title = LocaleController.getString("Enable Seasonal Theming"),
+        isChecked = !WGlobalStorage.getIsSeasonalThemingDisabled(),
+        isLast = true,
+        onChange = { isChecked ->
+            Logger.d(Logger.LogTag.SETTINGS, "seasonalThemingRow: isChecked=$isChecked")
+            WGlobalStorage.setIsSeasonalThemingDisabled(!isChecked)
+            WalletCore.notifyEvent(WalletEvent.SeasonalThemeChanged)
         }
     )
 
@@ -283,6 +289,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         v.addView(sideGuttersRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(blurRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(animationsRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(seasonalThemingRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(appFontView, ConstraintLayout.LayoutParams(0, 50.dp))
         // Set initial enabled state based on roundedCornersRow
         if (!roundedCornersRow.isChecked) {
@@ -308,8 +315,10 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             toCenterX(blurRow)
             topToBottom(animationsRow, blurRow)
             toCenterX(animationsRow)
+            topToBottom(seasonalThemingRow, animationsRow)
+            toCenterX(seasonalThemingRow)
             // Group 3: App Font
-            topToBottom(appFontView, animationsRow, ViewConstants.GAP.toFloat())
+            topToBottom(appFontView, seasonalThemingRow, ViewConstants.GAP.toFloat())
             toCenterX(appFontView)
             toBottomPx(appFontView, (navigationController?.getSystemBars()?.bottom ?: 0))
         }
@@ -361,7 +370,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
     override fun updateTheme() {
         super.updateTheme()
 
-        appFontView.setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp)
+        appFontView.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
 
         view.setBackgroundColor(WColor.SecondaryBackground.color)
     }

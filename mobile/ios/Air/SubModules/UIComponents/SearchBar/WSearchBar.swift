@@ -86,5 +86,4 @@ public class WSearchBar: UISearchBar, UISearchBarDelegate, WThemedView {
         searchBar.resignFirstResponder()
         onSubmit?(searchBar.text ?? "")
     }
-
 }

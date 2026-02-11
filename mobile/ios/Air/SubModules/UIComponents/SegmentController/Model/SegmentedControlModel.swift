@@ -11,8 +11,11 @@ public final class SegmentedControlModel {
     public var selection: SegmentedControlSelection?
 
     public var isReordering: Bool = false
+    public let font: Font;
     
-    public let font: Font = .system(size: 14, weight: .medium)
+    @PerceptionIgnored
+    public let uikitFont = UIFont.systemFont(ofSize: 14, weight: .medium)
+
     @PerceptionIgnored
     public var primaryColor: UIColor
     @PerceptionIgnored
@@ -23,7 +26,7 @@ public final class SegmentedControlModel {
     @PerceptionIgnored
     public var onSelect: (SegmentedControlItem) -> () = { _ in }
     @PerceptionIgnored
-    public var onItemsReordered: ([SegmentedControlItem]) async -> () = { _ in }
+    public var onItemsReorder: ([SegmentedControlItem]) async -> () = { _ in }
     
     internal var elementSizes: [String: CGSize] = [:]
     internal var isScrollingRequired: Bool = false
@@ -40,7 +43,8 @@ public final class SegmentedControlModel {
         self.primaryColor = primaryColor
         self.secondaryColor = secondaryColor
         self.capsuleColor = capsuleColor
-        updateIsScrollingRequired()
+        self.font = Font(uikitFont)
+        updateIfScrollingRequired()
     }
     
     public func setRawProgress(_ rawProgress: CGFloat) {
@@ -68,11 +72,17 @@ public final class SegmentedControlModel {
     }
     
     public func setItems(_ newItems: [SegmentedControlItem]) {
+        let oldSelection = self.selection
         self.items = newItems
         if !items.isEmpty {
-            self.selection = .init(item1: newItems[0].id)
+            // try to keep selection
+            if let oldSelection, nil != getItemIndexById(itemId: oldSelection.effectiveSelectedItemID) {
+                self.selection = .init(item1: oldSelection.effectiveSelectedItemID)                
+            } else {
+                self.selection = .init(item1: newItems[0].id)
+            }
         }
-        updateIsScrollingRequired()
+        updateIfScrollingRequired()
     }
     
     public func distanceToItem(itemId: String) -> CGFloat {
@@ -99,20 +109,27 @@ public final class SegmentedControlModel {
         withAnimation(.smooth(duration: 0.15)) {
             self.isReordering = false
         }
-        Task { await onItemsReordered(self.items) }
+    }
+        
+    internal func requestItemsReorder(_ items: [SegmentedControlItem]) {
+        // This is just request to apply new item ordering. No self.items is affected here
+        // the delegate will perform all the self.items management on its own
+        Task {
+            await onItemsReorder(items)
+        }
     }
     
     // MARK: Internals
     
-    func updateIsScrollingRequired() {
-        self.isScrollingRequired = _measureIsScrollingReuired()
+    private func updateIfScrollingRequired() {
+        self.isScrollingRequired = _measureIsScrollingRequired()
     }
     
-    func _measureIsScrollingReuired() -> Bool {
+    func _measureIsScrollingRequired() -> Bool {
         guard items.count > 0 else {
             return false
         }
-        let attrs: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 14, weight: .medium)]
+        let attrs: [NSAttributedString.Key: Any] = [.font: uikitFont]
         var width: CGFloat = items.map { item in
             (item.title as NSString).size(withAttributes: attrs).width
         }.reduce(0, +)

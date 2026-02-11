@@ -3,7 +3,6 @@ import Foundation
 import OrderedCollections
 
 public extension Array {
-    
     func dictionaryByKey<Key: Hashable>(_ keyPath: KeyPath<Element, Key>) -> [Key: Element] {
         var dict: [Key: Element] = [:]
         for value in self {
@@ -19,15 +18,14 @@ public extension Array {
         }
         return dict
     }
-    
+
     func first<T: Equatable>(whereEqual keyPath: KeyPath<Element, T>, _ value: T) -> Element? {
         first { $0[keyPath: keyPath] == value }
     }
-    
 }
 
 public extension Sequence {
-    func `any`(_ isTrue: (Element) -> Bool) -> Bool {
+    func any(_ isTrue: (Element) -> Bool) -> Bool {
         for item in self {
             if isTrue(item) {
                 return true
@@ -36,7 +34,7 @@ public extension Sequence {
         return false
     }
 
-    func `any`(_ isTrue: (Element) -> Bool?) -> Bool {
+    func any(_ isTrue: (Element) -> Bool?) -> Bool {
         for item in self {
             if isTrue(item) == true {
                 return true
@@ -46,12 +44,11 @@ public extension Sequence {
     }
 }
 
-public func +=<T>(array: inout [T], element: T) {
+public func += <T>(array: inout [T], element: T) {
     array.append(element)
 }
 
 public extension Array where Element: Identifiable {
-    
     func first(id: Element.ID) -> Element? {
         first { $0.id == id }
     }
@@ -59,4 +56,27 @@ public extension Array where Element: Identifiable {
 
 public func unique<T: Hashable>(_ array: [T]) -> [T] {
     Array(OrderedSet(array))
+}
+
+@inlinable
+public func configured<T: AnyObject, E>(object: T, closure: (_ object: T) throws(E) -> Void) throws(E) -> T {
+    try closure(object)
+    return object
+}
+
+@inlinable
+public func configure<T: AnyObject, E>(object: T, closure: (_ object: T) throws(E) -> Void) throws(E) {
+    try closure(object)
+}
+
+@inlinable
+public func mutate<T: ~Copyable, E>(value: consuming T, mutation: (inout T) throws(E) -> Void) throws(E) -> T {
+    try mutation(&value)
+    return value
+}
+
+@available(*, deprecated, message: "use configured(object:) for reference types instead")
+public func mutate<T: AnyObject, E>(value: consuming T, mutation: (inout T) throws(E) -> Void) throws(E) -> T {
+    try mutation(&value)
+    return value
 }

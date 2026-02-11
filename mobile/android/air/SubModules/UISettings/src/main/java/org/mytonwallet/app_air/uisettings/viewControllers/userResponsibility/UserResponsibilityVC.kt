@@ -178,7 +178,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
         titleLabel.setTextColor(WColor.PrimaryText.color)
         descriptionLabel.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         descriptionLabel.setTextColor(WColor.PrimaryText.color)
     }

@@ -36,6 +36,7 @@ final class SaveAddressAlertController: UIAlertController, UITextFieldDelegate {
         textField.addTarget(self, action: #selector(textFieldDidChange), for: .editingChanged)
 
         addAction(submitAction)
+        preferredAction = submitAction
         
         let cancelAction = UIAlertAction(title: lang("Cancel"), style: .cancel)
         addAction(cancelAction)

@@ -34,6 +34,8 @@ function MenuBackdrop({ isMenuOpen, contentRef, contentClassName }: OwnProps) {
   }, [contentClassName, contentRef, isMenuOpen, menuBackdropShouldRender]);
 
   useToggleClass({ className: 'with-menu-backdrop', isActive: isMenuOpen });
+  // Some styles are applied only when menu is rendered, `.portraitContainer` is good example
+  useToggleClass({ className: 'with-menu-backdrop-rendered', isActive: menuBackdropShouldRender });
 
   if (!menuBackdropShouldRender) return undefined;
 

@@ -113,7 +113,7 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
     override fun updateTheme() {
         super.updateTheme()
 
-        view.setBackgroundColor(WColor.SecondaryBackground.color, ViewConstants.BIG_RADIUS.dp, 0f)
+        view.setBackgroundColor(WColor.SecondaryBackground.color, ViewConstants.BLOCK_RADIUS.dp, 0f)
         nftTagView.setBackgroundColor(
             WColor.Background.color,
             12f.dp

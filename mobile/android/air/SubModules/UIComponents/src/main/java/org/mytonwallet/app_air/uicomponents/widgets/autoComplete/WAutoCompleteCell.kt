@@ -129,8 +129,8 @@ class WAutoCompleteCell(context: Context, val onRemove: () -> Unit) :
     override fun updateTheme() {
         addRippleEffect(
             WColor.SecondaryBackground.color,
-            if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f,
+            if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f,
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f,
         )
     }
 

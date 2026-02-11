@@ -65,6 +65,24 @@ extension CGSize {
     }
 }
 
+public extension CGPoint {
+    static func + (lhs: CGPoint, rhs: CGSize) -> CGPoint {
+        return CGPoint(x: lhs.x + rhs.width, y: lhs.y + rhs.height)
+    }
+    
+    static func - (lhs: CGPoint, rhs: CGSize) -> CGPoint {
+        return CGPoint(x: lhs.x - rhs.width, y: lhs.y - rhs.height)
+    }
+    
+    static func - (lhs: CGPoint, rhs: CGPoint) -> CGSize {
+        return CGSize(width: lhs.x - rhs.x, height: lhs.y - rhs.y)
+    }
+    
+    func distance(to point: CGPoint) -> CGFloat {
+        hypot(point.x - x, point.y - y)
+    }
+}
+
 public extension CGRect {
     var center: CGPoint {
         return CGPoint(x: self.midX, y: self.midY)

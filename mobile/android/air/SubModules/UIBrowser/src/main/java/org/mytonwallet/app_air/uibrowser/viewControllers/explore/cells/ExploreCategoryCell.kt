@@ -238,10 +238,10 @@ class ExploreCategoryCell(
         titleLabel.setTextColor(WColor.PrimaryText.color)
         outerContainerView.setBackgroundColor(
             WColor.Background.color,
-            if (isTopLeft) ViewConstants.STANDARD_ROUNDS.dp else 0f,
-            if (isTopRight) ViewConstants.STANDARD_ROUNDS.dp else 0f,
-            if (isBottomRight) ViewConstants.STANDARD_ROUNDS.dp else 0f,
-            if (isBottomLeft) ViewConstants.STANDARD_ROUNDS.dp else 0f,
+            if (isTopLeft) ViewConstants.BLOCK_RADIUS.dp else 0f,
+            if (isTopRight) ViewConstants.BLOCK_RADIUS.dp else 0f,
+            if (isBottomRight) ViewConstants.BLOCK_RADIUS.dp else 0f,
+            if (isBottomLeft) ViewConstants.BLOCK_RADIUS.dp else 0f,
         )
     }
 }

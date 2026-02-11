@@ -76,6 +76,7 @@ function SwapActivityModal({
     startSwap,
     closeActivityInfo,
     selectToken,
+    openTransactionInfo,
   } = getActions();
 
   const lang = useLang();
@@ -94,8 +95,10 @@ function SwapActivityModal({
     networkFee = '0',
     ourFee = '0',
     shouldLoadDetails,
+    extra,
   } = renderedActivity ?? {};
   const { payinAddress, payoutAddress, payinExtraId } = renderedActivity?.cex || {};
+  const isAggregatedSwap = Boolean(extra?.mtwAggregator);
 
   let fromAmount = '0';
   let toAmount = '0';
@@ -206,6 +209,19 @@ function SwapActivityModal({
   const handleShareClick = useLastCallback(() => {
     const url = getViewTransactionUrl(swapChain!, swapTransactionInfo!.hash, isTestnet);
     void shareUrl(url);
+  });
+
+  const handleViewDetails = useLastCallback(() => {
+    if (!renderedActivity) return;
+
+    const traceId = parseTxId(renderedActivity.id).hash;
+    const chain = getChainBySlug(renderedActivity.from);
+
+    if (!traceId || !chain) {
+      return;
+    }
+
+    openTransactionInfo({ txId: traceId, chain });
   });
 
   useEffect(() => {
@@ -479,6 +495,16 @@ function SwapActivityModal({
   }
 
   function renderContent() {
+    const footerButton = !isSwapDisabled ? renderFooterButton() : undefined;
+
+    const viewDetailsButton = isAggregatedSwap ? (
+      <Button onClick={handleViewDetails} className={styles.button}>
+        {lang('View details')}
+      </Button>
+    ) : undefined;
+
+    const shouldRenderFooter = footerButton || viewDetailsButton;
+
     return (
       <div className={modalStyles.transitionContent}>
         <SwapTokensInfo
@@ -495,9 +521,10 @@ function SwapActivityModal({
           {shouldRenderCexInfo && renderCexInformation()}
           {renderTransactionId()}
         </div>
-        {!isSwapDisabled && (
+        {shouldRenderFooter && (
           <div className={styles.footer}>
-            {renderFooterButton()}
+            {viewDetailsButton}
+            {footerButton}
           </div>
         )}
       </div>

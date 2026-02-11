@@ -1,0 +1,83 @@
+.info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.avatar {
+  width: 5rem;
+  height: 5rem;
+  margin-bottom: 1rem;
+  font-size: 2rem;
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.titleRow > *:not(:last-child)::after {
+  content: '·';
+
+  margin-left: 0.25rem;
+
+  font-size: 1.5rem;
+  line-height: 1.6875rem;
+  color: var(--color-gray-2);
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 650;
+  line-height: 1.6875rem;
+  color: var(--color-black);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nftIndicator {
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.icon {
+  flex-shrink: 0;
+  margin-inline-end: 0.25rem;
+  font-size: 0.8125rem;
+  vertical-align: -0.125rem;
+}
+
+.address {
+  overflow: hidden;
+
+  padding-top: 0.125rem;
+
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 0.875rem;
+  color: var(--color-gray-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  :global([class^="icon-chain-"]) {
+    margin-inline-end: 0.125rem;
+    vertical-align: -0.125rem;
+  }
+}
+
+.balance {
+  flex-shrink: 0;
+
+  margin-left: auto;
+
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.6875rem;
+  color: var(--color-gray-2);
+  text-align: right;
+  white-space: nowrap;
+}

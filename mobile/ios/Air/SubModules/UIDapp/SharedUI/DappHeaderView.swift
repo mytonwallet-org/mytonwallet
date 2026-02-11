@@ -4,7 +4,6 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-import Kingfisher
 import Perception
 
 struct DappHeaderView: View {
@@ -84,8 +83,7 @@ struct DappHeaderView: View {
     }
     
     var icon: some View {
-        KFImage(URL(string: dapp.iconUrl))
-            .resizable()
+        DappIcon(iconUrl: dapp.iconUrl)
             .frame(width: 40, height: 40)
             .background(Color(WTheme.secondaryFill))
             .clipShape(.rect(cornerRadius: 12))

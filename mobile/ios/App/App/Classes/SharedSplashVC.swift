@@ -1,7 +1,7 @@
 
 import UIKit
 
-class SharedSplashVC: UIViewController {
+final class SharedSplashVC: UIViewController {
 
     private var splashImageView = UIImageView(image: UIImage(named: "Splash"))
     

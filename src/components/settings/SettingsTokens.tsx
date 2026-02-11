@@ -1,6 +1,5 @@
 import React, {
-  type ElementRef,
-  memo, useEffect, useRef, useState,
+  memo, useState,
 } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
@@ -9,124 +8,70 @@ import { SettingsState, type UserToken } from '../../global/types';
 
 import { bigintMultiplyToNumber } from '../../util/bigint';
 import buildClassName from '../../util/buildClassName';
-import { getDefaultEnabledSlugs } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
+import { stopEvent } from '../../util/domEvents';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
-import { isBetween } from '../../util/math';
+import { getPseudoRandom } from '../../util/math';
+import getTokenName from '../main/helpers/getTokenName';
 
-import useEffectOnce from '../../hooks/useEffectOnce';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
 import TokenIcon from '../common/TokenIcon';
 import DeleteTokenModal from '../main/modals/DeleteTokenModal';
 import AnimatedCounter from '../ui/AnimatedCounter';
-import Draggable from '../ui/Draggable';
 import SensitiveData from '../ui/SensitiveData';
 import Switcher from '../ui/Switcher';
 
 import styles from './Settings.module.scss';
 
-interface SortState {
-  orderedTokenSlugs?: string[];
-  dragOrderTokenSlugs?: string[];
-  draggedIndex?: number;
-}
-
 interface OwnProps {
-  parentContainer: ElementRef<HTMLDivElement>;
   tokens?: UserToken[];
-  orderedSlugs?: string[];
-  isSortByValueEnabled?: boolean;
+  pinnedSlugs?: string[];
   baseCurrency: ApiBaseCurrency;
   withChainIcon?: boolean;
   isSensitiveDataHidden?: true;
 }
 
-const TOKEN_HEIGHT_PX = 64;
-const TOP_OFFSET = 48;
-
 function SettingsTokens({
-  parentContainer,
   tokens,
-  orderedSlugs,
-  isSortByValueEnabled,
   baseCurrency,
   withChainIcon,
   isSensitiveDataHidden,
+  pinnedSlugs = [],
 }: OwnProps) {
   const {
     openSettingsWithState,
-    updateOrderedSlugs,
-    rebuildOrderedSlugs,
     toggleTokenVisibility,
   } = getActions();
   const lang = useLang();
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
 
-  const tokensRef = useRef<HTMLDivElement>();
-  const sortableContainerRef = useRef<HTMLDivElement>();
-
   const [tokenToDelete, setTokenToDelete] = useState<UserToken | undefined>();
-  const [state, setState] = useState<SortState>({
-    orderedTokenSlugs: orderedSlugs,
-    dragOrderTokenSlugs: orderedSlugs,
-    draggedIndex: undefined,
-  });
-
-  useEffectOnce(() => {
-    rebuildOrderedSlugs();
-  });
-
-  useEffect(() => {
-    if (!arraysAreEqual(orderedSlugs, state.orderedTokenSlugs)) {
-      setState({
-        orderedTokenSlugs: orderedSlugs,
-        dragOrderTokenSlugs: orderedSlugs,
-        draggedIndex: undefined,
-      });
-    }
-  }, [orderedSlugs, state.orderedTokenSlugs]);
 
   const handleOpenAddTokenPage = useLastCallback(() => {
     openSettingsWithState({ state: SettingsState.SelectTokenList });
   });
 
-  const handleDrag = useLastCallback((translation: { x: number; y: number }, id: string | number) => {
-    const delta = Math.round(translation.y / TOKEN_HEIGHT_PX);
-    const index = state.orderedTokenSlugs?.indexOf(id as string) ?? 0;
-    const dragOrderTokenSlugs = state.orderedTokenSlugs?.filter((tokenSlug) => tokenSlug !== id);
-
-    if (!dragOrderTokenSlugs || !isBetween(index + delta, 0, orderedSlugs?.length ?? 0)) {
-      return;
+  const handleOpenAddTokenPageKeyDown = useLastCallback((e: React.KeyboardEvent) => {
+    if (e.code === 'Enter' || e.code === 'Space') {
+      stopEvent(e);
+      handleOpenAddTokenPage();
     }
-
-    dragOrderTokenSlugs.splice(index + delta, 0, id as string);
-    setState((current) => ({
-      ...current,
-      draggedIndex: index,
-      dragOrderTokenSlugs,
-    }));
   });
 
-  const handleDragEnd = useLastCallback(() => {
-    setState((current) => {
-      updateOrderedSlugs({
-        orderedSlugs: current.dragOrderTokenSlugs!,
-      });
-
-      return {
-        ...current,
-        orderedTokenSlugs: current.dragOrderTokenSlugs,
-        draggedIndex: undefined,
-      };
-    });
-  });
-
-  const handleTokenVisibility = useLastCallback((token: UserToken, e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleTokenVisibility = useLastCallback((
+    token: UserToken,
+    e: React.MouseEvent | React.TouchEvent | React.KeyboardEvent,
+  ) => {
+    stopEvent(e);
     toggleTokenVisibility({ slug: token.slug, shouldShow: Boolean(token.isDisabled) });
+  });
+
+  const handleTokenKeyDown = useLastCallback((token: UserToken, e: React.KeyboardEvent) => {
+    if (e.code === 'Enter' || e.code === 'Space') {
+      handleTokenVisibility(token, e);
+    }
   });
 
   const handleDeleteToken = useLastCallback((token: UserToken, e: React.MouseEvent<HTMLSpanElement>) => {
@@ -136,48 +81,40 @@ function SettingsTokens({
 
   function renderToken(token: UserToken, index: number) {
     const {
-      symbol, name, amount, price, slug, isDisabled,
+      symbol, amount, price, slug, isDisabled,
     } = token;
 
     const totalAmount = bigintMultiplyToNumber(amount, price);
-    const isDragged = state.draggedIndex === index;
+    const isPinned = pinnedSlugs.includes(slug);
+    const tokenName = getTokenName(lang, token);
 
-    const draggedTop = isSortByValueEnabled ? getOffsetByIndex(index) : getOffsetBySlug(slug, state.orderedTokenSlugs);
-    const top = isSortByValueEnabled ? getOffsetByIndex(index) : getOffsetBySlug(slug, state.dragOrderTokenSlugs);
+    const isDeleteButtonVisible = amount === 0n;
 
-    const style = `top: ${isDragged ? draggedTop : top}px;`;
-    const knobStyle = 'left: 1rem;';
-
-    const isDeleteButtonVisible = amount === 0n
-      && !(['mainnet', 'testnet'] as const).some((network) => getDefaultEnabledSlugs(network).has(slug));
-
-    const isDragDisabled = isSortByValueEnabled || tokens!.length <= 1;
+    const ariaLabel = isDisabled
+      ? `${lang('Show')} ${tokenName}`
+      : `${lang('Hide')} ${tokenName}`;
 
     return (
-      <Draggable
+      <div
         key={slug}
-        id={slug}
-        onDrag={handleDrag}
-        onDragEnd={handleDragEnd}
-        style={style}
-        knobStyle={knobStyle}
-        isDisabled={isDragDisabled}
-        className={buildClassName(styles.item, styles.item_token, !isSortByValueEnabled && styles.draggable)}
-        offset={{ top: TOP_OFFSET }}
-        parentRef={tokensRef}
-        scrollRef={parentContainer}
-
+        tabIndex={0}
+        role="button"
+        aria-label={ariaLabel}
+        aria-pressed={!isDisabled}
+        className={buildClassName(styles.item, styles.item_token)}
+        onKeyDown={(e) => handleTokenKeyDown(token, e)}
         onClick={(e) => handleTokenVisibility(token, e)}
       >
         <TokenIcon token={token} withChainIcon={withChainIcon} />
         <div className={styles.tokenInfo}>
           <div className={styles.tokenTitle}>
-            {name}
+            {isPinned && <i className={buildClassName(styles.pinIcon, 'icon-pin')} aria-hidden />}
+            {tokenName}
           </div>
           <div className={styles.tokenDescription}>
             <SensitiveData
               isActive={isSensitiveDataHidden}
-              cols={4 + (top % 6)}
+              cols={getPseudoRandom(4, 9, index)}
               rows={2}
               cellSize={8}
               contentClassName={styles.tokenAmount}
@@ -200,45 +137,31 @@ function SettingsTokens({
           className={styles.menuSwitcher}
           checked={!isDisabled}
         />
-      </Draggable>
+      </div>
     );
   }
 
   return (
     <>
-      <p className={styles.blockTitle}>{lang('My Tokens')}</p>
-      <div className={styles.contentRelative} ref={sortableContainerRef}>
+      <p className={styles.blockTitle}>{lang('My Assets')}</p>
+      <div className={styles.settingsBlock}>
         <div
-          className={buildClassName(styles.settingsBlock, styles.sortableContainer)}
-          style={`height: ${(tokens?.length ?? 0) * TOKEN_HEIGHT_PX + TOP_OFFSET}px`}
-          ref={tokensRef}
+          role="button"
+          tabIndex={0}
+          className={buildClassName(styles.item, styles.item_small)}
+          onClick={handleOpenAddTokenPage}
+          onKeyDown={handleOpenAddTokenPageKeyDown}
         >
-          <div className={buildClassName(styles.item, styles.item_small)} onClick={handleOpenAddTokenPage}>
-            {lang('Add Token')}
-            <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
-          </div>
-
-          {tokens?.map(renderToken)}
+          {lang('Add Token')}
+          <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
         </div>
+
+        {tokens?.map(renderToken)}
       </div>
 
       <DeleteTokenModal token={tokenToDelete} />
     </>
   );
-}
-
-function arraysAreEqual<T>(arr1: T[] = [], arr2: T[] = []) {
-  return arr1.length === arr2.length && arr1.every((value, index) => value === arr2[index]);
-}
-
-function getOffsetBySlug(slug: string, list: string[] = []) {
-  const realIndex = list.indexOf(slug);
-  const index = realIndex === -1 ? list.length : realIndex;
-  return getOffsetByIndex(index);
-}
-
-function getOffsetByIndex(index: number) {
-  return index * TOKEN_HEIGHT_PX + TOP_OFFSET;
 }
 
 export default memo(SettingsTokens);

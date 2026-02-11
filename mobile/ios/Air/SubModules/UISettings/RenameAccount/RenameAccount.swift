@@ -26,6 +26,7 @@ private let log = Log("RenameAccount")
         }
     }
     alertController.addAction(submitAction)
+    alertController.preferredAction = submitAction
     
     let cancelAction = UIAlertAction(title: lang("Cancel"), style: .cancel)
     alertController.addAction(cancelAction)

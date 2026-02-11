@@ -240,7 +240,7 @@ class WSegmentedController(
             toBottom(viewPager)
             if (isFullScreen && !isTransparent) {
                 toTop(reversedCornerView)
-                bottomToBottom(reversedCornerView, contentView, -ViewConstants.BAR_ROUNDS)
+                bottomToBottom(reversedCornerView, contentView, -ViewConstants.TOOLBAR_RADIUS)
             }
         }
 
@@ -285,7 +285,7 @@ class WSegmentedController(
     override fun updateProtectedView() {}
 
     private fun updateThemeTransparent() {
-        setBackgroundColor(Color.TRANSPARENT, ViewConstants.BIG_RADIUS.dp, true)
+        setBackgroundColor(Color.TRANSPARENT, ViewConstants.BLOCK_RADIUS.dp, true)
         closeButton.updateColors(WColor.White, WColor.BackgroundRipple)
         clearSegmentedControl.paintColor = Color.WHITE
         clearSegmentedControl.primaryTextColor = Color.BLACK

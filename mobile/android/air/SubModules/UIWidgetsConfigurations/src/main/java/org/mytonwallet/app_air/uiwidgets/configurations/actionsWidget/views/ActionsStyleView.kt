@@ -106,19 +106,10 @@ class ActionsStyleView(
     }
 
     override fun updateTheme() {
-        when (ThemeManager.uiMode) {
-            ThemeManager.UIMode.COMMON -> {
-                background = separatorBackgroundDrawable
-                separatorBackgroundDrawable.invalidateSelf()
-            }
-
-            else -> {
-                setBackgroundColor(
-                    WColor.Background.color,
-                    ViewConstants.BIG_RADIUS.dp
-                )
-            }
-        }
+        setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.BLOCK_RADIUS.dp
+        )
         titleLabel.setTextColor(WColor.Tint.color)
     }
 

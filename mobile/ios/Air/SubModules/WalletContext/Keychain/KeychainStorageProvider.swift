@@ -25,28 +25,10 @@ public class CapacitorKeychainStorageProvider: IKeychainStorageProvider {
     }
     
     public func get(key: String) -> (Bool, String?) {
-        let hasValueDedicated = keychainWrapper.hasValue(forKey: key)
-        let hasValueStandard = keychainWrapper.hasValue(forKey: key)
-        
-        // copy standard value to dedicated and remove standard key
-        if (hasValueStandard && !hasValueDedicated) {
-            let syncValueSuccessful: Bool = keychainWrapper.set(
-                keychainWrapper.string(forKey: key) ?? "",
-                forKey: key,
-                withAccessibility: .afterFirstUnlock
-            )
-            let removeValueSuccessful: Bool = keychainWrapper.removeObject(forKey: key)
-            if (!syncValueSuccessful || !removeValueSuccessful) {
-                return (false, nil)
-            }
-        }
-        
-        if hasValueDedicated || hasValueStandard {
+        if keychainWrapper.hasValue(forKey: key) {
             return (true, keychainWrapper.string(forKey: key) ?? "")
         }
-        else {
-            return (false, nil)
-        }
+        return (false, nil)
     }
     
     public func keys() -> [String] {
@@ -56,13 +38,8 @@ public class CapacitorKeychainStorageProvider: IKeychainStorageProvider {
     
     public func remove(key: String) -> Bool {
         log.info("remove key=\(key, .public)")
-        let hasValueDedicated = keychainWrapper.hasValue(forKey: key)
-        let hasValueStandard = keychainWrapper.hasValue(forKey: key)
-        
-        if hasValueDedicated || hasValueStandard {
-            keychainWrapper.removeObject(forKey: key);
-            let removeDedicatedSuccessful: Bool = keychainWrapper.removeObject(forKey: key)
-            return removeDedicatedSuccessful
+        if keychainWrapper.hasValue(forKey: key) {
+            return keychainWrapper.removeObject(forKey: key)
         }
         return false
     }

@@ -2,7 +2,6 @@ import type { ApiActivityTimestamps, OnApiUpdate } from '../types';
 
 import { IS_EXTENSION } from '../../config';
 import { getCurrentAccountId, loginResolve } from '../common/accounts';
-import { waitStorageMigration } from '../common/helpers';
 import { sendUpdateTokens } from '../common/tokens';
 import { callHook } from '../hooks';
 import { storage } from '../storages';
@@ -15,8 +14,6 @@ export function initAccounts(_onUpdate: OnApiUpdate) {
 }
 
 export async function activateAccount(accountId: string, newestActivityTimestamps: ApiActivityTimestamps = {}) {
-  await waitStorageMigration();
-
   const prevAccountId = await getCurrentAccountId();
   const isFirstLogin = !prevAccountId;
 

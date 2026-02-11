@@ -6,3 +6,4 @@ export * from './swap';
 export * from './transfer';
 export * from './staking';
 export * from './domains';
+export * from './settings';

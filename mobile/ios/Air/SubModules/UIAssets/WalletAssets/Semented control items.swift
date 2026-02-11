@@ -95,13 +95,13 @@ import Dependencies
 @MainActor func configureNftCollectionMenu(menuContext: MenuContext, onReorder: @escaping () -> (), onHide: (() -> ())?) {
     menuContext.makeConfig = {
         var items: [MenuItem] = []
-        items += .button(id: "0-reorder", title: lang("Reorder"), trailingIcon: .air("MenuReorder26")) {
-            onReorder()
-        }
         if let onHide {
             items += .button(id: "0-hide", title: lang("Hide tab"), trailingIcon: .system("pin.slash")) {
                 onHide()
             }
+        }
+        items += .button(id: "0-reorder", title: lang("Reorder"), trailingIcon: .air("MenuReorder26")) {
+            onReorder()
         }
         return MenuConfig(menuItems: items)
     }

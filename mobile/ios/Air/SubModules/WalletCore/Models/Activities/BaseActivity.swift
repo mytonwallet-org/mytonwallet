@@ -25,5 +25,15 @@ public struct BaseActivityExtra: Equatable, Hashable, Codable, Sendable {
     /// Only for TON liquidity deposit and withdrawal
     public var dex: ApiSwapDexLabel? // Only for TON liquidity deposit and withdrawal
     public var marketplace: ApiNftMarketplace?
+    public var queryId: String?
+    public var isOurSwapFee: Bool?
+    public var mtwAggregator: ApiMtwAggregator?
     // TODO Move other extra fields here (externalMsgHash, ...)
+}
+
+public struct ApiMtwAggregator: Equatable, Hashable, Codable, Sendable {
+    public let traceId: String
+    public let swapIds: [String]
+    public let from: String
+    public let to: String
 }

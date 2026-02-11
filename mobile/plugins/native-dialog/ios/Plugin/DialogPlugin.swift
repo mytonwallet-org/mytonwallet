@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Capacitor
 
 /**
@@ -6,6 +7,24 @@ import Capacitor
  */
 @objc(DialogPlugin)
 public class DialogPlugin: CAPPlugin {
+    private var alertWindow: UIWindow?
+
+    private func makeAlertWindow() -> UIWindow? {
+        let scene = self.bridge?.viewController?.view.window?.windowScene
+            ?? UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive }
+            ?? UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        guard let windowScene = scene else {
+            return nil
+        }
+        let window = UIWindow(windowScene: windowScene)
+        window.rootViewController = UIViewController()
+        window.windowLevel = UIWindow.Level.alert + 1
+        window.makeKeyAndVisible()
+        alertWindow = window
+        return window
+    }
 
     @objc public func alert(_ call: CAPPluginCall) {
         let title = call.options["title"] as? String
@@ -16,10 +35,10 @@ public class DialogPlugin: CAPPlugin {
         let buttonTitle = call.options["buttonTitle"] as? String ?? "OK"
 
         DispatchQueue.main.async {
-            let alertWindow: UIWindow? = UIWindow(frame: UIScreen.main.bounds)
-            alertWindow?.rootViewController = UIViewController()
-            alertWindow?.windowLevel = UIWindow.Level.alert + 1
-            alertWindow?.makeKeyAndVisible()
+            guard let alertWindow = self.makeAlertWindow() else {
+                call.reject("Unable to present dialog: no active window scene")
+                return
+            }
 
             let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: buttonTitle, style: .default, handler: { (_) -> Void in
@@ -27,7 +46,7 @@ public class DialogPlugin: CAPPlugin {
                 self.cleanupWindow(alertWindow)
             }))
 
-            alertWindow?.rootViewController?.present(alert, animated: true, completion: nil)
+            alertWindow.rootViewController?.present(alert, animated: true, completion: nil)
         }
     }
 
@@ -41,10 +60,10 @@ public class DialogPlugin: CAPPlugin {
         let cancelButtonTitle = call.options["cancelButtonTitle"] as? String ?? "Cancel"
 
         DispatchQueue.main.async {
-            let alertWindow: UIWindow? = UIWindow(frame: UIScreen.main.bounds)
-            alertWindow?.rootViewController = UIViewController()
-            alertWindow?.windowLevel = UIWindow.Level.alert + 1
-            alertWindow?.makeKeyAndVisible()
+            guard let alertWindow = self.makeAlertWindow() else {
+                call.reject("Unable to present dialog: no active window scene")
+                return
+            }
 
             let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: cancelButtonTitle, style: .default, handler: { (_) -> Void in
@@ -60,7 +79,7 @@ public class DialogPlugin: CAPPlugin {
                 self.cleanupWindow(alertWindow)
             }))
 
-            alertWindow?.rootViewController?.present(alert, animated: true, completion: nil)
+            alertWindow.rootViewController?.present(alert, animated: true, completion: nil)
         }
     }
 
@@ -76,10 +95,10 @@ public class DialogPlugin: CAPPlugin {
         let inputText = call.options["inputText"] as? String ?? ""
 
         DispatchQueue.main.async {
-            let alertWindow: UIWindow? = UIWindow(frame: UIScreen.main.bounds)
-            alertWindow?.rootViewController = UIViewController()
-            alertWindow?.windowLevel = UIWindow.Level.alert + 1
-            alertWindow?.makeKeyAndVisible()
+            guard let alertWindow = self.makeAlertWindow() else {
+                call.reject("Unable to present dialog: no active window scene")
+                return
+            }
 
             let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
             alert.addTextField { (textField) in
@@ -103,7 +122,7 @@ public class DialogPlugin: CAPPlugin {
                 self.cleanupWindow(alertWindow)
             }))
 
-            alertWindow?.rootViewController?.present(alert, animated: true, completion: nil)
+            alertWindow.rootViewController?.present(alert, animated: true, completion: nil)
         }
     }
 
@@ -111,5 +130,8 @@ public class DialogPlugin: CAPPlugin {
         window?.isHidden = true
         window?.rootViewController = nil
         window?.windowLevel = UIWindow.Level.normal
+        if alertWindow === window {
+            alertWindow = nil
+        }
     }
 }

@@ -69,8 +69,8 @@ class WidgetPreviewView(context: Context) : WView(context), WThemedView {
     override fun updateTheme() {
         setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.TOP_RADIUS.dp,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.TOOLBAR_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
         progressIndicator?.setIndicatorColor(WColor.SecondaryText.color)
     }

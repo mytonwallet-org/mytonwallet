@@ -9,3 +9,14 @@ export const lerp = (start: number, end: number, interpolationRatio: number) => 
 export function roundToNearestEven(value: number) {
   return Math.round(value / 2) * 2;
 }
+
+export function getPseudoRandom(min: number, max: number, index: number) {
+  const normalizedMin = Math.floor(Math.min(min, max));
+  const normalizedMax = Math.floor(Math.max(min, max));
+  const range = normalizedMax - normalizedMin + 1;
+
+  let x = Math.floor(index);
+  x = (x * 7 + (x % 13) * 3 + 5) % 65536;
+
+  return normalizedMin + (x % range);
+}

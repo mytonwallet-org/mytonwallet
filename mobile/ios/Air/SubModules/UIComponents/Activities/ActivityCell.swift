@@ -597,7 +597,7 @@ public class ActivityCell: WHighlightCell {
                 let exchangeRateString = exchangeAmount.formatAttributed(
                     format: .init(
                         preset: .compact,
-                        roundUp: false
+                        roundUp: true
                     ),
                     integerFont: .systemFont(ofSize: 14, weight: .semibold),
                     fractionFont: .systemFont(ofSize: 10, weight: .semibold),

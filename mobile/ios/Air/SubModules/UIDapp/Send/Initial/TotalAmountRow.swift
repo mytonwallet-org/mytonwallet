@@ -41,7 +41,7 @@ public struct TotalAmountRow: View {
     var text: some View {
         let bc = Text(
             amountInBaseCurrency.formatAttributed(
-                format: .init(),
+                format: .init(preset: .baseCurrencyEquivalent),
                 integerFont: .systemFont(ofSize: 24, weight: .semibold),
                 fractionFont: .systemFont(ofSize: 20, weight: .semibold),
                 symbolFont: .systemFont(ofSize: 20, weight: .semibold),
@@ -54,7 +54,7 @@ public struct TotalAmountRow: View {
         if !tokenAmounts.isEmpty {
             let _tokens = tokenAmounts
                 .map { tokenAmount in
-                    tokenAmount.formatted(.none)
+                    tokenAmount.formatted(.defaultAdaptive)
                 }
                 .joined(separator: " + ")
             let tokens = Text(_tokens)

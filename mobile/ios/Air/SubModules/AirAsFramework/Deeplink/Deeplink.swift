@@ -14,9 +14,10 @@ enum Deeplink {
     case switchToClassic
     case transfer
     case receive
-    case explore
+    case explore(siteHost: String?)
     case tokenSlug(slug: String)
     case tokenAddress(chain: String, tokenAddress: String)
     case transaction(chain: ApiChain, txId: String)
+    case nftAddress(nftAddress: String)
     case view(addressOrDomainByChain: [String: String])
 }

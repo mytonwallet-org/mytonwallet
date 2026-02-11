@@ -347,7 +347,7 @@ class WalletsVC(
         super.didSetupViews()
         insetsUpdated()
         bottomReversedCornerViewUpsideDown.updateLayoutParams {
-            height = ViewConstants.BAR_ROUNDS.dp.roundToInt() +
+            height = ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
                 ViewConstants.GAP.dp +
                 50.dp +
                 16.dp +
@@ -381,7 +381,7 @@ class WalletsVC(
                     (navigationController?.getSystemBars()?.top ?: 0) +
                         WNavigationBar.DEFAULT_HEIGHT_THICK.dp +
                         44.dp -
-                        ViewConstants.BIG_RADIUS.dp.roundToInt() +
+                        ViewConstants.BLOCK_RADIUS.dp.roundToInt() +
                         22.dp,
                     0,
                     90.dp + bottomInset
@@ -400,7 +400,7 @@ class WalletsVC(
                     (navigationController?.getSystemBars()?.top ?: 0) +
                         WNavigationBar.DEFAULT_HEIGHT_THICK.dp +
                         44.dp -
-                        ViewConstants.BIG_RADIUS.dp.roundToInt() +
+                        ViewConstants.BLOCK_RADIUS.dp.roundToInt() +
                         22.dp,
                     6.dp,
                     90.dp + bottomInset

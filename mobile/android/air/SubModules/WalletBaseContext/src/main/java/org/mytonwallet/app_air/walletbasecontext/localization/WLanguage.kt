@@ -1,5 +1,7 @@
 package org.mytonwallet.app_air.walletbasecontext.localization
 
+import java.util.Locale
+
 enum class WLanguage(val langCode: String) {
     CHINESE_SIMPLIFIED("zh-Hans"),
     CHINESE_TRADITIONAL("zh-Hant"),
@@ -52,4 +54,28 @@ enum class WLanguage(val langCode: String) {
                 //PERSIAN -> "فارسی"
             }
         }
+
+    companion object {
+        fun valueOfLocale(locale: Locale): WLanguage? {
+            val language = locale.language.lowercase(Locale.ROOT)
+
+            if (language == "zh") {
+                return chineseVariant(locale)
+            }
+
+            return entries.firstOrNull { it.langCode == language }
+        }
+
+        private fun chineseVariant(locale: Locale): WLanguage {
+            val script = locale.script
+            val country = locale.country.uppercase(Locale.ROOT)
+
+            return when {
+                script.equals("Hant", ignoreCase = true) -> CHINESE_TRADITIONAL
+                script.equals("Hans", ignoreCase = true) -> CHINESE_SIMPLIFIED
+                country in setOf("TW", "HK", "MO") -> CHINESE_TRADITIONAL
+                else -> CHINESE_SIMPLIFIED
+            }
+        }
+    }
 }

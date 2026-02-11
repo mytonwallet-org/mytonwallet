@@ -300,11 +300,11 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
 
     private fun animateRounding(finishListener: () -> Unit) {
         animator = animatorSet {
-            startDelay((animationDuration * ((contentHeight - ViewConstants.BIG_RADIUS.dp) / contentHeight)).toLong())
+            startDelay((animationDuration * ((contentHeight - ViewConstants.BLOCK_RADIUS.dp) / contentHeight)).toLong())
             duration((animationDuration * 0.8).toLong())
             interpolator(CubicBezierInterpolator.EASE_OUT)
             together {
-                floatValues(0f, ViewConstants.BIG_RADIUS.dp) {
+                floatValues(0f, ViewConstants.BLOCK_RADIUS.dp) {
                     onUpdate { r -> updateBottomRadius(r) }
                 }
             }
@@ -406,7 +406,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
     }
 
     private fun updateRadius() {
-        updateBottomRadius(if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp)
+        updateBottomRadius(if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f.dp)
     }
 
     private fun updateBottomRadius(radius: Float) {

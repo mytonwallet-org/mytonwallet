@@ -1,21 +1,17 @@
-
 import UIKit
 import UIComponents
 import WalletCore
 @preconcurrency import WalletContext
 import UIDapp
 
-
 public class ExploreTabVC: WViewController {
-    
-    private var exploreVC = ExploreVC()
+    private let exploreVC = ExploreVC()
     
     private var newSearch: ExploreSearch?
     
     private var searchBarContainer: UIView?
     private var searchBar: WSearchBar?
     private var searchBarContainerBottomConstraint: NSLayoutConstraint?
-    private var searchBarBlurView: WBlurView?
     
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -25,11 +21,13 @@ public class ExploreTabVC: WViewController {
     
     func setupViews() {
         view.backgroundColor = WTheme.background
+      
+        // Improvement: move navigationItem setup of Explore screen to ExploreVC | merge with ExploreVC to 1 class
         navigationItem.title = lang("Explore")
         if #available(iOS 26, *) {
             navigationItem.largeTitleDisplayMode = .inline
             let p = NSMutableParagraphStyle()
-            p.firstLineHeadIndent = 8
+            p.firstLineHeadIndent = 3
             let appearance = UINavigationBarAppearance()
             appearance.configureWithDefaultBackground()
             appearance.largeTitleTextAttributes = [
@@ -46,18 +44,13 @@ public class ExploreTabVC: WViewController {
         }
         
         addChild(exploreVC)
-        exploreVC.view.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(exploreVC.view)
-        NSLayoutConstraint.activate([
-            exploreVC.view.topAnchor.constraint(equalTo: view.topAnchor),
-            exploreVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            exploreVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            exploreVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
         exploreVC.didMove(toParent: self)
-        exploreVC.onSelectAny = { [self] in
+        view.addStretchedToBounds(subview: exploreVC.view)
+
+        exploreVC.onSelectAny = { [weak self] in
+            guard let self else { return }
             self.view.endEditing(true)
-            searchBar?.resignFirstResponder()
+            self.searchBar?.resignFirstResponder()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.searchBar?.text = nil
                 self.searchBar?.setCenteredPlaceholder()
@@ -76,12 +69,10 @@ public class ExploreTabVC: WViewController {
             view.addSubview(newSearch)
             view.keyboardLayoutGuide.keyboardDismissPadding = 40
             NSLayoutConstraint.activate([
-                newSearch.heightAnchor.constraint(equalToConstant: 80),
                 newSearch.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
                 newSearch.leadingAnchor.constraint(equalTo: view.leadingAnchor),
                 newSearch.trailingAnchor.constraint(equalTo: view.trailingAnchor)
             ])
-//            newSearch.backgroundColor = .orange.withAlphaComponent(0.2)
             newSearch.viewModel.onChange = { [weak self] in self?.onChange($0) }
             newSearch.viewModel.onSubmit = { [weak self] in self?.onSubmit($0) }
         } else {
@@ -99,9 +90,7 @@ public class ExploreTabVC: WViewController {
                 searchBarContainer.heightAnchor.constraint(equalToConstant: 67)
             ])
             
-            let color = UIColor { $0.userInterfaceStyle != .dark ? WColors.blurBackground : WColors.blurBackground.withAlphaComponent(0.85) }
-            let searchBarBlurView = WBlurView(background: color)
-            self.searchBarBlurView = searchBarBlurView
+            let searchBarBlurView = Self.makeBlurView()
             view.addSubview(searchBarBlurView)
             searchBarBlurView.translatesAutoresizingMaskIntoConstraints = false
             NSLayoutConstraint.activate([
@@ -140,6 +129,13 @@ public class ExploreTabVC: WViewController {
         updateTheme()
     }
     
+    private static func makeBlurView() -> WBlurView {
+        let color = UIColor {
+            $0.userInterfaceStyle != .dark ? WColors.blurBackground : WColors.blurBackground.withAlphaComponent(0.85)
+        }
+        return WBlurView(background: color)
+    }
+    
     public override func viewIsAppearing(_ animated: Bool) {
         super.viewIsAppearing(animated)
         
@@ -169,8 +165,7 @@ public class ExploreTabVC: WViewController {
     }
     
     func onChange(_ text: String) {
-        exploreVC.searchString = text
-        exploreVC.applySnapshot(animated: true)
+        exploreVC.searchTextDidChange(text)
     }
     
     func onSubmit(_ text: String) {

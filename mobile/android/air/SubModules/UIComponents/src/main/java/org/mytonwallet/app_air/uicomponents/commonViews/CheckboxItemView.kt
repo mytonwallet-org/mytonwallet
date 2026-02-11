@@ -20,7 +20,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 class CheckboxItemView(context: Context, val isEnabledInitially: Boolean) : WView(context),
     WThemedView {
 
-    private val ripple = WRippleDrawable.create(ViewConstants.BIG_RADIUS.dp)
+    private val ripple = WRippleDrawable.create(ViewConstants.BLOCK_RADIUS.dp)
 
     companion object {
         const val DISABLED_ALPHA_VALUE = 0.4f

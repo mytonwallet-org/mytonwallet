@@ -82,12 +82,12 @@ class SearchItemCell(context: Context, private val onTap: (keyword: String) -> U
         setBackgroundColor(
             WColor.Background.color,
             0f,
-            if (isLastItem) ViewConstants.STANDARD_ROUNDS.dp else 0f
+            if (isLastItem) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         addRippleEffect(
             WColor.BackgroundRipple.color,
             0f,
-            if (isLastItem) ViewConstants.STANDARD_ROUNDS.dp else 0f
+            if (isLastItem) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
     }
 

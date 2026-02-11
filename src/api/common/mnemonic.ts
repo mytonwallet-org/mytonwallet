@@ -1,9 +1,8 @@
 import * as bip39 from 'bip39';
 
-import { type ApiAccountWithMnemonic, ApiCommonError } from '../types';
+import type { ApiAccountWithMnemonic } from '../types';
 
 import { logDebugError } from '../../util/logs';
-import { updateStoredAccount } from './accounts';
 
 const PBKDF2_IMPORT_KEY_ARGS = [
   { name: 'PBKDF2' },
@@ -25,29 +24,6 @@ export function generateBip39Mnemonic() {
 
 export function validateBip39Mnemonic(mnemonic: string[]) {
   return bip39.validateMnemonic(mnemonic.join(' '));
-}
-
-export async function tryMigratingMnemonicEncryption(accountId: string, mnemonic: string[], password: string) {
-  const sensitiveData = [password, ...mnemonic];
-
-  try {
-    const mnemonicEncrypted = await encryptMnemonic(mnemonic, password);
-    sensitiveData.push(mnemonicEncrypted);
-
-    // This is a defensive approach against potential corrupted encryption reported by some users
-    const decryptedMnemonic = await decryptMnemonic(mnemonicEncrypted, password)
-      .catch(() => undefined);
-
-    if (!password || !decryptedMnemonic) {
-      return { error: ApiCommonError.DebugError };
-    }
-
-    await updateStoredAccount<ApiAccountWithMnemonic>(accountId, { mnemonicEncrypted });
-  } catch (err) {
-    logDebugError('tryMigratingMnemonicEncryption', removeSensitiveDataFromError(err, sensitiveData));
-  }
-
-  return undefined;
 }
 
 export async function encryptMnemonic(mnemonic: string[], password: string) {
@@ -81,7 +57,7 @@ export async function encryptMnemonic(mnemonic: string[], password: string) {
 
 export async function decryptMnemonic(encrypted: string, password: string) {
   if (!encrypted.includes(':')) {
-    return decryptMnemonicLegacy(encrypted, password);
+    throw new Error('Unsupported mnemonic format');
   }
 
   const [saltHex, ivHex, encryptedData] = encrypted.split(':');
@@ -107,20 +83,6 @@ export async function decryptMnemonic(encrypted: string, password: string) {
   return plaintext.split(',');
 }
 
-async function decryptMnemonicLegacy(encrypted: string, password: string) {
-  const pwUtf8 = new TextEncoder().encode(password); // encode password as UTF-8
-  const pwHash = await crypto.subtle.digest('SHA-256', pwUtf8); // hash the password
-  const iv = encrypted.slice(0, 24).match(/.{2}/g)!.map((byte) => parseInt(byte, 16)); // get iv from ciphertext
-  const alg = { name: 'AES-GCM', iv: new Uint8Array(iv) }; // specify algorithm to use
-  const key = await crypto.subtle.importKey('raw', pwHash, alg, false, ['decrypt']); // use pw to generate key
-  const ctStr = atob(encrypted.slice(24)); // decode base64 ciphertext
-  const ctUint8 = new Uint8Array(ctStr.match(/[\s\S]/g)!.map((ch) => ch.charCodeAt(0))); // ciphertext as Uint8Array
-  const plainBuffer = await crypto.subtle.decrypt(alg, key, ctUint8); // decrypt ciphertext using key
-  const plaintext = new TextDecoder().decode(plainBuffer); // decode password from UTF-8
-
-  return plaintext.split(',');
-}
-
 export async function getMnemonic(accountId: string, password: string, account: ApiAccountWithMnemonic) {
   const sensitiveData = [password];
 
@@ -130,10 +92,6 @@ export async function getMnemonic(accountId: string, password: string, account: 
 
     const mnemonic = await decryptMnemonic(mnemonicEncrypted, password);
     sensitiveData.push(...mnemonic);
-
-    if (!mnemonicEncrypted.includes(':')) {
-      await tryMigratingMnemonicEncryption(accountId, mnemonic, password);
-    }
 
     return mnemonic;
   } catch (err) {

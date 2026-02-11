@@ -45,7 +45,7 @@ struct AccountTypePickerView: View {
             }
 
             InsetSection(dividersInset: 50) {
-                Item(icon: "KeyIcon30", text: lang("12/24 Secret Words"), onTap: onImport)
+                Item(icon: "KeyIcon30", text: lang("%counts% Secret Words", arg1: "12/24"), onTap: onImport)
                 if network == .mainnet {
                     Item(icon: "LedgerIcon30", text: "Ledger", onTap: onLedger)
                 }

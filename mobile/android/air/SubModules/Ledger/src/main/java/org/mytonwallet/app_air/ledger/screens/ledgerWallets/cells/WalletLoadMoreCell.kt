@@ -19,7 +19,7 @@ class LedgerLoadMoreCell(
 
     var onTap: (() -> Unit)? = null
 
-    private val ripple = WRippleDrawable.create(ViewConstants.BIG_RADIUS.dp)
+    private val ripple = WRippleDrawable.create(ViewConstants.BLOCK_RADIUS.dp)
 
     private val imageView = AppCompatImageView(context).apply {
         id = generateViewId()

@@ -31,6 +31,11 @@
   background: transparent;
 }
 
+.closeButton {
+  color: #FFFFFF !important;
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
 .surface {
   display: flex;
   flex-direction: column;
@@ -65,7 +70,7 @@
   font-size: 1.25rem;
   font-weight: 800;
   line-height: 1;
-  color: var(--color-card-text);
+  color: var(--promo-title-color, var(--color-card-text));
 }
 
 .description {
@@ -74,7 +79,7 @@
   font-size: 1rem;
   font-weight: 500;
   line-height: 1.25rem;
-  color: var(--color-card-second-text);
+  color: var(--promo-description-color, var(--color-card-second-text));
   white-space: pre-line;
 }
 

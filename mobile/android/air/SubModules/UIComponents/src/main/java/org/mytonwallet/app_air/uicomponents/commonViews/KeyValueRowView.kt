@@ -308,7 +308,7 @@ class KeyValueRowView(
     }
 
     override fun setBackgroundColor(color: Int) {
-        setBackgroundColor(color, topRadius, if (isLast) ViewConstants.BIG_RADIUS.dp else 0f)
+        setBackgroundColor(color, topRadius, if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f)
     }
 
     private var topRadius = 0f

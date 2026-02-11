@@ -1,7 +1,7 @@
 
 import Foundation
 
-public let STATE_VERSION: Int = 49
+public let STATE_VERSION: Int = 51
 
 private let log = Log("GlobalStorage+Migration")
 
@@ -98,9 +98,14 @@ extension _GlobalStorage {
         }
         
 
-        if let v = self.stateVersion, v == 48 {
+        if let v = self.stateVersion, v < 50 {
             // Android app specific migration
-            self.stateVersion = 49
+            self.stateVersion = 50
+        }
+
+        if let v = self.stateVersion, v == 50 {
+            _clearActivities()
+            self.stateVersion = 51
         }
 
         assert(self.stateVersion == STATE_VERSION)

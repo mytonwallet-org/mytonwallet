@@ -17,7 +17,7 @@ import { fetchStoredWallet } from '../../common/accounts';
 import { setupInactiveChainPolling } from '../../common/polling/setupInactiveChainPolling';
 import { activeWalletTiming } from '../../common/polling/utils';
 import { WalletPolling } from '../../common/polling/walletPolling';
-import { swapReplaceCexActivities } from '../../common/swap';
+import { swapReplaceActivities } from '../../common/swap';
 import { buildTokenSlug } from '../../common/tokens';
 import { txCallbacks } from '../../common/txCallbacks';
 import { FIRST_TRANSACTIONS_LIMIT } from '../../constants';
@@ -228,7 +228,7 @@ async function loadInitialActivities(
       network, address, slug, undefined, undefined, FIRST_TRANSACTIONS_LIMIT,
     );
 
-    activities = await swapReplaceCexActivities(accountId, activities, slug, true);
+    activities = await swapReplaceActivities(accountId, activities, slug, true);
 
     result[slug] = activities[0]?.timestamp;
     bySlug[slug] = activities;
@@ -275,7 +275,7 @@ async function loadNewActivities(
 
   let activities = mergeActivities(bySlug);
 
-  activities = await swapReplaceCexActivities(accountId, activities, undefined, true);
+  activities = await swapReplaceActivities(accountId, activities, undefined, true);
 
   activities.slice().reverse().forEach((activity) => {
     txCallbacks.runCallbacks(activity);

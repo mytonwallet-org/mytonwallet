@@ -13,7 +13,7 @@ export const DIESEL_NOT_AVAILABLE: ApiFetchEstimateDieselResult = {
 let clientId: string | undefined;
 let referrer: string | undefined;
 
-export async function getClientId() {
+export async function initClientId() {
   if (!clientId) {
     [clientId, referrer] = await Promise.all([
       storage.getItem('clientId'),
@@ -32,6 +32,8 @@ export async function getClientId() {
     clientId = `${hex}:${referrer ?? ''}`;
     void storage.setItem('clientId', clientId);
   }
+}
 
-  return clientId;
+export function getClientId() {
+  return clientId!;
 }

@@ -288,19 +288,19 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         if (AccountStore.activeAccount?.isViewOnly != true) {
             backupTitleLabel.setBackgroundColor(
                 WColor.Background.color,
-                ViewConstants.TOP_RADIUS.dp,
+                ViewConstants.TOOLBAR_RADIUS.dp,
                 0f,
             )
             backupRow.setBackgroundColor(WColor.Background.color)
             passcodeTitleLabel.setBackgroundColor(
                 WColor.Background.color,
-                ViewConstants.BIG_RADIUS.dp,
+                ViewConstants.BLOCK_RADIUS.dp,
                 0f,
             )
         } else {
             passcodeTitleLabel.setBackgroundColor(
                 WColor.Background.color,
-                ViewConstants.TOP_RADIUS.dp,
+                ViewConstants.TOOLBAR_RADIUS.dp,
                 0f,
             )
         }
@@ -310,7 +310,7 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         changePasscodeRow.setBackgroundColor(WColor.Background.color)
         appLockLabel.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
             0f,
         )
         autoLockRow.setBackgroundColor(WColor.Background.color)

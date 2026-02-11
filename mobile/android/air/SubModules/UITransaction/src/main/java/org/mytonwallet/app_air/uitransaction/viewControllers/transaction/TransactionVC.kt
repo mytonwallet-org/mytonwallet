@@ -755,13 +755,13 @@ class TransactionVC(
         v.setConstraints {
             toTop(headerViewContainer)
             toCenterX(headerViewContainer)
-            topToBottom(actionsView, headerViewContainer, 12f)
+            topToBottom(actionsView, headerViewContainer, ViewConstants.GAP.toFloat())
             if (transactionAddress != null) {
-                topToBottom(transactionAddress, actionsView, 12f)
-                topToBottom(transactionDetails, transactionAddress, 12f)
+                topToBottom(transactionAddress, actionsView, ViewConstants.GAP.toFloat())
+                topToBottom(transactionDetails, transactionAddress, ViewConstants.GAP.toFloat())
                 toCenterX(transactionAddress, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
             } else {
-                topToBottom(transactionDetails, actionsView, 12f)
+                topToBottom(transactionDetails, actionsView, ViewConstants.GAP.toFloat())
             }
             toCenterX(transactionDetails, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
             toBottomPx(transactionDetails, navigationController?.getSystemBars()?.bottom ?: 0)
@@ -952,7 +952,7 @@ class TransactionVC(
         val windowBackgroundStyle = if (transactionAddress == null) {
             BackgroundStyle.Transparent
         } else {
-            BackgroundStyle.Cutout.fromView(view, roundRadius = ViewConstants.BIG_RADIUS.dp)
+            BackgroundStyle.Cutout.fromView(view, roundRadius = ViewConstants.BLOCK_RADIUS.dp)
         }
 
         val blockchain = TokenStore.getToken(transaction.slug)?.mBlockchain ?: return
@@ -1018,8 +1018,8 @@ class TransactionVC(
         // headerView corners are updated in updateBackground()
         transactionDetails.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
         val transaction = transaction
         when (transaction) {
@@ -1045,9 +1045,9 @@ class TransactionVC(
 
     private fun updateBackground() {
         val expandProgress = 10f / 3f * (((modalExpandProgress ?: 0f) - 0.7f).coerceIn(0f, 1f))
-        // Use fixed radius when Rounded Corners is off, otherwise use BIG_RADIUS
+        // Use fixed radius when Rounded Corners is off, otherwise use BLOCK_RADIUS
         val halfExpandedRadius =
-            if (ViewConstants.BIG_RADIUS == 0f) 24f.dp else ViewConstants.BIG_RADIUS.dp
+            if (ViewConstants.BLOCK_RADIUS == 0f) 24f.dp else ViewConstants.BLOCK_RADIUS.dp
         val currentRadius = (1 - expandProgress) * halfExpandedRadius
         innerContentView.setBackgroundColor(
             WColor.SecondaryBackground.color,
@@ -1056,10 +1056,10 @@ class TransactionVC(
         )
 
         // Update headerView corners when Rounded Corners is off
-        if (ViewConstants.BIG_RADIUS == 0f) {
+        if (ViewConstants.BLOCK_RADIUS == 0f) {
             headerView.setBackgroundColor(WColor.Background.color, currentRadius, 0f)
         } else {
-            headerView.setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp)
+            headerView.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
         }
         if (modalExpandProgress == 1f) {
             view.setBackgroundColor(WColor.SecondaryBackground.color)
@@ -1091,10 +1091,8 @@ class TransactionVC(
     override fun onModalSlide(expandOffset: Int, expandProgress: Float) {
         super.onModalSlide(expandOffset, expandProgress)
         updateBackground()
-        val alpha = (expandOffset.toFloat() / ViewConstants.GAP.dp).coerceIn(0f, 1f)
-        transactionDetails.alpha = alpha
-        transactionAddress?.alpha = alpha
-        transactionHeaderView?.expandProgress = 1 - alpha
+        transactionDetails.alpha = expandProgress
+        transactionAddress?.alpha = expandProgress
         val padding = (ViewConstants.HORIZONTAL_PADDINGS.dp * expandProgress).roundToInt()
         headerViewContainer.setPadding(padding, 0, padding, 0)
     }
@@ -1172,8 +1170,8 @@ class TransactionVC(
     private fun updateTransactionAddressBackgroundColor() {
         transactionAddress?.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
     }
 

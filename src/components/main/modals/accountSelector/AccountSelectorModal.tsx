@@ -64,7 +64,6 @@ interface StateProps {
   settingsByAccountId: Record<string, AccountSettings>;
   activeTab?: number;
   viewModeInitial?: 'cards' | 'list';
-  isSortByValueEnabled?: boolean;
   areTokensWithNoCostHidden?: boolean;
   isSensitiveDataHidden?: true;
   isTestnet?: boolean;
@@ -74,6 +73,7 @@ interface StateProps {
   withOtherWalletVersions?: boolean;
   forceAddingTonOnlyAccount?: boolean;
   initialAuthState?: AccountSelectorState;
+  shouldHideAddAccountBackButton?: boolean;
 }
 
 function AccountSelectorModal({
@@ -89,7 +89,6 @@ function AccountSelectorModal({
   settingsByAccountId,
   activeTab = DEFAULT_TAB,
   viewModeInitial,
-  isSortByValueEnabled,
   areTokensWithNoCostHidden,
   isSensitiveDataHidden,
   isTestnet,
@@ -99,6 +98,7 @@ function AccountSelectorModal({
   withOtherWalletVersions,
   forceAddingTonOnlyAccount,
   initialAuthState,
+  shouldHideAddAccountBackButton,
 }: StateProps) {
   const {
     closeAccountSelector,
@@ -122,7 +122,6 @@ function AccountSelectorModal({
       byAccountId,
       tokenInfo,
       settingsByAccountId,
-      isSortByValueEnabled,
       areTokensWithNoCostHidden,
       baseCurrency,
       currencyRates,
@@ -132,7 +131,6 @@ function AccountSelectorModal({
     byAccountId,
     tokenInfo,
     settingsByAccountId,
-    isSortByValueEnabled,
     areTokensWithNoCostHidden,
     baseCurrency,
     currencyRates,
@@ -204,6 +202,8 @@ function AccountSelectorModal({
         handleImportHardwareWalletClick();
       } else if (state === AccountSelectorState.AddAccountViewMode) {
         setRenderingKey(AccountSelectorState.AddAccountViewMode);
+      } else if (state === AccountSelectorState.AddAccountInitial) {
+        setRenderingKey(AccountSelectorState.AddAccountInitial);
       } else {
         setRenderingKey(initialRenderingKey);
       }
@@ -509,6 +509,7 @@ function AccountSelectorModal({
             isLoading={isLoading}
             isTestnet={isTestnet}
             withOtherWalletVersions={withOtherWalletVersions}
+            shouldHideBackButton={shouldHideAddAccountBackButton}
             onBack={handleBackFromAddAccount}
             onNewAccountClick={handleNewAccountClick}
             onImportAccountClick={handleImportAccountClick}
@@ -622,6 +623,7 @@ export default memo(withGlobal(
       auth: {
         forceAddingTonOnlyAccount,
         initialAddAccountState: initialAuthState,
+        shouldHideAddAccountBackButton,
       },
       byAccountId,
       currencyRates,
@@ -630,7 +632,6 @@ export default memo(withGlobal(
         byAccountId: settingsByAccountId,
         baseCurrency,
         isSensitiveDataHidden,
-        isSortByValueEnabled,
         areTokensWithNoCostHidden,
         isTestnet,
       },
@@ -657,7 +658,6 @@ export default memo(withGlobal(
       settingsByAccountId,
       baseCurrency,
       currencyRates,
-      isSortByValueEnabled,
       areTokensWithNoCostHidden,
       isSensitiveDataHidden,
       activeTab,
@@ -669,6 +669,7 @@ export default memo(withGlobal(
       withOtherWalletVersions,
       forceAddingTonOnlyAccount,
       initialAuthState,
+      shouldHideAddAccountBackButton,
     };
   },
   (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

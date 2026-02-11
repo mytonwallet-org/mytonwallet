@@ -38,8 +38,6 @@ final class HomeCard: UICollectionViewCell {
     }
     
     func setup() {
-
-//        backgroundColor = UIColor.red.withAlphaComponent(0.1)
         
         NSLayoutConstraint.activate([
             contentView.widthAnchor.constraint(equalToConstant: itemWidth),

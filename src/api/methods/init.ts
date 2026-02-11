@@ -3,7 +3,8 @@ import type { ApiInitArgs, OnApiUpdate } from '../types';
 import { initWindowConnector } from '../../util/windowProvider/connector';
 import * as ton from '../chains/ton';
 import { fetchBackendReferrer } from '../common/backend';
-import { connectUpdater, disconnectUpdater, startStorageMigration } from '../common/helpers';
+import { connectUpdater, disconnectUpdater, tryMigrateStorage } from '../common/helpers';
+import { initClientId } from '../common/other';
 import { setEnvironment } from '../environment';
 import { addHooks } from '../hooks';
 import { storage } from '../storages';
@@ -19,13 +20,12 @@ addHooks({
 
 export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
   connectUpdater(onUpdate);
-  const environment = setEnvironment(args);
 
+  const environment = setEnvironment(args);
   initWindowConnector();
 
-  if (args.langCode) {
-    void storage.setItem('langCode', args.langCode);
-  }
+  await initClientId();
+  await tryMigrateStorage(onUpdate, ton, args.accountIds);
 
   methods.initAccounts(onUpdate);
   methods.initPolling(onUpdate);
@@ -44,10 +44,12 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
     tonConnectSse.initSse(onUpdate);
   }
 
-  await startStorageMigration(onUpdate, ton, args.accountIds);
-
   if (environment.isSseSupported) {
     void tonConnectSse.resetupSseConnection();
+  }
+
+  if (args.langCode) {
+    void storage.setItem('langCode', args.langCode);
   }
 
   void saveReferrer(args);
@@ -63,5 +65,6 @@ async function saveReferrer(args: ApiInitArgs) {
 
   if (referrer) {
     await storage.setItem('referrer', referrer);
+    await initClientId();
   }
 }

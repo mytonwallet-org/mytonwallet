@@ -41,8 +41,21 @@ sealed class Deeplink {
 
     data class Receive(override val accountAddress: String?) : Deeplink()
     data class BuyWithCard(override val accountAddress: String?) : Deeplink()
+    data class Offramp(
+        override val accountAddress: String?,
+        val transactionId: String?,
+        val baseCurrencyCode: String?,
+        val baseCurrencyAmount: String?,
+        val depositWalletAddress: String?,
+        val depositWalletAddressTag: String?
+    ) : Deeplink()
+
     data class Stake(override val accountAddress: String?) : Deeplink()
-    data class Explore(override val accountAddress: String?) : Deeplink()
+    data class Explore(
+        override val accountAddress: String?,
+        val targetUri: Uri?
+    ) : Deeplink()
+
     data class Url(
         override val accountAddress: String?,
         val config: InAppBrowserConfig
@@ -63,7 +76,10 @@ sealed class Deeplink {
         val address: String
     ) : Deeplink()
 
-    data class StakeTx(override val accountAddress: String?, val stakingId: String) : Deeplink()
+    data class StakeTx(override val accountAddress: String?) : Deeplink()
+    data class ExpiringDns(override val accountAddress: String?, val domainAddress: String) :
+        Deeplink()
+
     data class SwitchToLegacy(override val accountAddress: String?) : Deeplink()
     data class View(
         override val accountAddress: String?,
@@ -129,8 +145,15 @@ class DeeplinkParser {
                 }
 
                 "staking" -> {
-                    val stakingId = bundle.getString("stakingId") ?: return null
-                    return Deeplink.StakeTx(accountAddress = address, stakingId = stakingId)
+                    return Deeplink.StakeTx(accountAddress = address)
+                }
+
+                "expiringDns" -> {
+                    val domainAddress = bundle.getString("domainAddress") ?: return null
+                    return Deeplink.ExpiringDns(
+                        accountAddress = address,
+                        domainAddress = domainAddress
+                    )
                 }
 
                 else -> {
@@ -216,8 +239,21 @@ class DeeplinkParser {
                 "transfer" -> handleTonInvoice(uri)
                 "receive" -> Deeplink.Receive(accountAddress = null)
                 "buy-with-card" -> Deeplink.BuyWithCard(accountAddress = null)
+                "offramp" -> Deeplink.Offramp(
+                    accountAddress = null,
+                    transactionId = uri.getQueryParameter("transactionId"),
+                    baseCurrencyCode = uri.getQueryParameter("baseCurrencyCode"),
+                    baseCurrencyAmount = uri.getQueryParameter("baseCurrencyAmount"),
+                    depositWalletAddress = uri.getQueryParameter("depositWalletAddress"),
+                    depositWalletAddressTag = uri.getQueryParameter("depositWalletAddressTag")
+                )
+
                 "stake" -> Deeplink.Stake(accountAddress = null)
-                "explore" -> Deeplink.Explore(accountAddress = null)
+                "explore" -> Deeplink.Explore(
+                    accountAddress = null,
+                    targetUri = uri.extractSubUri()
+                )
+
                 "giveaway" -> {
                     val giveawayId = extractId(uri.toString(), "giveaway/([^/]+)")
                     val urlString =
@@ -304,6 +340,15 @@ class DeeplinkParser {
             return match?.groups?.get(1)?.value
         }
     }
+}
+
+fun Uri.extractSubUri(): Uri? {
+    // use only host for now
+    val targetHost = pathSegments.firstOrNull() ?: return null
+    return Uri.Builder()
+        .scheme("https")
+        .authority(targetHost)
+        .build()
 }
 
 fun parseWalletUrl(uri: Uri): ParsedWalletUrl? {

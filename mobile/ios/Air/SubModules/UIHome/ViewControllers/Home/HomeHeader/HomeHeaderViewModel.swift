@@ -23,7 +23,7 @@ enum HomeHeaderState {
 }
 
 @Perceptible
-final class HomeHeaderViewModel {
+final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
     
     let accountSource: AccountSource
     
@@ -31,9 +31,17 @@ final class HomeHeaderViewModel {
     var state: HomeHeaderState = .expanded
     var isCardHidden = false
     var _collapseProgress: CGFloat = 0
+    var seasonalThemingVersion: Int = 0
     
     var isCollapsed: Bool { state == .collapsed }
     var collapseProgress: CGFloat { isCollapsed ? _collapseProgress : 0 }
+    var seasonalTheme: ApiUpdate.UpdateConfig.SeasonalTheme? {
+        _ = seasonalThemingVersion
+        guard !AppStorageHelper.isSeasonalThemingDisabled else {
+            return nil
+        }
+        return ConfigStore.shared.config?.seasonalTheme
+    }
 
     let collapsedHeight: CGFloat = 95
     
@@ -47,6 +55,7 @@ final class HomeHeaderViewModel {
     
     init(accountSource: AccountSource) {
         self.accountSource = accountSource
+        WalletCoreData.add(eventObserver: self)
     }
     
     func scrollOffsetChanged(to y: CGFloat) {
@@ -56,5 +65,14 @@ final class HomeHeaderViewModel {
             isCardHidden = y > 62
         }
     }
-}
 
+    @MainActor
+    func walletCore(event: WalletCoreData.Event) {
+        switch event {
+        case .configChanged:
+            seasonalThemingVersion += 1
+        default:
+            break
+        }
+    }
+}

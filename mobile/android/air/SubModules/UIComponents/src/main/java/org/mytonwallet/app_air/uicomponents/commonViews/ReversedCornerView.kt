@@ -71,7 +71,7 @@ class ReversedCornerView(
     private var lastHeight = -1
 
     var overrideRadius: Float? = null
-    var cornerRadius: Float = ViewConstants.BAR_ROUNDS.dp
+    var cornerRadius: Float = ViewConstants.TOOLBAR_RADIUS.dp
         private set
 
     private var radii: FloatArray =
@@ -81,7 +81,8 @@ class ReversedCornerView(
     private var _desiredShowSeparator: Boolean? = null
     private var showSeparator: Boolean? = null
 
-    private var isPlaying = true
+    var isPlaying = true
+        private set
     private var radiusAnimator: ValueAnimator? = null
 
     private var overlayColor: Int? = null
@@ -223,9 +224,9 @@ class ReversedCornerView(
     }
 
     private fun updateRadius() {
-        if (cornerRadius == (overrideRadius ?: ViewConstants.BAR_ROUNDS.dp))
+        if (cornerRadius == (overrideRadius ?: ViewConstants.TOOLBAR_RADIUS.dp))
             return
-        cornerRadius = overrideRadius ?: ViewConstants.BAR_ROUNDS.dp
+        cornerRadius = overrideRadius ?: ViewConstants.TOOLBAR_RADIUS.dp
         radii = floatArrayOf(cornerRadius, cornerRadius, cornerRadius, cornerRadius, 0f, 0f, 0f, 0f)
         pathDirty = true
     }

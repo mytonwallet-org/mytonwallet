@@ -281,12 +281,12 @@ class AddAccountOptionsVC(context: Context, val network: MBlockchainNetwork, val
 
         view.setBackgroundColor(
             WColor.SecondaryBackground.color,
-            ViewConstants.BIG_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
             0f
         )
         switchToOtherWalletVersionsButton.addRippleEffect(
             WColor.BackgroundRipple.color,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         updateSwitchWalletVersionText()
     }

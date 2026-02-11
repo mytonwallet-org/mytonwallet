@@ -181,7 +181,7 @@ class TonConnectRequestSendVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 cancelButtonView,
-                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             toLeft(cancelButtonView, 20f)
@@ -352,8 +352,8 @@ class TonConnectRequestSendVC(
         if (isShowingSkeleton) {
             headerSkeletonContainer.setBackgroundColor(
                 WColor.Background.color,
-                ViewConstants.TOP_RADIUS.dp,
-                ViewConstants.BIG_RADIUS.dp
+                ViewConstants.TOOLBAR_RADIUS.dp,
+                ViewConstants.BLOCK_RADIUS.dp
             )
             headerImageSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 20f.dp)
             headerTitleSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)

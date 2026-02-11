@@ -5,9 +5,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 import SwiftUI
-import SwiftUIIntrospect
 import Perception
-import Dependencies
 
 struct HomeCardBackground: View {
     

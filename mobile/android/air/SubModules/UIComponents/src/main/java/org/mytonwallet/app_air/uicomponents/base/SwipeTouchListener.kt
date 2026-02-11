@@ -145,6 +145,7 @@ class SwipeTouchListener
         if (!isSwiping) {
             if (abs(deltaX.toDouble()) > mSwipeSlop) {
                 isSwiping = true
+                mDownX = event.x
                 darkView.get()?.let {
                     viewController.get()?.navigationController?.addView(
                         it, 0,

@@ -18,7 +18,7 @@ class ActionCell: WHighlightCollectionViewCell, WThemedView {
     private var label: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 16, weight: .regular)
+        lbl.font = .systemFont(ofSize: 17, weight: .regular)
         return lbl
     }()
     
@@ -27,8 +27,7 @@ class ActionCell: WHighlightCollectionViewCell, WThemedView {
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             label.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            label.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
-            label.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+            label.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
         ])
         updateTheme()
     }

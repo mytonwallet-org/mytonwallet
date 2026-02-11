@@ -10,7 +10,6 @@ import ColorThiefSwift
 
 private let log = Log("ColorUtils")
 
-
 public extension UIColor {
     convenience init(hex hexString: String, alpha: CGFloat) {
         if let namedColorHex = getNamedCssColorHex(hexString) {

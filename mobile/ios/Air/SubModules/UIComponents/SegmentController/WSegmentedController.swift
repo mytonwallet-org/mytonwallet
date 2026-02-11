@@ -177,17 +177,18 @@ public class WSegmentedController: WTouchPassView {
             constraints.append(contentsOf: [
                 viewController.view.widthAnchor.constraint(equalTo: widthAnchor),
                 viewController.view.heightAnchor.constraint(equalTo: scrollView.heightAnchor),
+                viewController.view.topAnchor.constraint(equalTo: scrollView.topAnchor),
             ])
             if i == 0 {
                 contentLeadingConstraint = scrollView.contentLayoutGuide.leadingAnchor.constraint(equalTo: viewController.view.leadingAnchor)
                 constraints.append(contentsOf: [
-                    viewController.view.topAnchor.constraint(equalTo: scrollView.topAnchor),
+                    // viewController.view.topAnchor.constraint(equalTo: scrollView.topAnchor),
                     contentLeadingConstraint,
                 ])
             } else {
                 let prevView = viewControllers[i - 1].view!
                 constraints.append(contentsOf: [
-                    viewController.view.topAnchor.constraint(equalTo: prevView.topAnchor),
+                    // viewController.view.topAnchor.constraint(equalTo: prevView.topAnchor),
                     viewController.view.leadingAnchor.constraint(equalTo: prevView.trailingAnchor),
                 ])
             }
@@ -237,9 +238,9 @@ public class WSegmentedController: WTouchPassView {
             segmentedControl.centerXAnchor.constraint(equalTo: centerXAnchor),
             segmentedControl.topAnchor.constraint(
                 equalTo: topAnchor,
-                constant: (barHeight - 24) / 2 + 3
+                constant: (barHeight - SegmentedControlConstants.height) / 2 + 3 - SegmentedControlConstants.topInset
             ),
-            segmentedControl.heightAnchor.constraint(equalToConstant: SegmentedControlConstants.height),
+            segmentedControl.heightAnchor.constraint(equalToConstant: SegmentedControlConstants.fullHeight),
             segmentedControl.widthAnchor.constraint(equalTo: widthAnchor)
         ])
 
@@ -252,9 +253,13 @@ public class WSegmentedController: WTouchPassView {
 
     public func replace(items: [SegmentedControlItem], force: Bool = false) {
         let viewControllers = items.map(\.viewController)
+        
+        // Remember current selection and tray to restore it later. For the very first time
+        // if effectively would be resolved to the first item in the list
+        let oldSelectedID = model.selection?.effectiveSelectedItemID
+        
         UIView.performWithoutAnimation {
             let oldViewControllers = self.viewControllers ?? []
-            let oldSelected = selectedIndex.flatMap { oldViewControllers[$0] }
             let oldItems = model.items
 
             if items == oldItems && zip(viewControllers, oldViewControllers).allSatisfy({ $0 === $1 }) && !force {
@@ -273,10 +278,10 @@ public class WSegmentedController: WTouchPassView {
 
             // Add all view-controllers
             for (i, viewController) in viewControllers.enumerated() {
-                if viewController === oldSelected {
+                if items[i].id == oldSelectedID {
                     newSelected = i
                 }
-
+                
                 viewController.view.translatesAutoresizingMaskIntoConstraints = false
                 self.viewControllers[i].onScroll = { [weak self] y in
                     guard let self else {return}
@@ -286,17 +291,16 @@ public class WSegmentedController: WTouchPassView {
                 constraints.append(contentsOf: [
                     viewController.view.widthAnchor.constraint(equalTo: widthAnchor),
                     viewController.view.heightAnchor.constraint(equalTo: scrollView.heightAnchor),
+                    viewController.view.topAnchor.constraint(equalTo: scrollView.topAnchor),
                 ])
                 if i == 0 {
                     contentLeadingConstraint = scrollView.contentLayoutGuide.leadingAnchor.constraint(equalTo: viewController.view.leadingAnchor)
                     constraints.append(contentsOf: [
-                        viewController.view.topAnchor.constraint(equalTo: scrollView.topAnchor),
                         contentLeadingConstraint,
                     ])
                 } else {
                     let prevView = viewControllers[i - 1].view!
                     constraints.append(contentsOf: [
-                        viewController.view.topAnchor.constraint(equalTo: prevView.topAnchor),
                         viewController.view.leadingAnchor.constraint(equalTo: prevView.trailingAnchor),
                     ])
                 }
@@ -307,12 +311,14 @@ public class WSegmentedController: WTouchPassView {
                 }
                 viewController.scrollToTop(animated: false)
             }
-
+            
             NSLayoutConstraint.activate(constraints)
-
+            
             scrollViewWidthConstraint?.isActive = false
             scrollViewWidthConstraint = scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: scrollView.widthAnchor, multiplier: CGFloat(viewControllers.count))
             scrollViewWidthConstraint.isActive = true
+            
+            syncContentOffsetWitgSelectedItemIndex(newSelected)
 
             bringSubviewToFront(scrollView)
             bringSubviewToFront(separator)
@@ -333,6 +339,35 @@ public class WSegmentedController: WTouchPassView {
                 }
             }
         }
+    }
+    
+    private func syncContentOffsetWitgSelectedItemIndex(_ selectedItemIndex: Int) {
+        let viewportWidth = scrollView.frame.width
+        if viewportWidth > 0 {
+            let targetPointX = CGFloat(selectedItemIndex) * viewportWidth
+            let progress = targetPointX / viewportWidth
+            delegate?.segmentedController(scrollOffsetChangedTo: progress)
+            scrollView.setContentOffset(CGPoint(x: targetPointX, y: 0), animated: false)
+        }
+    }
+
+    private var lastWidthForRecalculation: CGFloat = 0
+    
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+
+        let viewportWidth = scrollView.frame.width
+        guard viewportWidth > 0,
+            viewportWidth != lastWidthForRecalculation,
+            !scrollView.isDragging,
+            !scrollView.isDecelerating,
+            let selection = model.selection,
+            let index = model.getItemIndexById(itemId: selection.effectiveSelectedItemID) else {
+            return
+        }
+
+        lastWidthForRecalculation = viewportWidth
+        syncContentOffsetWitgSelectedItemIndex(index)
     }
 
     @objc public func handleSegmentChange(to index: Int, animated: Bool) {

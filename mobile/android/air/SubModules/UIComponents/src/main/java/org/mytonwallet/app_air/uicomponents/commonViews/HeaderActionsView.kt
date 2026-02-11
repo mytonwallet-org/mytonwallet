@@ -20,12 +20,16 @@ import androidx.core.graphics.toColorInt
 import androidx.core.view.get
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.sp
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Positioning
 import org.mytonwallet.app_air.walletbasecontext.R
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
@@ -41,6 +45,7 @@ class HeaderActionsView(
     context: Context,
     var tabs: List<Item>,
     var onClick: ((Identifier) -> Unit)?,
+    var isSellAllowed: Boolean = false,
 ) : WCell(context), WThemedView {
 
     private var actionViews = HashMap<Identifier, View>()
@@ -132,9 +137,22 @@ class HeaderActionsView(
                         leftMargin = 11.dp
                     }
                 })
+            val identifier = tabsLocalized[index].identifier
             itemView.setOnClickListener {
-                if (alpha > 0)
-                    onClick?.invoke(tabsLocalized[index].identifier)
+                if (alpha > 0) {
+                    onClick?.invoke(identifier)
+                }
+            }
+            if (identifier == Identifier.SEND) {
+                itemView.setOnLongClickListener {
+                    if (alpha > 0) {
+                        if (!isSellAllowed) return@setOnLongClickListener false
+                        Haptics.play(this, HapticType.LIGHT_TAP)
+                        presentSendSellMenu(itemView)
+                        return@setOnLongClickListener true
+                    }
+                    return@setOnLongClickListener false
+                }
             }
         }
         setConstraints {
@@ -165,6 +183,28 @@ class HeaderActionsView(
         }
     }
 
+    private fun presentSendSellMenu(anchorView: View) {
+        if (!isSellAllowed) return
+        WMenuPopup.present(
+            anchorView,
+            listOf(
+                WMenuPopup.Item(
+                    R.drawable.ic_header_popup_menu_send_outline,
+                    LocaleController.getString("Send"),
+                ) {
+                    onClick?.invoke(Identifier.SEND)
+                },
+                WMenuPopup.Item(
+                    R.drawable.ic_header_popup_menu_sell_outline,
+                    LocaleController.getString("Sell"),
+                ) {
+                    onClick?.invoke(Identifier.SELL)
+                }
+            ),
+            positioning = Positioning.BELOW
+        )
+    }
+
     data class Item(
         val identifier: Identifier,
         val icon: Drawable,
@@ -174,6 +214,7 @@ class HeaderActionsView(
     enum class Identifier {
         RECEIVE,
         SEND,
+        SELL,
         EARN,
         SWAP,
         LOCK_APP,
@@ -357,7 +398,11 @@ class HeaderActionsView(
                     Item(
                         Identifier.SEND,
                         ContextCompat.getDrawable(context, R.drawable.ic_header_send_outline)!!,
-                        LocaleController.getString("Send")
+                        if (LocaleController.activeLanguage.langCode == "en") {
+                            "${LocaleController.getString("Send")} / ${LocaleController.getString("Sell")}"
+                        } else {
+                            LocaleController.getString("Send")
+                        }
                     )
                 )
                 add(

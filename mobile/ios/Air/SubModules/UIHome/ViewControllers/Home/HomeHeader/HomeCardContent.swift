@@ -34,6 +34,9 @@ struct HomeCardContent: View {
                     .frame(maxHeight: .infinity, alignment: .bottom)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .top) {
+                SeasonalOverlay(seasonalTheme: headerViewModel.seasonalTheme)
+            }
             .opacity(headerViewModel.isCardHidden ? 0 : 1)
         }
     }

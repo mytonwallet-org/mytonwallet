@@ -35,7 +35,6 @@ import {
 import { hexToBytes } from './utils';
 
 const actualStateVersion = 21;
-let migrationEnsurePromise: Promise<void>;
 
 export function buildLocalTransaction(
   params: ApiLocalTransactionParams,
@@ -101,20 +100,16 @@ export function isUpdaterAlive(onUpdate: OnApiUpdate) {
   return currentOnUpdate === onUpdate;
 }
 
-export function startStorageMigration(onUpdate: OnApiUpdate, ton: typeof tonSdk, accountIds?: string[]) {
-  migrationEnsurePromise = migrateStorage(onUpdate, ton, accountIds)
-    .catch((err) => {
-      logDebugError('Migration error', err);
-      currentOnUpdate?.({
-        type: 'showError',
-        error: 'Migration error',
-      });
+export async function tryMigrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, accountIds?: string[]) {
+  try {
+    return await migrateStorage(onUpdate, ton, accountIds);
+  } catch (err) {
+    logDebugError('Migration error', err);
+    onUpdate?.({
+      type: 'showError',
+      error: 'Migration error',
     });
-  return migrationEnsurePromise;
-}
-
-export function waitStorageMigration() {
-  return migrationEnsurePromise;
+  }
 }
 
 export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, accountIds?: string[]) {
@@ -485,7 +480,6 @@ async function migrateCoreWallet(onUpdate: OnApiUpdate) {
     words,
     publicKey,
     isTonProxyEnabled,
-    isTonMagicEnabled,
   ] = await Promise.all([
     currentStorage.getItem('walletVersion' as StorageKey),
     currentStorage.getItem('isTestnet' as StorageKey),
@@ -493,7 +487,6 @@ async function migrateCoreWallet(onUpdate: OnApiUpdate) {
     currentStorage.getItem('words' as StorageKey),
     currentStorage.getItem('publicKey' as StorageKey),
     currentStorage.getItem('proxy' as StorageKey),
-    currentStorage.getItem('magic' as StorageKey),
   ]);
 
   if (isTestnet) {
@@ -550,12 +543,11 @@ async function migrateCoreWallet(onUpdate: OnApiUpdate) {
       secondAccountId,
       secondAddress,
       isTonProxyEnabled,
-      isTonMagicEnabled,
     });
 
     // Clean up storage after migrate the app from Core Wallet
     [
-      'walletVersion', 'isTestnet', 'words', 'address', 'publicKey', 'magic', 'proxy', 'isLedger',
+      'walletVersion', 'isTestnet', 'words', 'address', 'publicKey', 'proxy', 'isLedger',
       'ledgerTransportType', '__time', 'isDebug',
     ].forEach((key) => {
       void currentStorage.removeItem(key as StorageKey);

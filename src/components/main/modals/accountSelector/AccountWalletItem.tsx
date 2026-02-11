@@ -3,6 +3,7 @@ import React, { type ElementRef, useRef } from '../../../../lib/teact/teact';
 import type { ApiNft } from '../../../../api/types';
 import type { Account, AccountType } from '../../../../global/types';
 import type { Layout } from '../../../../hooks/useMenuPosition';
+import type { AccountBalance } from './hooks/useAccountsBalances';
 
 import buildClassName from '../../../../util/buildClassName';
 import { OPEN_CONTEXT_MENU_CLASS_NAME } from './constants';
@@ -26,11 +27,7 @@ interface OwnProps {
   byChain: Account['byChain'];
   accountType: AccountType;
   title?: string;
-  balanceData?: {
-    wholePart: string;
-    fractionPart?: string;
-    currencySymbol: string;
-  };
+  balanceData?: AccountBalance;
   cardBackgroundNft?: ApiNft;
   withContextMenu?: boolean;
   isSensitiveDataHidden?: true;

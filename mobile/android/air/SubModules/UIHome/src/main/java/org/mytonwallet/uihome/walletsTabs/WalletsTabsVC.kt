@@ -297,7 +297,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
     override fun didSetupViews() {
         super.didSetupViews()
         bottomReversedCornerView?.updateLayoutParams {
-            height = ViewConstants.BAR_ROUNDS.dp.roundToInt() +
+            height = ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
                 ViewConstants.GAP.dp +
                 50.dp +
                 16.dp +
@@ -361,7 +361,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
 
     private fun updateBackground() {
         val expandProgress = 10f / 3f * (((modalExpandProgress ?: 0f) - 0.7f).coerceIn(0f, 1f))
-        val topRadius = (1 - expandProgress) * ViewConstants.BIG_RADIUS.dp
+        val topRadius = (1 - expandProgress) * ViewConstants.BLOCK_RADIUS.dp
         view.setBackgroundColor(
             WColor.SecondaryBackground.color,
             topRadius,
@@ -469,7 +469,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         if (expandProgress < 1) {
             topReversedCornerView?.setBackgroundColor(
                 Color.TRANSPARENT,
-                min(1f, ((1 - expandProgress) * 5)) * ViewConstants.BIG_RADIUS.dp,
+                min(1f, ((1 - expandProgress) * 5)) * ViewConstants.BLOCK_RADIUS.dp,
                 0f,
                 true
             )

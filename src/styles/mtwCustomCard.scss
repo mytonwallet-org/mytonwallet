@@ -20,7 +20,7 @@
 }
 
 .MtwCard__standard:not(.MtwCard__darkText) {
-  --color-card-button: #FFFFFF59;
+  --color-card-button: #FFFFFF29;
 }
 
 .MtwCard__black {
@@ -81,7 +81,7 @@
   }
 
   .MtwCard__silver & {
-    background-image: radial-gradient(71.7% 170.29% at 28.3% 50%, #272727 0%, #989898 100%);
+    background-image: radial-gradient(71.63% 170.11% at 28.37% 50%, #272727 0%, #989898 100%);
 
     > .icon {
       background-color: #989898;
@@ -108,10 +108,10 @@
   }
 
   .MtwCard__black & {
-    background-image: radial-gradient(71.7% 170.29% at 28.3% 50%, #CECECF 0%, #444546 100%);
+    background-image: radial-gradient(71.63% 170.11% at 28.37% 50%, #CECECF 0%, #444546 100%);
 
     > .icon {
-      background-color: rgba(255, 255, 255, 0.3);
+      background-color: #444546;
       background-image: none;
     }
   }

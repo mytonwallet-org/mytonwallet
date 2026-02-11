@@ -118,7 +118,7 @@ class AppearancePaletteView(
     override fun updateTheme() {
         setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         titleLabel.setTitleColor(overrideTintColor ?: WColor.Tint.color)
         if (showUnlockButton) {

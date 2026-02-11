@@ -114,12 +114,12 @@ class SearchHistoryCell(context: Context) :
         setBackgroundColor(
             WColor.Background.color,
             0f,
-            if (isLastItem) ViewConstants.STANDARD_ROUNDS.dp else 0f
+            if (isLastItem) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         addRippleEffect(
             WColor.BackgroundRipple.color,
             0f,
-            if (isLastItem) ViewConstants.STANDARD_ROUNDS.dp else 0f
+            if (isLastItem) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         historyDrawable?.setTint(WColor.SecondaryText.color)
     }

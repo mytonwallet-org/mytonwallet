@@ -5,7 +5,6 @@ import {
   MYCOIN_MAINNET,
   MYCOIN_TESTNET,
   PRICELESS_TOKEN_HASHES,
-  PRIORITY_TOKEN_SLUGS,
   TINY_TRANSFER_MAX_COST,
   TONCOIN,
 } from '../../config';
@@ -15,6 +14,7 @@ import { getDefaultEnabledSlugs } from '../../util/chain';
 import { toBig } from '../../util/decimals';
 import memoize from '../../util/memoize';
 import { round } from '../../util/round';
+import { sortTokens } from '../../util/tokens';
 import withCache from '../../util/withCache';
 import {
   selectAccountSettings,
@@ -44,15 +44,15 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
   balancesBySlug: ApiBalanceBySlug,
   tokenInfo: GlobalState['tokenInfo'],
   accountSettings: AccountSettings = {},
-  isSortByValueEnabled: boolean = false,
   areTokensWithNoCostHidden: boolean = false,
   baseCurrency: ApiBaseCurrency,
   currencyRates: ApiCurrencyRates,
 ) => {
   const { network } = parseAccountId(accountId);
   const isNewAccount = getIsNewAccount(balancesBySlug, tokenInfo, network);
+  const pinnedSlugs = accountSettings.pinnedSlugs ?? [];
 
-  return Object
+  const tokens = Object
     .entries(balancesBySlug)
     .filter(([slug]) => (slug in tokenInfo.bySlug && !accountSettings.deletedSlugs?.includes(slug)))
     .map(([slug, balance]): UserToken => {
@@ -97,28 +97,9 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
         type,
         label,
       };
-    })
-    .sort((tokenA, tokenB) => {
-      if (isSortByValueEnabled || !accountSettings.orderedSlugs) {
-        const priorityA = PRIORITY_TOKEN_SLUGS.indexOf(tokenA.slug);
-        const priorityB = PRIORITY_TOKEN_SLUGS.indexOf(tokenB.slug);
-
-        // If both tokens are prioritized and their balances match
-        if (priorityA !== -1 && priorityB !== -1 && tokenA.totalValue === tokenB.totalValue) {
-          return priorityA - priorityB;
-        }
-
-        // If one token is prioritized and the other is not
-        if (priorityA !== -1 && priorityB === -1) return -1;
-        if (priorityB !== -1 && priorityA === -1) return 1;
-
-        return Number(tokenB.totalValue) - Number(tokenA.totalValue);
-      }
-
-      const indexA = accountSettings.orderedSlugs.indexOf(tokenA.slug);
-      const indexB = accountSettings.orderedSlugs.indexOf(tokenB.slug);
-      return indexA - indexB;
     });
+
+  return sortTokens(tokens, pinnedSlugs);
 }));
 
 export function selectCurrentAccountTokens(global: GlobalState) {
@@ -141,13 +122,12 @@ export function selectAccountTokens(global: GlobalState, accountId: string) {
   }
 
   const accountSettings = selectAccountSettings(global, accountId);
-  const { areTokensWithNoCostHidden, isSortByValueEnabled, baseCurrency } = global.settings;
+  const { areTokensWithNoCostHidden, baseCurrency } = global.settings;
 
   return selectAccountTokensMemoizedFor(accountId)(
     balancesBySlug,
     global.tokenInfo,
     accountSettings,
-    isSortByValueEnabled,
     areTokensWithNoCostHidden,
     baseCurrency,
     global.currencyRates,
@@ -204,7 +184,6 @@ export function selectMultipleAccountsTokensSlow(
   byAccountId: GlobalState['byAccountId'],
   tokenInfo: GlobalState['tokenInfo'],
   settingsByAccountId: Record<string, AccountSettings>,
-  isSortByValueEnabled: boolean | undefined,
   areTokensWithNoCostHidden: boolean | undefined,
   baseCurrency: ApiBaseCurrency,
   currencyRates: ApiCurrencyRates,
@@ -224,7 +203,6 @@ export function selectMultipleAccountsTokensSlow(
       balancesBySlug,
       tokenInfo,
       accountSettings,
-      isSortByValueEnabled,
       areTokensWithNoCostHidden,
       baseCurrency,
       currencyRates,

@@ -62,3 +62,7 @@
   width: var(--spoiler-width);
   white-space: nowrap;
 }
+
+.noninteractive {
+  pointer-events: none;
+}

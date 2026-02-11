@@ -19,7 +19,7 @@ import WalletCore
 
 private let log = Log("SplashVC")
 
-class SplashVC: WViewController {
+final class SplashVC: WViewController {
 
     // splash view model, responsible to initialize wallet context and get wallet info
     lazy var splashVM = SplashVM(splashVMDelegate: self)
@@ -264,8 +264,12 @@ extension SplashVC: DeeplinkNavigator {
             case .receive:
                 AppActions.showReceive(chain: nil, title: nil)
 
-            case .explore:
-                AppActions.showExplore()
+            case .explore(siteHost: let siteHost):
+                if let siteHost {
+                    AppActions.showExploreSite(siteHost: siteHost)
+                } else {
+                    AppActions.showExplore()
+                }
 
             case .tokenSlug(slug: let slug):
                 AppActions.showTokenBySlug(slug)
@@ -275,6 +279,9 @@ extension SplashVC: DeeplinkNavigator {
                 
             case .transaction(let chain, let txId):
                 AppActions.showActivityDetailsById(chain: chain, txId: txId, showError: true)
+
+            case .nftAddress(let nftAddress):
+                AppActions.showNftByAddress(nftAddress)
                 
             case .view(let addressOrDomainByChain):
                 AppActions.showTemporaryViewAccount(addressOrDomainByChain: addressOrDomainByChain)

@@ -32,7 +32,6 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -126,7 +125,7 @@ class AddressPopupHelpers {
             displayProgressListener: ((progress: Float) -> Unit)? = null,
         ) {
             val context = viewController.get()?.view?.context ?: return
-            val addressSaved = AddressStore.getAddress(address) != null
+            val addressSaved = AddressStore.getSavedAddress(address) != null
             WMenuPopup.present(
                 view,
                 listOfNotNull(
@@ -188,13 +187,13 @@ class AddressPopupHelpers {
                         },
                         LocaleController.getString(
                             if (addressSaved) {
-                                "Remove From Saved"
+                                "Remove from Saved"
                             } else {
                                 "Save Address"
                             }
                         ),
                     ) {
-                        if (AddressStore.getAddress(address) == null) {
+                        if (AddressStore.getSavedAddress(address) == null) {
                             saveAddressPressed(
                                 address,
                                 blockchain.name,

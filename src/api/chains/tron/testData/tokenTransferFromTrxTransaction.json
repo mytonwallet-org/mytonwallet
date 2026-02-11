@@ -1,0 +1,19 @@
+{
+  "txID": "4e32d8a6a8bee4843253758c2753e3c69c7df7f449ac3a5d963002879f21fe9c",
+  "block_timestamp": 1767895125000,
+  "ret": [{ "fee": 13028500 }],
+  "raw_data": {
+    "contract": [
+      {
+        "type": "TriggerSmartContract",
+        "parameter": {
+          "value": {
+            "owner_address": "411b056dbe2aac5060aa09e5b46e6c4d2c92812fe7",
+            "contract_address": "41a614f803b6fd780986a42c78ec9c7f77e6ded13c",
+            "data": "23b872dd0000000000000000000000000b6d87c6686a38583731de249e18c01f98efc64e000000000000000000000000657c889b4b421552084bf877efaf24f665576c330000000000000000000000000000000000000000000000000000000001e283d1"
+          }
+        }
+      }
+    ]
+  }
+}

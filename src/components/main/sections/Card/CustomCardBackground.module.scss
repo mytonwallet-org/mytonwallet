@@ -97,11 +97,11 @@
 }
 
 :global(.MtwCard__black)::before {
-  background-image: radial-gradient(23.98% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
-                    linear-gradient(258.61deg, rgba(255, 255, 255, 0.24) 33.38%, rgba(255, 255, 255, 0.48) 48.39%) !important;
+  background-image: radial-gradient(28.79% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
+                    linear-gradient(258.61deg, rgba(255, 255, 255, 0.12) 33.38%, rgba(255, 255, 255, 0.24) 48.39%) !important;
 
   :global(html.theme-dark) & {
-    background-image: radial-gradient(23.98% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
+    background-image: radial-gradient(28.79% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
                       linear-gradient(258.61deg, rgba(255, 255, 255, 0.06) 33.38%, rgba(255, 255, 255, 0.12) 48.39%) !important;
   }
 }

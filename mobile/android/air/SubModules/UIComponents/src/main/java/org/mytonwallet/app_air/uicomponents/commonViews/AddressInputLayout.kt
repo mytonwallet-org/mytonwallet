@@ -21,6 +21,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
 import androidx.core.view.isGone
+import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.widget.addTextChangedListener
 import androidx.core.widget.doOnTextChanged
@@ -131,6 +132,8 @@ class AddressInputLayout(
         }
     }
 
+    private var isEditable = true
+
     private val textField = object : AppCompatEditText(context) {
         override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
             val ic = super.onCreateInputConnection(outAttrs) ?: return null
@@ -210,6 +213,7 @@ class AddressInputLayout(
             }
         }
         doOnTextChanged { t, _, _, _ ->
+            if (!isEditable) return@doOnTextChanged
             if (showCloseOnTextEditing) {
                 if (!t.isNullOrEmpty()) {
                     setButtonsVisible(false) {
@@ -269,7 +273,8 @@ class AddressInputLayout(
         }
     }
 
-    private var autocompleteResult: AutocompleteResult? = null
+    var autocompleteResult: AutocompleteResult? = null
+        private set
 
     val autoCompleteView = WAutoCompleteView(context, onSuggest = {
         onSuggestSelected(it)
@@ -368,7 +373,7 @@ class AddressInputLayout(
         textField.setHintTextColor(WColor.SecondaryText.color)
         textField.highlightColor = WColor.Tint.color.colorWithAlpha(51)
         EditTextTint.applyColor(textField, WColor.Tint.color)
-        overlayLabel.setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp)
+        overlayLabel.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
         updateOverlayText()
         closeButton.apply {
             setBackgroundColor(WColor.SecondaryBackground.color, 10f.dp)
@@ -469,6 +474,29 @@ class AddressInputLayout(
         textField.clearFocus()
     }
 
+    fun setEditable(isEditable: Boolean) {
+        this.isEditable = isEditable
+        textField.apply {
+            isEnabled = isEditable
+            isFocusable = isEditable
+            isFocusableInTouchMode = isEditable
+            isCursorVisible = isEditable
+            setTextIsSelectable(isEditable)
+        }
+        pasteTextView.apply {
+            isVisible = isEditable && textField.text.isNullOrEmpty()
+            isEnabled = isEditable
+        }
+        qrScanImageView.apply {
+            isVisible = isEditable && textField.text.isNullOrEmpty()
+            isEnabled = isEditable
+        }
+        closeButton.isEnabled = isEditable
+        if (!isEditable) {
+            hideOverlayViews()
+        }
+    }
+
     @SuppressLint("SetTextI18n")
     private fun onSuggestSelected(savedAddress: MSavedAddress) {
         setAddress(savedAddress)
@@ -489,6 +517,10 @@ class AddressInputLayout(
     private fun showOverlayViews() {
         overlayLabel.isGone = false
         textField.isGone = true
+        if (!isEditable) {
+            closeButton.isGone = true
+            return
+        }
         if (!showCloseOnTextEditing) {
             closeButton.isGone = false
         }
@@ -497,6 +529,10 @@ class AddressInputLayout(
     private fun hideOverlayViews() {
         overlayLabel.isGone = true
         textField.isGone = false
+        if (!isEditable) {
+            closeButton.isGone = true
+            return
+        }
         if (!showCloseOnTextEditing) {
             closeButton.isGone = true
         }
@@ -525,7 +561,9 @@ class AddressInputLayout(
     }
 
     private fun updateTextFieldPadding() {
-        val rightPadding = if (textField.text.isNullOrEmpty()) {
+        val rightPadding = if (!isEditable) {
+            20.dp
+        } else if (textField.text.isNullOrEmpty()) {
             val pasteTextWidth =
                 pasteTextView.paint.measureText(LocaleController.getString("Paste")).toInt()
             (20.dp + 24.dp + 12.dp + pasteTextWidth + 8.dp)
@@ -565,7 +603,7 @@ class AddressInputLayout(
         }
     }
 
-    private data class AutocompleteResult(
+    data class AutocompleteResult(
         val account: MAccount? = null,
         val savedAddress: MSavedAddress? = null
     ) {

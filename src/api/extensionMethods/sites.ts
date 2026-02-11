@@ -19,26 +19,15 @@ export function initSiteMethods(_onPopupUpdate: OnApiUpdate) {
   resolveDappPromise('whenPopupReady');
 }
 
-export async function connectSite(
-  onSiteUpdate: OnApiSiteUpdate,
-  onSiteSendUpdates: (x: OnApiSiteUpdate) => Promise<void>, // TODO Remove this when deleting the legacy provider
-) {
+export async function connectSite(onSiteUpdate: OnApiSiteUpdate) {
   siteUpdaters.push(onSiteUpdate);
-  const isTonMagicEnabled = await storage.getItem('isTonMagicEnabled');
   const isDeeplinkHookEnabled = await storage.getItem('isDeeplinkHookEnabled');
 
   function sendUpdates() {
     onSiteUpdate({
-      type: 'updateTonMagic',
-      isEnabled: Boolean(isTonMagicEnabled),
-    });
-
-    onSiteUpdate({
       type: 'updateDeeplinkHook',
       isEnabled: Boolean(isDeeplinkHookEnabled),
     });
-
-    void onSiteSendUpdates(onSiteUpdate);
   }
 
   sendUpdates();

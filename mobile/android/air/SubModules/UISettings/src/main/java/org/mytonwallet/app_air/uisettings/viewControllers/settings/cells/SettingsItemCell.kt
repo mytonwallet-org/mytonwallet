@@ -174,13 +174,13 @@ class SettingsItemCell(
     override fun updateTheme() {
         contentView.setBackgroundColor(
             WColor.Background.color,
-            if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f.dp,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp
+            if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f.dp,
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f.dp
         )
         contentView.addRippleEffect(
             WColor.SecondaryBackground.color,
-            if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f.dp,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp
+            if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f.dp,
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f.dp
         )
         titleLabel.setTextColor(WColor.PrimaryText.color)
         valueLabel.setTextColor(WColor.SecondaryText.color)

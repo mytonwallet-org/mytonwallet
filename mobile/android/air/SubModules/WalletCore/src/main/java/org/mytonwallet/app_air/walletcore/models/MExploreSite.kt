@@ -1,5 +1,7 @@
 package org.mytonwallet.app_air.walletcore.models
 
+import android.net.Uri
+import androidx.core.net.toUri
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.moshi.IDapp
@@ -30,6 +32,7 @@ class MExploreSite(json: JSONObject) : WEquatable<MExploreSite>, IDapp {
     val description: String? = json.optString("description")
     override val iconUrl: String? = json.optString("icon")
     override val url: String? = json.optString("url")
+    val uri: Uri? by lazy { url?.toUri() }
     val isFeatured = json.optBoolean("isFeatured")
     val categoryId = json.optInt("categoryId")
     val extendedIcon: String = json.optString("extendedIcon")

@@ -84,8 +84,6 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.setBaseCurrency
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
-import org.mytonwallet.app_air.walletcore.models.IInAppBrowser
-import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
@@ -93,6 +91,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.uihome.home.views.UpdateStatusView
+import org.mytonwallet.uihome.home.views.header.seasonal.SeasonalOverlayView
 import java.math.BigInteger
 import kotlin.math.absoluteValue
 import kotlin.math.max
@@ -334,6 +333,10 @@ class WalletCardView(
         else
             null
 
+    private val seasonalOverlayView = SeasonalOverlayView(context).apply {
+        id = generateViewId()
+    }
+
     private val contentView: WView by lazy {
         val v = WView(context).apply {
             clipChildren = false
@@ -342,6 +345,7 @@ class WalletCardView(
         val maxBottomContainerWidth = max(240.dp, window.windowView.width - (34 + 96).dp)
         v.addView(img, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         v.addView(shiningView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        v.addView(seasonalOverlayView, LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
         v.addView(miniPlaceholders)
         v.addView(balanceViewContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         balanceChangeBlurView?.let { balanceChangeBlurView ->
@@ -356,6 +360,7 @@ class WalletCardView(
 
         v.setConstraints {
             allEdges(img)
+            allEdges(seasonalOverlayView)
             toCenterX(miniPlaceholders)
             toTop(miniPlaceholders)
             toTop(balanceViewContainer)
@@ -407,6 +412,8 @@ class WalletCardView(
                 return@setOnClickListener
             addressLabelTapped()
         }
+
+        updateSeasonalTheme()
     }
 
     override fun onAttachedToWindow() {
@@ -659,6 +666,10 @@ class WalletCardView(
         addressLabel.displayAddresses(account, WMultichainAddressLabel.walletExpandStyle)
     }
 
+    fun updateSeasonalTheme() {
+        seasonalOverlayView.updateSeasonalTheme()
+    }
+
     var headerMode = HomeHeaderView.DEFAULT_MODE
         set(value) {
             field = value
@@ -676,9 +687,11 @@ class WalletCardView(
         if (animated) {
             miniPlaceholders.fadeOut(AnimationConstants.INSTANT_ANIMATION)
             shiningView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
+            seasonalOverlayView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
         } else {
             miniPlaceholders.alpha = 0f
             shiningView.alpha = 1f
+            seasonalOverlayView.alpha = 1f
         }
         startSensorListening()
     }
@@ -693,9 +706,11 @@ class WalletCardView(
             miniPlaceholders.alpha = 0f
             miniPlaceholders.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
             shiningView.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION)
+            seasonalOverlayView.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION)
         } else {
             miniPlaceholders.alpha = 1f
             shiningView.alpha = 0f
+            seasonalOverlayView.alpha = 0f
         }
     }
 

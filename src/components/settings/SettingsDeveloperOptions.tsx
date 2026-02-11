@@ -2,11 +2,11 @@ import React, { memo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiNetwork } from '../../api/types';
-import type { Account } from '../../global/types';
+import type { Account, DeveloperSettingsOverrides } from '../../global/types';
 import type { DropdownItem } from '../ui/Dropdown';
 
 import { APP_COMMIT_HASH, APP_ENV, APP_VERSION, IS_CORE_WALLET, IS_EXTENSION, IS_TELEGRAM_APP } from '../../config';
-import { selectCurrentAccountId, selectIsMultichainAccount } from '../../global/selectors';
+import { selectCurrentAccountId, selectIsMultichainAccount, selectSeasonalThemeOverride } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { copyTextToClipboard } from '../../util/clipboard';
 import { getBuildPlatform, getFlagsValue } from '../../util/getBuildPlatform';
@@ -39,7 +39,10 @@ interface StateProps {
   currentAccountId?: string;
   accountsById?: Record<string, Account>;
   canViewAllWalletVersions: boolean;
+  seasonalThemeOverride?: DeveloperSettingsOverrides['seasonalTheme'];
 }
+
+type SeasonalThemeOverrideOption = NonNullable<DeveloperSettingsOverrides['seasonalTheme']> | 'default';
 
 const NETWORK_OPTIONS: DropdownItem<ApiNetwork>[] = [{
   value: 'mainnet',
@@ -47,6 +50,20 @@ const NETWORK_OPTIONS: DropdownItem<ApiNetwork>[] = [{
 }, {
   value: 'testnet',
   name: 'Testnet',
+}];
+
+const SEASONAL_THEME_OVERRIDE_OPTIONS: DropdownItem<SeasonalThemeOverrideOption>[] = [{
+  value: 'default',
+  name: 'Auto',
+}, {
+  value: '__undefined',
+  name: 'None',
+}, {
+  value: 'newYear',
+  name: 'New Year',
+}, {
+  value: 'valentine',
+  name: 'Valentine',
 }];
 
 // iOS allows downloading files even in TMA, however, in other platforms,
@@ -63,9 +80,11 @@ function SettingsDeveloperOptions({
   currentAccountId,
   accountsById,
   canViewAllWalletVersions,
+  seasonalThemeOverride,
 }: OwnProps & StateProps) {
   const {
     startChangingNetwork,
+    setDeveloperSettingsOverride,
     closeSettings,
     openAddAccountModal,
     copyStorageData,
@@ -83,6 +102,13 @@ function SettingsDeveloperOptions({
     onClose();
     closeSettings();
     openAddAccountModal({ forceAddingTonOnlyAccount: true });
+  });
+
+  const handleSeasonalThemeOverrideChange = useLastCallback((newValue: SeasonalThemeOverrideOption) => {
+    setDeveloperSettingsOverride({
+      key: 'seasonalTheme',
+      value: newValue === 'default' ? undefined : newValue,
+    });
   });
 
   const handleDownloadLogs = useLastCallback(async () => {
@@ -143,6 +169,19 @@ function SettingsDeveloperOptions({
         </div>
       </div>
 
+      <p className={styles.blockTitle}>{lang('Overrides')}</p>
+      <div className={styles.settingsBlock}>
+        <Dropdown
+          label={lang('Seasonal Theme Override')}
+          items={SEASONAL_THEME_OVERRIDE_OPTIONS}
+          selectedValue={seasonalThemeOverride ?? 'default'}
+          theme="light"
+          arrow="chevron"
+          className={buildClassName(styles.item, styles.item_small)}
+          onChange={handleSeasonalThemeOverrideChange}
+        />
+      </div>
+
       {isCopyStorageEnabled && (
         <>
           <p className={styles.blockTitle}>{lang('Dangerous')}</p>
@@ -190,6 +229,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     currentAccountId,
     accountsById,
     canViewAllWalletVersions,
+    seasonalThemeOverride: selectSeasonalThemeOverride(global),
   };
 })(SettingsDeveloperOptions));
 

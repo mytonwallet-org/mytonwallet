@@ -140,15 +140,15 @@ class HomeAssetsCell(
     private var _lastBigRadius: Float? = null
     override fun updateTheme() {
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-        val radiusChanged = _lastBigRadius != ViewConstants.BIG_RADIUS
+        val radiusChanged = _lastBigRadius != ViewConstants.BLOCK_RADIUS
         _isDarkThemeApplied = ThemeManager.isDark
-        _lastBigRadius = ViewConstants.BIG_RADIUS
+        _lastBigRadius = ViewConstants.BLOCK_RADIUS
         if (segmentedController.isTinted || darkModeChanged)
             segmentedController.updateTheme()
         if (darkModeChanged || radiusChanged)
             segmentedController.setBackgroundColor(
                 WColor.Background.color,
-                ViewConstants.BIG_RADIUS.dp,
+                ViewConstants.BLOCK_RADIUS.dp,
                 true
             )
         segmentedController.items.forEach {

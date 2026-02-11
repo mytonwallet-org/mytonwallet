@@ -80,7 +80,7 @@ class AccountDialogHelpers {
                     .toProcessedSpannableStringBuilder(),
                 LocaleController.getString("Sign Out"),
                 {
-                    signOutPressed(window, account, notifyAccountChange = true)
+                    signout(window, account, notifyAccountChange = true)
                 },
                 LocaleController.getString("Cancel"),
                 preferPrimary = false,
@@ -109,7 +109,7 @@ class AccountDialogHelpers {
                             )
                             return
                         }
-                        signOutPressed(
+                        signout(
                             window,
                             accountsToRemove[index],
                             notifyAccountChange = false
@@ -125,7 +125,7 @@ class AccountDialogHelpers {
             )
         }
 
-        private fun signOutPressed(
+        private fun signout(
             window: WWindow,
             removingAccount: MAccount,
             notifyAccountChange: Boolean,
@@ -155,6 +155,7 @@ class AccountDialogHelpers {
                 if (switchInstantly) accountIds.find { it !== AccountStore.activeAccountId }!! else null
             if (nextAccountId == null && WGlobalStorage.getActiveAccountId() == removingAccountId) {
                 // Permanent active account is being removed with no replacement, replace it!
+                //  This happens when user pushes a temporary-wallet and remove the active (permanent) account.
                 WGlobalStorage.setActiveAccountId(
                     accountIds.find { it !== AccountStore.activeAccountId },
                     true

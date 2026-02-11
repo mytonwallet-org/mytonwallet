@@ -13,7 +13,6 @@ import WalletContext
 import SwiftUI
 
 public class ConnectedAppsVC: WViewController, UICollectionViewDelegate {
-    
     private enum Section: Hashable {
         case main
     }
@@ -302,11 +301,7 @@ private struct DappCellContent: View {
     
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            AsyncImage(url: URL(string: dapp.iconUrl)) { image in
-                image.resizable()
-            } placeholder: {
-                Color.gray.opacity(0.2)
-            }
+            DappIcon(iconUrl: dapp.iconUrl)
             .frame(width: 40, height: 40)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             

@@ -47,6 +47,7 @@ interface OwnProps {
 }
 
 const CONTEXT_MENU_VERTICAL_SHIFT_PX = 6;
+const NARROW_SCREEN_WIDTH_PX = 374;
 
 function AccountWalletCard({
   isActive,
@@ -76,7 +77,8 @@ function AccountWalletCard({
   const screenWidthDep = isPortrait ? screenWidth : 0;
   const isHardware = accountType === 'hardware';
   const isViewMode = accountType === 'view';
-  const formattedAddress = formatAccountAddresses(byChain);
+  const isNarrowScreen = screenWidth < NARROW_SCREEN_WIDTH_PX;
+  const formattedAddress = formatAccountAddresses(byChain, isNarrowScreen ? 'cardNarrow' : 'card');
 
   const {
     backgroundImageUrl,

@@ -38,7 +38,7 @@ class ScreenRecordProtectionView(
                 WBlurryBackgroundView(
                     context,
                     fadeSide = null,
-                    overrideBlurRadius = 30f
+                    overrideBlurRadius = 25f
                 ).apply {
                     setupWith(viewController.view)
                 },

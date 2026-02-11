@@ -46,7 +46,7 @@ class ReversedCornerViewUpsideDown(
     private val cornerPath = Path()
     private val rectF = RectF()
 
-    private var cornerRadius: Float = ViewConstants.BAR_ROUNDS.dp
+    private var cornerRadius: Float = ViewConstants.TOOLBAR_RADIUS.dp
 
     private var radii: FloatArray =
         floatArrayOf(0f, 0f, 0f, 0f, cornerRadius, cornerRadius, cornerRadius, cornerRadius)
@@ -150,9 +150,9 @@ class ReversedCornerViewUpsideDown(
     }
 
     private fun updateRadius() {
-        if (cornerRadius == ViewConstants.BAR_ROUNDS.dp)
+        if (cornerRadius == ViewConstants.TOOLBAR_RADIUS.dp)
             return
-        cornerRadius = ViewConstants.BAR_ROUNDS.dp
+        cornerRadius = ViewConstants.TOOLBAR_RADIUS.dp
         radii = floatArrayOf(0f, 0f, 0f, 0f, cornerRadius, cornerRadius, cornerRadius, cornerRadius)
         pathDirty = true
     }

@@ -26,13 +26,12 @@ import {
 } from '../../global/selectors';
 import { callApi } from '../../api';
 import { switchToAir } from '../capacitor';
-import { getChainConfig } from '../chain';
-import { getSupportedChains } from '../chain';
+import { getChainConfig, getSupportedChains } from '../chain';
 import { fromDecimal } from '../decimals';
 import { isValidAddressOrDomain } from '../isValidAddress';
 import { omitUndefined } from '../iteratees';
 import { logDebug, logDebugError } from '../logs';
-import { openUrl } from '../openUrl';
+import { isSubproject, openUrl } from '../openUrl';
 import { waitRender } from '../renderPromise';
 import { waitFor } from '../schedulers';
 import { isTelegramUrl } from '../url';
@@ -605,16 +604,19 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
 
         const host = pathname.split('/').filter(Boolean)[1];
         if (host) {
-          const matchingSite = getGlobal().exploreData?.sites.find(({ url }) => {
-            const siteHost = isTelegramUrl(url)
-              ? new URL(url).pathname.split('/').filter(Boolean)[0]
-              : new URL(url).hostname;
+          const hostWithProtocol = `https://${host}`;
+          const matchingUrl = isSubproject(hostWithProtocol)
+            ? hostWithProtocol
+            : getGlobal().exploreData?.sites.find(({ url }) => {
+              const siteHost = isTelegramUrl(url)
+                ? new URL(url).pathname.split('/').filter(Boolean)[0]
+                : new URL(url).hostname;
 
-            return siteHost === host;
-          });
+              return siteHost === host;
+            })?.url;
 
-          if (matchingSite) {
-            void openUrl(matchingSite.url);
+          if (matchingUrl) {
+            void openUrl(matchingUrl);
           }
         }
 
@@ -767,7 +769,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
           }
         }
 
-        actions.openNftAttributesModal({ nft });
+        actions.openNftAttributesModal({ nft, withOwner: true });
         return true;
       }
     }

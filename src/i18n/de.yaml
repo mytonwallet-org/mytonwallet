@@ -58,9 +58,6 @@ Search...: Suchen...
 Main menu: Hauptmenü
 TON Proxy: TON Proxy
 Toggle TON Proxy: TON Proxy aktivieren/deaktivieren
-TON Magic: TON Magic
-Toggle TON Magic: TON Magic aktivieren/deaktivieren
-Open Telegram Web: Telegram Web öffnen.
 Back Up Secret Words: Geheime Wörter sichern
 Settings: Einstellungen
 About %app_name%: Über %app_name%
@@ -74,10 +71,7 @@ $about_description2: Die wallet ist **nicht treuhänderisch und sicher**. Die En
 What is TON Proxy?: Was ist TON Proxy?
 $about_extension_description1: TON Proxy eröffnet einen Weg zum **dezentralen Internet**, indem es ermöglicht, TON Sites anonym zu besuchen.
 More info and demo.: Mehr Informationen und Demo.
-$about_extension_description2: TON Magic, indem es die offizielle Telegram Web-App patcht, ermöglicht eine natürliche **Telegram-Integration**.
-$about_extension_description3: Schalten Sie es ein, um Toncoins von jedem Telegram-Benutzer zu senden und zu empfangen.
-$about_proxy_magic_title: Was ist mit %ninja% TON Proxy und %unicorn% TON Magic?
-$about_proxy_magic_description: Um das **dezentrale Internet** zu nutzen, auf **TON Sites** zuzugreifen und die native **Telegram-Integration** zu nutzen, installieren Sie einfach das %extension_link%.
+$about_proxy_magic_description: Um das **dezentrale Internet** zu nutzen und auf **TON Sites** zuzugreifen, installieren Sie einfach das %extension_link%.
 $about_extension_link_text: "**%app_name%-erweiterung**"
 Is it open source?: Ist es Open Source?
 $about_wallet_github: Ja, das ist es. Erkunden Sie gerne unser %github_link%.
@@ -198,6 +192,7 @@ Coins have been sent!: Die Coins wurden gesendet!
 Transaction Sent!: Transaktion gesendet!
 Data Signed!: Daten signiert!
 Details: Details
+View details: Details anzeigen
 Change password visibility: Sichtbarkeit des Passworts ändern
 Amount value: Betragswert
 Save Address: Adresse speichern
@@ -300,7 +295,6 @@ No active connections: Keine aktiven Verbindungen
 Other: Sonstige
 Assets & Activity: Vermögenswerte und Aktivitäten
 Token Settings: Token-Einstellungen
-My Tokens: Meine Token
 Add Token: Token hinzufügen
 Delete Token: Token löschen
 Are you sure you want to delete?: Sind Sie sicher, dass Sie %token% löschen möchten?
@@ -1040,6 +1034,7 @@ $connected_apps:
   otherValue: "%1$d verbunden"
 Night Mode, Palette, Card: Nachtmodus, Farbpalette, Karte
 Back Up, Passcode, Auto-Lock: Backup, Passcode, Automatische Sperre
+Back Up, Password, Auto-Lock: Backup, Passwort, Automatische Sperre
 Base Currency, Token Order, Hidden NFTs: Basiswährung, Token-Reihenfolge, Versteckte NFTs
 Your assets on other contracts: Ihre Vermögenswerte auf anderen Verträgen
 Wallets, Sounds: Wallets, Töne
@@ -1051,3 +1046,7 @@ Open in %app_name%: In %app_name% öffnen
 Blog: Blog
 Apps: Apps
 $nft_not_found: NFT nicht gefunden
+Pin: Anheften
+Unpin: Loslösen
+My Assets: Meine Vermögenswerte
+Owner: Eigentümer

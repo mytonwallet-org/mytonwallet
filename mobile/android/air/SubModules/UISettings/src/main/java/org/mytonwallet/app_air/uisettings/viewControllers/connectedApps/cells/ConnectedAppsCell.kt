@@ -38,7 +38,7 @@ class ConnectedAppsCell(context: Context) :
         private const val MAIN_VIEW_RADIUS = 18f
     }
 
-    private val lastItemRadius = (ViewConstants.BIG_RADIUS - 1.5f).dp
+    private val lastItemRadius = (ViewConstants.BLOCK_RADIUS - 1.5f).dp
 
     private val redRipple = WRippleDrawable.create(0f).apply {
         backgroundColor = WColor.Red.color
@@ -48,8 +48,8 @@ class ConnectedAppsCell(context: Context) :
     private fun getRedRippleForLastItem() = WRippleDrawable.create(
         0f,
         0f,
-        ViewConstants.BIG_RADIUS.dp,
-        ViewConstants.BIG_RADIUS.dp
+        ViewConstants.BLOCK_RADIUS.dp,
+        ViewConstants.BLOCK_RADIUS.dp
     ).apply {
         backgroundColor = WColor.Red.color
         rippleColor = WColor.BackgroundRipple.color
@@ -222,7 +222,7 @@ class ConnectedAppsCell(context: Context) :
             swipeRevealLayout.setBackgroundColor(
                 WColor.Red.color,
                 0f,
-                ViewConstants.BIG_RADIUS.dp
+                ViewConstants.BLOCK_RADIUS.dp
             )
         } else {
             redRipple.backgroundColor = WColor.Red.color

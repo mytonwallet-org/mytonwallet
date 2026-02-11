@@ -149,8 +149,8 @@ class SwapReceiveAddressInputVC(
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         linearLayout.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.TOP_RADIUS.dp,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.TOOLBAR_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
     }
 

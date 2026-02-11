@@ -15,8 +15,7 @@ import SwiftKeychainWrapper
 
 private let log = Log("AppDelegate")
 
-
-class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProtocol {
+final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProtocol {
     
     #if canImport(Capacitor)
     public let canSwitchToCapacitor = true
@@ -37,6 +36,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProtocol {
         webView?.removeFromSuperview()
     }
     
+    func switchToAir() {
+        cleanWebViews()
+        clearCapacitorLaunchUrlCache()
+        UIApplication.shared.connectedSceneDelegate?.switchToAir()
+    }
+    
+    func switchToCapacitor() {
+        UIApplication.shared.connectedSceneDelegate?.switchToCapacitor()
+    }
+    
     private func cleanWebViews() {
          #if canImport(Capacitor)
         if let window = UIApplication.shared.connectedSceneDelegate?.window,
@@ -48,13 +57,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProtocol {
         #endif
     }
 
-    func switchToAir() {
-        cleanWebViews()
-        UIApplication.shared.connectedSceneDelegate?.switchToAir()
-    }
-    
-    func switchToCapacitor() {
-        UIApplication.shared.connectedSceneDelegate?.switchToCapacitor()
+    private func clearCapacitorLaunchUrlCache() {
+        #if canImport(Capacitor)
+        let applicationDelegateProxy = ApplicationDelegateProxy.shared
+        if applicationDelegateProxy.lastURL != nil {
+            _ = applicationDelegateProxy.application(UIApplication.shared, open: URL(string: "about:blank")!)
+        }
+        #endif
     }
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {

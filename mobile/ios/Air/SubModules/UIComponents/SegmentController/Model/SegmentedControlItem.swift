@@ -6,16 +6,18 @@ import WalletContext
 public struct SegmentedControlItem: Identifiable, Equatable, Hashable {
     
     public var id: String
-    public var title: String
-    public var menuContext: MenuContext?
-    public var hidesMenuIcon: Bool = false
-    public var viewController: WSegmentedControllerContent
-    
-    public init(id: String, title: String, menuContext: MenuContext? = nil, hidesMenuIcon: Bool = false, viewController: WSegmentedControllerContent) {
+    var title: String
+    var menuContext: MenuContext?
+    var hidesMenuIcon: Bool
+    var isDeletable: Bool
+    var viewController: WSegmentedControllerContent
+        
+    public init(id: String, title: String, menuContext: MenuContext? = nil, hidesMenuIcon: Bool = false, isDeletable: Bool = true, viewController: WSegmentedControllerContent) {
         self.id = id
         self.title = title
         self.menuContext = menuContext
         self.hidesMenuIcon = hidesMenuIcon
+        self.isDeletable = isDeletable
         self.viewController = viewController
     }
     

@@ -62,16 +62,18 @@ async function fetchPastActivities(accountId: string, slug?: string) {
       return;
     }
 
+    const { activities, shouldFetchMore: apiShouldFetchMore } = result;
+
     global = getGlobal();
 
-    if (!result.length) {
+    if (!activities.length) {
       isEndReached = true;
       break;
     }
 
     const { areTinyTransfersHidden } = global.settings;
 
-    const filteredResult = result.filter((tx) => {
+    const filteredResult = activities.filter((tx) => {
       const shouldHide = tx.kind === 'transaction'
         && (
           getIsTransactionWithPoisoning(tx)
@@ -81,9 +83,13 @@ async function fetchPastActivities(accountId: string, slug?: string) {
       return !shouldHide;
     });
 
-    fetchedActivities = mergeSortedActivities(fetchedActivities, result);
-    shouldFetchMore = filteredResult.length < PAST_ACTIVITY_BATCH && fetchedActivities.length < PAST_ACTIVITY_BATCH;
-    toTimestamp = result[result.length - 1].timestamp;
+    fetchedActivities = mergeSortedActivities(fetchedActivities, activities);
+    shouldFetchMore = apiShouldFetchMore
+      || (
+        filteredResult.length < PAST_ACTIVITY_BATCH
+        && fetchedActivities.length < PAST_ACTIVITY_BATCH
+      );
+    toTimestamp = activities[activities.length - 1].timestamp;
   }
 
   global = addPastActivities(global, accountId, slug, fetchedActivities, isEndReached);

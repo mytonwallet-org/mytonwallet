@@ -4,6 +4,10 @@ import WebKit
 import WalletContext
 
 extension Api {
+
+    public static func fetchNftByAddress(network: ApiNetwork, nftAddress: String) async throws -> ApiNft? {
+        try await bridge.callApiOptional("fetchNftByAddress", network, nftAddress, decodingOptional: ApiNft.self)
+    }
     
     public static func fetchNftsFromCollection(accountId: String, collectionAddress: String) async throws {
         try await bridge.callApiVoid("fetchNftsFromCollection", accountId, collectionAddress)

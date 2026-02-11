@@ -238,10 +238,10 @@ private class AppActionsImpl: AppActionsProtocol {
         let assetsVC = AssetsTabVC(accountSource: accountSource, defaultTabIndex: index)
         let topVC = topViewController()
         if collectionsFilter != .none, let nc = topVC as? WNavigationController, (nc.visibleViewController is AssetsTabVC || nc.visibleViewController is NftDetailsVC) {
-            nc.pushViewController(NftsVC(accountSource: accountSource, compactMode: false, filter: collectionsFilter), animated: true)
+            nc.pushViewController(NftsVC(accountSource: accountSource, mode: .fullScreenFiltered, filter: collectionsFilter), animated: true)
         } else if collectionsFilter != .none {
             let nc = WNavigationController(rootViewController: assetsVC)
-            nc.pushViewController(NftsVC(accountSource: accountSource, compactMode: false, filter: collectionsFilter), animated: false)
+            nc.pushViewController(NftsVC(accountSource: accountSource, mode: .fullScreenFiltered, filter: collectionsFilter), animated: false)
             topVC?.present(nc, animated: true)
             // This ensures the navigation header for the root controller is set up correctly. 
             // iOS 18 issue (iOS26 does not have this issue)
@@ -311,6 +311,31 @@ private class AppActionsImpl: AppActionsProtocol {
         tabVC?.switchToExplore()
     }
     
+    static func showExploreSite(siteHost: String) {
+        Task { @MainActor in
+            do {
+                let siteHost = siteHost.lowercased()
+                if let subprojectURL = URL(string: "https://\(siteHost)"), subprojectURL.isSubproject {
+                    AppActions.openInBrowser(subprojectURL, title: nil, injectTonConnect: true)
+                    return
+                }
+                let result = try await Api.loadExploreSites(langCode: LocalizationSupport.shared.langCode)
+                if let site = result.sites.first(where: { $0.siteHost == siteHost }),
+                   let url = URL(string: site.url) {
+                    if site.shouldOpenExternally {
+                        await UIApplication.shared.open(url)
+                    } else {
+                        AppActions.openInBrowser(url, title: site.name, injectTonConnect: true)
+                    }
+                } else {
+                    AppActions.showExplore()
+                }
+            } catch {
+                AppActions.showExplore()
+            }
+        }
+    }
+    
     static func showHiddenNfts(accountSource: AccountSource) {
         let hiddenVC = HiddenNftsVC()
         let topVC = topViewController()
@@ -342,6 +367,25 @@ private class AppActionsImpl: AppActionsProtocol {
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) {
         let vc = LinkDomainVC(accountSource: accountSource, nftAddress: nftAddress)
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+    }
+
+    static func showNftByAddress(_ nftAddress: String) {
+        guard let account = AccountStore.account else { return }
+        let accountId = account.id
+        let network = account.network
+
+        Task {
+            do {
+                guard let nft = try await Api.fetchNftByAddress(network: network, nftAddress: nftAddress) else {
+                    AppActions.showError(error: DisplayError(text: lang("$nft_not_found")))
+                    return
+                }
+                let nftVC = NftDetailsVC(accountId: accountId, nft: nft, listContext: .none, fixedNfts: [nft])
+                topViewController()?.present(WNavigationController(rootViewController: nftVC), animated: true)
+            } catch {
+                AppActions.showError(error: error)
+            }
+        }
     }
     
     static func showReceive(chain: ApiChain?, title: String?) {

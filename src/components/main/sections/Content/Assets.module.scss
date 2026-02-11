@@ -65,3 +65,26 @@
   padding: 0.375rem 0.5rem !important;
   font-size: 0.8125rem !important;
 }
+
+.listItem {
+  position: absolute;
+  width: 100%;
+
+  &:not(:last-of-type) {
+    &::after {
+      @include mixins.separator-list-base('bottom', 3.875rem);
+
+      @include mixins.is-mobile() {
+        left: 4rem;
+      }
+    }
+  }
+}
+
+.animateOpacity {
+  @include mixins.transition('opacity 200ms ease-out');
+}
+
+.animateTransform {
+  @include mixins.transition('transform 200ms ease-out');
+}

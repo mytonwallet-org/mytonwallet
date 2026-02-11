@@ -262,43 +262,26 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
     
     private func signoutPressed(removingAccountId: String, callback: @escaping (Bool) -> ()) {
         let isCurrentAccount = removingAccountId == AccountStore.accountId
-        var logoutWarning = lang("$logout_warning")
-        logoutWarning = logoutWarning.replacingOccurrences(of: "**", with: "")
-        showAlert(
-            title: lang("Remove Wallet"),
-            text: logoutWarning,
-            button: lang("Remove"),
-            buttonStyle: .destructive,
-            buttonPressed: { [weak self] in
-                guard let self else { return }
-                Task { @MainActor in
-                    do {
-                        if AccountStore.accountsById.count == 1 {
-                            // it is the last account id, delete all data and restart app
-                            try await AccountStore.resetAccounts()
-                        } else {
-                            let nextAccount = isCurrentAccount ? AccountStore.accountsById.keys.first(where: { $0 != removingAccountId }) : AccountStore.accountId
-                            try await AccountStore.removeAccount(accountId: removingAccountId, nextAccountId: nextAccount!)
-                            if isCurrentAccount {
-                                DispatchQueue.main.async {
-                                    self.tabBarController?.selectedIndex = 0
-                                }
-                            }
-                        }
-                        callback(true)
-                    } catch {
-                        log.fault("delete account error: \(error)")
-                        self.showAlert(error: error)
-                        callback(false)
-                    }
+        let removingAccount = AccountStore.accountsById[removingAccountId] ?? DUMMY_ACCOUNT
+        showDeleteAccountAlert(
+            accountToDelete: removingAccount,
+            isCurrentAccount: isCurrentAccount,
+            onSuccess: { [weak self] in
+                if isCurrentAccount {
+                    self?.tabBarController?.selectedIndex = 0
                 }
+                callback(true)
             },
-            secondaryButton: lang("Cancel"),
-            secondaryButtonPressed: { [weak self] in
-                guard let self else { return }
-                reloadData(animated: true)
+            onCancel: { [weak self] in
+                self?.reloadData(animated: true)
                 callback(false)
-            })
+            },
+            onFailure: { [weak self] error in
+                log.fault("delete account error: \(error)")
+                self?.showAlert(error: error)
+                callback(false)
+            }
+        )
     }
     
     @objc func onVersionMultipleTap(_ gesture: UIGestureRecognizer) {

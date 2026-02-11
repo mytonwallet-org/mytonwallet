@@ -1,0 +1,19 @@
+{
+  "txID": "test-contract-call-tx",
+  "block_timestamp": 1768919343000,
+  "ret": [{ "fee": 10000 }],
+  "raw_data": {
+    "contract": [
+      {
+        "type": "TriggerSmartContract",
+        "parameter": {
+          "value": {
+            "owner_address": "411b056dbe2aac5060aa09e5b46e6c4d2c92812fe7",
+            "contract_address": "41a614f803b6fd780986a42c78ec9c7f77e6ded13c",
+            "data": "70a08231000000000000000000000000f9c059e0e88dd08915f5543587a987fe96992f9e"
+          }
+        }
+      }
+    ]
+  }
+}

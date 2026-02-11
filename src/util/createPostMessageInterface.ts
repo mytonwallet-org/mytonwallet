@@ -191,11 +191,19 @@ async function onMessage(
 
   switch (data.type) {
     case 'init': {
-      const { args } = data;
+      const { args, messageId } = data;
       const promise = typeof api === 'function'
         ? api('init', origin, onUpdate, ...args)
         : api.init?.(onUpdate, ...args);
       await promise;
+
+      if (messageId) {
+        sendToOrigin({
+          type: 'methodResponse',
+          messageId,
+          response: undefined,
+        });
+      }
 
       break;
     }

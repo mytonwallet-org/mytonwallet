@@ -8,6 +8,19 @@
 import Foundation
 
 extension URL {
+    public var isSubproject: Bool {
+        guard let host = self.host?.lowercased() else {
+            return false
+        }
+        if host.hasSuffix(".mytonwallet.io") {
+            return true
+        }
+        guard host == "localhost", let port = self.port else {
+            return false
+        }
+        return String(port).hasPrefix("432")
+    }
+
     public var origin: String? {
         guard let scheme = self.scheme, let host = self.host else {
             return nil

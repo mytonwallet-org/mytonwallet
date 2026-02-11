@@ -70,12 +70,12 @@ open class CustomListAdapter : BaseListAdapter() {
             position < itemCount - 1 && getItem(position + 1).type == Item.Type.GAP.value
         val isLast = position == itemCount - 1
         val topRadius = when {
-            position == 0 -> ViewConstants.TOP_RADIUS.dp
-            isPreviousViewGap -> ViewConstants.BIG_RADIUS.dp
+            position == 0 -> ViewConstants.TOOLBAR_RADIUS.dp
+            isPreviousViewGap -> ViewConstants.BLOCK_RADIUS.dp
             else -> 0f
         }
         val bottomRadius = when {
-            isLast || isNextViewGap -> ViewConstants.BIG_RADIUS.dp
+            isLast || isNextViewGap -> ViewConstants.BLOCK_RADIUS.dp
             else -> 0f
         }
         if (holder !is ListAlertCell.Holder)

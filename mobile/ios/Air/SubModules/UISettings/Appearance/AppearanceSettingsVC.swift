@@ -11,8 +11,6 @@ import UIKit
 import UIComponents
 import WalletContext
 
-private let log = Log("AppearanceSettingsVC")
-
 public final class AppearanceSettingsVC: WViewController {
     
     var hostingController: UIHostingController<AppearanceSettingsView>?
@@ -22,22 +20,13 @@ public final class AppearanceSettingsVC: WViewController {
         
         navigationItem.title = lang("Appearance")
         
-        hostingController = addHostingController(makeView(), constraints: .fill)
+        view.backgroundColor = WTheme.groupedBackground
         
-        updateTheme()
+        hostingController = addHostingController(makeView(), constraints: .fill)
     }
     
     func makeView() -> AppearanceSettingsView {
-        AppearanceSettingsView(
-            tintColor: Color.air.tint,
-        )
-    }
-    
-    public  override func updateTheme() {
-        view.backgroundColor = WTheme.groupedBackground
-        withAnimation {
-            hostingController?.rootView = makeView()
-        }
+        AppearanceSettingsView()
     }
 }
 

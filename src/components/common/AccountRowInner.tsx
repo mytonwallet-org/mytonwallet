@@ -3,9 +3,11 @@ import React, { useMemo } from '../../lib/teact/teact';
 
 import type { ApiNft } from '../../api/types';
 import type { Account, AccountType } from '../../global/types';
+import type { AccountBalance } from '../main/modals/accountSelector/hooks/useAccountsBalances';
 
 import buildClassName from '../../util/buildClassName';
 import { formatAccountAddresses } from '../../util/formatAccountAddress';
+import { formatCurrency } from '../../util/formatNumber';
 import getPseudoRandomNumber from '../../util/getPseudoRandomNumber';
 import isViewAccount from '../../util/isViewAccount';
 
@@ -21,11 +23,7 @@ export interface AccountRowInnerProps {
   accountType: AccountType;
   title?: string;
   isTestnet?: boolean;
-  balanceData?: {
-    wholePart: string;
-    fractionPart?: string;
-    currencySymbol: string;
-  };
+  balanceData?: AccountBalance;
   cardBackgroundNft?: ApiNft;
   isSensitiveDataHidden?: true;
   suffixIcon?: TeactNode;
@@ -87,14 +85,7 @@ function AccountRowInner({
           align="right"
         >
           <div className={buildClassName(styles.balance, 'rounded-font')}>
-            {balanceData.currencySymbol.length === 1 && balanceData.currencySymbol}
-            {balanceData.wholePart}
-            {balanceData.fractionPart && (
-              <>.{balanceData.fractionPart}</>
-            )}
-            {balanceData.currencySymbol.length > 1 && (
-              <>&nbsp;{balanceData.currencySymbol}</>
-            )}
+            {formatCurrency(balanceData.value, balanceData.currencySymbol)}
           </div>
         </SensitiveData>
       )}

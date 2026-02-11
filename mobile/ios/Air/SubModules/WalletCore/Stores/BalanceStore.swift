@@ -24,7 +24,8 @@ public final class _BalanceStore {
         _balances.withLock { $0 }
     }
     public func getAccountBalances(accountId: String) -> [String: BigInt] {
-        balances[accountId] ?? [:]
+        access(keyPath: \._balances)
+        return balances[accountId] ?? [:]
     }
 
     private let _accountBalanceData: UnfairLock<[String: MAccountBalanceData]> = .init(initialState: [:])
@@ -96,8 +97,10 @@ public final class _BalanceStore {
                     }
                 }
             }
-            _balances.withLock { [updatedBalancesDict] in
-                $0 = updatedBalancesDict
+            withMutation(keyPath: \._balances) {
+                _balances.withLock { [updatedBalancesDict] in
+                    $0 = updatedBalancesDict
+                }
             }
             self.updateAccountBalanceData()
             WalletCoreData.add(eventObserver: self)
@@ -105,7 +108,9 @@ public final class _BalanceStore {
     }
 
     public func clean() {
-        _balances.withLock { $0 = [:] }
+        withMutation(keyPath: \._balances) {
+            _balances.withLock { $0 = [:] }
+        }
         _accountBalanceData.withLock { $0 = [:] }
         _balancesEventCalledOnce.withLock { $0 = [:] }
     }
@@ -140,8 +145,10 @@ public final class _BalanceStore {
                 updatedBalances[STAKED_MYCOIN_SLUG] = nil
             }
             
-            self._balances.withLock { [updatedBalances] in
-                $0[accountId] = updatedBalances
+            withMutation(keyPath: \._balances) {
+                self._balances.withLock { [updatedBalances] in
+                    $0[accountId] = updatedBalances
+                }
             }
             
             saveToCache(accountId: accountId, balances: updatedBalances)
@@ -311,7 +318,9 @@ extension _BalanceStore: WalletCoreData.EventsObserver {
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .accountDeleted(let accountId):
-            _balances.withLock { $0[accountId] = nil }
+            withMutation(keyPath: \._balances) {
+                _balances.withLock { $0[accountId] = nil }
+            }
             _accountBalanceData.withLock { $0[accountId] = nil }
             _balancesEventCalledOnce.withLock { $0[accountId] = nil }
             

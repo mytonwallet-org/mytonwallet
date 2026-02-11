@@ -61,9 +61,6 @@ Search...: Поиск...
 Main menu: Основное меню
 TON Proxy: TON Proxy
 Toggle TON Proxy: Переключить TON Proxy
-TON Magic: TON Magic
-Toggle TON Magic: Переключить TON Magic
-Open Telegram Web: Открыть Telegram Web
 Back Up Secret Words: Резервная копия
 Settings: Настройки
 About %app_name%: О %app_name%
@@ -77,10 +74,7 @@ $about_description2: Кошелёк **управляется только вам
 What is TON Proxy?: Что такое TON Proxy?
 $about_extension_description1: TON Proxy предоставляет доступ к **децентрализованному интернету** и сайтам TON.
 More info and demo.: Больше информации и демо-версия.
-$about_extension_description2: TON Magic обеспечивает встроенную **интеграцию с Telegram**, используя официальную веб-версию.
-$about_extension_description3: Включить, чтобы отправлять и получать переводы от любого пользователя Telegram.
-$about_proxy_magic_title: А что насчёт %ninja% TON Proxy и %unicorn% TON Magic?
-$about_proxy_magic_description: Чтобы наслаждаться **децентрализованным интернетом**, **сайтами TON** и встроенной **интеграцией с Telegram**, установите %extension_link%.
+$about_proxy_magic_description: Чтобы наслаждаться **децентрализованным интернетом** и **сайтами TON**, установите %extension_link%.
 $about_extension_link_text: "**расширение %app_name%**"
 Is it open source?: А исходный код открыт?
 $about_wallet_github: Да, вот наш %github_link%.
@@ -202,6 +196,7 @@ Coins have been sent!: Перевод отправлен!
 Transaction Sent!: Транзакция отправлена!
 Data Signed!: Данные подписаны!
 Details: Инфо
+View details: Посмотреть детали
 Change password visibility: Изменить видимость пароля
 Amount value: Значение
 Save Address: Сохранить адрес
@@ -304,7 +299,6 @@ No active connections: Нет активных подключений
 Other: Другие
 Assets & Activity: Активы и лента
 Token Settings: Настройки токенов
-My Tokens: Мои токены
 Add Token: Добавить токен
 Delete Token: Удалить токен
 Are you sure you want to delete?: Вы уверены, что хотите удалить %token%?
@@ -1044,11 +1038,12 @@ confirm an action in MyTonWallet: подтвердить действие в MyT
 Timed out waiting for account to be ready: Таймаут ожидания готовности аккаунта
 $connected_apps:
   otherValue: "%1$d подключено"
-Night Mode, Palette, Card: Ночной режим, Палитра, Карта
-Back Up, Passcode, Auto-Lock: Резервная копия, Пароль, Автоблокировка
-Base Currency, Token Order, Hidden NFTs: Базовая валюта, Порядок токенов, Скрытые NFT
+Night Mode, Palette, Card: Ночной режим, палитра, карта
+Back Up, Passcode, Auto-Lock: Резервная копия, код, автоблокировка
+Back Up, Password, Auto-Lock: Резервная копия, пароль, автоблокировка
+Base Currency, Token Order, Hidden NFTs: Базовая валюта, порядок токенов, скрытые NFT
 Your assets on other contracts: Ваши активы на других контрактах
-Wallets, Sounds: Кошельки, Звуки
+Wallets, Sounds: Кошельки, звуки
 Help: Помощь
 About: О приложении
 Wallets: Кошельки
@@ -1057,3 +1052,7 @@ Open in %app_name%: Открыть в %app_name%
 Blog: Блог
 Apps: Приложения
 $nft_not_found: NFT не найден
+Pin: Закрепить
+Unpin: Открепить
+My Assets: Мои активы
+Owner: Владелец

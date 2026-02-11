@@ -31,9 +31,7 @@ import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.fetchTokenActivitySlice
 import org.mytonwallet.app_air.walletcore.api.getStakingHistory
-import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MStakeHistoryItem
@@ -290,44 +288,42 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
         isCheckingLatestChanges: Boolean = false
     ) {
         if (isLoadingUnstakedActivityItems) return
-        val callback: ((ArrayList<MApiTransaction>?, MBridgeError?, String) -> Unit) =
-            callback@{ transactions, err, requestAccountId ->
-                if (requestAccountId != AccountStore.activeAccountId) return@callback
-                if (!transactions.isNullOrEmpty()) {
-                    if (!isCheckingLatestChanges) {
-                        hasLoadedAllUnstakedActivityItems = transactions.isEmpty()
-                        lastUnstakedActivityTimestamp = transactions.last().timestamp
-                    }
-                    viewModelScope.launch {
-                        mergeTransaction(transactions)
-                        isLoadingUnstakedActivityItems = false
-                    }
-                } else if (err != null) {
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        requestTokenActivitiesForUnstakedItems(
-                            fromTimestamp,
-                            isCheckingLatestChanges
-                        )
-                    }, 2000)
-                    isLoadingUnstakedActivityItems = false
-                } else {
-                    hasLoadedAllUnstakedActivityItems = true
-                    if (historyItems.isNullOrEmpty()) {
-                        showNoItemView()
-                    }
+        isLoadingUnstakedActivityItems = true
+        val activeAccountId = AccountStore.activeAccountId ?: return
+        WalletCore.call(
+            ApiMethod.WalletData.FetchPastActivities(
+                accountId = activeAccountId,
+                limit = 100,
+                slug = tokenSlug,
+                toTimestamp = fromTimestamp
+            )
+        ) { result, err ->
+            if (activeAccountId != AccountStore.activeAccountId) return@call
+            val transactions = result?.activities
+            if (!transactions.isNullOrEmpty()) {
+                if (!isCheckingLatestChanges) {
+                    hasLoadedAllUnstakedActivityItems = transactions.isEmpty()
+                    lastUnstakedActivityTimestamp = transactions.last().timestamp
+                }
+                viewModelScope.launch {
+                    mergeTransaction(transactions)
                     isLoadingUnstakedActivityItems = false
                 }
+            } else if (err != null) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    requestTokenActivitiesForUnstakedItems(
+                        fromTimestamp,
+                        isCheckingLatestChanges
+                    )
+                }, 2000)
+                isLoadingUnstakedActivityItems = false
+            } else {
+                hasLoadedAllUnstakedActivityItems = true
+                if (historyItems.isNullOrEmpty()) {
+                    showNoItemView()
+                }
+                isLoadingUnstakedActivityItems = false
             }
-
-        isLoadingUnstakedActivityItems = true
-        AccountStore.activeAccountId?.let { activeAccountId ->
-            WalletCore.fetchTokenActivitySlice(
-                activeAccountId,
-                tokenSlug,
-                fromTimestamp,
-                limit = 100,
-                callback
-            )
         }
     }
 
@@ -362,12 +358,15 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
         }
         val activeAccountId = AccountStore.activeAccountId ?: return
         isLoadingStakedActivityItems = true
-        WalletCore.fetchTokenActivitySlice(
-            activeAccountId,
-            stakedTokenSlug,
-            fromTimestamp,
-            limit = 100
-        ) { transactions, err, _ ->
+        WalletCore.call(
+            ApiMethod.WalletData.FetchPastActivities(
+                accountId = activeAccountId,
+                limit = 100,
+                slug = stakedTokenSlug,
+                toTimestamp = fromTimestamp
+            )
+        ) { result, err ->
+            val transactions = result?.activities
             if (!transactions.isNullOrEmpty()) {
                 if (!isCheckingLatestChanges) {
                     hasLoadedAllStakedActivityItems = transactions.isEmpty()

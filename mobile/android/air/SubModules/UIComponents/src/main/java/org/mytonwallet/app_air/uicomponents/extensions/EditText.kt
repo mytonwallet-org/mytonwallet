@@ -8,6 +8,14 @@ import androidx.appcompat.content.res.AppCompatResources
 import org.mytonwallet.app_air.walletbasecontext.utils.getPrivateField
 import java.lang.reflect.Field
 
+fun EditText.setReadOnly() {
+    isEnabled = false
+    isFocusable = false
+    isFocusableInTouchMode = false
+    isCursorVisible = false
+    setTextIsSelectable(false)
+}
+
 fun EditText.setTextIfDiffer(text: String?, selectionToEnd: Boolean = true) {
     if (this.text?.toString() == text) {
         return

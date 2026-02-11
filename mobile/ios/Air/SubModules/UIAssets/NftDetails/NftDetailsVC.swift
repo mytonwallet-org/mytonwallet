@@ -19,8 +19,8 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     private var isOpenObserver: ObserveToken?
     private var contentHeightObserver: ObserveToken?
     
-    public init(accountId: String, nft: ApiNft, listContext: NftCollectionFilter) {
-        self.viewModel = NftDetailsViewModel(accountId: accountId, isExpanded: false, nft: nft, listContext: listContext)
+    public init(accountId: String, nft: ApiNft, listContext: NftCollectionFilter, fixedNfts: [ApiNft]? = nil) {
+        self.viewModel = NftDetailsViewModel(accountId: accountId, isExpanded: false, nft: nft, listContext: listContext, fixedNfts: fixedNfts)
         super.init(nibName: nil, bundle: nil)
         viewModel.viewController = self
     }

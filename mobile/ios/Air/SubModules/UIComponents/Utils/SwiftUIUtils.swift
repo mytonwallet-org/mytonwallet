@@ -1,15 +1,12 @@
-
 import Foundation
 import SwiftUI
 import WalletContext
-
 
 extension Text {
     public init(_ attr: NSAttributedString) {
         self.init(AttributedString(attr))
     }
 }
-
 
 extension View {
     
@@ -133,7 +130,7 @@ extension View {
 
 enum WindowSizeKey: EnvironmentKey {
     static var defaultValue: CGSize {
-        MainActor.assumeIsolated {
+        MainActor.assumeIsolated { // Improvement: assumeIsolated can potentially crash, use safe constructs
             UIApplication.shared.sceneWindows.first?.bounds.size ?? .zero
         }
     }

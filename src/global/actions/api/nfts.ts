@@ -108,10 +108,16 @@ addActionHandler('closeHideNftModal', (global) => {
   });
 });
 
-addActionHandler('openNftAttributesModal', (global, actions, { nft }) => {
-  return updateCurrentAccountState(global, { currentNftForAttributes: nft });
+addActionHandler('openNftAttributesModal', (global, actions, { nft, withOwner }) => {
+  return updateCurrentAccountState(global, {
+    currentNftForAttributes: nft,
+    shouldShowOwnerInNftAttributes: withOwner,
+  });
 });
 
 addActionHandler('closeNftAttributesModal', (global) => {
-  return updateCurrentAccountState(global, { currentNftForAttributes: undefined });
+  return updateCurrentAccountState(global, {
+    currentNftForAttributes: undefined,
+    shouldShowOwnerInNftAttributes: undefined,
+  });
 });

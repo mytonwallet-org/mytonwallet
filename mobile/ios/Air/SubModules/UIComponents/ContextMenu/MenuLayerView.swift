@@ -67,19 +67,16 @@ public final class MenuLayerView: UIView {
         
         if let sourceView = menuContext.sourceView, let window = sourceView.window, let portalView = makePortalView(of: sourceView) {
             addSubview(portalView)
-            var sourceViewFrame = sourceView.convert(sourceView.frame, to: self)
-            sourceViewFrame.origin.y -= 13 // why? i don't know
-            portalView.frame = sourceViewFrame
+            portalView.frame = sourceView.convert(sourceView.bounds, to: self)
             self.portalView = portalView
-            
-            let sourceFrameBounds = window.convert(menuContext.sourceFrame, to: sourceView)
-            let mask = UIView()
-            mask.translatesAutoresizingMaskIntoConstraints = false
-            mask.frame = sourceFrameBounds.insetBy(dx: -16, dy: -16)
-            mask.backgroundColor = .white
-            
-            portalView.mask = mask
-//            portalView.clipsToBounds = true
+
+            if !menuContext.sourceFrame.isEmpty {
+                let sourceFrameInPortal = window.convert(menuContext.sourceFrame, to: portalView)
+                let mask = UIView()
+                mask.frame = sourceFrameInPortal.insetBy(dx: -16, dy: -16)
+                mask.backgroundColor = .white
+                portalView.mask = mask
+            }
         }
         
         if menuContext.sourceView != nil {

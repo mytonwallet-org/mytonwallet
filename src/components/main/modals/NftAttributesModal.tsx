@@ -1,14 +1,16 @@
-import React, { memo, useEffect, useRef, useState } from '../../../lib/teact/teact';
+import React, { memo, useEffect, useMemo, useRef, useState } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
 import type { ApiNft, ApiNftAttribute } from '../../../api/types';
-import { type IAnchorPosition, MediaType } from '../../../global/types';
+import { type Account, type IAnchorPosition, MediaType, type SavedAddress } from '../../../global/types';
 
-import { selectCurrentAccountState } from '../../../global/selectors';
+import { DEFAULT_CHAIN, IS_EXPLORER } from '../../../config';
+import { selectCurrentAccountId, selectCurrentAccountState, selectNetworkAccounts } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { getCountDaysToDate } from '../../../util/dateFormat';
 import { getDnsExpirationDate } from '../../../util/dns';
 import { stopEvent } from '../../../util/domEvents';
+import { getLocalAddressName } from '../../../util/getLocalAddressName';
 import { disableSwipeToClose, enableSwipeToClose } from '../../../util/modalSwipeManager';
 import { IS_ELECTRON, IS_MAC_OS } from '../../../util/windowEnvironment';
 
@@ -19,6 +21,7 @@ import useLastCallback from '../../../hooks/useLastCallback';
 import useSyncEffect from '../../../hooks/useSyncEffect';
 
 import AnimatedIconWithPreview from '../../ui/AnimatedIconWithPreview';
+import InteractiveTextField from '../../ui/InteractiveTextField';
 import Modal from '../../ui/Modal';
 import NftMenu from '../sections/Content/NftMenu';
 
@@ -27,12 +30,23 @@ import styles from './NftAttributesModal.module.scss';
 interface StateProps {
   nft?: ApiNft;
   dnsExpiration?: Record<string, number>;
+  shouldShowOwnerInNftAttributes?: true;
+  accounts?: Record<string, Account>;
+  currentAccountId: string;
+  savedAddresses?: SavedAddress[];
 }
 
 const FOLD_LIMIT = 5;
 const ANIMATED_ICON_SIZE = 250; // Preview size (500px) / 2
 
-function NftAttributesModal({ nft, dnsExpiration }: StateProps) {
+function NftAttributesModal({
+  nft,
+  dnsExpiration,
+  accounts,
+  currentAccountId,
+  savedAddresses,
+  shouldShowOwnerInNftAttributes,
+}: StateProps) {
   const { closeNftAttributesModal, openMediaViewer, openNftCollection } = getActions();
 
   const lang = useLang();
@@ -42,13 +56,28 @@ function NftAttributesModal({ nft, dnsExpiration }: StateProps) {
 
   const isOpen = !!nft;
   const renderedNft = useCurrentOrPrev(nft, true);
-  const { metadata: { lottie, attributes } } = renderedNft || { metadata: {} };
+  const renderedWithNftOwner = useCurrentOrPrev(shouldShowOwnerInNftAttributes || IS_EXPLORER, true);
+  const { metadata: { lottie, attributes }, ownerAddress, isScam } = renderedNft || { metadata: {} };
   const attributesCount = attributes?.length || 0;
   const [isFolded, setIsFolded] = useState(attributesCount > FOLD_LIMIT);
   const tonDnsExpiration = getDnsExpirationDate(renderedNft, dnsExpiration);
   const dnsExpireInDays = tonDnsExpiration ? getCountDaysToDate(tonDnsExpiration) : undefined;
   const list = attributes?.slice(0, isFolded ? FOLD_LIMIT : undefined) || [];
-  const isNoData = !renderedNft?.description && list.length === 0;
+  const isNoData = !renderedWithNftOwner && !renderedNft?.description && list.length === 0;
+  // Currently, NFT is only supported in the default chain
+  const chain = DEFAULT_CHAIN;
+
+  const ownerAddressName = useMemo(() => {
+    if (!renderedWithNftOwner || !chain || !ownerAddress) return undefined;
+
+    return getLocalAddressName({
+      address: ownerAddress,
+      chain,
+      currentAccountId,
+      accounts,
+      savedAddresses,
+    });
+  }, [accounts, chain, currentAccountId, ownerAddress, savedAddresses, renderedWithNftOwner]);
 
   useSyncEffect(() => {
     setIsFolded(attributesCount > FOLD_LIMIT + 1);
@@ -185,6 +214,20 @@ function NftAttributesModal({ nft, dnsExpiration }: StateProps) {
       </div>
 
       <div className={buildClassName(styles.content, isNoData && styles.noData)}>
+        {renderedWithNftOwner && (
+          <>
+            <h3 className={styles.label}>{lang('Owner')}</h3>
+            <InteractiveTextField
+              chain={chain}
+              addressName={ownerAddressName}
+              address={ownerAddress}
+              copyNotification={lang('Address was copied!')}
+              className={styles.copyButtonWrapper}
+              textClassName={isScam ? styles.scamAddress : undefined}
+            />
+          </>
+        )}
+
         {isNoData && lang('No additional data.')}
 
         {renderedNft.description && (
@@ -219,11 +262,19 @@ function NftAttributesModal({ nft, dnsExpiration }: StateProps) {
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const { currentNftForAttributes, nfts } = selectCurrentAccountState(global) || {};
+  const currentAccountId = selectCurrentAccountId(global)!;
+  const accountState = selectCurrentAccountState(global);
+  const accounts = selectNetworkAccounts(global);
+
+  const { currentNftForAttributes, shouldShowOwnerInNftAttributes, nfts, savedAddresses } = accountState || {};
   const { dnsExpiration } = nfts || {};
 
   return {
+    currentAccountId,
     nft: currentNftForAttributes,
     dnsExpiration,
+    accounts,
+    savedAddresses,
+    shouldShowOwnerInNftAttributes,
   };
 })(NftAttributesModal));

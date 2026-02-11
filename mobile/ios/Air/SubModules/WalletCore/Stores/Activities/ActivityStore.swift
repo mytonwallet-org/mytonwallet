@@ -177,27 +177,32 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         var toTimestamp = selectLastMainTxTimestamp(accountId: accountId)
         var fetchedActivities: [ApiActivity] = []
         
-        while true {
+        var shouldFetchMore = true
+        while shouldFetchMore {
             let result = try await Api.fetchPastActivities(accountId: accountId, limit: limit, tokenSlug: nil, toTimestamp: toTimestamp)
-            if result.isEmpty {
+            let activities = result.activities
+            let apiShouldFetchMore = result.shouldFetchMore
+            if activities.isEmpty {
                 updateActivitiesIsHistoryEndReached(accountId: accountId, slug: nil, isReached: true)
                 break
             }
             let poisoningCache = getPoisoningCache(accountId)
-            updatePoisoningCache(accountId: accountId, activities: result)
+            updatePoisoningCache(accountId: accountId, activities: activities)
             let hideTinyTransfers = AppStorageHelper.hideTinyTransfers
-            let filteredResult = result.filter {
+            let filteredResult = activities.filter {
                 guard case .transaction(let transaction) = $0 else { return true }
                 if hideTinyTransfers && $0.isTinyOrScamTransaction {
                     return false
                 }
                 return !poisoningCache.isTransactionWithPoisoning(transaction: transaction)
             }
-            fetchedActivities.append(contentsOf: result)
-            if filteredResult.count >= 1 && fetchedActivities.count >= limit {
-                break
-            }
-            toTimestamp = result.last!.timestamp
+            fetchedActivities.append(contentsOf: activities)
+            shouldFetchMore = apiShouldFetchMore
+                || (
+                    filteredResult.count < limit
+                    && fetchedActivities.count < limit
+                )
+            toTimestamp = activities.last!.timestamp
         }
         
         fetchedActivities.sort(by: <)
@@ -246,27 +251,32 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             .last(where: { getIsIdSuitableForFetchingTimestamp(activity: byId[$0]) })
             .flatMap { id in byId[id]?.timestamp }
         
-        while true {
+        var shouldFetchMore = true
+        while shouldFetchMore {
             let result = try await Api.fetchPastActivities(accountId: accountId, limit: limit, tokenSlug: token.slug, toTimestamp: toTimestamp)
-            if result.isEmpty {
+            let activities = result.activities
+            let apiShouldFetchMore = result.shouldFetchMore
+            if activities.isEmpty {
                 updateActivitiesIsHistoryEndReached(accountId: accountId, slug: token.slug, isReached: true)
                 break
             }
             let poisoningCache = getPoisoningCache(accountId)
-            updatePoisoningCache(accountId: accountId, activities: result)
+            updatePoisoningCache(accountId: accountId, activities: activities)
             let hideTinyTransfers = AppStorageHelper.hideTinyTransfers
-            let filteredResult = result.filter {
+            let filteredResult = activities.filter {
                 guard case .transaction(let transaction) = $0 else { return true }
                 if hideTinyTransfers && $0.isTinyOrScamTransaction {
                     return false
                 }
                 return !poisoningCache.isTransactionWithPoisoning(transaction: transaction)
             }
-            fetchedActivities.append(contentsOf: result)
-            if filteredResult.count >= 1 && fetchedActivities.count >= limit {
-                break
-            }
-            toTimestamp = result.last!.timestamp
+            fetchedActivities.append(contentsOf: activities)
+            shouldFetchMore = apiShouldFetchMore
+                || (
+                    filteredResult.count < limit
+                    && fetchedActivities.count < limit
+                )
+            toTimestamp = activities.last!.timestamp
         }
         
         fetchedActivities.sort(by: <)

@@ -98,13 +98,12 @@ function OnRampWidgetModal({
 
     const loadMoonpayCard = async () => {
       try {
-        const response = await callApi(
-          'getMoonpayOnrampUrl',
+        const response = await callApi('getMoonpayOnrampUrl', {
           chain,
           address,
-          appTheme,
-          selectedCurrency,
-        );
+          theme: appTheme,
+          currency: selectedCurrency,
+        });
 
         // Guard against stale responses
         if (!isOpen || selectedCurrency !== currencyAtStart) return;

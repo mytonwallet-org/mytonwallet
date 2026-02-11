@@ -95,11 +95,11 @@ class SearchMatchedCell(
     override fun updateTheme() {
         setBackgroundColor(
             WColor.PrimaryText.color.colorWithAlpha(15),
-            ViewConstants.STANDARD_ROUNDS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         addRippleEffect(
             WColor.BackgroundRipple.color,
-            ViewConstants.STANDARD_ROUNDS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
     }
 

@@ -2,7 +2,6 @@
 import SwiftUI
 import UIComponents
 import WalletContext
-import Kingfisher
 import Perception
 
 private let extraPadding: CGFloat = 10
@@ -68,12 +67,7 @@ struct _MinimizedSheetView: View {
         Button(action: viewModel.titleTapAction) {
             HStack(spacing: 8) {
                 if let iconUrl = viewModel.iconUrl {
-                    KFImage(URL(string: iconUrl))
-                        .placeholder {
-                            Color(WTheme.secondaryFill)
-                        }
-                        .resizable()
-                        .loadDiskFileSynchronously(false)
+                    DappIcon(iconUrl: iconUrl)
                         .aspectRatio(1, contentMode: .fill)
                         .frame(width: 24, height: 24)
                         .clipShape(.rect(cornerRadius: 8))

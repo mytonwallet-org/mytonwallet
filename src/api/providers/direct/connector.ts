@@ -6,12 +6,19 @@ import * as methods from '../../methods';
 import init from '../../methods/init';
 import * as tonConnectApi from '../../tonConnect';
 
+let initPromise: Promise<void> | undefined;
+
 export function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs | (() => ApiInitArgs)) {
   const args = typeof initArgs === 'function' ? initArgs() : initArgs;
-  void init(onUpdate, args);
+  initPromise = init(onUpdate, args);
 }
 
-export function callApi<T extends keyof AllMethods>(fnName: T, ...args: AllMethodArgs<T>): AllMethodResponse<T> {
+export async function callApi<T extends keyof AllMethods>(
+  fnName: T,
+  ...args: AllMethodArgs<T>
+): Promise<AllMethodResponse<T>> {
+  await initPromise!;
+
   if (fnName.startsWith('tonConnect_')) {
     fnName = fnName.replace('tonConnect_', '') as T;
     const method = tonConnectApi[fnName as keyof TonConnectMethods];

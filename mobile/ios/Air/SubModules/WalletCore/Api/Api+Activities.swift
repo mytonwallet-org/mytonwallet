@@ -5,8 +5,8 @@ import WalletContext
 
 extension Api {
     
-    public static func fetchPastActivities(accountId: String, limit: Int, tokenSlug: String?, toTimestamp: Int64?) async throws -> [ApiActivity] {
-        try await bridge.callApi("fetchPastActivities", accountId, limit, tokenSlug, toTimestamp, decoding: [ApiActivity].self)
+    public static func fetchPastActivities(accountId: String, limit: Int, tokenSlug: String?, toTimestamp: Int64?) async throws -> ApiActivitySliceResult {
+        try await bridge.callApi("fetchPastActivities", accountId, limit, tokenSlug, toTimestamp, decoding: ApiActivitySliceResult.self)
     }
     
     public static func decryptComment(accountId: String, activity: ApiTransactionActivity, password: String?) async throws -> String {
@@ -35,4 +35,9 @@ private struct ApiFetchTransactionByIdOptions: Encodable {
     var walletAddress: String
     var txId: String?
     var txHash: String?
+}
+
+public struct ApiActivitySliceResult: Codable, Sendable {
+    public let activities: [ApiActivity]
+    public let shouldFetchMore: Bool
 }

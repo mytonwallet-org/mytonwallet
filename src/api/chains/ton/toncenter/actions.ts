@@ -355,6 +355,10 @@ function parseCallContract(action: CallContractAction, options: ParseOptions): P
     slug: TONCOIN.slug,
     type,
     shouldHide,
+    extra: omitUndefined({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+      ...(opCode === OpCode.OurFee && { isOurSwapFee: true }),
+    }),
   };
 
   return {
@@ -407,7 +411,7 @@ function parseJettonTransfer(action: JettonTransferAction, options: ParseOptions
   const encryptedComment = (isEncrypted && details.comment) || undefined;
   const tokenAddress = addressBook[details.asset].user_friendly;
   const slug = buildTokenSlug('ton', tokenAddress);
-  const shouldHide = !isIncoming && forwardPayload === OUR_FEE_PAYLOAD_BOC;
+  const isOurSwapFee = !isIncoming && forwardPayload === OUR_FEE_PAYLOAD_BOC;
 
   let type: ApiTransactionType;
   if (toAddress === BURN_ADDRESS) {
@@ -429,8 +433,12 @@ function parseJettonTransfer(action: JettonTransferAction, options: ParseOptions
     slug,
     comment,
     encryptedComment,
-    shouldHide,
+    shouldHide: isOurSwapFee,
     type,
+    extra: omitUndefined({
+      queryId: details.query_id,
+      ...(isOurSwapFee && { isOurSwapFee: true }),
+    }),
   };
 
   return {
@@ -554,6 +562,9 @@ function parseNftTransfer(action: NftTransferAction, options: ParseOptions): Par
     comment: (forwardPayload && safeReadComment(forwardPayload)) || undefined,
     shouldReload: (isMetadataMissing && RAW_NFT_COLLECTIONS_TO_RELOAD_METADATA.has(action.details.nft_collection))
       || undefined,
+    extra: omitUndefined({
+      queryId: action.details.query_id,
+    }),
   };
 
   if (activity.toAddress === BURN_ADDRESS) {

@@ -62,6 +62,21 @@ export type AppTheme = 'dark' | 'light';
 export type AppLayout = 'portrait' | 'landscape';
 export type DialogAction = 'openBluetoothSettings' | 'signOutAll';
 
+export type DeveloperSettingsUndefinedOverride = '__undefined';
+export type DeveloperSettingsOverrideValue<Value> = Exclude<Value, undefined> | DeveloperSettingsUndefinedOverride;
+
+export interface DeveloperSettingsOverrides {
+  seasonalTheme?: DeveloperSettingsOverrideValue<ApiBackendConfig['seasonalTheme']>;
+}
+
+export type DeveloperSettingsOverrideKey = keyof DeveloperSettingsOverrides;
+export type DeveloperSettingsOverridePayload = {
+  [Key in DeveloperSettingsOverrideKey]: {
+    key: Key;
+    value?: DeveloperSettingsOverrides[Key];
+  };
+}[DeveloperSettingsOverrideKey];
+
 export type ToastType = {
   icon?: string;
   message: string;
@@ -371,6 +386,9 @@ export type UserToken = {
   codeHash?: string;
   /** A small dim label to show in the UI right after the token name */
   label?: string;
+  /** True if this is a staking token (created from ApiStakingState) */
+  isStaking?: boolean;
+  stakingId?: string;
 };
 
 export type UserSwapToken = Omit<UserToken, 'change24h' | 'chain'> & {
@@ -453,6 +471,7 @@ export interface AccountState {
     name: ApiNft['name'];
   };
   currentNftForAttributes?: ApiNft;
+  shouldShowOwnerInNftAttributes?: true;
   dappLastOpenedDatesByUrl?: Record<string, number>;
   isBackupRequired?: boolean;
   currentTokenSlug?: string;
@@ -499,7 +518,7 @@ export interface AccountState {
 }
 
 export interface AccountSettings {
-  orderedSlugs?: string[];
+  pinnedSlugs?: string[];
   alwaysShownSlugs?: string[];
   alwaysHiddenSlugs?: string[];
   deletedSlugs?: string[];
@@ -553,6 +572,7 @@ export type GlobalState = {
     accounts?: AuthAccount[];
     forceAddingTonOnlyAccount?: boolean;
     initialAddAccountState?: AccountSelectorState; // Initial rendering state for the `AddAccountModal` component
+    shouldHideAddAccountBackButton?: boolean;
   };
 
   biometrics: {
@@ -597,10 +617,6 @@ export type GlobalState = {
     realFee?: bigint;
     comment?: string;
     binPayload?: string;
-    /**
-     * This is the legacy dapp transaction sending mechanism. The transaction originates in the `sendTransaction`
-     * function of the `src/api/extensionMethods/legacy.ts` file.
-     */
     promiseId?: string;
     txId?: string;
     rawPayload?: string;
@@ -795,19 +811,18 @@ export type GlobalState = {
     theme: Theme;
     animationLevel: AnimationLevel;
     isSeasonalThemingDisabled?: boolean;
+    developerSettingsOverrides?: DeveloperSettingsOverrides;
     langCode: LangCode;
     byAccountId: Record<string, AccountSettings>;
     areTinyTransfersHidden?: boolean;
     canPlaySounds?: boolean;
     isInvestorViewEnabled?: boolean;
     isTonProxyEnabled?: boolean;
-    isTonMagicEnabled?: boolean;
     isDeeplinkHookEnabled?: boolean;
     isPasswordNumeric?: boolean; // Backwards compatibility for non-numeric passwords from older versions
     isTestnet?: boolean;
     isSecurityWarningHidden?: boolean;
     areTokensWithNoCostHidden: boolean;
-    isSortByValueEnabled?: boolean;
     importToken?: {
       isLoading?: boolean;
       token?: UserToken | UserSwapToken;
@@ -1094,7 +1109,7 @@ export interface ActionPayloads {
     isCollection: boolean;
   };
   closeHideNftModal: undefined;
-  openNftAttributesModal: { nft: ApiNft };
+  openNftAttributesModal: { nft: ApiNft; withOwner?: true };
   closeNftAttributesModal: undefined;
 
   openExplore: undefined;
@@ -1114,7 +1129,11 @@ export interface ActionPayloads {
   setAccountSelectorTab: { tab: number };
   setAccountSelectorViewMode: { mode: 'cards' | 'list' };
   setCurrentTokenPeriod: { period: TokenPeriod };
-  openAddAccountModal: { forceAddingTonOnlyAccount?: boolean; initialState?: number } | undefined;
+  openAddAccountModal: {
+    forceAddingTonOnlyAccount?: boolean;
+    initialState?: AccountSelectorState;
+    shouldHideBackButton?: boolean;
+  } | undefined;
   closeAddAccountModal: undefined;
 
   setLandscapeActionsActiveTabIndex: { index: ActiveTab };
@@ -1160,11 +1179,11 @@ export interface ActionPayloads {
   setTheme: { theme: Theme };
   setAnimationLevel: { level: AnimationLevel };
   toggleSeasonalTheming: { isEnabled?: boolean };
+  setDeveloperSettingsOverride: DeveloperSettingsOverridePayload;
   toggleTinyTransfersHidden: { isEnabled?: boolean } | undefined;
   toggleInvestorView: { isEnabled?: boolean } | undefined;
   toggleCanPlaySounds: { isEnabled?: boolean } | undefined;
   toggleTonProxy: { isEnabled: boolean };
-  toggleTonMagic: { isEnabled: boolean };
   toggleDeeplinkHook: { isEnabled: boolean };
   startChangingNetwork: { network: ApiNetwork };
   changeNetwork: { network: ApiNetwork };
@@ -1172,9 +1191,8 @@ export interface ActionPayloads {
   setSelectedExplorerId: { chain: ApiChain; explorerId: string };
   closeSecurityWarning: undefined;
   toggleTokensWithNoCost: { isEnabled: boolean };
-  toggleSortByValue: { isEnabled: boolean };
-  updateOrderedSlugs: { orderedSlugs: string[] };
-  rebuildOrderedSlugs: undefined;
+  pinToken: { slug: string };
+  unpinToken: { slug: string };
   toggleTokenVisibility: { slug: string; shouldShow: boolean };
   addToken: { token: UserToken };
   deleteToken: { slug: string };

@@ -47,13 +47,14 @@ final class NftDetailsViewModel {
         isExpanded: Bool = true,
         isFullscreenPreviewOpen: Bool = false,
         nft: ApiNft,
-        listContext: NftCollectionFilter
+        listContext: NftCollectionFilter,
+        fixedNfts: [ApiNft]? = nil
     ) {
         self._account = AccountContext(accountId: accountId)
         self.isExpanded = isExpanded
         self.isFullscreenPreviewOpen = isFullscreenPreviewOpen
         self.nft = nft
-        self.listContextProvider = NftListContextProvider(accountId: accountId, filter: listContext)
+        self.listContextProvider = NftListContextProvider(accountId: accountId, filter: listContext, fixedNfts: fixedNfts)
     }
     
     var collapsedTopInset: CGFloat {

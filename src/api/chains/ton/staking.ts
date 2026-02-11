@@ -52,7 +52,6 @@ import { NominatorPool } from './contracts/NominatorPool';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { callBackendGet } from '../../common/backend';
 import { getAccountCache, getStakingCommonCache, updateAccountCache } from '../../common/cache';
-import { getClientId } from '../../common/other';
 import { buildTokenSlug, getTokenByAddress, getTokenBySlug } from '../../common/tokens';
 import { isKnownStakingPool } from '../../common/utils';
 import { STAKE_COMMENT, TON_GAS, UNSTAKE_COMMENT } from './constants';
@@ -656,11 +655,8 @@ export async function getBackendStakingState(accountId: string): Promise<ApiBack
 }
 
 export async function fetchBackendStakingState(address: string, isViewOnly: boolean): Promise<ApiBackendStakingState> {
-  const clientId = await getClientId();
   const stakingState = await callBackendGet(`/staking/state/${address}`, {
     isViewMode: isViewOnly ? 1 : undefined,
-  }, {
-    'X-App-ClientID': clientId,
   });
 
   stakingState.balance = fromDecimal(stakingState.balance);
@@ -670,7 +666,7 @@ export async function fetchBackendStakingState(address: string, isViewOnly: bool
     throw Error('Unexpected pool address, likely a malicious activity');
   }
 
-  return stakingState;
+  return stakingState as ApiBackendStakingState;
 }
 
 export async function submitTokenStakingClaim(

@@ -177,7 +177,7 @@ class StakingVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 stakeButton,
-                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
         }
@@ -464,7 +464,7 @@ class StakingVC(
         spacerView.setBackgroundColor(WColor.SecondaryBackground.color)
         detailHeader.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
             0f
         )
         detailHeader.setTextColor(WColor.PrimaryText.color)
@@ -473,7 +473,7 @@ class StakingVC(
                 stakingDetailView.setBackgroundColor(
                     WColor.Background.color,
                     0f,
-                    ViewConstants.BIG_RADIUS.dp
+                    ViewConstants.BLOCK_RADIUS.dp
                 )
             }
 
@@ -481,14 +481,14 @@ class StakingVC(
                 unstakingDetailView.setBackgroundColor(
                     WColor.Background.color,
                     0f,
-                    ViewConstants.BIG_RADIUS.dp
+                    ViewConstants.BLOCK_RADIUS.dp
                 )
             }
         }
         stakeInputView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.TOP_RADIUS.dp,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.TOOLBAR_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
     }
 

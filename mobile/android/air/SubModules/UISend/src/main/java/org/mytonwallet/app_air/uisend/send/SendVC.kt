@@ -41,8 +41,10 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.feeDetailsDialog.FeeDetailsDialog
 import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
+import org.mytonwallet.app_air.uicomponents.extensions.disableInteraction
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setReadOnly
 import org.mytonwallet.app_air.uicomponents.helpers.DieselAuthorizationHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -52,6 +54,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.autoComplete.WAutoCompleteAddressView
+import org.mytonwallet.app_air.uicomponents.widgets.clearSegmentedControl.WClearSegmentedControl
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
@@ -81,6 +84,7 @@ import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import java.math.BigInteger
@@ -92,11 +96,14 @@ class SendVC(
     context: Context,
     private val initialTokenSlug: String? = null,
     private val initialValues: InitialValues? = null,
+    private val autoConfirm: Boolean = false,
 ) : WViewControllerWithModelStore(context), WalletCore.EventObserver {
     override val TAG = "Send"
 
     override val displayedAccount =
         DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+
+    private val activeAccount = AccountStore.activeAccount
 
     private val viewModel by lazy { ViewModelProvider(this)[SendViewModel::class.java] }
 
@@ -107,6 +114,41 @@ class SendVC(
         val comment: String? = null,
         val init: String? = null,
     )
+
+    private val isOffRampAllowed: Boolean
+        get() {
+            return activeAccount?.supportsBuyWithCard == true && ConfigStore.isLimited != true
+        }
+
+    private val shouldShowSellTab: Boolean
+        get() = !autoConfirm && isOffRampAllowed
+
+    private var didAutoConfirm = false
+
+    private val navSegmentedControl by lazy {
+        WClearSegmentedControl(context).apply {
+            paintColor = WColor.Background.color
+            setItems(
+                buildSegmentedItems(), 0, object : WClearSegmentedControl.Delegate {
+                    override fun onIndexChanged(to: Int, animated: Boolean) {
+                        if (shouldShowSellTab && to == 1) {
+                            openSellWithCard()
+                            updateThumbPosition(
+                                position = 0f,
+                                targetPosition = 0,
+                                animated = false,
+                                force = true,
+                                isAnimatingToPosition = false
+                            )
+                        }
+                    }
+
+                    override fun onItemMoved(from: Int, to: Int) {}
+
+                    override fun enterReorderingMode() {}
+                })
+        }
+    }
 
     private var suggestionAnimator: Animator? = null
     private var showSuggestionAnimatorInProgress: Boolean = false
@@ -172,7 +214,7 @@ class SendVC(
             )
             search("")
             isGone = true
-            setRoundedOutline(ViewConstants.BIG_RADIUS.dp)
+            setRoundedOutline(ViewConstants.BLOCK_RADIUS.dp)
             onSelected = { account, savedAddress ->
                 when {
                     account != null -> {
@@ -660,8 +702,8 @@ class SendVC(
 
         WalletCore.registerObserver(this)
 
-        setNavTitle(LocaleController.getString("\$send_action"))
         setupNavBar(true)
+        navigationBar?.setTitleView(navSegmentedControl, animated = false)
         navigationBar?.addCloseButton()
         navigationBar?.setTitleGravity(Gravity.CENTER)
 
@@ -709,74 +751,43 @@ class SendVC(
                 DieselAuthorizationHelpers.authorizeDiesel(context)
                 return@setOnClickListener
             }
-            viewModel.getConfirmationPageConfig()?.let { config ->
-                val vc = SendConfirmVC(
+            openConfirmIfPossible()
+        }
+
+        if (!autoConfirm) {
+            addressInputView.addTextChangedListener(onInputDestinationTextWatcher)
+            addressInputView.doAfterQrCodeScanned { address ->
+                switchTokenBasedOnChain(address)
+            }
+
+            commentInputView.addTextChangedListener(onInputCommentTextWatcher)
+
+            amountInputView.doOnMaxButtonClick(viewModel::onInputMaxButton)
+            amountInputView.doOnEquivalentButtonClick(viewModel::onInputToggleFiatMode)
+            amountInputView.doOnFeeButtonClick {
+                lateinit var dialogRef: WDialog
+                dialogRef = FeeDetailsDialog.create(
                     context,
-                    config,
-                    viewModel.getTransferOptions(config, ""),
-                    viewModel.getTokenSlug()
-                )
-                val isHardware = AccountStore.activeAccount?.isHardware == true
-                vc.setNextTask { passcode ->
-                    lifecycleScope.launch {
-                        if (isHardware) {
-                            // Sent using LedgerConnect
-                        } else {
-                            // Send with passcode
-                            try {
-                                val id = viewModel.callSend(config, passcode!!).activityId
-                                sentActivityId = ActivityHelpers.getTxIdFromId(id)
-                                // Wait for Pending Activity event...
-                                receivedLocalActivities?.firstOrNull { it.getTxHash() == sentActivityId }
-                                    ?.let {
-                                        checkReceivedActivity(it)
-                                    }
-                            } catch (e: JSWebViewBridge.ApiError) {
-                                navigationController?.viewControllers[navigationController!!.viewControllers.size - 2]?.showError(
-                                    e.parsed
-                                )
-                                navigationController?.pop(true)
-                            }
+                    TokenStore.getToken(viewModel.getTokenSlug())!!,
+                    viewModel.getConfirmationPageConfig()!!.explainedFee!!
+                ) {
+                    dialogRef.dismiss()
+                }
+                dialogRef.presentOn(this)
+            }
+            amountInputView.amountEditText.addTextChangedListener(onAmountTextWatcher)
+            amountInputView.tokenSelectorView.setOnClickListener {
+                push(SendTokenVC(context).apply {
+                    setOnAssetSelectListener {
+                        MBlockchain.valueOfSlugOrNull(it.slug)?.let { blockchain ->
+                            addressInputView.activeChain = blockchain
                         }
+                        viewModel.onInputToken(it.slug)
+                        updateCommentViews()
+                        showServiceTokenWarningIfRequired()
                     }
-                }
-                view.hideKeyboard()
-                push(vc)
+                })
             }
-        }
-
-        addressInputView.addTextChangedListener(onInputDestinationTextWatcher)
-        addressInputView.doAfterQrCodeScanned { address ->
-            switchTokenBasedOnChain(address)
-        }
-
-        commentInputView.addTextChangedListener(onInputCommentTextWatcher)
-
-        amountInputView.doOnMaxButtonClick(viewModel::onInputMaxButton)
-        amountInputView.doOnEquivalentButtonClick(viewModel::onInputToggleFiatMode)
-        amountInputView.doOnFeeButtonClick {
-            lateinit var dialogRef: WDialog
-            dialogRef = FeeDetailsDialog.create(
-                context,
-                TokenStore.getToken(viewModel.getTokenSlug())!!,
-                viewModel.getConfirmationPageConfig()!!.explainedFee!!
-            ) {
-                dialogRef.dismiss()
-            }
-            dialogRef.presentOn(this)
-        }
-        amountInputView.amountEditText.addTextChangedListener(onAmountTextWatcher)
-        amountInputView.tokenSelectorView.setOnClickListener {
-            push(SendTokenVC(context).apply {
-                setOnAssetSelectListener {
-                    MBlockchain.valueOfSlugOrNull(it.slug)?.let { blockchain ->
-                        addressInputView.activeChain = blockchain
-                    }
-                    viewModel.onInputToken(it.slug)
-                    updateCommentViews()
-                    showServiceTokenWarningIfRequired()
-                }
-            })
         }
 
         collectFlow(viewModel.inputStateFlow) {
@@ -800,6 +811,14 @@ class SendVC(
             if (it.uiButton.status == SendViewModel.ButtonStatus.NotEnoughNativeToken) {
                 showScamWarningIfRequired()
             }
+
+            if (autoConfirm &&
+                !didAutoConfirm &&
+                it.uiButton.status == SendViewModel.ButtonStatus.Ready
+            ) {
+                didAutoConfirm = true
+                openConfirmIfPossible()
+            }
             suggestionsBoxView.isEnabled = it.uiAddressSearch.enabled
         }
 
@@ -813,15 +832,88 @@ class SendVC(
 
         updateTheme()
         setInitialValues()
+        if (autoConfirm) {
+            applyReadonlyMode()
+        }
+    }
+
+    private fun buildSegmentedItems(): List<WClearSegmentedControl.Item> {
+        val items = mutableListOf(
+            WClearSegmentedControl.Item(LocaleController.getString("Send"), null, null)
+        )
+        if (shouldShowSellTab) {
+            items.add(WClearSegmentedControl.Item(LocaleController.getString("Sell"), null, null))
+        }
+        return items
+    }
+
+    private fun openSellWithCard() {
+        if (!isOffRampAllowed || autoConfirm) return
+        val activeAccount = activeAccount ?: return
+        SellWithCardLauncher.launch(
+            caller = WeakReference(this),
+            account = activeAccount,
+            tokenSlug = viewModel.getTokenSlug(),
+        )
+    }
+
+    private fun applyReadonlyMode() {
+        addressInputView.setEditable(false)
+        amountInputView.apply {
+            amountEditText.setReadOnly()
+            tokenSelectorView.disableInteraction()
+        }
+        commentInputView.setReadOnly()
+        title2.setOnClickListener(null)
+    }
+
+    private fun openConfirmIfPossible() {
+        viewModel.getConfirmationPageConfig()?.let { config ->
+            val vc = SendConfirmVC(
+                context = context,
+                config = config,
+                transferOptions = viewModel.getTransferOptions(config, ""),
+                slug = viewModel.getTokenSlug(),
+                name = addressInputView.autocompleteResult?.name
+            )
+            val isHardware = AccountStore.activeAccount?.isHardware == true
+            vc.setNextTask { passcode ->
+                lifecycleScope.launch {
+                    if (isHardware) {
+                        // Sent using LedgerConnect
+                    } else {
+                        // Send with passcode
+                        try {
+                            val id = viewModel.callSend(config, passcode!!).activityId
+                            sentActivityId = ActivityHelpers.getTxIdFromId(id)
+                            // Wait for Pending Activity event...
+                            receivedLocalActivities?.firstOrNull { it.getTxHash() == sentActivityId }
+                                ?.let {
+                                    checkReceivedActivity(it)
+                                }
+                        } catch (e: JSWebViewBridge.ApiError) {
+                            navigationController?.viewControllers[navigationController!!.viewControllers.size - 2]?.showError(
+                                e.parsed
+                            )
+                            navigationController?.pop(true)
+                        }
+                    }
+                }
+            }
+            view.hideKeyboard()
+            push(vc)
+        }
     }
 
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
+        navSegmentedControl.paintColor = WColor.Background.color
+        scrollView.setBackgroundColor(WColor.SecondaryBackground.color)
         listOf(binaryMessageTitle, initDataTitle).forEach {
             it.setBackgroundColor(
                 WColor.Background.color,
-                ViewConstants.BIG_RADIUS.dp,
+                ViewConstants.BLOCK_RADIUS.dp,
                 0f,
             )
         }
@@ -832,7 +924,7 @@ class SendVC(
             it.setBackgroundColor(
                 WColor.Background.color,
                 0f,
-                ViewConstants.BIG_RADIUS.dp
+                ViewConstants.BLOCK_RADIUS.dp
             )
         }
         commentInputView.setTextColor(WColor.PrimaryText.color)
@@ -877,6 +969,7 @@ class SendVC(
     private fun setInitialValues() {
         initialValues?.let {
             it.address?.let { address ->
+                viewModel.onInputDestination(address)
                 addressInputView.setText(address)
             }
             it.amount?.let { amountBigDecimalString ->
@@ -894,6 +987,7 @@ class SendVC(
             }
             it.comment?.let { comment ->
                 if (it.binary == null) {
+                    viewModel.onInputComment(comment)
                     commentInputView.setText(comment)
                 }
             }
@@ -930,7 +1024,7 @@ class SendVC(
         } else {
             ViewConstants.GAP.dp
         }
-        val radius = ViewConstants.BIG_RADIUS.dp.roundToInt()
+        val radius = ViewConstants.BLOCK_RADIUS.dp.roundToInt()
         return system + button + radius
     }
 

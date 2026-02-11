@@ -377,9 +377,7 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
   }
 
   if (cached.stateVersion === 23) {
-    if (!('isSortByValueEnabled' in cached.settings)) {
-      cached.settings.isSortByValueEnabled = initialState.settings.isSortByValueEnabled;
-    }
+    // Removed: isSortByValueEnabled initialization (deprecated in v50)
     cached.stateVersion = 24;
   }
 
@@ -550,9 +548,33 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     cached.stateVersion = 48;
   }
 
-  if (cached.stateVersion === 48) {
+  if (cached.stateVersion <= 49) {
     // Android app specific migration
-    cached.stateVersion = 49;
+    cached.stateVersion = 50;
+  }
+
+  if (cached.stateVersion === 49) {
+    // Initialize pinnedSlugs for all accounts
+    if (cached.settings?.byAccountId) {
+      Object.values(cached.settings.byAccountId).forEach((accountSettings) => {
+        if (accountSettings && !accountSettings.pinnedSlugs) {
+          accountSettings.pinnedSlugs = [];
+        }
+      });
+    }
+
+    // Remove global isSortByValueEnabled
+    if (cached.settings && 'isSortByValueEnabled' in cached.settings) {
+      const { isSortByValueEnabled: _, ...restSettings } = cached.settings as any;
+      cached.settings = restSettings;
+    }
+
+    cached.stateVersion = 50;
+  }
+
+  if (cached.stateVersion === 50) {
+    clearActivities();
+    cached.stateVersion = 51;
   }
 
   // When adding migration here, increase `STATE_VERSION`

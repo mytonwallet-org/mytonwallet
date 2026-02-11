@@ -82,7 +82,7 @@ public struct WalletCoreData {
     private init() {}
 
     // ability to observe events
-    class WeakEventsObserver {
+    final class WeakEventsObserver {
         weak var value: EventsObserver?
         init(value: EventsObserver?) {
             self.value = value

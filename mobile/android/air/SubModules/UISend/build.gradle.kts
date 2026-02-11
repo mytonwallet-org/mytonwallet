@@ -53,6 +53,7 @@ dependencies {
     implementation(project("$airSubModulePath:vkryl:core"))
     implementation(project("$airSubModulePath:vkryl:android"))
     implementation(project("$airSubModulePath:Ledger"))
+    implementation(project("$airSubModulePath:UIInAppBrowser"))
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

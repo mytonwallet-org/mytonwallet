@@ -180,6 +180,10 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
                                     isScrollingVertical = false
                                 else if (diffY > 10)
                                     isScrollingVertical = true
+                                if (isScrollingVertical != null) {
+                                    initialX = it.x
+                                    initialY = it.y
+                                }
                             }
                             when (isScrollingVertical) {
                                 false -> {
@@ -481,7 +485,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
                         bottomToBottom(
                             topReversedCornerView,
                             it,
-                            -ViewConstants.BAR_ROUNDS
+                            -ViewConstants.TOOLBAR_RADIUS
                         )
                         return@setConstraints
                     }
@@ -489,7 +493,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             }
             if (bottomReversedCornerView?.parent != null)
                 bottomReversedCornerView?.updateLayoutParams {
-                    height = ViewConstants.BAR_ROUNDS.dp.roundToInt() +
+                    height = ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
                         (navigationController?.getSystemBars()?.bottom ?: 0)
                 }
         }
@@ -594,7 +598,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
                 bottomToBottom(
                     topReversedCornerView!!,
                     it,
-                    -ViewConstants.BAR_ROUNDS
+                    -ViewConstants.TOOLBAR_RADIUS
                 )
                 return@setConstraints
             }
@@ -612,7 +616,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             bottomReversedCornerView,
             ConstraintLayout.LayoutParams(
                 MATCH_PARENT,
-                ViewConstants.BAR_ROUNDS.dp.roundToInt() +
+                ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
                     (navigationController?.getSystemBars()?.bottom ?: 0)
             )
         )
@@ -637,7 +641,8 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         } else {
             topReversedCornerView?.pauseBlurring(false)
             bottomReversedCornerView?.pauseBlurring()
-            navigationController?.tabBarController?.pauseBlurring()
+            if (navigationController?.tabBarController?.activeNavigationController == navigationController)
+                navigationController?.tabBarController?.pauseBlurring()
         }
     }
 
@@ -659,8 +664,9 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         navigationBar?.expansionValue = expandProgress
         topReversedCornerView?.translationZ = navigationBar?.translationZ ?: 0f
         if (expandProgress < 1) {
-            // Use fixed radius when Rounded Corners is off, otherwise use BIG_RADIUS
-            val halfExpandedRadius = if (ViewConstants.BIG_RADIUS == 0f) 24f.dp else ViewConstants.BIG_RADIUS.dp
+            // Use fixed radius when Rounded Corners is off, otherwise use BLOCK_RADIUS
+            val halfExpandedRadius =
+                if (ViewConstants.BLOCK_RADIUS == 0f) 24f.dp else ViewConstants.BLOCK_RADIUS.dp
             topReversedCornerView?.setBackgroundColor(
                 Color.TRANSPARENT,
                 min(1f, ((1 - expandProgress) * 5)) * halfExpandedRadius,

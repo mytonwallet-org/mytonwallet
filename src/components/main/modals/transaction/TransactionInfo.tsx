@@ -371,7 +371,6 @@ function TransactionInfo({
                   copyNotification={lang('Address was copied!')}
                   className={styles.copyButtonWrapper}
                   textClassName={isScam && isIncoming ? styles.scamAddress : undefined}
-                  forceFullAddress
                 />
               </>
             )}
@@ -385,7 +384,6 @@ function TransactionInfo({
                   isScam={isScam && !isIncoming}
                   copyNotification={lang('Address was copied!')}
                   className={styles.copyButtonWrapper}
-                  forceFullAddress
                 />
               </>
             )}
@@ -401,7 +399,6 @@ function TransactionInfo({
               copyNotification={lang('Address was copied!')}
               className={styles.copyButtonWrapper}
               textClassName={isScam && isIncoming ? styles.scamAddress : undefined}
-              forceFullAddress
             />
           </>
         )

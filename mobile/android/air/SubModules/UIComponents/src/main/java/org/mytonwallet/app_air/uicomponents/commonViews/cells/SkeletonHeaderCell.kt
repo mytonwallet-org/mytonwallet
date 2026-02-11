@@ -42,7 +42,7 @@ class SkeletonHeaderCell(
     }
 
     override fun updateTheme() {
-        setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp, 0f)
+        setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp, 0f)
         titleSkeleton.setBackgroundColor(WColor.SecondaryBackground.color, TITLE_SKELETON_RADIUS)
     }
 

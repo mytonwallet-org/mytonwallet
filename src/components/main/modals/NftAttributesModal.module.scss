@@ -235,6 +235,14 @@
   background: var(--color-background-first);
 }
 
+.copyButtonWrapper {
+  margin-bottom: 1.25rem;
+}
+
+.scamAddress {
+  color: var(--color-red);
+}
+
 .attributesList {
   table-layout: fixed;
   border-spacing: 0;

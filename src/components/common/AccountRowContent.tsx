@@ -3,8 +3,11 @@ import React, { memo } from '../../lib/teact/teact';
 
 import type { ApiNft } from '../../api/types';
 import type { Account, AccountType } from '../../global/types';
+import type { AccountBalance } from '../main/modals/accountSelector/hooks/useAccountsBalances';
 
 import buildClassName from '../../util/buildClassName';
+
+import useLastCallback from '../../hooks/useLastCallback';
 
 import AccountRowInner from './AccountRowInner';
 
@@ -18,17 +21,13 @@ export interface AccountRowContentProps {
   isTestnet?: boolean;
   isSelected?: boolean;
   isDisabled?: boolean;
-  balanceData?: {
-    wholePart: string;
-    fractionPart?: string;
-    currencySymbol: string;
-  };
+  balanceData?: AccountBalance;
   cardBackgroundNft?: ApiNft;
   isSensitiveDataHidden?: true;
   suffixIcon?: TeactNode;
   className?: string;
   avatarClassName?: string;
-  onClick?: NoneToVoidFunction;
+  onClick?: (accountId: string) => void;
 }
 
 /**
@@ -51,6 +50,10 @@ function AccountRowContent({
   avatarClassName,
   onClick,
 }: AccountRowContentProps) {
+  const handleClick = useLastCallback(() => {
+    onClick?.(accountId);
+  });
+
   const fullClassName = buildClassName(
     styles.row,
     isSelected && styles.selected,
@@ -64,7 +67,7 @@ function AccountRowContent({
       role={onClick ? 'button' : undefined}
       tabIndex={onClick && !isDisabled ? 0 : -1}
       className={fullClassName}
-      onClick={!isDisabled ? onClick : undefined}
+      onClick={!isDisabled ? handleClick : undefined}
     >
       <AccountRowInner
         accountId={accountId}

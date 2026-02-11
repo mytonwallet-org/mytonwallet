@@ -19,16 +19,56 @@ public class ConfigStore {
     private let queue = DispatchQueue(label: "org.mytonwallet.app.config_store", attributes: .concurrent)
     
     private var _config: ApiUpdate.UpdateConfig? = nil
+    private var _isLimitedOverride: Bool?
+    private var _seasonalThemeOverride: ApiUpdate.UpdateConfig.SeasonalTheme?
+
+    private func applyOverrides(on config: ApiUpdate.UpdateConfig?) -> ApiUpdate.UpdateConfig? {
+        guard var config else { return nil }
+        if let isLimitedOverride = _isLimitedOverride {
+            config.isLimited = isLimitedOverride
+        }
+        if let seasonalThemeOverride = _seasonalThemeOverride {
+            config.seasonalTheme = seasonalThemeOverride
+        }
+        return config
+    }
+
     public internal(set) var config: ApiUpdate.UpdateConfig? {
         get {
-            return queue.sync { _config }
+            return queue.sync { applyOverrides(on: _config) }
         }
         set {
             queue.async(flags: .barrier) {
                 self._config = newValue
                 if let newValue {
                     self.handleConfig(newValue)
+                } else {
+                    WalletCoreData.notify(event: .configChanged)
                 }
+            }
+        }
+    }
+
+    public var seasonalThemeOverride: ApiUpdate.UpdateConfig.SeasonalTheme? {
+        get {
+            queue.sync { _seasonalThemeOverride }
+        }
+        set {
+            queue.async(flags: .barrier) {
+                self._seasonalThemeOverride = newValue
+                WalletCoreData.notify(event: .configChanged)
+            }
+        }
+    }
+
+    public var isLimitedOverride: Bool? {
+        get {
+            queue.sync { _isLimitedOverride }
+        }
+        set {
+            queue.async(flags: .barrier) {
+                self._isLimitedOverride = newValue
+                WalletCoreData.notify(event: .configChanged)
             }
         }
     }
@@ -49,6 +89,8 @@ public class ConfigStore {
     public func clean() {
         queue.async(flags: .barrier) {
             self._config = nil
+            self._isLimitedOverride = nil
+            self._seasonalThemeOverride = nil
         }
     }
 }

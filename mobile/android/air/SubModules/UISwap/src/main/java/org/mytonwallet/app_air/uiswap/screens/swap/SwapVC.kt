@@ -266,7 +266,7 @@ class SwapVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 continueButton,
-                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
         }
@@ -412,7 +412,7 @@ class SwapVC(
         estShowMoreContainer.setBackgroundColor(WColor.Background.color)
         estOuterContainer.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
             true
         )
     }
@@ -530,7 +530,7 @@ class SwapVC(
             0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             20.dp +
-                ViewConstants.BIG_RADIUS.dp.roundToInt() +
+                ViewConstants.BLOCK_RADIUS.dp.roundToInt() +
                 continueButton.buttonHeight +
                 max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),

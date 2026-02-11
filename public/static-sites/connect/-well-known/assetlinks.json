@@ -8,7 +8,8 @@
       "package_name": "org.mytonwallet.app",
       "sha256_cert_fingerprints": [
         "93:31:8E:37:31:AE:D8:29:A9:9F:18:FB:9A:1F:0C:7A:D4:B6:02:2C:14:E6:89:5C:DA:D0:BE:37:A9:DE:58:97",
-        "C2:F6:EC:F2:AA:46:B9:76:7E:B4:11:7E:7E:D0:16:AB:04:44:03:5C:5D:8C:7A:AC:5A:9F:04:AC:07:A0:B6:40"
+        "C2:F6:EC:F2:AA:46:B9:76:7E:B4:11:7E:7E:D0:16:AB:04:44:03:5C:5D:8C:7A:AC:5A:9F:04:AC:07:A0:B6:40",
+        "9C:4E:20:01:2F:94:59:EE:40:72:C6:90:F4:43:64:3B:C1:0E:40:A7:CC:6F:CE:A8:0D:38:B5:D4:E1:BF:BF:C7"
       ]
     }
   }

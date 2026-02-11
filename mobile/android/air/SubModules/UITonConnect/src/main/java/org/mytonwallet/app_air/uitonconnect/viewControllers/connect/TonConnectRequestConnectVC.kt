@@ -175,7 +175,7 @@ class TonConnectRequestConnectVC(
         super.updateTheme()
         view.setBackgroundColor(
             WColor.SecondaryBackground.color,
-            ViewConstants.STANDARD_ROUNDS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
             0f,
             true
         )
@@ -336,25 +336,16 @@ class TonConnectRequestConnectVC(
         val accountData = WGlobalStorage.getAccount(accountId) ?: return
         val account = MAccount(accountId, accountData)
 
-        val balanceAmount = BalanceStore.totalBalanceInBaseCurrency(account.accountId)
-        val balance = balanceAmount?.toString(
-            WalletCore.baseCurrency.decimalsCount,
-            WalletCore.baseCurrency.sign,
-            WalletCore.baseCurrency.decimalsCount,
-            true
-        )
-
-
         accountView.configure(
             item = SettingsItem(
                 identifier = SettingsItem.Identifier.ACCOUNT,
                 title = account.name,
-                accounts = listOf(account),
+                account = account,
                 hasTintColor = false,
                 icon = null,
-                value = balance
+                value = null
             ),
-            value = balance,
+            subtitle = null,
             isFirst = false,
             isLast = true,
             onTap = {

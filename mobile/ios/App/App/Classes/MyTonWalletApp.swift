@@ -3,8 +3,7 @@ import UIKit
 import Capacitor
 #endif
 
-class MyTonWalletApp: UIApplication {
-
+final class MyTonWalletApp: UIApplication {
     private var lastTouchEventTimestamp = TimeInterval(0)
 
     override func sendEvent(_ event: UIEvent) {

@@ -299,18 +299,6 @@ addActionHandler('toggleTonProxy', (global, actions, { isEnabled }) => {
   };
 });
 
-addActionHandler('toggleTonMagic', (global, actions, { isEnabled }) => {
-  void callApi('doMagic', isEnabled);
-
-  return {
-    ...global,
-    settings: {
-      ...global.settings,
-      isTonMagicEnabled: isEnabled,
-    },
-  };
-});
-
 addActionHandler('toggleDeeplinkHook', (global, actions, { isEnabled }) => {
   if (IS_ELECTRON) {
     void window.electron?.toggleDeeplinkHandler(isEnabled);

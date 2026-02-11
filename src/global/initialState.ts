@@ -34,7 +34,7 @@ import { getTokenInfo } from '../util/chain';
 import { buildCollectionByKey, mapValues } from '../util/iteratees';
 import { IS_IOS_APP, USER_AGENT_LANG_CODE } from '../util/windowEnvironment';
 
-export const STATE_VERSION = 49;
+export const STATE_VERSION = 51;
 
 export const INITIAL_STATE: GlobalState = {
   appState: IS_EXPLORER ? AppState.Main : AppState.Auth,
@@ -107,7 +107,6 @@ export const INITIAL_STATE: GlobalState = {
     langCode: USER_AGENT_LANG_CODE,
     byAccountId: {},
     areTokensWithNoCostHidden: !SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
-    isSortByValueEnabled: true,
     isAppLockEnabled: true,
     autolockValue: DEFAULT_AUTOLOCK_OPTION,
     baseCurrency: DEFAULT_PRICE_CURRENCY,

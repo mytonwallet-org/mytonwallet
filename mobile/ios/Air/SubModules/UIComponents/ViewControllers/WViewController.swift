@@ -63,6 +63,41 @@ open class WViewController: UIViewController, WThemedView {
     open func scrollToTop(animated: Bool) {
     }
     
+    deinit {
+        if let observer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+    
+    // MARK: - Global navigation stuff
+    
+    override open func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        // This is a very temporary solution until the global navigation is implemented
+        // For now this can be used to testing whether something has been changed in UI hierarchy
+        // No distingush between "global" and "embedded" controllers are implemented so far
+        // to enable call registerForOtherViewControllerAppearNotifications()
+        let userInfo: [String: Any] = [notificationViewControllerKey: self ]
+        NotificationCenter.default.post(name: wViewControllerDidAppearNtf, object: self, userInfo: userInfo)
+    }
+    
+    private var observer: NSObjectProtocol?
+    private let notificationViewControllerKey = "viewController"
+    private let wViewControllerDidAppearNtf = Notification.Name("WViewControllerDidAppear")
+    
+    public func registerForOtherViewControllerAppearNotifications() {
+        guard observer == nil else { return }
+        observer = NotificationCenter.default.addObserver(forName: wViewControllerDidAppearNtf, object: nil, queue: .main) { [weak self] notification in
+            guard let self, let vc = notification.userInfo?[notificationViewControllerKey] as? UIViewController else { return }
+            if self !== vc {
+                otherViewControllerDidAppear(vc)
+            }
+        }
+    }
+    
+    open func otherViewControllerDidAppear(_ vc: UIViewController) { }
+    
     // MARK: - Sheet presentation
     
     open override func present(_ viewControllerToPresent: UIViewController, animated flag: Bool, completion: (() -> Void)? = nil) {
@@ -244,7 +279,6 @@ open class WViewController: UIViewController, WThemedView {
                         child.trailingAnchor.constraint(equalTo: parent.view.trailingAnchor),
                         child.topAnchor.constraint(equalTo: parent.navigationBarAnchor),
                         child.bottomAnchor.constraint(equalTo: parent.view.bottomAnchor),
-
                     ])
                 }
             }
@@ -422,3 +456,4 @@ open class WViewController: UIViewController, WThemedView {
         present(vc, animated: false)
     }
 }
+

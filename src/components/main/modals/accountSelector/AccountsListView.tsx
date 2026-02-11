@@ -2,6 +2,7 @@ import React, { memo, useEffect, useRef } from '../../../../lib/teact/teact';
 
 import type { Account, AccountSettings } from '../../../../global/types';
 import type { AccountTab } from './constants';
+import type { AccountBalance } from './hooks/useAccountsBalances';
 
 import { IS_CORE_WALLET } from '../../../../config';
 import buildClassName from '../../../../util/buildClassName';
@@ -25,7 +26,7 @@ interface OwnProps {
   isTestnet?: boolean;
   filteredAccounts: Array<[string, Account]>;
   activeTab: AccountTab;
-  balancesByAccountId: Record<string, { wholePart: string; fractionPart?: string; currencySymbol: string }>;
+  balancesByAccountId: Record<string, AccountBalance>;
   settingsByAccountId?: Record<string, AccountSettings>;
   currentAccountId: string;
   isSensitiveDataHidden?: true;

@@ -78,45 +78,46 @@ object AddressStore : IStore {
         addressData = null
     }
 
-    fun getAddress(address: String): MSavedAddress? {
+    fun getSavedAddress(address: String): MSavedAddress? {
         return addressData?.savedAddresses?.firstOrNull {
             it.address == address
-        } ?: addressData?.otherAccountAddresses?.firstOrNull {
-            it.address == address
         }
+    }
+
+    fun getAddress(address: String): MSavedAddress? {
+        return addressData?.otherAccountAddresses?.firstOrNull {
+            it.address == address
+        } ?: getSavedAddress(address)
     }
 
     fun addAddress(address: MSavedAddress) {
-        addressData?.let { addressData ->
-            if (addressData.savedAddresses == null)
-                addressData.savedAddresses = mutableListOf()
-            addressData.savedAddresses?.add(address)
-            WGlobalStorage.setAccountAddresses(
-                addressData.accountId,
-                JSONArray().apply {
-                    addressData.savedAddresses?.forEach {
-                        put(it.toDictionary())
-                    }
-                }
-            )
+        val addressData = this.addressData ?: return
+        addressData.savedAddresses = (addressData.savedAddresses ?: mutableListOf()).apply {
+            add(address)
         }
+        WGlobalStorage.setAccountAddresses(
+            addressData.accountId,
+            JSONArray().apply {
+                addressData.savedAddresses?.forEach {
+                    put(it.toDictionary())
+                }
+            }
+        )
     }
 
     fun removeAddress(address: String) {
-        addressData?.let { addressData ->
-            if (addressData.savedAddresses == null)
-                return
-            addressData.savedAddresses = AddressStore.addressData?.savedAddresses?.filter {
-                it.address != address
-            }?.toMutableList()
-            WGlobalStorage.setAccountAddresses(
-                addressData.accountId,
-                JSONArray().apply {
-                    addressData.savedAddresses?.forEach {
-                        put(it.toDictionary())
-                    }
+        val addressData = this.addressData ?: return
+        val savedAddresses = addressData.savedAddresses ?: return
+        addressData.savedAddresses = savedAddresses.filter {
+            it.address != address
+        }.toMutableList()
+        WGlobalStorage.setAccountAddresses(
+            addressData.accountId,
+            JSONArray().apply {
+                addressData.savedAddresses?.forEach {
+                    put(it.toDictionary())
                 }
-            )
-        }
+            }
+        )
     }
 }

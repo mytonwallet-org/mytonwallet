@@ -29,8 +29,12 @@ import java.util.Date
 
 @JsonClass(generateAdapter = true)
 data class ActivityExtra(
-    @Json(name = "withW5Gasless") val withW5Gasless: Boolean? = null // Only for TON
-    // TODO Move other extra fields here (externalMsgHash, ...)
+    @Json(name = "withW5Gasless") val withW5Gasless: Boolean? = null, // Only for TON
+    @Json(name = "dex") val dex: MApiSwapDexLabel? = null, // Only for TON liquidity deposit and withdrawal
+    @Json(name = "marketplace") val marketplace: String? = null,
+    @Json(name = "queryId") val queryId: String? = null,
+    @Json(name = "isOurSwapFee") val isOurSwapFee: Boolean? = null,
+    @Json(name = "mtwAggregator") val mtwAggregator: ApiMtwAggregator? = null,
 )
 
 @JsonClass(generateAdapter = false)
@@ -721,47 +725,95 @@ enum class ApiTransactionType {
 
     private val titles: Map<ApiTransactionType, Triple<String, String, String>> by lazy {
         mapOf(
-            STAKE to Triple("Staked", "Staking", "Stake"),
-            UNSTAKE to Triple("Unstaked", "Unstaking", "Unstake"),
-            UNSTAKE_REQUEST to Triple("Requested Unstake", "Requesting Unstake", "Request Unstake"),
+            STAKE to Triple(
+                "Staked",
+                "Staking",
+                "\$stake_action"
+            ),
+            UNSTAKE to Triple(
+                "Unstaked",
+                "Unstaking",
+                "\$unstake_action"
+            ),
+            UNSTAKE_REQUEST to Triple(
+                "Requested Unstake",
+                "Requesting Unstake",
+                "\$request_unstake_action"
+            ),
             CALL_CONTRACT to Triple(
                 "Called Contract",
                 "Calling Contract",
                 "\$call_contract_action"
             ),
-            EXCESS to Triple("Excess", "Processing Excess", "Excess"),
-            CONTRACT_DEPLOY to Triple("Deployed Contract", "Deploying Contract", "Deploy Contract"),
-            BOUNCED to Triple("Bounced", "Bouncing", "Bounce"),
-            MINT to Triple("Minted", "Minting", "Mint"),
-            BURN to Triple("Burned", "Burning", "Burn"),
+            EXCESS to Triple(
+                "Excess",
+                "Excess",
+                "Excess"
+            ),
+            CONTRACT_DEPLOY to Triple(
+                "Deployed Contract",
+                "Deploying Contract",
+                "\$deploy_contract_action"
+            ),
+            BOUNCED to Triple(
+                "Bounced",
+                "Bouncing",
+                "\$bounce_action"
+            ),
+            MINT to Triple(
+                "Minted",
+                "Minting",
+                "\$mint_action"
+            ),
+            BURN to Triple(
+                "Burned",
+                "Burning",
+                "\$burn_action"
+            ),
             AUCTION_BID to Triple(
                 "NFT Auction Bid",
-                "Bidding Auction",
-                "Bid at NFT Auction"
+                "Bidding at NFT Auction",
+                "NFT Auction Bid"
             ),
-            DNS_CHANGE_ADDRESS to Triple("Address Updated", "Updating Address", "Update Address"),
-            DNS_CHANGE_SITE to Triple("Site Updated", "Updating Site", "Update Site"),
+            DNS_CHANGE_ADDRESS to Triple(
+                "Updated Address",
+                "Updating Address",
+                "\$update_address_action"
+            ),
+            DNS_CHANGE_SITE to Triple(
+                "Updated Site",
+                "Updating Site",
+                "\$update_site_action"
+            ),
             DNS_CHANGE_SUBDOMAINS to Triple(
-                "Subdomains Updated",
+                "Updated Subdomains",
                 "Updating Subdomains",
-                "Update Subdomains"
+                "\$update_subdomains_action"
             ),
-            DNS_CHANGE_STORAGE to Triple("Storage Updated", "Updating Storage", "Update Storage"),
+            DNS_CHANGE_STORAGE to Triple(
+                "Updated Storage",
+                "Updating Storage",
+                "\$update_storage_action"
+            ),
             DNS_DELETE to Triple(
-                "Domain Record Deleted",
+                "Deleted Domain Record",
                 "Deleting Domain Record",
-                "Delete Domain Record"
+                "\$delete_domain_record_action"
             ),
-            DNS_RENEW to Triple("Domain Renewed", "Renewing Domain", "Renew Domain"),
+            DNS_RENEW to Triple(
+                "Renewed Domain",
+                "Renewing Domain",
+                "\$renew_domain_action"
+            ),
             LIQUIDITY_DEPOSIT to Triple(
                 "Provided Liquidity",
                 "Providing Liquidity",
-                "Provide Liquidity"
+                "\$provide_liquidity_action"
             ),
             LIQUIDITY_WITHDRAW to Triple(
                 "Withdrawn Liquidity",
                 "Withdrawing Liquidity",
-                "Withdraw Liquidity"
+                "\$withdraw_liquidity_action"
             )
         )
     }
@@ -807,6 +859,14 @@ data class ApiTransactionMetadata(
     @Json(name = "name") val name: String? = null,
     @Json(name = "isScam") val isScam: Boolean? = null,
     @Json(name = "isMemoRequired") val isMemoRequired: Boolean? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ApiMtwAggregator(
+    @Json(name = "traceId") val traceId: String? = null,
+    @Json(name = "swapIds") val swapIds: List<String>? = null,
+    @Json(name = "from") val from: String? = null,
+    @Json(name = "to") val to: String? = null,
 )
 
 data class LocalActivityParams(

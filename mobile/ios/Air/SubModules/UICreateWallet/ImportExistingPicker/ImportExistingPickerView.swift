@@ -20,7 +20,7 @@ struct ImportExistingPickerView: View {
     var body: some View {
         VStack(spacing: 24) {
             InsetSection(dividersInset: 50) {
-                Item(icon: "KeyIcon30", text: lang("12/24 Secret Words"), onTap: onImport)
+                Item(icon: "KeyIcon30", text: lang("%counts% Secret Words", arg1: "12/24"), onTap: onImport)
                 Item(icon: "LedgerIcon30", text: "Ledger", onTap: onLedger)
             }
 

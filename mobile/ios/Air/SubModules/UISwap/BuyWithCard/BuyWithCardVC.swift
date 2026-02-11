@@ -84,7 +84,14 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
             Task {
                 let activeTheme = ResolvedTheme(traitCollection: traitCollection)
                 do {
-                    let url = try await Api.getMoonpayOnrampUrl(chain: model.chain, address: address, activeTheme: activeTheme, selectedCurrency: currency).url
+                    let url = try await Api.getMoonpayOnrampUrl(
+                        params: MoonpayOnrampParams(
+                            chain: model.chain,
+                            address: address,
+                            theme: activeTheme,
+                            currency: currency
+                        )
+                    ).url
                     open(url: url)
                 } catch {
                     showAlert(error: error)

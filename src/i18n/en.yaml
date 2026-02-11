@@ -57,9 +57,6 @@ Search...: Search...
 Main menu: Main menu
 TON Proxy: TON Proxy
 Toggle TON Proxy: Toggle TON Proxy
-TON Magic: TON Magic
-Toggle TON Magic: Toggle TON Magic
-Open Telegram Web: Open Telegram Web
 Back Up Secret Words: Back Up Secret Words
 Settings: Settings
 About %app_name%: About %app_name%
@@ -73,10 +70,7 @@ $about_description2: The wallet is **non-custodial and safe**. The developers **
 What is TON Proxy?: What is TON Proxy?
 $about_extension_description1: TON Proxy opens a way to **decentralized internet** by allowing to anonymously access TON Sites.
 More info and demo.: More info and demo.
-$about_extension_description2: TON Magic provides native **Telegram integration** by patching the official Telegram Web app.
-$about_extension_description3: Turn it on to send and receive Toncoins from any Telegram user.
-$about_proxy_magic_title: What about %ninja% TON Proxy and %unicorn% TON Magic?
-$about_proxy_magic_description: To enjoy **decentralized internet**, access **TON Sites**, and leverage native **Telegram integration**, feel free to install the %extension_link%.
+$about_proxy_magic_description: To enjoy **decentralized internet** and access **TON Sites**, feel free to install the %extension_link%.
 $about_extension_link_text: "**%app_name% extension**"
 Is it open source?: Is it open source?
 $about_wallet_github: Yes, it is. Feel free to explore our %github_link%.
@@ -191,6 +185,7 @@ Coins have been sent!: Coins have been sent!
 Transaction Sent!: Transaction Sent!
 Data Signed!: Data Signed!
 Details: Details
+View details: View details
 Change password visibility: Change password visibility
 Amount value: Amount value
 Save Address: Save Address
@@ -293,7 +288,6 @@ No active connections: No active connections
 Other: Other
 Assets & Activity: Assets & Activity
 Token Settings: Token Settings
-My Tokens: My Tokens
 Add Token: Add Token
 Delete Token: Delete Token
 Are you sure you want to delete?: Are you sure you want to delete %token%?
@@ -1027,6 +1021,7 @@ $connected_apps:
   otherValue: "%1$d connected"
 Night Mode, Palette, Card: Night Mode, Palette, Card
 Back Up, Passcode, Auto-Lock: Back Up, Passcode, Auto-Lock
+Back Up, Password, Auto-Lock: Back Up, Password, Auto-Lock
 Base Currency, Token Order, Hidden NFTs: Base Currency, Token Order, Hidden NFTs
 Your assets on other contracts: Your assets on other contracts
 Wallets, Sounds: Wallets, Sounds
@@ -1038,3 +1033,7 @@ Open in %app_name%: Open in %app_name%
 Blog: Blog
 Apps: Apps
 $nft_not_found: NFT not found
+Pin: Pin
+Unpin: Unpin
+My Assets: My Assets
+Owner: Owner

@@ -170,6 +170,17 @@ public final class _NftStore: Sendable {
         WalletCoreData.notify(event: .nftsChanged(accountId: accountId))
     }
     
+    /// Get current ordering snapshot for further possible rollback with `restoreOrderingWithSnapshot`
+    public func getOrderingSnapshot(accountId: String) -> NtfsOrderingSnapshot {
+        let originalValues = nfts[accountId, default: [:]]
+        let visibleNfts = originalValues.filter { !$0.value.shouldHide }
+        return NtfsOrderingSnapshot(orderHints: .init(visibleNfts.keys))
+    }
+    
+    public func restoreOrderingWithSnapshot(_ snapshot: NtfsOrderingSnapshot, accountId: String) {
+        reorderNfts(accountId: accountId, orderedIdsHint: snapshot.orderHints)
+    }
+    
     /// Reorders visible NFTs for an account using an ordered list of NFT IDs as a hint.
     /// - Only affects visible NFTs (`shouldHide == false`); 
     /// - Treats `orderedIdsHint` as a local reordering hint:
@@ -413,6 +424,11 @@ public struct DisplayNft: Equatable, Hashable, Codable, Identifiable, Sendable {
             return isHiddenByUser || nft.isHidden == true
         }
     }
+}
+
+/// Opaque entity to hold all necessary info for full order restoration if a reordering is canceled
+public struct NtfsOrderingSnapshot {
+    fileprivate var orderHints: OrderedSet<String>
 }
 
 public struct UserCollectionsInfo {

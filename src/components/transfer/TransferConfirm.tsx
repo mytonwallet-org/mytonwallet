@@ -259,6 +259,7 @@ function TransferConfirm({
           isScam={isScam}
           copyNotification={lang('Address was copied!')}
           className={styles.addressWidget}
+          forceFullAddress
         />
 
         {renderAmountWithFee()}

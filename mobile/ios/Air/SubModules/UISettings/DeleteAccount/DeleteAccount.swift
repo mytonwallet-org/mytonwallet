@@ -4,12 +4,20 @@ import WalletCore
 import WalletContext
 import UIComponents
 
-private let log = Log("DeleteAccount")
+private func makeDeleteAccountWarningText(account: MAccount) -> String {
+    let warningKey = account.isView ? "$logout_view_mode_warning" : "$logout_warning"
+    return lang(warningKey).replacingOccurrences(of: "**", with: "")
+}
 
-@MainActor public func showDeleteAccountAlert(accountToDelete: MAccount, isCurrentAccount: Bool) {
+@MainActor public func showDeleteAccountAlert(
+    accountToDelete: MAccount,
+    isCurrentAccount: Bool,
+    onSuccess: (() -> Void)? = nil,
+    onCancel: (() -> Void)? = nil,
+    onFailure: ((Error) -> Void)? = nil
+) {
     let removingAccountId = accountToDelete.id
-    var logoutWarning = lang("$logout_warning")
-    logoutWarning = logoutWarning.replacingOccurrences(of: "**", with: "")
+    let logoutWarning = makeDeleteAccountWarningText(account: accountToDelete)
     topViewController()?.showAlert(
         title: lang("Remove Wallet"),
         text: logoutWarning,
@@ -25,11 +33,16 @@ private let log = Log("DeleteAccount")
                         let nextAccount = isCurrentAccount ? AccountStore.accountsById.keys.first(where: { $0 != removingAccountId }) : AccountStore.accountId
                         _ = try await AccountStore.removeAccount(accountId: removingAccountId, nextAccountId: nextAccount!)
                     }
+                    onSuccess?()
                 } catch {
-                    AppActions.showError(error: error)
+                    if let onFailure {
+                        onFailure(error)
+                    } else {
+                        AppActions.showError(error: error)
+                    }
                 }
             }
         },
         secondaryButton: lang("Cancel"),
-        secondaryButtonPressed: { })
+        secondaryButtonPressed: { onCancel?() })
 }

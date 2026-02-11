@@ -209,7 +209,7 @@ class SendNftVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 continueButton,
-                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             toCenterX(continueButton, 20f)
@@ -255,17 +255,17 @@ class SendNftVC(
         addressInputView.setBackgroundColor(
             WColor.Background.color,
             0f,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         nftView.setBackgroundColor(
             WColor.Background.color,
             0f,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         commentInputView.setBackgroundColor(
             WColor.Background.color,
             0f,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         commentInputView.setTextColor(WColor.PrimaryText.color)
         commentInputView.setHintTextColor(WColor.SecondaryText.color)

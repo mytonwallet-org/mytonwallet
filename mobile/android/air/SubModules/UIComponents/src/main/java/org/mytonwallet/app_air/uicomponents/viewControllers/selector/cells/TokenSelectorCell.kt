@@ -104,12 +104,12 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
         setBackgroundColor(
             WColor.Background.color,
             0f,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         addRippleEffect(
             WColor.SecondaryBackground.color,
             0f,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         topLeftLabel.setTextColor(WColor.PrimaryText.color)
         topRightLabel.contentView.setTextColor(WColor.PrimaryText.color)

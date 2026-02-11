@@ -81,8 +81,8 @@ class SwitchCell(
     override fun updateTheme() {
         setBackgroundColor(
             WColor.Background.color,
-            if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+            if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f,
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         addRippleEffect(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)

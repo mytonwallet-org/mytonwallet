@@ -26,6 +26,8 @@ struct DebugView: View {
     @AppStorage("debug_glassOpacity") var glassOpacity: Double = 1
     @AppStorage("debug_gradientIsHidden") var gradientIsHidden: Bool = true
     @AppStorage("debug_displayLogOverlay") private var displayLogOverlayEnabled = false
+    @State private var isLimitedOverride: Bool? = ConfigStore.shared.isLimitedOverride
+    @State private var seasonalThemeOverride: ApiUpdate.UpdateConfig.SeasonalTheme? = ConfigStore.shared.seasonalThemeOverride
 
     @Environment(\.dismiss) private var dismiss
     
@@ -83,20 +85,51 @@ struct DebugView: View {
                 // MARK: - TestFlight or debug
                 
                 if IS_DEBUG_OR_TESTFLIGHT {
-                    Section {} footer: {
-                        Text("**TESTFLIGHT ONLY**")
-                            .foregroundStyle(.orange)
+
+                    Text("TestFlight Only")
+                        .header(.purple)
+
+                    Section {
+                        Picker("Is Limited Override", selection: $isLimitedOverride) {
+                            Text("Disabled")
+                                .tag(Optional<Bool>.none)
+                            Text("True")
+                                .tag(Optional(true))
+                            Text("False")
+                                .tag(Optional(false))
+                        }
+                        .pickerStyle(.navigationLink)
+
+                        Picker("Seasonal Theme Override", selection: $seasonalThemeOverride) {
+                            Text("Disabled")
+                                .tag(Optional<ApiUpdate.UpdateConfig.SeasonalTheme>.none)
+                            ForEach(ApiUpdate.UpdateConfig.SeasonalTheme.allCases, id: \.self) { seasonalTheme in
+                                Text(seasonalTheme.rawValue)
+                                    .tag(Optional(seasonalTheme))
+                            }
+                        }
+                        .pickerStyle(.navigationLink)
+                    } header: {
+                        Text("Config")
+                    }
+                    .onAppear {
+                        isLimitedOverride = ConfigStore.shared.isLimitedOverride
+                        seasonalThemeOverride = ConfigStore.shared.seasonalThemeOverride
+                    }
+                    .onChange(of: isLimitedOverride) { isLimitedOverride in
+                        ConfigStore.shared.isLimitedOverride = isLimitedOverride
+                    }
+                    .onChange(of: seasonalThemeOverride) { seasonalThemeOverride in
+                        ConfigStore.shared.seasonalThemeOverride = seasonalThemeOverride
                     }
                 }
                 
                 // MARK: - Debug only
 
 #if DEBUG
-                Section {} footer: {
-                    Text("**DEBUG ONLY**")
-                        .foregroundStyle(.orange)
-                }
-                
+                Text("Debug Only")
+                    .header(.red)
+
                 Section {
                     Toggle("Display log overlay", isOn: $displayLogOverlayEnabled)
                 }
@@ -208,5 +241,15 @@ struct DebugView: View {
         log.info("orderedAccountIds = #\(orderedAccountIds.count) \(orderedAccountIds.jsonString(), .public)")
         let accountsById = AccountStore.accountsById
         log.info("accountsById = #\(accountsById.count) \(accountsById.jsonString(), .public)")
+    }
+}
+
+private extension View {
+    func header(_ color: Color) -> some View {
+        self
+            .foregroundStyle(color)
+            .font(.title2.weight(.bold))
+            .listRowBackground(Color.clear)
+            .offset(y: 8)
     }
 }

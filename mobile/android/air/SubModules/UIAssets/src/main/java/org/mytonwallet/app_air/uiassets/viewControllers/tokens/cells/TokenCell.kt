@@ -168,13 +168,13 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         cachedNotStakingTagDrawable = null
         setBackgroundColor(
             if (mode == TokensVC.Mode.HOME) Color.TRANSPARENT else WColor.Background.color,
-            if (isFirst) ViewConstants.TOP_RADIUS.dp else 0f,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+            if (isFirst) ViewConstants.TOOLBAR_RADIUS.dp else 0f,
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         addRippleEffect(
             WColor.SecondaryBackground.color,
-            if (isFirst) ViewConstants.TOP_RADIUS.dp else 0f,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+            if (isFirst) ViewConstants.TOOLBAR_RADIUS.dp else 0f,
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         topLeftLabel.setTextColor(WColor.PrimaryText.color)
         topLeftTagLabel.updateTheme()

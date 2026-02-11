@@ -41,6 +41,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uireceive.ReceiveVC
+import org.mytonwallet.app_air.uisend.send.SellWithCardLauncher
 import org.mytonwallet.app_air.uisend.send.SendVC
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
@@ -56,6 +57,7 @@ import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import java.util.Date
@@ -64,7 +66,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class TokenVC(context: Context, private var account: MAccount, var token: MToken) :
+class TokenVC(context: Context, private val account: MAccount, var token: MToken) :
     WViewController(context),
     WRecyclerViewDataSource, TokenVM.Delegate, WThemedView, WProtectedView {
     override val TAG = "Token"
@@ -105,6 +107,19 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
 
     private val tokenVM by lazy {
         TokenVM(context, account.accountId, token, WeakReference(this))
+    }
+
+    private fun isSellAllowed(): Boolean {
+        return account.supportsBuyWithCard && ConfigStore.isLimited != true
+    }
+
+    private fun openSellWithCard(tokenSlug: String) {
+        if (!isSellAllowed()) return
+        SellWithCardLauncher.launch(
+            caller = WeakReference(this),
+            account = account,
+            tokenSlug = tokenSlug,
+        )
     }
 
     @Volatile
@@ -319,7 +334,7 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
                 MATCH_PARENT,
                 (navigationController?.getSystemBars()?.top ?: 0) +
                     TokenHeaderView.navDefaultHeight +
-                    ViewConstants.BAR_ROUNDS.dp.roundToInt()
+                    ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
             )
         )
         view.addView(
@@ -389,7 +404,8 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
     private fun pauseBlurViews() {
         topBlurReversedCornerView.pauseBlurring(false)
         bottomReversedCornerView?.pauseBlurring()
-        navigationController?.tabBarController?.pauseBlurring()
+        if (navigationController?.tabBarController?.activeNavigationController == navigationController)
+            navigationController?.tabBarController?.pauseBlurring()
     }
 
     private fun resumeBlurViews() {
@@ -414,6 +430,10 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
                 val navVC = WNavigationController(window!!)
                 navVC.setRoot(SendVC(context, token.slug))
                 window?.present(navVC)
+            }
+
+            HeaderActionsView.Identifier.SELL -> {
+                openSellWithCard(token.slug)
             }
 
             HeaderActionsView.Identifier.EARN -> {
@@ -593,7 +613,8 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
                     tabs = HeaderActionsView.headerTabs(context, token.isEarnAvailable),
                     onClick = {
                         onClick(it)
-                    }
+                    },
+                    isSellAllowed = isSellAllowed(),
                 )
                 actionsView?.setPadding(0, 0, 0, 16.dp)
                 actionsView?.updateActions(account)
@@ -697,9 +718,10 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
                 if (indexPath.row < (showingTransactions?.size ?: 0)) {
                     val homeTransactionCell = cellHolder.cell as ActivityCell
                     val transaction = showingTransactions!![indexPath.row]
-                    val isFirstInDay = (indexPath.row == showingTransactions!!.size - 1) || !transaction.dt.isSameDayAs(
-                        showingTransactions!![indexPath.row + 1].dt
-                    ) && tokenVM.activityLoader?.loadedAll != false
+                    val isFirstInDay =
+                        (indexPath.row == showingTransactions!!.size - 1) || !transaction.dt.isSameDayAs(
+                            showingTransactions!![indexPath.row + 1].dt
+                        ) && tokenVM.activityLoader?.loadedAll != false
                     homeTransactionCell.configure(
                         transaction,
                         account.accountId,
@@ -712,8 +734,10 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
                             isLastInDay = isFirstInDay,
                             isLast = indexPath.row == showingTransactions!!.size - 1 && tokenVM.activityLoader?.loadedAll != false,
                             isAdded = isApplyingUpdate &&
-                                 oldTransactions?.contains(transaction.getStableId()) == false,
-                            isAddedAsNewDay = isFirstInDay && (oldTransactionsFirstDt == null || !transaction.dt.isSameDayAs(oldTransactionsFirstDt!!))
+                                oldTransactions?.contains(transaction.getStableId()) == false,
+                            isAddedAsNewDay = isFirstInDay && (oldTransactionsFirstDt == null || !transaction.dt.isSameDayAs(
+                                oldTransactionsFirstDt!!
+                            ))
                         )
                     )
                 } else {

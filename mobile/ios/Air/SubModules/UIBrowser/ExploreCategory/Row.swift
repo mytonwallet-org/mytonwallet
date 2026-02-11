@@ -12,12 +12,9 @@ import WalletContext
 import SwiftUI
 import Kingfisher
 
-
 struct ExploreCategoryRow: View {
-    
-    var site: ApiSite
-    
-    var openAction: () -> ()
+    let site: ApiSite
+    let openAction: () -> ()
     
     var body: some View {
         HStack(spacing: 10) {
@@ -27,18 +24,19 @@ struct ExploreCategoryRow: View {
                 .aspectRatio(contentMode: .fill)
                 .clipShape(.rect(cornerRadius: 12))
                 .frame(width: 48, height: 48)
+                .padding(.vertical, 12)
             
-            VStack(alignment: .leading, spacing: 3) {
-                Text(site.name)
-                    .font(.system(size: 15, weight: .semibold))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(site.name).font(.system(size: 15, weight: .semibold))
                     .fixedSize()
-                Text(site.description)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                Text(site.description).font(.system(size: 14))
                     .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(2)
+                    .foregroundStyle(Color(WTheme.secondaryLabel))
             }
-            
+          
+            Spacer(minLength: 12)
+          
             Button(action: openAction) {
                 HStack(spacing: 2) {
                     if site.shouldOpenExternally {
@@ -48,6 +46,7 @@ struct ExploreCategoryRow: View {
                     }
                     Text(lang("Open"))
                 }
+                .foregroundStyle(Color(WTheme.tint))
             }
             .buttonStyle(OpenButtonStyle())
         }
@@ -57,7 +56,12 @@ struct ExploreCategoryRow: View {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
+  VStack(spacing: 0) {
+    ExploreCategoryRow(site: .sampleFeatured(), openAction: {})
     ExploreCategoryRow(site: .sampleFeaturedTelegram, openAction: {})
-        .padding(20)
+    Spacer()
+  }
+  .padding(.horizontal, 20)
+  .background { Color.orange.opacity(0.1) }
 }
 #endif

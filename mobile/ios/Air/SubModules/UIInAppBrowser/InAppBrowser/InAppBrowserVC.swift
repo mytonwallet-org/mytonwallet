@@ -134,7 +134,7 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
     func updateNavigationBar(delayTitleChangeToNil: Bool = true) {
         if let navigationBar, let page = currentPage {
             navigationBar.setTitleMenu(makeTitleMenu(for: page.config.url))
-            let pageTitle: String? = page.webView?.title ?? page.config.title
+            let pageTitle: String? = page.webView?.title?.nilIfEmpty ?? page.config.title
             let explorerTitle = explorerTitleText(for: page.config.url)
             let title = explorerTitle ?? pageTitle
             displayTitleText = title

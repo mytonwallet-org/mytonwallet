@@ -2,11 +2,10 @@ import React, { type ElementRef, memo, useMemo, useRef } from '../../../../lib/t
 
 import type { ApiBaseCurrency, ApiStakingState, ApiYieldType } from '../../../../api/types';
 import type { AppTheme, UserToken } from '../../../../global/types';
-import type { LangFn } from '../../../../hooks/useLang';
 import type { Layout } from '../../../../hooks/useMenuPosition';
 import type { StakingStateStatus } from '../../../../util/staking';
 
-import { ANIMATED_STICKER_TINY_ICON_PX, IS_CORE_WALLET, TON_USDE } from '../../../../config';
+import { ANIMATED_STICKER_TINY_ICON_PX, IS_CORE_WALLET } from '../../../../config';
 import { Big } from '../../../../lib/big.js';
 import buildClassName from '../../../../util/buildClassName';
 import { calcChangeValue } from '../../../../util/calcChangeValue';
@@ -16,6 +15,7 @@ import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatN
 import getPseudoRandomNumber from '../../../../util/getPseudoRandomNumber';
 import { round } from '../../../../util/round';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
+import getTokenName from '../../helpers/getTokenName';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useLang from '../../../../hooks/useLang';
@@ -56,6 +56,8 @@ interface OwnProps {
   isSwapDisabled?: boolean;
   isStakingAvailable?: boolean;
   isViewMode?: boolean;
+  isPinned?: boolean;
+  withPinTransition?: boolean;
   onClick: (slug: string) => void;
 }
 
@@ -84,6 +86,8 @@ function Token({
   isStakingAvailable,
   isSwapDisabled,
   isViewMode,
+  isPinned,
+  withPinTransition,
   yieldType,
   onClick,
 }: OwnProps) {
@@ -112,7 +116,8 @@ function Token({
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
   const withLabel = Boolean(!isVesting && label);
   const stakingId = stakingState?.id;
-  const name = getTokenName(lang, token, !!stakingId);
+  const name = getTokenName(lang, token);
+  const withChainIconRendered = withChainIcon && !stakingId;
   const amountCols = useMemo(() => getPseudoRandomNumber(4, 12, name), [name]);
   const fiatAmountCols = 5 + (amountCols % 6);
   if (ref) {
@@ -127,8 +132,16 @@ function Token({
     withShouldRender: true,
   });
 
+  const {
+    shouldRender: shouldRenderPin,
+    ref: pinRef,
+  } = useShowTransition<HTMLElement>({
+    isOpen: isPinned,
+    withShouldRender: true,
+  });
+
   const handleClick = useLastCallback(() => {
-    onClick(stakingId ?? slug);
+    onClick(slug);
   });
 
   const getTriggerElement = useLastCallback(() => buttonRef.current);
@@ -161,6 +174,7 @@ function Token({
     isSwapDisabled,
     isViewMode,
     stakingState,
+    isPinned,
   });
 
   function renderYield() {
@@ -241,7 +255,7 @@ function Token({
         <TokenIcon
           size="large"
           token={token}
-          withChainIcon={withChainIcon}
+          withChainIcon={withChainIconRendered}
           className={styles.tokenIcon}
         >
           <>
@@ -337,7 +351,7 @@ function Token({
         <TokenIcon
           token={token}
           size="large"
-          withChainIcon={withChainIcon}
+          withChainIcon={withChainIconRendered}
           className={styles.tokenIcon}
         >
           <>
@@ -352,6 +366,17 @@ function Token({
         </TokenIcon>
         <div className={styles.primaryCell}>
           <div className={styles.name}>
+            {shouldRenderPin && (
+              <i
+                ref={pinRef}
+                className={buildClassName(
+                  styles.pinIcon,
+                  'icon-pin',
+                  withPinTransition && styles.pinIcon_withTransition,
+                )}
+                aria-hidden
+              />
+            )}
             <span className={styles.nameText}>{name}</span>
             {canRenderYield && renderYield()}
             {withLabel && (
@@ -439,19 +464,6 @@ function Token({
       )}
     </div>
   );
-}
-
-function getTokenName(lang: LangFn, token: UserToken, isStaking: boolean): string {
-  if (!isStaking) {
-    return token.name;
-  }
-
-  switch (token.slug) {
-    case TON_USDE.slug:
-      return lang('%token% Staking', { token: 'Ethena' })[0] as any;
-    default:
-      return lang('%token% Staking', { token: token.name })[0] as any;
-  }
 }
 
 export default memo(Token);

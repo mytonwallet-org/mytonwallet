@@ -108,14 +108,12 @@ const selectAccountTokensForSwapInMemoizedFor = withCache((accountId: string) =>
   accountSettings: AccountSettings,
   baseCurrency: ApiBaseCurrency,
   currencyRates: ApiCurrencyRates,
-  isSortByValueEnabled = false,
   areTokensWithNoCostHidden = false,
 ) => {
   return selectAccountTokensMemoizedFor(accountId)(
     balancesBySlug,
     tokenInfo,
     accountSettings,
-    isSortByValueEnabled,
     areTokensWithNoCostHidden,
     baseCurrency,
     currencyRates,
@@ -129,14 +127,12 @@ const selectAccountTokensForSwapOutMemoizedFor = withCache((accountId: string) =
   accountSettings: AccountSettings,
   baseCurrency: ApiBaseCurrency,
   currencyRates: ApiCurrencyRates,
-  isSortByValueEnabled = false,
   areTokensWithNoCostHidden = false,
 ) => {
   return selectAccountTokensMemoizedFor(accountId)(
     balancesBySlug,
     tokenInfo,
     accountSettings,
-    isSortByValueEnabled,
     areTokensWithNoCostHidden,
     baseCurrency,
     currencyRates,
@@ -154,7 +150,7 @@ export function selectAvailableUserForSwapTokens(global: GlobalState, isSwapOut 
 
   const accountId = selectCurrentAccountId(global)!;
   const accountSettings = selectCurrentAccountSettings(global) ?? {};
-  const { areTokensWithNoCostHidden, isSortByValueEnabled } = global.settings;
+  const { areTokensWithNoCostHidden } = global.settings;
 
   const selectAccountTokens = isSwapOut
     ? selectAccountTokensForSwapOutMemoizedFor
@@ -167,7 +163,6 @@ export function selectAvailableUserForSwapTokens(global: GlobalState, isSwapOut 
     accountSettings,
     global.settings.baseCurrency,
     global.currencyRates,
-    isSortByValueEnabled,
     areTokensWithNoCostHidden,
   );
 }

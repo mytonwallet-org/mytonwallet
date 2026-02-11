@@ -13,9 +13,8 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.AudioHelpers
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.fetchAllActivitySlice
-import org.mytonwallet.app_air.walletcore.api.fetchTokenActivitySlice
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers.Companion.isSuitableToGetTimestamp
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
@@ -332,30 +331,18 @@ object ActivityStore : IStore {
         mainHandler.post {
             if (isCancelled()) return@post
 
-            if (tokenSlug == null) {
-                WalletCore.fetchAllActivitySlice(
+            WalletCore.call(
+                ApiMethod.WalletData.FetchPastActivities(
                     accountId = accountId,
                     limit = DEFAULT_LIMIT,
-                    toTimestamp = before?.timestamp,
-                ) { fetchedTransactions, err ->
-                    if (fetchedTransactions == null || err != null) {
-                        retry()
-                    } else {
-                        handleSuccess(fetchedTransactions)
-                    }
-                }
-            } else {
-                WalletCore.fetchTokenActivitySlice(
-                    accountId = accountId,
                     slug = tokenSlug,
-                    fromTimestamp = before?.timestamp,
-                    limit = DEFAULT_LIMIT
-                ) { fetchedTransactions, err, _ ->
-                    if (fetchedTransactions == null || err != null) {
-                        retry()
-                    } else {
-                        handleSuccess(fetchedTransactions)
-                    }
+                    toTimestamp = before?.timestamp
+                )
+            ) { result, err ->
+                if (result == null || err != null) {
+                    retry()
+                } else {
+                    handleSuccess(result.activities)
                 }
             }
         }
@@ -496,6 +483,11 @@ object ActivityStore : IStore {
                 existingIds = accountState.idsMain,
                 cachedActivities = accountState.cachedTransactions
             )
+            if (accountState.idsMain.isEmpty()) {
+                WGlobalStorage.setIsHistoryEndReached(accountId, null, true)
+            } else if (newMainIds.isNotEmpty()) {
+                WGlobalStorage.setIsHistoryEndReached(accountId, null, false)
+            }
 
             // Update idsBySlug for each token (replace, not merge)
             val newestActivitiesBySlug = mutableMapOf<String, JSONObject>()

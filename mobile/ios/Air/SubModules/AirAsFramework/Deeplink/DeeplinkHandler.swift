@@ -7,7 +7,7 @@ protocol DeeplinkNavigator: AnyObject {
     func handleNotification(_ notification: UNNotification)
 }
 
-class DeeplinkHandler {
+final class DeeplinkHandler {
 
     private weak var deeplinkNavigator: DeeplinkNavigator? = nil
 

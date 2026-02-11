@@ -1,10 +1,3 @@
-//
-//  ActivateBiometricViewModel.swift
-//  UIPasscode
-//
-//  Created by Murad Kakabaev on 21.01.2026.
-//
-
 import Foundation
 import Perception
 

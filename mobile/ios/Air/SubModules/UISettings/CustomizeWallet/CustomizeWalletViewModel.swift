@@ -35,6 +35,8 @@ struct AccountInfo {
     var selectedAccountId: String = ""
     var selectedAccount: MAccount { accountStore.accountsById[selectedAccountId] ?? DUMMY_ACCOUNT }
     
+    var tintColor: Color { Color(getAccentColorByIndex(palletteSettingsViewModel.currentColorId)) }
+    
     var accountCardsById: [String: AccountMtwCards] = [:]
     
     let palletteSettingsViewModel: PaletteSettingsViewModel

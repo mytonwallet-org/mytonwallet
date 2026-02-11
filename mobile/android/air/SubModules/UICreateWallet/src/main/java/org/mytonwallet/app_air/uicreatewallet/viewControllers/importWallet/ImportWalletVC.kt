@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uicreatewallet.viewControllers.importWallet
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.View.OnFocusChangeListener
 import android.view.View.TEXT_ALIGNMENT_CENTER
@@ -86,10 +87,11 @@ class ImportWalletVC(
         }
     }
     private val titleLabel: WLabel by lazy {
-        val lbl = WLabel(context)
-        lbl.text = LocaleController.getString("Enter Secret Words")
-        lbl.setStyle(28f, WFont.SemiBold)
-        lbl
+        WLabel(context).apply {
+            text = LocaleController.getString("Enter Secret Words")
+            setStyle(28f, WFont.SemiBold)
+            gravity = Gravity.CENTER
+        }
     }
 
     private val subtitleLabel: WLabel by lazy {
@@ -199,7 +201,7 @@ class ImportWalletVC(
             )
             toCenterX(animationView)
             topToBottom(titleLabel, animationView, 24f)
-            toCenterX(titleLabel)
+            toCenterX(titleLabel, 20f)
             topToBottom(subtitleLabel, titleLabel, 20f)
             toCenterX(subtitleLabel, 48f)
             topToBottom(pasteButton, subtitleLabel, 1f)

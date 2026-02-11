@@ -370,13 +370,13 @@ class PasscodeScreenView(
         if (passcodeViewState !is PasscodeViewState.Default) {
             topLinearLayout.setBackgroundColor(
                 WColor.Background.color,
-                ViewConstants.TOP_RADIUS.dp,
-                ViewConstants.BIG_RADIUS.dp,
+                ViewConstants.TOOLBAR_RADIUS.dp,
+                ViewConstants.BLOCK_RADIUS.dp,
             )
             bottomLayout.setBackgroundColor(
                 WColor.Background.color,
-                ViewConstants.BIG_RADIUS.dp,
-                ViewConstants.TOP_RADIUS.dp
+                ViewConstants.BLOCK_RADIUS.dp,
+                ViewConstants.TOOLBAR_RADIUS.dp
             )
         } else if (!passcodeViewState.showMotionBackgroundDrawable) {
             containerVC.view.setBackgroundColor(WColor.Background.color)

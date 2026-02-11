@@ -306,7 +306,7 @@ class ConfirmNftVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 confirmButton,
-                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             toBottomPx(
@@ -372,11 +372,11 @@ class ConfirmNftVC(
         assetSectionView.setBackgroundColor(
             WColor.Background.color,
             0f,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         detailsSectionView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
     }
 

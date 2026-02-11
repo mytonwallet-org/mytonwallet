@@ -109,6 +109,13 @@ enum SwapSide {
                 self.updateLocal(amount: buyingAmount, token: buyingToken, side: .buying)
             }
         }
+
+        observeTokens += observe { [weak self] in
+            guard let self else { return }
+            let sellingToken = self.sellingToken
+            let balance = $account.balances[sellingToken.slug]
+            self.updateMaxAmount(sellingToken, amount: balance)
+        }
     }
     
     private func setupCallbacks() {

@@ -1,5 +1,3 @@
-import 'v8-compile-cache';
-
 import { app, nativeImage } from 'electron';
 import contextMenu from 'electron-context-menu';
 import path from 'path';

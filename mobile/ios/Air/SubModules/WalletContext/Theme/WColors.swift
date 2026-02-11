@@ -49,7 +49,7 @@ public struct _WColorsType {
     
     var primary: UIColor
     
-    let background: UIColor = .airBundle("BackgroundColor")
+    public let background: UIColor = .airBundle("BackgroundColor")
     let groupedBackground: UIColor = .airBundle("GroupedBackgroundColor")
     let groupedItem: UIColor = .airBundle("GroupedItemColor")
     let sheetBackground: UIColor = .airBundle("SheetBackgroundColor")
@@ -130,10 +130,13 @@ public extension Color {
         public let secondaryLabel: Color = .airBundle("AirSecondaryLabelColor")
         public let groupedItem: Color = .airBundle("GroupedItemColor")
         public let groupedBackground: Color = .airBundle("GroupedBackgroundColor")
+        public let background: Color = .airBundle("BackgroundColor")
         public let sheetBackground: Color = .airBundle("SheetBackgroundColor")
         public let highlight: Color = .airBundle("HighlightColor")
+        public let secondaryFill: Color = .airBundle("SecondaryFillColor")
         public let error: Color = .red
-        
+        public let folderFill: Color = .airBundle("FolderFillColor")
+      
         public var tint: Color { Color(WTheme.tint) }
     }
     

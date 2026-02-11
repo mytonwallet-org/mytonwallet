@@ -58,9 +58,6 @@ Search...: Buscar...
 Main menu: Menú principal
 TON Proxy: TON Proxy
 Toggle TON Proxy: Alternar TON Proxy
-TON Magic: TON Magic
-Toggle TON Magic: Alternar TON Magic
-Open Telegram Web: Abrir Telegram Web
 Back Up Secret Words: Copia de seguridad
 Settings: Configuración
 About %app_name%: Acerca de %app_name%
@@ -74,10 +71,7 @@ $about_description2: Un monedero **sin custodia y seguro**. Los desarrolladores 
 What is TON Proxy?: ¿Qué es el TON Proxy?
 $about_extension_description1: TON Proxy abre un camino al **Internet descentralizado** al permitir acceder anónimamente a TON Sites.
 More info and demo.: Más información y demo.
-$about_extension_description2: TON Magic proporciona **integración nativa con Telegram** parcheando la aplicación web oficial de Telegram.
-$about_extension_description3: Actívalo para enviar y recibir Toncoins de cualquier usuario de Telegram.
-$about_proxy_magic_title: ¿Qué pasa con %ninja% TON Proxy y %unicorn% TON Magic?
-$about_proxy_magic_description: Para disfrutar de **Internet descentralizado**, acceder a **TON Sites**, y aprovechar la **integración nativa de Telegram**, no dude en instalar la %extension_link%.
+$about_proxy_magic_description: Para disfrutar de **Internet descentralizado** y acceder a **TON Sites**, no dude en instalar la %extension_link%.
 $about_extension_link_text: "**extensión %app_name%**"
 Is it open source?: ¿Es de código abierto?
 $about_wallet_github: Sí. Siéntase libre de explorar nuestro %github_link%.
@@ -197,6 +191,7 @@ Coins have been sent!: ¡Se han enviado monedas!
 Transaction Sent!: ¡Transacción enviada!
 Data Signed!: ¡Datos firmados!
 Details: Detalles
+View details: Ver detalles
 Change password visibility: Cambiar la visibilidad de la contraseña
 Amount value: Valor de la cantidad
 Save Address: Guardar dirección
@@ -300,7 +295,6 @@ No active connections: No hay conexiones activas
 Other: Otros
 Assets & Activity: Activos & Actividad
 Token Settings: Configuración de fichas
-My Tokens: Mis Tokens
 Add Token: Agregar token
 Delete Token: Eliminar token
 Are you sure you want to delete?: ¿Está seguro de que desea eliminar %token%?
@@ -1038,6 +1032,7 @@ $connected_apps:
   otherValue: "%1$d conectadas"
 Night Mode, Palette, Card: Modo nocturno, Paleta, Tarjeta
 Back Up, Passcode, Auto-Lock: Copia de seguridad, Código, Bloqueo automático
+Back Up, Password, Auto-Lock: Copia de seguridad, Contraseña, Bloqueo automático
 Base Currency, Token Order, Hidden NFTs: Moneda base, Orden de tokens, NFTs ocultos
 Your assets on other contracts: Tus activos en otros contratos
 Wallets, Sounds: Billeteras, Sonidos
@@ -1049,3 +1044,7 @@ Open in %app_name%: Abrir en %app_name%
 Blog: Blog
 Apps: Aplicaciones
 $nft_not_found: NFT no encontrado
+Pin: Fijar
+Unpin: Desfijar
+My Assets: Mis Activos
+Owner: Propietario

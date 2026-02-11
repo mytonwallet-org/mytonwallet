@@ -69,7 +69,14 @@ export function setLangCode(langCode: LangCode) {
   return storage.setItem('langCode', langCode);
 }
 
-export async function getMoonpayOnrampUrl(chain: ApiChain, address: string, theme: Theme, currency: ApiBaseCurrency) {
+export async function getMoonpayOnrampUrl({
+  chain, address, theme, currency,
+}: {
+  chain: ApiChain;
+  address: string;
+  theme: Theme;
+  currency: ApiBaseCurrency;
+}) {
   try {
     return await callBackendGet<{ url: string }>('/onramp-url', {
       chain,
@@ -84,14 +91,16 @@ export async function getMoonpayOnrampUrl(chain: ApiChain, address: string, them
   }
 }
 
-export async function getMoonpayOfframpUrl(
-  chain: ApiChain,
-  address: string,
-  theme: Theme,
-  currency: ApiBaseCurrency,
-  amount: string,
-  baseUrl: string,
-) {
+export async function getMoonpayOfframpUrl({
+  chain, address, theme, currency, amount, baseUrl,
+}: {
+  chain: ApiChain;
+  address: string;
+  theme: Theme;
+  currency: ApiBaseCurrency;
+  amount: string;
+  baseUrl: string;
+}) {
   try {
     return await callBackendGet<{ url: string }>('/offramp-url', {
       chain,

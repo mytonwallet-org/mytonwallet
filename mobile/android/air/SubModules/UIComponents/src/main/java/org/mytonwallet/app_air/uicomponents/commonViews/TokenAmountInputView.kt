@@ -239,8 +239,8 @@ class TokenAmountInputView(
     override fun updateTheme() {
         setBackgroundColor(
             WColor.Background.color,
-            (if (isFirstItem) ViewConstants.TOP_RADIUS else ViewConstants.BIG_RADIUS).dp,
-            ViewConstants.BIG_RADIUS.dp
+            (if (isFirstItem) ViewConstants.TOOLBAR_RADIUS else ViewConstants.BLOCK_RADIUS).dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
     }
 

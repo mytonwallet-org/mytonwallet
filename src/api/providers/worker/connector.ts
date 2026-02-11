@@ -16,15 +16,19 @@ let updateCallback: OnApiUpdate;
 let worker: Worker | undefined;
 let connector: Connector | undefined;
 let isInitialized = false;
+let initPromise: Promise<void> | undefined;
 
-export function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs | (() => ApiInitArgs)) {
+export function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs) {
   updateCallback = onUpdate;
 
   if (!connector) {
     // We use process.env.IS_EXTENSION instead of IS_EXTENSION in order to remove the irrelevant code during bundling
     if (process.env.IS_EXTENSION) {
-      const getInitArgs = typeof initArgs === 'function' ? initArgs : () => initArgs;
-      connector = createExtensionConnector(POPUP_PORT, onUpdate, getInitArgs as () => ApiInitArgs);
+      const onReconnect = () => {
+        initPromise = connector!.init(initArgs);
+      };
+
+      connector = createExtensionConnector(POPUP_PORT, onUpdate, undefined, onReconnect);
 
       createWindowProviderForExtension();
     } else {
@@ -38,14 +42,13 @@ export function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs | (() => Ap
   }
 
   if (!isInitialized) {
-    if (!process.env.IS_EXTENSION && IS_IOS) {
+    if (IS_IOS) {
       setupIosHealthCheck();
     }
     isInitialized = true;
   }
 
-  const args = typeof initArgs === 'function' ? initArgs() : initArgs;
-  return connector.init(args);
+  initPromise = connector.init(initArgs);
 }
 
 export async function callApi<T extends keyof AllMethods>(fnName: T, ...args: AllMethodArgs<T>) {
@@ -53,6 +56,8 @@ export async function callApi<T extends keyof AllMethods>(fnName: T, ...args: Al
     logDebugError('API is not initialized when calling', fnName);
     return undefined;
   }
+
+  await initPromise!;
 
   try {
     const result = await (connector.request({
@@ -68,7 +73,9 @@ export async function callApi<T extends keyof AllMethods>(fnName: T, ...args: Al
   }
 }
 
-export function callApiWithThrow<T extends keyof AllMethods>(fnName: T, ...args: AllMethodArgs<T>) {
+export async function callApiWithThrow<T extends keyof AllMethods>(fnName: T, ...args: AllMethodArgs<T>) {
+  await initPromise!;
+
   return (connector!.request({
     name: fnName,
     args,
@@ -102,6 +109,7 @@ async function ensureWorkerPing() {
       worker?.terminate();
       worker = undefined;
       connector = undefined;
+      initPromise = undefined;
       updateCallback({ type: 'requestReconnectApi' });
     }
   } finally {

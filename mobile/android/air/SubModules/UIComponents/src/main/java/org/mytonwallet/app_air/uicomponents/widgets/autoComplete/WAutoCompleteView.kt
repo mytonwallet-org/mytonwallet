@@ -86,7 +86,7 @@ class WAutoCompleteView(
     override fun updateTheme() {
         recyclerView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
             WColor.PrimaryText.color.colorWithAlpha(25),
             1f
         )

@@ -38,12 +38,17 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     var headerContainer: HomeHeaderContainer = HomeHeaderContainer()
     
     // navbar buttons
-    lazy var lockItem: UIBarButtonItem = UIBarButtonItem(title: lang("Lock"), image: .airBundle("HomeLock24"), target: self, action: #selector(lockPressed))
-    lazy var hideItem: UIBarButtonItem = {
+    private lazy var lockItem: UIBarButtonItem = UIBarButtonItem(title: lang("Lock"), image: .airBundle("HomeLock24"), target: self, action: #selector(lockPressed))
+    private lazy var hideItem: UIBarButtonItem = {
         let isHidden = AppStorageHelper.isSensitiveDataHidden
         let image = UIImage.airBundle(isHidden ? "HomeUnhide24" : "HomeHide24")
         return UIBarButtonItem(title: lang("Hide"), image: image, target: self, action: #selector(hidePressed))
     }()
+    private lazy var scanItem: UIBarButtonItem = {
+        UIBarButtonItem(title: lang("Scan"), image: .airBundle("HomeScan24"), target: self, action: #selector(scanPressed))
+    }()
+    private lazy var cancelItem = UIBarButtonItem.cancelTextButtonItem {[weak self] in self?.cancelReorderingIfNeeded() }
+    private lazy var doneItem = UIBarButtonItem.doneButtonItem {[weak self] in self?.walletAssetsVC.stopReordering(isCanceled: false) }
 
     /// The header containing balance and other actions like send/receive/scan/settings and balance in other currencies.
     var balanceHeaderView: BalanceHeaderView?
@@ -101,8 +106,21 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
 
     public override func viewDidLoad() {
         super.viewDidLoad()
-
-        //startMonitoring()
+        registerForOtherViewControllerAppearNotifications()
+    }
+    
+    public override func otherViewControllerDidAppear(_ vc: UIViewController) {
+        super.otherViewControllerDidAppear(vc)
+        
+        // We are interested only in other VCs, not in itself or its children
+        // Any foreign VC is considered as an action/navigation and a signal to stop current reordering
+        var topVC: UIViewController = vc
+        while topVC != self, let parent = topVC.parent {
+            topVC = parent
+        }
+        if topVC != self {
+            cancelReorderingIfNeeded()
+        }
     }
     
     // MARK: - Setup home views
@@ -115,20 +133,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         headerTouchTarget.isUserInteractionEnabled = true
         headerTouchTarget.accessibilityElementsHidden = true
         navigationItem.titleView = headerTouchTarget
-        
-        if navigationController?.viewControllers.count == 1 {
-            navigationItem.leadingItemGroups = [
-                UIBarButtonItemGroup(
-                    barButtonItems: [
-                        UIBarButtonItem(title: lang("Scan"), image: .airBundle("HomeScan24"), target: self, action: #selector(scanPressed))
-                    ],
-                    representativeItem: nil
-                )
-            ]
-        }
-        navigationItem.trailingItemGroups = [
-            UIBarButtonItemGroup(barButtonItems: [lockItem, hideItem], representativeItem: nil)
-        ]
+
         navigationController?.setNavigationBarHidden(false, animated: false)
         if !IOS_26_MODE_ENABLED {
             configureNavigationItemWithTransparentBackground()
@@ -219,7 +224,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         ])
         actionsVC.didMove(toParent: self)
         
-        walletAssetsVC = WalletAssetsVC(accountSource: homeVM.$account.source, compactMode: true)
+        walletAssetsVC = WalletAssetsVC(accountSource: homeVM.$account.source)
         addChild(walletAssetsVC)
         let assetsView = walletAssetsVC.view!
         tableView.addSubview(assetsView)
@@ -322,6 +327,8 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         }
         
         walletAssetsVC.delegate = self
+        
+        updateNavigationItem()
     }
     
     func appearedForFirstTime() {
@@ -367,7 +374,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         super.viewIsAppearing(animated)
         updateSafeAreaInsets()
         UIView.performWithoutAnimation {
-            headerHeightChanged(animated: false)
+            walletAssetDidChangeHeight(animated: false)
             view.layoutIfNeeded()
         }
     }
@@ -510,7 +517,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         let isHidden = AppStorageHelper.isSensitiveDataHidden
         AppActions.setSensitiveDataIsHidden(!isHidden)
     }
-
+    
     public override func updateSkeletonViewMask() {
         var skeletonViews = [UIView]()
         for cell in skeletonTableView.visibleCells {
@@ -554,7 +561,34 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         }
         lastTimestamp = link.timestamp
     }
+    
+    func updateNavigationItem() {
+        var leadingItemGroups: [UIBarButtonItemGroup] = []
+        var trailingItemGroups: [UIBarButtonItemGroup] = []
 
+        if walletAssetsVC.isReordering {
+            leadingItemGroups += cancelItem.asSingleItemGroup()
+            trailingItemGroups += doneItem.asSingleItemGroup()
+        } else {
+            if navigationController?.viewControllers.count == 1 {
+                leadingItemGroups += scanItem.asSingleItemGroup()
+            }
+            if AuthSupport.accountsSupportAppLock {
+                trailingItemGroups += lockItem.asSingleItemGroup()
+            }
+            trailingItemGroups += hideItem.asSingleItemGroup()
+        }
+        
+       navigationItem.leadingItemGroups = leadingItemGroups
+       navigationItem.trailingItemGroups = trailingItemGroups
+    }
+    
+    private func cancelReorderingIfNeeded() {
+        if walletAssetsVC.isReordering {
+            walletAssetsVC.stopReordering(isCanceled: true)
+        }
+    }
+        
     // MARK: HomeVMDelegate
     func update(state: UpdateStatusView.State, animated: Bool) {
         DispatchQueue.main.async {
@@ -571,10 +605,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         }
         scrollViewDidScroll(tableView)
 
-        let canLock = AuthSupport.accountsSupportAppLock
-        navigationItem.trailingItemGroups = [
-            UIBarButtonItemGroup(barButtonItems: canLock ? [lockItem, hideItem] : [hideItem], representativeItem: nil)
-        ]
+        updateNavigationItem()
         
         animateTableViewOpacity(1)
     }
@@ -598,7 +629,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
             
             UIView.animate(withDuration: 0.30) { [self] in
                 actionsVC.setAccountId(accountId: accountId, animated: true)
-                headerHeightChanged(animated: true)
+                walletAssetDidChangeHeight(animated: true)
                 
                 @Dependency(\.accountSettings) var _accountSettings
                 let accountSettings = _accountSettings.for(accountId: accountId)

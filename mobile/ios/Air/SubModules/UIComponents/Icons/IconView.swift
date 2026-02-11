@@ -39,6 +39,7 @@ public class IconView: UIView, WThemedView {
     private var resolveGradientColors: (() -> [CGColor]?)?
     
     private var cachedActivityId: String?
+    private var cachedTokenSlug: String?
     
     public init(size: CGFloat, borderWidth: CGFloat? = nil, borderColor: UIColor? = nil) {
         super.init(frame: CGRect.zero)
@@ -150,6 +151,7 @@ public class IconView: UIView, WThemedView {
     }
     
     public func config(with activity: ApiActivity, isTransactionConfirmation: Bool = false) {
+        cachedTokenSlug = nil
         cachedActivityId = activity.id
         imageView.kf.cancelDownloadTask()
         self.resolveGradientColors = { activity.iconColors.map(\.cgColor) }
@@ -188,6 +190,13 @@ public class IconView: UIView, WThemedView {
     }
 
     public func config(with token: ApiToken?, isStaking: Bool = false, isWalletView: Bool = false, shouldShowChain: Bool) {
+        let tokenSlug = token?.slug
+        let tokenChanged = cachedTokenSlug != tokenSlug
+        cachedTokenSlug = tokenSlug
+        if tokenChanged {
+            imageView.kf.cancelDownloadTask()
+            imageView.image = nil
+        }
         guard let token else {
             imageView.kf.cancelDownloadTask()
             imageView.image = nil
@@ -202,7 +211,9 @@ public class IconView: UIView, WThemedView {
         if let image = token.image?.nilIfEmpty {
             imageView.kf.setImage(with: URL(string: image),
                                   placeholder: nil,
-                                  options: [.transition(.fade(0.2)), .keepCurrentImageWhileLoading, .alsoPrefetchToMemory, .cacheOriginalImage])
+                                  options: tokenChanged
+                                  ? [.transition(.fade(0.2)), .alsoPrefetchToMemory, .cacheOriginalImage]
+                                  : [.transition(.fade(0.2)), .keepCurrentImageWhileLoading, .alsoPrefetchToMemory, .cacheOriginalImage])
         } else {
             imageView.kf.cancelDownloadTask()
             if let chain = getChainByNativeSlug(token.slug) {
@@ -225,6 +236,7 @@ public class IconView: UIView, WThemedView {
     }
     
     public func config(with account: MAccount?, showIcon: Bool = true) {
+        cachedTokenSlug = nil
         imageView.contentMode = .center
         chainAccessoryView.isHidden = true
         guard let account else {
@@ -256,11 +268,13 @@ public class IconView: UIView, WThemedView {
     }
     
     public func config(with earnHistoryItem: MStakingHistoryItem) {
+        cachedTokenSlug = nil
         imageView.contentMode = .scaleAspectFill
         imageView.image = earnHistoryItem.type.image
     }
     
     public func config(with image: UIImage?, tintColor: UIColor? = nil) {
+        cachedTokenSlug = nil
         imageView.image = image
         imageView.contentMode = .center
         imageView.layer.cornerRadius = 0

@@ -76,7 +76,7 @@ export function explainApiTransferFee(input: ApiFee): ExplainedTransferFee {
 
 /**
  * Calculates the maximum amount available for the transfer.
- * Returns undefined when it can't be calculated because of insufficient input data.
+ * Returns `undefined` when it can't be calculated because of insufficient input data.
  */
 export function getMaxTransferAmount({
   tokenBalance,

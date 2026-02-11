@@ -16,6 +16,7 @@ enum ConnectDappViewOrPlaceholderContent {
 struct ConnectDappViewOrPlaceholder: View {
     
     let viewModel: ConnectViewModel
+    var onHeightChange: (CGFloat) -> ()
     
     var body: some View {
         WithPerceptionTracking {
@@ -29,6 +30,9 @@ struct ConnectDappViewOrPlaceholder: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
+            onHeightChange(height)
+        }
     }
     
     var content: ConnectDappViewOrPlaceholderContent {
@@ -61,7 +65,6 @@ struct ConnectDappView: View {
                 }
                 ConnectButton(viewModel: viewModel)
             }
-            .frame(maxHeight: .infinity, alignment: .top)
             .ignoresSafeArea(edges: .top)
         }
     }
@@ -130,7 +133,6 @@ private struct ConnectButton: View {
             .disabled(viewModel.isDisabled)
             .buttonStyle(.airPrimary)
             .padding(.horizontal, 30)
-            .padding(.bottom, 36)
         }
     }
 }

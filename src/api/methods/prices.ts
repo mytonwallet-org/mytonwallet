@@ -18,7 +18,7 @@ export async function fetchPriceHistory(
 
   const assetId = token.chain === TONCOIN.chain && token.tokenAddress ? token.tokenAddress : token.symbol;
 
-  return callBackendGet(`/prices/chart/${assetId}`, {
+  return callBackendGet<ApiHistoryList>(`/prices/chart/${assetId}`, {
     base: baseCurrency,
     period,
   });

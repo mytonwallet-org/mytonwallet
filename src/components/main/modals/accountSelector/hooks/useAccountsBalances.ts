@@ -26,7 +26,8 @@ export function useAccountsBalances(
 
   const { balancesByAccountId, totalBalance } = useMemo(() => {
     if (!allAccountsTokens || !allAccountsStakingStates) {
-      return { balancesByAccountId: {}, totalBalance: undefined };
+      const balancesByAccountId: Record<string, AccountBalance> = {};
+      return { balancesByAccountId, totalBalance: undefined };
     }
 
     const baseCurrencyRate = currencyRates[baseCurrency];

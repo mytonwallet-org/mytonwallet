@@ -50,7 +50,7 @@ class PriceWidgetConfigurationVC(
     WidgetConfigurationVC(context), WalletCore.EventObserver {
     override val TAG = "PriceWidgetConfiguration"
 
-    private val periodViewRowRipple = WRippleDrawable.create(0f, 0f, ViewConstants.BIG_RADIUS.dp, ViewConstants.BIG_RADIUS.dp)
+    private val periodViewRowRipple = WRippleDrawable.create(0f, 0f, ViewConstants.BLOCK_RADIUS.dp, ViewConstants.BLOCK_RADIUS.dp)
 
     override val shouldDisplayTopBar = false
 
@@ -212,10 +212,10 @@ class PriceWidgetConfigurationVC(
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         previewView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.TOP_RADIUS.dp,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.TOOLBAR_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp
         )
-        tokenRow.setTopRadius(ViewConstants.BIG_RADIUS.dp)
+        tokenRow.setTopRadius(ViewConstants.BLOCK_RADIUS.dp)
         tokenRow.setBackgroundColor(WColor.Background.color)
         periodViewRow.background = periodViewRowRipple
         periodViewRowRipple.backgroundColor = WColor.Background.color

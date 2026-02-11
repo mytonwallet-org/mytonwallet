@@ -1,6 +1,7 @@
 import { APP_ENV, APP_VERSION, BRILLIANT_API_BASE_URL } from '../../config';
-import { fetchJson, fetchWithRetry, handleFetchErrors } from '../../util/fetch';
+import { fetchJson, fetchWithRetry, fetchWithTimeout, handleFetchErrors } from '../../util/fetch';
 import { getEnvironment } from '../environment';
+import { getClientId } from './other';
 
 const BAD_REQUEST_CODE = 400;
 
@@ -9,11 +10,10 @@ export async function callBackendPost<T>(path: string, data: AnyLiteral, options
   isAllowBadRequest?: boolean;
   method?: string;
   shouldRetry?: boolean;
-  retries?: number;
-  timeouts?: number | number[];
+  timeout?: number;
 }): Promise<T> {
   const {
-    authToken, isAllowBadRequest, method, shouldRetry, retries, timeouts,
+    authToken, isAllowBadRequest, method, shouldRetry, timeout,
   } = options ?? {};
 
   const url = new URL(`${BRILLIANT_API_BASE_URL}${path}`);
@@ -30,21 +30,20 @@ export async function callBackendPost<T>(path: string, data: AnyLiteral, options
 
   const response = shouldRetry
     ? await fetchWithRetry(url, init, {
-      retries,
-      timeouts,
+      timeouts: timeout,
       shouldSkipRetryFn: (message) => !message?.includes('signal is aborted'),
     })
-    : await fetch(url.toString(), init);
+    : await fetchWithTimeout(url.toString(), init, timeout);
 
   await handleFetchErrors(response, isAllowBadRequest ? [BAD_REQUEST_CODE] : undefined);
 
   return response.json();
 }
 
-export function callBackendGet<T = any>(path: string, data?: AnyLiteral, headers?: HeadersInit): Promise<T> {
+export function callBackendGet<T extends AnyLiteral>(path: string, data?: AnyLiteral, headers?: HeadersInit) {
   const url = new URL(`${BRILLIANT_API_BASE_URL}${path}`);
 
-  return fetchJson(url, data, {
+  return fetchJson<T>(url, data, {
     headers: {
       ...headers,
       ...getBackendHeaders(),
@@ -55,6 +54,7 @@ export function callBackendGet<T = any>(path: string, data?: AnyLiteral, headers
 export function getBackendHeaders() {
   return {
     ...getEnvironment().apiHeaders,
+    'X-App-ClientID': getClientId(),
     'X-App-Version': APP_VERSION,
     'X-App-Env': APP_ENV,
   } as Record<string, string>;

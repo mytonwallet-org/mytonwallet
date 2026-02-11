@@ -30,7 +30,7 @@ import {
   pollingLoop,
   withDoubleCheck,
 } from '../../common/polling/utils';
-import { swapReplaceCexActivities } from '../../common/swap';
+import { swapReplaceActivities } from '../../common/swap';
 import { sendUpdateTokens } from '../../common/tokens';
 import { txCallbacks } from '../../common/txCallbacks';
 import { hexToBytes } from '../../common/utils';
@@ -359,7 +359,7 @@ function setupStakingPolling(accountId: string, getBalances: () => Promise<ApiBa
 
 async function loadInitialConfirmedActivities(accountId: string, onUpdate: OnApiUpdate) {
   let mainActivities = await fetchActivitySlice({ accountId, limit: FIRST_TRANSACTIONS_LIMIT });
-  mainActivities = await swapReplaceCexActivities(accountId, mainActivities, undefined, true);
+  mainActivities = await swapReplaceActivities(accountId, mainActivities, undefined, true);
 
   const bySlug = {
     // Loading the TON history is a side effect of loading the main history.

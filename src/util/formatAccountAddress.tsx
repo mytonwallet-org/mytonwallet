@@ -8,7 +8,7 @@ import { getOrderedAccountChains } from './chain';
 import { shortenAddress } from './shortenAddress';
 import { shortenDomain } from './shortenDomain';
 
-type FormatVariant = 'card' | 'list';
+type FormatVariant = 'card' | 'cardNarrow' | 'list';
 
 type FormatConfig = {
   single: [left: number, right: number];
@@ -21,6 +21,11 @@ const FORMAT_CONFIG: Record<FormatVariant, FormatConfig> = {
     single: [3, 4],
     domain: 8,
     address: [0, 3],
+  },
+  cardNarrow: {
+    single: [3, 3],
+    domain: 6,
+    address: [0, 2],
   },
   list: {
     single: [6, 6],
@@ -65,7 +70,7 @@ export function formatAccountAddresses(
     const displayText = getShortText(account.domain ?? account.address, variant, isDomain ? 'domain' : 'address');
 
     if (index > 0) {
-      elements.push(variant === 'card' ? ' ' : ', ');
+      elements.push(variant === 'list' ? ', ' : ' ');
     }
     elements.push(renderIcon(chain), displayText);
   });

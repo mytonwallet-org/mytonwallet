@@ -61,8 +61,8 @@ class TitleSubtitleSelectionCell(
     override fun updateTheme() {
         setBackgroundColor(
             WColor.Background.color,
-            if (isFirst) ViewConstants.TOP_RADIUS.dp else 0f,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+            if (isFirst) ViewConstants.TOOLBAR_RADIUS.dp else 0f,
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         addRippleEffect(WColor.SecondaryBackground.color)
         selectionImageView.setImageDrawable(

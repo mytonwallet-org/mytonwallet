@@ -239,12 +239,9 @@ $footerPaddingBottom: 1rem;
 
 .container {
   scrollbar-width: none !important;
-
   position: relative;
-
   overflow: hidden;
   overflow-y: scroll;
-  overscroll-behavior: contain;
 
   &::-webkit-scrollbar {
     display: none !important;

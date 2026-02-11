@@ -1,5 +1,6 @@
 
 import SwiftUI
+import SwiftUIIntrospect
 
 public extension View {
     @ViewBuilder
@@ -7,10 +8,10 @@ public extension View {
         if #available(iOS 17, *) {
             self.scrollClipDisabled()
         } else {
-            self
+            self.introspect(.scrollView, on: .iOS(.v16)) { scrollView in scrollView.clipsToBounds = false }
         }
     }
-    
+  
     @ViewBuilder
     func backportSafeAreaPadding(_ edges: Edge.Set, _ length: CGFloat) -> some View {
         if #available(iOS 17, *) {

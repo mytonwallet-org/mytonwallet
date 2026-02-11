@@ -158,24 +158,11 @@ function SettingsAbout({
                   {lang('More info and demo.')}
                 </a>
               </p>
-              <hr className={styles.separator} />
-              <h3 className={buildClassName(styles.text, styles.heading)}>
-                <Emoji from="🦄" /> {lang('What is TON Magic?')}
-              </h3>
-              <p className={buildClassName(styles.text, styles.textInChat)}>
-                {renderText(lang('$about_extension_description2'))}
-              </p>
-              <p className={buildClassName(styles.text, styles.textInChat)}>
-                {lang('$about_extension_description3')}{' '}
-                <a href="https://telegra.ph/Telegram--TON-11-10" target="_blank" rel="noopener noreferrer">
-                  {lang('More info and demo.')}
-                </a>
-              </p>
             </>
           ) : (
             <>
               <h3 className={buildClassName(activityStyles.comment, activityStyles.colorIn, styles.heading)}>
-                {lang('$about_proxy_magic_title', { ninja: <Emoji from="🥷" />, unicorn: <Emoji from="🦄" /> })}
+                <Emoji from="🥷" /> {lang('What is TON Proxy?')}
               </h3>
               <p className={buildClassName(styles.text, styles.textInChat)}>
                 {lang('$about_proxy_magic_description', {

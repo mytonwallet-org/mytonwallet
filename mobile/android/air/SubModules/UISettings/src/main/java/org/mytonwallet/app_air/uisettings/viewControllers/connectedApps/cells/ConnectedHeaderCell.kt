@@ -92,7 +92,7 @@ class ConnectedHeaderCell(context: Context) :
 
     override fun updateTheme() {
         ripple.rippleColor = WColor.BackgroundRipple.color
-        setBackgroundColor(WColor.Background.color, ViewConstants.TOP_RADIUS.dp, 0f)
+        setBackgroundColor(WColor.Background.color, ViewConstants.TOOLBAR_RADIUS.dp, 0f)
         titleLabel.setTextColor(WColor.Tint.color)
         subtitleLabel.setTextColor(WColor.Red.color)
         imageView.imageTintList = WColor.Red.colorStateList

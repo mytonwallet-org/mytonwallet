@@ -89,19 +89,10 @@ class AppearanceAppThemeView(
 
     override val isTinted = true
     override fun updateTheme() {
-        when (ThemeManager.uiMode) {
-            ThemeManager.UIMode.COMMON -> {
-                background = separatorBackgroundDrawable
-                separatorBackgroundDrawable.invalidateSelf()
-            }
-
-            else -> {
-                setBackgroundColor(
-                    WColor.Background.color,
-                    ViewConstants.BIG_RADIUS.dp
-                )
-            }
-        }
+        setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.BLOCK_RADIUS.dp
+        )
         val theme = WGlobalStorage.getActiveTheme()
         arrayOf(systemView, lightView, darkView).forEach {
             it.isActive = theme == it.identifier

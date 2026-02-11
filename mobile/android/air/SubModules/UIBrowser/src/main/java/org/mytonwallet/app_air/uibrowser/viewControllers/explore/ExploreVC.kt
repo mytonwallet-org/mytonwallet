@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uibrowser.viewControllers.explore
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -69,6 +70,8 @@ class ExploreVC(context: Context) : WViewController(context),
     }
 
     override val shouldDisplayTopBar = false
+
+    private var pendingTarget: Uri? = null
 
     private val exploreVM by lazy {
         ExploreVM(this)
@@ -191,31 +194,12 @@ class ExploreVC(context: Context) : WViewController(context),
     }
 
     private fun onSiteTap(app: MExploreSite) {
-        if (app.url.isNullOrEmpty())
-            return
-        if (app.isExternal ||
-            (!app.url!!.startsWith("http://") && !app.url!!.startsWith("https://")) ||
-            app.isTelegram
-        ) {
-            val intent = Intent(Intent.ACTION_VIEW)
-            intent.setData(app.url?.toUri())
-            window?.startActivity(intent)
+        pendingTarget = null
+        if (app.url.isNullOrEmpty()) {
             return
         }
-        val inAppBrowserVC = InAppBrowserVC(
-            context,
-            navigationController?.tabBarController,
-            InAppBrowserConfig(
-                url = app.url!!,
-                title = app.name,
-                thumbnail = app.iconUrl,
-                injectTonConnectBridge = true,
-                saveInVisitedHistory = true,
-            )
-        )
-        val nav = WNavigationController(window!!)
-        nav.setRoot(inAppBrowserVC)
-        window?.present(nav)
+        val uri = app.uri ?: return
+        openTargetUri(app, uri)
     }
 
     private fun onCategoryTap(category: MExploreCategory) {
@@ -433,6 +417,7 @@ class ExploreVC(context: Context) : WViewController(context),
 
     override fun sitesUpdated() {
         rvAdapter.reloadData()
+        pendingTarget?.let { findSiteAndOpenTargetUri(it) }
     }
 
     override fun accountChanged() {
@@ -499,5 +484,49 @@ class ExploreVC(context: Context) : WViewController(context),
         navigationController?.tabBarController?.navigationController?.push(
             ConnectedAppsVC(context)
         )
+    }
+
+    fun findSiteAndOpenTargetUri(targetUri: Uri) {
+        val sites = exploreVM.allSites
+        if (sites == null) {
+            pendingTarget = targetUri
+            return
+        }
+        pendingTarget = null
+
+        val targetHost = targetUri.host?.lowercase()
+        if (targetHost.isNullOrEmpty()) {
+            return
+        }
+
+        val matchedSite = sites.firstOrNull { site ->
+            site.url?.toUri()?.host?.lowercase() == targetHost
+        } ?: return
+
+        openTargetUri(matchedSite, targetUri)
+    }
+
+    private fun openTargetUri(app: MExploreSite, uri: Uri) {
+        val window = this.window ?: return
+        if (app.isExternal || (uri.scheme != "http" && uri.scheme != "https") || app.isTelegram) {
+            window.startActivity(Intent(Intent.ACTION_VIEW).apply {
+                setData(uri)
+            })
+            return
+        }
+        val inAppBrowserVC = InAppBrowserVC(
+            context,
+            navigationController?.tabBarController,
+            InAppBrowserConfig(
+                url = uri.toString(),
+                title = app.name,
+                thumbnail = app.iconUrl,
+                injectTonConnectBridge = true,
+                saveInVisitedHistory = true,
+            )
+        )
+        window.present(WNavigationController(window).apply {
+            setRoot(inAppBrowserVC)
+        })
     }
 }

@@ -11,6 +11,8 @@ import org.mytonwallet.app_air.airasframework.splash.SplashVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations
+import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -68,6 +70,14 @@ class MainWindow : WWindow() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+
+        WGlobalStorage.clearUiCacheData()
+        val langCode = WGlobalStorage.getLangCode()
+        if (LocaleController.init(this, langCode)) {
+            WalletContextManager.delegate?.restartApp()
+            WBaseStorage.setActiveLanguage(langCode)
+            WidgetsConfigurations.reloadWidgets(this)
+        }
 
         AirAsFrameworkApplication.initTheme(applicationContext)
         updateTheme()

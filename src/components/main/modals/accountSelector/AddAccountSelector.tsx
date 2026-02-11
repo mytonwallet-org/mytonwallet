@@ -18,6 +18,7 @@ type OwnProps = {
   isLoading?: boolean;
   isTestnet?: boolean;
   withOtherWalletVersions?: boolean;
+  shouldHideBackButton?: boolean;
   onBack: NoneToVoidFunction;
   onNewAccountClick: NoneToVoidFunction;
   onImportAccountClick: NoneToVoidFunction;
@@ -32,6 +33,7 @@ function AddAccountSelector({
   isLoading,
   isTestnet,
   withOtherWalletVersions,
+  shouldHideBackButton,
   onBack,
   onNewAccountClick,
   onImportAccountClick,
@@ -46,7 +48,7 @@ function AddAccountSelector({
     <div className={buildClassName(modalStyles.transitionContentWrapper, styles.compensateSafeArea)}>
       <ModalHeader
         title={lang('Add Wallet')}
-        onBackButtonClick={onBack}
+        onBackButtonClick={shouldHideBackButton ? undefined : onBack}
         onClose={onClose}
       />
 

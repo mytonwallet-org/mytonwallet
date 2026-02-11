@@ -14,9 +14,9 @@ import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
-import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import kotlin.math.roundToInt
@@ -70,8 +70,7 @@ class CopyTextView @JvmOverloads constructor(
 
     private var originalText: CharSequence? = null
 
-
-    fun setText(text: String, textToCopy: String) {
+    fun setText(text: CharSequence?, textToCopy: String) {
         super.setText(text)
         originalText = textToCopy
     }

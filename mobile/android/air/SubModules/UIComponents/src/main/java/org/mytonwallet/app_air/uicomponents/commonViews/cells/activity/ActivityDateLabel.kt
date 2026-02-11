@@ -34,7 +34,7 @@ class ActivityDateLabel(context: Context) : WLabel(context) {
 
         setBackgroundColor(
             WColor.Background.color,
-            if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f,
+            if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f,
             0f
         )
     }

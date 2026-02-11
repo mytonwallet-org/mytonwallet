@@ -6,7 +6,11 @@ import type { UserToken } from '../../../../../global/types';
 import type { DropdownItem } from '../../../../ui/Dropdown';
 import { ActiveTab, SettingsState } from '../../../../../global/types';
 
-import { DEFAULT_SWAP_FIRST_TOKEN_SLUG, DEFAULT_SWAP_SECOND_TOKEN_SLUG } from '../../../../../config';
+import {
+  DEFAULT_SWAP_FIRST_TOKEN_SLUG,
+  DEFAULT_SWAP_SECOND_TOKEN_SLUG,
+  STAKING_SLUG_PREFIX,
+} from '../../../../../config';
 import { vibrate } from '../../../../../util/haptics';
 import { compact } from '../../../../../util/iteratees';
 import { getStakingStateStatus } from '../../../../../util/staking';
@@ -15,7 +19,7 @@ import { getIsServiceToken } from '../../../../../util/tokens';
 import useContextMenuHandlers from '../../../../../hooks/useContextMenuHandlers';
 import useLastCallback from '../../../../../hooks/useLastCallback';
 
-export type MenuHandler = 'add' | 'send' | 'swap' | 'stake' | 'hide' | 'settings'
+export type MenuHandler = 'add' | 'send' | 'swap' | 'stake' | 'pin' | 'settings'
   | 'unstake' | 'stakeMore' | 'claimRewards';
 
 function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
@@ -26,6 +30,7 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
   isStakingAvailable?: boolean;
   isViewMode?: boolean;
   stakingState?: ApiStakingState;
+  isPinned?: boolean;
 }) {
   const {
     openReceiveModal,
@@ -33,7 +38,8 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
     startSwap,
     startStaking,
     openSettingsWithState,
-    toggleTokenVisibility,
+    pinToken,
+    unpinToken,
     setLandscapeActionsActiveTabIndex,
     setReceiveActiveTab,
     startUnstaking,
@@ -48,6 +54,7 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
     isSwapDisabled,
     isViewMode,
     stakingState,
+    isPinned,
   } = options;
 
   const {
@@ -68,14 +75,14 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
 
   const items: DropdownItem<MenuHandler>[] = useMemo(() => {
     const mandatoryItems: (false | DropdownItem<MenuHandler>)[] = [
-      !stakingId && {
-        name: 'Hide',
-        fontIcon: 'eye-closed',
-        value: 'hide',
+      {
+        name: isPinned ? 'Unpin' : 'Pin',
+        fontIcon: isPinned ? 'menu-unpin' : 'menu-pin',
+        value: 'pin',
+        withDelimiter: true,
       } satisfies DropdownItem<MenuHandler>, {
         name: 'Manage Tokens',
         fontIcon: 'menu-params',
-        withDelimiter: !(isViewMode && stakingId),
         value: 'settings',
       } satisfies DropdownItem<MenuHandler>,
     ];
@@ -85,14 +92,15 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
     }
 
     const result: (false | undefined | DropdownItem<MenuHandler>)[] = stakingId
-      ? [(stakingState?.type !== 'ethena' || !canBeClaimed) && {
-        name: stakingState?.type === 'ethena' ? 'Request Unstaking' : 'Unstake',
-        fontIcon: 'menu-send',
-        value: 'unstake',
-      } satisfies DropdownItem<MenuHandler>, {
+      ? [{
         name: 'Stake More',
-        fontIcon: 'menu-receive',
+        fontIcon: 'menu-send',
         value: 'stakeMore',
+      } satisfies DropdownItem<MenuHandler>,
+      (stakingState?.type !== 'ethena' || !canBeClaimed) && {
+        name: stakingState?.type === 'ethena' ? 'Request Unstaking' : 'Unstake',
+        fontIcon: 'menu-receive',
+        value: 'unstake',
       } satisfies DropdownItem<MenuHandler>,
       (canBeClaimed || hasUnclaimedRewards) && {
         name: 'Claim Rewards',
@@ -122,7 +130,7 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
     return compact(result.concat(mandatoryItems));
   }, [
     canBeClaimed, hasUnclaimedRewards, isStakingAvailable, isSwapDisabled, isViewMode,
-    stakingId, stakingState?.type, isServiceToken,
+    stakingId, stakingState?.type, isServiceToken, isPinned,
   ]);
 
   const handleMenuItemSelect = useLastCallback((value: MenuHandler) => {
@@ -155,16 +163,24 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
         break;
 
       case 'stake':
-      case 'stakeMore':
-        startStaking({ tokenSlug: token.slug });
+      case 'stakeMore': {
+        const tokenSlug = token.isStaking
+          ? token.slug.replace(STAKING_SLUG_PREFIX, '')
+          : token.slug;
+        startStaking({ tokenSlug });
         break;
+      }
 
       case 'settings':
         openSettingsWithState({ state: SettingsState.Assets });
         break;
 
-      case 'hide':
-        toggleTokenVisibility({ slug: token.slug, shouldShow: false });
+      case 'pin':
+        if (isPinned) {
+          unpinToken({ slug: token.slug });
+        } else {
+          pinToken({ slug: token.slug });
+        }
         break;
 
       case 'unstake':

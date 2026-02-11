@@ -2,7 +2,7 @@ import { areSortedArraysEqual, unique } from '../../../util/iteratees';
 import { callActionInMain } from '../../../util/multitab';
 import { IS_DELEGATED_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { addActionHandler } from '../../index';
-import { updateSettings } from '../../reducers';
+import { updateAuth, updateSettings } from '../../reducers';
 import { selectNetworkAccounts } from '../../selectors';
 
 addActionHandler('openAccountSelector', (global) => {
@@ -10,6 +10,13 @@ addActionHandler('openAccountSelector', (global) => {
     callActionInMain('openAccountSelector');
     return global;
   }
+
+  global = updateAuth(global, {
+    forceAddingTonOnlyAccount: undefined,
+    initialAddAccountState: undefined,
+    shouldHideAddAccountBackButton: undefined,
+  });
+
   return { ...global, isAccountSelectorOpen: true };
 });
 
@@ -17,6 +24,12 @@ addActionHandler('closeAccountSelector', (global) => {
   if (IS_DELEGATED_BOTTOM_SHEET) {
     callActionInMain('closeAccountSelector');
   }
+
+  global = updateAuth(global, {
+    forceAddingTonOnlyAccount: undefined,
+    initialAddAccountState: undefined,
+    shouldHideAddAccountBackButton: undefined,
+  });
 
   return { ...global, isAccountSelectorOpen: undefined };
 });

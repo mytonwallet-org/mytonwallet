@@ -3,6 +3,7 @@ import { getActions, withGlobal } from '../../../global';
 
 import type { ApiPromotion } from '../../../api/types/backend';
 
+import renderText from '../../../global/helpers/renderText';
 import { selectCurrentAccountState } from '../../../global/selectors';
 import { openUrl } from '../../../util/openUrl';
 import { preloadImage } from '../../../util/preloadImage';
@@ -49,7 +50,11 @@ function PromotionModal({ promotion, isOpen }: StateProps) {
     return undefined;
   }
 
-  const backgroundStyle = `--promo-modal-bg: url(${modal.backgroundImageUrl}), ${modal.backgroundFallback}`;
+  const injectedStyle = (
+    `--promo-modal-bg: url(${modal.backgroundImageUrl}), ${modal.backgroundFallback};`
+    + `--promo-title-color: ${modal.titleColor ?? '#FFFFFF'};`
+    + `--promo-description-color: ${modal.descriptionColor ?? 'rgba(255, 255, 255, 0.75)'};`
+  );
 
   return (
     <Modal
@@ -59,8 +64,8 @@ function PromotionModal({ promotion, isOpen }: StateProps) {
       contentClassName={styles.content}
       onClose={closePromotionModal}
     >
-      <div className={styles.background} style={backgroundStyle}>
-        <ModalHeader className={styles.header} onClose={closePromotionModal} />
+      <div className={styles.background} style={injectedStyle}>
+        <ModalHeader className={styles.header} closeClassName={styles.closeButton} onClose={closePromotionModal} />
 
         <div className={styles.surface}>
           {heroImageUrl && (
@@ -72,7 +77,7 @@ function PromotionModal({ promotion, isOpen }: StateProps) {
           <div className={styles.body}>
             {modal.title && <div className={styles.title}>{modal.title}</div>}
             {modal.description && (
-              <p className={styles.description}>{modal.description}</p>
+              <p className={styles.description}>{renderText(modal.description)}</p>
             )}
             {modal.availabilityIndicator && (
               <AvailabilityIndicator

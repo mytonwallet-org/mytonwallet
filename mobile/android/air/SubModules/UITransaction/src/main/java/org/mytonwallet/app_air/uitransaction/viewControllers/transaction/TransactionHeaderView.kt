@@ -85,15 +85,6 @@ class TransactionHeaderView(
         id = generateViewId()
     }
 
-    var expandProgress: Float = 1f
-        set(value) {
-            val changed = field != value
-            field = value
-            if (changed) {
-                onExpandProgressChanged()
-            }
-        }
-
     override fun setupViews() {
         super.setupViews()
         reloadData()
@@ -122,6 +113,7 @@ class TransactionHeaderView(
         if (onTokenClick != null) {
             amountView.isClickable = true
             amountView.isFocusable = true
+            @SuppressLint("ClickableViewAccessibility")
             amountView.setOnTouchListener { v, event ->
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
@@ -279,19 +271,4 @@ class TransactionHeaderView(
         reloadData()
     }
 
-    private fun onExpandProgressChanged() {
-        addressLabel.alpha = expandProgress
-        val addressLabelHeight = addressLabel.measuredHeight
-        addressLabel.translationY =
-            addressLabelHeight - addressLabelHeight / 2 * (1 - expandProgress)
-        val spaceHeight = (addressLabelHeight * expandProgress).roundToInt()
-        addressSpace.updateLayoutParams {
-            height = spaceHeight
-        }
-        addressLabel.visibility = if (spaceHeight == 0) {
-            INVISIBLE
-        } else {
-            VISIBLE
-        }
-    }
 }

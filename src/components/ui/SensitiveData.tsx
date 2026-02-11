@@ -95,6 +95,7 @@ function SensitiveData({
     styles.content,
     contentClassName,
     isMaskActive && styles.fixedWidth,
+    isActive && styles.noninteractive,
   );
 
   return (

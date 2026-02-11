@@ -102,6 +102,13 @@ public extension UIViewController {
             showAlert(error: BridgeCallError.customMessage(error.localizedDescription, nil), onOK: onOK)
         }
     }
+    
+    func removeChild(_ child: UIViewController) {
+        guard child.parent == self else { return }
+        child.willMove(toParent: nil)
+        child.view.removeFromSuperview()
+        child.removeFromParent()
+    }
 }
 
 @MainActor public func topViewController() -> UIViewController? {

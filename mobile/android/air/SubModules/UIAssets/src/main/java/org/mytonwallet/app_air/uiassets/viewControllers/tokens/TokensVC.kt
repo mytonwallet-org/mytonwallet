@@ -27,6 +27,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
+import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedControllerItemVC
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
@@ -54,7 +55,8 @@ class TokensVC(
     private val onAssetsShown: (() -> Unit)? = null,
     private val onScroll: ((rv: RecyclerView) -> Unit)? = null
 ) : WViewController(context),
-    WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
+    WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver,
+    WSegmentedControllerItemVC {
     override val TAG = "Tokens"
 
     private var isShowingAccountMultichain = WGlobalStorage.isMultichain(showingAccountId)
@@ -99,6 +101,7 @@ class TokensVC(
     private var walletTokens: Array<MTokenBalance> = emptyArray()
 
     private var thereAreMoreToShow: Boolean = false
+    private var isScreenFullyVisible = false
 
     private val rvAdapter =
         WRecyclerViewAdapter(WeakReference(this), arrayOf(TOKEN_CELL)).apply {
@@ -336,7 +339,7 @@ class TokensVC(
             showingAccountId,
             isShowingAccountMultichain,
             walletTokens[indexPath.row],
-            isFirst = mode == Mode.ALL && indexPath.row == 0,
+            isFirst = mode == Mode.ALL && indexPath.row == 0 && isScreenFullyVisible,
             isLast = indexPath.row == walletTokens.size - 1 && !thereAreMoreToShow
         )
     }
@@ -356,5 +359,20 @@ class TokensVC(
         recyclerView.adapter = null
         recyclerView.removeAllViews()
         showAllView.onTap = null
+    }
+
+    override fun onFullyVisible() {
+        updateScreenVisibility(true)
+    }
+
+    override fun onPartiallyVisible() {
+        updateScreenVisibility(false)
+    }
+
+    private fun updateScreenVisibility(isFullyVisible: Boolean) {
+        isScreenFullyVisible = isFullyVisible
+        if (walletTokens.isNotEmpty()) {
+            rvAdapter.notifyItemChanged(0)
+        }
     }
 }

@@ -10,7 +10,6 @@ private let log = Log("AppearanceSettingsView")
 
 struct AppearanceSettingsView: View {
     
-    var tintColor: Color
     var canSwitchToCapacitor: Bool {
         // can't be force unwrapped because app delegate is different in previews
         (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.canSwitchToCapacitor ?? true
@@ -25,8 +24,6 @@ struct AppearanceSettingsView: View {
                 OtherAppearanceSettingsSection()
                     .padding(.bottom, 48)
             }
-            .animation(.default, value: tintColor)
-            .tint(tintColor)
         }
     }
     

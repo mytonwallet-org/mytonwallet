@@ -17,6 +17,17 @@ type BaseActivity = {
     withW5Gasless?: boolean; // Only for TON
     dex?: ApiSwapDexLabel; // Only for TON liquidity deposit and withdrawal
     marketplace?: ApiNftMarketplace;
+    /** Request identifier from the underlying message where available (TON only) */
+    queryId?: string;
+    /** Marks hidden transfers that include the MyTonWallet swap fee */
+    isOurSwapFee?: boolean;
+    /** Aggregated swap marker used to merge internal aggregator routes */
+    mtwAggregator?: {
+      traceId: string;
+      swapIds: string[];
+      from: string;
+      to: string;
+    };
     // TODO Move other extra fields here (externalMsgHash, ...)
   };
 };

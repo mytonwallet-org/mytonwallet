@@ -126,7 +126,9 @@ public class InAppBrowserPageVC: WViewController {
         }
         self.titleObserver = webView?.observe(\.title) { [weak self] webView, _ in
             if let self {
-                self.config.title = webView.title
+                if let title = webView.title?.nilIfEmpty {
+                    self.config.title = title
+                }
                 self.delegate?.inAppBrowserPageStateChanged(self)
             }
         }

@@ -106,13 +106,13 @@ class HiddenNFTsItemCell(
         setBackgroundColor(
             WColor.Background.color,
             0f,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         if (nft.isHidden == true) {
             addRippleEffect(
                 WColor.SecondaryBackground.color,
                 0f,
-                if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+                if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
             )
         }
         titleLabel.setTextColor(WColor.PrimaryText.color)

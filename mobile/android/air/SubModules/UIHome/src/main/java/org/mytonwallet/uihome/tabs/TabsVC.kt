@@ -39,6 +39,7 @@ import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.animatorx.FloatAnimator
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
+import android.net.Uri
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -463,7 +464,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     private fun updateBottomBlurHeight() {
         val bottomNavigationLayoutLayoutParams = bottomNavigationFrameLayout.layoutParams ?: return
         val newBottomViewHeight =
-            bottomNavigationLayoutLayoutParams.height + ViewConstants.BAR_ROUNDS.dp.roundToInt()
+            bottomNavigationLayoutLayoutParams.height + ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
         if (bottomCornerView.layoutParams.height != newBottomViewHeight)
             bottomCornerView.layoutParams = bottomCornerView.layoutParams.apply {
                 height = newBottomViewHeight
@@ -762,6 +763,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
+        activeNavigationController?.viewWillDisappear()
         clearSearchAutoComplete()
     }
 
@@ -832,10 +834,11 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         updateSearchWidth()
     }
 
-    fun switchToExplore() {
+    fun switchToExplore(targetUri: Uri? = null) {
         navigationController?.popToRoot(false)
         bottomNavigationView.selectedItemId = ID_EXPLORE
         window?.dismissToRoot()
+        targetUri?.let { cachedExploreVC?.findSiteAndOpenTargetUri(it) }
     }
 
     private var cachedExploreVC: ExploreVC? = null
@@ -877,7 +880,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         return navigationController
     }
 
-    val activeNavigationController: WNavigationController?
+    override val activeNavigationController: WNavigationController?
         get() {
             return stackNavigationControllers[bottomNavigationView.selectedItemId]
         }

@@ -176,7 +176,7 @@ class ReceiveVC(
     }
 
     private val backgroundColorView = WView(context).apply {
-        setBackgroundColor(WColor.Background.color, 0f, ViewConstants.BIG_RADIUS.dp)
+        setBackgroundColor(WColor.Background.color, 0f, ViewConstants.BLOCK_RADIUS.dp)
     }
 
     private val currentQRCode: QRCodeVC
@@ -447,7 +447,7 @@ class ReceiveVC(
         optionsSeparatorView.setBackgroundColor(WColor.SecondaryBackground.color)
         buyWithCardView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
             0f
         )
         buyWithCardView.addRippleEffect(WColor.SecondaryBackground.color)
@@ -456,7 +456,7 @@ class ReceiveVC(
         buyWithCryptoView.setBackgroundColor(
             WColor.Background.color,
             0f,
-            if (isShowingTon) 0f else ViewConstants.BIG_RADIUS.dp,
+            if (isShowingTon) 0f else ViewConstants.BLOCK_RADIUS.dp,
         )
         buyWithCryptoView.addRippleEffect(WColor.SecondaryBackground.color)
         buyWithCryptoLabel.setTextColor(WColor.Tint.color)
@@ -467,8 +467,8 @@ class ReceiveVC(
                 AccountStore.activeAccount?.supportsBuyWithCard == true
             )
                 0f
-            else ViewConstants.BIG_RADIUS.dp,
-            ViewConstants.BIG_RADIUS.dp,
+            else ViewConstants.BLOCK_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
         )
         invoiceView.addRippleEffect(WColor.SecondaryBackground.color)
         invoiceLabel.setTextColor(WColor.Tint.color)
@@ -658,7 +658,7 @@ class ReceiveVC(
     }
 
     private fun hideInvoiceView() {
-        ValueAnimator.ofFloat(0f, ViewConstants.BIG_RADIUS.dp).apply {
+        ValueAnimator.ofFloat(0f, ViewConstants.BLOCK_RADIUS.dp).apply {
             duration = AnimationConstants.QUICK_ANIMATION
             addUpdateListener {
                 buyWithCryptoView.setBackgroundColor(
@@ -675,7 +675,7 @@ class ReceiveVC(
     }
 
     private fun showInvoiceView() {
-        ValueAnimator.ofFloat(ViewConstants.BIG_RADIUS.dp, 0f).apply {
+        ValueAnimator.ofFloat(ViewConstants.BLOCK_RADIUS.dp, 0f).apply {
             duration = AnimationConstants.QUICK_ANIMATION
             addUpdateListener {
                 buyWithCryptoView.setBackgroundColor(

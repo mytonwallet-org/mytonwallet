@@ -252,14 +252,14 @@ class InvoiceVC(context: Context) : WViewController(context) {
         commentInputView.setBackgroundColor(
             WColor.Background.color,
             0f,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         commentInputView.setTextColor(WColor.PrimaryText.color)
         commentInputView.setHintTextColor(WColor.SecondaryText.color)
         linkLabel.setBackgroundColor(
             WColor.Background.color,
             0f,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
     }
 

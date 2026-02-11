@@ -65,6 +65,50 @@ sealed class ApiMethod<T> {
                 .jsObject(options, Options::class.java)
                 .build()
         }
+
+        class GetMoonpayOnrampUrl(
+            params: Params
+        ) : ApiMethod<GetMoonpayOnrampUrl.Result>() {
+            @JsonClass(generateAdapter = true)
+            data class Params(
+                val chain: String,
+                val address: String,
+                val theme: String,
+                val currency: String
+            )
+
+            @JsonClass(generateAdapter = true)
+            data class Result(val url: String)
+
+            override val name: String = "getMoonpayOnrampUrl"
+            override val type: Type = Result::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .jsObject(params, Params::class.java)
+                .build()
+        }
+
+        class GetMoonpayOfframpUrl(
+            params: Params
+        ) : ApiMethod<GetMoonpayOfframpUrl.Result>() {
+            @JsonClass(generateAdapter = true)
+            data class Params(
+                val chain: String,
+                val address: String,
+                val theme: String,
+                val currency: String,
+                val amount: String,
+                val baseUrl: String
+            )
+
+            @JsonClass(generateAdapter = true)
+            data class Result(val url: String)
+
+            override val name: String = "getMoonpayOfframpUrl"
+            override val type: Type = Result::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .jsObject(params, Params::class.java)
+                .build()
+        }
     }
 
     /* Auth */
@@ -148,6 +192,35 @@ sealed class ApiMethod<T> {
                 .string(accountId)
                 .jsObject(activity, MApiTransaction::class.java)
                 .build()
+        }
+
+        class FetchPastActivities(
+            accountId: String,
+            limit: Int,
+            slug: String?,
+            toTimestamp: Long?,
+        ) : ApiMethod<FetchPastActivities.Result>() {
+
+            @JsonClass(generateAdapter = true)
+            data class Result(
+                val activities: List<MApiTransaction>,
+                val shouldFetchMore: Boolean
+            )
+
+            override val name: String = "fetchPastActivities"
+            override val type: Type = Result::class.java
+            override val arguments: String = run {
+                var builder = ArgumentsBuilder()
+                    .string(accountId)
+                    .number(limit)
+                    .string(slug)
+
+                toTimestamp?.let {
+                    builder = builder.number(it)
+                }
+
+                builder.build()
+            }
         }
 
         class FetchTransactionById(

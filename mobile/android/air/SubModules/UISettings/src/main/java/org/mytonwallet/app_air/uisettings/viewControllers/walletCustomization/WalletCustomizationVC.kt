@@ -328,7 +328,7 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
                 } else {
                     topReversedCornerView?.pauseBlurring(false)
                 }
-                if (scrollY > ViewConstants.BIG_RADIUS.dp) {
+                if (scrollY > ViewConstants.BLOCK_RADIUS.dp) {
                     setTopBlur(true, animated = true)
                     topReversedCornerView?.setHorizontalPadding(0f)
                 } else {

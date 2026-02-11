@@ -460,6 +460,12 @@ open class HomeHeaderView(
         }
     }
 
+    fun updateSeasonalTheme() {
+        cardViews.forEach {
+            it.updateSeasonalTheme()
+        }
+    }
+
     fun updateAddressLabel(accountId: String) {
         cardViews.forEach {
             if (it.account?.accountId == accountId)
@@ -860,6 +866,8 @@ open class HomeHeaderView(
                         dx > touchSlop && dx > dy -> {
                             scrollDirectionLocked = true
                             isHorizontalScrolling = true
+                            initialTouchX = event.x
+                            initialTouchY = event.y
                             parent.requestDisallowInterceptTouchEvent(true)
                             return true
                         }
@@ -902,6 +910,8 @@ open class HomeHeaderView(
                         dx > touchSlop && dx > dy -> {
                             scrollDirectionLocked = true
                             isHorizontalScrolling = true
+                            initialTouchX = event.x
+                            initialTouchY = event.y
                             parent.requestDisallowInterceptTouchEvent(true)
                         }
                     }

@@ -5,7 +5,6 @@ import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.UIMode
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
@@ -25,6 +24,9 @@ object WGlobalStorage {
 
     @Volatile
     private var cachedAccountIds: Array<String>? = null
+
+    @Volatile
+    private var cachedLangCode: String? = null
     private var _isSensitiveDataProtectionOn: Boolean = false
 
     fun init(globalStorageProvider: IGlobalStorageProvider) {
@@ -55,6 +57,11 @@ object WGlobalStorage {
         cachedAccountIds = null
         _isSensitiveDataProtectionOn =
             globalStorageProvider.getBool(IS_SENSITIVE_DATA_HIDDEN) == true
+        clearUiCacheData()
+    }
+
+    fun clearUiCacheData() {
+        cachedLangCode = null
     }
 
     fun incDoNotSynchronize() {
@@ -71,7 +78,7 @@ object WGlobalStorage {
     private const val CURRENT_TEMPORARY_VIEW_ACCOUNT_ID = "currentTemporaryViewAccountId"
     private const val ACTIVE_THEME = "settings.theme"
     private const val ACTIVE_FONT = "settings.font"
-    private const val ACTIVE_UI_MODE = "settings.uiMode"
+    private const val ARE_ROUNDED_TOOLBARS_ACTIVE = "settings.roundedToolbars"
     private const val IS_TESTNET = "settings.isTestnet"
     private const val ARE_ANIMATIONS_ACTIVE = "settings.animationLevel"
     private const val ARE_SIDE_GUTTERS_ACTIVE = "settings.sideGutters"
@@ -92,6 +99,7 @@ object WGlobalStorage {
     private const val PUSH_NOTIFICATIONS_TOKEN = "pushNotifications.userToken"
     private const val PUSH_NOTIFICATIONS_ENABLED_ACCOUNTS = "pushNotifications.enabledAccounts"
     private const val ORDERED_ACCOUNT_IDS = "settings.orderedAccountIds"
+    private const val IS_SEASONAL_THEMING_DISABLED = "settings.isSeasonalThemingDisabled"
     private const val EXPLORER = "settings.selectedExplorerIds"
 
     fun save(accountId: String, accountName: String?, persist: Boolean = true) {
@@ -362,19 +370,16 @@ object WGlobalStorage {
         globalStorageProvider.set(ACTIVE_FONT, font, IGlobalStorageProvider.PERSIST_INSTANT)
     }
 
-    fun setActiveUiMode(mode: UIMode) {
+    fun setAreRoundedToolbarsActive(active: Boolean) {
         globalStorageProvider.set(
-            ACTIVE_UI_MODE,
-            mode.value,
+            ARE_ROUNDED_TOOLBARS_ACTIVE,
+            active,
             IGlobalStorageProvider.PERSIST_INSTANT
         )
     }
 
-    fun getActiveUiMode(): UIMode {
-        val uiMode = globalStorageProvider.getString(ACTIVE_UI_MODE)
-        return uiMode?.let {
-            UIMode.fromValue(uiMode)!!
-        } ?: UIMode.BIG_RADIUS
+    fun getAreRoundedToolbarsActive(): Boolean {
+        return globalStorageProvider.getBool(ARE_ROUNDED_TOOLBARS_ACTIVE) ?: true
     }
 
     private fun setIsTestnet(isTestnet: Boolean) {
@@ -850,7 +855,21 @@ object WGlobalStorage {
     }
 
     fun getLangCode(): String {
-        return globalStorageProvider.getString(LANG_CODE) ?: WLanguage.ENGLISH.langCode
+        val resolved = globalStorageProvider.getString(LANG_CODE)
+            ?: cachedLangCode
+            ?: resolveSystemLanguageCode()
+            ?: WLanguage.ENGLISH.langCode
+        cachedLangCode = resolved
+        return resolved
+    }
+
+    private fun resolveSystemLanguageCode(): String? {
+        val context = try {
+            ApplicationContextHolder.applicationContext
+        } catch (_: Throwable) {
+            return null
+        }
+        return LocaleController.resolveSystemLanguageCode(context)
     }
 
     fun getCardsInfo(accountId: String): JSONObject? {
@@ -901,7 +920,20 @@ object WGlobalStorage {
         )
     }
 
-    private const val LAST_STATE: Int = 49
+    fun getIsSeasonalThemingDisabled(): Boolean {
+        return globalStorageProvider.getBool(IS_SEASONAL_THEMING_DISABLED) == true
+    }
+
+    fun setIsSeasonalThemingDisabled(disabled: Boolean) {
+        globalStorageProvider.set(
+            IS_SEASONAL_THEMING_DISABLED,
+            disabled,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    private const val LAST_STATE: Int = 51
+
     fun migrate() {
         // Lock the storage
         incDoNotSynchronize()
@@ -1047,6 +1079,22 @@ object WGlobalStorage {
             for (accountId in accountIds) {
                 setNewestActivitiesBySlug(accountId, null, IGlobalStorageProvider.PERSIST_NO)
             }
+        }
+
+        if (currentState < 50) {
+            val uiMode = globalStorageProvider.getString("settings.uiMode")
+            if (uiMode != null) {
+                globalStorageProvider.set(
+                    ARE_ROUNDED_TOOLBARS_ACTIVE,
+                    uiMode != "compound",
+                    IGlobalStorageProvider.PERSIST_NO
+                )
+                globalStorageProvider.remove("settings.uiMode", IGlobalStorageProvider.PERSIST_NO)
+            }
+        }
+
+        if (currentState < 51) {
+            clearActivities()
         }
 
         // Update and unlock the storage

@@ -17,6 +17,11 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     
     var viewModel: ConnectViewModel
     var hostingController: UIHostingController<ConnectDappViewOrPlaceholder>?
+    private var contentHeight: CGFloat = 0
+    
+    private var currentSheetPresentationController: UISheetPresentationController? {
+        navigationController?.sheetPresentationController ?? sheetPresentationController
+    }
     
     public init(
         request: ApiUpdate.DappConnect,
@@ -64,26 +69,50 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
         navigationItem.standardAppearance = appearance
 
         configureSheetWithOpaqueBackground(color: WTheme.sheetBackground)
-        sheetPresentationController?.delegate = self
+        currentSheetPresentationController?.delegate = self
 
         let hostingController = addHostingController(makeView(), constraints: .fill)
         self.hostingController = hostingController
-        hostingController.sizingOptions = .preferredContentSize        
+        hostingController.sizingOptions = .preferredContentSize
     }
     
     private func makeView() -> ConnectDappViewOrPlaceholder {
-        ConnectDappViewOrPlaceholder(viewModel: viewModel)
+        ConnectDappViewOrPlaceholder(viewModel: viewModel, onHeightChange: { [weak self] height in
+            self?.onHeightChange(height)
+        })
     }
     
-    public override func preferredContentSizeDidChange(forChildContentContainer container: any UIContentContainer) {
-        if let sheet = sheetPresentationController {
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        updateSheetHeight(animated: false)
+    }
+    
+    private func onHeightChange(_ height: CGFloat) {
+        guard height > 0 else { return }
+        guard abs(contentHeight - height) > 0.5 else { return }
+        contentHeight = height
+        updateSheetHeight(animated: true)
+    }
+    
+    private func updateSheetHeight(animated: Bool) {
+        guard contentHeight > 0, let sheet = currentSheetPresentationController else { return }
+        let contentHeight = self.contentHeight
+        
+        let apply = {
+            sheet.detents = [
+                .custom(identifier: .content) { context in
+                    min(contentHeight, context.maximumDetentValue)
+                }
+            ]
+            sheet.selectedDetentIdentifier = .content
+        }
+        
+        if animated {
             sheet.animateChanges {
-                sheet.detents = [
-                    .custom { context in
-                        container.preferredContentSize.height
-                    }
-                ]
+                apply()
             }
+        } else {
+            apply()
         }
     }
     
@@ -92,6 +121,10 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
             viewModel.onCancel?()
         }
     }
+}
+
+private extension UISheetPresentationController.Detent.Identifier {
+    static let content = UISheetPresentationController.Detent.Identifier("content")
 }
 
 #if DEBUG

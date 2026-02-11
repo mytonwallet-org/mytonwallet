@@ -32,7 +32,6 @@ export type StorageKey = 'accounts'
   | 'dappMethods:lastAccountId'
   | 'windowId'
   | 'windowState'
-  | 'isTonMagicEnabled'
   | 'isTonProxyEnabled'
   | 'isDeeplinkHookEnabled'
   // For TonConnect SSE

@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers.Companion.isSuitableToGetTimestamp
@@ -444,7 +443,6 @@ class ActivityLoader(
             this.loadedAll = false
         }
         paginationActivity = findLastPaginationActivity()
-        WGlobalStorage.setIsHistoryEndReached(accountId, null, this.loadedAll)
     }
 
     private fun handleLoadedAllFlag(loadedAll: Boolean?) {

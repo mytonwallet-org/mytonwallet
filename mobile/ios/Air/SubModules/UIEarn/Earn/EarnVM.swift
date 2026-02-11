@@ -195,16 +195,18 @@ public final class EarnVM: WalletCoreData.EventsObserver {
         Task {
             do {
                 log.info("fetchActivitySlice \(tokenSlug)")
-                let newTransactions = try await Api.fetchPastActivities(
+                let result = try await Api.fetchPastActivities(
                     accountId: self.currentAccountId,
                     limit: 50,
                     tokenSlug: tokenSlug,
                     toTimestamp: toTimestamp
                 )
+                let newTransactions = result.activities
                 isLoadingUnstakeActivities = false
                 if newTransactions.count > 0 {
                     lastUnstakeActivityItem = (newTransactions.last!.id, newTransactions.last!.timestamp)
-                } else if newTransactions.count == 0 {
+                }
+                if !result.shouldFetchMore {
                     isLoadedAllUnstakeActivityItems = true
                 }
                 await merger(newTransactions: newTransactions)
@@ -237,16 +239,18 @@ public final class EarnVM: WalletCoreData.EventsObserver {
         Task {
             do {
                 log.info("fetchActivitySlice \(tokenSlug)")
-                let newTransactions = try await Api.fetchPastActivities(
+                let result = try await Api.fetchPastActivities(
                     accountId: self.currentAccountId,
                     limit: 50,
                     tokenSlug: stakedTokenSlug,
                     toTimestamp: toTimestamp
                 )
+                let newTransactions = result.activities
                 isLoadingActivities = false
                 if newTransactions.count > 0 {
                     lastActivityItem = (newTransactions.last!.id, newTransactions.last!.timestamp)
-                } else if newTransactions.count == 0 {
+                }
+                if !result.shouldFetchMore {
                     isLoadedAllActivityItems = true
                 }
                 await merger(newTransactions: newTransactions)

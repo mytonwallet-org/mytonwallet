@@ -95,15 +95,6 @@ function firefoxOnRequest(): FirefoxProxyInfo | FirefoxProxyInfo[] {
   return proxies;
 }
 
-export function doMagic(isEnabled: boolean) {
-  void storage.setItem('isTonMagicEnabled', isEnabled);
-
-  updateSites({
-    type: 'updateTonMagic',
-    isEnabled,
-  });
-}
-
 export function doDeeplinkHook(isEnabled: boolean) {
   void storage.setItem('isDeeplinkHookEnabled', isEnabled);
 

@@ -30,9 +30,13 @@ extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
         }
     }
 
-    public func headerHeightChanged(animated: Bool) {
+    public func walletAssetDidChangeHeight(animated: Bool) {
         updateTableViewHeaderFrame(animated: animated)
         view.setNeedsLayout()
+    }
+    
+    public func walletAssetDidChangeReorderingState() {
+        updateNavigationItem()
     }
 
     public func expandHeader() {

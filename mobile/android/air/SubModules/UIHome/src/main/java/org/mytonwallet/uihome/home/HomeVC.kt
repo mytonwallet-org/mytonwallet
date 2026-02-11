@@ -29,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uireceive.ReceiveVC
+import org.mytonwallet.app_air.uisend.send.SellWithCardLauncher
 import org.mytonwallet.app_air.uisend.send.SendVC
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.uistake.earn.EarnViewModel
@@ -55,6 +56,7 @@ import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.uihome.home.views.ActivityListView
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
@@ -110,6 +112,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     private val tonConnectController by lazy {
         TonConnectController(window!!)
+    }
+
+    private fun isSellAllowed(): Boolean {
+        return homeVM.showingAccount?.supportsBuyWithCard == true && ConfigStore.isLimited != true
     }
 
     private var prevActivityListView =
@@ -237,7 +243,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 if (progress == 0f) {
                     actionsView.translationY = 0f
                     view.post {
-                        configureActivityLists(shouldLoadNewWallets = true, skipSkeletonOnCache = true)
+                        configureActivityLists(
+                            shouldLoadNewWallets = true,
+                            skipSkeletonOnCache = true
+                        )
                         moveActionsViewToCell()
                     }
                 } else {
@@ -278,8 +287,20 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             if (currentActivityListView.skeletonVisible)
                 return@HeaderActionsView
             onClick(it)
-        }).apply {
+        },
+        isSellAllowed = isSellAllowed(),
+    ).apply {
         setPadding(0, 0, 0, 16.dp)
+    }
+
+    private fun openSellWithCard(tokenSlug: String) {
+        if (!isSellAllowed()) return
+        val activeAccount = headerView.centerAccount ?: homeVM.showingAccount ?: return
+        SellWithCardLauncher.launch(
+            caller = WeakReference(this),
+            account = activeAccount,
+            tokenSlug = tokenSlug,
+        )
     }
 
     private fun onClick(identifier: HeaderActionsView.Identifier) {
@@ -311,6 +332,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 val navVC = WNavigationController(window!!)
                 navVC.setRoot(SendVC(context))
                 window?.present(navVC)
+            }
+
+            HeaderActionsView.Identifier.SELL -> {
+                openSellWithCard(TONCOIN_SLUG)
             }
 
             HeaderActionsView.Identifier.SWAP -> {
@@ -404,7 +429,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 MATCH_PARENT,
                 (navigationController?.getSystemBars()?.top ?: 0) +
                     HomeHeaderView.navDefaultHeight +
-                    ViewConstants.BAR_ROUNDS.dp.roundToInt()
+                    ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
             )
         )
         view.addView(headerView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -597,28 +622,38 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         currentActivityListView.scrollToTop()
     }
 
+    private val pausedBlurViews: Boolean
+        get() {
+            return !topBlurReversedCornerView.isPlaying ||
+                (bottomReversedCornerView?.let { !it.isPlaying }
+                    ?: navigationController?.tabBarController?.pausedBlurViews
+                    ?: false)
+        }
+
     override fun pauseBlurViews() {
         if (rvMode == HomeHeaderView.Mode.Expanded ||
             headerView.mode == HomeHeaderView.Mode.Expanded
         ) {
             if (pausedBlurViews)
                 return
-            topBlurReversedCornerView.isGone = true
             topBlurReversedCornerView.pauseBlurring(false)
+            topBlurReversedCornerView.isGone = true
             bottomReversedCornerView?.pauseBlurring()
-            navigationController?.tabBarController?.pauseBlurring()
+            if (navigationController?.tabBarController?.activeNavigationController == navigationController)
+                navigationController?.tabBarController?.pauseBlurring()
         }
     }
 
-    private val pausedBlurViews: Boolean
+    private val resumedBlurViews: Boolean
         get() {
-            return bottomReversedCornerView?.let { !it.isPlaying }
-                ?: navigationController?.tabBarController?.pausedBlurViews
-                ?: false
+            return topBlurReversedCornerView.isPlaying &&
+                (bottomReversedCornerView?.isPlaying
+                    ?: navigationController?.tabBarController?.pausedBlurViews?.let { !it }
+                    ?: false)
         }
 
     private fun resumeBlurViews() {
-        if (!pausedBlurViews)
+        if (resumedBlurViews)
             return
         topBlurReversedCornerView.isGone = false
         topBlurReversedCornerView.resumeBlurring()
@@ -637,7 +672,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         topBlurReversedCornerView.updateLayoutParams {
             height = (navigationController?.getSystemBars()?.top ?: 0) +
                 HomeHeaderView.navDefaultHeight +
-                ViewConstants.BAR_ROUNDS.dp.roundToInt()
+                ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
         }
     }
 
@@ -658,7 +693,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     // Configure lists
     var renderedAccounts = ""
-    private fun configureActivityLists(shouldLoadNewWallets: Boolean, skipSkeletonOnCache: Boolean) {
+    private fun configureActivityLists(
+        shouldLoadNewWallets: Boolean,
+        skipSkeletonOnCache: Boolean
+    ) {
         val activeAccount = headerView.centerAccount ?: homeVM.showingAccount ?: return
         homeVM.loadedAccountId = activeAccount.accountId
         val accountIds = WGlobalStorage.accountIds()
@@ -696,7 +734,11 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
         prevActivityListView =
             (prevView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
-                configure(prevAccountId, shouldLoadNewWallets, skipSkeletonOnCache = skipSkeletonOnCache)
+                configure(
+                    prevAccountId,
+                    shouldLoadNewWallets,
+                    skipSkeletonOnCache = skipSkeletonOnCache
+                )
             }).apply {
                 if (swipeItemsOffset == 0)
                     isInvisible = true
@@ -704,7 +746,11 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
         currentActivityListView =
             (currentView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
-                configure(activeAccount.accountId, shouldLoadNewWallets, skipSkeletonOnCache = skipSkeletonOnCache)
+                configure(
+                    activeAccount.accountId,
+                    shouldLoadNewWallets,
+                    skipSkeletonOnCache = skipSkeletonOnCache
+                )
             }).apply {
                 isInvisible = false
                 instantScrollToTop(shouldLoadNewWallets)
@@ -712,7 +758,11 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                     alpha = 1f
             }
         nextActivityListView = (nextView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
-            configure(nextAccountId, shouldLoadNewWallets, skipSkeletonOnCache = skipSkeletonOnCache)
+            configure(
+                nextAccountId,
+                shouldLoadNewWallets,
+                skipSkeletonOnCache = skipSkeletonOnCache
+            )
         }).apply {
             if (swipeItemsOffset == 0)
                 isInvisible = true
@@ -850,7 +900,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             )
     }
 
-    override fun configureAccountViews(shouldLoadNewWallets: Boolean, skipSkeletonOnCache: Boolean) {
+    override fun configureAccountViews(
+        shouldLoadNewWallets: Boolean,
+        skipSkeletonOnCache: Boolean
+    ) {
         stickyHeaderView.updateActions()
         accountConfigChanged()
         actionsView.updateActions(headerView.centerAccount ?: homeVM.showingAccount)
@@ -890,6 +943,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     override fun accountConfigChanged() {
         headerView.updateMintIconVisibility()
+    }
+
+    override fun seasonalThemeChanged() {
+        headerView.updateSeasonalTheme()
     }
 
     override fun accountWillChange(fromHome: Boolean) {

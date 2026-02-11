@@ -61,7 +61,6 @@ interface StateProps {
   byAccountId: GlobalState['byAccountId'];
   tokenInfo: GlobalState['tokenInfo'];
   stakingDefault: ApiStakingState;
-  isSortByValueEnabled?: boolean;
   areTokensWithNoCostHidden?: boolean;
 }
 
@@ -81,7 +80,6 @@ function DappConnectModal({
   byAccountId,
   tokenInfo,
   stakingDefault,
-  isSortByValueEnabled,
   areTokensWithNoCostHidden,
 }: StateProps) {
   const {
@@ -110,7 +108,6 @@ function DappConnectModal({
       byAccountId,
       tokenInfo,
       settingsByAccountId,
-      isSortByValueEnabled,
       areTokensWithNoCostHidden,
       baseCurrency,
       currencyRates,
@@ -120,7 +117,6 @@ function DappConnectModal({
     byAccountId,
     tokenInfo,
     settingsByAccountId,
-    isSortByValueEnabled,
     areTokensWithNoCostHidden,
     baseCurrency,
     currencyRates,
@@ -150,7 +146,7 @@ function DappConnectModal({
 
   const shouldRenderAccountSelector = accounts && isKeyCountGreater(accounts, 1);
 
-  const handleOpenAccountSelector = useLastCallback(() => {
+  const handleOpenAccountSelector = useLastCallback((_accountId: string) => {
     setDappConnectRequestState({ state: DappConnectState.SelectAccount });
   });
 
@@ -274,7 +270,7 @@ function DappConnectModal({
                   isSelected={isSelected}
                   isDisabled={isDisabled}
                   className={styles.accountListItem}
-                  onClick={() => handleSelectAccount(accountId)}
+                  onClick={handleSelectAccount}
                 />
               );
             })}
@@ -447,7 +443,6 @@ export default memo(withGlobal((global): StateProps => {
     settings: {
       byAccountId: settingsByAccountId,
       baseCurrency,
-      isSortByValueEnabled,
       areTokensWithNoCostHidden,
     },
     currencyRates,
@@ -472,7 +467,6 @@ export default memo(withGlobal((global): StateProps => {
     byAccountId,
     tokenInfo,
     stakingDefault,
-    isSortByValueEnabled,
     areTokensWithNoCostHidden,
   };
 })(DappConnectModal));

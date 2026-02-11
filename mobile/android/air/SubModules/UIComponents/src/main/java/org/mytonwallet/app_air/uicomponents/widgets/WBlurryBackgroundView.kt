@@ -76,7 +76,9 @@ class WBlurryBackgroundView(
             overrideOverlayColor?.color ?: WColor.SecondaryBackground.color
 
         if (blurEnabled) {
-            setBlurRadius(overrideBlurRadius ?: if (ThemeManager.isDark) 14f else 16f)
+            val blurRadius =
+                (overrideBlurRadius ?: if (ThemeManager.isDark) 14f else 16f).coerceAtMost(25f)
+            setBlurRadius(blurRadius)
             val alpha = overlayAlpha ?: if (ThemeManager.isDark) 200 else 140
             val color = solidBackgroundColor.colorWithAlpha(alpha)
             setOverlayColor(color)
@@ -147,7 +149,7 @@ class WBlurryBackgroundView(
         super.onDraw(canvas)
 
         // Don't draw gradient when rounded toolbars are off
-        if (ViewConstants.BAR_ROUNDS == 0f) return
+        if (ViewConstants.TOOLBAR_RADIUS == 0f) return
 
         when (fadeSide) {
             Side.TOP -> {
@@ -167,10 +169,19 @@ class WBlurryBackgroundView(
     private var isPlaying: Boolean? = null
     fun resumeBlurring() {
         isPlaying = true
-        setBlurAutoUpdate(true)
+        post {
+            if (isPlaying == true) {
+                setBlurAutoUpdate(true)
+            }
+        }
     }
+
     fun pauseBlurring() {
         isPlaying = false
-        setBlurAutoUpdate(false)
+        post {
+            if (isPlaying == false) {
+                setBlurAutoUpdate(false)
+            }
+        }
     }
 }

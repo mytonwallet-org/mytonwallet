@@ -253,12 +253,12 @@ class AppInfoVC(context: Context) : WViewController(context) {
         subtitleLabel.addRippleEffect(WColor.TintRipple.color, 10f.dp)
         resourcesLabel.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
             0f
         )
         descriptionLabel.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         descriptionLabel.setTextColor(WColor.PrimaryText.color)
     }

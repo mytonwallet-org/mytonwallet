@@ -403,7 +403,7 @@ class SettingsVC(context: Context) : WViewController(context),
             }
 
             SettingsItem.Identifier.ACCOUNT -> {
-                val newAccountId = item.accounts!!.first().accountId
+                val newAccountId = item.account?.accountId ?: return
                 WalletCore.activateAccount(
                     newAccountId,
                     notifySDK = true
@@ -707,7 +707,7 @@ class SettingsVC(context: Context) : WViewController(context),
                     settingsVM.settingsSections.getOrNull(indexPath.section - 1)?.children?.getOrNull(indexPath.row - 1)
                 when (item?.identifier) {
                     SettingsItem.Identifier.ACCOUNT -> {
-                        item.accounts?.first()?.accountId
+                        item.account?.accountId
                     }
 
                     else -> {
@@ -737,7 +737,7 @@ class SettingsVC(context: Context) : WViewController(context),
                 })
             }
 
-            WalletEvent.AccountsReordered -> {
+            WalletEvent.AccountsReordered, is WalletEvent.AccountRemoved -> {
                 settingsVM.fillOtherAccounts(async = true, onComplete = {
                     reloadData()
                 })

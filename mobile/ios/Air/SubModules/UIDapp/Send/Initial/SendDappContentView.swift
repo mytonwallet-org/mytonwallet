@@ -79,7 +79,7 @@ struct SendDappContentView: View {
                 TransferRow(transfer: tx, action: onShowDetail)
             }
         } header: {
-            Text(lang("%lld transfer", arg1: transactionsCount))
+            Text(lang("transfer", arg1: transactionsCount))
         }
     }
     

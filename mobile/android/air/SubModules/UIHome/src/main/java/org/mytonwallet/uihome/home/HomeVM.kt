@@ -41,6 +41,7 @@ class HomeVM(
         fun reloadTabs()
         fun accountNameChanged(accountName: String, animated: Boolean)
         fun accountConfigChanged()
+        fun seasonalThemeChanged()
         fun accountWillChange(fromHome: Boolean)
         fun removeScreenFromStack()
 
@@ -339,6 +340,10 @@ class HomeVM(
 
             WalletEvent.AccountConfigReceived -> {
                 delegate.get()?.accountConfigChanged()
+            }
+
+            WalletEvent.SeasonalThemeChanged -> {
+                delegate.get()?.seasonalThemeChanged()
             }
 
             is WalletEvent.AccountRemoved -> {

@@ -48,16 +48,16 @@ class HighlightOverlayView(
     private val viewRect = RectF()
     private val cutoutRect = RectF()
     private val radiiTop = floatArrayOf(
-        ViewConstants.BAR_ROUNDS.dp, ViewConstants.BAR_ROUNDS.dp,
-        ViewConstants.BAR_ROUNDS.dp, ViewConstants.BAR_ROUNDS.dp,
+        ViewConstants.TOOLBAR_RADIUS.dp, ViewConstants.TOOLBAR_RADIUS.dp,
+        ViewConstants.TOOLBAR_RADIUS.dp, ViewConstants.TOOLBAR_RADIUS.dp,
         0f, 0f,
         0f, 0f
     )
     private val radiiBottom = floatArrayOf(
         0f, 0f,
         0f, 0f,
-        ViewConstants.BAR_ROUNDS.dp, ViewConstants.BAR_ROUNDS.dp,
-        ViewConstants.BAR_ROUNDS.dp, ViewConstants.BAR_ROUNDS.dp
+        ViewConstants.TOOLBAR_RADIUS.dp, ViewConstants.TOOLBAR_RADIUS.dp,
+        ViewConstants.TOOLBAR_RADIUS.dp, ViewConstants.TOOLBAR_RADIUS.dp
     )
 
     override fun onDraw(canvas: Canvas) {
@@ -88,7 +88,7 @@ class HighlightOverlayView(
         val top = (viewLocation.y - thisLocation.y).toFloat()
         val width = view.width.toFloat()
         val height = view.height.toFloat()
-        val radius = ViewConstants.BAR_ROUNDS.dp
+        val radius = ViewConstants.TOOLBAR_RADIUS.dp
         val padding = view.horizontalPadding
 
         viewRect.set(left, top, left + width, top + height)

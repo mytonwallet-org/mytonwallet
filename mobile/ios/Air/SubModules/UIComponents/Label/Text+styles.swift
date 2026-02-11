@@ -1,10 +1,3 @@
-//
-//  Text+styles.swift
-//  UIComponents
-//
-//  Created by Murad Kakabaev on 22.01.2026.
-//
-
 import SwiftUI
 
 public enum TextStyle {

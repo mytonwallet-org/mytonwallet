@@ -152,13 +152,14 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
 
     override fun configure(
         item: SettingsItem,
-        value: String?,
+        subtitle: String?,
         isFirst: Boolean,
         isLast: Boolean,
         onTap: () -> Unit
     ) {
-        val account = item.accounts!!.first()
-        if (this.account == account &&
+        val account = item.account!!
+        val accountChanged = this.account != account
+        if (!accountChanged &&
             titleLabel.text == account.name &&
             this.isFirst == isFirst &&
             this.isLast == isLast
@@ -198,6 +199,10 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
 
         updateAddressLabel()
         updateTheme()
+        if (accountChanged) {
+            valueLabel.contentView.text = ""
+        }
+        notifyBalanceChange()
 
         valueLabel.isSensitiveData = true
         valueLabel.setMaskCols(8 + abs(account.name.hashCode()) % 8)
@@ -207,13 +212,13 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
     override fun updateTheme() {
         contentView.setBackgroundColor(
             WColor.Background.color,
-            if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f.dp,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp
+            if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f.dp,
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f.dp
         )
         contentView.addRippleEffect(
             WColor.SecondaryBackground.color,
-            if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f.dp,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp
+            if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f.dp,
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f.dp
         )
 
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied

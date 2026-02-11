@@ -7,7 +7,11 @@ import { getActions, withGlobal } from '../../../../global';
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft, ApiStakingState } from '../../../../api/types';
 import type { ApiBackendConfig } from '../../../../api/types/backend';
 import type { ApiPromotion } from '../../../../api/types/backend';
-import type { IAnchorPosition, TokenChartMode, UserToken } from '../../../../global/types';
+import type {
+  IAnchorPosition,
+  TokenChartMode,
+  UserToken,
+} from '../../../../global/types';
 import type { LangFn } from '../../../../hooks/useLang';
 import type { DropdownItem } from '../../../ui/Dropdown';
 
@@ -19,6 +23,7 @@ import {
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
+  selectSeasonalTheme,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
@@ -39,18 +44,17 @@ import useUpdateIndicator from '../../../../hooks/useUpdateIndicator';
 import useWindowSize from '../../../../hooks/useWindowSize';
 
 import MintCardButton from '../../../mintCard/MintCardButton';
-import NewYearGarland from '../../../mintCard/NewYearGarland';
 import AnimatedCounter from '../../../ui/AnimatedCounter';
 import Image from '../../../ui/Image';
 import LoadingDots from '../../../ui/LoadingDots';
 import SensitiveData from '../../../ui/SensitiveData';
 import Spinner from '../../../ui/Spinner';
 import Transition from '../../../ui/Transition';
-import WithContextMenu from '../../../ui/WithContextMenu';
 import CardAddress from './CardAddress';
 import ChartCard from './ChartCard';
 import CurrencySwitcherMenu from './CurrencySwitcherMenu';
 import CustomCardManager from './CustomCardManager';
+import SeasonalTheming from './SeasonalTheming';
 
 import styles from './Card.module.scss';
 
@@ -85,14 +89,10 @@ interface StateProps {
 let mainKey = 0;
 
 function useSeasonalTheming({
-  seasonalTheme,
-  isSeasonalThemingDisabled,
   toggleSeasonalTheming,
   lang,
   showToast,
 }: {
-  seasonalTheme?: ApiBackendConfig['seasonalTheme'];
-  isSeasonalThemingDisabled?: boolean;
   toggleSeasonalTheming: (options: { isEnabled: boolean }) => void;
   lang: LangFn;
   showToast: (options: { message: string }) => void;
@@ -112,10 +112,7 @@ function useSeasonalTheming({
     },
   ]), [lang]);
 
-  const shouldRenderSeasonalGarland = seasonalTheme === 'newYear' && !isSeasonalThemingDisabled;
-
   return {
-    shouldRenderSeasonalGarland,
     seasonalContextMenuItems,
     handleDisableSeasonalTheming,
   };
@@ -245,13 +242,7 @@ function Card({
     setWithTextGradient(hasGradient);
   });
 
-  const {
-    shouldRenderSeasonalGarland,
-    seasonalContextMenuItems,
-    handleDisableSeasonalTheming,
-  } = useSeasonalTheming({
-    seasonalTheme,
-    isSeasonalThemingDisabled,
+  const { seasonalContextMenuItems, handleDisableSeasonalTheming } = useSeasonalTheming({
     toggleSeasonalTheming,
     lang,
     showToast,
@@ -311,7 +302,7 @@ function Card({
       'icon-caret-down',
       primaryFractionPart || shortBaseSymbol.length > 1 ? styles.iconCaretFraction : styles.iconCaret,
     );
-    const noAnimationCounter = !isUpdating || IS_SAFARI || IS_IOS;
+    const noAnimationCounter = !isUpdating || IS_SAFARI || IS_IOS || isSensitiveDataHidden;
     return (
       <>
         <Transition
@@ -329,6 +320,8 @@ function Card({
             cols={14}
             cellSize={13}
             align="center"
+            className={styles.sensitiveData}
+            contentClassName={styles.sensitiveDataContent}
             maskClassName={styles.blurred}
           >
             <div className={buildClassName(styles.primaryValue, 'rounded-font')}>
@@ -374,6 +367,7 @@ function Card({
             align="center"
             cellSize={14}
             className={styles.changeSpoiler}
+            contentClassName={styles.sensitiveDataContent}
             maskClassName={styles.blurred}
           >
             <div className={buildClassName(styles.change, 'rounded-font')}>
@@ -414,27 +408,13 @@ function Card({
 
       <div className={buildClassName(styles.container, currentTokenSlug && styles.backstage, customCardClassName)}>
         <CustomCardManager nft={cardNft} onCardChange={handleCardChange} />
-        {shouldRenderSeasonalGarland && (
-          <WithContextMenu
-            layout={{
-              isCenteredHorizontally: false,
-              doNotCoverTrigger: false,
-            }}
-            items={seasonalContextMenuItems}
-            onItemClick={handleDisableSeasonalTheming}
-          >
-            {(menuProps) => (
-              <div
-                ref={menuProps.ref as ElementRef<HTMLDivElement>}
-                onMouseDown={menuProps.onMouseDown}
-                onContextMenu={menuProps.onContextMenu}
-                className={buildClassName(styles.seasonalGarland, menuProps.className)}
-              >
-                <NewYearGarland animationLevel={animationLevel} />
-              </div>
-            )}
-          </WithContextMenu>
-        )}
+        <SeasonalTheming
+          animationLevel={animationLevel}
+          seasonalTheme={seasonalTheme}
+          isSeasonalThemingDisabled={isSeasonalThemingDisabled}
+          seasonalContextMenuItems={seasonalContextMenuItems}
+          onDisableSeasonalTheming={handleDisableSeasonalTheming}
+        />
 
         {shouldRenderPromo && (
           <div className={styles.promoLayer}>
@@ -525,7 +505,7 @@ export default memo(
         isNftBuyingDisabled: global.restrictions.isNftBuyingDisabled,
         animationLevel: global.settings.animationLevel,
         isSeasonalThemingDisabled: global.settings.isSeasonalThemingDisabled,
-        seasonalTheme: global.seasonalTheme,
+        seasonalTheme: selectSeasonalTheme(global),
         activePromotion: accountState?.config?.activePromotion,
       };
     },

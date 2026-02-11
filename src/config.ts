@@ -159,7 +159,6 @@ export const MYTONWALLET_BLOG: Partial<Record<LangCode, string>> = {
 };
 export const MYTONWALLET_TERMS_OF_USE_URL = 'https://mytonwallet.io/terms-of-use';
 export const MYTONWALLET_PRIVACY_POLICY_URL = 'https://mytonwallet.io/privacy-policy';
-export const TELEGRAM_WEB_URL = 'https://web.telegram.org/a/';
 export const NFT_MARKETPLACE_URL = 'https://getgems.io/';
 export const NFT_MARKETPLACE_TITLE = NFT_MARKETPLACE_TITLES.getgems;
 export const GETGEMS_BASE_MAINNET_URL = 'https://getgems.io/';
@@ -188,7 +187,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-269';
+export const LANG_CACHE_NAME = 'mtw-lang-271';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -254,6 +253,8 @@ export const LIQUID_JETTON = process.env.LIQUID_JETTON || 'EQCqC6EhRJ_tpWngKxL6d
 export const STAKING_MIN_AMOUNT = ONE_TON;
 export const NOMINATORS_STAKING_MIN_AMOUNT = 10_000n * ONE_TON;
 export const MIN_ACTIVE_STAKING_REWARDS = 100_000_000n; // 0.1 MY
+// Staked tokens now showing with all other tokens, so we need to add a prefix to avoid collisions
+export const STAKING_SLUG_PREFIX = 'staking-';
 
 export const TONCONNECT_PROTOCOL_VERSION = 2;
 export const TONCONNECT_WALLET_JSBRIDGE_KEY = IS_CORE_WALLET ? 'tonwallet' : 'mytonwallet';
@@ -408,7 +409,7 @@ export const ALL_STAKING_POOLS = [
 ];
 
 export const PRIORITY_TOKEN_SLUGS = [
-  TONCOIN.slug, TON_USDT_MAINNET.slug, TRX.slug,
+  TONCOIN.slug, TON_USDT_MAINNET.slug, TRX.slug, TRC20_USDT_MAINNET.slug,
 ] as string[];
 
 export const INIT_SWAP_ASSETS: Record<'in' | 'out', ApiSwapAsset> = {
@@ -599,6 +600,7 @@ export const STAKED_TOKEN_SLUGS = new Set([
 ]);
 
 export const DEFAULT_OUR_SWAP_FEE = 0.875;
+export const MTW_AGGREGATOR_QUERY_ID = '4246015164496276000';
 
 export const DEFAULT_STAKING_STATE: ApiLiquidStakingState = {
   type: 'liquid',

@@ -147,8 +147,8 @@ class ExploreCategorySiteCell(
     override fun updateTheme() {
         setBackgroundColor(
             WColor.Background.color,
-            if (isFirst) ViewConstants.TOP_RADIUS.dp else 0f,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+            if (isFirst) ViewConstants.TOOLBAR_RADIUS.dp else 0f,
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         addRippleEffect(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)
@@ -160,21 +160,21 @@ class ExploreCategorySiteCell(
             val radii = FloatArray(8) { 0f }
             when {
                 isFirst && isLast -> {
-                    radii.fill(ViewConstants.BIG_RADIUS.dp)
+                    radii.fill(ViewConstants.BLOCK_RADIUS.dp)
                 }
 
                 isFirst -> {
-                    radii[0] = ViewConstants.BIG_RADIUS.dp
-                    radii[1] = ViewConstants.BIG_RADIUS.dp
-                    radii[2] = ViewConstants.BIG_RADIUS.dp
-                    radii[3] = ViewConstants.BIG_RADIUS.dp
+                    radii[0] = ViewConstants.BLOCK_RADIUS.dp
+                    radii[1] = ViewConstants.BLOCK_RADIUS.dp
+                    radii[2] = ViewConstants.BLOCK_RADIUS.dp
+                    radii[3] = ViewConstants.BLOCK_RADIUS.dp
                 }
 
                 isLast -> {
-                    radii[4] = ViewConstants.BIG_RADIUS.dp
-                    radii[5] = ViewConstants.BIG_RADIUS.dp
-                    radii[6] = ViewConstants.BIG_RADIUS.dp
-                    radii[7] = ViewConstants.BIG_RADIUS.dp
+                    radii[4] = ViewConstants.BLOCK_RADIUS.dp
+                    radii[5] = ViewConstants.BLOCK_RADIUS.dp
+                    radii[6] = ViewConstants.BLOCK_RADIUS.dp
+                    radii[7] = ViewConstants.BLOCK_RADIUS.dp
                 }
             }
             border.cornerRadii = radii

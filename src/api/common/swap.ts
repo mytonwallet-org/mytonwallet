@@ -1,11 +1,14 @@
 import type { ApiActivity, ApiSwapActivity, ApiSwapHistoryItem } from '../types';
 
-import { SWAP_API_VERSION, TONCOIN } from '../../config';
+import { MTW_AGGREGATOR_QUERY_ID, SWAP_API_VERSION, TONCOIN } from '../../config';
+import { Big } from '../../lib/big.js';
 import { parseAccountId } from '../../util/account';
-import { buildBackendSwapId, getActivityTokenSlugs, parseTxId } from '../../util/activities';
+import { buildBackendSwapId, getActivityTokenSlugs, getIsBackendSwapId, parseTxId } from '../../util/activities';
 import { mergeSortedActivities, sortActivities } from '../../util/activities/order';
 import { getSlugsSupportingCexSwap } from '../../util/chain';
+import { unique } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
+import { getChainBySlug } from '../../util/tokens';
 import { fetchStoredAccount } from './accounts';
 import { callBackendGet, callBackendPost } from './backend';
 import { getBackendConfigCache } from './cache';
@@ -83,7 +86,17 @@ export async function patchSwapItem(options: {
   });
 }
 
-export async function swapReplaceCexActivities(
+export async function swapReplaceActivities(
+  accountId: string,
+  activities: ApiActivity[],
+  slug?: string,
+  isToNow?: boolean,
+): Promise<ApiActivity[]> {
+  const cexActivities = await swapReplaceCexActivities(accountId, activities, slug, isToNow);
+  return aggregateTonSwapActivities(cexActivities);
+}
+
+async function swapReplaceCexActivities(
   accountId: string,
   /** Must be sorted */
   activities: ApiActivity[],
@@ -172,3 +185,195 @@ export function convertSwapItemToTrusted(swap: ApiSwapHistoryItem): ApiSwapHisto
     status: swap.status === 'pending' ? 'pendingTrusted' : swap.status,
   };
 }
+
+function aggregateTonSwapActivities(activities: ApiActivity[]) {
+  if (!activities.length) {
+    return activities;
+  }
+
+  const aggregatorTraceIds = getAggregatorTraceIdsStorage();
+
+  const traceMap = new Map<string, {
+    swaps: { activity: ApiSwapActivity; index: number }[];
+    hasAggregatorMarker: boolean;
+  }>();
+
+  activities.forEach((activity, index) => {
+    const traceId = parseTxId(activity.id).hash;
+    const group = traceMap.get(traceId) ?? { swaps: [], hasAggregatorMarker: false };
+
+    if (
+      !getIsBackendSwapId(activity.id)
+      && activity.kind === 'swap'
+      && getChainBySlug(activity.from) === 'ton'
+      && getChainBySlug(activity.to) === 'ton'
+    ) {
+      group.swaps.push({ activity, index });
+    }
+
+    if (
+      activity.extra?.queryId === MTW_AGGREGATOR_QUERY_ID
+      || activity.extra?.isOurSwapFee
+    ) {
+      group.hasAggregatorMarker = true;
+    }
+
+    traceMap.set(traceId, group);
+  });
+
+  const replacements = new Map<number, ApiActivity>();
+  const skipIndices = new Set<number>();
+
+  traceMap.forEach((group, traceId) => {
+    const aggregated = buildAggregatedSwap(traceId, group, aggregatorTraceIds.has(traceId));
+    if (!aggregated) {
+      return;
+    }
+
+    aggregatorTraceIds.add(traceId);
+    const { aggregatedActivity, primaryIndex, swapIndices } = aggregated;
+
+    replacements.set(primaryIndex, aggregatedActivity);
+    swapIndices.forEach((swapIndex) => {
+      if (swapIndex !== primaryIndex) {
+        skipIndices.add(swapIndex);
+      }
+    });
+  });
+
+  if (!replacements.size && !skipIndices.size) {
+    return activities;
+  }
+
+  const result: ApiActivity[] = [];
+
+  activities.forEach((activity, index) => {
+    if (skipIndices.has(index) && !replacements.has(index)) {
+      return;
+    }
+
+    const replacement = replacements.get(index);
+    result.push(replacement ?? activity);
+  });
+
+  return sortActivities(result);
+}
+
+function buildAggregatedSwap(
+  traceId: string,
+  group: {
+    swaps: { activity: ApiSwapActivity; index: number }[];
+    hasAggregatorMarker: boolean;
+  },
+  isKnownAggregatorTrace: boolean,
+) {
+  const { swaps, hasAggregatorMarker } = group;
+
+  if (!isKnownAggregatorTrace && (!hasAggregatorMarker || swaps.length < 2)) {
+    return undefined;
+  }
+
+  if (swaps.some(({ activity }) => activity.status !== 'completed')) {
+    return undefined;
+  }
+
+  const swapIds = swaps.map(({ activity }) => activity.id);
+  const primaryIndex = Math.min(...swaps.map(({ index }) => index));
+  const primarySwap = swaps.find(({ index }) => index === primaryIndex)?.activity ?? swaps[0].activity;
+
+  const totals = new Map<string, Big>();
+  let timestamp = 0;
+  let networkFee = Big(0);
+  let swapFee = Big(0);
+  let ourFee = Big(0);
+
+  swaps.forEach(({ activity }) => {
+    timestamp = Math.max(timestamp, activity.timestamp);
+
+    totals.set(activity.from, (totals.get(activity.from) || Big(0)).minus(activity.fromAmount));
+    totals.set(activity.to, (totals.get(activity.to) || Big(0)).add(activity.toAmount));
+
+    networkFee = networkFee.add(activity.networkFee);
+    swapFee = swapFee.add(activity.swapFee);
+    ourFee = ourFee.add(activity.ourFee || '0');
+  });
+
+  const aggregatedAmounts = resolveAggregatedAmounts(totals, swaps.map(({ activity }) => activity));
+  if (!aggregatedAmounts) {
+    return undefined;
+  }
+
+  const aggregatedActivity: ApiSwapActivity = {
+    ...primarySwap,
+    ...aggregatedAmounts,
+    timestamp,
+    networkFee: networkFee.toString(),
+    swapFee: swapFee.toString(),
+    ourFee: ourFee.toString(),
+    hashes: unique(swaps.flatMap(({ activity }) => activity.hashes)),
+    extra: {
+      ...primarySwap.extra,
+      mtwAggregator: {
+        traceId,
+        swapIds,
+        from: aggregatedAmounts.from,
+        to: aggregatedAmounts.to,
+      },
+    },
+  };
+
+  return {
+    aggregatedActivity,
+    primaryIndex,
+    swapIndices: swaps.map(({ index }) => index),
+  };
+}
+
+function resolveAggregatedAmounts(
+  totals: Map<string, Big>,
+  swaps: ApiSwapActivity[],
+) {
+  let fromSlug = swaps[0]?.from;
+  let toSlug = swaps[swaps.length - 1]?.to;
+  let minEntry: [string, Big] | undefined;
+  let maxEntry: [string, Big] | undefined;
+
+  totals.forEach((value, slug) => {
+    if (!minEntry || value.lt(minEntry[1])) {
+      minEntry = [slug, value];
+    }
+    if (!maxEntry || value.gt(maxEntry[1])) {
+      maxEntry = [slug, value];
+    }
+  });
+
+  const fromAmount = minEntry && minEntry[1].lt(0) ? minEntry[1].times(-1) : Big(swaps[0].fromAmount);
+  const toAmount = maxEntry && maxEntry[1].gt(0) ? maxEntry[1] : Big(swaps[swaps.length - 1].toAmount);
+
+  if (minEntry && minEntry[1].lt(0)) {
+    fromSlug = minEntry[0];
+  }
+  if (maxEntry && maxEntry[1].gt(0)) {
+    toSlug = maxEntry[0];
+  }
+
+  if (!fromSlug || !toSlug) {
+    return undefined;
+  }
+
+  return {
+    from: fromSlug,
+    to: toSlug,
+    fromAmount: fromAmount.toString(),
+    toAmount: toAmount.toString(),
+  };
+}
+
+function getAggregatorTraceIdsStorage() {
+  // Module-level storage to reuse knowledge about aggregator traces between different slices
+  // (e.g., token-specific pagination that may miss TON-fee markers).
+  aggregatorTraceIdsStorage ??= new Set<string>();
+  return aggregatorTraceIdsStorage;
+}
+
+let aggregatorTraceIdsStorage: Set<string> | undefined;

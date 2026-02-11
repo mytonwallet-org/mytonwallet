@@ -182,8 +182,8 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
     override fun updateTheme() {
         setBackgroundColor(
             WColor.Background.color,
-            if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f.dp,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp
+            if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f.dp,
+            if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f.dp
         )
 
         historyTitleLabel.setTextColor(WColor.PrimaryText.color)

@@ -123,6 +123,20 @@ $signSizeDiff: 0.375rem;
   width: 100%;
 }
 
+.seasonalValentine {
+  pointer-events: auto;
+
+  position: absolute;
+  z-index: var(--z-card-decoration);
+  top: 0.3125rem;
+  left: 0.125rem;
+
+  overflow: visible;
+
+  width: 4.375rem;
+  height: 3rem;
+}
+
 .container {
   --main-text: var(--color-card-text);
   --second-text: var(--color-card-second-text);
@@ -264,6 +278,8 @@ $signSizeDiff: 0.375rem;
 }
 
 .balanceTransition {
+  --border-radius-value: var(--border-radius-normal);
+
   max-height: 3.5rem;
 
   @include mixins.respond-below(xs) {
@@ -434,6 +450,9 @@ $signSizeDiff: 0.375rem;
   vertical-align: 0.125rem;
 
   background-color: var(--color-card-button);
+  backdrop-filter: blur(12px);
+
+  @include mixins.transition('#{$color-transition}, background-color 300ms');
 
   > .icon {
     margin: 0 0.25rem 0 0.125rem;
@@ -638,13 +657,18 @@ $signSizeDiff: 0.375rem;
 }
 
 .changeSpoiler {
-  --border-radius-value: var(--border-radius-tiny);
+  --border-radius-value: var(--border-radius-default);
 
-  margin: 0 auto;
+  width: 100% !important;
 }
 
 .blurred {
   backdrop-filter: blur(10px);
+}
+
+.sensitiveData,
+.sensitiveDataContent {
+  width: 100% !important;
 }
 
 .change {

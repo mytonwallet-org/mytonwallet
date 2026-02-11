@@ -30,7 +30,7 @@ class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit)
 
     private val openButtonRipple = WRippleDrawable.create(16f.dp)
     private val ripple = WRippleDrawable.create(0f)
-    private val rippleLastItem = WRippleDrawable.create(0f, 0f, ViewConstants.STANDARD_ROUNDS.dp, ViewConstants.STANDARD_ROUNDS.dp)
+    private val rippleLastItem = WRippleDrawable.create(0f, 0f, ViewConstants.BLOCK_RADIUS.dp, ViewConstants.BLOCK_RADIUS.dp)
 
     private val dappImageView: WCustomImageView by lazy {
         WCustomImageView(context).apply {

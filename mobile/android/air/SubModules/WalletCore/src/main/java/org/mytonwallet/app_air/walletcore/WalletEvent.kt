@@ -101,6 +101,7 @@ sealed class WalletEvent {
 
     data object ConfigReceived : WalletEvent()
     data object AccountConfigReceived : WalletEvent()
+    data object SeasonalThemeChanged : WalletEvent()
 
     data object NftsReordered : WalletEvent()
     data object HomeNftCollectionsUpdated : WalletEvent()

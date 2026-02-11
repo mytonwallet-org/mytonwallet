@@ -85,12 +85,12 @@ class TokenChartCell(
             if (value) {
                 containerView.setBackgroundColor(
                     WColor.Background.color,
-                    ViewConstants.BIG_RADIUS.dp
+                    ViewConstants.BLOCK_RADIUS.dp
                 )
             } else {
                 containerView.addRippleEffect(
                     WColor.SecondaryBackground.color,
-                    ViewConstants.BIG_RADIUS.dp
+                    ViewConstants.BLOCK_RADIUS.dp
                 )
                 if (!isChangingPeriod && pendingAnimationToConfigure) {
                     pendingAnimationToConfigure = false
@@ -333,11 +333,11 @@ class TokenChartCell(
     override val isTinted = true
     override fun updateTheme() {
         setBackgroundColor(WColor.SecondaryBackground.color)
-        containerView.setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp)
+        containerView.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
         if (!isAnimating) {
             containerView.addRippleEffect(
                 WColor.SecondaryBackground.color,
-                ViewConstants.BIG_RADIUS.dp
+                ViewConstants.BLOCK_RADIUS.dp
             )
         }
         titleLabel.setTextColor(WColor.SecondaryText.color)

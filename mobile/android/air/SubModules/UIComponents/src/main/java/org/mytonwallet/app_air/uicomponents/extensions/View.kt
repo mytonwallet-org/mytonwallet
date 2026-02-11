@@ -19,6 +19,11 @@ fun View.setOnClickListener(listener: (() -> Unit)?) {
     }
 }
 
+fun View.disableInteraction() {
+    isEnabled = false
+    isClickable = false
+}
+
 fun View.setPaddingDp(left: Float, top: Float, right: Float, bottom: Float) {
     this.setPadding(
         left.dp.roundToInt(),

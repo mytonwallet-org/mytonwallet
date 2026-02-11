@@ -406,7 +406,8 @@ export default memo(
       const accountSettings = selectCurrentAccountSettings(global);
       const slug = accountState?.currentTokenSlug;
       const stakingStateBySlug = selectAccountStakingStatesBySlug(global, currentAccountId);
-      const { byId } = accountState?.activities ?? {};
+      const { activities } = accountState || {};
+      const { byId } = activities || {};
       const { byAddress } = accountState?.nfts || {};
       const accounts = selectAccounts(global);
       const isHistoryEndReached = selectIsHistoryEndReached(global, currentAccountId, slug);

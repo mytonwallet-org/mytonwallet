@@ -152,9 +152,9 @@ class SwapAssetInputView(context: Context) : WCell(context), WThemedView {
 
     override fun updateTheme() {
         if (mode == Mode.SELL) {
-            setBackgroundColor(WColor.Background.color, ViewConstants.TOP_RADIUS.dp, 0f)
+            setBackgroundColor(WColor.Background.color, ViewConstants.TOOLBAR_RADIUS.dp, 0f)
         } else {
-            setBackgroundColor(WColor.Background.color, 0f, ViewConstants.BIG_RADIUS.dp)
+            setBackgroundColor(WColor.Background.color, 0f, ViewConstants.BLOCK_RADIUS.dp)
         }
         separatorBackgroundDrawable.invalidateSelf()
         leftTopLabel.setTextColor(WColor.SecondaryText.color)

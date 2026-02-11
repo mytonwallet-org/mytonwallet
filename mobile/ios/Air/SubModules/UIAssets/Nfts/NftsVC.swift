@@ -1,5 +1,5 @@
 //
-//  AssetsVC.swift
+//  NftsVC.swift
 //  UIAssets
 //
 //  Created by Sina on 3/27/24.
@@ -16,28 +16,45 @@ import Dependencies
 
 private let log = Log("NftsVC")
 
+@MainActor
+protocol NftsViewControllerDelegate: AnyObject {
+    func nftsViewControllerDidChangeHeightAnimated(_ animated: Bool)
+    func nftsViewControllerRequestReordering(_ vc: NftsVC) // this is only for Mode.compact
+    func nftsViewControllerDidChangeReorderingState(_ vc: NftsVC)
+}
+
+extension NftsViewControllerDelegate {
+    func nftsViewControllerRequestReordering(_ vc: NftsVC) { }
+    func nftsViewControllerDidChangeHeightAnimated(_ animated: Bool) { }
+}
 
 @MainActor
-public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsViewModelDelegate, Sendable {
-    
-    enum Section {
+public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIAdaptivePresentationControllerDelegate {
+    private enum Section {
         case main
         case placeholder
         case actions
     }
-    enum Row: Hashable {
+    
+    private enum Action {
+        case showAll
+    }
+    
+    private enum Row: Hashable {
         case placeholder
         case nft(String)
-        case action(String)
+        case action(Action)
+    }
+    
+    public enum Mode {
+        /// External reordering management (`WalletAssetsVC`), no self.walletAssetsViewModel is used
+        case compact
+        /// Fullscreen, own reordering management, navigation item (back + favorites), filter != .none
+        case fullScreenFiltered
+        /// a child of other controller (`AssetsTabVC`), own reordering management, filter == .none
+        case embedded
         
-        var stringValue: String {
-            switch self {
-            case .action(let string), .nft(let string):
-                return string
-            case .placeholder:
-                return ""
-            }
-        }
+        var isCompact: Bool { self == .compact }
     }
     
     @Dependency(\.accountStore) private var accountStore
@@ -46,53 +63,54 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
     
     private let accountIdProvider: AccountIdProvider
     
-    var accountSource: AccountSource { accountIdProvider.source }
-    var accountId: String { accountIdProvider.accountId }
+    private var accountSource: AccountSource { accountIdProvider.source }
+    private var accountId: String { accountIdProvider.accountId }
     
-    private let walletAssetsViewModel: WalletAssetsViewModel
+    private let walletAssetsViewModel: WalletAssetsViewModel // for modes .fullScreenFiltered, .embedded.
     
     public var onScroll: ((CGFloat) -> Void)?
     public var onScrollStart: (() -> Void)?
     public var onScrollEnd: (() -> Void)?
     
-    public var onHeightChanged: ((_ animated: Bool) -> ())?
+    var isReordering: Bool { reorderController.isReordering }
+    weak var delegate: (any NftsViewControllerDelegate)?
     
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Row>?
+    private var reorderController: ReorderableCollectionViewController!
     
-    private var animateIfPossible: Bool = false // { isAppActive && isVisible }
-    private var isAppActive: Bool = true
-    private var isVisible: Bool = true
+    private let filter: NftCollectionFilter
+    private let mode: Mode
     
-    public private(set) var filter: NftCollectionFilter
-    
-    private let compactMode: Bool
-    private var columnCount: Int?
-    private var cornerRadius: CGFloat { compactMode ? 8 : 12 }
-
-    private let topInset: CGFloat
-    private let horizontalMargins: CGFloat = 16
-    private let spacing: CGFloat = 16
-    private let compactSpacing: CGFloat = 8
+    private var layoutChangeID: LayoutGeometry.LayoutChangeID?
+    private let layoutGeometry: LayoutGeometry
     
     private var contextMenuExtraBlurView: UIView?
     private var navigationBarStarItem: WNavigationBarButton?
-    
-    var scrollingContext = ScrollingContext()
-    
-    public init(accountSource: AccountSource, compactMode: Bool, filter: NftCollectionFilter, topInset: CGFloat = 0) {
+        
+    public init(accountSource: AccountSource, mode: Mode, filter: NftCollectionFilter) {
         self.accountIdProvider = AccountIdProvider(source: accountSource)
-        self.compactMode = compactMode
         self.filter = filter
-        self.topInset = topInset
+
+        self.mode = mode
+        switch mode {
+        case .fullScreenFiltered:
+            assert(filter != .none)
+        case .embedded:
+            assert(filter == .none)
+        case .compact:
+            break
+        }
+        
         self.walletAssetsViewModel = WalletAssetsViewModel(accountSource: accountSource)
+        self.layoutGeometry = LayoutGeometry(compactMode: mode.isCompact)
         super.init(nibName: nil, bundle: nil)
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
+    
     public override func loadView() {
         super.loadView()
         setupViews()
@@ -101,37 +119,18 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
     public override func viewDidLoad() {
         super.viewDidLoad()
         WalletCoreData.add(eventObserver: self)
-        setupNotifications()
         walletAssetsViewModel.delegate = self
     }
-    
-    public func displayTabsChanged() {
-        let isFavorited = walletAssetsViewModel.isFavorited(filter: filter)
-        (self.navigationBarStarItem?.view as? WButton)?.setImage(UIImage(systemName: isFavorited ? "star.fill" : "star"), for: .normal)
-    }
-    
+            
     private var displayNfts: OrderedDictionary<String, DisplayNft>?
     private var allShownNftsCount: Int = 0
-    public var showAllVisible: Bool {
-        allShownNftsCount > 6
-    }
     
-    func setupViews() {
+    private func setupViews() {
         title = filter.displayTitle
-        let compactMode = self.compactMode
-        
-        let columns = calculateColumns()
-        columnCount = columns
-        collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout(columnCount: columns))
+        let compactMode = mode.isCompact
+
+        collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
         collectionView.translatesAutoresizingMaskIntoConstraints = false
-        collectionView.delegate = self
-        collectionView.dragDelegate = self
-        collectionView.dropDelegate = self
-        if compactMode {
-            collectionView.isScrollEnabled = false
-        } else {
-            collectionView.alwaysBounceVertical = true
-        }
         view.addSubview(collectionView)
         NSLayoutConstraint.activate([
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -139,30 +138,30 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
             collectionView.leftAnchor.constraint(equalTo: view.leftAnchor),
             collectionView.rightAnchor.constraint(equalTo: view.rightAnchor)
         ])
-        collectionView.contentInset.top = topInset
-        collectionView.verticalScrollIndicatorInsets.top = topInset
-        collectionView.contentOffset.y = -topInset
-        collectionView.clipsToBounds = false
-
-        let nftCellRegistration = UICollectionView.CellRegistration<CollectionViewCellIgnoringSafeArea, String> { [weak self, scrollingContext] cell, indexPath, itemIdentifier in
+        if compactMode {
+            collectionView.isScrollEnabled = false
+        } else {
+            collectionView.alwaysBounceVertical = true
+        }
+        
+        let nftCellRegistration = UICollectionView.CellRegistration<NftCell, String> { [weak self] cell, indexPath, nftId in
             guard let self else { return }
-            let displayNft: DisplayNft? = displayNfts?[itemIdentifier] ?? NftStore.getAccountNfts(accountId: accountId)?[itemIdentifier]
-            cell.configurationUpdateHandler = { [weak self] cell, state in
-                let animateIfPossible = self?.animateIfPossible ?? false
-                cell.contentConfiguration = UIHostingConfiguration {
-                    NftCell(nft: displayNft?.nft, compactMode: compactMode, isHighlighted: state.isHighlighted, animateIfPossible: animateIfPossible, scrollingContext: scrollingContext)
-                }
-                .margins(.all, 0)
+            let displayNft = displayNfts?[nftId] ?? NftStore.getAccountNfts(accountId: accountId)?[nftId]
+            cell.configure(nft: displayNft?.nft, compactMode: compactMode)
+            cell.configurationUpdateHandler = { nftCell, state in
+                nftCell.isHighlighted = state.isHighlighted
             }
+            reorderController.updateCell(cell, indexPath: indexPath)
         }
         let placeholderCellRegistration = UICollectionView.CellRegistration<CollectiblesEmptyView, String> {  cell, indexPath, itemIdentifier in
         }
         let compactPlaceholderCellRegistration = UICollectionView.CellRegistration<WalletCollectiblesEmptyView, String> {  cell, indexPath, itemIdentifier in
             cell.config()
         }
-        let actionCellRegistration = UICollectionView.CellRegistration<ActionCell, String> { [filter] cell, indexPath, itemIdentifier in
+        let actionCellRegistration = UICollectionView.CellRegistration<ActionCell, Action> { [filter] cell, indexPath, itemIdentifier in
             cell.highlightBackgroundColor = WTheme.highlight
-            if itemIdentifier == "showAll" {
+            switch itemIdentifier {
+            case .showAll:
                 if filter == .none {
                     cell.configure(with: lang("Show All Collectibles"))
                 } else {
@@ -186,103 +185,88 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
             }
         }
         self.dataSource = dataSource
-        dataSource.reorderingHandlers.canReorderItem = { [weak self] identifier in
-            if self?.displayNfts?.count == 1 { return false }
-            if case .nft = identifier { return true }
-            return false
-        }
-        dataSource.reorderingHandlers.didReorder = { [weak self] transaction in
-            guard let self else { return }
-            let orderedNftIds = OrderedSet(transaction.finalSnapshot.itemIdentifiers(inSection: .main)
-                .compactMap { row in
-                    if case let .nft(id) = row { return id }
-                    return nil
-                })
-            NftStore.reorderNfts(accountId: self.accountId, orderedIdsHint: orderedNftIds)
-        }
-        
-        if !compactMode, filter != .none {
-            
-            let isFavorited = walletAssetsViewModel.isFavorited(filter: filter)
-            let starButton = WNavigationBarButton(icon: UIImage(systemName: isFavorited ? "star.fill" : "star"), onPress: { [weak self] in self?.onFavorite() })
-            self.navigationBarStarItem = starButton
-            addNavigationBar(
-                title: title,
-                trailingItem: starButton,
-                addBackButton: { [weak self] in self?.navigationController?.popViewController(animated: true) }
-            )
-            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-                navigationItem.trailingItemGroups = makeToolbarItemGroups()
-            }
-            collectionView.contentInset.top = navigationBarHeight
-            collectionView.verticalScrollIndicatorInsets.top = navigationBarHeight
-        }
-        
+
+        reorderController = ReorderableCollectionViewController(collectionView: collectionView)
+        reorderController.scrollDirection = .vertical
+        reorderController.delegate = self
+
+        updateNavigationItem()
+
         UIView.performWithoutAnimation {
             updateNfts()
         }
         
         updateTheme()
     }
-    
-    func applyLayoutIfNeeded() {
-        let newColumnCount = calculateColumns()
-        if newColumnCount != self.columnCount {
-            self.columnCount = newColumnCount
-            collectionView.setCollectionViewLayout(makeLayout(columnCount: newColumnCount), animated: true)
-        }
-    }
-    
-    func calculateColumns() -> Int {
-        let columnCount: Int
-        if compactMode {
-            columnCount = min(3, max(1, displayNfts?.count ?? 0))
-        } else {
-            let usableWidth = screenWidth - 2 * horizontalMargins
-            let minItemWidth: CGFloat = 163
-            columnCount = max(1, Int((usableWidth + spacing) / (minItemWidth + spacing)))
-        }
-        return columnCount
-    }
-    
-    func makeLayout(columnCount: Int) -> UICollectionViewCompositionalLayout {
-        let itemSize1 = NSCollectionLayoutSize(
-            widthDimension: .fractionalWidth(1 / CGFloat(columnCount)),
-            heightDimension: columnCount == 1 ? .absolute(159) : .estimated(400)
-        )
-        let item1 = NSCollectionLayoutItem(layoutSize: itemSize1)
-        let groupSize1 = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(400))
-        let group1 = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize1, subitems: [item1])
-        group1.interItemSpacing = .fixed(compactMode ? compactSpacing : spacing)
-        let section1 = NSCollectionLayoutSection(group: group1)
-        section1.contentInsets = .init(top: compactMode ? 8 : 10, leading: horizontalMargins, bottom: 0, trailing: horizontalMargins)
-        section1.interGroupSpacing = compactMode ? compactSpacing : spacing
+                    
+    private func updateNavigationItem() {
+        guard mode == .fullScreenFiltered else { return }
+                
+        var leadingItemGroups: [UIBarButtonItemGroup] = []
+        var trailingItemGroups: [UIBarButtonItemGroup] = []
         
-        let itemSize2 = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .fractionalHeight(1.0))
-        let item2 = NSCollectionLayoutItem(layoutSize: itemSize2)
-        let groupSize2 = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .absolute(44))
-        let group2 = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize2, subitems: [item2])
-        let section2 = NSCollectionLayoutSection(group: group2)
-        section2.contentInsets = .init(top: 8, leading: 0, bottom: compactMode ? 0 : 8, trailing: 0)
-
-        let itemSize3 = NSCollectionLayoutSize(
-            widthDimension: .fractionalWidth(1),
-            heightDimension: compactMode ? .absolute(159) : .absolute(600)
-        )
-        let item3 = NSCollectionLayoutItem(layoutSize: itemSize3)
-        let groupSize3 = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(400))
-        let group3 = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize3, subitems: [item3])
-        let section3 = NSCollectionLayoutSection(group: group3)
-        section3.contentInsets = .init(top: compactMode ? 8 : 10, leading: horizontalMargins, bottom: 0, trailing: horizontalMargins)
+        if reorderController.isReordering {
+            let doneItem = UIBarButtonItem.doneButtonItem { [weak self] in self?.walletAssetsViewModel.stopReordering(isCanceled: false) }
+            let cancelItem = UIBarButtonItem.cancelTextButtonItem { [weak self] in self?.walletAssetsViewModel.stopReordering(isCanceled: true) }
+            leadingItemGroups += cancelItem.asSingleItemGroup()
+            trailingItemGroups += doneItem.asSingleItemGroup()
+        } else {
+            let isFavorited = walletAssetsViewModel.isFavorited(filter: filter)
+            let item = UIBarButtonItem(image: UIImage(systemName: isFavorited ? "star.fill" : "star"),
+                                       primaryAction: UIAction { [weak self] _ in self?.onFavorite() })
+            trailingItemGroups += item.asSingleItemGroup()
+        }
+        
+        navigationItem.leadingItemGroups = leadingItemGroups
+        navigationItem.trailingItemGroups = trailingItemGroups
+    }
     
+    private func applyLayoutIfNeeded() {
+        let layoutChangeID = layoutGeometry.calcLayoutChangeID(itemCount: allShownNftsCount, collectionView: collectionView)
+        if layoutChangeID != self.layoutChangeID {
+            self.layoutChangeID = layoutChangeID
+            collectionView.setCollectionViewLayout(makeLayout(), animated: true)
+        }
+    }
+        
+    private func makeLayout() -> UICollectionViewCompositionalLayout {
+        let actionsSection: NSCollectionLayoutSection
+        do {
+            let (height, contentInsets) = layoutGeometry.calcActionsItemGeometry()
+            let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .absolute(height))
+            let item = NSCollectionLayoutItem(layoutSize: itemSize)
+            let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(400))
+            let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+            actionsSection = NSCollectionLayoutSection(group: group)
+            actionsSection.contentInsets = contentInsets
+        }
+
         let layout = UICollectionViewCompositionalLayout { [weak self] idx, env in
             guard let self, let dataSource else { return nil }
+
             switch dataSource.sectionIdentifier(for: idx) {
             case .main:
-                return section1
+                let itemCount = dataSource.snapshot().numberOfItems(inSection: .main)
+                let (cellSize, contentInsets) = layoutGeometry.calcNftItemGeometry(itemCount: itemCount, collectionView: collectionView)
+                let itemSize = NSCollectionLayoutSize(widthDimension: .absolute(cellSize.width), heightDimension: .estimated(cellSize.height))
+                let item = NSCollectionLayoutItem(layoutSize: itemSize)
+                let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(400))
+                let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+                group.interItemSpacing = .fixed(layoutGeometry.spacing)
+                let section = NSCollectionLayoutSection(group: group)
+                section.contentInsets = contentInsets
+                section.interGroupSpacing = layoutGeometry.spacing
+                return section
             case .actions:
-                return section2
+                return actionsSection
             case .placeholder:
+                let (height, contentInsets) = layoutGeometry.calcPlaceholderItemGeometry(collectionView: collectionView)
+                let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .absolute(height))
+                let item = NSCollectionLayoutItem(layoutSize: itemSize)
+                let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(400))
+                let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+                let section3 = NSCollectionLayoutSection(group: group)
+                section3.contentInsets = contentInsets
                 return section3
             default:
                 return nil
@@ -290,25 +274,18 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
         }
         return layout
     }
-    
+            
     public override func scrollToTop(animated: Bool) {
         collectionView?.setContentOffset(CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: animated)
     }
     
     public override func updateTheme() {
-        view.backgroundColor = compactMode ? WTheme.groupedItem : WTheme.pickerBackground
-        collectionView.backgroundColor = compactMode ? WTheme.groupedItem : WTheme.pickerBackground
+        view.backgroundColor = mode.isCompact ? WTheme.groupedItem : WTheme.pickerBackground
+        collectionView.backgroundColor = mode.isCompact ? WTheme.groupedItem : WTheme.pickerBackground
     }
     
     public var scrollingView: UIScrollView? {
         return collectionView
-    }
-    
-    public func updateCollectionFilter(_ filter: NftCollectionFilter) {
-        if filter != self.filter {
-            self.filter = filter
-            updateNfts()
-        }
     }
     
     private func updateNfts() {
@@ -316,8 +293,8 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
         if var nfts = NftStore.getAccountShownNfts(accountId: accountId) {
             nfts = filter.apply(to: nfts)
             self.allShownNftsCount = nfts.count
-            if compactMode {
-                nfts = OrderedDictionary(uncheckedUniqueKeysWithValues: nfts.prefix(6))
+            if mode.isCompact {
+                nfts = OrderedDictionary(uncheckedUniqueKeysWithValues: nfts.prefix(layoutGeometry.compactModeMaxVisibleItemCount))
             }
             self.displayNfts = nfts
         } else {
@@ -340,118 +317,167 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
                 snapshot.appendSections([.main])
                 snapshot.appendItems(displayNfts.keys.map { Row.nft($0) }, toSection: .main)
             }
-            if compactMode && showAllVisible {
+            if mode.isCompact && layoutGeometry.shouldShowShowAllAction(itemCount: allShownNftsCount) {
                 snapshot.appendSections([.actions])
-                snapshot.appendItems([Row.action("showAll")], toSection: .actions)
+                snapshot.appendItems([Row.action(.showAll)], toSection: .actions)
             }
         }
         return snapshot
     }
-    
-    func reconfigureVisibleRows(animated: Bool) {
-        guard let dataSource else { return }
-        var snapshot = dataSource.snapshot()
-        snapshot.reconfigureItems(snapshot.itemIdentifiers)
-        if animated {
-            dataSource.apply(snapshot)
-        } else {
-            UIView.performWithoutAnimation {
-                dataSource.apply(snapshot)
-            }
-        }
-    }
-    
-    func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animated: Bool) {
+        
+    private func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animated: Bool) {
         guard let dataSource else { return }
         dataSource.apply(snapshot, animatingDifferences: animated)
-        onHeightChanged?(animated)
+        delegate?.nftsViewControllerDidChangeHeightAnimated(animated)
+    }
+
+    private func persistNftOrder(from snapshot: NSDiffableDataSourceSnapshot<Section, Row>) {
+        let orderedIds = OrderedSet(snapshot.itemIdentifiers(inSection: .main).compactMap { row -> String? in
+            if case .nft(let id) = row { return id }
+            return nil
+        })
+        NftStore.reorderNfts(accountId: accountId, orderedIdsHint: orderedIds)
     }
     
     public var calculatedHeight: CGFloat {
-        let seeAll: CGFloat = showAllVisible ? 36 : 0
-        let height: CGFloat = switch allShownNftsCount {
-        case 0:
-            216
-        case 1:
-            seeAll + 24 + 159
-        case 2:
-            seeAll + 24 + (view.frame.width - 40) / 2
-        case 3:
-            seeAll + 24 + (view.frame.width - 48) / 3
-        default:
-            seeAll + 32.0 + 2.0 * (view.frame.width - 48.0) / 3.0
-        }
-        return height
+        layoutGeometry.calculateHeight(itemCount: allShownNftsCount, collectionView: collectionView)
     }
-    
-    func setupNotifications() {
-        NotificationCenter.default.addObserver(self, selector: #selector(pauseAnimations), name: UIApplication.didEnterBackgroundNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(pauseAnimations), name: UIApplication.willResignActiveNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(playAnimations), name: UIApplication.didBecomeActiveNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(playAnimations), name: UIApplication.willEnterForegroundNotification, object: nil)
-    }
-    
-    @objc func pauseAnimations() {
-        self.isAppActive = false
-        self.reconfigureVisibleRows(animated: true)
-    }
-    
-    @objc func playAnimations() {
-        self.isAppActive = true
-        self.reconfigureVisibleRows(animated: true)
-    }
-    
-    public func updateIsVisible(_ isVisible: Bool) {
-//        if isVisible != self.isVisible {
-//            self.isVisible = isVisible
-//            self.reconfigureVisibleRows(animated: true)
-//        }
-    }
-    
-    @available(iOS 26, *)
-    func makeToolbarItemGroups() -> [UIBarButtonItemGroup] {
-        let isFavorited = walletAssetsViewModel.isFavorited(filter: filter)
-        return [
-            UIBarButtonItemGroup(
-                barButtonItems: [
-                    UIBarButtonItem(image: UIImage(systemName: isFavorited ? "star.fill" : "star"), primaryAction: UIAction { [weak self] _ in self?.onFavorite() })
-                ],
-                representativeItem: nil,
-            ),
-        ]
-    }
-    
-    func onFavorite() {
+        
+    private func onFavorite() {
         if filter != .none {
             Task {
                 do {
                     let newIsFavorited = !self.walletAssetsViewModel.isFavorited(filter: filter)
-                    
                     try await self.walletAssetsViewModel.setIsFavorited(filter: filter, isFavorited: newIsFavorited)
-                    
-                    (self.navigationBarStarItem?.view as? WButton)?.setImage(UIImage(systemName: newIsFavorited ? "star.fill" : "star"), for: .normal)
-                    if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-                        navigationItem.trailingItemGroups = makeToolbarItemGroups()
-                    }
                     
                     if newIsFavorited {
                         Haptics.play(.success)
                     } else {
                         Haptics.play(.lightTap)
                     }
+                    
+                    updateNavigationItem()
                 } catch {
                     log.error("failed to favorite collection: \(filter, .public) \(accountId, .public)")
                 }
             }
         }
     }
+        
+    /// This is called internally - using menu or from the controller's system drag. See also `startReordering`
+    private func startReorderingInternally() {
+        switch mode {
+        case .fullScreenFiltered, .embedded:
+            walletAssetsViewModel.startOrdering()
+        case .compact:
+            guard let delegate else {
+                assertionFailure("An assigned delegate is assumed for this mode")
+                return
+            }
+            delegate.nftsViewControllerRequestReordering(self)
+        }
+        delegate?.nftsViewControllerDidChangeReorderingState(self)
+    }
+    
+    /// This is called outside. Not for all modes
+    public func startReordering() {
+        guard !reorderController.isReordering else { return }
+        switch mode {
+        case .compact:
+            reorderController.isReordering = true
+        case .embedded:
+            walletAssetsViewModel.startOrdering() 
+        case .fullScreenFiltered:
+            assertionFailure("No external reordering management is assumed for this mode")
+        }
+    }
+    
+    /// This is called outside. Not for all modes
+    public func stopReordering(isCanceled: Bool) {
+        guard reorderController.isReordering else { return }
+        switch mode {
+        case .compact:
+            reorderController.isReordering = false
+        case .fullScreenFiltered:
+            assertionFailure("No external reordering management is assumed for this mode")
+        case .embedded:
+            walletAssetsViewModel.stopReordering(isCanceled: isCanceled)
+        }
+    }
 }
 
+// These are internal (self.walletAssetsViewModel) notifications
+extension NftsVC: WalletAssetsViewModelDelegate {
+    private func updateUIForReordering(_ isReordering: Bool) {
+        reorderController.isReordering = isReordering
+        updateNavigationItem()
+        
+        navigationController?.allowBackSwipeToDismiss(!isReordering)
+        navigationController?.isModalInPresentation = isReordering
+    }
 
-extension NftsVC: UICollectionViewDelegate {
+    func walletAssetModelDidStartReordering() {
+        updateUIForReordering(true)
+    }
+        
+    func walletAssetModelDidStopReordering(isCanceled: Bool) {
+        updateUIForReordering(false)
+    }
+    
+    func walletAssetModelDidChangeDisplayTabs() {
+        updateNavigationItem()
+    }
+}
 
-    public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+extension NftsVC: ReorderableCollectionViewControllerDelegate {
+    public func reorderController(_ controller: ReorderableCollectionViewController, canMoveItemAt indexPath: IndexPath) -> Bool {
+        return dataSource?.sectionIdentifier(for: indexPath.section) == .main
+    }
+    
+    public func reorderController(_ controller: ReorderableCollectionViewController, moveItemAt sourceIndexPath: IndexPath,
+                                  to destinationIndexPath: IndexPath) -> Bool {
+        guard let dataSource, let displayNfts, !displayNfts.isEmpty,
+              dataSource.sectionIdentifier(for: sourceIndexPath.section) == .main,
+              dataSource.sectionIdentifier(for: destinationIndexPath.section) == .main else {
+            return false
+        }
+        var snapshot = dataSource.snapshot()
+        let mainItems = snapshot.itemIdentifiers(inSection: .main)
+        guard sourceIndexPath.item < mainItems.count, destinationIndexPath.item <= mainItems.count, sourceIndexPath.item != destinationIndexPath.item else {
+            return false
+        }
+        var reordered = Array(mainItems)
+        let moved = reordered.remove(at: sourceIndexPath.item)
+        reordered.insert(moved, at: destinationIndexPath.item)
+
+        snapshot.deleteItems(mainItems)
+        snapshot.appendItems(reordered, toSection: .main)
+
+        let orderedIds = reordered.compactMap { row -> String? in
+            if case .nft(let id) = row { return id }
+            return nil
+        }
+        var newDisplayNfts: OrderedDictionary<String, DisplayNft> = [:]
+        for id in orderedIds {
+            if let value = displayNfts[id] {
+                newDisplayNfts[id] = value
+            }
+        }
+        self.displayNfts = newDisplayNfts
+        persistNftOrder(from: snapshot)
+        applySnapshot(snapshot, animated: true)
+        return true
+    }
+    
+    public func reorderController(_ controller: ReorderableCollectionViewController, didChangeReorderingStateByExternalActor externalActor: Bool) {
+        if !externalActor {
+            startReorderingInternally()
+        }
+    }
+
+    public func reorderController(_ controller: ReorderableCollectionViewController, didSelectItemAt indexPath: IndexPath) {
         guard let id = dataSource?.itemIdentifier(for: indexPath) else { return }
+        
         switch id {
         case .nft(let nftId):
             if let nft = displayNfts?[nftId]?.nft {
@@ -459,12 +485,15 @@ extension NftsVC: UICollectionViewDelegate {
                 navigationController?.pushViewController(assetVC, animated: true)
             }
         case .action(let actionId):
-            if actionId == "showAll" {
+            if actionId == .showAll {
                 AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: filter)
             }
         case .placeholder:
-            if compactMode {
-                let url = URL(string: NFT_MARKETPLACE_URL)!
+            if mode.isCompact {
+                guard let url = URL(string: NFT_MARKETPLACE_URL) else {
+                    assertionFailure()
+                    break
+                }
                 AppActions.openInBrowser(url)
             }
         }
@@ -477,36 +506,15 @@ extension NftsVC: UICollectionViewDelegate {
     
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         onScrollStart?()
-        scrollingContext.isScrolling = true
     }
 
     public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
         onScrollEnd?()
-        if !decelerate {
-            scrollingContext.isScrolling = false
-        }
     }
-    
-    public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-        scrollingContext.isScrolling = false
-    }
-    
-    public func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint) -> UIContextMenuConfiguration? {
-        guard let dataSource, indexPaths.count == 1, let indexPath = indexPaths.first else {
-            // FIXME: No context menu for multiple items yet
-            return nil
-        }
-
-//        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-//            if let view = self._viewByClassName(view: window, className: "_UIPlatterSoftShadowView") {
-//                view.isHidden = true
-//            }
-//            if let view = self._viewByClassName(view: window, className: "_UIMorphingPlatterView") {
-//                view.backgroundColor = .red
-//            }
-//        }
-
-        let row = dataSource.itemIdentifier(for: indexPath)
+        
+    public func reorderController(_ controller: ReorderableCollectionViewController, contextMenuConfigurationForItemAt indexPath: IndexPath,
+                                  point: CGPoint) -> UIContextMenuConfiguration? {
+        guard let row = dataSource?.itemIdentifier(for: indexPath) else { return nil }
         guard case .nft(let nftId) = row, let nft = displayNfts?[nftId]?.nft else { return nil }
         
         let menu = UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: nil) { [accountId] _ in
@@ -628,12 +636,21 @@ extension NftsVC: UICollectionViewDelegate {
         let otherSection: UIMenu
         do {
             var items: [UIMenuElement] = []
-            if let collection = nft.collection {
-                let collectionAction = UIAction(title: lang("Collection"), image: .airBundle("MenuCollection26")) { [weak self] _ in
-                    guard let self else { return }
-                    AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: .collection(collection))
+            if allShownNftsCount > 1 || mode == .compact {
+                items += UIAction(title: lang("Reorder"), image: .airBundle("MenuReorder26")) { [weak self] _ in
+                    self?.startReorderingInternally()
                 }
-                items.append(collectionAction)
+            }
+            if let collection = nft.collection {
+                if mode == .fullScreenFiltered {
+                    // we are already in the collection view, there is nowhere to go
+                } else {
+                    let collectionAction = UIAction(title: lang("Collection"), image: .airBundle("MenuCollection26")) { [weak self] _ in
+                        guard let self else { return }
+                        AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: .collection(collection))
+                    }
+                    items.append(collectionAction)
+                }
             }
             if !openInSection.children.isEmpty {
                 items.append(openInSection)
@@ -645,30 +662,13 @@ extension NftsVC: UICollectionViewDelegate {
         return UIMenu(title: "", children: sections)
     }
     
-    public func collectionView(_ collectionView: UICollectionView, contextMenuConfiguration configuration: UIContextMenuConfiguration, highlightPreviewForItemAt indexPath: IndexPath) -> UITargetedPreview? {
-        return createTargetedPreview(for: configuration, in: collectionView)
+    public func reorderController(_ controller: ReorderableCollectionViewController, previewForCell cell: UICollectionViewCell) -> ReorderableCollectionViewController.CellPreview? {
+        guard let cell = cell as? NftCell else { return nil }
+        return .init(view: cell.imageContainerView, cornerRadius: NftCell.getCornerRadius(compactMode: mode.isCompact))
     }
-    
-    public func collectionView(_ collectionView: UICollectionView, contextMenuConfiguration configuration: UIContextMenuConfiguration, dismissalPreviewForItemAt indexPath: IndexPath) -> UITargetedPreview? {
-        return createTargetedPreview(for: configuration, in: collectionView)
-    }
-    
-    private func createTargetedPreview(for configuration: UIContextMenuConfiguration, in collectionView: UICollectionView) -> UITargetedPreview? {
-        guard let indexPath = configuration.identifier as? IndexPath,
-              let cell = collectionView.cellForItem(at: indexPath) else { return nil }
-        let dim = min(cell.bounds.width, cell.bounds.height)
-        let bounds = CGRect(x: (cell.bounds.width - dim) * 0.5, y: 0, width: dim, height: dim)
-        let parameters = UIPreviewParameters()
-        parameters.visiblePath = UIBezierPath(roundedRect: bounds, cornerRadius: cornerRadius)
-        let shadowBounds = CGRect(x: dim * 0.25, y: dim * 0.25, width: dim * 0.5, height: dim * 0.5)
-        parameters.shadowPath = UIBezierPath(roundedRect: shadowBounds, cornerRadius: cornerRadius)
-        return UITargetedPreview(
-            view: cell.contentView,
-            parameters: parameters
-        )
-    }
-    
-    public func collectionView(_ collectionView: UICollectionView, willDisplayContextMenu configuration: UIContextMenuConfiguration, animator: (any UIContextMenuInteractionAnimating)?) {
+
+    public func reorderController(_ controller: ReorderableCollectionViewController, willDisplayContextMenu configuration: UIContextMenuConfiguration,
+                                  animator: (any UIContextMenuInteractionAnimating)?) {
         guard let window = view.window else { return }
         let blurView = WBlurView()
         blurView.translatesAutoresizingMaskIntoConstraints = false
@@ -681,8 +681,9 @@ extension NftsVC: UICollectionViewDelegate {
             blurView.alpha = 1
         }
     }
-    
-    public func collectionView(_ collectionView: UICollectionView, willEndContextMenuInteraction configuration: UIContextMenuConfiguration, animator: (any UIContextMenuInteractionAnimating)?) {
+
+    public func reorderController(_ controller: ReorderableCollectionViewController, willEndContextMenuInteraction configuration: UIContextMenuConfiguration,
+                                  animator: (any UIContextMenuInteractionAnimating)?) {
         animator?.addAnimations {
             self.contextMenuExtraBlurView?.alpha = 0
         }
@@ -692,63 +693,6 @@ extension NftsVC: UICollectionViewDelegate {
         }
     }
 }
-
-
-extension NftsVC: UICollectionViewDragDelegate, UICollectionViewDropDelegate {
-    
-    public func collectionView(_ collectionView: UICollectionView, itemsForBeginning session: any UIDragSession, at indexPath: IndexPath) -> [UIDragItem] {
-        if allShownNftsCount <= 1 { return [] }
-        return makeDragItems(collectionView: collectionView, indexPath: indexPath)
-    }
-    
-    public func collectionView(_ collectionView: UICollectionView, itemsForAddingTo session: any UIDragSession, at indexPath: IndexPath, point: CGPoint) -> [UIDragItem] {
-        makeDragItems(collectionView: collectionView, indexPath: indexPath)
-    }
-    
-    private func makeDragItems(collectionView: UICollectionView, indexPath: IndexPath) -> [UIDragItem] {
-        guard let dataSource, let cell = collectionView.cellForItem(at: indexPath), case .nft = dataSource.itemIdentifier(for: indexPath) else { return [] }
-        let dragItem = UIDragItem(itemProvider: NSItemProvider())
-        dragItem.previewProvider = { [cornerRadius] in
-            let dim = min(cell.bounds.width, cell.bounds.height)
-            let bounds = CGRect(x: 0, y: 0, width: dim, height: dim)
-            let targetView = UIView(frame: bounds)
-            targetView.backgroundColor = .init(white: 1, alpha: 0.15)
-            let parameters = UIDragPreviewParameters()
-            parameters.visiblePath = UIBezierPath(roundedRect: targetView.bounds, cornerRadius: cornerRadius)
-            return UIDragPreview(view: targetView, parameters: parameters)
-        }
-        return  [dragItem]
-    }
-    
-    public func collectionView(_ collectionView: UICollectionView, dropSessionDidUpdate session: any UIDropSession, withDestinationIndexPath destinationIndexPath: IndexPath?) -> UICollectionViewDropProposal {
-        if let dataSource, let destinationIndexPath, case .nft = dataSource.itemIdentifier(for: destinationIndexPath) {
-            return .init(operation: .move, intent: .insertAtDestinationIndexPath)
-        } else {
-            return .init(operation: .cancel)
-        }
-    }
-    
-    public func collectionView(_: UICollectionView, performDropWith _: UICollectionViewDropCoordinator) {
-        // required for drop delegate
-    }
-    
-    public func collectionView(_ collectionView: UICollectionView, dragPreviewParametersForItemAt indexPath: IndexPath) -> UIDragPreviewParameters? {
-        guard let dataSource, let cell = collectionView.cellForItem(at: indexPath), case .nft = dataSource.itemIdentifier(for: indexPath) else { return nil }
-        let dim = min(cell.bounds.width, cell.bounds.height)
-        let bounds = CGRect(x: (cell.bounds.width - dim) * 0.5, y: 0, width: dim, height: dim)
-        let parameters = UIDragPreviewParameters()
-        parameters.visiblePath = UIBezierPath(roundedRect: bounds, cornerRadius: cornerRadius)
-        return parameters
-    }
-    
-    public func collectionView(_ collectionView: UICollectionView, dropPreviewParametersForItemAt indexPath: IndexPath) -> UIDragPreviewParameters? {
-        guard let dataSource, let cell = collectionView.cellForItem(at: indexPath), case .nft = dataSource.itemIdentifier(for: indexPath) else { return nil }
-        let parameters = UIDragPreviewParameters()
-        parameters.visiblePath = UIBezierPath(roundedRect: cell.bounds, cornerRadius: cornerRadius)
-        return parameters
-    }
-}
-
 
 extension NftsVC: WalletCoreData.EventsObserver {
     public nonisolated func walletCore(event: WalletCore.WalletCoreData.Event) {
@@ -769,3 +713,129 @@ extension NftsVC: WalletCoreData.EventsObserver {
     }
 }
 
+@MainActor
+private class LayoutGeometry {
+    private let horizontalMargins: CGFloat = 16
+    
+    private let compactMode: Bool
+    private let compactModeMinColumnCount: Int = 2 // occupy place as if at least 2 items are here
+    private let compactModeMaxColumnCount: Int = 3
+    private let compactModeMaxRowCount: Int = 2
+    
+    var compactModeMaxVisibleItemCount: Int { compactModeMaxColumnCount * compactModeMaxRowCount } // 6
+    
+    let spacing: CGFloat
+    
+    init(compactMode: Bool) {
+        self.compactMode = compactMode
+        self.spacing = compactMode ? 8 : 16
+    }
+    
+    /// Just an opaque marker to indicate that the layout must be recreated
+    /// In fact this is the number of columns in the first row
+    struct LayoutChangeID: Equatable {
+        private let columnCount: Int
+        
+        init(columnCount: Int) {
+            self.columnCount = columnCount
+        }
+    }
+    
+    func calcLayoutChangeID(itemCount: Int, collectionView: UICollectionView) -> LayoutChangeID {
+        let columnCount: Int
+        if compactMode {
+            columnCount = min(compactModeMaxColumnCount, itemCount) // 0 is fine too for change id
+        } else {
+            columnCount = calcColumnCountInNonCompactMode(collectionView: collectionView)
+        }
+        return .init(columnCount: columnCount)
+    }
+        
+    func shouldShowShowAllAction(itemCount: Int) -> Bool {
+        return compactMode && itemCount > compactModeMaxVisibleItemCount
+    }
+    
+    /// Height of whole collection view in compact mode
+    func calculateHeight(itemCount: Int, collectionView: UICollectionView) -> CGFloat {
+        guard compactMode else {
+            assertionFailure("For compact mode only")
+            return 0
+        }
+        
+        var result: CGFloat = 0
+        if shouldShowShowAllAction(itemCount: itemCount) {
+            let (height, contentInsets) = calcActionsItemGeometry()
+            result += height + contentInsets.top + contentInsets.bottom
+        } else {
+            result += 12 // just padding
+        }
+        if itemCount == 0 {
+            let (height, contentInsets) = calcPlaceholderItemGeometry(collectionView: collectionView)
+            result += height + contentInsets.top + contentInsets.bottom
+        } else {
+            let (cellSize, contentInsets) = calcNftItemGeometry(itemCount: itemCount, collectionView: collectionView)
+            let rowCount = min(compactModeMaxRowCount, (itemCount + compactModeMaxColumnCount - 1) / compactModeMaxColumnCount)
+            result += (cellSize.height + spacing) * CGFloat(rowCount) - spacing + contentInsets.top + contentInsets.bottom
+        }
+        return result
+    }
+    
+    func calcActionsItemGeometry() -> (height: CGFloat,  contentInsets: NSDirectionalEdgeInsets) {
+        return (height: 44, contentInsets: .init(top: 8, leading: 0, bottom: 0, trailing: 0))
+    }
+    
+    func calcPlaceholderItemGeometry(collectionView: UICollectionView) -> (height: CGFloat, contentInsets: NSDirectionalEdgeInsets) {
+        // in compact mode we use a single nft item height (which is the same as width)
+        if compactMode {
+            let (cellSize, contentInsets) = calcNftItemGeometry(itemCount: 1, collectionView: collectionView)
+            return (height: cellSize.height, contentInsets: contentInsets)
+        }
+        
+        // In non-compact mode we take whole viewport height (full-screen Lottie animation with a duck)
+        let viewportHeight = collectionView.bounds.height - collectionView.adjustedContentInset.vertical
+        return (height: viewportHeight, contentInsets: .init(top: 10, leading: horizontalMargins, bottom: 0, trailing: horizontalMargins))
+    }
+    
+    private func getContainerWidth(collectionView: UICollectionView) -> CGFloat {
+        return collectionView.bounds.width - collectionView.adjustedContentInset.horizontal
+    }
+    
+    private func calcColumnCountInNonCompactMode(collectionView: UICollectionView) -> Int {
+        let containerWidth = getContainerWidth(collectionView: collectionView)
+        let usableWidth: CGFloat = containerWidth - 2 * horizontalMargins
+
+        let layoutColumnCount: Int
+        if containerWidth < 450 {
+            layoutColumnCount = 2
+        } else {
+            let estimatedCellWidth: CGFloat = 180
+            layoutColumnCount = max(1, Int((usableWidth + spacing) / (estimatedCellWidth + spacing)))
+        }
+        return layoutColumnCount
+    }
+
+    func calcNftItemGeometry(itemCount: Int, collectionView: UICollectionView) -> (cellSize: CGSize, contentInsets: NSDirectionalEdgeInsets) {
+        let containerWidth = getContainerWidth(collectionView: collectionView)
+        let usableWidth: CGFloat = containerWidth - 2 * horizontalMargins
+        
+        if compactMode {
+            let columnCount = min(compactModeMaxColumnCount, max(1, itemCount))
+            let layoutColumnCount = min(compactModeMaxColumnCount, max(compactModeMinColumnCount, itemCount))
+            let cellWidth = floor((usableWidth + spacing)/CGFloat(layoutColumnCount)) - spacing
+            let occupiedSpace = (cellWidth + spacing) * CGFloat(columnCount) - spacing
+            let sideInset = floor(containerWidth - occupiedSpace) / 2
+            return (
+                cellSize: CGSize(width: cellWidth, height: cellWidth),
+                contentInsets: .init(top: 8, leading: sideInset, bottom: 0, trailing: sideInset)
+            )
+        }
+        
+        // in non-compact mode we lay out the stuff similar to flow layout.
+        let layoutColumnCount = calcColumnCountInNonCompactMode(collectionView: collectionView)
+        let cellWidth = floor((usableWidth + spacing)/CGFloat(layoutColumnCount)) - spacing
+        return (
+            cellSize: CGSize(width: cellWidth, height: cellWidth),
+            contentInsets: .init(top: 10, leading: horizontalMargins, bottom: 0, trailing: horizontalMargins)
+        )
+    }
+}

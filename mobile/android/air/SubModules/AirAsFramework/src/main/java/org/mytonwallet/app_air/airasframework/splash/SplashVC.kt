@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.airasframework.splash
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.graphics.Canvas
 import android.net.Uri
 import android.os.Handler
@@ -15,6 +16,7 @@ import org.mytonwallet.app_air.airasframework.AirAsFrameworkApplication
 import org.mytonwallet.app_air.airasframework.MainWindow
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
+import org.mytonwallet.app_air.uiassets.viewControllers.renew.RenewVC
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
@@ -76,12 +78,15 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.moshi.ApiConnectionType
+import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
+import org.mytonwallet.app_air.walletcore.moshi.ReturnStrategy
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.StartSseConnection
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.StartSseConnection.Request
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.home.HomeVC
@@ -93,7 +98,8 @@ import java.net.URLEncoder
 class SplashVC(context: Context) : WViewController(context),
     WalletContextManagerDelegate,
     DeeplinkNavigator,
-    WalletCore.UpdatesObserver {
+    WalletCore.UpdatesObserver,
+    WalletCore.EventObserver {
     override val TAG = "Splash"
 
     override val shouldDisplayTopBar = false
@@ -125,11 +131,17 @@ class SplashVC(context: Context) : WViewController(context),
         handleDeeplinkIfRequired()
         updateTheme()
         WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateDappLoading::class.java, this)
+        WalletCore.registerObserver(this)
     }
 
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.Background.color)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        WalletCore.unregisterObserver(this)
     }
 
     // Presents the view controllers even before bridge becomes ready, to reduce the app start-up time
@@ -229,7 +241,10 @@ class SplashVC(context: Context) : WViewController(context),
                         })
                 } else {
                     // No more accounts left, let's reset
-                    Logger.d(Logger.LogTag.ACCOUNT, "activateAccount: Reset accounts on splash error")
+                    Logger.d(
+                        Logger.LogTag.ACCOUNT,
+                        "activateAccount: Reset accounts on splash error"
+                    )
                     StakingStore.wipeData()
                     resetToIntro()
                 }
@@ -594,7 +609,7 @@ class SplashVC(context: Context) : WViewController(context),
                         //Logger.e(Logger.LogTag.DEEPLINK, "Error: $err")
                         return@call
                     }
-                    //Logger.d(Logger.LogTag.DEEPLINK, "Strategy: $returnStrategy")
+                    handleReturnStrategy(returnStrategy)
                 }
                 return true
             }
@@ -786,6 +801,54 @@ class SplashVC(context: Context) : WViewController(context),
                 window?.present(navVC)
             }
 
+            is Deeplink.Offramp -> {
+                if (!account.supportsBuyWithCard) {
+                    window?.topViewController?.showAlert(
+                        LocaleController.getString("Error"),
+                        LocaleController.getString("Action is not possible on a view-only wallet.")
+                    )
+                    nextDeeplink = null
+                    return
+                }
+
+                val depositAddress = deeplink.depositWalletAddress
+                if (depositAddress.isNullOrEmpty()) {
+                    showAlertOverTopVC(
+                        LocaleController.getString("Error"),
+                        LocaleController.getString("\$missing_offramp_deposit_address")
+                    )
+                    nextDeeplink = null
+                    return
+                }
+
+                val tokenSlug = mapOfframpTokenSlug(deeplink.baseCurrencyCode)
+                if (tokenSlug == null) {
+                    showAlertOverTopVC(
+                        LocaleController.getString("Error"),
+                        LocaleController.getString("\$unsupported_deeplink_parameter")
+                    )
+                    nextDeeplink = null
+                    return
+                }
+
+                window?.dismissToRoot {
+                    val navVC = WNavigationController(window!!)
+                    navVC.setRoot(
+                        SendVC(
+                            context,
+                            tokenSlug,
+                            InitialValues(
+                                address = depositAddress,
+                                amount = deeplink.baseCurrencyAmount,
+                                comment = deeplink.depositWalletAddressTag
+                            ),
+                            autoConfirm = true
+                        )
+                    )
+                    window?.present(navVC)
+                }
+            }
+
             is Deeplink.Stake -> {
                 if (AccountStore.activeAccount?.network != MBlockchainNetwork.MAINNET) {
                     showAlertOverTopVC(
@@ -801,7 +864,7 @@ class SplashVC(context: Context) : WViewController(context),
             }
 
             is Deeplink.Explore -> {
-                tabsVC?.switchToExplore()
+                tabsVC?.switchToExplore(deeplink.targetUri)
             }
 
             is Deeplink.Url -> {
@@ -837,7 +900,6 @@ class SplashVC(context: Context) : WViewController(context),
                 val nav = WNavigationController(window!!)
                 nav.setRoot(EarnRootVC(context))
                 window?.present(nav)
-                // TODO:: Handle and use deeplink.stakingId
             }
 
             is Deeplink.Transaction -> {
@@ -907,6 +969,21 @@ class SplashVC(context: Context) : WViewController(context),
                 openASingleWallet(MBlockchainNetwork.MAINNET, deeplink.addressByChain, name = null)
             }
 
+            is Deeplink.ExpiringDns -> {
+                if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
+                    nextDeeplink = null
+                    return
+                }
+                val nft =
+                    NftStore.nftData?.cachedNfts?.find { it.address == deeplink.domainAddress }
+                if (nft != null) {
+                    presentDomainRenewal(nft)
+                } else {
+                    // NFTs not loaded yet, keep nextDeeplink and wait for NftsUpdated event
+                    return
+                }
+            }
+
             is Deeplink.SwitchToLegacy -> {
                 // Already handled!
             }
@@ -933,6 +1010,20 @@ class SplashVC(context: Context) : WViewController(context),
         }
 
         return builder.build()
+    }
+
+    private fun handleReturnStrategy(strategy: ReturnStrategy?) {
+        when (strategy) {
+            is ReturnStrategy.Url -> openExternalUrl(strategy.url)
+            ReturnStrategy.None, ReturnStrategy.Back, ReturnStrategy.Empty, null -> {
+                // Do nothing
+            }
+        }
+    }
+
+    private fun openExternalUrl(url: String) {
+        val uri = runCatching { url.toUri() }.getOrNull() ?: return
+        window?.startActivity(Intent(Intent.ACTION_VIEW, uri))
     }
 
     private fun importTemporaryAccount(
@@ -1066,6 +1157,14 @@ class SplashVC(context: Context) : WViewController(context),
         }
     }
 
+    private fun mapOfframpTokenSlug(baseCurrencyCode: String?): String? {
+        val normalizedCode = baseCurrencyCode?.lowercase() ?: return null
+        if (normalizedCode == "ton" || normalizedCode == "toncoin") {
+            return TONCOIN_SLUG
+        }
+        return TokenStore.getToken(normalizedCode)?.slug
+    }
+
     private fun presentToken(tokenSlug: String) {
         val token = TokenStore.getToken(tokenSlug) ?: run {
             showAlertOverTopVC(
@@ -1089,6 +1188,34 @@ class SplashVC(context: Context) : WViewController(context),
         val nav = WNavigationController(window!!)
         nav.setRoot(tokenVC)
         window?.present(nav)
+    }
+
+    private fun presentDomainRenewal(nft: ApiNft) {
+        val nav = WNavigationController(
+            window!!, PresentationConfig(
+                overFullScreen = false,
+                isBottomSheet = true
+            )
+        )
+        nav.setRoot(RenewVC(context, nft))
+        window?.present(nav)
+    }
+
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        when (walletEvent) {
+            is WalletEvent.NftsUpdated -> {
+                (nextDeeplink as? Deeplink.ExpiringDns)?.let { deeplink ->
+                    val nft =
+                        NftStore.nftData?.cachedNfts?.find { it.address == deeplink.domainAddress }
+                    if (nft != null) {
+                        nextDeeplink = null
+                        presentDomainRenewal(nft)
+                    }
+                }
+            }
+
+            else -> {}
+        }
     }
 
     override fun onBridgeUpdate(update: ApiUpdate) {

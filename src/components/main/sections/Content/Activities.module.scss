@@ -129,9 +129,9 @@
 }
 
 .animateOpacity {
-  transition: opacity 0.2s ease-out;
+  @include mixins.transition('opacity 200ms ease-out');
 }
 
 .animateTransform {
-  transition: transform 0.2s ease-out;
+  @include mixins.transition('transform 200ms ease-out');
 }

@@ -29,7 +29,7 @@ struct CustomizeWalletView: View {
             SelectCardSection(viewModel: viewModel)
             PaletteSection(viewModel: viewModel.palletteSettingsViewModel)
             if !viewModel.isRestricted {
-                GetMoreCardsSection()
+                GetMoreCardsSection(viewModel: viewModel)
             }
         }
         .backportSafeAreaPadding(.bottom, 32)
@@ -38,6 +38,9 @@ struct CustomizeWalletView: View {
 }
 
 struct GetMoreCardsSection: View {
+
+    let viewModel: CustomizeWalletViewModel
+    
     var body: some View {
         InsetSection {
             InsetButtonCell(action: onUnlockNew) {
@@ -46,7 +49,8 @@ struct GetMoreCardsSection: View {
                         .imageScale(.large)
                     Text(lang("Get More Cards"))
                 }
-                .foregroundStyle(.tint)
+                .foregroundStyle(viewModel.tintColor)
+                .backportGeometryGroup()
             }
         } header: {} footer: {
             Text(lang("Browse MyTonWallet Cards available for purchase."))

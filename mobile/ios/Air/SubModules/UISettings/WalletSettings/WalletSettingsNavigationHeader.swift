@@ -32,6 +32,14 @@ struct WalletSettingsNavigationHeader: View {
                     .fixedSize()
                     .id(viewModel.currentFilter)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    .sensitiveData(
+                        alignment: .center,
+                        cols: 12,
+                        rows: 2,
+                        cellSize: nil,
+                        theme: .adaptive,
+                        cornerRadius: 4
+                    )
             }
             .contentTransition(.numericText())
             .animation(.smooth(duration: 0.3), value: count)

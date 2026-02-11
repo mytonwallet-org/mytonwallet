@@ -14,6 +14,7 @@ export interface CancellableCallback {
 type InitData = {
   channel?: string;
   type: 'init';
+  messageId?: string;
   args: any[];
 };
 
@@ -105,10 +106,31 @@ class ConnectorClass<T extends InputRequestTypes> {
   }
 
   init(...args: any[]) {
-    this.postMessage({
+    const { requestStates } = this;
+
+    const messageId = generateUniqueId();
+    const payload: InitData = {
       type: 'init',
+      messageId,
       args,
+    };
+
+    const requestState = { messageId } as RequestStates;
+
+    const promise = new Promise<void>((resolve, reject) => {
+      Object.assign(requestState, { resolve, reject });
     });
+
+    requestStates.set(messageId, requestState);
+    promise
+      .catch(() => undefined)
+      .finally(() => {
+        requestStates.delete(messageId);
+      });
+
+    this.postMessage(payload);
+
+    return promise;
   }
 
   request(messageData: RequestTypes<T>) {
@@ -247,8 +269,8 @@ export function createConnector<T extends InputRequestTypes>(
 export function createExtensionConnector(
   name: string,
   onUpdate?: (update: ApiUpdate) => void,
-  getInitArgs?: () => any,
   channel?: string,
+  onReconnect?: () => void,
 ) {
   const connector = new ConnectorClass(connect(), onUpdate, channel, true);
 
@@ -262,13 +284,11 @@ export function createExtensionConnector(
     // For some reason port can suddenly get disconnected
     port.onDisconnect.addListener(() => {
       connector.target = connect();
-      connector.init(getInitArgs?.());
+      onReconnect?.();
     });
 
     return port;
   }
-
-  connector.init(getInitArgs?.());
 
   return connector;
 }

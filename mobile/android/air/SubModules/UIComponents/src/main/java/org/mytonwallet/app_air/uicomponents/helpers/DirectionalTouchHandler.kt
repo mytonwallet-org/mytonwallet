@@ -80,7 +80,7 @@ class DirectionalTouchHandler(
                     if (!isDirectionalScrollAllowed(true, lastDownEvent)) {
                         return false
                     }
-                    lockScrollDirection(isVertical = true, view = view)
+                    lockScrollDirection(isVertical = true, view = view, event = event)
                     interceptViews(event)
                     if (view == verticalView) return null
                 }
@@ -89,7 +89,7 @@ class DirectionalTouchHandler(
                     if (!isDirectionalScrollAllowed(false, lastDownEvent)) {
                         return false
                     }
-                    lockScrollDirection(isVertical = false, view = view)
+                    lockScrollDirection(isVertical = false, view = view, event = event)
                     interceptViews(event)
                     if (view == horizontalView) return null
                 }
@@ -120,7 +120,8 @@ class DirectionalTouchHandler(
         return null
     }
 
-    private fun lockScrollDirection(isVertical: Boolean, view: View) {
+    private fun lockScrollDirection(isVertical: Boolean, view: View, event: MotionEvent) {
+        lastDownEvent?.setLocation(event.x, event.y)
         scrollDirectionLocked = true
         isVerticalScroll = isVertical
         onScrollDetected?.invoke(isVerticalScroll)

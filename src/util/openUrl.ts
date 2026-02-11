@@ -43,7 +43,7 @@ export async function openUrl(url: string, options?: OpenUrlOptions) {
   }
 }
 
-function isSubproject(url: string) {
+export function isSubproject(url: string) {
   const { host } = new URL(url);
   return host.endsWith(SUBPROJECT_HOST_ENDING) || host.startsWith('localhost:432');
 }

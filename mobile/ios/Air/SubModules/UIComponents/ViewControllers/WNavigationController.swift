@@ -27,7 +27,7 @@ open class WNavigationController: UINavigationController {
         setupFullWidthBackGesture()
     }
 
-    private lazy var fullWidthBackGestureRecognizer = SlowedPanGestureRecognizer()
+    fileprivate lazy var fullWidthBackGestureRecognizer = SlowedPanGestureRecognizer()
 
     private func setupFullWidthBackGesture() {
         // The trick here is to wire up our full-width `fullWidthBackGestureRecognizer` to execute the same handler as the system `interactivePopGestureRecognizer`.
@@ -81,5 +81,21 @@ extension WNavigationController: UIGestureRecognizerDelegate {
     
     public func fullWidthBackGestureRecognizerRequireToFail(_ otherGestureRecognizer: UIGestureRecognizer) {
         fullWidthBackGestureRecognizer.require(toFail: otherGestureRecognizer)
+    }
+}
+
+extension UINavigationController {
+    
+    /// A temporary solution to disable backswipe for a navigation controller stack
+    /// Should be revised with full navigation management refactoring
+    public func allowBackSwipeToDismiss(_ allow: Bool) {
+        if #available(iOS 26.0, *) {
+            self.interactiveContentPopGestureRecognizer?.isEnabled = allow
+        }
+        if let nc = self as?  WNavigationController {
+            nc.fullWidthBackGestureRecognizer.isEnabled = allow
+            return
+        }
+        self.interactivePopGestureRecognizer?.isEnabled = allow
     }
 }

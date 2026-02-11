@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.uisettings.viewControllers.language
 import android.content.Context
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -161,10 +160,11 @@ class LanguageVC(context: Context) : WViewController(context),
                 ) {
                     WGlobalStorage.setLangCode(language.langCode)
                     switchLanguageIfRequired(language)
-                    LocaleController.init(context, WGlobalStorage.getLangCode())
-                    WalletContextManager.delegate?.restartApp()
-                    WBaseStorage.setActiveLanguage(language.langCode)
-                    WidgetsConfigurations.reloadWidgets(context)
+                    if (LocaleController.init(context, WGlobalStorage.getLangCode())) {
+                        WalletContextManager.delegate?.restartApp()
+                        WBaseStorage.setActiveLanguage(language.langCode)
+                        WidgetsConfigurations.reloadWidgets(context)
+                    }
                 }
             }
         }

@@ -641,14 +641,14 @@ class EarnVC(
 
         recyclerView.setBackgroundColor(WColor.SecondaryBackground.color)
 
-        noItemView.setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp, 0f)
+        noItemView.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp, 0f)
         noItemLabel.setTextColor(WColor.PrimaryText.color)
 
         rvAdapter.reloadData()
 
         claimRewardView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.STANDARD_ROUNDS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
         claimButton.setBackgroundColor(WColor.Tint.color.colorWithAlpha(25), 15f.dp)
     }

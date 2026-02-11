@@ -344,7 +344,9 @@ export type ApiPromotion = {
     backgroundFallback: string;
     heroImageUrl?: string;
     title: string;
+    titleColor?: string;
     description: string;
+    descriptionColor?: string;
     availabilityIndicator?: string;
     actionButton?: {
       title: string;
@@ -363,5 +365,5 @@ export type ApiBackendConfig = {
   isVestingEnabled?: boolean;
   isWebSocketEnabled?: boolean;
   swapVersion?: ApiSwapVersion;
-  seasonalTheme?: 'newYear';
+  seasonalTheme?: 'newYear' | 'valentine';
 };

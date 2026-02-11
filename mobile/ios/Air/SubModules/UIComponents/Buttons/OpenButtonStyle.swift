@@ -17,11 +17,11 @@ public struct OpenButtonStyle: PrimitiveButtonStyle {
         configuration.label
             .font(.system(size: 16, weight: .bold))
             .foregroundStyle(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
             .opacity(isHighlighted ? 0.5 : 1)
-            .foregroundStyle(Color(WTheme.tint))
-            .background(Color(WTheme.tint), in: .containerRelative)
+            .foregroundStyle(Color.air.folderFill)
+            .background(Color.air.folderFill, in: .containerRelative)
             .contentShape(.containerRelative.inset(by: -10))
             .onTapGesture {
                 configuration.trigger()

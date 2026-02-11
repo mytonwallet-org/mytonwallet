@@ -71,7 +71,7 @@ class ActivityCell(
     private var singleTagView: ActivitySingleTagView? = null
 
     private val recyclerWidth by lazy { parentView.width }
-    private val bigRadius get() = ViewConstants.BIG_RADIUS.dp
+    private val bigRadius get() = ViewConstants.BLOCK_RADIUS.dp
 
     var onTap: ((MApiTransaction) -> Unit)? = null
     private var transaction: MApiTransaction? = null
@@ -409,12 +409,12 @@ class ActivityCell(
         dateView.updateTheme()
         if (!forceUpdate) {
             val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-            val radiusChanged = _lastBigRadius != ViewConstants.BIG_RADIUS
+            val radiusChanged = _lastBigRadius != ViewConstants.BLOCK_RADIUS
             if (!darkModeChanged && !radiusChanged)
                 return
         }
         _isDarkThemeApplied = ThemeManager.isDark
-        _lastBigRadius = ViewConstants.BIG_RADIUS
+        _lastBigRadius = ViewConstants.BLOCK_RADIUS
         setBackgroundColor(
             WColor.Background.color,
             if (positioning?.isFirst == true) bigRadius else 0f,

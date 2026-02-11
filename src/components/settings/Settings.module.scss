@@ -3,11 +3,11 @@
 @use "../../styles/scssVariables" as v;
 
 .wrapper {
-  height: 100%;
+  --header-padding-top: calc(var(--safe-area-top) + 0.75rem);
+  --header-title-height: 1.0625rem;
+  --header-padding-bottom: 0.75rem;
 
-  :global(html.with-safe-area-top) & {
-    --header-padding-top: 0.75rem;
-  }
+  height: 100%;
 
   @include mixins.respond-below(xs) {
     // Fix for Opera, dead zone of 37 pixels in extension window on Windows
@@ -26,7 +26,6 @@
   min-height: 0;
   max-height: 100%;
   margin: 0 auto;
-  padding-top: var(--safe-area-top);
 
   &:not(:global(.Transition_slide-from)):not(:global(.Transition_slide-to)) {
     position: relative;
@@ -70,10 +69,15 @@
 }
 
 .header {
+  position: absolute !important;
+  z-index: 3;
+  top: 0;
+  left: 0;
+
   display: grid;
-  grid-auto-columns: 1fr;
   grid-template-columns: 1fr max-content 1fr;
   align-items: center;
+  justify-items: start;
 
   width: 100%;
   padding: var(--header-padding-top) 0.125rem var(--header-padding-bottom);
@@ -82,30 +86,12 @@
   font-weight: 700;
   line-height: 1.0625rem;
 
-  transition: background-color 300ms;
+  @include mixins.transition(background-color 300ms);
 
-  &.onlyTextHeader {
-    grid-template-columns: unset;
-  }
-
-  :global(html.animation-level-0) & {
-    transition: none !important;
-  }
-
-  @include mixins.respond-below(xs) {
-    position: absolute !important;
-    z-index: 2;
-    top: 0;
-    left: 0;
-
-    width: 100%;
-    padding-top: calc(var(--header-padding-top) + var(--safe-area-top));
-
-    &:global(.is-scrolled) {
-      @supports (backdrop-filter: saturate(180%) blur(20px)) {
-        background-color: var(--color-background-tab-bar);
-        backdrop-filter: saturate(180%) blur(20px);
-      }
+  &:global(.is-scrolled) {
+    @supports (backdrop-filter: saturate(180%) blur(20px)) {
+      background-color: var(--color-background-tab-bar);
+      backdrop-filter: saturate(180%) blur(20px);
     }
   }
 
@@ -118,39 +104,18 @@
   padding: 1.5rem 0.25rem 1.25rem;
 }
 
+.headerWithWalletName {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--header-padding-top) 1rem var(--header-padding-bottom);
+}
+
 .languageHeader {
   grid-template-columns: 0.85fr 1fr 0.85fr;
 }
 
-.headerBack {
-  cursor: var(--custom-cursor, pointer);
-
-  display: flex;
-  align-items: center;
-
-  height: var(--header-title-height);
-  padding: 0.0625rem 0.375rem;
-
-  font-size: 1.0625rem;
-  color: var(--color-accent);
-
-  :global(html.is-telegram-app) &:not(.isInsideModal) {
-    visibility: hidden;
-  }
-
-  &.hidden {
-    visibility: hidden;
-  }
-}
-
 .iconChevron {
   font-size: 1.5rem;
-}
-
-.headerBackInContent {
-  position: absolute;
-  top: 1.125rem;
-  left: 0.125rem;
 }
 
 .headerTitle {
@@ -161,6 +126,52 @@
 
   line-height: var(--header-title-height);
   color: var(--color-black)
+}
+
+.headerButton {
+  padding: 0.25rem;
+  font-size: 1.25rem;
+  color: var(--color-accent);
+
+  &.hidden {
+    overflow: hidden;
+    opacity: 0;
+  }
+}
+
+.headerBack {
+  display: flex;
+  align-items: center;
+}
+
+.headerWalletNameTransition {
+  position: relative;
+
+  overflow: hidden;
+  flex: 1;
+
+  min-width: 0;
+  height: 1.0625rem;
+}
+
+.headerWalletNameSlide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.headerWalletName {
+  overflow: hidden;
+
+  max-width: 10rem;
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.0625rem;
+  color: var(--color-black);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .modalHeader {
@@ -212,6 +223,10 @@
   padding: 0 !important;
 }
 
+.currentWalletSection {
+  margin: -2rem 0 1.5rem;
+}
+
 .blockTitle {
   margin-bottom: 0.5rem;
   padding: 0 0.5rem;
@@ -220,13 +235,6 @@
   font-weight: 700;
   line-height: 1.125rem;
   color: var(--color-gray-2);
-
-  :global(html.is-macos) &,
-  :global(html.is-ios) & {
-    padding: 0 1rem;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
 }
 
 .menuIcon {
@@ -321,11 +329,7 @@
 
   background-color: var(--current-accent-color, var(--color-default-accent));
 
-  transition: border-color 200ms, outline 200ms;
-
-  :global(html.animation-level-0) & {
-    transition: none !important;
-  }
+  @include mixins.transition("border-color 200ms, outline 200ms");
 }
 
 .colorButtonCurrent {
@@ -355,7 +359,7 @@
   font-size: 1rem;
   color: var(--color-accent);
 
-  transition: color 150ms;
+  @include mixins.transition(color 150ms);
 
   &:active {
     color: var(--color-accent-button-background-hover);
@@ -366,10 +370,6 @@
     &:focus-visible {
       color: var(--color-accent-button-background-hover);
     }
-  }
-
-  :global(html.animation-level-0) & {
-    transition: none !important;
   }
 
   &::before {
@@ -433,21 +433,9 @@
 
   padding: 0.625rem 0.75rem 0.625rem 0.625rem;
 
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1rem;
-  color: var(--color-black);
   text-decoration: none !important;
 
-  transition: background-color 200ms, border-radius 200ms;
-
-  :global(html.animation-level-0) & {
-    transition: none !important;
-  }
-
-  &.draggable {
-    grid-template-columns: min-content min-content 1fr min-content;
-  }
+  @include mixins.transition("background-color 200ms, border-radius 200ms");
 
   @include mixins.separatorBottomSettings(3.125rem, 0);
 
@@ -548,6 +536,57 @@ a.item:hover {
 
   color: var(--color-gray-3);
   white-space: nowrap;
+}
+
+.itemContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.itemTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1rem;
+  color: var(--color-black);
+}
+
+.itemSubtitle {
+  overflow: hidden;
+
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1rem;
+  color: var(--color-gray-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemButton {
+  gap: 0.5rem !important;
+  justify-content: start !important;
+
+  width: 100%;
+  padding: 0.625rem 1rem;
+
+  font-size: 1rem !important;
+  color: var(--color-accent);
+
+  &:hover {
+    color: var(--color-accent);
+  }
+}
+
+.itemIcon {
+  transform: rotate(90deg);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 1.75rem;
+  height: 1.75rem;
 }
 
 .small {
@@ -833,6 +872,12 @@ a.item:hover {
   white-space: nowrap;
 }
 
+.pinIcon {
+  margin-inline-end: 0.25rem;
+  color: var(--color-gray-2);
+  vertical-align: middle;
+}
+
 .tokenDescription {
   --border-radius-value: 0.25rem;
 
@@ -860,9 +905,7 @@ a.item:hover {
 }
 
 .dapp,
-.themeIcon,
-.contentRelative,
-.sortableContainer {
+.themeIcon {
   position: relative;
 }
 

@@ -55,6 +55,21 @@ public struct AppStorageHelper {
         }
     }
 
+    private static let seasonalThemingDisabledKey = "settings.isSeasonalThemingDisabled"
+    public static var isSeasonalThemingDisabled: Bool {
+        get {
+            return GlobalStorage.getBool(key: seasonalThemingDisabledKey) ?? false
+        }
+        set {
+            GlobalStorage.set(
+                key: seasonalThemingDisabledKey,
+                value: newValue ? true : nil,
+                persistInstantly: false
+            )
+            WalletCoreData.notify(event: .configChanged)
+        }
+    }
+
     // Sounds activated or not
     private static let soundsKey = "settings.canPlaySounds"
     public static var sounds: Bool {

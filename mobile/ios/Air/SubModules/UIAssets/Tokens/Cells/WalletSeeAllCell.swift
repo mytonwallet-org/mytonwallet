@@ -11,7 +11,7 @@ import WalletContext
 
 class WalletSeeAllCell: UITableViewCell, WThemedView {
     public static let defaultHeight = CGFloat(44)
-    private static let regular17Font = UIFont.systemFont(ofSize: 16, weight: .regular)
+    private static let regular17Font = UIFont.systemFont(ofSize: 17, weight: .regular)
 
     @MainActor protocol Delegate: AnyObject {
         func didSelectSeeAll()

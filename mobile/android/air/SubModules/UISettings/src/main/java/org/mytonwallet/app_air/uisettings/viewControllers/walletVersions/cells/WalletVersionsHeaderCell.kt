@@ -93,12 +93,12 @@ class WalletVersionsHeaderCell(context: Context) :
     override fun updateTheme() {
         topContainerView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.TOP_RADIUS.dp,
-            ViewConstants.BIG_RADIUS.dp,
+            ViewConstants.TOOLBAR_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
         )
         bottomContainerView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
             0f
         )
         walletVersionLabel.setTextColor(WColor.PrimaryText.color)

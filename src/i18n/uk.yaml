@@ -61,9 +61,6 @@ Search...: Пошук...
 Main menu: Основне меню
 TON Proxy: TON Proxy
 Toggle TON Proxy: Переключити TON Proxy
-TON Magic: TON Magic
-Toggle TON Magic: Переключити TON Magic
-Open Telegram Web: Відкрити Telegram Web
 Back Up Secret Words: Резервна копія
 Settings: Налаштування
 About %app_name%: Про %app_name%
@@ -77,10 +74,7 @@ $about_description2: Гаманець **керується тільки вами
 What is TON Proxy?: Що таке TON Proxy?
 $about_extension_description1: TON Proxy надає доступ до **децентралізованого інтернету** і сайтів TON.
 More info and demo.: Більше інформації та демо-версія.
-$about_extension_description2: TON Magic забезпечує вбудовану **інтеграцію з Telegram**, використовуючи офіційну веб-версію.
-$about_extension_description3: Увімкнути, щоб відправляти й отримувати перекази від будь-якого користувача Telegram.
-$about_proxy_magic_title: А як щодо %ninja% TON Proxy і %unicorn% TON Magic?
-$about_proxy_magic_description: Щоб насолоджуватися **децентралізованим інтернетом**, **сайтами TON** і вбудованою **інтеграцією з Telegram**, встановіть %extension_link%.
+$about_proxy_magic_description: Щоб насолоджуватися **децентралізованим інтернетом** і **сайтами TON**, встановіть %extension_link%.
 $about_extension_link_text: "**Розширення %app_name%**"
 Is it open source?: А вихідний код відкритий?
 $about_wallet_github: Так, ось наш %github_link%.
@@ -203,6 +197,7 @@ Coins have been sent!: Переказ надіслано!
 Transaction Sent!: Транзакцію надіслано!
 Data Signed!: Дані підписано!
 Details: Інфо
+View details: Переглянути деталі
 Change password visibility: Змінити видимість пароля
 Amount value: Значення
 Save Address: Зберегти адресу
@@ -305,7 +300,6 @@ No active connections: Немає активних підключень
 Other: Інші
 Assets & Activity: Активи та Стрічка
 Token Settings: Налаштування токенів
-My Tokens: Мої Токени
 Add Token: Додати токен
 Delete Token: Видалити токен
 Are you sure you want to delete?: Ви впевнені, що хочете видалити %token%?
@@ -1050,7 +1044,8 @@ Timed out waiting for account to be ready: Таймаут очікування �
 $connected_apps:
   otherValue: "%1$d підключено"
 Night Mode, Palette, Card: Нічний режим, Палітра, Карта
-Back Up, Passcode, Auto-Lock: Резервна копія, Пароль, Автоблокування
+Back Up, Passcode, Auto-Lock: Резервна копія, Код, Автоблокування
+Back Up, Password, Auto-Lock: Резервна копія, Пароль, Автоблокування
 Base Currency, Token Order, Hidden NFTs: Базова валюта, Порядок токенів, Приховані NFT
 Your assets on other contracts: Ваші активи на інших контрактах
 Wallets, Sounds: Гаманці, Звуки
@@ -1062,3 +1057,7 @@ Open in %app_name%: Відкрити в %app_name%
 Blog: Блог
 Apps: Додатки
 $nft_not_found: NFT не знайдено
+Pin: Закріпити
+Unpin: Відкріпити
+My Assets: Мої активи
+Owner: Власник

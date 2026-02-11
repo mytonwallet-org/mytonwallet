@@ -1,8 +1,9 @@
-import React, { memo, useLayoutEffect, useMemo, useRef } from '../../../../lib/teact/teact';
-import { setExtraStyles } from '../../../../lib/teact/teact-dom';
+import React, { memo, useMemo } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import type { ApiBaseCurrency, ApiStakingState, ApiTokenWithPrice, ApiVestingInfo } from '../../../../api/types';
+import type {
+  ApiBaseCurrency, ApiCurrencyRates, ApiStakingState, ApiTokenWithPrice, ApiVestingInfo,
+} from '../../../../api/types';
 import type { Theme, UserSwapToken, UserToken } from '../../../../global/types';
 import { SettingsState } from '../../../../global/types';
 
@@ -10,6 +11,7 @@ import { ANIMATED_STICKER_SMALL_SIZE_PX, IS_CORE_WALLET } from '../../../../conf
 import {
   selectAccountStakingStates,
   selectCurrentAccountId,
+  selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
@@ -20,9 +22,11 @@ import {
   selectSwapTokens,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
+import buildStyle from '../../../../util/buildStyle';
 import { toDecimal } from '../../../../util/decimals';
 import { buildCollectionByKey } from '../../../../util/iteratees';
-import { getFullStakingBalance, getIsActiveStakingState, getStakingStateStatus } from '../../../../util/staking';
+import { MEMO_EMPTY_ARRAY } from '../../../../util/memo';
+import { getIsActiveStakingState, getStakingStateStatus } from '../../../../util/staking';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 import { getScrollContainerClosestSelector } from '../../helpers/scrollableContainer';
 
@@ -32,7 +36,8 @@ import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useInfiniteScroll from '../../../../hooks/useInfiniteScroll';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
-import useShowTransition from '../../../../hooks/useShowTransition';
+import usePrevious2 from '../../../../hooks/usePrevious2';
+import useTokensWithStaking from '../../../../hooks/useTokensWithStaking';
 import useVesting from '../../../../hooks/useVesting';
 
 import AnimatedIconWithPreview from '../../../ui/AnimatedIconWithPreview';
@@ -40,6 +45,7 @@ import Button from '../../../ui/Button';
 import InfiniteScroll from '../../../ui/InfiniteScroll';
 import Spinner from '../../../ui/Spinner';
 import Token from './Token';
+import TokenListItem from './TokenListItem';
 
 import styles from './Assets.module.scss';
 
@@ -66,9 +72,11 @@ interface StateProps {
   isViewMode?: boolean;
   isSwapDisabled?: boolean;
   isStakingDisabled?: boolean;
+  pinnedSlugs?: string[];
+  alwaysHiddenSlugs?: string[];
+  currencyRates?: ApiCurrencyRates;
 }
 
-const LIST_SLICE = 30;
 const TOKEN_HEIGHT_REM = 4;
 
 function Assets({
@@ -90,12 +98,14 @@ function Assets({
   isViewMode,
   isSwapDisabled,
   isStakingDisabled,
+  pinnedSlugs = MEMO_EMPTY_ARRAY,
+  alwaysHiddenSlugs = MEMO_EMPTY_ARRAY,
+  currencyRates,
   onScroll,
 }: OwnProps & StateProps) {
   const lang = useLang();
   const { openSettingsWithState } = getActions();
 
-  const containerRef = useRef<HTMLDivElement>();
   const renderedTokens = useCurrentOrPrev(tokens, true);
   const renderedMycoin = useCurrentOrPrev(mycoin, true);
 
@@ -114,26 +124,24 @@ function Assets({
     return states?.filter(getIsActiveStakingState) ?? [];
   }, [states]);
 
-  const stakedTokens = useMemo(() => {
-    return activeStates.reduce((prevValue, state) => {
-      const token = tokens?.find(({ slug }) => slug === state.tokenSlug);
-      if (token) {
-        prevValue[state.tokenSlug] = { token, state };
-      }
-      return prevValue;
-    }, {} as Record<string, { token: UserToken; state: ApiStakingState }>);
-  }, [tokens, activeStates]);
+  // Set of BASE token slugs that have active staking.
+  // Used to prevent showing staking info (APY, etc.) on base tokens when a separate staking token exists.
+  const stakedTokenSlugs = useMemo(() => {
+    return new Set(activeStates.map((state) => state.tokenSlug));
+  }, [activeStates]);
+
+  const allTokensWithStaked = useTokensWithStaking({
+    tokens: renderedTokens,
+    states,
+    baseCurrency,
+    currencyRates,
+    pinnedSlugs,
+    alwaysHiddenSlugs,
+  });
 
   const swapTokensBySlug = useMemo(() => {
     return buildCollectionByKey<UserSwapToken>(swapTokens ?? [], 'slug');
   }, [swapTokens]);
-
-  const {
-    shouldRender: shouldRenderStakedTokens,
-  } = useShowTransition({
-    isOpen: Boolean(Object.keys(stakedTokens).length),
-    withShouldRender: true,
-  });
 
   const {
     ref: vestingTokenRef,
@@ -145,134 +153,166 @@ function Assets({
   } = useVesting({ vesting, userMycoin, isDisabled: IS_CORE_WALLET });
 
   const tokenSlugs = useMemo(() => (
-    renderedTokens
+    allTokensWithStaked
       ?.filter(({ isDisabled }) => !isDisabled)
       .map(({ slug }) => slug)
-  ), [renderedTokens]);
+  ), [allTokensWithStaked]);
   const [viewportSlugs, getMore] = useInfiniteScroll(
     undefined, tokenSlugs, undefined, undefined, undefined, isActive, isPortrait,
   );
   const viewportIndex = useMemo(() => {
     if (!viewportSlugs) return -1;
 
-    let index = tokenSlugs!.indexOf(viewportSlugs[0]);
-    if (shouldRenderStakedTokens) {
-      index += Object.keys(stakedTokens).length;
-    }
-    if (shouldRenderVestingToken) {
-      index++;
-    }
-
-    return index;
-  }, [shouldRenderStakedTokens, shouldRenderVestingToken, tokenSlugs, viewportSlugs, stakedTokens]);
+    const index = tokenSlugs!.indexOf(viewportSlugs[0]);
+    return shouldRenderVestingToken ? index + 1 : index;
+  }, [shouldRenderVestingToken, tokenSlugs, viewportSlugs]);
   const tokensBySlug = useMemo(() => (
-    renderedTokens ? buildCollectionByKey(renderedTokens, 'slug') : undefined
-  ), [renderedTokens]);
-  const withAbsolutePositioning = tokenSlugs && tokenSlugs.length > LIST_SLICE;
+    allTokensWithStaked ? buildCollectionByKey(allTokensWithStaked, 'slug') : undefined
+  ), [allTokensWithStaked]);
+
+  const shouldUseAnimations = Boolean(isActive && allTokensWithStaked);
 
   const currentContainerHeight = useMemo(() => {
-    if (!withAbsolutePositioning || !viewportSlugs?.length || viewportIndex < 0) return undefined;
+    if (!viewportSlugs?.length || viewportIndex < 0) return undefined;
 
     return (viewportIndex + viewportSlugs.length) * TOKEN_HEIGHT_REM;
-  }, [viewportIndex, viewportSlugs?.length, withAbsolutePositioning]);
-
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    setExtraStyles(container, {
-      height: currentContainerHeight && !isLandscape ? `${currentContainerHeight}rem` : '',
-    });
-  }, [isLandscape, currentContainerHeight]);
+  }, [viewportIndex, viewportSlugs?.length]);
 
   const handleOpenTokenSettings = useLastCallback(() => {
     openSettingsWithState({ state: SettingsState.Assets });
   });
 
-  const stateByTokenSlug = buildCollectionByKey(states ?? [], 'tokenSlug');
+  const handleTokenClick = useLastCallback((slug: string) => {
+    const token = tokensBySlug?.[slug];
+    if (token?.isStaking) {
+      onStakedTokenClick(token.stakingId);
+    } else {
+      onTokenClick(slug);
+    }
+  });
+
+  const stateByTokenSlug = useMemo(() => {
+    return buildCollectionByKey(states ?? [], 'tokenSlug');
+  }, [states]);
+
+  const stakingStateById = useMemo(() => {
+    return buildCollectionByKey(activeStates, 'id');
+  }, [activeStates]);
+
+  const pinnedSlugsSet = useMemo(() => {
+    return new Set(pinnedSlugs);
+  }, [pinnedSlugs]);
+
+  const prevPinnedSlugs = usePrevious2(pinnedSlugs);
+  const prevAllTokensWithStaked = usePrevious2(allTokensWithStaked);
+
+  // Detect which token was just pinned/unpinned
+  const pinToggledSlug = useMemo(() => {
+    if (!prevPinnedSlugs || prevPinnedSlugs === pinnedSlugs) return undefined;
+
+    const prevSet = new Set(prevPinnedSlugs);
+    const currentSet = new Set(pinnedSlugs);
+
+    // Find added slug (pinned)
+    for (const slug of currentSet) {
+      if (!prevSet.has(slug)) return slug;
+    }
+
+    // Find removed slug (unpinned)
+    for (const slug of prevSet) {
+      if (!currentSet.has(slug)) return slug;
+    }
+
+    return undefined;
+  }, [prevPinnedSlugs, pinnedSlugs]);
+
+  // Check if pin-toggled token stayed in the same position
+  const isPinAnimatable = useMemo(() => {
+    if (!pinToggledSlug || !prevAllTokensWithStaked || !allTokensWithStaked) return false;
+
+    const prevIndex = prevAllTokensWithStaked.findIndex((t) => t.slug === pinToggledSlug);
+    const currentIndex = allTokensWithStaked.findIndex((t) => t.slug === pinToggledSlug);
+
+    // Token stayed in the same position
+    return prevIndex === currentIndex && prevIndex !== -1;
+  }, [pinToggledSlug, prevAllTokensWithStaked, allTokensWithStaked]);
 
   function renderVestingToken() {
     return (
-      <Token
-        ref={vestingTokenRef}
+      <TokenListItem
         key="vesting"
-        token={userMycoin!}
-        vestingStatus={vestingStatus}
-        unfreezeEndDate={unfreezeEndDate}
-        amount={vestingAmount}
-        isInvestorView={isInvestorViewEnabled}
-        baseCurrency={baseCurrency}
-        appTheme={appTheme}
-        isSensitiveDataHidden={isSensitiveDataHidden}
-        onClick={onVestingTokenClick}
-      />
-    );
-  }
-
-  function renderStakedTokens() {
-    return Object.values(stakedTokens).map(({ state, token }) => {
-      const { id, annualYield, yieldType } = state;
-      const stakingStatus = getStakingStateStatus(state);
-      const stakingBalance = getFullStakingBalance(state);
-
-      return (
+        topOffset={0}
+        withAnimation={shouldUseAnimations}
+      >
         <Token
-          key={`staking-${id}`}
-          token={token}
-          stakingStatus={stakingStatus}
-          annualYield={annualYield}
-          yieldType={yieldType}
-          amount={toDecimal(stakingBalance, token.decimals)}
+          ref={vestingTokenRef}
+          token={userMycoin!}
+          vestingStatus={vestingStatus}
+          unfreezeEndDate={unfreezeEndDate}
+          amount={vestingAmount}
           isInvestorView={isInvestorViewEnabled}
           baseCurrency={baseCurrency}
           appTheme={appTheme}
           isSensitiveDataHidden={isSensitiveDataHidden}
-          withContextMenu
-          isViewMode={isViewMode}
-          isSwapDisabled={isSwapDisabled}
-          stakingState={state}
-          onClick={onStakedTokenClick}
+          onClick={onVestingTokenClick}
         />
-      );
-    });
-  }
-
-  function renderToken(token: UserToken, indexInViewport: number) {
-    const style = withAbsolutePositioning
-      ? `position: absolute; top: ${(viewportIndex + indexInViewport) * TOKEN_HEIGHT_REM}rem`
-      : undefined;
-
-    const {
-      annualYield,
-      yieldType,
-    } = (!(token.slug in stakedTokens) && stateByTokenSlug[token.slug]) || {};
-    const isStakingAvailable = Boolean(!isStakingDisabled && stateByTokenSlug[token.slug]);
-    const isSwapAvailable = Boolean(swapTokensBySlug[token.slug]);
-
-    return (
-      <Token
-        classNames="token-list-item"
-        style={style}
-        key={token.slug}
-        token={token}
-        annualYield={annualYield}
-        yieldType={yieldType}
-        isInvestorView={isInvestorViewEnabled}
-        isActive={token.slug === currentTokenSlug}
-        baseCurrency={baseCurrency}
-        withChainIcon={isMultichainAccount}
-        appTheme={appTheme}
-        isSensitiveDataHidden={isSensitiveDataHidden}
-        withContextMenu
-        isViewMode={isViewMode}
-        isStakingAvailable={isStakingAvailable}
-        isSwapDisabled={isSwapDisabled || !isSwapAvailable}
-        onClick={onTokenClick}
-      />
+      </TokenListItem>
     );
   }
 
-  const isEmpty = !shouldRenderVestingToken && !shouldRenderStakedTokens && !tokenSlugs?.length;
+  function renderToken(token: UserToken, indexInViewport: number) {
+    const topOffset = (viewportIndex + indexInViewport) * TOKEN_HEIGHT_REM;
+
+    const { stakingId, isStaking, slug, amount, decimals } = token;
+    const stakingState = stakingId ? stakingStateById[stakingId] : undefined;
+
+    // For staking tokens use their state, for base tokens use state only if not staked
+    const baseTokenState = !isStaking && !stakedTokenSlugs.has(slug)
+      ? stateByTokenSlug[slug]
+      : undefined;
+
+    const { annualYield, yieldType } = stakingState || baseTokenState || {};
+    const stakingStatus = stakingState ? getStakingStateStatus(stakingState) : undefined;
+    const isStakingAvailable = Boolean(baseTokenState && !isStakingDisabled);
+    const isSwapAvailable = Boolean(swapTokensBySlug[slug]);
+    const isPinned = pinnedSlugsSet.has(slug);
+    const amountDecimal = isStaking ? toDecimal(amount, decimals) : undefined;
+    const shouldFadeInPlace = slug === pinToggledSlug;
+    const withPinTransition = isPinAnimatable && slug === pinToggledSlug;
+
+    return (
+      <TokenListItem
+        key={slug}
+        topOffset={topOffset}
+        withAnimation={shouldUseAnimations}
+        shouldFadeInPlace={shouldFadeInPlace}
+      >
+        <Token
+          token={token}
+          stakingStatus={stakingStatus}
+          stakingState={stakingState}
+          annualYield={annualYield}
+          yieldType={yieldType}
+          amount={amountDecimal}
+          isInvestorView={isInvestorViewEnabled}
+          isActive={token.slug === currentTokenSlug}
+          baseCurrency={baseCurrency}
+          withChainIcon={isMultichainAccount}
+          appTheme={appTheme}
+          isSensitiveDataHidden={isSensitiveDataHidden}
+          withContextMenu
+          isViewMode={isViewMode}
+          isStakingAvailable={isStakingAvailable}
+          isSwapDisabled={isSwapDisabled || !isSwapAvailable}
+          isPinned={isPinned}
+          withPinTransition={withPinTransition}
+          onClick={handleTokenClick}
+        />
+      </TokenListItem>
+    );
+  }
+
+  const isEmpty = !shouldRenderVestingToken && !tokenSlugs?.length;
 
   if (isEmpty) {
     return (
@@ -301,9 +341,12 @@ function Assets({
     );
   }
 
+  const style = buildStyle(
+    Boolean(currentContainerHeight && (!isLandscape || isSeparatePanel)) && `height: ${currentContainerHeight}rem`,
+  );
+
   return (
     <InfiniteScroll
-      ref={containerRef}
       className={buildClassName(
         styles.wrapper,
         isSeparatePanel && !renderedTokens && styles.wrapperLoading,
@@ -311,8 +354,9 @@ function Assets({
       scrollContainerClosest={getScrollContainerClosestSelector(isActive, isPortrait)}
       items={viewportSlugs}
       itemSelector=".token-list-item"
-      withAbsolutePositioning={withAbsolutePositioning}
+      withAbsolutePositioning={Boolean(viewportSlugs)}
       maxHeight={currentContainerHeight === undefined ? undefined : `${currentContainerHeight}rem`}
+      style={style}
       onLoadMore={getMore}
       onScroll={onScroll}
     >
@@ -322,7 +366,6 @@ function Assets({
         </div>
       )}
       {shouldRenderVestingToken && renderVestingToken()}
-      {shouldRenderStakedTokens && renderStakedTokens()}
       {viewportSlugs?.map((tokenSlug, i) => renderToken(tokensBySlug![tokenSlug], i))}
     </InfiniteScroll>
   );
@@ -335,6 +378,7 @@ export default memo(
       const tokens = selectCurrentAccountTokens(global);
       const swapTokens = selectSwapTokens(global);
       const accountState = selectCurrentAccountState(global);
+      const accountSettings = selectCurrentAccountSettings(global);
       const { isInvestorViewEnabled } = global.settings;
 
       const states = selectAccountStakingStates(global, currentAccountId);
@@ -355,6 +399,9 @@ export default memo(
         isViewMode,
         isSwapDisabled: selectIsSwapDisabled(global),
         isStakingDisabled: selectIsStakingDisabled(global),
+        pinnedSlugs: accountSettings?.pinnedSlugs,
+        alwaysHiddenSlugs: accountSettings?.alwaysHiddenSlugs,
+        currencyRates: global.currencyRates,
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

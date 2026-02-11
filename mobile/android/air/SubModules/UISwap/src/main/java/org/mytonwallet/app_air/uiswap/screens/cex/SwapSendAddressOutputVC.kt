@@ -287,10 +287,10 @@ class SwapSendAddressOutputVC(
     override fun updateTheme() {
         super.updateTheme()
         scrollView.setBackgroundColor(WColor.SecondaryBackground.color)
-        confirmView.setBackgroundColor(WColor.Background.color, 0f, ViewConstants.BIG_RADIUS.dp)
+        confirmView.setBackgroundColor(WColor.Background.color, 0f, ViewConstants.BLOCK_RADIUS.dp)
         bottomDetails.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
             0f
         )
         qrCodeView.setPadding(if (ThemeManager.isDark) 16.dp else 0)

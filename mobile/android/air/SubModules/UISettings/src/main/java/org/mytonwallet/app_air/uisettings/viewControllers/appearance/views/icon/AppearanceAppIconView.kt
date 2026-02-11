@@ -85,12 +85,7 @@ class AppearanceAppIconView(
     }
 
     override fun updateTheme() {
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp)
-        } else {
-            background = separatorBackgroundDrawable
-            separatorBackgroundDrawable.invalidateSelf()
-        }
+        setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
         titleLabel.setTextColor(WColor.PrimaryText.color)
     }
 

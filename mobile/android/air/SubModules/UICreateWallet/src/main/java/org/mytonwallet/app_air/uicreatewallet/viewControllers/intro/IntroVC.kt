@@ -237,7 +237,7 @@ class IntroVC(
         val backgroundColor = WColor.Background.color
         view.setBackgroundColor(backgroundColor)
         tonParticlesView.setParticleBackgroundColor(backgroundColor)
-        moreInfoButton.addRippleEffect(WColor.BackgroundRipple.color, ViewConstants.BIG_RADIUS.dp)
+        moreInfoButton.addRippleEffect(WColor.BackgroundRipple.color, ViewConstants.BLOCK_RADIUS.dp)
         checkboxDrawable.checkedColor = WColor.Tint.color
         checkboxDrawable.uncheckedColor = WColor.SecondaryText.color
         termsView.addRippleEffect(WColor.BackgroundRipple.color, 16f.dp)

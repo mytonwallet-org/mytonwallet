@@ -108,7 +108,6 @@ addActionHandler('addToken', (global, actions, { token }) => {
   const accountSettings = selectCurrentAccountSettings(global) ?? {};
   global = updateCurrentAccountSettings(global, {
     ...accountSettings,
-    orderedSlugs: [...accountSettings.orderedSlugs ?? [], token.slug],
     alwaysShownSlugs: unique([...accountSettings.alwaysShownSlugs ?? [], token.slug]),
     alwaysHiddenSlugs: accountSettings.alwaysHiddenSlugs?.filter((slug) => slug !== token.slug),
     deletedSlugs: accountSettings.deletedSlugs?.filter((slug) => slug !== token.slug),

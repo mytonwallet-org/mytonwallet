@@ -94,7 +94,7 @@ struct NftDetailsImage: View {
             }
             .coordinateSpace(name: ns)
             .onChange(of: coverFlowViewModel.selectedItem) { nftId in
-                if let nft = NftStore.getAccountNfts(accountId: viewModel.account.id)?[nftId]?.nft {
+                if let nft = NftStore.getAccountNfts(accountId: viewModel.account.id)?[nftId]?.nft ?? listContextProvider.nfts.first(id: nftId) {
                     withAnimation(.smooth(duration: 0.1)) {
                         viewModel.nft = nft
                     }

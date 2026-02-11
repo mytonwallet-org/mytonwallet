@@ -171,12 +171,12 @@ class ImportViewWalletVC(
 
         view.setBackgroundColor(
             WColor.SecondaryBackground.color,
-            ViewConstants.BIG_RADIUS.dp,
+            ViewConstants.BLOCK_RADIUS.dp,
             0f
         )
         addressInputView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp
+            ViewConstants.BLOCK_RADIUS.dp
         )
     }
 
