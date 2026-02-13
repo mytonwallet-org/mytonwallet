@@ -239,6 +239,11 @@ export const LANG_LIST: LangItem[] = [{
   name: 'Polish',
   nativeName: 'Polski',
   rtl: false,
+}, {
+  langCode: 'it',
+  name: 'Italian',
+  nativeName: 'Italiano',
+  rtl: false,
 }];
 
 export const IS_STAKING_DISABLED = IS_CORE_WALLET;
