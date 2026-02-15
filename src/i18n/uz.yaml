@@ -1,0 +1,657 @@
+$auth_intro: |
+  Kriptolaringizni **xavfsiz** saqlang
+  va **yorug'lik tezligida** blokcheyn 
+  to'lovlarini amalga oshiring.
+Create New Wallet: Yangi hamyon yaratish
+Import From %1$d Secret Words: "%1$d ta maxfiy so'zni import qilish"
+More about MyTonWallet: MyTonWallet haqida ko'proq
+Creating Wallet...: Hamyon yaratilmoqda...
+On the count of three...: Uchgacha sanang...
+Back Up: Zaxiralash
+Passwords must be equal.: Parollar bir xil bo'lishi kerak.
+To protect your wallet as much as possible, use a password with: Hamyonning maksimal xavfsizligini ta'minlash uchun parol o'z ichiga olishi kerak
+$auth_password_rule_8chars: kamida 8 ta belgi
+$auth_password_rule_one_small_char: bitta kichik harf
+$auth_password_rule_one_capital_char: bitta katta harf
+$auth_password_rule_one_digit: bitta raqam
+$auth_password_rule_one_special_char: va bitta maxsus belgi
+The wallet is imported: Hamyon import qilindi
+The wallet is ready: Hamyon tayyor
+Create a password to protect it.: Himoya qilish uchun parol yarating.
+Enter your password: Parolingizni kiriting
+Enter your password...: Parolingizni kiriting...
+...and repeat it: ...va yana bir marotaba
+Cancel: Bekor qilish
+Insecure Password: Oddiy parol
+Your have entered an insecure password, which can be easily guessed by scammers.: Siz oddiy parolni kiritdingiz, uni firibgarlar osongina taxmin qilishlari mumkin.
+Continue or change password to something more secure?: Davom etasizmi yoki parolni o'zgartirasizmi?
+Change: O'zgartirish
+'%1$d Secret Words': "%1$d Maxfiy so'z"
+$auth_import_mnemonic_description: |
+  Siz hamyonni yaratishda yozib olgan %1$d ta maxfiy so'zni kiritish orqali hamyoningizga kirishingiz mumkin.
+Let's make sure your secrets words are recorded correctly.: Sizning maxfiy so'zlaringiz to'g'ri yozilganligiga ishonch hosil qilaylik.
+$mnemonic_check_words_list: Iltimos, tegishli maydonlarga **%1$s** so'zlarini kiriting.
+$mnemonic_check_error: Siz kiritgan maxfiy so'zlar ro'yxatdagilarga mos kelmaydi. Iltimos, qayta urinib ko'ring.
+$mnemonic_list_description: |
+  Ushbu so'zlarni **to'g'ri tartibda**
+  yozib oling va ularni **maxfiy joyda**
+  saqlang.
+$mnemonic_warning: |
+  **Hech kimga** yubormang yoki ko'rsatmang,
+  **hech bir joyga kirmang**.
+Let's Check: Keling, tekshiramiz
+Let's Check!: Keling, tekshiramiz!
+Safety Rules: Xavfsizlik qoidalari
+$safety_rules_one: |
+  Keyingi ekranda siz **maxfiy so'zlarni** ko'rasiz. Ularni to'g'ri tartibda yozing va **xavfsiz joyda saqlang**.
+$safety_rules_two: Parolingizni yo'qotib qo'ysangiz yoki ushbu qurilmaga kirish huquqiga ega bo'lsangiz, ular **hamyoningizni ochishga** ruxsat beradi.
+$safety_rules_three: Agar kimdir bu so'zlarni ko'rsa, sizning mablag'ingiz **o'g'irlanishi mumkin**. **Uni hech kimga yubormang**, hatto ishlab chiquvchilarga yoki texnik yordamga ham.
+Understood: Tushundim
+Congratulations!: Tabriklaymiz!
+Continue: Davom etish
+Close: Yopish
+Back: Orqaga
+Search...: Qidirish...
+Main menu: Asosiy sahifa
+TON Proxy: TON Proksi
+Toggle TON Proxy: TON proksi Ochirish/Yoqish
+TON Magic: TON Magic
+Toggle TON Magic: TON Magic Ochirish/Yoqish
+Open Telegram Web: Telegram Web-ni ochish
+Back Up Secret Words: Maxfiy so'zlarni zaxiralash
+Settings: Sozlamalar
+About: Haqida
+Exit: Chiqish
+Remove Wallet: Hamyonni o'chirish
+Something went wrong.: Nimadir xato ketdi.
+Something went wrong: Nimadir xato ketdi
+Logo: Logo
+$about_description1: Kriptovalyutani xavfsiz saqlang, markazlashtirilmagan ilovalarni o'rganing va **yorug'lik tezligida** blokcheyn to'lovlarini amalga oshiring.
+$about_description2: Hamyon **xavfsiz va nazorat qilinmaydi**. Ishlab chiquvchilar sizning mablag'laringiz, brauzer tarixi yoki boshqa ma'lumotlarga **kira olmaydi**.
+What is TON Proxy?: TON proksi nima?
+$about_extension_description1: TON Proksi TON saytlariga anonim kirishga ruxsat berib, **markazlashtirilmagan internetga** yo'l ochadi.
+More info and demo.: Batafsil ma'lumot va demo.
+$about_extension_description2: TON Magic rasmiy Telegram veb-ilovasiga ko'maklashish orqali mahalliy **Telegram integratsiyasini** ta'minlaydi.
+$about_extension_description3: Har qanday Telegram foydalanuvchisidan Toncoins yuborish va olish uchun uni yoqing.
+$about_proxy_magic_title: '%ninja% TON proksi va %unicorn% TON Magic haqida nima deyish mumkin?'
+$about_proxy_magic_description: "**markazlashtirilmagan internetdan** bahramand bo'lish, **TON saytlariga** kirish va mahalliy **Telegram integratsiyasidan** foydalanish uchun %extension_link% ni o'rnating."
+$about_extension_link_text: '**MyTonWallet extension**'
+Is it open source?: Bu ochiq manbami?
+$about_wallet_github: Ha shunaqa. Bizning %github_link% bilan tanishing.
+$about_github_link_text: '**GitHub repository**'
+Is there a community?: Guruh bormi?
+$about_wallet_community: Albatta, bizning %community_link% ga xush kelibsiz.
+$about_community_link_text: '**Telegram kanal**'
+Currency History: Valyuta tarixi
+$add_account_description1: |
+  **MyTonWallet** sizga **bir nechta hisoblar** 
+  o'rtasida muammosiz almashish imkonini beradi.
+Enter Password: Parolni kiriting
+Send: Jonatish
+Add Wallet: Hamyon qo'shish
+Done: Bajarildi
+Delete: O'chirish
+Delete Saved Address: Saqlangan manzilni o'chirish
+Are you sure you want to remove this address from your saved ones?: Haqiqatan ham bu manzilni saqlanganlardan olib tashlamoqchimisiz?
+You will be able to save it again via Transaction Info with this address.: Bu manzil bilan Tranzaksiya ma'lumotlari orqali uni qayta saqlashingiz mumkin bo'ladi.
+Address removed from saved: Manzil saqlanganlardan olib tashlandi
+Warning!: Ogohlantirish!
+Log Out: Hamyondan chiqish
+$logout_without_backup_warning: Siz bu hamyonni zaxiralamagansiz. Agar uni hozir olib tashlasangiz, tokenlar va NFT'larga kirish huquqini yo'qotasiz.
+$logout_accounts_without_backup_warning: Siz %links% zaxira nusxasini yaratmagansiz. Davom etsangiz, tokenlar va NFT'larga kirish huquqini yo'qotasiz.
+$logout_warning: Bu joriy hamyonni ilovadan olib tashlaydi. **%1$d ta maxfiy so'z** zaxiralanganligiga ishonch hosil qiling.
+Your address was copied!: Manzilingiz nusxalandi!
+Show QR Code: QR kodini ko'rsatish
+Create Deposit Link: Depozit havolasini yarating
+QR Code: QR kod
+$receive_invoice_description: |
+  Yuboruvchini biroz vaqt tejash uchun to'lov
+  miqdori va maqsadini belgilashingiz mumkin.
+Amount: Miqdor
+Comment: Izoh
+Comment or Memo: Izoh yoki Memo
+Share this URL to receive TON: TON olish uchun ushbu URL manzilini ulashing
+Invoice link was copied!: Havola nusxalandi
+Theme: Mavzu
+Language: Til
+Enable Animations: Animatsiyalarni yoqish
+Base Currency: Asosiy valyuta
+Investor View: Investor rejimi
+Toggle Investor View: Investor rejimiga o'tish
+Hide Tiny Transfers: Kichkina o'tkazmalarni yashirish
+Toggle Hide Tiny Transfers: Kichik o'tkazmalarni ko'rsatishni o'zgartirish
+Network: Tarmoq
+Developer Options: Dasturchi opsiyalari
+Confirmation: Tasdiqlash
+Data to sign: Imzolash uchun ma'lumotlar
+Signing Data: Imzolash ma'lumotlari
+Contract Initialization Data: Shartnomani ishga tushirish ma'lumotlari
+$dont_have_required_token: Sizda yuborish uchun kerakli token yo'q, lekin uni almashtirish mumkin.
+$unknown_token_address: Noma'lum token manzili.
+$dont_have_required_nft: Yuborish uchun sizda kerakli NFT yoʻq.
+$state_init_requires_bin: Shartnomani ishga tushirish ma'lumotlari bin parametrini talab qiladi.
+$state_init_invalid: Shartnomani ishga tushirish maʼlumotlari yaroqsiz.
+$signature_warning: Shaxsiy ma'lumotlarni imzolash juda xavflidir. Agar siz uning manbasiga ishonsangiz, undan foydalaning.
+Sign: Imzolash
+Done!: Bajarildi!
+Signing was confirmed!: Imzolanish tasdiqlandi!
+Transaction Info: Tranzaksiya haqida ma'lumot
+Transaction in progress: Bitim amalga oshirilmoqda
+Comment was copied!: Izohdan nusxa olindi!
+View Transaction on %ton_explorer_name%: Tranzaksiyani %ton_explorer_name% da ko'rish
+Sender: Jonatuvchi
+Recipient: Qabul qiluvchi
+Address was copied!: Manzil nusxalandi!
+Repeat: Takrorlash
+Receive: Qabul qilish
+Switch Account: Hisobni ayirboshlash
+Copy wallet address: Hamyon manzilini nusxalash
+View address on %ton_explorer_name%: Manzilni %ton_explorer_name% da ko'rish
+You have just created a new wallet: Siz hozirgina yangi hamyon yaratdingiz
+You can now transfer your tokens from another wallet or exchange.: Endi siz tokenlaringizni boshqa hamyon yoki birjalardan o'tkazishingiz mumkin.
+Assets: Aktivlar
+Activity: Faollik
+NFT: NFT
+No NFTs yet: Hozircha NFT lar mavjud emas
+$nft_explore_offer: |
+  Mavjud NFT kolleksiyalarini kashf 
+  qilish uchun bozorni o'rganing.
+Open Getgems: Getgems-ni ochish 
+Transaction is not completed: Tranzaksiya tugallanmagan
+Received: Qabul qilindi
+Sent: Yuborildi
+$transaction_from: "%address% dan"
+$transaction_to: "%address% ga"
+Wallet is not backed up: Hamyon zaxiralanmagan
+Testnet Version: Testnet versiyasi
+Error reading clipboard: Buferni o'qishda xatolik yuz berdi
+$fee_value: "To'lov: %fee%"
+Loading...: Yuklanmoqda...
+Recipient Address: Qabul qiluvchining manzili
+Wallet address or domain: Hamyon manzili yoki domen
+Incorrect address: Noto'g'ri manzil
+Incorrect address.: Noto'g'ri manzil.
+Paste: Joylashtirish
+Insufficient balance: Balans yetarli emas
+InsufficientBalance: Balans yetarli emas
+Optional: Ixtiyoriy
+$send_token_symbol: Jonatish %1$s
+Is it all ok?: Hammasi joyidami?
+Receiving Address: Qabul qilish manzili
+Fee: Tolov
+Edit: Tahrirlash
+Confirm: Tasdiqlash
+Coins have been sent!: Tangalar yuborildi!
+Details: Tafsilotlar
+Change password visibility: Parolning ko'rinishini o'zgartiring
+Amount value: Miqdor qiymati
+Save Address: Manzilni saqlash
+Name: Ism
+Save: Saqlash
+Copy: Nusxalash
+Remove From Saved Addresses: Saqlangan manzillardan olib tashlash
+Add To Saved Addresses: Saqlangan manzillarga qo'shish
+View Address on %ton_explorer_name%: Manzilni %ton_explorer_name% da ko'rish
+No suggestions, you're on your own!: Hech qanday taklif yo'q, siz o'zingiz!
+Play Sounds: Ovozlarni ijro etish
+Focus on asset value rather than current balance: Joriy balansga emas, balki aktiv qiymatiga e'tibor qarating
+$logout_confirm: "**barcha** hamyonlarni ochirib tashlash"
+$logout_warning2: Hamyonlar markazlashtirilmagan TON blokcheynida joylashgan. Agar siz hamyonni o'chirib tashlashni istasangiz, undagi barcha TONni o'tkazing va uni bo'sh qoldiring.
+$tiny_transfers_help: "$%value% dan kam pul o'tkazmalarini yashirish. Yodda tuting: kichik miqdorlar ko'pincha spamerlar va firibgarlar tomonidan yuboriladi."
+Today: Bugun
+Yesterday: Kecha
+Now: Hozir
+$receive_ton_description: |
+  Siz manzilingizni baham ko'rishingiz, QR kodini skanerlashingiz 
+  yoki kripto olish uchun depozit havolasini yaratishingiz mumkin.
+Your address: Sizning manzilingiz
+Wrong password, please try again.: Parol noto'g'ri, qayta urinib ko'ring.
+Appearance: Tashqi ko'rinish
+Light: Yoruq
+Dark: Qorong'u
+System: Tizim
+Stake TON: Stake TON
+Earn from your tokens while holding them: Tokenlaringizni ushlab turganda daromad oling
+$est_apy_val: Taxminiy yillik %1$d%
+Why this is safe: Nima uchun bu xavfsiz
+Why is staking safe?: Nima uchun staking xavfsiz?
+$safe_staking_description1: Staking **markazlashmagan** va **rasmiy TON Liquid Staking** aqlli shartnomalari bilan boshqariladi.
+$safe_staking_description2: Depozitga qo'yilgan ulush TON tarmog'ini tekshirish uchun uning **proof-of-stake** mohiyatining bir qismi sifatida ishlatiladi.
+$safe_staking_description3: Siz o'z ulushingizni **istalgan vaqtda** olib qo'yishingiz mumkin va u **ikki kun** ichida hisobingizga qaytariladi.
+$min_value: Minimum %value%
+Est. balance in a year: Tahminiy. bir yil ichida balans
+Confirm Staking: Stakingni tasdiqlang
+Confirm operation with your password: Parolingiz bilan operatsiyani tasdiqlang
+Coins have been staked!: Tangalar tikilgan!
+View: Ko'rish
+Stake More: Ko'proq stakingga qo'ying
+Staking: Staking
+Currently Staked: Hozirda tikilgan
+Unstake: Stakingdan olish
+Earning History: Daromad tarixi
+$total: 'Jami: %value%'
+Unstake TON: TONni yechish
+$unstake_information_with_time: |
+  Joriy depozitingiz %time% ichida hamyoningizga to'liq qaytariladi. 
+  Bu sizning daromadingizni to'xtatadi.
+Amount to unstake: Yechish summasi
+Confirm Unstaking: Stakingdan olishni tasdiqlang
+Request for unstaking is sent!: O'chirish uchun so'rov yuborildi!
+$unstaking_when_receive: Siz omonatingizni %time% da olasiz.
+$unstake_insufficient_balance: Olib tashlashni davom ettirish uchun asosiy balansingizda %balance% bo'lishi kerak.
+at %apy_value%: "%apy_value% da"
+Staked: Staking qilindi
+Unstake Requested: Stakindan olish uchun sorov jonatildi
+Unstaked: Stakingdan olindi
+The network fee has slightly changed, try sending again.: Tarmoq to'lovi biroz o'zgardi, qayta yuborib ko'ring.
+Transfer was unsuccessful. Try again later.: Transfer muvaffaqiyatsiz tugadi. Keyinroq qayta urinib ko'ring.
+Unstaking was unsuccessful. Try again later.: Stakingdan olish muvaffaqiyatsiz tugadi. Keyinroq qayta urinib ko'ring.
+Staking was unsuccessful. Try again later.: Staking muvaffaqiyatsiz tugadi. Keyinroq qayta urinib ko'ring.
+Invalid amount: Miqdor noto'g'ri
+Invalid address: Manzil noto'g'ri
+Domain is not connected to a wallet: Domen hamyonga ulanmagan
+Unexpected error: Kutilmagan xato
+Unexpected Error: Kutilmagan Xato
+Earn: Daromad olish
+Earning: Daromad
+InvalidAmount: Miqdor noto'g'ri
+InvalidToAddress: Qabul qiluvchining manzili noto'g'ri
+Unexpected: Kutilmagan xato
+DomainNotResolved: Domen hal etilmagan
+You can save this address for quick access while sending.: Yuborayotganda tezkor kirish uchun ushbu manzilni saqlashingiz mumkin.
+Stake Again: Qayta stake qiling
+Earned: Daromad qilingan
+Connect Dapp: Dapp-ni ulash
+Select wallet to use on this dapp: Ushbu ilovada foydalanish uchun hamyonni tanlang
+Connect: Ulash
+Dapp Permissions: Dapp ruxsatnomalari
+$dapp_can_view_balance: "%dappname% hamyon manzili va balansini ko'ra oladi."
+Send Transaction: O'tkazmani yuborish
+Payload: PayloadXizmat ma'lumotlari
+$many_transactions: "%1$d ta o'tkazma"
+Total Amount: Umumiy hisob
+Unstaking: Stakingdan olish
+'Handle ton:// links': Havolalarni boshqarish ton://
+Back up wallet to have full access to it: Hamyonga to'liq kirish uchun zaxira nusxasini yarating
+Consider More Secure Version: Xavfsiz versiyani ko'rib chiqing
+Install our native app or browser extension.: Rasmiy ilova yoki brauzer kengaytmasini o'rnating.
+Scam: Scam
+Scam comment is hidden.: Izoh berkitilgan.
+Display: Ko'rsatish
+$dapp_transfer_tokens_payload: Hisobingizdan %address% ga %amount% yuborilmoqda
+Connected Dapps: Ulangan Dapps
+Disconnect All Dapps: Barcha Dapps-ni o'chirish
+Disconnect: Ulanishni uzish
+Disconnect Dapp: Dapp-ni o'chirib qo'yish
+Disconnect Dapps: Dapp-larni o'chirib qo'yish
+Are you sure you want to disconnect?: Haqiqatan ham %dappname% ni uzmoqchimisiz?
+Are you sure you want to disconnect all websites?: Haqiqatan ham barcha veb-saytlarni o'chirib tashlamoqchimisiz?
+$dapps-description: MyTonWallet-ni qo'llab-quvvatlaydigan dapplarga kirishingiz mumkin. Ular hamyon manzilini, balansni va so'rov operatsiyalarini ko'rishlari mumkin.
+Logged in with MyTonWallet: MyTonWallet bilan tizimga kirgan
+No active connections: Faol ulanishlar yo'q
+Other: Boshqa
+Assets & Activity: Aktivlar va faoliyat
+Token Settings: Token sozlamalari
+My Tokens: Mening tokenlarim
+Add Token: Token qo'shing
+Delete Token: Tokenni o'chirish
+Are you sure you want to delete?: Haqiqatan ham %token% o'chirib tashlansinmi?
+Hide Tokens With No Cost: Tokenlarni hech qanday xarajatsiz yashiring
+Sort By Cost: Narxi bo'yicha saralash
+Update MyTonWallet: MyTonWallet-ni yangilash
+Connect Ledger: Ledgerni ulang
+Connecting to your Ledger...: Ledger ga ulanmoqda...
+Failed to connect: Ulanib bo'lmadi
+Ledger Connected!: Ledger ulandi!
+Select Ledger Wallets: Ledger hamyonlarini tanlang
+'%1$d Selected': '%1$d ta tanlandi'
+Add: Qo'shish
+Try Again: Qayta urinib ko'ring
+Driver: Drayver
+Connect your Ledger to PC: Ledger-ni kompyuterga ulang
+Unlock it and open the TON App: Uni qulfdan chiqaring va TON ilovasini oching
+Maybe you need to check the password or change the driver.: Ehtimol, siz parolni tekshirishingiz yoki drayverni o'zgartirishingiz kerak.
+Confirm via Ledger: Ledger orqali tasdiqlang
+Please confirm transaction on your Ledger: Iltimos, tranzaksiyani Ledger da tasdiqlang
+Declined: Rad etildi
+Create Wallet: Hamyonni ochish
+Switch to the newly opened tab to connect Ledger.: Ledger-ni ulash uchun yangi ochilgan yorlig'iga o'ting.
+Once connected, switch back to this window to proceed.: Ulangandan so'ng, davom etish uchun ushbu oynaga qayting.
+Not all transactions were sent successfully: Hamma tranzaktsiyalar muvaffaqiyatli yuborilmadi
+The time on your device is incorrect, sync it and try again: Qurilmangizdagi vaqt noto'g'ri, uni sinxronlang va qaytadan urinib ko'ring
+Name or Address...: Nom yoki manzil...
+Such error, many tabs: Bunday xato, ko'plab yorliqlar
+$many_tabs_error_description: |
+  MyTonWallet ilova bilan faqat bitta faol yorliqni qo'llab-quvvatlaydi.
+  Iltimos, ushbu sahifadan foydalanishni davom ettirish uchun ushbu sahifani qayta yuklang yoki uni yoping.
+Reload App: Ilovani qayta yuklash
+Please confirm operation on your Ledger: Iltimos, daftaringizdagi operatsiyani tasdiqlang
+Token Not Found: Token topilmadi
+Try another keyword or address.: Boshqa kalit so'z yoki manzilni sinab ko'ring.
+Decrypt: Shifrni ochish
+Encrypted Message: Shifrlangan xabar
+Message is encrypted.: Xabar shifrlangan.
+$dapp_ledger_warning1: Siz **Ledger** hamyoningiz yordamida ko'p tomonlama tranzaksiyani jo'natmoqchisiz. Har bir asosiy tranzaksiyani **birma-bir qo'lda** imzolashingiz kerak bo'ladi.
+$dapp_ledger_warning2: Iltimos, shoshilmang va jarayonni to'xtatmang.
+Agree: Roziman
+SwapTitle: Ayirboshlash
+Swap: Ayirboshlash
+You sell: Siz sotyapsiz
+You buy: Siz sotib olyapsiz
+Swap Details: Tafsilotlarni ayirboshlash
+Blockchain Fee: Blokcheyn to'lovi
+Routing Fees: Marshrut komissiyalari
+Included: O'z ichiga oladi
+Price Impact: Narx ta'siri
+Minimum Received: Minimal qabul qilingan
+Slippage: Slippage
+$swap_from_to: "%from% icon% %to% ayirboshlash"
+The exchange rate is below market value!: Valyuta kursi bozor qiymatidan %value% past!
+Invalid Pair: Noto'g'ri juftlik
+We do not recommend to perform an exchange, try to specify a lower amount.: Biz almashinuvni amalga oshirishni tavsiya etmaymiz, kamroq miqdorni ko'rsatishga harakat qiling.
+$swap_minimum_received_tooltip1: Bu joriy bozor sharoitlari, slippage bardoshliligi va narxning potentsial ta'sirini hisobga olgan holda, ushbu ayirboshlashdan oladigan eng kam yangi tokenlar miqdori.
+$swap_minimum_received_tooltip2: Bu kutilgan minimal miqdor, lekin agar ayirboshlash jarayoni amalga oshirilayotganda shartlar juda o'zgarsa, yakuniy miqdor kamroq bo'lishi mumkin.
+$swap_routing_fees_tooltip: Markazlashtirilmagan almashinuv va ilova to'lovlari (~ 0,875%) allaqachon siz ko'rgan narxga kiritilgan va qo'shimcha haq olinmaydi.
+$swap_price_impact_tooltip1: Bu sizning savdoingiz token narxini qanchalik o'zgartirishi mumkinligini ko'rsatadi.
+$swap_price_impact_tooltip2: Katta savdolar narxning ko'tarilishiga yoki pastga tushishiga olib kelishi mumkin. Odatda pastroq bo'ladi.
+$swap_slippage_tooltip1: Bu sizning ayirboshlashingizdan oldin qancha narxni o'zgartirishga ruxsat berishini belgilaydi.
+$swap_slippage_tooltip2: Agar ayirboshlashni qayta ishlash jarayonida narx ushbu qiymatdan ko'proq o'zgarsa, buyurtmangiz bekor qilinadi.
+Coins have been swapped!: Tangalar almashtirildi!
+Slippage not specified: Slippage belgilanmagan
+Slippage too high: Slippage juda baland
+Not Enough %symbol%: "%symbol% yetarli emas"
+Use Responsibly: Mas'uliyat bilan foydalaning
+$auth_responsibly_description1: |
+  MyTonWallet **o'z-o'zini himoya qiluvchi** hamyon bo'lib, **faqat siz** to'liq nazoratga ega bo'lishingizni va eng muhimi, mablag'laringiz uchun **to'liq javobgarlikni** anglatadi.
+$auth_responsibly_description2: |
+  Shaxsiy kalitlaringiz qurilmangizda saqlanadi va **xakerlar hujumiga** duchor bo'ladi. Agar sizning kompyuteringizda **virus** bo'lsa, mablag'ingiz o'g'irlanishi mumkin.
+$auth_responsibly_description3: |
+  MyTonWallet jamoasi sizning kompyuteringiz ishlab chiqaruvchisi yoki internet provayderingiz javobgar bo'lmaganidek, mablag'laringiz xavfsizligi uchun **mas'ul emas**.
+$auth_responsibly_description4: |
+  **Hech qachon** barcha mablag'laringizni bir joyda saqlamang. **Diversifikasiya qiling** va turli dasturiy ta'minot va apparat vositalaridan foydalaning. Har doim **o'z tadqiqotingizni qiling** va kripto xavfsizligi haqida ko'proq bilib oling.
+Start Wallet: Foydalanishni boshlang
+$auth_backup_warning_notice: |
+  Endi siz parolingizni unutib qo'ysangiz yoki ushbu qurilmaga kirish huquqini yo'qotib qo'ysangiz, qo'lda **maxfiy kalitlarning zaxira nusxasini** yaratishingiz kerak.
+Later: Keyinroq
+Back Up Now: Hozir zaxiralash
+I have read and accept this information: Men ushbu ma'lumotni o'qib chiqdim va qabul qilaman.
+$ledger_verify_address: Ledger qurilmangiz yordamida har doim qo'yilgan manzilni tasdiqlang.
+$ledger_not_ready: Ledger ulanmagan yoki TON ilovasi ochilmagan.
+Verify now: Hozir tasdiqlang
+Invalid address format. Only URL Safe Base64 format is allowed.: Manzil formati noto'g'ri. Faqat URL Safe Base64 formatiga ruxsat beriladi.
+$auth_backup_description1: |
+  Bu **xavfsiz hamyon** va faqat 
+  **siz tomonidan boshqariladi**.
+$auth_backup_description2: "Va katta kuch bilan birga **buyuk mas'uliyat** keladi."
+$auth_backup_description3: |
+  Agar parolingizni unutib qo'ysangiz yoki ushbu qurilmaga kirish huquqini yo'qotib qo'ysangiz, **maxfiy kalitlarni** qo'lda zaxiralashingiz kerak bo'ladi.
+Swap Placed: Almashinuv e'lon qilindi
+Swapping: Almashtirilyapti
+Swapped: Almashtirildi
+Swap Failed: Ayirboshlash amalga oshmadi
+Swap Again: Qayta almashtiring
+Terms of Use: Foydalanish shartlari
+Privacy Policy: Maxfiylik siyosati
+Insufficient liquidity: Likvidlikning etarli emasligi
+This address is new and never received transfers before.: Bu manzil yangi va ilgari hech qachon o'tkazilmagan.
+Create Backup: Zaxira nusxasini yaratish
+Sending: Yuborilmoqda
+Failed: Muvaffaqiyatsiz
+Refunded: To'lov qaytarildi
+On Hold: Kutishda
+Expired: Muddati tugagan
+In Progress: Jarayonda
+Waiting for Payment: To'lov kutilmoqda
+Blockchain: Blockchain
+Your address on another blockchain: Boshqa blokcheyndagi manzilingiz
+Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: Xarid qilingan tokenlarni olish uchun %blockchain% blockchain tizimida hamyoningiz manzilini kiriting.
+The time for sending coins is over.: Tangalarni yuborish vaqti tugadi.
+You have not sent the coins to the specified address.: Siz tangalarni belgilangan manzilga yubormadingiz.
+$swap_changelly_to_ton_description1: 'Bu manzilga %value% ni %blockchain% blokcheynida %vaqt% ichida yuboring.'
+Exchange failed and coins were refunded to your wallet.: Ayirboshlash amalga oshmadi va tangalar hamyoningizga qaytarildi.
+$swap_changelly_kyc_security: "Iltimos, KYC protsedurasidan o'tish uchun **%email%** bilan bog'laning va **Transaction ID** ko'rsating:"
+Swap Expired: Ayirboshlash muddati tugadi
+Swap On Hold: Ayirboshlash kutilyapti
+Swap Refunded: Ayirboshlash qaytarildi
+Address for %blockchain% transfer: "%blockchain% transferi uchun manzil"
+Cross-chain exchange provided by Changelly: Changelly tomonidan taqdim etilgan o'zaro zanjir almashinuvi
+$swap_changelly_agreement_message: Davom etish orqali siz %terms% va %policy% ga rozilik bildirasiz va tranzaksiya %kyc% ga muvofiq tekshirishni boshlashi mumkinligiga rozi bo'lasiz.
+$swap_changelly_terms_of_use: foydalanish shartlari
+$swap_changelly_privacy_policy: Maxfiylik siyosati
+Password must contain %length% digits.: Parolda %length% raqamlari bo'lishi kerak.
+Deposit Link: Depozit havolasi
+$swap_changelly_from_ton_description: 'Tokenlar tez orada %blockchain% blockchain orqali manzilingizga yuboriladi:'
+Please note that it may take up to a few hours for tokens to appear in your wallet.: E'tibor bering, tokenlar hamyoningizda paydo bo'lishi uchun bir necha soat vaqt ketishi mumkin.
+Minimum amount: Minimal %qiymat%
+Maximum amount: Maximal %value%
+Display Tray Icon: Displey Tray belgisi
+Enable Auto-Updates: Avtomatik yangilanishlarni yoqing
+Biometric Authentication: Biometrik autentifikatsiya
+If you turn off biometric protection, you will need to create a password.: Agar biometrik himoyani o'chirib qo'ysangiz, parol yaratishingiz kerak bo'ladi.
+Enter your current password: Joriy parolingizni kiriting
+Turn On Biometrics: Biometrikani yoqing
+Please confirm transaction using biometrics.: Iltimos, biometrik ma'lumotlardan foydalangan holda tranzaktsiyani tasdiqlang.
+Enabling biometric confirmation will reset the password.: Biometrik tasdiqlashni yoqish parolni qayta tiklaydi.
+Biometric Registration: Biometrik ro'yxatga olish
+Step 1 of 2. Registration: Qadam 1/2. Ro'yxatdan o'tish
+Step 2 of 2. Verification: 2/2-bosqich. Tekshirish
+Biometric setup failed.: Biometrik sozlanmadi.
+Biometric confirmation failed.: Biometrik tasdiqlash amalga oshmadi.
+Failed to disable biometrics.: Biometrik ma'lumotlarni o'chirib bo'lmadi.
+Biometric Confirmation: Biometrik tasdiqlash
+Please verify the operation.: Iltimos, operatsiyani tekshiring.
+Create Password: Parol qo'yish
+Complete: Bajarildi
+Verification: Verifikatsiya
+Create a password or use biometric authentication to protect it.: Parol yarating yoki uni himoya qilish uchun biometrik autentifikatsiyadan foydalaning.
+Connect Biometrics: Biometriyani ulash
+Use Password: Paroldan foydalaning
+Biometrics Disabled: Biometrik ma'lumotlar o'chirilgan
+Biometrics Enabled: Biometrik parametrlar yoqilgan
+A request is already pending: So'rov allaqachon kutilmoqda
+Please confirm operation using biometrics.: Iltimos, biometrik ma'lumotlardan foydalangan holda operatsiyani tasdiqlang.
+Scan QR Code: QR kodini skanerlang
+Permission denied. Please grant camera permission to use the QR code scanner.: Ruxsat berilmadi. QR kod skaneridan foydalanish uchun kameraga ruxsat bering.
+Unsupported QR code format: QR kod formati qo'llab-quvvatlanmaydi
+An error on the server side. Please try again.: Server tomonida xatolik. Iltimos, qayta urinib ko'ring.
+Unrecognized QR Code: Noma'lum QR kodi
+$fee_value_almost_equal: To'lov ≈ %fee%
+Address was saved!: Manzil saqlandi!
+US Dollar: AQSh dollari
+Euro: Yevro
+Ruble: Rubl
+Yuan: Yuan
+Bitcoin: Bitkoin
+Toncoin: Tonkoin
+$max_balance: 'Maks: %balance%'
+$unstake_information_instantly: Siz omonatingizni bir zumda olasiz
+Select Token: Token-ni tanlang
+MY: MENING
+POPULAR: MASHXUR
+Not Found: Topilmadi
+Wallet is ready!: Hamyon tayyor!
+Wallet is imported!: Hamyon import qilingan!
+Create a code to protect it: Uni himoya qilish uchun kod yarating
+Enter your code again: Kodingizni yana kiriting
+Codes don't match: Kodlar mos kelmadi
+Code set successfully: Kod muvaffaqiyatli o'rnatildi
+Use Biometrics: Biometriyadan foydalaning
+Use Touch ID: Touch ID dan foydalaning
+Use Face ID: Face ID dan foydalaning
+You can connect your biometric data for more convenience: Qulaylik uchun biometrik ma'lumotlaringizni ulashingiz mumkin
+Connect Touch ID: Touch ID-ni ulang
+Connect Face ID: Face ID-ni ulang
+Not Now: Hozir emas
+Biometric Authentification: Biometrik autentifikatsiya
+Touch ID: Touch ID
+Face ID: Face ID
+Turn Off Touch ID: Touch ID-ni o'chiring
+Turn Off Face ID: Face ID-ni o'chiring
+Turn Off Biometrics: Biometrikani o'chiring
+Enter code: Kodni kiriting
+Enter code or use Face ID: Kodni kiriting yoki Face ID dan foydalaning
+Enter code or use Touch ID: Kodni kiriting yoki Touch ID dan foydalaning
+Enter code or use biometrics: Kodni kiriting yoki biometrikdan foydalaning
+Wrong code, please try again: Kod noto'g'ri, qayta urinib ko'ring
+Scan your fingerprint: Barmoq izingizni skanerlang
+Incorrect code, please try again.: Kod noto'g'ri, qayta urinib ko'ring.
+Correct: To'g'ri
+Confirm Action: Amalni tasdiqlang
+Confirm Swap: Almashtirishni tasdiqlang
+'%amount% to %address%': '%amount% %address%ga'
+'%amount_from% to %amount_to%': '%amount_from%dan %amount_to%ga'
+Failed to enable biometrics.: Biometrik ma'lumotlar yoqilmadi.
+Please try to confirm your biometrics again.: Iltimos, biometrik ma'lumotlarni qaytadan tasdiqlashga urinib ko'ring.
+Unknown error.: Noma'lum xato.
+Are you sure you want to disable Face ID?: Haqiqatan ham Face ID funksiyasini o'chirib qo'ymoqchimisiz?
+Are you sure you want to disable Touch ID?: Haqiqatan ham Touch ID-ni o'chirib qo'ymoqchimisiz?
+Are you sure you want to disable biometrics?: Haqiqatan ham biometrik ma'lumotlarni o'chirib qo'ymoqchimisiz?
+Yes: Ha
+Declined. Please try to confirm transaction using biometrics again.: Rad etildi. Iltimos, biometrik ma'lumotlar yordamida tranzaksiyani qaytadan tasdiqlab ko'ring.
+No Activity: Faoliyat yo'q
+Add / Buy: Qo'shish / sotib olish
+Buy with Card: Karta bilan sotib oling
+Buy with Crypto: Crypto bilan xarid qiling
+Receive with QR or Invoice: QR yoki Invoice bilan qabul qiling
+Cannot load widget: Vidjetni yuklab bo'lmadi
+Explore: Ko'rib chiqish
+No partners yet: Hozircha hamkorlar yo'q
+Clear: Tozalash
+Get TON: TON oling
+Declined. Please try to confirm operation using biometrics again.: Rad etildi. Iltimos, biometrik ma'lumotlar yordamida operatsiyani qaytadan tasdiqlab ko'ring.
+$unstake_up_to_information: Bir zumda - %value% gacha
+$all_balance: 'Hammasi: %balance%'
+$unstaking_not_enough_balance: Stakingdan olib tashlashni davom ettirish uchun asosiy balansingizda %value% bo'lishi kerak.
+$ledger_verify_address_on_device: Iltimos, Ledgeringizdagi manzilni tasdiqlang.
+Wallet Versions: Hamyon versiyalari
+$read_more_about_wallet_version: "Hamyon shartnomalari turlari haqida ko'proq o'qing: %ton_link%."
+$current_wallet_version: Sizning hamyoningizning joriy versiyasi %version%.
+You have tokens on other versions of your wallet. You can import them from here.: Sizning hamyoningizning boshqa versiyalarida tokenlaringiz bor. Siz ularni shu yerdan import qilishingiz mumkin.
+$wallet_switch_version_1: Siz ham %action% qilishingiz mumkin.
+$wallet_switch_version_2: boshqa hamyon versiyasiga o'tish
+or import from: yoki import qiling
+$insufficient_fee: "To'lov yetarli emas: %fee%"
+Required: Majburiy
+Comment is too long.: Izoh juda uzun.
+Memo: Memo
+Memo was copied!: Memo nusxalandi!
+$hide_tokens_no_cost_help: "$%value% dan kam bo'lgan tokenlarni yashirish. Yodda tuting: foydasiz tokenlar ko'pincha spamerlar va firibgarlar tomonidan yuboriladi. Quyidagi ekranda siz alohida tokenlarni yashirishingiz mumkin."
+No internet connection. Please check your connection and try again.: Internet aloqasi yo'q. Iltimos, ulanishingizni tekshiring va qaytadan urining.
+To use this feature, first enable Face ID in your phone settings.: Bu funksiyadan foydalanish uchun avvalo telefon sozlamalarida Face ID funksiyasini yoqing.
+To use this feature, first enable biometrics in your phone settings.: Bu funksiyadan foydalanish uchun avvalo telefon sozlamalarida biometrik parametrlarni yoqing.
+Open Settings: Sozlamalarni oching
+You are about to transfer an important service token, which is needed to withdraw your deposit from staking.: Siz omonatingizni stakingdan yechib olish uchun zarur bo'lgan muhim xizmat tokenini o'tkazmoqchisiz.
+No Price: Narxi yo'q
+$ledger_not_supported_operation: Bu operatsiya Ledger TON ilovasi versiyangiz tomonidan qo'llab-quvvatlanmaydi. Iltimos, uni Ledger Live yordamida yangilang.
+$ledger_unsupported_ton_connect: TonConnect Ledger TON ilovangiz versiyasida qo'llab-quvvatlanmaydi. Iltimos, uni Ledger Live yordamida yangilang.
+$dapp_transfer_tokens_burn: Yonish %amount%
+$dapp_dns_set_wallet_payload: "%domen% domenining bog'langan hamyonini %address% ga o'zgartirish"
+$dapp_dns_delete_wallet_payload: "%domen% domenining bog'langan hamyonini o'chirish"
+$dapp_dns_change_record_payload: "%domen% domenining “%category%” yozuvi %value% ga o'zgartirilmoqda"
+$dapp_dns_delete_record_payload: "%domen% domenining “%category%” yozuvi o'chirilmoqda"
+$dapp_token_bridge_pay_swap_payload: O'zaro zanjirli ko'prik orqali almashinuvni tasdiqlash
+$dapp_liquid_staking_deposit_payload: Likvid stakingga qo'ying
+$dapp_liquid_staking_vote_payload: Taklif uchun "%vote%" ovoz berish %votingAddress%
+$dapp_single_nominator_change_validator_payload: SingleNominator staking shartnomasini tasdiqlovchi manzili %address% ga o'zgartirilmoqda
+$dapp_single_nominator_withdraw_payload: SingleNominator staking shartnomasidan %amount% TON yechib olinishi
+$dapp_vesting_add_whitelist_payload: Hamyonning oq ro'yxatiga %adress% qo'shilmoqda
+Search or enter address...: Manzilni qidiring yoki kiriting...
+Connecting dapps is not yet supported by Ledger.: Dapps ulanishi hali Ledger tomonidan qo'llab-quvvatlanmaydi.
+Time synchronization issue. Please ensure your device's time settings are correct.: Vaqtni sinxronlashtirish muammosi. Iltimos, qurilmangiz vaqt sozlamalari to'g'ri ekanligiga ishonch hosil qiling.
+Data was copied!: Ma'lumotlar nusxalandi!
+Open NFT Collection: NFT to'plamini oching
+Previous: Oldingi
+Next: Keyingi
+Insufficient TON for fee.: To'lov uchun TON yetarli emas.
+Send NFT: NFT jo'natish
+NFT has been sent!: NFT yuborildi!
+Cannot be sent: Yuborib bo'lmaydi
+NFT is for sale: NFT sotuvda
+More actions: Ko'proq amallar
+Open on %ton_explorer_name%: "%ton_explorer_name% da ochish"
+Swap is not supported in Testnet.: Testnet-da ayirboshlash qo'llab-quvvatlanmaydi.
+Swap is not yet supported by Ledger.: Ayirboshlash hali Ledger tomonidan qo'llab-quvvatlanmaydi.
+Buying with card is not supported in Testnet.: Buying with card is not supported in Testnet.
+Staking is not supported in Testnet.: Testnet-da staking qo'llab-quvvatlanmaydi.
+Get Support: Yordam olish
+$transfer_inactive_contract_error: |
+ Siz “EQ...” formatida manzilni kiritdingiz, lekin manzil faol emas, shuning uchun tranzaksiya yakunlanmaydi. 
+ Agar siz albatta ushbu manzilga yubormoqchi bo'lsangiz, u holda manzilni "UQ..." formatida kiriting.
+Successfully: Muvaffaqiyatli
+Unstake More: Ko'proq stakingdan olish
+WrongAddress: Dapp boshqa hamyondan tranzaksiya talab qildi.
+Are you sure you want to burn this NFT? It will be lost forever.: |
+  Haqiqatan ham ushbu NFTni yoqmoqchimisiz?
+  U abadiy yo'qoladi.
+$multi_burn_nft_warning: 'Siz %amount% NFTlarni yoqib yuborasiz.'
+$multi_send_nft_warning: 'Jarayon ~%duration% daqiqa(lar)ni olishi mumkin. Iltimos, ilovani yopmang va u tugamaguncha hisoblarni almashtirmang.'
+Burn NFT: NFTni yoqish
+Burn: Yoqish
+Private Key: Shaxsiy kalit
+'%amount% NFTs': "%amount% NFT'lar"
+1 NFT: 1ta NFT
+1 NFT Selected: 1ta NFT tanlandi
+'%amount% NFTs Selected': "%amount%ta NFT'lar tanlandi"
+For sale. Cannot be sent and burned: Sotuvda. Yuborish va yoqish mumkin emas
+Select: Tanlash
+Send All: Hammasini jo'natish
+Burn All: Hammasini yo'qish
+Select All: Hammasini tanlash
+Collection: To'plam
+Transaction ID was copied!: Tranzaksiya identifikatori nusxalandi!
+$swap_changelly_support: "Agar biron-bir muammo bo'lsa, %livechat% yoki %email% bilan bog'laning va **Tranzaktsiya ID** ko'rsating:"
+Changelly Live Chat: Onlayn chat
+Your %blockchain% Address: Sizning %blockchain% manzilingiz
+Vesting: Vesting
+Vesting Balance: Vesting Balansi
+Ready to Unfreeze: Eritish uchun tayyor
+You will receive your unfrozen coins in a few minutes.: Eritilgan tangalaringizni bir necha daqiqada olasiz.
+Vesting Schedule: Vesting jadvali
+Loyal User Airdrop: Sodiq foydalanuvchi Airdropi
+Unfrozen: Eritilgan
+Missed: O'tkazib yuborilgan
+Frozen: Muzlatilgan
+until %date%:  "%date% gacha"
+'%volume% in %amount% parts': '%volume% %amount% qismlarda'
+Unfreeze: Eritish
+Claim: Da'vo qilish
+Confirm Unfreezing: Muzdan chiqarishni tasdiqlang
+Insufficient Balance for Fee: To'lov uchun balans yetarli emas
+$fee_value_bold: '**Tolov:** %fee%'
+MyTonWallet Features: MyTonWallet Afzalliklari
+Install on Desktop: Kompiyuterga o'rnatish
+Install on Mobile: Mobil qurilmaga o'rnatish
+Install App: Ilovani o'rnatish
+WrongNetwork: Dapp boshqa tarmoqdan tranzaksiya talab qildi.
+Hide: Berkitish
+Hidden NFTs: Berkitilgan NFTlar
+Hidden By Me: Men tomonimdan berkitilganlar
+Probably Scam: Ehtimol, Scam
+$settings_nft_probably_scam_description: Ushbu NFT'lar Anti-Scam Protection tomonidan avtomatik ravishda o'chirilgan. Agar ular noto'g'ri ro'yxatga kiritilgan deb hisoblasangiz, keraklilarini qaytarishingiz mumkin.
+Unhide: Ko'rsatish
+Hide All: Hammasini berkitish
+Hide NFT: NFTni yashirish
+Reload Page: Sahifani qayta yuklash
+Open in Safari: Safari-da ochish
+Open in Browser: Brauzerda ochish
+CopyURL: URL manzilini nusxalash
+Share: Ulashish
+Unhide NFT: NFTni ko'rsatish
+$unhide_nft_warning: Haqiqatan ham %name% ko'rsatilsinmi? Bu NFT shubhali ko'rinadi va uning nomi va tavsifiga mos kelmasligi mumkin.
+Hide NFTs: NFTlarni yashirish
+Are you sure you want to hide this NFT collection containing %number% NFTs?: Haqiqatan ham %number% NFTlar bo'lgan ushbu NFT to'plamini yashirishni xohlaysizmi?
+Are you sure you want to hide these %number% NFTs?: Haqiqatan ham bu %number% NFTlarni yashirishni xohlaysizmi?
+Show: Ko'rsatish
+Confirm Sending: Yuborishni tasdiqlang
+Confirm Burning: Yonishni tasdiqlang
+Confirm Passcode: Parolni tasdiqlang
+Enter your code: Kodingizni kiriting
+$hardware_payload_warning: Uchinchi tomon xizmati hamyoningizga kirishni so'ramoqda — bu mablag' yo'qolishiga olib kelishi mumkin. Agar ushbu xizmatning ishonchliligiga ishonchingiz komil bo'lmasa, operatsiyani bekor qiling.
+$hardware_blind_sign_not_enabled: |
+  Uchinchi tomon xizmati hamyoningizga kirishni so'ramoqda — bu mablag' yo'qolishiga olib kelishi mumkin. Agar ushbu xizmatning ishonchliligiga ishonchingiz komil bo'lmasa, operatsiyani bekor qiling.
+
+  Davom etish uchun Ledger'dagi TON ilovasi sozlamalarida “Ko'r-ko'rona imzo qo'yish” opsiyasini yoqing.
+Switch to W5: W5 ga o'tish
+Not Scam: Skam emas
+Untitled: Sarlavhasiz
+$swap_too_small_amount: Juda kichik miqdor
