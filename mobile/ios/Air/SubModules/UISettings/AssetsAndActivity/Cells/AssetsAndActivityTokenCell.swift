@@ -11,8 +11,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-class AssetsAndActivityTokenCell: UITableViewCell {
-    
+final class AssetsAndActivityTokenCell: UITableViewCell {
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupViews()
@@ -100,13 +99,18 @@ class AssetsAndActivityTokenCell: UITableViewCell {
     private var token: ApiToken? = nil
     private var ignoreUpdatesForSlug: String? = nil
     
-    func configure(with token: ApiToken, balance: BigInt, importedSlug: Bool, isHidden: Bool, onTokenVisibilityChange: @escaping (String, Bool) -> Void) {
+    func configure(with token: ApiToken,
+                   isStaking: Bool,
+                   balance: BigInt,
+                   importedSlug: Bool,
+                   isHidden: Bool,
+                   onTokenVisibilityChange: @escaping (String, Bool) -> Void) {
         if token.slug == ignoreUpdatesForSlug { return }
         let tokenChanged = self.token != token
         self.token = token
         self.onTokenVisibilityChange = onTokenVisibilityChange
         iconImageView.config(with: token, shouldShowChain: AccountStore.account?.isMultichain == true)
-        titleLabel.text = token.name
+        titleLabel.text = MTokenBalance.displayName(apiToken: token, isStaking: isStaking)
         symbolLabel.text = token.symbol
         if !tokenChanged {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {

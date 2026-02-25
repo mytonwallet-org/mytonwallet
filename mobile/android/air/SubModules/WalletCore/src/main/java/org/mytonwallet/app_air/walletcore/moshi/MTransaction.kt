@@ -15,9 +15,9 @@ import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.SwapType
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexTransactionStatus.SENDING
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
@@ -161,7 +161,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         @Json(name = "timestamp") override val timestamp: Long,
 
         @Json(name = "amount") val amount: BigInteger,
-        @Json(name = "fromAddress") val fromAddress: String,
+        @Json(name = "fromAddress") val fromAddress: String?,
         @Json(name = "toAddress") val toAddress: String?,
         @Json(name = "comment") val comment: String? = null,
         @Json(name = "encryptedComment") val encryptedComment: String? = null,
@@ -449,6 +449,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
 
     override fun isSame(comparing: WEquatable<*>): Boolean {
         val comparingActivity = comparing as? MApiTransaction ?: return false
+        if (kind != comparingActivity.kind) return false
 
         if (getTxHash() == comparingActivity.getTxHash())
             return true
@@ -500,8 +501,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
             return (when (this) {
                 is Transaction -> {
                     val text =
-                        if (metadata?.name?.isNotEmpty() == true) metadata.name else (if (isIncoming) fromAddress else toAddress
-                            ?: "")
+                        if (metadata?.name?.isNotEmpty() == true) metadata.name else (if (isIncoming) fromAddress else toAddress) ?: ""
                     text
                 }
 
@@ -516,10 +516,9 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
             return (when (this) {
                 is Transaction -> {
                     if (isIncoming)
-                        fromAddress
+                        fromAddress ?: ""
                     else
-                        toAddress
-                            ?: ""
+                        toAddress ?: ""
                 }
 
                 else -> {
@@ -530,7 +529,18 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
 
     fun addressName(): String? {
         return if (this is Transaction) {
-            AddressStore.getAddress(peerAddress)?.name ?: metadata?.name
+            val peerChain = TokenStore.getToken(getTxSlug())?.chain
+            val localName = AddressStore.getAddress(peerAddress, peerChain)
+                ?.name
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+            val knownName = metadata?.name
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+            val domain = AddressStore.getDomain(peerAddress, peerChain)
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+            localName ?: knownName ?: domain
         } else {
             null
         }

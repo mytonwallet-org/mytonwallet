@@ -14,7 +14,6 @@ import {
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { openUrl } from '../../util/openUrl';
-import { IS_DELEGATED_BOTTOM_SHEET } from '../../util/windowEnvironment';
 import { DEFAULT_CARD_ADDRESS } from './constants';
 
 import useEffectWithPrevDeps from '../../hooks/useEffectWithPrevDeps';
@@ -33,8 +32,6 @@ import WalletCardPreview from './WalletCardPreview';
 
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './CustomizeWalletModal.module.scss';
-
-const NBS_CLOSING_DURATION = 100;
 
 interface OwnProps {
   isOpen?: boolean;
@@ -95,12 +92,12 @@ function CustomizeWalletModal({
 
   useEffectWithPrevDeps(([prevIsOpen]) => {
     if (isOpen && accountId) {
-      fetchNftsFromCollection({ collectionAddress: MTW_CARDS_COLLECTION });
+      fetchNftsFromCollection({ collection: { chain: 'ton', address: MTW_CARDS_COLLECTION } });
     }
 
     return () => {
       if (prevIsOpen && !isOpen) {
-        clearNftCollectionLoading({ collectionAddress: MTW_CARDS_COLLECTION });
+        clearNftCollectionLoading({ collection: { chain: 'ton', address: MTW_CARDS_COLLECTION } });
       }
     };
   }, [isOpen, accountId]);
@@ -174,11 +171,7 @@ function CustomizeWalletModal({
         void openUrl(MTW_CARDS_WEBSITE);
       }
     };
-    if (IS_DELEGATED_BOTTOM_SHEET) {
-      setTimeout(() => callback(), NBS_CLOSING_DURATION);
-    } else {
-      callback();
-    }
+    callback();
   });
 
   function renderCardsSelector() {
@@ -261,9 +254,7 @@ function CustomizeWalletModal({
       isOpen={isOpen}
       onClose={closeCustomizeWalletModal}
       dialogClassName={styles.modalDialog}
-      nativeBottomSheetKey="customize-wallet"
       hasCloseButton
-      forceFullNative
     >
       <ModalHeader
         className={styles.modalHeader}

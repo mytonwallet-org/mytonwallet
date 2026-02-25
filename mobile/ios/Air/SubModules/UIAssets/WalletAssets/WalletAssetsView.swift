@@ -10,8 +10,7 @@ import SwiftUI
 import UIComponents
 import WalletContext
 
-class WalletAssetsView: WTouchPassView, WThemedView {
-
+final class WalletAssetsView: WTouchPassView, WThemedView {
     var bottomConstraint: NSLayoutConstraint!
 
     let walletTokensVC: WalletTokensVC

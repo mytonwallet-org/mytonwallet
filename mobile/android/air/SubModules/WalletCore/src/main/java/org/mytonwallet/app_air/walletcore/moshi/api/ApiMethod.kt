@@ -6,15 +6,20 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.api.ArgumentsBuilder
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.NftCollection
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
+import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
+import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappConnectionRequest
+import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappDisconnectRequest
+import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
+import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSignDataRequest
+import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappTransactionRequest
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.ApiNotificationAddress
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransfersResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
-import org.mytonwallet.app_air.walletcore.moshi.ApiTransferToSign
-import org.mytonwallet.app_air.walletcore.moshi.DeviceInfo
 import org.mytonwallet.app_air.walletcore.moshi.MApiGetAddressInfoResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckNftDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckStakeDraftResult
@@ -62,6 +67,28 @@ sealed class ApiMethod<T> {
             override val name: String = "waitForLedgerApp"
             override val type: Type = Boolean::class.java
             override val arguments: String = ArgumentsBuilder()
+                .string(chain.name)
+                .jsObject(options, Options::class.java)
+                .build()
+        }
+
+        class RenderBlurredReceiveBg(
+            chain: MBlockchain,
+            options: Options? = null
+        ) : ApiMethod<String>() {
+            @JsonClass(generateAdapter = true)
+            data class Options(
+                val width: Int? = null,
+                val height: Int? = null,
+                val blurPx: Int? = null,
+                val quality: Double? = null,
+                val overlay: String? = null,
+                val scale: Int? = null
+            )
+
+            override val name = "renderBlurredReceiveBg"
+            override val type: Type = String::class.java
+            override val arguments = ArgumentsBuilder()
                 .string(chain.name)
                 .jsObject(options, Options::class.java)
                 .build()
@@ -328,9 +355,10 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
-        class SignTransfers(
+        class SignDappTransfers(
+            dappChain: ApiDappSessionChain,
             accountId: String,
-            transactions: List<ApiTransferToSign>,
+            transactions: List<ApiDappTransfer>,
             options: Options
         ) : ApiMethod<JSONArray>() {
 
@@ -338,28 +366,32 @@ sealed class ApiMethod<T> {
             data class Options(
                 val password: String?,
                 val validUntil: Long?,
-                val vestingAddress: String?
+                val vestingAddress: String?,
+                val isLegacyOutput: Boolean?
             )
 
-            override val name: String = "signTransfers"
+            override val name: String = "signDappTransfers"
             override val type: Type = JSONArray::class.java
             override val arguments: String = ArgumentsBuilder()
+                .jsObject(dappChain, ApiDappSessionChain::class.java)
                 .string(accountId)
-                .jsArray(transactions, ApiTransferToSign::class.java)
+                .jsArray(transactions, ApiDappTransfer::class.java)
                 .jsObject(options, Options::class.java)
                 .build()
         }
 
-        class SignData(
+        class SignDappData(
+            dappChain: ApiDappSessionChain,
             accountId: String,
             dappUrl: String,
             payloadToSign: MSignDataPayload,
             password: String,
         ) : ApiMethod<JSONObject>() {
 
-            override val name: String = "signData"
+            override val name: String = "signDappData"
             override val type: Type = JSONObject::class.java
             override val arguments: String = ArgumentsBuilder()
+                .jsObject(dappChain, ApiDappSessionChain::class.java)
                 .string(accountId)
                 .string(dappUrl)
                 .jsObject(payloadToSign, MSignDataPayload::class.java)
@@ -400,22 +432,18 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
-        class StartSseConnection(
-            request: Request
+        class TonConnectHandleDeepLink(
+            url: String,
+            isFromInAppBrowser: Boolean? = null,
+            identifier: String? = null
         ) : ApiMethod<ReturnStrategy?>() {
-            override val name: String = "startSseConnection"
+            override val name: String = "tonConnect_handleDeepLink"
             override val type: Type = ReturnStrategy::class.java
             override val arguments: String = ArgumentsBuilder()
-                .jsObject(request, Request::class.java)
+                .string(url)
+                .boolean(isFromInAppBrowser)
+                .string(identifier)
                 .build()
-
-            @JsonClass(generateAdapter = true)
-            data class Request(
-                val url: String,
-                val deviceInfo: DeviceInfo,
-                val isFromInAppBrowser: Boolean? = null,
-                val identifier: String? = null
-            )
         }
 
         class ConfirmDappRequestSendTransaction(
@@ -442,18 +470,20 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
-        class SignTonProof(
+        class SignDappProof(
+            dappChains: List<ApiDappSessionChain>,
             accountId: String,
             proofData: ApiTonConnectProof?,
             password: String
-        ) : ApiMethod<SignTonProof.Result>() {
+        ) : ApiMethod<SignDappProof.Result>() {
 
             @JsonClass(generateAdapter = true)
-            data class Result(val signature: String)
+            data class Result(val signatures: List<String>)
 
-            override val name: String = "signTonProof"
+            override val name: String = "signDappProof"
             override val type: Type = Result::class.java
             override val arguments: String = ArgumentsBuilder()
+                .jsArray(dappChains, ApiDappSessionChain::class.java)
                 .string(accountId)
                 .jsObject(proofData, ApiTonConnectProof::class.java)
                 .string(password)
@@ -474,7 +504,7 @@ sealed class ApiMethod<T> {
             @JsonClass(generateAdapter = true)
             data class Request(
                 val accountId: String? = null,
-                val proofSignature: String? = null
+                val proofSignatures: List<String>? = null
             )
         }
 
@@ -526,14 +556,14 @@ sealed class ApiMethod<T> {
 
             class TonConnectConnect(
                 dApp: DAppArg,
-                request: Any,
+                request: ApiDappConnectionRequest,
                 requestId: Int
             ) : ApiMethod<JSONObject>() {
                 override val name: String = "tonConnect_connect"
                 override val type: Type = JSONObject::class.java
                 override val arguments: String = ArgumentsBuilder()
                     .jsObject(dApp, DAppArg::class.java)
-                    .jsObject(request, Any::class.java)
+                    .jsObject(request, ApiDappConnectionRequest::class.java)
                     .number(requestId)
                     .build()
             }
@@ -552,53 +582,111 @@ sealed class ApiMethod<T> {
 
             class TonConnectDisconnect(
                 dApp: DAppArg,
-                request: Request
+                request: ApiDappDisconnectRequest
             ) : ApiMethod<JSONObject>() {
                 override val name: String = "tonConnect_disconnect"
                 override val type: Type = JSONObject::class.java
                 override val arguments: String = ArgumentsBuilder()
                     .jsObject(dApp, DAppArg::class.java)
-                    .jsObject(request, Request::class.java)
+                    .jsObject(request, ApiDappDisconnectRequest::class.java)
                     .build()
-
-                @JsonClass(generateAdapter = true)
-                data class Request(
-                    val method: String = "disconnect",
-                    val params: List<Any> = emptyList(),
-                    val id: String
-                )
             }
 
             class TonConnectSendTransaction(
                 dApp: DAppArg,
-                request: Request
+                request: ApiDappTransactionRequest
             ) : ApiMethod<JSONObject>() {
                 override val name: String = "tonConnect_sendTransaction"
                 override val type: Type = JSONObject::class.java
                 override val arguments: String = ArgumentsBuilder()
                     .jsObject(dApp, DAppArg::class.java)
-                    .jsObject(request, Request::class.java)
+                    .jsObject(request, ApiDappTransactionRequest::class.java)
                     .build()
-
-                @JsonClass(generateAdapter = true)
-                data class Request(
-                    val method: String,
-                    val params: List<String>,
-                    val id: String
-                )
             }
 
             class TonConnectSignData(
                 dApp: DAppArg,
-                request: TonConnectSendTransaction.Request
+                request: ApiDappSignDataRequest
             ) : ApiMethod<JSONObject>() {
                 override val name: String = "tonConnect_signData"
                 override val type: Type = JSONObject::class.java
                 override val arguments: String = ArgumentsBuilder()
                     .jsObject(dApp, DAppArg::class.java)
-                    .jsObject(request, TonConnectSendTransaction.Request::class.java)
+                    .jsObject(request, ApiDappSignDataRequest::class.java)
                     .build()
             }
+
+            class WalletConnectConnect(
+                dApp: DAppArg,
+                request: Any,
+                requestId: Int
+            ) : ApiMethod<JSONObject>() {
+                override val name: String = "walletConnect_connect"
+                override val type: Type = JSONObject::class.java
+                override val arguments: String = ArgumentsBuilder()
+                    .jsObject(dApp, DAppArg::class.java)
+                    .jsObject(request, Any::class.java)
+                    .number(requestId)
+                    .build()
+            }
+
+            class WalletConnectReconnect(
+                dApp: DAppArg,
+                requestId: Int
+            ) : ApiMethod<JSONObject>() {
+                override val name: String = "walletConnect_reconnect"
+                override val type: Type = JSONObject::class.java
+                override val arguments: String = ArgumentsBuilder()
+                    .jsObject(dApp, DAppArg::class.java)
+                    .number(requestId)
+                    .build()
+            }
+
+            class WalletConnectDisconnect(
+                dApp: DAppArg,
+                request: Any
+            ) : ApiMethod<JSONObject>() {
+                override val name: String = "walletConnect_disconnect"
+                override val type: Type = JSONObject::class.java
+                override val arguments: String = ArgumentsBuilder()
+                    .jsObject(dApp, DAppArg::class.java)
+                    .jsObject(request, Any::class.java)
+                    .build()
+            }
+
+            class WalletConnectSendTransaction(
+                dApp: DAppArg,
+                request: Any
+            ) : ApiMethod<JSONObject>() {
+                override val name: String = "walletConnect_sendTransaction"
+                override val type: Type = JSONObject::class.java
+                override val arguments: String = ArgumentsBuilder()
+                    .jsObject(dApp, DAppArg::class.java)
+                    .jsObject(request, Any::class.java)
+                    .build()
+            }
+
+            class WalletConnectSignData(
+                dApp: DAppArg,
+                request: Any
+            ) : ApiMethod<JSONObject>() {
+                override val name: String = "walletConnect_signData"
+                override val type: Type = JSONObject::class.java
+                override val arguments: String = ArgumentsBuilder()
+                    .jsObject(dApp, DAppArg::class.java)
+                    .jsObject(request, Any::class.java)
+                    .build()
+            }
+        }
+
+        class WalletConnectHandleDeepLink(
+            url: String
+        ) : ApiMethod<Any?>() {
+            override val name: String = "walletConnect_handleDeepLink"
+            override val type: Type = Any::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(url)
+                .build()
         }
     }
 
@@ -674,43 +762,63 @@ sealed class ApiMethod<T> {
 
     /* Nft */
     object Nft {
+        class FetchNftByAddress(
+            network: MBlockchainNetwork,
+            nftAddress: String,
+        ) : ApiMethod<ApiNft?>() {
+            override val name: String = "fetchNftByAddress"
+            override val type: Type = ApiNft::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(network.value)
+                .string(nftAddress)
+                .build()
+        }
+
         class CheckNftTransferDraft(
+            chain: MBlockchain,
             options: MApiCheckNftDraftOptions
         ) : ApiMethod<MApiCheckTransactionDraftResult>() {
             override val name: String = "checkNftTransferDraft"
             override val type: Type = MApiCheckTransactionDraftResult::class.java
             override val arguments: String = ArgumentsBuilder()
+                .string(chain.name)
                 .jsObject(options, MApiCheckNftDraftOptions::class.java)
                 .build()
         }
 
         class SubmitNftTransfer(
+            chain: MBlockchain,
             accountId: String,
             passcode: String,
             nft: ApiNft,
             address: String,
             comment: String?,
-            fee: BigInteger
+            fee: BigInteger,
+            isNftBurn: Boolean
         ) : ApiMethod<ApiSubmitTransfersResult>() {
             override val name: String = "submitNftTransfers"
             override val type: Type = ApiSubmitTransfersResult::class.java
             override val arguments: String = ArgumentsBuilder()
+                .string(chain.name)
                 .string(accountId)
                 .string(passcode)
                 .jsObject(arrayOf(nft.toDictionary()), Array<JSONObject>::class.java)
                 .string(address)
                 .string(comment)
                 .bigInt(fee)
+                .boolean(isNftBurn)
                 .build()
         }
 
         class CheckNftOwnership(
+            chain: String,
             accountId: String,
             nftAddress: String,
         ) : ApiMethod<Any>() {
             override val name: String = "checkNftOwnership"
             override val type: Type = Boolean::class.java
             override val arguments: String = ArgumentsBuilder()
+                .string(chain)
                 .string(accountId)
                 .string(nftAddress)
                 .build()
@@ -718,13 +826,20 @@ sealed class ApiMethod<T> {
 
         class FetchNftsFromCollection(
             accountId: String,
-            collectionAddress: String,
+            collection: Collection,
         ) : ApiMethod<Any>() {
+
+            @JsonClass(generateAdapter = true)
+            data class Collection(
+                val chain: String,
+                val address: String,
+            )
+
             override val name: String = "fetchNftsFromCollection"
             override val type: Type = Boolean::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
-                .string(collectionAddress)
+                .jsObject(collection, Collection::class.java)
                 .build()
         }
     }
@@ -784,6 +899,7 @@ sealed class ApiMethod<T> {
             data class Props(
                 val userToken: String,
                 val addresses: List<ApiNotificationAddress>,
+                val langCode: String,
                 val platform: String = "android",
             )
 

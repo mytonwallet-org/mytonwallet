@@ -36,8 +36,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
-import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
@@ -226,7 +226,12 @@ class SendNftVC(
             val feeValue = viewModel.feeValue ?: return@setOnClickListener
             val confirmNftVC = ConfirmNftVC(
                 context,
-                ConfirmNftVC.Mode.Send(viewModel.inputAddress, resolvedAddress, feeValue),
+                ConfirmNftVC.Mode.Send(
+                    nft.chain ?: MBlockchain.ton,
+                    viewModel.inputAddress,
+                    resolvedAddress,
+                    feeValue
+                ),
                 nft,
                 viewModel.inputComment
             )

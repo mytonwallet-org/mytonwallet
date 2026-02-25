@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
@@ -34,11 +35,13 @@ import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.views.L
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -75,10 +78,22 @@ class TransactionHeaderView(
         layoutParams = LayoutParams(0, amountView.lbl.lineHeight)
     }
 
+    private var peerAddress: String? = null
+    private var peerBlockchain: MBlockchain? = null
+
     private val addressLabel = WLabel(context).apply {
         setStyle(16f)
         setLineHeight(24f)
         setPaddingDp(8, 4, 8, 4)
+        foreground = WRippleDrawable.create(12f.dp).apply {
+            rippleColor = WColor.SubtitleText.color.colorWithAlpha(25)
+        }
+        setOnLongClickListener {
+            val address = peerAddress ?: return@setOnLongClickListener false
+            val blockchain = peerBlockchain ?: return@setOnLongClickListener false
+            AddressPopupHelpers.copyAddress(context, address, blockchain)
+            true
+        }
     }
 
     private val addressSpace = Space(context).apply {
@@ -169,6 +184,10 @@ class TransactionHeaderView(
         }
 
         if (transaction.shouldShowTransactionAddress) {
+            val fullAddress = if (transaction.isIncoming) transaction.fromAddress else transaction.toAddress
+            peerAddress = fullAddress
+            peerBlockchain = TokenStore.getToken(transaction.slug)?.mBlockchain
+
             val addressToShow = transaction.addressToShow(6, 6)
             val addressText = addressToShow?.first ?: ""
             val spannedString: SpannableStringBuilder
@@ -185,8 +204,8 @@ class TransactionHeaderView(
                     startIndex = text.length - addressText.length,
                     length = addressText.length,
                     network = AccountStore.activeAccount!!.network,
-                    addressTokenSlug = transaction.slug,
-                    address = transaction.fromAddress,
+                    blockchain = TokenStore.getToken(transaction.slug)?.mBlockchain,
+                    address = transaction.fromAddress ?: "",
                     popupXOffset = 0,
                     centerHorizontally = true,
                     showTemporaryViewOption = true
@@ -204,7 +223,7 @@ class TransactionHeaderView(
                     startIndex = text.length - addressText.length,
                     length = addressText.length,
                     network = AccountStore.activeAccount!!.network,
-                    addressTokenSlug = transaction.slug,
+                    blockchain = TokenStore.getToken(transaction.slug)?.mBlockchain,
                     address = transaction.toAddress ?: "",
                     popupXOffset = 0,
                     centerHorizontally = true,

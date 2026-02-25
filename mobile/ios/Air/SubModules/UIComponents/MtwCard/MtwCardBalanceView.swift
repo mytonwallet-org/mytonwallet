@@ -4,8 +4,27 @@ import WalletContext
 import WalletCore
 import Dependencies
 
-public let fontScalingFactor = max(1, homeCardWidth / (designScreenWidth - 2 * compactInsetSectionHorizontalPadding))
-public let homeCardFontSize: CGFloat = 56 * fontScalingFactor
+private let baseHomeCardWidth = designScreenWidth - 2 * compactInsetSectionHorizontalPadding
+
+public func homeCardFontScalingFactor(cardWidth: CGFloat) -> CGFloat {
+    homeCardFontScalingFactor(cardWidth: cardWidth, minimumScale: 1)
+}
+
+public func homeCardFontScalingFactor(cardWidth: CGFloat, minimumScale: CGFloat) -> CGFloat {
+    guard baseHomeCardWidth > 0 else { return 1 }
+    return max(minimumScale, cardWidth / baseHomeCardWidth)
+}
+
+public func homeCardFontSize(for cardWidth: CGFloat) -> CGFloat {
+    homeCardFontSize(for: cardWidth, minimumScale: 1)
+}
+
+public func homeCardFontSize(for cardWidth: CGFloat, minimumScale: CGFloat) -> CGFloat {
+    56 * homeCardFontScalingFactor(cardWidth: cardWidth, minimumScale: minimumScale)
+}
+
+public let fontScalingFactor = homeCardFontScalingFactor(cardWidth: homeCardWidth)
+public let homeCardFontSize: CGFloat = homeCardFontSize(for: homeCardWidth)
 public let homeCollapsedFontSize: CGFloat = 40
 
 // MARK: - MtwCardBalanceView
@@ -30,9 +49,9 @@ public struct MtwCardBalanceView: View, Equatable {
     public struct Style: Equatable, Identifiable {
         public static let grid = Style(
             id: "grid",
-            integerFont: .rounded(ofSize: 19 * fontScalingFactor, weight: .bold),
-            fractionFont: .rounded(ofSize: 13 * fontScalingFactor, weight: .bold),
-            symbolFont: .rounded(ofSize: 16 * fontScalingFactor, weight: .bold),
+            integerFont: .compactRounded(ofSize: 19 * fontScalingFactor, weight: .bold),
+            fractionFont: .compactRounded(ofSize: 13 * fontScalingFactor, weight: .bold),
+            symbolFont: .compactRounded(ofSize: 16 * fontScalingFactor, weight: .bold),
             integerColor: nil,
             fractionColor: nil,
             symbolColor: nil,
@@ -43,9 +62,9 @@ public struct MtwCardBalanceView: View, Equatable {
 
         public static let homeCard = Style(
             id: "homeCard",
-            integerFont: .rounded(ofSize: homeCardFontSize, weight: .bold),
-            fractionFont: .rounded(ofSize: 40 * fontScalingFactor, weight: .bold),
-            symbolFont: .rounded(ofSize: 48 * fontScalingFactor, weight: .bold),
+            integerFont: .compactRounded(ofSize: homeCardFontSize, weight: .bold),
+            fractionFont: .compactRounded(ofSize: 40 * fontScalingFactor, weight: .bold),
+            symbolFont: .compactRounded(ofSize: 48 * fontScalingFactor, weight: .bold),
             integerColor: nil,
             fractionColor: nil,
             symbolColor: nil,
@@ -53,12 +72,29 @@ public struct MtwCardBalanceView: View, Equatable {
             sensitiveDataCellSize: 16,
             sensitiveDataTheme: .light,
         )
+        
+        public static func homeCard(cardWidth: CGFloat, minimumScale: CGFloat = 1) -> Style {
+            let scale = homeCardFontScalingFactor(cardWidth: cardWidth, minimumScale: minimumScale)
+            let minimumScaleId = Int((minimumScale * 1000).rounded())
+            return Style(
+                id: "homeCard_\(Int(cardWidth.rounded()))_\(minimumScaleId)",
+                integerFont: .compactRounded(ofSize: homeCardFontSize(for: cardWidth, minimumScale: minimumScale), weight: .bold),
+                fractionFont: .compactRounded(ofSize: 40 * scale, weight: .bold),
+                symbolFont: .compactRounded(ofSize: 48 * scale, weight: .bold),
+                integerColor: nil,
+                fractionColor: nil,
+                symbolColor: nil,
+                showChevron: true,
+                sensitiveDataCellSize: 16,
+                sensitiveDataTheme: .light,
+            )
+        }
 
         public static let homeCollaped = Style(
             id: "homeCollaped",
-            integerFont: .rounded(ofSize: homeCollapsedFontSize, weight: .bold),
-            fractionFont: .rounded(ofSize: 28.5, weight: .bold),
-            symbolFont: .rounded(ofSize: 34, weight: .bold),
+            integerFont: .compactRounded(ofSize: homeCollapsedFontSize, weight: .bold),
+            fractionFont: .compactRounded(ofSize: 28.5, weight: .bold),
+            symbolFont: .compactRounded(ofSize: 34, weight: .bold),
             integerColor: WTheme.primaryLabel,
             fractionColor: WTheme.secondaryLabel,
             symbolColor: WTheme.secondaryLabel,
@@ -69,9 +105,9 @@ public struct MtwCardBalanceView: View, Equatable {
 
         public static let customizeWalletCard = Style(
             id: "customizeWalletCard",
-            integerFont: .rounded(ofSize: 46, weight: .bold),
-            fractionFont: .rounded(ofSize: 32, weight: .bold),
-            symbolFont: .rounded(ofSize: 38, weight: .bold),
+            integerFont: .compactRounded(ofSize: 46, weight: .bold),
+            fractionFont: .compactRounded(ofSize: 32, weight: .bold),
+            symbolFont: .compactRounded(ofSize: 38, weight: .bold),
             integerColor: nil,
             fractionColor: nil,
             symbolColor: nil,

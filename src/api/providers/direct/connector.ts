@@ -1,10 +1,10 @@
-import type { TonConnectMethodArgs, TonConnectMethods } from '../../tonConnect/types/misc';
 import type { ApiInitArgs, OnApiUpdate } from '../../types';
-import type { AllMethodArgs, AllMethodResponse, AllMethods } from '../../types/methods';
+import type { MethodArgsWithMaybePrefix, MethodResponseWithMaybePrefix } from '../../types/methods';
+import { type AllMethods, recognizeDappMethod } from '../../types/methods';
 
+import { getProtocolManager } from '../../dappProtocols';
 import * as methods from '../../methods';
 import init from '../../methods/init';
-import * as tonConnectApi from '../../tonConnect';
 
 let initPromise: Promise<void> | undefined;
 
@@ -15,16 +15,22 @@ export function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs | (() => Ap
 
 export async function callApi<T extends keyof AllMethods>(
   fnName: T,
-  ...args: AllMethodArgs<T>
-): Promise<AllMethodResponse<T>> {
+  ...args: MethodArgsWithMaybePrefix<T>
+): Promise<MethodResponseWithMaybePrefix<T>> {
   await initPromise!;
 
-  if (fnName.startsWith('tonConnect_')) {
-    fnName = fnName.replace('tonConnect_', '') as T;
-    const method = tonConnectApi[fnName as keyof TonConnectMethods];
+  const parsedRequest = recognizeDappMethod(fnName);
+
+  if (parsedRequest.isDapp) {
+    const adapter = getProtocolManager().getAdapter(parsedRequest.protocolType);
+    if (!adapter) {
+      throw new Error('No dApp adapter found for request');
+    }
+    const method = adapter[parsedRequest.fnName].bind(adapter);
+
     // @ts-ignore
-    return method(...args as TonConnectMethodArgs<keyof TonConnectMethods>);
+    return method(...args);
   }
   // @ts-ignore
-  return methods[fnName](...args) as AllMethodResponse<T>;
+  return methods[fnName](...args) as MethodResponseWithMaybePrefix<T>;
 }

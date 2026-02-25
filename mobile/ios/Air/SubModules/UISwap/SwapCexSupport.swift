@@ -30,7 +30,7 @@ enum SwapCexSupport {
                 tokenAddress: sellingToken.tokenAddress,
                 allowGasless: false
             )
-            let draft = try await Api.checkTransactionDraft(chain: sellingToken.chainValue, options: checkOptions)
+            let draft = try await Api.checkTransactionDraft(chain: sellingToken.chain, options: checkOptions)
             let options = ApiSubmitTransferOptions(
                 accountId: accountId,
                 toAddress: toAddress,
@@ -46,7 +46,7 @@ enum SwapCexSupport {
                 fee: draft.fee,
                 noFeeCheck: nil
             )
-            _ = try await Api.swapCexSubmit(chain: sellingToken.chainValue, options: options, swapId: createResult.swap.id)
+            _ = try await Api.swapCexSubmit(chain: sellingToken.chain, options: options, swapId: createResult.swap.id)
             return nil
         } else {
             return createResult.activity

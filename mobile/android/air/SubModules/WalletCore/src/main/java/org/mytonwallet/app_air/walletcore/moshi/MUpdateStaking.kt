@@ -74,6 +74,18 @@ data class MUpdateStaking(
         }
     }
 
+    fun hasActiveStaking(tokenSlug: String?): Boolean {
+        return (stakingState(tokenSlug)?.totalBalance?.signum() ?: 0) > 0
+    }
+
+    fun hasActiveStaking(): Boolean {
+        return states.any { (it?.totalBalance?.signum() ?: 0) > 0 }
+    }
+
+    fun activeStakingTokenSlug(): String? {
+        return states.firstOrNull { (it?.totalBalance?.signum() ?: 0) > 0 }?.tokenSlug
+    }
+
     private fun balanceInBaseCurrency(
         slug: String,
         balance: BigInteger?,

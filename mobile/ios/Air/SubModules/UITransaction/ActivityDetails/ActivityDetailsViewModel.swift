@@ -13,6 +13,7 @@ final class ActivityDetailsViewModel {
     }
     var isScam: Bool = false
     var detailsExpanded: Bool
+    var detailsCollapseEnabled: Bool = true
     var scrollingDisabled: Bool = true
     var collapsedHeight: CGFloat = 0
     var expandedHeight: CGFloat = 0
@@ -36,6 +37,7 @@ final class ActivityDetailsViewModel {
     }
     
     func onDetailsExpanded() {
+        guard detailsCollapseEnabled else { return }
         self.detailsExpanded.toggle()
         onDetailsExpandedChanged()
     }

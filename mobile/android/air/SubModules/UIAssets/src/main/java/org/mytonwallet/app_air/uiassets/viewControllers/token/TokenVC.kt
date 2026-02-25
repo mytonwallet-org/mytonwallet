@@ -45,6 +45,8 @@ import org.mytonwallet.app_air.uisend.send.MultisendLauncher
 import org.mytonwallet.app_air.uisend.send.SellWithCardLauncher
 import org.mytonwallet.app_air.uisend.send.SendVC
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
+import org.mytonwallet.app_air.uistake.staking.StakingVC
+import org.mytonwallet.app_air.uistake.staking.StakingViewModel
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -53,7 +55,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.isSameDayAs
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -442,8 +444,13 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             }
 
             HeaderActionsView.Identifier.EARN -> {
+                val hasActiveStaking = AccountStore.stakingData?.hasActiveStaking(token.slug) == true
                 val navVC = WNavigationController(window!!)
-                navVC.setRoot(EarnRootVC(context, token.slug))
+                if (hasActiveStaking) {
+                    navVC.setRoot(EarnRootVC(context, token.slug))
+                } else {
+                    navVC.setRoot(StakingVC(context, token.slug, StakingViewModel.Mode.STAKE))
+                }
                 window?.present(navVC)
             }
 
@@ -621,7 +628,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                     },
                 )
                 actionsView?.setPadding(0, 0, 0, 16.dp)
-                actionsView?.updateActions(account)
+                actionsView?.updateActions(account, token.slug)
                 if (account.accountType == MAccount.AccountType.VIEW)
                     actionsView?.updateLayoutParams {
                         height = 0

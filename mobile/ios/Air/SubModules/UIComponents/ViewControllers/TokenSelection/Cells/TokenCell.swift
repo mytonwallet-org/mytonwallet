@@ -91,7 +91,7 @@ class TokenCell: UITableViewCell, WThemedView {
     func configure(with walletToken: MTokenBalance, isAvailable: Bool, onSelect: @escaping () -> Void) {
         self.onSelect = onSelect
         let token = TokenStore.tokens[walletToken.tokenSlug]
-        iconView.config(with: token, isStaking: false, isWalletView: false, shouldShowChain: AccountStore.account?.isMultichain == true || token?.chain != "ton")
+        iconView.config(with: token, isStaking: false, isWalletView: false, shouldShowChain: AccountStore.account?.isMultichain == true || token?.chain != .ton)
         nameLabel.text = token?.name
         if isAvailable {
             if let token {
@@ -107,10 +107,10 @@ class TokenCell: UITableViewCell, WThemedView {
 
     func configure(with token: ApiToken, isAvailable: Bool, onSelect: @escaping () -> Void) {
         self.onSelect = onSelect
-        iconView.config(with: token, isStaking: false, shouldShowChain: AccountStore.account?.isMultichain == true || token.chain != "ton")
+        iconView.config(with: token, isStaking: false, shouldShowChain: AccountStore.account?.isMultichain == true || token.chain != .ton)
         nameLabel.text = token.name
         if isAvailable {
-            amountLabel.text = token.chainToShow?.uppercased()
+            amountLabel.text = token.chain.title
         } else {
             amountLabel.text = lang("Unavailable")
         }

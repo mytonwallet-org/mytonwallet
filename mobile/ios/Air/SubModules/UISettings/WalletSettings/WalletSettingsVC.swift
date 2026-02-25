@@ -15,7 +15,9 @@ import Perception
 import OrderedCollections
 import UIKitNavigation
 
-public final class WalletSettingsVC: WViewController, WSegmentedController.Delegate {
+private let maxWidth: CGFloat = 580
+
+public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delegate {
     
     @Dependency(\.balanceStore) private var balanceStore
     
@@ -51,6 +53,8 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
     private var segmentedController: WSegmentedController?
     private var segmentedControl: WSegmentedControl? { segmentedController?.segmentedControl }
     private var viewModel = WalletSettingsViewModel()
+    private let segmentedControlWidth: CGFloat = 320
+    private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
     
     public override func viewDidLoad() {
         
@@ -71,13 +75,18 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
         )
         if let sheet = sheetPresentationController {
             if IOS_26_MODE_ENABLED {
-                sheet.prefersGrabberVisible = true
+                sheet.prefersGrabberVisible = !isPad
             }
-            sheet.detents = [
-                .custom(identifier: .init("twoThirds")) { $0.maximumDetentValue * 0.667 },
-                .large(),
-            ]
-            sheet.selectedDetentIdentifier = .init("twoThirds")
+            if isPad {
+                sheet.detents = [.large()]
+                sheet.selectedDetentIdentifier = .large
+            } else {
+                sheet.detents = [
+                    .custom(identifier: .init("twoThirds")) { $0.maximumDetentValue * 0.667 },
+                    .large(),
+                ]
+                sheet.selectedDetentIdentifier = .init("twoThirds")
+            }
             if #available(iOS 26.1, *) {
                 sheet.backgroundEffect = UIColorEffect(color: WTheme.sheetBackground)
             }
@@ -111,10 +120,9 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
             segmentedControl.topAnchor.constraint(equalTo: segmentedControlContainer.topAnchor, constant: 12),
             segmentedControl.centerXAnchor.constraint(equalTo: segmentedControlContainer.centerXAnchor),
             segmentedControl.widthAnchor.constraint(equalTo: segmentedControlContainer.widthAnchor),
-            segmentedControlContainer.widthAnchor.constraint(equalToConstant: screenWidth),
-            segmentedControl.widthAnchor.constraint(equalToConstant: screenWidth),
+            segmentedControlContainer.widthAnchor.constraint(equalToConstant: min(maxWidth, screenWidth)),
         ])
-        segmentedControlContainer.frame.size.height = 42
+        segmentedControlContainer.frame.size.height = 54
         
         if let cls = NSClassFromString("ettelaPraBnoitagivaNIU_".reverse) as? UIView.Type {
             let palette = cls.perform(NSSelectorFromString("alloc"))

@@ -119,7 +119,7 @@ function InvoiceModal({
                 addressUrl={IS_CAPACITOR ? invoiceUrl : undefined}
                 noExplorer
                 withShareInMenu={IS_CAPACITOR}
-                copyNotification={lang('Invoice link was copied!')}
+                copyNotification={lang('Invoice Link Copied')}
                 className={styles.invoiceLinkField}
               />
             </div>
@@ -144,7 +144,6 @@ function InvoiceModal({
     <Modal
       isOpen={isOpen}
       dialogClassName={styles.modalDialog}
-      nativeBottomSheetKey="invoice"
       onClose={closeInvoiceModal}
       onCloseAnimationEnd={closeTokenSelector}
     >

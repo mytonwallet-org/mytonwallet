@@ -11,12 +11,20 @@ extension Deeplink {
             parseTonInvoiceUrl(url)
         case "tc", "mytonwallet-tc":
             parseTonConnectUrl(url)
+        case "wc":
+            parseWalletConnectUrl(url)
         case "mtw":
             parseMtwUrl(url)
         case "https", "http":
             switch url.host {
             case "connect.mytonwallet.org":
                 parseTonConnectUrl(url)
+            case "walletconnect.com":
+                if url.path == "/wc" {
+                    parseWalletConnectUrl(url)
+                } else {
+                    nil
+                }
             case "go.mytonwallet.org":
                 parseMtwUrl(url)
             case "my.tt":
@@ -37,6 +45,10 @@ extension Deeplink {
 
 private func parseTonConnectUrl(_ url: URL) -> Deeplink {
     Deeplink.tonConnect2(requestLink: url.absoluteString)
+}
+
+private func parseWalletConnectUrl(_ url: URL) -> Deeplink {
+    Deeplink.walletConnect(requestLink: url.absoluteString)
 }
 
 private func parseTonInvoiceUrl(_ url: URL) -> Deeplink? {
@@ -118,6 +130,9 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
 
     case "buy-with-card":
         return .buyWithCard
+        
+    case Deeplink.Sell.urlHost:
+        return .sell(.init(url))
 
     case "stake":
         return .stake
@@ -135,10 +150,10 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
         }
         let urlString = "https://giveaway.mytonwallet.io/\(giveawayId != nil ? "?giveawayId=\(giveawayId!)" : "")"
         let url = URL(string: urlString)!
-        return .url(config: InAppBrowserPageVC.Config(
+        return .url(config: InAppBrowserPageConfig(
                 url: url,
                 title: "Giveaway",
-                injectTonConnectBridge: true
+                injectDappConnect: true
         ))
         
     case "r":
@@ -154,10 +169,10 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
         }
         let urlString = "https://checkin.mytonwallet.org/\(r != nil ? "?r=\(r!)" : "")"
         let url = URL(string: urlString)!
-        return .url(config: InAppBrowserPageVC.Config(
+        return .url(config: InAppBrowserPageConfig(
             url: url,
             title: "Checkin",
-            injectTonConnectBridge: true
+            injectDappConnect: true
         ))
         
     case "receive":
@@ -171,7 +186,7 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
         let pathComponents = url.pathComponents.filter { $0 != "/" }
         if pathComponents.count >= 2 {
             // mtw://token/{chain}/{tokenAddress}
-            let chain = pathComponents[0]
+            guard let chain = ApiChain(rawValue: pathComponents[0]) else { return nil }
             let tokenAddress = pathComponents[1]
             return .tokenAddress(chain: chain, tokenAddress: tokenAddress)
         } else if pathComponents.count == 1 {
@@ -185,9 +200,9 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
     case "tx":
         let pathComponents = url.pathComponents.filter { $0 != "/" }
         guard pathComponents.count >= 2 else { return nil }
-        let chain = pathComponents[0]
+        let chainString = pathComponents[0]
         let txId = pathComponents.dropFirst().joined(separator: "/")
-        guard let chain = ApiChain(rawValue: chain) else { return nil }
+        guard let chain = ApiChain(rawValue: chainString), chain.isSupported else { return nil }
         return .transaction(chain: chain, txId: txId)
 
     case "nft":
@@ -199,7 +214,10 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
         var addressOrDomainByChain: [String: String] = [:]
         let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         for queryItem in queryItems {
-            if let chain = ApiChain(rawValue: queryItem.name), let addressOrDomain = queryItem.value?.nilIfEmpty, chain.isValidAddressOrDomain(addressOrDomain) {
+            if let chain = ApiChain(rawValue: queryItem.name),
+               chain.isSupported,
+               let addressOrDomain = queryItem.value?.nilIfEmpty,
+               chain.isValidAddressOrDomain(addressOrDomain) {
                 addressOrDomainByChain[chain.rawValue] = addressOrDomain
             }
         }
@@ -207,5 +225,44 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
 
     default:
         return nil
+    }
+}
+
+extension Deeplink {
+    struct Sell {
+        static let urlHost = "offramp"
+        
+        let transactionId: String?
+        let baseCurrencyCode: String?
+        let baseCurrencyAmount: String?
+        let depositWalletAddress: String?
+        let depositWalletAddressTag: String?
+
+        init(_ url: URL) {
+            let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            var transactionId: String?
+            var baseCurrencyCode: String?
+            var baseCurrencyAmount: String?
+            var depositWalletAddress: String?
+            var depositWalletAddressTag: String?
+
+            for item in queryItems {
+                guard let value = item.value, !value.isEmpty else { continue }
+                switch item.name {
+                case "transactionId": transactionId = value
+                case "baseCurrencyCode": baseCurrencyCode = value
+                case "baseCurrencyAmount": baseCurrencyAmount = value
+                case "depositWalletAddress": depositWalletAddress = value
+                case "depositWalletAddressTag": depositWalletAddressTag = value
+                default: break
+                }
+            }
+            
+            self.transactionId = transactionId
+            self.baseCurrencyCode = baseCurrencyCode
+            self.baseCurrencyAmount = baseCurrencyAmount
+            self.depositWalletAddress = depositWalletAddress
+            self.depositWalletAddressTag = depositWalletAddressTag
+        }
     }
 }

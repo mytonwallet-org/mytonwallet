@@ -171,7 +171,7 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
         
         NSLayoutConstraint.activate([
             avatarTopConstraint,
-            avatarImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            avatarImageView.centerXAnchor.constraint(equalTo: layoutMarginsGuide.centerXAnchor),
             
             avatarBlurView.leadingAnchor.constraint(equalTo: avatarImageView.leadingAnchor, constant: -50),
             avatarBlurView.trailingAnchor.constraint(equalTo: avatarImageView.trailingAnchor, constant: 50),
@@ -183,7 +183,7 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
             navBarView.rightAnchor.constraint(equalTo: rightAnchor),
             navBarView.bottomAnchor.constraint(equalTo: safeAreaGuide.topAnchor, constant: 40),
             
-            walletInfoView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            walletInfoView.centerXAnchor.constraint(equalTo: layoutMarginsGuide.centerXAnchor),
             walletInfoView.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -24),
             walletInfoViewTopConstraint,
             

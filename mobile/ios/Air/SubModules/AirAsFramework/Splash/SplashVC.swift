@@ -8,9 +8,7 @@
 import UIKit
 import SwiftUI
 import Ledger
-import UICreateWallet
 import UIPasscode
-import UIHome
 import UIDapp
 import UIInAppBrowser
 import UIComponents
@@ -26,7 +24,7 @@ final class SplashVC: WViewController {
     
     private var splashImageView = UIImageView(image: UIImage(named: "Splash"))
     
-    // if app is loading, the deeplink will be stored here to be handle after app started.
+    // if app is loading, the deeplink will be stored here to be handled after app started.
     private var nextDeeplink: Deeplink? = nil
     private var nextNotification: UNNotification? = nil
     
@@ -87,11 +85,6 @@ final class SplashVC: WViewController {
         }
     }
 
-    func replaceVC(with vc: UIViewController, animationDuration: Double?) {
-        let rootVC = vc is UITabBarController ? vc : WNavigationController(rootViewController: vc)
-        AppActions.transitionToNewRootViewController(rootVC, animationDuration: animationDuration)
-    }
-    
     // start the app by initializing the wallet context and getting the wallet info
     private func startApp() {
         UIApplication.shared.delegate?.window??.backgroundColor = UIColor(named: "SplashBackgroundColor", in: AirBundle, compatibleWith: nil)!
@@ -133,14 +126,14 @@ final class SplashVC: WViewController {
 extension SplashVC: SplashVMDelegate {
     
     func navigateToIntro() {
-        afterUnlock { [weak self] in
-            self?.replaceVC(with: IntroVC(introModel: IntroModel(network: .mainnet, password: nil)), animationDuration: 0.5)
+        afterUnlock {
+            AppActions.transitionToRootState(.intro, animationDuration: 0.5)
         }
     }
 
     func navigateToHome() {
-        afterUnlock { [weak self] in
-            self?.replaceVC(with: HomeTabBarController(), animationDuration: 0.2)
+        afterUnlock {
+            AppActions.transitionToRootState(.active, animationDuration: 0.2)
         }
     }
 }
@@ -180,26 +173,13 @@ extension SplashVC: WalletContextDelegate {
     }
     
     func restartApp() {
-        if topViewController() !== self {
-            WalletCoreData.removeObservers()
-            _isWalletReady = false
-            
-            // Reset RootVC to self
-            guard let window = UIApplication.shared.sceneKeyWindow else { return }
-            UIView.transition(with: window, duration: 0.5,
-                              options: .transitionCrossDissolve,
-                              animations: {
-                window.rootViewController = self
-            }) { _ in
-                self.startApp()
-            }
-        } else {
-            startApp()
-        }
+        WalletCoreData.removeObservers()
+        _isWalletReady = false
+        startApp()
     }
 
-    func handleDeeplink(url: URL) -> Bool {
-        return AirLauncher.deeplinkHandler?.handle(url) ?? false
+    func handleDeeplink(url: URL, source: DeeplinkOpenSource) -> Bool {
+        return AirLauncher.deeplinkHandler?.handle(url, source: source) ?? false
     }
     
     var isWalletReady: Bool {
@@ -216,7 +196,7 @@ extension SplashVC: DeeplinkNavigator {
     func handle(deeplink: Deeplink) {
         if isWalletReady, isAppUnlocked {
             guard AccountStore.account != nil else {
-                // we ignore depplinks when wallet is not ready yet, wallet gets ready when home page appears
+                // we ignore deeplinks when wallet is not ready yet, wallet gets ready when home page appears
                 nextDeeplink = nil
                 return
             }
@@ -224,14 +204,9 @@ extension SplashVC: DeeplinkNavigator {
             
             switch deeplink {
             case .invoice(address: let address, amount: let amount, comment: let comment, binaryPayload: let binaryPayload, token: let token, jetton: let jetton, stateInit: let stateInit):
-                let addressObj = MRecentAddress(chain: "ton",
-                                                address: address,
-                                                addressAlias: nil,
-                                                timstamp: Date().timeIntervalSince1970)
-                RecentAddressesHelper.saveRecentAddress(accountId: AccountStore.accountId!, recentAddress: addressObj)
                 
                 AppActions.showSend(prefilledValues: SendPrefilledValues(
-                    address: addressObj.address,
+                    address: address,
                     amount: amount,
                     token: token,
                     jetton: jetton,
@@ -243,23 +218,29 @@ extension SplashVC: DeeplinkNavigator {
             case .tonConnect2(requestLink: let requestLink):
                 TonConnect.shared.handleDeeplink(requestLink)
                 
+            case .walletConnect(requestLink: let requestLink):
+                WalletConnect.shared.handleDeeplink(requestLink)
+                
             case .swap(from: let from, to: let to, amountIn: let amountIn):
                 AppActions.showSwap(defaultSellingToken: from, defaultBuyingToken: to, defaultSellingAmount: amountIn, push: nil)
                 
             case .buyWithCard:
                 AppActions.showBuyWithCard(chain: nil, push: nil)
                 
+            case .sell(let cell):
+                handleSell(cell)
+                
             case .stake:
                 AppActions.showEarn(tokenSlug: nil)
             
             case .url(let config):
-                AppActions.openInBrowser(config.url, title: config.title, injectTonConnect: config.injectTonConnectBridge)
+                AppActions.openInBrowser(config.url, title: config.title, injectDappConnect: config.injectDappConnect)
                 
             case .switchToClassic:
                 WalletContextManager.delegate?.switchToCapacitor()
                 
             case .transfer:
-                AppActions.showSend(prefilledValues: nil)
+                AppActions.showSend(prefilledValues: .init())
                 
             case .receive:
                 AppActions.showReceive(chain: nil, title: nil)
@@ -304,18 +285,74 @@ extension SplashVC: DeeplinkNavigator {
         }
     }
     
+    private func handleSell(_ deeplinkSellData: Deeplink.Sell) {
+        // Wallet address. Check for existence only, it will be validated on "Send" screen
+        guard let address = deeplinkSellData.depositWalletAddress?.nilIfEmpty else {
+            AppActions.showError(error: DisplayError(text: lang("$missing_offramp_deposit_address")))
+            return;
+        }
+        
+        // Slug, chain
+        var slug: String?
+        var chain: ApiChain?
+        if let normalizedCode = deeplinkSellData.baseCurrencyCode?.lowercased() {
+            if normalizedCode == "ton" || normalizedCode == "toncoin" {
+                slug = TONCOIN_SLUG
+                chain = .ton
+            } else {
+                if let token = TokenStore.getToken(slug: normalizedCode) {
+                    slug = token.slug
+                    chain = token.chain
+                }
+            }
+        }
+        guard let slug, let chain else {
+            AppActions.showError(error: DisplayError(text: lang("$unsupported_deeplink_parameter")))
+            return;
+        }
+        
+        // Amount
+        var amount: BigInt?
+        if let baseCurrencyAmount = deeplinkSellData.baseCurrencyAmount?.nilIfEmpty,
+            let token = TokenStore.getToken(slug: slug) {
+            let a = amountValue(baseCurrencyAmount, digits: token.decimals)
+            if a == 0 {
+                log.error("Unable to parse amount '\(baseCurrencyAmount)'")
+            } else {
+                amount = a
+            }
+        }
+        
+        // Other checks
+        let depositWalletAddressTag = deeplinkSellData.depositWalletAddressTag?.nilIfEmpty
+        assert(depositWalletAddressTag != nil)
+        
+        // Save to stored addresses. Only new entry as user might have renamed previous record for their convenience
+        let savedAddress = SavedAddress(name: "MoonPay Off-Ramp", address: address, chain: chain)
+        AccountContext(source: .current).savedAddresses.save(savedAddress, addOnly: true)
+        
+        // Start sending with predefined values
+        AppActions.showSend(prefilledValues: .init(
+            mode: .sellToMoonpay,
+            address: address,
+            amount: amount,
+            token: slug,
+            commentOrMemo: depositWalletAddressTag
+        ))
+    }
+    
     @MainActor private func _handleNotification(_ notification: UNNotification) async throws {
         let userInfo = notification.request.content.userInfo
         let action = userInfo["action"] as? String
         let address = userInfo["address"] as? String ?? ""
-        let chain = ApiChain(rawValue: userInfo["chain"] as? String ?? "") ?? FALLBACK_CHAIN
-        let accountId = AccountStore.orderedAccounts.first(where: { $0.addressByChain[chain.rawValue] == address })?.id
+        guard let chain = ApiChain(rawValue: userInfo["chain"] as? String ?? "") else { return }
+        let accountId = AccountStore.orderedAccounts.first(where: { $0.getAddress(chain: chain) == address })?.id
         if action == "openUrl" {
             if let urlString = userInfo["url"] as? String, let url = URL(string: urlString) {
                 if userInfo["isExternal"] as? Bool == true {
                     await UIApplication.shared.open(url)
                 } else {
-                    AppActions.openInBrowser(url, title: userInfo["title"] as? String, injectTonConnect: true)
+                    AppActions.openInBrowser(url, title: userInfo["title"] as? String, injectDappConnect: true)
                 }
             }
             return
@@ -324,11 +361,11 @@ extension SplashVC: DeeplinkNavigator {
         guard let accountId else { return }
         switch action {
         case "nativeTx", "swap":
-            if let txId = userInfo["txId"] as? String {
+            if chain.isSupported, let txId = userInfo["txId"] as? String {
                 AppActions.showAnyAccountTx(accountId: accountId, chain: chain, txId: txId, showError: false)
             }
         case "jettonTx":
-            if let txId = userInfo["txId"] as? String {
+            if chain.isSupported, let txId = userInfo["txId"] as? String {
                 AppActions.showAnyAccountTx(accountId: accountId, chain: chain, txId: txId, showError: false)
             } else if let slug = userInfo["slug"] as? String {
                 try await AccountStore.activateAccount(accountId: accountId)

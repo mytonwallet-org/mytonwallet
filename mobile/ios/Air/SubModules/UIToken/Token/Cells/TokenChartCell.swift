@@ -10,7 +10,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-class TokenChartCell: UITableViewCell {
+class TokenChartCell: FirstRowCell {
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)

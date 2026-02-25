@@ -6,7 +6,11 @@ extension ApiUpdate {
         public var type = "updateNfts"
         public var accountId: String
         public var nfts: [ApiNft]
+        public var chain: ApiChain
         public var collectionAddress: String?
+        public var isFullLoading: Bool?
+        /** Complete set of addresses seen during a streaming session. Sent with the final `isFullLoading: false` update. */
+        public var streamedAddresses: [String]?
     }
     
     public struct NftReceived: Equatable, Hashable, Codable, Sendable {

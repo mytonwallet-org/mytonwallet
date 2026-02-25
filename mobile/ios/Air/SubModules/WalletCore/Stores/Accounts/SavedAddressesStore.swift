@@ -49,10 +49,11 @@ public final class SavedAddresses {
         }
         return []
     }
-    
-    public func save(_ newValue: SavedAddress) {
+
+    public func save(_ newValue: SavedAddress, addOnly: Bool = false) {
         withMutation(keyPath: \.values) {
-            var values = self.values
+            var values = self.values.filter { !$0.matches(newValue) }
+            guard !addOnly || values.count == self.values.count else { return }
             values.append(newValue)
             if let object = try? JSONSerialization.encode(values) {
                 GlobalStorage.update { $0[key] = object }

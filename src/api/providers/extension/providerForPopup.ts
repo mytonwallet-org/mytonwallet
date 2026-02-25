@@ -9,6 +9,7 @@ import initExtensionMethods from '../../extensionMethods/init';
 import * as methods from '../../methods';
 import initApi, { destroy as destroyMethods } from '../../methods/init';
 
+// FIXME: fix port disconnection on popup close
 void createExtensionInterface(POPUP_PORT, async (name: string, origin?: string, ...args: any[]) => {
   if (name === 'init') {
     await initApi(args[0] as OnApiUpdate, args[1] as ApiInitArgs);

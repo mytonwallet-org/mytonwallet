@@ -1,4 +1,4 @@
-import type { ApiTonConnectProof } from '../../../tonConnect/types';
+import type { TonConnectProof } from '../../../dappProtocols/adapters';
 import type { ApiNetwork, ApiTonWallet } from '../../../types';
 import { ApiHardwareError } from '../../../types';
 
@@ -7,7 +7,7 @@ import { doesLedgerDeviceMatch, getLedgerAccountPathByWallet, handleLedgerTonErr
 export async function signTonProofWithLedger(
   network: ApiNetwork,
   wallet: ApiTonWallet,
-  proof: ApiTonConnectProof,
+  proof: TonConnectProof,
 ): Promise<Buffer | { error: ApiHardwareError }> {
   const accountPath = getLedgerAccountPathByWallet(network, wallet);
   const { timestamp, domain, payload } = proof;

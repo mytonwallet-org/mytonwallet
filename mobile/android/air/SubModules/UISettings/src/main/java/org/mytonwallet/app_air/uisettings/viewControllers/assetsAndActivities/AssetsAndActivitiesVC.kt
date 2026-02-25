@@ -26,14 +26,15 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
-import java.math.BigInteger
 
 class AssetsAndActivitiesVC(context: Context) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
@@ -42,6 +43,23 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
     companion object {
         val HEADER_CELL = WCell.Type(1)
         val TOKEN_CELL = WCell.Type(2)
+    }
+
+    private data class TokenRow(
+        val token: MToken,
+        val balance: MTokenBalance
+    ) : WEquatable<MTokenBalance> {
+
+        override fun isSame(comparing: WEquatable<*>): Boolean {
+            return comparing is TokenRow
+                && balance.virtualStakingToken != null
+                && balance.virtualStakingToken == comparing.balance.virtualStakingToken
+        }
+
+        override fun isChanged(comparing: WEquatable<*>): Boolean {
+            return true
+        }
+
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -58,10 +76,13 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
     }
 
     private var oldHiddenTokens = ArrayList<Boolean>()
-    private var allTokens = emptyList<MToken>()
+    private var allTokens = emptyList<TokenRow>()
         set(value) {
             field = value
-            oldHiddenTokens = value.map { it.isHidden() } as ArrayList<Boolean>
+            val data = AccountStore.assetsAndActivityData
+            oldHiddenTokens = value.map { row ->
+                isTokenHidden(row, data)
+            } as ArrayList<Boolean>
         }
 
     private val recyclerView: WRecyclerView by lazy {
@@ -141,8 +162,31 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
     }
 
     private fun reloadTokens() {
-        allTokens = AccountStore.assetsAndActivityData.getAllTokens().mapNotNull { tokenBalance ->
-            TokenStore.getToken(tokenBalance.token)
+        allTokens = AccountStore.assetsAndActivityData
+            .getAllTokens(addVirtualStakingTokens = true)
+            .mapNotNull { balance ->
+                val slug = balance.token ?: return@mapNotNull null
+                val token = TokenStore.getToken(slug) ?: return@mapNotNull null
+                TokenRow(token, balance)
+            }
+    }
+
+    private fun checkAndUpdateHeader(prevTokens: List<TokenRow>) {
+        val hadTokens = prevTokens.isNotEmpty()
+        val hasTokens = allTokens.isNotEmpty()
+        if (hadTokens != hasTokens) {
+            rvAdapter.notifyItemChanged(0)
+        }
+    }
+
+    private fun isTokenHidden(
+        row: TokenRow,
+        data: MAssetsAndActivityData
+    ): Boolean {
+        return if (row.balance.isVirtualStakingRow) {
+            row.balance.virtualStakingToken?.let { data.hiddenTokens.contains(it) } == true
+        } else {
+            row.token.isHidden(AccountStore.activeAccount, data)
         }
     }
 
@@ -186,6 +230,7 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
         when (indexPath.section) {
             0 -> {
                 (cellHolder.cell as AssetsAndActivitiesHeaderCell).configure(
+                    hasTokens = allTokens.isNotEmpty(),
                     onHideNoCostTokensChanged = { isHidden ->
                         WGlobalStorage.setAreNoCostTokensHidden(isHidden)
                         val data = AccountStore.assetsAndActivityData
@@ -199,10 +244,14 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
                         )
                         val indexes = ArrayList<Int>()
                         scope.launch {
+                            val data = AccountStore.assetsAndActivityData
                             this@AssetsAndActivitiesVC.oldHiddenTokens =
-                                allTokens.map { it.isHidden() } as ArrayList<Boolean>
-                            allTokens.forEachIndexed { index, mToken ->
-                                if (mToken.isHidden() != oldHiddenTokens[index])
+                                allTokens.map { row ->
+                                    isTokenHidden(row, data)
+                                } as ArrayList<Boolean>
+                            allTokens.forEachIndexed { index, row ->
+                                val isHidden = isTokenHidden(row, data)
+                                if (isHidden != oldHiddenTokens[index])
                                     indexes.add(index)
                             }
                             withContext(Dispatchers.Main) {
@@ -212,38 +261,40 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
                                 }
                             }
                         }
-                    })
+                    }
+                )
             }
 
             1 -> {
-                val token = allTokens[indexPath.row]
+                val row = allTokens[indexPath.row]
+                val slug = row.balance.token ?: return
+                val virtualStakingSlug = row.balance.virtualStakingToken ?: return
                 val cell = cellHolder.cell as AssetsAndActivitiesTokenCell
                 val assetsAndActivityData = AccountStore.assetsAndActivityData
 
-                val isSwipeEnabled = assetsAndActivityData.isTokenRemovable(token.slug)
+                val isSwipeEnabled =
+                    assetsAndActivityData.isTokenRemovable(slug, row.balance.isVirtualStakingRow)
+                val isHidden = isTokenHidden(row, assetsAndActivityData)
+                val isPinned = assetsAndActivityData.pinnedTokens.contains(virtualStakingSlug)
 
                 if (isSwipeEnabled) {
                     viewBinderHelper.bind(
                         cell.swipeRevealLayout,
-                        token.slug
+                        virtualStakingSlug
                     )
                 }
 
                 cell.configure(
-                    token,
-                    (BalanceStore.getBalances(AccountStore.activeAccountId!!)?.get(token.slug)
-                        ?: BigInteger.valueOf(0)),
+                    row.token,
+                    row.balance,
                     indexPath.row == allTokens.size - 1,
+                    isHidden = isHidden,
+                    isPinned = isPinned,
                     isSwipeEnabled = isSwipeEnabled,
                     onDeleteToken = if (isSwipeEnabled) {
                         {
                             val assetsAndActivityData = AccountStore.assetsAndActivityData
-                            assetsAndActivityData.visibleTokens.removeAll { hiddenSlug ->
-                                hiddenSlug == token.slug
-                            }
-                            assetsAndActivityData.addedTokens.removeAll { hiddenSlug ->
-                                hiddenSlug == token.slug
-                            }
+                            assetsAndActivityData.deleteToken(virtualStakingSlug)
                             AccountStore.updateAssetsAndActivityData(
                                 assetsAndActivityData,
                                 notify = true,
@@ -259,6 +310,7 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
                                 1,
                                 false
                             )
+                            checkAndUpdateHeader(prevAllTokens)
                         }
                     } else null
                 )
@@ -300,6 +352,7 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
                     1,
                     true
                 )
+                checkAndUpdateHeader(prevAllTokens)
             }
 
             else -> {}
@@ -313,7 +366,7 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
             }
 
             1 -> {
-                return allTokens[indexPath.row].slug
+                return allTokens[indexPath.row].balance.virtualStakingToken
             }
         }
         return super.recyclerViewCellItemId(rv, indexPath)

@@ -4,7 +4,7 @@ import WalletContext
 import Perception
 
 public struct AddressViewModel {
-    let chain: String
+    let chain: ApiChain
     
     /// The address returned via API. We assume that the API always returns raw (hex) wallet addresses
     let apiAddress: String?
@@ -20,7 +20,7 @@ public struct AddressViewModel {
     let saveKey: String?
         
     public init(
-        chain: String,
+        chain: ApiChain,
         apiAddress: String? = nil,
         apiName: String? = nil,
         localName: String? = nil,
@@ -33,7 +33,7 @@ public struct AddressViewModel {
         self.saveKey = saveKey
     }
     
-    public static func fromTransaction(_ tx: ApiTransactionActivity, chain: String, addressKind: ApiTransactionActivity.AddressKind) -> AddressViewModel {
+    public static func fromTransaction(_ tx: ApiTransactionActivity, chain: ApiChain, addressKind: ApiTransactionActivity.AddressKind) -> AddressViewModel {
         let apiName = tx.metadata?.name?.nilIfEmpty
         let apiAddress = tx.getAddress(for: addressKind)?.nilIfEmpty ?? apiName
         return .init(
@@ -48,7 +48,7 @@ public struct AddressViewModel {
     /// Must be called from inside `WithPerceptionTracking`.
     func withLocalName(account: AccountContext) -> AddressViewModel {
         var localName: String?
-        if let chain = ApiChain(rawValue: chain) {
+        if chain.isSupported {
             // search for my account first
             if let address {
                 localName = account.getMyAccountName(chain: chain, address: address)
@@ -112,7 +112,7 @@ public struct TappableAddress: View {
                 }
             }
             .menuSource(isEnabled: isMenuEnabled, menuContext: menuContext)
-            .task {
+            .task(id: isMenuEnabled) {
                 if isMenuEnabled {
                     menuContext.makeConfig = {
                         let currentModel = self.model.withLocalName(account: account)
@@ -143,7 +143,7 @@ public struct TappableAddressFull: View {
     }
     
     private func text(forModel model: AddressViewModel) -> Text {
-        let address = model.address ?? "?"
+        let address = model.address ?? ""
         
         if let name = model.name {
             let nameText = Text(name)
@@ -156,8 +156,8 @@ public struct TappableAddressFull: View {
     }
 
     /// Returns an icon + space when image exists, or empty Text when not found.
-    private func chainIconText(chain: String) -> Text {
-        guard let image = UIImage.airBundleOptional("inline_chain_\(chain)") else { return Text("") }
+    private func chainIconText(chain: ApiChain) -> Text {
+        guard let image = UIImage.airBundleOptional("inline_chain_\(chain.rawValue)") else { return Text("") }
         let resized = image.resizedToFit(size: CGSize(width: 16, height: 16)).withRenderingMode(.alwaysTemplate)
         return Text(Image(uiImage: resized))
             .foregroundColor(Color(WTheme.secondaryLabel))
@@ -187,7 +187,7 @@ public struct TappableAddressFull: View {
             .lineLimit(nil)
             .multilineTextAlignment(.leading)
             .menuSource(menuContext: menuContext)
-            .task {
+            .task(id: isMenuEnabled) {
                 if isMenuEnabled {
                     menuContext.makeConfig = {
                         let currentModel = self.model.withLocalName(account: accountContext)

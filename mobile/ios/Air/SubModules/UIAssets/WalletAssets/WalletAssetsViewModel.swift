@@ -6,7 +6,7 @@ import GRDB
 
 private let log = Log("WalletAssetsViewModel")
 
-@MainActor protocol WalletAssetsViewModelDelegate: AnyObject {
+@MainActor public protocol WalletAssetsViewModelDelegate: AnyObject {
     func walletAssetModelDidChangeDisplayTabs()
     func walletAssetModelDidStartReordering()
     func walletAssetModelDidStopReordering(isCanceled: Bool)
@@ -29,9 +29,9 @@ public enum DisplayAssetTab: Hashable {
 @MainActor
 public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         
-    private(set) var displayTabs: [DisplayAssetTab] = []
+    public private(set) var displayTabs: [DisplayAssetTab] = []
     
-    weak var delegate: WalletAssetsViewModelDelegate?
+    public weak var delegate: WalletAssetsViewModelDelegate?
     
     private let accountIdProvider: AccountIdProvider
     private var accountId: String { accountIdProvider.accountId }
@@ -44,7 +44,7 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
     private var nftsOrderingSnapshot: NtfsOrderingSnapshot?
     private var _isReordering: Bool = false
     
-    var isReordering: Bool { _isReordering }
+    public var isReordering: Bool { _isReordering }
     
     // dependencies
     private var db: (any DatabaseWriter)? { WalletCore.db }
@@ -64,7 +64,7 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         observation?.cancel()
     }
     
-    func startOrdering() {
+    public func startOrdering() {
         guard !isReordering else {
             assertionFailure()
             return
@@ -78,7 +78,7 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         delegate?.walletAssetModelDidStartReordering()
     }
     
-    func stopReordering(isCanceled: Bool, restoreTabsOnCancel: Bool = false) {
+    public func stopReordering(isCanceled: Bool, restoreTabsOnCancel: Bool = false) {
         guard isReordering else { return }
 
         _isReordering = false
@@ -195,7 +195,7 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
             case .none:
                 return nil
             case .collection(let nftCollection):
-                return .nftCollection(nftCollection.address)
+                return .nftCollection(nftCollection.id)
             case .telegramGifts:
                 return .nftSuperCollection("super:telegram-gifts")
             }

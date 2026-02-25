@@ -47,6 +47,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.setSizeBounds
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
+import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers.Companion.presentMenu
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
@@ -100,8 +101,8 @@ import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MFee
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
@@ -202,7 +203,7 @@ class TransactionVC(
                 lbl.setStyle(22f, WFont.Medium)
                 transaction.fromToken?.let { token ->
                     lbl.setAmount(
-                        -transaction.fromAmount.toDouble(),
+                        -transaction.fromAmount.absoluteValue,
                         token.decimals,
                         token.symbol,
                         token.decimals,
@@ -285,7 +286,7 @@ class TransactionVC(
                 PasscodeConfirmVC(
                     context,
                     PasscodeViewState.Default(
-                        LocaleController.getString("Message is encrypted."),
+                        LocaleController.getString("Message is encrypted"),
                         LocaleController.getString(
                             if (WGlobalStorage.isBiometricActivated() &&
                                 BiometricHelpers.canAuthenticate(window!!)
@@ -576,10 +577,9 @@ class TransactionVC(
                                 setTextColor(WColor.Tint)
                                 isTinted = true
                                 setOnClickListener {
+                                    val url = transaction.nft?.collectionUrl ?: return@setOnClickListener
                                     WalletCore.notifyEvent(
-                                        WalletEvent.OpenUrl(
-                                            transaction.nft!!.collectionUrl
-                                        )
+                                        WalletEvent.OpenUrl(url)
                                     )
                                 }
                                 text =
@@ -644,7 +644,7 @@ class TransactionVC(
                     KeyValueRowView(
                         context,
                         LocaleController.getString("Sent"),
-                        transaction.fromAmount.toString(
+                        transaction.fromAmount.absoluteValue.toString(
                             fromToken?.decimals ?: 9,
                             fromToken?.symbol ?: "",
                             fromToken?.decimals ?: 9,
@@ -679,7 +679,7 @@ class TransactionVC(
                     KeyValueRowView(
                         context,
                         "${LocaleController.getString("Price per")} 1 ${toToken?.symbol ?: ""}",
-                        (transaction.fromAmount / transaction.toAmount).toString(
+                        (transaction.fromAmount.absoluteValue / transaction.toAmount).toString(
                             fromToken?.decimals ?: 9,
                             fromToken?.symbol ?: "",
                             fromToken?.decimals ?: 9,
@@ -802,6 +802,7 @@ class TransactionVC(
             transactionAddressHeader = this
         }
 
+        //noinspection WrongConstant
         val addressLabel = WLabel(context).apply {
             setStyle(16f, WFont.Regular)
             setTextColor(WColor.SecondaryText)
@@ -810,8 +811,22 @@ class TransactionVC(
             breakStrategy = Layout.BREAK_STRATEGY_SIMPLE
             hyphenationFrequency = Layout.HYPHENATION_FREQUENCY_NONE
             setPadding(0, 0, 0, 16.dp)
+            foreground = WRippleDrawable.create(0f).apply {
+                rippleColor = WColor.SubtitleText.color.colorWithAlpha(25)
+            }
             setOnClickListener {
                 transactionAddress?.let { onAddressClicked(it, transaction) }
+            }
+            setOnLongClickListener {
+                val blockchain = TokenStore.getToken(transaction.slug)?.mBlockchain
+                    ?: return@setOnLongClickListener false
+                val address = if (transaction.isIncoming) {
+                    transaction.fromAddress
+                } else {
+                    transaction.toAddress
+                } ?: return@setOnLongClickListener false
+                AddressPopupHelpers.copyAddress(context, address, blockchain)
+                true
             }
             addressLabel = this
         }
@@ -851,21 +866,11 @@ class TransactionVC(
         val addressName = transaction.addressName()
         val activeAccount = AccountStore.activeAccount
         val chainIconDrawable = if (activeAccount?.isMultichain == true) {
-            when (TokenStore.getToken(transaction.getTxSlug())?.chain) {
-                MBlockchain.ton.name ->
-                    ContextCompat.getDrawable(
-                        context,
-                        org.mytonwallet.app_air.icons.R.drawable.ic_symbol_ton_15
-                    )
-
-                MBlockchain.tron.name ->
-                    ContextCompat.getDrawable(
-                        context,
-                        org.mytonwallet.app_air.icons.R.drawable.ic_symbol_tron_15
-                    )
-
-                else -> null
-            }?.mutate()
+            TokenStore.getToken(transaction.getTxSlug())?.chain?.let { chain ->
+                MBlockchain.valueOf(chain).symbolIconPadded?.let { symbol ->
+                    ContextCompat.getDrawable(context, symbol)?.mutate()
+                }
+            }
         } else {
             null
         }
@@ -964,7 +969,7 @@ class TransactionVC(
             blockchain = blockchain,
             network = account.network,
             address = if (transaction.isIncoming) {
-                transaction.fromAddress
+                transaction.fromAddress ?: ""
             } else {
                 transaction.toAddress ?: ""
             },
@@ -1313,7 +1318,7 @@ class TransactionVC(
                                     Haptics.play(context, HapticType.LIGHT_TAP)
                                     Toast.makeText(
                                         context,
-                                        LocaleController.getString("Transaction ID was copied!"),
+                                        LocaleController.getString("Transaction ID Copied"),
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 },
@@ -1413,7 +1418,7 @@ class TransactionVC(
                                             null,
                                             InAppBrowserConfig(
                                                 "https://changelly.com/track/${changellyId}",
-                                                injectTonConnectBridge = false
+                                                injectDappConnect = false
                                             )
                                         )
                                     val nav = WNavigationController(window!!)
@@ -1512,7 +1517,7 @@ class TransactionVC(
                         context,
                         MApiSwapAsset.from(fromToken),
                         MApiSwapAsset.from(toToken),
-                        transaction.fromAmount
+                        transaction.fromAmount.absoluteValue
                     )
                 )
             }
@@ -1548,10 +1553,10 @@ class TransactionVC(
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
-            is WalletEvent.AccountSavedAddressesChanged -> {
+            is WalletEvent.AccountSavedAddressesChanged,
+            is WalletEvent.ByChainUpdated  -> {
                 reloadData()
             }
-
             is WalletEvent.ReceivedNewActivities -> {
                 walletEvent.newActivities?.find {
                     return@find if (it.isLocal())

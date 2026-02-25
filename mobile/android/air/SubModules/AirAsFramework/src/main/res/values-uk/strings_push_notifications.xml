@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="push_title_wallet">%1$s</string>
+  <string name="push_activity_token_sent">Надіслано %1$s %2$s</string>
+  <string name="push_activity_token_received">Отримано %1$s %2$s</string>
+  <string name="push_activity_nft_sent">Надіслано NFT</string>
+  <string name="push_activity_nft_sent_named">Надіслано NFT: %1$s</string>
+  <string name="push_activity_nft_received">Отримано NFT</string>
+  <string name="push_activity_nft_received_named">Отримано NFT: %1$s</string>
+  <string name="push_activity_contract_called">Виклик смартконтракту виконано</string>
+  <string name="push_activity_contract_deployed">Смартконтракт розгорнуто</string>
+  <string name="push_activity_token_minted">Випущено %1$s %2$s</string>
+  <string name="push_activity_token_burned">Спалено %1$s %2$s</string>
+  <string name="push_activity_nft_minted">Випущено NFT</string>
+  <string name="push_activity_nft_minted_named">Випущено NFT: %1$s</string>
+  <string name="push_activity_liquidity_deposited">Додано ліквідність</string>
+  <string name="push_activity_liquidity_withdrawn">Виведено ліквідність</string>
+  <string name="push_activity_stake_deposit">Застейкано %1$s %2$s</string>
+  <string name="push_activity_stake_withdrawal">Виведено зі стейкінгу %1$s %2$s</string>
+  <string name="push_activity_stake_withdrawal_request">Запитано виведення зі стейкінгу</string>
+  <string name="push_activity_auction_bid">Зроблено ставку на аукціоні %1$s %2$s</string>
+  <string name="push_activity_dns_changed">DNS-запис оновлено</string>
+  <string name="push_activity_dns_deleted">DNS-запис видалено</string>
+  <string name="push_activity_dns_renewed">DNS продовжено</string>
+  <string name="push_activity_subscription_started">Підписку розпочато</string>
+  <string name="push_activity_subscription_payment_received">Отримано платіж за підпискою %1$s %2$s</string>
+  <string name="push_activity_subscription_canceled">Підписку скасовано</string>
+  <string name="push_activity_swap_completed">Обмін %1$s -> %2$s виконано</string>
+  <string name="push_activity_swap_failed">Обмін %1$s -> %2$s не виконано</string>
+  <string name="push_activity_swap_expired">Обмін %1$s -> %2$s прострочений</string>
+  <string name="push_activity_swap_pending">Обмін %1$s -> %2$s %3$s</string>
+  <string name="push_activity_staking_profit">Прибуток від стейкінгу %1$s TON</string>
+  <string name="push_activity_staking_loyalty_profit">Прибуток від лояльності у стейкінгу %1$s TON</string>
+  <string name="push_domain_title_renew">Продовжте ваш домен</string>
+  <string name="push_domain_expired_yesterday">Термін дії вашого домену %1$s закінчився вчора. Будь ласка, продовжте його якнайшвидше, щоб не втратити доступ</string>
+  <string name="push_domain_expired_days_ago">Термін дії вашого домену %1$s закінчився %2$s днів тому. Будь ласка, продовжте його якнайшвидше, щоб не втратити доступ</string>
+  <string name="push_domain_expires_today">Термін дії вашого домену %1$s закінчується сьогодні. Будь ласка, продовжте його, щоб не втратити доступ</string>
+  <string name="push_domain_expires_tomorrow">Термін дії вашого домену %1$s закінчується завтра. Будь ласка, продовжте його, щоб не втратити доступ</string>
+  <string name="push_domain_expires_in_days">Термін дії вашого домену %1$s закінчується через %2$s днів. Будь ласка, продовжте його, щоб не втратити доступ</string>
+</resources>

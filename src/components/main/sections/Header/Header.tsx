@@ -16,6 +16,7 @@ import {
   selectIsPasswordPresent,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
+import { tryOpenNativeApp } from '../../../../util/deeplink';
 import { IS_ELECTRON } from '../../../../util/windowEnvironment';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
@@ -96,6 +97,11 @@ function Header({
     onTokenChartModeChange?.(modeId === 0 ? 'price' : 'netWorth');
   });
 
+  const handleOpenInAppClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    tryOpenNativeApp(SELF_UNIVERSAL_HOST_URL);
+  };
+
   if (isChartCardOpen) {
     const fullClassName = isPortrait
       ? buildClassName(
@@ -156,9 +162,8 @@ function Header({
             <div className={styles.portraitActionsRight}>
               <a
                 href={SELF_UNIVERSAL_HOST_URL}
-                target="_blank"
-                rel="noopener noreferrer"
                 className={styles.openLink}
+                onClick={handleOpenInAppClick}
               >
                 <img src={logoSrc} alt="" />
                 {lang('Open')}

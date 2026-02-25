@@ -11,7 +11,7 @@ import UIKit
 import UIComponents
 import WalletContext
 
-public final class AppearanceSettingsVC: WViewController {
+public final class AppearanceSettingsVC: SettingsBaseVC {
     
     var hostingController: UIHostingController<AppearanceSettingsView>?
     

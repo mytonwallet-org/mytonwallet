@@ -3,6 +3,7 @@ import { getActions } from '../../global';
 
 import type { AuthMethod } from '../../global/types';
 
+import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
@@ -45,6 +46,10 @@ const AuthCreateBiometrics = ({
     skipCreateBiometrics({ isImporting });
   });
 
+  const description = getDoesUsePinPad()
+    ? 'Use biometric authentication or create a passcode to protect it.'
+    : 'Use biometric authentication or create a password to protect it.';
+
   return (
     <div className={styles.wrapper}>
       <Header
@@ -64,7 +69,7 @@ const AuthCreateBiometrics = ({
         />
         <div ref={headerRef} className={styles.title}>{title}</div>
         <p className={styles.info}>
-          {lang('Use biometric authentication or create a password to protect it.')}
+          {lang(description)}
         </p>
 
         <div className={styles.buttons}>
@@ -80,7 +85,7 @@ const AuthCreateBiometrics = ({
             className={buildClassName(styles.btn, styles.btn_text)}
             onClick={handleUsePasswordClick}
           >
-            {lang('Use Password')}
+            {lang(getDoesUsePinPad() ? 'Use Passcode' : 'Use Password')}
           </Button>
         </div>
       </div>

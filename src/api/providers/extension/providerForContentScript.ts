@@ -2,14 +2,14 @@ import type {
   SiteMethodArgs,
   SiteMethods,
 } from '../../extensionMethods/types';
-import type { TonConnectMethodArgs, TonConnectMethods } from '../../tonConnect/types/misc';
 import type { ApiDappRequest } from '../../types';
 import type { OnApiSiteUpdate } from '../../types/dappUpdates';
+import { recognizeDappMethod } from '../../types/methods';
 
 import { CONTENT_SCRIPT_PORT, PAGE_CONNECTOR_CHANNEL } from './config';
 import { createExtensionInterface } from '../../../util/createPostMessageInterface';
+import { getProtocolManager } from '../../dappProtocols';
 import * as siteApi from '../../extensionMethods/sites';
-import * as tonConnectApi from '../../tonConnect';
 
 const ALLOWED_METHODS = new Set([
   'flushMemoryCache',
@@ -21,6 +21,12 @@ const ALLOWED_METHODS = new Set([
   'tonConnect_sendTransaction',
   'tonConnect_deactivate',
   'tonConnect_signData',
+  'walletConnect_connect',
+  'walletConnect_reconnect',
+  'walletConnect_disconnect',
+  'walletConnect_sendTransaction',
+  'walletConnect_deactivate',
+  'walletConnect_signData',
 ]);
 
 createExtensionInterface(CONTENT_SCRIPT_PORT, (
@@ -34,14 +40,20 @@ createExtensionInterface(CONTENT_SCRIPT_PORT, (
     throw new Error('Method not allowed');
   }
 
-  if (name.startsWith('tonConnect_')) {
-    name = name.replace('tonConnect_', '');
+  const parsedRequest = recognizeDappMethod(name);
 
-    const method = tonConnectApi[name as keyof TonConnectMethods];
+  if (parsedRequest.isDapp) {
+    const adapter = getProtocolManager().getAdapter(parsedRequest.protocolType);
+    if (!adapter) {
+      throw new Error('No dApp adapter found for request');
+    }
+
+    const method = adapter[parsedRequest.fnName].bind(adapter);
+
     const request: ApiDappRequest = { url: origin, isUrlEnsured: true };
 
     // @ts-ignore
-    return method(...[request].concat(args) as TonConnectMethodArgs<keyof TonConnectMethods>);
+    return method(...[request].concat(args));
   }
 
   const method = siteApi[name as keyof SiteMethods];

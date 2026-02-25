@@ -7,6 +7,8 @@ import android.text.Spanned
 import android.text.SpannedString
 import android.text.style.ForegroundColorSpan
 import android.util.Size
+import android.view.GestureDetector
+import android.view.MotionEvent
 import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
@@ -30,8 +32,9 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.shift
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -45,6 +48,47 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
     private var currentDisplayData: SpannedString = SpannedString("")
 
     private var style: Style = walletStyle
+
+    private var chainRanges: List<Pair<String, IntRange>> = emptyList()
+
+    var onLongPressChain: ((chainName: String, address: String, isDomain: Boolean) -> Unit)? = null
+
+    private var longPressHandled = false
+
+    private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+        override fun onLongPress(e: MotionEvent) {
+            val callback = onLongPressChain ?: return
+            val data = findChainAtPosition(e.x, e.y) ?: return
+            longPressHandled = true
+            callback(data.chainName, data.original, data.isDomain)
+        }
+    })
+
+    override fun onTouchEvent(event: MotionEvent?): Boolean {
+        if (onLongPressChain != null && event != null) {
+            gestureDetector.onTouchEvent(event)
+            if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                if (longPressHandled) {
+                    longPressHandled = false
+                    isPressed = false
+                    return true
+                }
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+
+    private fun findChainAtPosition(x: Float, y: Float): DisplayData? {
+        val layout = layout ?: return null
+        val line = layout.getLineForVertical((y - paddingTop).toInt())
+        val offset = layout.getOffsetForHorizontal(line, x - paddingLeft)
+        for ((index, pair) in chainRanges.withIndex()) {
+            if (offset in pair.second) {
+                return displayDataList.getOrNull(index)
+            }
+        }
+        return displayDataList.firstOrNull()
+    }
 
     init {
         maxLines = 1
@@ -65,11 +109,12 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             displayAddresses(emptyList(), style, keyword)
             return
         }
-        displayAddresses(account.network, account.byChain, style, keyword)
+        displayAddresses(account.network, account.accountId, account.byChain, style, keyword)
     }
 
     fun displayAddresses(
         network: MBlockchainNetwork,
+        accountId: String?,
         byChain: Map<String, AccountChain>,
         style: Style,
         keyword: String = ""
@@ -81,9 +126,22 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         } else {
             style
         }
-        val addresses = byChain.map { (key, value) ->
-            Pair(key, value)
-        }
+        val addresses = byChain.entries.let { entries ->
+            if (byChain.keys.isNotEmpty()) {
+                val perChainBalance =
+                    accountId?.let { BalanceStore.totalBalanceInBaseCurrencyPerChain(accountId) }
+                entries.sortedWith(
+                    compareByDescending<Map.Entry<String, AccountChain>> { (chainName, _) ->
+                        MBlockchain.supportedChains.find { it.name == chainName }
+                            ?.let { perChainBalance?.get(it) } ?: 0.0
+                    }.thenBy { (chainName, _) ->
+                        MBlockchain.supportedChainIndexes[chainName] ?: Int.MAX_VALUE
+                    }
+                )
+            } else {
+                entries.toList()
+            }
+        }.map { Pair(it.key, it.value) }
         displayAddresses(addresses, style, keyword)
     }
 
@@ -201,6 +259,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         keyword: String
     ): SpannedString {
         val displayHighlightRanges: MutableList<IntRange> = mutableListOf()
+        val newChainRanges: MutableList<Pair<String, IntRange>> = mutableListOf()
         return buildSpannedString {
             // Display prefix icons
             style.prefixIconResList.mapNotNull { loadDrawable(it) }.forEachIndexed { index, it ->
@@ -237,6 +296,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
 
             // Display chains
             displayDataList.forEachIndexed { index, data ->
+                val chainStart = length
                 if (chainStyle.displayChainIcon) {
                     val drawableRes = style.chainIconResMap[data.chainName]
                     val chainDrawable = drawableRes?.let { loadDrawable(it) }
@@ -266,27 +326,30 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                     }
                 }
                 // Apply letter spacing style for '···'
-                val toDisplay = buildSpannedString {
-                    if (data.isDomain && chainStyle.domainLetterSpacing != null) {
-                        inSpans(WLetterSpacingSpan(chainStyle.domainLetterSpacing)) {
+                if (index < 2) {
+                    val toDisplay = buildSpannedString {
+                        if (data.isDomain && chainStyle.domainLetterSpacing != null) {
+                            inSpans(WLetterSpacingSpan(chainStyle.domainLetterSpacing)) {
+                                append(data.toDisplay.trimmed)
+                            }
+                        } else if (!data.isDomain && chainStyle.addressLetterSpacing != null) {
+                            inSpans(WLetterSpacingSpan(chainStyle.addressLetterSpacing)) {
+                                append(data.toDisplay.trimmed)
+                            }
+                        } else {
                             append(data.toDisplay.trimmed)
                         }
-                    } else if (!data.isDomain && chainStyle.addressLetterSpacing != null) {
-                        inSpans(WLetterSpacingSpan(chainStyle.addressLetterSpacing)) {
-                            append(data.toDisplay.trimmed)
-                        }
-                    } else {
-                        append(data.toDisplay.trimmed)
-                    }
 
-                    styleDots()
-                }
-                val addressHighlightRanges =
-                    getHighlightRanges(toDisplay, data.toDisplay, keyword).map {
-                        it.shift(length)
+                        styleDots()
                     }
-                displayHighlightRanges.addAll(addressHighlightRanges)
-                append(toDisplay)
+                    val addressHighlightRanges =
+                        getHighlightRanges(toDisplay, data.toDisplay, keyword).map {
+                            it.shift(length)
+                        }
+                    displayHighlightRanges.addAll(addressHighlightRanges)
+                    append(toDisplay)
+                }
+                newChainRanges.add(data.chainName to (chainStart until length))
 
                 // Define delimiter: symbols of specific width
                 if (index < displayDataList.size - 1) {
@@ -324,6 +387,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 }
             }
             highlightRanges = displayHighlightRanges
+            chainRanges = newChainRanges
         }
     }
 
@@ -456,10 +520,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             prefixIconMargin = 0.dp,
             postfixIconSize = Size(16.dp, 16.dp),
             postfixIconMargin = 0.dp,
-            chainIconResMap = mapOf(
-                MBlockchain.ton.name to R.drawable.ic_blockchain_ton_128,
-                MBlockchain.tron.name to R.drawable.ic_blockchain_tron_40
-            ),
+            chainIconResMap = MBlockchain.supportedChains.associate { it.name to it.icon },
             tintChainIcon = false,
             prefixIconResList = emptyList(),
             postfixIconResList = emptyList(),
@@ -511,10 +572,9 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             prefixIconMargin = 4.dp,
             postfixIconSize = Size(12.dp, 12.dp),
             postfixIconMargin = 0.dp,
-            chainIconResMap = mapOf(
-                MBlockchain.ton.name to R.drawable.ic_symbol_ton,
-                MBlockchain.tron.name to R.drawable.ic_symbol_tron
-            ),
+            chainIconResMap = MBlockchain.supportedChains.associate {
+                it.name to (it.symbolIcon ?: 0)
+            },
             tintChainIcon = true,
             prefixIconResList = emptyList(),
             postfixIconResList = emptyList(),
@@ -554,10 +614,9 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             prefixIconMargin = 4.dp,
             postfixIconSize = Size(12.dp, 12.dp),
             postfixIconMargin = 0.dp,
-            chainIconResMap = mapOf(
-                MBlockchain.ton.name to R.drawable.ic_symbol_ton,
-                MBlockchain.tron.name to R.drawable.ic_symbol_tron
-            ),
+            chainIconResMap = MBlockchain.supportedChains.associate {
+                it.name to (it.symbolIcon ?: 0)
+            },
             tintChainIcon = true,
             prefixIconResList = emptyList(),
             postfixIconResList = emptyList(),
@@ -595,10 +654,9 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             prefixIconMargin = 5.dp,
             postfixIconSize = Size(0, 0),
             postfixIconMargin = 0.dp,
-            chainIconResMap = mapOf(
-                MBlockchain.ton.name to R.drawable.ic_symbol_ton,
-                MBlockchain.tron.name to R.drawable.ic_symbol_tron
-            ),
+            chainIconResMap = MBlockchain.supportedChains.associate {
+                it.name to (it.symbolIcon ?: 0)
+            },
             tintChainIcon = true,
             prefixIconResList = emptyList(),
             postfixIconResList = emptyList(),

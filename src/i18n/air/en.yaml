@@ -33,11 +33,10 @@ All Telegram Gifts: All Telegram Gifts
 Add Crypto: Add Crypto
 Share QR Code: Share QR Code
 $send_only_ton: Send only Toncoin (TON) or TON-based assets to this address. Sending other tokens will result in loss.
-$send_only_tron: Send only TRON (TRX) or TRON-based assets to this address. Sending other tokens will result in loss.
+$send_only_chain: Send only %chain% (%symbol%) or %chain%-based assets to this address. Sending other tokens will result in loss.
 Buying with card is not supported for this account.: Buying with card is not supported for this account.
 Swapped at: Swapped at
 Price per: Price per
-Transaction Details: Transaction Details
 From: From
 To: To
 Changelly ID: Changelly ID
@@ -268,7 +267,7 @@ $remove_wallets:
   zeroValue: "Remove Wallet"
   oneValue: "Remove Wallet"
   otherValue: "Remove %1$d Wallets"
-Contract Initialization Data was copied!: Contract Initialization Data was copied!
+Contract Initialization Data Copied: Contract Initialization Data Copied
 Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.
 just now: just now
 "No": "No"
@@ -291,3 +290,42 @@ Receive: Receive
 Scan: Scan
 Search or enter address: Search or enter address
 View as Grid: View as Grid
+
+
+push_title_wallet: "%wallet_title%"
+push_activity_token_sent: Sent %amount% %symbol%
+push_activity_token_received: Received %amount% %symbol%
+push_activity_contract_called: Called smart contract
+push_activity_contract_deployed: Deployed smart contract
+push_activity_token_minted: Minted %amount% %symbol%
+push_activity_token_burned: Burned %amount% %symbol%
+push_activity_nft_sent: Sent NFT
+push_activity_nft_sent_named: "Sent NFT: %name%"
+push_activity_nft_received: Received NFT
+push_activity_nft_received_named: "Received NFT: %name%"
+push_activity_nft_minted: Minted NFT
+push_activity_nft_minted_named: "Minted NFT: %name%"
+push_activity_liquidity_deposited: Provided liquidity
+push_activity_liquidity_withdrawn: Withdrew liquidity
+push_activity_stake_deposit: Staked %amount% %symbol%
+push_activity_stake_withdrawal: Unstaked %amount% %symbol%
+push_activity_stake_withdrawal_request: Requested staking withdrawal
+push_activity_auction_bid: Placed auction bid %amount% %symbol%
+push_activity_dns_changed: Updated DNS record
+push_activity_dns_deleted: Deleted DNS record
+push_activity_dns_renewed: Renewed DNS
+push_activity_subscription_started: Started subscription
+push_activity_subscription_payment_received: Received subscription payment %amount% %symbol%
+push_activity_subscription_canceled: Canceled subscription
+push_activity_swap_completed: Swapped %from_symbol% -> %to_symbol%
+push_activity_swap_failed: Swap %from_symbol% -> %to_symbol% failed
+push_activity_swap_expired: Swap %from_symbol% -> %to_symbol% expired
+push_activity_swap_pending: Swap %from_symbol% -> %to_symbol% %status%
+push_activity_staking_profit: Staking profit %amount% TON
+push_activity_staking_loyalty_profit: Staking loyalty profit %amount% TON
+push_domain_title_renew: Renew your domain
+push_domain_expired_yesterday: Your domain %domain% expired yesterday. Please renew it as soon as possible to avoid losing access
+push_domain_expired_days_ago: Your domain %domain% expired %days% days ago. Please renew it as soon as possible to avoid losing access
+push_domain_expires_today: Your domain %domain% will expire today. Please renew it to avoid losing access
+push_domain_expires_tomorrow: Your domain %domain% will expire tomorrow. Please renew it to avoid losing access
+push_domain_expires_in_days: Your domain %domain% will expire in %days% days. Please renew it to avoid losing access

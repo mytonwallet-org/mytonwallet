@@ -6,16 +6,23 @@ import Perception
 let MENU_EDGE_PADDING: CGFloat = 4
 private let distanceFromAnchor: CGFloat = 8
 
+public struct MenuSourceViewLayout {
+    /// A frame used for menu positioning. Formely known as sourceFrame. Window (global) coordinates
+    var frame: CGRect = .zero
+    
+    /// Portal masking. If nil then `frame` is used. Window (global) coordinates
+    var portalMaskFrame: CGRect?
+}
+
 @Perceptible
 @MainActor public final class MenuContext: Sendable {
     
     @PerceptionIgnored
     public var sourceView: UIView? = nil
     @PerceptionIgnored
-    var sourceFrame: CGRect = .zero
-    /// Closure to update `sourceFrame` just at the menu's presentation time. Makes sense if sourceView is SwiftUI-based
+    private(set) var sourceViewLayout = MenuSourceViewLayout()
     @PerceptionIgnored
-    var onGetSourceFrame: (() -> CGRect?)?
+    var onGetSourceViewLayout: (() -> MenuSourceViewLayout?)?
     @PerceptionIgnored
     var anchor: Alignment = .bottom
     
@@ -48,6 +55,10 @@ private let distanceFromAnchor: CGFloat = 8
     public var onAppear: (() -> ())?
     @PerceptionIgnored
     public var onDismiss: (() -> ())?
+    
+    /// When true, a regular tap presents the menu (in addition to long press).
+    @PerceptionIgnored
+    public var presentOnTap: Bool = false
     
     public init() {}
     
@@ -92,8 +103,13 @@ private let distanceFromAnchor: CGFloat = 8
     
     @MainActor func present() {
         if !menuShown {
-            if let frame = onGetSourceFrame?() {
-                sourceFrame = frame
+            if let layout = onGetSourceViewLayout?() {
+                sourceViewLayout = layout
+            } else {
+                if let sourceView {
+                    let frame = sourceView.convert(sourceView.bounds, to: nil)
+                    sourceViewLayout = MenuSourceViewLayout(frame: frame)
+                }
             }
             if let view = getMenuLayerView() {
                 view.showMenu(menuContext: self)
@@ -106,15 +122,16 @@ private let distanceFromAnchor: CGFloat = 8
     }
     
     var showBelowSource: Bool {
-        sourceFrame.maxY < 600
+        sourceViewLayout.frame.maxY < 600
     }
     
     var source: CGPoint {
-        CGPoint(x: sourceFrame.midX, y: showBelowSource ? sourceFrame.maxY + distanceFromAnchor + verticalOffset : sourceFrame.minY - distanceFromAnchor + verticalOffset)
+        let sourceFrame = sourceViewLayout.frame
+        return CGPoint(x: sourceFrame.midX, y: showBelowSource ? sourceFrame.maxY + distanceFromAnchor + verticalOffset : sourceFrame.minY - distanceFromAnchor + verticalOffset)
     }
     
     var sourceX: CGFloat {
-        sourceFrame.midX - MENU_EDGE_PADDING
+        sourceViewLayout.frame.midX - MENU_EDGE_PADDING
     }
     
     var showShadow: Bool {

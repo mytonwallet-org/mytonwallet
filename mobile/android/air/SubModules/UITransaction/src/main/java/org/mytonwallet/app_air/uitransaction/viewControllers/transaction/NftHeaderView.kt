@@ -15,6 +15,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
@@ -28,9 +29,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
@@ -60,12 +63,24 @@ class NftHeaderView(
         layoutParams = LayoutParams(LayoutParams.MATCH_CONSTRAINT, lineHeight)
     }
 
+    private var peerAddress: String? = null
+
     private val addressLabel = WLabel(context).apply {
         setStyle(16f)
         setLineHeight(24f)
         gravity = Gravity.START
         layoutParams = LayoutParams(WRAP_CONTENT, lineHeight + 8.dp)
         setPaddingDp(8, 4, 8, 4)
+        foreground = WRippleDrawable.create(12f.dp).apply {
+            rippleColor = WColor.SubtitleText.color.colorWithAlpha(25)
+        }
+        setOnLongClickListener {
+            val address = peerAddress ?: return@setOnLongClickListener false
+            val blockchain = (transaction as? MApiTransaction.Transaction)?.nft?.chain
+                ?: return@setOnLongClickListener false
+            AddressPopupHelpers.copyAddress(context, address, blockchain)
+            true
+        }
     }
 
     init {
@@ -103,6 +118,8 @@ class NftHeaderView(
         imageView.loadUrl(nft.image ?: "")
 
         val address = transaction.peerAddress
+        peerAddress = address
+
         val addressToShow = transaction.addressToShow(6, 6)
         val formattedAddress = addressToShow?.first ?: ""
         val prefixString = LocaleController.getString(
@@ -122,7 +139,7 @@ class NftHeaderView(
                 startIndex = length - formattedAddress.length,
                 length = formattedAddress.length,
                 network = AccountStore.activeAccount!!.network,
-                addressTokenSlug = TONCOIN_SLUG,
+                blockchain = nft.chain,
                 address = address,
                 popupXOffset = startOffset.roundToInt(),
                 centerHorizontally = false,

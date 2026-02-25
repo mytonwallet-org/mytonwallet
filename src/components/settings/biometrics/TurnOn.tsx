@@ -4,6 +4,7 @@ import { getActions } from '../../../global';
 import { BiometricsState } from '../../../global/types';
 
 import { ANIMATED_STICKER_HUGE_SIZE_PX } from '../../../config';
+import { getDoesUsePinPad } from '../../../util/biometrics';
 import buildClassName from '../../../util/buildClassName';
 import resolveSlideTransitionName from '../../../util/resolveSlideTransitionName';
 import { IS_ELECTRON } from '../../../util/windowEnvironment';
@@ -68,7 +69,11 @@ function TurnOn({
 
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: BiometricsState) {
     switch (currentKey) {
-      case BiometricsState.TurnOnPasswordConfirmation:
+      case BiometricsState.TurnOnPasswordConfirmation: {
+        const help = getDoesUsePinPad()
+          ? 'Enabling biometric confirmation will reset the passcode.'
+          : 'Enabling biometric confirmation will reset the password.';
+
         return (
           <>
             <ModalHeader title={lang('Turn On Biometrics')} onClose={onClose} />
@@ -77,7 +82,7 @@ function TurnOn({
               isLoading={isLoading}
               error={error || localError}
               operationType="turnOnBiometrics"
-              help={lang('Enabling biometric confirmation will reset the password.')}
+              help={lang(help)}
               submitLabel={lang('Continue')}
               noAutoConfirm
               onSubmit={handleSubmit}
@@ -86,7 +91,7 @@ function TurnOn({
             />
           </>
         );
-
+      }
       case BiometricsState.TurnOnRegistration:
         return (
           <>

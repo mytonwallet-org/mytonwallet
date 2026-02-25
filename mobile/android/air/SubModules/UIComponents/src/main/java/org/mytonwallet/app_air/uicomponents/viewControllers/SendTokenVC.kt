@@ -22,7 +22,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -179,16 +179,14 @@ class SendTokenVC(
                 val tokenIndex = indexPath.row - 1 // -1 because row 0 is header
                 if (tokenIndex >= 0 && tokenIndex < sectionData.tokens.size) {
                     val token = sectionData.tokens[tokenIndex]
-                    val isLastInSection = indexPath.row == sectionData.tokens.size
 
                     val isLastOverall =
                         rvAdapter.indexPathToPosition(indexPath) == rvAdapter.itemCount - 1
 
                     cell.configure(
                         tokenBalance = token,
-                        showChain = false,
+                        showChain = AccountStore.activeAccount?.isMultichain == true,
                         isLast = isLastOverall,
-                        hideSeparator = isLastInSection
                     )
                 }
             }

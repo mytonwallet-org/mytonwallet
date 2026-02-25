@@ -7,19 +7,18 @@ import WalletContext
 
 private var log = Log("InAppBrowserVC")
 
-
 @MainActor protocol InAppBrowserDelegate: AnyObject {
     func inAppBrowserTitleChanged(_ browserContainer: InAppBrowserVC)
 }
 
-
-public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
+final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
     
     weak var delegate: InAppBrowserDelegate?
+    var onCloseRequested: (@MainActor () -> Void)?
 
     private var iconProvider = DappInfoProvider()
     
-    internal init() {
+    init() {
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -27,12 +26,8 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         fatalError("init(coder:) has not been implemented")
     }
     
-    public override func didMove(toParent parent: UIViewController?) {
-        super.didMove(toParent: parent)
-    }
-    
     // MARK: - Load and SetupView Functions
-    public override func loadView() {
+    override func loadView() {
         super.loadView()
         setupViews()
     }
@@ -42,17 +37,11 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         
         let closeButton = if IOS_26_MODE_ENABLED {
             WNavigationBarButton(icon: UIImage(systemName: "xmark"), onPress: { [weak self] in
-                if let sheet = self?.parent as? WMinimizableSheet {
-                    sheet.delegate?.minimizableSheetDidClose(sheet)
-                }
-                self?.presentingViewController?.dismiss(animated: true)
+                self?.closeSheet()
             })
         } else {
             WNavigationBarButton(text: lang("Close"), onPress: { [weak self] in
-                if let sheet = self?.parent as? WMinimizableSheet {
-                    sheet.delegate?.minimizableSheetDidClose(sheet)
-                }
-                self?.presentingViewController?.dismiss(animated: true)
+                self?.closeSheet()
             })
         }
         
@@ -88,7 +77,7 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         children.compactMap { $0 as? InAppBrowserPageVC }
     }
     
-    private var pageConfigs: [InAppBrowserPageVC.Config] {
+    private var pageConfigs: [InAppBrowserPageConfig] {
         pages.map(\.config)
     }
     
@@ -102,7 +91,7 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
     }
     private var displayTitleText: String?
 
-    internal func openPage(config: InAppBrowserPageVC.Config) {
+    func openPage(config: InAppBrowserPageConfig) {
         if currentPage?.config.url == config.url {
             return
         }
@@ -167,10 +156,7 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
                         for: .normal
                     )
                     navigationBar.leadingItem?.onPress = canGoBack ? navigationBar.onBackPressed : { [weak self] in
-                        if let sheet = self?.parent as? WMinimizableSheet {
-                            sheet.delegate?.minimizableSheetDidClose(sheet)
-                        }
-                        self?.presentingViewController?.dismiss(animated: true)
+                        self?.closeSheet()
                     }
                 } else {
                     navigationBar.backButton?.isHidden = !canGoBack
@@ -182,7 +168,7 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         }
     }
     
-    public override func updateTheme() {
+    override func updateTheme() {
     }
     
     private func makeMenu() -> UIMenu {
@@ -273,12 +259,16 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         currentPage?.webView?.load(URLRequest(url: url))
     }
     
-    public override func goBack() {
+    override func goBack() {
         currentPage?.webView?.goBack()
     }
     
-    internal func reload() {
+    func reload() {
         currentPage?.reload()
+    }
+
+    private func closeSheet() {
+        onCloseRequested?()
     }
     
     private func openInSafari() {

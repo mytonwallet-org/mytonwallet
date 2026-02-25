@@ -7,6 +7,16 @@ import WalletContext
  Mirrors `ChainConfig` from `src/util/chain.ts`.
  */
 public struct ChainConfig {
+
+    public struct ExplorerLink {
+        public var url: String
+        public var param: String?
+        
+        public init(url: String, param: String? = nil) {
+            self.url = url
+            self.param = param
+        }
+    }
     
     public struct BuySwap {
         public var tokenInSlug: String
@@ -16,7 +26,7 @@ public struct ChainConfig {
     
     public struct Explorer {
         public var name: String
-        public var baseUrl: [ApiNetwork: String]
+        public var baseUrl: [ApiNetwork: ExplorerLink]
         /// Use `{base}` as the base URL placeholder and `{address}` as the wallet address placeholder
         public var address: String
         /// Use `{base}` as the base URL placeholder and `{address}` as the token address placeholder
@@ -46,6 +56,8 @@ public struct ChainConfig {
     public var canBuyWithCardInRussia: Bool
     /// Whether the chain supports sending asset transfers with a comment
     public var isTransferPayloadSupported: Bool
+    /// Whether the chain supports comment encrypting
+    public var isEncryptedCommentSupported: Bool
     /// Whether the chain supports sending the full balance of the native token (the fee is taken from the sent amount)
     public var canTransferFullNativeBalance: Bool
     /// Whether Ledger support is implemented for this chain
@@ -69,7 +81,7 @@ public struct ChainConfig {
     /// A swap configuration used to buy the native token in this chain
     public var buySwap: BuySwap
     /// The slug of the USDT token in this chain, if it has USDT
-    public var usdtSlug: [ApiNetwork: String?]
+    public var usdtSlug: [ApiNetwork: String]
     /// The token slugs of this chain added to new accounts by default.
     public var defaultEnabledSlugs: [ApiNetwork: [String]]
     /// The token slugs of this chain supported by the crosschain (CEX) swap mechanism.
@@ -95,6 +107,8 @@ private let TON_USDT_TESTNET_ADDRESS = "kQD0GKBM8ZbryVk2aESmzfU6b9b_8era_IkvBSEL
 private let TRON_USDT_TESTNET_SLUG = "tron-tg3xxyexbk"
 private let TRON_USDT_TESTNET_ADDRESS = "TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs"
 
+private let SOLANA_USDT_MAINNET_ADDRESS = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+
 private let MYCOIN_MAINNET_ADDRESS = "EQCFVNlRb-NHHDQfv3Q9xvDXBLJlay855_xREsq5ZDX6KN-w"
 private let MYCOIN_MAINNET_IMAGE = "https://imgproxy.mytonwallet.org/imgproxy/Qy038wCBKISofJ0hYMlj6COWma330cx3Ju1ZSPM2LRU/rs:fill:200:200:1/g:no/aHR0cHM6Ly9teXRvbndhbGxldC5pby9sb2dvLTI1Ni1ibHVlLnBuZw.webp"
 
@@ -111,7 +125,7 @@ private extension ApiToken {
             name: "Tether USD",
             symbol: "USD₮",
             decimals: 6,
-            chain: TON_CHAIN,
+            chain: .ton,
             tokenAddress: "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
             image: TON_USDT_MAINNET_IMAGE,
             isFromBackend: true,
@@ -125,7 +139,7 @@ private extension ApiToken {
             name: "Tether USD",
             symbol: "USD₮",
             decimals: 6,
-            chain: TON_CHAIN,
+            chain: .ton,
             tokenAddress: TON_USDT_TESTNET_ADDRESS,
             image: nil
         )
@@ -137,7 +151,7 @@ private extension ApiToken {
             name: "Tether USD",
             symbol: "USDT",
             decimals: 6,
-            chain: TRON_CHAIN,
+            chain: .tron,
             tokenAddress: TRON_USDT_MAINNET_ADDRESS
         )
     }
@@ -148,8 +162,31 @@ private extension ApiToken {
             name: "Tether USD",
             symbol: "USDT",
             decimals: 6,
-            chain: TRON_CHAIN,
+            chain: .tron,
             tokenAddress: TRON_USDT_TESTNET_ADDRESS
+        )
+    }
+
+    static var solana: ApiToken {
+        ApiToken(
+            slug: SOLANA_SLUG,
+            name: "Solana",
+            symbol: "SOL",
+            decimals: 9,
+            chain: .solana,
+            cmcSlug: "solana"
+        )
+    }
+
+    static var solanaUsdtMainnet: ApiToken {
+        ApiToken(
+            slug: SOLANA_USDT_MAINNET_SLUG,
+            name: "Tether USD",
+            symbol: "USDT",
+            decimals: 6,
+            chain: .solana,
+            tokenAddress: SOLANA_USDT_MAINNET_ADDRESS,
+            image: TON_USDT_MAINNET_IMAGE
         )
     }
     
@@ -159,7 +196,7 @@ private extension ApiToken {
             name: "MyTonWallet Coin",
             symbol: "MY",
             decimals: 9,
-            chain: TON_CHAIN,
+            chain: .ton,
             tokenAddress: MYCOIN_MAINNET_ADDRESS,
             image: MYCOIN_MAINNET_IMAGE
         )
@@ -171,7 +208,7 @@ private extension ApiToken {
             name: "MyTonWallet Coin",
             symbol: "MY",
             decimals: 9,
-            chain: TON_CHAIN,
+            chain: .ton,
             tokenAddress: MYCOIN_TESTNET_ADDRESS,
             image: nil
         )
@@ -184,6 +221,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         isDnsSupported: true,
         canBuyWithCardInRussia: true,
         isTransferPayloadSupported: true,
+        isEncryptedCommentSupported: true,
         canTransferFullNativeBalance: true,
         isLedgerSupported: true,
         addressRegex: .init(pattern: #"^([-\w_]{48}|0:[\da-h]{64})$"#, isCaseInsensitive: true),
@@ -216,8 +254,8 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         explorer: .init(
             name: "Tonscan",
             baseUrl: [
-                .mainnet: "https://tonscan.org/",
-                .testnet: "https://testnet.tonscan.org/",
+                .mainnet: .init(url: "https://tonscan.org/"),
+                .testnet: .init(url: "https://testnet.tonscan.org/"),
             ],
             address: "{base}address/{address}",
             token: "{base}jetton/{address}",
@@ -253,6 +291,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         isDnsSupported: false,
         canBuyWithCardInRussia: false,
         isTransferPayloadSupported: false,
+        isEncryptedCommentSupported: false,
         canTransferFullNativeBalance: false,
         isLedgerSupported: false,
         addressRegex: .init(pattern: #"^T[1-9A-HJ-NP-Za-km-z]{33}$"#),
@@ -281,8 +320,8 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         explorer: .init(
             name: "Tronscan",
             baseUrl: [
-                .mainnet: "https://tronscan.org/#/",
-                .testnet: "https://shasta.tronscan.org/#/",
+                .mainnet: .init(url: "https://tronscan.org/#/"),
+                .testnet: .init(url: "https://shasta.tronscan.org/#/"),
             ],
             address: "{base}address/{address}",
             token: "{base}token20/{address}",
@@ -291,14 +330,98 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         ),
         isNetWorthSupported: false
     ),
+    .solana: ChainConfig(
+        title: "Solana",
+        isDnsSupported: false,
+        canBuyWithCardInRussia: false,
+        isTransferPayloadSupported: true,
+        isEncryptedCommentSupported: false,
+        canTransferFullNativeBalance: false,
+        isLedgerSupported: false,
+        addressRegex: .init(pattern: #"^[1-9A-HJ-NP-Za-km-z]{32,44}$"#),
+        addressPrefixRegex: .init(pattern: #"^[1-9A-HJ-NP-Za-km-z]{0,44}$"#),
+        nativeToken: .solana,
+        doesBackendSocketSupport: false,
+        canImportTokens: false,
+        shouldShowScamWarningIfNotEnoughGas: false,
+        doesSupportPushNotifications: false,
+        feeCheckAddress: "35YT7tt9edJbroEKaC3T3XY4cLNWKtVzmyTEfW8LHPEA",
+        buySwap: .init(tokenInSlug: SOLANA_USDT_MAINNET_SLUG, amountIn: "100"),
+        usdtSlug: [
+            .mainnet: SOLANA_USDT_MAINNET_SLUG,
+        ],
+        defaultEnabledSlugs: [
+            .mainnet: [SOLANA_SLUG, SOLANA_USDT_MAINNET_SLUG],
+            .testnet: [SOLANA_SLUG],
+        ],
+        crosschainSwapSlugs: [SOLANA_SLUG, SOLANA_USDT_MAINNET_SLUG],
+        tokenInfo: [
+            .solana,
+            .solanaUsdtMainnet,
+        ],
+        explorer: .init(
+            name: "Solscan",
+            baseUrl: [
+                .mainnet: .init(url: "https://solscan.io/"),
+                .testnet: .init(url: "https://solscan.io/", param: "?cluster=devnet"),
+            ],
+            address: "{base}account/{address}",
+            token: "{base}token/{address}",
+            transaction: "{base}tx/{hash}",
+            doConvertHashFromBase64: false
+        ),
+        isNetWorthSupported: false
+    ),
 ]
 
+private func makeOtherChainConfig(for chain: ApiChain) -> ChainConfig {
+    let title = getChainName(chain)
+    let nativeToken = ApiToken(
+        slug: "\(chain.rawValue)-native",
+        name: title,
+        symbol: title,
+        decimals: 9,
+        chain: chain
+    )
+    return ChainConfig(
+        title: title,
+        isDnsSupported: false,
+        canBuyWithCardInRussia: false,
+        isTransferPayloadSupported: false,
+        isEncryptedCommentSupported: false,
+        canTransferFullNativeBalance: false,
+        isLedgerSupported: false,
+        addressRegex: .init(pattern: #"^$"#),
+        addressPrefixRegex: .init(pattern: #"^$"#),
+        nativeToken: nativeToken,
+        doesBackendSocketSupport: false,
+        canImportTokens: false,
+        shouldShowScamWarningIfNotEnoughGas: false,
+        doesSupportPushNotifications: false,
+        feeCheckAddress: "",
+        buySwap: .init(tokenInSlug: TONCOIN_SLUG, amountIn: "0"),
+        usdtSlug: [:],
+        defaultEnabledSlugs: [
+            .mainnet: [],
+            .testnet: [],
+        ],
+        crosschainSwapSlugs: [],
+        tokenInfo: [],
+        explorer: .init(
+            name: "Explorer",
+            baseUrl: [
+                .mainnet: .init(url: "https://tonscan.org/"),
+                .testnet: .init(url: "https://testnet.tonscan.org/"),
+            ],
+            address: "{base}address/{address}",
+            token: "{base}token/{address}",
+            transaction: "{base}tx/{hash}",
+            doConvertHashFromBase64: false
+        ),
+        isNetWorthSupported: false
+    )
+}
+
 public func getChainConfig(chain: ApiChain) -> ChainConfig {
-    CHAIN_CONFIG[chain]!
+    CHAIN_CONFIG[chain] ?? makeOtherChainConfig(for: chain)
 }
-
-public func findChainConfig(chain: String?) -> ChainConfig? {
-    guard let chain else { return nil }
-    return ApiChain(rawValue: chain).flatMap { CHAIN_CONFIG[$0] }
-}
-

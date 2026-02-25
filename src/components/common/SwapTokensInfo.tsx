@@ -1,6 +1,6 @@
 import React, { memo } from '../../lib/teact/teact';
 
-import type { ApiSwapAsset } from '../../api/types';
+import type { ApiSwapAsset, ApiToken } from '../../api/types';
 import type { UserSwapToken } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
@@ -15,9 +15,9 @@ import styles from './SwapTokensInfo.module.scss';
 
 interface OwnProps {
   isSensitiveDataHidden?: true;
-  tokenIn?: UserSwapToken | ApiSwapAsset;
+  tokenIn?: UserSwapToken | ApiSwapAsset | ApiToken;
   amountIn?: string;
-  tokenOut?: UserSwapToken | ApiSwapAsset;
+  tokenOut?: UserSwapToken | ApiSwapAsset | ApiToken;
   amountOut?: string;
   isError?: boolean;
   onTokenClick?: (slug: string) => void;
@@ -26,7 +26,7 @@ interface OwnProps {
 function SwapTokensInfo({
   isSensitiveDataHidden, tokenIn, amountIn, tokenOut, amountOut, isError = false, onTokenClick,
 }: OwnProps) {
-  function handleTokenClick(token?: UserSwapToken | ApiSwapAsset) {
+  function handleTokenClick(token?: UserSwapToken | ApiSwapAsset | ApiToken) {
     if (onTokenClick && token?.slug) {
       onTokenClick(token.slug);
     }
@@ -34,11 +34,11 @@ function SwapTokensInfo({
 
   function renderTokenInfo(
     seed: string,
-    token?: UserSwapToken | ApiSwapAsset,
+    token?: UserSwapToken | ApiSwapAsset | ApiToken,
     amount = '0',
     isReceived = false,
   ) {
-    const amountWithSign = isReceived ? amount : `-${amount}`;
+    const amountWithSign = isReceived ? amount : `-${Math.abs(Number(amount)).toString()}`;
     const withLabel = Boolean(token && token.label);
     const isClickable = Boolean(onTokenClick && token?.slug);
 
@@ -83,7 +83,12 @@ function SwapTokensInfo({
           {formatCurrencyExtended(amountWithSign, token?.symbol ?? '')}
         </SensitiveData>
         <span className={styles.infoRowChain}>{getChainNetworkName(token?.chain)}</span>
-        {!isReceived && renderCurrency(amountIn, amountOut, tokenIn, tokenOut)}
+        {!isReceived && renderCurrency(
+          Math.abs(Number(amountIn)).toString(),
+          Math.abs(Number(amountOut)).toString(),
+          tokenIn,
+          tokenOut,
+        )}
       </div>
     );
   }
@@ -108,7 +113,12 @@ function SwapTokensInfo({
 
 export default memo(SwapTokensInfo);
 
-function renderCurrency(amountIn?: string, amountOut?: string, fromToken?: ApiSwapAsset, toToken?: ApiSwapAsset) {
+function renderCurrency(
+  amountIn?: string,
+  amountOut?: string,
+  fromToken?: ApiSwapAsset | ApiToken,
+  toToken?: ApiSwapAsset | ApiToken,
+) {
   const rate = getSwapRate(amountIn, amountOut, fromToken, toToken);
   if (!rate) return undefined;
 

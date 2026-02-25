@@ -106,7 +106,7 @@ final class UnstakeModel: WalletCoreData.EventsObserver {
         return MFee(precision: .exact, terms: .init(token: nil, native: stakeOperationFee, stars: nil), nativeSum: stakeOperationFee)
     }
     
-    var tokenChain: ApiChain? { baseToken.chainValue }
+    var tokenChain: ApiChain? { baseToken.chain }
     
     // Validation
 

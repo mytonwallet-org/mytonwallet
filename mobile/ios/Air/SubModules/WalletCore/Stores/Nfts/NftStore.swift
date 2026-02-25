@@ -57,37 +57,58 @@ public final class _NftStore: Sendable {
     private let cacheUrl = URL.cachesDirectory.appending(components: "air", "nfts", "nfts.json")
     
     // MARK: - Load
+
+    private enum NftsMergeMode: Equatable {
+        case prepend
+        case append
+    }
+
+    private struct StreamPruneContext {
+        let chain: ApiChain
+        let addresses: Set<String>
+    }
     
-    private func received(accountId: String, newNfts: [ApiNft], removedNftIds: [String], replaceExisting: Bool) async {
+    private func received(
+        accountId: String,
+        newNfts: [ApiNft],
+        removedNftIds: [String],
+        mergeMode: NftsMergeMode = .prepend,
+        preferExistingOnConflict: Bool = false,
+        streamPruneContext: StreamPruneContext? = nil
+    ) async {
         var nfts = self.nfts[accountId, default: [:]]
         for removedNftId in removedNftIds {
             nfts.removeValue(forKey: removedNftId)
         }
-        for nft in newNfts.reversed() {
+        let orderedIncomingNfts = mergeMode == .prepend ? Array(newNfts.reversed()) : newNfts
+        for nft in orderedIncomingNfts {
             if var displayNft = nfts[nft.id] {
+                if preferExistingOnConflict {
+                    continue
+                }
                 let oldIsHidden = displayNft.shouldHide
-                // update nft (e.g. to get new isHidden) but keep user settings
                 displayNft.nft = nft
                 if oldIsHidden == false && displayNft.shouldHide == true {
-                    // move to end
                     nfts.removeValue(forKey: nft.id)
                 }
                 nfts[nft.id] = displayNft
             } else {
                 let displayNft = DisplayNft(nft: nft, isHiddenByUser: false)
-                if displayNft.shouldHide {
+                if displayNft.shouldHide || mergeMode == .append {
                     nfts[nft.id] = displayNft
                 } else {
                     nfts.updateValue(displayNft, forKey: nft.id, insertingAt: 0)
                 }
             }
         }
-        if replaceExisting {
-            let newNftIds = Set(newNfts.map { $0.id })
-            nfts.removeAll { nftId, _ in
-                !newNftIds.contains(nftId)
+
+        if let streamPruneContext {
+            nfts.removeAll { _, displayNft in
+                displayNft.nft.chain == streamPruneContext.chain
+                    && !streamPruneContext.addresses.contains(displayNft.nft.address)
             }
         }
+
         self._nfts.withLock { [nfts] in
             $0[accountId] = nfts
         }
@@ -280,10 +301,10 @@ public final class _NftStore: Sendable {
         )
     }
     
-    public func accountOwnsCollection(accountId: String, address: String?) -> Bool {
+    public func accountOwnsCollection(accountId: String, address: String?, chain: ApiChain? = nil) -> Bool {
         if let address {
             for collection in getCollections(accountId: accountId).collections {
-                if collection.address == address {
+                if collection.address == address && (chain == nil || collection.chain == chain) {
                     return true
                 }
             }
@@ -302,23 +323,29 @@ public final class _NftStore: Sendable {
     }
     
     public func getAccountCollection(accountId: String, address: String) -> NftCollection? {
+        let (chain, normalizedAddress) = parseCollectionReference(address)
         if let nft = nfts[accountId, default: [:]]
             .values
-            .first(where: { $0.nft.collectionAddress == address })?
+            .first(where: {
+                $0.nft.collectionAddress == normalizedAddress
+                    && (chain == nil || $0.nft.chain == chain)
+            })?
             .nft {
-            return NftCollection(address: address, name: nft.collectionName ?? "Collection")
+            return NftCollection(chain: nft.chain, address: normalizedAddress, name: nft.collectionName ?? "Collection")
         }
         return nil
     }
     
-    public func getCollectionItems(accountId: String, collectionAddress: String) -> OrderedDictionary<String, DisplayNft> {
+    public func getCollectionItems(accountId: String, collectionAddress: String, chain: ApiChain? = nil) -> OrderedDictionary<String, DisplayNft> {
         let accountNfts = nfts[accountId, default: [:]]
-        let collectionNfts = accountNfts.filter { $0.value.nft.collectionAddress == collectionAddress }
+        let collectionNfts = accountNfts.filter {
+            $0.value.nft.collectionAddress == collectionAddress && (chain == nil || $0.value.nft.chain == chain)
+        }
         return collectionNfts
     }
     
     public func getAccountMtwCards(accountId: String) -> OrderedDictionary<String, ApiNft> {
-        getCollectionItems(accountId: accountId, collectionAddress: MTW_CARDS_COLLECTION).mapValues(\.nft)
+        getCollectionItems(accountId: accountId, collectionAddress: MTW_CARDS_COLLECTION, chain: .ton).mapValues(\.nft)
     }
     
     // MARK: - Private
@@ -363,6 +390,15 @@ public final class _NftStore: Sendable {
             }
         }
     }
+
+    private func parseCollectionReference(_ value: String) -> (chain: ApiChain?, address: String) {
+        let items = value.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+        if items.count == 2, !items[1].isEmpty {
+            guard let chain = ApiChain(rawValue: String(items[0])), chain.isSupported else { return (nil, value) }
+            return (chain, String(items[1]))
+        }
+        return (nil, value)
+    }
     
 }
 
@@ -375,15 +411,27 @@ extension _NftStore: WalletCoreData.EventsObserver {
             
         case .updateNfts(let update):
             Task {
-                await self.received(accountId: update.accountId, newNfts: update.nfts, removedNftIds: [], replaceExisting: update.collectionAddress == nil)
+                let shouldAppend = update.collectionAddress != nil || update.isFullLoading == true
+                let streamPruneContext = update.streamedAddresses.map {
+                    StreamPruneContext(chain: update.chain, addresses: Set($0))
+                }
+                let incomingNfts = streamPruneContext == nil ? update.nfts : []
+                await self.received(
+                    accountId: update.accountId,
+                    newNfts: incomingNfts,
+                    removedNftIds: [],
+                    mergeMode: shouldAppend ? .append : .prepend,
+                    preferExistingOnConflict: shouldAppend,
+                    streamPruneContext: streamPruneContext
+                )
             }
         case .nftReceived(let update):
             Task {
-                await self.received(accountId: update.accountId, newNfts: [update.nft], removedNftIds: [], replaceExisting: false)
+                await self.received(accountId: update.accountId, newNfts: [update.nft], removedNftIds: [])
             }
         case .nftSent(let update):
             Task {
-                await self.received(accountId: update.accountId, newNfts: [], removedNftIds: [update.nftAddress], replaceExisting: false)
+                await self.received(accountId: update.accountId, newNfts: [], removedNftIds: [update.nftAddress])
             }
         case .nftPutUpForSale(let update):
             // might want to add a badge here?

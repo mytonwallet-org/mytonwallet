@@ -41,9 +41,20 @@ public class PasscodeScreenView: UIView {
             matchHeaderColors: matchHeaderColors
         )
     }
+
+    public override var canBecomeFirstResponder: Bool {
+        true
+    }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil {
+            becomeFirstResponder()
+        }
     }
     
     private var unlockScreenBackground: UIColor {
@@ -100,7 +111,7 @@ public class PasscodeScreenView: UIView {
             NSLayoutConstraint.activate([
                 unlockView.topAnchor.constraint(equalTo: topAnchor, constant: 32),
                 unlockView.bottomAnchor.constraint(equalTo: bottomAnchor),
-                unlockView.centerXAnchor.constraint(equalTo: centerXAnchor),
+                unlockView.centerXAnchor.constraint(equalTo: safeAreaLayoutGuide.centerXAnchor),
                 unlockView.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -16),
             ])
         } else {
@@ -108,10 +119,10 @@ public class PasscodeScreenView: UIView {
             let topConstraint = unlockView.topAnchor.constraint(greaterThanOrEqualTo: safeAreaLayoutGuide.topAnchor, constant: 16)
             topConstraint.priority = UILayoutPriority(749)
             // centerYConstraint is optional and should be breaked first of all.
-            let centerYConstraint = unlockView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -32)
+            let centerYConstraint = unlockView.centerYAnchor.constraint(equalTo: safeAreaLayoutGuide.centerYAnchor, constant: -32)
             centerYConstraint.priority = UILayoutPriority(748)
             NSLayoutConstraint.activate([
-                unlockView.centerXAnchor.constraint(equalTo: centerXAnchor),
+                unlockView.centerXAnchor.constraint(equalTo: safeAreaLayoutGuide.centerXAnchor),
                 unlockView.bottomAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.bottomAnchor, constant: -16),
                 topConstraint,
                 centerYConstraint
@@ -363,6 +374,39 @@ public class PasscodeScreenView: UIView {
         }
     }
 
+    public override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        var handled = false
+        for press in presses {
+            guard let key = press.key else { continue }
+            handled = handleHardwareKeyboardKey(key) || handled
+        }
+        if !handled {
+            super.pressesBegan(presses, with: event)
+        }
+    }
+
+    private func handleHardwareKeyboardKey(_ key: UIKey) -> Bool {
+        if !key.modifierFlags.intersection([.command, .control, .alternate]).isEmpty {
+            return false
+        }
+        if key.keyCode == .keyboardDeleteOrBackspace {
+            passcodeInputView.deleteBackward()
+            return true
+        }
+        let text = key.charactersIgnoringModifiers
+        if text.isEmpty {
+            return false
+        }
+        var handled = false
+        for char in text {
+            if let value = char.wholeNumberValue {
+                passcodeInputView.insertText(String(value))
+                handled = true
+            }
+        }
+        return handled
+    }
+
     func tryBiometric() {
         guard effectiveBiometryType != nil else {
             return
@@ -382,8 +426,7 @@ public class PasscodeScreenView: UIView {
                 }
                 hideButton(button)
             case .success:
-                delegate?.animateSuccess()
-                delegate?.onAuthenticated(taskDone: false, passcode: KeychainHelper.biometricPasscode())
+                delegate?.passcodeSelected(passcode: KeychainHelper.biometricPasscode())
             case let .error(localizedDescription, title):
                 let topVC = topViewController() as? WViewController
                 topVC?.showAlert(title: title, text: localizedDescription, button: lang("OK"))

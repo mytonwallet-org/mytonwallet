@@ -54,9 +54,9 @@ struct TransactionActivityHeader: View {
                         showPlus: shouldShowSign ? transaction.isIncoming : false,
                         showMinus: shouldShowSign ? !transaction.isIncoming : false
                     ),
-                    integerFont: .rounded(ofSize: 34, weight: .bold),
-                    fractionFont: .rounded(ofSize: 28, weight: .bold),
-                    symbolFont: .rounded(ofSize: 28, weight: .bold),
+                    integerFont: .compactRounded(ofSize: 34, weight: .bold),
+                    fractionFont: .compactRounded(ofSize: 28, weight: .bold),
+                    symbolFont: .compactRounded(ofSize: 28, weight: .bold),
                     integerColor: amountColor,
                     fractionColor: fractionColor,
                     symbolColor: symbolColor
@@ -147,7 +147,7 @@ struct TokenIconView: View {
             }
         } attachment: {
             if !token.isNative {
-                Image.airBundle("chain_\(token.chain)")
+                Image.airBundle("chain_\(token.chain.rawValue)")
                     .resizable()
             }
         }

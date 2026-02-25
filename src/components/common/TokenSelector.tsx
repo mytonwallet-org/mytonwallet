@@ -47,6 +47,7 @@ import ModalHeader from '../ui/ModalHeader';
 import SensitiveData from '../ui/SensitiveData';
 import Transition from '../ui/Transition';
 import TokenIcon from './TokenIcon';
+import TokenTitle from './TokenTitle';
 
 import styles from './TokenSelector.module.scss';
 
@@ -562,7 +563,6 @@ function Token({
 
   return (
     <div
-
       className={buildClassName(
         styles.tokenContainer,
         !isAvailable && styles.tokenContainerDisabled,
@@ -577,9 +577,11 @@ function Token({
         />
 
         <div className={styles.nameContainer}>
-          <span className={buildClassName(styles.tokenName, !isAvailable && styles.tokenTextDisabled)}>
-            {token.name}
-          </span>
+          <TokenTitle
+            tokenName={token.name}
+            tokenLabel={token.label}
+            isDisabled={!isAvailable}
+          />
           <span
             className={buildClassName(
               styles.tokenNetwork,

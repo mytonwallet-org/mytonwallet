@@ -67,7 +67,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent.AccountChangedInApp
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
@@ -326,20 +326,24 @@ class SettingsVC(context: Context) : WViewController(context),
         recyclerView.layoutManager?.smoothScrollToPosition(recyclerView, null, 0)
     }
 
+    private var isReparenting = false
+
     private fun updateScroll(dy: Int) {
         headerView.updateScroll(dy)
+        if (isReparenting) return
         if (dy > 0) {
             if (headerView.parent == headerCell) {
-                view.post {
-                    if (headerView.parent == headerCell) {
-                        topReversedCornerView?.alpha = 1f
-                        headerCell?.removeView(headerView)
-                        view.addView(headerView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-                        navigationBar?.bringToFront()
-                        topBlurViewGuideline.bringToFront()
-                        moreButton.bringToFront()
-                        qrButton.bringToFront()
-                    }
+                isReparenting = true
+                try {
+                    topReversedCornerView?.alpha = 1f
+                    headerCell?.removeView(headerView)
+                    view.addView(headerView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+                    navigationBar?.bringToFront()
+                    topBlurViewGuideline.bringToFront()
+                    moreButton.bringToFront()
+                    qrButton.bringToFront()
+                } finally {
+                    isReparenting = false
                 }
             }
         } else {
@@ -575,7 +579,7 @@ class SettingsVC(context: Context) : WViewController(context),
                 null,
                 InAppBrowserConfig(
                     url,
-                    injectTonConnectBridge = false,
+                    injectDappConnect = false,
                     injectDarkModeStyles = false,
                     title = title
                 )

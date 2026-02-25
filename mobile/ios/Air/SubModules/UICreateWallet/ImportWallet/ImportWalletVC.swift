@@ -11,7 +11,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-public class ImportWalletVC: WViewController {
+public class ImportWalletVC: CreateWalletBaseVC {
 
     private let introModel: IntroModel
     
@@ -189,7 +189,7 @@ public class ImportWalletVC: WViewController {
     @objc func pasteFromClipboard() {
         if UIPasteboard.general.hasStrings, let value = UIPasteboard.general.string, !value.isEmpty {
             let words = value.split(omittingEmptySubsequences: true, whereSeparator: { $0.isWhitespace }).map(String.init)
-            if words.count != 24 && words.count != 12 {
+            if !isValidImportWords(words) {
                 Haptics.play(.error)
                 if #available(iOS 17.0, *), let target = wordInputs.first?.frame(in: scrollView) {
                      scrollView.scrollRectToVisible(target, animated: true)
@@ -212,14 +212,11 @@ public class ImportWalletVC: WViewController {
         }
 
         // check if all the words are in the possibleWordList
-        words = [String]()
-        for wordInput in wordInputs {
-            guard let word = wordInput.trimmedText else { break }
-            words.append(word)
-        }
+        words = enteredWords()
         
-        if words.count != 24 && words.count != 12 {
+        if !isValidImportWords(words) {
             showMnemonicAlert()
+            return
         }
 
         validateWords(enteredWords: words)
@@ -252,6 +249,11 @@ public class ImportWalletVC: WViewController {
     // MARK: Validate words
     
     func validateWords(enteredWords: [String]) {
+        if let privateKeyWords = normalizeMnemonicPrivateKey(enteredWords) {
+            goNext(didImport: false, wordsToImport: privateKeyWords)
+            return
+        }
+
         Task { @MainActor in
             do {
                 isLoading = true
@@ -294,6 +296,19 @@ public class ImportWalletVC: WViewController {
         }
         isLoading = false
     }
+    
+    private func enteredWords() -> [String] {
+        var words = [String]()
+        for wordInput in wordInputs {
+            guard let word = wordInput.trimmedText else { break }
+            words.append(word)
+        }
+        return words
+    }
+    
+    private func isValidImportWords(_ words: [String]) -> Bool {
+        words.count == 12 || words.count == 24 || isMnemonicPrivateKey(words)
+    }
 }
 
 extension ImportWalletVC: WKeyboardObserverDelegate {
@@ -312,8 +327,8 @@ extension ImportWalletVC: WWordInputDelegate {
     }
     
     public func textChanged() {
-        let wordCount = wordInputs.count(where: { $0.trimmedText?.isEmpty == false })
-        bottomActionsView.primaryButton.isEnabled = wordCount == 12 || wordCount == 24
+        let enteredWords = enteredWords()
+        bottomActionsView.primaryButton.isEnabled = isValidImportWords(enteredWords)
     }
 }
 

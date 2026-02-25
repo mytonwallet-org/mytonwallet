@@ -20,7 +20,12 @@ public struct MAccountBalanceData: Equatable, Hashable, Sendable {
     public var walletTokens: [MTokenBalance] { Array(walletTokensDict.values) }
     public var walletStaked: [MTokenBalance] { Array(walletStakedDict.values) }
     
-    init(walletTokens: [MTokenBalance], walletStaked: [MTokenBalance], totalBalance: BaseCurrencyAmount, totalBalanceYesterday: BaseCurrencyAmount, totalBalanceUsd: Double, totalBalanceChange: Double?) {
+    init(walletTokens: [MTokenBalance],
+         walletStaked: [MTokenBalance],
+         totalBalance: BaseCurrencyAmount,
+         totalBalanceYesterday: BaseCurrencyAmount,
+         totalBalanceUsd: Double,
+         totalBalanceChange: Double?) {
         self.walletTokensDict = walletTokens.orderedDictionaryByKey(\.tokenSlug)
         self.walletStakedDict = walletStaked.orderedDictionaryByKey(\.tokenSlug)
         self.totalBalance = totalBalance

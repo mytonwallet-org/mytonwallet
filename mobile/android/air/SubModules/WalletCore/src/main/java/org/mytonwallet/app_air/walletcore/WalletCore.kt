@@ -59,13 +59,38 @@ const val TON_USDT_TESTNET_SLUG = "ton-kqd0gkbm8z"
 const val TRON_SLUG = "trx"
 const val TRON_USDT_SLUG = "tron-tr7nhqjekq"
 const val TRON_USDT_TESTNET_SLUG = "tron-tg3xxyexbk"
-const val BURN_ADDRESS = "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ"
+const val SOLANA_SLUG = "sol"
+const val SOLANA_USDT_SLUG = "solana-es9vmfrzac"
+const val SOLANA_USDC_SLUG = "solana-epjfwdd5au"
+const val VIRTUAL_STAKING_SLUG_PREFIX = "staking-"
 const val TON_DNS_COLLECTION = "EQC3dNlesgVD8YbAazcauIrXBPfiVhMMr5YYk2in0Mtsz0Bz"
 const val MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"
 
 val STAKING_SLUGS = listOf(
     STAKE_SLUG, STAKED_MYCOIN_SLUG, STAKED_USDE_SLUG
 )
+
+fun tokenSlugToStakingSlug(slug: String): String? {
+    return when (slug) {
+        TONCOIN_SLUG -> STAKE_SLUG
+        MYCOIN_SLUG -> STAKED_MYCOIN_SLUG
+        USDE_SLUG -> STAKED_USDE_SLUG
+        else -> null
+    }
+}
+
+fun stakingSlugToTokenSlug(stakingSlug: String): String? {
+    return when (stakingSlug) {
+        STAKE_SLUG, TONCOIN_SLUG -> TONCOIN_SLUG
+        STAKED_MYCOIN_SLUG, MYCOIN_SLUG -> MYCOIN_SLUG
+        STAKED_USDE_SLUG, USDE_SLUG -> USDE_SLUG
+        else -> null
+    }
+}
+
+fun buildVirtualStakingSlug(baseSlug: String): String {
+    return "$VIRTUAL_STAKING_SLUG_PREFIX$baseSlug"
+}
 
 val POPULAR_WALLET_VERSIONS = listOf(
     "v3R1", "v3R2", "v4R2", "W5"
@@ -89,14 +114,35 @@ val DEFAULT_SHOWN_TOKENS = mapOf(
         TON_USDT_SLUG,
         TRON_SLUG,
         TRON_USDT_SLUG,
+        SOLANA_SLUG,
+        SOLANA_USDT_SLUG,
     ),
     MBlockchainNetwork.TESTNET to setOf(
         TONCOIN_SLUG,
         TON_USDT_TESTNET_SLUG,
         TRON_SLUG,
         TRON_USDT_TESTNET_SLUG,
+        SOLANA_SLUG,
     ),
 )
+
+val TRUSTED_USDT_TOKENS = mapOf(
+    MBlockchainNetwork.MAINNET to setOf(
+        TON_USDT_SLUG,
+        TRON_USDT_SLUG,
+        SOLANA_USDT_SLUG,
+    ),
+    MBlockchainNetwork.TESTNET to setOf(
+        TON_USDT_TESTNET_SLUG,
+        TRON_USDT_TESTNET_SLUG,
+    ),
+)
+
+fun getTrustedUsdtTokens(network: MBlockchainNetwork?): Set<String> {
+    return network?.let {
+        TRUSTED_USDT_TOKENS[it]
+    } ?: TRUSTED_USDT_TOKENS.values.flatten().toSet()
+}
 
 val DEFAULT_SWAP_VERSION = 3
 val MAX_PRICE_IMPACT_VALUE = 5.0

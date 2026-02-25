@@ -7,7 +7,6 @@ import WebKit
 #if canImport(Capacitor)
 import Capacitor
 import MytonwalletAirAppLauncher
-import MytonwalletNativeBottomSheet
 import FirebaseCore
 import FirebaseMessaging
 import SwiftKeychainWrapper
@@ -49,9 +48,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProto
     private func cleanWebViews() {
          #if canImport(Capacitor)
         if let window = UIApplication.shared.connectedSceneDelegate?.window,
-           let capBridgeVC = window.rootViewController as? CAPBridgeViewController,
-           let bottomSheetPlugin = capBridgeVC.bridge?.plugin(withName: "BottomSheet") as? BottomSheetPlugin {
-            self.clean(webView: bottomSheetPlugin.capWebView)
+           let capBridgeVC = window.rootViewController as? CAPBridgeViewController {
             self.clean(webView: capBridgeVC.webView)
         }
         #endif
@@ -97,8 +94,6 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProto
             return false
         }
         
-        configureIOS26Compatibility()
-
         return true
     }
 

@@ -11,7 +11,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-class AssetsAndActivityHideNoCostCell: UITableViewCell {
+final class AssetsAndActivityHideNoCostCell: UITableViewCell {
     
     private var isInModal: Bool = true
     

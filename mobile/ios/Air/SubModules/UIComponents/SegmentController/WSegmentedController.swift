@@ -22,6 +22,7 @@ public protocol WSegmentedControllerContent: UIViewController {
 }
 
 public extension WSegmentedControllerContent {
+    // FIXME: - default implementation is ambiguous
     var calculatedHeight: CGFloat { 0 }
 }
 

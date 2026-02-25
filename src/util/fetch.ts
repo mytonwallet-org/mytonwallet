@@ -15,7 +15,7 @@ type FetchOptions = {
   shouldSkipRetryFn?: (message?: string, statusCode?: number) => boolean;
 };
 
-type QueryParams = Record<string, string | number | boolean | string[]>;
+type QueryParams = Record<string, string | number | boolean | string[] | undefined>;
 
 const MAX_TIMEOUT = 30000; // 30 sec
 

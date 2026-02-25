@@ -22,6 +22,7 @@ public struct MtwCardAddressLine: View {
         public let chainSpacing: CGFloat
         public let singlechainAddressCount: Int
         public let multichainEndCount: Int
+        public let multichainAddressCount: Int
         public let showComma: Bool
         public let showAccessories: Bool
         
@@ -36,11 +37,12 @@ public struct MtwCardAddressLine: View {
             chainSpacing: 3,
             singlechainAddressCount: 6,
             multichainEndCount: 6,
+            multichainAddressCount: 2,
             showComma: true,
             showAccessories: false,
         )
         public static let card = Style(
-            font: .compactMedium(size: 11),
+            font: .compactDisplay(size: 11, weight: .medium),
             textOpacity: 1,
             accountTypeIconSpacing: 3.333,
             largeAccountTypeIcon: false,
@@ -50,11 +52,12 @@ public struct MtwCardAddressLine: View {
             chainSpacing: 1.667,
             singlechainAddressCount: 4,
             multichainEndCount: 4,
+            multichainAddressCount: 2,
             showComma: false,
             showAccessories: false,
         )
         public static let homeCard = Style(
-            font: .compactMedium(size: 17),
+            font: .compactDisplay(size: 17, weight: .medium),
             textOpacity: 0.75,
             accountTypeIconSpacing: 4,
             largeAccountTypeIcon: true,
@@ -64,11 +67,12 @@ public struct MtwCardAddressLine: View {
             chainSpacing: 6,
             singlechainAddressCount: 6,
             multichainEndCount: 6,
+            multichainAddressCount: 2,
             showComma: true,
             showAccessories: true,
         )
         public static let customizeWalletCard = Style(
-            font: .compactMedium(size: 17),
+            font: .compactDisplay(size: 17, weight: .medium),
             textOpacity: 0.75,
             accountTypeIconSpacing: 4,
             largeAccountTypeIcon: true,
@@ -78,6 +82,7 @@ public struct MtwCardAddressLine: View {
             chainSpacing: 6,
             singlechainAddressCount: 4,
             multichainEndCount: 4,
+            multichainAddressCount: 2,
             showComma: true,
             showAccessories: false,
         )
@@ -134,8 +139,16 @@ public struct MtwCardAddressLine: View {
                 }
             }
             HStack(spacing: style.chainSpacing) {
-                ForEach(addressLine.items) { item in
-                    ItemView(item: item, itemsCount: itemsCount, style: style, gradient: gradient, ns: ns)
+                let addressesToShowCount = itemsCount == 1 ? 1 : min(style.multichainAddressCount, itemsCount)
+                ForEach(addressLine.items.indices, id: \.self) { idx in
+                    ItemView(
+                        item: addressLine.items[idx],
+                        itemsCount: itemsCount,
+                        showAddress: idx < addressesToShowCount,
+                        style: style,
+                        gradient: gradient,
+                        ns: ns
+                    )
                 }
             }
             if style.showAccessories {
@@ -165,19 +178,20 @@ private struct ItemView: View {
     
     var item: MAccount.AddressLine.Item
     var itemsCount: Int
+    var showAddress: Bool
     var style: MtwCardAddressLine.Style
     var gradient: MtwCardCenteredGradient?
     var ns: Namespace.ID
 
     var body: some View {
-        HStack(spacing: style.chainIconSpacing) {
+        HStack(spacing: showAddress ? style.chainIconSpacing : 0) {
             if style.fullcolorChainIcons {
-                Image.airBundle("chain_\(item.chain)")
+                Image.airBundle("chain_\(item.chain.rawValue)")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: style.chainIconWidth)
             } else {
-                Image.airBundle("inline_chain_\(item.chain)")
+                Image.airBundle("inline_chain_\(item.chain.rawValue)")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: style.chainIconWidth)
@@ -186,12 +200,17 @@ private struct ItemView: View {
             
             Group {
                 let comma = style.showComma && !item.isLast ? "," : ""
-                if item.isDomain {
-                    Text(item.text + comma)
-                        .truncationMode(.middle)
-                        .opacity(style.textOpacity)
-                } else {
-                    Text(formatStartEndAddress(item.text, prefix: itemsCount == 1 ? style.singlechainAddressCount : 0, suffix: itemsCount == 1 ? style.singlechainAddressCount : style.multichainEndCount) + comma)
+                if showAddress {
+                    if item.isDomain {
+                        Text(item.text + comma)
+                            .truncationMode(.middle)
+                            .opacity(style.textOpacity)
+                    } else {
+                        Text(formatStartEndAddress(item.text, prefix: itemsCount == 1 ? style.singlechainAddressCount : 0, suffix: itemsCount == 1 ? style.singlechainAddressCount : style.multichainEndCount) + comma)
+                            .opacity(style.textOpacity)
+                    }
+                } else if !comma.isEmpty {
+                    Text(comma)
                         .opacity(style.textOpacity)
                 }
             }
@@ -212,7 +231,7 @@ private struct ItemView: View {
     
     func onCopy() {
         UIPasteboard.general.string = item.textToCopy
-        AppActions.showToast(animationName: "Copy", message: lang("Address was copied!"))
+        AppActions.showToast(animationName: "Copy", message: lang("%chain% Address Copied", arg1: item.chain.title))
         Haptics.play(.lightTap)
     }
 }

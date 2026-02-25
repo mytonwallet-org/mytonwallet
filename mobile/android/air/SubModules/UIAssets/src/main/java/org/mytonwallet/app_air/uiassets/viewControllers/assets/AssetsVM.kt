@@ -190,7 +190,8 @@ class AssetsVM(
 
         cachedNftsToSave?.let {
             NftStore.setNfts(
-                it,
+                chain = null,
+                nfts = it,
                 accountId = AccountStore.activeAccountId!!,
                 notifyObservers = true,
                 isReorder = true

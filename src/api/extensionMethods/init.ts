@@ -8,10 +8,10 @@ import * as extensionMethods from '.';
 addHooks({
   onWindowNeeded: openPopupWindow,
   onFullLogout: extensionMethods.onFullLogout,
-  onDappDisconnected: (_, url) => {
+  onDappDisconnected: (_, dapp) => {
     siteMethods.updateSites({
       type: 'disconnectSite',
-      url,
+      url: dapp.url,
     });
   },
 });

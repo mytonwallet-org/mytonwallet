@@ -167,27 +167,6 @@
     }
   }
 
-  :global(html.is-native-bottom-sheet) & {
-    .container {
-      align-items: flex-start;
-      background: var(--color-background-window);
-    }
-
-    .dialog {
-      max-height: none;
-      border-radius: 0;
-      box-shadow: none;
-      transition: none;
-    }
-
-    &:global(.closing) .dialog {
-      transform: none;
-    }
-
-    .backdrop {
-      display: none;
-    }
-  }
 }
 
 .container {
@@ -568,7 +547,6 @@
     padding-top: 5.5rem;
   }
 
-  :global(.is-native-bottom-sheet),
   :global(html:not(.is-android-app)) & {
     padding-bottom: max(var(--safe-area-bottom, 1rem), 1rem);
   }

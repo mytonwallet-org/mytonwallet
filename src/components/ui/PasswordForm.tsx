@@ -20,7 +20,7 @@ import { stopEvent } from '../../util/domEvents';
 import { getTranslation } from '../../util/langProvider';
 import { pause } from '../../util/schedulers';
 import { createSignal } from '../../util/signals';
-import { IS_ANDROID_APP, IS_DELEGATING_BOTTOM_SHEET } from '../../util/windowEnvironment';
+import { IS_ANDROID_APP } from '../../util/windowEnvironment';
 import { callApi } from '../../api';
 import { ANIMATED_STICKERS_PATHS } from './helpers/animatedAssets';
 
@@ -135,7 +135,7 @@ function PasswordForm({
   cancelLabel,
   submitLabel,
   stickerSize = STICKER_SIZE,
-  placeholder = 'Enter your password',
+  placeholder = getDoesUsePinPad() ? 'Enter your passcode' : 'Enter your password',
   error,
   help,
   resetStateDelayMs,
@@ -226,8 +226,7 @@ function PasswordForm({
 
   useEffect(() => {
     if (
-      (IS_DELEGATING_BOTTOM_SHEET && !forceBiometricsInMain)
-      || !isActive
+      !isActive
       || !isBiometricAuthEnabled
       || withConfirmScreenOnly
     ) {
@@ -444,7 +443,7 @@ function PasswordForm({
     return (
       <div className={styles.verify}>
         {lang(operationType === 'transfer'
-          ? 'Please confirm transaction using biometrics' : 'Please confirm action using biometrics')}
+          ? 'Please confirm transfer using biometrics' : 'Please confirm action using biometrics')}
       </div>
     );
   }

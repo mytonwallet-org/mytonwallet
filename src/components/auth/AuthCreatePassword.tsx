@@ -3,7 +3,7 @@ import { getActions } from '../../global';
 
 import type { AuthMethod } from '../../global/types';
 
-import { getIsBiometricAuthSupported } from '../../util/biometrics';
+import { getDoesUsePinPad, getIsBiometricAuthSupported } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
@@ -35,7 +35,7 @@ const AuthCreatePassword = ({
   const isImporting = method !== 'createAccount';
   const formId = getFormId(method!);
   const withDescription = !getIsBiometricAuthSupported();
-  const title = lang(withDescription ? 'Congratulations!' : 'Create Password');
+  const title = lang(withDescription ? 'Congratulations!' : getDoesUsePinPad() ? 'Create Passcode' : 'Create Password');
 
   useHistoryBack({
     isActive,
@@ -73,7 +73,7 @@ const AuthCreatePassword = ({
               <b>{lang(isImporting ? 'The wallet is imported' : 'The wallet is ready')}.</b>
             </p>
             <p className={styles.info}>
-              {lang('Create a password to protect it.')}
+              {lang(getDoesUsePinPad() ? 'Create a passcode to protect it.' : 'Create a password to protect it.')}
             </p>
           </>
         )}

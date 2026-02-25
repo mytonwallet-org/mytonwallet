@@ -64,12 +64,60 @@ public struct SendComposeView: View {
             .onTapGesture {
                 endEditing()
             }
-            .navigationTitle(Text(lang("Send")))
         }
     }
     
     func onAddressSubmit() {
         amountFocused = true
+    }
+}
+
+// MARK: -
+
+struct SendComposeTitleView: View {
+    var onSellTapped: () -> Void
+    var onMultisendTapped: () -> Void
+
+    @State private var menuContext = MenuContext()
+
+    private let titleFont = Font.system(size: 14, weight: .medium)
+
+    var body: some View {
+        
+        let showSell = !ConfigStore.shared.shouldRestrictSell
+        
+        HStack(spacing: 12) {
+            HStack(spacing: 4) {
+                Text(lang("Send"))
+                Image.airBundle("ArrowUpDownSmall").opacity(0.5)
+            }
+            .font(titleFont)
+            .foregroundColor(Color(WTheme.primaryLabel))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Color(WTheme.secondaryLabel).opacity(0.12))
+            .clipShape(Capsule())
+            .menuSource(menuContext: menuContext)
+            .onAppear { configureMenu() }
+            
+            if showSell {
+                Button(action: onSellTapped) {
+                    Text(lang("Sell"))
+                        .font(titleFont)
+                        .foregroundStyle(Color(WTheme.secondaryLabel))
+                }
+            }
+        }
+    }
+    
+    private func configureMenu() {
+        menuContext.makeConfig = {
+            MenuConfig(menuItems: [
+                MenuItem.button(id: "0-multisend", title: lang("Multisend"), trailingIcon: .air("MenuMultisend26")) {
+                    onMultisendTapped()
+                }
+            ])
+        }
     }
 }
 
@@ -83,7 +131,7 @@ fileprivate struct AmountSection: View {
     var body: some View {
         WithPerceptionTracking {
             @Perception.Bindable var model = model
-            if model.nftSendMode == nil {
+            if !model.mode.isNftRelated {
                 TokenAmountEntrySection(
                     amount: $model.amount,
                     token: model.token,
@@ -145,7 +193,7 @@ internal struct NftSection: View {
                 } header: {
                     Text("^[\(nfts.count) Assets](inflect: true)")
                 } footer: {
-                    FeeView(token: model.token, nativeToken: tokenStore.getNativeToken(chain: model.token.chainValue), fee: model.showingFee, explainedTransferFee: nil, includeLabel: true)
+                    FeeView(token: model.token, nativeToken: tokenStore.getNativeToken(chain: model.token.chain), fee: model.showingFee, explainedTransferFee: nil, includeLabel: true)
                 }
             }
         }

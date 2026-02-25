@@ -39,7 +39,7 @@ public final class ExploreVC: WViewController {
 
     // MARK: Overriden
 
-    override public func viewDidLoad() {
+    public override func viewDidLoad() {
         super.viewDidLoad()
 
         let titleFixingScrollView = initialSetup()
@@ -48,7 +48,7 @@ public final class ExploreVC: WViewController {
         exploreVM.refresh()
     }
 
-    override public func scrollToTop(animated _: Bool) {
+    public override func scrollToTop(animated _: Bool) {
         observedViewState.scrollToTop()
     }
 
@@ -101,9 +101,9 @@ public final class ExploreVC: WViewController {
         cancelBag.formUnion([
             viewOutput.connectedDappDidTap.sink { [exploreVM] connectedDappURL in
                 if let connected = exploreVM.connectedDapps[connectedDappURL], let url = URL(string: connected.url) {
-                    AppActions.openInBrowser(url, title: connected.name, injectTonConnect: true)
+                    AppActions.openInBrowser(url, title: connected.name, injectDappConnect: true)
                 } else {
-                    // logError
+                    Log.shared.error("Data is inconsistent for connectedDappURL \(connectedDappURL)")
                 }
             },
 
@@ -116,24 +116,23 @@ public final class ExploreVC: WViewController {
                 .sink(withUnretained: self) { uSelf, apiSite in
                     uSelf.view.window?.endEditing(true)
                     uSelf.onSelectAny()
-                    // if exploreVM.exploreSites[apiSite.url] == nil { // log() inconsistency between UI and data layer }
-                    guard let url = URL(string: apiSite.url) else { return } // logError | urlFromStringFailed
+                    if uSelf.exploreVM.exploreSites[apiSite.url] == nil {
+                        Log.shared.error("inconsistency between UI and data ")
+                    }
+                    guard let url = URL(string: apiSite.url) else {
+                        return Log.shared.error("URL from string failed: \(apiSite.url)")
+                    }
 
                     if apiSite.shouldOpenExternally {
                         UIApplication.shared.open(url)
                     } else {
-                        AppActions.openInBrowser(url, title: apiSite.name, injectTonConnect: true)
+                        AppActions.openInBrowser(url, title: apiSite.name, injectDappConnect: true)
                     }
                 },
 
             viewOutput.dappCategoryDidTap.sink(withUnretained: self) { uSelf, categoryId in
-                let dappFolderFrame = uSelf.viewOutput.folderFrames.value[categoryId]
-                let rectToShowFrom = dappFolderFrame.map(Self.rightBottomQuarterOf(cgRect:))
-                let exploreVC = ExploreCategoryVC(exploreVM: uSelf.exploreVM, categoryId: categoryId, rectToShowFrom: rectToShowFrom)
-                let navVC = UINavigationController(rootViewController: exploreVC)
-                navVC.modalPresentationStyle = .custom
-                navVC.transitioningDelegate = exploreVC
-                uSelf.present(navVC, animated: true)
+                let exploreVC = ExploreCategoryVC(exploreVM: uSelf.exploreVM, categoryId: categoryId)
+                uSelf.navigationController?.pushViewController(exploreVC, animated: true)
             },
         ])
 
@@ -144,14 +143,11 @@ public final class ExploreVC: WViewController {
         }
     }
 
-    private static func rightBottomQuarterOf(cgRect rect: CGRect) -> CGRect {
-        // right bottom quarter of folder is where MoreDappsView
-        CGRect(x: rect.midX, y: rect.midY, width: rect.width / 2, height: rect.height / 2)
-    }
-
     private func updateViewState() {
-        let (sections, shouldShowWhiteBackground) = Self.makeViewStateSnapshot(exploreVM: exploreVM,
-                                                                               trimmedSearchString: trimmedSearchString)
+        let (sections, shouldShowWhiteBackground) =
+            Self.makeViewStateSnapshot(exploreVM: exploreVM,
+                                       shouldRestrictSites: ConfigStore.shared.shouldRestrictSites,
+                                       trimmedSearchString: trimmedSearchString)
         observedViewState.update(sections: sections, shouldShowWhiteBackground: shouldShowWhiteBackground)
     }
 }

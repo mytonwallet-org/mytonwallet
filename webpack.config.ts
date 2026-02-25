@@ -35,6 +35,10 @@ import {
   IS_TELEGRAM_APP,
   MTW_STATIC_BASE_URL,
   PROXY_API_BASE_URL,
+  SOLANA_MAINNET_API_URL,
+  SOLANA_MAINNET_RPC_URL,
+  SOLANA_TESTNET_API_URL,
+  SOLANA_TESTNET_RPC_URL,
   SSE_BRIDGE_URL,
   SUBPROJECT_URL_MASK,
   TONAPIIO_MAINNET_URL,
@@ -43,6 +47,7 @@ import {
   TONCENTER_TESTNET_URL,
   TRON_MAINNET_API_URL,
   TRON_TESTNET_API_URL,
+  WALLET_CONNECT_BRIDGE_PATTERNS,
 } from './src/config';
 
 const destinationDir = path.resolve(__dirname, 'dist');
@@ -66,7 +71,7 @@ const cspFrameSrcExtra = IS_CORE_WALLET ? '' : [
   SUBPROJECT_URL_MASK,
 ].join(' ');
 
-const cspConnectSrcHosts = [
+const cspConnectSrcHosts = Array.from(new Set([
   BRILLIANT_API_BASE_URL,
   BRILLIANT_API_BASE_URL.replace(/^http(s?):/, 'ws$1:'),
   ensureTrailingSlash(PROXY_API_BASE_URL),
@@ -79,9 +84,16 @@ const cspConnectSrcHosts = [
   TONAPIIO_TESTNET_URL,
   TRON_MAINNET_API_URL,
   TRON_TESTNET_API_URL,
+  SOLANA_MAINNET_RPC_URL,
+  SOLANA_MAINNET_RPC_URL.replace(/^http(s?):/, 'ws$1:'),
+  SOLANA_TESTNET_RPC_URL,
+  SOLANA_TESTNET_RPC_URL.replace(/^http(s?):/, 'ws$1:'),
+  SOLANA_MAINNET_API_URL,
+  SOLANA_TESTNET_API_URL,
+  WALLET_CONNECT_BRIDGE_PATTERNS,
   ensureTrailingSlash(IPFS_GATEWAY_BASE_URL),
   ensureTrailingSlash(SSE_BRIDGE_URL),
-].join(' ');
+])).join(' ');
 
 const cspImageSrcHosts = [
   MTW_STATIC_BASE_URL,
@@ -363,6 +375,12 @@ export default function createConfig(
         TONAPIIO_TESTNET_URL: '',
         BRILLIANT_API_BASE_URL: '',
         TRON_MAINNET_API_URL: '',
+        SOLANA_MAINNET_RPC_URL: '',
+        SOLANA_TESTNET_RPC_URL: '',
+        SOLANA_MAINNET_API_URL: '',
+        SOLANA_MAINNET_API_KEY: '',
+        SOLANA_TESTNET_API_URL: '',
+        SOLANA_TESTNET_API_KEY: '',
         TRON_TESTNET_API_URL: '',
         PROXY_HOSTS: '',
         STAKING_POOLS: '',
@@ -385,6 +403,7 @@ export default function createConfig(
         DIESEL_ADDRESS: '',
         GIVEAWAY_CHECKIN_URL: '',
         PROXY_API_BASE_URL: '',
+        WALLET_CONNECT_PROJECT_ID: '',
       }),
       new ProvidePlugin({
         Buffer: ['buffer', 'Buffer'],

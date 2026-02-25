@@ -28,7 +28,6 @@ private let log = Log("ExploreVM")
     private(set) var exploreCategories: OrderedDictionary<Int, ApiSiteCategory> = [:]
     private(set) var connectedDapps: OrderedDictionary<String, ApiDapp> = [:]
     private(set) var featuredTitle: String?
-    private(set) var isRestricted: Bool = false
 
     private var loadExploreSitesTask: Task<Void, Never>?
     private var waitingForNetwork = false
@@ -99,7 +98,6 @@ private let log = Log("ExploreVM")
     }
     
     func updateRestricted() {
-        self.isRestricted = ConfigStore.shared.shouldRestrictSites
         delegate?.didUpdateViewModelData()
     }
 

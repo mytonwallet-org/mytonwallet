@@ -1,7 +1,7 @@
 package org.mytonwallet.app_air.walletcore.moshi.api
 
 import com.squareup.moshi.JsonClass
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiConnectionType
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
@@ -29,10 +29,13 @@ sealed class ApiUpdate {
         override val promiseId: String,
         override val accountId: String,
         override val dapp: ApiDapp,
+        val operationChain: String,
         val transactions: List<ApiDappTransfer>,
         val vestingAddress: String? = null,
         val validUntil: Long? = null,
-        val emulation: Emulation? = null
+        val emulation: Emulation? = null,
+        val shouldHideTransfers: Boolean? = null,
+        val isLegacyOutput: Boolean? = null
     ) : ApiUpdate(), ApiUpdateDappSignRequest {
 
         override val isDangerous: Boolean = transactions.any { it.isDangerous }
@@ -50,6 +53,7 @@ sealed class ApiUpdate {
         override val promiseId: String,
         override val accountId: String,
         override val dapp: ApiDapp,
+        val operationChain: String,
         val payloadToSign: MSignDataPayload
     ) : ApiUpdate(), ApiUpdateDappSignRequest {
         override val isDangerous: Boolean = false

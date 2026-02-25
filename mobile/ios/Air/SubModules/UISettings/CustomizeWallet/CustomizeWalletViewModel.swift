@@ -101,7 +101,10 @@ final class AccountMtwCards: WalletCoreData.EventsObserver {
         @Dependency(\.nftStore) var nftStore
         cards = nftStore.getAccountMtwCards(accountId: accountId)
         Task {
-            try await Api.fetchNftsFromCollection(accountId: accountId, collectionAddress: MTW_CARDS_COLLECTION)
+            try await Api.fetchNftsFromCollection(
+                accountId: accountId,
+                collection: .mtwCardsCollection,
+            )
         }
         WalletCoreData.add(eventObserver: self)
     }

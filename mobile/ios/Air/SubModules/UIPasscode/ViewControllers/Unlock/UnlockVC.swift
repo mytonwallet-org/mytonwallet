@@ -85,7 +85,16 @@ public class UnlockVC: WViewController {
                 let result = await BiometricHelper.authenticate()
                 switch result {
                 case .success:
-                    onDone(KeychainHelper.biometricPasscode())
+                    let passcode = KeychainHelper.biometricPasscode()
+                    do {
+                        guard try await AuthSupport.verifyPassword(password: passcode) else {
+                            vc?.present(_makeUnlockVC(useBioOnPresent: false), animated: true)
+                            return
+                        }
+                        onDone(passcode)
+                    } catch {
+                        vc?.present(_makeUnlockVC(useBioOnPresent: false), animated: true)
+                    }
                     
                 case .canceled, .error, .userDeniedBiometrics:
                     vc?.present(_makeUnlockVC(useBioOnPresent: false), animated: true)
@@ -126,7 +135,7 @@ public class UnlockVC: WViewController {
         return await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
             var nillableContinuation: CheckedContinuation<String?, Never>? = continuation
 
-            UnlockVC.presentAuth(
+            presentAuth(
                 on: vc,
                 title: title,
                 replacedTitle: replacedTitle,
@@ -345,7 +354,7 @@ public class UnlockVC: WViewController {
         super.viewDidDisappear(animated)
     }
 
-    // when this function is called, `UnlockVC` retries to use biometric
+    // when this function is called, `UnlockVC` tries to use biometric
     public func tryBiometric() {
         passcodeScreenView.tryBiometric()
     }

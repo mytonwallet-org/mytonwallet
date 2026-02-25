@@ -91,6 +91,10 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             }
         }
     }
+    
+    public var orderedAccountIdsWithTemporary: OrderedSet<String> {
+        orderedAccountIds.union(accountsById.keys)
+    }
         
     /// Excludes temporary view accounts
     public var orderedAccounts: [MAccount] {
@@ -256,6 +260,20 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         await subscribeNotificationsIfAvailable(account: account)
         return account
     }
+    
+    public func importPrivateKey(network: ApiNetwork, privateKey: String, passcode: String) async throws -> MAccount {
+        let result = try await Api.importPrivateKey(chain: .ton, networks: [network], privateKey: privateKey, password: passcode).first.orThrow()
+        let account = MAccount(
+            id: result.accountId,
+            title: _defaultTitle(),
+            type: .mnemonic,
+            byChain: result.byChain,
+        )
+        try await _storeAccount(account: account)
+        _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
+        await subscribeNotificationsIfAvailable(account: account)
+        return account
+    }
 
     public func importLedgerAccount(accountInfo: ApiLedgerAccountInfo) async throws -> String {
         let result = try await Api.importLedgerAccount(network: .mainnet, accountInfo: accountInfo)
@@ -344,6 +362,9 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             accountsById[accountId] = account
             try await _storeAccount(account: account)
             WalletCoreData.notify(event: .accountNameChanged)
+            if notificationsEnabledAccountIds.contains(accountId) {
+                await _subscribeNotifications(account: account, force: true)
+            }
         }
     }
     
@@ -446,7 +467,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         }
         AppStorageHelper.deleteAllWallets()
         KeychainHelper.deleteAllWallets()
-        WalletContextManager.delegate?.restartApp()
+        WalletCoreData.notify(event: .accountsReset)
     }
 
     @discardableResult
@@ -504,25 +525,46 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     }
     
     func handleUpdateAccount(update: ApiUpdate.UpdateAccount) async {
+        guard var account = accountsById[update.accountId] else {
+            return
+        }
+
+        let chain = update.chain.rawValue
+        var didChange = false
+
+        if let address = update.address {
+            if account.byChain[chain] == nil {
+                account.byChain[chain] = AccountChain(address: address)
+                didChange = true
+            } else if account.byChain[chain]?.address != address {
+                account.byChain[chain]?.address = address
+                didChange = true
+            }
+        }
+
         switch update.domain {
         case .unchanged:
             break
         case .changed(let domain):
-            if var account = accountsById[update.accountId], account.byChain[update.chain.rawValue]?.domain != domain {
-                account.byChain[update.chain.rawValue]?.domain = domain
-                try? await _storeAccount(account: account)
+            if account.byChain[chain]?.domain != domain {
+                account.byChain[chain]?.domain = domain
+                didChange = true
             }
         case .removed:
-            if var account = accountsById[update.accountId], account.byChain[update.chain.rawValue]?.domain != nil {
-                account.byChain[update.chain.rawValue]?.domain = nil
-                try? await _storeAccount(account: account)
+            if account.byChain[chain]?.domain != nil {
+                account.byChain[chain]?.domain = nil
+                didChange = true
             }
         }
         if let isMultisig = update.isMultisig {
-            if var account = accountsById[update.accountId], account.byChain[update.chain.rawValue]?.isMultisig != isMultisig {
-                account.byChain[update.chain.rawValue]?.isMultisig = isMultisig
-                try? await _storeAccount(account: account)
+            if account.byChain[chain]?.isMultisig != isMultisig {
+                account.byChain[chain]?.isMultisig = isMultisig
+                didChange = true
             }
+        }
+
+        if didChange {
+            try? await _storeAccount(account: account)
         }
     }
 
@@ -536,9 +578,6 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     public func didRegisterForPushNotifications(userToken: String) {
         let existingInfo = AppStorageHelper.pushNotifications
         let previousToken = existingInfo?.userToken
-        if previousToken == userToken, existingInfo?.isAvailable == true, existingInfo?.platform == .ios {
-            return
-        }
 
         let info = GlobalPushNotifications(
             isAvailable: true,
@@ -560,6 +599,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
                 let subscribeProps = ApiSubscribeNotificationsProps(
                     userToken: userToken,
                     platform: .ios,
+                    langCode: LocalizationSupport.shared.langCode,
                     addresses: addresses
                 )
 
@@ -571,12 +611,36 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
                     ))
                     let result = try await subscribeResult
                     updateEnabledNotificationAccounts(info: info, accounts: accounts, result: result)
-                } else if previousToken == nil {
+                } else {
                     let result = try await Api.subscribeNotifications(props: subscribeProps)
                     updateEnabledNotificationAccounts(info: info, accounts: accounts, result: result)
                 }
             } catch {
                 log.info("didRegisterForPushNotifications: \(error, .public)")
+            }
+        }
+    }
+    
+    public func refreshEnabledNotificationSubscriptions() {
+        guard let info = AppStorageHelper.pushNotifications,
+              let userToken = info.userToken else {
+            return
+        }
+        let accounts = info.enabledAccounts.compactMap { accountsById[$0] }
+        let addresses = accounts.flatMap { notificationAddresses(for: $0) }
+        guard !addresses.isEmpty else { return }
+
+        Task {
+            do {
+                let result = try await Api.subscribeNotifications(props: ApiSubscribeNotificationsProps(
+                    userToken: userToken,
+                    platform: .ios,
+                    langCode: LocalizationSupport.shared.langCode,
+                    addresses: addresses
+                ))
+                updateEnabledNotificationAccounts(info: info, accounts: accounts, result: result)
+            } catch {
+                log.info("refreshEnabledNotificationSubscriptions: \(error, .public)")
             }
         }
     }
@@ -609,12 +673,12 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         }
     }
 
-    private func _subscribeNotifications(account: MAccount) async {
+    private func _subscribeNotifications(account: MAccount, force: Bool = false) async {
         do {
             if var info = AppStorageHelper.pushNotifications,
                 let userToken = info.userToken
             {
-                if info.enabledAccounts.contains(account.id) {
+                if info.enabledAccounts.contains(account.id), !force {
                     return
                 }
                 let addresses = notificationAddresses(for: account)
@@ -625,11 +689,16 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
                 let result = try await Api.subscribeNotifications(props: ApiSubscribeNotificationsProps(
                     userToken: userToken,
                     platform: .ios,
+                    langCode: LocalizationSupport.shared.langCode,
                     addresses: addresses
                 ))
                 let enabledAddresses = Set(result.addressKeys.keys)
                 if addresses.contains(where: { enabledAddresses.contains($0.address) }) {
-                    info.enabledAccounts.append(account.id)
+                    if !info.enabledAccounts.contains(account.id) {
+                        info.enabledAccounts.append(account.id)
+                    }
+                } else {
+                    info.enabledAccounts.removeAll { $0 == account.id }
                 }
                 AppStorageHelper.pushNotifications = info
             } else {
@@ -692,21 +761,118 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         AppStorageHelper.pushNotifications = updatedInfo
     }
 
-    // MARK: - Misc
+    // MARK: - AssetsAndActivityData
 
-    private var _assetsAndActivityData: UnfairLock<[String: MAssetsAndActivityData]> = .init(initialState: [:])
-    public var assetsAndActivityData: [String: MAssetsAndActivityData] {
-        _assetsAndActivityData.withLock { $0 }
-    }
+    private let _assetsAndActivityData = UnfairLock<ValueFetchingState<[String: MAssetsAndActivityData]>>(initialState: .notSet)
+    
     public var currentAccountAssetsAndActivityData: MAssetsAndActivityData? {
-        _assetsAndActivityData.withLock { $0[AccountStore.accountId ?? ""]}
+        guard let accountID = AccountStore.accountId else { return nil }
+        return assetsAndActivityData(forAccountID: accountID)
     }
-    public func setAssetsAndActivityData(accountId: String, value: MAssetsAndActivityData) {
-        _assetsAndActivityData.withLock { $0[accountId] = value }
-        AppStorageHelper.save(accountId: accountId, assetsAndActivityData: value.toDictionary)
+    
+    /// [AccountID: MAssetsAndActivityData]
+    public func assetsAndActivityData(forAccountID accountID: String) -> MAssetsAndActivityData? {
+        _assetsAndActivityData.withLock { dataState in
+            switch dataState {
+            case .notSet: nil
+            case .data(let assetsSettingsDict): assetsSettingsDict[accountID]
+            }
+        }
+    }
+    
+    /// Without this state it is impossible to understand whether the data has not yet been loaded or MAssetsAndActivityData is nil because nothing has been write.
+    /// Was added as a workaround to prevent data being erased in BalanceStore. In BalanceStore when `recalculateAccountData()` called,
+    /// MAssetsAndActivityData is not loaded yet. It is needed some time after `recalculateAccountData()` called for MAssetsAndActivityData to be parsed and set.
+    /// This is an artifact of current data layer implementation, which is needed to be addressed.
+    ///
+    /// Account data loading and recalculateAccountData() happens in non-deterministic order.  notifyAccountChanged event, which initiate MAssetsAndActivityData
+    /// loading from persistent storage, happens after ~650ms after recalculateAccountData(). Then after ~200ms MAssetsAndActivityData is finally parsed and set.
+    public var isAssetsAndActivityDataLoaded: Bool {
+        _assetsAndActivityData.withLock { dataState in
+            switch dataState {
+            case .notSet: false
+            case .data: true
+            }
+        }
+    }
+    
+    /// For setting data from bridge
+    public func setAssetsAndActivityData(_ settings: MAssetsAndActivityData, forAccountID accountID: String) {
+        let hasChanged = _assetsAndActivityData.withLock { dataState in
+            switch dataState {
+            case .notSet:
+                dataState = .data([accountID: settings])
+                return true
+
+            case .data(var settingsDict):
+                let isChanged = Self.update_AccountsAssetsAndActivityDict(&settingsDict,
+                                                                          withSettings: settings,
+                                                                          forAccountID: accountID)
+                if isChanged { dataState = .data(settingsDict) }
+                return isChanged
+            }
+        }
+
+        guard hasChanged else { return }
+
+        AppStorageHelper.save(accountId: accountID, assetsAndActivityData: settings.toDictionary)
         WalletCoreData.notify(event: .assetsAndActivityDataUpdated)
     }
 
+    /// For changing settings from UI
+    public func updateAssetsAndActivityData(forAccountID accountID: String,
+                                            update: (inout MAssetsAndActivityData) -> Void) {
+        let updatedSettings: MAssetsAndActivityData? = _assetsAndActivityData.withLock { dataState in
+            switch dataState {
+            case .notSet:
+                // this branch signals about incorrect usage / races.
+                let message = "Trying to update data that is not set yet. "
+                  + " Check `isAssetsAndActivityDataLoaded` state first to prevent data erasing on concurrent access"
+                Log.shared.fault(LogMessage(stringLiteral: message))
+                assertionFailure(message)
+                return nil
+                
+            case .data(var settingsDict):
+                // there can still be a race in this branch too. The existence of settingsDict only guarantees that settings
+                // for one account have already been set. Settings for other accounts may still being loaded.
+                // This solves situation with recalculateAccountData() in BalanceStore, but still brittle.
+                var accountAssetsSettings = settingsDict[accountID] ?? .empty
+                update(&accountAssetsSettings)
+                
+                let isChanged = Self.update_AccountsAssetsAndActivityDict(&settingsDict,
+                                                                          withSettings: accountAssetsSettings,
+                                                                          forAccountID: accountID)
+                if isChanged {
+                    dataState = .data(settingsDict)
+                    return accountAssetsSettings
+                } else {
+                    return nil
+                }
+            }
+        }
+
+        guard let updatedSettings else { return }
+
+        // Improvement: potential race with AppStorageHelper.save and reading data
+        AppStorageHelper.save(accountId: accountID, assetsAndActivityData: updatedSettings.toDictionary)
+        WalletCoreData.notify(event: .assetsAndActivityDataUpdated)
+    }
+    
+    private static func update_AccountsAssetsAndActivityDict(_ settingsDict: inout [String: MAssetsAndActivityData],
+                                                             withSettings accountAssetsSettings: MAssetsAndActivityData,
+                                                             forAccountID accountID: String) -> Bool {
+        let dataWasChanged: Bool
+        if settingsDict[accountID] != accountAssetsSettings {
+            settingsDict[accountID] = accountAssetsSettings
+            dataWasChanged = true
+        } else {
+            dataWasChanged = false
+        }
+        return dataWasChanged
+    }
+
+    // MARK: - Misc
+    
     public internal(set) var updatingActivities: Bool {
         get { _updatingActivities.withLock { $0 } }
         set { _updatingActivities.withLock { $0 = newValue } }
@@ -734,8 +900,8 @@ extension _AccountStore: DependencyKey {
                 title: "MyTonWallet",
                 type: .mnemonic,
                 byChain: [
-                    TON_CHAIN: AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop34Aef3dsdaQ8N", domain: nil),
-                    TRON_CHAIN: AccountChain(address: "TUQf7abcd1234efgh5678ijkl9012mnop34ef3dsdaPqh", domain: nil),
+                    .ton: AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop34Aef3dsdaQ8N", domain: nil),
+                    .tron: AccountChain(address: "TUQf7abcd1234efgh5678ijkl9012mnop34ef3dsdaPqh", domain: nil),
                 ]
             ),
             MAccount(
@@ -743,8 +909,8 @@ extension _AccountStore: DependencyKey {
                 title: "Personal Wallet",
                 type: .mnemonic,
                 byChain: [
-                    TON_CHAIN: AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop34ef3dsdaQ8N", domain: "tema.ton"),
-                    TRON_CHAIN: AccountChain(address: "TUQf7abcd1234efgh5678ijkl9012mnop34ef3dsdacC9", domain: "screamingseagull.tron"),
+                    .ton: AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop34ef3dsdaQ8N", domain: "tema.ton"),
+                    .tron: AccountChain(address: "TUQf7abcd1234efgh5678ijkl9012mnop34ef3dsdacC9", domain: "screamingseagull.tron"),
                 ]
             ),
             MAccount(
@@ -752,7 +918,7 @@ extension _AccountStore: DependencyKey {
                 title: "My Saved",
                 type: .view,
                 byChain: [
-                    TON_CHAIN: AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop3456qrst7890d0Gh", domain: nil),
+                    .ton: AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop3456qrst7890d0Gh", domain: nil),
                 ]
             ),
             MAccount(
@@ -760,7 +926,7 @@ extension _AccountStore: DependencyKey {
                 title: "Just for Test",
                 type: .view,
                 byChain: [
-                    TON_CHAIN: AccountChain(address: "UQdk9876zyxw5432vuts2109rqpo8765nmlk4321jihg7654z7-d", domain: nil),
+                    .ton: AccountChain(address: "UQdk9876zyxw5432vuts2109rqpo8765nmlk4321jihg7654z7-d", domain: nil),
                 ]
             ),
             MAccount(
@@ -768,7 +934,7 @@ extension _AccountStore: DependencyKey {
                 title: "Yet Another Walleeeeeeeeeeeeeeeeeeet",
                 type: .mnemonic,
                 byChain: [
-                    TON_CHAIN: AccountChain(address: "UQ2c1234abcd5678efgh9012ijkl3456mnop7890qrst2345Kd9A", domain: nil),
+                    .ton: AccountChain(address: "UQ2c1234abcd5678efgh9012ijkl3456mnop7890qrst2345Kd9A", domain: nil),
                 ]
             ),
             MAccount(
@@ -776,8 +942,8 @@ extension _AccountStore: DependencyKey {
                 title: "Family Wallet",
                 type: .hardware,
                 byChain: [
-                    TON_CHAIN: AccountChain(address: "EQ9876abcd5432efgh2109ijkl8765mnop4321qrst7890klmn9-d", domain: nil),
-                    TRON_CHAIN: AccountChain(address: "T9876543210abcdefghijklmnopqrstuvwxyz01234567890Va", domain: nil),
+                    .ton: AccountChain(address: "EQ9876abcd5432efgh2109ijkl8765mnop4321qrst7890klmn9-d", domain: nil),
+                    .tron: AccountChain(address: "T9876543210abcdefghijklmnopqrstuvwxyz01234567890Va", domain: nil),
                 ]
             ),
             MAccount(
@@ -785,7 +951,7 @@ extension _AccountStore: DependencyKey {
                 title: "Durov's Wallet",
                 type: .view,
                 byChain: [
-                    TON_CHAIN: AccountChain(address: "EQabcdef1234567890ghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP", domain: "wolf.t.me"),
+                    .ton: AccountChain(address: "EQabcdef1234567890ghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP", domain: "wolf.t.me"),
                 ]
             ),
             MAccount(
@@ -793,8 +959,8 @@ extension _AccountStore: DependencyKey {
                 title: "Old Wallet",
                 type: .mnemonic,
                 byChain: [
-                    TON_CHAIN: AccountChain(address: "EQ1234abcd5678efgh9012ijkl3456mnop7890qrst2345uvwxwQ9", domain: nil),
-                    TRON_CHAIN: AccountChain(address: "Tabcdef1234567890ghijklmnopqrstuvwxyzABCDEFGHIJKLMN0cH", domain: nil),
+                    .ton: AccountChain(address: "EQ1234abcd5678efgh9012ijkl3456mnop7890qrst2345uvwxwQ9", domain: nil),
+                    .tron: AccountChain(address: "Tabcdef1234567890ghijklmnopqrstuvwxyzABCDEFGHIJKLMN0cH", domain: nil),
                 ]
             ),
             MAccount(
@@ -802,7 +968,7 @@ extension _AccountStore: DependencyKey {
                 title: "Super Secret",
                 type: .mnemonic,
                 byChain: [
-                    TON_CHAIN: AccountChain(address: "UQc81234abcd5678efgh9012ijkl3456mnop7890qrst2345uvwxc4Zs", domain: nil),
+                    .ton: AccountChain(address: "UQc81234abcd5678efgh9012ijkl3456mnop7890qrst2345uvwxc4Zs", domain: nil),
                 ]
             ),
             
@@ -818,4 +984,9 @@ extension DependencyValues {
         get { self[_AccountStore.self] }
         set { self[_AccountStore.self] = newValue }
     }
+}
+
+public enum ValueFetchingState<T> {
+    case notSet
+    case data(T)
 }

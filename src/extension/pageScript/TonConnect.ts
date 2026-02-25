@@ -10,10 +10,18 @@ import type {
   WalletResponse,
 } from '@tonconnect/protocol';
 
+// We must import DappProtocolType as type bc in extension we cant import real enum from its context
+import type {
+  DappConnectionRequest,
+  DappConnectionResult,
+  DappMethodResult,
+  DappProtocolType,
+} from '../../api/dappProtocols/types';
 import type { Connector } from '../../util/PostMessageConnector';
 
 import { TONCONNECT_PROTOCOL_VERSION, TONCONNECT_WALLET_JSBRIDGE_KEY } from '../../config';
 import { tonConnectGetDeviceInfo } from '../../util/tonConnectEnvironment';
+import { transformTonConnectMessageToUnified } from '../../api/dappProtocols/adapters/tonConnect/utils';
 
 declare global {
   interface Window {
@@ -82,24 +90,65 @@ class TonConnect implements ExtensionTonConnectBridge {
       );
     }
 
-    const response = await this.request('connect', [message, id]);
-    return this.emit<ConnectEvent>(response || TonConnect.buildConnectError(id));
+    const unifiedPayload: DappConnectionRequest<DappProtocolType.TonConnect> = {
+      protocolType: 'tonConnect',
+      transport: 'extension',
+      protocolData: message,
+      // We will rewrite permissions in connect method after parsing payload anyway
+      permissions: {
+        isPasswordRequired: false,
+        isAddressRequired: true,
+      },
+      requestedChains: [{
+        chain: 'ton',
+        network: 'mainnet',
+      }],
+    };
+
+    const response = await this.request(
+      'connect',
+      [unifiedPayload, id],
+    ) as DappConnectionResult<DappProtocolType.TonConnect>;
+
+    if (response.success) {
+      return this.emit<ConnectEvent>(response.session.protocolData);
+    }
+
+    return this.emit<ConnectEvent>(TonConnect.buildConnectError(
+      id,
+      response.error.message,
+      response.error.code as any,
+    ));
   }
 
   async restoreConnection(): Promise<ConnectEvent> {
     const id = ++this.lastGeneratedId;
-    const response = await this.request('reconnect', [id]);
-    return this.emit<ConnectEvent>(response || TonConnect.buildConnectError(id));
+    const response = await this.request('reconnect', [id]) as DappConnectionResult<DappProtocolType.TonConnect>;
+
+    if (!response.success) {
+      return this.emit<ConnectEvent>(TonConnect.buildConnectError(id));
+    }
+
+    return this.emit<ConnectEvent>(response.session.protocolData);
   }
 
   async send(message: AppMethodMessage) {
     const { id } = message;
-    const response = await this.request(message.method, [message]);
+    const unifiedMessage = transformTonConnectMessageToUnified(message);
 
-    return response || {
+    const response = await this.request(
+      message.method,
+      [unifiedMessage],
+    ) as DappMethodResult<DappProtocolType.TonConnect>;
+
+    if (response.success) {
+      return response.result;
+    }
+
+    return {
       error: {
-        code: 0,
-        message: 'Unknown error.',
+        code: response.error.code as any,
+        message: response.error.message,
       },
       id,
     };

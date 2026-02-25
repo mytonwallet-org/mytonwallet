@@ -10,6 +10,7 @@ import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcontext.models.MCollectionTab
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 
 object WGlobalStorage {
@@ -173,11 +174,9 @@ object WGlobalStorage {
     fun addAccount(
         accountId: String,
         accountType: String,
-        address: String?,
-        tronAddress: String?,
+        byChain: JSONObject,
         name: String? = null,
         importedAt: Long?,
-        tonLedgerIndex: Int? = null,
         isTemporary: Boolean = false,
     ) {
         val suggestedName = name ?: when {
@@ -186,20 +185,6 @@ object WGlobalStorage {
         }
         save(accountId = accountId, accountName = suggestedName, persist = false)
 
-        val byChain = JSONObject()
-        if (address != null) {
-            val tonChainData = JSONObject()
-            tonChainData.put("address", address)
-            tonLedgerIndex?.let { tonLedgerIndex ->
-                tonChainData.put("ledgerIndex", tonLedgerIndex)
-            }
-            byChain.put("ton", tonChainData)
-        }
-        if (!tronAddress.isNullOrEmpty()) {
-            val tronChainData = JSONObject()
-            tronChainData.put("address", tronAddress)
-            byChain.put("tron", tronChainData)
-        }
         if (byChain.length() > 0) {
             globalStorageProvider.set(
                 "accounts.byId.$accountId.byChain",
@@ -332,11 +317,13 @@ object WGlobalStorage {
             "alwaysHiddenSlugs",
             "alwaysShownSlugs",
             "deletedSlugs",
-            "importedSlugs"
+            "importedSlugs",
+            "pinnedSlugs"
         )) {
+            val array = value.optJSONArray(key) ?: JSONArray()
             globalStorageProvider.set(
                 "$ASSETS_AND_ACTIVITY.$accountId.$key",
-                value.getJSONArray(key),
+                array,
                 IGlobalStorageProvider.PERSIST_INSTANT
             )
         }
@@ -791,20 +778,30 @@ object WGlobalStorage {
         )
     }
 
-    fun setHomeNftCollections(accountId: String, collections: List<String>) {
+    fun setHomeNftCollections(accountId: String, collections: List<MCollectionTab>) {
         globalStorageProvider.set(
             "byAccountId.$accountId.nfts.collectionTabs",
-            JSONArray(collections),
+            JSONArray().apply {
+                collections.forEach { tab ->
+                    put(JSONObject().apply {
+                        put("address", tab.address)
+                        put("chain", tab.chain)
+                    })
+                }
+            },
             IGlobalStorageProvider.PERSIST_INSTANT
         )
     }
 
-    fun getHomeNftCollections(accountId: String): ArrayList<String> {
+    fun getHomeNftCollections(accountId: String): ArrayList<MCollectionTab> {
         val arr = globalStorageProvider.getArray("byAccountId.$accountId.nfts.collectionTabs")
             ?: return ArrayList()
-        return ArrayList(List(arr.length()) { i ->
-            arr.getString(i)
-        })
+        return ArrayList<MCollectionTab>(arr.length()).apply {
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                add(MCollectionTab(obj.getString("chain"), obj.getString("address")))
+            }
+        }
     }
 
     fun setWasTelegramGiftsAutoAdded(accountId: String, value: Boolean) {
@@ -932,7 +929,7 @@ object WGlobalStorage {
         )
     }
 
-    private const val LAST_STATE: Int = 51
+    private const val LAST_STATE: Int = 53
 
     fun migrate() {
         // Lock the storage
@@ -1091,10 +1088,93 @@ object WGlobalStorage {
                 )
                 globalStorageProvider.remove("settings.uiMode", IGlobalStorageProvider.PERSIST_NO)
             }
+
+            val accountIds = accountIds(network = null)
+            for (accountId in accountIds) {
+                if (globalStorageProvider.getArray("$ASSETS_AND_ACTIVITY.$accountId.pinnedSlugs") == null) {
+                    globalStorageProvider.set(
+                        "$ASSETS_AND_ACTIVITY.$accountId.pinnedSlugs",
+                        JSONArray(),
+                        IGlobalStorageProvider.PERSIST_NO
+                    )
+                }
+            }
         }
 
         if (currentState < 51) {
             clearActivities()
+        }
+
+        if (currentState < 52) {
+            for (accountId in accountIds()) {
+                val stakingData = WCacheStorage.getStakingData(accountId) ?: continue
+                val pinnedVirtualStakingSlugs = mutableListOf<String>()
+                try {
+                    val stakingDataArray = JSONArray(stakingData)
+                    for (i in 0 until stakingDataArray.length()) {
+                        val staking = stakingDataArray.optJSONObject(i) ?: continue
+                        val stakingAccountId = staking.optString("accountId")
+                        if (stakingAccountId.isNotBlank() && stakingAccountId != accountId) {
+                            continue
+                        }
+                        val stakingStates = staking.optJSONArray("states") ?: continue
+                        for (j in 0 until stakingStates.length()) {
+                            val state = stakingStates.optJSONObject(j) ?: continue
+                            val tokenSlug = state.optString("tokenSlug")
+                            if (!tokenSlug.isNullOrBlank()) {
+                                pinnedVirtualStakingSlugs.add("staking-$tokenSlug")
+                            }
+                        }
+                    }
+                } catch (_: Throwable) {
+                    continue
+                }
+
+                if (pinnedVirtualStakingSlugs.isEmpty()) {
+                    continue
+                }
+
+                val pinnedPath = "$ASSETS_AND_ACTIVITY.$accountId.pinnedSlugs"
+                globalStorageProvider.getArray(pinnedPath)?.let { existingPinnedArray ->
+                    for (i in 0 until existingPinnedArray.length()) {
+                        val pinnedVirtualStakingSlug = existingPinnedArray.optString(i)
+                        if (!pinnedVirtualStakingSlug.isNullOrBlank()) {
+                            pinnedVirtualStakingSlugs.add(pinnedVirtualStakingSlug)
+                        }
+                    }
+                }
+                globalStorageProvider.set(
+                    pinnedPath,
+                    JSONArray(pinnedVirtualStakingSlugs.distinct()),
+                    IGlobalStorageProvider.PERSIST_NO
+                )
+            }
+        }
+
+        if (currentState < 53) {
+            val accountIds = accountIds(network = null)
+            for (accountId in accountIds) {
+                val arr =
+                    globalStorageProvider.getArray("byAccountId.$accountId.nfts.collectionTabs")
+                        ?: continue
+                val migrated = JSONArray()
+                for (i in 0 until arr.length()) {
+                    val element = arr.get(i)
+                    if (element is String) {
+                        migrated.put(JSONObject().apply {
+                            put("address", element)
+                            put("chain", "ton")
+                        })
+                    } else {
+                        migrated.put(element)
+                    }
+                }
+                globalStorageProvider.set(
+                    "byAccountId.$accountId.nfts.collectionTabs",
+                    migrated,
+                    IGlobalStorageProvider.PERSIST_NO
+                )
+            }
         }
 
         // Update and unlock the storage

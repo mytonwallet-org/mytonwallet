@@ -1,17 +1,10 @@
-//
-//  AccountTypePickerVC.swift
-//  AirAsFramework
-//
-//  Created by nikstar on 25.08.2025.
-//
-
 import UIKit
 import SwiftUI
 import WalletContext
 import WalletCore
 import UIComponents
 
-public final class ImportExistingPickerVC: WViewController {
+public final class ImportExistingPickerVC: CreateWalletBaseVC {
     
     let introModel: IntroModel
 

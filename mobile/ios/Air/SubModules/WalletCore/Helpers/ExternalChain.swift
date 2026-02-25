@@ -31,6 +31,6 @@ let chainNames = [
     "iota": "IOTA",
 ]
 
-public func getChainName(_ chain: String) -> String {
-    chainNames[chain] ?? ""
+public func getChainName(_ chain: ApiChain) -> String {
+    chainNames[chain.rawValue] ?? "[Unknown] \(chain.rawValue)"
 }

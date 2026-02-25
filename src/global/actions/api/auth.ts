@@ -26,14 +26,11 @@ import isEmptyObject from '../../../util/isEmptyObject';
 import isMnemonicPrivateKey from '../../../util/isMnemonicPrivateKey';
 import { cloneDeep, compact, unique } from '../../../util/iteratees';
 import { getTranslation } from '../../../util/langProvider';
-import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { clearPoisoningCache, updatePoisoningCacheFromGlobalState } from '../../../util/poisoningHash';
 import { pause } from '../../../util/schedulers';
 import {
   IS_ANDROID,
   IS_BIOMETRIC_AUTH_SUPPORTED,
-  IS_DELEGATED_BOTTOM_SHEET,
-  IS_DELEGATING_BOTTOM_SHEET,
   IS_ELECTRON,
   IS_IOS,
 } from '../../../util/windowEnvironment';
@@ -387,8 +384,6 @@ addActionHandler('createAccount', async (global, actions, {
 });
 
 addActionHandler('createHardwareAccounts', async (global, actions) => {
-  const accounts = selectAccounts(global) ?? {};
-  const isFirstAccount = isEmptyObject(accounts);
   const network = selectCurrentNetwork(global);
   const selectedAccounts = selectSelectedHardwareAccountsSlow(global);
 
@@ -399,11 +394,6 @@ addActionHandler('createHardwareAccounts', async (global, actions) => {
       (account) => callApi('importLedgerAccount', network, account),
     ),
   ));
-
-  if (IS_DELEGATED_BOTTOM_SHEET && !isFirstAccount) {
-    callActionInMain('addHardwareAccounts', { accounts: importedAccounts });
-    return;
-  }
 
   actions.addHardwareAccounts({ accounts: importedAccounts });
 });
@@ -479,11 +469,6 @@ addActionHandler('restartCheckMnemonicIndexes', (global, actions, { wordsCount, 
 });
 
 addActionHandler('skipCheckMnemonic', (global, actions) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('skipCheckMnemonic');
-    return;
-  }
-
   global = createAccountsFromGlobal(global);
   global = updateCurrentAccountId(global, global.auth.accounts![0].accountId);
   global = updateCurrentAccountState(global, { isBackupRequired: true });
@@ -588,10 +573,6 @@ export function selectMnemonicForCheck(wordsCount: number) {
 }
 
 addActionHandler('startChangingNetwork', (global, actions, { network }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('startChangingNetwork', { network });
-  }
-
   const accountIds = Object.keys(selectNetworkAccountsMemoized(network, global.accounts!.byId)!);
 
   if (accountIds.length) {
@@ -608,11 +589,6 @@ addActionHandler('startChangingNetwork', (global, actions, { network }) => {
 });
 
 addActionHandler('switchAccount', async (global, actions, payload) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('switchAccount', payload);
-    return;
-  }
-
   const { accountId, newNetwork } = payload;
   if (global.currentTemporaryViewAccountId) {
     await removeTemporaryAccount(global.currentTemporaryViewAccountId);
@@ -635,7 +611,8 @@ addActionHandler('afterSelectHardwareWallets', (global, actions, { hardwareSelec
 addActionHandler('enableBiometrics', async (global, actions, { password }) => {
   if (!(await callApi('verifyPassword', password))) {
     global = getGlobal();
-    global = updateBiometrics(global, { error: 'Wrong password, please try again.' });
+    const error = getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
+    global = updateBiometrics(global, { error });
     setGlobal(global);
 
     return;
@@ -865,21 +842,11 @@ addActionHandler('clearNativeBiometricsError', (global) => {
 });
 
 addActionHandler('openAuthBackupWalletModal', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openAuthBackupWalletModal');
-    return;
-  }
-
   global = updateAuth(global, { state: AuthState.safetyRules });
   setGlobal(global);
 });
 
 addActionHandler('openMnemonicPage', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openMnemonicPage');
-    return;
-  }
-
   const { mnemonic } = global.auth;
 
   global = updateAuth(global, {
@@ -890,11 +857,6 @@ addActionHandler('openMnemonicPage', (global) => {
 });
 
 addActionHandler('openCheckWordsPage', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openCheckWordsPage');
-    return;
-  }
-
   global = updateAuth(global, { state: AuthState.checkWords });
   setGlobal(global);
 });
@@ -902,11 +864,7 @@ addActionHandler('openCheckWordsPage', (global) => {
 addActionHandler('closeCheckWordsPage', (global, actions, props) => {
   const { isBackupCreated } = props || {};
 
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('closeCheckWordsPage', props);
-  }
-
-  if (!IS_DELEGATED_BOTTOM_SHEET && isBackupCreated) {
+  if (isBackupCreated) {
     actions.afterCheckMnemonic();
   }
 });
@@ -929,11 +887,6 @@ addActionHandler('copyStorageData', async (global, actions) => {
 });
 
 addActionHandler('importAccountByVersion', async (global, actions, { version, isTestnetSubwalletId }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('importAccountByVersion', { version, isTestnetSubwalletId });
-    return;
-  }
-
   const accountId = selectCurrentAccountId(global)!;
 
   const wallet = (await callApi('importNewWalletVersion', accountId, version, isTestnetSubwalletId))!;
@@ -969,11 +922,6 @@ addActionHandler('setIsAuthLoading', (global, actions, { isLoading }) => {
 });
 
 addActionHandler('importViewAccount', async (global, actions, { addressByChain }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('importViewAccount', { addressByChain });
-    return;
-  }
-
   const accounts = selectAccounts(global) ?? {};
   const isFirstAccount = isEmptyObject(accounts);
   const network = selectCurrentNetwork(getGlobal());
@@ -981,9 +929,6 @@ addActionHandler('importViewAccount', async (global, actions, { addressByChain }
     global = updateAuth(global, { isLoading: true });
   } else {
     global = updateAccounts(global, { isLoading: true });
-    if (IS_DELEGATING_BOTTOM_SHEET) {
-      callActionInNative('setIsAccountLoading', { isLoading: true });
-    }
   }
   setGlobal(global);
 
@@ -994,9 +939,6 @@ addActionHandler('importViewAccount', async (global, actions, { addressByChain }
     global = updateAuth(global, { isLoading: undefined });
   } else {
     global = updateAccounts(global, { isLoading: undefined });
-    if (IS_DELEGATING_BOTTOM_SHEET) {
-      callActionInNative('setIsAccountLoading', { isLoading: undefined });
-    }
   }
   setGlobal(global);
 
@@ -1028,19 +970,11 @@ addActionHandler('importViewAccount', async (global, actions, { addressByChain }
     actions.requestConfetti();
   } else {
     actions.closeAddAccountModal();
-    if (IS_DELEGATING_BOTTOM_SHEET) {
-      callActionInNative('closeAddAccountModal');
-    }
   }
   void vibrateOnSuccess();
 });
 
 addActionHandler('openTemporaryViewAccount', async (global, actions, { addressByChain }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openTemporaryViewAccount', { addressByChain });
-    return;
-  }
-
   if (!Object.keys(addressByChain).length) {
     actions.showError({ error: '$no_valid_view_addresses' });
     return;
@@ -1064,11 +998,6 @@ addActionHandler('openTemporaryViewAccount', async (global, actions, { addressBy
 
 addActionHandler('saveTemporaryAccount', (global, actions) => {
   if (IS_EXPLORER) return;
-
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('saveTemporaryAccount');
-    return;
-  }
 
   const newAccountId = global.currentTemporaryViewAccountId!;
   const network = selectCurrentNetwork(global);
@@ -1094,7 +1023,7 @@ addActionHandler('saveTemporaryAccount', (global, actions) => {
   setGlobal(global);
 
   actions.tryAddNotificationAccount({ accountId: newAccountId });
-  actions.showToast({ message: getTranslation('Account saved successfully!'), icon: 'icon-check' });
+  actions.showToast({ message: getTranslation('Account Saved'), icon: 'icon-check' });
   void vibrateOnSuccess();
 });
 

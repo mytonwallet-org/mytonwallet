@@ -218,7 +218,8 @@ function SettingsSecurity({
     const result = await callApi('verifyPassword', enteredPassword);
 
     if (!result) {
-      setPasswordError('Wrong password, please try again.');
+      const error = getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
+      setPasswordError(error);
       return;
     }
 
@@ -430,7 +431,9 @@ function SettingsSecurity({
                 </div>
               </div>
               <p className={styles.blockDescription}>{
-                lang('To avoid entering the passcode every time, you can use biometrics.')
+                lang(getDoesUsePinPad()
+                  ? 'To avoid entering the passcode every time, you can use biometrics.'
+                  : 'To avoid entering the password every time, you can use biometrics.')
               }
               </p>
             </>
@@ -444,10 +447,15 @@ function SettingsSecurity({
                   isSimple
                   onClick={handleChangePasswordClick}
                 >
-                  {isPasswordNumeric ? lang('Change Passcode') : lang('Change Password')}
+                  {getDoesUsePinPad() ? lang('Change Passcode') : lang('Change Password')}
                 </Button>
               </div>
-              <p className={styles.blockDescription}>{lang('The passcode will be changed for all your wallets.')}</p>
+              <p className={styles.blockDescription}>{
+                lang(getDoesUsePinPad()
+                  ? 'The passcode will be changed for all your wallets.'
+                  : 'The password will be changed for all your wallets.')
+              }
+              </p>
             </>
           )}
 
@@ -485,11 +493,11 @@ function SettingsSecurity({
                 )}
                 onClick={isAutoConfirmAvailable ? handleAutoConfirmToggle : undefined}
               >
-                {isPasswordNumeric ? lang('Remember Passcode') : lang('Remember Password')}
+                {getDoesUsePinPad() ? lang('Remember Passcode') : lang('Remember Password')}
 
                 <Switcher
                   className={styles.menuSwitcher}
-                  label={isPasswordNumeric ? lang('Remember Passcode') : lang('Remember Password')}
+                  label={getDoesUsePinPad() ? lang('Remember Passcode') : lang('Remember Password')}
                   checked={isAutoConfirmAvailable && isAutoConfirmEnabled}
                 />
               </div>

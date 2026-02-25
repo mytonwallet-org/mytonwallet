@@ -9,7 +9,7 @@ import com.ledger.live.ble.model.BleDeviceModel
 import org.mytonwallet.app_air.ledger.LedgerDevice
 import org.mytonwallet.app_air.ledger.LedgerManager.ConnectionState
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import java.lang.ref.WeakReference
 

@@ -48,7 +48,7 @@ private let log = Log("OnchainSwapModel")
             ourFeePercent: swapEstimate?.ourFeePercent
         )
         do {
-            let fromAddress = try account.addressByChain[TON_CHAIN].orThrow()
+            let fromAddress = try account.getAddress(chain: selling.token.chain).orThrow()
             let shouldTryDiesel = props.isEnoughNative == false
             let toncoinBalance = $account.balances["toncoin"].flatMap { MDouble.forBigInt($0, decimals: 9) }
             let walletVersion = account.version
@@ -93,7 +93,7 @@ private let log = Log("OnchainSwapModel")
         var swapError: String? = nil
         let sellingToken = inputModel.sellingToken
         var balanceIn = $account.balances[sellingToken.slug] ?? 0
-        if sellingToken.slug == TRX_SLUG && account.supports(chain: TRON_CHAIN) {
+        if sellingToken.slug == TRX_SLUG && account.supports(chain: .tron) {
             balanceIn -= 1
         }
         if account.supports(chain: sellingToken.chain) {
@@ -109,7 +109,9 @@ private let log = Log("OnchainSwapModel")
             if lateInit.isDiesel == true, let swapDieselError = swapEstimate.dieselStatus.errorString {
                 swapError = swapDieselError
             } else {
-                if let nativeToken = ApiChain(rawValue: sellingToken.chain)?.nativeToken, nativeToken.slug != sellingToken.slug {
+                let chain = sellingToken.chain
+                if chain.isSupported, chain.nativeToken.slug != sellingToken.slug {
+                    let nativeToken = chain.nativeToken
                     swapError = lang("Not Enough %symbol%", arg1: nativeToken.symbol)
                 } else {
                     swapError = lang("Insufficient Balance")
@@ -121,7 +123,8 @@ private let log = Log("OnchainSwapModel")
 
     func performSwap(passcode: String) async throws {
         let swapEstimate = try self.swapEstimate.orThrow()
-        let fromAddress = try account.addressByChain[TON_CHAIN].orThrow()
+        // FIXME: get chain from selling token
+        let fromAddress = try account.getAddress(chain: .ton).orThrow()
         let shouldTryDiesel = swapEstimate.networkFee.value > 0 &&
             $account.balances["toncoin"] ?? 0 < BigInt((swapEstimate.networkFee.value + 0.015) * 1e9) && swapEstimate.dieselStatus == .available
 

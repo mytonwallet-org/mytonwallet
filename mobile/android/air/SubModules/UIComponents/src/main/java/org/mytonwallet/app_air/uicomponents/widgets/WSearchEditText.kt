@@ -33,6 +33,14 @@ open class SwapSearchEditText @JvmOverloads constructor(
             setTint(WColor.SecondaryText.color)
         }
 
+    var isSearchIconFixed: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            updateHorizontalPaddings()
+            invalidate()
+        }
+
     private val clearButtonTouchBounds: RectF = RectF()
     private val clearDrawableCircle: Drawable? =
         AppCompatResources.getDrawable(
@@ -49,7 +57,7 @@ open class SwapSearchEditText @JvmOverloads constructor(
         )
 
     init {
-        setPaddingDp(16, 0, 48, 0)
+        updateHorizontalPaddings()
 
         typeface = WFont.Regular.typeface
         isSingleLine = true
@@ -163,6 +171,14 @@ open class SwapSearchEditText @JvmOverloads constructor(
     }
 
     private fun buildTargetViewPropertiesState(targetState: ViewState): ViewPropertiesState {
+        if (isSearchIconFixed) {
+            return ViewPropertiesState(
+                iconAlpha = 1f,
+                iconTranslationX = 0f,
+                clearIconScale = if (targetState.hasText) 1f else 0f
+            )
+        }
+
         return when {
             // initial
             !targetState.hasFocus && !targetState.hasText -> ViewPropertiesState()
@@ -180,6 +196,11 @@ open class SwapSearchEditText @JvmOverloads constructor(
                 clearIconScale = 1f
             )
         }
+    }
+
+    private fun updateHorizontalPaddings() {
+        val leftPadding = if (isSearchIconFixed) 44 else 16
+        setPaddingDp(leftPadding, 0, 48, 0)
     }
 
     private data class ViewPropertiesState(

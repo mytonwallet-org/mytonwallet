@@ -2,7 +2,6 @@
 import UIKit
 import SwiftUI
 
-
 extension View {
     @ViewBuilder
     public func menuSource(
@@ -102,10 +101,99 @@ private final class _FrameReportingUIView: UIView {
         // There can be a few views for the same menu context on the screen at a moment
         // We will only respect (i.e., set the handler for) the last one, which effectively resign the former ones
         if window != nil {
-            menuContext?.onGetSourceFrame = { [weak self] in
+            menuContext?.onGetSourceViewLayout = { [weak self] in
                 guard let self, window != nil, !bounds.isEmpty else { return nil }
-                return convert(bounds.inset(by: edgeInsets), to: nil)
+                return .init(frame: convert(bounds.inset(by: edgeInsets), to: nil))
             }
         }
+    }
+}
+
+// MARK: - UIKit integration
+
+public extension UIView {
+    func attachMenu(menuContext: MenuContext) {
+        let delegate = MenuSourceUIKitGestureDelegate(menuContext: menuContext, sourceView: self)
+        objc_setAssociatedObject(self, &menuSourceDelegateKey, delegate, .OBJC_ASSOCIATION_RETAIN)
+        
+        isUserInteractionEnabled = true
+    }
+}
+
+private var menuSourceDelegateKey: UInt8 = 0
+private var menuSourceSuppressNextTapKey: UInt8 = 0
+
+public extension UIView {
+    /// Returns `true` if the tap should be suppressed (menu was just shown). Call from tap handler.
+    /// One-time check: if the flag is set, it is cleared and true is returned; subsequent calls return false until the menu is shown again.
+    @discardableResult func consumeMenuShownTapIfNeeded() -> Bool {
+        let suppress = (objc_getAssociatedObject(self, &menuSourceSuppressNextTapKey) as? NSNumber)?.boolValue ?? false
+        if suppress {
+            objc_setAssociatedObject(self, &menuSourceSuppressNextTapKey, nil, .OBJC_ASSOCIATION_RETAIN)
+            return true
+        }
+        return false
+    }
+}
+
+private final class MenuSourceUIKitGestureDelegate: NSObject, UIGestureRecognizerDelegate {
+    let menuContext: MenuContext
+    weak var sourceView: UIView?
+    
+    private let longPress = UILongPressGestureRecognizer(target: nil, action: nil)
+    private var tap: UITapGestureRecognizer?
+
+    init(menuContext: MenuContext, sourceView: UIView) {
+        self.menuContext = menuContext
+        self.sourceView = sourceView
+        self.menuContext.sourceView = sourceView
+        
+        super.init()
+
+        longPress.minimumPressDuration = 0.25
+        longPress.allowableMovement = 10
+        longPress.delegate = self
+        longPress.addTarget(self, action: #selector(longPressed(_:)))
+        sourceView.addGestureRecognizer(longPress)
+
+        if menuContext.presentOnTap {
+            let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(tapped(_:)))
+            tapRecognizer.delegate = self
+            sourceView.addGestureRecognizer(tapRecognizer)
+            self.tap = tapRecognizer
+        }
+    }
+
+    @objc private func tapped(_ gestureRecognizer: UITapGestureRecognizer) {
+        guard gestureRecognizer.state == .ended, let sourceView else { return }
+        objc_setAssociatedObject(sourceView, &menuSourceSuppressNextTapKey, true as NSNumber, .OBJC_ASSOCIATION_RETAIN)
+        menuContext.present()
+    }
+
+    @objc private func longPressed(_ gestureRecognizer: UILongPressGestureRecognizer) {
+        guard let sourceView else { return }
+        
+        let point = gestureRecognizer.location(in: nil)
+        switch gestureRecognizer.state {
+        case .began:
+            objc_setAssociatedObject(sourceView, &menuSourceSuppressNextTapKey, true as NSNumber, .OBJC_ASSOCIATION_RETAIN)
+            menuContext.present()
+        case .changed:
+            menuContext.present()
+            menuContext.update(location: point)
+        case .ended, .cancelled:
+            menuContext.triggerCurrentAction()
+        default:
+            break
+        }
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // cancel pan gesture recognizers to prevent simultaneous scrolling while navigating menu items
+        if otherGestureRecognizer is UIPanGestureRecognizer {
+            return false
+        }
+        
+        return true
     }
 }

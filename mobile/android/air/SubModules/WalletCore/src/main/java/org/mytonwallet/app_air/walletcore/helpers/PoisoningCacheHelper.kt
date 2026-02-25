@@ -47,7 +47,7 @@ class PoisoningCacheHelper {
 
         fun getIsTransactionWithPoisoning(accountId: String, tx: MApiTransaction): Boolean {
             if (tx is MApiTransaction.Transaction) {
-                val address = tx.fromAddress
+                val address = tx.fromAddress ?: return false
                 val cached = getFromCache(accountId, address)
                 return cached != null && cached.address != address
             }

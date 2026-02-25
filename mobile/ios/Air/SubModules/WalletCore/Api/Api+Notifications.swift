@@ -31,11 +31,13 @@ public struct ApiNotificationAddress: Encodable {
 public struct ApiSubscribeNotificationsProps: Encodable {
     public let userToken: String
     public let platform: CapacitorPlatform
+    public let langCode: String
     public let addresses: [ApiNotificationAddress]
 
-    public init(userToken: String, platform: CapacitorPlatform, addresses: [ApiNotificationAddress]) {
+    public init(userToken: String, platform: CapacitorPlatform, langCode: String, addresses: [ApiNotificationAddress]) {
         self.userToken = userToken
         self.platform = platform
+        self.langCode = langCode
         self.addresses = addresses
     }
 }

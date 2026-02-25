@@ -16,6 +16,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
@@ -33,6 +34,8 @@ import org.mytonwallet.app_air.uicomponents.extensions.setConstraints
 import org.mytonwallet.app_air.uicomponents.extensions.setTextIfDiffer
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.DieselAuthorizationHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorVC
 import org.mytonwallet.app_air.uicomponents.widgets.ExpandableFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
@@ -303,6 +306,16 @@ class SwapVC(
 
         receiveAmount.assetView.setOnClickListener { swapViewModel.openTokenToReceiveSelector() }
         receiveAmount.amountEditText.addTextChangedListener(receiveAmountTextWatcher)
+        receiveAmount.amountEditText.setOnClickListener {
+            if (!receiveAmount.amountEditText.isFocusable) {
+                Haptics.play(context, HapticType.LIGHT_TAP)
+                Toast.makeText(
+                    context,
+                    LocaleController.getString($$"$swap_reverse_prohibited"),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
 
         collectFlow(swapViewModel.uiInputStateFlow) {
             changellyView.expanded = it.isCex
@@ -314,7 +327,12 @@ class SwapVC(
             }
 
             sendAmount.amountEditText.isEnabled = it.tokenToSend != null
-            receiveAmount.amountEditText.isEnabled = it.tokenToReceive != null && !it.isCex
+            receiveAmount.amountEditText.apply {
+                val enabled = it.tokenToReceive != null && !it.isCex
+                isFocusable = enabled
+                isFocusableInTouchMode = enabled
+                isCursorVisible = enabled
+            }
             when (it.swapDetailsVisibility) {
                 SwapDetailsVisibility.VISIBLE -> {
                     estShowMoreContainer.expanded = true

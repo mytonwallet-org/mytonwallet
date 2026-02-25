@@ -34,18 +34,20 @@ import { swapReplaceActivities } from '../../common/swap';
 import { sendUpdateTokens } from '../../common/tokens';
 import { txCallbacks } from '../../common/txCallbacks';
 import { hexToBytes } from '../../common/utils';
+import { BalanceStream } from '../../common/websocket/balanceStream';
 import { FIRST_TRANSACTIONS_LIMIT, MINUTE, SEC } from '../../constants';
+import { getToncenterSocket } from './toncenter/socket';
 import { fetchActivitySlice } from './activities';
 import { getWalletFromAddress } from './auth';
-import { BalanceStream } from './balanceStream';
 import { LEDGER_WALLET_VERSIONS } from './constants';
 import { fetchDomains } from './domains';
-import { getAccountNfts, getNftUpdates } from './nfts';
+import { getNftUpdates, streamAllAccountNfts } from './nfts';
 import { RichActivityStream } from './richActivityStream';
 import { getBackendStakingState, getStakingStates } from './staking';
+import { importUnknownTokens } from './tokens';
 import { ActivityStream } from './toncenter';
 import { fetchVestings } from './vesting';
-import { getWalletInfo, getWalletVersionInfos, isAddressInitialized } from './wallet';
+import { fetchBalances, getWalletInfo, getWalletVersionInfos, isAddressInitialized } from './wallet';
 
 const POLL_DELAY_AFTER_SOCKET = 3 * SEC;
 const POLL_MIN_INTERVAL = { focused: 2 * SEC, notFocused: 10 * SEC };
@@ -85,7 +87,7 @@ export function setupActivePolling(
   const nftPolling = setupNftPolling(accountId, onUpdate);
   const walletInitializationPolling = setupWalletInitializationPolling(accountId);
   const stopWalletVersionPolling = setupWalletVersionsPolling(accountId, onUpdate);
-  const stopTonDnsPolling = setupTonDnsPolling(accountId, onUpdate);
+  const stopTonDnsPolling = setupTonDnsPolling(accountId, nftPolling.firstFullLoadPromise, onUpdate);
   const stopStakingPolling = setupStakingPolling(accountId, balancePolling.getBalances, onUpdate);
   const stopVestingPolling = setupVestingPolling(accountId, onUpdate);
 
@@ -123,10 +125,14 @@ function setupBalancePolling(
   const { network } = parseAccountId(accountId);
 
   const balanceStream = new BalanceStream(
+    'ton',
+    getToncenterSocket(network),
     network,
     address,
     () => sendUpdateTokens(onUpdate),
     isActive ? activeWalletTiming : inactiveWalletTiming,
+    fetchBalances,
+    importUnknownTokens,
     isActive ? undefined : getConcurrencyLimiter('ton', network),
   );
 
@@ -264,6 +270,11 @@ function setupDomainPolling(accountId: string, address: string, onUpdate: OnApiU
 
 function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
   let nftFromSec = Math.round(Date.now() / 1000);
+  let abortController: AbortController | undefined;
+  let firstFullLoadResolve: NoneToVoidFunction | undefined;
+  const firstFullLoadPromise = new Promise<void>((resolve) => {
+    firstFullLoadResolve = resolve;
+  });
 
   // The NFT updates may not become available immediately after the socket message.
   // So we check again in a few seconds.
@@ -290,32 +301,61 @@ function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
     period: NFT_FULL_INTERVAL,
     async poll() {
       updatePartial.cancel();
+      abortController?.abort();
+      abortController = new AbortController();
+
+      const streamedAddresses: string[] = [];
 
       try {
-        const nfts = await getAccountNfts(accountId).catch(logAndRescue);
+        await streamAllAccountNfts(accountId, {
+          signal: abortController.signal,
+          onBatch: (batchNfts) => {
+            batchNfts.forEach((nft) => streamedAddresses.push(nft.address));
+            onUpdate({
+              type: 'updateNfts',
+              accountId,
+              chain: 'ton',
+              nfts: batchNfts,
+              isFullLoading: true,
+            });
+          },
+        });
 
-        if (nfts) {
-          nftFromSec = Math.round(Date.now() / 1000);
+        if (abortController.signal.aborted) return;
+
+        nftFromSec = Math.round(Date.now() / 1000);
+      } catch (err) {
+        logDebugError('setupNftPolling updateFull', err);
+      } finally {
+        if (!abortController.signal.aborted) {
           onUpdate({
             type: 'updateNfts',
             accountId,
-            nfts,
+            nfts: [],
+            chain: 'ton',
+            isFullLoading: false,
+            streamedAddresses,
           });
         }
-      } catch (err) {
-        logDebugError('setupNftPolling updateFull', err);
       }
+
+      firstFullLoadResolve?.();
+      firstFullLoadResolve = undefined;
     },
   });
 
   return {
+    firstFullLoadPromise,
     poll: throttle(
       updatePartial.run,
       () => focusAwareDelay(...periodToMs(POLL_MIN_INTERVAL)),
     ),
     stop() {
+      abortController?.abort();
       updatePartial.cancel();
       fullPolling.stop();
+      firstFullLoadResolve?.();
+      firstFullLoadResolve = undefined;
     },
   };
 }
@@ -455,12 +495,21 @@ function setupWalletVersionsPolling(accountId: string, onUpdate: OnApiUpdate) {
   }).stop;
 }
 
-function setupTonDnsPolling(accountId: string, onUpdate: OnApiUpdate) {
+function setupTonDnsPolling(
+  accountId: string,
+  waitForNftLoad: Promise<void> | undefined,
+  onUpdate: OnApiUpdate,
+) {
   let lastResult: Awaited<ReturnType<typeof fetchDomains>> | undefined;
 
   return pollingLoop({
     period: TON_DNS_INTERVAL,
     async poll() {
+      if (waitForNftLoad) {
+        await waitForNftLoad;
+        waitForNftLoad = undefined;
+      }
+
       try {
         const result = await fetchDomains(accountId);
 

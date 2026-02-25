@@ -2,11 +2,18 @@ import React, { memo, useEffect, useMemo, useRef, useState } from '../../../lib/
 import { getActions, withGlobal } from '../../../global';
 
 import type { ApiNft, ApiNftAttribute } from '../../../api/types';
-import { type Account, type IAnchorPosition, MediaType, type SavedAddress } from '../../../global/types';
+import {
+  type Account,
+  type IAnchorPosition,
+  MediaType,
+  type SavedAddress,
+  type Theme,
+} from '../../../global/types';
 
-import { DEFAULT_CHAIN, IS_EXPLORER } from '../../../config';
+import { IS_EXPLORER } from '../../../config';
 import { selectCurrentAccountId, selectCurrentAccountState, selectNetworkAccounts } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
+import { getChainTitle } from '../../../util/chain';
 import { getCountDaysToDate } from '../../../util/dateFormat';
 import { getDnsExpirationDate } from '../../../util/dns';
 import { stopEvent } from '../../../util/domEvents';
@@ -14,6 +21,7 @@ import { getLocalAddressName } from '../../../util/getLocalAddressName';
 import { disableSwipeToClose, enableSwipeToClose } from '../../../util/modalSwipeManager';
 import { IS_ELECTRON, IS_MAC_OS } from '../../../util/windowEnvironment';
 
+import useAppTheme from '../../../hooks/useAppTheme';
 import useCurrentOrPrev from '../../../hooks/useCurrentOrPrev';
 import { useDeviceScreen } from '../../../hooks/useDeviceScreen';
 import useLang from '../../../hooks/useLang';
@@ -27,8 +35,12 @@ import NftMenu from '../sections/Content/NftMenu';
 
 import styles from './NftAttributesModal.module.scss';
 
+import noImageSrcDark from '../../../assets/nftNoImageDark.svg';
+import noImageSrcLight from '../../../assets/nftNoImageLight.svg';
+
 interface StateProps {
   nft?: ApiNft;
+  theme: Theme;
   dnsExpiration?: Record<string, number>;
   shouldShowOwnerInNftAttributes?: true;
   accounts?: Record<string, Account>;
@@ -41,6 +53,7 @@ const ANIMATED_ICON_SIZE = 250; // Preview size (500px) / 2
 
 function NftAttributesModal({
   nft,
+  theme,
   dnsExpiration,
   accounts,
   currentAccountId,
@@ -50,6 +63,7 @@ function NftAttributesModal({
   const { closeNftAttributesModal, openMediaViewer, openNftCollection } = getActions();
 
   const lang = useLang();
+  const appTheme = useAppTheme(theme);
   const menuButtonRef = useRef<HTMLButtonElement>();
   const [menuAnchor, setMenuAnchor] = useState<IAnchorPosition>();
   const { isPortrait } = useDeviceScreen();
@@ -57,15 +71,24 @@ function NftAttributesModal({
   const isOpen = !!nft;
   const renderedNft = useCurrentOrPrev(nft, true);
   const renderedWithNftOwner = useCurrentOrPrev(shouldShowOwnerInNftAttributes || IS_EXPLORER, true);
-  const { metadata: { lottie, attributes }, ownerAddress, isScam } = renderedNft || { metadata: {} };
+  const {
+    chain,
+    ownerAddress,
+    isScam,
+    thumbnail,
+    metadata: { lottie, attributes },
+  } = renderedNft || { metadata: {} };
+  const [hasImage, setHasImage] = useState<boolean>(Boolean(thumbnail));
   const attributesCount = attributes?.length || 0;
   const [isFolded, setIsFolded] = useState(attributesCount > FOLD_LIMIT);
   const tonDnsExpiration = getDnsExpirationDate(renderedNft, dnsExpiration);
   const dnsExpireInDays = tonDnsExpiration ? getCountDaysToDate(tonDnsExpiration) : undefined;
   const list = attributes?.slice(0, isFolded ? FOLD_LIMIT : undefined) || [];
   const isNoData = !renderedWithNftOwner && !renderedNft?.description && list.length === 0;
-  // Currently, NFT is only supported in the default chain
-  const chain = DEFAULT_CHAIN;
+
+  useEffect(() => {
+    setHasImage(Boolean(thumbnail));
+  }, [thumbnail]);
 
   const ownerAddressName = useMemo(() => {
     if (!renderedWithNftOwner || !chain || !ownerAddress) return undefined;
@@ -91,6 +114,10 @@ function NftAttributesModal({
     return enableSwipeToClose;
   }, [isOpen]);
 
+  function handleImageLoadError() {
+    setHasImage(false);
+  }
+
   const handleOpenMenu = useLastCallback(() => {
     const { right: x, y } = menuButtonRef.current!.getBoundingClientRect();
     setMenuAnchor({ x, y });
@@ -114,7 +141,10 @@ function NftAttributesModal({
     stopEvent(e);
 
     closeNftAttributesModal(undefined, { forceOnHeavyAnimation: true });
-    openNftCollection({ address: renderedNft!.collectionAddress! }, { forceOnHeavyAnimation: true });
+    openNftCollection({
+      chain: renderedNft!.chain,
+      address: renderedNft!.collectionAddress!,
+    }, { forceOnHeavyAnimation: true });
   });
 
   const renderAttributeRow = (attribute: ApiNftAttribute, index: number) => {
@@ -167,8 +197,16 @@ function NftAttributesModal({
         onOpen={handleOpenMenu}
         onClose={handleCloseMenu}
       />
-      <div className={buildClassName(styles.nftInfo, 'nft-container')} data-nft-address={renderedNft.address}>
-        {lottie ? (
+      <div
+        className={buildClassName(styles.nftInfo, 'nft-container')}
+        data-nft-address={renderedNft.address}
+      >
+        {!hasImage && !lottie ? (
+          <div className={buildClassName(styles.noImageWrapper, 'rounded-font')}>
+            <img src={appTheme === 'dark' ? noImageSrcDark : noImageSrcLight} alt="" className={styles.noImage} />
+            <span className={styles.noImageText}>{lang('No Image')}</span>
+          </div>
+        ) : lottie ? (
           <AnimatedIconWithPreview
             size={ANIMATED_ICON_SIZE}
             shouldStretch
@@ -188,6 +226,7 @@ function NftAttributesModal({
               role="button"
               tabIndex={0}
               className={styles.thumbnail}
+              onError={handleImageLoadError}
               onClick={handleNftClick}
             />
             {Boolean(renderedNft.image) && (
@@ -221,7 +260,7 @@ function NftAttributesModal({
               chain={chain}
               addressName={ownerAddressName}
               address={ownerAddress}
-              copyNotification={lang('Address was copied!')}
+              copyNotification={lang('%chain% Address Copied', { chain: chain ? getChainTitle(chain) : '' }) as string}
               className={styles.copyButtonWrapper}
               textClassName={isScam ? styles.scamAddress : undefined}
             />
@@ -272,6 +311,7 @@ export default memo(withGlobal((global): StateProps => {
   return {
     currentAccountId,
     nft: currentNftForAttributes,
+    theme: global.settings.theme,
     dnsExpiration,
     accounts,
     savedAddresses,

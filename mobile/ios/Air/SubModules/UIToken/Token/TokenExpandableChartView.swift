@@ -17,8 +17,16 @@ fileprivate let dateFormatter = DateFormatter()
 final class TokenExpandableChartView: UIView, WThemedView {
 
     static let collapsedHeight = CGFloat(60)
+    private static let expandedChartMaxHeight = CGFloat(200)
+    private static var expandedChartHeight: CGFloat {
+        let height = 0.36 * (screenWidth - 32 - 6)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            return min(height, expandedChartMaxHeight)
+        }
+        return height
+    }
     static var expandedHeight: CGFloat {
-        30 + 16 + 76 + 0.36 * (screenWidth - 32 - 6)
+        30 + 16 + 76 + expandedChartHeight
     }
 
     private let parentProcessorQueue: DispatchQueue
@@ -277,7 +285,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
             expandedChartRightConstraint,
             expandedChart.topAnchor.constraint(equalTo: topAnchor, constant: 35),
             expandedChartWidthConstraint,
-            expandedChart.heightAnchor.constraint(equalTo: expandedChart.widthAnchor, multiplier: 0.36),
+            expandedChart.heightAnchor.constraint(equalToConstant: TokenExpandableChartView.expandedChartHeight),
 
             loadingIndicatorXConstraint,
             loadingIndicator.centerXAnchor.constraint(greaterThanOrEqualTo: centerXAnchor),
@@ -578,7 +586,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
             if viewPortHandler.contentWidth < 0 {
                 return (
                     screenWidth - 60,
-                    0.36 * (screenWidth - 78),
+                    min(0.36 * (screenWidth - 78), TokenExpandableChartView.expandedChartHeight),
                     41,
                     -22
                 )

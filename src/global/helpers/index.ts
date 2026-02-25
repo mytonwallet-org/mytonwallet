@@ -20,6 +20,9 @@ export function resolveSwapAssetId(asset: ApiSwapAsset) {
   return asset.slug === TONCOIN.slug ? asset.symbol : (asset.tokenAddress ?? asset.slug);
 }
 
-export function resolveSwapAsset(bySlug: Record<string, ApiSwapAsset>, anyId: string) {
+export function resolveSwapAsset(
+  bySlug: Record<string, ApiSwapAsset> | Record<string, ApiTokenWithPrice>,
+  anyId: string,
+) {
   return bySlug[anyId] ?? Object.values(bySlug).find(({ tokenAddress }) => tokenAddress === anyId);
 }

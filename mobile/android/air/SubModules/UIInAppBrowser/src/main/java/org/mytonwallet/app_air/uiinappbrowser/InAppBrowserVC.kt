@@ -53,6 +53,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectHelper
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectInjectedInterface
+import org.mytonwallet.app_air.walletcore.helpers.WalletConnectHelper
 import org.mytonwallet.app_air.walletcore.models.IInAppBrowser
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
@@ -226,7 +227,9 @@ class InAppBrowserVC(
                 if (config.injectDarkModeStyles)
                     IABDarkModeStyleHelpers.applyOn(webView)
                 injectedInterface?.let {
+                    webView.evaluateJavascript(TonConnectHelper.injectBridge(), null)
                     webView.evaluateJavascript(TonConnectHelper.inject(), null)
+                    webView.evaluateJavascript(WalletConnectHelper.inject(), null)
                 }
                 super.onPageStarted(view, url, favicon)
             }
@@ -372,7 +375,7 @@ class InAppBrowserVC(
 
     val injectedInterface: TonConnectInjectedInterface? by lazy {
         try {
-            if (config.injectTonConnectBridge) {
+            if (config.injectDappConnect) {
                 TonConnectInjectedInterface(
                     webView = webView,
                     accountId = AccountStore.activeAccountId!!,

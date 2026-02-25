@@ -2,7 +2,8 @@ import type { SignDataPayload } from '@tonconnect/protocol';
 import type { TeactNode } from '../lib/teact/teact';
 
 import type { ApiTonWalletVersion } from '../api/chains/ton/types';
-import type { ApiTonConnectProof } from '../api/tonConnect/types';
+import type { TonConnectProof } from '../api/dappProtocols/adapters';
+import type { StoredDappConnection } from '../api/dappProtocols/storage';
 import type {
   ApiAccountConfig,
   ApiActivity,
@@ -13,7 +14,6 @@ import type {
   ApiChain,
   ApiCountryCode,
   ApiCurrencyRates,
-  ApiDapp,
   ApiDappPermissions,
   ApiDappTransfer,
   ApiEmulationResult,
@@ -25,6 +25,7 @@ import type {
   ApiMtwCardType,
   ApiNetwork,
   ApiNft,
+  ApiNftCollection,
   ApiPriceHistoryPeriod,
   ApiSite,
   ApiSiteCategory,
@@ -451,13 +452,14 @@ export interface AccountState {
   nfts?: {
     byAddress?: Record<string, ApiNft>;
     orderedAddresses?: string[];
-    currentCollectionAddress?: string;
-    selectedAddresses?: string[];
+    currentCollection?: ApiNftCollection;
+    selectedNfts?: ApiNft[];
     dnsExpiration?: Record<string, number>;
     linkedAddressByAddress?: Record<string, string>;
-    collectionTabs?: string[];
+    collectionTabs?: ApiNftCollection[];
     wasTelegramGiftsAutoAdded?: boolean;
     isLoadedByAddress?: Record<string, true>;
+    isFullLoadingByChain?: Partial<Record<ApiChain, boolean>>;
   };
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
@@ -510,7 +512,7 @@ export interface AccountState {
   receiveModalChain?: ApiChain;
   invoiceTokenSlug?: string;
 
-  dapps?: ApiDapp[];
+  dapps?: StoredDappConnection[];
   currentSiteCategoryId?: number;
 
   config?: ApiAccountConfig;
@@ -631,11 +633,10 @@ export type GlobalState = {
     diesel?: ApiFetchEstimateDieselResult;
     isGasless?: boolean;
     isGaslessWithStars?: boolean;
-    // This field is used to display a scam warning in the UI only because `Dialogs` are not displayed in iOS
-    // due to NBS specifics. Undefined means closed.
     scamWarningType?: ScamWarningType;
     isTransferReadonly?: boolean;
     isOfframp?: boolean;
+    isNftBurn?: boolean;
   };
 
   currentSwap: {
@@ -712,8 +713,12 @@ export type GlobalState = {
     validUntil?: number;
     vestingAddress?: string;
     viewTransactionOnIdx?: number;
-    dapp?: ApiDapp;
+    dapp?: StoredDappConnection;
+    operationChain?: ApiChain;
     error?: string;
+    shouldHideTransfers?: boolean;
+    // Deal with solana b58/b64 issues based on requested method
+    isLegacyOutput?: boolean;
   };
 
   currentDappSignData: {
@@ -721,7 +726,8 @@ export type GlobalState = {
     isSse?: boolean;
     promiseId?: string;
     isLoading?: boolean;
-    dapp?: ApiDapp;
+    dapp?: StoredDappConnection;
+    operationChain?: ApiChain;
     payloadToSign?: SignDataPayload;
     error?: string;
   };
@@ -753,9 +759,9 @@ export type GlobalState = {
     isSse?: boolean;
     promiseId?: string;
     accountId?: string;
-    dapp: ApiDapp;
+    dapp: StoredDappConnection;
     permissions?: ApiDappPermissions;
-    proof?: ApiTonConnectProof;
+    proof?: TonConnectProof;
     error?: string;
   };
 
@@ -870,7 +876,6 @@ export type GlobalState = {
     url: string;
     title?: string;
     subtitle?: string;
-    shouldKeepNativeBottomSheetOpen?: boolean;
   };
 
   currentMintCard?: {
@@ -1043,6 +1048,7 @@ export interface ActionPayloads {
     binPayload?: string;
     isGaslessWithStars?: boolean;
     stateInit?: string;
+    isNftBurn?: boolean;
   };
   submitTransferConfirm: undefined;
   submitTransfer: { password?: string } | undefined;
@@ -1085,16 +1091,16 @@ export interface ActionPayloads {
     | { txHash: string; chain: ApiChain; activities?: ApiActivity[] };
   closeTransactionInfo: undefined;
   selectTransactionInfoActivity: { index: number };
-  fetchNftsFromCollection: { collectionAddress: string };
-  clearNftCollectionLoading: { collectionAddress: string };
-  openNftCollection: { address: string };
+  fetchNftsFromCollection: { collection: ApiNftCollection };
+  clearNftCollectionLoading: { collection: ApiNftCollection };
+  openNftCollection: { chain: ApiChain; address: string };
   closeNftCollection: undefined;
-  selectNfts: { addresses: string[] };
+  selectNfts: { nfts: ApiNft[] };
   selectAllNfts: { collectionAddress?: string };
   clearNftSelection: { address: string };
   clearNftsSelection: undefined;
-  addCollectionTab: { collectionAddress: string; isAuto?: boolean };
-  removeCollectionTab: { collectionAddress: string };
+  addCollectionTab: { collection: ApiNftCollection; isAuto?: boolean };
+  removeCollectionTab: { collection: ApiNftCollection };
   burnNfts: { nfts: ApiNft[] };
   addNftsToBlacklist: { addresses: ApiNft['address'][] };
   addNftsToWhitelist: { addresses: ApiNft['address'][] };
@@ -1215,7 +1221,7 @@ export interface ActionPayloads {
   setIsManualLockActive: { isActive?: boolean; shouldHideBiometrics?: boolean };
   setIsAutoConfirmEnabled: { isEnabled: boolean };
   setIsAllowSuspiciousActions: { isEnabled: boolean };
-  setInMemoryPassword: { password?: string; isFinalCall?: boolean; force?: boolean };
+  setInMemoryPassword: { password?: string; force?: boolean };
   openSettingsHardwareWallet: undefined;
   apiUpdateWalletVersions: ApiUpdateWalletVersions;
 
@@ -1234,7 +1240,6 @@ export interface ActionPayloads {
   submitDappConnectRequestConfirm: { accountId: string; password?: string };
   clearDappConnectRequestError: undefined;
   cancelDappConnectRequestConfirm: undefined;
-  clearDappConnectRequestConfirm: undefined;
   setDappConnectRequestState: { state: DappConnectState };
   apiUpdateDappConnect: ApiUpdateDappConnect;
 
@@ -1246,7 +1251,6 @@ export interface ActionPayloads {
   clearDappTransferError: undefined;
   cancelDappTransfer: undefined;
   closeDappTransfer: undefined;
-  clearDappTransfer: undefined;
   apiUpdateDappSendTransaction: ApiUpdateDappSendTransactions;
 
   // TON Connect SignData
@@ -1256,7 +1260,6 @@ export interface ActionPayloads {
   clearDappSignDataError: undefined;
   cancelDappSignData: undefined;
   closeDappSignData: undefined;
-  clearDappSignData: undefined;
   apiUpdateDappSignData: ApiUpdateDappSignData;
 
   getDapps: undefined;
@@ -1267,7 +1270,7 @@ export interface ActionPayloads {
 
   addSiteToBrowserHistory: { url: string };
   removeSiteFromBrowserHistory: { url: string };
-  openBrowser: { url: string; title?: string; subtitle?: string; shouldKeepNativeBottomSheetOpen?: boolean };
+  openBrowser: { url: string; title?: string; subtitle?: string };
   closeBrowser: undefined;
   openSiteCategory: { id: number };
   closeSiteCategory: undefined;
@@ -1357,8 +1360,6 @@ export interface ActionPayloads {
   startCardMinting: { type: ApiMtwCardType };
   submitMintCard: { password?: string } | undefined;
   clearMintCardError: undefined;
-
-  submitAppLockActivityEvent: undefined;
 
   toggleNotifications: { isEnabled: boolean };
   renameNotificationAccount: { accountId: string };

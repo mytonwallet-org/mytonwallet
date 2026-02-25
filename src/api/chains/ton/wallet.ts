@@ -11,7 +11,7 @@ import type {
 import type { ApiTonWalletVersion, ContractInfo } from './types';
 import type { TonWallet } from './util/tonCore';
 
-import { DEFAULT_WALLET_VERSION } from '../../../config';
+import { DEFAULT_WALLET_VERSION, TONCOIN } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { extractKey, findLast } from '../../../util/iteratees';
 import withCacheAsync from '../../../util/withCacheAsync';
@@ -21,6 +21,7 @@ import {
 import { fetchStoredWallet } from '../../common/accounts';
 import { base64ToBytes, hexToBytes, sha256 } from '../../common/utils';
 import { ALL_WALLET_VERSIONS, ContractType, KnownContracts, NETWORK_CONFIG, WORKCHAIN } from './constants';
+import { loadTokenBalances } from './tokens';
 import { fetchJettonWallets } from './tokens';
 import { getWalletInfos } from './toncenter';
 
@@ -81,6 +82,18 @@ export async function getWalletInfo(network: ApiNetwork, walletOrAddress: TonWal
     : toBase64Address(walletOrAddress.address, undefined, network);
 
   return (await getWalletInfos(network, [address]))[address];
+}
+
+export async function fetchBalances(network: ApiNetwork, address: string, sendUpdateTokens: NoneToVoidFunction) {
+  const [{ balance: tonBalance }, tokenBalances] = await Promise.all([
+    getWalletInfo(network, address),
+    loadTokenBalances(network, address, sendUpdateTokens),
+  ]);
+
+  return {
+    [TONCOIN.slug]: tonBalance,
+    ...tokenBalances,
+  };
 }
 
 export async function getContractInfo(network: ApiNetwork, address: string): Promise<{

@@ -14,7 +14,7 @@ import Dependencies
 import Perception
 import OrderedCollections
 
-final class WalletSettingsListVC: WViewController, WSegmentedControllerContent, UICollectionViewDelegate, UICollectionViewDropDelegate, UICollectionViewDragDelegate {
+final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, UICollectionViewDelegate, UICollectionViewDropDelegate, UICollectionViewDragDelegate {
     
     var viewModel: WalletSettingsViewModel
     var filter: WalletFilter
@@ -159,22 +159,14 @@ final class WalletSettingsListVC: WViewController, WSegmentedControllerContent, 
     }
     
     private func makeLayout() -> UICollectionViewCompositionalLayout {
-        let gridItem = NSCollectionLayoutItem(
-            layoutSize: .init(.fractionalWidth(1.0/3.0), .estimated(110))
-        )
-        let gridGroup = NSCollectionLayoutGroup.horizontal(
-            layoutSize: .init(.fractionalWidth(1.0), .estimated(110)),
-            subitems: [gridItem]
-        )
-        gridGroup.interItemSpacing = .fixed(8)
-        let gridSection = NSCollectionLayoutSection(group: gridGroup)
-        gridSection.contentInsets = .init(top: 12, leading: 12, bottom: 12, trailing: 12)
-        gridSection.interGroupSpacing = 4
-        
+        let gridMaximumCardWidth: CGFloat = 150
+        let gridSpacing: CGFloat = 8
+        let gridSectionInsets = NSDirectionalEdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12)
+
         var listConfiguration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         listConfiguration.backgroundColor = .clear
         listConfiguration.headerTopPadding = 8
-        
+
         let emptyItem = NSCollectionLayoutItem(
             layoutSize: .init(.fractionalWidth(1), .fractionalHeight(1))
         )
@@ -183,17 +175,37 @@ final class WalletSettingsListVC: WViewController, WSegmentedControllerContent, 
             subitems: [emptyItem]
         )
         let emptySection = NSCollectionLayoutSection(group: emptyGroup)
-        
+
         return UICollectionViewCompositionalLayout { [weak self] idx, env in
             switch self?.dataSource?.sectionIdentifier(for: idx) {
-            case .grid: gridSection
-            case .list: NSCollectionLayoutSection.list(using: listConfiguration, layoutEnvironment: env)
-            case .empty: emptySection
-            case nil: gridSection
+            case .grid:
+                let containerWidth = env.container.effectiveContentSize.width
+                let usableWidth = max(0, containerWidth - gridSectionInsets.leading - gridSectionInsets.trailing)
+                let columnCount = max(3, Int(ceil((usableWidth + gridSpacing) / (gridMaximumCardWidth + gridSpacing))))
+
+                let gridItem = NSCollectionLayoutItem(
+                    layoutSize: .init(.fractionalWidth(1.0 / CGFloat(columnCount)), .estimated(110))
+                )
+                let gridGroup = NSCollectionLayoutGroup.horizontal(
+                    layoutSize: .init(.fractionalWidth(1), .estimated(110)),
+                    subitems: [gridItem]
+                )
+                gridGroup.interItemSpacing = .fixed(gridSpacing)
+
+                let gridSection = NSCollectionLayoutSection(group: gridGroup)
+                gridSection.contentInsets = gridSectionInsets
+                gridSection.interGroupSpacing = 4
+                return gridSection
+            case .list:
+                return NSCollectionLayoutSection.list(using: listConfiguration, layoutEnvironment: env)
+            case .empty:
+                return emptySection
+            case nil:
+                return nil
             }
         }
     }
-    
+
     func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Item> {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         var accountIds = self.orderedAccountIds

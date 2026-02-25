@@ -72,7 +72,7 @@ const AuthConfirmPin = ({
       await pause(SUBMIT_PAUSE_MS);
       confirmPin({ isImporting });
     } else {
-      setError(lang('Codes don\'t match'));
+      setError(lang('Codes don’t match'));
     }
   });
 

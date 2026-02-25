@@ -32,11 +32,12 @@ import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletcontext.helpers.DNSHelpers
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
+import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.TokenEquivalent
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MFee
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
@@ -92,7 +93,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
     val inputStateFlow = _inputStateFlow.asStateFlow()
 
     data class InputStateRaw(
-        val tokenSlug: String = "toncoin",
+        val tokenSlug: String = TONCOIN_SLUG,
         val tokenCodeHash: String? = null,
         val destination: String = "",
         val amount: String = "",
@@ -109,7 +110,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
             }
 
             comment.isNotEmpty() -> {
-                ApiTransferPayload.Comment(comment, shouldEncrypt)
+                ApiTransferPayload.Comment(comment, shouldEncrypt && TokenStore.getToken(tokenSlug)?.mBlockchain?.isEncryptedCommentSupported == true)
             }
 
             else -> {
@@ -219,6 +220,18 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
 
     private suspend fun fetchAddressInfo(chain: MBlockchain, destination: String): AddressInfo? {
         if (destination.isEmpty()) return null
+        val savedName = AddressStore.getSavedAddress(destination, chain.name)
+            ?.name
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+        if (savedName != null) {
+            return AddressInfo(
+                chain = chain,
+                input = destination,
+                resolvedAddress = destination,
+                addressName = savedName,
+            )
+        }
         val isValid =
             chain.isValidAddress(destination) || (chain == MBlockchain.ton && DNSHelpers.isDnsDomain(destination))
         if (!isValid) return null

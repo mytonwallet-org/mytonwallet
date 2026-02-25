@@ -14,10 +14,10 @@ public class FeeEstimationHelpers {
         guard let sellToken else {
             return nil
         }
-        let tokenInChain = ApiChain(rawValue: sellToken.chain)
-        let nativeUserTokenIn = sellToken.isOnChain == true ? TokenStore.tokens[tokenInChain?.nativeToken.slug ?? ""] : nil
+        let tokenInChain = sellToken.chain
+        let nativeUserTokenIn = sellToken.isOnChain == true && tokenInChain.isSupported ? TokenStore.tokens[tokenInChain.nativeToken.slug] : nil
         let isNativeIn = sellToken.slug == nativeUserTokenIn?.slug
-        let chainConfigIn = tokenInChain?.gas
+        let chainConfigIn = tokenInChain.isSupported ? tokenInChain.gas : nil
         let fee = {
             var value: BigInt = 0
             if chainConfigIn == nil {
@@ -34,6 +34,6 @@ public class FeeEstimationHelpers {
             
             return value;
         }()
-        return NetworkFeeData(chain: tokenInChain, isNativeIn: isNativeIn, fee: fee)
+        return NetworkFeeData(chain: tokenInChain.isSupported ? tokenInChain : nil, isNativeIn: isNativeIn, fee: fee)
     }
 }

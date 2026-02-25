@@ -160,7 +160,7 @@ function MintCardModal({
       case MintCardState.ConfirmHardware:
         return (
           <LedgerConfirmOperation
-            text={lang('Please confirm transaction on your Ledger')}
+            text={lang('Please confirm transfer on your Ledger')}
             error={error}
             onClose={closeMintCardModal}
             onTryAgain={handleHardwareSubmit}
@@ -175,8 +175,6 @@ function MintCardModal({
   return (
     <Modal
       isOpen={isOpen}
-      forceFullNative
-      nativeBottomSheetKey="mint-card"
       dialogClassName={styles.dialog}
       onClose={closeMintCardModal}
     >

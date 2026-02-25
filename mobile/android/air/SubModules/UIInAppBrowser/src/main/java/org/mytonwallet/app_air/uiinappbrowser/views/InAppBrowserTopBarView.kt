@@ -441,6 +441,7 @@ class InAppBrowserTopBarView(
     }
 
     private fun morePressed() {
+        val activeUrl = viewController.webView.url ?: viewController.config.url
         WMenuPopup.present(
             moreButton,
             listOf(
@@ -455,7 +456,7 @@ class InAppBrowserTopBarView(
                     LocaleController.getString("Open in Browser")
                 ) {
                     val intent = Intent(Intent.ACTION_VIEW)
-                    intent.setData(viewController.config.url.toUri())
+                    intent.setData(activeUrl.toUri())
                     viewController.window?.startActivity(intent)
                 },
                 WMenuPopup.Item(
@@ -467,7 +468,7 @@ class InAppBrowserTopBarView(
                     val clip =
                         ClipData.newPlainText(
                             LocaleController.getString("CopyURL"),
-                            viewController.config.url
+                            activeUrl
                         )
                     clipboard.setPrimaryClip(clip)
                     Haptics.play(context, HapticType.LIGHT_TAP)
@@ -478,7 +479,7 @@ class InAppBrowserTopBarView(
                 ) {
                     val shareIntent = Intent(Intent.ACTION_SEND)
                     shareIntent.setType("text/plain")
-                    shareIntent.putExtra(Intent.EXTRA_TEXT, viewController.config.url)
+                    shareIntent.putExtra(Intent.EXTRA_TEXT, activeUrl)
                     viewController.window?.startActivity(
                         Intent.createChooser(
                             shareIntent,

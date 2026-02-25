@@ -1,4 +1,3 @@
-import { BottomSheet } from '@mytonwallet/native-bottom-sheet';
 import React, { memo, useEffect } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
@@ -10,9 +9,8 @@ import buildClassName from '../../util/buildClassName';
 import { vibrateOnError } from '../../util/haptics';
 import { disableSwipeToClose, enableSwipeToClose } from '../../util/modalSwipeManager';
 import { SWIPE_DISABLED_CLASS_NAME } from '../../util/swipeController';
-import { IS_DELEGATED_BOTTOM_SHEET, IS_IOS } from '../../util/windowEnvironment';
+import { IS_IOS } from '../../util/windowEnvironment';
 
-import useEffectWithPrevDeps from '../../hooks/useEffectWithPrevDeps';
 import useLastCallback from '../../hooks/useLastCallback';
 import { useMatchCount } from '../../hooks/useMatchCount';
 import { usePrevDuringAnimationSimple } from '../../hooks/usePrevDuringAnimationSimple';
@@ -91,16 +89,6 @@ function PinPad({
   }, [isPinAccepted, length, onChange, prevIsPinAccepted, value.length]);
 
   useEffect(() => clearIsPinAccepted, []);
-
-  // Fix for iOS, enable fast pinpad button presses
-  useEffectWithPrevDeps(([prevIsActive]) => {
-    if (!IS_DELEGATED_BOTTOM_SHEET) return;
-    if (isActive) {
-      void BottomSheet.clearScrollPatch();
-    } else if (prevIsActive) {
-      void BottomSheet.applyScrollPatch();
-    }
-  }, [isActive]);
 
   useEffect(() => {
     if (type !== 'error') return undefined;

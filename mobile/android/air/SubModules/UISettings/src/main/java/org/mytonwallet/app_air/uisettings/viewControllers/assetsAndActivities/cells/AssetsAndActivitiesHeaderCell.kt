@@ -7,7 +7,6 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
-import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorVC
@@ -27,7 +26,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
@@ -166,20 +165,24 @@ class AssetsAndActivitiesHeaderCell(
         v.addView(addTokenLabel)
         v.setConstraints {
             toCenterY(addTokenLabel)
-            toStart(addTokenLabel, 76f)
+            toStart(addTokenLabel, 68f)
             toCenterY(addIcon)
-            toStart(addIcon, 28f)
+            toStart(addIcon, 20f)
         }
         v.setOnClickListener {
+            val activeAccount = AccountStore.activeAccount
             navigationController.push(
                 TokenSelectorVC(
                     context,
                     LocaleController.getString("Add Token"),
                     TokenStore.swapAssets2?.filter {
-                        MBlockchain.supportedChainValues.contains(it.chain)
+                        val chain = it.chain
+                        chain != null &&
+                            MBlockchain.supportedChainValues.contains(chain) &&
+                            (activeAccount == null || activeAccount.isChainSupported(chain))
                     } ?: emptyList(),
                     showMyAssets = false,
-                    showChain = false,
+                    showChain = activeAccount?.isMultichain == true,
                 ).apply {
                     setOnAssetSelectListener { asset ->
                         val assetsAndActivityData = AccountStore.assetsAndActivityData
@@ -266,15 +269,26 @@ class AssetsAndActivitiesHeaderCell(
             25f.dp
         )
 
-        addTokenView.setBackgroundColor(WColor.Background.color)
+        updateAddTokenViewRadius()
         addTokenView.addRippleEffect(WColor.SecondaryBackground.color)
         addTokenLabel.setTextColor(WColor.Tint.color)
     }
 
+    private fun updateAddTokenViewRadius() {
+        val bottomRadius = if (hasTokens) 0f else ViewConstants.BLOCK_RADIUS.dp
+        addTokenView.setBackgroundColor(WColor.Background.color, 0f, bottomRadius)
+    }
+
+    private var hasTokens: Boolean = true
     private lateinit var onHideNoCostTokensChanged: (hidden: Boolean) -> Unit
-    fun configure(onHideNoCostTokensChanged: (hidden: Boolean) -> Unit) {
+    fun configure(
+        hasTokens: Boolean,
+        onHideNoCostTokensChanged: (hidden: Boolean) -> Unit
+    ) {
+        this.hasTokens = hasTokens
         this.onHideNoCostTokensChanged = onHideNoCostTokensChanged
         currentBaseCurrencyLabel.text = WalletCore.baseCurrency.currencySymbol
+        updateAddTokenViewRadius()
     }
 
 }

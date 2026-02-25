@@ -10,6 +10,11 @@ protocol SendFlow: Sendable {
     func ledgerPayload(context: SendSubmitContext, explainedFee: ExplainedTransferFee?) async throws -> SignData
 }
 
+public enum NftSendMode: Sendable {
+    case send
+    case burn
+}
+
 struct SendDraftContext: Sendable {
     let accountId: String
     let address: String
@@ -28,6 +33,7 @@ struct SendSubmitContext: Sendable {
     let payload: AnyTransferPayload?
     let stateInit: String?
     let nfts: [ApiNft]?
+    let nftSendMode: NftSendMode?
     let transactionDraft: ApiCheckTransactionDraftResult?
     let diesel: ApiFetchEstimateDieselResult?
 }
@@ -36,6 +42,8 @@ struct SendFlowDraftResult {
     let draftData: DraftData
     let explainedFee: ExplainedTransferFee?
     let requiresMemo: Bool
+    
+    static let noResult = SendFlowDraftResult(draftData: .init(status: .none), explainedFee: nil, requiresMemo: false)
 }
 
 // MARK: - Token
@@ -64,7 +72,7 @@ struct TokenSendFlow: SendFlow {
     }
     
     func validateDraft(context: SendDraftContext) async throws -> SendFlowDraftResult {
-        let chain = context.token.chainValue
+        let chain = context.token.chain
         
         let options = ApiCheckTransactionDraftOptions(
             accountId: context.accountId,
@@ -108,7 +116,7 @@ struct TokenSendFlow: SendFlow {
     
     func submit(context: SendSubmitContext, password: String?, explainedFee: ExplainedTransferFee?) async throws {
         let transferOptions = try makeTransferOptions(context: context, password: password, explainedFee: explainedFee)
-        let result = try await Api.submitTransfer(chain: context.token.chainValue, options: transferOptions)
+        let result = try await Api.submitTransfer(chain: context.token.chain, options: transferOptions)
         if let error = result.error {
             throw BridgeCallError.customMessage(error, nil)
         }
@@ -125,11 +133,20 @@ struct TokenSendFlow: SendFlow {
 struct NftSendFlow: SendFlow {
     
     func validateDraft(context: SendDraftContext) async throws -> SendFlowDraftResult {
-        let draft = try await Api.checkNftTransferDraft(options: .init(
+        guard let nfts = context.nfts, let chain = nfts.first?.chain else {
+            return SendFlowDraftResult.noResult
+        }
+        let toAddress = context.address
+        let isNftBurn = context.nftSendMode == .burn
+        if toAddress.isEmpty && !isNftBurn {
+            return SendFlowDraftResult.noResult
+        }
+        let draft = try await Api.checkNftTransferDraft(chain: chain, options: .init(
             accountId: context.accountId,
-            nfts: context.nfts ?? [],
-            toAddress: context.address,
-            comment: context.payload?.comment
+            nfts: nfts,
+            toAddress: toAddress,
+            comment: context.payload?.comment,
+            isNftBurn: isNftBurn
         ))
         try handleDraftError(draft)
         
@@ -147,13 +164,16 @@ struct NftSendFlow: SendFlow {
         guard let resolved = context.transactionDraft?.resolvedAddress else {
             throw BridgeCallError.customMessage(lang("Address not resolved"), nil)
         }
+        let chain = context.nfts?.first?.chain ?? context.token.chain
         let result = try await Api.submitNftTransfers(
+            chain: chain,
             accountId: context.accountId,
             password: password,
             nfts: context.nfts ?? [],
             toAddress: resolved,
             comment: context.payload?.comment,
-            totalRealFee: context.transactionDraft?.realFee ?? 0
+            totalRealFee: context.transactionDraft?.realFee ?? 0,
+            isNftBurn: context.nftSendMode == .burn
         )
         if let error = result.error {
             throw BridgeCallError(message: error, payload: nil)
@@ -167,14 +187,15 @@ struct NftSendFlow: SendFlow {
         guard let resolved = context.transactionDraft?.resolvedAddress else {
             throw BridgeCallError.customMessage(lang("Address not resolved"), nil)
         }
+        let chain = context.nfts?.first?.chain ?? context.token.chain
         return .signNftTransfer(
+            chain: chain,
             accountId: context.accountId,
             nft: nft,
             toAddress: resolved,
             comment: context.payload?.comment,
-            realFee: context.transactionDraft?.realFee
+            realFee: context.transactionDraft?.realFee,
+            isNftBurn: context.nftSendMode == .burn
         )
     }
 }
-
-

@@ -7,7 +7,7 @@ import org.mytonwallet.app_air.ledger.LedgerManager.ConnectionState
 import org.mytonwallet.app_air.ledger.usb.HIDDevice
 import org.mytonwallet.app_air.ledger.usb.USBManager
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
 object LedgerUsbManager : ILedgerConnectionManager {

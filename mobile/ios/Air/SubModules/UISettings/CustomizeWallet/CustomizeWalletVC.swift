@@ -14,7 +14,7 @@ import Perception
 import OrderedCollections
 import UIKitNavigation
 
-public final class CustomizeWalletVC: WViewController {
+public final class CustomizeWalletVC: SettingsBaseVC {
     
     let viewModel: CustomizeWalletViewModel
     var hostingController: UIHostingController<CustomizeWalletView>?
@@ -30,10 +30,6 @@ public final class CustomizeWalletVC: WViewController {
     
     public override func viewDidLoad() {
         super.viewDidLoad()
-        
-        if !isPresentationModal {
-            additionalSafeAreaInsets = insetSectionAdditionalInsets
-        }
         
         navigationItem.title = lang("Customize Wallet")
         addCloseNavigationItemIfNeeded()

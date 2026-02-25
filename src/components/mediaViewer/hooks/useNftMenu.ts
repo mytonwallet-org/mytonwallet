@@ -2,12 +2,10 @@ import type React from '../../../lib/teact/teact';
 import { useMemo } from '../../../lib/teact/teact';
 import { getActions, getGlobal } from '../../../global';
 
-import type { ApiNft } from '../../../api/types';
+import type { ApiChain, ApiNft } from '../../../api/types';
 import type { DropdownItem } from '../../ui/Dropdown';
 
 import {
-  GETGEMS_BASE_MAINNET_URL,
-  GETGEMS_BASE_TESTNET_URL,
   IS_CORE_WALLET,
   MTW_CARDS_COLLECTION,
 } from '../../../config';
@@ -15,13 +13,19 @@ import { isDotTonDomainNft, isLinkableDnsNft, isRenewableDnsNft } from '../../..
 import { compact } from '../../../util/iteratees';
 import { openUrl } from '../../../util/openUrl';
 import { getShareIcon, shareUrl } from '../../../util/share';
-import { getExplorerName, getExplorerNftUrl, getViewNftUrl } from '../../../util/url';
+import {
+  getExplorerName,
+  getExplorerNftUrl,
+  getMarketplaceName,
+  getMarketplaceNftUrl,
+  getViewNftUrl,
+} from '../../../util/url';
 
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 
-export type NftMenuHandler = 'send' | 'tondns' | 'fragment' | 'getgems' | 'tonExplorer' | 'collection' | 'hide'
+export type NftMenuHandler = 'send' | 'tondns' | 'fragment' | 'marketplace' | 'explorer' | 'collection' | 'hide'
   | 'unhide' | 'not_scam' | 'burn' | 'select' | 'installCard' | 'resetCard' | 'installAccentColor' | 'resetAccentColor'
   | 'renew' | 'linkDomain' | 'shareLink';
 
@@ -46,16 +50,16 @@ const FRAGMENT_ITEM: DropdownItem<NftMenuHandler> = {
   value: 'fragment',
   fontIcon: 'external',
 };
-const GETGEMS_ITEM: DropdownItem<NftMenuHandler> = {
-  name: 'Getgems',
-  value: 'getgems',
+const getMarketplaceItem = (chain: ApiChain): DropdownItem<NftMenuHandler> => ({
+  name: getMarketplaceName(chain),
+  value: 'marketplace',
   fontIcon: 'external',
-};
-const TON_EXPLORER_ITEM: DropdownItem<NftMenuHandler> = {
-  name: getExplorerName(),
-  value: 'tonExplorer',
+});
+const getExplorerItem = (chain: ApiChain): DropdownItem<NftMenuHandler> => ({
+  name: getExplorerName(chain),
+  value: 'explorer',
   fontIcon: 'external',
-};
+});
 const COLLECTION_ITEM: DropdownItem<NftMenuHandler> = {
   name: 'Collection',
   value: 'collection',
@@ -180,9 +184,9 @@ export default function useNftMenu({
         break;
       }
 
-      case 'tonExplorer': {
+      case 'explorer': {
         const url = getExplorerNftUrl(
-          undefined,
+          nft!.chain,
           nft!.address,
           isTestnet,
           selectedExplorerIds?.ton,
@@ -192,13 +196,15 @@ export default function useNftMenu({
         break;
       }
 
-      case 'getgems': {
-        const getgemsBaseUrl = isTestnet ? GETGEMS_BASE_TESTNET_URL : GETGEMS_BASE_MAINNET_URL;
-        const getgemsUrl = nft!.collectionAddress
-          ? `${getgemsBaseUrl}collection/${nft!.collectionAddress}/${nft!.address}`
-          : `${getgemsBaseUrl}nft/${nft!.address}`;
-
-        void openUrl(getgemsUrl, { isExternal });
+      case 'marketplace': {
+        const url = getMarketplaceNftUrl(
+          nft?.chain,
+          nft?.address,
+          isTestnet,
+        );
+        if (url) {
+          void openUrl(url);
+        }
         break;
       }
 
@@ -248,7 +254,7 @@ export default function useNftMenu({
       }
 
       case 'collection': {
-        openNftCollection({ address: nft!.collectionAddress! }, { forceOnHeavyAnimation: true });
+        openNftCollection({ chain: nft!.chain, address: nft!.collectionAddress! }, { forceOnHeavyAnimation: true });
         closeOverlays();
 
         break;
@@ -282,7 +288,7 @@ export default function useNftMenu({
       }
 
       case 'select': {
-        selectNfts({ addresses: [nft!.address] });
+        selectNfts({ nfts: [nft!] });
         break;
       }
 
@@ -327,8 +333,8 @@ export default function useNftMenu({
           ? 'Expired'
           : lang('$expires_in %days%', { days: lang('$in_days', dnsExpireInDays) }, undefined, 1),
       },
-      GETGEMS_ITEM,
-      TON_EXPLORER_ITEM,
+      getMarketplaceItem(nft.chain),
+      getExplorerItem(nft.chain),
       SHARE_LINK_ITEM,
       collectionAddress && COLLECTION_ITEM,
       !IS_CORE_WALLET && ((!isScam && !isNftBlacklisted) || isNftWhitelisted) && HIDE_ITEM,

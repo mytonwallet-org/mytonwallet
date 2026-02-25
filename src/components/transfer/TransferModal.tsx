@@ -26,7 +26,6 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 import usePrevious from '../../hooks/usePrevious';
-import useWindowSize from '../../hooks/useWindowSize';
 
 import TransactionBanner from '../common/TransactionBanner';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
@@ -50,8 +49,6 @@ interface StateProps {
   isMultichainAccount: boolean;
 }
 
-const SCREEN_HEIGHT_FOR_FORCE_FULLSIZE_NBS = 762; // Computed empirically
-
 function TransferModal({
   currentTransfer: {
     state,
@@ -65,6 +62,7 @@ function TransferModal({
     nfts,
     sentNftsCount,
     diesel,
+    isNftBurn,
   },
   tokens,
   savedAddresses,
@@ -83,13 +81,12 @@ function TransferModal({
   const { isPortrait } = useDeviceScreen();
   const isOpen = state !== TransferState.None;
 
-  const { screenHeight } = useWindowSize();
   const selectedToken = useMemo(() => tokens?.find((token) => token.slug === tokenSlug), [tokenSlug, tokens]);
   const decimals = selectedToken?.decimals;
   const renderedTransactionAmount = usePrevious(amount, true);
   const symbol = selectedToken?.symbol || '';
   const isNftTransfer = Boolean(nfts?.length);
-  const isBurning = toAddress === BURN_ADDRESS;
+  const isBurning = toAddress === BURN_ADDRESS || isNftBurn;
   // After confirming the transaction, `toAddress` is set to empty string, so we need to use the previous value
   const renderedToAddress = usePrevious(toAddress || undefined, true);
 
@@ -168,6 +165,7 @@ function TransferModal({
                 : formatCurrency(toDecimal(amount!, decimals), symbol)}
               className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
               secondText={shortenAddress(toAddress!)}
+              isTextHidden={isBurning}
             />
           </TransferPassword>
         );
@@ -182,7 +180,7 @@ function TransferModal({
       case TransferState.ConfirmHardware:
         return (
           <LedgerConfirmOperation
-            text={lang('Please confirm transaction on your Ledger')}
+            text={lang('Please confirm transfer on your Ledger')}
             error={error}
             onClose={handleModalCloseWithReset}
             onTryAgain={handleLedgerConnect}
@@ -219,9 +217,6 @@ function TransferModal({
       isOpen={isOpen && !isMediaViewerOpen}
       noBackdropClose
       dialogClassName={styles.modalDialog}
-      nativeBottomSheetKey="transfer"
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      forceFullNative={screenHeight <= SCREEN_HEIGHT_FOR_FORCE_FULLSIZE_NBS || renderingKey === TransferState.Password}
       onClose={handleModalCloseWithReset}
       onCloseAnimationEnd={handleModalClose}
     >

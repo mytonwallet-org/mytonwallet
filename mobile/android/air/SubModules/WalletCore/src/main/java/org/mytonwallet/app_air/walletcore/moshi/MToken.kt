@@ -1,7 +1,7 @@
 package org.mytonwallet.app_air.walletcore.moshi
 
 import com.squareup.moshi.JsonClass
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
@@ -14,6 +14,7 @@ interface IApiToken {
     val tokenAddress: String?
     val image: String?
     val isPopular: Boolean?
+    val keywords: List<String>?
 
     val mBlockchain
         get() = try {
@@ -50,7 +51,7 @@ data class ApiTokenWithPrice(
     override val tokenAddress: String? = null,
     override val image: String? = null,
     override val isPopular: Boolean? = null,
-    val keywords: List<String>? = null,
+    override val keywords: List<String>? = null,
     val cmcSlug: String? = null,
     val color: String? = null,
     val isGaslessEnabled: Boolean? = null,

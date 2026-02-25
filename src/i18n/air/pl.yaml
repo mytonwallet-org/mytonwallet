@@ -34,11 +34,10 @@ All Telegram Gifts: Wszystkie prezenty Telegramu
 Add Crypto: Dodaj kryptowalutę
 Share QR Code: Udostępnij kod QR
 $send_only_ton: Wysyłaj na ten adres wyłącznie Toncoin (TON) lub aktywa sieci TON. Wysłanie innych tokenów spowoduje ich utratę.
-$send_only_tron: Wysyłaj na ten adres wyłącznie TRON (TRX) lub aktywa sieci TRON. Wysłanie innych tokenów spowoduje ich utratę.
+$send_only_chain: Wysyłaj na ten adres wyłącznie %chain% (%symbol%) lub aktywa sieci %chain%. Wysłanie innych tokenów spowoduje ich utratę.
 Buying with card is not supported for this account.: Zakup kartą nie jest obsługiwany dla tego konta.
 Swapped at: Zamieniono o
 Price per: Cena za
-Transaction Details: Szczegóły transakcji
 From: Z
 To: Do
 Changelly ID: ID Changelly
@@ -275,7 +274,7 @@ $remove_wallets:
   oneValue: "Usuń portfel"
   fewValue: "Usuń %1$d portfele"
   otherValue: "Usuń %1$d portfeli"
-Contract Initialization Data was copied!: Skopiowano dane inicjalizacji kontraktu!
+Contract Initialization Data Copied: Skopiowano dane inicjalizacji kontraktu
 Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: Szyfrowanie jest niemożliwe. Odbiorca nie jest portfelem lub nie ma wychodzących transakcji.
 just now: przed chwilą
 "No": "Nie"
@@ -298,3 +297,42 @@ Receive: Odbierz
 Scan: Skanuj
 Search or enter address: Wyszukaj lub wpisz adres
 View as Grid: Pokaż jako siatkę
+
+
+push_title_wallet: "%wallet_title%"
+push_activity_token_sent: Wysłano %amount% %symbol%
+push_activity_token_received: Otrzymano %amount% %symbol%
+push_activity_nft_sent: Wysłano NFT
+push_activity_nft_sent_named: "Wysłano NFT: %name%"
+push_activity_nft_received: Otrzymano NFT
+push_activity_nft_received_named: "Otrzymano NFT: %name%"
+push_activity_contract_called: Wywołano smart kontrakt
+push_activity_contract_deployed: Wdrozono smart kontrakt
+push_activity_token_minted: Wybito %amount% %symbol%
+push_activity_token_burned: Spalono %amount% %symbol%
+push_activity_nft_minted: Wybito NFT
+push_activity_nft_minted_named: "Wybito NFT: %name%"
+push_activity_liquidity_deposited: Dodano płynność
+push_activity_liquidity_withdrawn: Wycofano płynność
+push_activity_stake_deposit: Zastakowano %amount% %symbol%
+push_activity_stake_withdrawal: Odstakowano %amount% %symbol%
+push_activity_stake_withdrawal_request: Zażądano wypłaty ze stakingu
+push_activity_auction_bid: Złożono ofertę aukcyjną %amount% %symbol%
+push_activity_dns_changed: Zaktualizowano rekord DNS
+push_activity_dns_deleted: Usunięto rekord DNS
+push_activity_dns_renewed: Odnowiono DNS
+push_activity_subscription_started: Rozpoczęto subskrypcję
+push_activity_subscription_payment_received: Otrzymano płatność subskrypcji %amount% %symbol%
+push_activity_subscription_canceled: Anulowano subskrypcję
+push_activity_swap_completed: Zamieniono %from_symbol% -> %to_symbol%
+push_activity_swap_failed: Wymiana %from_symbol% -> %to_symbol% nie powiodła się
+push_activity_swap_expired: Wymiana %from_symbol% -> %to_symbol% wygasła
+push_activity_swap_pending: Wymiana %from_symbol% -> %to_symbol% %status%
+push_activity_staking_profit: Zysk ze stakingu %amount% TON
+push_activity_staking_loyalty_profit: Zysk lojalnościowy ze stakingu %amount% TON
+push_domain_title_renew: Odnów swoją domenę
+push_domain_expired_yesterday: Twoja domena %domain% wygasła wczoraj. Odnów ją jak najszybciej, aby nie utracić dostępu
+push_domain_expired_days_ago: Twoja domena %domain% wygasła %days% dni temu. Odnów ją jak najszybciej, aby nie utracić dostępu
+push_domain_expires_today: Twoja domena %domain% wygaśnie dzisiaj. Odnów ją, aby nie utracić dostępu
+push_domain_expires_tomorrow: Twoja domena %domain% wygaśnie jutro. Odnów ją, aby nie utracić dostępu
+push_domain_expires_in_days: Twoja domena %domain% wygaśnie za %days% dni. Odnów ją, aby nie utracić dostępu

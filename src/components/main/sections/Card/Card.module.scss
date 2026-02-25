@@ -333,19 +333,23 @@ $signSizeDiff: 0.375rem;
   position: relative;
   top: -0.1875rem;
   left: -0.0625rem;
-  font-size: calc(1.75rem * var(--font-size-scale, 1));
+  font-size: calc(1.25rem * var(--font-size-scale, 1));
 }
 
 .iconCaretSmall {
-  font-size: 0.875rem;
-  line-height: 0.875rem;
-  vertical-align: -1px;
+  margin-inline-start: 0.1875rem;
+  font-size: 0.5rem;
+  line-height: 1;
+  vertical-align: 0.0625rem;
 }
 
 .iconCaretFraction {
   position: relative;
   top: -0.125rem;
-  font-size: calc(1.375rem * var(--font-size-scale, 1));
+
+  margin-inline-start: 0.125rem;
+
+  font-size: calc(1rem * var(--font-size-scale, 1));
   color: var(--second-text);
 
   @include mixins.transition($color-transition);
@@ -364,11 +368,6 @@ $signSizeDiff: 0.375rem;
 
   &:active {
     transition: none;
-  }
-
-  & > .iconCaretSmall {
-    position: relative;
-    top: 0.0625rem;
   }
 }
 
@@ -396,10 +395,6 @@ $signSizeDiff: 0.375rem;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  .iconCaretSmall {
-    vertical-align: -0.1875rem;
-  }
 }
 
 .minimized {
@@ -478,6 +473,8 @@ $signSizeDiff: 0.375rem;
   color: var(--second-text);
 
   outline: none;
+
+  -webkit-touch-callout: none;
 
   @include mixins.transition($color-transition);
 
@@ -671,6 +668,8 @@ $signSizeDiff: 0.375rem;
 }
 
 .change {
+  cursor: var(--custom-cursor, pointer);
+
   display: inline-flex;
   gap: 0.25rem;
   align-items: center;
@@ -689,7 +688,17 @@ $signSizeDiff: 0.375rem;
   background: var(--color-card-button);
   backdrop-filter: blur(12px);
 
-  @include mixins.transition('#{$color-transition}, background-color 300ms');
+  @include mixins.transition('#{$color-transition}, background-color 200ms ease');
+
+  &:hover,
+  &:focus-visible {
+    background: var(--color-card-button-hover);
+  }
+}
+
+.changeChevron {
+  margin-left: -0.125rem;
+  font-size: 0.875rem;
 }
 
 .changePrefix {
@@ -703,6 +712,11 @@ $signSizeDiff: 0.375rem;
   height: 1.125rem;
   margin-inline-end: 0.25rem;
   vertical-align: -0.25rem;
+}
+
+.iconExpand {
+  margin-inline-start: 0.25rem;
+  font-size: 0.5rem;
 }
 
 .chainIcon {

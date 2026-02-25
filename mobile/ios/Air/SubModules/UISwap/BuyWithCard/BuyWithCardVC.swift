@@ -78,9 +78,9 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
     private func loadOnramp(currency: MBaseCurrency) {
         
         if currency == .RUB {
-            open(url: "https://dreamwalkers.io/ru/mytonwallet/?wallet=\(AccountStore.account?.addressByChain[TON_CHAIN] ?? "")&give=CARDRUB&take=TON&type=buy")
+            open(url: model.account.dreamwalkersLink)
         } else {
-            guard let address = AccountStore.account?.addressByChain[model.chain.rawValue] else { return }
+            guard let address = AccountStore.account?.getAddress(chain: model.chain) else { return }
             Task {
                 let activeTheme = ResolvedTheme(traitCollection: traitCollection)
                 do {
@@ -100,8 +100,8 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
         }
     }
     
-    private func open(url: String) {
-        if let url = URL(string: url) {
+    private func open(url string: String?) {
+        if let string, let url = URL(string: string) {
             webView.load(URLRequest(url: url))
         }
     }

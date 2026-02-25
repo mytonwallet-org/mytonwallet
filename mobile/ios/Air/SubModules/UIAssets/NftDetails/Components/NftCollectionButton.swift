@@ -19,6 +19,7 @@ struct NftCollectionButton: View {
                     .font(.system(size: 16))
                     .opacity(0.75)
             }
+            .foregroundStyle(.primary)
             .frame(height: 24)
             .padding(10) // larger tap target
             .contentShape(.rect)

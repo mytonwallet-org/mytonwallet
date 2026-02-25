@@ -7,7 +7,6 @@
 		<string>../../Frameworks/WalletContext.framework/Nunito-ExtraBold.ttf</string>
 		<string>../../Frameworks/WalletContext.framework/SFCompactDisplayMedium.otf</string>
 		<string>../../Frameworks/WalletContext.framework/SFCompactRoundedBold.otf</string>
-		<string>../../Frameworks/WalletContext.framework/SFCompactRoundedMedium.otf</string>
 		<string>../../Frameworks/WalletContext.framework/SFCompactRoundedSemibold.otf</string>
 	</array>
 	<key>NSExtension</key>

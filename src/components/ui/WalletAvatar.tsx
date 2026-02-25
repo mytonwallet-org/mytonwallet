@@ -20,7 +20,7 @@ const WalletAvatar = ({ title, accountId, className }: OwnProps) => {
 
   return (
     <div
-      className={buildClassName(styles.avatar, className)}
+      className={buildClassName(styles.avatar, className, 'rounded-font')}
       style={buildStyle(`--start-color: ${startColor}; --end-color: ${endColor}`)}
     >
       {initials}

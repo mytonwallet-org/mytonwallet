@@ -5,7 +5,7 @@ import type { Account, UserSwapToken } from '../../global/types';
 import { SwapType } from '../../global/types';
 
 import { selectCurrentAccount } from '../../global/selectors';
-import { getIsSupportedChain } from '../../util/chain';
+import { getChainTitle, getIsSupportedChain } from '../../util/chain';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
@@ -125,7 +125,7 @@ function SwapResult({
         <InteractiveTextField
           chain={chain}
           address={toAddress}
-          copyNotification={lang('Address was copied!')}
+          copyNotification={lang('%chain% Address Copied', { chain: chain ? getChainTitle(chain) : '' }) as string}
           noSavedAddress
           noExplorer
           className={styles.changellyTextField}

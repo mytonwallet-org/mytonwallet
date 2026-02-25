@@ -35,6 +35,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import java.lang.ref.WeakReference
 import kotlin.math.abs
 import kotlin.math.max
@@ -287,9 +288,9 @@ class WSegmentedController(
     private fun updateThemeTransparent() {
         setBackgroundColor(Color.TRANSPARENT, ViewConstants.BLOCK_RADIUS.dp, true)
         closeButton.updateColors(WColor.White, WColor.BackgroundRipple)
-        clearSegmentedControl.paintColor = Color.WHITE
-        clearSegmentedControl.primaryTextColor = Color.BLACK
-        clearSegmentedControl.secondaryTextColor = Color.WHITE
+        clearSegmentedControl.paintColor = Color.WHITE.colorWithAlpha(38)
+        clearSegmentedControl.primaryTextColor = Color.WHITE
+        clearSegmentedControl.secondaryTextColor = Color.WHITE.colorWithAlpha(153)
     }
 
     private fun applyItems(selectedItem: Int = 0) {

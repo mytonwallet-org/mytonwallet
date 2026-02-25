@@ -15,7 +15,7 @@ import { GLOBAL_STATE_CACHE_KEY } from '../../config';
 import { callApi } from '../../api';
 import { processDeeplink } from '../deeplink';
 import { logDebug } from '../logs';
-import { IS_DELEGATED_BOTTOM_SHEET, IS_IOS } from '../windowEnvironment';
+import { IS_IOS } from '../windowEnvironment';
 import * as storageMethods from '../windowProvider/methods';
 import { initNotificationsWithGlobal } from './notifications';
 import { getCapacitorPlatform, setCapacitorPlatform } from './platform';
@@ -68,11 +68,6 @@ export async function initCapacitor() {
     safeAreaTop = top;
     document.documentElement.style.setProperty('--safe-area-bottom', `${bottom}px`);
   });
-
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    void SplashScreen.hide({ fadeOutDuration: 0 });
-    return;
-  }
 
   if (getCapacitorPlatform() === 'ios') {
     setTimeout(() => {

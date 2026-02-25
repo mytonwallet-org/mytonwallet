@@ -94,6 +94,10 @@ private final class CameraContext: @unchecked Sendable {
     func setTorchActive(_ active: Bool) {
         self.device.setTorchActive(active)
     }
+    
+    var isTorchAvailable: Bool {
+        self.device.isTorchAvailable
+    }
 }
 
 public final class Camera: @unchecked Sendable {
@@ -170,6 +174,12 @@ public final class Camera: @unchecked Sendable {
     public func setTorchActive(_ active: Bool) {
         queue.async { [context] in
             context.setTorchActive(active)
+        }
+    }
+    
+    public var isTorchAvailable: Bool {
+        queue.sync { [context] in
+            context.isTorchAvailable
         }
     }
     

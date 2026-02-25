@@ -57,6 +57,39 @@ fun WalletCore.importWallet(
     }
 }
 
+fun WalletCore.importPrivateKey(
+    network: MBlockchainNetwork,
+    privateKey: String,
+    passcode: String,
+    callback: (MAccount?, MBridgeError?) -> Unit
+) {
+    val quotedChain = JSONObject.quote("ton")
+    val quotedNetworks = JSONArray().apply { put(network.value) }.toString()
+    val quotedPrivateKey = JSONObject.quote(privateKey)
+    val quotedPasscode = JSONObject.quote(passcode)
+
+    bridge?.callApi(
+        "importPrivateKey",
+        "[$quotedChain, $quotedNetworks, $quotedPrivateKey, $quotedPasscode]"
+    ) { result, error ->
+        if (error != null || result == null) {
+            callback(null, error)
+        } else {
+            val account = JSONArray(result).getJSONObject(0)
+            callback(
+                MAccount(
+                    account.optString("accountId", ""),
+                    MAccount.parseByChain(account.optJSONObject("byChain")),
+                    name = "",
+                    accountType = MAccount.AccountType.MNEMONIC,
+                    importedAt = System.currentTimeMillis(),
+                    isTemporary = false
+                ), null
+            )
+        }
+    }
+}
+
 fun WalletCore.importNewWalletVersion(
     prevAccount: MAccount,
     version: String,

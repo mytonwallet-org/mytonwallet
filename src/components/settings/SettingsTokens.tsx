@@ -18,6 +18,7 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
 import TokenIcon from '../common/TokenIcon';
+import TokenTitle from '../common/TokenTitle';
 import DeleteTokenModal from '../main/modals/DeleteTokenModal';
 import AnimatedCounter from '../ui/AnimatedCounter';
 import SensitiveData from '../ui/SensitiveData';
@@ -107,10 +108,11 @@ function SettingsTokens({
       >
         <TokenIcon token={token} withChainIcon={withChainIcon} />
         <div className={styles.tokenInfo}>
-          <div className={styles.tokenTitle}>
-            {isPinned && <i className={buildClassName(styles.pinIcon, 'icon-pin')} aria-hidden />}
-            {tokenName}
-          </div>
+          <TokenTitle
+            tokenName={tokenName}
+            tokenLabel={token.label}
+            isPinned={isPinned}
+          />
           <div className={styles.tokenDescription}>
             <SensitiveData
               isActive={isSensitiveDataHidden}

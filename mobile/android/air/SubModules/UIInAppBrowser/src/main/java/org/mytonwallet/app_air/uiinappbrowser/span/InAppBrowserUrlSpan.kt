@@ -22,7 +22,7 @@ class InAppBrowserUrlSpan(
             tabBarController,
             InAppBrowserConfig(
                 url = url,
-                injectTonConnectBridge = true
+                injectDappConnect = true
             )
         )
         val nav = WNavigationController(parentWindow)

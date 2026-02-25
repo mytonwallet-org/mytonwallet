@@ -2,6 +2,7 @@
  * This file is meant to describe the interface of the chains exported from `src/api/chains`.
  */
 
+import type { ChainDappSupport } from '../dappProtocols/types';
 import type {
   ApiActivity,
   ApiDecryptCommentOptions,
@@ -9,7 +10,14 @@ import type {
   ApiFetchTransactionByIdOptions,
 } from './activities';
 import type { ApiAnyDisplayError } from './errors';
-import type { ApiActivityTimestamps, ApiChain, ApiNetwork, ApiToken, OnUpdatingStatusChange } from './misc';
+import type {
+  ApiActivityTimestamps,
+  ApiChain,
+  ApiNetwork,
+  ApiNft,
+  ApiToken,
+  OnUpdatingStatusChange,
+} from './misc';
 import type { ApiAccountWithChain, ApiWalletByChain } from './storage';
 import type {
   ApiCheckTransactionDraftOptions,
@@ -19,6 +27,7 @@ import type {
   ApiSubmitGasfullTransferResult,
   ApiSubmitGaslessTransferOptions,
   ApiSubmitGaslessTransferResult,
+  ApiSubmitNftTransferResult,
 } from './transfer';
 import type { OnApiUpdate } from './updates';
 import type { ApiAddressInfo } from './wallet';
@@ -170,4 +179,59 @@ export interface ChainSdk<T extends ApiChain> {
    * For TON, `txId` can be either a trace_id or msg_hash. For TRON, `txId` is a transaction hash.
    */
   fetchTransactionById(options: ApiFetchTransactionByIdOptions): Promise<ApiActivity[]>;
+
+  /**
+   * SDK submodule responsible for unified dApp workflow. Omitted if no dApp connection expected (TRON)
+   */
+  dapp?: ChainDappSupport<T>;
+
+  //
+  // NFT
+  //
+
+  /** Synchronous fetch for UI pagination and collection filtering. No streaming. */
+  getAccountNfts: (
+    accountId: string,
+    options?: {
+      collectionAddress?: string;
+      offset?: number;
+      limit?: number;
+    }) => Promise<ApiNft[]>;
+
+  /**
+   * Streaming full load of all account NFTs. Data arrives via `onBatch` callbacks.
+   * The returned `Promise<void>` resolves when loading is complete.
+   * Supports cooperative cancellation via `signal`.
+   */
+  streamAllAccountNfts: (
+    accountId: string,
+    options: {
+      signal?: AbortSignal;
+      onBatch: (nfts: ApiNft[]) => void;
+    }) => Promise<void>;
+
+  /**
+   * Emulates NFT transfer transaction to show preview with tx fee, etc
+   */
+  checkNftTransferDraft: (options: {
+    accountId: string;
+    nfts: ApiNft[];
+    toAddress: string;
+    comment?: string;
+    isNftBurn?: boolean;
+  }) => Promise<ApiCheckTransactionDraftResult>;
+
+  submitNftTransfers: (options: {
+    accountId: string;
+    password: string | undefined;
+    nfts: ApiNft[];
+    toAddress: string;
+    comment?: string;
+    isNftBurn?: boolean;
+  }) => Promise<ApiSubmitNftTransferResult>;
+
+  /**
+   * Checks ownership of NFT, currently used in MTW NFT-cards flow
+   */
+  checkNftOwnership: (accountId: string, nftAddress: string) => Promise<boolean>;
 }

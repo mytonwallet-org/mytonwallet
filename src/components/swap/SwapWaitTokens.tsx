@@ -7,7 +7,7 @@ import {
   CHANGELLY_LIVE_CHAT_URL, CHANGELLY_SUPPORT_EMAIL, CHANGELLY_WAITING_DEADLINE,
 } from '../../config';
 import buildClassName from '../../util/buildClassName';
-import { getIsSupportedChain } from '../../util/chain';
+import { getChainTitle, getIsSupportedChain } from '../../util/chain';
 import { formatCurrencyExtended } from '../../util/formatNumber';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
 import { getIsInternalSwap } from '../../util/swap/getSwapType';
@@ -91,7 +91,7 @@ function SwapWaitTokens({
         </span>
         <InteractiveTextField
           address={payinExtraId}
-          copyNotification={lang('Memo was copied!')}
+          copyNotification={lang('Memo Copied')}
           noSavedAddress
           noExplorer
           className={styles.changellyTextField}
@@ -131,7 +131,7 @@ function SwapWaitTokens({
           {cexTransactionId && (
             <InteractiveTextField
               text={cexTransactionId}
-              copyNotification={lang('Transaction ID was copied!')}
+              copyNotification={lang('Transaction ID Copied')}
               noSavedAddress
               noExplorer
               className={styles.changellyTextField}
@@ -178,7 +178,7 @@ function SwapWaitTokens({
         <InteractiveTextField
           chain={chain}
           address={payinAddress}
-          copyNotification={lang('Address was copied!')}
+          copyNotification={lang('%chain% Address Copied', { chain: chain ? getChainTitle(chain) : '' }) as string}
           noSavedAddress
           noExplorer
           noDimming

@@ -5,6 +5,7 @@ import type { IAnchorPosition } from '../../global/types';
 import type { Layout } from '../../hooks/useMenuPosition';
 import type { DropdownItem } from '../ui/Dropdown';
 
+import { IS_CAPACITOR } from '../../config';
 import { selectCurrentAccount, selectCurrentAccountId } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { vibrate } from '../../util/haptics';
@@ -33,6 +34,7 @@ type OwnProps = {
   isInsideModal?: boolean;
   isViewMode: boolean;
   isActive: boolean;
+  isScrolled: boolean;
   currentWalletRef?: ElementRef<HTMLDivElement>;
   onCloseSettings: NoneToVoidFunction;
   onRemoveClick: NoneToVoidFunction;
@@ -44,6 +46,7 @@ function SettingsHeader({
   isInsideModal,
   isViewMode,
   isActive,
+  isScrolled,
   currentWalletRef,
   onCloseSettings,
   onRemoveClick,
@@ -142,55 +145,75 @@ function SettingsHeader({
     rootMargin: `-${settingsHeaderHeight}px 0px 0px 0px`,
   });
 
+  if (isInsideModal) {
+    return (
+      <ModalHeader
+        title={lang('Settings')}
+        onClose={!isPortrait ? onCloseSettings : undefined}
+        className={styles.modalHeader}
+      />
+    );
+  }
+
+  if (!IS_CAPACITOR) {
+    return (
+      <div
+        ref={headerRef}
+        className={buildClassName(
+          styles.header,
+          styles.mobileHeader,
+          'with-notch-on-scroll',
+          isScrolled && 'is-scrolled',
+        )}
+      >
+        <span className={styles.headerWalletName}>
+          {lang('Settings')}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <>
-      {isInsideModal ? (
-        <ModalHeader
-          title={lang('Settings')}
-          onClose={!isPortrait ? onCloseSettings : undefined}
-          className={styles.modalHeader}
-        />
-      ) : (
-        <div
-          ref={headerRef}
-          className={buildClassName(
-            styles.header,
-            styles.headerWithWalletName,
-            'with-notch-on-scroll',
-            !isVisible && 'is-scrolled',
-          )}
+      <div
+        ref={headerRef}
+        className={buildClassName(
+          styles.header,
+          styles.headerWithWalletName,
+          'with-notch-on-scroll',
+          !isVisible && 'is-scrolled',
+        )}
+      >
+        <Button
+          isSimple
+          className={buildClassName(styles.headerButton, isViewMode && styles.hidden)}
+          onClick={!isViewMode ? openReceiveModal : undefined}
         >
-          <Button
-            isSimple
-            className={buildClassName(styles.headerButton, isViewMode && styles.hidden)}
-            onClick={!isViewMode ? openReceiveModal : undefined}
-          >
-            <i className="icon-qr-code" aria-hidden />
-          </Button>
+          <i className="icon-qr-code" aria-hidden />
+        </Button>
 
-          <Transition
-            name="slideVerticalFade"
-            activeKey={!isVisible ? 1 : 0}
-            className={styles.headerWalletNameTransition}
-            slideClassName={styles.headerWalletNameSlide}
-          >
-            {!isVisible && (
-              <span className={styles.headerWalletName}>
-                {currentAccountTitle || lang('Settings')}
-              </span>
-            )}
-          </Transition>
+        <Transition
+          name="fade"
+          activeKey={!isVisible ? 1 : 0}
+          className={styles.headerWalletNameTransition}
+          slideClassName={styles.headerWalletNameSlide}
+        >
+          {!isVisible && (
+            <span className={styles.headerWalletName}>
+              {currentAccountTitle || lang('Settings')}
+            </span>
+          )}
+        </Transition>
 
-          <Button
-            ref={menuButtonRef}
-            isSimple
-            className={styles.headerButton}
-            onClick={handleMenuButtonClick}
-          >
-            <i className="icon-menu-dots" aria-hidden />
-          </Button>
-        </div>
-      )}
+        <Button
+          ref={menuButtonRef}
+          isSimple
+          className={styles.headerButton}
+          onClick={handleMenuButtonClick}
+        >
+          <i className={buildClassName('icon-menu-dots', styles.headerButton_small)} aria-hidden />
+        </Button>
+      </div>
 
       {menuAnchor && (
         <DropdownMenu
@@ -201,6 +224,7 @@ function SettingsHeader({
           menuPositionX="right"
           items={menuItems}
           shouldTranslateOptions
+          bubbleClassName={styles.dropdownMenu}
           getTriggerElement={getTriggerElement}
           getRootElement={getRootElement}
           getMenuElement={getMenuElement}

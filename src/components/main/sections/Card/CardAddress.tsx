@@ -1,12 +1,14 @@
 import React, { memo, useMemo, useRef } from '../../../../lib/teact/teact';
-import { withGlobal } from '../../../../global';
+import { getActions, withGlobal } from '../../../../global';
 
 import type { ApiChain } from '../../../../api/types';
-import type { Account, AccountType } from '../../../../global/types';
+import type { AccountChain, AccountType } from '../../../../global/types';
 
-import { selectAccount, selectCurrentAccountId } from '../../../../global/selectors';
+import { selectAccount, selectCurrentAccountId, selectCurrentAccountTokens } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
-import { getOrderedAccountChains } from '../../../../util/chain';
+import { getChainConfig, getChainTitle, getSupportedChains } from '../../../../util/chain';
+import { copyTextToClipboard } from '../../../../util/clipboard';
+import { toDecimal } from '../../../../util/decimals';
 import { openUrl } from '../../../../util/openUrl';
 import { shortenAddress } from '../../../../util/shortenAddress';
 import getChainNetworkIcon from '../../../../util/swap/getChainNetworkIcon';
@@ -29,7 +31,9 @@ interface OwnProps {
 
 interface StateProps {
   accountType?: AccountType;
-  byChain?: Account['byChain'];
+  byChain: Map<ApiChain, AccountChain & {
+    balance: number;
+  }>;
   isTestnet?: boolean;
   isTemporary?: boolean;
   withTextGradient?: boolean;
@@ -63,12 +67,29 @@ function CardAddress({
     handleMouseLeave,
   } = useAddressMenu(ref, menuRef);
 
-  const chains = useMemo(() => getOrderedAccountChains(byChain ?? {}), [byChain]);
+  const chains = useMemo(() => {
+    const dynamicOrder: ApiChain[] = [];
+    const staticOrder: ApiChain[] = [];
+
+    [...byChain].map((e) => {
+      if (e[1].balance > 0) {
+        dynamicOrder.push(e[0]);
+      } else {
+        staticOrder.push(e[0]);
+      }
+    });
+
+    return [
+      ...dynamicOrder,
+      ...getSupportedChains().filter((chain) => staticOrder.includes(chain)),
+    ];
+  }, [byChain]);
+
   const isHardwareAccount = accountType === 'hardware';
   const isViewAccount = accountType === 'view';
   const menuItems = useMemo(() => {
     return chains.map((chain) => {
-      const accountChain = byChain![chain]!;
+      const accountChain = byChain.get(chain)!;
 
       return {
         value: accountChain.address,
@@ -90,6 +111,16 @@ function CardAddress({
     closeMenu();
   });
 
+  const { showToast } = getActions();
+
+  const handleLongPress = useLastCallback((chain: ApiChain, address: string, domain?: string) => {
+    void copyTextToClipboard(domain ?? address);
+    const message = domain
+      ? lang('%chain% Domain Copied', { chain: getChainTitle(chain) }) as string
+      : lang('%chain% Address Copied', { chain: getChainTitle(chain) }) as string;
+    showToast({ message, icon: 'icon-copy' });
+  });
+
   return (
     <div ref={ref} className={buildClassName(styles.addressContainer, isMinimized && styles.minimized)}>
       {isViewAccount && <ViewModeIcon isTemporary={isTemporary} isMinimized={isMinimized} />}
@@ -99,7 +130,8 @@ function CardAddress({
         byChain={byChain}
         withTextGradient={withTextGradient}
         isMinimized={isMinimized}
-        onClick={openMenu}
+        openMenu={openMenu}
+        onLongPress={handleLongPress}
         onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}
         onMouseLeave={!IS_TOUCH_ENV ? handleMouseLeave : undefined}
       />
@@ -129,8 +161,28 @@ export default memo(withGlobal((global): StateProps => {
   const account = accountId ? selectAccount(global, accountId) : undefined;
   const { type: accountType, byChain, isTemporary } = account || {};
 
+  const accountTokens = selectCurrentAccountTokens(global);
+
+  // Maps preserve an order
+  const byChainWithBalances = new Map(Object.entries(byChain || {}).map(([chain, account]) => {
+    const token = accountTokens?.filter((token) =>
+      token.chain === chain
+      && (
+        token.slug === getChainConfig(chain).nativeToken.slug
+        || token.slug === getChainConfig(chain).usdtSlug.mainnet
+      ),
+    ).reduce((acc, token) => acc + token.priceUsd * Number(toDecimal(token.amount || 0n, token.decimals || 0)), 0);
+
+    return [
+      chain,
+      {
+        ...account,
+        balance: token,
+      }] as [ApiChain, AccountChain & { balance: number }];
+  }).sort((a, b) => b[1].balance - a[1].balance));
+
   return {
-    byChain,
+    byChain: byChainWithBalances,
     isTestnet: global.settings.isTestnet,
     accountType,
     isTemporary,

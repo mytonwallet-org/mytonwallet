@@ -1,0 +1,91 @@
+name: Upload sites to S3
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_NAME: MyTonWallet
+  STAKING_POOLS: ${{ vars.STAKING_POOLS }}
+  PUBLISH_REPO: ${{ vars.PUBLISH_REPO }}
+  BRILLIANT_API_BASE_URL: ${{ vars.BRILLIANT_API_BASE_URL }}
+  SWAP_FEE_ADDRESS: ${{ vars.SWAP_FEE_ADDRESS }}
+  DIESEL_ADDRESS: ${{ vars.DIESEL_ADDRESS }}
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare the Node environment
+        uses: mytonwallet-org/shared-actions/prepare_node@master
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Build
+        run: |
+          if [ -z "$PUBLISH_REPO" ]; then
+            npm run build:staging
+          else
+            npm run build:production
+          fi
+
+      - name: Upload site artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ vars.PUBLISH_REPO && 'mytonwallet.app' || 'beta.mytonwallet.app' }}
+          path: dist
+
+  build-tma:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare the Node environment
+        uses: mytonwallet-org/shared-actions/prepare_node@master
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Build
+        run: |
+          if [ -z "$PUBLISH_REPO" ]; then
+            npm run telegram:build:staging
+          else
+            npm run telegram:build:production
+          fi
+
+      - name: Upload site artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ vars.PUBLISH_REPO && 'tma.mytonwallet.io' || 'tma-beta.mytonwallet.io' }}
+          path: dist
+
+  build-explorer:
+    if: vars.PUBLISH_REPO != '' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare the Node environment
+        uses: mytonwallet-org/shared-actions/prepare_node@master
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Build
+        run: npm run explorer:build:production
+
+      - name: Upload site artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: my.tt
+          path: dist

@@ -30,12 +30,12 @@ enum AddressDisplayValue {
 
 @Perceptible @MainActor
 final class AddressInputModel {
-    
+        
     var textFieldInput: String = ""
     
     var isFocused: Bool = false
     
-    var chain: ApiChain { token.chainValue }
+    var chain: ApiChain { token.chain }
     
     var source: AddressSource = .constant("")
     
@@ -77,7 +77,7 @@ final class AddressInputModel {
     var resolvedAddress: ResolvedAddress? {
         switch source {
         case .myAccount(let account), .savedAccount(let account, _):
-            if let accountChain = account.byChain[chain.rawValue] {
+            if let accountChain = account.getChainInfo(chain: chain) {
                 return ResolvedAddress(title: account.displayName, address: accountChain.address, domain: accountChain.domain)
             }
         case .constant:
@@ -125,7 +125,7 @@ final class AddressInputModel {
     var draftAddressOrDomain: String {
         switch source {
         case .myAccount(let account), .savedAccount(let account, _):
-            return account.byChain[chain.rawValue]?.address ?? textFieldInput
+            return account.getAddress(chain: chain) ?? textFieldInput
         case .constant(let raw):
             return raw
         }
@@ -138,7 +138,7 @@ final class AddressInputModel {
         switch source {
         case .myAccount(let account), .savedAccount(let account, _):
             let title = account.displayName
-            let address = account.byChain[chain.rawValue]?.address
+            let address = account.getAddress(chain: chain)
             let formattedAddress = address.map { formatStartEndAddress($0) }
             return (title, formattedAddress)
             
@@ -170,4 +170,3 @@ final class AddressInputModel {
         }
     }
 }
-

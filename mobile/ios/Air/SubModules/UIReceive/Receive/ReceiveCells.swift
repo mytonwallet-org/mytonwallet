@@ -11,6 +11,7 @@ import WalletCore
 
 struct AddressCell: View {
     let address: String
+    let chain: ApiChain
 
     var body: some View {
         let copy = Text(Image.airBundle("HomeCopy"))
@@ -23,7 +24,7 @@ struct AddressCell: View {
             .multilineTextAlignment(.leading)
 
         Button {
-            AppActions.showToast(animationName: "Copy", message: lang("Address was copied!"))
+            AppActions.showToast(animationName: "Copy", message: lang("%chain% Address Copied", arg1: chain.title))
             Haptics.play(.lightTap)
             UIPasteboard.general.string = address
         } label: {
@@ -55,11 +56,12 @@ struct BuyCryptoItemCell: View {
 
 extension AddressCell {
     static func makeRegistration(
-        address: String
+        address: String,
+        chain: ApiChain
     ) -> UICollectionView.CellRegistration<UICollectionViewListCell, Void> {
         UICollectionView.CellRegistration<UICollectionViewListCell, Void> { cell, _, _ in
             cell.contentConfiguration = UIHostingConfiguration {
-                AddressCell(address: address)
+                AddressCell(address: address, chain: chain)
             }
             .background {
                 Color(WTheme.groupedItem)

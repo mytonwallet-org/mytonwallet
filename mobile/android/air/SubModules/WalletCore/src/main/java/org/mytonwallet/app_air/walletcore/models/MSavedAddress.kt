@@ -9,6 +9,7 @@ data class MSavedAddress(
     val address: String,
     var name: String,
     val chain: String,
+    val domain: String? = null,
     @Transient val accountId: String? = null
 ) {
 

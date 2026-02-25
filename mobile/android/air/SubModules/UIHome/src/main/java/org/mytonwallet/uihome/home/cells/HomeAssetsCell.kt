@@ -30,7 +30,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MCollectionTab
 import org.mytonwallet.app_air.walletcore.models.NftCollection
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import java.util.concurrent.Executors
@@ -228,14 +230,14 @@ class HomeAssetsCell(
             val showCollectionsMenu = !nftCollections.isEmpty() || hiddenNFTsExist
             val homeNftCollections =
                 WGlobalStorage.getHomeNftCollections(showingAccountId)
-            if (!homeNftCollections.contains(AssetsTabVC.TAB_COINS))
+            if (!homeNftCollections.any { it.address == AssetsTabVC.TAB_COINS })
                 items.add(
                     WSegmentedControllerItem(
                         tokensVC,
                         identifier = AssetsTabVC.identifierForVC(tokensVC)
                     )
                 )
-            if (!homeNftCollections.contains(AssetsTabVC.TAB_COLLECTIBLES))
+            if (!homeNftCollections.any { it.address == AssetsTabVC.TAB_COLLECTIBLES })
                 items.add(
                     WSegmentedControllerItem(
                         collectiblesVC,
@@ -259,7 +261,7 @@ class HomeAssetsCell(
 
             if (homeNftCollections.isNotEmpty()) {
                 items.addAll(homeNftCollections.mapNotNull { homeNftCollection ->
-                    when (homeNftCollection) {
+                    when (homeNftCollection.address) {
                         AssetsTabVC.TAB_COINS -> {
                             WSegmentedControllerItem(
                                 tokensVC,
@@ -285,10 +287,10 @@ class HomeAssetsCell(
 
                         else -> {
                             val collectionMode =
-                                if (homeNftCollection == NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION) {
+                                if (homeNftCollection.address == NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION) {
                                     AssetsVC.CollectionMode.TelegramGifts
                                 } else {
-                                    nftCollections.find { it.address == homeNftCollection }
+                                    nftCollections.find { it.address == homeNftCollection.address }
                                         ?.let {
                                             AssetsVC.CollectionMode.SingleCollection(
                                                 collection = it
@@ -353,9 +355,7 @@ class HomeAssetsCell(
                                                             WGlobalStorage.getHomeNftCollections(
                                                                 AccountStore.activeAccountId!!
                                                             )
-                                                        homeNftCollections.remove(
-                                                            collectionMode.collectionAddress
-                                                        )
+                                                        homeNftCollections.removeAll { it.address == collectionMode.collectionAddress }
                                                         WGlobalStorage.setHomeNftCollections(
                                                             AccountStore.activeAccountId!!,
                                                             homeNftCollections
@@ -438,10 +438,11 @@ class HomeAssetsCell(
             val firstHeight = getViewHeight(items[currentIndex].viewController)
             val secondHeight =
                 if (offset > currentIndex) getViewHeight(items[currentIndex + 1].viewController) else 0
+            val secondEffective = if (secondHeight > 0) secondHeight else firstHeight
 
             newHeight = if (firstHeight > 0) {
                 val interpolatedHeight =
-                    firstHeight + (offset - currentIndex) * (secondHeight - firstHeight)
+                    firstHeight + (offset - currentIndex) * (secondEffective - firstHeight)
                 (53.dp + interpolatedHeight).roundToInt()
             } else
                 0
@@ -498,8 +499,18 @@ class HomeAssetsCell(
 
     private fun saveOrderedItems() {
         val items = segmentedController.items
-        val orderedCollections = items.mapNotNull {
-            AssetsTabVC.identifierForVC(it.viewController)
+        val orderedCollections = items.mapNotNull { item ->
+            when (val vc = item.viewController) {
+                is TokensVC -> MCollectionTab(MBlockchain.ton.name, AssetsTabVC.TAB_COINS)
+                is AssetsVC -> when (val mode = vc.collectionMode) {
+                    is AssetsVC.CollectionMode.SingleCollection ->
+                        MCollectionTab(mode.collection.chain, mode.collection.address)
+                    AssetsVC.CollectionMode.TelegramGifts ->
+                        MCollectionTab(MBlockchain.ton.name, NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION)
+                    null -> MCollectionTab(MBlockchain.ton.name, AssetsTabVC.TAB_COLLECTIBLES)
+                }
+                else -> null
+            }
         }
         WGlobalStorage.setHomeNftCollections(
             AccountStore.activeAccountId!!,

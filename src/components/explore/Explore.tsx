@@ -34,7 +34,7 @@ import Transition from '../ui/Transition';
 import Category from './Category';
 import DappFeed from './DappFeed';
 import ExploreSearch from './ExploreSearch';
-import Site from './Site';
+import SiteFeatured from './SiteFeatured';
 import SiteList from './SiteList';
 
 import styles from './Explore.module.scss';
@@ -145,7 +145,7 @@ function Explore({
         </h2>
         <div className={styles.featuredList} ref={featuredContainerRef}>
           {featuredSites.map((site) => (
-            <Site key={`${site.url}-${site.name}`} site={site} isFeatured className={styles.featuredItem} />
+            <SiteFeatured key={`${site.url}-${site.name}`} site={site} className={styles.featuredItem} />
           ))}
         </div>
       </div>

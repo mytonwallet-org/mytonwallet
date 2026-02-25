@@ -106,10 +106,7 @@ function DappSignDataModal({
       hasCloseButton
       isOpen={isOpen}
       dialogClassName={styles.modalDialog}
-      nativeBottomSheetKey="dapp-sign-data"
       noBackdropClose
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      forceFullNative={renderingKey === SignDataState.Password}
       onClose={closeDappSignData}
       onCloseAnimationEnd={handleResetSignData}
     >

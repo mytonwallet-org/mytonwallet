@@ -1,14 +1,10 @@
-import type { BottomSheetKeys } from '@mytonwallet/native-bottom-sheet';
-import { BottomSheet } from '@mytonwallet/native-bottom-sheet';
 import type { ElementRef, RefObject, TeactNode } from '../../lib/teact/teact';
 import React, {
   beginHeavyAnimation,
   useEffect,
   useLayoutEffect,
   useRef,
-  useState,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../global';
 
 import { ANIMATION_END_DELAY, IS_EXTENSION, IS_TELEGRAM_APP } from '../../config';
 import buildClassName from '../../util/buildClassName';
@@ -21,14 +17,11 @@ import {
   enableTelegramMiniAppSwipeToClose,
 } from '../../util/telegram';
 import trapFocus from '../../util/trapFocus';
-import { IS_ANDROID, IS_DELEGATED_BOTTOM_SHEET, IS_TOUCH_ENV } from '../../util/windowEnvironment';
+import { IS_ANDROID, IS_TOUCH_ENV } from '../../util/windowEnvironment';
 import windowSize from '../../util/windowSize';
 
 import freezeWhenClosed from '../../hooks/freezeWhenClosed';
-import { getIsForcedFullSize, useDelegatedBottomSheet } from '../../hooks/useDelegatedBottomSheet';
-import { useDelegatingBottomSheet } from '../../hooks/useDelegatingBottomSheet';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
-import useEffectWithPrevDeps from '../../hooks/useEffectWithPrevDeps';
 import useHideBrowser from '../../hooks/useHideBrowser';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
@@ -50,9 +43,6 @@ type OwnProps = {
   contentClassName?: string;
   isOpen?: boolean;
   isCompact?: boolean;
-  nativeBottomSheetKey?: BottomSheetKeys;
-  forceFullNative?: boolean; // Always open in "full" size
-  noResetFullNativeOnBlur?: boolean; // Don't reset "full" size on blur
   isInAppLock?: boolean;
   forceBottomSheet?: boolean;
   noBackdrop?: boolean;
@@ -66,10 +56,6 @@ type OwnProps = {
   dialogRef?: ElementRef<HTMLDivElement>;
 };
 
-type StateProps = {
-  isTemporarilyClosed: boolean;
-};
-
 export const CLOSE_DURATION = 350;
 export const CLOSE_DURATION_PORTRAIT = IS_ANDROID ? 200 : 500;
 const SCROLL_CONTENT_CHECK_THRESHOLD_MS = 500;
@@ -80,13 +66,6 @@ export function closeModal() {
   setModalCloseSignal(Date.now());
 }
 
-// Track open modals with nativeBottomSheetKey
-const openNativeBottomSheetModals = new Set<BottomSheetKeys>();
-
-export function getIsAnyNativeBottomSheetModalOpen(): boolean {
-  return openNativeBottomSheetModals.size > 0;
-}
-
 function Modal({
   dialogRef,
   title,
@@ -94,14 +73,10 @@ function Modal({
   dialogClassName,
   titleClassName,
   contentClassName,
-  isOpen: doesWantToBeOpened,
-  isTemporarilyClosed,
+  isOpen,
   isCompact,
-  nativeBottomSheetKey,
-  forceFullNative,
   forceBottomSheet,
   isInAppLock,
-  noResetFullNativeOnBlur,
   noBackdrop,
   noBackdropClose,
   header,
@@ -110,15 +85,8 @@ function Modal({
   onClose: onCloseProp,
   onCloseAnimationEnd,
   onEnter,
-}: OwnProps & StateProps): TeactJsx {
-  const isOpen = doesWantToBeOpened && !isTemporarilyClosed;
-  const onClose = useLastCallback(() => {
-    if (isTemporarilyClosed && doesWantToBeOpened) {
-      return undefined;
-    }
-
-    return onCloseProp();
-  });
+}: OwnProps): TeactJsx {
+  const onClose = useLastCallback(onCloseProp);
 
   const lang = useLang();
 
@@ -145,15 +113,8 @@ function Modal({
     return enableTelegramMiniAppSwipeToClose;
   }, [isCompact, isOpen]);
 
-  useEffectWithPrevDeps(([prevIsOpen]) => {
-    // Expand NBS to full size for a compact modal inside NBS
-    if (IS_DELEGATED_BOTTOM_SHEET && isCompact && (prevIsOpen || isOpen) && !getIsForcedFullSize()) {
-      void BottomSheet.toggleSelfFullSize({ isFullSize: !!isOpen });
-    }
-  }, [isOpen, isCompact]);
-
   useEffect(() => {
-    if (IS_DELEGATED_BOTTOM_SHEET || !isOpen) return undefined;
+    if (!isOpen) return undefined;
 
     return getModalCloseSignal.subscribe(onClose);
   }, [isOpen, onClose]);
@@ -172,27 +133,10 @@ function Modal({
     isOpen ? beginHeavyAnimation(animationDuration) : undefined
   ), [animationDuration, isOpen]);
 
-  // Track modal state for modals with nativeBottomSheetKey
-  useEffect(() => {
-    if (!nativeBottomSheetKey) return;
-
-    if (isOpen) {
-      openNativeBottomSheetModals.add(nativeBottomSheetKey);
-    } else {
-      openNativeBottomSheetModals.delete(nativeBottomSheetKey);
-    }
-
-    return () => {
-      openNativeBottomSheetModals.delete(nativeBottomSheetKey);
-    };
-  }, [isOpen, nativeBottomSheetKey]);
-
   // Make sure to hide browser before presenting modals
-  const [isBrowserHidden, setIsBrowserHidden] = useState(false);
   useEffect(() => {
     const browser = getInAppBrowser();
     if (!isOpen) {
-      setIsBrowserHidden(false); // Reset to re-hide it next time
       // Before showing browser, make sure that closed modals are updated state properly
       requestAnimationFrame(() => {
         browser?.show();
@@ -200,29 +144,11 @@ function Modal({
       return;
     }
 
-    void browser?.hide().then(() => {
-      setIsBrowserHidden(true);
-    });
+    void browser?.hide();
   }, [isOpen]);
 
-  const isDelegatingToNative = useDelegatingBottomSheet(
-    nativeBottomSheetKey,
-    isPortrait,
-    isOpen && (!getInAppBrowser() || isBrowserHidden),
-    onClose,
-  );
-
-  useDelegatedBottomSheet(
-    nativeBottomSheetKey,
-    isOpen && (!getInAppBrowser() || isBrowserHidden),
-    onClose,
-    dialogRef,
-    forceFullNative,
-    noResetFullNativeOnBlur,
-  );
-
   useEffect(() => {
-    if (!IS_TOUCH_ENV || !isOpen || !isPortrait || !isSlideUp || IS_DELEGATED_BOTTOM_SHEET || isDelegatingToNative) {
+    if (!IS_TOUCH_ENV || !isOpen || !isPortrait || !isSlideUp) {
       return undefined;
     }
 
@@ -237,11 +163,11 @@ function Modal({
         return false;
       },
     });
-  }, [isOpen, isPortrait, isSlideUp, isDelegatingToNative, onClose]);
+  }, [isOpen, isPortrait, isSlideUp, onClose]);
 
   const { shouldRender } = useShowTransition({
     ref: modalRef,
-    isOpen: isOpen && !isDelegatingToNative,
+    isOpen,
     onCloseAnimationEnd,
     className: false,
     closeDuration: animationDuration,
@@ -312,15 +238,7 @@ function Modal({
   );
 }
 
-const FreezeWhenClosedModal = freezeWhenClosed(Modal);
-
-export default withGlobal((global, { isInAppLock }: OwnProps): StateProps => {
-  return {
-    // This behavior is intended to prevent NBS from rendering above the app lock screen,
-    // which is an iOS-only issue. We retain this fix on all platforms to unify behavior.
-    isTemporarilyClosed: !(isInAppLock || !global.isAppLockActive),
-  };
-})(FreezeWhenClosedModal);
+export default freezeWhenClosed(Modal);
 
 function getCanCloseModal(lastScrollRef: RefObject<number | undefined>, el?: HTMLElement) {
   if (windowSize.getIsKeyboardVisible() || getIsSwipeToCloseDisabled()) {

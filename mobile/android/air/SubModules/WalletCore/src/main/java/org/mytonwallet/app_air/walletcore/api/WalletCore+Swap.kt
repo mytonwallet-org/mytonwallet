@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.walletcore.api
 import com.squareup.moshi.Types
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitMultiTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapBuildRequest

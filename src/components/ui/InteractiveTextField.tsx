@@ -144,7 +144,7 @@ function InteractiveTextField({
     }
 
     addSavedAddress({ address, chain, name: savedAddressName });
-    showToast({ message: lang('Address was saved!'), icon: 'icon-star' });
+    showToast({ message: lang('Address Saved'), icon: 'icon-star' });
     closeSaveAddressModal();
   });
 
@@ -220,7 +220,7 @@ function InteractiveTextField({
 
   const longPressHandlers = useLongPress({
     onClick: handleMenuShow,
-    onStart: handleCopy,
+    onStart: (_target: HTMLElement) => handleCopy(),
   });
 
   const handleRevealSpoiler = useLastCallback(() => {

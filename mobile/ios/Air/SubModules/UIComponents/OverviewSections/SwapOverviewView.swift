@@ -69,9 +69,9 @@ public struct SwapOverviewView: View {
             AmountText(
                 amount: amount,
                 format: .init(maxDecimals: 2),
-                integerFont: .rounded(ofSize: 17, weight: .bold),
-                fractionFont: .rounded(ofSize: 17, weight: .bold),
-                symbolFont: .rounded(ofSize: 17, weight: .bold),
+                integerFont: .compactRounded(ofSize: 17, weight: .bold),
+                fractionFont: .compactRounded(ofSize: 17, weight: .bold),
+                symbolFont: .compactRounded(ofSize: 17, weight: .bold),
                 integerColor: WTheme.primaryLabel,
                 fractionColor: WTheme.secondaryLabel,
                 symbolColor: WTheme.secondaryLabel
@@ -91,9 +91,9 @@ public struct SwapOverviewView: View {
             AmountText(
                 amount: amount,
                 format: .init(maxDecimals: 2, showPlus: true),
-                integerFont: .rounded(ofSize: 34, weight: .bold),
-                fractionFont: .rounded(ofSize: 28, weight: .bold),
-                symbolFont: .rounded(ofSize: 28, weight: .bold),
+                integerFont: .compactRounded(ofSize: 34, weight: .bold),
+                fractionFont: .compactRounded(ofSize: 28, weight: .bold),
+                symbolFont: .compactRounded(ofSize: 28, weight: .bold),
                 integerColor: WTheme.primaryLabel,
                 fractionColor: WTheme.secondaryLabel,
                 symbolColor: WTheme.secondaryLabel

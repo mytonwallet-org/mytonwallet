@@ -40,7 +40,7 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
     }
     
     private func setupViews() {
-        navigationItem.title = lang("Transaction Info")
+        navigationItem.title = lang("Transfer Info")
         addCloseNavigationItemIfNeeded()
         
         tableView = UITableView(frame: .zero, style: .insetGrouped)

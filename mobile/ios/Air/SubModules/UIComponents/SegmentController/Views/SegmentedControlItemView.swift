@@ -19,7 +19,7 @@ struct SegmentedControlItemView: View {
             .contentShape(.capsule)
             .simultaneousGesture(TapGesture().onEnded {
                 DispatchQueue.main.async {
-                    if item.menuContext?.menuTriggered == false, model.selectedItem?.id != item.id {
+                    if item.menuContext?.menuTriggered != true, model.selectedItem?.id != item.id {
                         model.onSelect(item)
                     }
                 }

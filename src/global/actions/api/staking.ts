@@ -3,10 +3,8 @@ import { StakingState } from '../../types';
 
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import { getTonStakingFees } from '../../../util/fee/getTonOperationFees';
-import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { pause } from '../../../util/schedulers';
 import { getIsActiveStakingState, getIsLongUnstake } from '../../../util/staking';
-import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { closeAllOverlays } from '../../helpers/misc';
 import { handleTransferResult, isErrorTransferResult, prepareTransfer } from '../../helpers/transfer';
@@ -30,7 +28,6 @@ import { switchAccount } from './auth';
 const MODAL_CLOSING_DELAY = 50;
 
 addActionHandler('startStaking', (global, actions, payload) => {
-  const isOpen = global.currentStaking.state !== StakingState.None;
   const { tokenSlug } = payload || {};
 
   if (tokenSlug) {
@@ -45,11 +42,6 @@ addActionHandler('startStaking', (global, actions, payload) => {
     }
   }
 
-  if (IS_DELEGATED_BOTTOM_SHEET && !isOpen) {
-    callActionInMain('startStaking', payload);
-    return;
-  }
-
   const state = StakingState.StakeInitial;
 
   setGlobal(updateCurrentStaking(global, {
@@ -59,7 +51,6 @@ addActionHandler('startStaking', (global, actions, payload) => {
 });
 
 addActionHandler('startUnstaking', (global, actions, payload) => {
-  const isOpen = global.currentStaking.state !== StakingState.None;
   const { stakingId } = payload || {};
 
   if (stakingId) {
@@ -68,11 +59,6 @@ addActionHandler('startUnstaking', (global, actions, payload) => {
     setGlobal(global);
 
     global = getGlobal();
-  }
-
-  if (IS_DELEGATED_BOTTOM_SHEET && !isOpen) {
-    callActionInMain('startUnstaking', payload);
-    return;
   }
 
   const state = StakingState.UnstakeInitial;
@@ -272,11 +258,6 @@ addActionHandler('fetchStakingHistory', async (global) => {
 });
 
 addActionHandler('openAnyAccountStakingInfo', async (global, actions, { accountId, network, stakingId }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openAnyAccountStakingInfo', { accountId, network, stakingId });
-    return;
-  }
-
   await Promise.all([
     closeAllOverlays(),
     switchAccount(global, accountId, network),
@@ -288,11 +269,6 @@ addActionHandler('openAnyAccountStakingInfo', async (global, actions, { accountI
 
 // Should be called only when you're sure that the staking is active. Otherwise, call `openStakingInfoOrStart`.
 addActionHandler('openStakingInfo', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openStakingInfo');
-    return;
-  }
-
   global = { ...global, isStakingInfoModalOpen: true };
   setGlobal(global);
 });
@@ -303,11 +279,6 @@ addActionHandler('closeStakingInfo', (global) => {
 });
 
 addActionHandler('changeCurrentStaking', async (global, actions, { stakingId, shouldReopenModal }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET && shouldReopenModal) {
-    callActionInMain('changeCurrentStaking', { stakingId, shouldReopenModal });
-    return;
-  }
-
   if (shouldReopenModal) {
     await pause(MODAL_CLOSING_DELAY);
   }
@@ -332,11 +303,6 @@ addActionHandler('startStakingClaim', (global, actions, payload) => {
     global = getGlobal();
   }
 
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('startStakingClaim', payload);
-    return;
-  }
-
   if (selectIsHardwareAccount(global)) {
     global = resetHardware(global, 'ton');
     global = updateCurrentStaking(global, { state: StakingState.ClaimConnectHardware });
@@ -355,11 +321,6 @@ addActionHandler('submitStakingClaim', async (global, actions, { password } = {}
   const accountId = selectCurrentAccountId(global)!;
 
   if (!await prepareTransfer(StakingState.ClaimConfirmHardware, updateCurrentStaking, password)) {
-    return;
-  }
-
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('submitStakingClaim', { password });
     return;
   }
 
@@ -385,12 +346,6 @@ addActionHandler('submitStakingClaim', async (global, actions, { password } = {}
     state: isEthenaStaking ? StakingState.ClaimComplete : StakingState.None,
   });
   setGlobal(global);
-
-  if (IS_DELEGATING_BOTTOM_SHEET) {
-    callActionInNative('setStakingScreen', {
-      state: isEthenaStaking ? StakingState.ClaimComplete : StakingState.None,
-    });
-  }
 });
 
 // Opens the staking info modal if the modal is available. Otherwise, opens the staking start modal.

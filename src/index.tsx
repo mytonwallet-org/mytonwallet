@@ -18,10 +18,9 @@ import { initElectron } from './util/electron';
 import { initFocusScrollController } from './util/focusScroll';
 import { forceLoadFonts } from './util/fonts';
 import { logDebug, logSelfXssWarnings } from './util/logs';
-import { initMultitab } from './util/multitab';
 import { initTelegramApp } from './util/telegram';
 import {
-  IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET, IS_ELECTRON, IS_IOS_APP, IS_LEDGER_EXTENSION_TAB,
+  IS_ELECTRON, IS_IOS_APP, IS_LEDGER_EXTENSION_TAB,
 } from './util/windowEnvironment';
 
 import App from './components/App';
@@ -49,12 +48,6 @@ if (IS_TELEGRAM_APP) {
   void initTelegramApp();
 }
 
-if (IS_DELEGATING_BOTTOM_SHEET) {
-  initMultitab({ noPubGlobal: true });
-} else if (IS_DELEGATED_BOTTOM_SHEET) {
-  initMultitab();
-}
-
 initFocusScrollController();
 
 void (async () => {
@@ -74,7 +67,7 @@ void (async () => {
     logDebug('API was not initialized because it was connected from a detached tab');
   }
 
-  if (IS_CAPACITOR && !IS_DELEGATED_BOTTOM_SHEET) {
+  if (IS_CAPACITOR) {
     await processCapacitorLaunchDeeplink();
   }
 

@@ -12,7 +12,7 @@ import WalletCore
 import WalletContext
 import SwiftUI
 
-public class ConnectedAppsVC: WViewController, UICollectionViewDelegate {
+public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
     private enum Section: Hashable {
         case main
     }

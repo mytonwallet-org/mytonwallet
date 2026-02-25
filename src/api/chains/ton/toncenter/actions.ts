@@ -975,6 +975,8 @@ function parseToncenterNft(
       }
 
       const nft = omitUndefined<ApiNft>({
+        chain: 'ton',
+        interface: 'default',
         index: Number(index),
         name: domain,
         address: nftAddress,
@@ -1011,6 +1013,8 @@ function parseToncenterNft(
     const thumbnail = extra?._image_medium ?? fixedImage!;
 
     const nft: ApiNft = omitUndefined<ApiNft>({
+      chain: 'ton',
+      interface: 'default',
       index: Number(index),
       name: name!,
       address: nftAddress,

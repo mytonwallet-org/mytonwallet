@@ -20,14 +20,25 @@ public typealias UnfairLock = OSAllocatedUnfairLock
     var isFirstLaunch: Bool { get }
 }
 
+public enum DeeplinkOpenSource {
+    case generic
+    case exploreSearchBar
+}
+
 public protocol WalletContextDelegate: NSObject {
     func bridgeIsReady()
     func walletIsReady(isReady: Bool)
     func switchToCapacitor()
     func restartApp()
-    func handleDeeplink(url: URL) -> Bool
+    func handleDeeplink(url: URL, source: DeeplinkOpenSource) -> Bool
     var isWalletReady: Bool { get }
     var isAppUnlocked: Bool { get }
+}
+
+public extension WalletContextDelegate {
+    func handleDeeplink(url: URL) -> Bool {
+        handleDeeplink(url: url, source: .generic)
+    }
 }
 
 public class WalletContextManager {

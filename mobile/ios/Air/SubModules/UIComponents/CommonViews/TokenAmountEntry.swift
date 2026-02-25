@@ -146,7 +146,8 @@ public struct TokenAmountEntrySection: View {
     
     @ViewBuilder
     var feeView: some View {
-        if let nativeToken = TokenStore.tokens[ApiChain(rawValue: token.chain)?.nativeToken.slug ?? ""] {
+        let chain = token.chain
+        if chain.isSupported, let nativeToken = TokenStore.tokens[chain.nativeToken.slug] {
             FeeView(token: token, nativeToken: nativeToken, fee: fee, explainedTransferFee: explainedFee, includeLabel: true)
                 .transition(.opacity)
         }

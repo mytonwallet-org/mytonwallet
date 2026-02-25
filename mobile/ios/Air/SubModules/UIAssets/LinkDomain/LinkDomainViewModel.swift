@@ -32,7 +32,7 @@ import SwiftNavigation
         self._account = AccountContext(source: accountSource)
         self.nftAddress = nftAddress
         let linkedAddress = $account.domains.linkedAddressByAddress[nftAddress]?.nilIfEmpty
-        self.walletAddress = linkedAddress ?? account.byChain[TON_CHAIN]?.address ?? ""
+        self.walletAddress = linkedAddress ?? account.getAddress(chain: nft?.chain) ?? ""
         resolveObserver = observe { [weak self] in
             guard let self else { return }
             _ = (self.walletAddress, self.account.network)
@@ -71,8 +71,8 @@ import SwiftNavigation
 
     var isAddressValid: Bool {
         let value = normalizedWalletAddress
-        guard !value.isEmpty else { return false }
-        return ApiChain.ton.isValidAddressOrDomain(value)
+        guard !value.isEmpty, let chain = nft?.chain else { return false }
+        return chain.isValidAddressOrDomain(value)
     }
 
     var isInsufficientBalance: Bool {
@@ -127,7 +127,7 @@ import SwiftNavigation
         isLoadingDraft = true
         errorMessage = nil
         do {
-            let address = account.byChain[TON_CHAIN]?.address ?? walletAddress
+            let address = account.getAddress(chain: nft.chain) ?? walletAddress
             let result = try await Api.checkDnsChangeWalletDraft(accountId: account.id, nft: nft, address: address)
             realFee = result.realFee
         } catch {
@@ -143,7 +143,7 @@ import SwiftNavigation
         guard !address.isEmpty else { return }
         isSubmitting = true
         defer { isSubmitting = false }
-        let info = try await Api.getAddressInfo(chain: .ton, network: account.network, address: address)
+        let info = try await Api.getAddressInfo(chain: nft.chain, network: account.network, address: address)
         if let error = info.error?.nilIfEmpty {
             throw BridgeCallError(message: error, payload: nil)
         }
@@ -165,7 +165,7 @@ import SwiftNavigation
                 walletAddress = parsed.address
             }
         case .address(let address, let possibleChains):
-            if possibleChains.contains(.ton) {
+            if let chain = nft?.chain, possibleChains.contains(chain) {
                 walletAddress = address
             }
         }
@@ -180,7 +180,7 @@ import SwiftNavigation
             isResolvingAddress = false
             return
         }
-        guard ApiChain.ton.isValidAddressOrDomain(address) else {
+        guard let chain = nft?.chain, chain.isValidAddressOrDomain(address) else {
             walletAddressName = nil
             resolvedWalletAddress = nil
             isResolvingAddress = false
@@ -190,7 +190,7 @@ import SwiftNavigation
         resolveTask = Task {
             do {
                 try await Task.sleep(for: .milliseconds(250))
-                let info = try await Api.getAddressInfo(chain: .ton, network: account.network, address: address)
+                let info = try await Api.getAddressInfo(chain: chain, network: account.network, address: address)
                 if let error = info.error?.nilIfEmpty {
                     throw BridgeCallError(message: error, payload: nil)
                 }

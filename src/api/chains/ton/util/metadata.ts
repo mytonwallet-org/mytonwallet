@@ -688,6 +688,8 @@ export function parseTonapiioNft(
     };
 
     return omitUndefined<ApiNft>({
+      chain: 'ton',
+      interface: 'default',
       index,
       name,
       ownerAddress: owner ? toBase64Address(owner.address, false, network) : undefined,

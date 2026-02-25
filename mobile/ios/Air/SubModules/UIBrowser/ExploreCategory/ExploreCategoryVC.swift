@@ -16,7 +16,6 @@ import WalletCore
 final class ExploreCategoryVC: WViewController {
     private let exploreVM: ExploreVM
     private let categoryId: Int
-    let rectToShowFrom: CGRect?
 
     private let collectionView = UICollectionView(frame: .zero, collectionViewLayout: ExploreCategoryVC.makeLayout())
     private let dataSource: UICollectionViewDiffableDataSource<Section, Item>
@@ -28,10 +27,9 @@ final class ExploreCategoryVC: WViewController {
 
     private var cancelBag = Set<AnyCancellable>()
 
-    init(exploreVM: ExploreVM, categoryId: Int, rectToShowFrom: CGRect?) {
+    init(exploreVM: ExploreVM, categoryId: Int) {
         self.exploreVM = exploreVM
         self.categoryId = categoryId
-        self.rectToShowFrom = rectToShowFrom
         dataSource = Self.makeDataSource(collectionView: collectionView,
                                          categoryId: categoryId,
                                          exploreVM: exploreVM,
@@ -58,37 +56,38 @@ final class ExploreCategoryVC: WViewController {
             viewOutput.dappItemTap.sink(withUnretained: self) { uSelf, site in uSelf.openDapp(site: site) },
         ])
     }
+    
+    override func updateMaxContentWidthIfNeeded() {} // superclass imp breaks layout, override with empty imp
+    override func updateBottomBarBlurConstraint() {} // superclass imp breaks layout, override with empty imp
+    
+    override func scrollToTop(animated: Bool) {
+        collectionView.setContentOffset(.zero, animated: animated)
+    }
 
     // MARK: - Initial Setup
 
     private func initialSetup() {
-        addCloseNavigationItemIfNeeded()
-
+        navigationItem.title = exploreVM.exploreCategories[categoryId]?.displayName ?? ""
+        
         view.backgroundColor = backgroundColor
-        view.addStretchedToBounds(subview: collectionView, insets: UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 20))
-
+        view.addStretchedToSafeArea(subview: collectionView,
+                                    top: \.topAnchor,
+                                    insets: UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 20))
+        
         collectionView.delegate = self
         collectionView.alwaysBounceVertical = true
         collectionView.delaysContentTouches = false
-        collectionView.contentInsetAdjustmentBehavior = .always
         collectionView.clipsToBounds = false
-
-        collectionView.contentInset = UIEdgeInsets(top: -16, left: 0, bottom: 0, right: 0)
-        if let navigationBarHeight = navigationController?.navigationBar.frame.height {
-            collectionView.contentInset.top -= navigationBarHeight
-        }
-
+        
+        collectionView.contentInsetAdjustmentBehavior = .automatic
+        
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(closeScreen))
         tapGesture.delegate = self
         view.addGestureRecognizer(tapGesture)
     }
 
-    override func scrollToTop(animated: Bool) {
-        collectionView.setContentOffset(.zero, animated: animated)
-    }
-
     private static func makeLayout() -> UICollectionViewCompositionalLayout {
-        var config = UICollectionLayoutListConfiguration(appearance: .grouped)
+        var config = UICollectionLayoutListConfiguration(appearance: .plain)
         config.headerMode = .none
         config.backgroundColor = .clear
         config.showsSeparators = false
@@ -101,19 +100,10 @@ final class ExploreCategoryVC: WViewController {
                                        exploreVM: ExploreVM,
                                        viewOutput: ViewOutput,
                                        backgroundColorSUI: Color) -> UICollectionViewDiffableDataSource<Section, Item> {
-        let categoryId = categoryId
         // Register cell
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, _, item in
             cell.backgroundColor = nil
             switch item {
-            case .header:
-                let categoryName = exploreVM.exploreCategories[categoryId]?.displayName ?? ""
-                cell.contentConfiguration = UIHostingConfiguration {
-                    Self.screenHeaderView(categoryName: categoryName)
-                }
-                .margins(.all, 0)
-                .background { backgroundColorSUI }
-
             case .dapp(let siteId):
                 if let site = exploreVM.exploreSites[siteId] {
                     cell.configurationUpdateHandler = { cell, _ in
@@ -147,8 +137,7 @@ final class ExploreCategoryVC: WViewController {
 
         if !exploreSites.isEmpty {
             snapshot.appendSections([.main])
-            snapshot.appendItems([.header])
-            snapshot.appendItems(exploreSites.map { .dapp($0.url) })
+            snapshot.appendItems(exploreSites.map { .dapp(url: $0.url) })
         }
 
         return snapshot
@@ -176,13 +165,13 @@ extension ExploreCategoryVC: ExploreVMDelegate {
 
 extension ExploreCategoryVC: UICollectionViewDelegate {
     func collectionView(_: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let id = dataSource.itemIdentifier(for: indexPath)
-        switch id {
-        case .dapp(let id):
-            guard let exploreSite = exploreVM.exploreSites[id] else { return }
+        let item = dataSource.itemIdentifier(for: indexPath)
+        switch item {
+        case .dapp(let url):
+            guard let exploreSite = exploreVM.exploreSites[url] else { return }
             openDapp(site: exploreSite)
 
-        case .header, .none:
+        case .none:
             break
         }
     }
@@ -195,18 +184,10 @@ extension ExploreCategoryVC: UICollectionViewDelegate {
                 self.presentingViewController?.dismiss(animated: true)
             }
         } else {
-            if let homeVC = presentingViewController, let window = view.window {
-                let snapshot = window.snapshotView(afterScreenUpdates: false)!
-                homeVC.view.addSubview(snapshot)
-                UIView.animate(withDuration: 0.4, delay: 0.4) {
-                    snapshot.alpha = 0
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    snapshot.removeFromSuperview()
-                }
-            }
-            self.presentingViewController?.dismiss(animated: false) {
-                AppActions.openInBrowser(url, title: site.name, injectTonConnect: true)
+            AppActions.openInBrowser(url, title: site.name, injectDappConnect: true)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                guard let self else { return }
+                self.navigationController?.popToRootViewController(animated: true)
             }
         }
     }
@@ -223,20 +204,6 @@ extension ExploreCategoryVC: UIGestureRecognizerDelegate {
 }
 
 extension ExploreCategoryVC {
-    fileprivate static func screenHeaderView(categoryName: String) -> some View {
-        HStack(alignment: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(lang("Explore")).font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color(uiColor: UIColor(hex: "#8A8A8E")))
-                    .padding(.bottom, 3)
-                Text(categoryName).font(.system(size: 28, weight: .bold))
-            }
-
-            Spacer()
-        }
-        .padding(EdgeInsets(top: 0, leading: 0, bottom: 12, trailing: 0))
-    }
-
     private struct ViewOutput {
         let dappItemTap = PassthroughSubject<ApiSite, Never>()
     }
@@ -246,8 +213,7 @@ extension ExploreCategoryVC {
     }
 
     enum Item: Equatable, Hashable {
-        case header
-        case dapp(String)
+        case dapp(url: String)
     }
 }
 
@@ -258,7 +224,7 @@ extension ExploreCategoryVC {
         let vc = ExploreVC()
         vc.exploreVM.updateExploreSites(ApiSite.sampleExploreSites)
         vc.exploreVM.updateDapps(dapps: [ApiDapp.sample])
-        let cat = ExploreCategoryVC(exploreVM: vc.exploreVM, categoryId: 1, rectToShowFrom: nil)
+        let cat = ExploreCategoryVC(exploreVM: vc.exploreVM, categoryId: 1)
         cat.view.backgroundColor = .black.withAlphaComponent(0.1)
         return cat
     }()

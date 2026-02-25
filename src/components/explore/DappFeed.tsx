@@ -1,7 +1,7 @@
 import React, { memo, useMemo, useRef } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import { type ApiDapp } from '../../api/types';
+import type { StoredDappConnection } from '../../api/dappProtocols/storage';
 import { SettingsState } from '../../global/types';
 
 import { selectCurrentAccountState } from '../../global/selectors';
@@ -19,11 +19,11 @@ import styles from './DappFeed.module.scss';
 import exploreStyles from './Explore.module.scss';
 
 interface StateProps {
-  dapps: ApiDapp[];
+  dapps: StoredDappConnection[];
   dappLastOpenedDatesByUrl?: Record<string, number>;
 }
 
-type DappWithLastOpenedDate = ApiDapp & { lastOpenedAt?: number };
+type DappWithLastOpenedDate = StoredDappConnection & { lastOpenedAt?: number };
 
 const MAX_DAPPS_FOR_PILL_MODE = 3;
 const HIDDEN_FROM_FEED_DAPP_URLS = new Set(['https://checkin.mytonwallet.org']);

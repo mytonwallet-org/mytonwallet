@@ -48,7 +48,7 @@ public enum ApiTokenImportError: String, Error {
   case notATokenAddress = "NotATokenAddress"
 }
 
-public enum ApiAnyDisplayError: String, Codable, Error {
+public enum ApiAnyDisplayError: String, Codable, Error, Sendable {
     // ApiCommonError
     case unexpected = "Unexpected"
     case serverError = "ServerError"

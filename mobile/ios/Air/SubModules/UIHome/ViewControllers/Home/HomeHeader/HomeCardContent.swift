@@ -19,13 +19,20 @@ struct HomeCardContent: View {
     
     var headerViewModel: HomeHeaderViewModel
     var accountContext: AccountContext
+    var layout: HomeCardLayoutMetrics
+    var minimumHomeCardFontScale: CGFloat = 1
     
     var progress: CGFloat { headerViewModel.collapseProgress }
     
     var body: some View {
         WithPerceptionTracking {
             ZStack {
-                _CenterContent(headerViewModel: headerViewModel, accountContext: accountContext)
+                _CenterContent(
+                    headerViewModel: headerViewModel,
+                    accountContext: accountContext,
+                    layout: layout,
+                    minimumHomeCardFontScale: minimumHomeCardFontScale
+                )
                     .scaleEffect(balanceScale)
                     .backportGeometryGroup()
                     .offset(y: -bottomPadding)
@@ -53,11 +60,13 @@ private struct _CenterContent: View {
     
     let headerViewModel: HomeHeaderViewModel
     let accountContext: AccountContext
+    let layout: HomeCardLayoutMetrics
+    let minimumHomeCardFontScale: CGFloat
     
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: 5) {
-                _BalanceView(accountContext: accountContext)
+                _BalanceView(accountContext: accountContext, layout: layout, minimumHomeCardFontScale: minimumHomeCardFontScale)
                     .padding(.leading, 1)
                     .padding(.horizontal, 32)
                 
@@ -71,6 +80,8 @@ private struct _CenterContent: View {
 private struct _BalanceView: View {
 
     let accountContext: AccountContext
+    let layout: HomeCardLayoutMetrics
+    let minimumHomeCardFontScale: CGFloat
 
     var body: some View {
         WithPerceptionTracking {
@@ -78,7 +89,9 @@ private struct _BalanceView: View {
                 accountId: accountContext.accountId,
                 balance: accountContext.balance,
                 nft: accountContext.nft,
-                isCurrent: accountContext.isCurrent
+                isCurrent: accountContext.isCurrent,
+                cardWidth: layout.itemWidth,
+                minimumHomeCardFontScale: minimumHomeCardFontScale
             )
         }
     }
@@ -90,11 +103,13 @@ private struct _BalanceViewContent: View, Equatable {
     var balance: BaseCurrencyAmount?
     var nft: ApiNft?
     var isCurrent: Bool
+    var cardWidth: CGFloat
+    var minimumHomeCardFontScale: CGFloat
     
     @State private var menuContext = MenuContext()
 
     var body: some View {
-        MtwCardBalanceView(balance: balance, isNumericTranstionEnabled: isCurrent, style: .homeCard, secondaryOpacity: nft?.metadata?.mtwCardType?.isPremium == true ? 1 : 0.75)
+        MtwCardBalanceView(balance: balance, isNumericTranstionEnabled: isCurrent, style: .homeCard(cardWidth: cardWidth, minimumScale: minimumHomeCardFontScale), secondaryOpacity: nft?.metadata?.mtwCardType?.isPremium == true ? 1 : 0.75)
             .padding(40)
             .sourceAtop {
                 MtwCardBalanceGradient(nft: nft)
@@ -110,7 +125,11 @@ private struct _BalanceViewContent: View, Equatable {
     }
     
     public static func ==(lhs: Self, rhs: Self) -> Bool {
-        lhs.balance == rhs.balance && lhs.nft == rhs.nft && lhs.isCurrent == rhs.isCurrent
+        lhs.balance == rhs.balance &&
+        lhs.nft == rhs.nft &&
+        lhs.isCurrent == rhs.isCurrent &&
+        lhs.cardWidth == rhs.cardWidth &&
+        lhs.minimumHomeCardFontScale == rhs.minimumHomeCardFontScale
     }
 }
 
@@ -175,8 +194,17 @@ private struct _BalanceChangeContent: View, Equatable {
     }
     
     private func mainView(_ text: String) -> some View {
-        Text(text)
-            .font(.compactMedium(size: 17))
+        Button {
+            if let url = URL(string: "https://portfolio.mytonwallet.io") {
+                AppActions.openInBrowser(url)
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(text)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .font(.compactDisplay(size: 17, weight: .medium))
             .opacity(0.8)
             .padding(.horizontal, 8)
             .background {
@@ -187,14 +215,16 @@ private struct _BalanceChangeContent: View, Equatable {
                 .clipShape(.capsule)
                 .frame(height: 26)
             }
-            .sensitiveData(
-                alignment: .center,
-                cols: 10,
-                rows: 2,
-                cellSize: 13,
-                theme: .light,
-                cornerRadius: 13
-            )
+        }
+        .buttonStyle(.plain)
+        .sensitiveData(
+            alignment: .center,
+            cols: 10,
+            rows: 2,
+            cellSize: 13,
+            theme: .light,
+            cornerRadius: 13
+        )
     }
     
     private func placeholderView() -> some View {

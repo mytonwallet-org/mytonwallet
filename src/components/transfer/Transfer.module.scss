@@ -7,9 +7,6 @@
     height: calc(40.5rem + var(--safe-area-bottom));
   }
 
-  :global(.is-native-bottom-sheet) & {
-    height: calc(40.5rem + var(--safe-area-bottom, 0rem));
-  }
 }
 
 .help,

@@ -158,9 +158,6 @@ function AccountSelectorModal({
   const tabs = useMemo(() => buildTabs(isTestnet ?? false, lang), [isTestnet, lang]);
   const currentTabIndex = useMemo(() => getCurrentTabIndex(tabs, activeTab), [activeTab, tabs]);
   const selectedTab = tabs[currentTabIndex]?.id ?? DEFAULT_TAB;
-  const forceFullNative = renderingKey === AccountSelectorState.Reorder
-    || renderingKey === AccountSelectorState.AddAccountPassword;
-
   const filteredAccounts = useFilteredAccounts(orderedAccounts, selectedTab);
   const { balancesByAccountId, totalBalance } = useAccountsBalances(
     filteredAccounts,
@@ -583,8 +580,6 @@ function AccountSelectorModal({
         isOpen={isOpen}
         dialogClassName={styles.modalDialog}
         contentClassName={styles.modalContent}
-        nativeBottomSheetKey="account-selector"
-        forceFullNative={forceFullNative}
         onCloseAnimationEnd={handleModalClose}
         onClose={handleCloseAccountSelectorForced}
       >

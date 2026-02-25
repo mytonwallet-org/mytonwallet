@@ -96,7 +96,7 @@ public class AccountContext {
         return color
     }
     public var stakingData: MStakingData? {
-        stakingStore.byId(accountId)
+        stakingStore.stakingData(forAccountID: accountId)
     }
     public func getStakingBadgeContent(tokenSlug: String, isStaking: Bool) -> StakingBadgeContent? {
         guard let stakingState = stakingData?.bySlug(tokenSlug) else { return nil }
@@ -110,6 +110,9 @@ public class AccountContext {
     public var savedAddresses: SavedAddresses {
         savedAddressesStore.for(accountId: accountId)
     }
+    public var settings: AccountSettings {
+        accountSettings.for(accountId: accountId)
+    }
     public var domains: Domains {
         domainsStore.for(accountId: accountId)
     }
@@ -118,7 +121,7 @@ public class AccountContext {
     }
     public func getMyAccountName(chain: ApiChain, address: String) -> String? {
         let matchingAccount = accountStore.orderedAccounts.first { account in
-            if let info = account.byChain[chain.rawValue], info.address == address || info.domain == address {
+            if let info = account.getChainInfo(chain: chain), info.address == address || info.domain == address {
                 return true
             }
             return false

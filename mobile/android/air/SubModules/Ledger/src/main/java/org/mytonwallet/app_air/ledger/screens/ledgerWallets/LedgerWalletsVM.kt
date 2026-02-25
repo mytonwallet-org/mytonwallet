@@ -13,12 +13,13 @@ import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiLedgerAccountInfo
 import org.mytonwallet.app_air.walletcore.moshi.MApiLedgerDriver
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.ledger.MLedgerWalletInfo
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
+import org.mytonwallet.app_air.walletcore.utils.jsonObject
 import java.lang.ref.WeakReference
 
 class LedgerWalletsVM(delegate: Delegate) {
@@ -69,10 +70,8 @@ class LedgerWalletsVM(delegate: Delegate) {
                     WGlobalStorage.addAccount(
                         accountId = result.accountId,
                         accountType = MAccount.AccountType.HARDWARE.value,
-                        address = newWallet.wallet.address,
-                        tronAddress = null,
+                        byChain = result.byChain.jsonObject,
                         importedAt = null,
-                        tonLedgerIndex = newWallet.wallet.index,
                     )
                     finalizedWallets.add(result.accountId)
                     AirPushNotifications.subscribe(result.accountId, ignoreIfLimitReached = true)

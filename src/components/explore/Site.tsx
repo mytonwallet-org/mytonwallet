@@ -12,26 +12,24 @@ import useLang from '../../hooks/useLang';
 
 import Image from '../ui/Image';
 
-import styles from './Explore.module.scss';
+import styles from './Site.module.scss';
 
 interface OwnProps {
   site: ApiSite;
-  isFeatured?: boolean;
-  isInList?: boolean;
   className?: string;
-  role?: string;
+  role?: 'option' | 'button';
+  isEmbedded?: boolean;
   isSelected?: boolean;
+  shouldHideIcon?: boolean;
 }
 
 function Site({
-  site: {
-    url, icon, name, description, isExternal, isVerified, extendedIcon, withBorder, badgeText, borderColor,
-  },
-  isFeatured,
-  isInList,
+  site: { url, icon, name, description, isExternal, isVerified, badgeText },
   className,
-  role,
+  role = 'button',
+  isEmbedded = false,
   isSelected,
+  shouldHideIcon = false,
 }: OwnProps) {
   const lang = useLang();
 
@@ -47,56 +45,42 @@ function Site({
     }
   }
 
-  const borderStyle = !isInList && withBorder && borderColor
-    ? `--color-site-border: linear-gradient(270deg, ${borderColor.join(', ')})`
-    : undefined;
-
   return (
     <div
-      className={buildClassName(
-        styles.itemWrapper,
-        className,
-        isInList && styles.itemWrapperInList,
-      )}
-      style={borderStyle}
+      className={buildClassName(styles.item, className, isEmbedded && styles.embedded)}
       tabIndex={isSelected ? 0 : -1}
-      role={role || 'button'}
+      role={role}
       aria-selected={isSelected}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
     >
-      <div
-        className={buildClassName(
-          styles.item,
-          (extendedIcon && isFeatured) && styles.extended,
-          isFeatured && styles.featured,
-          !isInList && withBorder && styles.withBorder,
-        )}
-      >
+      {!shouldHideIcon && (
         <Image
-          url={extendedIcon && isFeatured ? extendedIcon : icon}
-          className={buildClassName(styles.imageWrapper, !isFeatured && styles.imageWrapperScalable)}
-          imageClassName={buildClassName(styles.image, isFeatured && styles.featuredImage)}
+          url={icon}
+          className={styles.imageWrapper}
+          imageClassName={styles.image}
         />
-        <div className={buildClassName(styles.infoWrapper, !isFeatured && styles.wide)}>
-          <b className={styles.title}>
-            {name}
+      )}
 
-            {!isFeatured && isTelegramUrl(url) && (
-              <i className={buildClassName(styles.titleIcon, 'icon-telegram-filled')} aria-hidden />
-            )}
-            {isFeatured && isVerified && (
-              <i className={buildClassName(styles.titleIcon, 'icon-verification')} aria-hidden />
-            )}
-            {isInList && badgeText && <div className={styles.badgeLabel}>{badgeText}</div>}
-          </b>
-          <div className={styles.description}>{renderText(description, ['simple_markdown'])}</div>
-        </div>
-        {isInList && <div className={styles.button}>{lang('Open')}</div>}
+      <div className={styles.infoWrapper}>
+        <b className={styles.title}>
+          {name}
+          {isEmbedded && isVerified && (
+            <i className={buildClassName(styles.titleIcon, styles.verificationIcon, 'icon-verification')} aria-hidden />
+          )}
+          {!isEmbedded && isTelegramUrl(url) && (
+            <i className={buildClassName(styles.titleIcon, 'icon-telegram-filled')} aria-hidden />
+          )}
+          {!isEmbedded && badgeText && <div className={styles.badgeLabel}>{badgeText}</div>}
+        </b>
+
+        <div className={styles.description}>{renderText(description, ['simple_markdown'])}</div>
       </div>
 
-      {!isInList && badgeText && (
-        <div className={buildClassName(styles.badge, isFeatured && styles.featuredBadge)}>{badgeText}</div>
+      {!isEmbedded && (
+        <div className={styles.button}>
+          {lang('Open')}
+        </div>
       )}
     </div>
   );

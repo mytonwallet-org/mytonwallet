@@ -10,7 +10,7 @@ import SwiftUI
 import UIComponents
 import WalletContext
 
-public final class UseResponsiblyVC: WViewController {
+public final class UseResponsiblyVC: SettingsBaseVC {
     
     private var hostingController: UIHostingController<UseResponsiblyView>!
     

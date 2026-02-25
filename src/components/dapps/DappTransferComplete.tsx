@@ -37,7 +37,7 @@ function DappTransferComplete({
       : undefined;
   }, [isActive, onClose]);
 
-  const title = type === 'signData' ? lang('Data Signed!') : lang('Transaction Sent!');
+  const title = type === 'signData' ? lang('Data Signed!') : lang('Transfer Sent!');
 
   return (
     <>

@@ -1,10 +1,12 @@
+import type { StoredDappConnection } from './dappProtocols/storage';
+
 import { logDebugError } from '../util/logs';
 
 interface Hooks {
   onFirstLogin: AnyFunction;
   onFullLogout: AnyFunction;
   onWindowNeeded: AnyFunction;
-  onDappDisconnected: (accountId: string, url: string) => any;
+  onDappDisconnected: (accountId: string, dapp: StoredDappConnection) => any;
   onDappsChanged: AnyFunction;
   onSwapCreated: (accountId: string, fromTimestamp: number) => any;
 }

@@ -105,7 +105,7 @@ function SwapActivityInfo({
           address={transactionHash}
           addressUrl={transactionUrl}
           isTransaction
-          copyNotification={lang('Transaction ID was copied!')}
+          copyNotification={lang('Transaction ID Copied')}
         />
       </div>
     );

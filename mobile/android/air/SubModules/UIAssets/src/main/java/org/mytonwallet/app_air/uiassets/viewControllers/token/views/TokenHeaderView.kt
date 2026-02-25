@@ -277,7 +277,7 @@ class TokenHeaderView(
             InAppBrowserVC(
                 context,
                 null,
-                InAppBrowserConfig(url, injectTonConnectBridge = true)
+                InAppBrowserConfig(url, injectDappConnect = true)
             )
         )
         navigationController.window.present(nav)

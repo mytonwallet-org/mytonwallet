@@ -185,10 +185,8 @@ public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
     }
     
     func confirmAction(account: MAccount) async throws {
-        let headerView = StakingConfirmHeaderView(
-            mode: .unstake,
-            tokenAmount: TokenAmount(model.amount ?? 0, config.baseToken),
-        )
+        let headerView = StakingConfirmHeaderView(mode: .unstake,
+                                                  tokenAmount: TokenAmount(model.amount ?? 0, config.baseToken))
         let headerVC = UIHostingController(rootView: headerView)
         headerVC.view.backgroundColor = .clear
         

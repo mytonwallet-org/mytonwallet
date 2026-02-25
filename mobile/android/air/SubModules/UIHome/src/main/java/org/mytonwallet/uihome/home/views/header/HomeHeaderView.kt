@@ -48,7 +48,9 @@ import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -180,6 +182,10 @@ open class HomeHeaderView(
         isHorizontalFadingEdgeEnabled = true
         ellipsize = TextUtils.TruncateAt.MARQUEE
         isSelected = true
+        setPadding(10.dp, 4.dp, 10.dp, 4.dp)
+        foreground = WRippleDrawable.create(12f.dp).apply {
+            rippleColor = WColor.SubtitleText.color.colorWithAlpha(25)
+        }
     }
     private val balanceSkeletonView = View(context).apply {
         visibility = GONE
@@ -253,6 +259,21 @@ open class HomeHeaderView(
             }
         }
         cardView.isClickable = DEFAULT_MODE == Mode.Collapsed
+
+        walletNameLabel.setOnClickListener {
+            if (mode == Mode.Collapsed) {
+                cardView.openAddressMenu(walletNameLabel)
+            }
+        }
+        walletNameLabel.setOnLongClickListener {
+            if (mode == Mode.Collapsed) {
+                cardView.copyFirstAddress()
+                true
+            } else {
+                false
+            }
+        }
+
         setOnClickListener {
             onHeaderPressed?.invoke()
         }

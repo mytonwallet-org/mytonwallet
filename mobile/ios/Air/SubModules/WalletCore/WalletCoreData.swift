@@ -29,6 +29,7 @@ public struct WalletCoreData {
         case accountChanged(accountId: String, isNew: Bool)
         case accountNameChanged
         case accountDeleted(accountId: String)
+        case accountsReset
         case stakingAccountData(MStakingData)
         case assetsAndActivityDataUpdated
         case hideTinyTransfersChanged
@@ -44,7 +45,7 @@ public struct WalletCoreData {
         case activeDappLoaded(dapp: ApiDapp)
         case dappsCountUpdated(accountId: String)
         case dappConnect(request: ApiUpdate.DappConnect)
-        case dappSendTransactions(MDappSendTransactions)
+        case dappSendTransactions(ApiUpdate.DappSendTransactions)
         case dappSignData(ApiUpdate.DappSignData)
         case dappDisconnect(accountId: String, origin: String)
         case dappLoading(ApiUpdate.DappLoading)
@@ -71,8 +72,6 @@ public struct WalletCoreData {
         case isLedgerUnsafeSupported(callback: @Sendable (Bool?) async -> ())
         case getLedgerDeviceModel(callback: @Sendable (ApiLedgerDeviceModel?) async -> ())
         
-        case minimizedSheetChanged(_ state: MinimizedSheetState)
-        case sheetDismissed
     }
     
     public protocol EventsObserver: AnyObject {
@@ -124,7 +123,9 @@ public struct WalletCoreData {
         let accountSettings = _accountSettings.for(accountId: account.id)
         DispatchQueue.main.async {
             AccountStore.walletVersionsData = nil
-            AccountStore.setAssetsAndActivityData(accountId: account.id, value: MAssetsAndActivityData(dictionary: AppStorageHelper.assetsAndActivityData(for: account.id)))
+            // Improvement: data race – reading via assetsAndActivityData(for:) can be called while writing
+            let assetsAndActivityData = MAssetsAndActivityData(dictionary: AppStorageHelper.assetsAndActivityData(for: account.id))
+            AccountStore.setAssetsAndActivityData(assetsAndActivityData, forAccountID: account.id)
             DappsStore.updateDappCount()
             changeThemeColors(to: accountSettings.accentColorIndex)
             UIApplication.shared.sceneKeyWindow?.updateTheme()

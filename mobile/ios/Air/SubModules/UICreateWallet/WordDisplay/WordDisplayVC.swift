@@ -10,7 +10,7 @@ import SwiftUI
 import WalletContext
 import UIComponents
 
-public class WordDisplayVC: WViewController {
+public class WordDisplayVC: CreateWalletBaseVC {
 
     let introModel: IntroModel
     let wordList: [String]

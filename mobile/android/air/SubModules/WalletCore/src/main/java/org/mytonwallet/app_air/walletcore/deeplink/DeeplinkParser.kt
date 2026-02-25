@@ -7,7 +7,7 @@ import org.mytonwallet.app_air.walletcontext.helpers.AddressHelpers
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import java.net.URLDecoder
 
 sealed class Deeplink {
@@ -81,11 +81,18 @@ sealed class Deeplink {
     data class ExpiringDns(override val accountAddress: String?, val domainAddress: String) :
         Deeplink()
 
+    data class WalletConnect(override val accountAddress: String?, val requestUri: Uri) : Deeplink()
     data class SwitchToLegacy(override val accountAddress: String?) : Deeplink()
     data class View(
         override val accountAddress: String?,
         val network: MBlockchainNetwork,
         val addressByChain: Map<String, String>
+    ) : Deeplink()
+
+    data class Nft(
+        override val accountAddress: String?,
+        val network: MBlockchainNetwork,
+        val nftAddress: String
     ) : Deeplink()
 }
 
@@ -110,6 +117,7 @@ class DeeplinkParser {
             return when (uri.scheme) {
                 "ton" -> handleTonInvoice(uri)
                 "tc", "mytonwallet-tc" -> handleTonConnect(uri)
+                "wc" -> handleWalletConnect(uri)
                 "mtw" -> handleMTW(uri)
                 "https" -> handleHttpsDeeplinks(uri)
                 else -> {
@@ -129,7 +137,7 @@ class DeeplinkParser {
                         address, InAppBrowserConfig(
                             url = url,
                             title = bundle.getString("title"),
-                            injectTonConnectBridge = true
+                            injectDappConnect = true
                         )
                     )
                 }
@@ -166,6 +174,10 @@ class DeeplinkParser {
 
         private fun handleTonConnect(uri: Uri): Deeplink {
             return Deeplink.TonConnect2(accountAddress = null, requestUri = uri)
+        }
+
+        private fun handleWalletConnect(uri: Uri): Deeplink {
+            return Deeplink.WalletConnect(accountAddress = null, requestUri = uri)
         }
 
         private fun handleTonInvoice(uri: Uri): Deeplink? {
@@ -207,6 +219,10 @@ class DeeplinkParser {
 
                 "connect.mytonwallet.org" -> {
                     return handleTonConnect(uri)
+                }
+
+                "walletconnect.com" -> {
+                    if (uri.path == "/wc") return handleWalletConnect(uri)
                 }
             }
             return null
@@ -263,7 +279,7 @@ class DeeplinkParser {
                     val config = InAppBrowserConfig(
                         url = urlString,
                         title = "Giveaway",
-                        injectTonConnectBridge = true
+                        injectDappConnect = true
                     )
                     Deeplink.Url(accountAddress = null, config)
                 }
@@ -275,7 +291,7 @@ class DeeplinkParser {
                     val config = InAppBrowserConfig(
                         url = urlString,
                         title = "Checkin",
-                        injectTonConnectBridge = true
+                        injectDappConnect = true
                     )
                     Deeplink.Url(accountAddress = null, config)
                 }
@@ -334,6 +350,13 @@ class DeeplinkParser {
                         network = network,
                         addressByChain = addressByChain
                     )
+                }
+
+                "nft" -> {
+                    val nftAddress = uri.pathSegments.firstOrNull()?.takeIf { it.isNotBlank() } ?: return null
+                    val network =
+                        if (uri.getQueryParameter("testnet") == "true") MBlockchainNetwork.TESTNET else MBlockchainNetwork.MAINNET
+                    return Deeplink.Nft(accountAddress = null, network = network, nftAddress = nftAddress)
                 }
 
                 else -> {

@@ -179,9 +179,13 @@ function Activities({
     fetchPastActivities({ slug, shouldLoadWithBudget: true });
   });
 
-  const [viewportIds, getMore, resetScroll] = useInfiniteScroll(
-    loadMore, listItemIds, undefined, FURTHER_SLICE, slug, isActive,
-  );
+  const [viewportIds, getMore, resetScroll] = useInfiniteScroll({
+    loadMoreBackwards: loadMore,
+    listIds: listItemIds,
+    listSlice: FURTHER_SLICE,
+    slug,
+    isActive,
+  });
 
   const getListItemKey = useListItemKeys(viewportIds ?? EMPTY_ARRAY, byId ?? EMPTY_DICTIONARY);
 

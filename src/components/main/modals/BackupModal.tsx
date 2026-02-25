@@ -59,8 +59,6 @@ function BackupModal({
   const [error, setError] = useState<string | undefined>();
 
   const mnemonicRef = useRef<string[] | undefined>(undefined);
-  const noResetFullNativeOnBlur = currentSlide === SLIDES.confirm || currentSlide === SLIDES.password;
-
   useEffect(() => {
     mnemonicRef.current = undefined;
   }, [isOpen]);
@@ -75,7 +73,8 @@ function BackupModal({
     mnemonicRef.current = await callApi('fetchMnemonic', currentAccountId!, password);
 
     if (!mnemonicRef.current) {
-      setError('Wrong password, please try again.');
+      const error = getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
+      setError(error);
       setIsLoading(false);
       void vibrateOnError();
       return;
@@ -187,9 +186,6 @@ function BackupModal({
       isOpen={isOpen}
       hasCloseButton
       dialogClassName={styles.modalDialog}
-      nativeBottomSheetKey="backup"
-      forceFullNative={currentSlide === SLIDES.password}
-      noResetFullNativeOnBlur={noResetFullNativeOnBlur}
       onClose={onClose}
       onCloseAnimationEnd={handleModalClose}
     >

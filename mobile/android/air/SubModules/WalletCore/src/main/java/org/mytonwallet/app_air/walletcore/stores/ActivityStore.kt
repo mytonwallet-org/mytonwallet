@@ -17,7 +17,7 @@ import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers.Companion.isSuitableToGetTimestamp
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap

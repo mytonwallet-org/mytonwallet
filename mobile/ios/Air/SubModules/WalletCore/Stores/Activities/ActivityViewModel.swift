@@ -28,6 +28,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
     nonisolated public let accountContext: AccountContext
     nonisolated public let accountId: String
     public let token: ApiToken?
+    public let showFirstRow: Bool
 
     @MainActor public var activitiesById: [String: ApiActivity]?
     @MainActor private var activityIdAliasesSnapshot: [String: String] = [:]
@@ -43,10 +44,11 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
 
     public private(set) var loadMoreTask: Task<Void, Never>?
 
-    public init(accountId: String, token: ApiToken?, delegate: any ActivityViewModelDelegate) async {
+    public init(accountId: String, token: ApiToken?, showFirstRow: Bool? = nil, delegate: any ActivityViewModelDelegate) async {
         self.accountContext = AccountContext(accountId: accountId)
         self.accountId = accountId
         self.token = token
+        self.showFirstRow = showFirstRow ?? (token != nil)
         await getState(updatedIds: [], replacedIds: [:])
         WalletCoreData.add(eventObserver: self)
         self.delegate = delegate // set delegate after getState so that it doesn't get notified on the initial load
@@ -65,7 +67,6 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
             accountState.idsMain
         }
         let hideTinyTransfers = AppStorageHelper.hideTinyTransfers
-        let alwaysShownSlugs = AccountStore.assetsAndActivityData[accountId]?.alwaysShownSlugs
         ids = ids?.filter {
             if let activity = activitiesById?[$0] {
                 switch activity {
@@ -82,9 +83,6 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
                             return true
                         }
                         if !activity.isTinyOrScamTransaction {
-                            return true
-                        }
-                        if alwaysShownSlugs?.contains(activity.slug) == true {
                             return true
                         }
                         return false
@@ -135,7 +133,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
         }
 
         let snapshot = await makeSnapshot(idsByDate: idsByDate,
-                                          showFirstRow: token != nil,
+                                          showFirstRow: showFirstRow,
                                           isEndReached: isEndReached,
                                           updatedIds: updatedStableIds)
 

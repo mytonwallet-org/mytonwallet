@@ -315,9 +315,9 @@ public class ActivityCell: WHighlightCell {
         CATransaction.setDisableActions(true)
         
         configureTitle(activity: activity)
-        configureDetails(activity: activity, accountContext: accountContext)
-        configureAmount(activity: activity)
-        configureAmount2(activity: activity)
+        configureDetails(.init(activity: activity, accountContext: accountContext, isEmulation: false))
+        configureAmount(.init(activity: activity, tokenStore: viewModel.tokenStore))
+        configureAmount2(.init(activity: activity, tokenStore: viewModel.tokenStore))
         configureSensitiveData(activity: activity)
         configureNft(activity: activity)
         configureComment(activity: activity)
@@ -341,9 +341,9 @@ public class ActivityCell: WHighlightCell {
                 if let chain = getChainBySlug(activity.slug), let peerAddress = activity.peerAddress {
                     _ = viewModel.$account.getLocalName(chain: chain, address: peerAddress)
                 }
-                configureDetails(activity: activity, accountContext: viewModel.$account)
-                configureAmount(activity: activity)
-                configureAmount2(activity: activity)
+                configureDetails(.init(activity: activity, accountContext: viewModel.$account, isEmulation: false))
+                configureAmount(.init(activity: activity, tokenStore: viewModel.tokenStore))
+                configureAmount2(.init(activity: activity, tokenStore: viewModel.tokenStore))
             }
         } else {
             viewModel.$account.accountId = accountId
@@ -354,10 +354,10 @@ public class ActivityCell: WHighlightCell {
     public func updateToken() {
         if let activity {
             if (!amountIcon1.isHidden && amountIcon1.imageView.image == nil) || (!amountIcon2.isHidden && amountIcon2.imageView.image == nil) {
-                configureAmount(activity: activity)
+                configureAmount(.init(activity: activity, tokenStore: viewModel.tokenStore))
             }
             if !amount2Label.isHidden, case .transaction(let tx) = activity, let token = viewModel.tokenStore[tx.slug], token.price != self.trackedValue {
-                configureAmount2(activity: activity)
+                configureAmount2(.init(activity: activity, tokenStore: viewModel.tokenStore))
             }
         }
     }
@@ -379,8 +379,34 @@ public class ActivityCell: WHighlightCell {
         }
     }
     
-    func configureDetails(activity: ApiActivity, accountContext: AccountContext, isEmulation: Bool = false) {
+    struct ConfigureDetailsOptions {
+        var activity: ApiActivity
+        var isMultichain = false
+        var stakingState: ApiStakingState?
+        var isEmulation: Bool
+        var address: String = ""
         
+        init(activity: ApiActivity, accountContext: AccountContext, isEmulation: Bool) {
+            self.activity = activity
+            self.isEmulation = isEmulation
+            if  case .transaction(let transaction) = activity {
+                isMultichain = accountContext.account.isMultichain
+                if activity.shouldShowTransactionAnnualYield {
+                    stakingState = accountContext.stakingData?.bySlug(activity.slug)
+                }
+                let chain = getChainBySlug(transaction.slug) ?? FALLBACK_CHAIN
+                let vm = AddressViewModel.fromTransaction(transaction, chain: chain, addressKind: .peer).withLocalName(account: accountContext)
+                if let name = vm.name {
+                    self.address = name
+                } else {
+                    self.address = formatStartEndAddress(vm.address ?? "", prefix: 4, suffix: 4)
+                }
+            }
+        }
+    }
+            
+    func configureDetails(_ options: ConfigureDetailsOptions) {
+        let activity = options.activity
         let attr = NSMutableAttributedString()
         
         switch activity {
@@ -398,24 +424,15 @@ public class ActivityCell: WHighlightCell {
                 } else {
                     attr.append(NSAttributedString(string: lang("$transaction_to", arg1: "")))
                 }
-                if accountContext.account.isMultichain, let chain = getChainBySlug(activity.slug) {
+                if options.isMultichain, let chain = getChainBySlug(activity.slug) {
                     let image = NSTextAttachment(image: .airBundle("ActivityAddress-\(chain)"))
                     image.bounds = .init(x: 0, y: -1.5, width: 13, height: 13)
                     attr.append(NSAttributedString(attachment: image))
                 }
-                let address: String
-                let peerAddress = transaction.peerAddress
-                if let peerAddress, let chain = getChainBySlug(transaction.slug), let localName = viewModel.$account.getLocalName(chain: chain, address: peerAddress) {
-                    address = localName
-                } else if let name = transaction.metadata?.name {
-                    address = name
-                } else {
-                    address = formatStartEndAddress(peerAddress ?? "", prefix: 4, suffix: 4)
-                }
-                attr.append(NSAttributedString(string: address, attributes: [
+                attr.append(NSAttributedString(string: options.address, attributes: [
                     .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
                 ]))
-            } else if activity.shouldShowTransactionAnnualYield, let stakingState = accountContext.stakingData?.bySlug(activity.slug) {
+            } else if activity.shouldShowTransactionAnnualYield, let stakingState = options.stakingState {
                 if !attr.string.isEmpty {
                     attr.append(NSAttributedString(string: " · "))
                 }
@@ -450,7 +467,7 @@ public class ActivityCell: WHighlightCell {
                 attr.append(NSAttributedString(string: status))
             }
         }
-        if !isEmulation {
+        if !options.isEmulation {
             if !attr.string.isEmpty {
                 attr.append(NSAttributedString(string: " · "))
             }
@@ -461,13 +478,27 @@ public class ActivityCell: WHighlightCell {
         detailsLabel.attributedText = attr
     }
     
-    func configureAmount(activity: ApiActivity) {
+    struct ConfigureAmountOptions {
+        var activity: ApiActivity
+        var transactionToken: ApiToken?
+        var baseCurrency: MBaseCurrency
         
+        init(activity: ApiActivity, tokenStore: _TokenStore) {
+            if case .transaction(let transaction) = activity {
+                transactionToken = tokenStore[transaction.slug]
+            }
+            self.baseCurrency = tokenStore.baseCurrency
+            self.activity = activity
+        }
+    }
+        
+    func configureAmount(_ options: ConfigureAmountOptions) {
+        let activity = options.activity
         let displayMode = activity.amountDisplayMode
 
         switch activity {
         case .transaction(let transaction):
-            if displayMode != .hide, let token = viewModel.tokenStore[transaction.slug] {
+            if displayMode != .hide, let token = options.transactionToken {
                 let amount = TokenAmount(transaction.amount, token)
                 let color: UIColor = transaction.type == .stake ? .air.textPurple : transaction.isIncoming ? WTheme.positiveAmount : WTheme.primaryLabel
                 let amountString = amount.formatAttributed(
@@ -547,8 +578,9 @@ public class ActivityCell: WHighlightCell {
             NSLayoutConstraint.deactivate(amountIcon2Constraints)
         }
     }
-    
-    func configureAmount2(activity: ApiActivity) {
+        
+    func configureAmount2(_ options: ConfigureAmountOptions) {
+        let activity = options.activity
         
         amount2Label.font = .systemFont(ofSize: 14)
         amount2Label.textColor = WTheme.secondaryLabel
@@ -558,8 +590,8 @@ public class ActivityCell: WHighlightCell {
         
         switch activity {
         case .transaction(let transaction):
-            if displayMode != .hide, let token = viewModel.tokenStore[transaction.slug], let price = token.price {
-                let amount: BaseCurrencyAmount = TokenAmount(transaction.amount, token).convertTo(viewModel.tokenStore.baseCurrency, exchangeRate: price)
+            if displayMode != .hide, let token = options.transactionToken, let price = token.price {
+                let amount: BaseCurrencyAmount = TokenAmount(transaction.amount, token).convertTo(options.baseCurrency, exchangeRate: price)
                 let color = WTheme.secondaryLabel
                 let amountString = amount.formatAttributed(
                     format: .init(

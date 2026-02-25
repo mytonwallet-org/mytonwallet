@@ -1,28 +1,21 @@
-//
-//  UIFontUtils.swift
-//  UIComponents
-//
-//  Created by Sina on 5/10/24.
-//
-
 import UIKit
 import SwiftUI
-import WalletContext
+
+public enum CompactDisplayWeight {
+    case medium
+}
+
+public enum CompactRoundedWeight {
+    case bold
+    case semibold
+}
 
 public extension UIFont {
     
-    class func compact(ofSize size: CGFloat) -> UIFont {
-        return UIFont(name: "SFCompactDisplay-Medium", size: size)!
-    }
-    
-    class func rounded(ofSize size: CGFloat, weight: UIFont.Weight) -> UIFont {
+    class func compactRounded(ofSize size: CGFloat, weight: CompactRoundedWeight) -> UIFont {
         switch weight {
-        case .bold:
-            return UIFont(name: "SFCompactRounded-Bold", size: size)!
-        case .semibold:
-            return UIFont(name: "SFCompactRounded-Semibold", size: size)!
-        default:
-            return UIFont(name: "SFCompactRounded-Medium", size: size)!
+        case .bold: UIFont(name: "SFCompactRounded-Bold", size: size)!
+        case .semibold: UIFont(name: "SFCompactRounded-Semibold", size: size)!
         }
     }
     
@@ -45,8 +38,13 @@ public extension Font {
         return Font(font)
     }
     
-    static func compactMedium(size: CGFloat) -> Font {
-        let font = UIFont(name: "SFCompactDisplay-Medium", size: size)!
-        return Font(font)
+    static func compactDisplay(size: CGFloat, weight: CompactDisplayWeight) -> Font {
+        switch weight {
+        case .medium: Font(UIFont(name: "SFCompactDisplay-Medium", size: size)!)
+        }
+    }
+    
+    static func compactRounded(size: CGFloat, weight: CompactRoundedWeight) -> Font {
+        Font(UIFont.compactRounded(ofSize: size, weight: weight))
     }
 }

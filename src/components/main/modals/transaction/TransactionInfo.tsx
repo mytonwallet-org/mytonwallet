@@ -25,6 +25,7 @@ import {
   shouldShowTransactionAddress,
 } from '../../../../util/activities';
 import buildClassName from '../../../../util/buildClassName';
+import { getChainTitle } from '../../../../util/chain';
 import { formatRelativeHumanDateTime } from '../../../../util/dateFormat';
 import { getLocalAddressName } from '../../../../util/getLocalAddressName';
 import { getIsTransactionWithPoisoning } from '../../../../util/poisoningHash';
@@ -148,6 +149,10 @@ function TransactionInfo({
     selectedExplorerIds,
   });
 
+  const addressCopiedMessage = lang(
+    '%chain% Address Copied', { chain: chain ? getChainTitle(chain) : '' },
+  ) as string;
+
   const senderAddressName = useMemo(() => {
     if (!showBothAddresses || !chain || !fromAddress) return undefined;
 
@@ -234,7 +239,7 @@ function TransactionInfo({
     }
 
     const spoiler = encryptedComment
-      ? lang('Message is encrypted.')
+      ? lang('Message is encrypted')
       : isScam
         ? lang('Scam comment is hidden.')
         : undefined;
@@ -247,7 +252,7 @@ function TransactionInfo({
           spoiler={spoiler}
           spoilerRevealText={encryptedComment ? (canDecryptComment ? lang('Decrypt') : undefined) : lang('Display')}
           spoilerCallback={canDecryptComment ? onDecryptComment : undefined}
-          copyNotification={lang('Comment was copied!')}
+          copyNotification={lang('Comment Copied')}
           className={styles.copyButtonWrapper}
           textClassName={styles.comment}
         />
@@ -267,7 +272,7 @@ function TransactionInfo({
           address={transactionHash}
           addressUrl={transactionUrl}
           isTransaction
-          copyNotification={lang('Transaction ID was copied!')}
+          copyNotification={lang('Transaction ID Copied')}
           className={styles.changellyTextField}
         />
       </div>
@@ -368,7 +373,7 @@ function TransactionInfo({
                   chain={chain}
                   addressName={senderAddressName}
                   address={fromAddress}
-                  copyNotification={lang('Address was copied!')}
+                  copyNotification={addressCopiedMessage}
                   className={styles.copyButtonWrapper}
                   textClassName={isScam && isIncoming ? styles.scamAddress : undefined}
                 />
@@ -382,7 +387,7 @@ function TransactionInfo({
                   addressName={recipientAddressName}
                   address={toAddress}
                   isScam={isScam && !isIncoming}
-                  copyNotification={lang('Address was copied!')}
+                  copyNotification={addressCopiedMessage}
                   className={styles.copyButtonWrapper}
                 />
               </>
@@ -396,7 +401,7 @@ function TransactionInfo({
               addressName={addressName}
               address={address}
               isScam={isScam && !isIncoming}
-              copyNotification={lang('Address was copied!')}
+              copyNotification={addressCopiedMessage}
               className={styles.copyButtonWrapper}
               textClassName={isScam && isIncoming ? styles.scamAddress : undefined}
             />

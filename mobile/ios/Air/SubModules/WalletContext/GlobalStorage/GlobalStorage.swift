@@ -49,7 +49,7 @@ public final class _GlobalStorage {
     
     fileprivate init() {
         autosync = Autosync(onAutosync: { [weak self] in
-            Task.detached(priority: .background) {
+            Task.detached(priority: .background) { [weak self] in
                 do {
                     log.info("autosync")
                     try await self?.syncronize()
@@ -227,8 +227,6 @@ extension _GlobalStorage {
         try await WebViewGlobalStorageProvider().deleteAll()
     }
 }
-
-
 
 extension _GlobalStorage {
     final class Autosync: NSObject {

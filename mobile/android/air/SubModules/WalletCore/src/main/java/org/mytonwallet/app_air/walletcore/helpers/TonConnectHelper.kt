@@ -37,23 +37,10 @@ object TonConnectHelper {
         return t.toString() + "_" + secureRandom.nextLong().toString()
     }
 
-    fun inject(): String {
-        val funcs = listOf(
-            "connect",
-            "restoreConnection",
-            "disconnect",
-            "send"
-        ).joinToString(separator = "") { funcName ->
-            """
-            $funcName: (...args) => {
-                return new Promise((resolve, reject) => window._mtwAir_invokeFunc('$funcName', args, resolve, reject))
-            },
-            """
-        }
-
+    fun injectBridge(): String {
         return """
         (function() {
-            if (window.$TON_CONNECT_WALLET_JS_BRIDGE_KEY) return;
+            if (window._mtwAir_invokeFunc) return;
             window._mtwAir_promises = {};
             window._mtwAir_eventListeners = [];
             window._mtwAir_invokeFunc = function(name, args, resolve, reject) {
@@ -109,6 +96,27 @@ object TonConnectHelper {
                     }
                 } catch (err) {}
             });
+        })();
+        """
+    }
+
+    fun inject(): String {
+        val funcs = listOf(
+            Pair("connect", "tonConnect:connect"),
+            Pair("restoreConnection", "tonConnect:restoreConnection"),
+            Pair("disconnect", "tonConnect:disconnect"),
+            Pair("send", "tonConnect:send"),
+        ).joinToString(separator = "") { (funcName, invokeName) ->
+            """
+            '$funcName': (...args) => {
+                return new Promise((resolve, reject) => window._mtwAir_invokeFunc('$invokeName', args, resolve, reject))
+            },
+            """
+        }
+
+        return """
+        (function() {
+            if (window.$TON_CONNECT_WALLET_JS_BRIDGE_KEY) return;
             function listen(cb) {
                 window._mtwAir_eventListeners.push(cb);
                 return function() {
@@ -118,7 +126,6 @@ object TonConnectHelper {
                     }
                 };
             }
-
 
             window.$TON_CONNECT_WALLET_JS_BRIDGE_KEY = {
                 tonconnect: Object.assign(

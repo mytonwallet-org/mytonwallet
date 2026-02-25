@@ -7,10 +7,10 @@ public struct ViewShadowStyle {
 }
 
 extension ViewShadowStyle {
-    public static let light = ViewShadowStyle(color: .black.opacity(0.06), blurRadius: 8, offset: CGVector(dx: 0, dy: 1.5))
+    public static let light = ViewShadowStyle(color: .black.opacity(0.05), blurRadius: 9, offset: CGVector(dx: 0, dy: 1.5))
 
     //  .black.opacity(0.45), radius: 16, x: 0, y: 0)
-    public static let medium = ViewShadowStyle(color: .black.opacity(0.45), blurRadius: 16, offset: .zero)
+    public static let medium = ViewShadowStyle(color: .black.opacity(0.4), blurRadius: 14, offset: .zero)
 }
 
 extension View {

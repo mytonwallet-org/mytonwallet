@@ -13,6 +13,7 @@ struct HomeCardMiniatureContent: View {
     
     var headerViewModel: HomeHeaderViewModel
     var accountContext: AccountContext
+    var layout: HomeCardLayoutMetrics
     
     var body: some View {
         WithPerceptionTracking {
@@ -23,7 +24,7 @@ struct HomeCardMiniatureContent: View {
                             MtwCardInverseCenteredGradient(nft: accountContext.nft)
                         }
                         .padding(.bottom, 18)
-                        .scaleEffect(itemWidth/34)
+                        .scaleEffect(layout.itemWidth/34)
                 }
                 .opacity(headerViewModel.isCardHidden ? 0 : 1)
         }

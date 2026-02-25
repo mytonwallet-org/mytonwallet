@@ -49,12 +49,6 @@ interface StateProps {
   currentLinkedWalletAddress?: string;
 }
 
-const FULL_NATIVE_STATES = new Set([
-  DomainLinkingState.Password,
-  DomainLinkingState.ConnectHardware,
-  DomainLinkingState.ConfirmHardware,
-]);
-
 function LinkingDomainModal({
   currentDomainLinking: {
     address,
@@ -91,7 +85,6 @@ function LinkingDomainModal({
   const { renderingKey, nextKey } = useModalTransitionKeys(state ?? 0, isOpen);
   const domainNft = address ? byAddress?.[address] : undefined;
   const isInsufficientBalance = realFee ? tonBalance < realFee : undefined;
-  const forceFullNative = FULL_NATIVE_STATES.has(renderingKey);
   const feeTerms = useMemo(() => (realFee ? { native: realFee } : undefined), [realFee]);
   const modalTitle = currentLinkedWalletAddress ? 'Change Linked Wallet' : 'Link to Wallet';
   const isAddressValid = isValidAddressOrDomain(walletAddress, 'ton');
@@ -205,7 +198,7 @@ function LinkingDomainModal({
   function renderComplete(isActive: boolean) {
     return (
       <>
-        <ModalHeader title={lang('Domain has been linked!')} onClose={cancelDomainLinking} />
+        <ModalHeader title={lang('Domain Linked')} onClose={cancelDomainLinking} />
 
         <div className={modalStyles.transitionContent}>
           <AnimatedIconWithPreview
@@ -253,7 +246,7 @@ function LinkingDomainModal({
       case DomainLinkingState.ConfirmHardware:
         return (
           <LedgerConfirmOperation
-            text={lang('Please confirm transaction on your Ledger')}
+            text={lang('Please confirm action on your Ledger')}
             error={error}
             onClose={cancelDomainLinking}
             onTryAgain={handleHardwareSubmit}
@@ -268,8 +261,6 @@ function LinkingDomainModal({
   return (
     <Modal
       isOpen={isOpen}
-      nativeBottomSheetKey="link-domain"
-      forceFullNative={forceFullNative}
       dialogClassName={styles.modalDialog}
       onClose={cancelDomainLinking}
     >

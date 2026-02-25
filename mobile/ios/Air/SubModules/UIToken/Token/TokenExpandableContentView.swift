@@ -6,7 +6,7 @@ import WalletContext
 import SwiftUI
 import Perception
 
-let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
+let actionsRowHeight: CGFloat = TokenActionsView.rowHeight
 
 @MainActor
 class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableContent, WThemedView {
@@ -81,8 +81,8 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
         v.translatesAutoresizingMaskIntoConstraints = false
         v.addSubview(stickyStackView)
         NSLayoutConstraint.activate([
-            stickyStackView.leftAnchor.constraint(equalTo: v.leftAnchor),
-            stickyStackView.rightAnchor.constraint(equalTo: v.rightAnchor),
+            stickyStackView.leftAnchor.constraint(equalTo: v.layoutMarginsGuide.leftAnchor),
+            stickyStackView.rightAnchor.constraint(equalTo: v.layoutMarginsGuide.rightAnchor),
             stickyStackView.topAnchor.constraint(equalTo: v.topAnchor),
             stickyStackView.bottomAnchor.constraint(equalTo: v.bottomAnchor)
         ])
@@ -120,7 +120,7 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
         NSLayoutConstraint.activate([
 
             iconTopConstraint!,
-            iconView.centerXAnchor.constraint(equalTo: v.centerXAnchor),
+            iconView.centerXAnchor.constraint(equalTo: v.layoutMarginsGuide.centerXAnchor),
 
             iconBlurView.leadingAnchor.constraint(equalTo: iconView.leadingAnchor, constant: -50),
             iconBlurView.trailingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 50),
@@ -128,12 +128,11 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
             iconBlurView.bottomAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 50),
 
             actionsTopConstraint!,
-            actionsView.heightAnchor.constraint(equalToConstant: actionsRowHeight),
             actionsView.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -16),
         ])
-        if IOS_26_MODE_ENABLED {
+        if TokenActionsView.usesSplitHomeActionStyle {
             NSLayoutConstraint.activate([
-                actionsView.centerXAnchor.constraint(equalTo: v.centerXAnchor),
+                actionsView.centerXAnchor.constraint(equalTo: v.layoutMarginsGuide.centerXAnchor),
             ])
         } else {
             NSLayoutConstraint.activate([
@@ -155,6 +154,7 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
     func configure(token: ApiToken) {
         self.token = token
         iconView.config(with: token, isStaking: false, shouldShowChain: true)
+        actionsView.sendAvailable = account.supportsSend
         actionsView.swapAvailable = account.supportsSwap
         actionsView.earnAvailable = account.supportsEarn && token.earnAvailable
         let walletTokens = $account.balanceData?.walletTokens
@@ -252,9 +252,9 @@ private struct TokenHeaderBalanceView: View {
             AmountText(
                 amount: amount,
                 format: .init(maxDecimals: decimalsCount, showMinus: false, roundUp: false, precision: .exact),
-                integerFont: .rounded(ofSize: 40, weight: .bold),
-                fractionFont: .rounded(ofSize: 33, weight: .bold),
-                symbolFont: .rounded(ofSize: 35, weight: .bold),
+                integerFont: .compactRounded(ofSize: 40, weight: .bold),
+                fractionFont: .compactRounded(ofSize: 33, weight: .bold),
+                symbolFont: .compactRounded(ofSize: 35, weight: .bold),
                 integerColor: WTheme.primaryLabel,
                 fractionColor: fadeDecimals ? WTheme.secondaryLabel : WTheme.primaryLabel,
                 symbolColor: WTheme.secondaryLabel

@@ -1,5 +1,10 @@
 import type { DeviceInfo } from '@tonconnect/protocol';
 
+import type {
+  RegisterSolanaInjectedWalletCb,
+  SolanaStandardWallet,
+  StandardWalletAddress,
+} from '../../injectedConnector/solanaConnector';
 import type { BridgeApi } from '../provider/bridgeApi';
 import type { BrowserTonConnectBridgeMethods } from '../provider/tonConnectBridgeApi';
 
@@ -10,8 +15,8 @@ interface TonConnectProperties {
 }
 
 type ApiMethodName = keyof BridgeApi;
-type ApiArgs = Parameters<Required<BridgeApi>[ApiMethodName]>;
-type ApiMethodResponse = ReturnType<Required<BridgeApi>[ApiMethodName]>;
+type ApiArgs<T extends ApiMethodName = any> = Parameters<Required<BridgeApi>[T]>;
+type ApiMethodResponse<T extends ApiMethodName = any> = ReturnType<Required<BridgeApi>[T]>;
 
 interface RequestState {
   resolve: AnyToVoidFunction;
@@ -53,17 +58,22 @@ export function initConnector(
   channel: string,
   target: Window | CordovaPostMessageTarget,
   tonConnectProperties: TonConnectProperties,
+  appName: string,
+  icon: string,
+  registerSolanaInjectedWallet: RegisterSolanaInjectedWalletCb,
 ) {
   if ((window as any)[bridgeKey]) return;
 
   const TON_CONNECT_BRIDGE_METHODS = ['connect', 'restoreConnection', 'disconnect', 'send'] as const;
 
   const requestStates = new Map<string, RequestState>();
-  const updateHandlers = new Set<Handler>();
+  const tonUpdateHandlers = new Set<Handler>();
+  const solanaUpdateHandlers = new Set<Handler>();
 
   setupPostMessageHandler();
   setupGlobalOverrides();
   initTonConnect();
+  initSolanaConnect();
 
   function setupPostMessageHandler() {
     window.addEventListener('message', ({ data }) => {
@@ -85,7 +95,7 @@ export function initConnector(
           requestState.resolve(message.response);
         }
       } else if (message.type === 'update') {
-        updateHandlers.forEach((handler) => handler(message.update));
+        tonUpdateHandlers.forEach((handler) => handler(message.update));
       }
     });
   }
@@ -129,10 +139,10 @@ export function initConnector(
     }));
 
     function addUpdateHandler(cb: Handler) {
-      updateHandlers.add(cb);
+      tonUpdateHandlers.add(cb);
 
       return () => {
-        updateHandlers.delete(cb);
+        tonUpdateHandlers.delete(cb);
       };
     }
 
@@ -145,9 +155,122 @@ export function initConnector(
     };
   }
 
+  function initSolanaConnect() {
+    class SolanaConnect implements SolanaStandardWallet {
+      accounts: StandardWalletAddress[] = [];
+
+      version = '1.0.0';
+      name = appName;
+
+      icon = `data:image/svg+xml,${encodeURIComponent(icon)}`;
+      chains = [
+        'solana:mainnet',
+        'solana:devnet',
+        'solana:testnet',
+      ];
+
+      features = {
+        'standard:connect': {
+          version: '1.0.0',
+          connect: async (input?: { silent: boolean }): Promise<{ accounts: StandardWalletAddress[] }> => {
+            try {
+              const metadata = {
+                url: window.origin,
+                name: (document.querySelector<HTMLMetaElement>('meta[property*="og:title"]'))?.content
+                  || document.title,
+                description: '',
+                icons: [(document.querySelector<HTMLLinkElement>('link[rel*="icon"]'))?.href
+                  || `${window.location.origin}/favicon.ico` || ''],
+              };
+
+              const result = await callApi('solanaConnect:connect', ...[metadata, input?.silent]);
+
+              this.accounts = result.accounts.map((e) => ({
+                ...e,
+                publicKey: new Uint8Array(Object.values(e.publicKey)),
+              }));
+
+              return { accounts: this.accounts };
+            } catch (error) {
+              return { accounts: [] };
+            }
+          },
+        },
+        'standard:disconnect': {
+          version: '1.0.0',
+          disconnect: async () => {
+            await callApi('solanaConnect:disconnect');
+
+            this.accounts = [];
+          },
+        },
+        'standard:events': {
+          version: '1.0.0',
+          on: (event: any, listener: any) => {
+            if (event !== 'change') {
+              return () => {};
+            }
+
+            solanaUpdateHandlers.add(listener);
+            return () => {
+              solanaUpdateHandlers.delete(listener);
+            };
+          },
+        },
+        'solana:signAndSendTransaction': {
+          version: '1.0.0',
+          supportedTransactionVersions: ['legacy', 0],
+          signAndSendTransaction: async (input: any) => {
+            // TODO: find dapp to test this
+            await Promise.resolve();
+          },
+        },
+        'solana:signTransaction': {
+          version: '1.0.0',
+          supportedTransactionVersions: ['legacy', 0],
+          signTransaction: async (input: {
+            account: { address: string; chains: string[]; features: string[] };
+            transaction: Uint8Array;
+          }): Promise<{ signedTransaction: Uint8Array<ArrayBufferLike> }[]> => {
+            const response = await callApi('solanaConnect:signTransaction', input);
+
+            return response.map((e) => ({
+              signedTransaction: new Uint8Array(Object.values(e.signedTransaction)),
+            }));
+          },
+        },
+        'solana:signMessage': {
+          version: '1.0.0',
+          signMessage: async (input: {
+            account: { address: string; chains: string[]; features: string[] };
+            message: Uint8Array;
+          }) => {
+            const response = await callApi('solanaConnect:signMessage', input);
+
+            return response.map((e) => ({
+              signature: new Uint8Array(Object.values(e.signature)),
+              signedMessage: new Uint8Array(Object.values(e.signedMessage)),
+            }));
+          },
+        },
+        'solana:signIn': {
+          version: '1.0.0',
+          signIn: async (input: any) => {
+            // TODO: find dapp to test this
+            await Promise.resolve();
+
+            return [];
+          },
+        },
+      };
+    }
+
+    registerSolanaInjectedWallet(new SolanaConnect());
+  }
+
   function callApi<ApiMethodName extends keyof BridgeApi>(
     name: ApiMethodName,
-    ...args: ApiArgs
+    ...args: ApiArgs<ApiMethodName>
   ) {
     const messageId = generateUniqueId();
 
@@ -169,7 +292,7 @@ export function initConnector(
       target.postMessage(JSON.stringify(messageData));
     }
 
-    return promise;
+    return promise as ApiMethodResponse<ApiMethodName>;
   }
 
   function generateUniqueId() {

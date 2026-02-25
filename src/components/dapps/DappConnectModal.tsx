@@ -1,10 +1,9 @@
-import React, {
-  memo, useEffect, useMemo, useState,
-} from '../../lib/teact/teact';
+import React, { memo, useEffect, useMemo, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiTonConnectProof } from '../../api/tonConnect/types';
-import type { ApiBaseCurrency, ApiCurrencyRates, ApiDapp, ApiDappPermissions, ApiStakingState } from '../../api/types';
+import type { TonConnectProof } from '../../api/dappProtocols/adapters';
+import type { StoredDappConnection } from '../../api/dappProtocols/storage';
+import type { ApiBaseCurrency, ApiCurrencyRates, ApiDappPermissions, ApiStakingState } from '../../api/types';
 import type { Account, AccountSettings, GlobalState } from '../../global/types';
 import { DappConnectState } from '../../global/types';
 
@@ -25,10 +24,7 @@ import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
-import {
-  type AccountBalance,
-  useAccountsBalances,
-} from '../main/modals/accountSelector/hooks/useAccountsBalances';
+import { type AccountBalance, useAccountsBalances } from '../main/modals/accountSelector/hooks/useAccountsBalances';
 
 import AccountRowContent from '../common/AccountRowContent';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
@@ -48,10 +44,10 @@ import styles from './Dapp.module.scss';
 interface StateProps {
   state?: DappConnectState;
   hasConnectRequest: boolean;
-  dapp?: ApiDapp;
+  dapp?: StoredDappConnection;
   error?: string;
   requiredPermissions?: ApiDappPermissions;
-  requiredProof?: ApiTonConnectProof;
+  requiredProof?: TonConnectProof;
   currentAccountId: string;
   accounts?: Record<string, Account>;
   orderedAccounts: Array<[string, Account]>;
@@ -161,11 +157,11 @@ function DappConnectModal({
 
   const handleSubmit = useLastCallback(async () => {
     closeConfirm();
-    const isViewMode = isViewAccount(accounts![selectedAccount].type);
+
+    if (isViewAccount(accounts![selectedAccount].type) && requiredProof) return;
+
     const isHardware = accounts![selectedAccount].type === 'hardware';
     const { isPasswordRequired, isAddressRequired } = requiredPermissions || {};
-
-    if (isViewMode) return;
 
     if (!requiredProof || (!isHardware && isAddressRequired && !isPasswordRequired)) {
       submitDappConnectRequestConfirm({
@@ -253,7 +249,7 @@ function DappConnectModal({
           <div className={styles.accountList}>
             {orderedAccounts.map(([accountId, { title, byChain, type }]) => {
               const hasTonWallet = Boolean(byChain.ton);
-              const isDisabled = !hasTonWallet || isViewAccount(type);
+              const isDisabled = !hasTonWallet || (!!requiredProof && isViewAccount(type));
               const isSelected = accountId === selectedAccount;
               const { cardBackgroundNft } = settingsByAccountId?.[accountId] || {};
               const balanceData = balancesByAccountId?.[accountId];
@@ -281,7 +277,7 @@ function DappConnectModal({
   }
 
   function renderDappInfo() {
-    const isViewMode = Boolean(selectedAccount && isViewAccount(accounts?.[selectedAccount].type));
+    const isViewMode = Boolean(selectedAccount && requiredProof && isViewAccount(accounts?.[selectedAccount].type));
 
     return (
       <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
@@ -378,7 +374,7 @@ function DappConnectModal({
         return (
           <LedgerConfirmOperation
             isActive={isActive}
-            text={lang('Please confirm operation on your Ledger')}
+            text={lang('Please confirm action on your Ledger')}
             error={error}
             onTryAgain={submitDappConnectRequestHardware}
             onClose={handlePasswordCancel}
@@ -392,9 +388,6 @@ function DappConnectModal({
       <Modal
         isOpen={isOpen}
         dialogClassName={styles.modalDialog}
-        nativeBottomSheetKey="dapp-connect"
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-        forceFullNative={renderingKey !== DappConnectState.Info}
         onClose={cancelDappConnectRequestConfirm}
         onCloseAnimationEnd={cancelDappConnectRequestConfirm}
       >

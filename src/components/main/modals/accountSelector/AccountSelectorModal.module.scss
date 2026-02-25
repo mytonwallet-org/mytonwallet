@@ -32,11 +32,6 @@ $footerPaddingBottom: 1rem;
     height: calc($modalHeight + var(--safe-area-bottom));
   }
 
-  :global(html.is-native-bottom-sheet) & {
-    height: 100% !important;
-    min-height: calc($modalHeight + var(--safe-area-bottom, 0rem));
-    max-height: none !important;
-  }
 }
 
 // Fix transparent navigation bar in Capacitor app for Android.

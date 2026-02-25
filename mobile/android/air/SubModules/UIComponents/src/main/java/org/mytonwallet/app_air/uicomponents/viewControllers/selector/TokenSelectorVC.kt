@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -25,8 +26,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.getTrustedUsdtTokens
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -57,6 +59,13 @@ class TokenSelectorVC(
     private data class SectionData(
         val title: String,
         val tokens: List<MTokenBalance>
+    )
+
+    private data class TokenSortFactors(
+        val specialOrder: Int = 0,
+        val tickerExactMatch: Int = 0,
+        val tickerMatchLength: Int = 0,
+        val nameMatchLength: Int = 0
     )
 
     private var sections: Map<Int, SectionData> = emptyMap()
@@ -104,6 +113,8 @@ class TokenSelectorVC(
         setNavTitle(titleToShow)
         setupNavBar(true)
 
+        searchEditText.isSearchIconFixed = true
+        searchEditText.hint = LocaleController.getString("Search...")
         searchContainer.addView(searchEditText, ViewGroup.LayoutParams(MATCH_PARENT, 48.dp))
         searchContainer.setPadding(10.dp, 0, 10.dp, 8.dp)
 
@@ -132,6 +143,7 @@ class TokenSelectorVC(
         super.updateTheme()
 
         view.setBackgroundColor(WColor.SecondaryBackground.color)
+        searchEditText.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
     }
 
     override fun insetsUpdated() {
@@ -211,7 +223,6 @@ class TokenSelectorVC(
                 val tokenIndex = indexPath.row - 1 // -1 because row 0 is header
                 if (tokenIndex >= 0 && tokenIndex < sectionData.tokens.size) {
                     val token = sectionData.tokens[tokenIndex]
-                    val isLastInSection = indexPath.row == sectionData.tokens.size
 
                     val isLastOverall =
                         rvAdapter.indexPathToPosition(indexPath) == rvAdapter.itemCount - 1
@@ -220,7 +231,6 @@ class TokenSelectorVC(
                         token,
                         showChain = showChain,
                         isLast = isLastOverall,
-                        hideSeparator = isLastInSection
                     )
                 }
             }
@@ -243,13 +253,21 @@ class TokenSelectorVC(
 
     private fun buildTokenItems() {
         val balances = AccountStore.assetsAndActivityData.getAllTokens(ignorePriorities = true)
-        val search = query?.takeIf { it.isNotEmpty() }?.lowercase()
-        val assets = this.assets.filter { token ->
-            search?.let {
-                token.name?.lowercase()?.contains(it) == true ||
-                    token.symbol?.lowercase()?.contains(it) == true ||
-                    token.tokenAddress?.lowercase()?.contains(it) == true
-            } != false
+        val rawSearch = query.orEmpty()
+        val search = rawSearch.trim().lowercase().takeIf { it.isNotEmpty() }
+        val assets = if (query?.isBlank() == true) {
+            emptyList()
+        } else {
+            this.assets.filter { token ->
+                search?.let {
+                    val isName = token.name?.lowercase()?.contains(it) == true
+                    val isSymbol = token.symbol?.lowercase()?.contains(it) == true
+                    val isKeyword = token.keywords?.any { keyword ->
+                        keyword.lowercase().contains(it)
+                    } == true
+                    isName || isSymbol || isKeyword
+                } != false
+            }
         }
         val assetsMap = assets.associateBy { it.slug }
 
@@ -288,7 +306,7 @@ class TokenSelectorVC(
             popularTokens.add(tokenBalance)
         }
         // Additional tokens when searching (added to Popular section)
-        if (query?.isNotEmpty() == true) {
+        if (rawSearch.isNotEmpty()) {
             for (asset in assets) {
                 if (!used.add(asset.slug)) continue
                 val tokenBalance = createTokenBalance(asset) ?: continue
@@ -296,8 +314,14 @@ class TokenSelectorVC(
             }
         }
 
-        // Sort popular tokens according to the predefined order
-        val sortedPopularTokens = sortPopularTokens(popularTokens)
+        val trustedUsdtTokens = getTrustedUsdtTokens(AccountStore.activeAccount?.network)
+        // Sort tokens: web-like search ranking, fallback to predefined popular order
+        val sortedPopularTokens = sortPopularTokens(
+            search = search,
+            tokenBalances = popularTokens,
+            assetsMap = assetsMap,
+            trustedUsdtTokens = trustedUsdtTokens
+        )
 
         newSections[SECTION_POPULAR] = SectionData(
             title = LocaleController.getString("Popular"),
@@ -313,8 +337,31 @@ class TokenSelectorVC(
         return MTokenBalance.fromParameters(token, balance ?: BigInteger.ZERO)
     }
 
-    private fun sortPopularTokens(tokenBalances: List<MTokenBalance>): List<MTokenBalance> {
+    private fun sortPopularTokens(
+        search: String?,
+        tokenBalances: List<MTokenBalance>,
+        assetsMap: Map<String, IApiToken>,
+        trustedUsdtTokens: Set<String>
+    ): List<MTokenBalance> {
         return tokenBalances.sortedWith { a, b ->
+            if (!search.isNullOrBlank()) {
+                val factorsA = getSearchSortFactors(assetsMap[a.token], search, trustedUsdtTokens)
+                val factorsB = getSearchSortFactors(assetsMap[b.token], search, trustedUsdtTokens)
+                val factorCompare = compareSearchFactors(factorsA, factorsB)
+                if (factorCompare != 0) {
+                    return@sortedWith factorCompare
+                }
+
+                val amountCompare = b.amountValue.compareTo(a.amountValue)
+                if (amountCompare != 0) {
+                    return@sortedWith amountCompare
+                }
+
+                val slugA = a.token ?: ""
+                val slugB = b.token ?: ""
+                return@sortedWith slugA.compareTo(slugB)
+            }
+
             val symbolA = TokenStore.getToken(a.token)?.symbol
             val symbolB = TokenStore.getToken(b.token)?.symbol
 
@@ -325,6 +372,46 @@ class TokenSelectorVC(
 
             orderA.compareTo(orderB)
         }
+    }
+
+    private fun compareSearchFactors(a: TokenSortFactors, b: TokenSortFactors): Int {
+        if (a.specialOrder != b.specialOrder) {
+            return b.specialOrder - a.specialOrder
+        }
+        if (a.tickerExactMatch != b.tickerExactMatch) {
+            return b.tickerExactMatch - a.tickerExactMatch
+        }
+        if (a.tickerMatchLength != b.tickerMatchLength) {
+            return b.tickerMatchLength - a.tickerMatchLength
+        }
+        return b.nameMatchLength - a.nameMatchLength
+    }
+
+    private fun getSearchSortFactors(
+        token: IApiToken?,
+        search: String,
+        trustedUsdtTokens: Set<String>
+    ): TokenSortFactors {
+        if (token == null || search.isBlank()) {
+            return TokenSortFactors()
+        }
+
+        val lowercaseSearch = search.lowercase()
+        val tokenSymbol = token.symbol?.lowercase() ?: ""
+        val tokenName = token.name?.lowercase() ?: ""
+        val chainPriority = token.mBlockchain?.let { MBlockchain.supportedChainIndexes[it.name] }
+        val specialOrder = if (token.slug in trustedUsdtTokens && chainPriority != null) {
+            MBlockchain.supportedChains.size - chainPriority
+        } else {
+            0
+        }
+
+        return TokenSortFactors(
+            specialOrder = specialOrder,
+            tickerExactMatch = if (tokenSymbol == lowercaseSearch) 1 else 0,
+            tickerMatchLength = if (tokenSymbol.contains(lowercaseSearch)) lowercaseSearch.length else 0,
+            nameMatchLength = if (tokenName.contains(lowercaseSearch)) lowercaseSearch.length else 0
+        )
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {

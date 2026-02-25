@@ -1,0 +1,15 @@
+• Solana Support • Manage Solana assets alongside TON and TRON: receive and send tokens, perform cross-chain swaps, manage NFTs, and use Solana dapps.
+
+• Portfolio Chart • See your TON balance over time with flexible ranges, token filters, and key events.
+
+• Pinned Tokens • Pin your favourite assets for quick access.
+
+• iPad Interface • Enjoy a fully adapted MyTonWallet experience on iPad.
+
+• Settings Update • Improved Settings navigation with clearer structure and subtitles.
+
+• MyTonWallet Air Parity • Made MyTonWallet Air the default interface and brought new features to it.
+
+• Record-Breaking Transfer Speed on TON • Mainnet actions now feel about 2x faster.
+
+• Other Improvements • Removed the NFT display limit, fixed minor issues, and improved performance.

@@ -15,12 +15,14 @@ import {
 
 const ELECTRON_ORIGIN = 'file://';
 
-let environment: ApiInitArgs & {
+export type AppEnvironment = ApiInitArgs & {
   isDappSupported?: boolean;
   isSseSupported?: boolean;
   apiHeaders?: AnyLiteral;
   byNetwork: Record<ApiNetwork, { toncenterKey?: string }>;
 };
+
+let environment: AppEnvironment;
 
 function getAppOrigin(args: ApiInitArgs): string | undefined {
   if (args.isElectron) {
@@ -37,7 +39,7 @@ export function setEnvironment(args: ApiInitArgs) {
   environment = {
     ...args,
     isDappSupported: true,
-    isSseSupported: args.isElectron || (IS_CAPACITOR && !args.isNativeBottomSheet),
+    isSseSupported: args.isElectron || IS_CAPACITOR,
     apiHeaders: appOrigin ? { 'X-App-Origin': appOrigin } : {},
     byNetwork: {
       mainnet: {

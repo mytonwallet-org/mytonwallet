@@ -138,6 +138,7 @@ function RichNumberField({
             maskSkin={sensitiveDataMaskSkin}
             // Adding `.large` to remove the excessive bottom padding created by SensitiveData (the `height` property does the job)
             className={buildClassName(styles.rich, styles.large)}
+            contentClassName={styles.richContent}
             maskClassName={styles.mask}
           >
             <div ref={contentRef} id={id} className={inputFullClass} />

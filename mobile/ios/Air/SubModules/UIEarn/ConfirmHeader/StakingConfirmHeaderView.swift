@@ -51,9 +51,9 @@ struct StakingConfirmHeaderView: View {
         AmountText(
             amount: tokenAmount,
             format: .init(preset: .defaultAdaptive, showPlus: showPlus, showMinus: false),
-            integerFont: .rounded(ofSize: 34, weight: .bold),
-            fractionFont: .rounded(ofSize: 28, weight: .bold),
-            symbolFont: .rounded(ofSize: 28, weight: .bold),
+            integerFont: .compactRounded(ofSize: 34, weight: .bold),
+            fractionFont: .compactRounded(ofSize: 28, weight: .bold),
+            symbolFont: .compactRounded(ofSize: 28, weight: .bold),
             integerColor: WTheme.primaryLabel,
             fractionColor: isLargeAmount ? WTheme.secondaryLabel : WTheme.primaryLabel,
             symbolColor: WTheme.secondaryLabel

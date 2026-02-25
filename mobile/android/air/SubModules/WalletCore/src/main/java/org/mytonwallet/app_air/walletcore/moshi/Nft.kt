@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.TON_DNS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType.BLACK
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType.GOLD
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType.PLATINUM
@@ -21,9 +22,10 @@ import org.mytonwallet.app_air.walletcore.stores.NftStore
 @JsonClass(generateAdapter = true)
 data class MApiCheckNftDraftOptions(
     val accountId: String,
-    val nfts: Array<JSONObject>,
+    val nfts: List<JSONObject>,
     val toAddress: String,
     val comment: String?,
+    val isNftBurn: Boolean,
 )
 
 @JsonClass(generateAdapter = false)
@@ -166,9 +168,28 @@ data class ApiNftMetadata(
         }
 }
 
+@JsonClass(generateAdapter = false)
+enum class ApiNftInterface {
+    @Json(name = "default")
+    DEFAULT,
+    @Json(name = "compressed")
+    COMPRESSED,
+    @Json(name = "mplCore")
+    MPL_CORE,
+}
+
+@JsonClass(generateAdapter = true)
+data class ApiNftCompression(
+    val tree: String? = null,
+    val dataHash: String? = null,
+    val creatorHash: String? = null,
+    val leafId: Int? = null
+)
+
 @JsonClass(generateAdapter = true)
 data class ApiNft(
     // val index: Int?,
+    val chain: MBlockchain? = null,
     val ownerAddress: String? = null,
     val name: String? = null,
     val address: String,
@@ -182,7 +203,9 @@ data class ApiNft(
     val isOnFragment: Boolean? = null,
     val isTelegramGift: Boolean? = null,
     val isScam: Boolean? = null,
-    val metadata: ApiNftMetadata? = null
+    val metadata: ApiNftMetadata? = null,
+    val `interface`: ApiNftInterface? = null,
+    val compression: ApiNftCompression? = null,
 ) : WEquatable<ApiNft> {
 
     companion object {
@@ -229,7 +252,7 @@ data class ApiNft(
             "https://fragment.com/number/${name?.replace(Regex("[^0-9]"), "")}"
 
         else ->
-            "https://fragment.com/username/${name?.substring(1).let { Uri.encode(it) } ?: ""}"
+            "https://fragment.com/username/${name?.takeIf { it.length > 1 }?.substring(1).let { Uri.encode(it) } ?: ""}"
     }
 
     val isTonDns: Boolean
@@ -253,9 +276,17 @@ data class ApiNft(
         return ExplorerHelpers.mtwScanUrl(network, urlBuilder)
     }
 
-    val collectionUrl: String
+    val collectionUrl: String?
         get() {
-            return "https://getgems.io/collection/${collectionAddress}"
+            return when (chain) {
+                MBlockchain.ton -> {
+                    "https://getgems.io/collection/${collectionAddress}"
+                }
+
+                else -> {
+                    null
+                }
+            }
         }
 
     fun shouldHide(): Boolean {

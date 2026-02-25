@@ -6,8 +6,11 @@
 //
 
 import Foundation
+import OrderedCollections
 import WalletContext
 
+// FIXME: - Hashable invariant violation: equal values MUST have equal hashes
+// default compiler generated implementation of `hash(into:)` is inconsistent with custom `==`
 public struct MTokenBalance: Equatable, Hashable, Sendable {
     public static func == (lhs: MTokenBalance, rhs: MTokenBalance) -> Bool {
         lhs.tokenSlug == rhs.tokenSlug && lhs.isStaking == rhs.isStaking
@@ -16,7 +19,8 @@ public struct MTokenBalance: Equatable, Hashable, Sendable {
     public let tokenSlug: String
     public let balance: BigInt
     public let isStaking: Bool
-    
+
+    // Improvement: token can not be nil if TokenBalance exists
     public var token: ApiToken? { TokenStore.tokens[tokenSlug] }
 
     public var tokenPrice: Double?
@@ -24,100 +28,162 @@ public struct MTokenBalance: Equatable, Hashable, Sendable {
     public let toBaseCurrency: Double?
     public let toBaseCurrency24h: Double?
     public let toUsd: Double?
-    
-    fileprivate let priority: Int
-    
+
     public init(tokenSlug: String, balance: BigInt, isStaking: Bool) {
         self.tokenSlug = tokenSlug
         self.balance = balance
         self.isStaking = isStaking
         if let token = TokenStore.getToken(slug: tokenSlug), let price = token.price, let priceUsd = token.priceUsd {
-            self.tokenPrice = price
-            self.tokenPriceChange = token.percentChange24h
+            tokenPrice = price
+            tokenPriceChange = token.percentChange24h
             let amountDouble = balance.doubleAbsRepresentation(decimals: token.decimals)
-            self.toBaseCurrency = amountDouble * price
+            toBaseCurrency = amountDouble * price
             let priceYesterday = price * 100 / (100 + (token.percentChange24h ?? 0))
-            self.toBaseCurrency24h = amountDouble * priceYesterday
-            self.toUsd = amountDouble * priceUsd
+            toBaseCurrency24h = amountDouble * priceYesterday
+            toUsd = amountDouble * priceUsd
         } else {
-            self.tokenPrice = nil
-            self.tokenPriceChange = nil
-            self.toBaseCurrency = nil
-            self.toBaseCurrency24h = nil
-            self.toUsd = nil
+            tokenPrice = nil
+            tokenPriceChange = nil
+            toBaseCurrency = nil
+            toBaseCurrency24h = nil
+            toUsd = nil
         }
-        self.priority = getPriority(tokenSlug: tokenSlug)
     }
-    
+
     init(dictionary: [String: Any]) {
         tokenSlug = (dictionary["token"] as? [String: Any])?["slug"] as? String ?? ""
         isStaking = dictionary["isStaking"] as? Bool ?? false
         if let amountValue = (dictionary["balance"] as? String)?.components(separatedBy: "bigint:")[1] {
-            self.balance = BigInt(amountValue) ?? 0
+            balance = BigInt(amountValue) ?? 0
         } else {
-            self.balance = 0
+            balance = 0
         }
         if let token = TokenStore.tokens[tokenSlug == STAKED_TON_SLUG ? "toncoin" : tokenSlug], let price = token.price {
-            self.tokenPrice = price
-            self.tokenPriceChange = token.percentChange24h
+            tokenPrice = price
+            tokenPriceChange = token.percentChange24h
             let amountDouble = balance.doubleAbsRepresentation(decimals: token.decimals)
-            self.toBaseCurrency = amountDouble * price
+            toBaseCurrency = amountDouble * price
             let priceYesterday = price / (1 + (token.percentChange24h ?? 0) / 100)
-            self.toBaseCurrency24h = amountDouble * priceYesterday
-            self.toUsd = amountDouble * (token.priceUsd ?? 0)
+            toBaseCurrency24h = amountDouble * priceYesterday
+            toUsd = amountDouble * (token.priceUsd ?? 0)
         } else {
-            self.tokenPrice = nil
-            self.tokenPriceChange = nil
-            self.toBaseCurrency = nil
-            self.toBaseCurrency24h = nil
-            self.toUsd = nil
+            tokenPrice = nil
+            tokenPriceChange = nil
+            toBaseCurrency = nil
+            toBaseCurrency24h = nil
+            toUsd = nil
         }
-        self.priority = getPriority(tokenSlug: tokenSlug)
     }
 }
 
+extension MTokenBalance {
+    /// ## Group / Sort Rules
+    ///
+    /// 1. **Pinned Tokens** (Most recent first)
+    ///    - Token A (Pinned Last)
+    ///    - Token D (Pinned First)
+    ///
+    /// 2. **Unpinned Tokens** (Non-zero balance)
+    ///    Sorted by **Balance**. If balance is equal, then additionally sorted by **Name**
+    ///    - Token E (Highest Balance)
+    ///    - Token H (Lowest Balance)
+    ///
+    /// 3. **Unpinned Tokens** (Zero balance)
+    ///    Sorted by **Name**
+    ///    - Token I (name: A...)
+    ///    - Token L (name: Z...)
+    public static func sortedForUI(tokenBalances: [MTokenBalance],
+                                   assetsAndActivityData: MAssetsAndActivityData) -> [MTokenBalance] {
+        var unpinnedTokens: [MTokenBalance] = []
 
-extension MTokenBalance: Comparable {
+        let sortedPinnedTokens: [MTokenBalance]
+        do { // 1. Split into 2 groups
+            var _pinnedTokens: [(token: MTokenBalance, pinIndex: Int)] = []
+            tokenBalances.forEach { token in
+                switch assetsAndActivityData.isTokenPinned(slug: token.tokenSlug, isStaked: token.isStaking) {
+                case .pinned(let index): _pinnedTokens.append((token, index))
+                case .notPinned: unpinnedTokens.append(token)
+                }
+            }
 
-    
-    public static func < (lhs: MTokenBalance, rhs: MTokenBalance) -> Bool {
-        
-        if lhs.isStaking != rhs.isStaking {
-            return lhs.isStaking
+            // 2. Sort pinned tokens. Last pinned token is shown at the top of the list.
+            _pinnedTokens.sort(by: { $0.pinIndex > $1.pinIndex })
+            sortedPinnedTokens = _pinnedTokens.map { $0.token }
         }
-        
-        if lhs.isStaking && rhs.isStaking {
-            return getStakingPriority(tokenSlug: lhs.tokenSlug) < getStakingPriority(tokenSlug: rhs.tokenSlug)
-        }
-        
-        if lhs.priority != rhs.priority {
-            return lhs.priority < rhs.priority
-        }
-        
-        let lv = lhs.toBaseCurrency ?? 0
-        let rv = rhs.toBaseCurrency ?? 0
-        if lv != rv { return lv > rv }
-        
-        if lhs.balance != rhs.balance {
-            return lhs.balance > rhs.balance
-        }
-        
-        if let token1 = lhs.token, let token2 = rhs.token {
-            if token1.name != token2.name {
-                return token1.name < token2.name
+
+        // 3. Sort unpinned tokens
+        sortUnpinned(tokens: &unpinnedTokens,
+                     tokenName: { $0.displayName ?? $0.tokenSlug },
+                     amountInBaseCurrency: \.toUsd)
+
+        return sortedPinnedTokens + unpinnedTokens
+    }
+
+    /// (TokenID, ApiToken) can represent ApiToken and ephemeral staking MTokenBalance
+    public static func sortForUI(apiTokens: inout [(TokenID, ApiToken)],
+                                 balances: [String: BigInt]) {
+        sortUnpinned(tokens: &apiTokens,
+                     tokenName: \.1.name,
+                     amountInBaseCurrency: {
+                         guard let balance = balances[$1.slug] else { return nil }
+                         guard let price = $1.price else { return nil }
+                         let balanceAsDouble = balance.doubleAbsRepresentation(decimals: $1.decimals)
+                         return balanceAsDouble * price
+                     })
+    }
+
+    /// Generic sort by balance and name
+    private static func sortUnpinned<T>(tokens: inout [T],
+                                        tokenName: (T) -> String,
+                                        amountInBaseCurrency: (T) -> Double?) {
+        // 3. Sort unpinned tokens
+        tokens.sort(by: { tokenA, tokenB in
+            let amountInBaseCurrencyA = amountInBaseCurrency(tokenA) ?? 0
+            let amountInBaseCurrencyB = amountInBaseCurrency(tokenB) ?? 0
+
+            if amountInBaseCurrencyA != amountInBaseCurrencyB {
+                // tokens with higher amount are shown closer to top of the list
+                return amountInBaseCurrencyA > amountInBaseCurrencyB
+            } else {
+                let nameA = tokenName(tokenA)
+                let nameB = tokenName(tokenB)
+                // - tokens with equal amount will be sorted by name
+                // - tokens with 0 amount also sorted by name (as they have equal amount according to rule above)
+                return nameA < nameB
             }
-            if token1.chain != token2.chain {
-                return token1.chain > token2.chain
-            }
-        }
-        
-        return lhs.tokenSlug < rhs.tokenSlug
+        })
     }
 }
-
 
 extension MTokenBalance: CustomStringConvertible {
     public var description: String {
         "MTokenBalance<\(tokenSlug) = \(balance) (price=\(tokenPrice ?? -1) curr=\(toBaseCurrency ?? -1))>"
+    }
+}
+
+extension MTokenBalance {
+    public var displayName: String? {
+        guard let apiToken = self.token else { return nil }
+        return Self.displayName(apiToken: apiToken, isStaking: isStaking)
+    }
+    
+    public static func displayName(apiToken: ApiToken, isStaking: Bool) -> String {
+        if isStaking {
+            apiToken.name + (isStaking ? " Staking" : "")
+        } else {
+            apiToken.name
+        }
+    }
+}
+
+public struct TokenID: Hashable, CustomDebugStringConvertible {
+    public let slug: String
+    public let isStaking: Bool
+    
+    public var debugDescription: String { "slug: \(slug), isStaking: \(isStaking)" }
+    
+    public init(slug: String, isStaking: Bool) {
+        self.slug = slug
+        self.isStaking = isStaking
     }
 }

@@ -70,7 +70,7 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
     }
 
     private func configureDataSource() {
-        let address = account.addressByChain[chain.rawValue] ?? ""
+        let address = account.getAddress(chain: chain) ?? ""
 
         let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(
             elementKind: UICollectionView.elementKindSectionHeader
@@ -82,7 +82,7 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
             cell.contentConfiguration = content
         }
 
-        let addressRegistration = AddressCell.makeRegistration(address: address)
+        let addressRegistration = AddressCell.makeRegistration(address: address, chain: chain)
         let buyCryptoRegistration = BuyCryptoItemCell.makeRegistration()
 
         dataSource = UICollectionViewDiffableDataSource<Section, ReceiveItem>(collectionView: collectionView) { collectionView, indexPath, item in
@@ -113,7 +113,11 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
         if !ConfigStore.shared.shouldRestrictSwapsAndOnRamp {
             snapshot.appendSections([.buyCrypto])
 
-            var buyCryptoItems: [ReceiveItem] = [.buyWithCard, .buyWithCrypto]
+            var buyCryptoItems: [ReceiveItem] = []
+            if chain.isOfframpSupported {
+                buyCryptoItems.append(.buyWithCard)
+            }
+            buyCryptoItems.append(.buyWithCrypto)
             if chain.formatTransferUrl != nil {
                 buyCryptoItems.append(.depositLink)
             }
@@ -137,7 +141,7 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
         case .buyWithCard:
             AppActions.showBuyWithCard(chain: chain, push: true)
         case .buyWithCrypto:
-            AppActions.showSwap(defaultSellingToken: TRON_USDT_SLUG, defaultBuyingToken: nil, defaultSellingAmount: nil, push: true)
+            AppActions.showSwap(defaultSellingToken: chain.defaultSellingSlug, defaultBuyingToken: chain.defaultBuyingSlug, defaultSellingAmount: nil, push: true)
         case .depositLink:
             topWViewController()?.navigationController?.pushViewController(DepositLinkVC(), animated: true)
         }
@@ -156,4 +160,23 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
     public var onScrollStart: (() -> Void)?
     public var onScrollEnd: (() -> Void)?
     public var scrollingView: UIScrollView? { collectionView }
+}
+
+private extension ApiChain {
+    var defaultSellingSlug: String {
+        switch self {
+        case .ton:
+            TRON_USDT_SLUG
+        case .tron:
+            TON_USDT_SLUG
+        case .solana:
+            TON_USDT_SLUG
+        case .other:
+            TON_USDT_SLUG
+        }
+    }
+    
+    var defaultBuyingSlug: String {
+        self.usdtSlug[.mainnet] ?? self.nativeToken.slug
+    }
 }

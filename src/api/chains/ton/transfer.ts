@@ -1,6 +1,7 @@
 import { Cell, internal, SendMode } from '@ton/core';
 
 import type { DieselStatus } from '../../../global/types';
+import type { DappProtocolType } from '../../dappProtocols';
 import type {
   ApiAccountWithChain,
   ApiAnyDisplayError,
@@ -955,7 +956,7 @@ export async function signTransfers(
   /** Used for specific transactions on vesting.ton.org */
   ledgerVestingAddress?: string,
   isTonConnect?: boolean,
-): Promise<ApiSignedTransfer[] | { error: ApiAnyDisplayError }> {
+): Promise<ApiSignedTransfer<DappProtocolType.TonConnect>[] | { error: ApiAnyDisplayError }> {
   const account = await fetchStoredChainAccount(accountId, 'ton');
 
   // If there is an outgoing transfer in progress, this expression waits for it to finish. This helps to avoid seqno
@@ -980,8 +981,11 @@ export async function signTransfers(
   if ('error' in signedTransactions) return signedTransactions;
 
   return signedTransactions.map(({ seqno, transaction }) => ({
-    seqno,
-    base64: transaction.toBoc().toString('base64'),
+    chain: 'ton',
+    payload: {
+      seqno,
+      base64: transaction.toBoc().toString('base64'),
+    },
   }));
 }
 
@@ -1121,7 +1125,10 @@ async function emulateTransactionWithFallback(
   return { isFallback: true, networkFee };
 }
 
-export async function sendSignedTransactions(accountId: string, transactions: ApiSignedTransfer[]) {
+export async function sendSignedTransactions(
+  accountId: string,
+  transactions: ApiSignedTransfer<DappProtocolType.TonConnect>[],
+) {
   const { network } = parseAccountId(accountId);
   const storedWallet = await fetchStoredWallet(accountId, 'ton');
   const { address: fromAddress } = storedWallet;
@@ -1141,7 +1148,7 @@ export async function sendSignedTransactions(accountId: string, transactions: Ap
 
     try {
       while (index < transactions.length && attempt < attempts) {
-        const { base64, seqno } = transactions[index];
+        const { payload: { base64, seqno } } = transactions[index];
         try {
           const { boc, msgHashNormalized } = await sendExternal(
             client,

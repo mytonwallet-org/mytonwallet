@@ -1,9 +1,9 @@
 import type * as tonSdk from '../chains/ton';
+import type { StoredDappsState } from '../dappProtocols/storage';
 import type { ApiDbSseConnection } from '../db';
 import type { StorageKey } from '../storages/types';
 import type {
   ApiActivity,
-  ApiDappsState,
   ApiLocalTransactionParams,
   ApiTonAccount,
   ApiTonWallet,
@@ -212,7 +212,7 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
   }
 
   if (version === 5) {
-    const dapps = await storage.getItem('dapps') as ApiDappsState;
+    const dapps = await storage.getItem('dapps') as StoredDappsState;
     if (dapps) {
       for (const accountDapps of Object.values(dapps)) {
         for (const dapp of Object.values(accountDapps as Record<string, any>)) {
@@ -285,7 +285,7 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
 
   if (version === 8) {
     if (getEnvironment().isSseSupported) {
-      const dapps = await storage.getItem('dapps') as ApiDappsState;
+      const dapps = await storage.getItem('dapps') as StoredDappsState;
 
       if (dapps) {
         const items: ApiDbSseConnection[] = [];

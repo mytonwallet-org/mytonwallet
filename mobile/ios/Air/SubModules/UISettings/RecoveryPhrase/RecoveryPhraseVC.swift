@@ -9,7 +9,7 @@ import UIKit
 import WalletContext
 import UIComponents
 
-open class RecoveryPhraseVC: WViewController {
+open class RecoveryPhraseVC: SettingsBaseVC {
     
     public var wordList: [String]
 

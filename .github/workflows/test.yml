@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Prepare the Node environment
-        uses: ./.github/actions/prepare_node
+        uses: mytonwallet-org/shared-actions/prepare_node@master
         with:
           node-version: ${{ vars.NODE_VERSION }}
 

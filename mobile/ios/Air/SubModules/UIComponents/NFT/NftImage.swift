@@ -62,6 +62,7 @@ public struct NftImage: View {
             })
             .onFailureImage(UIImage.airBundle("NftError"))
             .resizable()
+            .scaledToFit()
             .aspectRatio(1, contentMode: .fit)
             .overlay {
                 if animateIfPossible {

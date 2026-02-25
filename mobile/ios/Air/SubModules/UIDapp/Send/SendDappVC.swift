@@ -11,7 +11,7 @@ import SwiftNavigation
 
 public class SendDappVC: WViewController, UISheetPresentationControllerDelegate {
     
-    var request: MDappSendTransactions?
+    var request: ApiUpdate.DappSendTransactions?
     var onConfirm: ((String?) -> ())?
     var onCancel: (() -> ())?
     
@@ -23,7 +23,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     @AccountContext(source: .current) var account: MAccount
     
     public init(
-        request: MDappSendTransactions,
+        request: ApiUpdate.DappSendTransactions,
         onConfirm: @escaping (String?) -> (),
         onCancel: @escaping () -> (),
     ) {
@@ -43,7 +43,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     }
     
     func replacePlaceholder(
-        request: MDappSendTransactions,
+        request: ApiUpdate.DappSendTransactions,
         onConfirm: @escaping (String?) -> (),
         onCancel: @escaping () -> (),
     ) {
@@ -154,6 +154,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
             return SendDappViewOrPlaceholder(content: .sendDapp(SendDappContentView(
                 accountContext: _account,
                 request: request,
+                operationChain: request.operationChain,
                 onShowDetail: showDetail(_:),
             )))
         } else {
@@ -165,7 +166,15 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     }
     
     private func showDetail(_ tx: ApiDappTransfer) {
-        navigationController?.pushViewController( DappSendTransactionDetailVC(accountContext: _account, message: tx), animated: true)
+        guard let request else { return }
+        navigationController?.pushViewController(
+            DappSendTransactionDetailVC(
+                accountContext: _account,
+                message: tx,
+                chain: request.operationChain
+            ),
+            animated: true
+        )
     }
     
     public override func updateTheme() {
@@ -251,7 +260,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
 //    let activity1 = ApiActivity.transaction(ApiTransactionActivity(id: "d", kind: "transaction", timestamp: 0, amount: -123456789, fromAddress: "foo", toAddress: "bar", comment: nil, encryptedComment: nil, fee: 12345, slug: TON_USDT_SLUG, isIncoming: false, normalizedAddress: nil, externalMsgHashNorm: nil, shouldHide: nil, type: nil, metadata: nil, nft: nil, isPending: nil))
 //    let activity2 = ApiActivity.transaction(ApiTransactionActivity(id: "d2", kind: "transaction", timestamp: 0, amount: -456789, fromAddress: "foo", toAddress: "bar", comment: nil, encryptedComment: nil, fee: 12345, slug: TON_USDT_SLUG, isIncoming: false, normalizedAddress: nil, externalMsgHashNorm: nil, shouldHide: nil, type: .callContract, metadata: nil, nft: nil, isPending: nil))
 //
-//    let request = MDappSendTransactions(
+//    let request = ApiUpdate.DappSendTransactions(
 //        promiseId: "",
 //        accountId: "",
 //        dapp: ApiDapp(url: "https://dedust.io", name: "Dedust", iconUrl: "https://files.readme.io/681e2e6-dedust_1.png", manifestUrl: "", connectedAt: nil, isUrlEnsured: nil, sse: nil),

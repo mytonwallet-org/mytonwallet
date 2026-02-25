@@ -15,16 +15,19 @@ import type {
   ApiNetwork,
   ApiTonWallet,
   ApiViewAccount,
+  OnApiUpdate,
 } from '../types';
 import { ApiCommonError } from '../types';
 
 import { IS_TON_MNEMONIC_ONLY } from '../../config';
 import { parseAccountId } from '../../util/account';
+import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import { range } from '../../util/iteratees';
 import { createTaskQueue } from '../../util/schedulers';
 import chains from '../chains';
 import * as ton from '../chains/ton';
 import {
+  fetchStoredAccount,
   fetchStoredAccounts,
   fetchStoredChainAccount,
   getAccountChains,
@@ -38,6 +41,7 @@ import {
   decryptMnemonic,
   encryptMnemonic,
   generateBip39Mnemonic,
+  getMnemonic,
   validateBip39Mnemonic,
 } from '../common/mnemonic';
 import { tokenRepository } from '../db';
@@ -52,6 +56,12 @@ import {
   removeNetworkPollingAccounts,
   removePollingAccount,
 } from './polling';
+
+let onUpdate: OnApiUpdate;
+
+export function initAuth(_onUpdate: OnApiUpdate) {
+  onUpdate = _onUpdate;
+}
 
 export function generateMnemonic(isBip39: boolean) {
   if (isBip39) return generateBip39Mnemonic();
@@ -281,6 +291,56 @@ export async function changePassword(oldPassword: string, password: string) {
       mnemonicEncrypted: encryptedMnemonic,
     });
   }
+}
+
+export async function upgradeMultichainAccounts(password: string) {
+  const accountsToUpgrade = Object.entries(await fetchStoredAccounts())
+    .filter(([, account]) => account.type === 'bip39' && !account.byChain.solana) as [string, ApiBip39Account][];
+
+  const updates: {
+    accountId: string;
+    address: string;
+  }[] = [];
+
+  for (const [accountId, account] of accountsToUpgrade) {
+    const mnemonic = await getMnemonic(accountId, password, account);
+    if (!mnemonic) {
+      return { error: ApiCommonError.InvalidPassword };
+    }
+
+    if (isMnemonicPrivateKey(mnemonic)) {
+      continue;
+    }
+
+    const { network } = parseAccountId(accountId);
+    const solanaWallet = await chains.solana.getWalletFromBip39Mnemonic(network, mnemonic);
+    const currentAccount = await fetchStoredAccount<ApiBip39Account>(accountId);
+
+    if (currentAccount.type !== 'bip39' || currentAccount.byChain.solana) {
+      continue;
+    }
+
+    await updateStoredAccount<ApiBip39Account>(accountId, {
+      byChain: {
+        ...currentAccount.byChain,
+        solana: solanaWallet,
+      },
+    });
+
+    onUpdate({
+      type: 'updateAccount',
+      accountId,
+      chain: 'solana',
+      address: solanaWallet.address,
+    });
+
+    updates.push({
+      accountId,
+      address: solanaWallet.address,
+    });
+  }
+
+  return updates;
 }
 
 export async function importViewAccount(

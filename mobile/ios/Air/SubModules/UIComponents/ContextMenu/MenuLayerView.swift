@@ -70,8 +70,9 @@ public final class MenuLayerView: UIView {
             portalView.frame = sourceView.convert(sourceView.bounds, to: self)
             self.portalView = portalView
 
-            if !menuContext.sourceFrame.isEmpty {
-                let sourceFrameInPortal = window.convert(menuContext.sourceFrame, to: portalView)
+            let maskFrame = menuContext.sourceViewLayout.portalMaskFrame ?? menuContext.sourceViewLayout.frame
+            if !maskFrame.isEmpty {
+                let sourceFrameInPortal = window.convert(maskFrame, to: portalView)
                 let mask = UIView()
                 mask.frame = sourceFrameInPortal
                 mask.backgroundColor = .white

@@ -3,7 +3,7 @@ import { AirAppLauncher } from '@mytonwallet/air-app-launcher';
 import { DEFAULT_PRICE_CURRENCY, IS_CAPACITOR, IS_EXTENSION } from '../../../config';
 import { logDebug } from '../../../util/logs';
 import {
-  IS_ANDROID_APP, IS_DELEGATED_BOTTOM_SHEET, IS_ELECTRON, IS_IOS_APP,
+  IS_ANDROID_APP, IS_ELECTRON, IS_IOS_APP,
 } from '../../../util/windowEnvironment';
 import { callApi, initApi } from '../../../api';
 import { removeTemporaryAccount } from '../../helpers/auth';
@@ -17,7 +17,6 @@ addActionHandler('initApi', async (global, actions) => {
     : [];
   initApi(actions.apiUpdate, {
     isElectron: IS_ELECTRON,
-    isNativeBottomSheet: IS_DELEGATED_BOTTOM_SHEET,
     isIosApp: IS_IOS_APP,
     isAndroidApp: IS_ANDROID_APP,
     langCode: global.settings.langCode,

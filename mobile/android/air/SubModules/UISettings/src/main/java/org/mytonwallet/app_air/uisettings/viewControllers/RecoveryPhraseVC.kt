@@ -42,6 +42,7 @@ import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletcore.helpers.PrivateKeyHelper
 import java.lang.ref.WeakReference
 import kotlin.random.Random
 
@@ -64,6 +65,7 @@ open class RecoveryPhraseVC(
     open val checkMode: WordCheckMode = WordCheckMode.Check
 
     private var skipAvailable = checkMode == WordCheckMode.Check || DEBUG_MODE
+    private var isShowingPrivateKey = wordsCount == 1 && PrivateKeyHelper.isValidPrivateKeyHex(words.first())
 
     val animationView = WAnimationView(context).apply {
         play(
@@ -77,7 +79,7 @@ open class RecoveryPhraseVC(
         setStyle(17f, WFont.Regular)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 26f)
         text =
-            LocaleController.getString("\$mnemonic_list_description")
+            LocaleController.getString(if (isShowingPrivateKey) "\$private_key_description" else "\$mnemonic_list_description")
                 .toProcessedSpannableStringBuilder()
         gravity = Gravity.CENTER
         setTextColor(WColor.PrimaryText)
@@ -94,13 +96,15 @@ open class RecoveryPhraseVC(
         setTextColor(WColor.Red)
     }
 
-    private fun warningText(key: String): SpannableStringBuilder {
+    private fun warningText(key: String?): SpannableStringBuilder {
         return SpannableStringBuilder().apply {
-            append(
-                LocaleController.getString(key)
-                    .toProcessedSpannableStringBuilder()
-            )
-            append("\n\n")
+            key?.let {
+                append(
+                    LocaleController.getString(key)
+                        .toProcessedSpannableStringBuilder()
+                )
+                append("\n\n")
+            }
             val redWarningStart = length
             append(LocaleController.getString("Other apps will be able to read your recovery phrase!"))
             setSpan(
@@ -124,7 +128,7 @@ open class RecoveryPhraseVC(
         setOnClickListener {
             showAlert(
                 title = LocaleController.getString("Security Warning"),
-                text = warningText("\$copy_mnemonic_warning"),
+                text = warningText(if (isShowingPrivateKey) null else "\$copy_mnemonic_warning"),
                 button = LocaleController.getString("Copy Anyway"),
                 buttonPressed = {
                     val clipboard =
@@ -139,7 +143,7 @@ open class RecoveryPhraseVC(
                     ).show()
                 },
                 primaryIsDanger = true,
-                secondaryButton = LocaleController.getString("See Words")
+                secondaryButton = LocaleController.getString(if (isShowingPrivateKey) "Cancel" else "See Words")
             )
         }
     }
@@ -157,11 +161,12 @@ open class RecoveryPhraseVC(
         btn.setOnClickListener {
             gotoWordCheck()
         }
+        btn.isGone = isShowingPrivateKey
         btn
     }
 
     val skipButton: WButton by lazy {
-        val btn = WButton(context, WButton.Type.SECONDARY)
+        val btn = WButton(context, if (isShowingPrivateKey) WButton.Type.PRIMARY else WButton.Type.SECONDARY)
         btn.text = skipTitle
         btn.setOnClickListener {
             skipPressed()
@@ -198,7 +203,7 @@ open class RecoveryPhraseVC(
             topToBottom(letsCheckButton, wordsView, 40f)
             toCenterX(letsCheckButton, 48f)
             if (skipAvailable) {
-                topToBottom(skipButton, letsCheckButton, 16f)
+                topToBottom(skipButton, letsCheckButton, if (isShowingPrivateKey) 40f else 16f)
                 toCenterX(skipButton, 48f)
                 toBottomPx(
                     skipButton,
@@ -225,7 +230,7 @@ open class RecoveryPhraseVC(
 
         setNavTitle(
             LocaleController.getPluralOrFormat(
-                "%1\$d Secret Words",
+                if (isShowingPrivateKey) "Private Key" else "%1\$d Secret Words",
                 wordsCount,
             ) + network.localizedIdentifier
         )

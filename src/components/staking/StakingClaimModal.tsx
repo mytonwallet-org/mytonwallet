@@ -157,7 +157,7 @@ function StakingClaimModal({
       case StakingState.ClaimConfirmHardware:
         return (
           <LedgerConfirmOperation
-            text={lang('Please confirm transaction on your Ledger')}
+            text={lang('Please confirm action on your Ledger')}
             error={error}
             onClose={cancelStakingClaim}
             onTryAgain={handleHardwareSubmit}
@@ -211,8 +211,6 @@ function StakingClaimModal({
       isOpen={isOpen}
       title={modalTitle}
       hasCloseButton={withModalHeader}
-      forceFullNative
-      nativeBottomSheetKey="staking-claim"
       contentClassName={styles.passwordModalDialog}
       onClose={cancelStakingClaim}
     >

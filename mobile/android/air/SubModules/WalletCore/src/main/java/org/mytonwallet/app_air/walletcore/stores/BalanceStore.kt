@@ -7,8 +7,10 @@ import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.STAKING_SLUGS
+import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -45,6 +47,7 @@ object BalanceStore : IStore {
     fun removeBalances(accountId: String) {
         balances.remove(accountId)
         totalBalanceInBaseCurrency.remove(accountId)
+        totalBalanceInBaseCurrencyPerChain.remove(accountId)
         totalBalance24hInBaseCurrency.remove(accountId)
     }
 
@@ -56,6 +59,7 @@ object BalanceStore : IStore {
         _balancesFlow.value = emptyMap()
         balances.clear()
         totalBalanceInBaseCurrency.clear()
+        totalBalanceInBaseCurrencyPerChain.clear()
         totalBalance24hInBaseCurrency.clear()
     }
 
@@ -63,6 +67,8 @@ object BalanceStore : IStore {
 
     private val balances = ConcurrentHashMap<String, ConcurrentHashMap<String, BigInteger>>()
     private val totalBalanceInBaseCurrency = ConcurrentHashMap<String, Double>()
+    private val totalBalanceInBaseCurrencyPerChain =
+        ConcurrentHashMap<String, Map<MBlockchain, Double>>()
     private val totalBalance24hInBaseCurrency = ConcurrentHashMap<String, Double>()
 
     fun getBalances(accountId: String?): ConcurrentHashMap<String, BigInteger>? {
@@ -97,8 +103,9 @@ object BalanceStore : IStore {
                 put(accountId, newBalances.toMap())
             }
             balances[accountId] = newBalances
-            calcTotalBalanceInBaseCurrency(accountId)?.let { balance ->
-                totalBalanceInBaseCurrency[accountId] = balance
+            calcTotalBalanceInBaseCurrency(accountId)?.let { result ->
+                totalBalanceInBaseCurrency[accountId] = result.total
+                totalBalanceInBaseCurrencyPerChain[accountId] = result.perChain
             }
             calcTotalBalance24hInBaseCurrency(accountId)?.let { balance ->
                 totalBalance24hInBaseCurrency[accountId] = balance
@@ -114,6 +121,7 @@ object BalanceStore : IStore {
 
     fun resetBalanceInBaseCurrency() {
         totalBalanceInBaseCurrency.clear()
+        totalBalanceInBaseCurrencyPerChain.clear()
         totalBalance24hInBaseCurrency.clear()
         if (TokenStore.tokens.isEmpty() ||
             balances.isEmpty() ||
@@ -123,8 +131,9 @@ object BalanceStore : IStore {
         }
         val accounts = WGlobalStorage.accountIds()
         accounts.forEach {
-            calcTotalBalanceInBaseCurrency(it)?.let { balance ->
-                totalBalanceInBaseCurrency[it] = balance
+            calcTotalBalanceInBaseCurrency(it)?.let { result ->
+                totalBalanceInBaseCurrency[it] = result.total
+                totalBalanceInBaseCurrencyPerChain[it] = result.perChain
             }
             calcTotalBalance24hInBaseCurrency(it)?.let { balance ->
                 totalBalance24hInBaseCurrency[it] = balance
@@ -134,34 +143,59 @@ object BalanceStore : IStore {
 
     fun totalBalanceInBaseCurrency(accountId: String): Double? {
         return totalBalanceInBaseCurrency.get(accountId)
-            ?: calcTotalBalanceInBaseCurrency(accountId)
+            ?: calcTotalBalanceInBaseCurrency(accountId)?.total
+    }
+
+    fun totalBalanceInBaseCurrencyPerChain(accountId: String): Map<MBlockchain, Double>? {
+        return totalBalanceInBaseCurrencyPerChain.get(accountId)
+            ?: calcTotalBalanceInBaseCurrency(accountId)?.perChain
     }
 
     fun totalBalance24hInBaseCurrency(accountId: String): Double? {
-        return totalBalance24hInBaseCurrency.get(accountId) ?: calcTotalBalance24hInBaseCurrency(
-            accountId
-        )
+        return totalBalance24hInBaseCurrency.get(accountId)
+            ?: calcTotalBalance24hInBaseCurrency(accountId)
     }
+
+    data class TotalBalanceResult(
+        val total: Double,
+        val perChain: Map<MBlockchain, Double>
+    )
 
     fun calcTotalBalanceInBaseCurrency(
         accountId: String,
         baseCurrency: MBaseCurrency = WalletCore.baseCurrency
-    ): Double? {
+    ): TotalBalanceResult? {
         val currencyRate = TokenStore.currencyRates?.get(baseCurrency.currencyCode) ?: return null
-        val accountBalances = balances[accountId]
-        val walletTokens = accountBalances?.filter { !STAKING_SLUGS.contains(it.key) }
-            ?.mapNotNull { (tokenSlug, balance) ->
-                val token =
-                    TokenStore.getToken(if (tokenSlug == STAKE_SLUG) "toncoin" else tokenSlug)
-                if (token != null)
-                    MTokenBalance.fromParameters(token, balance)
-                else
-                    null
-            } ?: return null
-        val stakingBalance =
-            StakingStore.getStakingState(accountId)?.totalBalanceInUSD() ?: 0.0
+        val accountBalances = balances[accountId] ?: return null
 
-        return (walletTokens.sumOf { it.toUsdBaseCurrency ?: 0.0 } + stakingBalance) * currencyRate
+        val perChain = mutableMapOf<MBlockchain, Double>()
+
+        val walletUsd = accountBalances
+            .filter { !STAKING_SLUGS.contains(it.key) }
+            .entries
+            .sumOf { (tokenSlug, balance) ->
+                val token =
+                    TokenStore.getToken(if (tokenSlug == STAKE_SLUG) TONCOIN_SLUG else tokenSlug)
+                        ?: return@sumOf 0.0
+                val usd = MTokenBalance.fromParameters(token, balance)?.toUsdBaseCurrency
+                    ?: return@sumOf 0.0
+                val blockchain = MBlockchain.supportedChains.find { it.name == token.chain }
+                if (blockchain != null) {
+                    perChain[blockchain] = (perChain[blockchain] ?: 0.0) + usd
+                }
+                usd
+            }
+
+        val stakingUsd = StakingStore.getStakingState(accountId)?.totalBalanceInUSD() ?: 0.0
+        if (stakingUsd != 0.0) {
+            perChain[MBlockchain.ton] = (perChain[MBlockchain.ton] ?: 0.0) + stakingUsd
+        }
+
+        val totalUsd = walletUsd + stakingUsd
+        return TotalBalanceResult(
+            total = totalUsd * currencyRate,
+            perChain = perChain.mapValues { it.value * currencyRate }
+        )
     }
 
     fun calcTotalBalance24hInBaseCurrency(

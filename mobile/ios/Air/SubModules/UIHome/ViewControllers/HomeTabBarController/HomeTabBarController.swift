@@ -5,11 +5,8 @@
 //  Created by Sina on 3/21/24.
 //
 
-import Combine
-import SwiftUI
 import UIKit
 import UIBrowser
-import UIPasscode
 import UISettings
 import UIComponents
 import WalletCore
@@ -17,7 +14,6 @@ import WalletContext
 import UIKit.UIGestureRecognizerSubclass
 
 private let scaleFactor: CGFloat = 0.85
-private let log = Log("HomeTabBarController")
 
 
 public class HomeTabBarController: UITabBarController, WThemedView {
@@ -32,13 +28,8 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     
     private var forwardedGestureRecognizer: ForwardedGestureRecognizer!
     private var blurView: WBlurView!
-    private var blurSnapshotContainer: UIView!
     private var tabBarBorder: UIView?
-    private var isSheetMinimized: Bool = false
-    private var placeholderShown: Bool = false
-    private var placeholder: UIView? = nil
     private var highlightView: UIImageView? { view.subviews.first(where: { $0 is UIImageView }) as? UIImageView }
-    private var unlockVC: UnlockVC?
 
     public init() {
         self.homeVC = HomeVC()
@@ -81,9 +72,6 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         
         WalletCoreData.add(eventObserver: self)
         
-        NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(tryUnlockIfLocked), name: UIApplication.didBecomeActiveNotification, object: nil)
-        
         let homeNav = WNavigationController(rootViewController: homeVC)
         let settingsViewController = WNavigationController(rootViewController: SettingsVC())
         let browserViewController = WNavigationController(rootViewController: ExploreTabVC())
@@ -124,63 +112,6 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         if let config = ConfigStore.shared.config {
             handleConfig(config)
         }
-    }
-    
-    public func _showLock(animated: Bool, onUnlock: @escaping () -> ()) {
-        log.info("_showLock animated=\(animated)")
-        guard AuthSupport.accountsSupportAppLock else { return }
-        if unlockVC == nil {
-            let unlockVC = UnlockVC(title: lang("Wallet is Locked"),
-                                    replacedTitle: lang("Enter your Wallet Passcode"),
-                                    animatedPresentation: true,
-                                    dissmissWhenAuthorized: true,
-                                    shouldBeThemedLikeHeader: true) { _ in
-                self.unlockVC = nil
-                onUnlock()
-            }
-            unlockVC.modalPresentationStyle = .overFullScreen
-            unlockVC.modalTransitionStyle = .crossDissolve
-            unlockVC.modalPresentationCapturesStatusBarAppearance = true
-            let topVC = topViewController() ?? self
-            if topVC is UIActivityViewController {
-                let presenting = topVC.presentingViewController!
-                presenting.dismiss(animated: false) {
-                    self._showLock(animated: animated, onUnlock: onUnlock)
-                }
-            } else {
-                topVC.present(unlockVC, animated: animated, completion: {
-                    self.unlockVC = unlockVC;
-                    log.info("_showLock animated=\(animated) OK")
-                })
-            }
-            getMenuLayerView()?.dismissMenu()
-            UIApplication.shared.sceneWindows
-                .flatMap(\.subviews)
-                .filter {
-                    $0.description.contains("PopoverGestureContainer")
-                }
-                .forEach {
-                    $0.removeFromSuperview()
-                }
-        }
-    }
-    
-    @objc func tryUnlockIfLocked() {
-        log.info("tryUnlockIfLocked")
-        unlockVC?.tryBiometric()
-    }
-    
-    @objc func willEnterForeground() {
-        log.info(" ")
-        log.info("willEnterForeground")
-        unlockVC?.passcodeScreenView?.fadeIn()
-    }
-    
-    open override func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) {
-        super.dismiss(animated: flag, completion: {
-            WalletCoreData.notify(event: .sheetDismissed)
-            completion?()
-        })
     }
     
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -228,8 +159,8 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         if popToRoot {
             homeVC?.navigationController?.popToRootViewController(animated: true)
         }
-        if presentedViewController != nil {
-            dismiss(animated: true)
+        if let rootVC = view.window?.rootViewController, rootVC.presentedViewController != nil {
+            rootVC.dismiss(animated: true)
         }
     }
     
@@ -249,30 +180,6 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         ])
         blurView.isHidden = true
         blurView.alpha = 0
-        
-        let blurViewSnapshot = UIView()
-        self.blurSnapshotContainer = blurViewSnapshot
-        tabBar.insertSubview(blurViewSnapshot, at: 0)
-        blurViewSnapshot.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            blurViewSnapshot.topAnchor.constraint(equalTo: tabBar.topAnchor),
-            blurViewSnapshot.bottomAnchor.constraint(equalTo: tabBar.bottomAnchor),
-            blurViewSnapshot.leadingAnchor.constraint(equalTo: tabBar.leadingAnchor),
-            blurViewSnapshot.trailingAnchor.constraint(equalTo: tabBar.trailingAnchor)
-        ])
-        blurViewSnapshot.backgroundColor = .clear
-    }
-    
-    private func accountChanged() {
-        if let presentedViewController, presentedViewController.description.contains("UIInAppBrowser"), isSheetMinimized {
-            dismiss(animated: true)
-        }
-        if let placeholder {
-            placeholder.removeFromSuperview()
-            self.placeholder = nil
-        }
-        self.placeholderShown = false
-        WalletCoreData.notify(event: .minimizedSheetChanged(.closedExternally))
     }
     
     func addGestureRecognizer() {
@@ -375,105 +282,6 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         }
     }
     
-    public override func viewWillLayoutSubviews() {
-        applyMinimizedState()
-        super.viewWillLayoutSubviews()
-    }
-
-    func applyMinimizedState() {
-        if let sv = view.superview {
-            if isSheetMinimized {
-                self.view.bounds.size.height = sv.bounds.height - 81
-                self.view.frame.origin.y = sv.bounds.origin.y
-            } else {
-                self.view.bounds.size.height = sv.bounds.height
-                self.view.frame.origin.y = sv.bounds.origin.y
-            }
-        }
-    }
-    
-    func animateMinimizedState(_ state: MinimizedSheetState) {
-        let isMinimized = state == .minimized
-        
-        if placeholderShown, isMinimized {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                self.placeholder?.removeFromSuperview()
-                self.placeholderShown = false
-            }
-        }
-        
-        if placeholderShown, state == .closed {
-            return
-        }
-        
-        if placeholderShown, state == .closedExternally {
-            placeholder?.removeFromSuperview()
-            placeholder = nil
-        }
-        
-        if self.isSheetMinimized != isMinimized {
-            if isMinimized {
-                UIView.animate(withDuration: 0.3) {
-                    self.isSheetMinimized = isMinimized
-                    self.applyMinimizedState()
-                }
-
-            } else { // replace blur with snapshot to prevent blinking during animation
-                if let snapshot = blurView.resizableSnapshotView(from: blurView.bounds, afterScreenUpdates: false, withCapInsets: .zero) {
-                    self.blurSnapshotContainer.subviews.forEach { $0.removeFromSuperview() }
-                    self.blurSnapshotContainer.addSubview(snapshot)
-                    snapshot.backgroundColor = .clear
-                    snapshot.frame = CGRect(origin: blurSnapshotContainer.bounds.origin, size: CGSize(width: blurSnapshotContainer.bounds.width, height: blurSnapshotContainer.bounds.height + 50)) // larger to cover safe area
-                    
-                    blurView.isHidden = true
-                    blurSnapshotContainer.isHidden = false
-                    
-                    UIView.animate(withDuration: 0.3) { [self] in
-                        self.isSheetMinimized = isMinimized
-                        applyMinimizedState()
-                    } completion: { [self] _ in
-                        blurSnapshotContainer.isHidden = true
-                        blurView.isHidden = false
-                        snapshot.removeFromSuperview()
-                    }
-                }
-            }
-        }
-    }
-    
-    // MARK: - Sheet presentation
-    
-    // TODO: this code repeats logic in WViewController, which is undesirable
-    open override func present(_ viewControllerToPresent: UIViewController, animated flag: Bool, completion: (() -> Void)? = nil) {
-        if let presentedViewController, presentedViewController.description.contains("UIInAppBrowser") {
-            replaceMinimizedWithPlaceholder()
-            self.dismiss(animated: false) {
-                super.present(viewControllerToPresent, animated: flag, completion: completion)
-            }
-        } else {
-            super.present(viewControllerToPresent, animated: flag, completion: completion)
-        }
-    }
-    
-    @objc public func replaceMinimizedWithPlaceholder() {
-        if let presentedViewController,
-            let placeholder = presentedViewController.view.snapshotView(afterScreenUpdates: false) {
-                
-            if let current = self.placeholder {
-                current.removeFromSuperview()
-            }
-            self.placeholder = placeholder
-            
-            let window: UIView = view.window ?? view
-            window.addSubview(placeholder)
-            placeholder.translatesAutoresizingMaskIntoConstraints = false
-            placeholder.frame.origin.y = window.frame.height - placeholder.frame.height
-            placeholder.layer.cornerRadius = 10.667
-            placeholder.layer.masksToBounds = true
-            placeholderShown = true
-        }
-    }
-    
     // MARK: Account switcher
     
 //    private var switcherPresented: Bool = false {
@@ -564,21 +372,6 @@ final class ForwardedGestureRecognizer: UILongPressGestureRecognizer {
 extension HomeTabBarController: WalletCoreData.EventsObserver {
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
-        case .accountChanged:
-            accountChanged()
-        case .minimizedSheetChanged(let state):
-            switch state {
-            case .closed:
-                animateMinimizedState(state)
-            case .minimized:
-                animateMinimizedState(state)
-            case .expanded:
-                animateMinimizedState(state)
-            case .replacedWithPlaceholder:
-                replaceMinimizedWithPlaceholder()
-            case .closedExternally:
-                animateMinimizedState(state)
-            }
         case .configChanged:
             if let config = ConfigStore.shared.config {
                 handleConfig(config)

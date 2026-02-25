@@ -26,7 +26,6 @@ dependencies {
     implementation project(':mauricewegner-capacitor-navigation-bar')
     implementation project(':mytonwallet-air-app-launcher')
     implementation project(':mytonwallet-capacitor-usb-hid')
-    implementation project(':mytonwallet-native-bottom-sheet')
     implementation project(':capacitor-native-settings')
     implementation project(':capacitor-plugin-safe-area')
     implementation project(':capacitor-secure-storage-plugin')

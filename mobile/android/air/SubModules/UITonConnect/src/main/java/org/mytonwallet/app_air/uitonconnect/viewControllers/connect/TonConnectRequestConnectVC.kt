@@ -28,16 +28,15 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
+import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
@@ -200,6 +199,7 @@ class TonConnectRequestConnectVC(
                 account.tonAddress!!,
                 signData = LedgerConnectVC.SignData.SignLedgerProof(
                     accountId = update.accountId,
+                    operationChain = TON_CHAIN,
                     promiseId = update.promiseId,
                     proof = update.proof!!
                 ),
@@ -252,12 +252,13 @@ class TonConnectRequestConnectVC(
         isConfirmed = true
 
 
-        fun callback(activatedAccount: MAccount?) {
+        fun callback(account: MAccount) {
             window!!.lifecycleScope.launch {
                 try {
                     val signResult = if (update.proof != null) WalletCore.call(
-                        ApiMethod.DApp.SignTonProof(
-                            activatedAccount!!.accountId,
+                        ApiMethod.DApp.SignDappProof(
+                            listOfNotNull(account.dappChain(TON_CHAIN)),
+                            account.accountId,
                             update.proof,
                             passcode
                         )
@@ -266,8 +267,8 @@ class TonConnectRequestConnectVC(
                         ApiMethod.DApp.ConfirmDappRequestConnect(
                             promiseId,
                             ApiMethod.DApp.ConfirmDappRequestConnect.Request(
-                                activatedAccount!!.accountId,
-                                signResult?.signature
+                                account.accountId,
+                                signResult?.signatures
                             )
                         )
                     )
@@ -280,12 +281,13 @@ class TonConnectRequestConnectVC(
         }
 
         if (AccountStore.activeAccount?.accountId == update.accountId) {
-            callback(AccountStore.activeAccount!!);
+            callback(AccountStore.activeAccount!!)
         } else {
             WalletCore.activateAccount(
                 accountId = update.accountId,
                 notifySDK = true
-            ) { activatedAccount, error ->
+            ) { activatedAccount, _ ->
+                val activatedAccount = activatedAccount ?: return@activateAccount
                 callback(activatedAccount);
             }
         }

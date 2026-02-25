@@ -10,7 +10,7 @@ import WalletCore
 import WalletContext
 
 func makeTappableAddressMenu(accountContext: AccountContext, addressModel: AddressViewModel) -> () -> MenuConfig {
-    let chain = ApiChain(rawValue: addressModel.chain)
+    let chain = addressModel.chain
     
     return {
         var menuItems: [MenuItem] = [
@@ -23,12 +23,12 @@ func makeTappableAddressMenu(accountContext: AccountContext, addressModel: Addre
         if let address = addressModel.addressToCopy {
             menuItems += .button(id: "0-copy", title: lang("Copy Address"), trailingIcon: .air("SendCopy")) {
                 UIPasteboard.general.string = address
-                AppActions.showToast(animationName: "Copy", message: lang("Address was copied!"))
+                AppActions.showToast(animationName: "Copy", message: lang("%chain% Address Copied", arg1: chain.title))
                 Haptics.play(.lightTap)
             }
         }
         
-        if let chain, let saveKey = addressModel.effectiveSaveKey {
+        if chain.isSupported, let saveKey = addressModel.effectiveSaveKey {
             if let saved = accountContext.savedAddresses.get(chain: chain, address: saveKey) {
                 menuItems += .button(id: "0-unsave", title: lang("Remove from Saved"), trailingIcon: .system("star.slash")) {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -46,7 +46,7 @@ func makeTappableAddressMenu(accountContext: AccountContext, addressModel: Addre
             }
         }
                 
-        if let chain, let address = addressModel.addressToCopy {
+        if chain.isSupported, let address = addressModel.addressToCopy {
             menuItems += .button(id: "0-open-explorer", title: lang("Open in Explorer"), trailingIcon: .air("SendGlobe")) {
                 let url = ExplorerHelper.addressUrl(chain: chain, address: address)
                 AppActions.openInBrowser(url)
@@ -70,7 +70,7 @@ private struct ViewAccountMenuItem: View {
         
         SelectableMenuItem(id: "0-view-account", action: {
             topViewController()?.dismiss(animated: true) {
-                AppActions.showTemporaryViewAccount(addressOrDomainByChain: [chain : address])
+                AppActions.showTemporaryViewAccount(addressOrDomainByChain: [chain.rawValue: address])
             }
         }, dismissOnSelect: true) {
             HStack(spacing: 8) {

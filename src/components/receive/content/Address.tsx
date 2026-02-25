@@ -5,6 +5,7 @@ import type { ApiChain } from '../../../api/types';
 
 import renderText from '../../../global/helpers/renderText';
 import buildClassName from '../../../util/buildClassName';
+import { getChainTitle } from '../../../util/chain';
 
 import useLang from '../../../hooks/useLang';
 import useQrCode from '../../../hooks/useQrCode';
@@ -66,7 +67,7 @@ function Address({
         chain={chain}
         address={address}
         className={isStatic ? styles.copyButtonStatic : styles.addressWrapper}
-        copyNotification={lang('Your address was copied!')}
+        copyNotification={lang('%chain% Address Copied', { chain: getChainTitle(chain) }) as string}
         noSavedAddress
         noDimming
       />

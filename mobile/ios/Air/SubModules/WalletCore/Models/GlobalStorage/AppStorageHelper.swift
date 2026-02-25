@@ -11,24 +11,23 @@ import WalletContext
 
 private let log = Log("AppStorageHelper")
 
+public enum AppStorageHelper {
 
-public struct AppStorageHelper {
-
-    public static func reset() {
-    }
+    public static func reset() {}
 
     public static func remove(accountId: String) {
         GlobalStorage.remove(keys: [
             "accounts.byId.\(accountId)",
             "byAccountId.\(accountId)",
-            "settings.byAccountId.\(accountId)"
+            "settings.byAccountId.\(accountId)",
         ], persistInstantly: true)
     }
+
     public static func deleteAllWallets() {
         GlobalStorage.setEmptyObjects(keys: [
             "accounts.byId",
             "byAccountId",
-            "settings.byAccountId"
+            "settings.byAccountId",
         ], persistInstantly: true)
     }
 
@@ -116,10 +115,12 @@ public struct AppStorageHelper {
     }
 
     // MARK: - Selected currency
+
     public static let selectedCurrencyKey = "settings.baseCurrency"
     public static func save(selectedCurrency: String?) {
         GlobalStorage.set(key: selectedCurrencyKey, value: selectedCurrency, persistInstantly: true)
     }
+
     public static func selectedCurrency() -> String {
         return GlobalStorage["selectedCurrencyKey"] as? String ?? "USD"
     }
@@ -129,6 +130,7 @@ public struct AppStorageHelper {
         guard let dict = GlobalStorage.getDict(key: selectedExplorerIdsKey) else { return nil }
         return dict[chain.rawValue] as? String
     }
+
     public static func save(selectedExplorerId: String, for chain: ApiChain) {
         var dict = GlobalStorage.getDict(key: selectedExplorerIdsKey) ?? [:]
         dict[chain.rawValue] = selectedExplorerId
@@ -136,12 +138,14 @@ public struct AppStorageHelper {
     }
 
     // MARK: - Current Token Time Period
+
     public static func save(currentTokenPeriod: String) {
         guard let activeAccountId = AccountStore.accountId else {
             return
         }
         GlobalStorage.set(key: "byAccountId.\(activeAccountId).currentTokenPeriod", value: currentTokenPeriod, persistInstantly: false)
     }
+
     public static func selectedCurrentTokenPeriod() -> String {
         guard let activeAccountId = AccountStore.accountId else {
             return "1D"
@@ -150,32 +154,16 @@ public struct AppStorageHelper {
     }
 
     // MARK: - Account AssetsAndActivity data
-    private static var assetsAndActivityDataKey = "settings.byAccountId"
-    public static func save(accountId: String, assetsAndActivityData: [String: Any]?) {
-        let key = "\(assetsAndActivityDataKey).\(accountId)"
-        if let assetsAndActivityData {
-            GlobalStorage.set(key: "\(key).alwaysShownSlugs",
-                                       value: assetsAndActivityData["alwaysShownSlugs"],
-                                       persistInstantly: false)
-            GlobalStorage.set(key: "\(key).alwaysHiddenSlugs",
-                                       value: assetsAndActivityData["alwaysHiddenSlugs"],
-                                       persistInstantly: false)
-            GlobalStorage.set(key: "\(key).deletedSlugs",
-                                       value: assetsAndActivityData["deletedSlugs"],
-                                       persistInstantly: false)
-            GlobalStorage.set(key: "\(key).importedSlugs",
-                                       value: assetsAndActivityData["importedSlugs"],
-                                        persistInstantly: false)
-        } else {
-            GlobalStorage.setEmptyObject(key: "\(key).alwaysShownSlugs", persistInstantly: false)
-            GlobalStorage.setEmptyObject(key: "\(key).alwaysHiddenSlugs", persistInstantly: false)
-            GlobalStorage.setEmptyObject(key: "\(key).deletedSlugs", persistInstantly: false)
-            GlobalStorage.set(key: "\(key).importedSlugs",
-                                       value: ["toncoin", TON_USDT_SLUG, "trx", TRON_USDT_SLUG],
-                                       persistInstantly: false)
 
+    private static var assetsAndActivityDataKey = "settings.byAccountId"
+    public static func save(accountId: String, assetsAndActivityData: [String: Any]) {
+        let assetsDataKeyPrefix = "\(assetsAndActivityDataKey).\(accountId)"
+        assetsAndActivityData.forEach { dictKey, value in
+            let storageKey = "\(assetsDataKeyPrefix).\(dictKey)"
+            GlobalStorage.set(key: storageKey, value: value, persistInstantly: false)
         }
     }
+
     public static func assetsAndActivityData(for accountId: String) -> [String: Any]? {
         guard let jsonDictionary = GlobalStorage.getDict(key: "\(assetsAndActivityDataKey).\(accountId)") else {
             return nil
@@ -184,21 +172,24 @@ public struct AppStorageHelper {
     }
 
     // MARK: - Is biometric auth enabled
+
     private static let isBiometricActivatedKey = "settings.authConfig.kind"
     private enum AuthKind: String {
         case password
         case nativeBiometrics = "native-biometrics"
     }
+
     public static func save(isBiometricActivated: Bool) {
         let kind: AuthKind = isBiometricActivated ? .nativeBiometrics : .password
         GlobalStorage.set(key: isBiometricActivatedKey, value: kind.rawValue, persistInstantly: true)
     }
+
     public static func isBiometricActivated() -> Bool {
         GlobalStorage.getString(key: isBiometricActivatedKey) == AuthKind.nativeBiometrics.rawValue
     }
-    
+
     // MARK: - Sensitive data
-    
+
     private static let isSensitiveDataHiddenKey = "settings.isSensitiveDataHidden"
     public static var isSensitiveDataHidden: Bool {
         get {
@@ -208,9 +199,9 @@ public struct AppStorageHelper {
             GlobalStorage.update { $0[isSensitiveDataHiddenKey] = newValue }
         }
     }
-    
+
     // MARK: - Push notifications
-    
+
     private static let pushNotificationsKey = "pushNotifications"
     public static var pushNotifications: GlobalPushNotifications? {
         get {
@@ -224,11 +215,10 @@ public struct AppStorageHelper {
                 if let newValue {
                     let any = try JSONSerialization.encode(newValue)
                     GlobalStorage.update { $0[pushNotificationsKey] = any }
-                } 
+                }
             } catch {
                 assertionFailure("\(error)")
             }
-            
         }
     }
 }

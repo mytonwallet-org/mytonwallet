@@ -74,7 +74,7 @@ import Perception
         var swapError: String? = nil
         let sellingToken = inputModel.sellingToken
         var balanceIn = $account.balances[sellingToken.slug] ?? 0
-        if sellingToken.slug == TRX_SLUG && account.supports(chain: TRON_CHAIN) {
+        if sellingToken.slug == TRX_SLUG && account.supports(chain: .tron) {
             balanceIn -= 1
         }
         if account.supports(chain: sellingToken.chain) {
@@ -130,8 +130,8 @@ import Perception
     }
 
     private func performToWalletSwap(swapEstimate: ApiSwapCexEstimateResponse, sellingToken: ApiToken, buyingToken: ApiToken, passcode: String) async throws -> ApiActivity? {
-        let fromAddress = account.addressByChain[TON_CHAIN]
-        let toAddress = account.addressByChain[buyingToken.chain]
+        let fromAddress = account.crosschainIdentifyingFromAddress
+        let toAddress = account.getAddress(chain: buyingToken.chain)
         let networkFee = swapEstimate.realNetworkFee ?? swapEstimate.networkFee
         let params = ApiSwapCexCreateTransactionParams(
             from: sellingToken.swapIdentifier,
@@ -152,8 +152,8 @@ import Perception
     }
 
     private func performFromWalletSwap(swapEstimate: ApiSwapCexEstimateResponse, sellingToken: ApiToken, buyingToken: ApiToken, passcode: String) async throws -> ApiActivity? {
-        let fromAddress = account.addressByChain[sellingToken.chain]
-        let toAddress = account.addressByChain[buyingToken.chain]
+        let fromAddress = account.getAddress(chain: sellingToken.chain)
+        let toAddress = account.getAddress(chain: buyingToken.chain)
         let networkFee = swapEstimate.realNetworkFee ?? swapEstimate.networkFee
         let params = ApiSwapCexCreateTransactionParams(
             from: sellingToken.swapIdentifier,
@@ -179,7 +179,7 @@ import Perception
     }
 
     private func fetchNetworkFee(sellingToken: ApiToken) async throws -> (networkFee: MDouble?, realNetworkFee: MDouble?) {
-        let chain = sellingToken.chainValue
+        let chain = sellingToken.chain
         let options = ApiCheckTransactionDraftOptions(
             accountId: account.id,
             toAddress: getChainConfig(chain: chain).feeCheckAddress,

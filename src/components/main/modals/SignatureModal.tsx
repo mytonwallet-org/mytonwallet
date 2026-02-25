@@ -4,6 +4,7 @@ import React, {
 import { getActions, withGlobal } from '../../../global';
 
 import renderText from '../../../global/helpers/renderText';
+import { getDoesUsePinPad } from '../../../util/biometrics';
 import buildClassName from '../../../util/buildClassName';
 import captureKeyboardListeners from '../../../util/captureKeyboardListeners';
 import resolveSlideTransitionName from '../../../util/resolveSlideTransitionName';
@@ -101,7 +102,7 @@ function SignatureModal({
   function renderPasswordForm(isActive: boolean) {
     return (
       <>
-        <ModalHeader title={lang('Enter Password')} onClose={closeModal} />
+        <ModalHeader title={lang(getDoesUsePinPad() ? 'Enter Passcode' : 'Enter Password')} onClose={closeModal} />
         <PasswordForm
           isActive={isActive}
           error={error}

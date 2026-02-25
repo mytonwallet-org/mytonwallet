@@ -57,11 +57,16 @@ function CommentSection({
     [isEncryptedCommentSupported, isReadonly],
   );
 
+  const selectedEncryptionMode = useMemo(() => {
+    const preferredMode = dropdownItems[shouldEncrypt ? 1 : 0];
+    return preferredMode ? preferredMode.value : dropdownItems[0].value;
+  }, [shouldEncrypt, dropdownItems]);
+
   function renderCommentLabel() {
     return (
       <Dropdown
         items={dropdownItems}
-        selectedValue={COMMENT_DROPDOWN_ITEMS[shouldEncrypt ? 1 : 0].value}
+        selectedValue={selectedEncryptionMode}
         theme="inherit"
         menuPositionX="left"
         shouldTranslateOptions
@@ -78,7 +83,7 @@ function CommentSection({
             <div className={styles.label}>{lang('Signing Data')}</div>
             <InteractiveTextField
               text={binPayload}
-              copyNotification={lang('Data was copied!')}
+              copyNotification={lang('Data Copied')}
               className={styles.addressWidget}
             />
           </>
@@ -89,7 +94,7 @@ function CommentSection({
             <div className={styles.label}>{lang('Contract Initialization Data')}</div>
             <InteractiveTextField
               text={stateInit}
-              copyNotification={lang('Data was copied!')}
+              copyNotification={lang('Data Copied')}
               className={styles.addressWidget}
             />
           </>

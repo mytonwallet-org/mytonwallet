@@ -133,7 +133,7 @@ function VestingPasswordModal({
       case VestingUnfreezeState.ConfirmHardware:
         return (
           <LedgerConfirmOperation
-            text={lang('Please confirm transaction on your Ledger')}
+            text={lang('Please confirm action on your Ledger')}
             error={error}
             onClose={cancelClaimingVesting}
             onTryAgain={handleHardwareSubmit}
@@ -165,8 +165,6 @@ function VestingPasswordModal({
       isOpen={isOpen}
       title={withModalHeader ? lang('Confirm Unfreezing') : undefined}
       hasCloseButton={withModalHeader}
-      forceFullNative
-      nativeBottomSheetKey="vesting-confirm"
       contentClassName={styles.passwordModalDialog}
       onClose={cancelClaimingVesting}
     >

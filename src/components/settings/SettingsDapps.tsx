@@ -1,6 +1,6 @@
 import React, { memo, useState } from '../../lib/teact/teact';
 
-import type { ApiDapp } from '../../api/types';
+import type { StoredDappConnection } from '../../api/dappProtocols/storage';
 
 import { ANIMATED_STICKER_BIG_SIZE_PX, APP_NAME } from '../../config';
 import buildClassName from '../../util/buildClassName';
@@ -24,7 +24,7 @@ import styles from './Settings.module.scss';
 
 interface OwnProps {
   isActive: boolean;
-  dapps: ApiDapp[];
+  dapps: StoredDappConnection[];
   handleBackClick: () => void;
   isInsideModal?: boolean;
 }
@@ -38,7 +38,7 @@ function SettingsDapps({
   const lang = useLang();
 
   const [isDisconnectModalOpen, openDisconnectModal, closeDisconnectModal] = useFlag();
-  const [dappToDelete, setDappToDelete] = useState<ApiDapp | undefined>();
+  const [dappToDelete, setDappToDelete] = useState<StoredDappConnection | undefined>();
 
   useHistoryBack({
     isActive,

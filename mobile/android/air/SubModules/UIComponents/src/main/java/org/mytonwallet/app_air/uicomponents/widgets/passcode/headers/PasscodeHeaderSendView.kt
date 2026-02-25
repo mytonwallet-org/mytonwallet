@@ -168,7 +168,7 @@ class PasscodeHeaderSendView(
                 startIndex = length - a.length,
                 length = a.length,
                 network = network,
-                addressTokenSlug = token.slug,
+                blockchain = token.mBlockchain,
                 address = resolvedAddress ?: "",
                 popupXOffset = 0,
                 centerHorizontally = true,

@@ -57,6 +57,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
+  gap: 0.0625rem;
 
   min-width: 0;
 }
@@ -73,6 +74,7 @@
 
   font-size: 1rem;
   font-weight: 650;
+  line-height: 1.25rem;
   color: var(--color-black);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -97,7 +99,7 @@
 
   font-size: 0.8125rem;
   font-weight: 500;
-  line-height: 0.875rem;
+  line-height: 1rem;
   color: var(--color-gray-2);
   text-overflow: ellipsis;
   white-space: nowrap;

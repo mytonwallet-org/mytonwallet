@@ -12,13 +12,13 @@ public struct ApiDapp: Equatable, Hashable, Codable, Sendable {
     public let url: String
     public let name: String
     public let iconUrl: String
-    public let manifestUrl: String
+    public let manifestUrl: String?
     
     public let connectedAt: Int?
     public let isUrlEnsured: Bool?
     public let sse: ApiSseOptions?
     
-    public init(url: String, name: String, iconUrl: String, manifestUrl: String, connectedAt: Int?, isUrlEnsured: Bool?, sse: ApiSseOptions?) {
+    public init(url: String, name: String, iconUrl: String, manifestUrl: String? = nil, connectedAt: Int?, isUrlEnsured: Bool?, sse: ApiSseOptions?) {
         self.url = url
         self.name = name
         self.iconUrl = iconUrl

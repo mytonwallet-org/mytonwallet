@@ -17,7 +17,7 @@ public enum SuccessKind {
     case importedView
 }
 
-public class ImportSuccessVC: WViewController {
+public class ImportSuccessVC: CreateWalletBaseVC {
     
     var introModel: IntroModel
     private let successKind: SuccessKind

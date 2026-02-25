@@ -44,6 +44,7 @@ import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcore.MTW_CARDS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -426,7 +427,11 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
         if (!loadingCards.contains(accountId)) {
             loadingCards.add(accountId)
             WalletCore.call(
-                ApiMethod.Nft.FetchNftsFromCollection(accountId, MTW_CARDS_COLLECTION)
+                ApiMethod.Nft.FetchNftsFromCollection(
+                    accountId, ApiMethod.Nft.FetchNftsFromCollection.Collection(
+                        chain = MBlockchain.ton.name, address = MTW_CARDS_COLLECTION
+                    )
+                )
             ) { _, _ -> }
         }
     }

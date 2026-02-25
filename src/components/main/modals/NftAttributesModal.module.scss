@@ -125,6 +125,36 @@
   }
 }
 
+.noImageWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: 100%;
+
+  color: var(--color-gray-4);
+
+  background-color: var(--color-background-second);
+
+  :global(html.theme-dark) & {
+    background-color: #131314;
+  }
+}
+
+.noImage {
+  width: 5.4375rem;
+}
+
+.noImageText {
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .fullImage,
 .thumbnail {
   cursor: var(--custom-cursor, pointer);

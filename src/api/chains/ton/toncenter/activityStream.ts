@@ -1,7 +1,7 @@
 import type { FallbackPollingOptions } from '../../../common/polling/fallbackPollingScheduler';
 import type { Period } from '../../../common/polling/utils';
+import type { ActivitiesUpdate, WalletWatcher } from '../../../common/websocket/abstractWsClient';
 import type { ApiActivity, ApiNetwork } from '../../../types';
-import type { ActivitiesUpdate, WalletWatcher } from './socket';
 
 import { mergeSortedActivities, sortActivities } from '../../../../util/activities/order';
 import { createCallbackManager } from '../../../../util/callbacks';
@@ -83,7 +83,7 @@ export class ActivityStream {
     this.#newestConfirmedActivityTimestamp = newestConfirmedActivityTimestamp;
 
     this.#walletWatcher = getToncenterSocket(network).watchWallets(
-      [address],
+      [{ address }],
       {
         onConnect: this.#handleSocketConnect,
         onDisconnect: this.#handleSocketDisconnect,

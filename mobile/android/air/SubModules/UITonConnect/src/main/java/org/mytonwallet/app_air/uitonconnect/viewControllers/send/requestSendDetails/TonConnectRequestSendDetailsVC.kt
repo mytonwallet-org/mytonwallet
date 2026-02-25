@@ -40,7 +40,7 @@ class TonConnectRequestSendDetailsVC(
         super.setupViews()
 
         setupNavBar(true)
-        setNavTitle(LocaleController.getString("Transaction Details"), false)
+        setNavTitle(LocaleController.getString("Transfer Info"), false)
 
         navigationBar?.addCloseButton()
 

@@ -1,7 +1,5 @@
 import { VestingUnfreezeState } from '../../types';
 
-import { callActionInMain } from '../../../util/multitab';
-import { IS_DELEGATED_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { addActionHandler, setGlobal } from '../../index';
 import { resetHardware, updateVesting } from '../../reducers';
 import { selectCurrentAccountId, selectIsHardwareAccount } from '../../selectors';
@@ -15,11 +13,6 @@ addActionHandler('closeVestingModal', (global) => {
 });
 
 addActionHandler('startClaimingVesting', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('startClaimingVesting');
-    return;
-  }
-
   const accountId = selectCurrentAccountId(global)!;
   global = { ...global, isVestingModalOpen: undefined };
   global = updateVesting(global, accountId, { isConfirmRequested: true });

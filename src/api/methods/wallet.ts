@@ -1,7 +1,7 @@
 import * as tonWebMnemonic from 'tonweb-mnemonic';
-import type { SignDataRpcResponseSuccess } from '@tonconnect/protocol';
 
-import type { ApiDappRequestConfirmation } from '../tonConnect/types';
+import type { DappProtocolType, DappSignDataResult } from '../dappProtocols';
+import type { ApiDappRequestConfirmation } from '../dappProtocols/adapters/tonConnect/types';
 import type { ApiAccountWithMnemonic, ApiAnyDisplayError, ApiChain, ApiNetwork, ApiSignedTransfer } from '../types';
 
 import chains from '../chains';
@@ -13,6 +13,7 @@ import {
 } from '../common/accounts';
 import * as dappPromises from '../common/dappPromises';
 import { getMnemonic } from '../common/mnemonic';
+import { upgradeMultichainAccounts } from './auth';
 
 export function fetchPrivateKey(accountId: string, chain: ApiChain, password: string) {
   return chains[chain].fetchPrivateKeyString(accountId, password);
@@ -49,7 +50,12 @@ export async function verifyPassword(password: string): Promise<boolean> {
     }
 
     const mnemonic = await getMnemonic(accountId, password, account);
-    return Boolean(mnemonic);
+    if (!mnemonic) {
+      return false;
+    }
+
+    await upgradeMultichainAccounts(password);
+    return true;
   } catch {
     return false;
   }
@@ -63,11 +69,17 @@ export function confirmDappRequestConnect(promiseId: string, data: ApiDappReques
   dappPromises.resolveDappPromise(promiseId, data);
 }
 
-export function confirmDappRequestSendTransaction(promiseId: string, data: ApiSignedTransfer[]) {
+export function confirmDappRequestSendTransaction<T extends DappProtocolType>(
+  promiseId: string,
+  data: ApiSignedTransfer<T>[],
+) {
   dappPromises.resolveDappPromise(promiseId, data);
 }
 
-export function confirmDappRequestSignData(promiseId: string, signedData: SignDataRpcResponseSuccess['result']) {
+export function confirmDappRequestSignData<T extends DappProtocolType>(
+  promiseId: string,
+  signedData: DappSignDataResult<T>,
+) {
   dappPromises.resolveDappPromise(promiseId, signedData);
 }
 

@@ -134,3 +134,10 @@ export interface ApiSubmitGaslessTransferResult extends ApiSubmitGasfullTransfer
   paymentLink?: string;
   withW5Gasless?: boolean;
 }
+
+export type ApiSubmitNftTransferResult = {
+  transfers: { toAddress: string }[];
+  msgHashNormalized: string;
+} | {
+  error: string;
+};

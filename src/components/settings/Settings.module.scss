@@ -32,7 +32,7 @@
   }
 
   .modalDialog & {
-    --safe-area-top: 0;
+    --safe-area-top: 0px;
   }
 
   & > & {
@@ -47,7 +47,7 @@
   }
 
   &.withTopSpace {
-    padding-top: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom) + var(--safe-area-top) + 0.75rem);
+    padding-top: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom) + 0.75rem);
 
     :global(html.is-mobile-telegram-app.is-fullscreen) & {
       padding-top: calc(var(--safe-area-top) + 0.75rem);
@@ -114,6 +114,11 @@
   grid-template-columns: 0.85fr 1fr 0.85fr;
 }
 
+.mobileHeader {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
 .iconChevron {
   font-size: 1.5rem;
 }
@@ -129,13 +134,23 @@
 }
 
 .headerButton {
-  padding: 0.25rem;
-  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 1.5rem;
+  height: 1.5rem;
+
+  font-size: 1.5rem;
   color: var(--color-accent);
 
   &.hidden {
     overflow: hidden;
     opacity: 0;
+  }
+
+  &_small {
+    font-size: 1rem;
   }
 }
 
@@ -174,6 +189,13 @@
   white-space: nowrap;
 }
 
+.dropdownMenu {
+  --offset-x-value: -0.4375rem;
+  --offset-y-value: 0.125rem;
+
+  min-width: 9rem;
+}
+
 .modalHeader {
   min-height: 4rem;
 }
@@ -208,7 +230,7 @@
 
   @include mixins.respond-below(xs) {
     &.withBottomSpace {
-      padding-bottom: calc(max(var(--safe-area-bottom), 1rem) + var(--bottombar-height) + 1rem);
+      padding-bottom: calc(var(--safe-area-bottom) + var(--bottombar-height) + 1.625rem);
     }
   }
 }
@@ -224,17 +246,21 @@
 }
 
 .currentWalletSection {
-  margin: -2rem 0 1.5rem;
+  margin: -2.5625rem 0 1.4375rem;
 }
 
 .blockTitle {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.3125rem;
   padding: 0 0.5rem;
 
   font-size: 0.8125rem;
   font-weight: 700;
   line-height: 1.125rem;
   color: var(--color-gray-2);
+
+  &:not(:first-of-type) {
+    margin-top: 0.0625rem;
+  }
 }
 
 .menuIcon {
@@ -413,6 +439,7 @@
 
 .iconChevronRight,
 .iconQuestion {
+  font-size: 1rem;
   color: var(--color-gray-3);
 }
 
@@ -428,16 +455,16 @@
   grid-template-areas: "icon content arrow";
   grid-template-columns: min-content 1fr min-content;
   grid-template-rows: 1fr;
-  gap: 0.75rem;
+  gap: 1rem;
   align-items: center;
 
-  padding: 0.625rem 0.75rem 0.625rem 0.625rem;
+  padding: 0.75rem 0.75rem 0.625rem 1rem;
 
   text-decoration: none !important;
 
   @include mixins.transition("background-color 200ms, border-radius 200ms");
 
-  @include mixins.separatorBottomSettings(3.125rem, 0);
+  @include mixins.separatorBottomSettings(3.75rem, 0, -0.0625rem);
 
   &_red {
     color: var(--color-red);
@@ -469,6 +496,12 @@
     padding: 0.9375rem 0.5rem 1rem 1rem;
 
     @include mixins.separatorBottomSettings(1rem, 1.5rem);
+  }
+
+  &_withWallet {
+    padding: 0.75rem 1rem 0.75rem 0.625rem !important;
+
+    @include mixins.separatorBottomSettings(3.75rem);
   }
 
   &_token {
@@ -521,6 +554,13 @@
   }
 }
 
+.itemAvatarWallet {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.0625rem;
+  line-height: 1.0625rem;
+}
+
 .itemAutoLock {
   border-radius: 0 0 var(--border-radius-default) var(--border-radius-default) !important;
 }
@@ -531,9 +571,12 @@ a.item:hover {
 
 .itemInfo {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.5rem;
   align-items: center;
 
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
   color: var(--color-gray-3);
   white-space: nowrap;
 }
@@ -548,7 +591,7 @@ a.item:hover {
 .itemTitle {
   font-size: 1rem;
   font-weight: 600;
-  line-height: 1rem;
+  line-height: 1.25rem;
   color: var(--color-black);
 }
 
@@ -564,11 +607,11 @@ a.item:hover {
 }
 
 .itemButton {
-  gap: 0.5rem !important;
+  gap: 1rem !important;
   justify-content: start !important;
 
   width: 100%;
-  padding: 0.625rem 1rem;
+  padding: 0.6875rem 1rem;
 
   font-size: 1rem !important;
   color: var(--color-accent);
@@ -587,6 +630,12 @@ a.item:hover {
 
   width: 1.75rem;
   height: 1.75rem;
+
+  font-size: 1.125rem;
+
+  &_big {
+    font-size: 1.625rem;
+  }
 }
 
 .small {
@@ -596,12 +645,11 @@ a.item:hover {
 .version {
   user-select: none;
 
-  margin-top: auto;
-  margin-bottom: 0.25rem;
-  padding-top: 1.5rem;
+  padding-top: 0.8125rem;
 
   font-size: 0.9375rem;
   font-weight: 600;
+  line-height: 0.9375rem;
   color: var(--color-gray-2);
   text-align: center;
 
@@ -863,21 +911,6 @@ a.item:hover {
   font-size: 1.5rem;
 }
 
-.tokenTitle {
-  overflow: hidden;
-
-  font-size: 0.9375rem;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pinIcon {
-  margin-inline-end: 0.25rem;
-  color: var(--color-gray-2);
-  vertical-align: middle;
-}
-
 .tokenDescription {
   --border-radius-value: 0.25rem;
 
@@ -915,9 +948,7 @@ a.item:hover {
   height: 47rem;
 
   @supports (height: var(--safe-area-bottom)) {
-    html:global(:not(.is-native-bottom-sheet)) {
-      height: calc(46rem + var(--safe-area-bottom));
-    }
+    height: calc(46rem + var(--safe-area-bottom));
   }
 }
 
@@ -925,9 +956,7 @@ a.item:hover {
   height: 38rem;
 
   @supports (height: var(--safe-area-bottom)) {
-    html:global(:not(.is-native-bottom-sheet)) {
-      height: calc(38rem + var(--safe-area-bottom));
-    }
+    height: calc(38rem + var(--safe-area-bottom));
   }
 }
 
@@ -947,8 +976,7 @@ a.item:hover {
   }
 }
 
-.languageInfo,
-.tokenInfo {
+.languageInfo {
   display: flex;
   flex-direction: column;
   gap: 0.3125rem;

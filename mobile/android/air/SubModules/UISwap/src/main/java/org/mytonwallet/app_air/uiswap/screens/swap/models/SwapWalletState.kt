@@ -1,6 +1,6 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.models
 
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import java.math.BigInteger
 

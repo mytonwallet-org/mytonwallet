@@ -152,7 +152,7 @@ enum SwapSide {
                 title: lang("You sell"),
                 delegate: self,
                 isModal: true,
-                onlyTonChain: false
+                onlySupportedChains: false
             )
             let nc = WNavigationController(rootViewController: swapTokenSelectionVC)
             topViewController()?.present(nc, animated: true)
@@ -167,7 +167,7 @@ enum SwapSide {
                 title: lang("You buy"),
                 delegate: self,
                 isModal: true,
-                onlyTonChain: false
+                onlySupportedChains: false
             )
             let nc = WNavigationController(rootViewController: swapTokenSelectionVC)
             topViewController()?.present(nc, animated: true)

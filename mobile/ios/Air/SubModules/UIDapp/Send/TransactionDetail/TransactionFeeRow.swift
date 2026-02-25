@@ -8,6 +8,7 @@ import WalletContext
 struct TransactionFeeRow: View {
     
     var transfer: ApiDappTransfer
+    var chain: ApiChain
     
     var body: some View {
         InsetCell(verticalPadding: 0) {
@@ -25,7 +26,8 @@ struct TransactionFeeRow: View {
     
     @ViewBuilder
     var text: some View {
-        let amount = TokenAmount(transfer.networkFee, .TONCOIN)
+        let token = TokenStore.getNativeToken(chain: chain)
+        let amount = TokenAmount(transfer.networkFee, token)
         AmountText(
             amount: amount,
             format: .init(maxDecimals: 4),
@@ -41,9 +43,9 @@ struct TransactionFeeRow: View {
     
     @ViewBuilder
     var subtitle: some View {
-        let toncoin = ApiToken.toncoin
+        let token = TokenStore.getNativeToken(chain: chain)
         let baseCurrency = TokenStore.baseCurrency
-        let amount = TokenAmount(transfer.networkFee, .toncoin).convertTo(baseCurrency, exchangeRate: toncoin.price ?? 0)
+        let amount = TokenAmount(transfer.networkFee, token).convertTo(baseCurrency, exchangeRate: token.price ?? 0)
         AmountText(
             amount: amount,
             format: .init(maxDecimals: 4),

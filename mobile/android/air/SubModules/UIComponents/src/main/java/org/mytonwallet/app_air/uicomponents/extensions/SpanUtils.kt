@@ -39,6 +39,7 @@ fun CharSequence.measureWidth(paint: TextPaint): Float {
 private fun createLayoutCompat(text: CharSequence, paint: TextPaint): StaticLayout {
     val maxWidthPx = Int.MAX_VALUE
 
+    //noinspection WrongConstant
     return if (Build.VERSION.SDK_INT >= 28) {
         StaticLayout.Builder
             .obtain(text, 0, text.length, paint, maxWidthPx)
@@ -48,23 +49,12 @@ private fun createLayoutCompat(text: CharSequence, paint: TextPaint): StaticLayo
             .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
             .setUseLineSpacingFromFallbacks(false)
             .build()
-    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+    } else {
         StaticLayout.Builder
             .obtain(text, 0, text.length, paint, maxWidthPx)
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
             .setIncludePad(false)
             .build()
-    } else {
-        @Suppress("DEPRECATION")
-        StaticLayout(
-            text,
-            paint,
-            maxWidthPx,
-            Layout.Alignment.ALIGN_NORMAL,
-            1f,
-            0f,
-            false
-        )
     }
 }
 

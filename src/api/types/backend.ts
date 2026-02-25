@@ -134,18 +134,10 @@ export type ApiSwapPairAsset = {
   isReverseProhibited?: boolean;
 };
 
-export type ApiSwapHistoryItem = {
+export type ApiSwapHistoryItem = BaseApiSwapHistoryItem & {
   id: string;
   timestamp: number;
   lt?: number;
-  from: string;
-  fromAmount: string;
-  fromAddress: string;
-  to: string;
-  toAmount: string;
-  /** The real fee in the chain's native token */
-  networkFee: string;
-  swapFee: string;
   ourFee?: string;
   /**
    * Swap confirmation status
@@ -174,6 +166,17 @@ export type ApiSwapHistoryItem = {
     status: ApiSwapCexTransactionStatus;
     transactionId: string;
   };
+};
+
+export type BaseApiSwapHistoryItem = {
+  from: string;
+  fromAmount: string;
+  fromAddress: string;
+  to: string;
+  toAmount: string;
+  /** The real fee in the chain's native token */
+  networkFee: string;
+  swapFee: string;
 };
 
 // Cross-chain centralized swap

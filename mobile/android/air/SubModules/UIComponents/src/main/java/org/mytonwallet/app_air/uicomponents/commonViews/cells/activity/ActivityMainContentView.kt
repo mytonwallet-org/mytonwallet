@@ -39,6 +39,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import kotlin.math.abs
+import kotlin.math.absoluteValue
 
 class ActivityMainContentView(context: Context) : WView(context), WProtectedView {
 
@@ -334,7 +335,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
             return
         }
         val builder = SpannableStringBuilder()
-        val rateBigInt = (swap.fromAmount / swap.toAmount).toBigInteger(fromToken.decimals)!!
+        val rateBigInt = (swap.fromAmount.absoluteValue / swap.toAmount).toBigInteger(fromToken.decimals)!!
         val rate = rateBigInt.toString(
             fromToken.decimals,
             fromToken.symbol,

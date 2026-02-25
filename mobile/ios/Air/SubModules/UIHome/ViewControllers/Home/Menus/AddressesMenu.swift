@@ -116,7 +116,7 @@ fileprivate struct AddressRowView: View {
     func onCopy() {
         if let domain = row.accountChain.domain {
             UIPasteboard.general.string = domain
-            AppActions.showToast(animationName: "Copy", message: lang("Domain was copied!"))
+            AppActions.showToast(animationName: "Copy", message: lang("%chain% Domain Copied", arg1: row.chain.title))
             Haptics.play(.lightTap)
             menuContext.dismiss()
         } else {
@@ -126,7 +126,7 @@ fileprivate struct AddressRowView: View {
     
     func onCopySecondary() {
         UIPasteboard.general.string = row.accountChain.address
-        AppActions.showToast(animationName: "Copy", message: lang("Your address was copied!"))
+        AppActions.showToast(animationName: "Copy", message: lang("%chain% Address Copied", arg1: row.chain.title))
         Haptics.play(.lightTap)
         menuContext.dismiss()
     }

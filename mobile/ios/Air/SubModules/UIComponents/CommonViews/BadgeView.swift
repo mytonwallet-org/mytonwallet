@@ -103,7 +103,7 @@ public final class BadgeView: UIView {
         backgroundColor = WTheme.secondaryLabel.withAlphaComponent(0.15)
         label.textColor = WTheme.secondaryLabel
         
-        label.text = chain == .ton ? "TON" : "TRC-20"
+        label.text = chain.usdtBadgeText
         
         backgroundGradient.isHidden = true
         labelGradient.isHidden = true
@@ -111,23 +111,6 @@ public final class BadgeView: UIView {
         self.isHidden = false
     }
     
-    public func configureWithAccountType(_ accountType: AccountType) {
-        if accountType == .mnemonic {
-            configureHidden()
-        } else {
-            let text = accountType == .view ? "VIEW" : "LEDGER"
-            backgroundColor = WTheme.secondaryLabel.withAlphaComponent(0.15)
-            label.textColor = WTheme.secondaryLabel
-            
-            label.text = text
-            
-            backgroundGradient.isHidden = true
-            labelGradient.isHidden = true
-            
-            self.isHidden = false
-        }
-    }
-
     public func configureHidden() {
         label.text = " "
         self.isHidden = true

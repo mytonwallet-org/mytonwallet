@@ -61,7 +61,6 @@ class TokenAmountInputView(
 
     private val titleTextView = HeaderCell(context, 20f).apply {
         id = generateViewId()
-        titleLabel.setStyle(14f, WFont.DemiBold)
         configure(
             title = LocaleController.getString("Amount"),
             titleColor = WColor.Tint,
@@ -160,7 +159,7 @@ class TokenAmountInputView(
             toBottom(equivalentTextView, 16f)
 
             topToBottom(feeTextView, tokenSelectorView, 12f)
-            toEnd(feeTextView, 20f - WCounterButton.Companion.PADDING_HORIZONTAL)
+            toEnd(feeTextView, 20f - WCounterButton.PADDING_HORIZONTAL)
             toBottom(feeTextView, 16f)
         }
 

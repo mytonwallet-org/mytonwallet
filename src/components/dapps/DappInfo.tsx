@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from '../../lib/teact/teact';
 
-import type { ApiDapp } from '../../api/types';
+import type { StoredDappConnection } from '../../api/dappProtocols/storage';
 
 import buildClassName from '../../util/buildClassName';
 
@@ -13,7 +13,7 @@ import DappHostWarning from './DappHostWarning';
 import styles from './Dapp.module.scss';
 
 interface OwnProps {
-  dapp?: ApiDapp;
+  dapp?: StoredDappConnection;
   variant: 'settings' | 'transfer';
   onDisconnect?: (origin: string) => void;
 }

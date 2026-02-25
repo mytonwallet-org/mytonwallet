@@ -27,6 +27,7 @@ import {
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
+import { openDeeplinkOrUrl } from '../../../../util/deeplink';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
 import { preloadedImageUrls } from '../../../../util/preloadImage';
 import { IS_IOS, IS_SAFARI } from '../../../../util/windowEnvironment';
@@ -299,7 +300,7 @@ function Card({
   function renderBalance() {
     const iconCaretClassNames = buildClassName(
       'icon',
-      'icon-caret-down',
+      'icon-expand',
       primaryFractionPart || shortBaseSymbol.length > 1 ? styles.iconCaretFraction : styles.iconCaret,
     );
     const noAnimationCounter = !isUpdating || IS_SAFARI || IS_IOS || isSensitiveDataHidden;
@@ -370,7 +371,12 @@ function Card({
             contentClassName={styles.sensitiveDataContent}
             maskClassName={styles.blurred}
           >
-            <div className={buildClassName(styles.change, 'rounded-font')}>
+            <div
+              className={buildClassName(styles.change, 'rounded-font')}
+              role="button"
+              tabIndex={0}
+              onClick={() => openDeeplinkOrUrl('mtw://explore/portfolio.mytonwallet.io')}
+            >
               {!!changePrefix && (
                 <>
                   <i
@@ -385,6 +391,7 @@ function Card({
                 </>
               )}
               <AnimatedCounter text={formatCurrency(Math.abs(changeValue!), shortBaseSymbol)} />
+              <i className={buildClassName(styles.changeChevron, 'icon-chevron-right')} aria-hidden />
             </div>
           </SensitiveData>
         )}

@@ -8,10 +8,6 @@
     height: calc(38.5rem + var(--safe-area-bottom));
   }
 
-  :global(.is-native-bottom-sheet) & {
-    height: 100% !important;
-    padding-bottom: var(--safe-area-bottom);
-  }
 }
 
 .header {

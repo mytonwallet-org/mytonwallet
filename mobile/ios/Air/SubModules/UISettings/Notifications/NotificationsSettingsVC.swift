@@ -7,7 +7,7 @@ import WalletContext
 
 private let log = Log("NotificationsSettingsVC")
 
-final class NotificationsSettingsVC: WViewController {
+final class NotificationsSettingsVC: SettingsBaseVC {
     
     var hostingController: UIHostingController<NotificationsSettingsView>?
     let viewModel = NotificationsSettingsViewModel()

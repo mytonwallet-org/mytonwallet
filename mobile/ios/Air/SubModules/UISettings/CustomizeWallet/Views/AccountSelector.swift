@@ -26,6 +26,7 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     var onSelect: (String) -> ()
     var selectedIdx = 0
     var hasInitialized = false
+    var lastKnownBoundsWidth: CGFloat = 0
     
     enum Section: Hashable {
         case main
@@ -54,52 +55,62 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        
-        let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .absolute(itemWidth), heightDimension: .absolute(itemHeight)))
-        
-        let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(.absolute(itemWidth), .absolute(itemHeight)), subitems: [item])
-        
-        let section = NSCollectionLayoutSection(group: group)
-        section.orthogonalScrollingBehavior = .continuousGroupLeadingBoundary
-        if #available(iOS 17.0, *) {
-            section.orthogonalScrollingProperties.decelerationRate = .fast
-        }
-        let inset: CGFloat = (screenWidth - itemSpacing)/2
-        section.contentInsets = .init(top: 0, leading: inset, bottom: 0, trailing: inset)
-        section.interGroupSpacing = 0
-        
-        section.visibleItemsInvalidationHandler = { [unowned self] items, scrollOffset, _ in
-            guard !items.isEmpty else { return }
-            var minDistance: CGFloat = .infinity
-            var minDistanceIndex = 0
-            
-            for item in items {
-                let idx = CGFloat(item.indexPath.row)
-                let calculatedCenterX = inset + itemSpacing/2 + idx * itemSpacing
-                let position = idx - scrollOffset.x/itemSpacing
-                
-                let absDistance = abs(position)
-                if absDistance < minDistance {
-                    minDistance = absDistance
-                    minDistanceIndex = item.indexPath.row
-                }
-                
-                let angle = clamp(position, to: -1...1) * rotationAngle
-                let offset = clamp(position, to: -1...1) * offsetAdjustment
-                
-                var t = CATransform3DIdentity
-                t.m34 = -1.0 / 150.0
-                t = CATransform3DRotate(t, angle, 0, 1, 0)
-                item.transform3D = t
-                
-                item.center.x = calculatedCenterX + offset
+
+        let layout = UICollectionViewCompositionalLayout { [unowned self] _, env in
+            let inset = max(0, (env.container.effectiveContentSize.width - itemSpacing) / 2)
+
+            let item = NSCollectionLayoutItem(
+                layoutSize: .init(widthDimension: .absolute(itemWidth), heightDimension: .absolute(itemHeight))
+            )
+            let group = NSCollectionLayoutGroup.vertical(
+                layoutSize: .init(.absolute(itemWidth), .absolute(itemHeight)),
+                subitems: [item]
+            )
+
+            let section = NSCollectionLayoutSection(group: group)
+            section.orthogonalScrollingBehavior = .continuousGroupLeadingBoundary
+            if #available(iOS 17.0, *) {
+                section.orthogonalScrollingProperties.decelerationRate = .fast
             }
-            
-            self.updateFocusedItem(idx: minDistanceIndex)
-            scrollingUpdates.send(minDistance > 1e-3)
+            section.contentInsets = .init(top: 0, leading: inset, bottom: 0, trailing: inset)
+            section.interGroupSpacing = 0
+
+            section.visibleItemsInvalidationHandler = { [unowned self] items, scrollOffset, env in
+                guard !items.isEmpty else { return }
+                let inset = max(0, (env.container.effectiveContentSize.width - itemSpacing) / 2)
+
+                var minDistance: CGFloat = .infinity
+                var minDistanceIndex = 0
+
+                for item in items {
+                    let idx = CGFloat(item.indexPath.row)
+                    let calculatedCenterX = inset + itemSpacing / 2 + idx * itemSpacing
+                    let position = idx - scrollOffset.x / itemSpacing
+
+                    let absDistance = abs(position)
+                    if absDistance < minDistance {
+                        minDistance = absDistance
+                        minDistanceIndex = item.indexPath.row
+                    }
+
+                    let angle = clamp(position, to: -1...1) * rotationAngle
+                    let offset = clamp(position, to: -1...1) * offsetAdjustment
+
+                    var t = CATransform3DIdentity
+                    t.m34 = -1.0 / 150.0
+                    t = CATransform3DRotate(t, angle, 0, 1, 0)
+                    item.transform3D = t
+
+                    item.center.x = calculatedCenterX + offset
+                }
+
+                self.updateFocusedItem(idx: minDistanceIndex)
+                scrollingUpdates.send(minDistance > 1e-3)
+            }
+
+            return section
         }
-                
-        let layout = UICollectionViewCompositionalLayout(section: section)
+
         
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         
@@ -166,7 +177,14 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     }
     
     override func layoutSubviews() {
-        collectionView.frame = self.bounds //.insetBy(dx: negativeHorizontalInset, dy: 0)
+        super.layoutSubviews()
+        collectionView.frame = bounds
+
+        if abs(lastKnownBoundsWidth - bounds.width) > .ulpOfOne {
+            lastKnownBoundsWidth = bounds.width
+            collectionView.collectionViewLayout.invalidateLayout()
+            scrollTo(viewModel.selectedAccountId, animated: false)
+        }
     }
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -203,7 +221,8 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
         if let indexPath = dataSource.indexPath(for: .coverFlowItem(id)), let scrollView = collectionView.subviews.compactMap({ $0 as? UIScrollView }).first {
             if !scrollView.isTracking && !scrollView.isDecelerating {
                 let idx = CGFloat(indexPath.row)
-                let offset = CGPoint(x: -scrollView.adjustedContentInset.left + idx * itemSpacing, y: 0)
+                let inset = max(0, (scrollView.bounds.width - itemSpacing) / 2)
+                let offset = CGPoint(x: -inset + idx * itemSpacing, y: 0)
                 scrollView.setContentOffset(offset, animated: animated)
             }
         }

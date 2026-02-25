@@ -65,12 +65,12 @@ extension Api {
 
 public struct ApiDappRequestConfirmation: Encodable {
     public var accountId: String
-    /** Base64. Shall miss when no proof is required. */
-    public var proofSignature: String?
+    /** Base64. Shall miss when no proof is required. Can be multiple for multichain. */
+    public var proofSignatures: [String]?
     
-    public init(accountId: String, proofSignature: String?) {
+    public init(accountId: String, proofSignatures: [String]?) {
         self.accountId = accountId
-        self.proofSignature = proofSignature
+        self.proofSignatures = proofSignatures
     }
 }
 

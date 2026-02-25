@@ -12,7 +12,6 @@ import WalletContext
 import UIComponents
 import UIPasscode
 import Ledger
-import UIHome
 import UISettings
 
 private let log = Log("IntroActions")
@@ -47,7 +46,8 @@ private let log = Log("IntroActions")
     
     func onImportExisting() {
         let vc = ImportExistingPickerVC(introModel: self)
-        topWViewController()?.present(vc, animated: true)
+        let nc = UINavigationController(rootViewController: vc)
+        topWViewController()?.present(nc, animated: true)
     }
     
     func onImportMnemonic() {
@@ -153,8 +153,7 @@ private let log = Log("IntroActions")
                 topWViewController()?.dismiss(animated: true)
                 AppActions.showHome(popToRoot: true)
             } else {
-                let homeVC = HomeTabBarController()
-                AppActions.transitionToNewRootViewController(homeVC, animationDuration: 0.35)
+                AppActions.transitionToRootState(.active, animationDuration: 0.35)
             }
         }
     }
@@ -179,7 +178,11 @@ private let log = Log("IntroActions")
     private func _importWallet(words: [String], passcode: String, biometricsEnabled: Bool?) {
         Task { @MainActor in
             do {
-                _ = try await AccountStore.importMnemonic(network: network, words: words, passcode: passcode, version: nil)
+                if let privateKeyWords = normalizeMnemonicPrivateKey(words) {
+                    _ = try await AccountStore.importPrivateKey(network: network, privateKey: privateKeyWords[0], passcode: passcode)
+                } else {
+                    _ = try await AccountStore.importMnemonic(network: network, words: words, passcode: passcode, version: nil)
+                }
                 KeychainHelper.save(biometricPasscode: passcode)
                 if let biometricsEnabled { // nil if not first wallet
                     AppStorageHelper.save(isBiometricActivated: biometricsEnabled)

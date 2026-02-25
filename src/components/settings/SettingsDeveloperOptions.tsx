@@ -3,6 +3,7 @@ import { getActions, withGlobal } from '../../global';
 
 import type { ApiNetwork } from '../../api/types';
 import type { Account, DeveloperSettingsOverrides } from '../../global/types';
+import type { Log } from '../../util/logs';
 import type { DropdownItem } from '../ui/Dropdown';
 
 import { APP_COMMIT_HASH, APP_ENV, APP_VERSION, IS_CORE_WALLET, IS_EXTENSION, IS_TELEGRAM_APP } from '../../config';
@@ -13,7 +14,6 @@ import { getBuildPlatform, getFlagsValue } from '../../util/getBuildPlatform';
 import { getPlatform } from '../../util/getPlatform';
 import { mapValues } from '../../util/iteratees';
 import { getLogs } from '../../util/logs';
-import { getLogsFromNative } from '../../util/multitab';
 import { shareFile } from '../../util/share';
 import { IS_IOS } from '../../util/windowEnvironment';
 import { callApi } from '../../api';
@@ -116,7 +116,7 @@ function SettingsDeveloperOptions({
 
     if (!CAN_DOWNLOAD_LOGS) {
       await copyTextToClipboard(logsString);
-      showToast({ message: lang('Logs were copied!'), icon: 'icon-copy' });
+      showToast({ message: lang('Logs Copied'), icon: 'icon-copy' });
       onClose();
     } else {
       const filename = `${IS_CORE_WALLET ? 'tonwallet' : 'mytonwallet'}_logs_${new Date().toISOString()}.json`;
@@ -242,9 +242,8 @@ async function getLogsString({
     addressByChain: mapValues(account.byChain, (accountChain) => accountChain.address),
   }));
 
-  const [mainLogs, bottomSheetLogs, apiLogs = []] = await Promise.all([
+  const [mainLogs, apiLogs = []] = await Promise.all([
     getLogs(),
-    getLogsFromNative(),
     callApi('getLogs'),
   ]);
 
@@ -266,9 +265,8 @@ async function getLogsString({
       currentAccountId,
       accountsInfo,
       logs: [
-        ...mainLogs.map((log) => ({ ...log, context: 'main' })),
-        ...bottomSheetLogs.map((log) => ({ ...log, context: 'bottomSheet' })),
-        ...apiLogs.map((log) => ({ ...log, context: 'api' })),
+        ...mainLogs.map((log: Log) => ({ ...log, context: 'main' })),
+        ...apiLogs.map((log: Log) => ({ ...log, context: 'api' })),
       ]
         .sort((a, b) => a.time - b.time)
         .map((log) => ({ ...log, time: new Date(log.time).toISOString() })),

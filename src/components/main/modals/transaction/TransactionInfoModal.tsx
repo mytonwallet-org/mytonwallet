@@ -217,7 +217,7 @@ function TransactionInfoModal({
   function renderLoading() {
     return (
       <>
-        <ModalHeader className={styles.scrollableContent} title={lang('Transaction Info')} onClose={handleClose} />
+        <ModalHeader className={styles.scrollableContent} title={lang('Transfer Info')} onClose={handleClose} />
         <div className={styles.loadingContainer}>
           <Spinner />
         </div>
@@ -229,7 +229,7 @@ function TransactionInfoModal({
     if (!activities?.length) {
       return (
         <>
-          <ModalHeader className={styles.scrollableContent} title={lang('Transaction Info')} onClose={handleClose} />
+          <ModalHeader className={styles.scrollableContent} title={lang('Transfer Info')} onClose={handleClose} />
           <div className={styles.emptyState}>
             {lang('No activities found')}
           </div>
@@ -241,7 +241,7 @@ function TransactionInfoModal({
       <>
         <ModalHeader
           className={styles.scrollableContent}
-          title={lang('Transaction Info')}
+          title={lang('Transfer Info')}
           onShareClick={firstActivityShareInfo ? handleListShareClick : undefined}
           onClose={handleClose}
         />
@@ -384,8 +384,6 @@ function TransactionInfoModal({
     <Modal
       isOpen={isOpen}
       hasCloseButton
-      nativeBottomSheetKey="transaction-info"
-      forceFullNative={currentSlide === SLIDES.password}
       dialogClassName={styles.modalDialog}
       onClose={handleClose}
       onCloseAnimationEnd={closePasswordSlide}

@@ -36,7 +36,7 @@ struct ActivityView: View {
     var token: ApiToken? { tokens[activity.slug] }
 
     private var chain: ApiChain {
-        token?.chainValue ?? .ton
+        token?.chain ?? FALLBACK_CHAIN
     }
 
     var body: some View {
@@ -104,7 +104,7 @@ struct ActivityView: View {
                         Text((tx.isIncoming == true ? lang("Received from") : lang("Sent to")) + " ")
                         TappableAddress(
                             account: model.accountContext,
-                            model: .fromTransaction(tx, chain: chain.rawValue, addressKind: .peer),
+                            model: .fromTransaction(tx, chain: chain, addressKind: .peer),
                         )
                     }
                 }
@@ -113,6 +113,8 @@ struct ActivityView: View {
             }
             .background(Color(WTheme.groupedItem))
             .clipShape(.rect(cornerRadius: 12))
+            .frame(maxWidth: 420)
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
         }
@@ -218,7 +220,7 @@ struct ActivityView: View {
     @ViewBuilder
     private func addressSection(activity: ApiActivity, address: ApiTransactionActivity.AddressKind, title: String) -> some View {
         if case .transaction(let tx) = activity, nil != tx.getAddress(for: address) {
-            let chain = getChainBySlug(tx.slug)?.rawValue ?? ApiChain.ton.rawValue
+            let chain = getChainBySlug(tx.slug) ?? FALLBACK_CHAIN
             InsetSection {
                 InsetCell {
                     TappableAddressFull(accountContext: model.accountContext, model: .fromTransaction(tx, chain: chain, addressKind: address))
@@ -270,8 +272,8 @@ struct ActivityView: View {
 
     func onNftCollectionTap() {
         if let accountId = AccountStore.accountId, let nft = activity.transaction?.nft, let name = nft.collectionName?.nilIfEmpty, let address = nft.collectionAddress {
-            if NftStore.accountOwnsCollection(accountId: accountId, address: address) {
-                AppActions.showAssets(accountSource: .accountId(accountId), selectedTab: 1, collectionsFilter: .collection(.init(address: address, name: name)))
+            if NftStore.accountOwnsCollection(accountId: accountId, address: address, chain: nft.chain) {
+                AppActions.showAssets(accountSource: .accountId(accountId), selectedTab: 1, collectionsFilter: .collection(.init(chain: nft.chain, address: address, name: name)))
             } else {
                 AppActions.openInBrowser(ExplorerHelper.nftCollectionUrl(nft))
             }
@@ -363,18 +365,21 @@ struct ActivityView: View {
 
     @ViewBuilder
     var fee: some View {
-        if let token, let chain = ApiChain(rawValue: token.chain), let fee = _computeDisplayFee(nativeToken: chain.nativeToken) {
-            InsetDetailCell {
-                Text(lang("Fee"))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
-            } value: {
-                FeeView(
-                    token: token,
-                    nativeToken: chain.nativeToken,
-                    fee: fee,
-                    explainedTransferFee: nil,
-                    includeLabel: false
-                )
+        if let token {
+            let chain = token.chain
+            if chain.isSupported, let fee = _computeDisplayFee(nativeToken: chain.nativeToken) {
+                InsetDetailCell {
+                    Text(lang("Fee"))
+                        .foregroundStyle(Color(WTheme.secondaryLabel))
+                } value: {
+                    FeeView(
+                        token: token,
+                        nativeToken: chain.nativeToken,
+                        fee: fee,
+                        explainedTransferFee: nil,
+                        includeLabel: false
+                    )
+                }
             }
         }
     }

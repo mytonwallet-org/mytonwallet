@@ -59,7 +59,8 @@ export default function Activity({
     return (
       <Swap
         activity={activity}
-        tokensBySlug={swapTokensBySlug}
+        tokensBySlug={tokensBySlug}
+        swapTokensBySlug={swapTokensBySlug}
         isLast={isLast}
         isActive={isActive}
         className={className}

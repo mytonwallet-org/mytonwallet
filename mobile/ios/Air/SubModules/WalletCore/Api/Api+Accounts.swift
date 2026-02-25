@@ -22,3 +22,11 @@ extension Api {
 // MARK: - Types
 
 public typealias ApiActivityTimestamps = [String: Int64]
+
+public struct ApiLedgerAccount: Equatable, Hashable, Codable {
+  public var type = "ledger"
+  public var byChain: [String: ApiTonWallet]
+  public var driver: ApiLedgerDriver
+  public var deviceId: String?
+  public var deviceName: String?
+}

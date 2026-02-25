@@ -15,6 +15,7 @@ interface OwnProps {
   children?: TeactJsx;
   fallback?: TeactJsx;
   onLoad?: NoneToVoidFunction;
+  onError?: NoneToVoidFunction;
 }
 
 function ImageComponent({
@@ -27,16 +28,22 @@ function ImageComponent({
   children,
   fallback,
   onLoad,
+  onError,
 }: OwnProps) {
   const ref = useRef<HTMLImageElement>();
   const [isLoaded, markIsLoaded] = useFlag(preloadedImageUrls.has(url));
   const [hasError, markHasError] = useFlag();
 
-  const handleLoad = () => {
+  function handleLoad() {
     markIsLoaded();
     preloadedImageUrls.add(url);
     onLoad?.();
-  };
+  }
+
+  function handleError() {
+    markHasError();
+    onError?.();
+  }
 
   const shouldShowFallback = (hasError || !url) && !!fallback;
 
@@ -55,7 +62,7 @@ function ImageComponent({
           draggable={false}
           referrerPolicy="same-origin"
           onLoad={!isLoaded ? handleLoad : undefined}
-          onError={markHasError}
+          onError={handleError}
         />
       ) : fallback}
       {children}

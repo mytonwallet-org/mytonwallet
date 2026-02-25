@@ -11,6 +11,12 @@ final class CameraDevice {
     }
     
     var position: Camera.Position = .back
+    var isTorchAvailable: Bool {
+        guard let device = self.videoDevice else {
+            return false
+        }
+        return device.hasTorch && device.isTorchModeSupported(.on)
+    }
     
     func configure(for session: AVCaptureSession, position: Camera.Position) {
         self.position = position
@@ -68,7 +74,7 @@ final class CameraDevice {
     }
     
     func setTorchActive(_ active: Bool) {
-        guard let device = self.videoDevice else {
+        guard let device = self.videoDevice, self.isTorchAvailable else {
             return
         }
         self.transaction(device) { device in

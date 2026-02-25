@@ -81,6 +81,8 @@ class SettingsHeaderView(
     private val addressLabel: WMultichainAddressLabel by lazy {
         WMultichainAddressLabel(context).apply {
             setStyle(14f, WFont.Regular)
+            ellipsize = TextUtils.TruncateAt.END
+            setSingleLine()
         }
     }
 
@@ -102,7 +104,7 @@ class SettingsHeaderView(
             toEnd(walletNameLabel)
             topToTop(walletNameLabel, walletIcon, 12f)
             startToEnd(addressLabel, walletIcon, 16f)
-            endToStart(addressLabel, walletBalanceLabel, 12f)
+            endToStart(addressLabel, walletBalanceLabel, 4f)
             topToBottom(addressLabel, walletNameLabel, 4f)
         }
 

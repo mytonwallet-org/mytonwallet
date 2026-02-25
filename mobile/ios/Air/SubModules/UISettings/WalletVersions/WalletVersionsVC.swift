@@ -12,7 +12,7 @@ import WalletCore
 import WalletContext
 import SwiftUI
 
-public class WalletVersionsVC: WViewController, UICollectionViewDelegate {
+public class WalletVersionsVC: SettingsBaseVC, UICollectionViewDelegate {
 
     private enum Section: Hashable {
         case currentVersion
@@ -216,7 +216,7 @@ private struct WalletVersionsFooter: View {
             .foregroundStyle(Color.air.secondaryLabel)
             .frame(maxWidth: .infinity, alignment: .leading)
             .environment(\.openURL, OpenURLAction { url in
-                AppActions.openInBrowser(url, title: nil, injectTonConnect: false)
+                AppActions.openInBrowser(url, title: nil, injectDappConnect: false)
                 return .handled
             })
     }

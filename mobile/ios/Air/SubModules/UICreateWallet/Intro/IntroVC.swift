@@ -10,7 +10,7 @@ import UIComponents
 import SwiftUI
 import WalletContext
 
-public class IntroVC: WViewController {
+public class IntroVC: CreateWalletBaseVC {
 
     let introModel: IntroModel
     

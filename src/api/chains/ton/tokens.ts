@@ -12,7 +12,8 @@ import {
 
 import { getToncoinAmountForTransfer } from '../../../util/fee/getTonOperationFees';
 import { fetchJsonWithProxy, fixIpfsUrl } from '../../../util/fetch';
-import { logDebug, logDebugError } from '../../../util/logs';
+import { logDebugError } from '../../../util/logs';
+import withCacheAsync from '../../../util/withCacheAsync';
 import { fetchJettonMetadata, fixBase64ImageData, parsePayloadBase64 } from './util/metadata';
 import {
   buildTokenTransferBody,
@@ -58,8 +59,6 @@ async function getTokenBalances(network: ApiNetwork, address: string) {
 const JETTON_WALLETS_LIMIT = 1000;
 
 export async function fetchJettonWallets(network: ApiNetwork, address: string, maxLimit?: number) {
-  logDebug('toncenter: loading jetton balances', { network, address });
-
   const jettonWallets: ToncenterJettonWallet[] = [];
   let metadata: MetadataMap = {};
   let offset = 0;
@@ -91,8 +90,6 @@ export async function fetchJettonWallets(network: ApiNetwork, address: string, m
 
     offset += newJettonWallets.length;
   }
-
-  logDebug('toncenter: loaded jetton balances', { network, address, count: jettonWallets.length });
 
   return { jettonWallets, metadata };
 }
@@ -418,6 +415,19 @@ export async function importToken(network: ApiNetwork, address: string, sendUpda
   await updateTokens([token], sendUpdateTokens);
   await updateTokenHashes(network, [token.slug], sendUpdateTokens);
 }
+
+export async function importUnknownTokens(
+  network: ApiNetwork,
+  tokenAddresses: string[],
+  sendUpdateTokens: NoneToVoidFunction,
+) {
+  await Promise.all(tokenAddresses.map(
+    (tokenAddress) => importUnknownToken(network, tokenAddress, sendUpdateTokens),
+  ));
+}
+
+// Using `withCacheAsync` mainly to prevent concurrent execution
+const importUnknownToken = withCacheAsync(importToken);
 
 export async function loadTokenBalances(
   network: ApiNetwork,

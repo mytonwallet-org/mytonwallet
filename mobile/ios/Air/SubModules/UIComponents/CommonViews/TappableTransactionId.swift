@@ -38,7 +38,7 @@ public struct TappableTransactionId: View {
                 MenuConfig(menuItems: [
                     .button(id: "0-copy", title: lang("Copy"), trailingIcon: .air("SendCopy")) {
                         UIPasteboard.general.string = txId
-                        AppActions.showToast(animationName: "Copy", message: lang("Transaction ID was copied!"))
+                        AppActions.showToast(animationName: "Copy", message: lang("Transaction ID Copied"))
                         Haptics.play(.lightTap)
                     },
                     .button(id: "0-explorer", title: lang("Open in Explorer"), trailingIcon: .air("SendGlobe")) {
@@ -85,7 +85,7 @@ public struct ChangellyTransactionId: View {
                 MenuConfig(menuItems: [
                     .button(id: "0-copy", title: lang("Copy"), trailingIcon: .air("SendCopy")) {
                         UIPasteboard.general.string = id
-                        AppActions.showToast(animationName: "Copy", message: lang("Transaction ID was copied!"))
+                        AppActions.showToast(animationName: "Copy", message: lang("Transaction ID Copied"))
                         Haptics.play(.lightTap)
                     },
                     .button(id: "0-explorer", title: lang("Open in Explorer"), trailingIcon: .air("SendGlobe")) {

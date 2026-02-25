@@ -85,6 +85,7 @@ import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.helpers.SubprojectHelpers
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
@@ -94,6 +95,7 @@ import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.R
+import org.mytonwallet.app_air.uireceive.ReceiveBackgroundCache
 import org.mytonwallet.uihome.home.HomeVC
 import kotlin.math.roundToInt
 
@@ -345,7 +347,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                     val config = searchMatchedSite?.let { searchMatchedSite ->
                         InAppBrowserConfig(
                             url = searchMatchedSite.url,
-                            injectTonConnectBridge = true,
+                            injectDappConnect = true,
                             saveInVisitedHistory = true
                         )
                     } ?: run {
@@ -354,7 +356,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                             ExploreHistoryStore.saveSearchHistory(text.toString())
                         InAppBrowserConfig(
                             url = uri.toString(),
-                            injectTonConnectBridge = true,
+                            injectDappConnect = true,
                             saveInVisitedHistory = isValidUrl
                         )
                     }
@@ -554,6 +556,9 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         }
         checkForUpdate()
         updateTheme()
+        WalletCore.doOnBridgeReady {
+            ReceiveBackgroundCache.precache(window?.systemBars?.top ?: 0)
+        }
     }
 
     private fun setupWalletSwitcherPopup() {
@@ -1029,7 +1034,10 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             }
 
             is WalletEvent.OpenUrl -> {
-                openUrl(InAppBrowserConfig(walletEvent.url, injectTonConnectBridge = true))
+                val url = if (SubprojectHelpers.isSubproject(walletEvent.url))
+                    SubprojectHelpers.appendSubprojectContext(walletEvent.url)
+                else walletEvent.url
+                openUrl(InAppBrowserConfig(url, injectDappConnect = true))
             }
 
             is WalletEvent.OpenUrlWithConfig -> {

@@ -91,13 +91,15 @@ const InfiniteScroll: FC<OwnProps> = ({
       return [];
     }
 
+    const debounceMs = withAbsolutePositioning ? 100 : SECOND;
+
     return [
       debounce(() => {
         onLoadMore({ direction: LoadMoreDirection.Backwards });
-      }, SECOND, true, false),
+      }, debounceMs, true, false),
       debounce(() => {
         onLoadMore({ direction: LoadMoreDirection.Forwards });
-      }, SECOND, true, false),
+      }, debounceMs, true, false),
     ];
     // eslint-disable-next-line react-hooks-static-deps/exhaustive-deps
   }, [onLoadMore, items]);
@@ -122,6 +124,34 @@ const InfiniteScroll: FC<OwnProps> = ({
       loadMoreBackwards();
     }
   }, [items, loadMoreBackwards, preloadBackwards, scrollContainerClosest]);
+
+  // When using absolute positioning, after items change check if the scroll viewport doesn't overlap with
+  // the rendered area. This happens when the user fast-scrolls — the viewport shifts once via the scroll handler
+  // but no more scroll events fire because `scrollTop` doesn't change, leaving the screen blank.
+  // We call `onLoadMore` directly (bypassing `debounce`) so the viewport catches up within a few render cycles.
+  useEffect(() => {
+    if (!withAbsolutePositioning || !onLoadMore) return;
+
+    const scrollContainer = scrollContainerClosest
+      ? containerRef.current?.closest<HTMLDivElement>(scrollContainerClosest)
+      : containerRef.current;
+    if (!scrollContainer) return;
+
+    const listItemElements = scrollContainer.querySelectorAll<HTMLDivElement>(itemSelector);
+    if (!listItemElements.length) return;
+
+    const firstItemTop = listItemElements[0].offsetTop;
+    const lastItem = listItemElements[listItemElements.length - 1];
+    const lastItemBottom = lastItem.offsetTop + lastItem.offsetHeight;
+    const { scrollTop, offsetHeight } = scrollContainer;
+    const scrollBottom = scrollTop + offsetHeight;
+
+    if (scrollBottom < firstItemTop) {
+      onLoadMore({ direction: LoadMoreDirection.Forwards });
+    } else if (scrollTop > lastItemBottom) {
+      onLoadMore({ direction: LoadMoreDirection.Backwards });
+    }
+  }, [items, withAbsolutePositioning, onLoadMore, scrollContainerClosest, itemSelector, cacheBuster]);
 
   // Restore `scrollTop` after adding items
   useLayoutEffectWithPrevDeps(([prevItems]) => {

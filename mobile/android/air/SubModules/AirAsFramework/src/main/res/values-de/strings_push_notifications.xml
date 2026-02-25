@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="push_title_wallet">%1$s</string>
+  <string name="push_activity_token_sent">Gesendet %1$s %2$s</string>
+  <string name="push_activity_token_received">Empfangen %1$s %2$s</string>
+  <string name="push_activity_nft_sent">NFT gesendet</string>
+  <string name="push_activity_nft_sent_named">NFT gesendet: %1$s</string>
+  <string name="push_activity_nft_received">NFT empfangen</string>
+  <string name="push_activity_nft_received_named">NFT empfangen: %1$s</string>
+  <string name="push_activity_contract_called">Smart Contract aufgerufen</string>
+  <string name="push_activity_contract_deployed">Smart Contract bereitgestellt</string>
+  <string name="push_activity_token_minted">Gemintet %1$s %2$s</string>
+  <string name="push_activity_token_burned">Verbrannt %1$s %2$s</string>
+  <string name="push_activity_nft_minted">NFT gemintet</string>
+  <string name="push_activity_nft_minted_named">NFT gemintet: %1$s</string>
+  <string name="push_activity_liquidity_deposited">Liquidität bereitgestellt</string>
+  <string name="push_activity_liquidity_withdrawn">Liquidität abgezogen</string>
+  <string name="push_activity_stake_deposit">Gestakt %1$s %2$s</string>
+  <string name="push_activity_stake_withdrawal">Aus dem Staking abgezogen %1$s %2$s</string>
+  <string name="push_activity_stake_withdrawal_request">Staking-Auszahlung angefordert</string>
+  <string name="push_activity_auction_bid">Auktionsgebot abgegeben %1$s %2$s</string>
+  <string name="push_activity_dns_changed">DNS-Eintrag aktualisiert</string>
+  <string name="push_activity_dns_deleted">DNS-Eintrag gelöscht</string>
+  <string name="push_activity_dns_renewed">DNS erneuert</string>
+  <string name="push_activity_subscription_started">Abonnement gestartet</string>
+  <string name="push_activity_subscription_payment_received">Abonnementzahlung erhalten %1$s %2$s</string>
+  <string name="push_activity_subscription_canceled">Abonnement gekündigt</string>
+  <string name="push_activity_swap_completed">Tausch %1$s -> %2$s abgeschlossen</string>
+  <string name="push_activity_swap_failed">Tausch %1$s -> %2$s fehlgeschlagen</string>
+  <string name="push_activity_swap_expired">Tausch %1$s -> %2$s abgelaufen</string>
+  <string name="push_activity_swap_pending">Tausch %1$s -> %2$s %3$s</string>
+  <string name="push_activity_staking_profit">Staking-Ertrag %1$s TON</string>
+  <string name="push_activity_staking_loyalty_profit">Staking-Treueertrag %1$s TON</string>
+  <string name="push_domain_title_renew">Erneuern Sie Ihre Domain</string>
+  <string name="push_domain_expired_yesterday">Ihre Domain %1$s ist gestern abgelaufen. Bitte erneuern Sie sie so bald wie möglich, um den Zugriff nicht zu verlieren</string>
+  <string name="push_domain_expired_days_ago">Ihre Domain %1$s ist vor %2$s Tagen abgelaufen. Bitte erneuern Sie sie so bald wie möglich, um den Zugriff nicht zu verlieren</string>
+  <string name="push_domain_expires_today">Ihre Domain %1$s läuft heute ab. Bitte erneuern Sie sie, um den Zugriff nicht zu verlieren</string>
+  <string name="push_domain_expires_tomorrow">Ihre Domain %1$s läuft morgen ab. Bitte erneuern Sie sie, um den Zugriff nicht zu verlieren</string>
+  <string name="push_domain_expires_in_days">Ihre Domain %1$s läuft in %2$s Tagen ab. Bitte erneuern Sie sie, um den Zugriff nicht zu verlieren</string>
+</resources>

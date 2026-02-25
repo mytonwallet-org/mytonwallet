@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore.moshi
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import org.mytonwallet.app_air.walletcore.moshi.ledger.MLedgerWalletInfo
 

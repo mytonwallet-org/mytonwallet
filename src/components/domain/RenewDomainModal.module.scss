@@ -9,9 +9,6 @@ $modalHeight: 36.5rem;
     height: calc($modalHeight + var(--safe-area-bottom));
   }
 
-  :global(.is-native-bottom-sheet) & {
-    height: calc($modalHeight + var(--safe-area-bottom, 0rem));
-  }
 }
 
 .modalTitle {

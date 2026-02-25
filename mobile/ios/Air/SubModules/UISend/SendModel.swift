@@ -16,6 +16,7 @@ import SwiftNavigation
 import Dependencies
 
 private let log = Log("SendModel")
+private let NFT_BURN_PLACEHOLDER_ADDRESS = "placeholder_address"
 
 let debounceCheckTransactionDraft: Duration = .seconds(0.250)
 
@@ -56,13 +57,15 @@ public final class SendModel: Sendable {
     var binaryPayload: String?
     
     var nfts: [ApiNft]?
-    var nftSendMode: NftSendMode?
+
+    let mode: SendMode
+
     let stateInit: String?
     
     @PerceptionIgnored
     var addressViewModel: AddressViewModel {
         let apiName = draftData.transactionDraft?.addressName
-        let chain = nfts?.first != nil ? ApiChain.ton.rawValue : token.chain
+        let chain = nfts?.first?.chain ?? token.chain
         
         // A temporary solution to detect how would (if any) the address be saved
         var saveKey: String?
@@ -72,7 +75,7 @@ public final class SendModel: Sendable {
         case .myAccount:
             break
         case .constant:
-            if let apiName, let chain = ApiChain(rawValue: chain), chain.isValidDomain(apiName) {
+            if let apiName, chain.isValidDomain(apiName) {
                 saveKey = apiName // name returned by API is a domain 🤷
             }
         }
@@ -107,13 +110,17 @@ public final class SendModel: Sendable {
 
     private let flow: any SendFlow
 
-    init(prefilledValues: SendPrefilledValues? = nil) {
+    init(prefilledValues: SendPrefilledValues) {
         @Dependency(\.tokenStore) var tokenStore
         @Dependency(\.accountStore) var accountStore
         
-        let tokenSlug: String = if let jetton = prefilledValues?.jetton?.nilIfEmpty, let tokenSlug = tokenStore.tokens.first(where: { tokenSlug, token in token.tokenAddress == jetton })?.key {
+        self.mode = prefilledValues.mode
+        
+        let tokenSlug: String = if let jetton = prefilledValues.jetton?.nilIfEmpty, let tokenSlug = tokenStore.tokens.first(where: { tokenSlug, token in token.tokenAddress == jetton })?.key {
             tokenSlug
-        } else if let token = prefilledValues?.token {
+        } else if let nftChain = prefilledValues.nfts?.first?.chain {
+            nftChain.nativeToken.slug
+        } else if let token = prefilledValues.token {
             token
         } else {
             accountStore.get(accountIdOrCurrent: nil).firstChain.nativeToken.slug
@@ -122,7 +129,7 @@ public final class SendModel: Sendable {
 
         addressInput = AddressInputModel(account: _account, token: _token)
 
-        if let prefilledValues {
+        do {
             if let address = prefilledValues.address {
                 self.addressInput.textFieldInput = address
             }
@@ -138,17 +145,15 @@ public final class SendModel: Sendable {
             if let nfts = prefilledValues.nfts {
                 self.nfts = nfts
             }
-            if let nftSendMode = prefilledValues.nftSendMode {
-                self.nftSendMode = nftSendMode
-            }
         }
         
-        self.stateInit = prefilledValues?.stateInit
-        let isNftFlow = (prefilledValues?.nftSendMode != nil) || ((prefilledValues?.nfts?.isEmpty == false))
+        self.stateInit = prefilledValues.stateInit
+        let isNftFlow = mode.isNftRelated || ((prefilledValues.nfts?.isEmpty == false))
         self.flow = isNftFlow ? NftSendFlow() : TokenSendFlow()
 
-        if nftSendMode == .burn {
-            self.addressInput.textFieldInput = BURN_ADDRESS
+        if mode == .burnNft {
+            let burnChain = self.nfts?.first?.chain ?? self.token.chain
+            self.addressInput.textFieldInput = burnChain == .ton ? BURN_ADDRESS : NFT_BURN_PLACEHOLDER_ADDRESS
         }
         
         addressInput.onScanResult = { [weak self] in
@@ -171,6 +176,13 @@ public final class SendModel: Sendable {
             guard let self else { return }
             _ = draftData
             self.updateMaxToSend()
+        }
+        observers += observe { [weak self] in
+            guard let self else { return }
+            _ = self.isEncryptedMessageAvailable
+            if self.isMessageEncrypted && !self.isEncryptedMessageAvailable {
+                self.isMessageEncrypted = false
+            }
         }
     }
 
@@ -258,7 +270,7 @@ public final class SendModel: Sendable {
     }
     
     var isEncryptedMessageAvailable: Bool {
-        !isCommentRequired && nftSendMode == nil && account.isHardware != true
+        !isCommentRequired && token.chain.isEncryptedCommentSupported && !mode.isNftRelated && account.isHardware != true
     }
     
     var resolvedAddress: String? {
@@ -282,11 +294,11 @@ public final class SendModel: Sendable {
 
     var isAddressCompatibleWithToken: Bool {
         if addressOrDomain.isEmpty { return true } // do not validate before user inputs address
-        let chain = token.chainValue
+        let chain = token.chain
         let address = draftData.transactionDraft?.resolvedAddress ?? addressOrDomain
         return chain.isValidAddressOrDomain(address) &&
             (
-                chain.isSendToSelfAllowed || address != account.addressByChain[chain.rawValue]
+                chain.isSendToSelfAllowed || address != account.getAddress(chain: chain)
             )
     }
 
@@ -303,14 +315,14 @@ public final class SendModel: Sendable {
     }
     
     var shouldShowMultisigWarning: Bool {
-        if account.byChain[token.chain]?.isMultisig == true {
+        if account.getChainInfo(chain: token.chain)?.isMultisig == true {
             return true
         }
         return false
     }
 
     var shouldShowGasWarning: Bool {
-        let chain = token.chainValue
+        let chain = token.chain
         if !chain.shouldShowScamWarningIfNotEnoughGas {
             return false
         }
@@ -323,7 +335,7 @@ public final class SendModel: Sendable {
             if slug == usdtSlug {
                 return true
             }
-            if let token = TokenStore.tokens[slug], token.chainValue == chain, token.isNative == false {
+            if let token = TokenStore.tokens[slug], token.chain == chain, token.isNative == false {
                 return true
             }
         }
@@ -354,12 +366,12 @@ public final class SendModel: Sendable {
     
     var showingFee: MFee? {
         let fee = draftData.transactionDraft?.fee
-        let isNativeFullBalance = token.isNative && token.chainValue.canTransferFullNativeBalance && accountBalance?.amount == amount
+        let isNativeFullBalance = token.isNative && token.chain.canTransferFullNativeBalance && accountBalance?.amount == amount
         let nativeTokenBalance = $account.balances[token.nativeTokenSlug] ?? 0
         let isEnoughNativeCoin = if isNativeFullBalance {
             fee != nil && fee! < nativeTokenBalance
         } else {
-            fee != nil && (fee! + (token.isNative && token.chainValue.canTransferFullNativeBalance ? amount ?? 0 : 0)) <= nativeTokenBalance
+            fee != nil && (fee! + (token.isNative && token.chain.canTransferFullNativeBalance ? amount ?? 0 : 0)) <= nativeTokenBalance
         }
         let isGaslessWithStars = dieselStatus == .starsFee
         let isDieselAvailable = dieselStatus == .available || isGaslessWithStars
@@ -384,7 +396,7 @@ public final class SendModel: Sendable {
         if let binaryPayload = self.binaryPayload?.nilIfEmpty {
             return .base64(data: binaryPayload)
         } else if let _comment = self.comment.nilIfEmpty {
-            return .comment(text: _comment, shouldEncrypt: self.isMessageEncrypted)
+            return .comment(text: _comment, shouldEncrypt: self.isMessageEncrypted && self.isEncryptedMessageAvailable)
         } else {
             return nil
         }
@@ -419,9 +431,23 @@ public final class SendModel: Sendable {
         
         case .address(let address, let possibleChains):
             if !possibleChains.isEmpty {
+                switchToCompatibleNativeTokenIfNeeded(possibleChains)
                 self.addressInput.textFieldInput = address
             }
         }
+    }
+    
+    private func switchToCompatibleNativeTokenIfNeeded(_ possibleChains: [ApiChain]) {
+        guard !mode.isNftRelated else { return }
+        guard !possibleChains.contains(token.chain) else { return }
+        guard let targetChain = (
+            possibleChains.first(where: { account.supports(chain: $0) })
+            ?? possibleChains.first
+        ) else {
+            return
+        }
+        let nativeToken = TokenStore.tokens[targetChain.nativeToken.slug] ?? targetChain.nativeToken
+        onTokenSelected(newToken: nativeToken)
     }
     
     func onTokenSelected(newToken: ApiToken) {
@@ -484,8 +510,16 @@ public final class SendModel: Sendable {
         return try await flow.ledgerPayload(context: context, explainedFee: explainedFee)
     }
     
+    private var nftSendMode: NftSendMode? {
+        switch mode {
+        case .burnNft: return .burn
+        case .sendNft: return .send
+        default: return  nil
+        }
+    }
+    
     private func makeDraftContext() -> SendDraftContext {
-        SendDraftContext(
+        return SendDraftContext(
             accountId: account.id,
             address: addressOrDomain,
             token: token,
@@ -505,6 +539,7 @@ public final class SendModel: Sendable {
             payload: commentPayload,
             stateInit: stateInit,
             nfts: nfts,
+            nftSendMode: nftSendMode,
             transactionDraft: draftData.transactionDraft,
             diesel: draftData.transactionDraft?.diesel
         )

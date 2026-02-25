@@ -130,7 +130,7 @@ class ExploreCategoryVC(context: Context, val category: MExploreCategory) :
                 url = app.url!!,
                 title = app.name,
                 thumbnail = app.iconUrl,
-                injectTonConnectBridge = true,
+                injectDappConnect = true,
                 saveInVisitedHistory = true,
             )
         )

@@ -11,7 +11,6 @@
     max-width: $transactionModalMaxWidth;
   }
 
-  :global(.is-native-bottom-sheet) &,
   &.unstakeModal {
     height: auto;
   }
@@ -47,6 +46,19 @@
   max-width: 70% !important;
   padding: 0.5rem 1.5rem;
   white-space: nowrap;
+}
+
+.swapFooter {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  justify-items: stretch;
+}
+
+.swapFooterButton {
+  .swapFooter & {
+    width: 100%;
+    max-width: 100% !important;
+  }
 }
 
 .buttonWide {

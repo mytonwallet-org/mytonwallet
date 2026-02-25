@@ -18,7 +18,7 @@ public struct ApiTransactionActivity: BaseActivity, Codable, Equatable, Hashable
     public let timestamp: Int64
     /** The amount to show in the UI (may mismatch the actual attached TON amount */
     public let amount: BigInt
-    public let fromAddress: String
+    public let fromAddress: String?
     public let toAddress: String?
     public let comment: String?
     public let encryptedComment: String?

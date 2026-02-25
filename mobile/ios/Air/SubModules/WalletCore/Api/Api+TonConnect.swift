@@ -11,41 +11,54 @@ import WalletContext
 extension Api {
 
     public static func startSseConnection(params: ApiSseConnectionParams) async throws -> ReturnStrategy? {
-        try await bridge.callApiOptional("startSseConnection", params, decodingOptional: ReturnStrategy.self)
+        try await bridge.callApiOptional(
+            "tonConnect_handleDeepLink",
+            params.url,
+            params.isFromInAppBrowser,
+            params.identifier,
+            decodingOptional: ReturnStrategy.self
+        )
     }
     
-    public static func signTonProof(accountId: String, proof: ApiTonConnectProof, password: String?) async throws -> ApiSignTonProofResult {
-        try await bridge.callApi("signTonProof", accountId, proof, password, decoding: ApiSignTonProofResult.self)
+    public static func signDappProof(dappChains: [ApiDappSessionChain], accountId: String, proof: ApiTonConnectProof, password: String?) async throws -> ApiSignDappProofResult {
+        let response = try await bridge.callApi("signDappProof", dappChains, accountId, proof, password, decoding: ApiSignDappProofResponse.self)
+        if let signatures = response.signatures {
+            return ApiSignDappProofResult(signatures: signatures)
+        }
+        if let error = response.error?.stringValue {
+            throw BridgeCallError.customMessage(error, response)
+        }
+        if let errorDict = response.error?.dictionaryValue, let message = errorDict["message"]?.stringValue {
+            throw BridgeCallError.customMessage(message, errorDict)
+        }
+        throw BridgeCallError.unknown(baseError: response)
     }
     
-    public static func signTransfers(accountId: String, messages: [ApiTransferToSign], options: ApiSignTransfersOptions?) async throws -> [ApiSignedTransfer] {
-        try await bridge.callApi("signTransfers", accountId, messages, options, decoding: [ApiSignedTransfer].self)
+    public static func signDappTransfers(dappChain: ApiDappSessionChain, accountId: String, messages: [ApiTransferToSign], options: ApiSignTransfersOptions?) async throws -> [ApiSignedTransfer] {
+        try await bridge.callApi("signDappTransfers", dappChain, accountId, messages, options, decoding: [ApiSignedTransfer].self)
     }
     
     /**
      * See https://docs.tonconsole.com/academy/sign-data for more details
      */
-    public static func signData(accountId: String, dappUrl: String, payloadToSign: SignDataPayload, password: String?) async throws -> Any? {
-        try await bridge.callApiRaw("signData", accountId, dappUrl, payloadToSign, password)
+    public static func signDappData(dappChain: ApiDappSessionChain, accountId: String, dappUrl: String, payloadToSign: SignDataPayload, password: String?) async throws -> ApiDappSignDataResult {
+        try await bridge.callApi("signDappData", dappChain, accountId, dappUrl, payloadToSign, password, decoding: ApiDappSignDataResult.self)
     }
 }
 
-// MARK: - Support types
-
-public struct ApiSignTonProofResult: Decodable {
-    public var signature: String
-}
 
 public struct ApiSignTransfersOptions: Encodable {
     public var password: String?
     public var vestingAddress: String?
     /** Unix seconds */
     public var validUntil: Int?
+    public var isLegacyOutput: Bool?
     
-    public init(password: String?, vestingAddress: String?, validUntil: Int?) {
+    public init(password: String?, vestingAddress: String?, validUntil: Int?, isLegacyOutput: Bool?) {
         self.password = password
         self.vestingAddress = vestingAddress
         self.validUntil = validUntil
+        self.isLegacyOutput = isLegacyOutput
     }
 }
 

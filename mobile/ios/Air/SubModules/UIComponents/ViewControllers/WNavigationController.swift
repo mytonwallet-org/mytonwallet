@@ -24,7 +24,9 @@ open class WNavigationController: UINavigationController {
     open override func viewDidLoad() {
         super.viewDidLoad()
         delegate = self
-        setupFullWidthBackGesture()
+        if !IOS_26_MODE_ENABLED {
+            setupFullWidthBackGesture()
+        }
     }
 
     fileprivate lazy var fullWidthBackGestureRecognizer = SlowedPanGestureRecognizer()
@@ -58,10 +60,6 @@ open class WNavigationController: UINavigationController {
         return super.popViewController(animated: animated)
     }
     
-    open override func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) {
-        super.dismiss(animated: flag, completion: completion)
-        WalletCoreData.notify(event: .sheetDismissed)
-    }
 }
 
 extension WNavigationController: UINavigationControllerDelegate {

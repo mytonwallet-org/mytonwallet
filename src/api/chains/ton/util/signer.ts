@@ -2,7 +2,7 @@ import type { Cell } from '@ton/core';
 import type { SignDataPayload } from '@tonconnect/protocol';
 import { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
 
-import type { ApiTonConnectProof } from '../../../tonConnect/types';
+import type { TonConnectProof } from '../../../dappProtocols/adapters';
 import type {
   ApiAccountWithChain,
   ApiAccountWithMnemonic,
@@ -16,7 +16,7 @@ import { ApiCommonError } from '../../../types';
 import { parseAccountId } from '../../../../util/account';
 import withCache from '../../../../util/withCache';
 import { hexToBytes } from '../../../common/utils';
-import { signDataWithPrivateKey, signTonProofWithPrivateKey } from '../../../tonConnect/signing';
+import { signDataWithPrivateKey, signTonProofWithPrivateKey } from '../../../dappProtocols/adapters/tonConnect/signing';
 import { fetchPrivateKey } from '../auth';
 import { getTonWallet } from '../wallet';
 import { decryptMessageComment, encryptMessageComment } from './encryption';
@@ -31,7 +31,7 @@ type ErrorResult = { error: ApiAnyDisplayError };
 export interface Signer {
   /** Whether the signer produces invalid signatures and encryption, for example for emulation */
   readonly isMock: boolean;
-  signTonProof(proof: ApiTonConnectProof): MaybePromise<Buffer | ErrorResult>;
+  signTonProof(proof: TonConnectProof): MaybePromise<Buffer | ErrorResult>;
   /** The output Cell order matches the input transactions order exactly. */
   signTransactions(
     transactions: PreparedTransactionToSign[],
@@ -81,7 +81,7 @@ abstract class PrivateKeySigner implements Signer {
 
   abstract getPrivateKey(): MaybePromise<Uint8Array | ErrorResult>;
 
-  async signTonProof(proof: ApiTonConnectProof) {
+  async signTonProof(proof: TonConnectProof) {
     const privateKey = await this.getPrivateKey();
     if ('error' in privateKey) return privateKey;
 
@@ -176,7 +176,7 @@ class LedgerSigner implements Signer {
     public subwalletId?: number,
   ) {}
 
-  async signTonProof(proof: ApiTonConnectProof) {
+  async signTonProof(proof: TonConnectProof) {
     const { signTonProofWithLedger } = await import('../ledger');
     return signTonProofWithLedger(this.network, this.wallet, proof);
   }

@@ -1,6 +1,7 @@
 import type { ApiAnyDisplayError, ApiChain, ApiSwapAsset, ApiToken, ApiTokenWithPrice } from '../../../api/types';
 import { ApiHardwareError } from '../../../api/types';
 
+import { getDoesUsePinPad } from '../../../util/biometrics';
 import { getChainTitle } from '../../../util/chain';
 import { unique } from '../../../util/iteratees';
 import { getTranslation } from '../../../util/langProvider';
@@ -42,7 +43,8 @@ addActionHandler('submitSignature', async (global, actions, payload) => {
   const { promiseId } = global.currentSignature!;
 
   if (!(await callApi('verifyPassword', password))) {
-    setGlobal(updateCurrentSignature(getGlobal(), { error: 'Wrong password, please try again.' }));
+    const error = getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
+    setGlobal(updateCurrentSignature(getGlobal(), { error }));
 
     return;
   }

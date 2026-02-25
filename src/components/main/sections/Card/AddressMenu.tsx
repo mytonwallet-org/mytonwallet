@@ -10,7 +10,7 @@ import type { Layout } from '../../../../hooks/useMenuPosition';
 import { IS_CAPACITOR } from '../../../../config';
 import { selectCurrentAccount } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
-import { getOrderedAccountChains } from '../../../../util/chain';
+import { getChainConfig, getChainTitle, getOrderedAccountChains } from '../../../../util/chain';
 import { copyTextToClipboard } from '../../../../util/clipboard';
 import { stopEvent } from '../../../../util/domEvents';
 import { getShareIcon, shareUrl } from '../../../../util/share';
@@ -78,9 +78,12 @@ function AddressMenu({
 
   const lang = useLang();
 
-  const handleItemClick = useLastCallback((value: string, kind: 'address' | 'domain') => {
+  const handleItemClick = useLastCallback((value: string, kind: 'address' | 'domain', chain: ApiChain) => {
+    const message = kind === 'domain'
+      ? lang('%chain% Domain Copied', { chain: getChainTitle(chain) }) as string
+      : lang('%chain% Address Copied', { chain: getChainTitle(chain) }) as string;
     showToast({
-      message: lang(kind === 'domain' ? 'Domain was copied!' : 'Address was copied!'),
+      message,
       icon: 'icon-copy',
     });
     void copyTextToClipboard(value);
@@ -162,7 +165,7 @@ function MenuItem({
 }: {
   item: MenuItem;
   index: number;
-  onItemClick: (address: string, kind: 'address' | 'domain') => void;
+  onItemClick: (address: string, kind: 'address' | 'domain', chain: ApiChain) => void;
   onExplorerClick: (chain: ApiChain, address: string) => void;
   onMenuClose: NoneToVoidFunction;
 }) {
@@ -180,15 +183,15 @@ function MenuItem({
 
   const handleItemClick = (e: React.MouseEvent) => {
     if (hasDomain) {
-      onItemClick(item.domain!, 'domain');
+      onItemClick(item.domain!, 'domain', item.chain);
     } else {
-      onItemClick(item.value, 'address');
+      onItemClick(item.value, 'address', item.chain);
     }
   };
 
   const handleAddressClick = (e: React.MouseEvent) => {
     stopEvent(e);
-    onItemClick(item.value, 'address');
+    onItemClick(item.value, 'address', item.chain);
   };
 
   const handleExplorerClick = (e: React.MouseEvent) => {
@@ -229,7 +232,7 @@ function MenuItem({
               {item.chain.toUpperCase()}
             </>
           ) : (
-            item.chain.toUpperCase()
+            getChainConfig(item.chain).title
           )}
         </div>
       </div>

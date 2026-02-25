@@ -1,5 +1,7 @@
 @use "../../../../styles/mixins";
 
+$gapSize: 0.5rem;
+
 .emptyList {
   display: flex;
   align-items: center;
@@ -83,7 +85,6 @@
   }
 
   &:active {
-    // @optimization
     transition: none !important;
   }
 
@@ -103,31 +104,83 @@
   height: 9.75rem;
 }
 
-.list {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  align-content: start;
+@include mixins.respond-above(xs) {
+  .listContainer {
+    scrollbar-gutter: stable;
 
-  padding: 0.5rem;
+    overflow: hidden;
+    overflow-y: scroll;
 
-  &.landscapeList {
-    grid-template-columns: 1fr 1fr 1fr;
-    padding-top: 0;
+    width: 100%;
+    height: 100%;
+
+    &::before {
+      content: '';
+
+      position: sticky;
+      top: 0.0625rem;
+      left: 0;
+
+      display: block;
+
+      width: 100%;
+      height: 0.0625rem;
+
+      opacity: 0;
+      box-shadow: inset 0 -0.03rem 0 0 var(--color-separator);
+
+      @include mixins.transition(opacity 200ms);
+    }
+
+    &Scrolled::before {
+      opacity: 1;
+    }
   }
+}
+
+.list {
+  position: relative;
+  top: 0.5rem;
+  left: 0.5rem;
+  width: calc(100% - max(0rem, 0.5rem - var(--scrollbar-width)));
 }
 
 .item {
   cursor: var(--custom-cursor, pointer);
 
-  position: relative;
+  position: absolute;
   z-index: 0;
+  top: calc(var(--row) * (var(--cell-height) + var(--row-gap-size)));
 
+  width: var(--cell-width);
   min-width: 0;
+  height: var(--cell-height);
   padding-bottom: 0.125rem;
 
   font-size: 0.9375rem;
   font-weight: 600;
+
+  &:nth-child(2n+1) {
+    left: 0;
+  }
+
+  &:nth-child(2n) {
+    left: calc(var(--cell-width) + #{$gapSize});
+  }
+
+  @include mixins.respond-above(xs) {
+    &:nth-child(3n + 1) {
+      left: 0 !important;
+    }
+
+    &:nth-child(3n + 2) {
+      left: calc(var(--cell-width) + #{$gapSize}) !important;
+    }
+
+    &:nth-child(3n) {
+      left: calc((var(--cell-width) + #{$gapSize}) * 2) !important;
+    }
+  }
 
   &,
   &:hover,
@@ -165,8 +218,6 @@
   }
 
   &_onSale {
-    position: relative;
-
     &::before {
       opacity: 1;
     }
@@ -177,6 +228,19 @@
       transition: none;
     }
   }
+}
+
+.loadingWrapper {
+  position: absolute;
+  z-index: 0;
+  top: calc(var(--row) * (var(--cell-height) + var(--row-gap-size)));
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: 3rem;
 }
 
 .nonInteractive {
@@ -214,6 +278,33 @@
   }
 }
 
+.imageWrapperNoData {
+  display: flex !important;
+  flex-direction: column;
+  gap: 0.625rem;
+  align-items: center;
+  justify-content: center;
+
+  color: var(--color-gray-4);
+
+  background-color: var(--color-background-second);
+
+  :global(html.theme-dark) & {
+    background-color: #131314;
+  }
+}
+
+.noImage {
+  width: min(5.4375rem, var(--cell-width) * 0.6);
+}
+
+.noImageText {
+  font-size: min(1.25rem, var(--cell-width) * 0.1);
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .image {
   transform-origin: center;
 
@@ -224,8 +315,9 @@
   border-radius: var(--border-radius-normal);
 
   object-fit: cover;
+  filter: brightness(1);
 
-  transition: transform 300ms, opacity 300ms !important;
+  transition: filter 300ms, transform 300ms, opacity 300ms !important;
 
   :global(html.animation-level-0) & {
     transition: none !important;
@@ -292,18 +384,24 @@
 .title {
   font-weight: 700;
   color: var(--color-black);
-  overflow-wrap: anywhere;
+
+  .chainIcon + & {
+    margin-inline-start: 0.25rem;
+  }
 }
 
 .collection {
-  overflow: hidden;
-
   padding: 0.125rem 0.25rem 0;
-
   font-size: 0.75rem;
   line-height: 1;
   color: var(--color-gray-1);
+}
+
+.infoWrapper,
+.collection {
+  overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .radio {
@@ -325,4 +423,8 @@
 
 .notcoinVoucherIcon {
   margin-right: 0.5rem;
+}
+
+.chainIcon {
+  vertical-align: -0.125rem;
 }

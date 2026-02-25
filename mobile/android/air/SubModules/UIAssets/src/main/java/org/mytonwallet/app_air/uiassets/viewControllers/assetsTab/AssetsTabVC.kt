@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.NftCollection
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import java.util.concurrent.Executors
@@ -86,14 +87,14 @@ class AssetsTabVC(
             val homeNftCollections =
                 WGlobalStorage.getHomeNftCollections(AccountStore.activeAccountId ?: "")
             val items = mutableListOf<WSegmentedControllerItem>()
-            if (!homeNftCollections.contains(TAB_COINS))
+            if (!homeNftCollections.any { it.chain == MBlockchain.ton.name && it.address == TAB_COINS })
                 items.add(
                     WSegmentedControllerItem(
                         tokensVC,
                         identifier = identifierForVC(tokensVC)
                     )
                 )
-            if (!homeNftCollections.contains(TAB_COLLECTIBLES))
+            if (!homeNftCollections.any { it.chain == MBlockchain.ton.name && it.address == TAB_COLLECTIBLES })
                 items.add(
                     WSegmentedControllerItem(
                         collectiblesVC,
@@ -116,7 +117,7 @@ class AssetsTabVC(
             if (homeNftCollections.isNotEmpty()) {
                 val collections = NftStore.getCollections()
                 items.addAll(homeNftCollections.mapNotNull { homeNftCollection ->
-                    when (homeNftCollection) {
+                    when (homeNftCollection.address) {
                         TAB_COINS -> {
                             WSegmentedControllerItem(tokensVC, identifierForVC(tokensVC))
                         }
@@ -137,10 +138,13 @@ class AssetsTabVC(
 
                         else -> {
                             val collectionMode =
-                                if (homeNftCollection == NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION) {
+                                if (homeNftCollection.address == NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION) {
                                     AssetsVC.CollectionMode.TelegramGifts
                                 } else {
-                                    collections.find { it.address == homeNftCollection }
+                                    collections.find {
+                                        it.address == homeNftCollection.address &&
+                                            it.chain == homeNftCollection.chain
+                                    }
                                         ?.let { AssetsVC.CollectionMode.SingleCollection(collection = it) }
                                 }
                             if (collectionMode != null) {
@@ -178,7 +182,18 @@ class AssetsTabVC(
                                                             WGlobalStorage.getHomeNftCollections(
                                                                 AccountStore.activeAccountId!!
                                                             )
-                                                        homeNftCollections.remove(collectionMode.collectionAddress)
+                                                        val collectionChain =
+                                                            when (collectionMode) {
+                                                                is AssetsVC.CollectionMode.SingleCollection ->
+                                                                    collectionMode.collection.chain
+
+                                                                is AssetsVC.CollectionMode.TelegramGifts ->
+                                                                    MBlockchain.ton.name
+                                                            }
+                                                        homeNftCollections.removeAll {
+                                                            it.address == collectionMode.collectionAddress &&
+                                                                it.chain == collectionChain
+                                                        }
                                                         WGlobalStorage.setHomeNftCollections(
                                                             AccountStore.activeAccountId!!,
                                                             homeNftCollections

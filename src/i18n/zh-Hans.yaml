@@ -89,21 +89,19 @@ Done: 完成
 Delete: 删除
 Delete Saved Address: 删除保存的地址
 Are you sure you want to remove this address from your saved ones?: 您确定要从保存的地址中删除吗？
-You will be able to save it again via Transaction Info with this address.: 您也可以通过交易记录再次保存此地址。
 Address removed from saved: 地址已从列表中删除
 Warning!: 警告！
 $logout_without_backup_warning: 您尚未备份钱包！如果您注销，您将永远丧失您的代币和 NFT ！
 $logout_accounts_without_backup_warning: 您还没有备份此账户 %links%。 如果您注销，您将永远丧失您的代币和 NFT ！
 $logout_warning: 这将从应用中移除当前钱包。请确保已备份您的**密语**。
 $logout_view_mode_warning: 这将从应用中移除当前钱包。
-Your address was copied!: 您的地址已复制！
 Create Deposit Link: 创建存款链接
 $receive_invoice_description: 您可以指定付款金额和收款地址来节省付款方的一些时间。
 Amount: 数量
 Comment: 留言
 Comment or Memo: 留言 (Memo)
 Share this URL to receive %token%: 分享此链接来接收 %token%
-Invoice link was copied!: 发票链接已复制！
+Invoice Link Copied: 发票链接已复制
 Theme: 主题
 Language: 语言
 Enable Animations: 启用动画
@@ -131,16 +129,12 @@ $signature_warning: |
 Sign: 签署
 Done!: 完成!
 Signing was confirmed!: 签署已确认!
-Transaction Info: 交易资讯
 Activity Details: 活动详情
 No activities found: 未找到活动
-Transaction not found: 未找到交易
-Failed to fetch transaction: 获取交易失败
-Transaction in progress: 交易进行中···
-Comment was copied!: 留言栏已复制
+Comment Copied: 留言栏已复制
 Sender: 发送者
 Recipient: 接收者
-Address was copied!: 地址已被复制!
+"%chain% Address Copied": "%chain% 地址已复制"
 Repeat: 重复
 Switch Account: 切换账户
 Copy wallet address: 复制钱包地址
@@ -187,7 +181,6 @@ Fee: 手续费
 Edit: 编辑
 Confirm: 确认
 Coins have been sent!: 代币已送出!
-Transaction Sent!: 交易已发送!
 Data Signed!: 数据已签名!
 Details: 明细
 View details: 查看详情
@@ -225,7 +218,6 @@ $safe_staking_description_jetton2: 您可以在 **任何时候** 提取您的质
 $min_value: 最小 %value%
 Est. balance in a year: 年平均预期回报
 Confirm Staking: 确认质押
-Confirm operation with your password: 使用您的密码以确认此操作
 Coins have been staked!: 代币已质押！
 View: 查看
 Stake More: 质押更多
@@ -284,7 +276,6 @@ Disconnect Dapp: 断开 Dapp
 Disconnect Dapps: 断开 Dapps
 Are you sure you want to disconnect?: 您确定要断开 %dappname% 吗？
 Are you sure you want to disconnect all websites?: 您确定要断开所有网站吗？
-$dapps-description: 您可以登录支持 %app_name% 的 dapp。 它们可以查看钱包地址、余额并请求操作。
 Logged in with %app_name%: 使用 %app_name% 登录
 No active connections: 没有活动连接
 Other: 其他的
@@ -308,11 +299,9 @@ Driver: 司机
 Unlock it and open the %chain% App: 解锁并打开 %chain% 应用
 Maybe you need to check the password or change the driver.: 也许您需要检查密码或更改驱动程序。
 Confirm via Ledger: 通过账本确认
-Please confirm transaction on your Ledger: 请在您的账本上确认交易
 Declined: 谢绝
 Switch to the newly opened tab to connect Ledger.: 切换到新打开的标签页以连接 Ledger。
 Once connected, switch back to this window to proceed.: 连接成功后，请切换回此窗口以继续。
-Not all transactions were sent successfully: 并非所有交易都成功发送
 The time on your device is incorrect, sync it and try again: 您设备上的时间不正确，请同步并重试
 Name or Address...: 姓名或地址...
 Such error, many tabs: 这样的错误，很多标签
@@ -320,12 +309,11 @@ $many_tabs_error_description: |
   %app_name% 仅支持该应用程序的一个活动选项卡。
   请重新加载此页面以继续使用此选项卡或将其关闭。
 Reload App: 重新加载应用程序
-Please confirm operation on your Ledger: 请确认您在Ledger上的操作
 Token Not Found: 找不到令牌
 Try another keyword or address.: 尝试其他关键字或地址。
 Decrypt: 解密
 Encrypted Message: 加密消息
-Message is encrypted.: 消息已加密。
+Message is encrypted: 消息已加密
 Agree: 同意
 $swap_action: 交换
 Swap: 交换
@@ -396,7 +384,6 @@ $swap_changelly_kyc_security: 请联系**%email%**并提供**交易ID**以通过
 Swap Expired: 交换已过期
 Address for %blockchain% transfer: "%blockchain% 传输地址"
 Cross-chain exchange provided by Changelly: 由Changelly提供的跨链交换
-$swap_changelly_agreement_message: 继续操作，即表示您同意 %terms% 和 %policy%，并理解该交易可能会触发根据 %kyc% 进行的验证。
 $swap_changelly_terms_of_use: 使用条款
 $swap_changelly_privacy_policy: 隐私政策
 Password must contain %length% digits.: 密码必须包含%length%位数字。
@@ -411,19 +398,17 @@ Biometric Authentication: 生物识别认证
 If you turn off biometric protection, you will need to create a password.: 如果您关闭生物识别保护，则需要创建密码。
 Enter your current password: 输入当前密码
 Turn On Biometrics: 打开生物识别
-Please confirm transaction using biometrics: 请使用生物识别技术确认交易
 Enabling biometric confirmation will reset the password.: 启用生物识别确认将重置密码。
 Biometric Registration: 生物识别注册
 Step 1 of 2. Registration: 第 1 步（共 2 步）：注册
 Step 2 of 2. Verification: 第 2 步（共 2 步）：验证
 Download Logs: 下载日志
 Copy Logs: 复制日志
-Logs were copied!: 日志已复制！
+Logs Copied: 日志已复制
 Biometric setup failed.: 生物识别设置失败。
 Biometric confirmation failed.: 生物识别确认失败。
 Failed to disable biometrics.: 无法禁用生物识别。
 Biometric Confirmation: 生物识别确认
-Please verify the operation.: 请验证操作。
 Create Password: 创建密码
 Complete: 完成
 Verification: 确认
@@ -437,7 +422,7 @@ Scan QR Code: 扫描二维码
 Permission denied. Please grant camera permission to use the QR code scanner.: 没有权限。 请授予相机使用 QR 扫描仪的权限。
 This QR Code is not supported: 此二维码不受支持
 An error on the server side. Please try again.: 服务器端的错误。请再试一次。
-Address was saved!: 地址已保存！
+Address Saved: 地址已保存
 US Dollar: 美元
 Euro: 欧元
 Russian Ruble: 俄罗斯卢布
@@ -452,7 +437,6 @@ Wallet is ready!: 钱包准备好了！
 Wallet is imported!: 钱包是进口的！
 Create a code to protect it: 创建代码来保护它
 Enter your code again: 再次输入您的代码
-Codes don't match: 代码不匹配
 Code set successfully: 代码设置成功
 Use Biometrics: 使用生物识别技术
 Use Touch ID: 使用 Touch ID
@@ -511,7 +495,7 @@ $insufficient_fee: "手续费不足: %fee%"
 Required: 必需的
 Comment is too long.: 评论太长了。
 Memo: Memo
-Memo was copied!: Memo 被复制了！
+Memo Copied: Memo 被复制了
 $hide_tokens_no_cost_help: |
   将其关闭以在您的帐户上显示为价值小于 $%value% 的代币。请注意，这种令牌通常用于垃圾邮件和骗局。
   您还可以使用下面在此屏幕上的列表选择性地启用和禁用特定令牌。
@@ -519,9 +503,7 @@ No internet connection. Please check your connection and try again.: 没有网�
 To use this feature, first enable Face ID in your phone settings.: 要使用此功能，请首先在手机设置中启用面容 ID。
 To use this feature, first enable biometrics in your phone settings.: 要使用此功能，请首先在手机设置中启用生物识别功能。
 Open Settings: 打开设置
-$service_token_transfer_warning: 您即将转移一个重要的服务代币，该代币是提款或完成服务操作所必需的。请确保这是您打算执行的操作。
 No Price: 无价格
-$ledger_outdated: 此操作不支持您当前版本的 Ledger %chain% 应用程序。请使用 Ledger Live 进行更新。
 $dapp_transfer_tokens_burn: 燃烧%amount%
 $dapp_dns_set_wallet_payload: 将域 %domain% 的链接钱包更改为 %address%
 $dapp_dns_delete_wallet_payload: 删除域 %domain% 的链接钱包
@@ -535,7 +517,10 @@ $dapp_single_nominator_withdraw_payload: 从 SingleNominator 质押合约中提�
 $dapp_vesting_add_whitelist_payload: 将 %address% 添加到归属钱包白名单
 Connecting dapps is not yet supported by Ledger.: Ledger 尚不支持连接 dapp。
 Time synchronization issue. Please ensure your device's time settings are correct.: 时间同步问题。 请确保您设备的时间设置正确。
-Data was copied!: 数据被复制！
+Data Copied: 数据被复制
+URL Copied: URL Copied
+Private Key Copied: Private Key Copied
+Contract Initialization Data Copied: Contract Initialization Data Copied
 Open NFT Collection: 打开 NFT 收藏
 Previous: 上一页
 Next: 下一页
@@ -551,17 +536,12 @@ Swap is not yet supported by Ledger.: Ledger 尚不支持该交易所。
 Buying with card is not supported in Testnet.: 测试网不支持刷卡购买。
 Staking is not supported in Testnet.: 测试网不支持质押。
 Get Support: 得到支持
-$transfer_inactive_contract_error: |
-  您以“EQ...”格式输入了地址，但该地址未激活，因此交易将无法完成。如果您确实要发送到该地址，请以“UQ...”格式输入该地址。
 $transfer_link_expired: 转账链接已过期
 $transfer_text_and_bin_exclusive: 不能同时使用文本和二进制数据参数
 $unsupported_deeplink_parameter: 此深度链接包含不支持的参数。
 $unsupported_chain: 不支持的区块链。
-$transaction_not_found: 未找到交易。
-$could_not_determine_address: 无法从交易中确定钱包地址
 Successfully: 成功地
 Unstake More: 解除质押更多
-WrongAddress: 该 dapp 请求另一个钱包进行交易。
 Are you sure you want to burn this NFT? It will be lost forever.: 您确定要烧毁这个 NFT 吗？ 它将永远失去。
 $multi_burn_nft_warning: 您即将销毁 %amount% 个 NFT。
 $multi_send_nft_warning: 该过程可能需要 ~%duration% 分钟。请勿关闭应用程序，也不要在完成之前切换账户。
@@ -579,7 +559,7 @@ Burn All: 全部烧掉
 Select All: 全选
 Collection: 集合
 Unnamed Collection: 未命名集合
-Transaction ID was copied!: 交易ID已被复制！
+Transaction ID Copied: 交易ID已被复制
 $swap_changelly_support: 如果有任何问题，请联系%livechat%或%email%并提供**交易ID**：
 Changelly Live Chat: Changelly 实时聊天
 Your %blockchain% Address: 您的%blockchain% 地址
@@ -603,10 +583,12 @@ $fee_value_bold: "**手续费:** %fee%"
 "%app_name% Features": "%app_name% 功能"
 Security: 安全
 To avoid entering the passcode every time, you can use biometrics.: 为避免每次输入密码，您可以使用生物识别技术。
+To avoid entering the password every time, you can use biometrics.: 为避免每次输入密码，您可以使用生物识别技术。
 Change Passcode: 更改密码
 Change Password: 更改密码
 Confirm Password: 确认密码
 The passcode will be changed for all your wallets.: 密码将为您的所有钱包更改。
+The password will be changed for all your wallets.: 密码将为您的所有钱包更改。
 Password Changed!: 密码已更改！
 Passcode Changed!: 密码已更改！
 New code set successfully: 新代码设置成功
@@ -616,7 +598,6 @@ Re-enter your new code: 再次输入您的新代码
 Install on Desktop: 安装到桌面
 Install on Mobile: 安装在手机
 Install App: 安装应用
-WrongNetwork: Dapp 从另一个网络请求交易。
 Hide: 隐藏
 Hidden NFTs: 隐藏的NFT
 Hidden By Me: 我隐藏的
@@ -640,7 +621,6 @@ Confirm Sending: 确认发送
 Confirm Burning: 确认刻录
 Confirm Passcode: 确认密码
 Enter your code: 输入您的代码
-$hardware_payload_warning: "**第三方服务正在请求访问您的钱包。**这可能会导致资金损失。如果您不确定该服务的可靠性，请取消操作。"
 $hardware_blind_sign_not_enabled: 要继续，请在 Ledger 的 %chain% 应用程序设置中启用“盲签名”选项。
 Switch to W5: 切换到 W5
 Not Scam: 不是骗局
@@ -712,7 +692,7 @@ Transaction ID: 交易ID
 Help Center: 帮助中心
 MyTonWallet Tips: MyTonWallet 提示
 Open %nft_marketplace%: 打开 %nft_marketplace%
-Link was copied!: 链接已复制！
+Link Copied: 链接已复制
 Share Link: 分享链接
 $dapp_return_details: |
   %fee_amount% 将立即从您的钱包扣除以支付费用。
@@ -809,6 +789,7 @@ Preview: 预览
 $preview_not_guaranteed: 预览结果**不受保证**，且**可能被服务伪造**。
 Unverified Source: 未经验证的来源
 $reopen_in_iab: 请使用 MyTonWallet %mobileAppButton% 或 %browserExtensionButton% 以避免此警告。
+$reopen_in_iab_explore: 浏览应用时，请使用 %exploreTab% 栏目以避免此警告。
 MyTonWallet Browser: MyTonWallet 浏览器
 mobile app: 移动应用
 browser extension: 浏览器扩展
@@ -848,7 +829,7 @@ Change Linked Wallet: 更改已链接钱包
 Domain has been renewed!: 域名已续费!
 Domains have been renewed!: 域名已成功续费!
 Linked Wallet: 已链接钱包
-Domain has been linked!: 域名已链接!
+Domain Linked: 域名已链接
 Link: 链接
 Confirm Renewing: 确认续费
 Confirm Linking: 确认链接
@@ -890,7 +871,7 @@ Attributes: 属性
 Show All: 显示全部
 Description: 描述
 No additional data.: 无附加数据。
-Domain was copied!: 域名已复制！
+"%chain% Domain Copied": "%chain% 域名已复制"
 $in_currency: 以 %currency%
 Rename Wallet: 重命名钱包
 You can rename this wallet for easier identification.: 您可以重命名该钱包以便于识别。
@@ -903,7 +884,6 @@ Telegram Gifts: Telegram 礼物
 Collectibles: 收藏品
 Bluetooth unavailable: 蓝牙不可用
 $bluetooth_enable_guide: 请在设备设置中开启蓝牙并允许应用访问蓝牙。
-Another transaction was sent from this wallet simultaneously. Please try again.: 此钱包同时发送了另一笔交易。请重试。
 Canceled by the user: 用户已取消
 The proof for signing provided by the Dapp is too large: Dapp 提供的签名证明过大
 $domain_like_scam_warning: |
@@ -998,7 +978,7 @@ View in App: 在应用中查看
 Save Account: 保存账户
 $invalid_address_format: 地址格式无效
 $no_valid_view_addresses: 没有可查看的有效地址
-Account saved successfully!: 账户已成功保存！
+Account Saved: 账户已成功保存
 Share Wallet Link: 分享钱包链接
 Remove: 移除
 $missing_offramp_deposit_address: 缺少 off-ramp 的充值地址。
@@ -1036,8 +1016,48 @@ Open in %app_name%: 在 %app_name% 中打开
 Blog: 博客
 Apps: 应用
 $nft_not_found: 未找到 NFT
+You will be able to save it again via Transfer Info with this address.: 您将能够通过此地址的转账信息再次保存它。
+Transfer Info: 转账信息
+Transfer not found: 未找到转账
+Failed to fetch transfer: 获取转账失败
+Transfer in progress: 转账进行中
+Transfer Sent!: 转账已发送！
+Please confirm transfer on your Ledger: 请在您的 Ledger 上确认转账
+Please confirm action on your Ledger: 请在您的 Ledger 上确认操作
+Not all transfers were sent successfully: 并非所有转账都发送成功
+$swap_changelly_agreement_message: 继续即表示您同意 %terms% 和 %policy%，并理解该转账可能会根据 %kyc% 触发验证。
+Please confirm transfer using biometrics: 请使用生物识别确认转账
+$transfer_inactive_contract_error: |
+  您输入了 "EQ..." 格式的地址，但该地址未激活，因此转账不会完成。
+  如果您确实想发送到此地址，请以 "UQ..." 格式输入地址。
+$transaction_not_found: 未找到转账。
+$could_not_determine_address: 无法从转账中确定钱包地址
+WrongAddress: 去中心化应用 (dapp) 请求了另一个钱包的操作。
+WrongNetwork: 去中心化应用 (dapp) 请求了另一个网络的操作。
+Another transfer was sent from this wallet simultaneously. Please try again.: 同时从此钱包发送了另一笔转账。请重试。
+Confirm action with your password: 用密码确认操作
+$dapps-description: 您可以在支持 %app_name% 的去中心化应用 (dapps) 上登录。它们可以查看钱包地址、余额并请求操作。
+Please verify the action.: 请验证操作。
+$service_token_transfer_warning: 您即将转移一个重要的服务代币，该代币是提取存款或完成服务操作所必需的。请确保这是您打算执行的操作。
+$ledger_outdated: 此操作不受您的 Ledger %chain% 应用程序版本支持。请使用 Ledger Live 更新它。
+$hardware_payload_warning: "**第三方服务正在请求访问您的钱包。** 这可能导致资金损失。如果您不确定此服务的可靠性，请取消操作。"
 Pin: 固定
 Unpin: 取消固定
 My Assets: 我的资产
 Owner: 所有者
 Show All Wallets: 显示所有钱包
+Ask a Question: 提问
+MyTonWallet Features: MyTonWallet 功能
+Notifications: 通知
+Wrong passcode, please try again: 密码错误，请重试。
+Use biometric authentication or create a passcode to protect it.: 使用生物识别认证或创建密码进行保护。
+Use Passcode: 使用密码
+Create Passcode: 创建密码
+Create a passcode to protect it.: 创建密码进行保护。
+Enter Passcode: 输入密码
+If you turn off biometric protection, you will need to create a passcode.: 如果您关闭生物识别保护，您需要创建密码。
+Enabling biometric confirmation will reset the passcode.: 启用生物识别确认将重置密码。
+Confirm operation with your passcode: 使用您的密码确认操作
+Confirm action with your passcode: 用密码确认操作
+No Image: 无图片
+Different blockchain. Cannot be selected: 不同的区块链。无法选择

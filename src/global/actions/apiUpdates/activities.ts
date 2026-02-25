@@ -8,15 +8,10 @@ import {
   MTW_CARDS_COLLECTION,
 } from '../../../config';
 import { getActivityIdReplacements } from '../../../util/activities';
-import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { playIncomingTransactionSound } from '../../../util/notificationSound';
 import { getIsTransactionWithPoisoning, updatePoisoningCacheFromActivities } from '../../../util/poisoningHash';
 import { waitFor } from '../../../util/schedulers';
 import { getChainBySlug } from '../../../util/tokens';
-import {
-  IS_DELEGATED_BOTTOM_SHEET,
-  IS_DELEGATING_BOTTOM_SHEET,
-} from '../../../util/windowEnvironment';
 import { SEC } from '../../../api/constants';
 import { getIsTinyOrScamTransaction } from '../../helpers';
 import { addActionHandler, getActions, getGlobal, setGlobal } from '../../index';
@@ -79,14 +74,6 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     }
 
     case 'newActivities': {
-      if (IS_DELEGATING_BOTTOM_SHEET && !update.noForward) {
-        // Local transaction in NBS was not updated after nft/transfer sending was completed
-        callActionInNative('apiUpdate', { ...update, noForward: true });
-      }
-      if (IS_DELEGATED_BOTTOM_SHEET && !update.noForward) {
-        // A local swap transaction is not created if the NBS is closed before the exchange is completed
-        callActionInMain('apiUpdate', { ...update, noForward: true });
-      }
       const { accountId, activities: newConfirmedActivities, pendingActivities, chain } = update;
 
       const prevActivitiesForReplacement = [

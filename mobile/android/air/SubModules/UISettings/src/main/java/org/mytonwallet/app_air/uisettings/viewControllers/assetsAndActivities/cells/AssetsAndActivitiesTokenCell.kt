@@ -6,18 +6,21 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatTextView
+import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.customview.widget.ViewDragHelper
 import androidx.recyclerview.widget.RecyclerView
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.TokenNameHelper
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.swipeRevealLayout.SwipeRevealLayout
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
-import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WSwitch
@@ -33,7 +36,6 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.math.BigInteger
 import kotlin.math.abs
 
 @SuppressLint("ViewConstructor")
@@ -46,8 +48,8 @@ class AssetsAndActivitiesTokenCell(
         private const val MAIN_VIEW_RADIUS = 18f
     }
 
-    lateinit var token: MToken
-        private set
+    private var tokenBalance: MTokenBalance? = null
+    private var tokenSlug: String? = null
     private val lastItemRadius = (ViewConstants.BLOCK_RADIUS - 1.5f).dp
 
     private val redRipple = WRippleDrawable.create(0f).apply {
@@ -68,6 +70,12 @@ class AssetsAndActivitiesTokenCell(
     private val imageView: IconView by lazy {
         val img = IconView(context, 44.dp)
         img
+    }
+
+    private val pinIcon: ImageView by lazy {
+        ImageView(context).apply {
+            id = generateViewId()
+        }
     }
 
     private val tokenNameLabel: WLabel by lazy {
@@ -194,15 +202,19 @@ class AssetsAndActivitiesTokenCell(
     override fun setupViews() {
         super.setupViews()
 
+        val pinMargin = if (isPinned) 18 else 0
         mainView.addView(imageView, ViewGroup.LayoutParams(46.dp, 46.dp))
-        mainView.addView(tokenNameLabel, LayoutParams(0, LayoutParams.WRAP_CONTENT))
+        mainView.addView(pinIcon, ViewGroup.LayoutParams(14.dp, 20.dp))
+        mainView.addView(tokenNameLabel, LayoutParams(0, WRAP_CONTENT))
         mainView.addView(amountLabel)
         mainView.addView(switchView)
         mainView.setConstraints {
             toTop(imageView, 8f)
             toStart(imageView, 12f)
             toTop(tokenNameLabel, 8f)
-            toStart(tokenNameLabel, 68f)
+            toStart(pinIcon, 68f)
+            centerYToCenterY(pinIcon, tokenNameLabel)
+            toStart(tokenNameLabel, 68f + pinMargin)
             endToStart(tokenNameLabel, switchView, 8f)
             toBottom(amountLabel, 8f)
             toStart(amountLabel, 68f)
@@ -258,35 +270,56 @@ class AssetsAndActivitiesTokenCell(
         tokenNameLabel.setTextColor(WColor.PrimaryText.color)
         amountLabel.contentView.setTextColor(WColor.SecondaryText.color)
         deleteLabel.setTextColor(WColor.TextOnTint.color)
+
+        val drawable = ContextCompat.getDrawable(context, R.drawable.ic_pin_solid_14_20)?.apply {
+            setTint(WColor.SecondaryText.color)
+        }
+        pinIcon.setImageDrawable(drawable)
     }
 
     private var isLast = false
+    private var isPinned = false
+
     fun configure(
         token: MToken,
-        balance: BigInteger,
+        tokenBalance: MTokenBalance,
         isLast: Boolean,
+        isHidden: Boolean,
+        isPinned: Boolean,
         isSwipeEnabled: Boolean = true,
         onDeleteToken: (() -> Unit)? = null
     ) {
-        this.token = token
+        this.tokenBalance = tokenBalance
+        this.tokenSlug = tokenBalance.virtualStakingToken
         this.isLast = isLast
+        this.isPinned = isPinned
         this.onDeleteToken = onDeleteToken ?: {
             setTokenVisibility(false)
         }
 
         swipeRevealLayout.setLockDrag(!isSwipeEnabled)
-        imageView.config(token, AccountStore.activeAccount?.isMultichain == true)
-        tokenNameLabel.text = token.name
-        amountLabel.setMaskCols(4 + abs(token.slug.hashCode() % 8))
+        pinIcon.isGone = !isPinned
+        val pinMargin = if (isPinned) 18 else 0
+        mainView.setConstraints {
+            toStart(tokenNameLabel, 68f + pinMargin)
+        }
+        imageView.config(
+            tokenBalance,
+            AccountStore.activeAccount?.isMultichain == true,
+            tokenBalance.isVirtualStakingRow && tokenBalance.amountValue > java.math.BigInteger.ZERO
+        )
+        val tokenName = TokenNameHelper.getTokenName(token, tokenBalance)
+        tokenNameLabel.text = tokenName
+        amountLabel.setMaskCols(4 + abs(tokenBalance.virtualStakingToken.hashCode() % 8))
         amountLabel.contentView.setAmount(
-            MTokenBalance.fromParameters(token, balance)!!.toBaseCurrency,
+            tokenBalance.toBaseCurrency,
             token.decimals,
             WalletCore.baseCurrency.sign,
             WalletCore.baseCurrency.decimalsCount,
             true
         )
         skipSwitchChangeListener = true
-        switchView.isChecked = !token.isHidden()
+        switchView.isChecked = !isHidden
         skipSwitchChangeListener = false
 
         secondaryView.setOnClickListener {
@@ -301,24 +334,25 @@ class AssetsAndActivitiesTokenCell(
     }
 
     private fun setTokenVisibility(visible: Boolean) {
+        val slug = tokenSlug ?: return
         val data = AccountStore.assetsAndActivityData
         if (visible) {
             data.hiddenTokens.removeAll { hiddenSlug ->
-                hiddenSlug == token.slug
+                hiddenSlug == slug
             }
             if (!data.visibleTokens.any { hiddenSlug ->
-                    hiddenSlug == token.slug
+                    hiddenSlug == slug
                 }) {
-                data.visibleTokens.add(token.slug)
+                data.visibleTokens.add(slug)
             }
         } else {
             data.visibleTokens.removeAll { hiddenSlug ->
-                hiddenSlug == token.slug
+                hiddenSlug == slug
             }
             if (!data.hiddenTokens.any { hiddenSlug ->
-                    hiddenSlug == token.slug
+                    hiddenSlug == slug
                 }) {
-                data.hiddenTokens.add(token.slug)
+                data.hiddenTokens.add(slug)
             }
         }
 

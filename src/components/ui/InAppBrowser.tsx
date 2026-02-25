@@ -1,5 +1,4 @@
 import type { InAppBrowserObject } from '@awesome-cordova-plugins/in-app-browser';
-import { BottomSheet } from '@mytonwallet/native-bottom-sheet';
 import { memo, useEffect, useMemo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
@@ -14,13 +13,11 @@ import { compact } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
 import { waitFor } from '../../util/schedulers';
 import { convertExplorerUrl, getHostnameFromUrl } from '../../util/url';
-import { IS_DELEGATING_BOTTOM_SHEET, IS_IOS, IS_IOS_APP } from '../../util/windowEnvironment';
+import { IS_IOS, IS_IOS_APP } from '../../util/windowEnvironment';
 
 import useExplorerUrl from '../../hooks/useExplorerUrl';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
-
-import { getIsAnyNativeBottomSheetModalOpen } from './Modal';
 
 type CustomInAppBrowserObject = Omit<InAppBrowserObject, 'hide' | 'close'> & {
   hide(): Promise<void>;
@@ -33,7 +30,6 @@ interface StateProps {
   url?: string;
   theme: string;
   animationLevel?: number;
-  shouldKeepNativeBottomSheetOpen?: boolean;
   selectedExplorerIds?: Partial<Record<ApiChain, string>>;
   isTestnet?: boolean;
 }
@@ -51,10 +47,9 @@ const CLOSE_MAX_DURATION = 900;
 
 // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 let inAppBrowser: Cordova['InAppBrowser'] | undefined;
-let shouldRestoreBottomSheet = false;
 
 function InAppBrowser({
-  title, subtitle, url, shouldKeepNativeBottomSheetOpen, theme, animationLevel, selectedExplorerIds, isTestnet,
+  title, subtitle, url, theme, animationLevel, selectedExplorerIds, isTestnet,
 }: StateProps) {
   const { closeBrowser, setSelectedExplorerId } = getActions();
 
@@ -106,15 +101,7 @@ function InAppBrowser({
     }
   });
 
-  const handleBrowserClose = useLastCallback(async () => {
-    if (IS_DELEGATING_BOTTOM_SHEET) {
-      await BottomSheet.enable();
-      if (shouldRestoreBottomSheet) {
-        await BottomSheet.show();
-        shouldRestoreBottomSheet = false;
-      }
-    }
-
+  const handleBrowserClose = useLastCallback(() => {
     inAppBrowser.removeEventListener('loaderror', handleError);
     inAppBrowser.removeEventListener('menuitemselected', handleMenuItemSelected);
     inAppBrowser.removeEventListener('exit', handleBrowserClose);
@@ -124,28 +111,8 @@ function InAppBrowser({
     cleanupDappBridge();
   });
 
-  const openBrowser = useLastCallback(async () => {
-    let didHideBottomSheet = false;
-    let didDisableBottomSheet = false;
-
+  const openBrowser = useLastCallback(() => {
     try {
-      if (IS_DELEGATING_BOTTOM_SHEET) {
-        const { value: isShown } = await BottomSheet.isShown();
-
-        if (isShown && !shouldKeepNativeBottomSheetOpen) {
-          await BottomSheet.hide();
-          shouldRestoreBottomSheet = true;
-          didHideBottomSheet = true;
-        } else {
-          shouldRestoreBottomSheet = false;
-        }
-
-        if (!isShown) {
-          await BottomSheet.disable();
-          didDisableBottomSheet = true;
-        }
-      }
-
       const browserTitle = !title && currentUrl ? getHostnameFromUrl(currentUrl) : title;
       const browserSubtitle = subtitle === browserTitle ? undefined : subtitle;
 
@@ -170,16 +137,6 @@ function InAppBrowser({
         menu,
       );
     } catch (err) {
-      if (IS_DELEGATING_BOTTOM_SHEET) {
-        if (didHideBottomSheet && shouldRestoreBottomSheet) {
-          await BottomSheet.show();
-        }
-        if (didDisableBottomSheet) {
-          await BottomSheet.enable();
-        }
-        shouldRestoreBottomSheet = false;
-      }
-
       logDebugError('inAppBrowser open error', err);
       return;
     }
@@ -195,13 +152,6 @@ function InAppBrowser({
           resolve();
         }
       });
-    };
-
-    const originalShow = inAppBrowser.show;
-    inAppBrowser.show = () => {
-      if (!shouldKeepNativeBottomSheetOpen || !getIsAnyNativeBottomSheetModalOpen()) {
-        originalShow?.();
-      }
     };
 
     const originalClose = inAppBrowser.close;
@@ -260,7 +210,6 @@ export default memo(withGlobal((global): StateProps => {
     subtitle: currentBrowserOptions?.subtitle,
     theme: settings.theme,
     animationLevel: settings.animationLevel,
-    shouldKeepNativeBottomSheetOpen: currentBrowserOptions?.shouldKeepNativeBottomSheetOpen,
     selectedExplorerIds: settings.selectedExplorerIds,
     isTestnet: settings.isTestnet,
   };

@@ -157,9 +157,11 @@ function Assets({
       ?.filter(({ isDisabled }) => !isDisabled)
       .map(({ slug }) => slug)
   ), [allTokensWithStaked]);
-  const [viewportSlugs, getMore] = useInfiniteScroll(
-    undefined, tokenSlugs, undefined, undefined, undefined, isActive, isPortrait,
-  );
+  const [viewportSlugs, getMore] = useInfiniteScroll({
+    listIds: tokenSlugs,
+    isActive,
+    withResetOnInactive: isPortrait,
+  });
   const viewportIndex = useMemo(() => {
     if (!viewportSlugs) return -1;
 

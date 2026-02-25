@@ -1,5 +1,9 @@
-import type { ApiDapp, ApiDappRequest } from '../api/types';
+import type { StoredDappConnection } from '../api/dappProtocols/storage';
+import type { ApiDappRequest } from '../api/types';
 
-export function getDappConnectionUniqueId(request: ApiDappRequest | ApiDapp): string {
-  return (request as any).sseOptions?.appClientId ?? (request as any).sse?.appClientId ?? 'jsbridge';
+export function getDappConnectionUniqueId(request: ApiDappRequest | StoredDappConnection): string {
+  return (request as ApiDappRequest).sseOptions?.appClientId
+    || (request as StoredDappConnection).sse?.appClientId
+    || (request as StoredDappConnection).wcPairingTopic
+    || 'jsbridge';
 }

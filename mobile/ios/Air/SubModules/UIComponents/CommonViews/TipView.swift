@@ -110,9 +110,14 @@ public struct TipView<Content: View>: View {
             }
         }
         .clipShape(.rect(cornerRadius: 14))
+        .frame(maxWidth: maxDialogWidth)
         .padding(.horizontal, wide ? 32 : 60)
         .offset(y: dy / 6)
         .buttonStyle(.plain)
+    }
+    
+    var maxDialogWidth: CGFloat {
+        wide ? 560 : 420
     }
     
     @ViewBuilder

@@ -7,7 +7,7 @@ const DEFAULT_THRESHOLD = 350;
 function useLongPress({
   onClick, onStart, onEnd, threshold = DEFAULT_THRESHOLD,
 }: {
-  onStart?: NoneToVoidFunction;
+  onStart?: (target: HTMLElement) => void;
   onClick?: (event: React.MouseEvent | React.TouchEvent) => void;
   onEnd?: NoneToVoidFunction;
   threshold?: number;
@@ -15,6 +15,7 @@ function useLongPress({
   const isLongPressActive = useRef(false);
   const isPressed = useRef(false);
   const timerId = useRef<number | undefined>(undefined);
+  const targetRef = useRef<HTMLElement | undefined>(undefined);
 
   const start = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const canProcessEvent = ('button' in e && e.button === 0) || ('touches' in e && e.touches.length > 0);
@@ -23,8 +24,9 @@ function useLongPress({
     }
 
     isPressed.current = true;
+    targetRef.current = e.target as HTMLElement;
     timerId.current = window.setTimeout(() => {
-      onStart?.();
+      onStart?.(targetRef.current!);
       isLongPressActive.current = true;
     }, threshold);
   }, [onStart, threshold]);

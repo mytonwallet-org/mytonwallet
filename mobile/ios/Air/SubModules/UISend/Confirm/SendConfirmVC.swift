@@ -24,7 +24,7 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         case .newLocalActivity(let update):
             if let activity = update.activities.first {
                 Haptics.play(.success)
-                AppActions.showActivityDetails(accountId: model.account.id, activity: activity, context: model.nftSendMode != nil ? .sendNftConfirmation : .sendConfirmation)
+                AppActions.showActivityDetails(accountId: model.account.id, activity: activity, context: model.mode.isNftRelated ? .sendNftConfirmation : .sendConfirmation)
             }
         default:
             break
@@ -44,50 +44,62 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
     private var continueButton = WButton(style: .primary)
     private var continueBottomConstraint: NSLayoutConstraint!
     
-    private func setupViews() {
+    private func setupViews() {        
+        var continueTitle: String
+        var goBackTitle = lang("Edit")
+        var canGoBack = true
+        var title: String
         
-        navigationItem.title = model.nftSendMode == .burn ? lang("Burn") : lang("Is it all ok?")
+        switch model.mode {
+        case .sendNft:
+            title = lang("Is it all ok?")
+            continueTitle = lang("Send")
+        case .burnNft:
+            continueTitle = lang("Burn")
+            continueButton.backgroundColor = WTheme.error
+            goBackTitle = lang("Cancel")
+            title = lang("Burn")
+        case .regular:
+            title = lang("Is it all ok?")
+            continueTitle = lang("Confirm")
+        case .sellToMoonpay:
+            title = lang("Sell")
+            continueTitle = lang("Sell %symbol%", arg1: model.token.symbol)
+            canGoBack = false
+        }
+
+        navigationItem.title = title
         addCloseNavigationItemIfNeeded()
         
         _ = addHostingController(SendConfirmView(model: model), constraints: .fill)
-
+                
         continueButton.translatesAutoresizingMaskIntoConstraints = false
-        let continueTitle = switch model.nftSendMode {
-        case .send:
-            lang("Send")
-        case .burn:
-            lang("Burn")
-        case nil:
-            lang("Confirm")
-        }
         continueButton.setTitle(continueTitle, for: .normal)
-        if model.nftSendMode == .burn {
-            continueButton.backgroundColor = WTheme.error
-        }
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
         view.addSubview(continueButton)
-        continueBottomConstraint = continueButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor,
-                                                                          constant: -16)
+        continueBottomConstraint = continueButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16)
         
-        goBackButton.translatesAutoresizingMaskIntoConstraints = false
-        let goBackTitle = switch model.nftSendMode {
-        case .burn:
-            lang("Cancel")
-        default:
-            lang("Edit")
+        if canGoBack {
+            goBackButton.translatesAutoresizingMaskIntoConstraints = false
+            goBackButton.setTitle(goBackTitle, for: .normal)
+            goBackButton.addTarget(self, action: #selector(goBackPressed), for: .touchUpInside)
+            view.addSubview(goBackButton)
+            
+            NSLayoutConstraint.activate([
+                continueBottomConstraint,
+                goBackButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+                continueButton.leadingAnchor.constraint(equalTo: goBackButton.trailingAnchor, constant: 16),
+                continueButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+                goBackButton.bottomAnchor.constraint(equalTo: continueButton.bottomAnchor),
+                goBackButton.widthAnchor.constraint(equalTo: continueButton.widthAnchor),
+            ])
+        } else {
+            NSLayoutConstraint.activate([
+                continueBottomConstraint,
+                continueButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+                continueButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            ])
         }
-        goBackButton.setTitle(goBackTitle, for: .normal)
-        goBackButton.addTarget(self, action: #selector(goBackPressed), for: .touchUpInside)
-        view.addSubview(goBackButton)
-        
-        NSLayoutConstraint.activate([
-            continueBottomConstraint,
-            goBackButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            continueButton.leadingAnchor.constraint(equalTo: goBackButton.trailingAnchor, constant: 16),
-            continueButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            goBackButton.bottomAnchor.constraint(equalTo: continueButton.bottomAnchor),
-            goBackButton.widthAnchor.constraint(equalTo: continueButton.widthAnchor),
-        ])
         
         updateTheme()
     }
@@ -157,7 +169,7 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
     
     func sendLedger() async throws {
         let account = model.account
-        guard let fromAddress = account.addressByChain[model.token.chain] else { return }
+        guard let fromAddress = account.getAddress(chain: model.token.chain) else { return }
         
         let signData = try await model.makeLedgerPayload()
         
@@ -178,7 +190,7 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
     }
     
     @objc func goBackPressed() {
-        if model.nftSendMode == .burn {
+        if model.mode == .burnNft {
             navigationController?.presentingViewController?.dismiss(animated: true)
         } else {
             navigationController?.popViewController(animated: true)

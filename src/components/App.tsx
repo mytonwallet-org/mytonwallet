@@ -20,7 +20,7 @@ import { MINUTE } from '../util/dateFormat';
 import { closeThisTab } from '../util/ledger/tab';
 import { resolveRender } from '../util/renderPromise';
 import {
-  IS_ANDROID, IS_DELEGATED_BOTTOM_SHEET, IS_ELECTRON, IS_IOS, IS_LEDGER_EXTENSION_TAB, IS_LINUX,
+  IS_ANDROID, IS_ELECTRON, IS_IOS, IS_LEDGER_EXTENSION_TAB, IS_LINUX,
 } from '../util/windowEnvironment';
 import { updateSizes } from '../util/windowSize';
 import { callApi } from '../api';
@@ -283,15 +283,11 @@ function App({
               onClose={closeQrScanner}
             />
           )}
-          {!IS_DELEGATED_BOTTOM_SHEET && (
-            <>
-              <Toasts />
-              <Dialogs />
-              <ConfettiContainer />
-              {IS_CAPACITOR ? <InAppBrowser /> : <IFrameBrowser />}
-              <LoadingOverlay />
-            </>
-          )}
+          <Toasts />
+          <Dialogs />
+          <ConfettiContainer />
+          {IS_CAPACITOR ? <InAppBrowser /> : <IFrameBrowser />}
+          <LoadingOverlay />
         </>
       )}
       {withBottomBar && <BottomBar />}

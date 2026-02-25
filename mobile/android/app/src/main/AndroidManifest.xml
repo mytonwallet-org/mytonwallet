@@ -94,6 +94,14 @@
 
         <data android:scheme="@string/custom_url_scheme_3" />
       </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+
+        <data android:scheme="@string/custom_url_scheme_4" />
+      </intent-filter>
     </activity>
 
     <provider

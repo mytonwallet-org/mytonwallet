@@ -7,36 +7,21 @@ import WalletCore
 
 struct ExploreScreenDappFoldersView: View {
     let folders: [ExploreScreenDappFolderVM]
-    let safeAreaCoordinateSpace: CoordinateSpace
     let onTapDapp: (_ site: ApiSite) -> Void
     let onTapMore: (_ categoryId: Int) -> Void
-    let folderFrameChange: (_ categoryId: Int, _ folderFrame: CGRect) -> Void
 
     private let spacingBetweenRows: Double = 20
     private let spacingBetweenColumns: Double = 16
-
-    @Environment(\.horizontalSizeClass)
-    private var horizontalSizeClass: UserInterfaceSizeClass?
-
+    
     private var columns: [GridItem] {
-        let itemWithSpacing = GridItem(.flexible(), spacing: spacingBetweenColumns)
-
-        // 2 columns for iPhone, 4 columns for iPad
-        var items: [GridItem] = [itemWithSpacing]
-        if horizontalSizeClass == .regular {
-            items += [itemWithSpacing, itemWithSpacing]
-        }
-        items.append(GridItem(.flexible()))
-        return items
+        [GridItem(.adaptive(minimum: 160), spacing: spacingBetweenColumns)]
     }
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: spacingBetweenRows) {
             ForEach(folders, id: \.categoryName) { folderVM in
                 DappFolderView(vm: folderVM, onTapDapp: onTapDapp, onTapMore: onTapMore)
-                    .onFrameChange(inCoordinateSpace: safeAreaCoordinateSpace) { folderFrame in
-                        folderFrameChange(folderVM.categoryId, folderFrame)
-                    }
+                    .shadow(style: .light)
             }
         }
     }
@@ -140,7 +125,6 @@ extension DappFolderView {
                     .aspectRatio(contentMode: .fill)
                     .onTapWithHighlightInScroll(action: onTap)
                     .clipShape(.rect(cornerRadius: cornerRadius))
-                    .containerShape(.rect(cornerRadius: cornerRadius))
             } else {
                 GridCellPlaceholder()
             }

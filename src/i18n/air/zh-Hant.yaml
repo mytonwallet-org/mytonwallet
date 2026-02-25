@@ -34,11 +34,10 @@ All Telegram Gifts: 全部 Telegram 禮物
 Add Crypto: 新增加密貨幣
 Share QR Code: 分享 QR Code
 $send_only_ton: 請僅將 Toncoin (TON) 或 TON 網路資產傳送到此地址。傳送其他代幣會導致損失。
-$send_only_tron: 請僅將 TRON (TRX) 或 TRON 網路資產傳送到此地址。傳送其他代幣會導致損失。
+$send_only_chain: 請僅將 %chain% (%symbol%) 或 %chain% 網路資產傳送到此地址。傳送其他代幣會導致損失。
 Buying with card is not supported for this account.: 此帳戶不支援信用卡購買。
 Swapped at: 兌換時間
 Price per: 單價
-Transaction Details: 交易明細
 From: 來源
 To: 目的地
 Changelly ID: Changelly ID
@@ -261,7 +260,7 @@ Search in Google: 在 Google 搜尋
 $remove_wallets:
   zeroValue: 移除錢包
   otherValue: 移除 %1$d 個錢包
-Contract Initialization Data was copied!: 已複製合約初始化資料！
+Contract Initialization Data Copied: 已複製合約初始化資料
 Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: 無法加密。收件方不是錢包或沒有轉出紀錄。
 just now: 剛剛
 "No": 否
@@ -284,3 +283,42 @@ Receive: 收款
 Scan: 掃描
 Search or enter address: 搜尋或輸入地址
 View as Grid: 以格狀顯示
+
+
+push_title_wallet: "%wallet_title%"
+push_activity_token_sent: 已發送 %amount% %symbol%
+push_activity_token_received: 已收到 %amount% %symbol%
+push_activity_nft_sent: 已發送 NFT
+push_activity_nft_sent_named: "已發送 NFT：%name%"
+push_activity_nft_received: 已收到 NFT
+push_activity_nft_received_named: "已收到 NFT：%name%"
+push_activity_contract_called: 已呼叫智慧合約
+push_activity_contract_deployed: 已部署智慧合約
+push_activity_token_minted: 已鑄造 %amount% %symbol%
+push_activity_token_burned: 已銷毀 %amount% %symbol%
+push_activity_nft_minted: 已鑄造 NFT
+push_activity_nft_minted_named: "已鑄造 NFT: %name%"
+push_activity_liquidity_deposited: 已提供流動性
+push_activity_liquidity_withdrawn: 已提取流動性
+push_activity_stake_deposit: 已質押 %amount% %symbol%
+push_activity_stake_withdrawal: 已解除質押 %amount% %symbol%
+push_activity_stake_withdrawal_request: 已提交質押提款請求
+push_activity_auction_bid: 已出價競標 %amount% %symbol%
+push_activity_dns_changed: 已更新 DNS 記錄
+push_activity_dns_deleted: 已刪除 DNS 記錄
+push_activity_dns_renewed: 已續訂 DNS
+push_activity_subscription_started: 已開始訂閱
+push_activity_subscription_payment_received: 已收到訂閱付款 %amount% %symbol%
+push_activity_subscription_canceled: 已取消訂閱
+push_activity_swap_completed: 兌換 %from_symbol% -> %to_symbol% 已完成
+push_activity_swap_failed: 兌換 %from_symbol% -> %to_symbol% 失敗
+push_activity_swap_expired: 兌換 %from_symbol% -> %to_symbol% 已過期
+push_activity_swap_pending: 兌換 %from_symbol% -> %to_symbol% %status%
+push_activity_staking_profit: 質押收益 %amount% TON
+push_activity_staking_loyalty_profit: 質押忠誠度收益 %amount% TON
+push_domain_title_renew: 續訂您的網域
+push_domain_expired_yesterday: 您的網域 %domain% 昨天已過期。請盡快續訂，以免失去存取權限
+push_domain_expired_days_ago: 您的網域 %domain% 已於 %days% 天前過期。請盡快續訂，以免失去存取權限
+push_domain_expires_today: 您的網域 %domain% 將於今天過期。請續訂以免失去存取權限
+push_domain_expires_tomorrow: 您的網域 %domain% 將於明天過期。請續訂以免失去存取權限
+push_domain_expires_in_days: 您的網域 %domain% 將於 %days% 天後過期。請續訂以免失去存取權限

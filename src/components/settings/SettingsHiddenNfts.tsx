@@ -5,7 +5,7 @@ import type { ApiNft } from '../../api/types';
 
 import { selectCurrentAccountState } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET, IS_ELECTRON } from '../../util/windowEnvironment';
+import { IS_ELECTRON } from '../../util/windowEnvironment';
 
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useHistoryBack from '../../hooks/useHistoryBack';
@@ -79,7 +79,7 @@ function SettingsHiddenNfts({
   }, [whitelistedNftAddresses]);
 
   const { isPortrait } = useDeviceScreen();
-  const areSettingsInModal = !isPortrait || IS_ELECTRON || IS_DELEGATING_BOTTOM_SHEET || IS_DELEGATED_BOTTOM_SHEET;
+  const areSettingsInModal = !isPortrait || IS_ELECTRON;
 
   function renderHiddenByUserNfts() {
     return (

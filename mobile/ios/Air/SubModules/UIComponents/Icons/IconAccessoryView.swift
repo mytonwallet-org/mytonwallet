@@ -66,17 +66,13 @@ public final class IconAccessoryView: UIView {
         overlayView.isHidden = !isVisible
     }
 
-    public func configureChain(_ chain: String) {
+    public func configureChain(_ chain: ApiChain) {
         setClockVisible(false)
         imageView.contentMode = .scaleToFill
-        imageView.image = UIImage(named: "chain_\(chain)", in: AirBundle, compatibleWith: nil)
+        imageView.image = UIImage(named: "chain_\(chain.rawValue)", in: AirBundle, compatibleWith: nil)
         imageView.tintColor = nil
         imageView.backgroundColor = .clear
         setShowsSoftLightOverlay(false)
-    }
-
-    public func configureChain(_ chain: ApiChain) {
-        configureChain(chain.rawValue)
     }
 
     public func configurePending() {

@@ -49,17 +49,16 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.helpers.DappFeeHelpers
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
 import org.mytonwallet.app_air.walletcore.moshi.ApiParsedPayload
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
-import org.mytonwallet.app_air.walletcore.moshi.ApiTransferToSign
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRequestSendTransaction
-import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignTransfers
-import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignTransfers.Options
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappTransfers
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappTransfers.Options
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -72,16 +71,16 @@ class TonConnectRequestSendViewModel private constructor(
 ) : ViewModel() {
     private val transactionTokenSlugs =
         if (update is ApiUpdate.ApiUpdateDappSendTransactions) update.transactions.map {
-            it.payload?.payloadTokenSlug ?: "toncoin"
+            it.payload?.payloadTokenSlug
         } else emptyList()
     private val tokensMapFlow = TokenStore.tokensFlow.map { tokens ->
         Tokens(
             currency = WalletCore.baseCurrency,
             tokens = tokens?.tokens,
             list = transactionTokenSlugs.map {
-                val t = tokens?.tokens?.get(it)
+                val t = tokens?.tokens?.get(it ?: TONCOIN_SLUG)
                 Token(
-                    slug = it,
+                    slug = it ?: TONCOIN_SLUG,
                     token = t,
                     isUnknown = t == null && !tokens?.tokens.isNullOrEmpty()
                 )
@@ -102,8 +101,14 @@ class TonConnectRequestSendViewModel private constructor(
         val token: ApiTokenWithPrice?,
         val isUnknown: Boolean,
     ) {
-        val icon = token?.let { Content.Companion.of(it, showChain = false) }
-            ?: (if (slug == "toncoin" || isUnknown) Content.Companion.chain(MBlockchain.ton) else null)
+        val icon by lazy {
+            token?.let {
+                Content.of(it, showChain = false)
+            } ?: TokenStore.getToken(slug)
+                ?.takeIf { it.isBlockchainNative }
+                ?.mBlockchain
+                ?.let(Content::chain)
+        }
     }
 
     data class UiState(
@@ -154,22 +159,18 @@ class TonConnectRequestSendViewModel private constructor(
             when (update) {
                 is ApiUpdate.ApiUpdateDappSendTransactions -> {
                     try {
+                        val account = AccountStore.accountById(update.accountId) ?: return@launch
+                        val dappChain = account.dappChain(update.operationChain) ?: return@launch
                         val signedMessages = WalletCore.call(
-                            SignTransfers(
+                            SignDappTransfers(
+                                dappChain = dappChain,
                                 accountId = update.accountId,
-                                transactions = update.transactions.map {
-                                    ApiTransferToSign(
-                                        toAddress = it.toAddress,
-                                        amount = it.amount,
-                                        rawPayload = it.rawPayload,
-                                        payload = it.payload,
-                                        stateInit = it.stateInit
-                                    )
-                                },
+                                transactions = update.transactions,
                                 options = Options(
                                     password = password,
                                     validUntil = update.validUntil,
-                                    vestingAddress = update.vestingAddress
+                                    vestingAddress = update.vestingAddress,
+                                    isLegacyOutput = update.isLegacyOutput
                                 )
                             )
                         )
@@ -187,8 +188,11 @@ class TonConnectRequestSendViewModel private constructor(
 
                 is ApiUpdate.ApiUpdateDappSignData -> {
                     try {
+                        val account = AccountStore.accountById(update.accountId) ?: return@launch
+                        val dappChain = account.dappChain(update.operationChain) ?: return@launch
                         val signedData = WalletCore.call(
-                            ApiMethod.Transfer.SignData(
+                            ApiMethod.Transfer.SignDappData(
+                                dappChain = dappChain,
                                 accountId = update.accountId,
                                 dappUrl = update.dapp.url!!,
                                 payloadToSign = update.payloadToSign,
@@ -275,25 +279,27 @@ class TonConnectRequestSendViewModel private constructor(
 
         when (update) {
             is ApiUpdate.ApiUpdateDappSendTransactions -> {
-                if (update.transactions.size == 1) {
+                if (update.shouldHideTransfers != true) {
+                    if (update.transactions.size == 1) {
+                        uiItems.addAll(
+                            buildUiItemsSingleTransaction(
+                                update.operationChain,
+                                update.transactions[0],
+                                tokens,
+                                0,
+                                false
+                            )
+                        )
+                    } else {
+                        uiItems.addAll(buildUiItemsListTransactions(update, tokens))
+                    }
+
                     uiItems.addAll(
-                        buildUiItemsSingleTransaction(
-                            //update,
-                            update.transactions[0],
-                            tokens,
-                            0,
-                            false
+                        listOf(
+                            Item.Gap
                         )
                     )
-                } else {
-                    uiItems.addAll(buildUiItemsListTransactions(update, tokens))
                 }
-
-                uiItems.addAll(
-                    listOf(
-                        Item.Gap
-                    )
-                )
 
                 update.emulation?.activities?.let { previewActivities ->
                     val isMultichain = WGlobalStorage.isMultichain(update.accountId)
@@ -330,7 +336,7 @@ class TonConnectRequestSendViewModel private constructor(
                         )
                     }
 
-                    val tonToken = TokenStore.getToken(TONCOIN_SLUG)
+                    val tonToken = TokenStore.getToken(MBlockchain.valueOf(update.operationChain).nativeSlug)
                     var feeValue: CharSequence? = null
                     tonToken?.let {
                         val realFee = update.emulation?.realFee
@@ -403,7 +409,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 Item.CopyableText(
                                     ((update.payloadToSign as MSignDataPayload.SignDataPayloadBinary).bytes),
                                     "Binary Data",
-                                    LocaleController.getString("Data was copied!")
+                                    LocaleController.getString("Data Copied")
                                 ),
                                 Item.Gap,
                                 Item.Alert(LocaleController.getString("The binary data content is unclear. Sign it only if you trust the service."))
@@ -423,7 +429,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 Item.CopyableText(
                                     (update.payloadToSign as MSignDataPayload.SignDataPayloadCell).schema,
                                     "Cell Schema",
-                                    LocaleController.getString("Data was copied!")
+                                    LocaleController.getString("Data Copied")
                                 ),
                                 Item.Gap,
                                 Item.ListTitle(
@@ -435,7 +441,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 Item.CopyableText(
                                     (update.payloadToSign as MSignDataPayload.SignDataPayloadCell).cell,
                                     "Cell Data",
-                                    LocaleController.getString("Data was copied!")
+                                    LocaleController.getString("Data Copied")
                                 ),
                                 Item.Gap,
                                 Item.Alert(LocaleController.getString("The binary data content is unclear. Sign it only if you trust the service."))
@@ -455,7 +461,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 Item.CopyableText(
                                     ((update.payloadToSign as MSignDataPayload.SignDataPayloadText).text),
                                     "Message",
-                                    LocaleController.getString("Data was copied!")
+                                    LocaleController.getString("Data Copied")
                                 ),
                             )
                         )
@@ -481,6 +487,7 @@ class TonConnectRequestSendViewModel private constructor(
 
     companion object {
         private fun formatTransactionAmountString(
+            chain: String,
             transaction: ApiDappTransfer,
             tokens: Tokens,
             includeNetworkFee: Boolean
@@ -502,7 +509,7 @@ class TonConnectRequestSendViewModel private constructor(
             }
 
             if (tonAmount != BigInteger.ZERO || amountBySlug.isEmpty()) {
-                amountBySlug[TONCOIN_SLUG] = tonAmount
+                amountBySlug[MBlockchain.valueOf(chain).nativeSlug] = tonAmount
             }
 
             if (amountBySlug.isEmpty()) {
@@ -510,10 +517,7 @@ class TonConnectRequestSendViewModel private constructor(
             }
 
             val sortedEntries = amountBySlug.entries.sortedBy { (slug, _) ->
-                when (slug) {
-                    TONCOIN_SLUG -> 1
-                    else -> 0
-                }
+                if (TokenStore.getToken(slug)?.isBlockchainNative == true) 0 else 1
             }
 
             val amountParts = sortedEntries.mapNotNull { (slug, amount) ->
@@ -617,10 +621,7 @@ class TonConnectRequestSendViewModel private constructor(
             if (totalPerToken.isEmpty()) return ""
 
             val sortedEntries = totalPerToken.entries.sortedBy { (slug, _) ->
-                when (slug) {
-                    TONCOIN_SLUG -> 0 // TON comes first
-                    else -> 1 // Other tokens after TON
-                }
+                if (TokenStore.getToken(slug)?.isBlockchainNative == true) 0 else 1
             }
 
             val tokenDetails = sortedEntries.mapNotNull { (slug, amount) ->
@@ -769,11 +770,11 @@ class TonConnectRequestSendViewModel private constructor(
                 uiItems.add(
                     Item.IconDualLine(
                         image = tokenIcon,
-                        title = formatTransactionAmountString(transaction, tokens, true),
+                        title = formatTransactionAmountString(update.operationChain, transaction, tokens, true),
                         subtitle = formatAddressSubtitle(transaction),
                         clickable = Item.Clickable.Items(
                             buildUiItemsSingleTransaction(
-                                //update,
+                                update.operationChain,
                                 transaction,
                                 tokens,
                                 a,
@@ -822,6 +823,7 @@ class TonConnectRequestSendViewModel private constructor(
         }
 
         private fun buildUiItemsSingleTransaction(
+            chain: String,
             transaction: ApiDappTransfer,
             tokens: Tokens,
             index: Int,
@@ -830,7 +832,7 @@ class TonConnectRequestSendViewModel private constructor(
             val token = tokens.list[index]
             val uiItems = mutableListOf<BaseListItem>()
             val tokenIcon = token.icon
-            val nativeToken = TokenStore.getToken(token.token?.mBlockchain?.nativeSlug)
+            val nativeToken = TokenStore.getToken(token.token?.mBlockchain?.nativeSlug ?: TONCOIN_SLUG)
 
             val payload = transaction.payload
             val receivingAddress = when (payload) {
@@ -850,7 +852,8 @@ class TonConnectRequestSendViewModel private constructor(
                     Item.CopyableText(
                         receivingAddress,
                         "Address",
-                        LocaleController.getString("Address was copied!")
+                        LocaleController.getString("%chain% Address Copied")
+                            .replace("%chain%", try { MBlockchain.valueOf(chain).displayName } catch (_: Throwable) { chain })
                     ),
                     Item.Gap
                 )
@@ -865,7 +868,8 @@ class TonConnectRequestSendViewModel private constructor(
                         ),
                         Item.IconDualLine(
                             title = transaction.payload?.payloadNft?.name,
-                            subtitle = DappFeeHelpers.Companion.calculateDappTransferFee(
+                            subtitle = DappFeeHelpers.calculateDappTransferFee(
+                                chain,
                                 transaction.networkFee,
                                 BigInteger.ZERO
                             ),
@@ -887,6 +891,7 @@ class TonConnectRequestSendViewModel private constructor(
                         ),
                         Item.IconDualLine(
                             title = formatTransactionAmountString(
+                                chain,
                                 transaction,
                                 tokens,
                                 !isDetailView && transaction.payload?.payloadIsToken != true
@@ -904,6 +909,7 @@ class TonConnectRequestSendViewModel private constructor(
                 if (isDetailView) {
                     uiItems.addAll(
                         listOf(
+                            Item.Gap,
                             Item.ListTitle(
                                 LocaleController.getString("Fee"),
                                 topRounding = HeaderCell.TopRounding.NORMAL
@@ -938,18 +944,6 @@ class TonConnectRequestSendViewModel private constructor(
                             ),
                         )
                     )
-                    if (transaction.isDangerous) {
-                        uiItems.addAll(
-                            listOf(
-                                Item.Gap,
-                                Item.Gap,
-                                Item.Alert(
-                                    LocaleController.getString("\$hardware_payload_warning")
-                                        .toProcessedSpannableStringBuilder()
-                                )
-                            )
-                        )
-                    }
                 }
             }
 
@@ -965,7 +959,7 @@ class TonConnectRequestSendViewModel private constructor(
                         Item.CopyableText(
                             text,
                             "Comment",
-                            LocaleController.getString("Comment was copied!")
+                            LocaleController.getString("Comment Copied")
                         ),
                     )
                 )

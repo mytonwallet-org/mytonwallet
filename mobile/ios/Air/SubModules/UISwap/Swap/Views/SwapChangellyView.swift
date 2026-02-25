@@ -17,7 +17,7 @@ struct SwapChangellyView: View {
                         .padding(.bottom, 1)
                         .environment(\.openURL, OpenURLAction { url in
                             topViewController()?.view.endEditing(true)
-                            AppActions.openInBrowser(url, title: nil, injectTonConnect: false)
+                            AppActions.openInBrowser(url, title: nil, injectDappConnect: false)
                             return .handled
                         })
                 }

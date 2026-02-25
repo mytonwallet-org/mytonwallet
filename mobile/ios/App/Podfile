@@ -30,7 +30,6 @@ def capacitor_pods
   pod 'MauricewegnerCapacitorNavigationBar', :path => '../../../node_modules/@mauricewegner/capacitor-navigation-bar'
   pod 'MytonwalletAirAppLauncher', :path => '../../plugins/air-app-launcher'
   pod 'MytonwalletCapacitorUsbHid', :path => '../../../node_modules/@mytonwallet/capacitor-usb-hid'
-  pod 'MytonwalletNativeBottomSheet', :path => '../../plugins/native-bottom-sheet'
   pod 'CapacitorNativeSettings', :path => '../../../node_modules/capacitor-native-settings'
   pod 'CapacitorPluginSafeArea', :path => '../../../node_modules/capacitor-plugin-safe-area'
   pod 'CapacitorSecureStoragePlugin', :path => '../../../node_modules/capacitor-secure-storage-plugin'
@@ -41,21 +40,18 @@ end
 target 'MyTonWallet' do
   capacitor_pods
   # Add your Pods here
-  pod 'FloatingPanel', :git => 'https://github.com/mytonwalletorg/FloatingPanel', :commit => '477fd70521abbb12eb7f069f0220660c172dc936'
   pod 'FirebaseMessaging'
 end
 
 target 'MyTonWalletAir' do
   capacitor_pods
   # Add your Pods here
-  pod 'FloatingPanel', :git => 'https://github.com/mytonwalletorg/FloatingPanel', :commit => '477fd70521abbb12eb7f069f0220660c172dc936'
   pod 'FirebaseMessaging'
 end
 
 target 'MyTonWallet_NoExtensions' do
   capacitor_pods
   # Add your Pods here
-  pod 'FloatingPanel', :git => 'https://github.com/mytonwalletorg/FloatingPanel', :commit => '477fd70521abbb12eb7f069f0220660c172dc936'
   pod 'FirebaseMessaging'
 end
 

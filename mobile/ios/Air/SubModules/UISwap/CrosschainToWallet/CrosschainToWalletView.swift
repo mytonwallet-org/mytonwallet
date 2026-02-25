@@ -65,7 +65,7 @@ struct CrosschainToWalletView: View {
     
     var qr: some View {
         WUIQRCodeContainerView(
-            url: sellingToken.chainValue.config.formatTransferUrl?(address, nil, nil, nil) ?? address,
+            url: sellingToken.chain.config.formatTransferUrl?(address, nil, nil, nil) ?? address,
             imageURL: sellingToken.image ?? "",
             size: 262,
             onTap: onQRTap
@@ -99,7 +99,7 @@ struct CrosschainToWalletView: View {
     
     var header: some View {
         HStack {
-            Text(lang("$swap_changelly_to_ton_description1", arg1: sellingToken.symbol))
+            Text(lang("$swap_changelly_to_wallet_description1", arg1: sellingToken.symbol))
             Spacer()
             Text(remaining)
         }
@@ -154,13 +154,13 @@ struct CrosschainToWalletView: View {
     
     func copyAddress() {
         UIPasteboard.general.string = address
-        AppActions.showToast(message: lang("Transaction ID was copied!"))
+        AppActions.showToast(message: lang("Transaction ID Copied"))
         Haptics.play(.lightTap)
     }
     
     func copyTx() {
         UIPasteboard.general.string = exchangerTxId
-        AppActions.showToast(message: lang("Transaction ID was copied!"))
+        AppActions.showToast(message: lang("Transaction ID Copied"))
         Haptics.play(.lightTap)
     }
     
@@ -178,18 +178,20 @@ struct CrosschainToWalletView: View {
     
     func shareIt(image: UIImage) {
         guard let (_, generator) = generateQrCode(
-            string: ApiChain.ton.formatTransferUrl?(address, nil, nil, nil) ?? address,
+            string: sellingToken.chain.formatTransferUrl?(address, nil, nil, nil) ?? address,
             color: .black,
             backgroundColor: .white,
-            icon: .custom(.airBundle("chain_ton"))
+            icon: .custom(.airBundleOptional("chain_\(sellingToken.chain.rawValue)"))
         ) else { return }
         
         let imageSize = CGSize(width: 768.0, height: 768.0)
         let context = generator(TransformImageArguments(corners: ImageCorners(), imageSize: imageSize, boundingSize: imageSize, intrinsicInsets: UIEdgeInsets(), scale: 1.0))
         guard let qrImage = context?.generateImage() else { return }
         
+        guard let topVC = topViewController() else { return }
         let activityController = UIActivityViewController(activityItems: [qrImage], applicationActivities: nil)
-        topViewController()?.present(activityController, animated: true)
+        activityController.popoverPresentationController?.sourceView = topVC.view
+        topVC.present(activityController, animated: true)
     }
 }
 

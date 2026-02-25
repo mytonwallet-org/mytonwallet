@@ -2,7 +2,7 @@
 import SwiftUI
 import WalletContext
 import WalletCore
-
+import Perception
 
 public struct NftOverviewView: View {
     
@@ -19,13 +19,15 @@ public struct NftOverviewView: View {
     }
     
     public var body: some View {
-        VStack(spacing: 0) {
-            NftImage(nft: nft, animateIfPossible: false)
-                .frame(width: 144, height: 144)
-                .clipShape(.rect(cornerRadius: 12))
-                .padding(.bottom, 16)
-                .padding(.top, -12)
-            toView
+        WithPerceptionTracking {
+            VStack(spacing: 0) {
+                NftImage(nft: nft, animateIfPossible: false)
+                    .frame(width: 144, height: 144)
+                    .clipShape(.rect(cornerRadius: 12))
+                    .padding(.bottom, 16)
+                    .padding(.top, -12)
+                toView
+            }
         }
     }
     

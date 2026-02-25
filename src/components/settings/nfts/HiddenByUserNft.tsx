@@ -5,7 +5,7 @@ import { getActions } from '../../../global';
 import { type ApiNft } from '../../../api/types';
 import { MediaType } from '../../../global/types';
 
-import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET, IS_ELECTRON } from '../../../util/windowEnvironment';
+import { IS_ELECTRON } from '../../../util/windowEnvironment';
 
 import { useDeviceScreen } from '../../../hooks/useDeviceScreen';
 import useFlag from '../../../hooks/useFlag';
@@ -37,7 +37,7 @@ function HiddenByUserNft({ nft }: OwnProps) {
   });
 
   const { isPortrait } = useDeviceScreen();
-  const areSettingsInModal = !isPortrait || IS_ELECTRON || IS_DELEGATING_BOTTOM_SHEET || IS_DELEGATED_BOTTOM_SHEET;
+  const areSettingsInModal = !isPortrait || IS_ELECTRON;
 
   function handleNftClick() {
     openMediaViewer({

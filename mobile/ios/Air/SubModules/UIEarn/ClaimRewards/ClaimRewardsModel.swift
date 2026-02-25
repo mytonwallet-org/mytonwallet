@@ -53,10 +53,8 @@ final class ClaimRewardsModel {
     
     func confirmAction(account: MAccount) async throws {
         guard let viewController else { return }
-        let headerView = StakingConfirmHeaderView(
-            mode: token.slug == TON_USDE_SLUG ? .unstake : .claim,
-            tokenAmount: amount,
-        )
+        let headerView = StakingConfirmHeaderView(mode: token.slug == TON_USDE_SLUG ? .unstake : .claim,
+                                                  tokenAmount: amount)
         let headerVC = UIHostingController(rootView: headerView)
         headerVC.view.backgroundColor = .clear
         

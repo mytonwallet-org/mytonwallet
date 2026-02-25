@@ -2,20 +2,12 @@ import { ActiveTab, TransferState } from '../../types';
 
 import { getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import { fromDecimal, toDecimal } from '../../../util/decimals';
-import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { getChainBySlug } from '../../../util/tokens';
-import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { resetHardware, setCurrentTransferAddress, updateCurrentTransfer } from '../../reducers';
 import { selectIsHardwareAccount } from '../../selectors';
 
 addActionHandler('startTransfer', (global, actions, payload) => {
-  const isOpen = global.currentTransfer.state !== TransferState.None;
-  if (IS_DELEGATED_BOTTOM_SHEET && !isOpen) {
-    callActionInMain('startTransfer', payload);
-    return;
-  }
-
   const { isPortrait, isOfframp, ...rest } = payload ?? {};
 
   const nftTokenSlug = Symbol('nft');
@@ -120,10 +112,6 @@ addActionHandler('clearTransferError', (global) => {
 });
 
 addActionHandler('dismissTransferScamWarning', (global) => {
-  if (IS_DELEGATING_BOTTOM_SHEET) {
-    callActionInNative('dismissTransferScamWarning');
-  }
-
   global = updateCurrentTransfer(global, { scamWarningType: undefined });
   setGlobal(global);
 });

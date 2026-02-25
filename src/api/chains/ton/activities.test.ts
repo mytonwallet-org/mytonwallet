@@ -90,6 +90,8 @@ describe('parseTrace + calculateActivityDetails', () => {
           status: 'completed',
           slug: 'toncoin',
           nft: {
+            interface: 'default',
+            chain: 'ton',
             index: 69146,
             name: 'Sins Postmark Series #69147',
             address: 'EQBtqQlC09xW_oOHJOrMofDmFndOrY7zCjd7bYELIoabO9JC',
@@ -164,6 +166,8 @@ describe('parseTrace + calculateActivityDetails', () => {
           status: 'failed',
           slug: 'toncoin',
           nft: {
+            interface: 'default',
+            chain: 'ton',
             index: 3568,
             name: 'USD₮ - pTON Farm NFT',
             address: 'EQCFPen3WvwP0sIr-C4zVQs03UI7SgsFs8mlCWnIkjKNLMsj',

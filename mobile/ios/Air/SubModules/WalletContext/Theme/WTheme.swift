@@ -61,6 +61,9 @@ public struct _WThemeType {
     /// Light gray/black. Used for background of grouped lists such as Home and Settings.
     public var groupedBackground: UIColor
     
+    /// Sidebar background in iPad split layout.
+    public var sidebarBackground: UIColor
+    
     ///  Light gray/dark gray. Used for sheets background.
     public var sheetBackground: UIColor
     
@@ -139,6 +142,7 @@ fileprivate func generateTheme() -> _WThemeType {
                                                       skeleton: WColors.headerSkeleton),
         background: WColors.background,
         groupedBackground: WColors.groupedBackground,
+        sidebarBackground: WColors.sidebarBackground,
         sheetBackground: WColors.sheetBackground,
         groupedItem: WColors.groupedItem,
         modularBackground: WColors.modularBackground,

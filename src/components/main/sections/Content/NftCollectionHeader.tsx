@@ -1,7 +1,7 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import type { ApiChain, ApiNft } from '../../../../api/types';
+import type { ApiChain, ApiNft, ApiNftCollection } from '../../../../api/types';
 import type { IAnchorPosition } from '../../../../global/types';
 import type { DropdownItem } from '../../../ui/Dropdown';
 
@@ -20,7 +20,12 @@ import { getCountDaysToDate } from '../../../../util/dateFormat';
 import { getDomainsExpirationDate } from '../../../../util/dns';
 import { compact } from '../../../../util/iteratees';
 import { openUrl } from '../../../../util/openUrl';
-import { getExplorerName, getExplorerNftCollectionUrl } from '../../../../util/url';
+import {
+  getExplorerName,
+  getExplorerNftCollectionUrl,
+  getMarketplaceName,
+  getMarketplaceNftCollectionUrl,
+} from '../../../../util/url';
 
 import { getIsPortrait } from '../../../../hooks/useDeviceScreen';
 import useHistoryBack from '../../../../hooks/useHistoryBack';
@@ -32,21 +37,21 @@ import DropdownMenu from '../../../ui/DropdownMenu';
 
 import styles from './NftCollectionHeader.module.scss';
 
-type MenuHandler = 'sendAll' | 'fragment' | 'getgems' | 'tonExplorer' | 'hideAll' | 'burnAll' | 'selectAll'
+type MenuHandler = 'sendAll' | 'fragment' | 'marketplace' | 'explorer' | 'hideAll' | 'burnAll' | 'selectAll'
   | 'removeTab' | 'addTab' | 'renew';
 
 interface StateProps {
-  currentCollectionAddress?: string;
+  currentCollection?: ApiNftCollection;
   nfts?: Record<string, ApiNft>;
   isTestnet?: boolean;
   isViewMode?: boolean;
-  collectionTabs?: string[];
+  collectionTabs?: ApiNftCollection[];
   dnsExpiration?: Record<string, number>;
   selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 }
 
 function NftCollectionHeader({
-  currentCollectionAddress,
+  currentCollection,
   nfts,
   isTestnet,
   isViewMode,
@@ -71,31 +76,35 @@ function NftCollectionHeader({
   const ref = useRef<HTMLButtonElement>();
   const menuRef = useRef<HTMLDivElement>();
 
-  const isTelegramGifts = currentCollectionAddress === TELEGRAM_GIFTS_SUPER_COLLECTION;
+  const isTelegramGifts = currentCollection?.address === TELEGRAM_GIFTS_SUPER_COLLECTION;
 
   const collectionNfts = useMemo(() => {
-    if (!currentCollectionAddress || !nfts) {
+    if (!currentCollection || !nfts) {
       return [];
     }
 
     return Object.values(nfts).filter((nft) => {
-      return (isTelegramGifts && nft.isTelegramGift) || nft.collectionAddress === currentCollectionAddress;
+      return (isTelegramGifts && nft.isTelegramGift)
+        || (nft.collectionAddress === currentCollection.address
+          && nft.chain === currentCollection.chain);
     });
-  }, [currentCollectionAddress, isTelegramGifts, nfts]);
+  }, [currentCollection, isTelegramGifts, nfts]);
 
   const dnsExpireInDays = useMemo(() => {
-    if (!RENEWABLE_TON_DNS_COLLECTIONS.has(currentCollectionAddress!)) return undefined;
+    if (!RENEWABLE_TON_DNS_COLLECTIONS.has(currentCollection?.address || '')) return undefined;
     const date = getDomainsExpirationDate(collectionNfts, undefined, dnsExpiration);
 
     return date ? getCountDaysToDate(date) : undefined;
-  }, [collectionNfts, currentCollectionAddress, dnsExpiration]);
+  }, [collectionNfts, currentCollection, dnsExpiration]);
 
   const collectionName = isTelegramGifts
     ? lang('Telegram Gifts')
     : collectionNfts?.[0]?.collectionName ?? lang('Unnamed Collection');
 
   const menuItems: DropdownItem<MenuHandler>[] = useMemo(() => {
-    const isInTabs = collectionTabs?.includes(currentCollectionAddress!);
+    const isInTabs = currentCollection && collectionTabs?.some((e) =>
+      e.address === currentCollection.address && e.chain === currentCollection.chain,
+    );
 
     return compact([
       !isViewMode && {
@@ -107,17 +116,17 @@ function NftCollectionHeader({
         value: 'fragment',
         fontIcon: 'external',
       } satisfies DropdownItem<MenuHandler>,
-      {
-        name: 'Getgems',
-        value: 'getgems',
+      getMarketplaceNftCollectionUrl(currentCollection?.chain, currentCollection?.address) && {
+        name: getMarketplaceName(currentCollection?.chain, currentCollection?.address),
+        value: 'marketplace',
         fontIcon: 'external',
       },
       !isTelegramGifts && {
-        name: getExplorerName(),
-        value: 'tonExplorer',
+        name: getExplorerName(currentCollection?.chain),
+        value: 'explorer',
         fontIcon: 'external',
       },
-      !isViewMode && RENEWABLE_TON_DNS_COLLECTIONS.has(currentCollectionAddress!) && {
+      !isViewMode && currentCollection && RENEWABLE_TON_DNS_COLLECTIONS.has(currentCollection.address) && {
         name: collectionNfts.length > 1 ? 'Renew All' : 'Renew',
         value: 'renew',
         description: dnsExpireInDays && dnsExpireInDays < 0
@@ -144,7 +153,7 @@ function NftCollectionHeader({
         value: isInTabs ? 'removeTab' : 'addTab',
       },
     ]);
-  }, [collectionNfts, collectionTabs, currentCollectionAddress, dnsExpireInDays, isTelegramGifts, isViewMode, lang]);
+  }, [collectionNfts, collectionTabs, currentCollection, dnsExpireInDays, isTelegramGifts, isViewMode, lang]);
 
   useHistoryBack({
     isActive: true,
@@ -169,19 +178,29 @@ function NftCollectionHeader({
         break;
       }
 
-      case 'getgems': {
-        const getgemsBaseUrl = isTestnet ? GETGEMS_BASE_TESTNET_URL : GETGEMS_BASE_MAINNET_URL;
-        void openUrl(
-          isTelegramGifts ? `${getgemsBaseUrl}top-gifts` : `${getgemsBaseUrl}collection/${currentCollectionAddress}`,
+      case 'marketplace': {
+        if (isTelegramGifts) {
+          const getgemsBaseUrl = isTestnet ? GETGEMS_BASE_TESTNET_URL : GETGEMS_BASE_MAINNET_URL;
+          void openUrl(`${getgemsBaseUrl}top-gifts`);
+          break;
+        }
+        const url = getMarketplaceNftCollectionUrl(
+          currentCollection?.chain,
+          currentCollection?.address,
+          isTestnet,
+          selectedExplorerIds?.ton,
         );
+        if (url) {
+          void openUrl(url);
+        }
 
         break;
       }
 
-      case 'tonExplorer': {
+      case 'explorer': {
         const url = getExplorerNftCollectionUrl(
-          undefined,
-          currentCollectionAddress,
+          currentCollection?.chain,
+          currentCollection?.address,
           isTestnet,
           selectedExplorerIds?.ton,
         );
@@ -195,9 +214,9 @@ function NftCollectionHeader({
       case 'fragment': {
         if (isTelegramGifts) {
           void openUrl('https://fragment.com/gifts');
-        } else if (currentCollectionAddress === NFT_FRAGMENT_COLLECTIONS[0]) {
+        } else if (currentCollection?.address === NFT_FRAGMENT_COLLECTIONS[0]) {
           void openUrl('https://fragment.com/numbers');
-        } else if (currentCollectionAddress === NFT_FRAGMENT_COLLECTIONS[1]) {
+        } else if (currentCollection?.address === NFT_FRAGMENT_COLLECTIONS[1]) {
           void openUrl('https://fragment.com');
         } else {
           const collectionSlug = collectionName.toLowerCase().replace(/\W/g, '').replace(/s$/, '');
@@ -209,9 +228,8 @@ function NftCollectionHeader({
 
       case 'selectAll': {
         selectNfts({
-          addresses: collectionNfts
-            .filter(({ isOnSale }) => !isOnSale)
-            .map(({ address }) => address),
+          nfts: collectionNfts
+            .filter(({ isOnSale }) => !isOnSale),
         });
 
         break;
@@ -230,14 +248,14 @@ function NftCollectionHeader({
       }
 
       case 'addTab': {
-        addCollectionTab({ collectionAddress: currentCollectionAddress! });
+        addCollectionTab({ collection: currentCollection! });
 
         break;
       }
 
       case 'removeTab': {
         closeNftCollection();
-        removeCollectionTab({ collectionAddress: currentCollectionAddress! });
+        removeCollectionTab({ collection: currentCollection! });
 
         break;
       }
@@ -305,13 +323,13 @@ function NftCollectionHeader({
 export default memo(withGlobal((global): StateProps => {
   const {
     byAddress: nfts,
-    currentCollectionAddress,
+    currentCollection,
     collectionTabs,
     dnsExpiration,
   } = selectCurrentAccountState(global)?.nfts || {};
 
   return {
-    currentCollectionAddress,
+    currentCollection,
     nfts,
     isTestnet: global.settings.isTestnet,
     isViewMode: selectIsCurrentAccountViewMode(global),
@@ -321,8 +339,8 @@ export default memo(withGlobal((global): StateProps => {
   };
 }, (global, ownProps, stickToFirst) => {
   const {
-    currentCollectionAddress,
+    currentCollection,
   } = selectCurrentAccountState(global)?.nfts || {};
 
-  return stickToFirst(currentCollectionAddress);
+  return stickToFirst(currentCollection?.address);
 })(NftCollectionHeader));

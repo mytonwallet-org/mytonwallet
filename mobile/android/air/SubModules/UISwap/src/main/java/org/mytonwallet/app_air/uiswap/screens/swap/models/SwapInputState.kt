@@ -25,8 +25,18 @@ data class SwapInputState(
                 (tokenToReceive?.chain ?: TON_CHAIN) == TON_CHAIN
         }
 
+    private val isSwapV3: Boolean
+        get() {
+            return (ConfigStore.swapVersion ?: DEFAULT_SWAP_VERSION) == 3
+        }
+
     val shouldShowAllPairs: Boolean
         get() {
-            return (ConfigStore.swapVersion ?: DEFAULT_SWAP_VERSION) == 3 && isTonOnlySwap
+            return isSwapV3 && isTonOnlySwap
+        }
+
+    val shouldShowAllPairsToBuy: Boolean
+        get() {
+            return isSwapV3 && (tokenToSend?.chain ?: TON_CHAIN) == TON_CHAIN
         }
 }

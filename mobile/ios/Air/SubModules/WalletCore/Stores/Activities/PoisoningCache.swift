@@ -15,9 +15,10 @@ struct PoisoningCache {
     init() {}
 
     func isTransactionWithPoisoning(transaction: ApiTransactionActivity) -> Bool {
-        let key = makeKey(address: transaction.fromAddress)
+        guard let fromAddress = transaction.fromAddress else { return false }
+        let key = makeKey(address: fromAddress)
         guard let cached = cache[key] else { return false }
-        return cached.address != transaction.fromAddress
+        return cached.address != fromAddress
     }
 
     mutating func update(activities: some Collection<ApiActivity>) {

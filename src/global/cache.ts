@@ -598,7 +598,17 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
 
     cached.stateVersion = 52;
   }
-
+  if (cached.stateVersion === 52) {
+    if (cached.byAccountId) {
+      for (const accountId of Object.keys(cached.byAccountId)) {
+        if (cached.byAccountId[accountId]?.nfts?.collectionTabs) {
+          cached.byAccountId[accountId].nfts.collectionTabs = cached.byAccountId[accountId].nfts.collectionTabs
+            ?.map((e) => typeof e === 'string' ? { address: e, chain: 'ton' } : e) || [];
+        }
+      }
+    }
+    cached.stateVersion = 53;
+  }
   // When adding migration here, increase `STATE_VERSION`
 }
 

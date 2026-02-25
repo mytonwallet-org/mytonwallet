@@ -94,17 +94,32 @@ struct SelectCardEmptyView: View {
 }
 
 struct CardSelectionView: View {
-    
     let viewModel: CustomizeWalletViewModel
-    
+
+    @State private var containerWidth: CGFloat = 0
+
+    private let gridSpacing: CGFloat = 8
+    private let gridMaximumCardWidth: CGFloat = 150
+
     var body: some View {
         WithPerceptionTracking {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
+            LazyVGrid(columns: gridColumns, spacing: gridSpacing) {
                 ForEach(viewModel.selectedAccountInfo.availableCards) { (nft: ApiNft?) in
                     CardView(viewModel: viewModel, nft: nft)
                 }
             }
+            .onGeometryChange(for: CGFloat.self, of: \.size.width) {
+                containerWidth = $0
+            }
         }
+    }
+
+    private var gridColumns: [GridItem] {
+        let columnCount = max(3, Int(ceil((containerWidth + gridSpacing) / (gridMaximumCardWidth + gridSpacing))))
+        return Array(
+            repeating: GridItem(.flexible(minimum: 0, maximum: gridMaximumCardWidth), spacing: gridSpacing),
+            count: columnCount
+        )
     }
 }
 

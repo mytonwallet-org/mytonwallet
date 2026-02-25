@@ -2,14 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>UIAppFonts</key>
-	<array>
-		<string>Frameworks/WalletContext.framework/Nunito-ExtraBold.ttf</string>
-		<string>Frameworks/WalletContext.framework/SFCompactDisplayMedium.otf</string>
-		<string>Frameworks/WalletContext.framework/SFCompactRoundedBold.otf</string>
-		<string>Frameworks/WalletContext.framework/SFCompactRoundedMedium.otf</string>
-		<string>Frameworks/WalletContext.framework/SFCompactRoundedSemibold.otf</string>
-	</array>
 	<key>CADisableMinimumFrameDuration</key>
 	<true/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
@@ -41,6 +33,7 @@
 				<string>tc</string>
 				<string>mytonwallet-tc</string>
 				<string>mtw</string>
+				<string>wc</string>
 			</array>
 		</dict>
 	</array>
@@ -62,6 +55,13 @@
 	<string>For an easier and faster operation verification.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Photo library access is needed to download NFTs.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Frameworks/WalletContext.framework/Nunito-ExtraBold.ttf</string>
+		<string>Frameworks/WalletContext.framework/SFCompactDisplayMedium.otf</string>
+		<string>Frameworks/WalletContext.framework/SFCompactRoundedBold.otf</string>
+		<string>Frameworks/WalletContext.framework/SFCompactRoundedSemibold.otf</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -85,18 +85,14 @@
 		<string>remote-notification</string>
 		<string>fetch</string>
 	</array>
-	<key>UIDesignRequiresCompatibility</key>
-	<false/>
 	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen.storyboard</string>
+	<string>LaunchScreen</string>
 	<key>UIObservationTrackingEnabled</key>
 	<false/>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>armv7</string>
 	</array>
-	<key>UIRequiresFullScreen</key>
-	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

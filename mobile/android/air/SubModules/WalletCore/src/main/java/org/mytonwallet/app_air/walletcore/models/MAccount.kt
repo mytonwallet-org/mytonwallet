@@ -7,8 +7,11 @@ import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.DEFAULT_SHOWN_TOKENS
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import org.mytonwallet.app_air.walletcore.utils.sortedByBalance
 
 @JsonClass(generateAdapter = true)
 class MAccount(
@@ -31,7 +34,16 @@ class MAccount(
         val address: String,
         val domain: String? = null,
         val isMultisig: Boolean? = null,
-    )
+    ) {
+        val jsonObject: JSONObject
+            get() {
+                return JSONObject().apply {
+                    put("address", address)
+                    put("domain", domain)
+                    put("isMultisig", isMultisig)
+                }
+            }
+    }
 
     @JsonClass(generateAdapter = false)
     enum class AccountType(val value: String) {
@@ -186,7 +198,7 @@ class MAccount(
                 .authority("my.tt")
                 .path("view/")
                 .apply {
-                    byChain.entries.forEach { (chain, chainAccount) ->
+                    sortedChains().forEach { (chain, chainAccount) ->
                         appendQueryParameter(chain, chainAccount.address)
                     }
 
@@ -197,4 +209,22 @@ class MAccount(
                 .build()
                 .toString()
         }
+
+    fun isChainSupported(chain: String): Boolean {
+        return byChain.containsKey(chain)
+    }
+
+    fun dappChain(chain: String): ApiDappSessionChain? {
+        val address = byChain[chain]?.address ?: return null
+        return ApiDappSessionChain(
+            chain = chain,
+            address = address,
+            network = network.value
+        )
+    }
+
+    fun sortedChains(): List<Map.Entry<String, AccountChain>> {
+        val perChainBalance = BalanceStore.totalBalanceInBaseCurrencyPerChain(accountId)
+        return byChain.sortedByBalance(perChainBalance)
+    }
 }

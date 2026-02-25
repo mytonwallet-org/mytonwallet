@@ -15,7 +15,9 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     private var continueButton: WButton { bottomButton! }
     private var continueButtonConstraint: NSLayoutConstraint?
     
-    private var startWithKeyboardActive: Bool { true }
+    private var startWithKeyboardActive: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+    }
 
     private var awaitingActivity = false
 
@@ -245,9 +247,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     }
     
     func authorizeDiesel() {
-        let telegramURLString = "https://t.me/MyTonWalletBot?start=auth-\(account.addressByChain[TON_CHAIN] ?? "")"
-
-        if let telegramURL = URL(string: telegramURLString) {
+        if let telegramURL = account.dieselAuthLink {
             if UIApplication.shared.canOpenURL(telegramURL) {
                 UIApplication.shared.open(telegramURL, options: [:], completionHandler: nil)
             }

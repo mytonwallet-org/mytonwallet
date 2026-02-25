@@ -2,12 +2,12 @@ import { Api, HttpClient } from 'tonapi-sdk-js';
 
 import type { ApiNetwork } from '../../../types';
 
+import { getChainConfig } from '../../../../util/chain';
 import { fetchWithRetry } from '../../../../util/fetch';
 import withCache from '../../../../util/withCache';
 import { getEnvironment } from '../../../environment';
 import { NETWORK_CONFIG } from '../constants';
 
-const MAX_LIMIT = 500;
 const EVENTS_LIMIT = 100;
 
 const getApi = withCache((network: ApiNetwork) => {
@@ -35,12 +35,13 @@ export async function fetchAccountNfts(network: ApiNetwork, address: string, opt
   limit?: number;
 }) {
   const { collectionAddress, offset, limit } = options ?? {};
+  const defaultLimit = getChainConfig('ton').nftBatchLimit!;
 
   return (await getApi(network).accounts.getAccountNftItems(
     address,
     {
       offset: offset ?? 0,
-      limit: limit ?? MAX_LIMIT,
+      limit: limit ?? defaultLimit,
       indirect_ownership: true,
       collection: collectionAddress,
     },

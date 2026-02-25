@@ -48,7 +48,7 @@ function SecretWordsContent({
       <InteractiveTextField
         noExplorer
         text={privateKey}
-        copyNotification={lang('Your private key was copied!')}
+        copyNotification={lang('Private Key Copied')}
       />
 
       <div className={styles.buttonWrapper}>

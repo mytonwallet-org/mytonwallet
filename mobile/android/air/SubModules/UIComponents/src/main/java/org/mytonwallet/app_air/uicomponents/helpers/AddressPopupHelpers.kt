@@ -38,10 +38,9 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
-import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
@@ -54,7 +53,7 @@ class AddressPopupHelpers {
             startIndex: Int,
             length: Int,
             network: MBlockchainNetwork,
-            addressTokenSlug: String,
+            blockchain: MBlockchain?,
             address: String,
             popupXOffset: Int,
             centerHorizontally: Boolean,
@@ -78,7 +77,7 @@ class AddressPopupHelpers {
             spannedString.setSpan(
                 object : ClickableSpan() {
                     override fun onClick(widget: View) {
-                        TokenStore.getToken(addressTokenSlug)?.mBlockchain?.let { blockchain ->
+                        blockchain?.let {
                             presentMenu(
                                 viewController = viewController,
                                 view = widget,
@@ -107,6 +106,20 @@ class AddressPopupHelpers {
                 startIndex + length + 1,
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
+        }
+
+        fun copyAddress(context: Context, address: String, blockchain: MBlockchain) {
+            val clipboard =
+                context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("", address)
+            clipboard.setPrimaryClip(clip)
+            Haptics.play(context, HapticType.LIGHT_TAP)
+            Toast.makeText(
+                context,
+                LocaleController.getString("%chain% Address Copied")
+                    .replace("%chain%", blockchain.displayName),
+                Toast.LENGTH_SHORT
+            ).show()
         }
 
         fun presentMenu(
@@ -165,19 +178,7 @@ class AddressPopupHelpers {
                         org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
                         LocaleController.getString("Copy Address"),
                     ) {
-                        val clipboard =
-                            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText(
-                            "",
-                            address
-                        )
-                        clipboard.setPrimaryClip(clip)
-                        Haptics.play(context, HapticType.LIGHT_TAP)
-                        Toast.makeText(
-                            context,
-                            LocaleController.getString("Address was copied!"),
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        copyAddress(context, address, blockchain)
                     },
                     WMenuPopup.Item(
                         if (addressSaved) {

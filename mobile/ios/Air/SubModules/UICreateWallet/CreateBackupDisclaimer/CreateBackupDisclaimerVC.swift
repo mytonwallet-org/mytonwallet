@@ -10,7 +10,7 @@ import SwiftUI
 import UIComponents
 import WalletContext
 
-final class CreateBackupDisclaimerVC: WViewController {
+final class CreateBackupDisclaimerVC: CreateWalletBaseVC {
     
     let introModel: IntroModel
 

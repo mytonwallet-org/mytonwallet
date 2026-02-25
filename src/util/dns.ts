@@ -84,7 +84,7 @@ export function filterExpiringDomains(
 }
 
 export function getDomainsExpirationDate(
-  nfts: (string | ApiNft)[],
+  nfts: ApiNft[],
   nftByAddress?: Record<string, ApiNft>,
   dnsExpiration?: Record<string, number>,
 ) {

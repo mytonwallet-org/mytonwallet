@@ -24,10 +24,10 @@ struct LinkDomainView: View {
                 } header: {
                     Text(viewModel.addressLabel)
                 } footer: {
-                    if let fee = viewModel.fee {
+                    if let fee = viewModel.fee, let chain = viewModel.nft?.chain {
                         FeeView(
-                            token: tokenStore.getNativeToken(chain: .ton),
-                            nativeToken: tokenStore.getNativeToken(chain: .ton),
+                            token: tokenStore.getNativeToken(chain: chain),
+                            nativeToken: tokenStore.getNativeToken(chain: chain),
                             fee: fee,
                             explainedTransferFee: nil,
                             includeLabel: true

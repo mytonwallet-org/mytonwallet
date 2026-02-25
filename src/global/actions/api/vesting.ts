@@ -9,8 +9,6 @@ import {
   MYCOIN_MAINNET,
   MYCOIN_TESTNET,
 } from '../../../config';
-import { callActionInMain } from '../../../util/multitab';
-import { IS_DELEGATED_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { handleTransferResult } from '../../helpers/transfer';
 import { prepareTransfer } from '../../helpers/transfer';
@@ -25,11 +23,6 @@ addActionHandler('submitClaimingVesting', async (global, actions, { password } =
   };
 
   if (!await prepareTransfer(VestingUnfreezeState.ConfirmHardware, updateVestingState, password)) {
-    return;
-  }
-
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('submitClaimingVesting', { password });
     return;
   }
 

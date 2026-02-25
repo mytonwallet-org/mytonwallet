@@ -1,4 +1,4 @@
-import type { ApiLiquidStakingState, ApiStakingState } from '../../../api/types';
+import type { ApiLiquidStakingState, ApiNft, ApiStakingState } from '../../../api/types';
 import type { AccountChain } from '../../types';
 
 import {
@@ -11,16 +11,16 @@ import {
 } from '../../../config';
 import { areDeepEqual } from '../../../util/areDeepEqual';
 import { buildCollectionByKey, unique } from '../../../util/iteratees';
-import { callActionInNative } from '../../../util/multitab';
 import { openUrl } from '../../../util/openUrl';
 import { getIsActiveStakingState } from '../../../util/staking';
-import { IS_DELEGATING_BOTTOM_SHEET, IS_IOS_APP } from '../../../util/windowEnvironment';
+import { IS_IOS_APP } from '../../../util/windowEnvironment';
 import { addActionHandler, setGlobal } from '../../index';
 import {
   addNft,
   addUnorderedNfts,
   createAccount,
   removeNft,
+  updateAccount,
   updateAccountChain,
   updateAccountSettings,
   updateAccountSettingsBackgroundNft,
@@ -147,31 +147,55 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     }
 
     case 'updateNfts': {
-      // `CustomizeWalletModal` is opened in a NBS before the nfts are updated, so we need to translate the update to the native side
-      // to prevent infinite loading
-      if (IS_DELEGATING_BOTTOM_SHEET) {
-        callActionInNative('apiUpdate', update);
-      }
-      const { accountId, collectionAddress } = update;
+      const { chain, accountId, collectionAddress, isFullLoading, streamedAddresses } = update;
       const nfts = buildCollectionByKey(update.nfts, 'address');
       const currentNfts = selectAccountState(global, accountId)?.nfts;
       const newOrderedAddresses = Object.keys(nfts);
 
-      const shouldAppend = !!collectionAddress;
+      const shouldAppend = Boolean(collectionAddress) || Boolean(isFullLoading);
+
+      let byAddress: Record<string, ApiNft>;
+      let orderedAddresses: string[];
+
+      if (streamedAddresses) {
+        // Streaming complete - prune NFTs not seen during the session for this chain
+        const streamed = new Set(streamedAddresses);
+        const prunedByAddress = { ...currentNfts?.byAddress };
+        for (const addr of Object.keys(prunedByAddress)) {
+          if (prunedByAddress[addr].chain === chain && !streamed.has(addr)) {
+            delete prunedByAddress[addr];
+          }
+        }
+        byAddress = prunedByAddress;
+        orderedAddresses = (currentNfts?.orderedAddresses ?? [])
+          .filter((addr) => streamed.has(addr) || currentNfts?.byAddress?.[addr]?.chain !== chain);
+      } else if (shouldAppend) {
+        // Batch or collection loading - preserve existing entries (fresher websocket data)
+        byAddress = { ...nfts, ...currentNfts?.byAddress };
+        orderedAddresses = unique(
+          ([] as string[]).concat(currentNfts?.orderedAddresses ?? [], newOrderedAddresses),
+        );
+      } else {
+        // Non-streaming full update - new data takes priority
+        byAddress = { ...currentNfts?.byAddress, ...nfts };
+        orderedAddresses = unique(
+          ([] as string[]).concat(newOrderedAddresses, currentNfts?.orderedAddresses ?? []),
+        );
+      }
 
       global = updateAccountState(global, accountId, {
         nfts: {
           ...currentNfts,
-          byAddress: { ...nfts, ...currentNfts?.byAddress },
-          orderedAddresses: unique(
-            shouldAppend
-              ? ([] as string[]).concat(currentNfts?.orderedAddresses ?? [], newOrderedAddresses)
-              : ([] as string[]).concat(newOrderedAddresses, currentNfts?.orderedAddresses ?? []),
-          ),
+          byAddress,
+          orderedAddresses,
           isLoadedByAddress: {
             ...currentNfts?.isLoadedByAddress,
-            ...(shouldAppend ? { [collectionAddress]: true } : {}),
+            ...(shouldAppend && Boolean(collectionAddress) ? { [collectionAddress]: true } : {}),
           },
+          isFullLoadingByChain: isFullLoading !== undefined ? {
+            ...currentNfts?.isFullLoadingByChain,
+            [chain]: isFullLoading,
+          } : currentNfts?.isFullLoadingByChain,
         },
       });
 
@@ -186,7 +210,10 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       const hasTelegramGifts = update.nfts.some((nft) => nft.isTelegramGift);
       if (hasTelegramGifts) {
         actions.addCollectionTab({
-          collectionAddress: TELEGRAM_GIFTS_SUPER_COLLECTION,
+          collection: {
+            address: TELEGRAM_GIFTS_SUPER_COLLECTION,
+            chain: 'ton',
+          },
           isAuto: true,
         });
       }
@@ -242,7 +269,26 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     case 'updateAccount': {
       const { accountId, chain, domain, address, isMultisig } = update;
       const account = selectAccount(global, accountId);
-      if (!account?.byChain[chain]) {
+      if (!account) {
+        break;
+      }
+
+      if (!account.byChain[chain]) {
+        if (!address) {
+          break;
+        }
+
+        global = updateAccount(global, accountId, {
+          byChain: {
+            ...account.byChain,
+            [chain]: {
+              address,
+              ...(domain ? { domain } : {}),
+              ...(isMultisig ? { isMultisig: true } : {}),
+            },
+          },
+        });
+        setGlobal(global);
         break;
       }
 
@@ -294,10 +340,6 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     }
 
     case 'updateWalletVersions': {
-      if (IS_DELEGATING_BOTTOM_SHEET) {
-        callActionInNative('apiUpdateWalletVersions', update);
-      }
-
       actions.apiUpdateWalletVersions(update);
       break;
     }

@@ -15,7 +15,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.uistake.earn.models.EarnItem
-import org.mytonwallet.app_air.uistake.util.getTonStakingFees
 import org.mytonwallet.app_air.uistake.util.toViewItem
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
@@ -23,15 +22,11 @@ import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
-import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.STAKED_MYCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.STAKED_USDE_SLUG
-import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.getStakingHistory
+import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MStakeHistoryItem
@@ -64,13 +59,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
             }
             return field
         }
-    private var stakedTokenSlug =
-        when (tokenSlug) {
-            TONCOIN_SLUG -> STAKE_SLUG
-            MYCOIN_SLUG -> STAKED_MYCOIN_SLUG
-            USDE_SLUG -> STAKED_USDE_SLUG
-            else -> ""
-        }
+    private val stakedTokenSlug = tokenSlugToStakingSlug(tokenSlug) ?: ""
 
     init {
         WalletCore.registerObserver(this)
@@ -397,25 +386,6 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
         if (hasLoadedAllStakedActivityItems) return
         val timeStamp = lastStakedActivityTimestamp ?: return
         requestTokenActivitiesForStakedItems(fromTimestamp = timeStamp)
-    }
-
-    fun requestClaimRewards(
-        passcode: String,
-        callback: (JSWebViewBridge.ApiError?) -> Unit
-    ) {
-        val activeAccountId = AccountStore.activeAccountId ?: return
-        AccountStore.stakingData?.stakingState(tokenSlug)?.let { stakingState ->
-            WalletCore.call(
-                ApiMethod.Staking.SubmitStakingClaimOrUnlock(
-                    activeAccountId,
-                    passcode,
-                    stakingState,
-                    getTonStakingFees(stakingState.stakingType)["claim"]!!.real
-                )
-            ) { _, err ->
-                callback(err)
-            }
-        }
     }
 
     //

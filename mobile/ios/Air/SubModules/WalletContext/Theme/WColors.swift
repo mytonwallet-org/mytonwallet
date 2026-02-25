@@ -50,25 +50,30 @@ public struct _WColorsType {
     var primary: UIColor
     
     public let background: UIColor = .airBundle("BackgroundColor")
-    let groupedBackground: UIColor = .airBundle("GroupedBackgroundColor")
+    
+    public let groupedBackground: UIColor = .airBundle("GroupedBackgroundColor")
+    let sidebarBackground: UIColor = .airBundle("SidebarBackgroundColor")
+
     let groupedItem: UIColor = .airBundle("GroupedItemColor")
-    let sheetBackground: UIColor = .airBundle("SheetBackgroundColor")
+    public let sheetBackground: UIColor = .airBundle("SheetBackgroundColor")
     let modularBackground: UIColor = .airBundle("ModularBackgroundColor")
 
     let backgroundReverse: UIColor = .airBundle("BackgroundReverseColor")
-    let thumbBackground: UIColor = .airBundle("ThumbBackgroundColor")
+    public let thumbBackground: UIColor = .airBundle("ThumbBackgroundColor")
     
     let secondaryLabel: UIColor = .airBundle("AirSecondaryLabelColor")
     let secondaryFill: UIColor = .airBundle("SecondaryFillColor")
+    public let folderFill: UIColor = .airBundle("FolderFillColor")
     
     let separator: UIColor = .airBundle("AirSeparatorColor")
     let separatorDarkBackground: UIColor = .airBundle("AirSeparatorDarkBackgroundColor")
     
     let headerBackground: UIColor = .airBundle("HeaderBackgroundColor")
-    let headerSecondaryLabel: UIColor = .airBundle("HeaderSecondaryLabelColor")
+    public let headerSecondaryLabel: UIColor = .airBundle("HeaderSecondaryLabelColor")
     let headerSkeleton: UIColor = .airBundle("HeaderSkeletonColor")
     
-    let highlight: UIColor = .airBundle("HighlightColor")
+    public let highlight: UIColor = .airBundle("HighlightColor")
+    public let altHighlight: UIColor = .airBundle("AltHighlightColor")
     
     let sheetOpaqueBar: UIColor = .airBundle("SheetOpaqueBarColor")
     let browserOpaqueBar: UIColor = .airBundle("BrowserOpaqueBarColor")
@@ -114,7 +119,7 @@ public struct _WColorsType {
     }
 }
 
-public var WColors: _WColorsType! = _WColorsType(primary: .airBundle("TC1_PrimaryColor"))
+public var WColors: _WColorsType = _WColorsType(primary: .airBundle("TC1_PrimaryColor"))
 
 public extension UIColor {
     static var air: _WColorsType { WColors }
@@ -131,8 +136,10 @@ public extension Color {
         public let groupedItem: Color = .airBundle("GroupedItemColor")
         public let groupedBackground: Color = .airBundle("GroupedBackgroundColor")
         public let background: Color = .airBundle("BackgroundColor")
+        public let sidebarBackground: Color = .airBundle("SidebarBackgroundColor")
         public let sheetBackground: Color = .airBundle("SheetBackgroundColor")
         public let highlight: Color = .airBundle("HighlightColor")
+        public let altHighlight: Color = .airBundle("AltHighlightColor")
         public let secondaryFill: Color = .airBundle("SecondaryFillColor")
         public let error: Color = .red
         public let folderFill: Color = .airBundle("FolderFillColor")

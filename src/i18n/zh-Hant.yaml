@@ -89,21 +89,19 @@ Done: 完成
 Delete: 刪除
 Delete Saved Address: 刪除保存的地址
 Are you sure you want to remove this address from your saved ones?: 您確定要從保存的地址中刪除嗎？
-You will be able to save it again via Transaction Info with this address.: 您也能透過交易紀錄再次保存此地址。
 Address removed from saved: 地址已從列表中移除
 Warning!: 警告!
 $logout_without_backup_warning: 您尚未備份錢包。 如果您註銷，您將喪失您的代幣和 NFT。
 $logout_accounts_without_backup_warning: 您還沒有備份 %links%。 如果您註銷，您將喪失您的代幣和 NFT。
 $logout_warning: 這將從應用中移除當前錢包。請確保已備份您的**密語**。
 $logout_view_mode_warning: 這將從應用中移除當前錢包。
-Your address was copied!: 您的地址已被複製!
 Create Deposit Link: 建立存款連結
 $receive_invoice_description: 您可以指定付款金額和地址來節省發送人的一些時間。
 Amount: 數量
 Comment: 註記欄
 Comment or Memo: 註記欄 (Memo)
 Share this URL to receive %token%: 分享此連結來接收 %token%
-Invoice link was copied!: 發票連結已複製！
+Invoice Link Copied: 發票連結已複製
 Theme: 主題
 Language: 語言
 Enable Animations: 啟用動畫
@@ -131,16 +129,12 @@ $signature_warning: |
 Sign: 簽署
 Done!: 完成!
 Signing was confirmed!: 簽署已確認!
-Transaction Info: 交易資訊
 Activity Details: 活動詳情
 No activities found: 未找到活動
-Transaction not found: 未找到交易
-Failed to fetch transaction: 獲取交易失敗
-Transaction in progress: 交易進行中
-Comment was copied!: 註記欄已被複製!
+Comment Copied: 註記欄已被複製
 Sender: 發送人
 Recipient: 接收人
-Address was copied!: 地址已被複製!
+"%chain% Address Copied": "%chain% 地址已複製"
 Repeat: 重複
 Switch Account: 切換帳戶
 Copy wallet address: 複製錢包地址
@@ -187,7 +181,6 @@ Fee: 手續費
 Edit: 編輯
 Confirm: 確認
 Coins have been sent!: 代幣已送出!
-Transaction Sent!: 交易已發送!
 Data Signed!: 資料已簽名!
 Details: 明細
 View details: 檢視詳情
@@ -225,7 +218,6 @@ $safe_staking_description_jetton2: 您可以在 **任何時候** 提取您的質
 $min_value: 最少 %value%
 Est. balance in a year: 預估 1 年後的資產餘額
 Confirm Staking: 確認質押
-Confirm operation with your password: 輸入您的密碼確認此筆操作
 Coins have been staked!: 代幣已被質押成功!
 View: 查看
 Stake More: 繼續質押
@@ -284,7 +276,6 @@ Disconnect Dapp: 斷開 Dapp
 Disconnect Dapps: 斷開 Dapps
 Are you sure you want to disconnect?: 你確定要斷開 %dappname% 嗎？
 Are you sure you want to disconnect all websites?: 您確定要斷開所有網站嗎？
-$dapps-description: 您可以登錄支持 %app_name% 的 dapp。 它們可以查看錢包地址、餘額並請求操作。
 Logged in with %app_name%: 使用 %app_name% 登錄
 No active connections: 沒有活動連接
 Other: 其他的
@@ -308,11 +299,9 @@ Driver: 司機
 Unlock it and open the %chain% App: 解鎖並開啟 %chain% 應用
 Maybe you need to check the password or change the driver.: 也許您需要檢查密碼或更改驅動程序。
 Confirm via Ledger: 通過賬本確認
-Please confirm transaction on your Ledger: 請在您的賬本上確認交易
 Declined: 謝絕
 Switch to the newly opened tab to connect Ledger.: 切換到新開啟的頁籤以連接 Ledger。
 Once connected, switch back to this window to proceed.: 連接完成後，切換回此視窗以繼續。
-Not all transactions were sent successfully: 並非所有交易都成功發送
 The time on your device is incorrect, sync it and try again: 您設備上的時間不正確，請同步並重試
 Name or Address...: 姓名或地址...
 Such error, many tabs: 這樣的錯誤，很多標籤
@@ -320,12 +309,11 @@ $many_tabs_error_description: |
   %app_name% 僅支持該應用程序的一個活動選項卡。
   請重新加載此頁面以繼續使用此選項卡或將其關閉。
 Reload App: 重新加載應用程序
-Please confirm operation on your Ledger: 請確認您在Ledger上的操作
 Token Not Found: 找不到令牌
 Try another keyword or address.: 試試其他關鍵字或地址。
 Decrypt: 解密
 Encrypted Message: 加密消息
-Message is encrypted.: 消息已加密。
+Message is encrypted: 消息已加密
 Agree: 同意
 $swap_action: 交換
 Swap: 交換
@@ -396,7 +384,6 @@ $swap_changelly_kyc_security: 請聯絡**%email%**並提供**交易ID**以通過
 Swap Expired: 交換過期
 Address for %blockchain% transfer: "%blockchain% 傳輸位址"
 Cross-chain exchange provided by Changelly: Changelly提供的跨鏈交換
-$swap_changelly_agreement_message: 繼續操作即表示您同意 %terms% 和 %policy%，並理解該交易可能會觸發根據 %kyc% 的驗證。
 $swap_changelly_terms_of_use: 使用條款
 $swap_changelly_privacy_policy: 隱私政策
 Password must contain %length% digits.: 密碼必須包含%length%位數字。
@@ -411,19 +398,17 @@ Biometric Authentication: 生物辨識認證
 If you turn off biometric protection, you will need to create a password.: 如果您關閉生物辨識保護，則需要建立密碼。
 Enter your current password: 輸入目前密碼
 Turn On Biometrics: 打開生物識別
-Please confirm transaction using biometrics: 請使用生物辨識技術確認交易
 Enabling biometric confirmation will reset the password.: 啟用生物辨識確認將重設密碼。
 Biometric Registration: 生物辨識註冊
 Step 1 of 2. Registration: 第 1 步（共 2 步）：註冊
 Step 2 of 2. Verification: 第 2 步（共 2 步）：驗證
 Download Logs: 下載日誌
 Copy Logs: 複製日誌
-Logs were copied!: 日誌已複製！
+Logs Copied: 日誌已複製
 Biometric setup failed.: 生物辨識設定失敗。
 Biometric confirmation failed.: 生物辨識確認失敗。
 Failed to disable biometrics.: 無法禁用生物識別。
 Biometric Confirmation: 生物辨識確認
-Please verify the operation.: 請驗證操作。
 Create Password: 建立密碼
 Complete: 罷
 Verification: 確認
@@ -437,7 +422,7 @@ Scan QR Code: 掃描二維碼
 Permission denied. Please grant camera permission to use the QR code scanner.: 沒有權限。 請授予相機使用 QR 掃描器的權限。
 This QR Code is not supported: 此二維碼不受支援
 An error on the server side. Please try again.: 服務器端的錯誤。請再試一次。
-Address was saved!: 地址已儲存！
+Address Saved: 地址已儲存
 US Dollar: 美金
 Euro: 歐元
 Russian Ruble: 俄羅斯盧布
@@ -452,7 +437,6 @@ Wallet is ready!: 錢包準備好了！
 Wallet is imported!: 錢包是進口的！
 Create a code to protect it: 創建程式碼來保護它
 Enter your code again: 再次輸入您的代碼
-Codes don't match: 代碼不匹配
 Code set successfully: 代碼設定成功
 Use Biometrics: 使用生物辨識技術
 Use Touch ID: 使用 Touch ID
@@ -511,7 +495,7 @@ $insufficient_fee: "手续费不足: %fee%"
 Required: 必需的
 Comment is too long.: 評論太長了。
 Memo: Memo
-Memo was copied!: Memo 被複製了！
+Memo Copied: Memo 被複製了
 $hide_tokens_no_cost_help: |
   將其關閉以在您的帳戶上顯示為價值小於 $%value% 的代幣。請注意，這種令牌通常用於垃圾郵件和騙局。
   您還可以使用下面在此屏幕上的列表選擇性地啟用和禁用特定令牌。
@@ -519,9 +503,7 @@ No internet connection. Please check your connection and try again.: 沒有網�
 To use this feature, first enable Face ID in your phone settings.: 若要使用此功能，請先在手機設定中啟用面容 ID。
 To use this feature, first enable biometrics in your phone settings.: 若要使用此功能，請先在手機設定中啟用生物辨識功能。
 Open Settings: 開啟設定
-$service_token_transfer_warning: 您即將轉移一個重要的服務代幣，此代幣是提款或完成服務操作所必需的。請確保這是您計劃執行的操作。
 No Price: 無價格
-$ledger_outdated: 此操作不支持您當前版本的 Ledger %chain% 應用程序。請使用 Ledger Live 進行更新。
 $dapp_transfer_tokens_burn: 燃燒%amount%
 $dapp_dns_set_wallet_payload: 將網域 %domain% 的連結錢包更改為 %address%
 $dapp_dns_delete_wallet_payload: 正在刪除網域 %domain% 的連結錢包
@@ -535,7 +517,10 @@ $dapp_single_nominator_withdraw_payload: 從 SingleNominator 質押合約中提�
 $dapp_vesting_add_whitelist_payload: 將%address%加入歸屬錢包白名單
 Connecting dapps is not yet supported by Ledger.: Ledger 尚不支援連接 dapp。
 Time synchronization issue. Please ensure your device's time settings are correct.: 時間同步問題。 請確保您設備的時間設定正確。
-Data was copied!: 資料被複製！
+Data Copied: 資料被複製
+URL Copied: URL Copied
+Private Key Copied: Private Key Copied
+Contract Initialization Data Copied: Contract Initialization Data Copied
 Open NFT Collection: 打開 NFT 收藏
 Previous: 上一個
 Next: 下一個
@@ -551,17 +536,12 @@ Swap is not yet supported by Ledger.: Ledger 尚不支援該交易所。
 Buying with card is not supported in Testnet.: 測試網不支援刷卡購買。
 Staking is not supported in Testnet.: 測試網不支援質押。
 Get Support: 得到支持
-$transfer_inactive_contract_error: |
-  您以“EQ...”格式輸入了地址，但該地址未激活，因此交易將無法完成。如果您確實要傳送到該位址，請以「UQ...」格式輸入該位址。
 $transfer_link_expired: 轉帳連結已過期
 $transfer_text_and_bin_exclusive: 不能同時使用文字和二進位資料參數
 $unsupported_deeplink_parameter: 此深度連結包含不支援的參數。
 $unsupported_chain: 不支援的區塊鏈。
-$transaction_not_found: 未找到交易。
-$could_not_determine_address: 無法從交易中確定錢包地址
 Successfully: 成功地
 Unstake More: 解除質押更多
-WrongAddress: 該 dapp 請求另一個錢包進行交易。
 Are you sure you want to burn this NFT? It will be lost forever.: 您確定要燒掉這個 NFT 嗎？ 它將永遠失去。
 $multi_burn_nft_warning: 您即將銷毀 %amount% 個 NFT。
 $multi_send_nft_warning: 該過程可能需要 ~%duration% 分鐘。請勿關閉應用程式，也不要在完成之前切換賬戶。
@@ -579,7 +559,7 @@ Burn All: 全部燒掉
 Select All: 全選
 Collection: 集合
 Unnamed Collection: 未命名集合
-Transaction ID was copied!: 交易ID已被複製！
+Transaction ID Copied: 交易ID已被複製
 $swap_changelly_support: 如果有任何問題，請聯絡%livechat%或%email%並提供**交易ID**：
 Changelly Live Chat: Changelly 即時聊天
 Your %blockchain% Address: 您的%blockchain% 地址
@@ -603,10 +583,12 @@ $fee_value_bold: "**手續費:** %fee%"
 "%app_name% Features": "%app_name% 功能"
 Security: 安全
 To avoid entering the passcode every time, you can use biometrics.: 為避免每次輸入密碼，您可以使用生物識別技術。
+To avoid entering the password every time, you can use biometrics.: 為避免每次輸入密碼，您可以使用生物識別技術。
 Change Passcode: 更改密碼
 Change Password: 更改密碼
 Confirm Password: 確認密碼
 The passcode will be changed for all your wallets.: 密碼將為您的所有錢包更改。
+The password will be changed for all your wallets.: 密碼將為您的所有錢包更改。
 Password Changed!: 密碼已更改！
 Passcode Changed!: 密碼已更改！
 New code set successfully: 新代碼設定成功
@@ -616,7 +598,6 @@ Re-enter your new code: 再次輸入您的新代碼
 Install on Desktop: 安裝到桌面
 Install on Mobile: 安裝在手機
 Install App: 安裝應用程式
-WrongNetwork: Dapp 要求來自另一個網路的交易。
 Hide: 隱藏
 Hidden NFTs: 隱藏的NFT
 Hidden By Me: 我隱藏的
@@ -640,7 +621,6 @@ Confirm Sending: 確認發送
 Confirm Burning: 確認刻錄
 Confirm Passcode: 確認密碼
 Enter your code: 輸入您的代碼
-$hardware_payload_warning: "**第三方服務正在請求訪問您的錢包。**這可能會導致資金損失。如果您不確定此服務的可靠性，請取消操作。"
 $hardware_blind_sign_not_enabled: 要繼續，請在 Ledger 的 %chain% 應用程序設置中啟用“盲簽名”選項。
 Switch to W5: 切換到 W5
 Not Scam: 不是騙局
@@ -712,7 +692,7 @@ Transaction ID: 交易ID
 Help Center: 幫助中心
 MyTonWallet Tips: MyTonWallet 提示
 Open %nft_marketplace%: 打開 %nft_marketplace%
-Link was copied!: 連結已複製！
+Link Copied: 連結已複製
 Share Link: 分享連結
 $dapp_return_details: |
   %fee_amount% 將立即從您的錢包扣除以支付費用。
@@ -809,6 +789,7 @@ Preview: 預覽
 $preview_not_guaranteed: 預覽結果**不受保證**，且**可能被服務偽造**。
 Unverified Source: 未經驗證的來源
 $reopen_in_iab: 請使用 MyTonWallet %mobileAppButton% 或 %browserExtensionButton% 以避免此警告。
+$reopen_in_iab_explore: 瀏覽應用程式時，請使用 %exploreTab% 專區以避免此警告。
 MyTonWallet Browser: MyTonWallet 瀏覽器
 mobile app: 行動應用程式
 browser extension: 瀏覽器擴充功能
@@ -848,7 +829,7 @@ Change Linked Wallet: 變更已連結錢包
 Domain has been renewed!: 網域已續約!
 Domains have been renewed!: 網域已成功續約!
 Linked Wallet: 已連結錢包
-Domain has been linked!: 網域已連結!
+Domain Linked: 網域已連結
 Link: 連結
 Confirm Renewing: 確認續約
 Confirm Linking: 確認連結
@@ -890,7 +871,7 @@ Attributes: 屬性
 Show All: 顯示全部
 Description: 描述
 No additional data.: 無附加數據。
-Domain was copied!: 網域已複製！
+"%chain% Domain Copied": "%chain% 網域已複製"
 $in_currency: 以 %currency%
 Rename Wallet: 重新命名錢包
 You can rename this wallet for easier identification.: 您可以重新命名該錢包以便於識別。
@@ -903,7 +884,6 @@ Telegram Gifts: Telegram 禮物
 Collectibles: 收藏品
 Bluetooth unavailable: 藍牙不可用
 $bluetooth_enable_guide: 請在設備設定中開啟藍牙並允許應用程式存取藍牙。
-Another transaction was sent from this wallet simultaneously. Please try again.: 此錢包同時發送了另一筆交易。請重試。
 Canceled by the user: 用戶已取消
 The proof for signing provided by the Dapp is too large: Dapp 提供的簽名證明過大
 $domain_like_scam_warning: |
@@ -998,7 +978,7 @@ View in App: 在應用中查看
 Save Account: 保存帳戶
 $invalid_address_format: 無效的地址格式
 $no_valid_view_addresses: 沒有可查看的有效地址
-Account saved successfully!: 帳戶已成功保存！
+Account Saved: 帳戶已成功保存
 Share Wallet Link: 分享錢包連結
 Remove: 移除
 $missing_offramp_deposit_address: 缺少 off-ramp 的充值地址。
@@ -1036,8 +1016,47 @@ Open in %app_name%: 在 %app_name% 中開啟
 Blog: 部落格
 Apps: 應用程式
 $nft_not_found: 未找到 NFT
+You will be able to save it again via Transfer Info with this address.: 您將能夠透過此地址的轉帳資訊再次儲存它。
+Transfer Info: 轉帳資訊
+Transfer not found: 未找到轉帳
+Failed to fetch transfer: 取得轉帳失敗
+Transfer in progress: 轉帳進行中
+Transfer Sent!: 轉帳已發送！
+Please confirm transfer on your Ledger: 請在您的 Ledger 上確認轉帳
+Please confirm action on your Ledger: 請在您的 Ledger 上確認操作
+Not all transfers were sent successfully: 並非所有轉帳都發送成功
+$swap_changelly_agreement_message: 繼續即表示您同意 %terms% 和 %policy%，並理解該轉帳可能會根據 %kyc% 觸發驗證。
+Please confirm transfer using biometrics: 請使用生物辨識確認轉帳
+$transfer_inactive_contract_error: |
+  您輸入了 "EQ..." 格式的地址，但該地址未啟用，因此轉帳不會完成。
+  如果您確實想發送到此地址，請以 "UQ..." 格式輸入地址。
+$transaction_not_found: 未找到轉帳。
+$could_not_determine_address: 無法從轉帳中確定錢包地址
+WrongAddress: 去中心化應用程式 (dapp) 請求了另一個錢包的操作。
+WrongNetwork: 去中心化應用程式 (dapp) 請求了另一個網路操作。
+Another transfer was sent from this wallet simultaneously. Please try again.: 同時從此錢包發送了另一筆轉帳。請重試。
+Confirm action with your password: 用密碼確認操作
+$dapps-description: 您可以在支援 %app_name% 的去中心化應用程式 (dapps) 上登入。它們可以查看錢包地址、餘額並請求操作。
+Please verify the action.: 請驗證操作。
+$service_token_transfer_warning: 您即將轉移一個重要的服務代幣，該代幣是提取存款或完成服務操作所必需的。請確保這是您打算執行的操作。
+$ledger_outdated: 此操作不受您的 Ledger %chain% 應用程式版本支援。請使用 Ledger Live 更新它。
+$hardware_payload_warning: "**第三方服務正在請求存取您的錢包。** 這可能導致資金損失。如果您不確定此服務的可靠性，請取消操作。"
 Pin: 固定
 Unpin: 取消固定
 My Assets: 我的資產
 Owner: 擁有者
 Show All Wallets: 顯示所有錢包
+Ask a Question: 提問
+MyTonWallet Features: MyTonWallet 功能
+Notifications: 通知
+Wrong passcode, please try again: 密碼錯誤，請重試。
+Use biometric authentication or create a passcode to protect it.: 使用生物識別認證或建立密碼進行保護。
+Use Passcode: 使用密碼
+Create Passcode: 建立密碼
+Create a passcode to protect it.: 建立密碼進行保護。
+Enter Passcode: 輸入密碼
+If you turn off biometric protection, you will need to create a passcode.: 如果您關閉生物識別保護，您需要建立密碼。
+Enabling biometric confirmation will reset the passcode.: 啟用生物識別認證將重置密碼。
+Confirm action with your passcode: 用密碼確認操作
+No Image: 無圖片
+Different blockchain. Cannot be selected: 不同的區塊鏈。無法選擇

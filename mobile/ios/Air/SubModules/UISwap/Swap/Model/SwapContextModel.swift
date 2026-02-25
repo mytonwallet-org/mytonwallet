@@ -38,7 +38,7 @@ struct SwapContext {
         let pair = (selling.slug, buying.slug)
         guard pair != prevPair else { return isValidPair }
         prevPair = pair
-        if selling.chain == TON_CHAIN && buying.chain == TON_CHAIN && selling.slug != buying.slug {
+        if selling.chain == .ton && buying.chain == .ton && selling.slug != buying.slug {
             isValidPair = true
             return true
         }

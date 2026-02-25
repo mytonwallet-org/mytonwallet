@@ -22,6 +22,8 @@ public let STAKED_TOKEN_SLUGS: Set<String> = [
   TON_TSUSDE_SLUG,
 ]
 
+public let MYTONWALLET_MULTISEND_DAPP_URL = "https://multisend.mytonwallet.io/";
+
 public let NFT_MARKETPLACE_URL = "https://getgems.io/"
 public let NFT_MARKETPLACE_TITLE = "GetGems"
 

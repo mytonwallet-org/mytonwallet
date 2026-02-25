@@ -360,7 +360,7 @@ public extension ApiActivity {
     /** "Our" is staking that can be controlled with MyTonWallet app */
     var isOurStakingTransaction: Bool {
         if case .transaction(let tx) = self {
-            return isStakingTransaction && ALL_STAKING_POOLS.contains(tx.isIncoming ? tx.fromAddress : tx.toAddress ?? "")
+            return isStakingTransaction && ALL_STAKING_POOLS.contains(tx.isIncoming ? tx.fromAddress ?? "" : tx.toAddress ?? "")
         }
         return false
     }

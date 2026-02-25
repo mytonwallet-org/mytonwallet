@@ -12,6 +12,8 @@ jest.mock('./addresses', () => ({
 }));
 
 const mockNft: ApiNft = {
+  chain: 'ton',
+  interface: 'default',
   index: 1,
   name: 'Test NFT',
   address: 'test-nft-address',

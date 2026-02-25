@@ -1,0 +1,40 @@
+.tokenTitle {
+  overflow: hidden;
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.disabled {
+  color: var(--color-gray-2);
+}
+
+.labelContainer {
+  display: flex;
+}
+
+.pinIcon {
+  margin-inline-end: 0.25rem;
+  color: var(--color-gray-2);
+  vertical-align: middle;
+}
+
+.label {
+  display: inline-block;
+
+  height: 0.9375rem;
+  margin-inline-start: 0.25rem;
+  padding: 0.1875rem;
+  border-radius: 0.25rem;
+
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 0.625rem;
+}
+
+.chainLabel {
+  color: var(--color-gray-2);
+  background-color: var(--color-activity-gray-background);
+}

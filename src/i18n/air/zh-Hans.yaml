@@ -34,11 +34,10 @@ All Telegram Gifts: 所有 Telegram 礼物
 Add Crypto: 充值加密货币
 Share QR Code: 分享二维码
 $send_only_ton: 仅向此地址发送 Toncoin (TON) 或 TON 网络资产。发送其他代币会导致丢失。
-$send_only_tron: 仅向此地址发送 TRON (TRX) 或 TRON 网络资产。发送其他代币会导致丢失。
+$send_only_chain: 仅向此地址发送 %chain% (%symbol%) 或 %chain% 网络资产。发送其他代币会导致丢失。
 Buying with card is not supported for this account.: 此账户不支持银行卡购买。
 Swapped at: 兑换时间
 Price per: 单价
-Transaction Details: 交易详情
 From: 来自
 To: 去往
 Changelly ID: Changelly ID
@@ -269,7 +268,7 @@ $remove_wallets:
   zeroValue: 移除钱包
   oneValue: 移除钱包
   otherValue: 移除 %1$d 个钱包
-Contract Initialization Data was copied!: 已复制合约初始化数据！
+Contract Initialization Data Copied: 已复制合约初始化数据
 Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: 无法加密。收款方不是钱包或没有转出记录。
 just now: 刚刚
 "No": 否
@@ -292,3 +291,42 @@ Receive: 接收
 Scan: 扫描
 Search or enter address: 搜索或输入地址
 View as Grid: 网格视图
+
+
+push_title_wallet: "%wallet_title%"
+push_activity_token_sent: 已发送 %amount% %symbol%
+push_activity_token_received: 已收到 %amount% %symbol%
+push_activity_nft_sent: 已发送 NFT
+push_activity_nft_sent_named: "已发送 NFT：%name%"
+push_activity_nft_received: 已收到 NFT
+push_activity_nft_received_named: "已收到 NFT：%name%"
+push_activity_contract_called: 已调用智能合约
+push_activity_contract_deployed: 已部署智能合约
+push_activity_token_minted: 已铸造 %amount% %symbol%
+push_activity_token_burned: 已销毁 %amount% %symbol%
+push_activity_nft_minted: 已铸造 NFT
+push_activity_nft_minted_named: "已铸造 NFT: %name%"
+push_activity_liquidity_deposited: 已提供流动性
+push_activity_liquidity_withdrawn: 已提取流动性
+push_activity_stake_deposit: 已质押 %amount% %symbol%
+push_activity_stake_withdrawal: 已解除质押 %amount% %symbol%
+push_activity_stake_withdrawal_request: 已提交质押提现请求
+push_activity_auction_bid: 已出价竞拍 %amount% %symbol%
+push_activity_dns_changed: 已更新 DNS 记录
+push_activity_dns_deleted: 已删除 DNS 记录
+push_activity_dns_renewed: 已续期 DNS
+push_activity_subscription_started: 已开始订阅
+push_activity_subscription_payment_received: 已收到订阅付款 %amount% %symbol%
+push_activity_subscription_canceled: 已取消订阅
+push_activity_swap_completed: 兑换 %from_symbol% -> %to_symbol% 已完成
+push_activity_swap_failed: 兑换 %from_symbol% -> %to_symbol% 失败
+push_activity_swap_expired: 兑换 %from_symbol% -> %to_symbol% 已过期
+push_activity_swap_pending: 兑换 %from_symbol% -> %to_symbol% %status%
+push_activity_staking_profit: 质押收益 %amount% TON
+push_activity_staking_loyalty_profit: 质押忠诚度收益 %amount% TON
+push_domain_title_renew: 续订您的域名
+push_domain_expired_yesterday: 您的域名 %domain% 昨天已过期。请尽快续订，以免失去访问权限
+push_domain_expired_days_ago: 您的域名 %domain% 已于 %days% 天前过期。请尽快续订，以免失去访问权限
+push_domain_expires_today: 您的域名 %domain% 将于今天过期。请续订以免失去访问权限
+push_domain_expires_tomorrow: 您的域名 %domain% 将于明天过期。请续订以免失去访问权限
+push_domain_expires_in_days: 您的域名 %domain% 将于 %days% 天后过期。请续订以免失去访问权限

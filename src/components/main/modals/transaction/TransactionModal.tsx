@@ -350,8 +350,6 @@ function TransactionModal({
     <Modal
       isOpen={isModalOpen}
       hasCloseButton
-      nativeBottomSheetKey="transaction"
-      forceFullNative={currentSlide === SLIDES.password}
       dialogClassName={buildClassName(styles.modalDialog, isOurUnstaking && styles.unstakeModal)}
       onClose={handleClose}
       onCloseAnimationEnd={closePasswordSlide}

@@ -99,7 +99,45 @@ object AccountStore : IStore {
     }
 
     fun updateAccountData(update: ApiUpdate.ApiUpdateUpdateAccount) {
-        // TODO::
+        val account = accountById(update.accountId) ?: return
+        val chain = update.chain.name
+        val byChain = account.byChain.toMutableMap()
+        var didChange = false
+
+        update.address?.let { newAddress ->
+            val existing = byChain[chain]
+            if (existing == null) {
+                byChain[chain] = AccountChain(address = newAddress)
+                didChange = true
+            } else if (existing.address != newAddress) {
+                byChain[chain] = existing.copy(address = newAddress)
+                didChange = true
+            }
+        }
+
+        update.domain?.let { newDomain ->
+            val existing = byChain[chain]
+            val newDomain = if (newDomain == "false") null else newDomain
+            if (existing != null && existing.domain != newDomain) {
+                byChain[chain] = existing.copy(domain = newDomain)
+                didChange = true
+            }
+        }
+
+        update.isMultisig?.let { newIsMultisig ->
+            val existing = byChain[chain]
+            if (existing != null && existing.isMultisig != newIsMultisig) {
+                byChain[chain] = existing.copy(isMultisig = newIsMultisig)
+                didChange = true
+            }
+        }
+
+        if (didChange) {
+            updateAccountByChain(update.accountId, byChain)
+            if (activeAccountId == update.accountId) {
+                activeAccount?.byChain = byChain
+            }
+        }
     }
 
     // Clear all the temporary account related data if exist
@@ -144,8 +182,9 @@ object AccountStore : IStore {
             PoisoningCacheHelper.removeAccount(removingAccountId)
             DappsStore.removeAccount(removingAccountId)
             NftStore.setNfts(
-                null,
-                removingAccountId,
+                chain = null,
+                nfts = null,
+                accountId = removingAccountId,
                 notifyObservers = false,
                 isReorder = false
             )
@@ -199,6 +238,7 @@ object AccountStore : IStore {
 
     fun updateAccountByChain(accountId: String, byChain: Map<String, AccountChain>) {
         WGlobalStorage.saveAccountByChain(accountId, MAccount.byChainToJson(byChain))
+        AddressStore.updatedAccountByChain(accountId, byChain)
         notifyEvent(WalletEvent.ByChainUpdated(accountId))
     }
 

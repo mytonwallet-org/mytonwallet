@@ -91,6 +91,7 @@ struct ExploreScreenFeaturedDappView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .center, spacing: 4) {
                     Text(site.name).font(.system(size: 15, weight: .semibold))
+                        .kerning(-0.28)
                         .lineLimit(1)
                         .frame(height: 18) // should lineHeight
                         .foregroundStyle(.white)
@@ -103,7 +104,14 @@ struct ExploreScreenFeaturedDappView: View {
                 }
 
                 Text(site.description).font(.system(size: 13, weight: .medium))
-                    // + lineHeight 16 when Text Styles will be added to project
+                    .kerning(-0.55)
+                    .applyModifierConditionally {
+                        if #available(iOS 26.0, *) {
+                            $0.lineHeight(.exact(points: 16))
+                        } else {
+                            $0
+                        }
+                    }
                     .foregroundStyle(Color.white.opacity(0.5))
                     .lineLimit(2)
             }

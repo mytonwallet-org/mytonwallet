@@ -1,4 +1,4 @@
-import type { ActivitiesUpdate, NewActivitiesCallback } from './socket';
+import type { ActivitiesUpdate, NewActivitiesCallback } from '../../../common/websocket/abstractWsClient';
 import type { SocketFinality } from './types';
 
 import { setCancellableTimeout } from '../../../../util/schedulers';

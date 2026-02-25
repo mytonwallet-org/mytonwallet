@@ -43,6 +43,11 @@ const tronSdk: ChainSdk<'tron'> = {
   fetchPrivateKeyString,
   getIsLedgerAppOpen: notSupported,
   fetchTransactionById,
+  getAccountNfts: notSupported,
+  streamAllAccountNfts: notSupported,
+  checkNftTransferDraft: notSupported,
+  submitNftTransfers: notSupported,
+  checkNftOwnership: notSupported,
 };
 
 export default tronSdk;

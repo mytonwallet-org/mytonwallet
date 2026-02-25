@@ -5,6 +5,7 @@
 .modalDialog {
   overflow: hidden;
   height: 42rem;
+  padding-top: 0 !important;
 
   @supports (height: env(safe-area-inset-bottom)) {
     height: calc(42rem + env(safe-area-inset-bottom));
@@ -72,6 +73,7 @@
 
 .tabsInModal,
 .receiveHeader {
+  padding-top: var(--safe-area-top);
   background-color: var(--color-background-first-disabled) !important;
 }
 

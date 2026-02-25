@@ -45,12 +45,9 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
             return
         }
         WalletCore.call(
-            ApiMethod.DApp.StartSseConnection(
-                ApiMethod.DApp.StartSseConnection.Request(
-                    url = link,
-                    identifier = TonConnectHelper.generateId(),
-                    deviceInfo = TonConnectHelper.deviceInfo
-                )
+            ApiMethod.DApp.TonConnectHandleDeepLink(
+                url = link,
+                identifier = TonConnectHelper.generateId()
             )
         ) { _, _ -> }
     }

@@ -13,11 +13,11 @@ import {
   NFT_BATCH_SIZE,
   NOTCOIN_EXCHANGERS,
   STARS_SYMBOL,
-  TONCOIN,
 } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import { selectCurrentAccountId, selectNetworkAccounts } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import { getChainConfig, getChainTitle } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { explainApiTransferFee } from '../../util/fee/transferFee';
 import { getLocalAddressName } from '../../util/getLocalAddressName';
@@ -77,6 +77,7 @@ function TransferConfirm({
     diesel,
     stateInit,
     isOfframp,
+    isNftBurn,
   },
   token,
   currentAccountId,
@@ -92,7 +93,8 @@ function TransferConfirm({
 
   const isNftTransfer = Boolean(nfts?.length);
   if (isNftTransfer) {
-    tokenSlug = TONCOIN.slug;
+    const nftChain = nfts[0].chain;
+    tokenSlug = getChainConfig(nftChain).nativeToken.slug;
   }
 
   const chain = getChainBySlug(tokenSlug);
@@ -104,7 +106,7 @@ function TransferConfirm({
     savedAddresses,
   }), [accounts, chain, currentAccountId, savedAddresses, toAddress]);
   const addressName = localAddressName || toAddressName;
-  const isBurning = resolvedAddress === BURN_ADDRESS;
+  const isBurning = resolvedAddress === BURN_ADDRESS || isNftBurn;
   const isNotcoinBurning = resolvedAddress === NOTCOIN_EXCHANGERS[0];
   const explainedFee = explainApiTransferFee({
     fee,
@@ -170,7 +172,7 @@ function TransferConfirm({
               <div className={styles.label}>{lang('Signing Data')}</div>
               <InteractiveTextField
                 text={binPayload}
-                copyNotification={lang('Data was copied!')}
+                copyNotification={lang('Data Copied')}
                 className={styles.addressWidget}
               />
             </>
@@ -181,7 +183,7 @@ function TransferConfirm({
               <div className={styles.label}>{lang('Contract Initialization Data')}</div>
               <InteractiveTextField
                 text={stateInit}
-                copyNotification={lang('Data was copied!')}
+                copyNotification={lang('Data Copied')}
                 className={styles.addressWidget}
               />
             </>
@@ -240,28 +242,31 @@ function TransferConfirm({
             previewUrl={ANIMATED_STICKERS_PATHS.billPreview}
           />
         )}
-        <div className={styles.label}>
-          {lang('Receiving Address')}
-          {' '}
-          {isToNewAddress && (
-            <IconWithTooltip
-              emoji="⚠️"
-              size="small"
-              message={lang('This address is new and never received transfers before.')}
-              tooltipClassName={styles.warningTooltipContainer}
+        {!isNftBurn && (
+          <>
+            <div className={styles.label}>
+              {lang('Receiving Address')}
+              {' '}
+              {isToNewAddress && (
+                <IconWithTooltip
+                  emoji="⚠️"
+                  size="small"
+                  message={lang('This address is new and never received transfers before.')}
+                  tooltipClassName={styles.warningTooltipContainer}
+                />
+              )}
+            </div>
+            <InteractiveTextField
+              chain={chain}
+              address={resolvedAddress}
+              addressName={addressName}
+              isScam={isScam}
+              copyNotification={lang('%chain% Address Copied', { chain: getChainTitle(chain) }) as string}
+              className={styles.addressWidget}
+              forceFullAddress
             />
-          )}
-        </div>
-        <InteractiveTextField
-          chain={chain}
-          address={resolvedAddress}
-          addressName={addressName}
-          isScam={isScam}
-          copyNotification={lang('Address was copied!')}
-          className={styles.addressWidget}
-          forceFullAddress
-        />
-
+          </>
+        )}
         {renderAmountWithFee()}
         {renderComment()}
 

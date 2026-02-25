@@ -6,7 +6,7 @@ import WalletContext
 
 private let log = Log("Home-Actions")
 
-let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
+let actionsRowHeight = WScalableButton.preferredHeight
 
 final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     
@@ -38,7 +38,7 @@ final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
         hideUnsupportedActions()
     }
     
-    func hideUnsupportedActions() {
+    private func hideUnsupportedActions() {
         if account.isView {
             view.alpha = 0
         } else {
@@ -49,7 +49,7 @@ final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
             actionsView.sendButton.alpha = account.supportsSend ? 1 : 0
             actionsView.swapButton.alpha = account.supportsSwap ? 1 : 0
             actionsView.earnButton.alpha = account.supportsEarn ? 1 : 0
-            actionsView.updateSpacing()
+            actionsView.update()
         }
     }
     
@@ -78,21 +78,13 @@ final class ActionsContainerView: UIView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         addSubview(actionsView)
-        if IOS_26_MODE_ENABLED {
-            NSLayoutConstraint.activate([
-                actionsView.centerXAnchor.constraint(equalTo: centerXAnchor),
-                actionsView.topAnchor.constraint(equalTo: topAnchor).withPriority(.defaultLow), // will be broken when pushed against the top
-                actionsView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            ])
-
-        } else {
-            NSLayoutConstraint.activate([
-                actionsView.leadingAnchor.constraint(equalTo: leadingAnchor),
-                actionsView.trailingAnchor.constraint(equalTo: trailingAnchor),
-                actionsView.topAnchor.constraint(equalTo: topAnchor).withPriority(.defaultLow), // will be broken when pushed against the top
-                actionsView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            ])
-        }
+        NSLayoutConstraint.activate([
+            actionsView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            actionsView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            actionsView.topAnchor.constraint(equalTo: topAnchor).withPriority(.defaultLow), // will be broken when pushed against the top
+            actionsView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            heightAnchor.constraint(equalToConstant: actionsRowHeight),
+        ])
         setContentHuggingPriority(.required, for: .vertical)
     }
     
@@ -101,13 +93,11 @@ final class ActionsContainerView: UIView {
     }
 }
 
-
-final class ActionsView: WTouchPassStackView, WThemedView {
-    
-    var addButton: WScalableButton!
-    var sendButton: WScalableButton!
-    var swapButton: WScalableButton!
-    var earnButton: WScalableButton!
+final class ActionsView: ButtonsToolbar {
+    var addButton: UIView!
+    var sendButton: UIView!
+    var swapButton: UIView!
+    var earnButton: UIView!
     
     init() {
         super.init(frame: .zero)
@@ -118,66 +108,48 @@ final class ActionsView: WTouchPassStackView, WThemedView {
     required init(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
-    func setup() {
+        
+    private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        spacing = S.actionButtonSpacing(forButtonCount: 4)
-        distribution = IOS_26_MODE_ENABLED ? .equalSpacing : .fillEqually
         clipsToBounds = false
         
         addButton = WScalableButton(
-            title: IOS_26_MODE_ENABLED ? lang("Fund") : lang("Add").lowercased(),
-            image: IOS_26_MODE_ENABLED ? .airBundle("AddIconBold") : .airBundle("AddIcon"),
+            title: lang("Fund"),
+            image: .airBundle("AddIconBold"),
             onTap: { AppActions.showReceive(chain: nil, title: nil) }
         )
         addArrangedSubview(addButton)
         
-        sendButton = WScalableButton(
-            title: IOS_26_MODE_ENABLED ? lang("Send") : lang("Send").lowercased(),
-            image: IOS_26_MODE_ENABLED ? .airBundle("SendIconBold") : .airBundle("SendIcon"),
-            onTap: { AppActions.showSend(prefilledValues: nil) }
+        let sendButton = WScalableButton(
+            title: lang("Send"),
+            image: .airBundle("SendIconBold"),
+            onTap: { AppActions.showSend(prefilledValues: .init()) }
         )
+        sendButton.attachMenu(makeConfig: {
+            var menuItems: [MenuItem] = [
+                .button(id: "0-send", title: lang("Send"), trailingIcon: .air("MenuSend26")) { AppActions.showSend(prefilledValues: .init()) },
+                .button(id: "0-multisend", title: lang("Multisend"), trailingIcon: .air("MenuMultisend26")) { AppActions.showMultisend() },
+            ]
+            if !ConfigStore.shared.shouldRestrictSell {
+                menuItems += .button(id: "0-sell", title: lang("Sell"), trailingIcon: .air("MenuSell26")) { AppActions.showSell(account: nil, tokenSlug: nil) }
+            }
+            return MenuConfig(menuItems: menuItems)
+        })
         addArrangedSubview(sendButton)
+        self.sendButton = sendButton
         
         swapButton = WScalableButton(
-            title: IOS_26_MODE_ENABLED ? lang("Swap") : lang("Swap").lowercased(),
-            image: IOS_26_MODE_ENABLED ? .airBundle("SwapIconBold") : .airBundle("SwapIcon"),
+            title: lang("Swap"),
+            image: .airBundle("SwapIconBold"),
             onTap: { AppActions.showSwap(defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil) }
         )
         addArrangedSubview(swapButton)
         
         earnButton = WScalableButton(
-            title: IOS_26_MODE_ENABLED ? lang("Earn") : lang("Earn").lowercased(),
-            image: IOS_26_MODE_ENABLED ? .airBundle("EarnIconBold") : .airBundle("EarnIcon"),
+            title: lang("Earn"),
+            image: .airBundle("EarnIconBold"),
             onTap: { AppActions.showEarn(tokenSlug: nil) }
         )
         addArrangedSubview(earnButton)
-        
-    }
-    
-    func updateSpacing() {
-        let visibleCount = arrangedSubviews.filter { !$0.isHidden }.count
-        spacing = S.actionButtonSpacing(forButtonCount: visibleCount)
-    }
-    
-    override func layoutSubviews() {
-        let height = bounds.height
-        let actionButtonAlpha = height < actionsRowHeight ? height / actionsRowHeight : 1
-        let maxRadius = S.actionButtonCornerRadius
-        let actionButtonRadius = min(maxRadius, height / 2)
-        for btn in arrangedSubviews {
-            guard let btn = btn as? WScalableButton else { continue }
-            btn.set(scale: actionButtonAlpha, radius: actionButtonRadius)
-        }
-        super.layoutSubviews()
-    }
-
-    nonisolated public func updateTheme() {
-        MainActor.assumeIsolated {
-            addButton.tintColor = WTheme.tint
-            sendButton.tintColor = WTheme.tint
-            swapButton.tintColor = WTheme.tint
-            earnButton.tintColor = WTheme.tint
-        }
     }
 }

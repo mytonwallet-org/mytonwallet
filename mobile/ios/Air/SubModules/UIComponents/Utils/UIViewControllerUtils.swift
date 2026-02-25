@@ -60,10 +60,12 @@ public extension UIViewController {
         present(alert, animated: true, completion: nil)
     }
     
-    @MainActor func showNetworkAlert() {
+    @MainActor func showNetworkAlert(onOK: (() -> Void)? = nil) {
         showAlert(title: lang("Network error"),
                   text: lang("Please make sure your internet connection is working and try again."),
-                  button: lang("OK"))
+                  button: lang("OK")) {
+            onOK?()
+        }
     }
     
     @MainActor func showAlert(error: any Error, onOK: (() -> Void)? = nil) {
@@ -77,7 +79,7 @@ public extension UIViewController {
             switch error {
             case .message(let bridgeCallErrorMessages, _):
                 if bridgeCallErrorMessages == .serverError {
-                    showNetworkAlert()
+                    showNetworkAlert(onOK: onOK)
                 } else {
                     showAlert(title: lang("Error"),
                               text: bridgeCallErrorMessages.toLocalized,
@@ -116,7 +118,7 @@ public extension UIViewController {
     
     if var topController = keyWindow?.rootViewController {
         while let presentedViewController = topController.presentedViewController {
-            if presentedViewController.sheetPresentationController?.selectedDetentIdentifier == .minimized || presentedViewController.isBeingDismissed {
+            if presentedViewController.isBeingDismissed {
                 break
             }
             topController = presentedViewController
@@ -131,26 +133,11 @@ public extension UIViewController {
 
 @MainActor public func topWViewController() -> WViewController? {
     guard let topVC = topViewController() else { return nil }
-    if let wViewController = topVC as? WViewController {
-        return wViewController
-    }
-    if let wViewController = (topVC as? UINavigationController)?.viewControllers.last as? WViewController {
-        return wViewController
-    }
-    if let wViewController = (topVC as? UITabBarController)?.navigationController?.visibleViewController as? WViewController {
-        return wViewController
-    }
-    if let tabVC = topVC as? UITabBarController, let navVC = tabVC.selectedViewController as? UINavigationController, let wViewController = navVC.viewControllers.last as? WViewController {
+    if let wViewController = topVC.visibleContentViewController as? WViewController {
         return wViewController
     }
     if let presentingVC = topVC.presentingViewController {
-        if let wViewController = presentingVC as? WViewController {
-            return wViewController
-        }
-        if let wViewController = (presentingVC as? UINavigationController)?.viewControllers.last as? WViewController {
-            return wViewController
-        }
-        if let tabVC = presentingVC as? UITabBarController, let navVC = tabVC.selectedViewController as? UINavigationController, let wViewController = navVC.viewControllers.last as? WViewController {
+        if let wViewController = presentingVC.visibleContentViewController as? WViewController {
             return wViewController
         }
     }
@@ -159,4 +146,51 @@ public extension UIViewController {
 
 @MainActor public func endEditing() {
     UIApplication.shared.anySceneKeyWindow?.endEditing(true)
+}
+
+@MainActor public protocol VisibleContentProviding {
+    var visibleContentProviderViewController: UIViewController { get }
+}
+
+public extension UIViewController {
+    var visibleContentViewController: UIViewController {
+        if let provider = self as? VisibleContentProviding {
+            return provider.visibleContentProviderViewController.visibleContentViewController
+        }
+        if let navigation = self as? UINavigationController,
+           let visible = navigation.visibleViewController ?? navigation.topViewController {
+            return visible.visibleContentViewController
+        }
+        if let tab = self as? UITabBarController, let selected = tab.selectedViewController {
+            return selected.visibleContentViewController
+        }
+        if let split = self as? UISplitViewController, let last = split.viewControllers.last {
+            return last.visibleContentViewController
+        }
+        return self
+    }
+    
+    func descendantViewController<T: UIViewController>(of type: T.Type) -> T? {
+        if let vc = self as? T {
+            return vc
+        }
+        for child in children {
+            if let vc = child.descendantViewController(of: type) {
+                return vc
+            }
+        }
+        return nil
+    }
+    
+    func descendantViewController(where predicate: (UIViewController) -> Bool) -> UIViewController? {
+        if predicate(self) {
+            return self
+        }
+        for child in children {
+            if let vc = child.descendantViewController(where: predicate) {
+                return vc
+            }
+        }
+        return nil
+    }
 }

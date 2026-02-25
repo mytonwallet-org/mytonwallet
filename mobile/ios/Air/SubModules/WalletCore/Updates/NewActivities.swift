@@ -19,7 +19,6 @@ extension ApiUpdate {
            * UI should handle both changes in one update.
            */
         public var  pendingActivities: [ApiActivity]?
-//        public var noForward: Bool?
 
         public init(accountId: String, chain: ApiChain?, activities: [ApiActivity], pendingActivities: [ApiActivity]?) {
             self.accountId = accountId

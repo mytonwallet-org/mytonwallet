@@ -18,7 +18,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: ${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -29,6 +29,7 @@ env:
   BRILLIANT_API_BASE_URL: ${{ vars.BRILLIANT_API_BASE_URL }}
   SWAP_FEE_ADDRESS: ${{ vars.SWAP_FEE_ADDRESS }}
   DIESEL_ADDRESS: ${{ vars.DIESEL_ADDRESS }}
+  WALLET_CONNECT_PROJECT_ID: ${{ vars.WALLET_CONNECT_PROJECT_ID }}
 
 jobs:
   electron-release:

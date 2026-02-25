@@ -11,21 +11,21 @@ import WalletContext
 import WalletCore
 import Dependencies
 
-final class UpdateStatusView: UIStackView {
+public final class UpdateStatusView: UIStackView {
     
     @AccountContext var account: MAccount
     
-    init(accountSource: AccountSource) {
+    public init(accountSource: AccountSource) {
         self._account = AccountContext(source: accountSource)
         super.init(frame: .zero)
         setupViews()
     }
     
-    override init(frame: CGRect) {
+    public override init(frame: CGRect) {
         fatalError()
     }
     
-    required init(coder: NSCoder) {
+    public required init(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
@@ -72,7 +72,7 @@ final class UpdateStatusView: UIStackView {
         AppActions.showWalletSettings()
     }
     
-    enum State: Equatable {
+    public enum State: Equatable {
         case waitingForNetwork
         case updating
         case updated
@@ -83,7 +83,7 @@ final class UpdateStatusView: UIStackView {
     private var currentAnimator: UIViewPropertyAnimator?
     private var animationCompletionHandler: (() -> Void)?
 
-    func setState(newState: State, animatedWithDuration duration: TimeInterval?) {
+    public func setState(newState: State, animatedWithDuration duration: TimeInterval?) {
         let currentDisplayName = account.displayName
         if state == newState &&
            (state != .updated || title == currentDisplayName) {

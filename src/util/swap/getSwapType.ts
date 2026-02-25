@@ -1,4 +1,4 @@
-import type { ApiChain, ApiSwapAsset } from '../../api/types';
+import type { ApiChain, ApiSwapAsset, ApiTokenWithPrice } from '../../api/types';
 import { type Account, SwapType, type UserSwapToken } from '../../global/types';
 
 import { getChainBySlug } from '../tokens';
@@ -31,8 +31,8 @@ export function getIsInternalSwap({
   toAddress,
   accountChains,
 }: {
-  from?: UserSwapToken | ApiSwapAsset;
-  to?: UserSwapToken | ApiSwapAsset;
+  from?: UserSwapToken | ApiSwapAsset | ApiTokenWithPrice;
+  to?: UserSwapToken | ApiSwapAsset | ApiTokenWithPrice;
   toAddress?: string;
   accountChains?: Account['byChain'];
 }) {

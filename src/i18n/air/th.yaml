@@ -34,11 +34,10 @@ All Telegram Gifts: ของขวัญ Telegram ทั้งหมด
 Add Crypto: เพิ่มคริปโต
 Share QR Code: แชร์ QR โค้ด
 $send_only_ton: ส่ง Toncoin (TON) หรือสินทรัพย์บน TON เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
-$send_only_tron: ส่ง TRON (TRX) หรือสินทรัพย์บน TRON เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
+$send_only_chain: ส่ง %chain% (%symbol%) หรือสินทรัพย์บน %chain% เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
 Buying with card is not supported for this account.: บัญชีนี้ไม่รองรับการซื้อด้วยบัตร
 Swapped at: แลกเปลี่ยนเมื่อ
 Price per: ราคาต่อ
-Transaction Details: รายละเอียดธุรกรรม
 From: จาก
 To: ไปยัง
 Changelly ID: Changelly ID
@@ -269,7 +268,7 @@ $remove_wallets:
   zeroValue: ลบกระเป๋า
   oneValue: ลบกระเป๋า
   otherValue: ลบ %1$d กระเป๋า
-Contract Initialization Data was copied!: คัดลอกข้อมูลตั้งค่าเริ่มต้นของสัญญาแล้ว!
+Contract Initialization Data Copied: คัดลอกข้อมูลตั้งค่าเริ่มต้นของสัญญาแล้ว
 Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: ไม่สามารถเข้ารหัสได้ ผู้รับไม่ใช่กระเป๋าหรือไม่มีธุรกรรมขาออก
 just now: เมื่อครู่
 "No": ไม่
@@ -292,3 +291,42 @@ Receive: รับ
 Scan: สแกน
 Search or enter address: ค้นหาหรือใส่ที่อยู่
 View as Grid: ดูแบบตาราง
+
+
+push_title_wallet: "%wallet_title%"
+push_activity_token_sent: ส่ง %amount% %symbol%
+push_activity_token_received: ได้รับ %amount% %symbol%
+push_activity_nft_sent: ส่ง NFT
+push_activity_nft_sent_named: "ส่ง NFT: %name%"
+push_activity_nft_received: ได้รับ NFT
+push_activity_nft_received_named: "ได้รับ NFT: %name%"
+push_activity_contract_called: เรียกสัญญาอัจฉริยะแล้ว
+push_activity_contract_deployed: ปรับใช้สัญญาอัจฉริยะแล้ว
+push_activity_token_minted: สร้าง %amount% %symbol%
+push_activity_token_burned: เผา %amount% %symbol%
+push_activity_nft_minted: สร้าง NFT
+push_activity_nft_minted_named: "สร้าง NFT: %name%"
+push_activity_liquidity_deposited: เพิ่มสภาพคล่องแล้ว
+push_activity_liquidity_withdrawn: ถอนสภาพคล่องแล้ว
+push_activity_stake_deposit: นำ %amount% %symbol% ไปสเตกแล้ว
+push_activity_stake_withdrawal: ถอน %amount% %symbol% ออกจากสเตกแล้ว
+push_activity_stake_withdrawal_request: ส่งคำขอถอนจากสเตกแล้ว
+push_activity_auction_bid: วางบิดประมูล %amount% %symbol% แล้ว
+push_activity_dns_changed: อัปเดตระเบียน DNS แล้ว
+push_activity_dns_deleted: ลบระเบียน DNS แล้ว
+push_activity_dns_renewed: ต่ออายุ DNS แล้ว
+push_activity_subscription_started: เริ่มการสมัครสมาชิกแล้ว
+push_activity_subscription_payment_received: ได้รับการชำระค่าสมัครสมาชิก %amount% %symbol%
+push_activity_subscription_canceled: ยกเลิกการสมัครสมาชิกแล้ว
+push_activity_swap_completed: สลับ %from_symbol% -> %to_symbol% สำเร็จ
+push_activity_swap_failed: สลับ %from_symbol% -> %to_symbol% ล้มเหลว
+push_activity_swap_expired: สลับ %from_symbol% -> %to_symbol% หมดอายุ
+push_activity_swap_pending: สลับ %from_symbol% -> %to_symbol% %status%
+push_activity_staking_profit: กำไรจากการสเตก %amount% TON
+push_activity_staking_loyalty_profit: กำไรจากความภักดีในการสเตก %amount% TON
+push_domain_title_renew: ต่ออายุโดเมนของคุณ
+push_domain_expired_yesterday: โดเมน %domain% ของคุณหมดอายุเมื่อวานนี้ โปรดต่ออายุโดยเร็วที่สุดเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
+push_domain_expired_days_ago: โดเมน %domain% ของคุณหมดอายุมาแล้ว %days% วัน โปรดต่ออายุโดยเร็วที่สุดเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
+push_domain_expires_today: โดเมน %domain% ของคุณจะหมดอายุวันนี้ โปรดต่ออายุเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
+push_domain_expires_tomorrow: โดเมน %domain% ของคุณจะหมดอายุพรุ่งนี้ โปรดต่ออายุเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง
+push_domain_expires_in_days: โดเมน %domain% ของคุณจะหมดอายุในอีก %days% วัน โปรดต่ออายุเพื่อหลีกเลี่ยงการสูญเสียการเข้าถึง

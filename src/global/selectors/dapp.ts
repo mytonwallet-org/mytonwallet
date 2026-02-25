@@ -2,6 +2,7 @@ import type { ApiDappTransfer, ApiTokenWithPrice } from '../../api/types';
 import type { GlobalState } from '../types';
 
 import { STON_PTON_SLUG, TONCOIN, UNKNOWN_TOKEN } from '../../config';
+import { getChainConfig } from '../../util/chain';
 import memoize from '../../util/memoize';
 import { isNftTransferPayload, isTokenTransferPayload } from '../../util/ton/transfer';
 import { selectCurrentAccountState } from './accounts';
@@ -22,7 +23,7 @@ const selectCurrentDappTransferTotalsMemoized = memoize((
     if (transaction.isScam) isScam = true;
     if (transaction.isDangerous) isDangerous = true;
 
-    addSlugAmount(TONCOIN.slug, transaction.amount + transaction.networkFee);
+    addSlugAmount(getChainConfig(transaction.chain).nativeToken.slug, transaction.amount + transaction.networkFee);
 
     if (isTokenTransferPayload(transaction.payload)) {
       addSlugAmount(transaction.payload.slug, transaction.payload.amount);

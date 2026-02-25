@@ -89,14 +89,12 @@ Done: Tamamlandı
 Delete: Sil
 Delete Saved Address: Kayıtlı adresi silin
 Are you sure you want to remove this address from your saved ones?: Bu adresi kayıtlı adreslerinizden kaldırmak istediğinizden emin misiniz?
-You will be able to save it again via Transaction Info with this address.: Bu adrese ait İşlem Bilgisi aracılığıyla bu adresi tekrar kaydedebileceksiniz.
 Address removed from saved: Adres kaydedilenlerden kaldırıldı
 Warning!: Uyarı!
 $logout_without_backup_warning: Bu cüzdanı yedeklemediniz. Cüzdanı kaldırırsanız tokenlarınıza ve NFT'lerinize erişiminizi kaybedersiniz.
 $logout_accounts_without_backup_warning: "%links% için yedekleme yapmadınız. Devam ederseniz tokenlarınıza ve NFT'lerinize erişiminizi kaybedersiniz."
 $logout_warning: Bu, mevcut cüzdanı uygulamadan kaldıracaktır. **Gizli kelimelerinizi** yedeklediğinizden emin olun.
 $logout_view_mode_warning: Bu, mevcut cüzdanı uygulamadan kaldıracaktır.
-Your address was copied!: Adresiniz kopyalandı!
 Create Deposit Link: Para Yatırma Bağlantısı Oluşturun
 $receive_invoice_description: |
   Göndericiye zaman kazandırmak adına ödeme
@@ -105,7 +103,7 @@ Amount: Tutar
 Comment: Memo (Açıklama)
 Comment or Memo: Memo (Açıklama)
 Share this URL to receive %token%: "%token% almak için bu URL'yi paylaşın"
-Invoice link was copied!: Fatura bağlantısı kopyalandı!
+Invoice Link Copied: Fatura bağlantısı kopyalandı
 Theme: Tema
 Language: Dil
 Enable Animations: Animasyonları Etkinleştir
@@ -132,16 +130,12 @@ $signature_warning: Özelleştirilmiş verilerin imzalanması çok tehlikelidir.
 Sign: İmzala
 Done!: Tamamlandı!
 Signing was confirmed!: İmza onaylandı!
-Transaction Info: İşlem bilgileri
 Activity Details: Aktivite Detayları
 No activities found: Aktivite bulunamadı
-Transaction not found: İşlem bulunamadı
-Failed to fetch transaction: İşlem getirilemedi
-Transaction in progress: İşlem devam ediyor
-Comment was copied!: Açıklama kopyalandı!
+Comment Copied: Açıklama kopyalandı
 Sender: Gönderici
 Recipient: Alıcı
-Address was copied!: Adres kopyalandı!
+"%chain% Address Copied": "%chain% Adresi kopyalandı"
 Repeat: Tekrarla
 Switch Account: Hesap değiştir
 Copy wallet address: Cüzdan adresini kopyala
@@ -189,7 +183,6 @@ Fee: Ücret
 Edit: Düzenle
 Confirm: Onayla
 Coins have been sent!: Coin'ler gönderildi!
-Transaction Sent!: İşlem gönderildi!
 Data Signed!: Veri imzalandı!
 Details: Detaylar
 View details: Detayları görüntüle
@@ -228,7 +221,6 @@ $safe_staking_description_jetton2: Stake'inizi **herhangi bir zamanda** çekebil
 $min_value: Min. %value%
 Est. balance in a year: Bir yıl içindeki tahmini bakiye
 Confirm Staking: Staking işlemini onayla
-Confirm operation with your password: İşlemi şifrenizle onaylayın
 Coins have been staked!: Coin'ler stake edildi!
 View: Görüntüle
 Stake More: Daha fazla stake edin
@@ -286,7 +278,6 @@ Disconnect Dapp: Dapp'in bağlantısını kes
 Disconnect Dapps: Dapp'lerin bağlantısını kes
 Are you sure you want to disconnect?: "%dappname% bağlantısını kesmek istediğinizden emin misiniz?"
 Are you sure you want to disconnect all websites?: Tüm web sitelerinin bağlantısını kesmek istediğinizden emin misiniz?
-$dapps-description: "%app_name%'ı destekleyen Dapp'lerde oturum açabilirsiniz. Bu Dapp'ler, cüzdan adresini, bakiyeyi görüntüleyebilir ve işlem talep edebilirler."
 Logged in with %app_name%: "%app_name% ile oturum açıldı"
 No active connections: Aktif bağlantı yok
 Other: Diğer
@@ -310,11 +301,9 @@ Driver: Sürücü
 Unlock it and open the %chain% App: Cihazın kilidi açın ve %chain% uygulamasını başlatın
 Maybe you need to check the password or change the driver.: Şifreyi kontrol etmeniz veya sürücüyü değiştirmeniz gerekebilir.
 Confirm via Ledger: Ledger aracılığıyla onaylayın
-Please confirm transaction on your Ledger: Lütfen Ledger'ınızdaki işlemi onaylayın
 Declined: Reddedildi
 Switch to the newly opened tab to connect Ledger.: Ledger'ı bağlamak için yeni açılan sekmeye geçin.
 Once connected, switch back to this window to proceed.: Bağlandıktan sonra devam etmek için bu pencereye geri dönün.
-Not all transactions were sent successfully: Tüm işlemler başarılı şekilde gönderilmedi
 The time on your device is incorrect, sync it and try again: Cihazınızdaki saat hatalı, saati senkronize edin ve tekrar deneyin
 Name or Address...: İsim veya Adres...
 Such error, many tabs: Bu tür hatalar, birçok sekme
@@ -322,12 +311,11 @@ $many_tabs_error_description: |
   %app_name%, uygulama ile yalnızca bir etkin sekmeyi destekler.
   Bu sekmeyi kullanmaya devam etmek için lütfen sayfayı yeniden yükleyin ya da kapatın.
 Reload App: Uygulamayı yeniden yükleyin
-Please confirm operation on your Ledger: Lütfen Ledger'ınızdaki işlemi onaylayın
 Token Not Found: Token bulunamadı
 Try another keyword or address.: Başka bir anahtar kelime veya adres deneyin.
 Decrypt: Şifre çöz
 Encrypted Message: Şifrelenmiş Mesaj
-Message is encrypted.: Mesaj şifrelenmiştir.
+Message is encrypted: Mesaj şifrelenmiştir
 Agree: Kabul et
 $swap_action: Takas
 Swap: Takas
@@ -398,7 +386,6 @@ $swap_changelly_kyc_security: "Lütfen **%email%** ile iletişime geçin ve KYC 
 Swap Expired: Takas işleminin süresi doldu
 Address for %blockchain% transfer: "%blockchain% aktarımının adresi"
 Cross-chain exchange provided by Changelly: Changelly tarafından sağlanan cross-chain takası
-$swap_changelly_agreement_message: Devam ederek, %terms% ve %policy%'yi kabul etmiş ve işlemin %kyc% kurallarına göre doğrulama sürecini başlatabileceğini anlamış olursunuz.
 $swap_changelly_terms_of_use: kullanım şartları
 $swap_changelly_privacy_policy: gizlilik politikası
 Password must contain %length% digits.: Parola %length% hane içermelidir.
@@ -413,19 +400,17 @@ Biometric Authentication: Biyometrik kimlik doğrulama
 If you turn off biometric protection, you will need to create a password.: Biyometrik korumayı kapatırsanız, bir parola oluşturmanız gerekecektir.
 Enter your current password: Geçerli parolanızı girin
 Turn On Biometrics: Biyometrik korumayı aç
-Please confirm transaction using biometrics: Biyometrik korumayı kullanarak işlemi onaylayınız
 Enabling biometric confirmation will reset the password.: Biyometrik onayın etkinleştirilmesi parolayı sıfırlayacaktır.
 Biometric Registration: Biyometrik kayıt
 Step 1 of 2. Registration: Adım 1/2. Kayıt
 Step 2 of 2. Verification: Adım 2/2. Doğrulama
 Download Logs: Kayıtları İndir
 Copy Logs: Günlükleri Kopyala
-Logs were copied!: Günlükler kopyalandı!
+Logs Copied: Günlükler kopyalandı
 Biometric setup failed.: Biyometrik kurulum başarısız oldu.
 Biometric confirmation failed.: Biyometrik onaylama başarısız oldu.
 Failed to disable biometrics.: Biyometrik onay devre dışı bırakılamadı.
 Biometric Confirmation: Biyometrik onay
-Please verify the operation.: Lütfen işlemi doğrulayın.
 Create Password: Parola oluştur
 Complete: Tamamlandı
 Verification: Doğrulama
@@ -439,7 +424,7 @@ Scan QR Code: QR kodunu tarayın
 Permission denied. Please grant camera permission to use the QR code scanner.: İzin reddedildi. Lütfen kameraya QR kod tarayıcısını kullanma izni verin.
 This QR Code is not supported: Bu QR kodu desteklenmiyor
 An error on the server side. Please try again.: Sunucu tarafında bir hata oluştu. Lütfen tekrar deneyin.
-Address was saved!: Adres kaydedildi!
+Address Saved: Adres kaydedildi
 US Dollar: ABD doları
 Euro: Euro
 Russian Ruble: Rus Rublesi
@@ -455,7 +440,6 @@ Wallet is ready!: Cüzdan hazır!
 Wallet is imported!: Cüzdan içeri aktarıldı!
 Create a code to protect it: Korumak için bir kod oluşturun
 Enter your code again: Kodunuzu tekrar girin
-Codes don't match: Kodlar eşleşmiyor
 Code set successfully: Kod başarıyla ayarlandı
 Use Biometrics: Biyometrik koruma kullanın
 Use Touch ID: Touch ID kullanın
@@ -514,7 +498,7 @@ $insufficient_fee: "Yetersiz ücret: %fee%"
 Required: Gerekli
 Comment is too long.: Yorum çok uzun.
 Memo: Memo
-Memo was copied!: Memo kopyalandı!
+Memo Copied: Memo kopyalandı
 $hide_tokens_no_cost_help: |
   Hesabınızdaki jetonları $%value% 'dan daha düşük bir değerle görüntülemek için bunu kapatın. Lütfen bu tür jetonların genellikle spam ve aldatmaca için kullanıldığını unutmayın.
   Ayrıca, bu ekranda aşağıdaki listeyi kullanarak belirli jetonları seçici olarak etkinleştirebilir ve devre dışı bırakabilirsiniz.
@@ -522,9 +506,7 @@ No internet connection. Please check your connection and try again.: İnternet b
 To use this feature, first enable Face ID in your phone settings.: Bu özelliği kullanmak için öncelikle telefon ayarlarınızda Face ID'yi etkinleştirin.
 To use this feature, first enable biometrics in your phone settings.: Bu özelliği kullanmak için öncelikle telefon ayarlarınızda biyometriyi etkinleştirin.
 Open Settings: Ayarları aç
-$service_token_transfer_warning: Mevduatınızı çekmek veya hizmet işlemlerini tamamlamak için gerekli olan önemli bir hizmet tokenini transfer etmek üzeresiniz. Bu işlemi yapmayı gerçekten istediğinizden emin olun.
 No Price: Fiyat yok
-$ledger_outdated: Bu işlem, kullandığınız Ledger %chain% App sürümü tarafından desteklenmiyor. Lütfen Ledger Live kullanarak güncelleyin.
 $dapp_transfer_tokens_burn: "%amount% yakılıyor"
 $dapp_dns_set_wallet_payload: "%domain% alanının bağlı cüzdanını %address% olarak değiştirme"
 $dapp_dns_delete_wallet_payload: Deleting linked wallet of domain %domain%
@@ -538,7 +520,10 @@ $dapp_single_nominator_withdraw_payload: "%amount%'un SingleNominator staking s�
 $dapp_vesting_add_whitelist_payload: Vesting cüzdanı beyaz listesine %address% ekleniyor
 Connecting dapps is not yet supported by Ledger.: Dapp'lerin bağlanması henüz Ledger tarafından desteklenmiyor.
 Time synchronization issue. Please ensure your device's time settings are correct.: Time synchronization issue. Zaman senkronizasyonu sorunu. Lütfen cihazınızın saat ayarlarının doğru olduğundan emin olun.
-Data was copied!: Veri kopyalandı!
+Data Copied: Veri kopyalandı
+URL Copied: URL Copied
+Private Key Copied: Private Key Copied
+Contract Initialization Data Copied: Contract Initialization Data Copied
 Open NFT Collection: NFT Koleksiyonunu Aç
 Previous: Önceki
 Next: Sonraki
@@ -554,18 +539,12 @@ Swap is not yet supported by Ledger.: Takas henüz Ledger tarafından desteklenm
 Buying with card is not supported in Testnet.: Testnet'te kartla satın alma desteklenmemektedir.
 Staking is not supported in Testnet.: Staking Testnet'te desteklenmemektedir.
 Get Support: Destek almak
-$transfer_inactive_contract_error: |
-  "EQ..." formatında bir adres girdiniz ancak adres aktif olmadığından işlem tamamlanamayacaktır.
-  Eğer mutlaka bu adrese gönderim yapmak istiyorsanız adresi "UQ..." formatında giriniz.
 $transfer_link_expired: Transfer bağlantısının süresi doldu
 $transfer_text_and_bin_exclusive: Metin ve ikili veri parametreleri birlikte kullanılamaz
 $unsupported_deeplink_parameter: Bu derin bağlantı desteklenmeyen parametreler içeriyor.
 $unsupported_chain: Desteklenmeyen blok zinciri.
-$transaction_not_found: İşlem bulunamadı.
-$could_not_determine_address: İşlemden cüzdan adresi belirlenemedi
 Successfully: Başarıyla
 Unstake More: Unstake daha fazla
-WrongAddress: Dapp başka bir cüzdandan bir işlem talep etti.
 Are you sure you want to burn this NFT? It will be lost forever.: Bu NFT'yi yakmak istediğinizden emin misiniz? Sonsuza kadar kaybolacak.
 $multi_burn_nft_warning: "%amount% NFT yakacaksınız."
 $multi_send_nft_warning: İşlem ~%duration% dakika sürebilir. Lütfen işlem tamamlanana kadar uygulamayı kapatmayın ve hesap değiştirmeyin.
@@ -583,7 +562,7 @@ Burn All: Hepsini yak
 Select All: Hepsini seç
 Collection: Koleksiyon
 Unnamed Collection: İsimsiz Koleksiyon
-Transaction ID was copied!: İşlem kimliği kopyalandı!
+Transaction ID Copied: İşlem kimliği kopyalandı
 $swap_changelly_support: "Herhangi bir sorun varsa lütfen %livechat% veya %email% ile iletişime geçin ve **İşlem Kimliğini** sağlayın:"
 Changelly Live Chat: Changelly Canlı Sohbet
 Your %blockchain% Address: "%blockchain% Adresiniz"
@@ -607,10 +586,12 @@ $fee_value_bold: "**Ücret:** %fee%"
 "%app_name% Features": "%app_name% Özellikleri"
 Security: Güvenlik
 To avoid entering the passcode every time, you can use biometrics.: Her seferinde şifreyi girmemek için biyometrik verileri kullanabilirsiniz.
+To avoid entering the password every time, you can use biometrics.: Her seferinde parolayı girmemek için biyometrik verileri kullanabilirsiniz.
 Change Passcode: Şifreyi değiştir
 Change Password: Parolayı değiştir
 Confirm Password: Parolayı onayla
 The passcode will be changed for all your wallets.: Şifre tüm cüzdanlarınız için değiştirilecektir.
+The password will be changed for all your wallets.: Parola tüm cüzdanlarınız için değiştirilecektir.
 Password Changed!: Parola değiştirildi!
 Passcode Changed!: Şifre değiştirildi!
 New code set successfully: Yeni kod başarıyla ayarlandı
@@ -620,7 +601,6 @@ Re-enter your new code: Yeni kodunuzu tekrar girin
 Install on Desktop: Masaüstüne Kur
 Install on Mobile: Mobile Kur
 Install App: Uygulamayı Yükle
-WrongNetwork: Dapp başka bir ağdan bir işlem talep etti.
 Hide: Gizle
 Hidden NFTs: Gizli NFT'ler
 Hidden By Me: Benim Tarafımdan Gizlendi
@@ -644,7 +624,6 @@ Confirm Sending: Göndermeyi Onayla
 Confirm Burning: Yazmayı Onayla
 Confirm Passcode: Şifreyi Onayla
 Enter your code: Kodunuzu girin
-$hardware_payload_warning: "**Üçüncü taraf bir hizmet cüzdanınıza erişim istiyor.** Bu, fon kaybına yol açabilir. Bu hizmetin güvenilirliğinden emin değilseniz işlemi iptal edin."
 $hardware_blind_sign_not_enabled: Devam etmek için, Ledger üzerindeki %chain% Uygulamasının ayarlarında "Kör İmzalama" seçeneğini etkinleştirin.
 Switch to W5: W5'e Geç
 Not Scam: Dolandırıcılık Değil
@@ -716,7 +695,7 @@ Transaction ID: İşlem Kimliği
 Help Center: Yardım Merkezi
 MyTonWallet Tips: MyTonWallet İpuçları
 Open %nft_marketplace%: "%nft_marketplace%'ı aç"
-Link was copied!: Bağlantı kopyalandı!
+Link Copied: Bağlantı kopyalandı
 Share Link: Bağlantıyı Paylaş
 $dapp_return_details: |
   %fee_amount%, ücreti ödemek için cüzdanınızdan anında tahsil edilecektir.
@@ -813,6 +792,7 @@ Preview: Önizleme
 $preview_not_guaranteed: Önizleme sonucu **garanti edilmez** ve hizmet tarafından **sahte olabilir**.
 Unverified Source: Doğrulanmamış Kaynak
 $reopen_in_iab: Lütfen bu uyarıdan kaçınmak için MyTonWallet %mobileAppButton% veya %browserExtensionButton% kullanın.
+$reopen_in_iab_explore: Bu uyarıdan kaçınmak için uygulamalara göz atarken lütfen %exploreTab% bölümünü kullanın.
 MyTonWallet Browser: MyTonWallet Tarayıcısı
 mobile app: mobil uygulama
 browser extension: tarayıcı uzantısı
@@ -853,7 +833,7 @@ Change Linked Wallet: Bağlı cüzdanı değiştir
 Domain has been renewed!: Alan adı yenilendi!
 Domains have been renewed!: Alan adları yenilendi!
 Linked Wallet: Bağlı cüzdan
-Domain has been linked!: Alan adı bağlandı!
+Domain Linked: Alan adı bağlandı
 Link: Bağla
 Confirm Renewing: Yenilemeyi Onayla
 Confirm Linking: Bağlamayı Onayla
@@ -895,7 +875,7 @@ Attributes: Nitelikler
 Show All: Tümünü göster
 Description: Açıklama
 No additional data.: Ek veri yok.
-Domain was copied!: Alan adı kopyalandı!
+"%chain% Domain Copied": "%chain% alan adı kopyalandı"
 $in_currency: → %currency%
 Rename Wallet: Cüzdanı Yeniden Adlandır
 You can rename this wallet for easier identification.: Bu cüzdanı daha kolay tanımlamak için yeniden adlandırabilirsiniz.
@@ -908,7 +888,6 @@ Telegram Gifts: Telegram Hediyeleri
 Collectibles: Koleksiyonlar
 Bluetooth unavailable: Bluetooth kullanılamıyor
 $bluetooth_enable_guide: Cihaz ayarlarında Bluetooth'u açın ve uygulamanın Bluetooth'a erişmesine izin verin.
-Another transaction was sent from this wallet simultaneously. Please try again.: Bu cüzdandan aynı anda başka bir işlem gönderildi. Lütfen tekrar deneyin.
 Canceled by the user: Kullanıcı tarafından iptal edildi
 The proof for signing provided by the Dapp is too large: Dapp tarafından sağlanan imzalama kanıtı çok büyük
 $domain_like_scam_warning: |
@@ -1003,7 +982,7 @@ View in App: Uygulamada görüntüle
 Save Account: Hesabı kaydet
 $invalid_address_format: Geçersiz adres formatı
 $no_valid_view_addresses: Görüntülenecek geçerli adres yok
-Account saved successfully!: Hesap başarıyla kaydedildi!
+Account Saved: Hesap başarıyla kaydedildi
 Share Wallet Link: Cüzdan bağlantısını paylaş
 Remove: Kaldır
 $missing_offramp_deposit_address: Off-ramp için para yatırma adresi eksik.
@@ -1041,8 +1020,47 @@ Open in %app_name%: "%app_name%'da aç"
 Blog: Blog
 Apps: Uygulamalar
 $nft_not_found: NFT bulunamadı
+You will be able to save it again via Transfer Info with this address.: Bu adresle Transfer Bilgisi üzerinden tekrar kaydedebileceksiniz.
+Transfer Info: Transfer Bilgisi
+Transfer not found: Transfer bulunamadı
+Failed to fetch transfer: Transfer alınamadı
+Transfer in progress: Transfer devam ediyor
+Transfer Sent!: Transfer Gönderildi!
+Please confirm transfer on your Ledger: Lütfen Ledger'ınızda transferi onaylayın
+Please confirm action on your Ledger: Lütfen Ledger'ınızda işlemi onaylayın
+Not all transfers were sent successfully: Tüm transferler başarıyla gönderilmedi
+$swap_changelly_agreement_message: Devam ederek, %terms% ve %policy%'yi kabul etmiş olursunuz ve transferin %kyc%'ye göre doğrulama tetikleyebileceğini anlarsınız.
+Please confirm transfer using biometrics: Lütfen biyometri kullanarak transferi onaylayın
+$transfer_inactive_contract_error: |
+  "EQ..." formatında bir adres girdiniz, ancak adres aktif değil, bu nedenle transfer tamamlanmayacak.
+  Kesinlikle bu adrese göndermek istiyorsanız, adresi "UQ..." formatında girin.
+$transaction_not_found: Transfer bulunamadı.
+$could_not_determine_address: Transferden cüzdan adresi belirlenemedi
+WrongAddress: Dapp başka bir cüzdandan işlem talep etti.
+WrongNetwork: Dapp başka bir ağdan işlem talep etti.
+Another transfer was sent from this wallet simultaneously. Please try again.: Bu cüzdandan aynı anda başka bir transfer gönderildi. Lütfen tekrar deneyin.
+Confirm action with your password: İşlemi şifrenizle onaylayın
+$dapps-description: "%app_name% destekleyen dapp'lerde giriş yapabilirsiniz. Cüzdan adresini, bakiyeyi görüntüleyebilir ve işlem talep edebilirler."
+Please verify the action.: Lütfen işlemi doğrulayın.
+$service_token_transfer_warning: Yatırımınızı çekmek veya hizmet işlemlerini tamamlamak için gerekli olan önemli bir hizmet token'ını transfer etmek üzeresiniz. Lütfen bunun yapmak istediğiniz işlem olduğundan emin olun.
+$ledger_outdated: Bu işlem, Ledger %chain% Uygulamanızın sürümü tarafından desteklenmiyor. Lütfen Ledger Live kullanarak güncelleyin.
+$hardware_payload_warning: "**Bir üçüncü taraf hizmeti cüzdanınıza erişim talep ediyor.** Bu, fon kaybına yol açabilir. Bu hizmetin güvenilirliğinden emin değilseniz işlemi iptal edin."
 Pin: Sabitle
 Unpin: Sabitlemeyi Kaldır
 My Assets: Varlıklarım
 Owner: Sahip
 Show All Wallets: Tüm cüzdanları göster
+Ask a Question: Bir Soru Sor
+MyTonWallet Features: MyTonWallet Özellikleri
+Notifications: Bildirimler
+Wrong passcode, please try again: Kod hatalı, lütfen tekrar deneyin.
+Use biometric authentication or create a passcode to protect it.: Biyometrik kimlik doğrulama kullanın veya bir şifre oluşturun.
+Use Passcode: Kod kullan
+Create Passcode: Şifre oluştur
+Create a passcode to protect it.: Şifre oluşturun.
+Enter Passcode: Kodu gir
+If you turn off biometric protection, you will need to create a passcode.: Biyometrik korumayı kapatırsanız, bir şifre oluşturmanız gerekecektir.
+Enabling biometric confirmation will reset the passcode.: Biyometrik doğrulama etkinleştirildiğinde şifre sıfırlanacaktır.
+Confirm action with your passcode: ยืนยันการดำเนินการด้วยรหัสผ่านของคุณ
+No Image: Resim Yok
+Different blockchain. Cannot be selected: Farklı blockchain. Seçilemez

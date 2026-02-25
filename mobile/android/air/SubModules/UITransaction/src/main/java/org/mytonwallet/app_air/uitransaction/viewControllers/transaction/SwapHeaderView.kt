@@ -27,6 +27,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import kotlin.math.absoluteValue
 
 @SuppressLint("ViewConstructor")
 class SwapHeaderView(
@@ -156,7 +157,7 @@ class SwapHeaderView(
                 showChain = true
             )
 
-            val sendAmount = transaction.fromAmount.toString(
+            val sendAmount = transaction.fromAmount.absoluteValue.toString(
                 decimals = transaction.fromToken!!.decimals,
                 currency = transaction.fromToken!!.symbol,
                 currencyDecimals = transaction.fromToken!!.decimals,

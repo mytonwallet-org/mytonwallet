@@ -11,7 +11,7 @@ import UIComponents
 import SwiftUI
 import WalletContext
 
-class WordCheckVC: WViewController {
+class WordCheckVC: CreateWalletBaseVC {
 
     private var introModel: IntroModel
     private var model: WordCheckModel

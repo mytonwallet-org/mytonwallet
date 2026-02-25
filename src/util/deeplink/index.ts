@@ -4,6 +4,7 @@ import { getActions, getGlobal } from '../../global';
 import type { ApiChain, ApiNetwork } from '../../api/types';
 import type { ActionPayloads, GlobalState } from '../../global/types';
 import type { OpenUrlOptions } from '../openUrl';
+import { DappProtocolType } from '../../api/dappProtocols/types';
 import { ActiveTab, ContentTab } from '../../global/types';
 
 import {
@@ -43,6 +44,7 @@ import {
   TONCONNECT_PROTOCOL,
   TONCONNECT_PROTOCOL_SELF,
   TONCONNECT_UNIVERSAL_URL,
+  WALLETCONNECT_PROTOCOL,
 } from './constants';
 
 import { getIsLandscape, getIsPortrait } from '../../hooks/useDeviceScreen';
@@ -71,6 +73,8 @@ const EXPLORER_ALLOWED_COMMANDS = new Set([
   DeeplinkCommand.Nft,
 ]);
 
+const OPEN_IN_NATIVE_DELAY_MS = 2000;
+
 let urlAfterSignIn: string | undefined;
 let urlAfterInit: string | undefined;
 
@@ -93,12 +97,13 @@ export function processDeeplinkAfterInit() {
 
 export async function openDeeplinkOrUrl(
   url: string,
-  { isFromInAppBrowser, ...urlOptions }: OpenUrlOptions & { isFromInAppBrowser?: boolean },
+  { isFromInAppBrowser, ...urlOptions }: OpenUrlOptions & { isFromInAppBrowser?: boolean } = {},
 ) {
   if (
     isTonDeeplink(url)
     || isTronDeeplink(url)
     || isTonConnectDeeplink(url)
+    || isWalletConnectDeeplink(url)
     || isSelfDeeplink(url)
   ) {
     await processDeeplink(url, isFromInAppBrowser);
@@ -120,8 +125,10 @@ export function processDeeplink(url: string, isFromInAppBrowser = false): Promis
     urlAfterSignIn = url;
   }
 
-  if (isTonConnectDeeplink(url)) {
-    return processTonConnectDeeplink(url, isFromInAppBrowser);
+  const maybeDappProtocol = getDappProtocolForDeeplink(url);
+
+  if (maybeDappProtocol) {
+    return processDappConnectorDeeplink(maybeDappProtocol, url, isFromInAppBrowser);
   }
 
   if (isSelfDeeplink(url)) {
@@ -146,6 +153,37 @@ export function getDeeplinkFromLocation(): string | undefined {
   const deeplinkPart = normalizedPathname + search;
 
   return deeplinkPart ? `${SELF_PROTOCOL}${deeplinkPart}` : undefined;
+}
+
+export function tryOpenNativeApp(fallbackUrl: string) {
+  const deeplinkUrl = getDeeplinkFromLocation() || SELF_PROTOCOL;
+  let pageHidden = false;
+
+  function onHidden() {
+    pageHidden = true;
+  }
+
+  function onVisibilityChange() {
+    if (document.hidden) {
+      onHidden();
+    }
+  }
+
+  // `visibilitychange`: mobile app switch, tab switch, window minimize.
+  // `blur`: desktop native app opens on top (tab stays "visible" but window loses focus).
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('blur', onHidden);
+
+  window.location.href = deeplinkUrl;
+
+  window.setTimeout(() => {
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.removeEventListener('blur', onHidden);
+
+    if (!pageHidden) {
+      window.open(fallbackUrl, '_blank');
+    }
+  }, OPEN_IN_NATIVE_DELAY_MS);
 }
 
 export function isTonDeeplink(url: string) {
@@ -401,9 +439,30 @@ function isTonConnectDeeplink(url: string) {
     || omitProtocol(url).startsWith(omitProtocol(TONCONNECT_UNIVERSAL_URL));
 }
 
+function isWalletConnectDeeplink(url: string) {
+  return url.startsWith(WALLETCONNECT_PROTOCOL);
+}
+
+function getDappProtocolForDeeplink(url: string) {
+  switch (true) {
+    case isTonConnectDeeplink(url): {
+      return DappProtocolType.TonConnect;
+    }
+    case isWalletConnectDeeplink(url): {
+      return DappProtocolType.WalletConnect;
+    }
+    default:
+      return undefined;
+  }
+}
+
 // Returns `true` if the link has been processed, ideally resulting to a UI action
-async function processTonConnectDeeplink(url: string, isFromInAppBrowser = false): Promise<boolean> {
-  if (!isTonConnectDeeplink(url)) {
+async function processDappConnectorDeeplink(
+  protocol: DappProtocolType,
+  url: string,
+  isFromInAppBrowser = false,
+): Promise<boolean> {
+  if (!getDappProtocolForDeeplink(url)) {
     return false;
   }
 
@@ -411,10 +470,10 @@ async function processTonConnectDeeplink(url: string, isFromInAppBrowser = false
 
   openLoadingOverlay();
 
-  const returnUrl = await callApi('startSseConnection', {
+  const returnUrl = await callApi(`${protocol}_handleDeepLink`,
     url,
     isFromInAppBrowser,
-  });
+  );
 
   // Workaround for long network connection initialization in the Capacitor version
   if (returnUrl === 'empty') {

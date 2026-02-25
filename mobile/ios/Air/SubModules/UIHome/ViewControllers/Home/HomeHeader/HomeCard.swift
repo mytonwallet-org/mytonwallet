@@ -13,6 +13,8 @@ import UIKitNavigation
 class Container {
     var headerViewModel: HomeHeaderViewModel?
     var accountContext: AccountContext?
+    var layout: HomeCardLayoutMetrics = .screen
+    var minimumHomeCardFontScale: CGFloat = 1
 }
 
 final class HomeCard: UICollectionViewCell {
@@ -25,6 +27,8 @@ final class HomeCard: UICollectionViewCell {
     var cardContent: UIView!
     var collapsedContent: UIView!
     var miniatureContent: UIView!
+    private var widthConstraint: NSLayoutConstraint!
+    private var heightConstraint: NSLayoutConstraint!
     
     var observeToken: ObserveToken?
     
@@ -39,9 +43,11 @@ final class HomeCard: UICollectionViewCell {
     
     func setup() {
         
+        widthConstraint = contentView.widthAnchor.constraint(equalToConstant: itemWidth)
+        heightConstraint = contentView.heightAnchor.constraint(equalToConstant: itemHeight).withPriority(.defaultHigh)
         NSLayoutConstraint.activate([
-            contentView.widthAnchor.constraint(equalToConstant: itemWidth),
-            contentView.heightAnchor.constraint(equalToConstant: itemHeight).withPriority(.defaultHigh),
+            widthConstraint,
+            heightConstraint,
         ])
         
         collapsedContent = HostingView { [container] in
@@ -110,11 +116,19 @@ final class HomeCard: UICollectionViewCell {
 //        cardBackground.alpha = 0.1
     }
     
-    func configure(headerViewModel: HomeHeaderViewModel, accountContext: AccountContext) {
+    func configure(
+        headerViewModel: HomeHeaderViewModel,
+        accountContext: AccountContext,
+        layout: HomeCardLayoutMetrics = .screen,
+        minimumHomeCardFontScale: CGFloat = 1
+    ) {
         self.container.headerViewModel = headerViewModel
         self.container.accountContext = accountContext
-        cardContentMask.bounds = CGRect(x: 0, y: 0, width: itemWidth, height: itemHeight)
-        cardContentMask.center = CGPoint(x: itemWidth/2, y: itemHeight/2)
+        self.container.layout = layout
+        self.container.minimumHomeCardFontScale = minimumHomeCardFontScale
+        updateLayout(layout)
+        cardContentMask.bounds = CGRect(x: 0, y: 0, width: layout.itemWidth, height: layout.itemHeight)
+        cardContentMask.center = CGPoint(x: layout.itemWidth/2, y: layout.itemHeight/2)
         observeToken?.cancel()
         observeToken = observe { [weak self] in
             guard let self else { return }
@@ -129,13 +143,14 @@ final class HomeCard: UICollectionViewCell {
     }
     
     private func applyTransform(headerViewModel: HomeHeaderViewModel) {
+        let layout = container.layout
         // background
-        let ofs: CGFloat = itemHeight/2 - 17*CARD_RATIO + (IOS_26_MODE_ENABLED ? -114 : -116)
-        let scale: CGFloat = 34/itemWidth
+        let ofs: CGFloat = layout.itemHeight/2 - 17*CARD_RATIO + (IOS_26_MODE_ENABLED ? -114 : -116)
+        let scale: CGFloat = 34/layout.itemWidth
         // card content
-        let r: CGFloat = homeCardFontSize/homeCollapsedFontSize
+        let r: CGFloat = homeCardFontSize(for: layout.itemWidth)/homeCollapsedFontSize
         let dx: CGFloat = 8
-        let dy: CGFloat = 0.2667*itemHeight + (itemWidth > 400 ? 6 : 0) // TODO: this is not correct for all devices - there must be a fixed factor based on vertical size of content
+        let dy: CGFloat = 0.2667*layout.itemHeight + (layout.itemWidth > 400 ? 6 : 0) // TODO: this is not correct for all devices - there must be a fixed factor based on vertical size of content
         
         switch headerViewModel.state {
         case .expanded:
@@ -166,8 +181,14 @@ final class HomeCard: UICollectionViewCell {
     
     override func layoutSubviews() {
         super.layoutSubviews()
-        cardContentMask.bounds = CGRect(x: 0, y: 0, width: itemWidth, height: itemHeight)
-        cardContentMask.center = CGPoint(x: itemWidth/2, y: itemHeight/2)
+        let layout = container.layout
+        cardContentMask.bounds = CGRect(x: 0, y: 0, width: layout.itemWidth, height: layout.itemHeight)
+        cardContentMask.center = CGPoint(x: layout.itemWidth/2, y: layout.itemHeight/2)
+    }
+    
+    private func updateLayout(_ layout: HomeCardLayoutMetrics) {
+        widthConstraint.constant = layout.itemWidth
+        heightConstraint.constant = layout.itemHeight
     }
 }
 
@@ -202,7 +223,12 @@ private struct CardContentContainer: View {
     var body: some View {
         WithPerceptionTracking {
             if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
-                HomeCardContent(headerViewModel: headerViewModel, accountContext: accountContext)
+                HomeCardContent(
+                    headerViewModel: headerViewModel,
+                    accountContext: accountContext,
+                    layout: container.layout,
+                    minimumHomeCardFontScale: container.minimumHomeCardFontScale
+                )
             }
         }
     }
@@ -214,7 +240,7 @@ private struct CardMiniatureContainer: View {
     var body: some View {
         WithPerceptionTracking {
             if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
-                HomeCardMiniatureContent(headerViewModel: headerViewModel, accountContext: accountContext)
+                HomeCardMiniatureContent(headerViewModel: headerViewModel, accountContext: accountContext, layout: container.layout)
             }
         }
     }
@@ -244,4 +270,3 @@ private struct CardMiniatureContainer: View {
 //    }
 }
 #endif
-

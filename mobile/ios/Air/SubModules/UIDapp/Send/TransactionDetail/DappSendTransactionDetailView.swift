@@ -10,6 +10,7 @@ struct DappSendTransactionDetailView: View {
     
     var accountContext: AccountContext
     var message: ApiDappTransfer
+    var chain: ApiChain
     
     var isScam: Bool { message.isScam == true }
     
@@ -22,26 +23,28 @@ struct DappSendTransactionDetailView: View {
                     .padding(.bottom, 2)
             }
             
-            InsetSection {
-                InsetCell {
-                    TappableAddressFull(accountContext: accountContext, model: .init(chain: ApiChain.ton.rawValue, apiAddress: message.toAddress))
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.vertical, 3)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            if !message.toAddress.isEmpty {
+                InsetSection {
+                    InsetCell {
+                        TappableAddressFull(accountContext: accountContext, model: .init(chain: chain, apiAddress: message.toAddress))
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.vertical, 3)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                } header: {
+                    Text(lang("Receiving address"))
                 }
-            } header: {
-                Text(lang("Receiving address"))
             }
 
             InsetSection {
-                TransactionAmountRow(transfer: message)
+                TransactionAmountRow(transfer: message, chain: chain)
             } header: {
                 Text(lang("Amount"))
             }
             
             InsetSection {
-                TransactionFeeRow(transfer: message)
+                TransactionFeeRow(transfer: message, chain: chain)
             } header: {
                 Text(lang("Fee"))
             }

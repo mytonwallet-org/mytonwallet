@@ -15,10 +15,18 @@ import SwiftUIIntrospect
 import Perception
 import Dependencies
 
-class HomeAccountSelector: UIView, UICollectionViewDelegate {
+public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
+    public enum Mode {
+        case home
+        case sidebar
+    }
     
     private let viewModel: HomeHeaderViewModel
+    private let mode: Mode
+    private var selectionOverrideAccountId: String?
     private var selectedAccountId: String?
+    private var currentLayoutMetrics: HomeCardLayoutMetrics = .screen
+    private var pendingSelectionScroll = false
     
     private enum Section {
         case main
@@ -30,13 +38,30 @@ class HomeAccountSelector: UIView, UICollectionViewDelegate {
     private var collectionView: _CollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
     
-    override var safeAreaInsets: UIEdgeInsets {
+    public var minimumHomeCardFontScale: CGFloat = 1 {
+        didSet {
+            guard oldValue != minimumHomeCardFontScale else { return }
+            collectionView?.reloadData()
+        }
+    }
+    
+    public override var safeAreaInsets: UIEdgeInsets {
         get { .zero }
         set { _ = newValue }
     }
     
-    init(viewModel: HomeHeaderViewModel) {
+    public convenience init(accountSource: AccountSource = .current, mode: Mode = .home) {
+        self.init(viewModel: HomeHeaderViewModel(accountSource: accountSource), mode: mode)
+    }
+    
+    public var onSelect: (String) -> Void {
+        get { viewModel.onSelect }
+        set { viewModel.onSelect = newValue }
+    }
+    
+    init(viewModel: HomeHeaderViewModel, mode: Mode = .home) {
         self.viewModel = viewModel
+        self.mode = mode
         super.init(frame: .zero)
         setup()
     }
@@ -48,13 +73,18 @@ class HomeAccountSelector: UIView, UICollectionViewDelegate {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         
-        collectionView = _CollectionView(frame: .zero, collectionViewLayout: makeLayout())
+        collectionView = _CollectionView(frame: .zero, collectionViewLayout: makeLayout(for: currentLayoutMetrics))
         
         let homeHeaderViewModel = self.viewModel
         
         let cellRegistration = UICollectionView.CellRegistration<HomeCard, String> { cell, _, accountId in
             let accountContext = AccountContext(accountId: accountId)
-            cell.configure(headerViewModel: homeHeaderViewModel, accountContext: accountContext)
+            cell.configure(
+                headerViewModel: homeHeaderViewModel,
+                accountContext: accountContext,
+                layout: self.currentLayoutMetrics,
+                minimumHomeCardFontScale: self.minimumHomeCardFontScale
+            )
         }
         
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
@@ -94,28 +124,49 @@ class HomeAccountSelector: UIView, UICollectionViewDelegate {
         if viewModel.accountSource == .current {
             observe { [weak self] in
                 guard let self else { return }
-                updateSelection(to: viewModel.currentAccountId, animated: false)
+                syncSelection(with: makeAccountIds())
             }
         }
     }
     
     private func makeAccountIds() -> [String] {
-        switch viewModel.accountSource {
+        return switch viewModel.accountSource {
         case .accountId(let accountId):
             [accountId]
         case .current:
-            Array(viewModel.accountStore.orderedAccountIds)
+            makeCurrentAccountIds()
         case .constant(let account):
             [account.id]
         }
     }
     
+    private func makeCurrentAccountIds() -> [String] {
+        switch mode {
+        case .home:
+            return Array(viewModel.accountStore.orderedAccountIds)
+        case .sidebar:
+            return Array(viewModel.accountStore.orderedAccountIdsWithTemporary)
+        }
+    }
+    
     private func syncSelection(with accountIds: [String]) {
+        if case .sidebar = mode,
+           let selectionOverrideAccountId,
+           !accountIds.contains(selectionOverrideAccountId) {
+            self.selectionOverrideAccountId = nil
+        }
+        
         let accountId = switch viewModel.accountSource {
         case .accountId(let accountId):
             accountId
         case .current:
-            viewModel.currentAccountId
+            if case .sidebar = mode,
+               let selectionOverrideAccountId,
+               accountIds.contains(selectionOverrideAccountId) {
+                selectionOverrideAccountId
+            } else {
+                viewModel.currentAccountId
+            }
         case .constant(let account):
             account.id
         }
@@ -126,22 +177,22 @@ class HomeAccountSelector: UIView, UICollectionViewDelegate {
         guard selectedAccountId != accountId else { return }
         guard dataSource.indexPath(for: .account(accountId)) != nil else { return }
         selectedAccountId = accountId
-        scrollTo(accountId: accountId, animated: animated)
+        pendingSelectionScroll = true
+        scrollToSelectedIfPossible(animated: animated)
     }
     
-    func makeLayout() -> UICollectionViewCompositionalLayout {
-
-        let item = NSCollectionLayoutItem(layoutSize: .init(.absolute(itemWidth), .absolute(itemHeight)))
+    func makeLayout(for metrics: HomeCardLayoutMetrics) -> UICollectionViewCompositionalLayout {
+        let item = NSCollectionLayoutItem(layoutSize: .init(.absolute(metrics.itemWidth), .absolute(metrics.itemHeight)))
         
-        let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(.absolute(itemWidth), .absolute(itemHeight)), subitems: [item])
+        let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(.absolute(metrics.itemWidth), .absolute(metrics.itemHeight)), subitems: [item])
         
         let section = NSCollectionLayoutSection(group: group)
         section.orthogonalScrollingBehavior = .continuousGroupLeadingBoundary
         if #available(iOS 17.0, *) {
             section.orthogonalScrollingProperties.decelerationRate = .fast
         }
-        section.contentInsets = .init(top: 0, leading: inset, bottom: 0, trailing: inset)
-        section.interGroupSpacing = spacing
+        section.contentInsets = .init(top: 0, leading: metrics.inset, bottom: 0, trailing: metrics.inset)
+        section.interGroupSpacing = metrics.spacing
         
         section.visibleItemsInvalidationHandler = { [unowned self] items, scrollOffset, env in
             guard !items.isEmpty else { return }
@@ -150,7 +201,7 @@ class HomeAccountSelector: UIView, UICollectionViewDelegate {
             
             for item in items {
                 let idx = CGFloat(item.indexPath.row)
-                let position = idx - scrollOffset.x/itemWidthWithSpacing
+                let position = idx - scrollOffset.x/metrics.itemWidthWithSpacing
                 
                 let absDistance = abs(position)
                 if absDistance < minDistance {
@@ -166,44 +217,71 @@ class HomeAccountSelector: UIView, UICollectionViewDelegate {
         return layout
     }
     
-    override func layoutSubviews() {
-        if collectionView.frame != self.bounds {
-            collectionView.frame = self.bounds
-            collectionView.setCollectionViewLayout(makeLayout(), animated: false)
-            if let selectedAccountId {
-                scrollTo(accountId: selectedAccountId, animated: false)
-            }
+    public override func layoutSubviews() {
+        if collectionView.frame != bounds {
+            collectionView.frame = bounds
+        }
+        updateLayoutMetricsIfNeeded()
+        if pendingSelectionScroll {
+            scrollToSelectedIfPossible(animated: false)
         }
     }
     
-    override var intrinsicContentSize: CGSize {
-        return CGSize(width: UIView.noIntrinsicMetric, height: itemHeight)
+    private func updateLayoutMetricsIfNeeded() {
+        let newMetrics = bounds.width > 0 ? HomeCardLayoutMetrics.forContainerWidth(bounds.width) : .screen
+        guard newMetrics != currentLayoutMetrics else { return }
+        currentLayoutMetrics = newMetrics
+        invalidateIntrinsicContentSize()
+        collectionView.setCollectionViewLayout(makeLayout(for: newMetrics), animated: false)
+        collectionView.reloadData()
+        pendingSelectionScroll = true
+        scrollToSelectedIfPossible(animated: false)
     }
     
-    override func safeAreaInsetsDidChange() {
+    public override var intrinsicContentSize: CGSize {
+        return CGSize(width: UIView.noIntrinsicMetric, height: currentLayoutMetrics.itemHeight)
+    }
+    
+    public override func safeAreaInsetsDidChange() {
     }
     
     func updateFocusedItem(idx: Int) {
+        guard isUserScrolling else { return }
         guard case .account(let id) = dataSource.itemIdentifier(for: IndexPath(item: idx, section: 0)) else { return }
         guard selectedAccountId != id else { return }
         selectedAccountId = id
-        if isUserScrolling {
-            viewModel.onSelect(id)
-        }
+        viewModel.onSelect(id)
     }
     
-    func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
+    public func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         false
     }
     
-    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+    public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+    }
+    
+    public func setSelectionOverride(accountId: String?, animated: Bool) {
+        selectionOverrideAccountId = accountId
+        syncSelection(with: makeAccountIds())
+        if animated {
+            scrollToSelectedIfPossible(animated: true)
+        }
     }
     
     func scrollTo(accountId: String, animated: Bool) {
+        selectedAccountId = accountId
+        pendingSelectionScroll = true
+        scrollToSelectedIfPossible(animated: animated)
+    }
+    
+    private func scrollToSelectedIfPossible(animated: Bool) {
+        guard pendingSelectionScroll else { return }
+        guard bounds.width > 0, collectionView.bounds.width > 0 else { return }
         guard !isUserScrolling else { return }
-        if let indexPath = dataSource.indexPath(for: .account(accountId)) {
-            collectionView.scrollToItem(at: indexPath, at: .centeredHorizontally, animated: animated)
-        }
+        guard let selectedAccountId else { return }
+        guard let indexPath = dataSource.indexPath(for: .account(selectedAccountId)) else { return }
+        collectionView.scrollToItem(at: indexPath, at: .centeredHorizontally, animated: animated)
+        pendingSelectionScroll = false
     }
     
     private var isUserScrolling: Bool {

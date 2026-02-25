@@ -3,11 +3,15 @@ import type { ApiChain, ApiNetwork, ApiToken, ApiTokenWithPrice } from '../api/t
 import {
   MYCOIN_MAINNET,
   MYCOIN_TESTNET,
+  SOLANA,
+  SOLANA_USDT_MAINNET,
+  SOLANA_USDС_MAINNET,
   TON_TSUSDE,
   TON_USDE,
   TON_USDT_MAINNET,
   TON_USDT_TESTNET,
-  TONCOIN, TRC20_USDT_MAINNET,
+  TONCOIN,
+  TRC20_USDT_MAINNET,
   TRC20_USDT_TESTNET,
   TRX,
 } from '../config';
@@ -15,10 +19,17 @@ import formatTonTransferUrl from './ton/formatTransferUrl';
 import { buildCollectionByKey, compact } from './iteratees';
 import withCache from './withCache';
 
-export interface ExplorerConfig {
+export type ExplorerLink = {
+  url: string;
+  param: string;
+} | string;
+
+export interface BaseExplorerConfig {
   id: string;
   name: string;
-  baseUrl: Record<ApiNetwork, string>;
+  baseUrl: Record<ApiNetwork, ExplorerLink>;
+}
+export interface ExplorerConfig extends BaseExplorerConfig {
   /** Use `{base}` as the base URL placeholder and `{address}` as the wallet address placeholder */
   address: string;
   /** Use `{base}` as the base URL placeholder and `{address}` as the token address placeholder */
@@ -30,6 +41,12 @@ export interface ExplorerConfig {
   /** Use `{base}` as the base URL placeholder and `{address}` as the NFT collection address placeholder */
   nftCollection?: string;
   doConvertHashFromBase64: boolean;
+}
+
+export interface MarketplaceConfig extends BaseExplorerConfig {
+  nft: string;
+  /** Use `{base}` as the base URL placeholder and `{address}` as the NFT collection address placeholder */
+  nftCollection?: string;
 }
 
 /**
@@ -44,6 +61,8 @@ export interface ChainConfig {
   canBuyWithCardInRussia: boolean;
   /** Whether the chain supports sending asset transfers with a comment */
   isTransferPayloadSupported: boolean;
+  /** Whether the chain supports comment encrypting */
+  isEncryptedCommentSupported: boolean;
   /** Whether the chain supports sending the full balance of the native token (the fee is taken from the sent amount) */
   canTransferFullNativeBalance: boolean;
   /** Whether Ledger support is implemented for this chain */
@@ -86,6 +105,19 @@ export interface ChainConfig {
    * The configuration does not contain data for NFT addresses, they must be configured separately.
    */
   explorers: ExplorerConfig[];
+
+  /**
+   * Configuration of available NFT marketplaces on chain.
+   * Implements structure of config for explorers, but NFT-related fields only.
+   * Empty, if NFTs are not supported
+   */
+  marketplaces: MarketplaceConfig[];
+  /** Whether the chain supports NFTs */
+  isNftSupported: boolean;
+  /** Max number of NFTs to request per pagination batch (for NFT-supporting chains) */
+  nftBatchLimit?: number;
+  /** Pause in ms between NFT pagination batches (for NFT-supporting chains) */
+  nftBatchPauseMs?: number;
   /** Whether the chain supports net worth details */
   isNetWorthSupported: boolean;
   /** Builds a link to transfer assets in this chain. If not set, the chain won't have the Deposit Link modal. */
@@ -98,8 +130,10 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isDnsSupported: true,
     canBuyWithCardInRussia: true,
     isTransferPayloadSupported: true,
+    isEncryptedCommentSupported: true,
     canTransferFullNativeBalance: true,
     isLedgerSupported: true,
+    isNftSupported: true,
     addressRegex: /^([-\w_]{48}|0:[\da-h]{64})$/i,
     addressPrefixRegex: /^([-\w_]{1,48}|0:[\da-h]{0,64})$/i,
     nativeToken: TONCOIN,
@@ -160,6 +194,18 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
         doConvertHashFromBase64: true,
       },
     ],
+    marketplaces: [{
+      id: 'getgems',
+      name: 'Getgems',
+      baseUrl: {
+        mainnet: 'https://getgems.io/',
+        testnet: 'https://testnet.getgems.io/',
+      },
+      nft: '{base}nft/{address}',
+      nftCollection: '{base}collection/{address}',
+    }],
+    nftBatchLimit: 500,
+    nftBatchPauseMs: 1000,
     isNetWorthSupported: true,
     formatTransferUrl: formatTonTransferUrl,
   },
@@ -168,8 +214,10 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isTransferPayloadSupported: false,
+    isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
     isLedgerSupported: false,
+    isNftSupported: false,
     addressRegex: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
     addressPrefixRegex: /^T[1-9A-HJ-NP-Za-km-z]{0,33}$/,
     nativeToken: TRX,
@@ -210,7 +258,73 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
         doConvertHashFromBase64: false,
       },
     ],
+    marketplaces: [],
     isNetWorthSupported: false,
+  },
+  solana: {
+    title: 'Solana',
+    isDnsSupported: false,
+    canBuyWithCardInRussia: false,
+    isTransferPayloadSupported: true,
+    isEncryptedCommentSupported: false,
+    canTransferFullNativeBalance: false,
+    isLedgerSupported: false,
+    isNftSupported: true,
+    addressRegex: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/,
+    addressPrefixRegex: /^[1-9A-HJ-NP-Za-km-z]{0,44}$/,
+    nativeToken: SOLANA,
+    doesBackendSocketSupport: false,
+    canImportTokens: false,
+    shouldShowScamWarningIfNotEnoughGas: false,
+    feeCheckAddress: '35YT7tt9edJbroEKaC3T3XY4cLNWKtVzmyTEfW8LHPEA',
+    buySwap: {
+      tokenInSlug: SOLANA_USDT_MAINNET.slug,
+      amountIn: '100',
+    },
+    usdtSlug: {
+      mainnet: SOLANA_USDT_MAINNET.slug,
+      testnet: undefined,
+    },
+    defaultEnabledSlugs: {
+      mainnet: [SOLANA.slug, SOLANA_USDT_MAINNET.slug, SOLANA_USDС_MAINNET.slug],
+      testnet: [SOLANA.slug],
+    },
+    crosschainSwapSlugs: [SOLANA.slug, SOLANA_USDT_MAINNET.slug],
+    tokenInfo: [
+      SOLANA,
+      SOLANA_USDT_MAINNET,
+    ],
+    explorers: [{
+      id: 'solscan',
+      name: 'Solscan',
+      baseUrl: {
+        mainnet: 'https://solscan.io/',
+        testnet: {
+          url: 'https://solscan.io/',
+          param: '?cluster=devnet',
+        },
+      },
+      address: '{base}account/{address}',
+      token: '{base}token/{address}',
+      transaction: '{base}tx/{hash}',
+      nft: '{base}token/{address}',
+      // Сollections on solana are grouping by master token address
+      nftCollection: '{base}token/{address}',
+      doConvertHashFromBase64: false,
+    }],
+    marketplaces: [{
+      id: 'magicEden',
+      name: 'Magic Eden',
+      baseUrl: {
+        mainnet: 'https://magiceden.io/',
+        testnet: '', // No testnet support
+      },
+      nft: '{base}item-details/{address}',
+    }],
+    nftBatchLimit: 500,
+    nftBatchPauseMs: 1000,
+    isNetWorthSupported: false,
+    doesSupportPushNotifications: false,
   },
 };
 
@@ -226,6 +340,10 @@ export function getAvailableExplorers(chain: ApiChain): ExplorerConfig[] {
   return getChainConfig(chain).explorers;
 }
 
+export function getAvailableMarketplaces(chain: ApiChain): MarketplaceConfig[] {
+  return getChainConfig(chain).marketplaces;
+}
+
 export function getExplorer(chain: ApiChain, explorerId?: string): ExplorerConfig {
   const explorers = getAvailableExplorers(chain);
 
@@ -235,6 +353,17 @@ export function getExplorer(chain: ApiChain, explorerId?: string): ExplorerConfi
   }
 
   return explorers[0];
+}
+
+export function getMarketplace(chain: ApiChain, id?: string): MarketplaceConfig {
+  const marketplaces = getAvailableMarketplaces(chain);
+
+  if (id) {
+    const marketplace = marketplaces.find((e) => e.id === id);
+    if (marketplace) return marketplace;
+  }
+
+  return marketplaces[0];
 }
 
 export function getChainTitle(chain: ApiChain) {
@@ -258,6 +387,13 @@ export function getChainsSupportingLedger(): ApiChain[] {
   return (Object.keys(CHAIN_CONFIG) as (keyof typeof CHAIN_CONFIG)[])
     .filter((chain) => CHAIN_CONFIG[chain].isLedgerSupported);
 }
+
+export const getChainsSupportingNft = /* #__PURE__ */ withCache((): ReadonlySet<ApiChain> => {
+  return new Set(
+    (Object.keys(CHAIN_CONFIG) as (keyof typeof CHAIN_CONFIG)[])
+      .filter((chain) => CHAIN_CONFIG[chain].isNftSupported),
+  );
+});
 
 export const getTrustedUsdtSlugs = /* #__PURE__ */ withCache((): ReadonlySet<string> => {
   return new Set(

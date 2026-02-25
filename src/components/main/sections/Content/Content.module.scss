@@ -61,6 +61,14 @@
 .slide {
   overflow: hidden;
   overflow-y: scroll;
+
+  &.noScroll {
+    overflow: initial;
+  }
+}
+
+.nftsContainer {
+  scrollbar-width: none !important;
 }
 
 .landscapeContentPanel {

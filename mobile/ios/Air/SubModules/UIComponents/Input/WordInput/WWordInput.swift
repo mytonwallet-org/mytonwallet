@@ -125,6 +125,11 @@ extension WWordInput: UITextFieldDelegate {
     }
     public func textFieldDidEndEditing(_ textField: UITextField) {
         let keyword = trimmedText ?? ""
+        if isValidPrivateKeyHex(keyword) {
+            textField.textColor = WTheme.primaryLabel
+            showSuggestions(for: nil)
+            return
+        }
         if !possibleWordList.contains(keyword) {
             if !keyword.isEmpty, let suggestion = possibleWordList.first(where: { txt in
                 txt.starts(with: keyword)

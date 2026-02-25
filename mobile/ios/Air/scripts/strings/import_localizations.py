@@ -142,15 +142,59 @@ def normalize_locale_name(filename: str) -> str:
         name = name[4:]  # Remove 'air_' prefix
     return name
 
+
+def build_strings_map(per_locale: dict, source_locale: str, locales: list[str], key_predicate=None) -> dict:
+    source_locale_lower = source_locale.lower()
+    src_map = per_locale.get(source_locale_lower, {})
+    strings = {}
+
+    ordered_locales = [source_locale_lower] + sorted(
+        [l for l in locales if l != source_locale_lower],
+        key=lambda x: str(x).lower()
+    )
+
+    for key in (src_map or {}).keys():
+        if key_predicate is not None and not key_predicate(key):
+            continue
+
+        bucket = {}
+        for loc in ordered_locales:
+            loc_map = per_locale.get(loc, {})
+            if key not in loc_map:
+                continue
+            v = loc_map[key]
+            unit = build_plural_unit(key, v) if is_plural_block(v) else build_nonplural_unit(key, v)
+            merge_localization_bucket(bucket, loc, unit)
+
+        if "localizations" in bucket:
+            strings[key] = bucket
+
+    return dict(sorted(strings.items(), key=lambda x: str(x[0])))
+
+
+def write_catalog(output_path: Path, source_locale: str, strings: dict):
+    catalog = {
+        "sourceLanguage": source_locale,
+        "version": "1.0",
+        "strings": strings,
+    }
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(catalog, f, ensure_ascii=False, indent=2)
+
 def main():
     ap = argparse.ArgumentParser(description="Build .xcstrings from JSON or YAML locale files.")
     ap.add_argument("--input-dir", default="../../../../../src/i18n", help="Directory with *.json, *.yaml, or *.yml files")
     ap.add_argument("--source-locale", default="en", help="Source language code")
     ap.add_argument("--output", default="../../SubModules/WalletContext/Resources/Strings/Localizable.xcstrings", help="Output .xcstrings path")
+    ap.add_argument("--push-output", default="../../../App/App/Resources/Localizable.xcstrings", help="Output .xcstrings path for push* keys in main app bundle")
+    ap.add_argument("--push-prefix", default="push_", help="Localization key prefix for push catalog")
     args = ap.parse_args()
 
     input_dir = resolve_relative_to_script(args.input_dir)
     output_path = resolve_relative_to_script(args.output)
+    push_output_path = resolve_relative_to_script(args.push_output)
 
     if not input_dir.exists():
         raise SystemExit(f"Input directory '{input_dir}' does not exist.")
@@ -221,33 +265,23 @@ def main():
         locales.remove(args.source_locale.lower())
         locales.insert(0, args.source_locale.lower())
 
-    strings = {}
+    strings = build_strings_map(
+        per_locale=per_locale,
+        source_locale=args.source_locale,
+        locales=locales,
+    )
+    write_catalog(output_path=output_path, source_locale=args.source_locale, strings=strings)
 
-    for key, src_val in (src_map or {}).items():
-        bucket = {}
-        # Ensure source locale is first, then other language entries in deterministic alphabetical order for stable diffs
-        for loc in [args.source_locale.lower()] + sorted([l for l in locales if l != args.source_locale.lower()], key=lambda x: str(x).lower()):
-            loc_map = per_locale.get(loc, {})
-            if key not in loc_map:
-                continue
-            v = loc_map[key]
-            unit = build_plural_unit(key, v) if is_plural_block(v) else build_nonplural_unit(key, v)
-            merge_localization_bucket(bucket, loc, unit)
-
-        if "localizations" in bucket:
-            strings[key] = bucket
-
-    catalog = {
-        "sourceLanguage": args.source_locale,
-        "version": "1.0",
-        "strings": dict(sorted(strings.items(), key=lambda x: str(x[0]))),
-    }
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(catalog, f, ensure_ascii=False, indent=2)
+    push_strings = build_strings_map(
+        per_locale=per_locale,
+        source_locale=args.source_locale,
+        locales=locales,
+        key_predicate=lambda key: str(key).startswith(args.push_prefix),
+    )
+    write_catalog(output_path=push_output_path, source_locale=args.source_locale, strings=push_strings)
 
     print(f"Wrote {output_path} with {len(strings)} entries across {len(locales)} locales.")
+    print(f"Wrote {push_output_path} with {len(push_strings)} push entries across {len(locales)} locales.")
     print(f"Source locale '{args.source_locale}' had {len(source_locale_files)} input files.")
     print()
 

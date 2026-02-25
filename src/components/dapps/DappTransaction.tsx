@@ -4,6 +4,7 @@ import type { ApiDappTransfer, ApiToken } from '../../api/types';
 
 import { TONCOIN } from '../../config';
 import buildClassName from '../../util/buildClassName';
+import { getChainTitle } from '../../util/chain';
 import isEmptyObject from '../../util/isEmptyObject';
 import { isNftTransferPayload, isTokenTransferPayload } from '../../util/ton/transfer';
 
@@ -35,7 +36,7 @@ function DappTransaction({ transaction, tokensBySlug, isActive, onClose, onBack 
   return (
     <>
       <ModalHeader
-        title={lang('Transaction Info')}
+        title={lang('Transfer Info')}
         onBackButtonClick={onBack}
         onClose={onClose}
       />
@@ -88,7 +89,7 @@ function DappTransactionContent({
         address={transaction.displayedToAddress}
         isScam={transaction.isScam}
         className={buildClassName(styles.dataField, styles.receivingAddress)}
-        copyNotification={lang('Address was copied!')}
+        copyNotification={lang('%chain% Address Copied', { chain: getChainTitle(TONCOIN.chain) }) as string}
       />
       {!isEmptyObject(amountBySlug) && (
         <DappAmountField

@@ -1,0 +1,163 @@
+@use "../../styles/mixins";
+
+$paddingSize: 0.875rem;
+$imageSize: 3rem;
+$imageGapSize: 0.75rem;
+
+.item {
+  --color-site-border: linear-gradient(var(--color-accent) 0 0);
+
+  cursor: var(--custom-cursor, pointer);
+
+  position: relative;
+
+  display: flex;
+
+  padding: $paddingSize;
+
+  font-size: 0.9375rem;
+  font-weight: 650;
+
+  @include mixins.separatorListTop(calc($imageSize + $imageGapSize + $paddingSize));
+
+  @include mixins.transition('background-color 150ms, color 150ms');
+
+  @media (hover: hover) {
+    &:not(.embedded):hover,
+    &:not(.embedded):focus-visible {
+      --color-background-first: var(--color-interactive-item-hover);
+
+      background-color: var(--color-interactive-item-hover);
+
+      .imageWrapper {
+        transform: scale(1.05);
+      }
+    }
+  }
+
+  @media (pointer: coarse) {
+    &:not(.embedded):active {
+      .imageWrapper {
+        transform: scale(1.05);
+      }
+    }
+  }
+
+  &:not(.embedded)[aria-selected="true"] {
+    --color-background-first: var(--color-interactive-item-hover);
+
+    background-color: var(--color-interactive-item-hover);
+
+    .imageWrapper {
+      transform: scale(1.05);
+    }
+  }
+
+  &:not(.embedded) {
+    &:first-child {
+      border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+    }
+
+    &:last-child {
+      border-radius: 0 0 var(--border-radius-default) var(--border-radius-default);
+    }
+  }
+
+  &.embedded {
+    padding: 0;
+  }
+}
+
+.imageWrapper {
+  /* Fix for `border-radius` missing during transform on Safari. See https://stackoverflow.com/a/58283449 */
+  isolation: isolate;
+  position: relative;
+  transform-origin: center;
+
+  overflow: hidden;
+  display: block !important;
+  flex: 0 0 $imageSize;
+
+  width: $imageSize;
+  height: $imageSize;
+  margin-right: $imageGapSize;
+  border-radius: var(--border-radius-normal);
+
+  .item.embedded & {
+    margin-right: 0.625rem;
+  }
+
+  @include mixins.transition('transform 300ms, opacity 0.15s ease', !important);
+}
+
+.infoWrapper {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  justify-content: center;
+
+  line-height: 1.0625rem;
+}
+
+.title {
+  font-weight: 650;
+  color: var(--color-black);
+  overflow-wrap: anywhere;
+}
+
+.description {
+  overflow: hidden;
+
+  margin-top: 0.3125rem;
+
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 0.875rem;
+  color: var(--color-gray-2);
+  text-overflow: ellipsis;
+}
+
+.titleIcon {
+  margin-inline-start: 0.25rem;
+
+  font-size: 0.9375rem;
+  line-height: 1;
+  color: var(--color-gray-4);
+  vertical-align: -0.125rem;
+
+  &.verificationIcon {
+    color: var(--color-accent);
+  }
+}
+
+.badgeLabel {
+  display: inline;
+
+  margin-left: 0.25rem;
+  padding: 0 0.25rem;
+  border-radius: 0.3125rem;
+
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1rem;
+  color: var(--color-accent-button-text);
+  vertical-align: 0.0625rem;
+
+  background: var(--color-site-border);
+}
+
+.button {
+  flex-shrink: 0;
+  align-self: center;
+
+  margin-inline-start: 0.5rem;
+  padding: 0.4375rem 0.625rem;
+  border-radius: var(--border-radius-default);
+
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-accent);
+
+  background-color: color-mix(in lab, var(--color-accent) 8%, transparent);
+}

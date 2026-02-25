@@ -65,7 +65,7 @@ final class CrosschainFromWalletView: UIStackView, WThemedView {
                     return
                 case .address(let address, let possibleChains):
                     guard possibleChains.contains(where: { it in
-                        it.rawValue == self.buyingToken.chain
+                        it == self.buyingToken.chain
                     }) else {
                         return
                     }

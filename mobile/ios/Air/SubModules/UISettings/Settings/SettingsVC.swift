@@ -17,7 +17,7 @@ import Perception
 private let log = Log("SettingsVC")
 
 @MainActor
-public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserver, UICollectionViewDelegate {
+public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver, UICollectionViewDelegate {
     
     typealias Section = SettingsSection.Section
     typealias Row = SettingsItem.Identifier
@@ -26,6 +26,9 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
     private var dataSource: UICollectionViewDiffableDataSource<Section, Row>!
     private var settingsHeaderView: SettingsHeaderView!
     private var pauseReloadData: Bool = false
+    private var isExpandedSplitLayout: Bool {
+        splitViewController?.isCollapsed == false
+    }
     
     var windowSafeAreaGuide = UILayoutGuide()
     private var windowSafeAreaGuideContraint: NSLayoutConstraint!
@@ -61,26 +64,18 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
     // MARK: - Setup settings
     func setupViews() {
         
-        additionalSafeAreaInsets = insetSectionAdditionalInsets
-
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             addNavigationBar()
             // set title to get blurred background
             navigationItem.attributedTitle = AttributedString(lang("Settings"), attributes: AttributeContainer([.foregroundColor: UIColor.clear]))
-            navigationItem.leadingItemGroups = [
-                UIBarButtonItemGroup(
-                    barButtonItems: [
-                        UIBarButtonItem(
-                            title: lang("Receive"),
-                            image: UIImage.airBundle("QRIcon").withRenderingMode(.alwaysTemplate),
-                            primaryAction: UIAction { _ in
-                                AppActions.showReceive(chain: nil, title: lang("Your Address"))
-                            },
-                        )
-                    ],
-                    representativeItem: nil
-                )
-            ]
+            navigationItem.leftItemsSupplementBackButton = true
+            navigationItem.leftBarButtonItem = UIBarButtonItem(
+                title: lang("Receive"),
+                image: UIImage.airBundle("QRIcon").withRenderingMode(.alwaysTemplate),
+                primaryAction: UIAction { _ in
+                    AppActions.showReceive(chain: nil, title: lang("Your Address"))
+                }
+            )
         }
         
         view.addLayoutGuide(windowSafeAreaGuide)
@@ -297,19 +292,20 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
         snapshot.appendSections([.header])
         snapshot.appendItems([.editWalletName])
         
-        snapshot.appendSections([.accounts])
-        let currentAccountId = self.currentAccountId
-        let otherAccounts = AccountStore.orderedAccountIds
-            .filter { $0 != currentAccountId }
-        if otherAccounts.count <= 6 {
-            snapshot.appendItems(otherAccounts.map(SettingsItem.Identifier.account))
-        } else {
-            snapshot.appendItems(otherAccounts.prefix(5).map(SettingsItem.Identifier.account))
-            snapshot.appendItems([.walletSettings])
+        if !isExpandedSplitLayout {
+            snapshot.appendSections([.accounts])
+            let currentAccountId = self.currentAccountId
+            let otherAccounts = AccountStore.orderedAccountIds
+                .filter { $0 != currentAccountId }
+            if otherAccounts.count <= 6 {
+                snapshot.appendItems(otherAccounts.map(SettingsItem.Identifier.account))
+            } else {
+                snapshot.appendItems(otherAccounts.prefix(5).map(SettingsItem.Identifier.account))
+                snapshot.appendItems([.walletSettings])
+            }
+            
+            snapshot.appendItems([.addAccount])
         }
-        
-        
-        snapshot.appendItems([.addAccount])
         
         snapshot.appendSections([.general])
         snapshot.appendItems([.notifications])

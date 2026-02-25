@@ -66,13 +66,6 @@ public class _TokenStore {
         set { _swapPairs.withLock { $0 = newValue } }
     }
     
-    public func chainForTokenSlug(_ tokenSlug: String?) -> ApiChain? {
-        if let tokenSlug, let token = tokens[tokenSlug] {
-            return ApiChain(rawValue: token.chain)
-        }
-        return nil
-    }
-    
     public var baseCurrencyRate: Double {
         return currencyRates[baseCurrency.rawValue]?.value ?? 1.0
     }
@@ -114,7 +107,7 @@ public class _TokenStore {
     }
     
     public func getToken(slugOrAddress: String) -> ApiToken? {
-        return tokens[slugOrAddress] ?? TokenStore.swapAssets?.first(where: { swapAsset in
+        tokens[slugOrAddress] ?? TokenStore.swapAssets?.first(where: { swapAsset in
             swapAsset.slug == slugOrAddress || swapAsset.tokenAddress == slugOrAddress
         })
     }
@@ -154,15 +147,15 @@ public class _TokenStore {
     private func _merge(cached: ApiToken?, incoming: ApiToken) -> ApiToken {
         guard let cached else { return incoming }
         
-        let priceIsInvalid: Bool = (incoming.priceUsd == 0 && [TONCOIN_SLUG, TON_USDT_SLUG, TON_USDE_SLUG, MYCOIN_SLUG, TRX_SLUG, TRON_USDT_SLUG].contains(incoming.slug))
+        let priceIsInvalid: Bool = (incoming.priceUsd == 0 && [TONCOIN_SLUG, TON_USDT_SLUG, TON_USDE_SLUG, MYCOIN_SLUG, TRX_SLUG, TRON_USDT_SLUG, SOLANA_SLUG, SOLANA_USDT_MAINNET_SLUG].contains(incoming.slug))
             || (incoming.slug == TONCOIN_SLUG && incoming.priceUsd == 1.95)
 
         let merged = ApiToken(
-            slug: incoming.slug.nilIfEmpty ?? cached.slug,
+            slug: incoming.slug,
             name: incoming.name.nilIfEmpty ?? cached.name,
             symbol: incoming.symbol.nilIfEmpty ?? cached.symbol,
             decimals: incoming.decimals.nilIfZero ?? cached.decimals,
-            chain: incoming.chain.nilIfEmpty ?? cached.chain,
+            chain: incoming.chain,
             tokenAddress: incoming.tokenAddress?.nilIfEmpty ?? cached.tokenAddress,
             image: incoming.image?.nilIfEmpty ?? cached.image,
             isPopular: incoming.isPopular ?? cached.isPopular,
@@ -240,6 +233,7 @@ public class _TokenStore {
     internal static let defaultTokens: [String: ApiToken] = [
         TONCOIN_SLUG: .TONCOIN,
         TRX_SLUG: .TRX,
+        SOLANA_SLUG: .SOLANA,
         MYCOIN_SLUG: .MYCOIN,
         TON_USDE_SLUG: .TON_USDE,
         STAKED_TON_SLUG: .STAKED_TON,
@@ -247,6 +241,7 @@ public class _TokenStore {
         TON_TSUSDE_SLUG: .TON_TSUSDE,
         TON_USDT_SLUG: .TON_USDT,
         TRON_USDT_SLUG: .TRON_USDT,
+        SOLANA_USDT_MAINNET_SLUG: .SOLANA_USDT_MAINNET,
     ]
     
     

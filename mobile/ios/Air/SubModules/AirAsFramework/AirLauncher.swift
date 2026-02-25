@@ -125,12 +125,6 @@ public class AirLauncher {
     
     public static func switchToCapacitor() async {
         log.info("switchToCapacitor")
-        if let rootVC = UIApplication.shared.sceneKeyWindow?.rootViewController as? UITabBarController,
-           let presentedViewController = rootVC.presentedViewController,
-           presentedViewController.description.contains("UIInAppBrowser") {
-            WalletCoreData.notify(event: .minimizedSheetChanged(.closedExternally))
-            rootVC.dismiss(animated: false)
-        }
         isOnTheAir = false
         do {
             try await AccountStore.removeAllTemporaryAccounts()

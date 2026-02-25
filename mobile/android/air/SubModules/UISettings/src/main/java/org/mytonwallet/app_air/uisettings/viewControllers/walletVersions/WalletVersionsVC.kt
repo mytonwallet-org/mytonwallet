@@ -28,6 +28,7 @@ import org.mytonwallet.app_air.walletcore.api.importNewWalletVersion
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.utils.jsonObject
 import java.lang.ref.WeakReference
 
 class WalletVersionsVC(context: Context) : WViewController(context),
@@ -234,8 +235,7 @@ class WalletVersionsVC(context: Context) : WViewController(context),
             WGlobalStorage.addAccount(
                 accountId = importedAccountId,
                 accountType = importedAccount.accountType.value,
-                importedAccount.tonAddress,
-                importedAccount.addressByChain["tron"],
+                importedAccount.byChain.jsonObject,
                 name = importedAccount.name,
                 importedAt = importedAccount.importedAt
             )

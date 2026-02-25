@@ -51,7 +51,7 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.TokenEquivalent
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.math.BigDecimal
@@ -364,7 +364,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
                             val clip = ClipData.newPlainText("", shareLink)
                             clipboard.setPrimaryClip(clip)
                             Haptics.play(context, HapticType.LIGHT_TAP)
-                            Toast.makeText(context, "Invoice link was copied!", Toast.LENGTH_SHORT)
+                            Toast.makeText(context, "Invoice Link Copied", Toast.LENGTH_SHORT)
                                 .show()
                         },
                         WMenuPopup.Item(

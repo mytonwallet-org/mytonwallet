@@ -39,9 +39,7 @@ function StakingInfoModal({
     <Modal
       isOpen={isOpen}
       contentClassName={buildClassName(styles.stakingInfoModalContent, withBackground && styles.withBackground)}
-      nativeBottomSheetKey="staking-info"
       onClose={onClose}
-      forceFullNative={hasHistory}
     >
       <StakingInfoContent isActive={isOpen} onClose={onClose} />
     </Modal>

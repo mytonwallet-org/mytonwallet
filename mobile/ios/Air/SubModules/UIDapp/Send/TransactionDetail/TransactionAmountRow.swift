@@ -8,6 +8,9 @@ import WalletContext
 struct TransactionAmountRow: View {
     
     var transfer: ApiDappTransfer
+    var chain: ApiChain
+    
+    private var transferToken: ApiToken { transfer.getToken(chain: chain) }
     
     var body: some View {
         InsetCell(verticalPadding: 0) {
@@ -27,7 +30,7 @@ struct TransactionAmountRow: View {
     @ViewBuilder
     var icon: some View {
         WUIIconViewToken(
-            token: .TONCOIN,
+            token: transferToken,
             isWalletView: false,
             showldShowChain: true,
             size: 40,
@@ -42,7 +45,7 @@ struct TransactionAmountRow: View {
     
     @ViewBuilder
     var text: some View {
-        let amount = TokenAmount(transfer.amount, .TONCOIN)
+        let amount = TokenAmount(transfer.effectiveAmount, transferToken)
         AmountText(
             amount: amount,
             format: .init(maxDecimals: 4),
@@ -58,9 +61,9 @@ struct TransactionAmountRow: View {
     
     @ViewBuilder
     var subtitle: some View {
-        let toncoin = ApiToken.toncoin
+        let token = TokenStore.getNativeToken(chain: chain)
         let baseCurrency = TokenStore.baseCurrency
-        let amount = TokenAmount(transfer.amount, .toncoin).convertTo(baseCurrency, exchangeRate: toncoin.price ?? 0)
+        let amount = TokenAmount(transfer.amount, token).convertTo(baseCurrency, exchangeRate: token.price ?? 0)
         AmountText(
             amount: amount,
             format: .init(maxDecimals: 4),

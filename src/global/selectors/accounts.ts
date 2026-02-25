@@ -203,11 +203,6 @@ export function selectIsCurrentAccountViewMode(global: GlobalState) {
   return isViewAccount(type);
 }
 
-export function selectDoesAccountSupportNft(global: GlobalState) {
-  const account = selectCurrentAccount(global);
-  return Boolean(account?.byChain.ton);
-}
-
 export function selectSelectedHardwareAccountsSlow(global: GlobalState): ApiLedgerAccountInfo[] {
   const selectedIndices = new Set(global.auth.hardwareSelectedIndices ?? []);
   const { chain, hardwareWallets } = global.hardware;

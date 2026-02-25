@@ -2,7 +2,14 @@ import type { NftItem } from 'tonapi-sdk-js';
 import type { Cell } from '@ton/core';
 import { Address, Builder } from '@ton/core';
 
-import type { ApiCheckTransactionDraftResult, ApiNft, ApiNftUpdate } from '../../types';
+import type {
+  ApiCheckTransactionDraftResult,
+  ApiNetwork,
+  ApiNft,
+  ApiNftSuperCollection,
+  ApiNftUpdate,
+  ApiSubmitNftTransferResult,
+} from '../../types';
 
 import {
   BURN_ADDRESS,
@@ -14,6 +21,7 @@ import {
 } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { bigintMultiplyToNumber } from '../../../util/bigint';
+import { getChainConfig } from '../../../util/chain';
 import { compact } from '../../../util/iteratees';
 import { generateQueryId } from './util';
 import { parseTonapiioNft } from './util/metadata';
@@ -23,6 +31,7 @@ import {
 import { commentToBytes, packBytesAsSnakeCell, storeInlineOrRefCell, toBase64Address } from './util/tonCore';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { getNftSuperCollectionsByCollectionAddress } from '../../common/addresses';
+import { fetchAllPaginated, streamPaginated } from '../../common/pagination';
 import {
   NFT_PAYLOAD_SAFE_MARGIN,
   NFT_TRANSFER_AMOUNT,
@@ -32,6 +41,14 @@ import {
 } from './constants';
 import { checkMultiTransactionDraft, checkToAddress, submitMultiTransfer } from './transfer';
 import { isActiveSmartContract } from './wallet';
+
+function parseNfts(
+  rawNfts: NftItem[],
+  network: ApiNetwork,
+  nftSuperCollectionsByCollectionAddress: Record<string, ApiNftSuperCollection>,
+) {
+  return compact(rawNfts.map((rawNft) => parseTonapiioNft(network, rawNft, nftSuperCollectionsByCollectionAddress)));
+}
 
 export async function getAccountNfts(accountId: string, options?: {
   collectionAddress?: string;
@@ -45,8 +62,44 @@ export async function getAccountNfts(accountId: string, options?: {
   // We skip the request, since the super collection is an abstraction, and the TON address for the TonAPI is not valid.
   if (options?.collectionAddress === TELEGRAM_GIFTS_SUPER_COLLECTION) return [];
 
-  const rawNfts = await fetchAccountNfts(network, address, options);
-  return compact(rawNfts.map((rawNft) => parseTonapiioNft(network, rawNft, nftSuperCollectionsByCollectionAddress)));
+  if (options?.offset !== undefined || options?.limit !== undefined) {
+    const rawNfts = await fetchAccountNfts(network, address, options);
+    return parseNfts(rawNfts, network, nftSuperCollectionsByCollectionAddress);
+  }
+
+  const { nftBatchLimit, nftBatchPauseMs } = getChainConfig('ton');
+  const rawNfts = await fetchAllPaginated({
+    batchLimit: nftBatchLimit!,
+    pauseMs: nftBatchPauseMs!,
+    fetchBatch: (cursor) => fetchAccountNfts(network, address, {
+      collectionAddress: options?.collectionAddress,
+      offset: cursor * nftBatchLimit!,
+      limit: nftBatchLimit!,
+    }),
+  });
+
+  return parseNfts(rawNfts, network, nftSuperCollectionsByCollectionAddress);
+}
+
+export async function streamAllAccountNfts(accountId: string, options: {
+  signal?: AbortSignal;
+  onBatch: (nfts: ApiNft[]) => void;
+}): Promise<void> {
+  const { network } = parseAccountId(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
+  const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
+
+  const { nftBatchLimit, nftBatchPauseMs } = getChainConfig('ton');
+  await streamPaginated({
+    signal: options.signal,
+    batchLimit: nftBatchLimit!,
+    pauseMs: nftBatchPauseMs!,
+    fetchBatch: (cursor) => fetchAccountNfts(network, address, {
+      offset: cursor * nftBatchLimit!,
+      limit: nftBatchLimit!,
+    }),
+    onBatch: (batch) => options.onBatch(parseNfts(batch, network, nftSuperCollectionsByCollectionAddress)),
+  });
 }
 
 export async function checkNftOwnership(accountId: string, nftAddress: string) {
@@ -136,13 +189,22 @@ export async function checkNftTransferDraft(options: {
   nfts: ApiNft[];
   toAddress: string;
   comment?: string;
+  isNftBurn?: boolean;
 }): Promise<ApiCheckTransactionDraftResult> {
-  const { accountId, nfts, comment } = options;
+  const { accountId, nfts, comment, isNftBurn } = options;
   let { toAddress } = options;
 
   const { network } = parseAccountId(accountId);
   const account = await fetchStoredChainAccount(accountId, 'ton');
   const { address: fromAddress } = account.byChain.ton;
+
+  const isNotcoinVouchers = nfts.some((n) => n.collectionAddress === NOTCOIN_VOUCHERS_ADDRESS);
+
+  toAddress = isNftBurn
+    ? isNotcoinVouchers
+      ? NOTCOIN_EXCHANGERS[0]
+      : BURN_ADDRESS
+    : toAddress;
 
   const result: ApiCheckTransactionDraftResult = await checkToAddress(network, toAddress);
   if ('error' in result) {
@@ -177,10 +239,21 @@ export async function submitNftTransfers(options: {
   nfts: ApiNft[];
   toAddress: string;
   comment?: string;
-}) {
+  isNftBurn?: boolean;
+}): Promise<ApiSubmitNftTransferResult> {
   const {
-    accountId, password, nfts, toAddress, comment,
+    accountId, password, nfts, comment, isNftBurn,
   } = options;
+
+  let { toAddress } = options;
+
+  const isNotcoinVouchers = nfts.some((n) => n.collectionAddress === NOTCOIN_VOUCHERS_ADDRESS);
+
+  toAddress = isNftBurn
+    ? isNotcoinVouchers
+      ? NOTCOIN_EXCHANGERS[0]
+      : BURN_ADDRESS
+    : toAddress;
 
   const account = await fetchStoredChainAccount(accountId, 'ton');
   const { address: fromAddress } = account.byChain.ton;
@@ -188,7 +261,17 @@ export async function submitNftTransfers(options: {
   const messages = nfts.map(
     (nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment, account.type === 'ledger'),
   );
-  return submitMultiTransfer({ accountId, password, messages });
+
+  const sentTx = await submitMultiTransfer({ accountId, password, messages });
+
+  if ('error' in sentTx) {
+    return sentTx;
+  }
+
+  return {
+    msgHashNormalized: sentTx.msgHashNormalized,
+    transfers: sentTx.messages.map((e) => ({ toAddress: e.toAddress })),
+  };
 }
 
 function buildNftTransferMessage(

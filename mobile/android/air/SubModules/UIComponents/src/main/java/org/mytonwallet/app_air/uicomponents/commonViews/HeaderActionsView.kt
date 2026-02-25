@@ -17,7 +17,6 @@ import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
-import androidx.core.view.get
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.sp
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
@@ -39,6 +38,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
+import org.mytonwallet.app_air.walletcore.stores.StakingStore
+import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
@@ -48,10 +49,10 @@ class HeaderActionsView(
     var onClick: ((Identifier) -> Unit)?,
 ) : WCell(context), WThemedView {
 
-    private var actionViews = HashMap<Identifier, View>()
+    private var actionViews = HashMap<Identifier, HeaderActionItem>()
     var tabsLocalized = if (LocaleController.isRTL) tabs.asReversed() else tabs
 
-    private var itemViews = ArrayList<WView>()
+    private var itemViews = ArrayList<HeaderActionItem>()
     private var account: MAccount? = null
 
     init {
@@ -78,49 +79,12 @@ class HeaderActionsView(
     private fun generateItems() {
         actionViews.clear()
         itemViews.clear()
-        fun itemGenerator(item: Item): WView {
-            val tabView = WView(context)
-            tabView.clipChildren = false
-            tabView.clipToPadding = false
 
-            val iconContainer = WFrameLayout(context).apply {
-                pivotX = ICON_SIZE.dp / 2f
-                pivotY = ICON_SIZE.dp.toFloat()
-            }
-            val iconView = AppCompatImageView(context).apply {
-                scaleType = ImageView.ScaleType.FIT_CENTER
-            }
-            iconView.setImageDrawable(item.icon)
-            iconContainer.addView(
-                iconView,
-                FrameLayout.LayoutParams(ICON_INNER_SIZE.dp, ICON_INNER_SIZE.dp, Gravity.CENTER)
-            )
-
-            tabView.addView(iconContainer, LayoutParams(ICON_SIZE.dp, ICON_SIZE.dp))
-
-            val label = WLabel(context).apply {
-                gravity = Gravity.CENTER
-                setSingleLine()
-                setStyle(13f, WFont.Regular)
-                text = item.title
-            }
-
-            tabView.addView(label, LayoutParams(MATCH_PARENT, 20.dp))
-            tabView.setConstraints {
-                toCenterX(label)
-                toBottom(label)
-                toTop(iconContainer, 14f)
-                toCenterX(iconContainer)
-                bottomToTop(iconContainer, label, 12f)
-            }
-            return tabView
-        }
-
-        val arr = ArrayList<WView>()
+        val arr = ArrayList<HeaderActionItem>()
         for (tab in tabsLocalized) {
-            val tabView = itemGenerator(tab)
-            actionViews[tab.identifier] = tabView
-            arr.add(tabView)
+            val tabItem = HeaderActionItem(context, tab)
+            actionViews[tab.identifier] = tabItem
+            arr.add(tabItem)
         }
         itemViews = arr
         updateTextSizes()
@@ -181,6 +145,7 @@ class HeaderActionsView(
             updateActions(account)
         }
     }
+
     private fun isSellAllowed(): Boolean {
         return account?.supportsBuyWithCard == true && ConfigStore.isLimited != true
     }
@@ -270,14 +235,11 @@ class HeaderActionsView(
         val iconColor = WColor.Icon.color
 
         for (itemView in itemViews) {
-            val iconContainer = itemView[0] as FrameLayout
-            val iconView = iconContainer.getChildAt(0) as ImageView
-
-            iconContainer.background =
+            itemView.iconContainer.background =
                 CircleShadowDrawable(iconBackgroundColor, shadowColor, accentShadowColor)
 
-            iconView.setColorFilter(iconColor)
-            (itemView[1] as WLabel).setTextColor(iconColor)
+            itemView.iconView.setColorFilter(iconColor)
+            itemView.label.setTextColor(iconColor)
         }
     }
 
@@ -334,7 +296,7 @@ class HeaderActionsView(
 
     fun updateTextSizes() {
         post {
-            val labels = itemViews.map { it[1] as WLabel }
+            val labels = itemViews.map { it.label }
             var finalSize = 13f
             val minSize = 8f
             val step = 1f
@@ -362,7 +324,7 @@ class HeaderActionsView(
             val alphaValue = ((value - 0.4f) * 5 / 3).coerceAtLeast(0f)
             alpha = alphaValue
             itemViews.forEach {
-                it[0].apply {
+                it.iconContainer.apply {
                     scaleX = alphaValue
                     scaleY = alphaValue
                 }
@@ -373,12 +335,33 @@ class HeaderActionsView(
         onClick = null
     }
 
-    fun updateActions(account: MAccount?) {
+    fun updateActions(account: MAccount?, tokenSlug: String? = null) {
         this.account = account
         val isMainNet = account?.network == MBlockchainNetwork.MAINNET
         setSendVisibility(account?.accountType != MAccount.AccountType.VIEW)
         setEarnVisibility(isMainNet)
         setSwapVisibility(isMainNet && account.accountType == MAccount.AccountType.MNEMONIC)
+        updateEarnTitle(account, tokenSlug)
+    }
+
+    private fun updateEarnTitle(account: MAccount?, tokenSlug: String?) {
+        val label = actionViews[Identifier.EARN]?.label ?: return
+        val hasActiveStaking = account?.let { currentAccount ->
+            val stakingTokenSlug = tokenSlug?.let { tokenSlugToStakingSlug(it) ?: it }
+            StakingStore.getStakingState(currentAccount.accountId)?.let { stakingData ->
+                if (stakingTokenSlug != null) {
+                    stakingData.hasActiveStaking(stakingTokenSlug)
+                } else {
+                    stakingData.hasActiveStaking()
+                }
+            } ?: false
+        } ?: false
+        val title = LocaleController.getString(if (hasActiveStaking) "Earning" else "Earn")
+        if (label.text == title) {
+            return
+        }
+        label.text = title
+        updateTextSizes()
     }
 
     private fun setSendVisibility(visible: Boolean) {
@@ -391,6 +374,46 @@ class HeaderActionsView(
 
     private fun setEarnVisibility(visible: Boolean) {
         actionViews[Identifier.EARN]?.visibility = if (visible) VISIBLE else GONE
+    }
+
+    private class HeaderActionItem(
+        context: Context,
+        item: Item
+    ) : WView(context) {
+        val iconContainer: WFrameLayout = WFrameLayout(context).apply {
+            pivotX = ICON_SIZE.dp / 2f
+            pivotY = ICON_SIZE.dp.toFloat()
+        }
+        val iconView: AppCompatImageView = AppCompatImageView(context).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setImageDrawable(item.icon)
+        }
+        val label: WLabel = WLabel(context).apply {
+            gravity = Gravity.CENTER
+            setSingleLine()
+            setStyle(13f, WFont.Regular)
+            text = item.title
+        }
+
+        init {
+            clipChildren = false
+            clipToPadding = false
+
+            iconContainer.addView(
+                iconView,
+                FrameLayout.LayoutParams(ICON_INNER_SIZE.dp, ICON_INNER_SIZE.dp, Gravity.CENTER)
+            )
+            addView(iconContainer, LayoutParams(ICON_SIZE.dp, ICON_SIZE.dp))
+            addView(label, LayoutParams(MATCH_PARENT, 20.dp))
+
+            setConstraints {
+                toCenterX(label)
+                toBottom(label)
+                toTop(iconContainer, 14f)
+                toCenterX(iconContainer)
+                bottomToTop(iconContainer, label, 12f)
+            }
+        }
     }
 
     companion object {

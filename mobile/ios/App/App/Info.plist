@@ -7,7 +7,6 @@
 		<string>Frameworks/WalletContext.framework/Nunito-ExtraBold.ttf</string>
 		<string>Frameworks/WalletContext.framework/SFCompactDisplayMedium.otf</string>
 		<string>Frameworks/WalletContext.framework/SFCompactRoundedBold.otf</string>
-		<string>Frameworks/WalletContext.framework/SFCompactRoundedMedium.otf</string>
 		<string>Frameworks/WalletContext.framework/SFCompactRoundedSemibold.otf</string>
 	</array>
 	<key>CADisableMinimumFrameDuration</key>
@@ -41,6 +40,7 @@
 				<string>tc</string>
 				<string>mytonwallet-tc</string>
 				<string>mtw</string>
+				<string>wc</string>
 			</array>
 		</dict>
 	</array>
@@ -85,18 +85,14 @@
 		<string>remote-notification</string>
 		<string>fetch</string>
 	</array>
-	<key>UIDesignRequiresCompatibility</key>
-	<false/>
 	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen.storyboard</string>
+	<string>LaunchScreen</string>
 	<key>UIObservationTrackingEnabled</key>
 	<false/>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>armv7</string>
 	</array>
-	<key>UIRequiresFullScreen</key>
-	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

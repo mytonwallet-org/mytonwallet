@@ -40,7 +40,7 @@ import org.mytonwallet.app_air.walletcore.api.swapCexEstimate
 import org.mytonwallet.app_air.walletcore.api.swapCexSubmit
 import org.mytonwallet.app_air.walletcore.api.swapGetPairs
 import org.mytonwallet.app_air.walletcore.api.swapSubmit
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftOptions
@@ -163,7 +163,7 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
         val state = _inputStateFlow.value
         val pairs = tokenPairsCache[state.tokenToSend?.slug]
 
-        if (state.tokenToSend == null || _inputStateFlow.value.shouldShowAllPairs) {
+        if (state.tokenToSend == null || _inputStateFlow.value.shouldShowAllPairsToBuy) {
             _walletStateFlow.value?.assets?.let {
                 _eventsFlow.tryEmit(Event.ShowSelector(it, mode = Mode.RECEIVE))
             }
@@ -768,8 +768,7 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                 if (needEstFee) { // Must call even when balance is 0 for proper fee estimation
                     val estFeeAddress = when (request.tokenToSend.mBlockchain) {
                         MBlockchain.ton -> request.wallet.tonAddress
-                        MBlockchain.tron -> "TW2LXSebZ7Br1zHaiA2W1zRojDkDwjGmpw"    // random address for estimate
-                        else -> throw NotImplementedError()
+                        else -> request.tokenToSend.mBlockchain?.feeCheckAddress ?: throw NotImplementedError()
                     }
 
                     val estAmount = BigInteger.ONE
@@ -1036,6 +1035,12 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
 
             is WalletEvent.ReceivedPendingActivities -> {
                 walletEvent.pendingActivities?.forEach {
+                    checkReceivedActivity(it)
+                }
+            }
+
+            is WalletEvent.ReceivedNewActivities -> {
+                walletEvent.newActivities?.filter { it.isPending() }?.forEach {
                     checkReceivedActivity(it)
                 }
             }

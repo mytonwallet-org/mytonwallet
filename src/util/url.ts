@@ -5,12 +5,13 @@ import {
   DEFAULT_CHAIN,
   EMPTY_HASH_VALUE,
   MTW_CARDS_BASE_URL,
+  MTW_NEWS_CHANNEL_NAME,
   MTW_TIPS_CHANNEL_NAME,
   MYTONWALLET_BLOG,
   SELF_UNIVERSAL_HOST_URL,
 } from '../config';
 import { base64ToHex } from './base64toHex';
-import { getAvailableExplorers, getExplorer, getSupportedChains } from './chain';
+import { getAvailableExplorers, getExplorer, getMarketplace, getSupportedChains } from './chain';
 import { logDebugError } from './logs';
 
 const VALID_PROTOCOLS = new Set(['http:', 'https:']);
@@ -73,6 +74,10 @@ export function getHostnameFromUrl(url: string) {
   }
 }
 
+export function getMarketplaceName(chain: ApiChain = DEFAULT_CHAIN, id?: string) {
+  return getMarketplace(chain, id).name;
+}
+
 export function getExplorerName(chain: ApiChain = DEFAULT_CHAIN, explorerId?: string) {
   return getExplorer(chain, explorerId).name;
 }
@@ -81,8 +86,24 @@ export function getExplorerBaseUrl(chain: ApiChain = DEFAULT_CHAIN, isTestnet = 
   return getExplorer(chain, explorerId).baseUrl[isTestnet ? 'testnet' : 'mainnet'];
 }
 
-function getTokenExplorerBaseUrl(chain: ApiChain = DEFAULT_CHAIN, isTestnet = false, explorerId?: string) {
-  return getExplorer(chain, explorerId).token.replace('{base}', getExplorerBaseUrl(chain, isTestnet, explorerId));
+export function getMarketplaceBaseUrl(chain: ApiChain = DEFAULT_CHAIN, isTestnet = false, id?: string) {
+  return getMarketplace(chain, id).baseUrl[isTestnet ? 'testnet' : 'mainnet'];
+}
+
+function parseBaseUrl(chain: ApiChain, config: 'explorer' | 'marketplace', isTestnet = false, explorerId?: string) {
+  const baseUrl = config === 'explorer'
+    ? getExplorerBaseUrl(chain, isTestnet, explorerId)
+    : getMarketplaceBaseUrl(chain, isTestnet, explorerId);
+  const parsedBaseUrl = typeof baseUrl === 'string' ? baseUrl : baseUrl.url;
+  const parsedUrlParam = typeof baseUrl === 'string' ? '' : baseUrl.param;
+
+  return { parsedBaseUrl, parsedUrlParam };
+}
+
+function getTokenExplorerBaseUrl(chain: ApiChain, isTestnet = false, explorerId?: string) {
+  const { parsedBaseUrl, parsedUrlParam } = parseBaseUrl(chain, 'explorer', isTestnet, explorerId);
+
+  return getExplorer(chain, explorerId).token.replace('{base}', parsedBaseUrl) + parsedUrlParam;
 }
 
 export function getExplorerTransactionUrl(
@@ -94,10 +115,12 @@ export function getExplorerTransactionUrl(
   if (!transactionHash || transactionHash === EMPTY_HASH_VALUE) return undefined;
 
   const explorer = getExplorer(chain, explorerId);
+  const { parsedBaseUrl, parsedUrlParam } = parseBaseUrl(chain, 'explorer', isTestnet);
 
   return explorer.transaction
-    .replace('{base}', getExplorerBaseUrl(chain, isTestnet, explorerId))
-    .replace('{hash}', explorer.doConvertHashFromBase64 ? base64ToHex(transactionHash) : transactionHash);
+    .replace('{base}', parsedBaseUrl)
+    .replace('{hash}', explorer.doConvertHashFromBase64 ? base64ToHex(transactionHash) : transactionHash)
+    + parsedUrlParam;
 }
 
 export function getExplorerAddressUrl(
@@ -108,9 +131,12 @@ export function getExplorerAddressUrl(
 ) {
   if (!address) return undefined;
 
+  const { parsedBaseUrl, parsedUrlParam } = parseBaseUrl(chain, 'explorer', isTestnet);
+
   return getExplorer(chain, explorerId).address
-    .replace('{base}', getExplorerBaseUrl(chain, isTestnet, explorerId))
-    .replace('{address}', address);
+    .replace('{base}', parsedBaseUrl)
+    .replace('{address}', address)
+    + parsedUrlParam;
 }
 
 export function getExplorerNftCollectionUrl(
@@ -123,10 +149,12 @@ export function getExplorerNftCollectionUrl(
 
   const explorer = getExplorer(chain, explorerId);
   if (!explorer.nftCollection) return undefined;
+  const { parsedBaseUrl, parsedUrlParam } = parseBaseUrl(chain, 'explorer', isTestnet);
 
   return explorer.nftCollection
-    .replace('{base}', getExplorerBaseUrl(chain, isTestnet, explorerId))
-    .replace('{address}', nftCollectionAddress);
+    .replace('{base}', parsedBaseUrl)
+    .replace('{address}', nftCollectionAddress)
+    + parsedUrlParam;
 }
 
 export function getExplorerNftUrl(
@@ -139,10 +167,12 @@ export function getExplorerNftUrl(
 
   const explorer = getExplorer(chain, explorerId);
   if (!explorer.nft) return undefined;
+  const { parsedBaseUrl, parsedUrlParam } = parseBaseUrl(chain, 'explorer', isTestnet);
 
   return explorer.nft
-    .replace('{base}', getExplorerBaseUrl(chain, isTestnet, explorerId))
-    .replace('{address}', nftAddress);
+    .replace('{base}', parsedBaseUrl)
+    .replace('{address}', nftAddress)
+    + parsedUrlParam;
 }
 
 export function getExplorerTokenUrl(
@@ -159,6 +189,42 @@ export function getExplorerTokenUrl(
     : `https://coinmarketcap.com/currencies/${slug}/`;
 }
 
+export function getMarketplaceNftCollectionUrl(
+  chain: ApiChain = DEFAULT_CHAIN,
+  nftCollectionAddress?: string,
+  isTestnet?: boolean,
+  marketplaceId?: string,
+) {
+  if (!nftCollectionAddress) return undefined;
+
+  const marketplace = getMarketplace(chain, marketplaceId);
+  if (!marketplace.nftCollection) return undefined;
+  const { parsedBaseUrl, parsedUrlParam } = parseBaseUrl(chain, 'marketplace', isTestnet);
+
+  return marketplace.nftCollection
+    .replace('{base}', parsedBaseUrl)
+    .replace('{address}', nftCollectionAddress)
+    + parsedUrlParam;
+}
+
+export function getMarketplaceNftUrl(
+  chain: ApiChain = DEFAULT_CHAIN,
+  nftAddress?: string,
+  isTestnet?: boolean,
+  explorerId?: string,
+) {
+  if (!nftAddress) return undefined;
+
+  const marketplace = getMarketplace(chain, explorerId);
+  if (!marketplace.nft) return undefined;
+  const { parsedBaseUrl, parsedUrlParam } = parseBaseUrl(chain, 'marketplace', isTestnet);
+
+  return marketplace.nft
+    .replace('{base}', parsedBaseUrl)
+    .replace('{address}', nftAddress)
+    + parsedUrlParam;
+}
+
 export function isTelegramUrl(url: string) {
   return url.startsWith('https://t.me/');
 }
@@ -171,7 +237,11 @@ export function getBlogUrl(lang: LangCode): string {
   return MYTONWALLET_BLOG[lang] || MYTONWALLET_BLOG.en!;
 }
 
-export function getTelegramChannelUrl(lang: LangCode): string {
+export function getTelegramNewsChannelUrl(lang: LangCode): string {
+  return `https://t.me/${MTW_NEWS_CHANNEL_NAME[lang] ?? MTW_NEWS_CHANNEL_NAME.en}`;
+}
+
+export function getTelegramTipsChannelUrl(lang: LangCode): string {
   return `https://t.me/${MTW_TIPS_CHANNEL_NAME[lang] ?? MTW_TIPS_CHANNEL_NAME.en}`;
 }
 
@@ -206,8 +276,8 @@ export function getExplorerByUrl(url: string): { chain: ApiChain; explorerId: st
     const explorers = getAvailableExplorers(chain);
 
     for (const explorer of explorers) {
-      const mainnetHost = getHostnameFromUrl(explorer.baseUrl.mainnet);
-      const testnetHost = getHostnameFromUrl(explorer.baseUrl.testnet);
+      const mainnetHost = getHostnameFromUrl(parseBaseUrl(chain, 'explorer', false, explorer.id).parsedBaseUrl);
+      const testnetHost = getHostnameFromUrl(parseBaseUrl(chain, 'explorer', true, explorer.id).parsedBaseUrl);
 
       if (hostname === mainnetHost || hostname === testnetHost) {
         return { chain, explorerId: explorer.id };
@@ -238,9 +308,9 @@ export function convertExplorerUrl(url: string, toExplorerId: string): string | 
   if (!fromExplorer || !toExplorer) return undefined;
 
   // Determine network by checking which base URL the input starts with
-  const isTestnet = url.startsWith(fromExplorer.baseUrl.testnet);
-  const fromBaseUrl = fromExplorer.baseUrl[isTestnet ? 'testnet' : 'mainnet'];
-  const toBaseUrl = toExplorer.baseUrl[isTestnet ? 'testnet' : 'mainnet'];
+  const isTestnet = url.startsWith(parseBaseUrl(chain, 'explorer', true, fromExplorerId).parsedBaseUrl);
+  const fromBaseUrl = parseBaseUrl(chain, 'explorer', isTestnet, fromExplorerId).parsedBaseUrl;
+  const toBaseUrl = parseBaseUrl(chain, 'explorer', isTestnet, toExplorer.id).parsedBaseUrl;
 
   // Extract path after base URL (e.g., "address/EQAbc..." or "EQAbc...?address")
   const pathAfterBase = url.slice(fromBaseUrl.length);

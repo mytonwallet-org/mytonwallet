@@ -1,23 +1,31 @@
 
 import WalletContext
 
-public enum NftSendMode: Sendable {
-    case send
-    case burn
+public enum SendMode {
+    case regular
+    
+    case sendNft, burnNft
+    
+    /// Read-only mode, all values are set, start from the confirmation screen
+    case sellToMoonpay
+            
+    public var isNftRelated: Bool { self == .burnNft || self == .sendNft}
 }
 
 public struct SendPrefilledValues {
-    public var address: String?
-    public var amount: BigInt?
-    public var token: String?
-    public var jetton: String?
-    public var commentOrMemo: String?
-    public var binaryPayload: String?
-    public var nfts: [ApiNft]?
-    public var nftSendMode: NftSendMode?
-    public var stateInit: String?
+    public let mode: SendMode
+    public let address: String?
+    public let amount: BigInt?
+    public let token: String?
+    public let jetton: String?
+    public let commentOrMemo: String?
+    public let binaryPayload: String?
+    public let nfts: [ApiNft]?
+    public let stateInit: String?
     
-    public init(address: String? = nil, amount: BigInt? = nil, token: String? = nil, jetton: String? = nil, commentOrMemo: String? = nil, binaryPayload: String? = nil, nfts: [ApiNft]? = nil, nftSendMode: NftSendMode? = nil, stateInit: String? = nil) {
+    public init(mode: SendMode = .regular, address: String? = nil, amount: BigInt? = nil, token: String? = nil, jetton: String? = nil,
+                commentOrMemo: String? = nil, binaryPayload: String? = nil, nfts: [ApiNft]? = nil, stateInit: String? = nil) {
+        self.mode = mode
         self.address = address
         self.amount = amount
         self.token = token
@@ -25,7 +33,6 @@ public struct SendPrefilledValues {
         self.commentOrMemo = commentOrMemo
         self.binaryPayload = binaryPayload
         self.nfts = nfts
-        self.nftSendMode = nftSendMode
         self.stateInit = stateInit
     }
 }

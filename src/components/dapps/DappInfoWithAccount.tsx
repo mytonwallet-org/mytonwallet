@@ -1,15 +1,17 @@
 import React, { memo } from '../../lib/teact/teact';
 import { withGlobal } from '../../global';
 
-import type { ApiDapp } from '../../api/types';
+import type { StoredDappConnection } from '../../api/dappProtocols/storage';
+import type { ApiChain } from '../../api/types';
 import type { Account } from '../../global/types';
 
-import { TONCOIN } from '../../config';
+import { DEFAULT_CHAIN } from '../../config';
 import {
   selectCurrentAccountId,
   selectCurrentToncoinBalance,
   selectNetworkAccounts,
 } from '../../global/selectors';
+import { getChainConfig } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
 
@@ -18,7 +20,8 @@ import DappInfo from './DappInfo';
 import styles from './Dapp.module.scss';
 
 interface OwnProps {
-  dapp?: ApiDapp;
+  chain?: ApiChain;
+  dapp?: StoredDappConnection;
   customTokenBalance?: bigint;
   customTokenSymbol?: string;
   customTokenDecimals?: number;
@@ -31,6 +34,7 @@ interface StateProps {
 }
 
 function DappInfoWithAccount({
+  chain,
   dapp,
   toncoinBalance,
   currentAccountId,
@@ -41,8 +45,10 @@ function DappInfoWithAccount({
 }: OwnProps & StateProps) {
   // Use custom token display if provided, otherwise use TON balance
   const displayBalance = customTokenBalance !== undefined ? customTokenBalance : toncoinBalance;
-  const displaySymbol = customTokenSymbol || TONCOIN.symbol;
-  const displayDecimals = customTokenDecimals !== undefined ? customTokenDecimals : TONCOIN.decimals;
+  const displaySymbol = customTokenSymbol || getChainConfig(chain || DEFAULT_CHAIN).nativeToken.symbol;
+  const displayDecimals = customTokenDecimals !== undefined
+    ? customTokenDecimals
+    : getChainConfig(chain || DEFAULT_CHAIN).nativeToken.decimals;
 
   return (
     <div className={styles.transactionDirection}>

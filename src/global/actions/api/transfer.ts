@@ -9,16 +9,14 @@ import { ApiCommonError } from '../../../api/types';
 import { ApiTransactionDraftError } from '../../../api/types';
 import { ScamWarningType, TransferState } from '../../types';
 
-import { NFT_BATCH_SIZE, TONCOIN } from '../../../config';
+import { DEFAULT_CHAIN, NFT_BATCH_SIZE } from '../../../config';
 import { bigintDivideToNumber } from '../../../util/bigint';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import { getChainConfig } from '../../../util/chain';
 import { explainApiTransferFee, getDieselTokenAmount } from '../../../util/fee/transferFee';
 import { split } from '../../../util/iteratees';
 import { getTranslation } from '../../../util/langProvider';
-import { callActionInNative } from '../../../util/multitab';
 import { shouldShowDomainScamWarning, shouldShowSeedPhraseScamWarning } from '../../../util/scamDetection';
-import { IS_DELEGATING_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { handleTransferResult, isErrorTransferResult, prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
@@ -42,11 +40,6 @@ import {
 } from '../../selectors';
 
 addActionHandler('submitTransferInitial', async (global, actions, payload) => {
-  if (IS_DELEGATING_BOTTOM_SHEET) {
-    callActionInNative('submitTransferInitial', payload);
-    return;
-  }
-
   const {
     tokenSlug,
     toAddress,
@@ -58,6 +51,7 @@ addActionHandler('submitTransferInitial', async (global, actions, payload) => {
     stateInit,
     isGaslessWithStars,
     binPayload,
+    isNftBurn,
   } = payload;
 
   const currentAccountId = selectCurrentAccountId(global)!;
@@ -68,11 +62,14 @@ addActionHandler('submitTransferInitial', async (global, actions, payload) => {
   let result: ApiCheckTransactionDraftResult | undefined;
 
   if (isNftTransfer) {
-    result = await callApi('checkNftTransferDraft', {
+    const chain = nfts?.[0]?.chain || DEFAULT_CHAIN;
+
+    result = await callApi('checkNftTransferDraft', chain, {
       accountId: currentAccountId,
       nfts,
       toAddress,
       comment,
+      isNftBurn,
     });
   } else {
     const { tokenAddress, chain } = selectToken(global, tokenSlug);
@@ -118,6 +115,7 @@ addActionHandler('submitTransferInitial', async (global, actions, payload) => {
     isToNewAddress: result.isToAddressNew,
     isGasless,
     isGaslessWithStars,
+    isNftBurn,
   }));
 });
 
@@ -178,12 +176,13 @@ addActionHandler('fetchTransferFee', async (global, actions, payload) => {
 
 addActionHandler('fetchNftFee', async (global, actions, payload) => {
   const { toAddress, nfts, comment } = payload;
-  const chain = 'ton';
 
   global = updateCurrentTransfer(global, { isLoading: true, error: undefined });
   setGlobal(global);
 
-  const result = await callApi('checkNftTransferDraft', {
+  const chain = nfts?.[0]?.chain || DEFAULT_CHAIN;
+
+  const result = await callApi('checkNftTransferDraft', chain, {
     accountId: selectCurrentAccountId(global)!,
     nfts,
     toAddress,
@@ -209,7 +208,7 @@ addActionHandler('fetchNftFee', async (global, actions, payload) => {
   if (result?.error) {
     actions.showError({
       error: result?.error === ApiTransactionDraftError.InsufficientBalance
-        ? getTranslation('Insufficient %token% for fee.', { token: TONCOIN.symbol })
+        ? getTranslation('Insufficient %token% for fee.', { token: getChainConfig(chain).nativeToken.slug })
         : result.error,
     });
   }
@@ -229,6 +228,7 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
     diesel,
     stateInit,
     isGaslessWithStars,
+    isNftBurn,
   } = global.currentTransfer;
 
   if (!await prepareTransfer(TransferState.ConfirmHardware, updateCurrentTransfer, password)) {
@@ -249,18 +249,20 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
   let result: { activityId: string } | { activityIds: string[] } | { error: string } | undefined;
 
   if (nfts?.length) {
-    const chain = 'ton';
+    const chain = nfts?.[0]?.chain || DEFAULT_CHAIN;
     const chunks = split(nfts, selectIsHardwareAccount(global) ? 1 : NFT_BATCH_SIZE);
 
     for (const chunk of chunks) {
       const batchResult = await callApi(
         'submitNftTransfers',
+        chain,
         selectCurrentAccountId(global)!,
         password,
         chunk,
         resolvedAddress!,
         getNftTransferComment(chain, comment),
         realNativeFee && bigintDivideToNumber(realNativeFee, nfts.length / chunk.length),
+        isNftBurn,
       );
 
       global = getGlobal();

@@ -7,7 +7,7 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.MTW_CARDS_COLLECTION
 import org.mytonwallet.app_air.walletcore.models.IInAppBrowser
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 
 class ExplorerHelpers {
     companion object {
@@ -34,7 +34,7 @@ class ExplorerHelpers {
             }
             return InAppBrowserConfig(
                 url = selectedExplorer.addressUrl(network, address),
-                injectTonConnectBridge = true,
+                injectDappConnect = true,
                 options = if (explorerOptions.size > 1) explorerOptions else null,
                 selectedOption = selectedExplorer.identifier,
                 optionsOnTitle = true
@@ -63,7 +63,7 @@ class ExplorerHelpers {
             }
             return InAppBrowserConfig(
                 url = selectedExplorer.transactionUrl(network, txHash),
-                injectTonConnectBridge = true,
+                injectDappConnect = true,
                 options = if (explorerOptions.size > 1) explorerOptions else null,
                 selectedOption = selectedExplorer.identifier,
                 optionsOnTitle = true

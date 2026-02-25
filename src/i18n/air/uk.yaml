@@ -34,11 +34,10 @@ All Telegram Gifts: Усі подарунки Telegram
 Add Crypto: Додати криптовалюту
 Share QR Code: Поділитися QR-кодом
 $send_only_ton: Надсилайте на цю адресу лише Toncoin (TON) або активи мережі TON. Надсилання інших токенів призведе до їх втрати.
-$send_only_tron: Надсилайте на цю адресу лише TRON (TRX) або активи мережі TRON. Надсилання інших токенів призведе до їх втрати.
+$send_only_chain: Надсилайте на цю адресу лише %chain% (%symbol%) або активи мережі %chain%. Надсилання інших токенів призведе до їх втрати.
 Buying with card is not supported for this account.: Придбання карткою не підтримується для цього облікового запису.
 Swapped at: Обмін виконано о
 Price per: Ціна за
-Transaction Details: Деталі транзакції
 From: Від
 To: Кому
 Changelly ID: ID Changelly
@@ -275,7 +274,7 @@ $remove_wallets:
   oneValue: "Видалити гаманець"
   fewValue: "Видалити %1$d гаманці"
   otherValue: "Видалити %1$d гаманців"
-Contract Initialization Data was copied!: Дані ініціалізації контракту скопійовано!
+Contract Initialization Data Copied: Дані ініціалізації контракту скопійовано
 Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: Шифрування неможливе. Одержувач не є гаманцем або не має вихідних транзакцій.
 just now: щойно
 "No": "Ні"
@@ -298,3 +297,42 @@ Receive: Отримати
 Scan: Сканувати
 Search or enter address: Знайдіть або введіть адресу
 View as Grid: Показати у вигляді сітки
+
+
+push_title_wallet: "%wallet_title%"
+push_activity_token_sent: Надіслано %amount% %symbol%
+push_activity_token_received: Отримано %amount% %symbol%
+push_activity_nft_sent: Надіслано NFT
+push_activity_nft_sent_named: "Надіслано NFT: %name%"
+push_activity_nft_received: Отримано NFT
+push_activity_nft_received_named: "Отримано NFT: %name%"
+push_activity_contract_called: Виклик смартконтракту виконано
+push_activity_contract_deployed: Смартконтракт розгорнуто
+push_activity_token_minted: Випущено %amount% %symbol%
+push_activity_token_burned: Спалено %amount% %symbol%
+push_activity_nft_minted: Випущено NFT
+push_activity_nft_minted_named: "Випущено NFT: %name%"
+push_activity_liquidity_deposited: Додано ліквідність
+push_activity_liquidity_withdrawn: Виведено ліквідність
+push_activity_stake_deposit: Застейкано %amount% %symbol%
+push_activity_stake_withdrawal: Виведено зі стейкінгу %amount% %symbol%
+push_activity_stake_withdrawal_request: Запитано виведення зі стейкінгу
+push_activity_auction_bid: Зроблено ставку на аукціоні %amount% %symbol%
+push_activity_dns_changed: DNS-запис оновлено
+push_activity_dns_deleted: DNS-запис видалено
+push_activity_dns_renewed: DNS продовжено
+push_activity_subscription_started: Підписку розпочато
+push_activity_subscription_payment_received: Отримано платіж за підпискою %amount% %symbol%
+push_activity_subscription_canceled: Підписку скасовано
+push_activity_swap_completed: Обмін %from_symbol% -> %to_symbol% виконано
+push_activity_swap_failed: Обмін %from_symbol% -> %to_symbol% не виконано
+push_activity_swap_expired: Обмін %from_symbol% -> %to_symbol% прострочений
+push_activity_swap_pending: Обмін %from_symbol% -> %to_symbol% %status%
+push_activity_staking_profit: Прибуток від стейкінгу %amount% TON
+push_activity_staking_loyalty_profit: Прибуток від лояльності у стейкінгу %amount% TON
+push_domain_title_renew: Продовжте ваш домен
+push_domain_expired_yesterday: Термін дії вашого домену %domain% закінчився вчора. Будь ласка, продовжте його якнайшвидше, щоб не втратити доступ
+push_domain_expired_days_ago: Термін дії вашого домену %domain% закінчився %days% днів тому. Будь ласка, продовжте його якнайшвидше, щоб не втратити доступ
+push_domain_expires_today: Термін дії вашого домену %domain% закінчується сьогодні. Будь ласка, продовжте його, щоб не втратити доступ
+push_domain_expires_tomorrow: Термін дії вашого домену %domain% закінчується завтра. Будь ласка, продовжте його, щоб не втратити доступ
+push_domain_expires_in_days: Термін дії вашого домену %domain% закінчується через %days% днів. Будь ласка, продовжте його, щоб не втратити доступ

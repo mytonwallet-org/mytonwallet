@@ -235,8 +235,6 @@ function VestingModal({
     <Modal
       isOpen={isOpen}
       contentClassName={styles.modalDialog}
-      nativeBottomSheetKey="vesting-info"
-      forceFullNative
       onClose={closeVestingModal}
     >
       {renderContent()}

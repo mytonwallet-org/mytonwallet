@@ -9,13 +9,6 @@ import { getPlatform } from './getPlatform';
 
 const TELEGRAM_MOBILE_PLATFORM = new Set(['android', 'android_x', 'ios']);
 
-function isIPad() {
-  const { userAgent, platform } = window.navigator;
-  return platform === 'iPad'
-    || userAgent.includes('iPad')
-    || (platform === 'MacIntel' && ('maxTouchPoints' in navigator && navigator.maxTouchPoints > 2));
-}
-
 function getBrowserLanguage(): LangCode {
   if (IS_CORE_WALLET) return 'en';
 
@@ -58,9 +51,6 @@ export const IS_LEDGER_EXTENSION_TAB = global.location.hash.startsWith(DETACHED_
 export const IS_BIOMETRIC_AUTH_SUPPORTED = Boolean(
   !IS_CAPACITOR && !IS_TELEGRAM_APP && window.navigator.credentials && (!IS_ELECTRON || IS_MAC_OS),
 );
-export const IS_DELEGATED_BOTTOM_SHEET = IS_CAPACITOR && global.location.search.startsWith('?bottom-sheet');
-export const IS_DELEGATING_BOTTOM_SHEET = IS_CAPACITOR && IS_IOS && !IS_DELEGATED_BOTTOM_SHEET && !isIPad();
-export const IS_MULTITAB_SUPPORTED = 'BroadcastChannel' in window && !IS_LEDGER_EXTENSION_TAB;
 export const IS_DAPP_SUPPORTED = IS_EXTENSION || IS_ELECTRON || IS_CAPACITOR;
 export const IS_IOS_APP = IS_IOS && IS_CAPACITOR;
 export const IS_ANDROID_APP = IS_ANDROID && IS_CAPACITOR;

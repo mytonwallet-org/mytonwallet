@@ -42,7 +42,7 @@ type OwnProps = {
   onAddAccount: NoneToVoidFunction;
 };
 
-const MAX_VISIBLE_WALLETS = 4;
+const MAX_VISIBLE_WALLETS = 5;
 
 const SettingsWallets = ({
   orderedAccounts,
@@ -137,7 +137,8 @@ const SettingsWallets = ({
             balanceData={balancesByAccountId[accountId]}
             cardBackgroundNft={settingsByAccountId?.[accountId]?.cardBackgroundNft}
             isSensitiveDataHidden={isSensitiveDataHidden}
-            className={styles.item}
+            className={buildClassName(styles.item, styles.item_withWallet)}
+            avatarClassName={styles.itemAvatarWallet}
             onClick={handleSwitchAccount}
           />
         ))}
@@ -158,7 +159,7 @@ const SettingsWallets = ({
           className={buildClassName(styles.item, styles.itemButton)}
           onClick={handleAddWalletClick}
         >
-          <i className={buildClassName(styles.itemIcon, 'icon-plus')} aria-hidden />
+          <i className={buildClassName(styles.itemIcon, styles.itemIcon_big, 'icon-plus')} aria-hidden />
           {lang('Add Wallet')}
         </Button>
       </div>

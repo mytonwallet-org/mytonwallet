@@ -145,7 +145,8 @@ class SwapSendAddressOutputVC(
 
         includeFontPadding = false
         clipLabel = "Address"
-        clipToast = LocaleController.getString("Address was copied!")
+        clipToast = LocaleController.getString("%chain% Address Copied")
+            .replace("%chain%", fromToken.mBlockchain?.displayName ?: "")
         text = payinAddress
     }
 
@@ -163,7 +164,7 @@ class SwapSendAddressOutputVC(
         }
         includeFontPadding = false
         clipLabel = "Transaction ID"
-        clipToast = LocaleController.getString("Transaction ID was copied!")
+        clipToast = LocaleController.getString("Transaction ID Copied")
         text = transactionId
     }
 

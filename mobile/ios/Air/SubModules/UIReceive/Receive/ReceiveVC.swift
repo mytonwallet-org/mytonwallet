@@ -100,7 +100,12 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
             segmentedControl.widthAnchor.constraint(equalToConstant: 200).isActive = true
         } else {
             segmentedController.segmentedControl.removeFromSuperview()
-            navigationItem.title = customTitle ?? lang("Add Crypto")
+            navigationItem.titleView = HostingView {
+                NavigationHeader {
+                    Text(customTitle ?? lang("Add Crypto"))
+                        .foregroundStyle(.white)
+                }
+            }
         }
 
         updateTheme()

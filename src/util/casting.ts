@@ -129,3 +129,48 @@ export function base64UrlFromBigInt(bi: bigint) {
 export function bigIntLeFromBigInt(bi: bigint) {
   return bigIntFromBuffer(bufferFromBigInt(bi).reverse());
 }
+
+const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+export function uint8ArrayFromBase58(bs58String: string) {
+  const bytes = [0];
+  for (let i = 0; i < bs58String.length; i++) {
+    const char = bs58String[i];
+    const value = ALPHABET.indexOf(char);
+    if (value === -1) throw new Error('Invalid Base58 character');
+    for (let j = 0; j < bytes.length; j++) bytes[j] *= 58;
+    bytes[0] += value;
+    let carry = 0;
+    for (let j = 0; j < bytes.length; j++) {
+      bytes[j] += carry;
+      carry = Math.floor(bytes[j] / 256);
+      bytes[j] %= 256;
+    }
+    while (carry) {
+      bytes.push(carry % 256);
+      carry = Math.floor(carry / 256);
+    }
+  }
+  for (let i = 0; bs58String[i] === '1' && i < bs58String.length - 1; i++) bytes.push(0);
+  return new Uint8Array(bytes.reverse());
+}
+
+export function base58FromUint8Array(uint8Array: Uint8Array) {
+  let result = '';
+
+  let x = BigInt('0');
+  for (let i = 0; i < uint8Array.length; i++) {
+    x = x * 256n + BigInt(uint8Array[i]);
+  }
+
+  while (x > 0n) {
+    result = ALPHABET[Number(x % 58n)] + result;
+    x = x / 58n;
+  }
+
+  for (let i = 0; i < uint8Array.length && uint8Array[i] === 0; i++) {
+    result = '1' + result;
+  }
+
+  return result || '1';
+}

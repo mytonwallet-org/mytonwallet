@@ -3,6 +3,8 @@ import SwiftUI
 import UIComponents
 import Perception
 
+private let expandedContentMaxWidth: CGFloat = 600
+
 struct NftDetailsView: View {
 
     var viewModel: NftDetailsViewModel
@@ -36,18 +38,22 @@ struct NftDetailsView: View {
 
     @ViewBuilder
     var listContent: some View {
-        headerView
-            .fixedSize(horizontal: false, vertical: true)
-            
-        detailsSection
-            .offset(y: viewModel.isFullscreenPreviewOpen ? 500 : 0)
-            .fixedSize(horizontal: false, vertical: true)
-            .opacity(viewModel.shouldShowControls ? 1 : 0)
+        VStack(spacing: 0) {
+            headerView
+                .fixedSize(horizontal: false, vertical: true)
+                
+            detailsSection
+                .offset(y: viewModel.isFullscreenPreviewOpen ? 500 : 0)
+                .fixedSize(horizontal: false, vertical: true)
+                .opacity(viewModel.shouldShowControls ? 1 : 0)
+        }
     }
     
     @ViewBuilder
     var headerView: some View {
         NftDetailsHeaderView(viewModel: viewModel, ns: ns)
+            .frame(maxWidth: viewModel.isExpanded ? expandedContentMaxWidth : .infinity)
+            .frame(maxWidth: .infinity)
             .matchedGeometryEffect(id: viewModel.isFullscreenPreviewOpen ? "fullScreenTarget" : "", in: ns, properties: .position, anchor: .top, isSource: false)
     }
     
@@ -58,13 +64,14 @@ struct NftDetailsView: View {
     
     @ViewBuilder
     var fullscreenViewerTarget: some View {
-        let screenSize = screenSize
-        GeometryReader { _ in
+        GeometryReader { proxy in
+            let size = proxy.size
             WithPerceptionTracking {
+                let viewportHeight = viewModel.viewportHeight > 0 ? viewModel.viewportHeight : size.height
                 Color.clear
                     .matchedGeometryEffect(id: "fullScreenTarget", in: ns, anchor: .top, isSource: true)
-                    .frame(width: screenSize.width, height: screenSize.width)
-                    .offset(y: (screenSize.height - screenSize.width)/2)
+                    .frame(width: size.width, height: size.width)
+                    .offset(y: (viewportHeight - size.width)/2)
                     .offset(y: viewModel.isFullscreenPreviewOpen ? 0 : viewModel.y)
                     .allowsHitTesting(false)
             }

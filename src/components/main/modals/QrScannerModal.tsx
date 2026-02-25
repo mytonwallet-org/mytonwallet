@@ -7,7 +7,7 @@ import { getActions } from '../../../global';
 import buildClassName from '../../../util/buildClassName';
 import { vibrateOnSuccess } from '../../../util/haptics';
 import { pause } from '../../../util/schedulers';
-import { DPR, IS_DELEGATING_BOTTOM_SHEET, IS_IOS } from '../../../util/windowEnvironment';
+import { DPR, IS_IOS } from '../../../util/windowEnvironment';
 
 import useEffectWithPrevDeps from '../../../hooks/useEffectWithPrevDeps';
 import useLang from '../../../hooks/useLang';
@@ -112,8 +112,6 @@ function QrScannerModal({ isOpen, onClose }: OwnProps) {
   });
 
   useEffectWithPrevDeps(([prevIsOpen]) => {
-    if (IS_DELEGATING_BOTTOM_SHEET) return undefined;
-
     let startScanTimeoutId: number;
     let documentClassModifyTimeoutId: number;
     if (isOpen) {
@@ -149,8 +147,6 @@ function QrScannerModal({ isOpen, onClose }: OwnProps) {
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      nativeBottomSheetKey="qr-scanner"
-      forceFullNative
       onCloseAnimationEnd={onCloseAnimationEnd}
     >
       <div className={buildClassName(styles.scanner, isScannerStarted && styles.scannerStarted)}>

@@ -17,6 +17,7 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
+import androidx.core.view.isGone
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListGapCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -44,6 +45,7 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.
 import org.mytonwallet.app_air.uisend.send.lauouts.ConfirmAmountView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -63,7 +65,8 @@ class SendConfirmVC(
     private val transferOptions: MApiSubmitTransferOptions,
     private val slug: String,
     private val name: String? = null,
-    private val isScam: Boolean = false
+    private val isScam: Boolean = false,
+    private val isSell: Boolean = false
 ) : WViewController(context) {
     override val TAG = "SendConfirm"
 
@@ -116,7 +119,7 @@ class SendConfirmVC(
                 MATCH_PARENT,
                 WRAP_CONTENT
             )
-            setPaddingDp(20, 14, 20, 14)
+            setPaddingDp(20, 19, 20, 14)
 
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
@@ -127,7 +130,8 @@ class SendConfirmVC(
                 resolved
             )
             clipLabel = "Address"
-            clipToast = LocaleController.getString("Address was copied!")
+            clipToast = LocaleController.getString("%chain% Address Copied")
+                .replace("%chain%", config.request.token.mBlockchain?.displayName ?: "")
         }
     }
 
@@ -136,7 +140,7 @@ class SendConfirmVC(
             typeface = WFont.Regular.typeface
             layoutParams =
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            setPaddingDp(20, 14, 20, 14)
+            setPaddingDp(20, 20, 20, 14)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = config.request.input.comment
@@ -198,7 +202,7 @@ class SendConfirmVC(
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = config.request.input.binary
             clipLabel = "Signing Data"
-            clipToast = LocaleController.getString("Data was copied!")
+            clipToast = LocaleController.getString("Data Copied")
         }
     }
 
@@ -228,7 +232,7 @@ class SendConfirmVC(
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = config.request.input.stateInit
             clipLabel = "Contract Initialization Data"
-            clipToast = LocaleController.getString("Contract Initialization Data was copied!")
+            clipToast = LocaleController.getString("Contract Initialization Data Copied")
         }
     }
 
@@ -314,12 +318,21 @@ class SendConfirmVC(
 
     override fun setupViews() {
         super.setupViews()
-        setNavTitle(LocaleController.getString("Is it all ok?"))
+        setNavTitle(if (isSell) LocaleController.getString("Sell") else LocaleController.getString("Is it all ok?"))
         setupNavBar(true)
         navigationBar?.addCloseButton()
 
         if (isScam) {
             confirmButton.type = WButton.Type.DESTRUCTIVE
+        }
+
+        if (isSell) {
+            val tokenSymbol = config.request.token.symbol ?: MBaseCurrency.TON.currencyCode
+            confirmButton.text = LocaleController.getStringWithKeyValues(
+                "Sell %symbol%",
+                listOf("%symbol%" to tokenSymbol)
+            )
+            cancelButton.isGone = true
         }
 
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
@@ -337,34 +350,52 @@ class SendConfirmVC(
             topToBottom(scrollView, navigationBar!!)
             bottomToTop(scrollView, confirmButton, 20f)
             toBottomPx(
-                cancelButton, 20.dp + max(
+                confirmButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (window?.imeInsets?.bottom ?: 0)
                 )
             )
             topToTop(
                 bottomReversedCornerViewUpsideDown,
-                cancelButton,
+                confirmButton,
                 -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
-            topToTop(confirmButton, cancelButton)
-            toLeft(cancelButton)
-            leftToRight(confirmButton, cancelButton)
-            toRight(confirmButton)
-            setMargin(cancelButton.id, ConstraintSet.START, 20.dp)
-            setMargin(confirmButton.id, ConstraintSet.START, 8.dp)
-            setMargin(confirmButton.id, ConstraintSet.END, 20.dp)
-            createHorizontalChain(
-                ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
-                ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
-                if (LocaleController.isRTL)
-                    intArrayOf(confirmButton.id, cancelButton.id)
-                else
-                    intArrayOf(cancelButton.id, confirmButton.id),
-                null,
-                ConstraintSet.CHAIN_SPREAD
-            )
+            if (isSell) {
+                toLeft(confirmButton)
+                toRight(confirmButton)
+                setMargin(confirmButton.id, ConstraintSet.START, 20.dp)
+                setMargin(confirmButton.id, ConstraintSet.END, 20.dp)
+            } else {
+                toBottomPx(
+                    cancelButton, 20.dp + max(
+                        (navigationController?.getSystemBars()?.bottom ?: 0),
+                        (window?.imeInsets?.bottom ?: 0)
+                    )
+                )
+                topToTop(
+                    bottomReversedCornerViewUpsideDown,
+                    cancelButton,
+                    -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
+                )
+                topToTop(confirmButton, cancelButton)
+                toLeft(cancelButton)
+                leftToRight(confirmButton, cancelButton)
+                toRight(confirmButton)
+                setMargin(cancelButton.id, ConstraintSet.START, 20.dp)
+                setMargin(confirmButton.id, ConstraintSet.START, 8.dp)
+                setMargin(confirmButton.id, ConstraintSet.END, 20.dp)
+                createHorizontalChain(
+                    ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
+                    ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
+                    if (LocaleController.isRTL)
+                        intArrayOf(confirmButton.id, cancelButton.id)
+                    else
+                        intArrayOf(cancelButton.id, confirmButton.id),
+                    null,
+                    ConstraintSet.CHAIN_SPREAD
+                )
+            }
         }
 
         updateTheme()
@@ -427,7 +458,7 @@ class SendConfirmVC(
         )
         view.setConstraints {
             toBottomPx(
-                cancelButton, 20.dp + max(
+                if (isSell) confirmButton else cancelButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),
                     (window?.imeInsets?.bottom ?: 0)
                 )

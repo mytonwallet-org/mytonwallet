@@ -2,9 +2,8 @@ import type { ApiSubmitTransferOptions } from '../../../api/types';
 import type { GlobalState } from '../../types';
 import { MintCardState } from '../../types';
 
-import { IS_CORE_WALLET, MINT_CARD_ADDRESS, MINT_CARD_COMMENT } from '../../../config';
+import { DEFAULT_CHAIN, IS_CORE_WALLET, MINT_CARD_ADDRESS, MINT_CARD_COMMENT } from '../../../config';
 import { fromDecimal } from '../../../util/decimals';
-import { IS_DELEGATED_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { handleTransferResult, prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
@@ -50,7 +49,7 @@ function createTransferOptions(globalState: GlobalState, password?: string): Api
 }
 
 addActionHandler('checkCardNftOwnership', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET || IS_CORE_WALLET) return;
+  if (IS_CORE_WALLET) return;
 
   const { byAccountId } = global.settings;
 
@@ -60,12 +59,14 @@ addActionHandler('checkCardNftOwnership', (global) => {
 
     if (!cardBackgroundNftAddress && !accentColorNftAddress) return;
 
+    const chain = settings.accentColorNft?.chain || DEFAULT_CHAIN;
+
     const promises = [
       cardBackgroundNftAddress
-        ? callApi('checkNftOwnership', accountId, cardBackgroundNftAddress)
+        ? callApi('checkNftOwnership', chain, accountId, cardBackgroundNftAddress)
         : undefined,
       accentColorNftAddress && accentColorNftAddress !== cardBackgroundNftAddress
-        ? callApi('checkNftOwnership', accountId, accentColorNftAddress)
+        ? callApi('checkNftOwnership', chain, accountId, accentColorNftAddress)
         : undefined,
     ];
 

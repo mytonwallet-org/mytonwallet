@@ -136,7 +136,7 @@ class PasscodeNumberView(
                     fun cleanup() {
                         if (customDrawable != null) return
                         imageView.setImageDrawable(null)
-                        imageView.visibility = INVISIBLE
+                        visibility = INVISIBLE
                         imageView.alpha = 1f
                     }
 

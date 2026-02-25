@@ -336,3 +336,17 @@ export function shuffle<T>(array: T[]): T[] {
 
   return array;
 }
+
+export function orderByPattern<T, K>(arr: T[], getValue: (item: T) => K, pattern: K[]) {
+  const patternWeights = new Map(pattern.map((val, index) => [val, index]));
+
+  return [...arr].sort((a, b) => {
+    const valueA = getValue(a);
+    const valueB = getValue(b);
+
+    const indexA = patternWeights.has(valueA) ? patternWeights.get(valueA)! : Infinity;
+    const indexB = patternWeights.has(valueB) ? patternWeights.get(valueB)! : Infinity;
+
+    return indexA - indexB;
+  });
+};

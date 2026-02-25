@@ -66,7 +66,7 @@ public class TokenSelectionVC: WViewController {
     private var otherSymbolOrMinterAddress: String?
     private let showMyAssets: Bool
     private let isModal: Bool
-    private let onlyTonChain: Bool
+    private let onlySupportedChains: Bool
     private var availablePairs: [MPair]?
     private let log = Log()
     private var walletTokens = [MTokenBalance]()
@@ -84,21 +84,19 @@ public class TokenSelectionVC: WViewController {
     
     // MARK: - Init
     
-    public init(
-        forceAvailable: String? = nil,
-        otherSymbolOrMinterAddress: String? = nil,
-        showMyAssets: Bool = true,
-        title: String,
-        delegate: TokenSelectionVCDelegate?,
-        isModal: Bool,
-        onlyTonChain: Bool
-    ) {
+    public init(forceAvailable: String? = nil,
+                otherSymbolOrMinterAddress: String? = nil,
+                showMyAssets: Bool = true,
+                title: String,
+                delegate: TokenSelectionVCDelegate?,
+                isModal: Bool,
+                onlySupportedChains: Bool) {
         self.forceAvailable = forceAvailable
         self.otherSymbolOrMinterAddress = otherSymbolOrMinterAddress
         self.showMyAssets = showMyAssets
         self.delegate = delegate
         self.isModal = isModal
-        self.onlyTonChain = onlyTonChain
+        self.onlySupportedChains = onlySupportedChains
         super.init(nibName: nil, bundle: nil)
         self.title = title
         updateWalletTokens()
@@ -116,11 +114,15 @@ public class TokenSelectionVC: WViewController {
         configureDataSource()
         WalletCoreData.add(eventObserver: self)
         
-        Task { [weak self] in
-            do {
-                _ = try await TokenStore.updateSwapAssets()
-                self?.filterTokens()
-            } catch {}
+        if onlySupportedChains {
+            filterTokens()
+        } else {
+            Task { [weak self] in
+                do {
+                    _ = try await TokenStore.updateSwapAssets()
+                    self?.filterTokens()
+                } catch {}
+            }
         }
         
         if let otherSymbolOrMinterAddress {
@@ -244,6 +246,9 @@ public class TokenSelectionVC: WViewController {
             let isAvailable = isTokenAvailable(slug: token.slug)
             cell.configure(with: token, isAvailable: isAvailable) { [weak self] in
                 guard let self, isTokenAvailable(slug: token.slug) else { return }
+                AccountStore.updateAssetsAndActivityData(forAccountID: account.id, update: { settings in
+                    settings.saveImportedToken(slug: token.slug)
+                })
                 delegate?.didSelect(token: token)
                 navigationController?.popViewController(animated: true)
             }
@@ -281,20 +286,26 @@ public class TokenSelectionVC: WViewController {
     
     private func filterTokens() {
         let keyword = self.keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let shouldIncludeChain = { [account, onlySupportedChains] (chain: ApiChain) -> Bool in
+            !onlySupportedChains || account.supports(chain: chain)
+        }
         
         showingWalletTokens = walletTokens.filter { token in
             guard let apiToken = TokenStore.tokens[token.tokenSlug] else { return false }
-            return (!onlyTonChain || apiToken.chain == TON_CHAIN) && apiToken.matchesSearch(keyword)
+            return shouldIncludeChain(apiToken.chain) && apiToken.matchesSearch(keyword)
         }
-        
-        showingPopularTokens = TokenStore.swapAssets?.filter { swapAsset in
-            guard swapAsset.isPopular == true else { return false }
-            return (!onlyTonChain || swapAsset.chain == TON_CHAIN) && swapAsset.matchesSearch(keyword)
-        } ?? []
-        
-        showingAllAssets = TokenStore.swapAssets?.filter { swapAsset in
-            return (!onlyTonChain || swapAsset.chain == TON_CHAIN) && swapAsset.matchesSearch(keyword)
-        } ?? []
+
+        let sourceAssets: [ApiToken] = if onlySupportedChains {
+            TokenStore.tokens.values.map { $0 }
+        } else {
+            TokenStore.swapAssets ?? []
+        }
+        let filteredAssets = sourceAssets
+            .filter { shouldIncludeChain($0.chain) && $0.matchesSearch(keyword) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+        showingPopularTokens = filteredAssets.filter { $0.isPopular == true }
+        showingAllAssets = filteredAssets
         
         applySnapshot()
     }

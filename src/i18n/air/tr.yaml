@@ -34,11 +34,10 @@ All Telegram Gifts: Tüm Telegram hediyeleri
 Add Crypto: Kripto ekle
 Share QR Code: QR kodu paylaş
 $send_only_ton: Bu adrese yalnızca Toncoin (TON) veya TON tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
-$send_only_tron: Bu adrese yalnızca TRON (TRX) veya TRON tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
+$send_only_chain: Bu adrese yalnızca %chain% (%symbol%) veya %chain% tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
 Buying with card is not supported for this account.: Bu hesap kartla satın almayı desteklemiyor.
 Swapped at: Takas zamanı
 Price per: Birim fiyat
-Transaction Details: İşlem detayları
 From: Kimden
 To: Kime
 Changelly ID: Changelly ID
@@ -269,7 +268,7 @@ $remove_wallets:
   zeroValue: Cüzdanı kaldır
   oneValue: Cüzdanı kaldır
   otherValue: "%1$d cüzdanı kaldır"
-Contract Initialization Data was copied!: Sözleşme başlatma verileri kopyalandı!
+Contract Initialization Data Copied: Sözleşme başlatma verileri kopyalandı
 Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: Şifreleme mümkün değil. Alıcı bir cüzdan değil veya giden işlemi yok.
 just now: az önce
 "No": Hayır
@@ -292,3 +291,42 @@ Receive: Al
 Scan: Tara
 Search or enter address: Adres arayın veya girin
 View as Grid: Izgara olarak görüntüle
+
+
+push_title_wallet: "%wallet_title%"
+push_activity_token_sent: Gönderildi %amount% %symbol%
+push_activity_token_received: Alındı %amount% %symbol%
+push_activity_nft_sent: NFT gönderildi
+push_activity_nft_sent_named: "NFT gönderildi: %name%"
+push_activity_nft_received: NFT alındı
+push_activity_nft_received_named: "NFT alındı: %name%"
+push_activity_contract_called: Akıllı sözleşme çağrıldı
+push_activity_contract_deployed: Akıllı sözleşme dağıtıldı
+push_activity_token_minted: "%amount% %symbol% mint edildi"
+push_activity_token_burned: "%amount% %symbol% yakıldı"
+push_activity_nft_minted: NFT mint edildi
+push_activity_nft_minted_named: "NFT mint edildi: %name%"
+push_activity_liquidity_deposited: Likidite sağlandı
+push_activity_liquidity_withdrawn: Likidite çekildi
+push_activity_stake_deposit: "%amount% %symbol% stake edildi"
+push_activity_stake_withdrawal: "%amount% %symbol% stake çekimi yapıldı"
+push_activity_stake_withdrawal_request: Stake çekim talebi gönderildi
+push_activity_auction_bid: "%amount% %symbol% açık artırma teklifi verildi"
+push_activity_dns_changed: DNS kaydı güncellendi
+push_activity_dns_deleted: DNS kaydı silindi
+push_activity_dns_renewed: DNS yenilendi
+push_activity_subscription_started: Abonelik başlatıldı
+push_activity_subscription_payment_received: "%amount% %symbol% abonelik ödemesi alındı"
+push_activity_subscription_canceled: Abonelik iptal edildi
+push_activity_swap_completed: Takas %from_symbol% -> %to_symbol% tamamlandı
+push_activity_swap_failed: Takas %from_symbol% -> %to_symbol% başarısız oldu
+push_activity_swap_expired: Takas %from_symbol% -> %to_symbol% süresi doldu
+push_activity_swap_pending: Takas %from_symbol% -> %to_symbol% %status%
+push_activity_staking_profit: Staking karı %amount% TON
+push_activity_staking_loyalty_profit: Staking sadakat karı %amount% TON
+push_domain_title_renew: Alan adınızı yenileyin
+push_domain_expired_yesterday: Alan adınız %domain% dün süresi doldu. Erişimi kaybetmemek için lütfen en kısa sürede yenileyin
+push_domain_expired_days_ago: Alan adınız %domain% %days% gün önce süresi doldu. Erişimi kaybetmemek için lütfen en kısa sürede yenileyin
+push_domain_expires_today: Alan adınız %domain% bugün süresi dolacak. Erişimi kaybetmemek için lütfen yenileyin
+push_domain_expires_tomorrow: Alan adınız %domain% yarın süresi dolacak. Erişimi kaybetmemek için lütfen yenileyin
+push_domain_expires_in_days: Alan adınız %domain% %days% gün içinde süresi dolacak. Erişimi kaybetmemek için lütfen yenileyin

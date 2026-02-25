@@ -53,9 +53,8 @@ private let UPDATING_DELAY = 2
 
     var isTrackingActiveAccount: Bool { $account.source == .current }
     
-    init(accountSource: AccountSource, delegate: HomeVMDelegate) {
+    init(accountSource: AccountSource) {
         self._account = AccountContext(source: accountSource)
-        self.delegate = delegate
         
         if !isTrackingActiveAccount {
             _account.onAccountDeleted = { [weak self] in

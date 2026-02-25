@@ -1,16 +1,18 @@
 import type { NftItem } from 'tonapi-sdk-js';
+import type { Base58EncodedBytes } from '@solana/kit';
 
 import type { LangCode } from '../../global/types';
 import type { ApiTonWalletVersion } from '../chains/ton/types';
+import type { DappProtocolType } from '../dappProtocols';
 import type { ApiTransactionActivity } from './activities';
 import type { ApiParsedPayload } from './payload';
 import type { ApiSseOptions } from './storage';
 import type { ApiUpdatingStatus } from './updates';
 
-export type ApiChain = 'ton' | 'tron';
+export type ApiChain = 'ton' | 'tron' | 'solana';
 export type ApiNetwork = 'mainnet' | 'testnet';
 export type ApiLedgerDriver = 'HID' | 'USB';
-export type ApiTokenType = 'lp_token';
+export type ApiTokenType = 'lp_token' | 'legacy_token' | 'token_2022';
 export type ApiDappConnectionType = 'connect' | 'sendTransaction' | 'signData';
 
 export interface AccountIdParsed {
@@ -20,7 +22,6 @@ export interface AccountIdParsed {
 
 export interface ApiInitArgs {
   isElectron?: boolean;
-  isNativeBottomSheet?: boolean;
   isIosApp?: boolean;
   isAndroidApp?: boolean;
   langCode?: LangCode;
@@ -36,6 +37,7 @@ export interface ApiToken {
   chain: ApiChain;
   type?: ApiTokenType;
   tokenAddress?: string;
+  tokenWalletAddress?: string;
   image?: string;
   isPopular?: boolean;
   keywords?: string[];
@@ -85,22 +87,10 @@ export type ApiTransactionType = 'stake' | 'unstake' | 'unstakeRequest'
   | 'liquidityDeposit' | 'liquidityWithdraw'
   | undefined;
 
-export interface ApiTransaction {
+export interface ApiTransaction extends BaseApiTransaction {
   timestamp: number;
-  /** The amount to show in the UI (may mismatch the actual attached TON amount) */
-  amount: bigint;
-  fromAddress: string;
-  toAddress: string;
   comment?: string;
   encryptedComment?: string;
-  /**
-   * The fee to show in the UI (not the same as the network fee). When not 0, should be shown even for incoming
-   * transactions. It means that there was a hidden outgoing transaction with the given fee.
-   */
-  fee: bigint;
-  slug: string;
-  isIncoming: boolean;
-  normalizedAddress: string; // Only for TON now
   /** Trace external message hash normalized. Only for TON. */
   externalMsgHashNorm?: string;
   shouldHide?: boolean;
@@ -115,6 +105,21 @@ export interface ApiTransaction {
    * - 'confirmed' — included in a shardblock but not yet finalized in the masterchain
    */
   status: 'pending' | 'pendingTrusted' | 'confirmed' | 'completed' | 'failed';
+}
+
+export interface BaseApiTransaction {
+  /** The amount to show in the UI (may mismatch the actual attached TON amount) */
+  amount: bigint;
+  fromAddress: string;
+  toAddress: string;
+  slug: string;
+  isIncoming: boolean;
+  normalizedAddress: string; // Only for TON now
+  /**
+   * The fee to show in the UI (not the same as the network fee). When not 0, should be shown even for incoming
+   * transactions. It means that there was a hidden outgoing transaction with the given fee.
+   */
+  fee: bigint;
 }
 
 export type ApiTransactionMetadata = ApiKnownAddressInfo;
@@ -140,6 +145,7 @@ export interface ApiNftMetadata {
 }
 
 export interface ApiNft {
+  chain: ApiChain;
   index: number;
   ownerAddress?: string;
   name?: string;
@@ -155,6 +161,18 @@ export interface ApiNft {
   isTelegramGift?: boolean;
   isScam?: boolean;
   metadata: ApiNftMetadata;
+  interface: 'default' | 'compressed' | 'mplCore';
+  compression?: {
+    tree: string;
+    dataHash: string;
+    creatorHash: string;
+    leafId: number;
+  };
+}
+
+export interface ApiNftCollection {
+  chain: ApiChain;
+  address: string;
 }
 
 export interface ApiDomainData {
@@ -271,6 +289,7 @@ export type ApiDappRequest = {
 };
 
 export interface ApiTransferToSign {
+  chain: ApiChain;
   toAddress: string;
   amount: bigint;
   rawPayload?: string;
@@ -288,9 +307,15 @@ export interface ApiDappTransfer extends ApiTransferToSign {
   networkFee: bigint;
 }
 
-export interface ApiSignedTransfer {
-  base64: string;
-  seqno: number;
+export interface ApiSignedTransfer<T extends DappProtocolType = any> {
+  chain: T extends 'tonConnect' ? 'ton' : ApiChain;
+  payload: T extends 'tonConnect' ? {
+    base64: string;
+    seqno: number;
+  } : {
+    signature: string;
+    base58Tx: Base58EncodedBytes;
+  };
 }
 
 /**

@@ -14,6 +14,7 @@ export interface ApiNotificationsAccountValue {
 export interface ApiSubscribeNotificationsProps {
   userToken: string;
   platform: CapacitorPlatform;
+  langCode: string;
   addresses: ApiNotificationAddress[];
 }
 

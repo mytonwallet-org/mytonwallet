@@ -64,15 +64,6 @@ html {
     font-family: "Nunito Sans", system-ui, -apple-system, BlinkMacSystemFont, "Roboto", "Apple Color Emoji", "Helvetica Neue", sans-serif;
   }
 
-  // Required for closing over scrollable content (scroll tracking)
-  &.is-native-bottom-sheet {
-    overflow: auto;
-
-    body {
-      overflow: auto;
-    }
-  }
-
   &.with-bottombar {
     --bottombar-height: 3.25rem;
   }

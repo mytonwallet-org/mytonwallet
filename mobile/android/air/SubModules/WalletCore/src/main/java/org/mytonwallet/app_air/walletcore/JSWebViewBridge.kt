@@ -31,6 +31,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -387,17 +388,6 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                             val transaction = MApiTransaction.fromJson(transactionObj)!!
                             pendingTransactions.add(transaction)
                         }
-                        transactions.forEach { transaction ->
-                            if (transaction is MApiTransaction.Swap &&
-                                transaction.isPending() &&
-                                pendingTransactions.find { pendingTransaction ->
-                                    pendingTransaction.getTxHash() == transaction.getTxHash()
-                                } == null
-                            ) {
-                                pendingTransactions.add(transaction)
-                            }
-                        }
-                        transactions.removeAll { it.isPending() }
                         if (pendingTransactions.isNotEmpty()) {
                             Handler(Looper.getMainLooper()).post {
                                 WalletCore.notifyEvent(
@@ -435,6 +425,17 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 "updateNfts" -> {
                     val accountId = objectJSONObject.optString("accountId")
                     val collectionAddress = objectJSONObject.optString("collectionAddress")
+                    val chainRaw = objectJSONObject.optString("chain")
+                    val chain = MBlockchain.valueOfOrNull(chainRaw)
+                    val isFullLoading = objectJSONObject.opt("isFullLoading") as? Boolean
+                    val streamedAddresses = objectJSONObject.optJSONArray("streamedAddresses")?.let { array ->
+                        buildSet {
+                            for (index in 0 until array.length()) {
+                                add(array.optString(index))
+                            }
+                        }
+                    }
+                    val shouldAppend = collectionAddress.isNotEmpty() || isFullLoading == true
                     Handler(Looper.getMainLooper()).post {
                         NftStore.checkCardNftOwnership(accountId)
                     }
@@ -461,10 +462,14 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     }
                     Handler(Looper.getMainLooper()).post {
                         NftStore.setNfts(
+                            chain,
                             nfts,
                             accountId = accountId,
                             notifyObservers = true,
-                            isReorder = false
+                            isReorder = false,
+                            shouldAppend = shouldAppend,
+                            preserveExistingOnConflict = shouldAppend,
+                            streamedAddresses = streamedAddresses
                         )
                     }
                 }
@@ -476,7 +481,10 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                         if (AccountStore.activeAccount?.accountId != accountId) {
                             return@post
                         }
-                        NftStore.add(accountId, ApiNft.fromJson(objectJSONObject.optJSONObject("nft")!!)!!)
+                        NftStore.add(
+                            accountId,
+                            ApiNft.fromJson(objectJSONObject.optJSONObject("nft")!!)!!
+                        )
                     }
                 }
 
@@ -487,7 +495,10 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                         if (AccountStore.activeAccount?.accountId != accountId) {
                             return@post
                         }
-                        NftStore.removeByAddress(accountId, objectJSONObject.optString("nftAddress"))
+                        NftStore.removeByAddress(
+                            accountId,
+                            objectJSONObject.optString("nftAddress")
+                        )
                     }
                 }
 

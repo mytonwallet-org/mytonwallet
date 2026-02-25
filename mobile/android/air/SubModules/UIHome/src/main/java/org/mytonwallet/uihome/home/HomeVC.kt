@@ -35,6 +35,8 @@ import org.mytonwallet.app_air.uisend.send.SendVC
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.uistake.earn.EarnViewModel
 import org.mytonwallet.app_air.uistake.earn.EarnViewModelFactory
+import org.mytonwallet.app_air.uistake.staking.StakingVC
+import org.mytonwallet.app_air.uistake.staking.StakingViewModel
 import org.mytonwallet.app_air.uiswap.screens.cex.SwapSendAddressOutputVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
 import org.mytonwallet.app_air.uitonconnect.TonConnectController
@@ -51,7 +53,7 @@ import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
@@ -65,6 +67,7 @@ import org.mytonwallet.uihome.home.views.header.StickyHeaderView
 import org.mytonwallet.uihome.walletsTabs.WalletsTabsVC
 import java.lang.ref.WeakReference
 import kotlin.math.abs
+import kotlin.math.absoluteValue
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -384,8 +387,13 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             HeaderActionsView.Identifier.EARN -> {
                 if (!homeVM.isGeneralDataAvailable) return
 
+                val activeStakingTokenSlug = AccountStore.stakingData?.activeStakingTokenSlug()
                 val navVC = WNavigationController(window!!)
-                navVC.setRoot(EarnRootVC(context))
+                if (activeStakingTokenSlug != null) {
+                    navVC.setRoot(EarnRootVC(context, tokenSlug = activeStakingTokenSlug))
+                } else {
+                    navVC.setRoot(StakingVC(context, TONCOIN_SLUG, StakingViewModel.Mode.STAKE))
+                }
                 window?.present(navVC)
             }
 
@@ -803,9 +811,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                         context,
                         transaction.fromToken!!,
                         transaction.toToken!!,
-                        transaction.fromAmount.toDouble()
+                        transaction.fromAmount.absoluteValue
                             .toBigInteger(transaction.fromToken!!.decimals),
-                        transaction.toAmount.toDouble()
+                        transaction.toAmount
                             .toBigInteger(transaction.toToken!!.decimals),
                         transaction.cex?.payinAddress ?: "",
                         transaction.cex?.transactionId ?: ""
@@ -885,6 +893,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     }
 
     override fun stakingDataUpdated() {
+        actionsView.updateActions(headerView.centerAccount ?: homeVM.showingAccount)
     }
 
     override fun headerModeChanged() {

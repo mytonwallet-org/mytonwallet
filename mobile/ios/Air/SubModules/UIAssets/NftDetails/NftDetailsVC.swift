@@ -57,8 +57,8 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         scrollView.backgroundColor = .clear
@@ -113,6 +113,14 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     public override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         viewModel.safeAreaInsets = view.safeAreaInsets
+    }
+    
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let nextViewportHeight = scrollView.bounds.height
+        if abs(viewModel.viewportHeight - nextViewportHeight) > 0.5 {
+            viewModel.viewportHeight = nextViewportHeight
+        }
     }
     
     public override func viewWillAppear(_ animated: Bool) {
@@ -271,7 +279,7 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         let now = Date()
         viewModel.isAnimatingSince = now
         withAnimation(.spring(duration: 0.3)) {
-            viewModel.isExpanded = isExpanded
+            viewModel.state = isExpanded ? .expanded : .collapsed
         }
         UIView.animate(withDuration: 0.3) {
             //            self.setNeedsStatusBarAppearanceUpdate()
@@ -301,7 +309,7 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     public override func goBack() {
         if viewModel.isFullscreenPreviewOpen {
             withAnimation(.spring) {
-                viewModel.isFullscreenPreviewOpen = false
+                viewModel.state = .expanded
             }
         } else {
             super.goBack()

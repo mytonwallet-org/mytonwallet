@@ -1,8 +1,5 @@
 import type { Connector } from '../../../util/PostMessageConnector';
-import type {
-  SiteMethodResponse,
-  SiteMethods,
-} from '../../extensionMethods/types';
+import type { SiteMethodResponse, SiteMethods } from '../../extensionMethods/types';
 import type { OnApiSiteUpdate } from '../../types/dappUpdates';
 
 import { PAGE_CONNECTOR_CHANNEL } from './config';
@@ -10,7 +7,6 @@ import { logDebugError } from '../../../util/logs';
 import { createConnector } from '../../../util/PostMessageConnector';
 
 let connector: Connector;
-
 export function initApi(onUpdate: OnApiSiteUpdate) {
   // The connection is established with `window` instead of the Chrome port, because `chrome.runtime` is unavailable in
   // scripts injected using a <script> tag (the page script is of that kind). The `pageContentProxy.ts` file listens to

@@ -2,11 +2,11 @@ import type { Ref, RefObject } from 'react';
 import type { TeactNode } from '../../../../lib/teact/teact';
 import React, { memo, useMemo } from '../../../../lib/teact/teact';
 
-import type { ApiSwapActivity, ApiSwapAsset } from '../../../../api/types';
+import type { ApiSwapActivity, ApiSwapAsset, ApiTokenWithPrice } from '../../../../api/types';
 import type { Account, AppTheme } from '../../../../global/types';
 import type { Color as PendingIndicatorColor } from './ActivityStatusIcon';
 
-import { TONCOIN, WHOLE_PART_DELIMITER } from '../../../../config';
+import { UNKNOWN_TOKEN, WHOLE_PART_DELIMITER } from '../../../../config';
 import { resolveSwapAsset } from '../../../../global/helpers';
 import { getIsActivityPendingForUser, getShouldSkipSwapWaitingStatus } from '../../../../util/activities';
 import buildClassName from '../../../../util/buildClassName';
@@ -25,7 +25,8 @@ import styles from './Activity.module.scss';
 
 type OwnProps = {
   ref?: Ref<HTMLElement>;
-  tokensBySlug: Record<string, ApiSwapAsset> | undefined;
+  tokensBySlug: Record<string, ApiTokenWithPrice> | undefined;
+  swapTokensBySlug: Record<string, ApiSwapAsset> | undefined;
   isLast?: boolean;
   activity: ApiSwapActivity;
   isActive?: boolean;
@@ -45,6 +46,7 @@ const ONCHAIN_ERROR_STATUSES = new Set(['expired', 'failed']);
 function Swap({
   ref,
   tokensBySlug,
+  swapTokensBySlug,
   activity,
   isLast,
   isActive,
@@ -66,16 +68,28 @@ function Swap({
     cex,
   } = activity;
 
+  // TODO: Mark non-swap tokens as unknown in tx list or tx  preview
   const fromToken = useMemo(() => {
-    if (!from || !tokensBySlug) return undefined;
+    if (!from || !swapTokensBySlug || !tokensBySlug) return undefined;
 
-    return resolveSwapAsset(tokensBySlug, from);
-  }, [from, tokensBySlug]);
+    const prioritySwapToken = resolveSwapAsset(swapTokensBySlug, from);
+    if (!prioritySwapToken) {
+      return resolveSwapAsset(tokensBySlug, from);
+    }
+
+    return prioritySwapToken;
+  }, [from, swapTokensBySlug, tokensBySlug]);
+
   const toToken = useMemo(() => {
-    if (!to || !tokensBySlug) return undefined;
+    if (!to || !swapTokensBySlug || !tokensBySlug) return undefined;
 
-    return resolveSwapAsset(tokensBySlug, to);
-  }, [to, tokensBySlug]);
+    const prioritySwapToken = resolveSwapAsset(swapTokensBySlug, to);
+    if (!prioritySwapToken) {
+      return resolveSwapAsset(tokensBySlug, to);
+    }
+
+    return prioritySwapToken;
+  }, [to, swapTokensBySlug, tokensBySlug]);
 
   const fromAmount = Number(activity.fromAmount);
   const toAmount = Number(activity.toAmount);
@@ -129,7 +143,7 @@ function Swap({
         <span className={buildClassName(styles.swapSell, statusClass)}>
           {formatCurrencyExtended(
             Math.abs(fromAmount),
-            fromToken?.symbol || TONCOIN.symbol,
+            fromToken?.symbol || UNKNOWN_TOKEN.symbol,
             true,
           )}
         </span>
@@ -140,7 +154,7 @@ function Swap({
         <span className={buildClassName(styles.swapBuy, statusClass)}>
           {formatCurrencyExtended(
             Math.abs(toAmount),
-            toToken?.symbol || TONCOIN.symbol,
+            toToken?.symbol || UNKNOWN_TOKEN.symbol,
             true,
           )}
         </span>
@@ -193,7 +207,12 @@ function Swap({
   }
 
   function renderCurrency() {
-    const rate = getSwapRate(activity.fromAmount, activity.toAmount, fromToken, toToken);
+    const rate = getSwapRate(
+      String(Math.abs(Number(activity.fromAmount))),
+      String(Math.abs(Number(activity.toAmount))),
+      fromToken,
+      toToken,
+    );
 
     if (!rate) return undefined;
 

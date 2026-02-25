@@ -84,7 +84,7 @@ class TransactionListVC(
     override fun setupViews() {
         super.setupViews()
 
-        setNavTitle(LocaleController.getString("Transaction Info"))
+        setNavTitle(LocaleController.getString("Transfer Info"))
         setupNavBar(true)
         if (navigationController?.viewControllers?.size == 1) {
             navigationBar?.addCloseButton()
@@ -143,7 +143,10 @@ class TransactionListVC(
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
-            WalletEvent.BaseCurrencyChanged, WalletEvent.TokensChanged -> {
+            WalletEvent.BaseCurrencyChanged,
+            WalletEvent.TokensChanged,
+            WalletEvent.AccountSavedAddressesChanged,
+            is WalletEvent.ByChainUpdated -> {
                 rvAdapter.reloadData()
             }
 

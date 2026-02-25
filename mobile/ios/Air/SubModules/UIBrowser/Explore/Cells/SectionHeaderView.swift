@@ -11,6 +11,7 @@ struct SectionHeaderView: View {
 
     var body: some View {
         Text(title).font(.system(size: 22.5, weight: .bold))
+            .kerning(-0.25)
             .frame(height: 24)
             .padding(EdgeInsets(top: topInset, leading: 0, bottom: 14, trailing: 0))
     }

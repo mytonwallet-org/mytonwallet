@@ -44,8 +44,6 @@ import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.disableInteraction
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.disableInteraction
-import org.mytonwallet.app_air.uicomponents.extensions.setReadOnly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setReadOnly
 import org.mytonwallet.app_air.uicomponents.helpers.DieselAuthorizationHelpers
@@ -85,8 +83,8 @@ import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
@@ -101,7 +99,7 @@ class SendVC(
     context: Context,
     private val initialTokenSlug: String? = null,
     private val initialValues: InitialValues? = null,
-    private val autoConfirm: Boolean = false,
+    private val isSell: Boolean = false,
 ) : WViewControllerWithModelStore(context), WalletCore.EventObserver {
     override val TAG = "Send"
 
@@ -125,8 +123,14 @@ class SendVC(
             return activeAccount?.supportsBuyWithCard == true && ConfigStore.isLimited != true
         }
 
+    private val supportsCommentEncryption: Boolean
+        get() {
+            return AccountStore.activeAccount?.supportsCommentEncryption == true &&
+                TokenStore.getToken(viewModel.getTokenSlug())?.mBlockchain?.isEncryptedCommentSupported == true
+        }
+
     private val shouldShowSellTab: Boolean
-        get() = !autoConfirm && isOffRampAllowed
+        get() = !isSell && isOffRampAllowed
 
     private var didAutoConfirm = false
 
@@ -264,7 +268,7 @@ class SendVC(
 
     private val title2 = HeaderCell(context).apply {
         setOnClickListener {
-            if (AccountStore.activeAccount?.supportsCommentEncryption != true)
+            if (!supportsCommentEncryption)
                 return@setOnClickListener
             WMenuPopup.present(
                 this@apply,
@@ -352,7 +356,7 @@ class SendVC(
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = initialValues?.binary
             clipLabel = LocaleController.getString("Signing Data")
-            clipToast = LocaleController.getString("Data was copied!")
+            clipToast = LocaleController.getString("Data Copied")
         }
     }
 
@@ -382,7 +386,7 @@ class SendVC(
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = initialValues?.init
             clipLabel = LocaleController.getString("Contract Initialization Data")
-            clipToast = LocaleController.getString("Contract Initialization Data was copied!")
+            clipToast = LocaleController.getString("Contract Initialization Data Copied")
         }
     }
 
@@ -771,9 +775,7 @@ class SendVC(
         }
 
         initialTokenSlug?.let {
-            viewModel.onInputToken(it)
-            updateCommentViews()
-            showServiceTokenWarningIfRequired()
+            onAssetSelected(it)
         }
 
         continueButton.setOnClickListener {
@@ -784,7 +786,7 @@ class SendVC(
             openConfirmIfPossible()
         }
 
-        if (!autoConfirm) {
+        if (!isSell) {
             addressInputView.addTextChangedListener(onInputDestinationTextWatcher)
             addressInputView.doAfterQrCodeScanned { address ->
                 switchTokenBasedOnChain(address)
@@ -810,12 +812,7 @@ class SendVC(
             amountInputView.tokenSelectorView.setOnClickListener {
                 push(SendTokenVC(context).apply {
                     setOnAssetSelectListener {
-                        MBlockchain.valueOfSlugOrNull(it.slug)?.let { blockchain ->
-                            addressInputView.activeChain = blockchain
-                        }
-                        viewModel.onInputToken(it.slug)
-                        updateCommentViews()
-                        showServiceTokenWarningIfRequired()
+                        onAssetSelected(it.slug)
                     }
                 })
             }
@@ -843,7 +840,7 @@ class SendVC(
                 showScamWarningIfRequired()
             }
 
-            if (autoConfirm &&
+            if (isSell &&
                 !didAutoConfirm &&
                 it.uiButton.status == SendViewModel.ButtonStatus.Ready
             ) {
@@ -878,7 +875,7 @@ class SendVC(
 
         updateTheme()
         setInitialValues()
-        if (autoConfirm) {
+        if (isSell) {
             applyReadonlyMode()
         }
     }
@@ -888,7 +885,7 @@ class SendVC(
             WClearSegmentedControl.Item(
                 LocaleController.getString("Send"),
                 null,
-                if (autoConfirm) null else {
+                if (isSell) null else {
                     anchorView -> presentOffRampSendMenu(anchorView)
                 }
             )
@@ -915,7 +912,7 @@ class SendVC(
     }
 
     private fun openSellWithCard() {
-        if (!isOffRampAllowed || autoConfirm) return
+        if (!isOffRampAllowed || isSell) return
         val activeAccount = activeAccount ?: return
         SellWithCardLauncher.launch(
             caller = WeakReference(this),
@@ -942,7 +939,8 @@ class SendVC(
                 viewModel.getTransferOptions(config, ""),
                 viewModel.getTokenSlug(),
                 name = addressInputView.autocompleteResult?.name,
-                isScam = viewModel.addressInfoFlow.value?.isScam ?: false
+                isScam = viewModel.addressInfoFlow.value?.isScam ?: false,
+                isSell = isSell
             )
             val isHardware = AccountStore.activeAccount?.isHardware == true
             vc.setNextTask { passcode ->
@@ -1001,10 +999,19 @@ class SendVC(
         updateCommentTitleLabel()
     }
 
+    private fun onAssetSelected(tokenSlug: String) {
+        val blockchain = TokenStore.getToken(tokenSlug)?.mBlockchain
+        if (blockchain != null) {
+            addressInputView.activeChain = blockchain
+        }
+        viewModel.onInputToken(tokenSlug)
+        updateCommentViews()
+        showServiceTokenWarningIfRequired()
+    }
+
     private fun updateCommentTitleLabel() {
         title2.apply {
-            val supportsEncryption = AccountStore.activeAccount?.supportsCommentEncryption != false
-            val titleLabel = buildCommentTitleLabel(supportsEncryption)
+            val titleLabel = buildCommentTitleLabel()
             configure(
                 title = titleLabel,
                 titleColor = WColor.Tint,
@@ -1013,7 +1020,8 @@ class SendVC(
         }
     }
 
-    private fun buildCommentTitleLabel(supportsEncryption: Boolean): CharSequence {
+    private fun buildCommentTitleLabel(): CharSequence {
+        val supportsEncryption = supportsCommentEncryption
         val base = LocaleController.getString(
             if (supportsEncryption && viewModel.getShouldEncrypt()) {
                 "Encrypted Message"
@@ -1187,6 +1195,7 @@ class SendVC(
         if (isCommentSupported != true) {
             commentInputView.text = null
         }
+        updateCommentTitleLabel()
     }
 
     private fun showScamWarningIfRequired() {
@@ -1245,6 +1254,8 @@ class SendVC(
             for (blockchain in MBlockchain.supportedChains) {
                 if (blockchain.isValidAddress(address)) {
                     viewModel.onInputToken(blockchain.nativeSlug)
+                    updateCommentViews()
+                    break
                 }
             }
         }

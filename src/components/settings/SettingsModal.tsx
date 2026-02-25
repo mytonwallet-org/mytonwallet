@@ -34,8 +34,6 @@ function SettingsModal({
       isOpen={isOpen && !isMediaViewerOpen}
       dialogClassName={fullDialogClassName}
       contentClassName={styles.modalContent}
-      nativeBottomSheetKey="settings"
-      forceFullNative
       onClose={onClose}
     >
       {children}

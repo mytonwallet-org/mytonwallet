@@ -11,6 +11,8 @@ import WalletContext
 import WalletCore
 
 class TokenActionsView: WTouchPassStackView {
+    static let usesSplitHomeActionStyle = UIDevice.current.userInterfaceIdiom == .pad
+    static let rowHeight: CGFloat = usesSplitHomeActionStyle ? WActionTileButton.sideLength : WScalableButton.preferredHeight
     
     var token: ApiToken?
     
@@ -23,64 +25,112 @@ class TokenActionsView: WTouchPassStackView {
     required init(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+
+    var lastLayoutWidth: CGFloat = 0 {
+        didSet {
+            if oldValue != lastLayoutWidth {
+                updateSpacing()
+            }
+        }
+    }
     
-    private var swapButton: WScalableButton!
-    private var earnButton: WScalableButton!
+    private var swapButton: UIView!
+    private var earnButton: UIView!
+    private var sendButton: UIView!
     private var heightConstraint: NSLayoutConstraint!
     
+    private let buttonsToolbar = ButtonsToolbar()
+
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
-        spacing = S.actionButtonSpacing(forButtonCount: 4)
-        distribution = IOS_26_MODE_ENABLED ? .equalSpacing : .fillEqually
+        spacing = 16
+        distribution = .fill
         clipsToBounds = false
         
-        heightConstraint = heightAnchor.constraint(equalToConstant: actionsRowHeight)
+        heightConstraint = heightAnchor.constraint(equalToConstant: Self.rowHeight)
         NSLayoutConstraint.activate([
             heightConstraint,
         ])
         
-        let addButton = WScalableButton(
-            title: IOS_26_MODE_ENABLED ? lang("Fund") : lang("Add").lowercased(),
-            image: .airBundle(IOS_26_MODE_ENABLED ? "AddIconBold" : "AddIcon"),
+        var buttons: [UIView] = []
+        
+        let addButton = makeButton(
+            title: lang("Fund"),
+            image: .airBundle(Self.usesSplitHomeActionStyle ? "DepositIconLarge" : "AddIconBold"),
             onTap: { [weak self] in self?.addPressed() },
         )
-        addArrangedSubview(addButton)
+        buttons += addButton
         
-        let sendButton = WScalableButton(
-            title: IOS_26_MODE_ENABLED ? lang("Send") : lang("Send").lowercased(),
-            image: .airBundle(IOS_26_MODE_ENABLED ? "SendIconBold" : "SendIcon"),
+        sendButton = makeButton(
+            title: lang("Send"),
+            image: .airBundle(Self.usesSplitHomeActionStyle ? "SendIconLarge" : "SendIconBold"),
             onTap: { [weak self] in self?.sendPressed() },
         )
-        addArrangedSubview(sendButton)
-        
-        swapButton = WScalableButton(
-            title: IOS_26_MODE_ENABLED ? lang("Swap") : lang("Swap").lowercased(),
-            image: .airBundle(IOS_26_MODE_ENABLED ? "SwapIconBold" : "SwapIcon"),
+        buttons += sendButton
+
+        swapButton = makeButton(
+            title: lang("Swap"),
+            image: .airBundle(Self.usesSplitHomeActionStyle ? "SwapIconLarge" : "SwapIconBold"),
             onTap: { [weak self] in self?.swapPressed() },
         )
-        addArrangedSubview(swapButton)
-        
-        earnButton = WScalableButton(
-            title: IOS_26_MODE_ENABLED ? lang("Earn") : lang("Earn").lowercased(),
-            image: .airBundle(IOS_26_MODE_ENABLED ? "EarnIconBold" : "EarnIcon"),
+        buttons += swapButton
+
+        earnButton = makeButton(
+            title: lang("Earn"),
+            image: .airBundle(Self.usesSplitHomeActionStyle ? "EarnIconLarge" : "EarnIconBold"),
             onTap: { [weak self] in self?.earnPressed() },
         )
-        addArrangedSubview(earnButton)
+        buttons += earnButton
+
+        if Self.usesSplitHomeActionStyle {
+            for button in buttons {
+                addArrangedSubview(button)
+            }
+        } else {
+            buttonsToolbar.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(buttonsToolbar)
+            NSLayoutConstraint.activate([
+                buttonsToolbar.leadingAnchor.constraint(equalTo: leadingAnchor),
+                buttonsToolbar.trailingAnchor.constraint(equalTo: trailingAnchor),
+                buttonsToolbar.topAnchor.constraint(equalTo: topAnchor), // will be broken when pushed against the top
+                buttonsToolbar.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+            for button in buttons {
+                buttonsToolbar.addArrangedSubview(button)
+            }
+        }
+    }
+    
+    private func makeButton(title: String, image: UIImage?, onTap: @escaping () -> Void) -> UIView {
+        if Self.usesSplitHomeActionStyle {
+            let button = WActionTileButton(title: title, image: image, onTap: onTap)
+            NSLayoutConstraint.activate([
+                button.widthAnchor.constraint(equalToConstant: WActionTileButton.sideLength),
+            ])
+            return button
+        }
+
+        return WScalableButton(title: title, image: image, onTap: onTap)
     }
     
     private func updateSpacing() {
-        let visibleCount = arrangedSubviews.filter { !$0.isHidden }.count
-        spacing = S.actionButtonSpacing(forButtonCount: visibleCount)
+        if Self.usesSplitHomeActionStyle {
+            spacing = 16
+        } else {
+            buttonsToolbar.update()
+        }
     }
     
     func set(actionsVisibleHeight: CGFloat) {
-        let actionButtonAlpha = actionsVisibleHeight < actionsRowHeight ? actionsVisibleHeight / actionsRowHeight : 1
-        let maxRadius = S.actionButtonCornerRadius
-        let actionButtonRadius = min(maxRadius, actionsVisibleHeight / 2)
-        for btn in arrangedSubviews {
-            guard let btn = btn as? WScalableButton else { continue }
-            btn.set(scale: actionButtonAlpha, radius: actionButtonRadius)
+        let actionButtonAlpha = actionsVisibleHeight < Self.rowHeight ? actionsVisibleHeight / Self.rowHeight : 1
+
+        if Self.usesSplitHomeActionStyle {
+            for button in arrangedSubviews {
+                button.alpha = actionButtonAlpha
+                button.transform = CGAffineTransform(scaleX: actionButtonAlpha, y: actionButtonAlpha)
+            }
         }
+
         heightConstraint.constant = actionsVisibleHeight
     }
     
@@ -90,6 +140,15 @@ class TokenActionsView: WTouchPassStackView {
         }
         set {
             swapButton.isHidden = !newValue
+            updateSpacing()
+        }
+    }
+    var sendAvailable: Bool {
+        get {
+            return !sendButton.isHidden
+        }
+        set {
+            sendButton.isHidden = !newValue
             updateSpacing()
         }
     }
@@ -104,7 +163,7 @@ class TokenActionsView: WTouchPassStackView {
     }
     
     func addPressed() {
-        AppActions.showReceive(chain: token?.chainValue, title: nil)
+        AppActions.showReceive(chain: token?.chain, title: nil)
     }
 
     func sendPressed() {

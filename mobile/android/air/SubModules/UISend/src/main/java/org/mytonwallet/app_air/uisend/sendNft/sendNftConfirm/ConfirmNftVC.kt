@@ -55,6 +55,7 @@ import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -80,13 +81,18 @@ class ConfirmNftVC(
     val account = AccountStore.activeAccount
 
     sealed class Mode {
+        abstract val chain: MBlockchain
+
         data class Send(
+            override val chain: MBlockchain,
             val toAddress: String,
             val resolvedAddress: String,
             val fee: BigInteger
         ) : Mode()
 
-        data object Burn : Mode()
+        data class Burn(
+            override val chain: MBlockchain,
+        ) : Mode()
     }
 
     private val viewModel = ConfirmNftVM(mode, this)
@@ -179,7 +185,7 @@ class ConfirmNftVC(
                     startIndex = length - formattedAddress.length,
                     length = formattedAddress.length,
                     network = AccountStore.activeAccount!!.network,
-                    addressTokenSlug = TONCOIN_SLUG,
+                    blockchain = nft.chain,
                     address = address,
                     popupXOffset = 0,
                     centerHorizontally = false,
@@ -276,7 +282,7 @@ class ConfirmNftVC(
     private val confirmButton by lazy {
         WButton(
             context,
-            if (mode == Mode.Burn) WButton.Type.DESTRUCTIVE else WButton.Type.PRIMARY
+            if (mode is Mode.Burn) WButton.Type.DESTRUCTIVE else WButton.Type.PRIMARY
         ).apply {
             id = View.generateViewId()
             text = title
@@ -346,11 +352,12 @@ class ConfirmNftVC(
         updateTheme()
 
         when (mode) {
-            Mode.Burn -> {
+            is Mode.Burn -> {
                 confirmButton.isLoading = true
                 viewModel.requestFee(
-                    nft,
-                    comment
+                    nft = nft,
+                    isNftBurn = true,
+                    comment = comment
                 )
             }
             is Mode.Send -> {
@@ -413,7 +420,7 @@ class ConfirmNftVC(
                     context,
                     LedgerConnectVC.Mode.ConnectToSubmitTransfer(
                         account.tonAddress!!,
-                        viewModel.signNftTransferData(nft, comment)
+                        viewModel.signNftTransferData(nft, mode is Mode.Burn, comment)
                     ) {
                         // Wait for Pending Activity event...
                     },
@@ -432,6 +439,7 @@ class ConfirmNftVC(
                         sentNftAddress = nft.address
                         viewModel.submitTransferNft(
                             nft,
+                            mode is Mode.Burn,
                             comment,
                             passcode
                         ) {
@@ -461,7 +469,7 @@ class ConfirmNftVC(
                         startIndex = length - address.length,
                         length = address.length,
                         network = displayedAccount.network,
-                        addressTokenSlug = TONCOIN_SLUG,
+                        blockchain = nft.chain,
                         address = viewModel.resolvedAddress!!,
                         popupXOffset = startOffset.roundToInt(),
                         centerHorizontally = false,

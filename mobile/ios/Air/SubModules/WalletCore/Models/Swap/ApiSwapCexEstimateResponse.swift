@@ -63,8 +63,8 @@ public struct ApiSwapCexEstimateResponse: Equatable, Hashable, Codable, Sendable
                                                    networkFee: Double?,
                                                    dieselFee: Double?,
                                                    ourFeePercent: Double?) -> LateInitProperties {
-        let tokenInChain = ApiChain(rawValue: selling.token.chain)
-        let nativeUserTokenIn = selling.token.isOnChain == true ? TokenStore.tokens[tokenInChain?.nativeToken.slug ?? ""] : nil
+        let tokenInChain = selling.token.chain
+        let nativeUserTokenIn = selling.token.isOnChain == true && tokenInChain.isSupported ? TokenStore.tokens[tokenInChain.nativeToken.slug] : nil
         let networkFeeData = FeeEstimationHelpers.networkFeeBigInt(sellToken: selling.token, swapType: swapType, networkFee: networkFee)
         let totalNativeAmount = networkFeeData?.fee ?? 0 + (networkFeeData?.isNativeIn == true ? selling.amount : 0)
         let isEnoughNative = balances[nativeUserTokenIn?.slug ?? ""] ?? 0 >= totalNativeAmount
@@ -87,7 +87,8 @@ public struct ApiSwapCexEstimateResponse: Equatable, Hashable, Codable, Sendable
         guard var balance = balances[selling.token.slug] else {
             return nil
         }
-        if selling.token.slug == ApiChain(rawValue: selling.token.chain)?.nativeToken.slug {
+        let chain = selling.token.chain
+        if chain.isSupported, selling.token.slug == chain.nativeToken.slug {
             if let networkFee {
                 balance -= doubleToBigInt(networkFee, decimals: selling.token.decimals)
             }

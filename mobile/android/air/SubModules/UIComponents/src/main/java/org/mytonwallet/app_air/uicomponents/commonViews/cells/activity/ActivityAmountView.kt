@@ -34,6 +34,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import java.math.BigInteger
 import kotlin.math.abs
+import kotlin.math.absoluteValue
 import kotlin.math.max
 
 class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView, WProtectedView {
@@ -154,7 +155,7 @@ class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView,
             )
         } else {
             builder.append(
-                swap.fromAmount.toString(
+                swap.fromAmount.absoluteValue.toString(
                     decimals = fromToken.decimals,
                     currency = fromToken.symbol,
                     currencyDecimals = fromToken.decimals,
@@ -183,7 +184,7 @@ class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView,
 
         if (LocaleController.isRTL) {
             builder.append(
-                swap.fromAmount.toString(
+                swap.fromAmount.absoluteValue.toString(
                     decimals = fromToken.decimals,
                     currency = fromToken.symbol,
                     currencyDecimals = fromToken.decimals,

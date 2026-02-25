@@ -7,14 +7,18 @@ import WalletCore
 #if DEBUG
 #Preview {
     let dapp = ApiDapp.sample
+    let longName = "LongName_longName_longName_longName"
     VStack(spacing: 40) {
-        HStack { Spacer() }
-        HStack(spacing: 8) {
-            ConnectedDappButton(dappName: dapp.name, iconURL: dapp.iconUrl, layoutVariant: .compact, onTap: {})
-            ConnectedDappsSettingsButton(layoutVariant: .compact, onTap: {})
+        Spacer()
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ConnectedDappButton(dappName: longName, iconURL: dapp.iconUrl, layoutVariant: .compact, onTap: {})
+                ConnectedDappsSettingsButton(layoutVariant: .compact, onTap: {})
+            }
         }
+        .backportScrollClipDisabled()
         HStack(spacing: 8) {
-            ConnectedDappButton(dappName: dapp.name, iconURL: dapp.iconUrl, layoutVariant: .regular, onTap: {})
+            ConnectedDappButton(dappName: longName, iconURL: dapp.iconUrl, layoutVariant: .regular, onTap: {})
             ConnectedDappsSettingsButton(layoutVariant: .regular, onTap: {})
         }
         Spacer()
@@ -89,6 +93,8 @@ private struct ConnectedDappGenericView<ImageView: View>: View {
 
                 if let title { // settings button has no title in compact layout
                     Text(title).font(.system(size: 15, weight: .medium))
+                        .kerning(-0.28)
+                        .frame(maxWidth: 140)
                         .frame(height: 15) // should be lineHeight
                         .padding(.trailing, 12)
                 }
@@ -109,11 +115,12 @@ private struct ConnectedDappGenericView<ImageView: View>: View {
 
                 // For regular size, title is always expected, use " " as a fallback
                 Text(title ?? " ").font(.system(size: 12, weight: .medium))
+                    .kerning(-0.4)
+                    .frame(height: 12) // should be lineHeight
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .allowsTightening(true)
-                    .frame(height: 12) // should be lineHeight
-                    .limitedSize(widthLimit: imageSideLength + 8)
+                    .frame(maxWidth: imageSideLength)
                     .padding(.bottom, 8)
             }
         }

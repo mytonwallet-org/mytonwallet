@@ -3,29 +3,31 @@ package org.mytonwallet.app_air.uiassets.viewControllers.tokens.cells
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.TextUtils
 import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-import androidx.constraintlayout.widget.ConstraintSet
+import android.widget.ImageView
+import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
+import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.TokensVC
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
-import org.mytonwallet.app_air.uicomponents.drawable.HighlightGradientBackgroundDrawable
+import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
+import org.mytonwallet.app_air.uicomponents.helpers.TokenNameHelper
+import org.mytonwallet.app_air.uicomponents.helpers.TokenTagHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
-import org.mytonwallet.app_air.uicomponents.widgets.WCounterLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WEvaporateLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -35,21 +37,15 @@ import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
-import org.mytonwallet.app_air.walletcore.TON_USDT_TESTNET_SLUG
-import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
-import org.mytonwallet.app_air.walletcore.TRON_USDT_TESTNET_SLUG
-import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
-import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.math.BigInteger
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WThemedView {
@@ -57,6 +53,12 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
     private val iconView: IconView by lazy {
         val iv = IconView(context, ApplicationContextHolder.adaptiveIconSize.dp)
         iv
+    }
+
+    private val pinIcon: ImageView by lazy {
+        ImageView(context).apply {
+            id = generateViewId()
+        }
     }
 
     private val topLeftLabel: WLabel by lazy {
@@ -68,19 +70,13 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         lbl
     }
 
-    private val topLeftTagLabel: WCounterLabel by lazy {
-        val lbl = WCounterLabel(context)
-        lbl.id = generateViewId()
-        lbl.textAlignment = TEXT_ALIGNMENT_CENTER
-        lbl.setPadding(4.5f.dp.roundToInt(), 4.dp, 4.5f.dp.roundToInt(), 0)
-        lbl.setStyle(11f, WFont.SemiBold)
-        lbl
-    }
+    private val tagHelper = TokenTagHelper(context)
 
     private val bottomLeftLabel: WLabel by lazy {
         WLabel(context).apply {
             setStyle(13f)
             setSingleLine()
+            setTextColor(WColor.SecondaryText)
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
             isSelected = true
@@ -108,6 +104,8 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
 
     var onTap: ((tokenBalance: MTokenBalance) -> Unit)? = null
 
+    var onLongPress: ((tokenBalance: MTokenBalance) -> Unit)? = null
+
     init {
         layoutParams.apply {
             height = 60.dp
@@ -119,8 +117,9 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
                 (ApplicationContextHolder.adaptiveIconSize + 2).dp
             )
         )
+        addView(pinIcon, LayoutParams(14.dp, 20.dp))
         addView(topLeftLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        addView(topLeftTagLabel, LayoutParams(WRAP_CONTENT, 16.dp))
+        addView(tagHelper.tagLabel, LayoutParams(WRAP_CONTENT, 16.dp))
         addView(topRightLabel)
         addView(bottomLeftLabel)
         addView(bottomRightLabel)
@@ -130,15 +129,17 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             toStart(iconView, 12f)
             // Top Row
             toTop(topLeftLabel, 9f)
-            toStart(topLeftLabel, ApplicationContextHolder.adaptiveContentStart)
-            startToEnd(topLeftTagLabel, topLeftLabel, 3f)
-            centerYToCenterY(topLeftTagLabel, topLeftLabel)
-            endToStart(topLeftTagLabel, topRightLabel, 4f)
+            toStart(pinIcon, ApplicationContextHolder.adaptiveContentStart)
+            toStart(topLeftLabel, ApplicationContextHolder.adaptiveContentStart + 18)
+            centerYToCenterY(pinIcon, topLeftLabel)
+            startToEnd(tagHelper.tagLabel, topLeftLabel, 3f)
+            centerYToCenterY(tagHelper.tagLabel, topLeftLabel)
+            endToStart(tagHelper.tagLabel, topRightLabel, 4f)
             toTop(topRightLabel, 9f)
             toEnd(topRightLabel, 16f)
             constrainedWidth(topLeftLabel.id, true)
             setHorizontalBias(topLeftLabel.id, 0f)
-            setHorizontalBias(topLeftTagLabel.id, 0f)
+            setHorizontalBias(tagHelper.tagLabel.id, 0f)
             // Bottom Row
             toBottom(bottomLeftLabel, 10f)
             toStart(bottomLeftLabel, ApplicationContextHolder.adaptiveContentStart)
@@ -152,6 +153,12 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
                 onTap?.invoke(it)
             }
         }
+        setOnLongClickListener {
+            tokenBalance?.let {
+                onLongPress?.invoke(it)
+            }
+            onLongPress != null
+        }
     }
 
     private var _isDarkThemeApplied: Boolean? = null
@@ -164,8 +171,6 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         if (!forceUpdate && !darkModeChanged)
             return
         _isDarkThemeApplied = ThemeManager.isDark
-        cachedStakingTagDrawable = null
-        cachedNotStakingTagDrawable = null
         setBackgroundColor(
             if (mode == TokensVC.Mode.HOME) Color.TRANSPARENT else WColor.Background.color,
             if (isFirst) ViewConstants.TOOLBAR_RADIUS.dp else 0f,
@@ -177,9 +182,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         topLeftLabel.setTextColor(WColor.PrimaryText.color)
-        topLeftTagLabel.updateTheme()
-        if (isShowingStaticTag)
-            topLeftTagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
+        tagHelper.onThemeChanged()
         topRightLabel.contentView.setTextColor(WColor.PrimaryText.color)
         topRightLabel.contentView.updateTheme()
         bottomRightLabel.contentView.setTextColor(WColor.SecondaryText.color)
@@ -187,6 +190,10 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         tokenBalance?.let {
             updateBottomLeftLabel(it, null)
         }
+        val drawable = ContextCompat.getDrawable(context, R.drawable.ic_pin_solid_14_20)?.apply {
+            setTint(WColor.SecondaryText.color)
+        }
+        pinIcon.setImageDrawable(drawable)
     }
 
     private var accountId: String? = null
@@ -194,12 +201,13 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
     private var baseCurrency: MBaseCurrency? = null
     private var isFirst = false
     private var isLast = false
-    private var isShowingStaticTag = false
+    private var isPinned = false
 
     fun configure(
         accountId: String,
         isMultichain: Boolean,
         tokenBalance: MTokenBalance,
+        isPinned: Boolean,
         isFirst: Boolean,
         isLast: Boolean
     ) {
@@ -210,10 +218,12 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         this.isLast = isLast
 
         val accountChanged = this.accountId != accountId
-        val tokenChanged = this.tokenBalance?.token != tokenBalance.token
+        val tokenChanged = this.tokenBalance?.virtualStakingToken != tokenBalance.virtualStakingToken
+        val pinnedChanged = this.isPinned != isPinned
         if (!accountChanged &&
             this.tokenBalance == tokenBalance &&
-            this.baseCurrency == baseCurrency
+            this.baseCurrency == baseCurrency &&
+            !pinnedChanged
         ) {
             updateTheme(forceUpdate = firstChanged || lastChanged)
             return
@@ -222,9 +232,19 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         this.accountId = accountId
         this.tokenBalance = tokenBalance
         this.baseCurrency = baseCurrency
+        this.isPinned = isPinned
         updateTheme(forceUpdate = firstChanged || lastChanged)
+        if (pinnedChanged && !accountChanged) {
+            animatePin(isPinned)
+        } else {
+            pinIcon.isGone = !isPinned
+            val pinMargin = if (isPinned) 18 else 0
+            setConstraints {
+                toStart(topLeftLabel, ApplicationContextHolder.adaptiveContentStart + pinMargin)
+            }
+        }
 
-        val amountCols = 4 + abs(tokenBalance.token.hashCode() % 8)
+        val amountCols = 4 + abs(tokenBalance.virtualStakingToken.hashCode() % 8)
         topRightLabel.setMaskCols(amountCols)
         val fiatAmountCols = 5 + (amountCols % 6)
         bottomRightLabel.setMaskCols(fiatAmountCols)
@@ -237,18 +257,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             showChain = isMultichain,
             showPercentBadge = (tokenBalance.isVirtualStakingRow && tokenBalance.amountValue > BigInteger.ZERO)
         )
-        val tokenName = if (tokenBalance.isVirtualStakingRow) {
-            LocaleController.getStringWithKeyValues(
-                "%token% Staking", listOf(
-                    Pair(
-                        "%token%", when (tokenBalance.token) {
-                            USDE_SLUG -> "Ethena"
-                            else -> token?.name ?: ""
-                        }
-                    )
-                )
-            )
-        } else token?.name
+        val tokenName = token?.let { TokenNameHelper.getTokenName(token, tokenBalance) } ?: ""
         if (topLeftLabel.text != tokenName)
             topLeftLabel.text = tokenName
         val animateTexts = !accountChanged && !tokenChanged
@@ -275,120 +284,64 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             animateTexts
         )
 
-        configureTagLabelAndSpacing(accountId, token)
+        tagHelper.configure(this, topLeftLabel, topRightLabel, accountId, token, tokenBalance)
     }
 
-    private fun configureTagLabelAndSpacing(accountId: String, token: MToken?) {
-        val shouldShowTagLabel = when (token?.slug) {
-            TRON_USDT_SLUG, TRON_USDT_TESTNET_SLUG -> {
-                configureStaticTag("TRC-20")
-                true
+    private fun animatePin(isPinned: Boolean) {
+        val marginUpdate = { margin: Int ->
+            setConstraints {
+                toStart(
+                    topLeftLabel,
+                    ApplicationContextHolder.adaptiveContentStart + margin
+                )
             }
-
-            TON_USDT_SLUG, TON_USDT_TESTNET_SLUG -> {
-                configureStaticTag("TON")
-                true
-            }
-
-            else -> configureStakingTag(accountId, token)
         }
-
-        updateLabelSpacing(shouldShowTagLabel)
-    }
-
-    private fun configureStaticTag(text: String) {
-        isShowingStaticTag = true
-        topLeftTagLabel.setAmount(text)
-        topLeftTagLabel.setGradientColor(
-            arrayOf(WColor.SecondaryText, WColor.SecondaryText)
-        )
-        topLeftTagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
-    }
-
-    private var cachedStakingTagDrawable: GradientDrawable? = null
-    private var cachedNotStakingTagDrawable: GradientDrawable? = null
-    fun getTagDrawable(hasStaking: Boolean, cornerRadius: Float = 8f): GradientDrawable {
-        return if (hasStaking) {
-            cachedStakingTagDrawable ?: createAndCacheTagDrawable(true, cornerRadius)
-        } else {
-            cachedNotStakingTagDrawable ?: createAndCacheTagDrawable(false, cornerRadius)
+        val pinUpdate = { alpha: Float, scale: Float ->
+            pinIcon.alpha = alpha
+            pinIcon.scaleX = scale
+            pinIcon.scaleY = scale
         }
-    }
-
-    private fun createAndCacheTagDrawable(hasStaking: Boolean, radius: Float): GradientDrawable {
-        val drawable = HighlightGradientBackgroundDrawable(hasStaking, radius)
-        if (hasStaking) {
-            cachedStakingTagDrawable = drawable
-        } else {
-            cachedNotStakingTagDrawable = drawable
-        }
-        return drawable
-    }
-
-    private fun configureStakingTag(accountId: String, token: MToken?): Boolean {
-        isShowingStaticTag = false
-        if (tokenBalance?.isVirtualStakingRow != true && token?.isEarnAvailable != true) {
-            return false
-        }
-
-        val stakingState = StakingStore.getStakingState(accountId)?.stakingState(token?.slug ?: "")
-        val apy = stakingState?.annualYield ?: return false
-
-        val hasStakingAmount = stakingState.balance > BigInteger.ZERO
-        val shouldShow = tokenBalance?.isVirtualStakingRow == true || !hasStakingAmount
-
-        if (shouldShow) {
-            val gradientColors = if (hasStakingAmount) {
-                arrayOf(WColor.White, WColor.White)
+        pinIcon.isGone = false
+        val onEnd = {
+            if (isPinned) {
+                marginUpdate(18)
+                pinUpdate(1f, 1f)
             } else {
-                arrayOf(WColor.EarnGradientLeft, WColor.EarnGradientRight)
+                marginUpdate(0)
+                pinUpdate(0f, 0f)
+                pinIcon.isGone = true
             }
-
-            topLeftTagLabel.setGradientColor(gradientColors)
-            topLeftTagLabel.setAmount(if (hasStakingAmount) "$apy%" else "${stakingState.yieldType} $apy%")
-            topLeftTagLabel.background =
-                getTagDrawable(hasStakingAmount, 8f.dp)
         }
-
-        return shouldShow
-    }
-
-    private var wasShowingTagLabel: Boolean? = null
-    private fun updateLabelSpacing(showTagLabel: Boolean) {
-        topLeftTagLabel.isGone = !showTagLabel
-
-        if (wasShowingTagLabel == showTagLabel)
+        if (!WGlobalStorage.getAreAnimationsActive()) {
+            onEnd()
             return
-
-        wasShowingTagLabel = showTagLabel
-
-        topLeftLabel.layoutParams = topLeftLabel.layoutParams.apply {
-            width = MATCH_CONSTRAINT
         }
-
-        if (showTagLabel) {
-            setConstraints {
-                clear(topLeftLabel.id, ConstraintSet.END)
-
-                endToStart(topLeftLabel, topLeftTagLabel)
-
-                endToStart(topLeftTagLabel, topRightLabel, 4f)
-                constrainedWidth(topLeftLabel.id, true)
-                setHorizontalBias(topLeftLabel.id, 0f)
-
-                setHorizontalChainStyle(topLeftLabel.id, ConstraintSet.CHAIN_PACKED)
+        animatorSet {
+            duration(AnimationConstants.VERY_VERY_QUICK_ANIMATION)
+            interpolator(CubicBezierInterpolator.EASE_OUT)
+            together {
+                if (isPinned) {
+                    intValues(0, 18) {
+                        onUpdate { margin -> marginUpdate(margin) }
+                    }
+                    viewProperty(pinIcon) {
+                        alpha(0f, 1f)
+                        scaleX(0f, 1f)
+                        scaleY(0f, 1f)
+                    }
+                } else {
+                    intValues(18, 0) {
+                        onUpdate { margin -> marginUpdate(margin) }
+                    }
+                    viewProperty(pinIcon) {
+                        alpha(1f, 0f)
+                        scaleX(1f, 0f)
+                        scaleY(1f, 0f)
+                    }
+                }
             }
-        } else {
-            topLeftTagLabel.visibility = GONE
-
-            setConstraints {
-                clear(topLeftLabel.id, ConstraintSet.END)
-
-                endToStart(topLeftLabel, topRightLabel, 4f)
-                constrainedWidth(topLeftLabel.id, true)
-                setHorizontalBias(topLeftLabel.id, 0f)
-            }
-        }
+            onEnd { onEnd() }
+        }.start()
     }
 
     private fun updateBottomLeftLabel(tokenBalance: MTokenBalance, token: MToken?) {

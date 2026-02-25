@@ -474,7 +474,7 @@ class ExploreVC(context: Context) : WViewController(context),
                     url = url,
                     title = it.name,
                     thumbnail = it.iconUrl,
-                    injectTonConnectBridge = true,
+                    injectDappConnect = true,
                     saveInVisitedHistory = true,
                 )
             )
@@ -527,7 +527,7 @@ class ExploreVC(context: Context) : WViewController(context),
                 url = uri.toString(),
                 title = app.name,
                 thumbnail = app.iconUrl,
-                injectTonConnectBridge = true,
+                injectDappConnect = true,
                 saveInVisitedHistory = true,
             )
         )

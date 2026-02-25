@@ -177,6 +177,7 @@ extension ApiSiteCategory {
                 Self(id: 4, name: "DYOR"),
                 Self(id: 5, name: "Games"),
                 Self(id: 6, name: "Entertainment"),
+                Self(id: 7, name: "NFT 2.0"),
             ]
         }
     }

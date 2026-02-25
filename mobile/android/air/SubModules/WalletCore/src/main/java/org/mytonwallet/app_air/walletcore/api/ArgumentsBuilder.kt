@@ -20,7 +20,7 @@ class ArgumentsBuilder {
         return this
     }
 
-    fun boolean(value: Boolean): ArgumentsBuilder {
+    fun boolean(value: Boolean?): ArgumentsBuilder {
         args.add(value.toString())
         return this
     }

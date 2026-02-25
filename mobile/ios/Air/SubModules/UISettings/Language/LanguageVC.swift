@@ -9,9 +9,10 @@ import Foundation
 import UIKit
 import UIComponents
 import WalletContext
+import WalletCore
 import SwiftUI
 
-public class LanguageVC: WViewController, UICollectionViewDelegate {
+public class LanguageVC: SettingsBaseVC, UICollectionViewDelegate {
     
     let languages = Language.supportedLanguages
     
@@ -84,6 +85,7 @@ public class LanguageVC: WViewController, UICollectionViewDelegate {
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         if let id = dataSource?.itemIdentifier(for: indexPath) {
             LocalizationSupport.shared.setLanguageCode(id)
+            AccountStore.refreshEnabledNotificationSubscriptions()
             // do we need this?
             UserDefaults.standard.set([id], forKey: "AppleLanguages")
             UserDefaults.standard.synchronize()

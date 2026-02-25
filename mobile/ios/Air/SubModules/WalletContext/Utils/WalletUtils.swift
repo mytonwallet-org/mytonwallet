@@ -10,12 +10,15 @@ import UIKit
 
 public let TON_CHAIN = "ton"
 public let TRON_CHAIN = "tron"
+public let SOLANA_CHAIN = "solana"
 
 public let TONCOIN_SLUG = "toncoin"
 public let TON_USDT_SLUG = "ton-eqcxe6mutq"
 public let TRX_SLUG = "trx"
 public let TRON_USDT_SLUG = "tron-tr7nhqjekq"
 public let TRON_USDT_TESTNET_SLUG = "tron-tg3xxyexbk"
+public let SOLANA_SLUG = "sol"
+public let SOLANA_USDT_MAINNET_SLUG = "solana-es9vmfrzac"
 public let MYCOIN_SLUG = "ton-eqcfvnlrbn"
 public let STAKED_TON_SLUG = "ton-eqcqc6ehrj"
 public let STAKED_MYCOIN_SLUG = "ton-eqcbzvsfwq"

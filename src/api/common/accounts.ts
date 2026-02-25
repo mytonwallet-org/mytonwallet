@@ -63,6 +63,15 @@ export async function fetchStoredChainAccount<T extends ApiChain>(accountId: str
   throw new Error(`${chain} wallet missing in account ${accountId}`);
 }
 
+export async function getAccountIdByAddress<T extends ApiChain>(address: string, chain: T) {
+  const accounts = await fetchStoredAccounts();
+  const found = Object.entries(accounts).find((e) => e[1].byChain[chain]?.address === address && e[1].type !== 'view');
+  if (!found) {
+    throw new Error(`${chain} account missing by address ${address}`);
+  }
+  return found[0];
+}
+
 export async function fetchStoredAccounts(): Promise<Record<string, ApiAccountAny>> {
   return (await storage.getItem('accounts')) ?? {};
 }

@@ -1,4 +1,3 @@
-import type { ApiDappConnectionType } from '../../../api/types';
 import type { GlobalState } from '../../types';
 import { DappConnectState, SignDataState, TransferState } from '../../types';
 
@@ -6,9 +5,8 @@ import { ANIMATION_END_DELAY } from '../../../config';
 import { areDeepEqual } from '../../../util/areDeepEqual';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import { getDappConnectionUniqueId } from '../../../util/getDappConnectionUniqueId';
-import { callActionInMain, callApiInMain } from '../../../util/multitab';
-import { pause, waitFor } from '../../../util/schedulers';
-import { IS_DELEGATED_BOTTOM_SHEET, USER_AGENT_LANG_CODE } from '../../../util/windowEnvironment';
+import { pause } from '../../../util/schedulers';
+import { USER_AGENT_LANG_CODE } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { handleDappSignatureResult, prepareDappOperation } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
@@ -35,9 +33,8 @@ const GET_DAPPS_PAUSE = 250;
 
 addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { password, accountId }) => {
   const {
-    promiseId, permissions, proof,
+    promiseId, permissions, proof, dapp,
   } = global.dappConnectRequest!;
-
   if (!await prepareDappOperation(
     accountId,
     DappConnectState.ConfirmHardware,
@@ -49,8 +46,14 @@ addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { pa
   }
 
   const signingResult = proof
-    ? await callApi('signTonProof', accountId, proof, password)
-    : { signature: undefined };
+    ? await callApi(
+      'signDappProof',
+      dapp.chains,
+      accountId,
+      { ...proof, type: 'tonProof' },
+      password,
+    )
+    : { signatures: undefined };
 
   if (!handleDappSignatureResult(signingResult, updateDappConnectRequest)) {
     return;
@@ -58,11 +61,9 @@ addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { pa
 
   actions.switchAccount({ accountId });
 
-  // It's important to call the API methods including promiseId in the main window, because the Bottom Sheet window
-  // knows nothing about that promiseId.
-  await callApiInMain('confirmDappRequestConnect', promiseId!, {
+  await callApi('confirmDappRequestConnect', promiseId!, {
     accountId,
-    proofSignature: signingResult.signature,
+    proofSignatures: signingResult.signatures,
   });
 
   global = getGlobal();
@@ -74,20 +75,10 @@ addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { pa
 });
 
 addActionHandler('cancelDappConnectRequestConfirm', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('clearDappConnectRequestConfirm');
-  }
-
   cancelDappOperation(
     (global) => global.dappConnectRequest,
     clearDappConnectRequest,
   );
-});
-
-// Clear state after closing the NBS modal.
-// TODO: Remove after fully migrating to Air app.
-addActionHandler('clearDappConnectRequestConfirm', (global) => {
-  return clearDappConnectRequest(global);
 });
 
 addActionHandler('setDappConnectRequestState', (global, actions, { state }) => {
@@ -95,20 +86,10 @@ addActionHandler('setDappConnectRequestState', (global, actions, { state }) => {
 });
 
 addActionHandler('cancelDappTransfer', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('clearDappTransfer');
-  }
-
   cancelDappOperation(
     (global) => global.currentDappTransfer,
     clearCurrentDappTransfer,
   );
-});
-
-// Clear state after closing the NBS modal.
-// TODO: Remove after fully migrating to Air app.
-addActionHandler('clearDappTransfer', (global) => {
-  return clearCurrentDappTransfer(global);
 });
 
 function cancelDappOperation(
@@ -119,7 +100,7 @@ function cancelDappOperation(
   const { promiseId } = getState(global) ?? {};
 
   if (promiseId) {
-    void callApiInMain('cancelDappRequest', promiseId, 'Canceled by the user');
+    void callApi('cancelDappRequest', promiseId, 'Canceled by the user');
   }
 
   if (getDoesUsePinPad()) {
@@ -146,19 +127,30 @@ addActionHandler('submitDappTransfer', async (global, actions, { password } = {}
   }
 
   global = getGlobal();
-  const { transactions, validUntil, vestingAddress } = global.currentDappTransfer;
+  const { transactions, validUntil, vestingAddress, operationChain, dapp, isLegacyOutput } = global.currentDappTransfer;
+  const currentChain = dapp?.chains?.find((e) => e.chain === operationChain);
+  if (!currentChain) {
+    return;
+  }
   const accountId = selectCurrentAccountId(global)!;
-  const signedTransactions = await callApi('signTransfers', accountId, transactions!, {
-    password,
-    validUntil,
-    vestingAddress,
-  });
+
+  const signedTransactions = await callApi(
+    'signDappTransfers',
+    currentChain,
+    accountId,
+    transactions!,
+    {
+      password,
+      validUntil,
+      vestingAddress,
+      isLegacyOutput,
+    });
 
   if (!handleDappSignatureResult(signedTransactions, updateCurrentDappTransfer)) {
     return;
   }
 
-  await callApiInMain('confirmDappRequestSendTransaction', promiseId, signedTransactions);
+  await callApi('confirmDappRequestSendTransaction', promiseId, signedTransactions);
 });
 
 addActionHandler('submitDappSignData', async (global, actions, { password } = {}) => {
@@ -178,15 +170,27 @@ addActionHandler('submitDappSignData', async (global, actions, { password } = {}
   }
 
   global = getGlobal();
-  const { dapp, payloadToSign } = global.currentDappSignData;
+  const { dapp, payloadToSign, operationChain } = global.currentDappSignData;
+  const currentChain = dapp?.chains?.find((e) => e.chain === operationChain);
+  if (!currentChain) {
+    return;
+  }
   const accountId = selectCurrentAccountId(global)!;
-  const signedData = await callApi('signData', accountId, dapp!.url, payloadToSign!, password);
+
+  const signedData = await callApi(
+    'signDappData',
+    currentChain,
+    accountId,
+    dapp!.url,
+    payloadToSign!,
+    password,
+  );
 
   if (!handleDappSignatureResult(signedData, updateCurrentDappSignData)) {
     return;
   }
 
-  await callApiInMain('confirmDappRequestSignData', promiseId, signedData);
+  await callApi('confirmDappRequestSignData', promiseId, signedData);
 });
 
 addActionHandler('getDapps', async (global, actions) => {
@@ -223,11 +227,7 @@ addActionHandler('deleteAllDapps', (global) => {
 addActionHandler('deleteDapp', (global, actions, { url, uniqueId }) => {
   const { currentAccountId } = global;
 
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('deleteDapp', { url, uniqueId });
-  } else {
-    void callApi('deleteDapp', currentAccountId!, url, uniqueId);
-  }
+  void callApi('deleteDapp', currentAccountId!, url, uniqueId);
 
   global = getGlobal();
   global = removeConnectedDapp(global, url);
@@ -235,34 +235,15 @@ addActionHandler('deleteDapp', (global, actions, { url, uniqueId }) => {
 });
 
 addActionHandler('cancelDappSignData', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('clearDappSignData');
-  }
-
   cancelDappOperation(
     (global) => global.currentDappSignData,
     clearCurrentDappSignData,
   );
 });
 
-// Clear state after closing the NBS modal.
-// TODO: Remove after fully migrating to Air app.
-addActionHandler('clearDappSignData', (global) => {
-  return clearCurrentDappSignData(global);
-});
-
-addActionHandler('apiUpdateDappConnect', async (global, actions, {
+addActionHandler('apiUpdateDappConnect', (global, actions, {
   accountId, dapp, permissions, promiseId, proof,
 }) => {
-  // We only need to apply changes in NBS when Dapp Connect Modal is already open
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    if (!(await waitFor(() => Boolean(getGlobal().dappConnectRequest), 300, 5))) {
-      return;
-    }
-
-    global = getGlobal();
-  }
-
   global = updateDappConnectRequest(global, {
     state: DappConnectState.Info,
     promiseId,
@@ -280,7 +261,17 @@ addActionHandler('apiUpdateDappConnect', async (global, actions, {
 });
 
 addActionHandler('apiUpdateDappSendTransaction', async (global, actions, payload) => {
-  const { promiseId, transactions, emulation, dapp, validUntil, vestingAddress } = payload;
+  const {
+    promiseId,
+    transactions,
+    emulation,
+    dapp,
+    validUntil,
+    vestingAddress,
+    operationChain,
+    shouldHideTransfers,
+    isLegacyOutput,
+  } = payload;
 
   await apiUpdateDappOperation(
     payload,
@@ -290,18 +281,21 @@ addActionHandler('apiUpdateDappSendTransaction', async (global, actions, payload
     clearCurrentDappTransfer,
     (global) => updateCurrentDappTransfer(global, {
       state: TransferState.Initial,
+      operationChain,
       promiseId,
       transactions,
       emulation,
       dapp,
       validUntil,
       vestingAddress,
+      shouldHideTransfers,
+      isLegacyOutput,
     }),
   );
 });
 
 addActionHandler('apiUpdateDappSignData', async (global, actions, payload) => {
-  const { promiseId, dapp, payloadToSign } = payload;
+  const { promiseId, dapp, payloadToSign, operationChain } = payload;
 
   await apiUpdateDappOperation(
     payload,
@@ -313,6 +307,7 @@ addActionHandler('apiUpdateDappSignData', async (global, actions, payload) => {
       state: SignDataState.Initial,
       promiseId,
       dapp,
+      operationChain,
       payloadToSign,
     }),
   );
@@ -333,17 +328,10 @@ async function apiUpdateDappOperation(
 
   await switchAccount(global, accountId);
 
-  if (currentPromiseId && !IS_DELEGATED_BOTTOM_SHEET) {
+  if (currentPromiseId) {
     close();
     const closeDuration = getIsPortrait() ? CLOSE_DURATION_PORTRAIT : CLOSE_DURATION;
     await pause(closeDuration + ANIMATION_END_DELAY);
-  }
-
-  // We only need to apply changes in NBS when dapp operation modal is already open
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    if (!(await waitFor(() => isStateActive(getGlobal()), 300, 5))) {
-      return;
-    }
   }
 
   global = getGlobal();
@@ -352,17 +340,8 @@ async function apiUpdateDappOperation(
   setGlobal(global);
 }
 
-addActionHandler('apiUpdateDappLoading', async (global, actions, { connectionType, isSse, accountId }) => {
-  // We only need to apply changes in NBS when Dapp Connect Modal is already open
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    if (!(await waitFor(() => isAnyDappModalActive(getGlobal(), connectionType), 300, 5))) {
-      return;
-    }
-
-    global = getGlobal();
-  }
-
-  if (!IS_DELEGATED_BOTTOM_SHEET && accountId) {
+addActionHandler('apiUpdateDappLoading', (global, actions, { connectionType, isSse, accountId }) => {
+  if (accountId) {
     actions.switchAccount({ accountId });
   }
 
@@ -385,16 +364,7 @@ addActionHandler('apiUpdateDappLoading', async (global, actions, { connectionTyp
   setGlobal(global);
 });
 
-addActionHandler('apiUpdateDappCloseLoading', async (global, actions, { connectionType }) => {
-  // We only need to apply changes in NBS when Dapp Modal is already open
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    if (!(await waitFor(() => isAnyDappModalActive(getGlobal(), connectionType), 300, 5))) {
-      return;
-    }
-
-    global = getGlobal();
-  }
-
+addActionHandler('apiUpdateDappCloseLoading', (global, actions, { connectionType }) => {
   // But clear the state if a skeleton is displayed in the Modal
   if (connectionType === 'connect' && global.dappConnectRequest?.state === DappConnectState.Info) {
     global = clearDappConnectRequest(global);
@@ -416,9 +386,3 @@ addActionHandler('loadExploreSites', async (global, _, { isLandscape, langCode =
   global = { ...global, exploreData };
   setGlobal(global);
 });
-
-function isAnyDappModalActive(global: GlobalState, connectionType: ApiDappConnectionType) {
-  return (connectionType === 'connect' && !!global.dappConnectRequest)
-    || (connectionType === 'sendTransaction' && global.currentDappTransfer.state !== TransferState.None)
-    || (connectionType === 'signData' && global.currentDappSignData.state !== SignDataState.None);
-}

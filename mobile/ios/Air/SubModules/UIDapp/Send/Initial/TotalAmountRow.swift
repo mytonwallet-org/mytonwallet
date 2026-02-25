@@ -7,7 +7,7 @@ import UIComponents
 
 public struct TotalAmountRow: View {
     
-    var info: MDappSendTransactions.CombinedInfo
+    var info: ApiUpdate.DappSendTransactions.CombinedInfo
     
     var amountInBaseCurrency: BaseCurrencyAmount {
         let baseCurrency = TokenStore.baseCurrency

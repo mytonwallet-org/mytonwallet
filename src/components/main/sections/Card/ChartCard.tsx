@@ -299,7 +299,7 @@ function ChartCard({
               >
                 <div className={styles.currencySwitcher} role="button" tabIndex={0} onClick={openCurrencyMenu}>
                   ≈&thinsp;{formatCurrency(value, currencySymbol, undefined, true)}
-                  <i className={buildClassName('icon', 'icon-caret-down', styles.iconCaretSmall)} aria-hidden />
+                  <i className={buildClassName('icon', 'icon-expand', styles.iconCaretSmall)} aria-hidden />
                 </div>
                 <CurrencySwitcherMenu
                   isOpen={Boolean(currencyMenuAnchor)}
@@ -381,7 +381,7 @@ function ChartCard({
         onClick={openHistoryMenu}
       >
         {period === 'ALL' ? 'All' : period}
-        <i className={buildClassName('icon', 'icon-caret-down', styles.iconCaretSmall)} aria-hidden />
+        <i className={buildClassName('icon', 'icon-expand', styles.iconCaretSmall)} aria-hidden />
         <ChartHistorySwitcher
           isOpen={isHistoryMenuOpen}
           onChange={refreshHistory}

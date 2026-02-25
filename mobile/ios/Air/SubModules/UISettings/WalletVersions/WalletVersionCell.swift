@@ -54,7 +54,7 @@ extension WalletVersionCell {
                 cell.contentConfiguration = UIHostingConfiguration {
                     WalletVersionCell(
                         title: walletVersionsData?.currentVersion ?? "",
-                        subtitle: formatStartEndAddress(account?.addressByChain[TON_CHAIN] ?? ""),
+                        subtitle: formatStartEndAddress(account?.getAddress(chain: .ton) ?? ""),
                         value: nil,
                         isCurrent: true,
                         showArrow: false

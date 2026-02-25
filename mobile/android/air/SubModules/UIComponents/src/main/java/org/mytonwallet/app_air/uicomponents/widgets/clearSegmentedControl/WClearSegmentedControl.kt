@@ -675,7 +675,7 @@ class WClearSegmentedControl(
             item.arrowVisibility =
                 if (item.onClick != null &&
                     !isInDragMode &&
-                    (!isAnimatingDragMode || item.onRemove != null)
+                    ((!isAnimatingDragMode && isSelected) || item.onRemove != null)
                 ) 1f else 0f
         }
         cell.configure(

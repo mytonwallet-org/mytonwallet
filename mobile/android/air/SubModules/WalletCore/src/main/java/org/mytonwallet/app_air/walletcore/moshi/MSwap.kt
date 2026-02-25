@@ -19,7 +19,7 @@ data class MApiSwapAsset(
     val priceUsd: Double? = null,
     override val image: String? = null,
     override val tokenAddress: String? = null,
-    val keywords: List<String>? = null,
+    override val keywords: List<String>? = null,
     val color: String? = null
 ) : IApiToken {
 
@@ -34,7 +34,8 @@ data class MApiSwapAsset(
                 isPopular = token.isPopular,
                 priceUsd = token.priceUsd,
                 image = token.image,
-                tokenAddress = token.tokenAddress
+                tokenAddress = token.tokenAddress,
+                keywords = token.keywords
             )
         }
     }

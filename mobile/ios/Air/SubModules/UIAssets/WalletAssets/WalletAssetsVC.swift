@@ -27,7 +27,7 @@ private let log = Log("Home-WalletAssets")
     
     @AppStorage("debug_hideSegmentedControls") private var hideSegmentedControls = false
     
-    private var tabsViewModel: WalletAssetsViewModel
+    private let tabsViewModel: WalletAssetsViewModel
     
     private var tabViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]
     
@@ -180,7 +180,7 @@ private let log = Log("Home-WalletAssets")
     }
     
     public override func loadView() {
-        let tokensVC = WalletTokensVC(accountSource: accountSource, compactMode: true)
+        let tokensVC = WalletTokensVC(accountSource: accountSource, mode: .compact)
         self.tokensVC = tokensVC
         addChild(tokensVC)
         tokensVC.didMove(toParent: self)
@@ -307,7 +307,7 @@ extension WalletAssetsVC: WalletAssetsViewModelDelegate {
         }
     }
     
-    func walletAssetModelDidStartReordering() {
+    public func walletAssetModelDidStartReordering() {
         delegate?.walletAssetDidChangeReorderingState()
         forEachNftsVC {
             $0.startReordering()
@@ -316,7 +316,7 @@ extension WalletAssetsVC: WalletAssetsViewModelDelegate {
         walletAssetsView.segmentedController.model.startReordering()
     }
     
-    func walletAssetModelDidStopReordering(isCanceled: Bool) {
+    public func walletAssetModelDidStopReordering(isCanceled: Bool) {
         delegate?.walletAssetDidChangeReorderingState()
         forEachNftsVC {
             $0.stopReordering(isCanceled: isCanceled)
@@ -325,21 +325,21 @@ extension WalletAssetsVC: WalletAssetsViewModelDelegate {
         walletAssetsView.segmentedController.model.stopReordering()
     }
         
-    func walletAssetModelDidChangeDisplayTabs() {
+    public func walletAssetModelDidChangeDisplayTabs() {
         _displayTabsChanged(force: false)
     }
 }
 
 extension WalletAssetsVC: NftsViewControllerDelegate {
-    func nftsViewControllerDidChangeReorderingState(_ vc: NftsVC) {
+    public func nftsViewControllerDidChangeReorderingState(_ vc: NftsVC) {
         // nothing. The tabsViewModel will handle all changes itself
     }
     
-    func nftsViewControllerRequestReordering(_ vc: NftsVC) {
+    public func nftsViewControllerRequestReordering(_ vc: NftsVC) {
         tabsViewModel.startOrdering()
     }
     
-    func nftsViewControllerDidChangeHeightAnimated(_ animated: Bool) {
+    public func nftsViewControllerDidChangeHeightAnimated(_ animated: Bool) {
         headerHeightChanged(animated: animated)
     }
 }

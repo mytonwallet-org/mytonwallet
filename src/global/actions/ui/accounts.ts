@@ -1,6 +1,4 @@
 import { areSortedArraysEqual, unique } from '../../../util/iteratees';
-import { callActionInMain } from '../../../util/multitab';
-import { IS_DELEGATED_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { addActionHandler } from '../../index';
 import { updateAuth, updateSettings } from '../../reducers';
 import { selectNetworkAccounts } from '../../selectors';
@@ -12,10 +10,6 @@ addActionHandler('openAccountSelector', (global) => {
     shouldHideAddAccountBackButton: undefined,
   });
 
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openAccountSelector');
-    return global;
-  }
   return { ...global, isAccountSelectorOpen: true };
 });
 
@@ -25,10 +19,6 @@ addActionHandler('closeAccountSelector', (global) => {
     initialAddAccountState: undefined,
     shouldHideAddAccountBackButton: undefined,
   });
-
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('closeAccountSelector');
-  }
 
   return { ...global, isAccountSelectorOpen: undefined };
 });

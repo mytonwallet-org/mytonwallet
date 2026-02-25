@@ -15,15 +15,23 @@ type LoadMoreBackwards = (args: { offsetId?: string | number }) => void;
 
 const DEFAULT_LIST_SLICE = 30;
 
-const useInfiniteScroll = <ListId extends string | number>(
-  loadMoreBackwards?: LoadMoreBackwards,
-  listIds?: ListId[],
+const useInfiniteScroll = <ListId extends string | number>({
+  loadMoreBackwards,
+  listIds,
   isDisabled = false,
   listSlice = DEFAULT_LIST_SLICE,
-  slug?: string,
-  isActive?: boolean,
+  slug,
+  isActive,
   withResetOnInactive = false,
-): [ListId[]?, GetMore?, ResetScroll?] => {
+}: {
+  loadMoreBackwards?: LoadMoreBackwards;
+  listIds?: ListId[];
+  isDisabled?: boolean;
+  listSlice?: number;
+  slug?: string;
+  isActive?: boolean;
+  withResetOnInactive?: boolean;
+}): [ListId[]?, GetMore?, ResetScroll?] => {
   const currentStateRef = useRef<{ viewportIds: ListId[]; isOnTop: boolean } | undefined>();
   if (!currentStateRef.current && listIds && !isDisabled) {
     const {
@@ -115,7 +123,7 @@ function getViewportSlice<ListId extends string | number>(
   offsetId?: ListId,
 ) {
   const { length } = sourceIds;
-  const index = offsetId ? sourceIds.indexOf(offsetId) : 0;
+  const index = (offsetId !== undefined) ? sourceIds.indexOf(offsetId) : 0;
   const isForwards = direction === LoadMoreDirection.Forwards;
   const indexForDirection = isForwards ? index : (index + 1) || length;
   const from = Math.max(0, indexForDirection - listSlice);
@@ -158,7 +166,7 @@ function getViewportSliceAfterListChange<ListId extends string | number>(
   }
 
   let offsetId = oldViewportIds?.[Math.round(oldViewportIds.length / 2)];
-  if (offsetId && !newListIds.includes(offsetId)) offsetId = newListIds[0];
+  if (offsetId !== undefined && !newListIds.includes(offsetId)) offsetId = newListIds[0];
   // The direction must be Forwards for getViewportSlice to keep the offsetId at the newViewportIds middle. Otherwise,
   // the viewport slice will "walk" 1 item backward with each newListIds change.
   return getViewportSlice(newListIds, LoadMoreDirection.Forwards, sliceLength, offsetId);

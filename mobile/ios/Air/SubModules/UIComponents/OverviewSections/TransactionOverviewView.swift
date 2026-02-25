@@ -56,9 +56,9 @@ public struct TransactionOverviewView: View {
         AmountText(
             amount: amount.roundedForDisplay,
             format: .init(showPlus: !isOutgoing, showMinus: isOutgoing),
-            integerFont: .rounded(ofSize: 34, weight: .bold),
-            fractionFont: .rounded(ofSize: 28, weight: .bold),
-            symbolFont: .rounded(ofSize: 28, weight: .bold),
+            integerFont: .compactRounded(ofSize: 34, weight: .bold),
+            fractionFont: .compactRounded(ofSize: 28, weight: .bold),
+            symbolFont: .compactRounded(ofSize: 28, weight: .bold),
             integerColor: WTheme.primaryLabel,
             fractionColor: abs(amount.doubleValue) >= 10 ? WTheme.secondaryLabel : WTheme.primaryLabel,
             symbolColor: WTheme.secondaryLabel

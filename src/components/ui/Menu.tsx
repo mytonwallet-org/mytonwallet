@@ -1,11 +1,9 @@
-import { BottomSheet } from '@mytonwallet/native-bottom-sheet';
 import type { ElementRef, FC, TeactNode } from '../../lib/teact/teact';
 import React, { beginHeavyAnimation, useEffect, useRef } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
 import { stopEvent } from '../../util/domEvents';
-import { IS_DELEGATED_BOTTOM_SHEET } from '../../util/windowEnvironment';
 
 import useEffectWithPrevDeps from '../../hooks/useEffectWithPrevDeps';
 import useHistoryBack from '../../hooks/useHistoryBack';
@@ -76,16 +74,6 @@ const Menu: FC<OwnProps> = ({
     onBack: onClose!,
     shouldBeReplaced: true,
   });
-
-  useEffect(() => {
-    if (!IS_DELEGATED_BOTTOM_SHEET || !isOpen) return;
-
-    void BottomSheet.clearScrollPatch({ shouldFreeze: true });
-
-    return () => {
-      void BottomSheet.applyScrollPatch({ shouldFreeze: true });
-    };
-  }, [isOpen]);
 
   const {
     shouldRender,

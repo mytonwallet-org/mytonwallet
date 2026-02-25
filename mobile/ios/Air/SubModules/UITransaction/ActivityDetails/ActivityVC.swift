@@ -18,6 +18,9 @@ private let expandedHeightCutoff: CGFloat = 650
 public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData.EventsObserver {
     
     private var viewModel: ActivityDetailsViewModel
+    private var shouldDisableDetailsCollapse: Bool {
+        UIDevice.current.userInterfaceIdiom == .pad
+    }
     
     public init(activity: ApiActivity, accountSource: AccountSource, context: ActivityDetailsContext) {
         self.viewModel = ActivityDetailsViewModel(activity: activity, accountSource: accountSource, detailsExpanded: false, scrollingDisabled: true, context: context)
@@ -43,6 +46,8 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     }
         
     private func setupViews() {
+        applyDetailsCollapsePolicy()
+
         if let p = sheetPresentationController {
             p.delegate = self
         }
@@ -53,12 +58,17 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
         addCloseNavigationItemIfNeeded()
         if let sheet = sheetPresentationController {
             if IOS_26_MODE_ENABLED {
-                sheet.prefersGrabberVisible = true
+                sheet.prefersGrabberVisible = viewModel.detailsCollapseEnabled
             }
             if #available(iOS 26.1, *) {
                 sheet.backgroundEffect = UIColorEffect(color: WTheme.sheetBackground)
             }
-            if let navigationController, navigationController.viewControllers.count > 1 {
+            if !viewModel.detailsCollapseEnabled {
+                sheet.detents = makeDetents()
+                sheet.selectedDetentIdentifier = .large
+                viewModel.detailsExpanded = true
+                updateScrollingDisabled(false)
+            } else if let navigationController, navigationController.viewControllers.count > 1 {
                 sheet.selectedDetentIdentifier = .large
                 viewModel.detailsExpanded = true
                 updateScrollingDisabled(false)
@@ -110,6 +120,7 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     func onHeightChange() {
         
         guard viewModel.collapsedHeight > 0 else { return }
+        guard viewModel.detailsCollapseEnabled else { return }
         
         let expandedHeight = viewModel.expandedHeight + 34
         
@@ -128,6 +139,10 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     }
     
     func makeDetents() -> [UISheetPresentationController.Detent] {
+        guard viewModel.detailsCollapseEnabled else {
+            return [.large()]
+        }
+
         let collapsedHeight = viewModel.collapsedHeight + 34
         let expandedHeight = viewModel.expandedHeight + 34
         
@@ -153,6 +168,16 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     }
     
     public func animateToCollapsed() {
+        guard viewModel.detailsCollapseEnabled else {
+            if let sheet = sheetPresentationController {
+                sheet.animateChanges {
+                    sheet.detents = makeDetents()
+                    sheet.selectedDetentIdentifier = .large
+                }
+            }
+            return
+        }
+
         if let sheet = sheetPresentationController {
             sheet.animateChanges {
                 sheet.detents = makeDetents()
@@ -168,6 +193,8 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     }
     
     func onDetailsExpandedChanged() {
+        guard viewModel.detailsCollapseEnabled else { return }
+
         let detailsExpanded = viewModel.detailsExpanded
         
         if let p = sheetPresentationController {
@@ -260,12 +287,52 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
             }
         }
     }
+
+    private func applyDetailsCollapsePolicy() {
+        let detailsCollapseEnabled = !shouldDisableDetailsCollapse
+        guard viewModel.detailsCollapseEnabled != detailsCollapseEnabled else { return }
+
+        viewModel.detailsCollapseEnabled = detailsCollapseEnabled
+        if let sheet = sheetPresentationController, IOS_26_MODE_ENABLED {
+            sheet.prefersGrabberVisible = detailsCollapseEnabled
+        }
+        if detailsCollapseEnabled {
+            viewModel.progressiveRevealEnabled = true
+            if let sheet = sheetPresentationController, view.window != nil {
+                sheet.animateChanges {
+                    sheet.detents = makeDetents()
+                }
+            }
+        } else {
+            viewModel.detailsExpanded = true
+            viewModel.progressiveRevealEnabled = false
+            viewModel.scrollingDisabled = false
+            if let sheet = sheetPresentationController, view.window != nil {
+                sheet.animateChanges {
+                    sheet.detents = makeDetents()
+                    sheet.selectedDetentIdentifier = .large
+                }
+            }
+        }
+    }
+
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        applyDetailsCollapsePolicy()
+    }
 }
 
 
 extension ActivityVC: UISheetPresentationControllerDelegate {
 
     public func sheetPresentationControllerDidChangeSelectedDetentIdentifier(_ sheetPresentationController: UISheetPresentationController) {
+        if !viewModel.detailsCollapseEnabled {
+            updateScrollingDisabled(false)
+            viewModel.progressiveRevealEnabled = false
+            viewModel.detailsExpanded = true
+            return
+        }
+
         if sheetPresentationController.selectedDetentIdentifier == .detailsCollapsed || sheetPresentationController.selectedDetentIdentifier == .detailsExpanded {
             updateScrollingDisabled(true)
             viewModel.progressiveRevealEnabled = true
@@ -292,6 +359,7 @@ extension ActivityVC: UISheetPresentationControllerDelegate {
             }
         }
     }
+
 }
 
 

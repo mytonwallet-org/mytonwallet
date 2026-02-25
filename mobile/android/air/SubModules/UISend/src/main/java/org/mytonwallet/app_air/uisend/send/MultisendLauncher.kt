@@ -4,7 +4,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletcore.helpers.SubprojectHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 
 object MultisendLauncher {
@@ -14,8 +14,7 @@ object MultisendLauncher {
         caller: WViewController,
     ) {
         val window = caller.window ?: return
-        val theme = if (ThemeManager.isDark) "dark" else "light"
-        val url = "$MULTISEND_URL#theme=$theme"
+        val url = SubprojectHelpers.appendSubprojectContext(MULTISEND_URL)
 
         val nav = WNavigationController(window)
         val browserVC = InAppBrowserVC(
@@ -24,7 +23,7 @@ object MultisendLauncher {
             InAppBrowserConfig(
                 url = url,
                 title = LocaleController.getString("Multisend"),
-                injectTonConnectBridge = true,
+                injectDappConnect = true,
                 injectDarkModeStyles = true,
                 topBarColorMode = InAppBrowserConfig.TopBarColorMode.SYSTEM,
                 forceCloseOnBack = true,

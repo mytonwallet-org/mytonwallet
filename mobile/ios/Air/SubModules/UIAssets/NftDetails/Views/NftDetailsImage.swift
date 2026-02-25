@@ -10,6 +10,9 @@ import UIComponents
 import WalletCore
 import Perception
 
+private let expandedImageMaxWidth: CGFloat = 600
+private let imageBottomInset: CGFloat = 16
+
 struct NftDetailsImage: View {
     
     var viewModel: NftDetailsViewModel
@@ -33,6 +36,22 @@ struct NftDetailsImage: View {
     
     @State var hideImage = false
     
+    private var expandedImageSize: CGFloat {
+        min(max(viewModel.containerWidth, collapsedImageSize), expandedImageMaxWidth)
+    }
+    
+    private var currentImageSize: CGFloat {
+        viewModel.state == .collapsed ? collapsedImageSize : expandedImageSize
+    }
+    
+    private var currentTopInset: CGFloat {
+        viewModel.state == .collapsed ? viewModel.collapsedTopInset : 0
+    }
+    
+    private var currentSectionHeight: CGFloat {
+        currentImageSize + currentTopInset + imageBottomInset
+    }
+    
     var body: some View {
         WithPerceptionTracking {
             @Perception.Bindable var viewModel = viewModel
@@ -42,12 +61,10 @@ struct NftDetailsImage: View {
                     animateIfPossible:/* viewModel.state != .collapsed &&*/ !viewModel.isAnimating && !hideImage,
                     playOnce: true
                 )
-                    .aspectRatio(1, contentMode: .fit)
-    //                .overlay { Color.blue }
+                    .frame(width: currentImageSize, height: currentImageSize)
                     .clipShape(.rect(cornerRadius: viewModel.state == .collapsed ? 12 : 0))
-                    .frame(height: viewModel.state != .collapsed ? nil : collapsedImageSize)
-                    .padding(.top, viewModel.state != .collapsed ? 0 : viewModel.collapsedTopInset)
-                    .padding(.bottom, viewModel.isExpanded ? mirrorHeight : 16)
+                    .padding(.top, currentTopInset)
+                    .padding(.bottom, imageBottomInset)
                     .gesture(LongPressGesture(minimumDuration: 0.25, maximumDistance: 20)
                         .onEnded { _ in
                             viewModel.onImageLongTap()
@@ -72,15 +89,23 @@ struct NftDetailsImage: View {
                         }
                     )
                     .id("coverFlow")
-                    .visualEffect { [isExpanded = viewModel.isExpanded] content, geom in
-                        content
-                            .scaleEffect(isExpanded ? screenWidth/collapsedImageSize : 1.0, anchor: .top)
-                    }
+                    .scaleEffect(viewModel.isExpanded ? min(viewModel.containerWidth, expandedImageMaxWidth) / collapsedImageSize : 1.0, anchor: .top)
                     .opacity(viewModel.state != .collapsed ? 0 : 1)
                     .padding(.top, viewModel.collapsedTopInset)
-                    .padding(.bottom, viewModel.isExpanded ? mirrorHeight : 16)
+                    .padding(.bottom, imageBottomInset)
                 }
             }
+            .onChange(of: viewModel.isExpanded) { isExpanded in
+                print("isExpanded", isExpanded)
+            }
+            .onChange(of: viewModel.isAnimating) { isExpanded in
+                print("isAnimating", isExpanded)
+            }
+            .onAppear {
+                print("appear")
+            }
+            .frame(maxWidth: .infinity, alignment: .top)
+            .frame(height: currentSectionHeight, alignment: .top)
             .scaleEffect(viewModel.state == .expanded ? max(1, 1 - viewModel.y * 0.005) : 1, anchor: .center)
             .onAppear {
                 coverFlowViewModel.items = listContextProvider.nfts
@@ -102,6 +127,9 @@ struct NftDetailsImage: View {
             }
             .onPreferenceChange(CoverFlowIsScrollingPreference.self) { isScrolling in
                 self.hideImage = isScrolling
+            }
+            .onGeometryChange(for: CGFloat.self, of: \.size.width) { width in
+                viewModel.containerWidth = width
             }
         }
     }

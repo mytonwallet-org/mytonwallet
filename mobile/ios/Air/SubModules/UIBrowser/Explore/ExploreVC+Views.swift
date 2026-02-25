@@ -18,10 +18,7 @@ extension ExploreVC {
 
         /// category id
         let dappCategoryDidTap = PassthroughSubject<Int, Never>()
-
-        /// store frames to animate child screen from frame (area) | key - categoryId, value - folder frame
-        let folderFrames: ClassBox<[Int: CGRect]> = ClassBox([:])
-
+        
         @available(iOS, deprecated: 26.0, message: "SwiftUI scroll is observed correctly in iOS 26")
         let scrollOffsetDidChange = PassthroughSubject<CGFloat, Never>()
     }
@@ -78,19 +75,15 @@ extension ExploreVC {
         func scrollToTop() { scrollToTopTrigger += 1 }
     }
 
-    final class ClassBox<T> {
-        init(_ value: T) { self.value = value }
-        var value: T
-    }
-
     static func makeViewStateSnapshot(exploreVM: ExploreVM,
+                                      shouldRestrictSites: Bool,
                                       trimmedSearchString: String)
         -> (sections: [SectionItem], shouldShowWhiteBackground: Bool) {
         makeViewStateSnapshot(connectedDapps: Array(exploreVM.connectedDapps.values.apply(Array.init)),
                               featuredTitle: exploreVM.featuredTitle,
                               exploreSites: exploreVM.exploreSites.values.apply(Array.init),
                               siteCategories: exploreVM.exploreCategories.values.apply(Array.init),
-                              isRestricted: exploreVM.isRestricted,
+                              shouldRestrictSites: shouldRestrictSites,
                               trimmedSearchString: trimmedSearchString)
     }
 
@@ -98,13 +91,10 @@ extension ExploreVC {
                                                   featuredTitle: String?,
                                                   exploreSites: [ApiSite],
                                                   siteCategories: [ApiSiteCategory],
-                                                  isRestricted: Bool,
+                                                  shouldRestrictSites: Bool,
                                                   trimmedSearchString: String)
         -> (sections: [SectionItem], shouldShowWhiteBackground: Bool) {
-        var exploreSites = exploreSites
-        if isRestricted {
-            exploreSites = exploreSites.filter { !$0.canBeRestricted }
-        }
+        let exploreSites = shouldRestrictSites ? exploreSites.filter { !$0.canBeRestricted } : exploreSites
         var sections: [SectionItem] = []
         let shouldShowWhiteBackground: Bool
         if trimmedSearchString.isEmpty { // Idle state:
@@ -137,7 +127,7 @@ extension ExploreVC {
         // Connected Dapps Section
         if !connectedDapps.isEmpty {
             sections.append(SectionItem(identity: .connectedDapps, items: [
-                .sectionHeader(title: lang("Connected"), isFirstHeader: isFirstHeader),
+                .sectionHeader(title: lang("Connected Apps"), isFirstHeader: isFirstHeader),
                 .connectedDapps(dapps: connectedDapps,
                                 layoutVariant: connectedDapps.count > 3 ? .regular : .compact),
             ]))
@@ -313,7 +303,7 @@ extension ExploreVC {
                                           featuredTitle: nil,
                                           exploreSites: exploreSites,
                                           siteCategories: categories,
-                                          isRestricted: false,
+                                          shouldRestrictSites: false,
                                           trimmedSearchString: searchString)
     }
 }
@@ -333,15 +323,6 @@ extension ExploreVC {
 
         private let screenEdgesHSpacing: Double = 20
 
-        private func screenEdgeSpacingFor(edge: HorizontalEdge, screenGeometry: GeometryProxy) -> Double {
-            /// In portrait mode, the function uses `screenEdgesSpacing` to ensure content doesn’t touch physical screen edges,
-            /// while in landscape mode, it relies on the safe area which by itself is a spacing to physical screen edges, so no additional space needed.
-            switch edge {
-            case .leading: max(screenEdgesHSpacing - screenGeometry.safeAreaInsets.leading, 0)
-            case .trailing: max(screenEdgesHSpacing - screenGeometry.safeAreaInsets.trailing, 0)
-            }
-        }
-
         private static let screenSafeAreaCoordinateSpaceName = "ExploreScreenCoordinateSpace"
 
         var body: some View {
@@ -354,11 +335,11 @@ extension ExploreVC {
                             }
                             .backportScrollClipDisabled()
                             .scrollDismissesKeyboard(.immediately)
-                            .safeAreaInset(edge: .leading, spacing: screenEdgeSpacingFor(edge: .leading, screenGeometry: screenGeometry)) {
-                                Color.clear.frame(width: 0, height: 0)
+                            .safeAreaInset(edge: .leading, spacing: screenEdgesHSpacing) {
+                                Color.clear.frame(width: 0, height: 1)
                             }
-                            .safeAreaInset(edge: .trailing, spacing: screenEdgeSpacingFor(edge: .trailing, screenGeometry: screenGeometry)) {
-                                Color.clear.frame(width: 0, height: 0)
+                            .safeAreaInset(edge: .trailing, spacing: screenEdgesHSpacing) {
+                                Color.clear.frame(width: 0, height: 1)
                             }
                             .background(viewState.shouldShowWhiteBackground ? Color.air.background : Color.air.groupedBackground) // ignores safe area
                             .onChange(of: viewState.scrollToTopTrigger) { _ in
@@ -433,13 +414,10 @@ extension ExploreVC {
 
             case let .dappFolders(folderVMs):
                 ExploreScreenDappFoldersView(folders: folderVMs,
-                                             safeAreaCoordinateSpace: .named(Self.screenSafeAreaCoordinateSpaceName),
                                              onTapDapp: { site in
                                                  viewOutput.dappFromFolderDidTap.send(site)
                                              }, onTapMore: { categoryId in
                                                  viewOutput.dappCategoryDidTap.send(categoryId)
-                                             }, folderFrameChange: { categoryId, folderFrame in
-                                                 viewOutput.folderFrames.value[categoryId] = folderFrame
                                              })
 
             case let .searchResult(sites):
@@ -452,7 +430,7 @@ extension ExploreVC {
         private func sectionHeaderView(title: String, isFirstHeader: Bool) -> some View {
             HStack(spacing: 0) {
                 if isFirstHeader {
-                    SectionHeaderView(title: title, topInset: 8)
+                    SectionHeaderView(title: title, topInset: 14)
                 } else {
                     SectionHeaderView(title: title)
                 }
@@ -528,8 +506,7 @@ extension ExploreVC {
 
         private func trendingDappView_below_iOS17(site: ApiSite, screenGeometryProxy: GeometryProxy) -> some View {
             let safeAreaWidth = screenGeometryProxy.size.width
-            let hScrollWidth = safeAreaWidth - screenEdgeSpacingFor(edge: .leading, screenGeometry: screenGeometryProxy)
-                - screenEdgeSpacingFor(edge: .trailing, screenGeometry: screenGeometryProxy)
+            let hScrollWidth = safeAreaWidth - screenEdgesHSpacing - screenEdgesHSpacing
 
             return ExploreScreenFeaturedDappView(site: site, onTap: {
                 viewOutput.trendingDappDidTap.send(site)
@@ -538,15 +515,9 @@ extension ExploreVC {
         }
 
         private func trendingDappViewWidth(basedOn hScrollWidth: CGFloat) -> CGFloat {
-            if horizontalSizeClass == .regular {
-                //  On iPad, display 2 views instead of 1.
-                // Reducing the view width by -(featuredDappsHSpacing / 2) adds the featuredDappsHSpacing
-                // between them. |View + spacing + View| == |hScrollWidth|
-                (hScrollWidth / 2) - (trendingDappsInterItemHSpacing / 2)
-            } else {
-                // on iPhone dapp view width is equal to hScroll width
-                hScrollWidth
-            }
+            Self.adaptiveWidthFor(availableHorizontalSpace: hScrollWidth,
+                                  itemMinWidth: min(320, hScrollWidth),
+                                  spacing: trendingDappsInterItemHSpacing)
         }
 
         // MARK: Search Results Section View

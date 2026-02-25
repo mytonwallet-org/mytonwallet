@@ -5,44 +5,115 @@
 //  Created by Sina on 7/5/24.
 //
 
+import OrderedCollections
 import WalletContext
 
 public struct MAssetsAndActivityData: Equatable {
-    
-    static let defaultData = MAssetsAndActivityData(dictionary: nil)
-    
-    // These tokens will be visible even if they are no cost tokens! Because user checked them manually!
-    public var alwaysShownSlugs: Set<String>
-    
-    // Hidden tokens won't be shown in Home-Page wallet tokens
-    public var alwaysHiddenSlugs: Set<String>
-    
-    // Deleted tokens won't be shown at all
-    public var deletedSlugs: Set<String>
-    
-    // AddedTokens show tokens will be shown even if user don't have them!
-    public var importedSlugs: Set<String>
-    
+    public static var empty: Self { MAssetsAndActivityData(dictionary: nil) }
+
+    /// These tokens will be visible even if they are no cost tokens! Because user checked them manually!
+    // public private(set) var alwaysShownSlugs: Set<String>
+
+    /// Hidden tokens won't be shown in Home-Page wallet tokens
+    private var alwaysHiddenSlugs: Set<String>
+
+    /// AddedTokens show tokens will be shown even if user don't have them!
+    public private(set) var importedSlugs: Set<String>
+
+    /// Pinned tokens are shown at the top of  screen. Most recently pinned token is in the end of this Set.
+    private var pinnedSlugs: OrderedSet<String> { _pinnedSlugs ?? [] }
+    private var _pinnedSlugs: OrderedSet<String>?
+
+    public var pinningFeatureHasNotYetBeenEverUsed: Bool {
+        _pinnedSlugs == nil
+    }
+
     init(dictionary: [String: Any]?) {
         if let dictionary {
-            self.alwaysShownSlugs = Set(dictionary["alwaysShownSlugs"] as? [String] ?? [])
-            self.alwaysHiddenSlugs = Set(dictionary["alwaysHiddenSlugs"] as? [String] ?? [])
-            self.deletedSlugs = Set(dictionary["deletedSlugs"] as? [String] ?? [])
-            self.importedSlugs = Set(dictionary["importedSlugs"] as? [String] ?? [])
+            // alwaysShownSlugs = Set(dictionary["alwaysShownSlugs"] as? [String] ?? [])
+            alwaysHiddenSlugs = Set(dictionary["alwaysHiddenSlugs"] as? [String] ?? [])
+            importedSlugs = Set(dictionary["importedSlugs"] as? [String] ?? [])
+            _pinnedSlugs = (dictionary["pinnedSlugs"] as? [String]).map { OrderedSet($0) }
         } else {
-            self.alwaysShownSlugs = []
-            self.alwaysHiddenSlugs = []
-            self.deletedSlugs = []
-            self.importedSlugs = []
+            // alwaysShownSlugs = []
+            alwaysHiddenSlugs = []
+            importedSlugs = []
+            _pinnedSlugs = nil
         }
     }
-    
+
     var toDictionary: [String: Any] {
-        return [
+        var dict = [
+            // "alwaysShownSlugs": Array(alwaysShownSlugs),
             "alwaysHiddenSlugs": Array(alwaysHiddenSlugs),
-            "alwaysShownSlugs": Array(alwaysShownSlugs),
-            "deletedSlugs": Array(deletedSlugs),
-            "importedSlugs": Array(importedSlugs)
+            "importedSlugs": Array(importedSlugs),
         ]
+
+        if let _pinnedSlugs {
+            dict["pinnedSlugs"] = Array(_pinnedSlugs)
+        }
+
+        return dict
+    }
+
+    // MARK: Hide
+
+    public mutating func saveTokenHidden(slug: String, isStaking: Bool, isHidden: Bool) {
+        let tokenIdentity = makeTokenIdentity(slug: slug, isStaked: isStaking)
+
+        if isHidden {
+            alwaysHiddenSlugs.insert(tokenIdentity)
+            // alwaysShownSlugs.remove(tokenIdentity)
+        } else {
+            alwaysHiddenSlugs.remove(tokenIdentity)
+            // alwaysShownSlugs.insert(tokenIdentity)
+        }
+    }
+
+    public func isTokenHidden(slug: String, isStaking: Bool) -> Bool {
+        let tokenIdentity = makeTokenIdentity(slug: slug, isStaked: isStaking)
+        return alwaysHiddenSlugs.contains(tokenIdentity)
+    }
+
+    // MARK: Pinning
+
+    public mutating func saveTokenPinning(slug: String, isStaking: Bool, isPinned: Bool) {
+        if _pinnedSlugs == nil { _pinnedSlugs = [] }
+
+        let tokenIdentity = makeTokenIdentity(slug: slug, isStaked: isStaking)
+        if isPinned {
+            _pinnedSlugs?.append(tokenIdentity)
+        } else {
+            _pinnedSlugs?.remove(tokenIdentity)
+        }
+    }
+
+    public enum PinningInfo {
+        case pinned(index: Int)
+        case notPinned
+    }
+
+    public func isTokenPinned(slug: String, isStaked: Bool) -> PinningInfo {
+        let tokenIdentity = makeTokenIdentity(slug: slug, isStaked: isStaked)
+
+        return if let index = pinnedSlugs.firstIndex(of: tokenIdentity) {
+            .pinned(index: index)
+        } else {
+            .notPinned
+        }
+    }
+
+    private func makeTokenIdentity(slug: String, isStaked: Bool) -> String {
+        isStaked ? "staking-" + slug : slug
+    }
+
+    // MARK: Imported tokens
+
+    public mutating func saveImportedToken(slug: String) {
+        importedSlugs.insert(slug)
+    }
+
+    public mutating func removeImportedToken(slug: String) {
+        importedSlugs.remove(slug)
     }
 }

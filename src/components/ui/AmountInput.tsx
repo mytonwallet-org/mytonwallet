@@ -194,8 +194,7 @@ export default memo(AmountInput);
 /**
  * Clicking the currency switch button un-focuses the input. This creates a bad UX with virtual keyboard.
  * To improve the UX, we focus the input back when the user clicks the currency switch button.
- * We focus only if the input was focused before the click, because Native Bottom Sheet renders a couple blank
- * frames when the virtual keyboard is not open and the focus is triggered programmatically.
+ * We focus only if the input was focused before the click to avoid forcing the virtual keyboard open on a cold tap.
  */
 function useKeepInputFocus(transitionKey: number) {
   const inputId = `${useUniqueId()}_${transitionKey}`;

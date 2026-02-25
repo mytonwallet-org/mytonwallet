@@ -4,8 +4,6 @@ import { AUTO_CONFIRM_DURATION_MINUTES } from '../../config';
 import { MINUTE } from '../dateFormat';
 import { setReliableTimeout } from '../setReliableTimeout';
 import { createSignal } from '../signals';
-import { IS_DELEGATING_BOTTOM_SHEET, IS_IOS_APP } from '../windowEnvironment';
-
 interface EncryptedPasswordData {
   ciphertext: ArrayBuffer;
   iv: Uint8Array;
@@ -18,7 +16,7 @@ const [
 
 let encryptionKey: CryptoKey;
 
-const isMainStore = IS_IOS_APP ? IS_DELEGATING_BOTTOM_SHEET : true;
+const isMainStore = true;
 
 let clearTimeout: NoneToVoidFunction | undefined;
 

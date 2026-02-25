@@ -25,13 +25,12 @@ import buildClassName from '../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../util/captureEvents';
 import { getStakingStateStatus } from '../../util/staking';
 import {
-  IS_DELEGATED_BOTTOM_SHEET, IS_ELECTRON, IS_TOUCH_ENV, REM,
+  IS_ELECTRON, IS_TOUCH_ENV, REM,
 } from '../../util/windowEnvironment';
 import { calcSafeAreaTop } from './helpers/calcSafeAreaTop';
 
 import useAppTheme from '../../hooks/useAppTheme';
 import useBackgroundMode, { isBackgroundModeActive } from '../../hooks/useBackgroundMode';
-import { useOpenFromMainBottomSheet } from '../../hooks/useDelegatedBottomSheet';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useEffectOnce from '../../hooks/useEffectOnce';
 import useElementVisibility from '../../hooks/useElementVisibility';
@@ -117,7 +116,6 @@ function Main({
     changeCurrentStaking,
     setLandscapeActionsActiveTabIndex,
     loadExploreSites,
-    openReceiveModal,
     updatePendingSwaps,
   } = getActions();
 
@@ -136,7 +134,6 @@ function Main({
 
   useBackgroundMode(unmarkIsFocused, markIsFocused);
 
-  useOpenFromMainBottomSheet('receive', openReceiveModal);
   usePreventPinchZoomGesture(isMediaViewerOpen);
 
   const { isPortrait, isLandscape } = useDeviceScreen();
@@ -299,10 +296,6 @@ function Main({
   }
 
   function renderContent() {
-    if (IS_DELEGATED_BOTTOM_SHEET) {
-      return undefined;
-    }
-
     if (IS_EXPLORER) {
       return (
         <Transition name="semiFade" activeKey={isAppReady ? 1 : 0}>
@@ -331,7 +324,7 @@ function Main({
       <RenewDomainModal />
       <LinkingDomainModal />
       <PromotionModal />
-      {!IS_ELECTRON && !IS_DELEGATED_BOTTOM_SHEET && <UpdateAvailable />}
+      {!IS_ELECTRON && <UpdateAvailable />}
       {!IS_CORE_WALLET && <AccountSelectorModal />}
     </>
   );

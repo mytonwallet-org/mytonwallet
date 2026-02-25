@@ -72,8 +72,6 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     // MARK: - Table views
 
     public func setupTableViews(tableViewBottomConstraint: CGFloat) {
-        
-        additionalSafeAreaInsets = insetSectionAdditionalInsets
 
         view.addSubview(tableView)
         NSLayoutConstraint.activate([
@@ -126,6 +124,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
         skeletonTableView.delegate = self
         skeletonTableView.showsVerticalScrollIndicator = false
         skeletonTableView.register(UITableViewCell.self, forCellReuseIdentifier: "HeaderPlaceholder")
+        skeletonTableView.register(FirstRowCell.self, forCellReuseIdentifier: "FirstRow")
         skeletonTableView.register(ActivityCell.self, forCellReuseIdentifier: "Transaction")
         skeletonTableView.register(ActivityDateCell.self, forHeaderFooterViewReuseIdentifier: "Date")
         skeletonTableView.estimatedRowHeight = 0
@@ -498,5 +497,15 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     }
 
     open func updateSkeletonViewMask() {
+    }
+}
+
+
+// MARK: - First Row cell
+
+open class FirstRowCell: UITableViewCell {
+    open override var safeAreaInsets: UIEdgeInsets {
+        get { .zero }
+        set { }
     }
 }

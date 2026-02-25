@@ -78,7 +78,7 @@
 
     font-size: 0.75rem;
     font-weight: 650;
-    line-height: 1;
+    line-height: 1rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -158,7 +158,7 @@
 .settingsButton {
   display: flex;
   flex-direction: column;
-  gap: 0.3125rem;
+  gap: 0.5rem;
   align-items: center;
 
   .tiles > & {
@@ -183,7 +183,7 @@
 .settingsLabel {
   font-size: 0.75rem;
   font-weight: 650;
-  line-height: 1;
+  line-height: 1rem;
   color: var(--color-black);
   text-overflow: ellipsis;
   white-space: nowrap;

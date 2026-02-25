@@ -91,8 +91,8 @@ class PasscodeScreenView(
 
     private val titleTextView = AppCompatTextView(context).apply {
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
-        setLineHeight(TypedValue.COMPLEX_UNIT_SP, 36f)
-        typeface = WFont.Medium.typeface
+        setLineHeight(TypedValue.COMPLEX_UNIT_SP, 32f)
+        typeface = WFont.SemiBold.typeface
         gravity = Gravity.CENTER
     }
 
@@ -232,7 +232,7 @@ class PasscodeScreenView(
 
         val topImageMargin = (16.dp * scaleFactor).roundToInt() + topInset
         val titleMarginTop = (30.dp * scaleFactor).roundToInt()
-        val inputMarginTop = (26.dp * scaleFactor).roundToInt()
+        val inputMarginTop = (28.dp * scaleFactor).roundToInt()
 
         topLinearLayout.apply {
             addView(
@@ -253,6 +253,7 @@ class PasscodeScreenView(
             addView(
                 subTitleTextView,
                 LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                    topMargin = 14.dp
                     leftMargin = 20.dp
                     rightMargin = 20.dp
                 }

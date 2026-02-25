@@ -25,6 +25,7 @@ interface OwnProps {
   color?: 'purple' | 'green';
   className?: string;
   textClassName?: string;
+  isTextHidden?: boolean;
 }
 
 function TransactionBanner({
@@ -37,6 +38,7 @@ function TransactionBanner({
   color,
   className,
   textClassName,
+  isTextHidden,
 }: OwnProps) {
   const lang = useLang();
 
@@ -82,22 +84,24 @@ function TransactionBanner({
         />
       )}
       {isNftTransaction && renderNftIcon()}
-      <span className={buildClassName(styles.text, textClassName)}>
-        {secondText
-          ? text
-            ? (
-              lang('%amount% to %address%', {
-                amount: (
-                  <span className={buildClassName(styles.bold, isNftTransaction && styles.nftTitle)}>
-                    {text}
-                  </span>
-                ),
-                address: <span className={buildClassName(styles.bold, styles.address)}>{secondText}</span>,
-              })
-            )
-            : lang('$transaction_to', { address: <span className={styles.bold}>{secondText}</span> })
-          : <span className={styles.bold}>{text}</span>}
-      </span>
+      {!isTextHidden && (
+        <span className={buildClassName(styles.text, textClassName)}>
+          {secondText
+            ? text
+              ? (
+                lang('%amount% to %address%', {
+                  amount: (
+                    <span className={buildClassName(styles.bold, isNftTransaction && styles.nftTitle)}>
+                      {text}
+                    </span>
+                  ),
+                  address: <span className={buildClassName(styles.bold, styles.address)}>{secondText}</span>,
+                })
+              )
+              : lang('$transaction_to', { address: <span className={styles.bold}>{secondText}</span> })
+            : <span className={styles.bold}>{text}</span>}
+        </span>
+      )}
       {tokenOut && (
         <TokenIcon
           token={tokenOut}

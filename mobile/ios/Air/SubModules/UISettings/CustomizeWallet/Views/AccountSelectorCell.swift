@@ -60,7 +60,7 @@ private struct AccountTitle: View {
     var body: some View {
         WithPerceptionTracking {
             Text(accountContext.account.displayName)
-                .font(.compactMedium(size: 17))
+                .font(.compactDisplay(size: 17, weight: .medium))
                 .lineLimit(1)
                 .allowsTightening(true)
                 .foregroundStyle(MtwCardInverseCenteredGradientStyle(nft: accountContext.nft))

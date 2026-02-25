@@ -127,6 +127,7 @@ class AccountItemView(
                 }
             subtitleLabel.displayAddresses(
                 accountData.network,
+                accountData.accountId,
                 byChain,
                 style
             )

@@ -1,3 +1,4 @@
+/* eslint-disable @stylistic/max-len */
 import type { ApiTonWalletVersion } from './api/chains/ton/types';
 import type {
   ApiBaseCurrency,
@@ -21,7 +22,6 @@ export const APP_ENV_MARKER = APP_ENV === 'staging' ? 'Beta' : APP_ENV === 'deve
 export const EXTENSION_NAME = IS_CORE_WALLET ? 'TON Wallet' : 'MyTonWallet · My TON Wallet';
 export const EXTENSION_DESCRIPTION = IS_CORE_WALLET
   ? 'Set up your own TON Wallet on The Open Network'
-  // eslint-disable-next-line @stylistic/max-len
   : 'The most feature-rich TON+TRON wallet: multi-accounts, multi-send, Telegram Gifts and other collectibles, TON DNS+Proxy, and more.';
 
 export const DEBUG = APP_ENV !== 'production' && APP_ENV !== 'perf' && APP_ENV !== 'test';
@@ -131,8 +131,19 @@ export const PROXY_API_BASE_URL = process.env.PROXY_API_BASE_URL || 'https://api
 export const IPFS_GATEWAY_BASE_URL = 'https://ipfs.io/ipfs/';
 export const SSE_BRIDGE_URL = 'https://tonconnectbridge.mytonwallet.org/bridge/';
 
+export const WALLET_CONNECT_BRIDGE_PATTERNS = 'https://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.com wss://*.walletconnect.org';
+
+export const WALLET_CONNECT_PROJECT_ID = process.env.WALLET_CONNECT_PROJECT_ID || '';
+
 export const TRON_MAINNET_API_URL = process.env.TRON_MAINNET_API_URL || 'https://tronapi.mytonwallet.org';
 export const TRON_TESTNET_API_URL = process.env.TRON_TESTNET_API_URL || 'https://api.shasta.trongrid.io';
+
+export const SOLANA_MAINNET_RPC_URL = process.env.SOLANA_MAINNET_RPC_URL || 'https://solanaapi.mytonwallet.org';
+export const SOLANA_MAINNET_API_KEY = process.env.SOLANA_MAINNET_API_KEY;
+export const SOLANA_TESTNET_RPC_URL = process.env.SOLANA_TESTNET_RPC_URL || 'https://solanaapi-devnet.mytonwallet.org';
+export const SOLANA_TESTNET_API_KEY = process.env.SOLANA_TESTNET_API_KEY;
+export const SOLANA_TESTNET_API_URL = process.env.SOLANA_TESTNET_API_URL || 'https://solanaapi-devnet.mytonwallet.org';
+export const SOLANA_MAINNET_API_URL = process.env.SOLANA_MAINNET_API_URL || 'https://solanaapi.mytonwallet.org';
 
 export const FRACTION_DIGITS = 9;
 export const SHORT_FRACTION_DIGITS = 2;
@@ -140,6 +151,10 @@ export const SHORT_FRACTION_DIGITS = 2;
 export const MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT = 3;
 
 export const SUPPORT_USERNAME = 'mysupport';
+export const MTW_NEWS_CHANNEL_NAME: Partial<Record<LangCode, string>> = {
+  en: 'MyTonWalletEn',
+  ru: 'MyTonWalletRu',
+};
 export const MTW_TIPS_CHANNEL_NAME: Partial<Record<LangCode, string>> = {
   en: 'MyTonWalletTips',
   ru: 'MyTonWalletTipsRu',
@@ -187,7 +202,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-272';
+export const LANG_CACHE_NAME = 'mtw-lang-278';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -292,6 +307,15 @@ export const TRX = {
   cmcSlug: 'tron',
 } as const;
 
+export const SOLANA = {
+  name: 'Solana',
+  symbol: 'SOL',
+  slug: 'sol',
+  decimals: 9,
+  chain: 'solana',
+  cmcSlug: 'solana',
+} as const;
+
 export const MYCOIN_MAINNET = {
   name: 'MyTonWallet Coin',
   symbol: 'MY',
@@ -299,7 +323,6 @@ export const MYCOIN_MAINNET = {
   decimals: 9,
   chain: 'ton',
   minterAddress: 'EQCFVNlRb-NHHDQfv3Q9xvDXBLJlay855_xREsq5ZDX6KN-w',
-  // eslint-disable-next-line @stylistic/max-len
   image: 'https://imgproxy.mytonwallet.org/imgproxy/Qy038wCBKISofJ0hYMlj6COWma330cx3Ju1ZSPM2LRU/rs:fill:200:200:1/g:no/aHR0cHM6Ly9teXRvbndhbGxldC5pby9sb2dvLTI1Ni1ibHVlLnBuZw.webp',
 } as const;
 
@@ -316,7 +339,6 @@ export const MYCOIN_STAKING_POOL = 'EQC3roTiRRsoLzfYVK7yVVoIZjTEqAjQU3ju7aQ7HWTV
 
 export const ETHENA_STAKING_VAULT = 'EQChGuD1u0e7KUWHH5FaYh_ygcLXhsdG2nSHPXHW8qqnpZXW';
 export const ETHENA_STAKING_MIN_AMOUNT = 1_000_000; // 1 USDe
-// eslint-disable-next-line @stylistic/max-len
 export const ETHENA_ELIGIBILITY_CHECK_URL = 'https://t.me/id_app/start?startapp=cQeewNnc3pVphUcwY63WruKMQDpgePd1E7eMVoqphMZAdGoU9jwS4qRqrM1kSeaqrAiiDiC3EYAJPwZDGWqxZpw5vtGxmHma59XEt';
 
 export const STON_PTON_ADDRESS = 'EQCM3B12QK1e4yZSf8GtBRT0aLMNyEsBc_DhVfRRtOEffLez';
@@ -347,7 +369,6 @@ export const TON_USDT_MAINNET = {
   slug: 'ton-eqcxe6mutq',
   decimals: 6,
   tokenAddress: 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs',
-  // eslint-disable-next-line @stylistic/max-len
   image: 'https://imgproxy.mytonwallet.org/imgproxy/T3PB4s7oprNVaJkwqbGg54nexKE0zzKhcrPv8jcWYzU/rs:fill:200:200:1/g:no/aHR0cHM6Ly90ZXRoZXIudG8vaW1hZ2VzL2xvZ29DaXJjbGUucG5n.webp',
   label: 'TON',
   priceUsd: 1,
@@ -368,7 +389,6 @@ export const TON_USDE = {
   tokenAddress: 'EQAIb6KmdfdDR7CN1GBqVJuP25iCnLKCvBlJ07Evuu2dzP5f',
   slug: 'ton-eqaib6kmdf',
   decimals: 6,
-  // eslint-disable-next-line @stylistic/max-len
   image: 'https://imgproxy.toncenter.com/binMwUmcnFtjvgjp4wSEbsECXwfXUwbPkhVvsvpubNw/pr:small/aHR0cHM6Ly9tZXRhZGF0YS5sYXllcnplcm8tYXBpLmNvbS9hc3NldHMvVVNEZS5wbmc',
 } as const;
 
@@ -379,8 +399,31 @@ export const TON_TSUSDE = {
   tokenAddress: 'EQDQ5UUyPHrLcQJlPAczd_fjxn8SLrlNQwolBznxCdSlfQwr',
   slug: 'ton-eqdq5uuyph',
   decimals: 6,
-  // eslint-disable-next-line @stylistic/max-len
   image: 'https://cache.tonapi.io/imgproxy/vGZJ7erwsWPo7DpVG_V7ygNn7VGs0szZXcNLHB_l0ms/rs:fill:200:200:1/g:no/aHR0cHM6Ly9tZXRhZGF0YS5sYXllcnplcm8tYXBpLmNvbS9hc3NldHMvdHNVU0RlLnBuZw.webp',
+} as const;
+
+export const SOLANA_USDT_MAINNET = {
+  name: 'Tether USD',
+  symbol: 'USDT',
+  decimals: 6,
+  chain: 'solana',
+  slug: 'solana-es9vmfrzac',
+  tokenAddress: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+  label: 'SOL',
+  image: 'https://imgproxy.mytonwallet.org/imgproxy/T3PB4s7oprNVaJkwqbGg54nexKE0zzKhcrPv8jcWYzU/rs:fill:200:200:1/g:no/aHR0cHM6Ly90ZXRoZXIudG8vaW1hZ2VzL2xvZ29DaXJjbGUucG5n.webp',
+  priceUsd: 1,
+} as const;
+
+export const SOLANA_USDС_MAINNET = {
+  name: 'USD Coin',
+  symbol: 'USDC',
+  decimals: 6,
+  chain: 'solana',
+  slug: 'solana-epjfwdd5au',
+  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  label: 'SOL',
+  image: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
+  priceUsd: 1,
 } as const;
 
 /** The properties not returned by the backend, and therefore not stored in token objects */
@@ -396,6 +439,10 @@ export const TOKEN_CUSTOM_STYLES: Partial<Record<string, {
     fontIcon: 'icon-chain-tron',
     cardColor: 'red',
   },
+  [SOLANA.slug]: {
+    fontIcon: 'icon-chain-solana',
+    cardColor: 'purple',
+  },
   [STAKED_TON_SLUG]: {
     cardColor: 'green',
   },
@@ -409,7 +456,12 @@ export const ALL_STAKING_POOLS = [
 ];
 
 export const PRIORITY_TOKEN_SLUGS = [
-  TONCOIN.slug, TON_USDT_MAINNET.slug, TRX.slug, TRC20_USDT_MAINNET.slug,
+  TONCOIN.slug,
+  TON_USDT_MAINNET.slug,
+  TRX.slug,
+  TRC20_USDT_MAINNET.slug,
+  SOLANA.slug,
+  SOLANA_USDT_MAINNET.slug,
 ] as string[];
 
 export const INIT_SWAP_ASSETS: Record<'in' | 'out', ApiSwapAsset> = {
@@ -433,11 +485,6 @@ export const SWAP_DEX_LABELS: Record<ApiSwapDexLabel, string> = {
   ston: 'STON.fi',
 };
 
-export const MULTITAB_DATA_CHANNEL_NAME = IS_CORE_WALLET
-  ? 'tw-multitab'
-  : IS_EXPLORER
-    ? 'explorer-multitab'
-    : 'mtw-multitab';
 export const ACTIVE_TAB_STORAGE_KEY = IS_CORE_WALLET
   ? 'tw-active-tab'
   : IS_EXPLORER
@@ -540,9 +587,8 @@ export const MINT_CARD_ADDRESS = 'EQBpst3ZWJ9Dqq5gE2YH-yPsFK_BqMOmgi7Z_qK6v7WbrP
 export const MINT_CARD_COMMENT = 'Mint card';
 export const MINT_CARD_REFUND_COMMENT = 'Refund';
 
-// eslint-disable-next-line @stylistic/max-len
 export const RE_LINK_TEMPLATE = /((ftp|https?):\/\/)?(?<host>(www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z][-a-zA-Z0-9]{1,62})\b([-a-zA-Z0-9()@:%_+.,~#?&/=]*)/g;
-// eslint-disable-next-line @stylistic/max-len
+
 export const RE_TG_BOT_MENTION = /(telegram|tg)[:\s-]*@[a-z0-9_]+|(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/[a-z0-9_]+/mi;
 
 export const STARS_SYMBOL = '⭐️';
@@ -641,7 +687,6 @@ export const HELP_CENTER_URL = {
   },
   domainScam: {
     en: 'https://help.mytonwallet.io/intro/scams/.ton-domain-scams',
-    // eslint-disable-next-line @stylistic/max-len
     ru: 'https://help.mytonwallet.io/ru/baza-znanii/moshennichestvo-i-skamy/moshennichestvo-s-ispolzovaniem-domenov-.ton',
   },
   seedScam: {

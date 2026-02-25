@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore.helpers
 
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import kotlin.math.absoluteValue
 
 class ActivityHelpers {
     companion object {
@@ -29,7 +30,7 @@ class ActivityHelpers {
                         if (newActivity is MApiTransaction.Swap) {
                             return it.from == newActivity.from &&
                                 it.to == newActivity.to &&
-                                it.fromAmount == newActivity.fromAmount
+                                it.fromAmount.absoluteValue == newActivity.fromAmount.absoluteValue
                         }
                     }
 

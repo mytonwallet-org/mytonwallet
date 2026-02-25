@@ -2,6 +2,7 @@ import { Dialog } from '@capacitor/dialog';
 import React, { memo } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
+import { IS_CAPACITOR } from '../../../config';
 import renderText from '../../../global/helpers/renderText';
 import { selectIsNativeBiometricAuthEnabled } from '../../../global/selectors';
 import {
@@ -11,7 +12,7 @@ import {
 } from '../../../util/biometrics';
 import buildClassName from '../../../util/buildClassName';
 import { getIsTelegramBiometricsRestricted, getTelegramApp } from '../../../util/telegram';
-import { IS_DELEGATED_BOTTOM_SHEET, IS_IOS } from '../../../util/windowEnvironment';
+import { IS_IOS } from '../../../util/windowEnvironment';
 
 import useFlag from '../../../hooks/useFlag';
 import useLang from '../../../hooks/useLang';
@@ -59,7 +60,7 @@ function NativeBiometricsToggle({ isBiometricAuthEnabled, onEnable }: OwnProps &
   });
 
   useSyncEffect(() => {
-    if (!IS_DELEGATED_BOTTOM_SHEET) return;
+    if (!IS_CAPACITOR) return;
 
     if (isWarningModalOpen) {
       void Dialog.confirm({
@@ -91,7 +92,7 @@ function NativeBiometricsToggle({ isBiometricAuthEnabled, onEnable }: OwnProps &
   });
 
   function renderDisableNativeBiometricsWarning() {
-    if (IS_DELEGATED_BOTTOM_SHEET) return undefined;
+    if (IS_CAPACITOR) return undefined;
 
     return (
       <Modal

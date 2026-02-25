@@ -11,6 +11,7 @@ const TON_PROTOCOL = 'ton';
 const TONCONNECT_PROTOCOL = 'tc';
 const TONCONNECT_PROTOCOL_SELF = 'mytonwallet-tc';
 const SELF_PROTOCOL = 'mtw';
+const WALLETCONNECT_PROTOCOL = 'wc';
 
 let deeplinkUrl: string | undefined;
 
@@ -20,11 +21,13 @@ export function initDeeplink() {
       app.setAsDefaultProtocolClient(TONCONNECT_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
       app.setAsDefaultProtocolClient(TONCONNECT_PROTOCOL_SELF, process.execPath, [path.resolve(process.argv[1])]);
       app.setAsDefaultProtocolClient(SELF_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+      app.setAsDefaultProtocolClient(WALLETCONNECT_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
     }
   } else {
     app.setAsDefaultProtocolClient(TONCONNECT_PROTOCOL);
     app.setAsDefaultProtocolClient(TONCONNECT_PROTOCOL_SELF);
     app.setAsDefaultProtocolClient(SELF_PROTOCOL);
+    app.setAsDefaultProtocolClient(WALLETCONNECT_PROTOCOL);
   }
 
   ipcMain.handle(ElectronAction.TOGGLE_DEEPLINK_HANDLER, (event, isEnabled: boolean) => {
@@ -96,5 +99,6 @@ function getIsDeeplink(url: string) {
   return url.startsWith(`${TON_PROTOCOL}://`)
     || url.startsWith(`${TONCONNECT_PROTOCOL}://`)
     || url.startsWith(`${TONCONNECT_PROTOCOL_SELF}://`)
-    || url.startsWith(`${SELF_PROTOCOL}://`);
+    || url.startsWith(`${SELF_PROTOCOL}://`)
+    || url.startsWith(`${WALLETCONNECT_PROTOCOL}:`);
 }

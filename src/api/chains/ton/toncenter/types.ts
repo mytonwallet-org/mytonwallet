@@ -560,14 +560,12 @@ type BaseSocketMessage = {
 
 export type SocketFinality = 'pending' | 'confirmed' | 'signed' | 'finalized';
 
-export type SocketSubscriptionEventV2 = 'actions' | 'transactions' | 'account_state_change' | 'jettons_change';
-export type SocketSubscriptionEventV1 = SocketSubscriptionEventV2 | 'pending_actions' | 'pending_transactions';
-export type SocketSubscriptionEvent = SocketSubscriptionEventV1 | SocketSubscriptionEventV2;
+export type SocketSubscriptionEvent = 'actions' | 'transactions' | 'account_state_change' | 'jettons_change';
 
-export type SubscribeSocketMessageV2 = BaseSocketMessage & {
+export type SubscribeSocketMessage = BaseSocketMessage & {
   operation: 'subscribe';
   addresses: string[];
-  types: SocketSubscriptionEventV2[];
+  types: SocketSubscriptionEvent[];
   min_finality?: SocketFinality;
   include_address_book?: boolean;
   include_metadata?: boolean;
@@ -575,25 +573,6 @@ export type SubscribeSocketMessageV2 = BaseSocketMessage & {
   /** @default ['latest'] */
   supported_action_types?: ('v1' | 'v2' | 'latest')[];
 };
-
-/** V1 subscribe only includes addresses and types - options are set via configure */
-export type SubscribeSocketMessageV1 = BaseSocketMessage & {
-  operation: 'subscribe';
-  addresses: string[];
-  types: SocketSubscriptionEventV1[];
-};
-
-/**
- * V1 set_subscription replaces entire subscription with a snapshot map.
- * The `subscriptions` object maps addresses to arrays of event types.
- * This provides snapshot semantics (like V2 subscribe) and per-address type granularity.
- */
-export type SetSubscriptionSocketMessageV1 = BaseSocketMessage & {
-  operation: 'set_subscription';
-  subscriptions: Record<string, SocketSubscriptionEventV1[]>;
-};
-
-export type SubscribeSocketMessage = SubscribeSocketMessageV1 | SubscribeSocketMessageV2;
 
 export type UnsubscribeSocketMessage = BaseSocketMessage & {
   operation: 'unsubscribe';
@@ -604,28 +583,16 @@ export type PingSocketMessage = BaseSocketMessage & {
   operation: 'ping';
 };
 
-/** V1 configure message to set options like `address_book` inclusion */
-export type ConfigureSocketMessageV1 = BaseSocketMessage & {
-  operation: 'configure';
-  include_address_book?: boolean;
-  include_metadata?: boolean;
-  action_types?: string[];
-  /** @default ['latest'] */
-  supported_action_types?: ('v1' | 'v2' | 'latest')[];
-};
-
 export type ClientSocketMessage =
   | SubscribeSocketMessage
-  | SetSubscriptionSocketMessageV1
   | UnsubscribeSocketMessage
-  | PingSocketMessage
-  | ConfigureSocketMessageV1;
+  | PingSocketMessage;
 
 export type StatusSocketMessage = BaseSocketMessage & {
-  status: 'subscribed' | 'unsubscribed' | 'pong' | 'subscription_set' | 'configured';
+  status: 'subscribed' | 'unsubscribed' | 'pong';
 };
 
-export type ActionsSocketMessageV2 = BaseSocketMessage & {
+export type ActionsSocketMessage = BaseSocketMessage & {
   type: 'actions';
   finality: SocketFinality;
   trace_external_hash_norm: string;
@@ -634,41 +601,9 @@ export type ActionsSocketMessageV2 = BaseSocketMessage & {
   metadata: MetadataMap;
 };
 
-export type PendingActionsSocketMessageV1 = BaseSocketMessage & {
-  type: 'pending_actions';
-  trace_external_hash_norm: string;
-  actions: AnyAction[];
-  address_book: AddressBook;
-  metadata: MetadataMap;
-};
-
-export type FinalizedActionsSocketMessageV1 = BaseSocketMessage & {
-  type: 'actions';
-  trace_external_hash_norm: string;
-  actions: AnyAction[];
-  address_book: AddressBook;
-  metadata: MetadataMap;
-};
-
-export type TransactionsSocketMessageV2 = BaseSocketMessage & {
+export type TransactionsSocketMessage = BaseSocketMessage & {
   type: 'transactions';
   finality: SocketFinality;
-  trace_external_hash_norm: string;
-  transactions: TransactionMessage[];
-  address_book: AddressBook;
-  metadata: MetadataMap;
-};
-
-export type FinalizedTransactionsSocketMessageV1 = BaseSocketMessage & {
-  type: 'transactions';
-  trace_external_hash_norm: string;
-  transactions: TransactionMessage[];
-  address_book: AddressBook;
-  metadata: MetadataMap;
-};
-
-export type PendingTransactionsSocketMessageV1 = BaseSocketMessage & {
-  type: 'pending_transactions';
   trace_external_hash_norm: string;
   transactions: TransactionMessage[];
   address_book: AddressBook;
@@ -680,7 +615,7 @@ export type InvalidationSocketMessage = BaseSocketMessage & {
   trace_external_hash_norm: string;
 };
 
-export type AccountStateChangeSocketMessageV2 = BaseSocketMessage & {
+export type AccountStateChangeSocketMessage = BaseSocketMessage & {
   type: 'account_state_change';
   finality: Exclude<SocketFinality, 'pending'>;
   /** Raw address */
@@ -698,24 +633,7 @@ export type AccountStateChangeSocketMessageV2 = BaseSocketMessage & {
   };
 };
 
-export type AccountStateChangeSocketMessageV1 = BaseSocketMessage & {
-  type: 'account_state_change';
-  /** Raw address */
-  account: string;
-  state: {
-    /** Base64 */
-    hash: string;
-    /** Stringified integer */
-    balance: string;
-    account_status: 'active' | 'uninit';
-    /** Base64 */
-    data_hash: string;
-    /** Base64 */
-    code_hash: string;
-  };
-};
-
-export type JettonChangeSocketMessageV2 = BaseSocketMessage & {
+export type JettonChangeSocketMessage = BaseSocketMessage & {
   type: 'jettons_change';
   finality: Exclude<SocketFinality, 'pending'>;
   jetton: {
@@ -734,44 +652,11 @@ export type JettonChangeSocketMessageV2 = BaseSocketMessage & {
   metadata: MetadataMap;
 };
 
-export type JettonChangeSocketMessageV1 = BaseSocketMessage & {
-  type: 'jettons_change';
-  jetton: {
-    /** The token wallet raw address */
-    address: string;
-    /** Stringified integer */
-    balance: string;
-    /** The wallet raw address */
-    owner: string;
-    /** The token raw address */
-    jetton: string;
-    /** Stringified integer */
-    last_transaction_lt: string;
-  };
-  address_book: AddressBook;
-  metadata: MetadataMap;
-};
-
-/** Raw server messages before normalization (includes both V1 and V2 formats) */
-export type RawServerSocketMessage =
-  | StatusSocketMessage
-  | ActionsSocketMessageV2
-  | PendingActionsSocketMessageV1
-  | FinalizedActionsSocketMessageV1
-  | TransactionsSocketMessageV2
-  | FinalizedTransactionsSocketMessageV1
-  | PendingTransactionsSocketMessageV1
-  | InvalidationSocketMessage
-  | AccountStateChangeSocketMessageV2
-  | AccountStateChangeSocketMessageV1
-  | JettonChangeSocketMessageV2
-  | JettonChangeSocketMessageV1;
-
-/** Normalized server messages (V2 format with explicit finality) */
+/** Server messages from the streaming API */
 export type ServerSocketMessage =
   | StatusSocketMessage
-  | ActionsSocketMessageV2
-  | TransactionsSocketMessageV2
+  | ActionsSocketMessage
+  | TransactionsSocketMessage
   | InvalidationSocketMessage
-  | AccountStateChangeSocketMessageV2
-  | JettonChangeSocketMessageV2;
+  | AccountStateChangeSocketMessage
+  | JettonChangeSocketMessage;

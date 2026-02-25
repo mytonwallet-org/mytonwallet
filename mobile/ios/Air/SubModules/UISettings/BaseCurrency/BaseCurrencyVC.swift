@@ -11,7 +11,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-public class BaseCurrencyVC: WViewController, UICollectionViewDelegate {
+public class BaseCurrencyVC: SettingsBaseVC, UICollectionViewDelegate {
 
     private let currencies: [MBaseCurrency] = MBaseCurrency.allCases
     private let isModal: Bool

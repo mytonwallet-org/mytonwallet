@@ -48,7 +48,7 @@ function AuthImportWalletModal({ isOpen }: StateProps) {
       title={lang('Import Wallet')}
       hasCloseButton
       forceBottomSheet
-      nativeBottomSheetKey="import-account"
+
       contentClassName={styles.importModalContent}
       onClose={closeAuthImportWalletModal}
     >

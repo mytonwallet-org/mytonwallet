@@ -4,11 +4,10 @@ import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
-import Kingfisher
 import Perception
 
 struct ActionsRow: View {
-    
+
     var model: ActivityDetailsViewModel
     
     var shouldShowRepeat: Bool {
@@ -27,156 +26,101 @@ struct ActionsRow: View {
             return account.supportsSwap
         }
     }
-    
-    var shouldShowShare: Bool {
+
+    private var shouldShowShare: Bool {
         !model.activity.isBackendSwapId
     }
-    
-    var buttonCount: Int {
-        1 + (shouldShowRepeat ? 1 : 0) + (shouldShowShare ? 1 : 0)
-    }
-    
-    var buttonSpacing: CGFloat {
-        S.actionButtonSpacing(forButtonCount: buttonCount)
-    }
-    
+
     var body: some View {
         WithPerceptionTracking {
-            HStack(spacing: IOS_26_MODE_ENABLED ? buttonSpacing : 8) {
-                ActionButton(lang("Details"), IOS_26_MODE_ENABLED ? "DetailsIconBold" : "ActivityDetails22") {
-                    model.onDetailsExpanded()
-                }
-                if shouldShowRepeat {
-                    ActionButton(lang("Repeat"), IOS_26_MODE_ENABLED ? "RepeatIconBold" : "ActivityRepeat22") {
-                        AppActions.repeatActivity(model.activity)
+            @Perception.Bindable var model = model
+            let toolbarModel = ActivityDetailsActionsToolbar.Model(
+                showDetails: model.detailsCollapseEnabled,
+                showRepeat: shouldShowRepeat,
+                showShare: shouldShowShare,
+                onDetailsExpanded: { model.onDetailsExpanded() },
+                onRepeat: { AppActions.repeatActivity(model.activity) },
+                onShare: {
+                    if let chain = TokenStore.tokens[model.activity.slug]?.chain, chain.isSupported {
+                        let txHash = model.activity.parsedTxId.hash
+                        let url = ExplorerHelper.viewTransactionUrl(network: model.accountContext.account.network, chain: chain, txHash: txHash)
+                        AppActions.shareUrl(url)
                     }
                 }
-                if shouldShowShare {
-                    ActionButton(lang("Share"), IOS_26_MODE_ENABLED ? "ShareIconBold" : "ActivityShare22") {
-                        let chain = ApiChain(rawValue: TokenStore.tokens[model.activity.slug]?.chain ?? "")
-                        if let chain {
-                            let txHash = model.activity.parsedTxId.hash
-                            let url = ExplorerHelper.viewTransactionUrl(network: model.accountContext.account.network, chain: chain, txHash: txHash)
-                            AppActions.shareUrl(url)
-                        }
-                    }
-                }
-            }
-            .fixedSize(horizontal: IOS_26_MODE_ENABLED, vertical: false)
-            .frame(maxWidth: IOS_26_MODE_ENABLED ? nil : .infinity)
-            .padding(.horizontal, IOS_26_MODE_ENABLED ? 0 : 16)
-            .padding(.top, 4)
-            .padding(.bottom, IOS_26_MODE_ENABLED ? 24 : 16)
+            )
+            ActivityDetailsActionsToolbarRepresentable(model: toolbarModel)
+                .frame(height: WScalableButton.preferredHeight)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 16)
+                .tint(Color(WTheme.tint))
         }
     }
 }
 
-struct ActionButton: View {
+private final class ActivityDetailsActionsToolbar: ButtonsToolbar {
+    var detailsButton: WScalableButton!
+    var repeatButton: WScalableButton!
+    var shareButton: WScalableButton!
+    private var model: Model!
 
-    var title: String
-    var icon: String
-    var action: () -> ()
-
-    init(_ title: String, _ icon: String, action: @escaping () -> Void) {
-        self.title = title
-        self.icon = icon
-        self.action = action
+    struct Model {
+        let showDetails: Bool
+        let showRepeat: Bool
+        let showShare: Bool
+        let onDetailsExpanded: () -> Void
+        let onRepeat: () -> Void
+        let onShare: () -> Void
+    }
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
     }
 
-    var body: some View {
-        if #available(iOS 26, *) {
-            ActionButton_New(title, icon, action: action)
-        } else {
-            ActionButton_Legacy(title, icon, action: action)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(model: Model) {
+        self.model = model
+        if detailsButton == nil {
+            setupButtons()
         }
+        detailsButton.isHidden = !model.showDetails
+        repeatButton.isHidden = !model.showRepeat
+        shareButton.isHidden = !model.showShare
+        update()
+    }
+
+    private func setupButtons() {
+        let details = WScalableButton(title: lang("Details"), image: UIImage.airBundle("DetailsIconBold"), onTap: { [weak self] in self?.model?.onDetailsExpanded() })
+        addArrangedSubview(details)
+        detailsButton = details
+
+        let repeatBtn = WScalableButton(title: lang("Repeat"), image: UIImage.airBundle("RepeatIconBold"), onTap: { [weak self] in self?.model?.onRepeat() })
+        addArrangedSubview(repeatBtn)
+        repeatButton = repeatBtn
+
+        let share = WScalableButton(title: lang("Share"), image: UIImage.airBundle("ShareIconBold"), onTap: { [weak self] in  self?.model?.onShare() })
+        addArrangedSubview(share)
+        shareButton = share
     }
 }
 
-@available(iOS 26, *)
-struct ActionButton_New: View {
-    var title: String
-    var icon: String
-    var action: () -> ()
+private struct ActivityDetailsActionsToolbarRepresentable: UIViewRepresentable {
+    var model: ActivityDetailsActionsToolbar.Model
 
-    init(_ title: String, _ icon: String, action: @escaping () -> Void) {
-        self.title = title
-        self.icon = icon
-        self.action = action
+    func makeUIView(context: Context) -> ActivityDetailsActionsToolbar {
+        let toolbar = ActivityDetailsActionsToolbar()
+        toolbar.translatesAutoresizingMaskIntoConstraints = false
+        toolbar.configure(model: model)
+        toolbar.updateTheme()
+        return toolbar
     }
 
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                ZStack {
-                    Image.airBundle("ActionButtonBackground")
-                    Image.airBundle(icon)
-                        .foregroundStyle(Color.air.tint)
-                }
-                .frame(width: 48, height: 48)
-                .clipShape(.circle)
-                .glassEffect(.regular.interactive())
-                
-                Text(title)
-                    .font(.system(size: 12, weight: .regular))
-                    .frame(height: 13)
-                    .foregroundStyle(Color(UIColor.label))
-                    .padding(.horizontal, -8)
-            }
-            .frame(width: 64, height: 70)
-        }
-        .buttonStyle(.plain)
+    func updateUIView(_ uiView: ActivityDetailsActionsToolbar, context: Context) {
+        uiView.configure(model: model)
     }
 }
 
-@available(iOS, deprecated: 18)
-struct ActionButton_Legacy: View {
-    var title: String
-    var icon: String
-    var action: () -> ()
-
-    init(_ title: String, _ icon: String, action: @escaping () -> Void) {
-        self.title = title
-        self.icon = icon
-        self.action = action
-    }
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                Image.airBundle(icon)
-                    .padding(2)
-                Text(title.lowercased())
-                    .font(.system(size: 12))
-            }
-        }
-        .buttonStyle(ActionButtonStyle_Legacy())
-    }
-}
-
-@available(iOS, deprecated: 18)
-struct ActionButtonStyle_Legacy: PrimitiveButtonStyle {
-
-    @State private var isHighlighted: Bool = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .frame(maxWidth: .infinity)
-            .frame(height: 60)
-            .opacity(isHighlighted ? 0.5 : 1)
-            .foregroundStyle(Color(WTheme.tint))
-            .background(Color(WTheme.groupedItem), in: .rect(cornerRadius: 12))
-            .contentShape(.rect(cornerRadius: S.actionButtonCornerRadius))
-            .onTapGesture {
-                configuration.trigger()
-            }
-            .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
-                withAnimation(.spring(duration: 0.1)) {
-                    isHighlighted = true
-                }
-            }.onEnded { _ in
-                withAnimation(.spring(duration: 0.5)) {
-                    isHighlighted = false
-                }
-            })
-    }
-}

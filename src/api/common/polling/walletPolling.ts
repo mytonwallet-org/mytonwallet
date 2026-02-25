@@ -1,5 +1,5 @@
 import type { ApiChain, ApiNetwork } from '../../types';
-import type { WalletWatcher } from '../backendSocket';
+import type { WalletWatcher } from '../websocket/abstractWsClient';
 import type { FallbackPollingOptions } from './fallbackPollingScheduler';
 import type { Period } from './utils';
 
@@ -60,7 +60,7 @@ export class WalletPolling {
           address: options.address,
         }],
         {
-          onNewActivity: this.#handleSocketNewActivity,
+          onNewActivities: this.#handleSocketNewActivity,
           onConnect: this.#handleSocketConnect,
           onDisconnect: this.#handleSocketDisconnect,
         },

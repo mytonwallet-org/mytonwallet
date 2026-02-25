@@ -4,7 +4,7 @@ import WalletCore
 import WalletContext
 
 
-public class AddViewWalletVC: WViewController {
+public class AddViewWalletVC: CreateWalletBaseVC {
 
     private let introModel: IntroModel
     

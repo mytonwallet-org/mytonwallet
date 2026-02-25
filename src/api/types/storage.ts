@@ -16,10 +16,13 @@ export type ApiTonWallet = ApiBaseWallet & {
 
 export type ApiTronWallet = ApiBaseWallet;
 
+export type ApiSolanaWallet = ApiBaseWallet;
+
 /** A helper type that converts the chain names to the corresponding wallet types */
 export type ApiWalletByChain = {
   ton: ApiTonWallet;
   tron: ApiTronWallet;
+  solana: ApiSolanaWallet;
 };
 
 type ApiBaseAccount = {
@@ -54,34 +57,9 @@ export type ApiAccountAny = ApiBip39Account | ApiTonAccount | ApiLedgerAccount |
 export type ApiAccountWithMnemonic = Extract<ApiAccountAny, { mnemonicEncrypted: string }>;
 export type ApiAccountWithChain<T extends ApiChain> = ApiAccountAny & { byChain: Record<T, ApiWalletByChain[T]> };
 
-export interface ApiDappMetadata {
-  url: string;
-  name: string;
-  iconUrl: string;
-  manifestUrl: string;
-}
-
-export interface ApiDapp extends ApiDappMetadata {
-  connectedAt: number;
-  isUrlEnsured?: boolean;
-  sse?: ApiSseOptions;
-}
-
 export interface ApiSseOptions {
   clientId: string;
   appClientId: string;
   secretKey: string;
   lastOutputId: number;
 }
-
-/*
-  Each account id maps to a collection of dApps, grouped by URL, and for every URL
-  there could be several simultaneous connections (e.g., when the same site
-  is opened in different browsers or tabs). The second level key (uniqueId)
-  differentiates these connections:
-    – "jsbridge"    – JS-Bridge connection (there could be only one per site)
-    – appClientId    – SSE connection unique identifier
-*/
-export type ApiDappsState = Record<string, ApiDappsByUrl>;
-export type ApiDappsByUrl = Record<string, ApiDappsById>;
-export type ApiDappsById = Record<string, ApiDapp>;

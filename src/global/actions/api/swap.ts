@@ -32,11 +32,9 @@ import { canAffordSwapEstimateVariant, shouldSwapBeGasless } from '../../../util
 import generateUniqueId from '../../../util/generateUniqueId';
 import { buildCollectionByKey, pick } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
-import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { pause, waitFor } from '../../../util/schedulers';
 import { isSwapPairValid } from '../../../util/swap/isSwapPairValid';
 import { findNativeToken, getChainBySlug, getIsNativeToken, getNativeToken } from '../../../util/tokens';
-import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { addActionHandler, getGlobal, setGlobal } from '../..';
 import { resolveSwapAssetId } from '../../helpers';
@@ -71,8 +69,6 @@ const pairsCache: Record<string, { timestamp: number }> = {};
 
 const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
 const WAIT_FOR_CHANGELLY = 5 * 1000;
-const CLOSING_BOTTOM_SHEET_DURATION = 100; // Like in `useDelegatingBottomSheet`
-
 const SERVER_ERRORS_MAP = {
   'Insufficient liquidity': SwapErrorType.NotEnoughLiquidity,
   'Tokens must be different': SwapErrorType.InvalidPair,
@@ -171,19 +167,7 @@ function processNativeMaxSwap(global: GlobalState) {
   return { fromAmount, isFromAmountMax };
 }
 
-addActionHandler('startSwap', async (global, actions, payload) => {
-  const isOpen = global.currentSwap.state !== SwapState.None;
-  if (IS_DELEGATING_BOTTOM_SHEET && isOpen) {
-    callActionInNative('cancelSwap');
-    await pause(CLOSING_BOTTOM_SHEET_DURATION);
-    global = getGlobal();
-  }
-
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('startSwap', payload);
-    return;
-  }
-
+addActionHandler('startSwap', (global, actions, payload) => {
   const { state } = payload ?? {};
   const isPortrait = getIsPortrait();
 
@@ -226,10 +210,6 @@ addActionHandler('setDefaultSwapParams', (global, actions, payload) => {
 });
 
 addActionHandler('cancelSwap', (global, actions, { shouldReset } = {}) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('cancelSwap', { shouldReset });
-  }
-
   if (shouldReset) {
     const { tokenInSlug, tokenOutSlug } = global.currentSwap;
 

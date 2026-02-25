@@ -134,7 +134,7 @@ private struct ListAddressLine: View {
 }
 
 public extension AccountListCell {
-    static func makeRegistration(showBalance: Bool = true) -> UICollectionView.CellRegistration<UICollectionViewListCell, String> {
+    static func makeRegistration(showBalance: Bool = true, normalBackground: Color = .air.groupedItem, showCurrentAccountHighlight: Bool = true) -> UICollectionView.CellRegistration<UICollectionViewListCell, String> {
         UICollectionView.CellRegistration<UICollectionViewListCell, String> { cell, _, accountId in
             let accountContext = AccountContext(accountId: accountId)
             cell.configurationUpdateHandler = { cell, state in
@@ -142,12 +142,13 @@ public extension AccountListCell {
                     AccountListCell(
                         accountContext: accountContext,
                         isReordering: state.isEditing,
-                        showCurrentAccountHighlight: true,
+                        showCurrentAccountHighlight: showCurrentAccountHighlight,
                         showBalance: showBalance
                     )
                 }
                 .background {
-                    CellBackgroundHighlight(isHighlighted: state.isHighlighted, isSwiped: state.isSwiped)
+                    CellBackgroundHighlight(isHighlighted: state.isHighlighted, isSwiped: state.isSwiped, normalColor: normalBackground)
+                        .id(accountContext.account.id) // reset on cell reuse
                 }
                 .margins(.horizontal, 12)
                 .margins(.vertical, 10)

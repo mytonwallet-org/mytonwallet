@@ -49,18 +49,18 @@
   }
 }
 
-@mixin separatorBottomSettings($left-offset: 0, $right-offset: 0) {
+@mixin separatorBottomSettings($left-offset: 0, $right-offset: 0, $bottom-offset: 0) {
   &:not(:last-child):not(:has(+ :global(.collapsible:not(.open))))::after {
     content: '';
 
     position: absolute;
     right: $right-offset;
-    bottom: 0;
+    bottom: $bottom-offset;
     left: $left-offset;
 
     height: 0.0625rem;
 
-    box-shadow: inset 0 -0.03rem 0 0 var(--color-separator);
+    box-shadow: inset 0 -0.025rem 0 0 var(--color-separator);
   }
 }
 

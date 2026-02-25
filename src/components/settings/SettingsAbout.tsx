@@ -14,7 +14,7 @@ import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
 import { handleUrlClick } from '../../util/openUrl';
-import { getBlogUrl, getTelegramChannelUrl } from '../../util/url';
+import { getBlogUrl, getTelegramNewsChannelUrl, getTelegramTipsChannelUrl } from '../../util/url';
 
 import useAppTheme from '../../hooks/useAppTheme';
 import useHistoryBack from '../../hooks/useHistoryBack';
@@ -104,7 +104,7 @@ function SettingsAbout({
         <p className={styles.blockTitle}>{lang('%app_name% Resources', { app_name: APP_NAME })}</p>
         <div className={styles.settingsBlock}>
           <a
-            href={getTelegramChannelUrl(lang.code!)}
+            href={getTelegramTipsChannelUrl(lang.code!)}
             target="_blank"
             rel="noreferrer"
             className={styles.item}
@@ -199,7 +199,7 @@ function SettingsAbout({
             {lang('$about_wallet_community', {
               community_link: (
                 <a
-                  href={lang.code === 'ru' ? 'https://t.me/MyTonWalletRu' : 'https://t.me/MyTonWalletEn'}
+                  href={getTelegramNewsChannelUrl(lang.code!)}
                   target="_blank"
                   rel="noreferrer"
                 >

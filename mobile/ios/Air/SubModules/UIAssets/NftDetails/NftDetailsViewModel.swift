@@ -15,22 +15,37 @@ final class NftDetailsViewModel {
         case preview
     }
 
-    var isExpanded = true
+    private var stateBeforePreview: State = .collapsed
+    
+    var state: State = .expanded {
+        didSet {
+            print("didSet state", state)
+            if state != .preview {
+                stateBeforePreview = state
+            }
+        }
+    }
+    
+    var isExpanded: Bool {
+        state == .expanded
+    }
+    
+    var isFullscreenPreviewOpen: Bool {
+        state == .preview
+    }
+    
     var nft: ApiNft
     var safeAreaInsets: UIEdgeInsets = .zero
     var y: CGFloat = 0
-    var isFullscreenPreviewOpen = false
     var selectedSubmenu: String?
     var contentHeight: CGFloat = 2000.0
+    var viewportHeight: CGFloat = 0.0
+    var containerWidth: CGFloat = 0.0
     var isAnimatingSince: Date?
     
     var isAnimating: Bool { isAnimatingSince != nil }
     
     let listContextProvider: NftListContextProvider
-    
-    var state: State {
-        isFullscreenPreviewOpen ? .preview : isExpanded ? .expanded : .collapsed
-    }
 
     var shouldScaleOnDrag: Bool { isExpanded && !isFullscreenPreviewOpen }
     var shouldMaskAndClip: Bool { !isExpanded && !isFullscreenPreviewOpen }
@@ -51,8 +66,9 @@ final class NftDetailsViewModel {
         fixedNfts: [ApiNft]? = nil
     ) {
         self._account = AccountContext(accountId: accountId)
-        self.isExpanded = isExpanded
-        self.isFullscreenPreviewOpen = isFullscreenPreviewOpen
+        let initialState: State = isExpanded ? .expanded : .collapsed
+        self.stateBeforePreview = initialState
+        self.state = isFullscreenPreviewOpen ? .preview : initialState
         self.nft = nft
         self.listContextProvider = NftListContextProvider(accountId: accountId, filter: listContext, fixedNfts: fixedNfts)
     }
@@ -67,11 +83,11 @@ final class NftDetailsViewModel {
             viewController?.updateIsExpanded(true)
         case .expanded:
             withAnimation(.spring(duration: 0.25)) {
-                isFullscreenPreviewOpen = true
+                state = .preview
             }
         case .preview:
             withAnimation(.spring(duration: isExpanded ? 0.25 : 0.35)) {
-                isFullscreenPreviewOpen = false
+                state = stateBeforePreview
             }
         }
     }
@@ -80,10 +96,14 @@ final class NftDetailsViewModel {
         if !isExpanded && !isFullscreenPreviewOpen {
             Haptics.play(.drag)
             withAnimation(.spring(duration: 0.3)) {
-                isFullscreenPreviewOpen = true
+                state = .preview
             }
         } else { // fallback
             onImageTap()
         }
+    }
+    
+    func onBack() {
+        
     }
 }

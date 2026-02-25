@@ -83,7 +83,7 @@ function IFrameBrowser({
       case 'copyUrl':
         if (currentUrl) {
           void copyTextToClipboard(currentUrl);
-          showToast({ message: lang('URL was copied!'), icon: 'icon-copy' });
+          showToast({ message: lang('URL Copied'), icon: 'icon-copy' });
         }
         break;
 

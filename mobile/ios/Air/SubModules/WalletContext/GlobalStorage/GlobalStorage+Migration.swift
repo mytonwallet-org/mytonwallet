@@ -20,7 +20,7 @@ extension _GlobalStorage {
     public func migrate() async throws {
         
         if let v = self.stateVersion, v > STATE_VERSION {
-            assertionFailure()
+            log.fault("migration error: stateVersion=\(v) greater than STATE_VERSION=\(STATE_VERSION)")
         }
         
         if let v = self.stateVersion, v >= STATE_VERSION {

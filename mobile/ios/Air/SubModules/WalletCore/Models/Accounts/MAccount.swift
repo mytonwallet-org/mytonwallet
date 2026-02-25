@@ -9,7 +9,7 @@ import UIKit
 import WalletContext
 import GRDB
 
-public let DUMMY_ACCOUNT = MAccount(id: "dummy-mainnet", title: " ", type: .view, byChain: ["ton": .init(address: " ")])
+public let DUMMY_ACCOUNT = MAccount(id: "dummy-mainnet", title: " ", type: .view, byChain: [.ton: .init(address: " ")])
 
 // see src/global/types.ts > Account
 
@@ -24,37 +24,50 @@ public struct MAccount: Equatable, Hashable, Sendable, Codable, Identifiable, Fe
 
     static public var databaseTableName: String = "accounts"
 
-    public init(id: String, title: String?, type: AccountType, byChain: [String : AccountChain], isTemporary: Bool? = nil) {
+    init(id: String, title: String?, type: AccountType, byChain: [String : AccountChain], isTemporary: Bool? = nil) {
         self.id = id
         self.title = title
         self.type = type
         self.byChain = byChain
         self.isTemporary = isTemporary
     }
+    
+    public init(id: String, title: String?, type: AccountType, byChain: [ApiChain : AccountChain], isTemporary: Bool? = nil) {
+        self.init(
+            id: id,
+            title: title,
+            type: type,
+            byChain: Dictionary(byChain.map { ($0.rawValue, $1) }, uniquingKeysWith: { first, _ in first }),
+            isTemporary: isTemporary,
+        )
+    }
 }
 
 extension MAccount {
-    public var addressByChain: [String: String] {
-        byChain.mapValues(\.address)
+    public func getChainInfo(chain: ApiChain?) -> AccountChain? {
+        guard let chain else { return nil }
+        return byChain[chain.rawValue]
+    }
+
+    public func getAddress(chain: ApiChain?) -> String? {
+        getChainInfo(chain: chain)?.address
     }
     
     public var firstChain: ApiChain {
-        ApiChain.allCases.first(where: { self.supports(chain: $0.rawValue) }) ?? FALLBACK_CHAIN
+        ApiChain.allCases.first(where: { self.supports(chain: $0) }) ?? FALLBACK_CHAIN
     }
     
     public var firstAddress: String {
-        addressByChain[firstChain.rawValue] ?? ""
+        getAddress(chain: firstChain) ?? ""
     }
     
-    public func supports(chain: String?) -> Bool {
-        if let chain {
-            return byChain[chain] != nil
-        }
-        return false
+    public func supports(chain: ApiChain?) -> Bool {
+        guard let chain, chain.isSupported else { return false }
+        return byChain[chain.rawValue] != nil
     }
     
     public var supportedChains: Set<ApiChain> {
-        Set(byChain.compactMap { chain, _ in ApiChain(rawValue: chain) })
+        Set(byChain.compactMap { chain, _ in ApiChain(rawValue: chain) }.filter(\.isSupported))
     }
     
     public var isMultichain: Bool {
@@ -103,7 +116,7 @@ extension MAccount {
     
     public var orderedChains: [(ApiChain, AccountChain)] {
         ApiChain.allCases.compactMap { chain  in
-            if let info = byChain[chain.rawValue] {
+            if let info = getChainInfo(chain: chain) {
                 return (chain, info)
             }
             return nil
@@ -119,6 +132,20 @@ extension MAccount {
             components.queryItems?.append(URLQueryItem(name: "testnet", value: "true"))
         }
         return components.url!
+    }
+    
+    public var dieselAuthLink: URL? {
+        guard let tonAddress = getAddress(chain: .ton) else { return nil }
+        return URL(string: "https://t.me/MyTonWalletBot?start=auth-\(tonAddress)")!
+    }
+    
+    public var dreamwalkersLink: String? {
+        guard let tonAddress = getAddress(chain: .ton) else { return nil }
+        return "https://dreamwalkers.io/ru/mytonwallet/?wallet=\(tonAddress)&give=CARDRUB&take=TON&type=buy"
+    }
+    
+    public var crosschainIdentifyingFromAddress: String? {
+        getAddress(chain: .ton)
     }
 }
 

@@ -14,6 +14,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.utils.x
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 
 object CollectionsMenuHelpers {
@@ -103,9 +104,7 @@ object CollectionsMenuHelpers {
                                     showingAccountId,
                                     AssetsVC.Mode.COMPLETE,
                                     isShowingSingleCollection = true,
-                                    collectionMode = CollectionMode.SingleCollection(
-                                        nftCollection
-                                    )
+                                    collectionMode = CollectionMode.SingleCollection(nftCollection)
                                 )
                             )
                         }
@@ -164,9 +163,7 @@ object CollectionsMenuHelpers {
                             view.context,
                             showingAccountId,
                             AssetsVC.Mode.COMPLETE,
-                            collectionMode = CollectionMode.SingleCollection(
-                                nftCollection
-                            ),
+                            collectionMode = CollectionMode.SingleCollection(nftCollection),
                             isShowingSingleCollection = true
                         )
                     )

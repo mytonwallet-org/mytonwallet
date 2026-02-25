@@ -67,7 +67,6 @@ let INIT_API = """
         }, 
         {
             isElectron: false,
-            isNativeBottomSheet: false,
             isIosApp: true,
             isAndroidApp: false
         }
@@ -100,6 +99,8 @@ let LOGGING_FETCH = """
 
 private let log = Log("JSWebViewBridge")
 private let console = Log("console")
+private let sdkIndexFileURL = AirBundle.url(forResource: "index", withExtension: "html")!
+private let sdkReadAccessURL = sdkIndexFileURL.deletingLastPathComponent()
 
 // The bridge to use mytonwallet js logic in Swift applications.
 public class JSWebViewBridge: UIViewController {
@@ -184,8 +185,7 @@ public class JSWebViewBridge: UIViewController {
     }
     
     private func loadHtml() {
-        let url = AirBundle.url(forResource: "index", withExtension: "html")!
-        webView?.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        webView?.loadFileURL(sdkIndexFileURL, allowingReadAccessTo: sdkReadAccessURL)
     }
     
     private func _callApiImpl(methodName: String, args: [AnyEncodable?]) async throws -> Any? {
@@ -313,7 +313,7 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                     body = arr.map { String(describing: $0) }.joined(separator: " ")
                 }
                 let string = "\(body)"
-                console.info("\(string, .public)", fileOnly: string.contains("POST") || string.contains("GET"))
+                console.info("\(string, .public)", fileOnly: string.contains("POST") || string.contains("GET") || string.contains("toncenter: "))
                 
             case "nativeCall":
                 guard let requestNumber = data?["requestNumber"] as? Int,
@@ -482,7 +482,6 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                 case "updateBalances":
                     do {
                         let update = try JSONSerialization.decode(ApiUpdate.UpdateBalances.self, from: data)
-                        log.info("updateBalances \(update.accountId, .public) \(update.chain.rawValue, .public) \(update.balances.count)")
                         WalletCoreData.notify(event: .updateBalances(update))
                     } catch {
                         log.fault("failed to decode updateBalances \(error, .public)")
@@ -622,7 +621,7 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                     DappsStore.updateDappCount()
                 case "dappSendTransactions":
                     do {
-                        let value = try JSONSerialization.decode(MDappSendTransactions.self, from: data)
+                        let value = try JSONSerialization.decode(ApiUpdate.DappSendTransactions.self, from: data)
                         WalletCoreData.notify(event: .dappSendTransactions(value))
                     } catch {
                         assertionFailure()
@@ -730,7 +729,6 @@ extension JSWebViewBridge: WKNavigationDelegate, WKUIDelegate {
         }
     }
 }
-
 
 fileprivate extension WKWebView {
     func nativeCallOk(requestNumber: Int, result: Any?) async throws {

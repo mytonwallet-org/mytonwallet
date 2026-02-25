@@ -42,18 +42,20 @@ struct GetMoreCardsSection: View {
     let viewModel: CustomizeWalletViewModel
     
     var body: some View {
-        InsetSection {
-            InsetButtonCell(action: onUnlockNew) {
-                HStack(spacing: 19) {
-                    Image(systemName: "plus.circle")
-                        .imageScale(.large)
-                    Text(lang("Get More Cards"))
+        WithPerceptionTracking {
+            InsetSection {
+                InsetButtonCell(action: onUnlockNew) {
+                    HStack(spacing: 19) {
+                        Image(systemName: "plus.circle")
+                            .imageScale(.large)
+                        Text(lang("Get More Cards"))
+                    }
+                    .foregroundStyle(viewModel.tintColor)
+                    .backportGeometryGroup()
                 }
-                .foregroundStyle(viewModel.tintColor)
-                .backportGeometryGroup()
+            } footer: {
+                Text(lang("Browse MyTonWallet Cards available for purchase."))
             }
-        } header: {} footer: {
-            Text(lang("Browse MyTonWallet Cards available for purchase."))
         }
     }
     

@@ -18,13 +18,14 @@ public final class SendVC: WNavigationController {
     let sendModel: SendModel
     let rootVC: UIViewController
 
-    public init(prefilledValues: SendPrefilledValues? = nil) {
+    public init(prefilledValues: SendPrefilledValues) {
         self.sendModel = SendModel(prefilledValues: prefilledValues)
         
-        if sendModel.nftSendMode != .burn {
-            rootVC = SendComposeVC(model: sendModel)
-        } else {
+        switch sendModel.mode {
+        case .burnNft, .sellToMoonpay:
             rootVC = SendConfirmVC(model: sendModel)
+        case .regular, .sendNft:
+            rootVC = SendComposeVC(model: sendModel)
         }
         super.init(rootViewController: rootVC)
     }

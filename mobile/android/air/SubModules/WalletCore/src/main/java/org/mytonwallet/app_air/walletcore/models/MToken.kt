@@ -8,16 +8,16 @@ import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.DEFAULT_SHOWN_TOKENS
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.PRICELESS_TOKEN_HASHES
-import org.mytonwallet.app_air.walletcore.STAKED_MYCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.STAKED_USDE_SLUG
-import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
+import org.mytonwallet.app_air.walletcore.stakingSlugToTokenSlug
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.math.RoundingMode
@@ -54,7 +54,7 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
     var priceUsd: Double = json.optDouble("priceUsd")
     val isFromBackend: Boolean = json.optBoolean("isFromBackend")
     val type: String = json.optString("type")
-    val keywords: List<String>? = json.optJSONArray("keywords")?.let {
+    override val keywords: List<String>? = json.optJSONArray("keywords")?.let {
         List(it.length()) { i -> it.optString(i) }
     }
     val cmcSlug: String? = json.optString("cmcSlug").ifBlank { null }
@@ -173,25 +173,9 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
             return slug == TONCOIN_SLUG || slug == MYCOIN_SLUG || slug == USDE_SLUG
         }
 
-    val stakingSlug: String?
-        get() {
-            return when (slug) {
-                TONCOIN_SLUG -> STAKE_SLUG
-                MYCOIN_SLUG -> STAKED_MYCOIN_SLUG
-                USDE_SLUG -> STAKED_USDE_SLUG
-                else -> null
-            }
-        }
+    val stakingSlug: String? = tokenSlugToStakingSlug(slug)
 
-    val unstakedSlug: String?
-        get() {
-            return when (slug) {
-                STAKE_SLUG, TONCOIN_SLUG -> TONCOIN_SLUG
-                STAKED_MYCOIN_SLUG, MYCOIN_SLUG -> MYCOIN_SLUG
-                STAKED_USDE_SLUG, USDE_SLUG -> USDE_SLUG
-                else -> null
-            }
-        }
+    val unstakedSlug: String? = stakingSlugToTokenSlug(slug)
 
     override fun isSame(comparing: WEquatable<*>): Boolean {
         return comparing is MToken && slug == comparing.slug

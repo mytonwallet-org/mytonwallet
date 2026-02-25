@@ -7,6 +7,8 @@ import {
   ApiTransactionError,
 } from '../../api/types';
 
+import { getDoesUsePinPad } from '../../util/biometrics';
+
 /**
  * Returns `true` if the error should be shown in the `<PasswordForm />` or `<LedgerConfirmOperation />` screen instead
  * of a dialog.
@@ -49,7 +51,7 @@ export function errorCodeToMessage(error: ApiAnyDisplayError | string = ApiCommo
       return 'Invalid address format. Only URL Safe Base64 format is allowed.';
 
     case ApiTransactionError.PartialTransactionFailure:
-      return 'Not all transactions were sent successfully';
+      return 'Not all transfers were sent successfully';
 
     case ApiTransactionError.IncorrectDeviceTime:
       return 'The time on your device is incorrect, sync it and try again';
@@ -93,7 +95,7 @@ export function errorCodeToMessage(error: ApiAnyDisplayError | string = ApiCommo
       return 'Unexpected';
 
     case ApiCommonError.InvalidPassword:
-      return 'Wrong password, please try again.';
+      return getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
 
     case ApiTokenImportError.AddressDoesNotExist:
       return 'Address doesn\'t exist';

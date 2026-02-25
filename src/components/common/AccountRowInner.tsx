@@ -82,7 +82,7 @@ function AccountRowInner({
           cellSize={8}
           align="right"
         >
-          <div className={buildClassName(styles.balance, 'rounded-font')}>
+          <div className={styles.balance}>
             {formatCurrency(balanceData.value, balanceData.currencySymbol)}
           </div>
         </SensitiveData>

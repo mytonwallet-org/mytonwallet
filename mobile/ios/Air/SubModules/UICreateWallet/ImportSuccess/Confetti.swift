@@ -78,9 +78,6 @@ class ConfettiView: UIView {
     }
     
     func setup() {
-//        backgroundColor = .yellow
-        frame = CGRect(x: 0, y: 0, width: UIApplication.shared.sceneKeyWindow?.bounds.width ?? 400, height: 500)
-        
         let foregroundConfettiLayer = createConfettiLayer()
 
         let backgroundConfettiLayer: CAEmitterLayer = {
@@ -104,11 +101,16 @@ class ConfettiView: UIView {
     }
     
     override func layoutSubviews() {
+        super.layoutSubviews()
+        let emitterPosition = CGPoint(x: bounds.midX, y: bounds.minY - 100)
         for sublayer in layer.sublayers ?? [] {
             if let emitterLayer = sublayer as? CAEmitterLayer {
                 emitterLayer.frame = bounds
-//                emitterLayer.backgroundColor = UIColor.green.cgColor
-//                emitterLayer.emitterPosition = CGPoint(x: bounds.midX, y: bounds.minY - 100)
+                emitterLayer.emitterPosition = emitterPosition
+                emitterLayer.setValue(
+                    CGPoint(x: emitterPosition.x, y: emitterPosition.y + 20),
+                    forKeyPath: "emitterBehaviors.attractor.position"
+                )
             }
         }
     }

@@ -201,10 +201,8 @@ function OnRampWidgetModal({
   return (
     <Modal
       isOpen={isOpen}
-      forceFullNative
       header={renderHeader()}
       dialogClassName={styles.modalDialog}
-      nativeBottomSheetKey="onramp-widget"
       onClose={closeOnRampWidgetModal}
     >
       <div className={styles.content}>

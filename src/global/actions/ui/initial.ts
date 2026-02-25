@@ -25,7 +25,6 @@ import {
 } from '../../../util/deeplink';
 import { omit } from '../../../util/iteratees';
 import { clearPreviousLangpacks, getTranslation, setLanguage } from '../../../util/langProvider';
-import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { initializeSounds } from '../../../util/notificationSound';
 import switchAnimationLevel from '../../../util/switchAnimationLevel';
 import switchTheme, { setStatusBarStyle } from '../../../util/switchTheme';
@@ -34,8 +33,6 @@ import {
   getIsMobileTelegramApp,
   IS_ANDROID,
   IS_ANDROID_APP,
-  IS_DELEGATED_BOTTOM_SHEET,
-  IS_DELEGATING_BOTTOM_SHEET,
   IS_ELECTRON,
   IS_IOS,
   IS_LINUX,
@@ -95,9 +92,6 @@ addActionHandler('init', (_, actions) => {
     }
     if (getIsMobileTelegramApp()) {
       documentElement.classList.add('is-mobile-telegram-app');
-    }
-    if (IS_DELEGATED_BOTTOM_SHEET) {
-      documentElement.classList.add('is-native-bottom-sheet');
     }
 
     setScrollbarWidthProperty();
@@ -180,10 +174,6 @@ addActionHandler('showDialog', (global, actions, payload) => {
 });
 
 addActionHandler('dismissDialog', (global) => {
-  if (IS_DELEGATING_BOTTOM_SHEET) {
-    callActionInNative('dismissDialog');
-  }
-
   const newDialogs = [...global.dialogs];
 
   newDialogs.pop();
@@ -242,11 +232,6 @@ addActionHandler('selectToken', (global, actions, { slug } = {}) => {
 });
 
 addActionHandler('showError', (global, actions, { error } = {}) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('showError', { error });
-    return;
-  }
-
   actions.showDialog({
     message: error === undefined || typeof error === 'string'
       ? errorCodeToMessage(error)
@@ -255,11 +240,6 @@ addActionHandler('showError', (global, actions, { error } = {}) => {
 });
 
 addActionHandler('showToast', (global, actions, payload) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('showToast', payload);
-    return undefined;
-  }
-
   const { message, icon } = payload;
 
   const newToasts: ToastType[] = [...global.toasts];
@@ -316,10 +296,6 @@ addActionHandler('toggleDeeplinkHook', (global, actions, { isEnabled }) => {
 });
 
 addActionHandler('signOut', async (global, actions, payload) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('signOut', payload);
-  }
-
   const { level, accountId } = payload;
 
   const network = selectCurrentNetwork(global);

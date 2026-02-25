@@ -13,6 +13,7 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.utils.jsonObject
 import java.lang.ref.WeakReference
 
 class WalletCreationVM(delegate: Delegate) {
@@ -60,8 +61,7 @@ class WalletCreationVM(delegate: Delegate) {
                 WGlobalStorage.addAccount(
                     accountId = createdAccountId,
                     accountType = MAccount.AccountType.MNEMONIC.value,
-                    address = account.tonAddress,
-                    tronAddress = account.addressByChain["tron"],
+                    byChain = account.byChain.jsonObject,
                     importedAt = account.importedAt
                 )
                 BalanceStore.setBalances(createdAccountId, HashMap(), false)

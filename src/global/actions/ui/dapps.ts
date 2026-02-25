@@ -3,8 +3,6 @@ import { SignDataState, TransferState } from '../../types';
 import { BROWSER_HISTORY_LIMIT } from '../../../config';
 import { getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import { unique } from '../../../util/iteratees';
-import { callActionInMain } from '../../../util/multitab';
-import { IS_DELEGATED_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
   clearDappConnectRequestError,
@@ -64,16 +62,12 @@ addActionHandler('clearDappTransferError', (global) => {
 });
 
 addActionHandler('openBrowser', (global, actions, {
-  url, title, subtitle, shouldKeepNativeBottomSheetOpen,
+  url, title, subtitle,
 }) => {
-  // `openUrl` can be called from already closed NBS, therefore updates are not sent to main
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openBrowser', { url, title, subtitle, shouldKeepNativeBottomSheetOpen });
-  }
   global = {
     ...global,
     currentBrowserOptions: {
-      url, title, subtitle, shouldKeepNativeBottomSheetOpen,
+      url, title, subtitle,
     },
   };
   setGlobal(global);

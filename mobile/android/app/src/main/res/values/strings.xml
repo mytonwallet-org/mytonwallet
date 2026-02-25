@@ -7,4 +7,5 @@
   <string name="custom_url_scheme_1">tc</string>
   <string name="custom_url_scheme_2">mytonwallet-tc</string>
   <string name="custom_url_scheme_3">mtw</string>
+  <string name="custom_url_scheme_4">wc</string>
 </resources>

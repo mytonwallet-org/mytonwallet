@@ -1,4 +1,5 @@
 import type { ChainSdk } from '../../types/chains';
+import { DappProtocolType } from '../../dappProtocols/types';
 
 import { decryptComment, fetchActivityDetails, fetchActivitySlice } from './activities';
 import { normalizeAddress } from './address';
@@ -9,6 +10,14 @@ import {
   getWalletFromPrivateKey,
   getWalletsFromLedgerAndLoadBalance,
 } from './auth';
+import { signConnectionProof, signDappData, signDappTransfers } from './dapp';
+import {
+  checkNftOwnership,
+  checkNftTransferDraft,
+  getAccountNfts,
+  streamAllAccountNfts,
+  submitNftTransfers,
+} from './nfts';
 import { getIsLedgerAppOpen } from './other';
 import { setupActivePolling, setupInactivePolling } from './polling';
 import { fetchToken, importToken } from './tokens';
@@ -44,6 +53,17 @@ const tonSdk: ChainSdk<'ton'> = {
   fetchPrivateKeyString,
   getIsLedgerAppOpen,
   fetchTransactionById,
+  dapp: {
+    supportedProtocols: [DappProtocolType.TonConnect],
+    signConnectionProof,
+    signDappTransfers,
+    signDappData,
+  },
+  getAccountNfts,
+  streamAllAccountNfts,
+  checkNftTransferDraft,
+  submitNftTransfers,
+  checkNftOwnership,
 };
 
 export default tonSdk;
@@ -57,12 +77,6 @@ export {
   getWalletFromMnemonic,
   getOtherVersionWallet,
 } from './auth';
-export {
-  getAccountNfts,
-  checkNftTransferDraft,
-  submitNftTransfers,
-  checkNftOwnership,
-} from './nfts';
 export {
   submitDnsRenewal,
   checkDnsRenewalDraft,

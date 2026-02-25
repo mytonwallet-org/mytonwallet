@@ -4,6 +4,7 @@ import android.text.Spannable
 import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
 import android.view.MotionEvent
+import android.view.ViewConfiguration
 import android.widget.TextView
 
 class ExtraHitLinkMovementMethod(
@@ -11,11 +12,17 @@ class ExtraHitLinkMovementMethod(
     private val extraYPx: Int
 ) : LinkMovementMethod() {
 
+    private var downTime = 0L
+
     override fun onTouchEvent(
         widget: TextView,
         buffer: Spannable,
         event: MotionEvent
     ): Boolean {
+
+        if (event.action == MotionEvent.ACTION_DOWN) {
+            downTime = event.eventTime
+        }
 
         if (event.action != MotionEvent.ACTION_DOWN &&
             event.action != MotionEvent.ACTION_UP
@@ -46,7 +53,9 @@ class ExtraHitLinkMovementMethod(
 
         if (links.isNotEmpty()) {
             if (event.action == MotionEvent.ACTION_UP) {
-                links[0].onClick(widget)
+                if (event.eventTime - downTime < ViewConfiguration.getLongPressTimeout()) {
+                    links[0].onClick(widget)
+                }
             }
             return true
         }

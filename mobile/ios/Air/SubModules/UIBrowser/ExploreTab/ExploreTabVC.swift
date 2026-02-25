@@ -12,6 +12,9 @@ public class ExploreTabVC: WViewController {
     private var searchBarContainer: UIView?
     private var searchBar: WSearchBar?
     private var searchBarContainerBottomConstraint: NSLayoutConstraint?
+
+    private static let deeplinkSchemes: Set<String> = ["ton", "tc", "mytonwallet-tc", "wc", "mtw"]
+    private static let deeplinkUniversalHosts: Set<String> = ["connect.mytonwallet.org", "walletconnect.com", "go.mytonwallet.org", "my.tt"]
     
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -27,7 +30,7 @@ public class ExploreTabVC: WViewController {
         if #available(iOS 26, *) {
             navigationItem.largeTitleDisplayMode = .inline
             let p = NSMutableParagraphStyle()
-            p.firstLineHeadIndent = 3
+            p.firstLineHeadIndent = 4
             let appearance = UINavigationBarAppearance()
             appearance.configureWithDefaultBackground()
             appearance.largeTitleTextAttributes = [
@@ -167,13 +170,64 @@ public class ExploreTabVC: WViewController {
     func onChange(_ text: String) {
         exploreVC.searchTextDidChange(text)
     }
+
+    private static func deeplinkURLCandidate(from text: String) -> URL? {
+        if let url = URL(string: text), url.scheme != nil {
+            return url
+        }
+        guard text.contains(".") else {
+            return nil
+        }
+        return URL(string: "https://" + text)
+    }
+
+    private static func isDeeplinkURLCandidate(_ url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return false
+        }
+        if let scheme = components.scheme?.lowercased(), deeplinkSchemes.contains(scheme) {
+            return true
+        }
+        guard let host = components.host?.lowercased(), deeplinkUniversalHosts.contains(host) else {
+            return false
+        }
+        if host == "walletconnect.com" {
+            return components.path == "/wc"
+        }
+        return true
+    }
+
+    private func clearSearchAfterSubmit() {
+        view.endEditing(true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.searchBar?.text = nil
+            self.searchBar?.setCenteredPlaceholder()
+            self.searchBar?.onChange?("")
+            self.view.endEditing(true)
+            self.searchBar?.resignFirstResponder()
+            self.newSearch?.viewModel.string = ""
+        }
+    }
     
     func onSubmit(_ text: String) {
         @MainActor func error() {
             Haptics.play(.error)
         }
         
-        var urlString = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let deeplinkURL = Self.deeplinkURLCandidate(from: trimmedText) {
+            let deeplinkHandled = WalletContextManager.delegate?.handleDeeplink(url: deeplinkURL, source: .exploreSearchBar) ?? false
+            if deeplinkHandled {
+                clearSearchAfterSubmit()
+                return
+            }
+            if Self.isDeeplinkURLCandidate(deeplinkURL) {
+                error()
+                return
+            }
+        }
+
+        var urlString = trimmedText
         if !urlString.contains("://") && !urlString.contains(".") {
             var components = URLComponents(string: "https://www.google.com/search")!
             components.queryItems = [URLQueryItem(name: "q", value: urlString)]
@@ -197,15 +251,7 @@ public class ExploreTabVC: WViewController {
             }
             AppActions.openInBrowser(url)
         }
-        view.endEditing(true)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.searchBar?.text = nil
-            self.searchBar?.setCenteredPlaceholder()
-            self.searchBar?.onChange?("")
-            self.view.endEditing(true)
-            self.searchBar?.resignFirstResponder()
-            self.newSearch?.viewModel.string = ""
-        }
+        clearSearchAfterSubmit()
     }
 }
 

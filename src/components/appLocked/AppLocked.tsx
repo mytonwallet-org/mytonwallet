@@ -1,4 +1,3 @@
-import { BottomSheet } from '@mytonwallet/native-bottom-sheet';
 import React, { memo, useEffect, useMemo, useRef, useState } from '../../lib/teact/teact';
 import { getActions, getGlobal, withGlobal } from '../../global';
 
@@ -14,8 +13,7 @@ import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { stopEvent } from '../../util/domEvents';
 import { vibrate } from '../../util/haptics';
-import { createSignal } from '../../util/signals';
-import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET, IS_ELECTRON } from '../../util/windowEnvironment';
+import { IS_ELECTRON } from '../../util/windowEnvironment';
 
 import useBackgroundMode, { isBackgroundModeActive } from '../../hooks/useBackgroundMode';
 import useEffectOnce from '../../hooks/useEffectOnce';
@@ -61,12 +59,6 @@ interface StateProps {
 const enum SLIDES {
   button,
   passwordForm,
-}
-
-const [getActivitySignal, setActivitySignal] = createSignal(Date.now());
-
-export function reportAppLockActivityEvent() {
-  setActivitySignal(Date.now());
 }
 
 function useAppLockState(autolockValue: AutolockValueType, isManualLockActive: boolean, canRender: boolean) {
@@ -175,7 +167,7 @@ function AppLocked({
   canRender,
 }: StateProps): TeactJsx {
   const {
-    clearIsPinAccepted, submitAppLockActivityEvent, setIsManualLockActive, setIsAppLockActive,
+    clearIsPinAccepted, setIsManualLockActive, setIsAppLockActive,
   } = getActions();
 
   const [isLocked, lock, unlock, lockReason] = useAppLockState(autolockValue, !!isManualLockActive, canRender);
@@ -192,10 +184,6 @@ function AppLocked({
   } = useContentSlide(isNonNativeBiometricAuthEnabled, isLocked, lockReason);
 
   const handleActivity = useLastCallback(() => {
-    if (IS_DELEGATED_BOTTOM_SHEET) {
-      submitAppLockActivityEvent();
-      return;
-    }
     lastActivityTime.current = Date.now();
   });
 
@@ -208,7 +196,6 @@ function AppLocked({
     clearIsPinAccepted();
     handleActivity();
     setIsManualLockActive({ isActive: undefined, shouldHideBiometrics: undefined });
-    if (IS_DELEGATING_BOTTOM_SHEET) void BottomSheet.show();
     unfixSlide();
     setIsAppLockActive({ isActive: false });
     void vibrate();
@@ -237,7 +224,6 @@ function AppLocked({
     if (document.activeElement) {
       (document.activeElement as HTMLElement).blur();
     }
-    if (IS_DELEGATING_BOTTOM_SHEET) void BottomSheet.hide();
     void getInAppBrowser()?.hide();
     setSlideForBiometricAuth(getDefaultSlideForBiometricAuth());
     setIsAppLockActive({ isActive: true });
@@ -267,12 +253,6 @@ function AppLocked({
     };
   });
 
-  useEffectOnce(() => {
-    if (IS_DELEGATED_BOTTOM_SHEET) return undefined;
-
-    return getActivitySignal.subscribe(handleActivityThrottled);
-  });
-
   const handleLockScreenHotkey = useLastCallback((e: KeyboardEvent) => {
     stopEvent(e);
     setIsManualLockActive({ isActive: true, shouldHideBiometrics: true });
@@ -286,8 +266,6 @@ function AppLocked({
   } : undefined), [isAppLockEnabled, isLocked]));
 
   useEffect(() => {
-    if (IS_DELEGATED_BOTTOM_SHEET) return undefined;
-
     const interval = setInterval(() => {
       if (isAppLockEnabled && !isLocked && Date.now() - lastActivityTime.current > autolockPeriod) {
         handleLock();
@@ -345,8 +323,6 @@ function AppLocked({
     Enter: handleUnlockIntent,
     Escape: handleUnlockIntent,
   } : undefined), [isAppLockEnabled, isLocked, handleUnlockIntent]));
-
-  if (IS_DELEGATED_BOTTOM_SHEET) return undefined;
 
   return (
     <Transition

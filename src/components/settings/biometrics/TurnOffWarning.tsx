@@ -1,6 +1,7 @@
 import React, { memo } from '../../../lib/teact/teact';
 import { getActions } from '../../../global';
 
+import { getDoesUsePinPad } from '../../../util/biometrics';
 import buildClassName from '../../../util/buildClassName';
 
 import useLang from '../../../hooks/useLang';
@@ -20,6 +21,10 @@ function TurnOffWaning({ isOpen, onClose }: OwnProps) {
 
   const lang = useLang();
 
+  const description = getDoesUsePinPad()
+    ? 'If you turn off biometric protection, you will need to create a passcode.'
+    : 'If you turn off biometric protection, you will need to create a password.';
+
   return (
     <Modal
       isOpen={isOpen}
@@ -28,7 +33,7 @@ function TurnOffWaning({ isOpen, onClose }: OwnProps) {
       onClose={onClose}
     >
       <p className={modalStyles.text}>
-        {lang('If you turn off biometric protection, you will need to create a password.')}
+        {lang(description)}
       </p>
 
       <div className={buildClassName(modalStyles.buttons, modalStyles.buttonsNoExtraSpace)}>

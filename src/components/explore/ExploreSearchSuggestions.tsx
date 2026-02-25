@@ -104,8 +104,7 @@ function ExploreSearchSuggestions({
             key={`site-${site.url}-${site.name}`}
             role="option"
             isSelected={isSelected}
-            isInList
-            className={buildClassName(styles.suggestion, index === 0 && styles.siteWithSeparator)}
+            className={styles.suggestion}
             site={site}
           />
         );

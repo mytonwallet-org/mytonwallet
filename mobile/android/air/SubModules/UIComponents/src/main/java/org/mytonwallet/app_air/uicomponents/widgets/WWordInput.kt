@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WEditText.Delegate
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.constants.PossibleWords
+import org.mytonwallet.app_air.walletcore.helpers.PrivateKeyHelper
 
 @SuppressLint("SetTextI18n", "ViewConstructor")
 class WWordInput(
@@ -79,6 +80,10 @@ class WWordInput(
 
     fun checkValue() {
         val inputValue = textField.text.toString().trim().lowercase()
+        if (PrivateKeyHelper.isValidPrivateKeyHex(inputValue)) {
+            textField.textIsAcceptable = true
+            return
+        }
         if (inputValue.isNotEmpty() &&
             !PossibleWords.All.contains(
                 inputValue

@@ -171,6 +171,8 @@ class QRScanView: UIView, UIScrollViewDelegate {
             torchButton.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 246)
         ])
         torchButton.addTarget(self, action: #selector(torchPressed), for: .touchUpInside)
+        torchButton.isHidden = !camera.isTorchAvailable
+        torchButton.isEnabled = camera.isTorchAvailable
     }
 
     private func setupCamera() {
@@ -304,6 +306,9 @@ class QRScanView: UIView, UIScrollViewDelegate {
     }
     
     @objc private func torchPressed() {
+        guard camera.isTorchAvailable else {
+            return
+        }
         self.torchButton.isSelected = !torchButton.isSelected
         self.camera.setTorchActive(torchButton.isSelected)
     }

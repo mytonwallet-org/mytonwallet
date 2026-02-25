@@ -53,9 +53,6 @@ project(':mytonwallet-air-app-launcher').projectDir = new File('../plugins/air-a
 include ':mytonwallet-capacitor-usb-hid'
 project(':mytonwallet-capacitor-usb-hid').projectDir = new File('../../node_modules/@mytonwallet/capacitor-usb-hid/android')
 
-include ':mytonwallet-native-bottom-sheet'
-project(':mytonwallet-native-bottom-sheet').projectDir = new File('../plugins/native-bottom-sheet/android')
-
 include ':capacitor-native-settings'
 project(':capacitor-native-settings').projectDir = new File('../../node_modules/capacitor-native-settings/android')
 

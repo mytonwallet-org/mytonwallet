@@ -1,20 +1,23 @@
-import { BottomSheet } from '@mytonwallet/native-bottom-sheet';
 import type {
   AppRequest,
   ConnectEvent,
   ConnectEventError,
   ConnectRequest,
   RpcMethod,
+  SignDataPayload,
   WalletResponse,
 } from '@tonconnect/protocol';
 import { getActions, getGlobal } from '../../../global';
 
-import { CONNECT_EVENT_ERROR_CODES, SEND_TRANSACTION_ERROR_CODES } from '../../../api/tonConnect/types';
+import type { TonConnectTransactionPayload } from '../../../api/dappProtocols/adapters/tonConnect/types';
 
 import { TONCONNECT_PROTOCOL_VERSION } from '../../../config';
 import { callApi } from '../../../api';
+import {
+  CONNECT_EVENT_ERROR_CODES,
+  SEND_TRANSACTION_ERROR_CODES,
+} from '../../../api/dappProtocols/adapters/tonConnect/errors';
 import { logDebugError } from '../../logs';
-import { IS_DELEGATED_BOTTOM_SHEET } from '../../windowEnvironment';
 
 export interface BrowserTonConnectBridgeMethods {
   connect(protocolVersion: number, message: ConnectRequest): Promise<ConnectEvent>;
@@ -53,15 +56,36 @@ export function buildTonConnectBridgeApi(pageUrl: string): BrowserTonConnectBrid
         const response = await callApi(
           'tonConnect_connect',
           buildDappRequest(url),
-          request,
+          {
+            protocolType: 'tonConnect',
+            transport: 'inAppBrowser',
+            protocolData: request,
+            // We will rewrite permissions in connect method after parsing payload anyway
+            permissions: {
+              isAddressRequired: true,
+              isPasswordRequired: false,
+            },
+            requestedChains: [{
+              chain: 'ton',
+              network: 'mainnet',
+            }],
+          },
           requestId,
         );
 
         closeLoadingOverlay();
 
+        if (!response?.success) {
+          return buildConnectError(
+            requestId,
+            response?.error?.message,
+            CONNECT_EVENT_ERROR_CODES.BAD_REQUEST_ERROR,
+          );
+        }
+
         requestId++;
 
-        return response;
+        return response.session.protocolData;
       } catch (err: any) {
         logDebugError('useDAppBridge:connect', err);
 
@@ -85,9 +109,17 @@ export function buildTonConnectBridgeApi(pageUrl: string): BrowserTonConnectBrid
           requestId,
         );
 
+        if (!response?.success) {
+          return buildConnectError(
+            requestId,
+            response?.error?.message,
+            CONNECT_EVENT_ERROR_CODES.BAD_REQUEST_ERROR,
+          );
+        }
+
         requestId++;
 
-        return response;
+        return response.session.protocolData;
       } catch (err: any) {
         logDebugError('useDAppBridge:reconnect', err);
 
@@ -109,7 +141,9 @@ export function buildTonConnectBridgeApi(pageUrl: string): BrowserTonConnectBrid
       await callApi(
         'tonConnect_disconnect',
         buildDappRequest(url),
-        { id: requestId.toString(), method: 'disconnect', params: [] },
+        {
+          requestId: requestId.toString(),
+        },
       );
     },
 
@@ -134,33 +168,66 @@ export function buildTonConnectBridgeApi(pageUrl: string): BrowserTonConnectBrid
       try {
         switch (request.method) {
           case 'disconnect': {
-            return (await callApi(
+            await callApi(
               'tonConnect_disconnect',
               dappRequest,
-              request,
-            ))!;
+              {
+                requestId: request.id,
+              },
+            );
+
+            return {
+              result: {},
+              id: request.id,
+            };
           }
 
           case 'sendTransaction': {
-            const result = await callApi(
+            const response = (await callApi(
               'tonConnect_sendTransaction',
               dappRequest,
-              request,
-            );
+              {
+                id: request.id,
+                chain: 'ton',
+                payload: JSON.parse(request.params[0]) as TonConnectTransactionPayload,
+              },
+            ))!;
 
-            if (IS_DELEGATED_BOTTOM_SHEET) {
-              void BottomSheet.applyScrollPatch();
+            if (response.success) {
+              return response.result;
             }
 
-            return result!;
+            return {
+              id: request.id,
+              error: {
+                code: response.error.code,
+                message: response.error.message,
+              },
+            };
           }
 
           case 'signData': {
-            return (await callApi(
+            const response = (await callApi(
               'tonConnect_signData',
               dappRequest,
-              request,
+              {
+                id: request.id,
+                chain: 'ton',
+                payload: JSON.parse(request.params[0]) as SignDataPayload,
+              },
             ))!;
+
+            if (response?.success) {
+              return response.result;
+            }
+
+            return {
+              id: request.id,
+              error: {
+                code: response.error.code,
+                message: response.error.message,
+              } as any,
+            };
           }
 
           default: {

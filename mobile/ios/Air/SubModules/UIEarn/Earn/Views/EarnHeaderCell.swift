@@ -24,7 +24,7 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
     private let amountLabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .rounded(ofSize: 48, weight: .bold)
+        lbl.font = .compactRounded(ofSize: 48, weight: .bold)
         lbl.text = "0"
         return lbl
     }()
@@ -195,9 +195,9 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
             let isLargeAmount = abs(tokenAmount.doubleValue) >= 10
             amountLabel.attributedText = tokenAmount.formatAttributed(
                 format: .init(preset: .defaultAdaptive),
-                integerFont: .rounded(ofSize: 48, weight: .bold),
-                fractionFont: .rounded(ofSize: 32, weight: .bold),
-                symbolFont: .rounded(ofSize: 32, weight: .bold),
+                integerFont: .compactRounded(ofSize: 48, weight: .bold),
+                fractionFont: .compactRounded(ofSize: 32, weight: .bold),
+                symbolFont: .compactRounded(ofSize: 32, weight: .bold),
                 integerColor: WTheme.primaryLabel,
                 fractionColor: isLargeAmount ? WTheme.secondaryLabel : WTheme.primaryLabel,
                 symbolColor: WTheme.secondaryLabel

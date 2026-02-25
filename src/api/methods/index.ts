@@ -20,8 +20,10 @@ export {
   deleteDapp,
   deleteAllDapps,
   loadExploreSites,
+  signDappProof,
+  signDappTransfers,
+  signDappData,
 } from './dapps';
-export * from './tonConnect';
 export * from './swap';
 export * from './other';
 export * from './prices';

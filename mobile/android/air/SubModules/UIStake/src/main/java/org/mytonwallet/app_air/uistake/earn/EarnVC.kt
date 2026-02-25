@@ -22,7 +22,6 @@ import androidx.core.widget.TextViewCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
@@ -49,17 +48,14 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
-import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
-import org.mytonwallet.app_air.uistake.confirm.ConfirmStakingHeaderView
 import org.mytonwallet.app_air.uistake.earn.cells.EarnItemCell
 import org.mytonwallet.app_air.uistake.earn.cells.EarnSpaceCell
 import org.mytonwallet.app_air.uistake.earn.models.EarnItem
 import org.mytonwallet.app_air.uistake.earn.views.EarnHeaderView
+import org.mytonwallet.app_air.uistake.helpers.ClaimRewardsHelper
 import org.mytonwallet.app_air.uistake.helpers.StakingMessageHelpers
 import org.mytonwallet.app_air.uistake.staking.StakingVC
 import org.mytonwallet.app_air.uistake.staking.StakingViewModel
-import org.mytonwallet.app_air.uistake.util.getTonStakingFees
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
@@ -369,25 +365,6 @@ class EarnVC(
     private val headerHeight: Int
         get() {
             return 298.dp + (navigationController?.getSystemBars()?.top ?: 0)
-        }
-
-    private val confirmHeaderView: View
-        get() {
-            return ConfirmStakingHeaderView(context).apply {
-                config(
-                    token = TokenStore.getToken(tokenSlug)!!,
-                    amountInCrypto = earnViewModel.amountToClaim ?: BigInteger.ZERO,
-                    showPositiveSignForAmount = true,
-                    messageString = LocaleController.getString(
-                        if (AccountStore.stakingData?.stakingState(
-                                tokenSlug
-                            ) is StakingState.Ethena
-                        ) "Confirm Unstaking"
-                        else
-                            "Confirm Rewards Claim"
-                    )
-                )
-            }
         }
 
     private val rewardLabel: WSensitiveDataContainer<WCounterLabel> by lazy {
@@ -911,64 +888,21 @@ class EarnVC(
 
     private fun claimRewardsPressed() {
         Logger.d(Logger.LogTag.STAKING, "claimRewardsPressed: tokenSlug=$tokenSlug")
-        if (AccountStore.activeAccount?.isHardware == true) {
-            claimRewardsHardware()
-        } else {
-            claimWithPasscode()
-        }
-    }
-
-    private fun claimRewardsHardware() {
-        AccountStore.stakingData?.stakingState(tokenSlug)?.let { stakingState ->
-            val nav = WNavigationController(window!!)
-            val account = AccountStore.activeAccount!!
-            val ledgerConnectVC = LedgerConnectVC(
-                context, LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                    account.tonAddress!!,
-                    LedgerConnectVC.SignData.ClaimRewards(
-                        accountId = account.accountId,
-                        stakingState = stakingState,
-                        realFee = getTonStakingFees(stakingState.stakingType)["claim"]!!.real
-                    ),
-                ) {
-                }, headerView = confirmHeaderView
-            )
-            nav.setRoot(ledgerConnectVC)
-            window?.present(nav)
-        }
-    }
-
-    private fun claimWithPasscode() {
-        val nav = WNavigationController(window!!)
-        val passcodeConfirmVC = PasscodeConfirmVC(
-            context = context,
-            passcodeViewState = PasscodeViewState.CustomHeader(
-                headerView = confirmHeaderView,
-                navbarTitle = LocaleController.getString("Confirm")
-            ),
-            task = { passcode ->
-                earnViewModel.requestClaimRewards(passcode) { err ->
-                    if (err != null) {
-                        Logger.d(Logger.LogTag.STAKING, "requestClaimRewards: Failed error=${err.parsed}")
-                    } else {
-                        Logger.d(Logger.LogTag.STAKING, "requestClaimRewards: Success tokenSlug=$tokenSlug")
-                    }
-                    if (AccountStore.stakingData?.stakingState(tokenSlug) is StakingState.Ethena) {
-                        window?.dismissLastNav {
-                            window?.dismissLastNav()
-                        }
-                        return@requestClaimRewards
-                    }
-                    window?.dismissLastNav()
-                    err?.let {
-                        showError(err.parsed)
-                    } ?: run {
-                        claimRewardView.visibility = View.GONE
-                    }
+        val stakingState = AccountStore.stakingData?.stakingState(tokenSlug) ?: return
+        val isEthena = stakingState is StakingState.Ethena
+        ClaimRewardsHelper.presentClaimRewards(
+            viewController = this,
+            tokenSlug = tokenSlug,
+            stakingState = stakingState,
+            amountToClaim = earnViewModel.amountToClaim ?: stakingState.amountToClaim,
+            onClaimed = {
+                if (!isEthena) {
+                    claimRewardView.visibility = View.GONE
                 }
+            },
+            onError = { error ->
+                showError(error)
             }
         )
-        nav.setRoot(passcodeConfirmVC)
-        window?.present(nav)
     }
 }

@@ -18,7 +18,7 @@ final class DepositLinkModel: TokenSelectionVCDelegate {
     
     @PerceptionIgnored
     let nativeToken: ApiToken
-    var chain: ApiChain { nativeToken.chainValue }
+    var chain: ApiChain { nativeToken.chain }
     var account: MAccount
     var tokenAmount: TokenAmount
     var comment: String = ""
@@ -48,7 +48,7 @@ final class DepositLinkModel: TokenSelectionVCDelegate {
         urlObservation = observe { [weak self, chain] in
             guard let self else { return }
             url = chain.formatTransferUrl?(
-                account.addressByChain[chain.rawValue]!,
+                account.getAddress(chain: chain)!,
                 tokenAmount.amount.nilIfZero,
                 comment.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
                 tokenAmount.token.tokenAddress
@@ -62,7 +62,7 @@ final class DepositLinkModel: TokenSelectionVCDelegate {
             title: "Select Token",
             delegate: self,
             isModal: true,
-            onlyTonChain: true
+            onlySupportedChains: true
         )
         topViewController()?.present(tokenSelectionVC, animated: true)
     }

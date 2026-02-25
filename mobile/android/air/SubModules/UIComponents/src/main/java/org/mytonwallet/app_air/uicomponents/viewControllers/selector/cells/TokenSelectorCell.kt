@@ -4,13 +4,14 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.TokenTagHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -25,6 +26,8 @@ import kotlin.math.abs
 
 @SuppressLint("ViewConstructor")
 class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
+
+    private val tagHelper = TokenTagHelper(context)
 
     private val iconView: IconView by lazy {
         val iv = IconView(context, 44.dp)
@@ -71,7 +74,8 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
             height = 60.dp
         }
         addView(iconView, LayoutParams(46.dp, 46.dp))
-        addView(topLeftLabel, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        addView(topLeftLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(tagHelper.tagLabel, LayoutParams(WRAP_CONTENT, 16.dp))
         addView(topRightLabel)
         addView(bottomLeftLabel)
         addView(bottomRightLabel)
@@ -81,11 +85,14 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
             toStart(iconView, 12f)
             toTop(topLeftLabel, 11f)
             toStart(topLeftLabel, 68f)
-            endToStart(topLeftLabel, topRightLabel, 4f)
+            startToEnd(tagHelper.tagLabel, topLeftLabel, 3f)
+            centerYToCenterY(tagHelper.tagLabel, topLeftLabel)
+            endToStart(tagHelper.tagLabel, topRightLabel, 4f)
             toTop(topRightLabel, 11f)
             toEnd(topRightLabel, 16f)
             constrainedWidth(topLeftLabel.id, true)
             setHorizontalBias(topLeftLabel.id, 0f)
+            setHorizontalBias(tagHelper.tagLabel.id, 0f)
             toBottom(bottomLeftLabel, 12f)
             toStart(bottomLeftLabel, 68f)
             endToStart(bottomLeftLabel, bottomRightLabel, 4f)
@@ -112,6 +119,7 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
             if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         topLeftLabel.setTextColor(WColor.PrimaryText.color)
+        tagHelper.onThemeChanged()
         topRightLabel.contentView.setTextColor(WColor.PrimaryText.color)
         bottomLeftLabel.setTextColor(WColor.SecondaryText.color)
         bottomRightLabel.setTextColor(WColor.SecondaryText.color)
@@ -124,7 +132,7 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
         tokenBalance: MTokenBalance,
         showChain: Boolean,
         isLast: Boolean,
-        hideSeparator: Boolean = isLast
+        accountId: String? = null,
     ) {
         this.tokenBalance = tokenBalance
         this.isLast = isLast
@@ -165,5 +173,7 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
                 smartDecimals = true
             )
         }
+
+        tagHelper.configure(this, topLeftLabel, topRightLabel, accountId, token, tokenBalance)
     }
 }

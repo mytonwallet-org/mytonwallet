@@ -2,7 +2,8 @@ import React, { memo, useEffect, useMemo, useRef, useState } from '../../lib/tea
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiTonWalletVersion } from '../../api/chains/ton/types';
-import type { ApiDapp, ApiWalletWithVersionInfo } from '../../api/types';
+import type { StoredDappConnection } from '../../api/dappProtocols/storage';
+import type { ApiWalletWithVersionInfo } from '../../api/types';
 import type { GlobalState, UserToken } from '../../global/types';
 import type { Wallet } from './SettingsWalletVersion';
 import { SettingsState } from '../../global/types';
@@ -40,14 +41,12 @@ import { openUrl } from '../../util/openUrl';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { captureControlledSwipe } from '../../util/swipeController';
 import useTelegramMiniAppSwipeToClose from '../../util/telegram/hooks/useTelegramMiniAppSwipeToClose';
-import { getTelegramChannelUrl } from '../../util/url';
+import { getTelegramTipsChannelUrl } from '../../util/url';
 import {
   IS_BIOMETRIC_AUTH_SUPPORTED,
   IS_DAPP_SUPPORTED,
-  IS_DELEGATED_BOTTOM_SHEET,
   IS_ELECTRON,
   IS_IOS_APP,
-  IS_LEDGER_SUPPORTED,
   IS_TOUCH_ENV,
   IS_WEB,
 } from '../../util/windowEnvironment';
@@ -99,7 +98,6 @@ import installAppImg from '../../assets/settings/settings_install-app.svg';
 import installDesktopImg from '../../assets/settings/settings_install-desktop.svg';
 import installMobileImg from '../../assets/settings/settings_install-mobile.svg';
 import languageImg from '../../assets/settings/settings_language.svg';
-import ledgerImg from '../../assets/settings/settings_ledger.svg';
 import mtwCardsImg from '../../assets/settings/settings_mtw-cards.svg';
 import upgradeImg from '../../assets/settings/settings_mytonwallet.svg';
 import notifications from '../../assets/settings/settings_notifications.svg';
@@ -117,7 +115,7 @@ type OwnProps = {
 
 type StateProps = {
   settings: GlobalState['settings'];
-  dapps: ApiDapp[];
+  dapps: StoredDappConnection[];
   isOpen?: boolean;
   tokens?: UserToken[];
   isPasswordPresent?: boolean;
@@ -160,7 +158,6 @@ function Settings({
 }: OwnProps & StateProps) {
   const {
     setSettingsState,
-    openSettingsHardwareWallet,
     closeSettings,
     toggleDeeplinkHook,
     toggleTonProxy,
@@ -213,7 +210,7 @@ function Settings({
       }) ?? [];
   }, [shortBaseSymbol, tonToken, versions, withAllWalletVersions]);
 
-  const { handleScroll: handleContentScroll } = useScrolledState();
+  const { isScrolled, handleScroll: handleContentScroll } = useScrolledState();
 
   const handleSlideAnimationStop = useLastCallback(() => {
     if (prevRenderingKeyRef.current === SettingsState.NativeBiometricsTurnOn) {
@@ -354,10 +351,6 @@ function Settings({
     }
   });
 
-  function handleOpenHardwareModal() {
-    openSettingsHardwareWallet();
-  }
-
   const handleMultipleClick = () => {
     if (clicksAmount + 1 >= AMOUNT_OF_CLICKS_FOR_DEVELOPERS_MODE) {
       openDeveloperModal();
@@ -384,11 +377,7 @@ function Settings({
 
     return captureControlledSwipe(transitionRef.current!, {
       onSwipeRightStart: () => {
-        if (IS_DELEGATED_BOTTOM_SHEET) {
-          handleBackClick();
-        } else {
-          handleBackOrCloseAction();
-        }
+        handleBackOrCloseAction();
 
         disableSwipeToClose();
       },
@@ -422,6 +411,7 @@ function Settings({
           isInsideModal={isInsideModal}
           isViewMode={isViewMode}
           isActive={isActive}
+          isScrolled={isScrolled}
           currentWalletRef={currentWalletRef}
           onCloseSettings={handleCloseSettings}
           onRemoveClick={openLogOutModal}
@@ -431,7 +421,7 @@ function Settings({
           className={buildClassName(styles.content, 'custom-scroll', styles.withBottomSpace)}
           onScroll={handleContentScroll}
         >
-          {isPortrait && (
+          {IS_CAPACITOR && (
             <SettingsWallets
               currentWalletRef={currentWalletRef}
               onAddAccount={handleCloseSettings}
@@ -498,7 +488,7 @@ function Settings({
                 <div className={styles.itemContent}>
                   <span className={styles.itemTitle}>{lang('Security')}</span>
                   <span className={styles.itemSubtitle}>
-                    {lang(IS_CAPACITOR ? 'Back Up, Passcode, Auto-Lock' : 'Back Up, Password, Auto-Lock')}
+                    {lang(getDoesUsePinPad() ? 'Back Up, Passcode, Auto-Lock' : 'Back Up, Password, Auto-Lock')}
                   </span>
                 </div>
 
@@ -527,29 +517,26 @@ function Settings({
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
             )}
-            {!IS_CORE_WALLET && IS_DAPP_SUPPORTED && !isViewMode && (
+            {!IS_CORE_WALLET && IS_DAPP_SUPPORTED && !isViewMode && dapps.length > 0 && (
               <div className={styles.item} onClick={handleConnectedDappsOpen}>
                 <img className={styles.menuIcon} src={connectedDappsImg} alt={lang('Apps')} />
                 <div className={styles.itemContent}>
                   <span className={styles.itemTitle}>{lang('Apps')}</span>
-                  <span className={styles.itemSubtitle}>{lang('$connected_apps', { count: dapps.length })}</span>
+                  <span className={styles.itemSubtitle}>{lang('$connected_apps', dapps.length)}</span>
                 </div>
 
-                <div className={styles.itemInfo}>
-                  {dapps.length ? dapps.length : ''}
-                  <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
-                </div>
+                <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
             )}
             <div className={styles.item} onClick={handlePushNotificationsOpen}>
               <img
                 className={styles.menuIcon}
                 src={notifications}
-                alt={arePushNotificationsAvailable ? lang('Notifications & Sounds') : lang('Sounds')}
+                alt={arePushNotificationsAvailable ? lang('Notifications') : lang('Sounds')}
               />
               <div className={styles.itemContent}>
                 <span className={styles.itemTitle}>
-                  {arePushNotificationsAvailable ? lang('Notifications & Sounds') : lang('Sounds')}
+                  {arePushNotificationsAvailable ? lang('Notifications') : lang('Sounds')}
                 </span>
                 <span className={styles.itemSubtitle}>{lang('Wallets, Sounds')}</span>
               </div>
@@ -579,11 +566,11 @@ function Settings({
                     rel="noopener noreferrer"
                     className={styles.item}
                   >
-                    <img className={styles.menuIcon} src={supportImg} alt={lang('Get Support')} />
-                    <span className={styles.itemTitle}>{lang('Get Support')}</span>
+                    <img className={styles.menuIcon} src={supportImg} alt={lang('Ask a Question')} />
+                    <span className={styles.itemTitle}>{lang('Ask a Question')}</span>
 
                     <div className={styles.itemInfo}>
-                      <span className={styles.small}>@{SUPPORT_USERNAME}</span>
+                      @{SUPPORT_USERNAME}
                       <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
                     </div>
                   </a>
@@ -600,13 +587,13 @@ function Settings({
                   <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
                 </a>
                 <a
-                  href={getTelegramChannelUrl(langCode)}
+                  href={getTelegramTipsChannelUrl(langCode)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={styles.item}
                 >
-                  <img className={styles.menuIcon} src={tipsImg} alt={lang('MyTonWallet Tips')} />
-                  <span className={styles.itemTitle}>{lang('MyTonWallet Tips')}</span>
+                  <img className={styles.menuIcon} src={tipsImg} alt={lang('MyTonWallet Features')} />
+                  <span className={styles.itemTitle}>{lang('MyTonWallet Features')}</span>
 
                   <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
                 </a>
@@ -657,14 +644,6 @@ function Settings({
                   <div className={styles.item} onClick={handleClickInstallOnMobile}>
                     <img className={styles.menuIcon} src={installMobileImg} alt={lang('Install on Mobile')} />
                     <span className={styles.itemTitle}>{lang('Install on Mobile')}</span>
-
-                    <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
-                  </div>
-                )}
-                {!IS_EXPLORER && (!!versions?.length || IS_LEDGER_SUPPORTED) && (
-                  <div className={styles.item} onClick={handleOpenHardwareModal}>
-                    <img className={styles.menuIcon} src={ledgerImg} alt={lang('Connect Ledger')} />
-                    <span className={styles.itemTitle}>{lang('Connect Ledger')}</span>
 
                     <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
                   </div>

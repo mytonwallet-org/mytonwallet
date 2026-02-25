@@ -20,7 +20,6 @@ final class CustomFontsProvider {
         registerFont(named: "Nunito-ExtraBold", withExtension: "ttf")
         registerFont(named: "SFCompactDisplayMedium", withExtension: "otf")
         registerFont(named: "SFCompactRoundedBold", withExtension: "otf")
-        registerFont(named: "SFCompactRoundedMedium", withExtension: "otf")
         registerFont(named: "SFCompactRoundedSemibold", withExtension: "otf")
     }
 

@@ -35,9 +35,10 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
+import org.mytonwallet.app_air.walletcore.utils.jsonObject
 import java.lang.ref.WeakReference
 
 class ImportViewWalletVC(
@@ -187,10 +188,13 @@ class ImportViewWalletVC(
     }
 
     private fun importPressed() {
-        val address = addressInputView.getAddress() ?: return
+        val address = addressInputView.getAddress()
         val addressByChain = mutableMapOf<MBlockchain, String>()
-        val blockchain = if (address.startsWith("T")) MBlockchain.tron else MBlockchain.ton
-        addressByChain[blockchain] = address
+        for (chain in MBlockchain.supportedChains) {
+            if (chain.isValidAddress(address) || chain.isValidDNS(address)) {
+                addressByChain[chain] = address
+            }
+        }
         view.lockView()
         continueButton.isLoading = true
         WalletCore.call(
@@ -229,11 +233,12 @@ class ImportViewWalletVC(
                             LogMessage.MessagePartPrivacy.REDACTED
                         ).build()
                 )
+                val importedName = result.title?.trim()?.takeIf { it.isNotEmpty() }
                 WGlobalStorage.addAccount(
                     accountId = result.accountId,
                     accountType = MAccount.AccountType.VIEW.value,
-                    address = result.byChain["ton"]?.address,
-                    tronAddress = result.byChain["tron"]?.address,
+                    byChain = result.byChain.jsonObject,
+                    name = importedName,
                     importedAt = null
                 )
                 AirPushNotifications.subscribe(

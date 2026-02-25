@@ -32,3 +32,41 @@ public struct ApiDappTransfer: ApiTransferToSignProtocol, Equatable, Hashable, D
     }
 }
 
+public extension ApiDappTransfer {            
+    func getToken(chain: ApiChain) -> ApiToken {
+        var slug: String?
+        switch payload {
+        case .tokensTransfer(let p): slug = p.slug
+        case .tokensTransferNonStandard(let p): slug = p.slug
+        case .tokensBurn(let p): slug = p.slug
+        default:
+            break
+        }
+        
+        // For missed slug (for example, TON transfers go as .comment() with no slug records at all,
+        // let's use native network tokens
+        if slug == nil {
+            return TokenStore.getNativeToken(chain: chain)
+        }
+        
+        // Get token for slug or fallback to one-time fake one
+        guard let slug, let token = TokenStore.getToken(slug: slug) else {
+            var fallbackToken = chain.nativeToken
+            fallbackToken.symbol = "[Unknown]"
+            return fallbackToken
+        }
+        return token
+    }
+    
+    var effectiveAmount: BigInt {
+        var result = amount
+        switch payload {
+        case .tokensTransfer(let p): result = p.amount
+        case .tokensTransferNonStandard(let p): result = p.amount
+        case .tokensBurn(let p): result = p.amount
+        default:
+            break
+        }
+        return result
+    }
+}

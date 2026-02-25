@@ -12,7 +12,6 @@ public let designScreenWidth: CGFloat = 402
 public let compactInsetSectionHorizontalPadding: CGFloat = 16
 public let regularInsetSectionHorizontalPadding: CGFloat = 64
 public var insetSectionHorizontalPadding: CGFloat { isCompactWidth ? compactInsetSectionHorizontalPadding : regularInsetSectionHorizontalPadding }
-public var insetSectionAdditionalInsets: UIEdgeInsets { UIEdgeInsets(top: 0, left: insetSectionHorizontalPadding - compactInsetSectionHorizontalPadding, bottom: 0, right: insetSectionHorizontalPadding - compactInsetSectionHorizontalPadding) }
 
 public let homeCardMaxWidth: CGFloat = 450
 public let homeCardMinSpacing: CGFloat = 8

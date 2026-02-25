@@ -46,6 +46,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.constants.PossibleWords
+import org.mytonwallet.app_air.walletcore.helpers.PrivateKeyHelper
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import java.lang.ref.WeakReference
 import kotlin.math.max
@@ -193,6 +194,8 @@ class ImportWalletVC(
         }
         v.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(suggestionView, ViewGroup.LayoutParams(0, 48.dp))
+        v.clipChildren = false
+        v.clipToPadding = false
         v.setConstraints {
             toTopPx(
                 animationView,
@@ -312,20 +315,26 @@ class ImportWalletVC(
     }
 
     private fun importPressed() {
-        // check if words are correct
-        wordInputViews.forEachIndexed { _, wordInput ->
-            wordInput.textField.text.toString().trim().lowercase().let {
-                if (it.isNotEmpty() && !PossibleWords.All.contains(it)) {
-                    showMnemonicAlert()
-                    return
-                }
-            }
-        }
         val words =
             wordInputViews
                 .map { it.textField.text.toString().trim().lowercase() }
                 .filter { it.isNotEmpty() }
                 .toTypedArray()
+
+        if (PrivateKeyHelper.isMnemonicPrivateKey(words)) {
+            view.lockView()
+            continueButton.isLoading = true
+            importWalletVM.importWallet(words = words)
+            return
+        }
+
+        // check if mnemonic words are correct
+        for (word in words) {
+            if (!PossibleWords.All.contains(word)) {
+                showMnemonicAlert()
+                return
+            }
+        }
         if (words.size != 12 && words.size != 24) {
             showMnemonicAlert()
             return
@@ -333,9 +342,7 @@ class ImportWalletVC(
 
         view.lockView()
         continueButton.isLoading = true
-        importWalletVM.importWallet(
-            words = words
-        )
+        importWalletVM.importWallet(words = words)
     }
 
     private var activeField: WWordInput? = null
@@ -427,9 +434,12 @@ class ImportWalletVC(
         wordInputViews.forEach {
             it.checkValue()
         }
-        val wordsCount =
-            wordInputViews.filter { it.textField.text.toString().trim().isNotEmpty() }.size
-        if (wordsCount == 12 || wordsCount == 24)
+        val words =
+            wordInputViews
+                .map { it.textField.text.toString().trim().lowercase() }
+                .filter { it.isNotEmpty() }
+                .toTypedArray()
+        if (words.size == 12 || words.size == 24 || PrivateKeyHelper.isMnemonicPrivateKey(words))
             importPressed()
     }
 

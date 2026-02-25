@@ -53,12 +53,12 @@ public extension MAccount {
         }
         public var leadingIcon: LeadingIcon?
         public struct Item: Equatable, Hashable, Identifiable {
-            public var chain: String
+            public var chain: ApiChain
             public var text: String
             public var textToCopy: String
             public var isDomain: Bool
             public var isLast: Bool = false
-            public var id: String { chain }
+            public var id: String { chain.rawValue }
         }
         public var items: [Item]
         public var testnetImage: Image {
@@ -86,7 +86,7 @@ public extension MAccount {
                 textToCopy = info.address
             }
             items += AddressLine.Item(
-                chain: chain.rawValue,
+                chain: chain,
                 text: text,
                 textToCopy: textToCopy,
                 isDomain: isDomain,
@@ -105,4 +105,3 @@ public enum AvatarContent {
     case image(String)
     // custom images, etc...
 }
-

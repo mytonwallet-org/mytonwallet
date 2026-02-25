@@ -114,6 +114,10 @@ function StakeModal({
   }
 
   function renderPassword(isActive: boolean) {
+    const placeholder = getDoesUsePinPad()
+      ? 'Confirm action with your passcode'
+      : 'Confirm action with your password';
+
     return (
       <>
         {!getDoesUsePinPad() && (
@@ -125,7 +129,7 @@ function StakeModal({
           error={error}
           withCloseButton={IS_CAPACITOR}
           operationType="staking"
-          placeholder="Confirm operation with your password"
+          placeholder={lang(placeholder)}
           submitLabel={lang('Confirm')}
           cancelLabel={lang('Back')}
           onSubmit={handleTransferSubmit}
@@ -190,7 +194,7 @@ function StakeModal({
       case StakingState.StakeConfirmHardware:
         return (
           <LedgerConfirmOperation
-            text={lang('Please confirm operation on your Ledger')}
+            text={lang('Please confirm action on your Ledger')}
             error={error}
             onClose={cancelStaking}
             onTryAgain={handleLedgerConnect}
@@ -208,9 +212,6 @@ function StakeModal({
       hasCloseButton
       noBackdropClose
       dialogClassName={styles.modalDialog}
-      nativeBottomSheetKey="stake"
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      forceFullNative={renderingKey === StakingState.StakePassword}
       onClose={cancelStaking}
       onCloseAnimationEnd={updateNextKey}
     >

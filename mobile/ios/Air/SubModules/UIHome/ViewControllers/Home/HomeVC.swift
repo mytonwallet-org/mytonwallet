@@ -21,21 +21,21 @@ let homeBottomInset: CGFloat = 200
 @MainActor
 public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, HomeVMDelegate {
 
-    var homeVM: HomeViewModel!
-    var headerViewModel: HomeHeaderViewModel!
+    let homeVM: HomeViewModel
+    let headerViewModel: HomeHeaderViewModel
     
-    var _activityViewModel: ActivityViewModel?
+    private var _activityViewModel: ActivityViewModel?
     public override var activityViewModel: ActivityViewModel? { self._activityViewModel }
 
-    var calledReady = false
+    private var calledReady = false
 
     var popRecognizer: InteractivePopRecognizer?
     /// `headerContainerView` is used to set colored background under safe area and also under tableView when scrolling down. (bounce mode)
-    var headerContainerView: WTouchPassView!
+    private var headerContainerView: WTouchPassView!
     /// `headerContainerViewHeightConstraint` is used to animate the header background on the first load's animation.
-    var headerContainerViewHeightConstraint: NSLayoutConstraint? = nil
+    private var headerContainerViewHeightConstraint: NSLayoutConstraint? = nil
     
-    var headerContainer: HomeHeaderContainer = HomeHeaderContainer()
+    private let headerContainer: HomeHeaderContainer = HomeHeaderContainer()
     
     // navbar buttons
     private lazy var lockItem: UIBarButtonItem = UIBarButtonItem(title: lang("Lock"), image: .airBundle("HomeLock24"), target: self, action: #selector(lockPressed))
@@ -51,22 +51,24 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     private lazy var doneItem = UIBarButtonItem.doneButtonItem {[weak self] in self?.walletAssetsVC.stopReordering(isCanceled: false) }
 
     /// The header containing balance and other actions like send/receive/scan/settings and balance in other currencies.
-    var balanceHeaderView: BalanceHeaderView?
-    var headerBlurView: WBlurView!
-    var bottomSeparatorView: UIView!
-    let headerTouchTarget = UILabel()
+    private(set) lazy var balanceHeaderView = BalanceHeaderView(headerViewModel: headerViewModel,
+                                                                accountSource: homeVM.$account.source,
+                                                                delegate: self)
+    private var headerBlurView: WBlurView!
+    private let bottomSeparatorView = UIView()
+    private let headerTouchTarget = UILabel()
     
-    var windowSafeAreaGuide = UILayoutGuide()
-    var windowSafeAreaGuideContraint: NSLayoutConstraint!
+    private var windowSafeAreaGuide = UILayoutGuide()
+    private var windowSafeAreaGuideContraint: NSLayoutConstraint!
 
-    let actionsVC: ActionsVC
-    var actionsTopConstraint: NSLayoutConstraint!
-    var walletAssetsVC: WalletAssetsVC!
-    var assetsHeightConstraint: NSLayoutConstraint!
+    private let actionsVC: ActionsVC
+    private var actionsTopConstraint: NSLayoutConstraint!
+    private var walletAssetsVC: WalletAssetsVC!
+    private var assetsHeightConstraint: NSLayoutConstraint!
     
-    var headerBottomConstraint: NSLayoutConstraint!
-    var headerGradientLeading = GradientView()
-    var headerGradientTrailing = GradientView()
+    private var headerBottomConstraint: NSLayoutConstraint!
+    private var headerGradientLeading = EdgeGradientView()
+    private var headerGradientTrailing = EdgeGradientView()
     
     // Temporary set to true when user taps on wallet card icon to expand it!
     var isExpandingProgrammatically: Bool = false
@@ -75,9 +77,10 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     
     public init(accountSource: AccountSource = .current) {
         self.actionsVC = ActionsVC(accountSource: accountSource)
+        homeVM = HomeViewModel(accountSource: accountSource)
+        headerViewModel = HomeHeaderViewModel(accountSource: accountSource)
         super.init(nibName: nil, bundle: nil)
-        self.homeVM = HomeViewModel(accountSource: accountSource, delegate: self)
-        self.headerViewModel = HomeHeaderViewModel(accountSource: accountSource)
+        homeVM.delegate = self
     }
 
     public override var hideNavigationBar: Bool { false }
@@ -159,8 +162,6 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         ])
 
         // balance header view
-        let balanceHeaderView = BalanceHeaderView(headerViewModel: headerViewModel, accountSource: homeVM.$account.source, delegate: self)
-        self.balanceHeaderView = balanceHeaderView
         balanceHeaderView.alpha = 0
         headerContainerView.addSubview(balanceHeaderView)
         NSLayoutConstraint.activate([
@@ -181,7 +182,6 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
 
         headerBlurView.alpha = 0
 
-        bottomSeparatorView = UIView()
         bottomSeparatorView.translatesAutoresizingMaskIntoConstraints = false
         bottomSeparatorView.isUserInteractionEnabled = false
         bottomSeparatorView.backgroundColor = UIColor { WTheme.separator.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.8 : 0.2) }
@@ -211,14 +211,29 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         addChild(actionsVC)
         let actionsContainerView = actionsVC.actionsContainerView
         let actionsView = actionsVC.actionsView
-        tableView.addSubview(actionsContainerView)
-        actionsTopConstraint = actionsContainerView.topAnchor.constraint(equalTo: tableView.contentLayoutGuide.topAnchor, constant: headerHeightWithoutAssets).withPriority(.init(950))
+        let actionsHostView: UIView
+        if #available(iOS 26, *) {
+            let effect = UIGlassContainerEffect()
+            effect.spacing = actionsView.spacing * 1.0 // merge effect intensity
+            let glassContainerView = UIVisualEffectView(effect: effect)
+            glassContainerView.translatesAutoresizingMaskIntoConstraints = false
+            glassContainerView.contentView.addSubview(actionsContainerView)
+            NSLayoutConstraint.activate([
+                actionsContainerView.leadingAnchor.constraint(equalTo: glassContainerView.contentView.leadingAnchor),
+                actionsContainerView.trailingAnchor.constraint(equalTo: glassContainerView.contentView.trailingAnchor),
+                actionsContainerView.topAnchor.constraint(equalTo: glassContainerView.contentView.topAnchor),
+                actionsContainerView.bottomAnchor.constraint(equalTo: glassContainerView.contentView.bottomAnchor),
+            ])
+            actionsHostView = glassContainerView
+        } else {
+            actionsHostView = actionsContainerView
+        }
+        tableView.addSubview(actionsHostView)
+        actionsTopConstraint = actionsHostView.topAnchor.constraint(equalTo: tableView.contentLayoutGuide.topAnchor, constant: headerHeightWithoutAssets).withPriority(.init(950))
         NSLayoutConstraint.activate([
-            actionsContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: horizontalPadding),
-            actionsContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -horizontalPadding),
+            actionsHostView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: horizontalPadding),
+            actionsHostView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -horizontalPadding),
             actionsTopConstraint,
-            
-            actionsContainerView.heightAnchor.constraint(equalToConstant: actionsRowHeight),
             actionsView.topAnchor.constraint(greaterThanOrEqualTo: windowSafeAreaGuide.topAnchor,
                                              constant: 50).withPriority(.init(900)), // will be broken when assets push it from below and out of frame; button height constrain has priority = 800
         ])
@@ -271,7 +286,6 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
             
             headerBottomConstraint,
             headerContainer.bottomAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor),
-//            headerContainer.bottomAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: 200),
         ])
         
         let accountSelector = HomeAccountSelector(viewModel: headerViewModel)
@@ -284,14 +298,9 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
             accountSelector.bottomAnchor.constraint(equalTo: headerContainer.bottomAnchor),
         ])
 
-        headerGradientLeading.isUserInteractionEnabled = false
         headerGradientLeading.translatesAutoresizingMaskIntoConstraints = false
-        headerGradientLeading.colors = [
-            WTheme.groupedBackground.withAlphaComponent(0.6),
-            WTheme.groupedBackground.withAlphaComponent(0),
-        ]
-        headerGradientLeading.gradientLayer.startPoint = CGPoint(x: 0, y: 0.5)
-        headerGradientLeading.gradientLayer.endPoint = CGPoint(x: 1, y: 0.5)
+        headerGradientLeading.color = WTheme.groupedBackground.withAlphaComponent(0.6)
+        headerGradientLeading.direction = .leading
         view.addSubview(headerGradientLeading)
         NSLayoutConstraint.activate([
             headerGradientLeading.leadingAnchor.constraint(equalTo: accountSelector.leadingAnchor),
@@ -300,14 +309,9 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
             headerGradientLeading.bottomAnchor.constraint(equalTo: accountSelector.bottomAnchor),
         ])
 
-        headerGradientTrailing.isUserInteractionEnabled = false
         headerGradientTrailing.translatesAutoresizingMaskIntoConstraints = false
-        headerGradientTrailing.colors = [
-            WTheme.groupedBackground.withAlphaComponent(0.6),
-            WTheme.groupedBackground.withAlphaComponent(0),
-        ]
-        headerGradientTrailing.gradientLayer.startPoint = CGPoint(x: 1, y: 0.5)
-        headerGradientTrailing.gradientLayer.endPoint = CGPoint(x: 0, y: 0.5)
+        headerGradientTrailing.color = WTheme.groupedBackground.withAlphaComponent(0.6)
+        headerGradientTrailing.direction = .trailing
         view.addSubview(headerGradientTrailing)
         NSLayoutConstraint.activate([
             headerGradientTrailing.trailingAnchor.constraint(equalTo: accountSelector.trailingAnchor),
@@ -336,10 +340,10 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
             await changeAccountTo(accountId: homeVM.account.id, isNew: false)
         }
         
-        balanceHeaderView?.alpha = 0
+        balanceHeaderView.alpha = 0
         tableView.alpha = 0
         UIView.animate(withDuration: 0.3) {
-            self.balanceHeaderView?.alpha = 1
+            self.balanceHeaderView.alpha = 1
             self.tableView.alpha = 1
         }
     }
@@ -396,14 +400,14 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         tableView.contentInset.bottom = view.safeAreaInsets.bottom + 16 + homeBottomInset
         let navBarHeight = navigationController!.navigationBar.frame.height
         windowSafeAreaGuideContraint.constant = view.safeAreaInsets.top - navBarHeight
-        balanceHeaderView?.updateStatusViewContainerTopConstraint.constant = (navBarHeight - 44) / 2 - S.updateStatusViewTopAdjustment
+        balanceHeaderView.updateStatusViewContainerTopConstraint.constant = (navBarHeight - 44) / 2 - S.updateStatusViewTopAdjustment
         scrollViewDidScroll(tableView)
     }
 
     func contentOffsetChanged() {
         // `tableView.contentInset` is not be applied until `scrollViewWillEndDragging` so inset is calculated here based on expansion state
         let topContentInset = headerViewModel.state == .expanded ? expansionInset : 0
-        balanceHeaderView?.updateHeight(scrollOffset: tableView.contentOffset.y + topContentInset, isExpandingProgrammatically: isExpandingProgrammatically)
+        balanceHeaderView.updateHeight(scrollOffset: tableView.contentOffset.y + topContentInset, isExpandingProgrammatically: isExpandingProgrammatically)
         updateHeaderBlur(y: tableView.contentOffset.y + tableView.contentInset.top)
         headerViewModel.scrollOffsetChanged(to: tableView.contentOffset.y)
     }
@@ -417,7 +421,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     // MARK: - Variable height
 
     var bhvHeight: CGFloat {
-        (balanceHeaderView?.calculatedHeight ?? 0) + S.bhvTopAdjustment
+        balanceHeaderView.calculatedHeight + S.bhvTopAdjustment
     }
     var actionsHeight: CGFloat {
         actionsVC.calculatedHeight
@@ -473,6 +477,8 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
 
     public override func updateTheme() {
         view.backgroundColor = WTheme.balanceHeaderView.background
+        headerGradientLeading.color = WTheme.groupedBackground.withAlphaComponent(0.6)
+        headerGradientTrailing.color = WTheme.groupedBackground.withAlphaComponent(0.6)
     }
 
     public func updateSensitiveData() {
@@ -590,7 +596,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     // MARK: HomeVMDelegate
     func update(state: UpdateStatusView.State, animated: Bool) {
         DispatchQueue.main.async {
-            self.balanceHeaderView?.update(status: state, animatedWithDuration: animated ? 0.3 : nil)
+            self.balanceHeaderView.update(status: state, animatedWithDuration: animated ? 0.3 : nil)
         }
     }
 
@@ -634,10 +640,8 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
                 changeThemeColors(to: accountSettings.accentColorIndex)
                 UIApplication.shared.sceneWindows.forEach { $0.updateTheme() }
             }
-            if let balanceHeaderView {
-                balanceHeaderView.updateStatusView.$account.accountId = accountId
-                balanceHeaderView.updateStatusView.setState(newState: balanceHeaderView.updateStatusView.state, animatedWithDuration: 0.2)
-            }
+            balanceHeaderView.updateStatusView.$account.accountId = accountId
+            balanceHeaderView.updateStatusView.setState(newState: balanceHeaderView.updateStatusView.state, animatedWithDuration: 0.2)
 
             try await Task.sleep(for: .seconds(0.12))
             

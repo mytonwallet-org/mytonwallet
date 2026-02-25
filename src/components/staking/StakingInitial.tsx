@@ -1,4 +1,3 @@
-import { Dialog } from '@capacitor/dialog';
 import React, { memo, type TeactNode, useCallback, useEffect, useMemo, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
@@ -41,13 +40,11 @@ import { getStakingMinAmount, getStakingTitle } from '../../util/staking';
 import { buildUserToken, getIsNativeToken, getNativeToken } from '../../util/tokens';
 import calcJettonStakingApr from '../../util/ton/calcJettonStakingApr';
 import { getHostnameFromUrl } from '../../util/url';
-import { IS_DELEGATED_BOTTOM_SHEET } from '../../util/windowEnvironment';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
-import useSyncEffect from '../../hooks/useSyncEffect';
 import { useAmountInputState } from '../ui/hooks/useAmountInputState';
 import { useTokenDropdown } from './hooks/useTokenDropdown';
 
@@ -215,58 +212,6 @@ function StakingInitial({
       });
     });
   }, [amount, fetchStakingFee]);
-
-  useSyncEffect(() => {
-    if (!IS_DELEGATED_BOTTOM_SHEET) return;
-
-    if (isSafeInfoModalOpen) {
-      let text: string[];
-      switch (stakingState?.type) {
-        case 'jetton':
-          text = [
-            // We use `replace` instead of `lang` argument to avoid JSX output
-            `${lang('$safe_staking_description_jetton1').replace('%jvault_link%', 'JVault')}`,
-            `${lang('$safe_staking_description_jetton2')}`,
-          ];
-          break;
-        case 'ethena':
-          text = [
-            `1. ${lang('$safe_staking_ethena_description1')}`,
-            `2. ${lang('$safe_staking_ethena_description2')}`,
-            `3. ${lang('$safe_staking_ethena_description3')}`,
-          ];
-          break;
-        default:
-          text = [
-            `1. ${lang('$safe_staking_description1')}`,
-            `2. ${lang('$safe_staking_description2').replace('%chain%', getChainTitle('ton'))}`,
-            `3. ${lang('$safe_staking_description3')}`,
-          ];
-      }
-
-      if (stakingState?.type === 'ethena') {
-        void Dialog.confirm({
-          title: lang(title),
-          message: text.join('\n\n').replace(/\*\*/g, ''),
-          okButtonTitle: lang('Close'),
-          cancelButtonTitle: lang('Help Center'),
-        })
-          .then((result) => {
-            closeSafeInfoModal();
-
-            if (!result.value) {
-              handleHelpCenterClick();
-            }
-          });
-      } else {
-        void Dialog.alert({
-          title: lang(title),
-          message: text.join('\n\n').replace(/\*\*/g, ''),
-        })
-          .then(closeSafeInfoModal);
-      }
-    }
-  }, [isSafeInfoModalOpen, lang, stakingState, title]);
 
   const canSubmit = amount
     && maxAmount

@@ -1,7 +1,7 @@
 import React, { memo, useEffect, useMemo } from '../../../../lib/teact/teact';
 import { getActions, getGlobal, withGlobal } from '../../../../global';
 
-import type { ApiChain, ApiSwapActivity, ApiSwapAsset } from '../../../../api/types';
+import type { ApiChain, ApiSwapActivity, ApiSwapAsset, ApiTokenWithPrice } from '../../../../api/types';
 import type { Account, Theme } from '../../../../global/types';
 import { SwapType } from '../../../../global/types';
 
@@ -23,7 +23,7 @@ import {
 } from '../../../../global/selectors';
 import { getIsActivityPendingForUser, getShouldSkipSwapWaitingStatus, parseTxId } from '../../../../util/activities';
 import buildClassName from '../../../../util/buildClassName';
-import { getIsSupportedChain } from '../../../../util/chain';
+import { getChainTitle, getIsSupportedChain } from '../../../../util/chain';
 import { formatFullDay, formatTime } from '../../../../util/dateFormat';
 import { formatCurrencyExtended } from '../../../../util/formatNumber';
 import { shareUrl } from '../../../../util/share';
@@ -55,7 +55,8 @@ import styles from './TransactionModal.module.scss';
 type StateProps = {
   accountChains?: Account['byChain'];
   activity?: ApiSwapActivity;
-  tokensBySlug?: Record<string, ApiSwapAsset>;
+  swapTokensBySlug?: Record<string, ApiSwapAsset>;
+  tokensBySlug?: Record<string, ApiTokenWithPrice>;
   theme: Theme;
   isSwapDisabled?: boolean;
   isSensitiveDataHidden?: true;
@@ -69,7 +70,15 @@ const CHANGELLY_ERROR_STATUSES = new Set(['failed', 'expired', 'refunded', 'over
 const ONCHAIN_ERROR_STATUSES = new Set(['failed', 'expired']);
 
 function SwapActivityModal({
-  activity, tokensBySlug, theme, accountChains, isSwapDisabled, isSensitiveDataHidden, isTestnet, selectedExplorerIds,
+  activity,
+  tokensBySlug,
+  swapTokensBySlug,
+  theme,
+  accountChains,
+  isSwapDisabled,
+  isSensitiveDataHidden,
+  isTestnet,
+  selectedExplorerIds,
 }: StateProps) {
   const {
     fetchActivityDetails,
@@ -118,16 +127,27 @@ function SwapActivityModal({
   let isCountdownFinished = false;
 
   const fromToken = useMemo(() => {
-    if (!renderedActivity?.from || !tokensBySlug) return undefined;
+    if (!renderedActivity?.from || !swapTokensBySlug || !tokensBySlug) return undefined;
 
-    return resolveSwapAsset(tokensBySlug, renderedActivity.from);
-  }, [renderedActivity?.from, tokensBySlug]);
+    const prioritySwapToken = resolveSwapAsset(swapTokensBySlug, renderedActivity.from);
+    if (!prioritySwapToken) {
+      return resolveSwapAsset(tokensBySlug, renderedActivity.from);
+    }
+
+    return prioritySwapToken;
+  }, [renderedActivity?.from, swapTokensBySlug, tokensBySlug]);
 
   const toToken = useMemo(() => {
-    if (!renderedActivity?.to || !tokensBySlug) return undefined;
+    if (!renderedActivity?.to || !swapTokensBySlug || !tokensBySlug) return undefined;
 
-    return resolveSwapAsset(tokensBySlug, renderedActivity.to);
-  }, [renderedActivity?.to, tokensBySlug]);
+    const prioritySwapToken = resolveSwapAsset(swapTokensBySlug, renderedActivity.to);
+    if (!prioritySwapToken) {
+      return resolveSwapAsset(tokensBySlug, renderedActivity.to);
+    }
+
+    return prioritySwapToken;
+  }, [renderedActivity?.to, swapTokensBySlug, tokensBySlug]);
+
   const isInternalSwap = getIsInternalSwap({
     from: fromToken, to: toToken, toAddress: payoutAddress, accountChains,
   });
@@ -262,7 +282,7 @@ function SwapActivityModal({
 
     if (isCexWaiting) {
       return (
-        <Button onClick={handleClose} className={styles.button}>
+        <Button onClick={handleClose} className={buildClassName(styles.button, styles.swapFooterButton)}>
           {lang('Close')}
         </Button>
       );
@@ -282,7 +302,7 @@ function SwapActivityModal({
     }
 
     return (
-      <Button onClick={handleSwapClick} className={styles.button}>
+      <Button onClick={handleSwapClick} className={buildClassName(styles.button, styles.swapFooterButton)}>
         {lang(buttonText)}
       </Button>
     );
@@ -304,7 +324,7 @@ function SwapActivityModal({
           {cexTransactionId && (
             <InteractiveTextField
               text={cexTransactionId}
-              copyNotification={lang('Transaction ID was copied!')}
+              copyNotification={lang('Transaction ID Copied')}
               noSavedAddress
               noExplorer
             />
@@ -346,7 +366,7 @@ function SwapActivityModal({
             {cexTransactionId && (
               <InteractiveTextField
                 text={cexTransactionId}
-                copyNotification={lang('Transaction ID was copied!')}
+                copyNotification={lang('Transaction ID Copied')}
                 noSavedAddress
                 noExplorer
               />
@@ -367,7 +387,7 @@ function SwapActivityModal({
         </span>
         <InteractiveTextField
           address={payinExtraId}
-          copyNotification={lang('Memo was copied!')}
+          copyNotification={lang('Memo Copied')}
           noSavedAddress
           noExplorer
         />
@@ -392,7 +412,7 @@ function SwapActivityModal({
           addressUrl={transactionUrl}
           chain={chain}
           isTransaction
-          copyNotification={lang('Transaction ID was copied!')}
+          copyNotification={lang('Transaction ID Copied')}
         />
       </div>
     );
@@ -441,7 +461,7 @@ function SwapActivityModal({
         <InteractiveTextField
           chain={chain}
           address={address}
-          copyNotification={lang('Address was copied!')}
+          copyNotification={lang('%chain% Address Copied', { chain: chain ? getChainTitle(chain) : '' }) as string}
           noSavedAddress
           noExplorer
           noDimming
@@ -474,7 +494,7 @@ function SwapActivityModal({
           <InteractiveTextField
             chain={chain}
             address={payinAddress}
-            copyNotification={lang('Address was copied!')}
+            copyNotification={lang('%chain% Address Copied', { chain: chain ? getChainTitle(chain) : '' }) as string}
             noSavedAddress
             noExplorer
             noDimming
@@ -498,12 +518,13 @@ function SwapActivityModal({
     const footerButton = !isSwapDisabled ? renderFooterButton() : undefined;
 
     const viewDetailsButton = isAggregatedSwap ? (
-      <Button onClick={handleViewDetails} className={styles.button}>
+      <Button onClick={handleViewDetails} className={buildClassName(styles.button, styles.swapFooterButton)}>
         {lang('View details')}
       </Button>
     ) : undefined;
 
     const shouldRenderFooter = footerButton || viewDetailsButton;
+    const shouldUseGridFooter = Boolean(footerButton && viewDetailsButton);
 
     return (
       <div className={modalStyles.transitionContent}>
@@ -522,7 +543,7 @@ function SwapActivityModal({
           {renderTransactionId()}
         </div>
         {shouldRenderFooter && (
-          <div className={styles.footer}>
+          <div className={buildClassName(styles.footer, shouldUseGridFooter && styles.swapFooter)}>
             {viewDetailsButton}
             {footerButton}
           </div>
@@ -535,7 +556,6 @@ function SwapActivityModal({
     <Modal
       hasCloseButton
       isOpen={isOpen}
-      nativeBottomSheetKey="swap-activity"
       onClose={handleClose}
     >
       <ModalHeader
@@ -561,7 +581,8 @@ export default memo(
 
     return {
       activity: activity?.kind === 'swap' ? activity : undefined,
-      tokensBySlug: global.swapTokenInfo?.bySlug,
+      swapTokensBySlug: global.swapTokenInfo?.bySlug,
+      tokensBySlug: global.tokenInfo.bySlug,
       theme,
       accountChains: account?.byChain,
       isSwapDisabled: isSwapDisabled || isTestnet || selectIsCurrentAccountViewMode(global),

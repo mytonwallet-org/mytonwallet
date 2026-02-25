@@ -33,7 +33,6 @@ import { vibrate, vibrateOnSuccess } from '../../../util/haptics';
 import { omit } from '../../../util/iteratees';
 import { getTranslation } from '../../../util/langProvider';
 import { logDebugError } from '../../../util/logs';
-import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { openUrl } from '../../../util/openUrl';
 import { getTelegramApp } from '../../../util/telegram';
 import { getChainBySlug } from '../../../util/tokens';
@@ -41,8 +40,6 @@ import {
   getIsMobileTelegramApp,
   IS_ANDROID_APP,
   IS_BIOMETRIC_AUTH_SUPPORTED,
-  IS_DELEGATED_BOTTOM_SHEET,
-  IS_DELEGATING_BOTTOM_SHEET,
   IS_ELECTRON,
 } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
@@ -75,30 +72,29 @@ import { switchAccount } from '../api/auth';
 
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
 
-import { reportAppLockActivityEvent } from '../../../components/appLocked/AppLocked';
 import { closeModal } from '../../../components/ui/Modal';
 
 const APP_VERSION_URL = IS_ANDROID_APP ? `${IS_PRODUCTION ? PRODUCTION_URL : BETA_URL}/version.txt` : 'version.txt';
 
 addActionHandler('showActivityInfo', (global, actions, { id }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('showActivityInfo', { id });
-    return undefined;
-  }
-
   return updateCurrentAccountState(global, { currentActivityId: id });
 });
 
 addActionHandler('showAnyAccountTx', async (global, actions, { txId, accountId, network, chain }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('showAnyAccountTx', { txId, accountId, network, chain });
-    return;
-  }
-
   await Promise.all([
     closeAllOverlays(),
     switchAccount(global, accountId, network),
   ]);
+
+  if (txId.startsWith('swap:')) {
+    const result = await callApi('fetchSwaps', accountId, [txId]);
+    const swapActivity = result?.swaps[0];
+
+    if (swapActivity) {
+      actions.openTransactionInfo({ txId, chain, activities: [swapActivity] });
+      return;
+    }
+  }
 
   const txHash = parseNotificationTxId(txId);
   actions.openTransactionInfo({ txHash, chain });
@@ -138,21 +134,11 @@ addActionHandler('openTransactionInfo', async (global, actions, payload) => {
   const options = isTxId ? { chain, network, txId, walletAddress } : { chain, network, txHash: txId, walletAddress };
 
   if (!activities) {
-    // This should be called on main to trigger NBS opening
     setGlobal(updateCurrentTransactionInfo(getGlobal(), {
       state: TransactionInfoState.Loading,
       txId,
       chain,
     }));
-
-    if (IS_DELEGATING_BOTTOM_SHEET) {
-      callActionInNative(
-        'openTransactionInfo',
-        payload,
-        { sheetKey: 'transaction-info' },
-      );
-      return;
-    }
 
     activities = await callApi('fetchTransactionById', options);
   }
@@ -181,10 +167,6 @@ addActionHandler('openTransactionInfo', async (global, actions, payload) => {
 });
 
 addActionHandler('closeTransactionInfo', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('closeTransactionInfo');
-  }
-
   return {
     ...global,
     currentTransactionInfo: {
@@ -272,15 +254,16 @@ addActionHandler('addAccount', async (global, actions, { method, password, isAut
 
     if (!(await callApi('verifyPassword', password))) {
       global = getGlobal();
+      const error = getDoesUsePinPad() ? 'Wrong passcode, please try again.' : 'Wrong password, please try again.';
       if (isAuthFlow) {
         global = updateAuth(global, {
           isLoading: undefined,
-          error: 'Wrong password, please try again.',
+          error,
         });
       } else {
         global = updateAccounts(getGlobal(), {
           isLoading: undefined,
-          error: 'Wrong password, please try again.',
+          error,
         });
       }
       setGlobal(global);
@@ -302,11 +285,7 @@ addActionHandler('addAccount', async (global, actions, { method, password, isAut
   }
   setGlobal(global);
 
-  if (!IS_DELEGATED_BOTTOM_SHEET) {
-    actions.addAccount2({ method, password });
-  } else {
-    callActionInMain('addAccount2', { method, password });
-  }
+  actions.addAccount2({ method, password });
 });
 
 addActionHandler('addAccount2', (global, actions, { method, password }) => {
@@ -350,11 +329,6 @@ addActionHandler('clearAccountError', (global) => {
 
 addActionHandler('openAddAccountModal', (global, _, props) => {
   const { forceAddingTonOnlyAccount, initialState, shouldHideBackButton } = props || {};
-
-  if (IS_DELEGATED_BOTTOM_SHEET && !global.areSettingsOpen) {
-    callActionInMain('openAddAccountModal', props);
-    return;
-  }
 
   global = { ...global, isAccountSelectorOpen: true };
 
@@ -401,11 +375,6 @@ addActionHandler('openSettings', (global) => {
 });
 
 addActionHandler('openSettingsWithState', (global, actions, { state }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET && !global.areSettingsOpen) {
-    callActionInMain('openSettingsWithState', { state });
-    return;
-  }
-
   global = updateSettings(global, { state });
   setGlobal({ ...global, areSettingsOpen: true });
 });
@@ -424,11 +393,6 @@ addActionHandler('closeSettings', (global) => {
 });
 
 addActionHandler('openBackupWalletModal', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openBackupWalletModal');
-    return undefined;
-  }
-
   return { ...global, isBackupWalletModalOpen: true };
 });
 
@@ -570,11 +534,6 @@ addActionHandler('requestOpenQrScanner', async (global, actions) => {
     return;
   }
 
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('requestOpenQrScanner');
-    return;
-  }
-
   let currentQrScan: GlobalState['currentQrScan'];
   if (global.currentTransfer.state === TransferState.Initial) {
     currentQrScan = { currentTransfer: global.currentTransfer };
@@ -604,10 +563,6 @@ addActionHandler('requestOpenQrScanner', async (global, actions) => {
 });
 
 addActionHandler('closeQrScanner', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('closeQrScanner');
-  }
-
   return {
     ...global,
     isQrScannerOpen: undefined,
@@ -616,11 +571,6 @@ addActionHandler('closeQrScanner', (global) => {
 });
 
 addActionHandler('handleQrCode', async (global, actions, { data }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('handleQrCode', { data });
-    return;
-  }
-
   const { currentTransfer, currentSwap, currentDomainLinking } = global.currentQrScan || {};
 
   if (currentTransfer) {
@@ -682,23 +632,10 @@ addActionHandler('setIsPinAccepted', (global) => {
 });
 
 addActionHandler('clearIsPinAccepted', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    // Sometimes this action is called after the delegated bottom sheet is closed, e.g. on a component unmount.
-    // The problem is, delegated bottom sheet doesn't synchronize the global state when it's closed, so the pin pad
-    // can get stuck in the accepted state. To fix that, this action is called in the main WebView using a more reliable
-    // mechanism.
-    callActionInMain('clearIsPinAccepted');
-  }
-
   return clearIsPinAccepted(global);
 });
 
 addActionHandler('openOnRampWidgetModal', (global, actions, { chain }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openOnRampWidgetModal', { chain });
-    return;
-  }
-
   setGlobal({ ...global, chainForOnRampWidgetModal: chain });
 });
 
@@ -707,11 +644,6 @@ addActionHandler('closeOnRampWidgetModal', (global) => {
 });
 
 addActionHandler('openOffRampWidgetModal', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openOffRampWidgetModal');
-    return;
-  }
-
   const { tokenSlug } = global.currentTransfer;
   const chain = tokenSlug ? getChainBySlug(tokenSlug) : 'ton';
   setGlobal({ ...global, chainForOffRampWidgetModal: chain });
@@ -757,11 +689,6 @@ addActionHandler('setReceiveActiveTab', (global, actions, { chain }): GlobalStat
 });
 
 addActionHandler('openReceiveModal', (global, actions, params) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openReceiveModal', params);
-    return;
-  }
-
   global = updateCurrentAccountState(global, { receiveModalChain: params?.chain });
   global = { ...global, isReceiveModalOpen: true };
   setGlobal(global);
@@ -772,20 +699,11 @@ addActionHandler('closeReceiveModal', (global): GlobalState => {
 });
 
 addActionHandler('openInvoiceModal', (global, actions, params) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openInvoiceModal', params);
-    return;
-  }
-
   global = updateCurrentAccountState(global, { invoiceTokenSlug: params?.tokenSlug });
   setGlobal({ ...global, isInvoiceModalOpen: true });
 });
 
 addActionHandler('changeInvoiceToken', (global, actions, params) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('changeInvoiceToken', params);
-  }
-
   global = updateCurrentAccountState(global, { invoiceTokenSlug: params.tokenSlug });
   setGlobal(global);
 });
@@ -812,10 +730,6 @@ addActionHandler('closeLoadingOverlay', (global) => {
 });
 
 addActionHandler('clearAccountLoading', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('clearAccountLoading');
-  }
-
   setGlobal(updateAccounts(global, { isLoading: undefined }));
 });
 
@@ -830,20 +744,7 @@ addActionHandler('authorizeDiesel', (global) => {
   void openUrl(`https://t.me/${BOT_USERNAME}?start=auth-${address}`);
 });
 
-addActionHandler('submitAppLockActivityEvent', () => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('submitAppLockActivityEvent');
-    return;
-  }
-  reportAppLockActivityEvent();
-});
-
 addActionHandler('closeAnyModal', () => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('closeAnyModal');
-    return;
-  }
-
   closeModal();
 });
 
@@ -874,19 +775,10 @@ addActionHandler('setIsSensitiveDataHidden', (global, actions, { isHidden }) => 
 });
 
 addActionHandler('setIsAppLockActive', (global, actions, { isActive }) => {
-  if (IS_DELEGATING_BOTTOM_SHEET) {
-    callActionInNative('setIsAppLockActive', { isActive });
-  }
-
   setGlobal({ ...global, isAppLockActive: isActive || undefined });
 });
 
 addActionHandler('switchAccountAndOpenUrl', async (global, actions, payload) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('switchAccountAndOpenUrl', payload);
-    return;
-  }
-
   await Promise.all([
     // The browser is closed before opening the new URL, because otherwise the browser won't apply the new
     // parameters from `payload`. It's important to wait for `closeAllOverlays` to finish, because until the in-app
@@ -930,20 +822,10 @@ addActionHandler('switchToSettings', (global: GlobalState, actions) => {
 });
 
 addActionHandler('openPromotionModal', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openPromotionModal');
-    return global;
-  }
-
   return { ...global, isPromotionModalOpen: true };
 });
 
 addActionHandler('closePromotionModal', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('closePromotionModal');
-    return global;
-  }
-
   return { ...global, isPromotionModalOpen: undefined };
 });
 

@@ -151,19 +151,26 @@ public final class TonConnect: WalletCoreData.EventsObserver {
     func confirmConnect(request: ApiUpdate.DappConnect, accountId: String, passcode: String) {
         Task {
             do {
-                var result: ApiSignTonProofResult?
+                var signatures: [String]? = nil
                 if let proof = request.proof {
-                    result = try await Api.signTonProof(
+                    let account = AccountStore.get(accountId: accountId)
+                    let tonAddress = account.getAddress(chain: .ton) ?? ""
+                    let dappChains = [
+                        ApiDappSessionChain(chain: .ton, address: tonAddress, network: account.network),
+                    ]
+                    let result = try await Api.signDappProof(
+                        dappChains: dappChains,
                         accountId: accountId,
                         proof: proof,
                         password: passcode
                     )
+                    signatures = result.signatures
                 }
                 try await Api.confirmDappRequestConnect(
                     promiseId: request.promiseId,
                     data: .init(
                         accountId: accountId,
-                        proofSignature: result?.signature
+                        proofSignatures: signatures
                     )
                 )
             } catch {
@@ -182,7 +189,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
         }
     }
     
-    @MainActor  func handleSendTransactions(update: MDappSendTransactions) async {
+    @MainActor  func handleSendTransactions(update: ApiUpdate.DappSendTransactions) async {
         dismissOverlayIfNeeded()
         await switchAccountIfNeeded(accountId: update.accountId)
         if let vc = placeholderNc?.visibleViewController as? SendDappVC {
@@ -206,16 +213,22 @@ public final class TonConnect: WalletCoreData.EventsObserver {
         }
     }
     
-    func confirmSendTransactions(request: MDappSendTransactions, password: String?) {
+    func confirmSendTransactions(request: ApiUpdate.DappSendTransactions, password: String?) {
         Task {
             do {
-                let signedMessages = try await Api.signTransfers(
+                let account = AccountStore.get(accountId: request.accountId)
+                let chain = request.operationChain
+                let address = account.getAddress(chain: chain) ?? ""
+                let dappChain = ApiDappSessionChain(chain: chain, address: address, network: account.network)
+                let signedMessages = try await Api.signDappTransfers(
+                    dappChain: dappChain,
                     accountId: request.accountId,
                     messages: request.transactions.map(ApiTransferToSign.init),
                     options: .init(
                         password: password,
                         vestingAddress: request.vestingAddress,
                         validUntil: request.validUntil,
+                        isLegacyOutput: request.isLegacyOutput,
                     )
                 )
                 try await Api.confirmDappRequestSendTransaction(
@@ -228,7 +241,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
         }
     }
     
-    func cancelSendTransactions(request: MDappSendTransactions) {
+    func cancelSendTransactions(request: ApiUpdate.DappSendTransactions) {
         Task {
             do {
                 try await Api.cancelDappRequest(promiseId: request.promiseId, reason: lang("Canceled by the user"))
@@ -262,9 +275,18 @@ public final class TonConnect: WalletCoreData.EventsObserver {
     func confirmSignData(update: ApiUpdate.DappSignData, password: String?) {
         Task {
             do {
-                let result = try await Api.signData(accountId: update.accountId, dappUrl: update.dapp.url, payloadToSign: update.payloadToSign, password: password)
-                let dict = try (result as? [String: Any]).orThrow()
-                try await Api.confirmDappRequestSignData(promiseId: update.promiseId, data: AnyEncodable(dict: dict))
+                let account = AccountStore.get(accountId: update.accountId)
+                let chain = update.operationChain
+                let address = account.getAddress(chain: chain) ?? ""
+                let dappChain = ApiDappSessionChain(chain: chain, address: address, network: account.network)
+                let result = try await Api.signDappData(
+                    dappChain: dappChain,
+                    accountId: update.accountId,
+                    dappUrl: update.dapp.url,
+                    payloadToSign: update.payloadToSign,
+                    password: password
+                )
+                try await Api.confirmDappRequestSignData(promiseId: update.promiseId, data: AnyEncodable(result))
             } catch {
                 log.error("confirmSignData: \(error)")
             }

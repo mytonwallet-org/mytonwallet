@@ -5,7 +5,6 @@ module.exports = {
   moduleNameMapper: {
     '\\.(css|scss|jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga|tgs)$':
       '<rootDir>/tests/staticFileMock.js',
-    '@mytonwallet/native-bottom-sheet': '<rootDir>/tests/mocks/nativeBottomSheet.js',
     '@mytonwallet/air-app-launcher': '<rootDir>/tests/mocks/airAppLauncher.js',
     '@mauricewegner/capacitor-navigation-bar': '<rootDir>/tests/mocks/capacitorNavigationBar.js',
   },

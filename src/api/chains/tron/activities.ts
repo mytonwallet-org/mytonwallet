@@ -13,6 +13,7 @@ import { getTokenSlugs } from './util/tokens';
 import { fetchStoredWallet } from '../../common/accounts';
 import { updateActivityMetadata } from '../../common/helpers';
 import { buildTokenSlug, getTokenBySlug } from '../../common/tokens';
+import { SEC } from '../../constants';
 import { NETWORK_CONFIG } from './constants';
 
 export async function fetchActivitySlice({
@@ -57,8 +58,8 @@ export async function getTokenActivitySlice(
 
   if (slug === TRX.slug) {
     const rawTransactions = await getTrxTransactions(network, address, {
-      min_timestamp: fromTimestamp ? fromTimestamp + 1000 : undefined,
-      max_timestamp: toTimestamp ? toTimestamp - 1000 : undefined,
+      min_timestamp: fromTimestamp ? fromTimestamp + SEC : undefined,
+      max_timestamp: toTimestamp ? toTimestamp - SEC : undefined,
       limit,
       search_internal: false, // The parsing is not supported and not needed currently
     });
@@ -69,8 +70,8 @@ export async function getTokenActivitySlice(
     const { tokenAddress } = getTokenBySlug(slug) || {};
     const rawTransactions = await getTrc20Transactions(network, address, {
       contract_address: tokenAddress,
-      min_timestamp: fromTimestamp ? fromTimestamp + 1000 : undefined,
-      max_timestamp: toTimestamp ? toTimestamp - 1000 : undefined,
+      min_timestamp: fromTimestamp ? fromTimestamp + SEC : undefined,
+      max_timestamp: toTimestamp ? toTimestamp - SEC : undefined,
       limit,
     });
     activities = rawTransactions.map((rawTx) => parseRawTrc20Transaction(address, rawTx));

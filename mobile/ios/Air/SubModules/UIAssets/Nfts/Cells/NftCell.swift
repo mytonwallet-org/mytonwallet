@@ -101,7 +101,7 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
         wiggle.layoutDidChange()
     }
 
-    func configure(nft: ApiNft?, compactMode: Bool) {
+    func configure(nft: ApiNft?, compactMode: Bool, isMultichain: Bool) {
         let cornerRadius = NftCell.getCornerRadius(compactMode: compactMode)
         imageContainerView.layer.cornerRadius = cornerRadius
         imageContainerView.backgroundColor = WTheme.secondaryFill
@@ -114,7 +114,18 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
             textStack.isHidden = false
             let resolvedNft = nft ?? ApiNft.ERROR
             titleLabel.text = resolvedNft.name?.nilIfEmpty ?? formatStartEndAddress(resolvedNft.address, prefix: 4, suffix: 4)
-            subtitleLabel.text = resolvedNft.collectionName?.nilIfEmpty ?? lang("Standalone NFT")
+            let subtitle = resolvedNft.collectionName?.nilIfEmpty ?? lang("Standalone NFT")
+            let attr = NSMutableAttributedString()
+            if isMultichain {
+                let image = NSTextAttachment(image: .airBundle("ActivityAddress-\(resolvedNft.chain.rawValue)"))
+                image.bounds = .init(x: 0, y: -1.5, width: 13, height: 13)
+                attr.append(NSAttributedString(attachment: image))
+            }
+            attr.append(NSAttributedString(string: subtitle, attributes: [
+                .font: subtitleLabel.font ?? .systemFont(ofSize: 12),
+                .foregroundColor: WTheme.secondaryLabel
+            ]))
+            subtitleLabel.attributedText = attr
         }
     }
 

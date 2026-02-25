@@ -6,13 +6,12 @@ import { SettingsState } from '../../types';
 import { setInMemoryPasswordSignal } from '../../../util/authApi/inMemoryPasswordStore';
 import { getChainsSupportingLedger } from '../../../util/chain';
 import { setLanguage } from '../../../util/langProvider';
-import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import switchTheme from '../../../util/switchTheme';
-import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { addActionHandler, setGlobal } from '../..';
 import { resetHardware, updateAccountSettings, updateSettings } from '../../reducers';
 import { selectCurrentAccountId, selectIsBiometricAuthEnabled } from '../../selectors';
+import { selectNotificationAddressesSlow } from '../../selectors/notifications';
 
 let prevGlobal: GlobalState | undefined;
 
@@ -32,6 +31,17 @@ addCallback((global: GlobalState) => {
   if (settings.langCode !== prevSettings.langCode) {
     void setLanguage(settings.langCode);
     void callApi('setLangCode', settings.langCode);
+    const {
+      userToken, platform, enabledAccounts,
+    } = global.pushNotifications;
+    if (userToken && platform && enabledAccounts.length) {
+      void callApi('subscribeNotifications', {
+        userToken,
+        platform,
+        langCode: settings.langCode,
+        addresses: Object.values(selectNotificationAddressesSlow(global, enabledAccounts)).flat(),
+      });
+    }
   }
 
   prevGlobal = global;
@@ -78,11 +88,8 @@ addActionHandler('setIsAllowSuspiciousActions', (global, actions, { isEnabled })
   });
 });
 
-addActionHandler('setInMemoryPassword', (global, actions, { password, isFinalCall, force }) => {
-  // `global` is not loaded in the NBS until it's opened for the first time, so `isAutoConfirmEnabled` may be
-  // incorrectly `undefined` when Auto Confirm is actually enabled. To mitigate that, we skip checking the setting
-  // when `isFinalCall` is `true`, because in this case the action is fired by the main WebView only when Auto Confirm is enabled.
-  if (!(global.settings.isAutoConfirmEnabled || isFinalCall || force)) {
+addActionHandler('setInMemoryPassword', (global, actions, { password, force }) => {
+  if (!(global.settings.isAutoConfirmEnabled || force)) {
     return global;
   }
 
@@ -93,15 +100,6 @@ addActionHandler('setInMemoryPassword', (global, actions, { password, isFinalCal
   }
 
   setInMemoryPasswordSignal(password);
-
-  if (!isFinalCall) {
-    if (IS_DELEGATING_BOTTOM_SHEET) {
-      void callActionInNative('setInMemoryPassword', { password, isFinalCall: true });
-    }
-    if (IS_DELEGATED_BOTTOM_SHEET) {
-      void callActionInMain('setInMemoryPassword', { password, isFinalCall: true });
-    }
-  }
 
   return global;
 });

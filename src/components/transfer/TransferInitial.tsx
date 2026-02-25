@@ -9,7 +9,7 @@ import type { ExplainedTransferFee } from '../../util/fee/transferFee';
 import type { FeePrecision, FeeTerms } from '../../util/fee/types';
 import { ScamWarningType, TransferState } from '../../global/types';
 
-import { DEFAULT_PRICE_CURRENCY, TONCOIN, UNKNOWN_TOKEN } from '../../config';
+import { DEFAULT_PRICE_CURRENCY, UNKNOWN_TOKEN } from '../../config';
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
 import {
   selectCurrentAccountId,
@@ -154,8 +154,9 @@ function TransferInitial({
 
   const isNftTransfer = Boolean(nfts?.length);
   if (isNftTransfer) {
+    const nftChain = nfts[0].chain;
     // Token and amount can't be selected in the NFT transfer form, so they are overwritten once for convenience
-    tokenSlug = TONCOIN.slug;
+    tokenSlug = getChainConfig(nftChain).nativeToken.slug;
     amount = undefined;
   }
 
@@ -169,6 +170,9 @@ function TransferInitial({
   const isDisabledDebounce = useRef<boolean>(false);
   const isAddressValid = chain ? isValidAddressOrDomain(toAddress, chain) : undefined;
   const doesSupportComment = chain && getChainConfig(chain).isTransferPayloadSupported;
+  const doesSupportCommentEncryption = !!chain
+    && getChainConfig(chain).isEncryptedCommentSupported
+    && isEncryptedCommentSupported;
   const transitionKey = useTransitionActiveKey(nfts?.length ? nfts : [tokenSlug]);
 
   const handleAddressInput = useLastCallback((newToAddress?: string, isValueReplaced?: boolean) => {
@@ -514,7 +518,7 @@ function TransferInitial({
             value={toAddress}
             chain={chain}
             // NFT transfers are available only on the TON blockchain on this moment
-            addressBookChain={isNftTransfer ? 'ton' : undefined}
+            addressBookChain={chain}
             savedAddresses={savedAddresses}
             validateAddress={checkTransferAddress}
             isStatic={isStatic}
@@ -554,7 +558,7 @@ function TransferInitial({
               isStatic={isStatic}
               isReadonly={isTransferReadonly}
               isCommentRequired={isCommentRequired}
-              isEncryptedCommentSupported={isEncryptedCommentSupported}
+              isEncryptedCommentSupported={doesSupportCommentEncryption}
               onCommentChange={handleCommentChange}
             />
           )}

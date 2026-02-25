@@ -30,10 +30,10 @@ final class CrosschainFromWalletModel {
     }
     
     func performSwap(toAddress: String, passcode: String) async throws {
-        let cexParams = ApiSwapCexCreateTransactionParams(
+        let cexParams = try ApiSwapCexCreateTransactionParams(
             from: sellingToken.type.swapIdentifier,
             fromAmount: MDouble(sellingToken.amount.doubleAbsRepresentation(decimals: sellingToken.decimals)),
-            fromAddress: account.addressByChain[TON_CHAIN] ?? "",
+            fromAddress: account.crosschainIdentifyingFromAddress.orThrow(),
             to: buyingToken.type.swapIdentifier,
             toAddress: toAddress,
             swapFee: swapFee,

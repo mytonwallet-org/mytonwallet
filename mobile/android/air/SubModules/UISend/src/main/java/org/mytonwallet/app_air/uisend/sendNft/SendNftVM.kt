@@ -6,6 +6,7 @@ import android.os.Looper
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckNftDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
@@ -53,11 +54,13 @@ class SendNftVM(delegate: Delegate, val nft: ApiNft) {
         delegate.get()?.feeUpdated(null, null)
         WalletCore.call(
             ApiMethod.Nft.CheckNftTransferDraft(
+                nft.chain ?: MBlockchain.ton,
                 MApiCheckNftDraftOptions(
                     AccountStore.activeAccountId!!,
-                    arrayOf(nft.toDictionary()),
+                    listOf(nft.toDictionary()),
                     inputAddress,
-                    inputComment
+                    inputComment,
+                    false
                 )
             ),
             callback = { res, err ->

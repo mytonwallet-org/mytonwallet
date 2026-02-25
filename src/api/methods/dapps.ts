@@ -1,10 +1,14 @@
 import type { LangCode } from '../../global/types';
 import type {
-  ApiDapp, ApiDappsByUrl, ApiDappsState, ApiNetwork, ApiSite, ApiSiteCategory, OnApiUpdate,
+  StoredSessionChain } from '../dappProtocols/storage';
+import type { DappProofRequest, UnifiedSignDataPayload } from '../dappProtocols/types';
+import type { ApiDappTransfer, ApiNetwork, ApiSite, ApiSiteCategory, OnApiUpdate,
 } from '../types';
 
 import { parseAccountId } from '../../util/account';
 import isEmptyObject from '../../util/isEmptyObject';
+import { logDebugError } from '../../util/logs';
+import chains from '../chains';
 import {
   getAccountValue,
   removeAccountValue,
@@ -13,6 +17,12 @@ import {
 } from '../common/accounts';
 import { callBackendGet } from '../common/backend';
 import { isUpdaterAlive } from '../common/helpers';
+import {
+  migrateLegacyConnection,
+  type StoredDappConnection,
+  type StoredDappsByUrl,
+  type StoredDappsState,
+} from '../dappProtocols/storage';
 import { callHook } from '../hooks';
 import { storage } from '../storages';
 
@@ -26,7 +36,7 @@ export async function updateDapp(
   accountId: string,
   url: string,
   uniqueId: string,
-  update: Partial<ApiDapp>,
+  update: Partial<StoredDappConnection>,
 ) {
   const dapp = await getDapp(accountId, url, uniqueId);
   if (!dapp) return;
@@ -37,16 +47,16 @@ export async function getDapp(
   accountId: string,
   url: string,
   uniqueId: string,
-): Promise<ApiDapp | undefined> {
+): Promise<StoredDappConnection | undefined> {
   const byUrl = (
-    await getAccountValue(accountId, 'dapps') as ApiDappsByUrl | undefined
+    await getAccountValue(accountId, 'dapps') as StoredDappsByUrl | undefined
   )?.[url];
   if (!byUrl) return undefined;
 
-  return byUrl[uniqueId];
+  return migrateLegacyConnection(byUrl[uniqueId]);
 }
 
-export async function addDapp(accountId: string, dapp: ApiDapp, uniqueId: string) {
+export async function addDapp(accountId: string, dapp: StoredDappConnection, uniqueId: string) {
   const dapps = await getDappsByUrl(accountId);
 
   if (!dapps[dapp.url]) {
@@ -68,6 +78,10 @@ export async function deleteDapp(
     return false;
   }
 
+  const dapp = dapps[url][uniqueId];
+  if (!dapp) {
+    return false;
+  }
   delete dapps[url][uniqueId];
   if (isEmptyObject(dapps[url])) {
     delete dapps[url];
@@ -84,36 +98,38 @@ export async function deleteDapp(
   }
 
   if (!dontNotifyDapp) {
-    await callHook('onDappDisconnected', accountId, url);
+    await callHook('onDappDisconnected', accountId, dapp);
   }
 
-  await callHook('onDappsChanged');
+  await callHook('onDappsChanged', dapp);
 
   return true;
 }
 
 export async function deleteAllDapps(accountId: string) {
-  const urls = Object.keys(await getDappsByUrl(accountId));
+  const dapps = await getDapps(accountId);
   await setAccountValue(accountId, 'dapps', {});
 
-  urls.forEach((url) => {
+  dapps.forEach((dapp) => {
     onUpdate({
       type: 'dappDisconnect',
       accountId,
-      url,
+      url: dapp.url,
     });
-    void callHook('onDappDisconnected', accountId, url);
+    void callHook('onDappDisconnected', accountId, dapp);
   });
 
   await callHook('onDappsChanged');
 }
 
-export async function getDapps(accountId: string): Promise<ApiDapp[]> {
+export async function getDapps(accountId: string): Promise<StoredDappConnection[]> {
   const byUrl = await getDappsByUrl(accountId);
-  return Object.values(byUrl).flatMap((byId) => Object.values(byId));
+  return Object.values(byUrl)
+    .flatMap((byId) => Object.values(byId)
+      .map((dapp) => migrateLegacyConnection(dapp)));
 }
 
-export async function getDappsByUrl(accountId: string): Promise<ApiDappsByUrl> {
+export async function getDappsByUrl(accountId: string): Promise<StoredDappsByUrl> {
   return (await getAccountValue(accountId, 'dapps')) || {};
 }
 
@@ -139,7 +155,7 @@ export async function findLastConnectedAccount(network: ApiNetwork, url: string)
   return lastConnectedAccountId;
 }
 
-export function getDappsState(): Promise<ApiDappsState | undefined> {
+export function getDappsState(): Promise<StoredDappsState | undefined> {
   return storage.getItem('dapps');
 }
 
@@ -171,4 +187,52 @@ export function loadExploreSites(
   { isLandscape, langCode }: { isLandscape: boolean; langCode: LangCode },
 ): Promise<{ categories: ApiSiteCategory[]; sites: ApiSite[] }> {
   return callBackendGet('/v2/dapp/catalog', { isLandscape, langCode });
+}
+
+export async function signDappProof(
+  dappChains: StoredSessionChain[] = [],
+  accountId: string,
+  proof: DappProofRequest,
+  password?: string,
+) {
+  try {
+    const signatures: string[] = [];
+    for (const chain of dappChains) {
+      const result = await chains[chain.chain].dapp?.signConnectionProof?.(accountId, proof, password);
+      if (result && 'signature' in result) {
+        signatures.push(result.signature);
+      }
+    }
+    return { signatures };
+  } catch (err) {
+    logDebugError('signDappProof', err);
+    return {
+      error: err,
+    };
+  }
+}
+
+export async function signDappTransfers(
+  dappChain: StoredSessionChain,
+  accountId: string,
+  transactions: ApiDappTransfer[],
+  options: {
+    password?: string;
+    validUntil?: number;
+    vestingAddress?: string;
+    // Deal with solana b58/b64 issues based on requested method
+    isLegacyOutput?: boolean;
+  } = {},
+) {
+  return await chains[dappChain.chain].dapp?.signDappTransfers(accountId, transactions, options);
+}
+
+export async function signDappData(
+  dappChain: StoredSessionChain,
+  accountId: string,
+  url: string,
+  payload: UnifiedSignDataPayload,
+  password?: string,
+) {
+  return await chains[dappChain.chain].dapp?.signDappData(accountId, url, payload, password);
 }

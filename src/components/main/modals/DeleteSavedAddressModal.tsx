@@ -41,7 +41,7 @@ function DeleteSavedAddressModal({
     >
       <p className={styles.text}>{lang('Are you sure you want to remove this address from your saved ones?')}</p>
 
-      <p className={styles.text}>{lang('You will be able to save it again via Transaction Info with this address.')}</p>
+      <p className={styles.text}>{lang('You will be able to save it again via Transfer Info with this address.')}</p>
 
       <div className={modalStyles.buttons}>
         <Button onClick={onClose} className={modalStyles.button}>{lang('Cancel')}</Button>

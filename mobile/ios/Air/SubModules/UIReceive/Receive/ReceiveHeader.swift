@@ -30,8 +30,9 @@ struct ReceiveHeaderView: View {
                 ZStack {
                     ForEach(viewModel.items) { item in
                         WithPerceptionTracking {
-                            let chain = item.id
-                            ReceiveHeaderItemView(viewModel: viewModel, chain: chain, address: accountContext.account.addressByChain[chain] ?? "")
+                            if let chain = ApiChain(rawValue: item.id) {
+                                ReceiveHeaderItemView(viewModel: viewModel, chain: chain, address: accountContext.account.getAddress(chain: chain) ?? "")
+                            }
                         }
                     }
                 }
@@ -44,22 +45,20 @@ struct ReceiveHeaderView: View {
 struct ReceiveHeaderItemView: View {
     
     var viewModel: SegmentedControlModel
-    var chain: String
+    var chain: ApiChain
     var address: String
-
-    var chainValue: ApiChain { ApiChain(rawValue: chain)! }
 
     var body: some View {
         WithPerceptionTracking {
-            let progress = viewModel.directionalDistanceToItem(itemId: chain)
+            let progress = viewModel.directionalDistanceToItem(itemId: chain.rawValue)
             let progressAbs = 1 - abs(progress)
             
             ZStack {
-                Image.airBundle("receive_ornament_\(chain)")
+                Image.airBundle("receive_ornament_\(chain.rawValue)")
                     .blendMode(.softLight)
                     .opacity(interpolate(from: 0.25, to: 1, progress: progressAbs))
                 
-                _QRCodeView(chain: chainValue, address: address, opacity: interpolate(from: 0.25, to: 1, progress: progressAbs), onTap: {})
+                _QRCodeView(chain: chain, address: address, opacity: interpolate(from: 0.25, to: 1, progress: progressAbs), onTap: {})
                     .frame(width: 220, height: 220)
                     .clipShape(.rect(cornerRadius: 32))
             }

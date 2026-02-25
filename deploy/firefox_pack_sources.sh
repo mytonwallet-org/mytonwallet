@@ -17,7 +17,6 @@ COPYFILE_DISABLE=1 tar \
   --exclude=./mobile/android \
   --exclude=./mobile/ios \
   --exclude=./mobile/plugins/air-app-launcher/node_modules \
-  --exclude=./mobile/plugins/native-bottom-sheet/node_modules \
   --exclude=./mobile/plugins/native-dialog/node_modules \
   "$@" -cvzf /tmp/MyTonWallet-firefox-sources.tgz ./
 

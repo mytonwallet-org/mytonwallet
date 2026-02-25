@@ -77,10 +77,26 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         }
     }
     
-    private func setupViews() {
-        
-        navigationItem.title = model.nftSendMode != nil ? lang("Send NFT") : lang("Send")
+    private func buildNavigationItem() {
+        switch model.mode {
+        case .burnNft, .sellToMoonpay:
+            assertionFailure("Should not be available on this screen")
+            fallthrough
+        case .sendNft:
+            navigationItem.title = lang("Send")
+        case .regular:
+            navigationItem.titleView = HostingView {
+                SendComposeTitleView(
+                    onSellTapped: { [weak self] in self?.showSell() },
+                    onMultisendTapped: { [weak self] in self?.showMultisend() }
+                )
+            }
+        }
         addCloseNavigationItemIfNeeded()
+    }
+    
+    private func setupViews() {
+        buildNavigationItem()
         
         let hostingController = UIHostingController(rootView: makeView())
         self.hostingController = hostingController
@@ -122,7 +138,7 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         view.backgroundColor = WTheme.sheetBackground
     }
     
-    func makeView() -> SendComposeView {
+    private func makeView() -> SendComposeView {
         SendComposeView(
             model: model,
             isSensitiveDataHidden: AppStorageHelper.isSensitiveDataHidden,
@@ -133,7 +149,7 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         hostingController?.rootView = makeView()
     }
     
-    @objc func continuePressed() {
+    @objc private func continuePressed() {
         view.resignFirstResponder()
         if model.draftData.transactionDraft?.diesel?.status == .notAuthorized {
             authorizeDiesel()
@@ -160,10 +176,18 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
     }
     
     private func authorizeDiesel() {
-        guard let tonAddress = model.account.addressByChain[TON_CHAIN] else { return }
-        let telegramURLString = "https://t.me/MyTonWalletBot?start=auth-\(tonAddress)"
-        let telegramURL = URL(string: telegramURLString)!
+        guard let telegramURL = model.account.dieselAuthLink else { return }
         UIApplication.shared.open(telegramURL, options: [:], completionHandler: nil)
+    }
+
+    private func showSell() {
+        dismiss(animated: true)
+        AppActions.showSell(account: model.account, tokenSlug: model.token.slug)
+    }
+    
+    private func showMultisend() {
+        dismiss(animated: true)
+        AppActions.showMultisend()
     }
 }
 
@@ -172,7 +196,7 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    let vc = SendComposeVC(model: SendModel())
+    let vc = SendComposeVC(model: SendModel(prefilledValues: .init()))
     previewSheet(vc)
 }
 #endif

@@ -4,7 +4,6 @@ import { IS_CAPACITOR } from '../config';
 import { SECOND } from './dateFormat';
 import { logDebug, logDebugError } from './logs';
 import { debounce } from './schedulers';
-import { IS_DELEGATED_BOTTOM_SHEET } from './windowEnvironment';
 
 import incomingTransactionSound from '../assets/incoming-transaction.mp3';
 
@@ -63,8 +62,6 @@ async function loadSound() {
 void loadSound();
 
 export const playIncomingTransactionSound = debounce(() => {
-  if (IS_DELEGATED_BOTTOM_SHEET) return;
-
   if (!isSoundInitialized) {
     logDebug('appSounds:playIncomingTransactionSound', 'sound is not initialized');
     return;

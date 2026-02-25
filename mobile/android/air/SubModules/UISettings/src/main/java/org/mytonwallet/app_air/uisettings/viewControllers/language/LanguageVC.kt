@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import java.lang.ref.WeakReference
 
 class LanguageVC(context: Context) : WViewController(context),
@@ -159,6 +160,7 @@ class LanguageVC(context: Context) : WViewController(context),
                     isLast = indexPath.row == languages.size - 1
                 ) {
                     WGlobalStorage.setLangCode(language.langCode)
+                    AirPushNotifications.refreshSubscriptions()
                     switchLanguageIfRequired(language)
                     if (LocaleController.init(context, WGlobalStorage.getLangCode())) {
                         WalletContextManager.delegate?.restartApp()

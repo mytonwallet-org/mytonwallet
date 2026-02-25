@@ -10,11 +10,26 @@ public let StakingStore = _StakingStore.shared
 private let log = Log("StakingStore")
 
 public final class _StakingStore: WalletCoreData.EventsObserver {
-    
     fileprivate static let shared = _StakingStore()
     
-    private var _byId: UnfairLock<[String: MStakingData]> = .init(initialState: [:])
-    public func byId(_ accountId: String) -> MStakingData? { _byId.withLock { $0[accountId] } }
+    private let _stakingData = UnfairLock<ValueFetchingState<[String: MStakingData]>>(initialState: .notSet)
+    public func stakingData(forAccountID accountId: String) -> MStakingData? {
+        _stakingData.withLock { dataSate in
+            switch dataSate {
+            case .notSet: nil
+            case .data(let stakingData): stakingData[accountId]
+            }
+        }
+    }
+    
+    public var isStakingDataLoaded: Bool {
+        _stakingData.withLock { dataState in
+            switch dataState {
+            case .notSet: false
+            case .data: true
+            }
+        }
+    }
     
     private var _db: (any DatabaseWriter)?
     private var db: any DatabaseWriter {
@@ -25,8 +40,7 @@ public final class _StakingStore: WalletCoreData.EventsObserver {
     private var commonDataObservation: Task<Void, Never>?
     private var accountsObservation: Task<Void, Never>?
 
-    private init() {
-    }
+    private init() {}
     
     // MARK: - Database
     
@@ -61,14 +75,16 @@ public final class _StakingStore: WalletCoreData.EventsObserver {
     }
     
     private func updateFromDb(accountStaking: [MStakingData]) {
-        var byId: [String: MStakingData] = [:]
-        for stakingData in accountStaking {
-            byId[stakingData.accountId] = stakingData
+        guard !accountStaking.isEmpty else { return } // lots of calls with empty array on app start
+        
+        let byId = mutate(value: [String: MStakingData]()) {
+            for stakingData in accountStaking {
+                $0[stakingData.accountId] = stakingData
+            }
         }
-        self._byId.withLock { [byId] in
-            $0 = byId
-        }
-        notifyObserversAllAccounts()
+        
+        self._stakingData.withLock { dataState in dataState = .data(byId) }
+        notifyObserversAllAccounts(stakingData: byId)
     }
     
     // MARK: - Events
@@ -98,10 +114,9 @@ public final class _StakingStore: WalletCoreData.EventsObserver {
         }
     }
     
-    private func notifyObserversAllAccounts() {
-        let byId = self._byId.withLock { $0 }
-        for (_, data) in byId {
-            WalletCoreData.notify(event: .stakingAccountData(data))
+    private func notifyObserversAllAccounts(stakingData: [String: MStakingData]) {
+        stakingData.values.forEach { accountStaking in
+            WalletCoreData.notify(event: .stakingAccountData(accountStaking))
         }
     }
 }

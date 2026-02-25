@@ -138,10 +138,8 @@ function OffRampWidgetModal({
   return (
     <Modal
       isOpen={isOpen}
-      forceFullNative
       header={renderHeader()}
       dialogClassName={styles.modalDialog}
-      nativeBottomSheetKey="offramp-widget"
       onClose={closeOffRampWidgetModal}
     >
       <div className={styles.content}>

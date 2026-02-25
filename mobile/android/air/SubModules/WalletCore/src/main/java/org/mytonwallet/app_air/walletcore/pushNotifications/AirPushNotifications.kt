@@ -14,7 +14,7 @@ import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNotificationAddress
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
@@ -136,7 +136,8 @@ object AirPushNotifications {
                                         it.tonAddress!!,
                                         MBlockchain.ton
                                     )
-                                }
+                                },
+                                WGlobalStorage.getLangCode()
                             )
                         )
                     )
@@ -151,6 +152,10 @@ object AirPushNotifications {
                 }
             }
         }
+    }
+
+    fun refreshSubscriptions() {
+        resubscribeAll(subscribePreviousAccountsIfEmpty = false)
     }
 
     fun subscribe(accountId: String, ignoreIfLimitReached: Boolean) {
@@ -248,7 +253,8 @@ object AirPushNotifications {
                                 address = tonAddress,
                                 chain = MBlockchain.ton
                             )
-                        )
+                        ),
+                        WGlobalStorage.getLangCode()
                     )
                 )
             )

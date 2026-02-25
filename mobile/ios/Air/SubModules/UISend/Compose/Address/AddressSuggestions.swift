@@ -32,29 +32,41 @@ struct AddressSuggestions: View {
     
     var body: some View {
         WithPerceptionTracking {
-            let addresses = self.addresses
-            let matchingAccountIds = self.matchingAccountIds
-            
-            if !addresses.isEmpty {
-                InsetSection {
-                    ForEach(addresses, id: \.self) { saved in
-                        let account = MAccount(id: saved.address + "-mainnet", title: saved.name, type: .view, byChain: [saved.chain.rawValue: AccountChain(address: saved.address)], isTemporary: true)
-                        SavedAddressButton(model: model, savedAddress: saved, accountContext: model.$account, account: AccountContext(source: .constant(account)))
-                    }
-                } header: {
-                    Text(lang("$saved_addresses_header"))
+            savedAddressesSection
+            myAccountsSection
+        }
+    }
+
+    @ViewBuilder
+    private var savedAddressesSection: some View {
+        if !addresses.isEmpty {
+            InsetSection {
+                ForEach(addresses, id: \.self) { saved in
+                    let account = makeTemporaryAccount(saved: saved)
+                    SavedAddressButton(model: model, savedAddress: saved, accountContext: model.$account, account: AccountContext(source: .constant(account)))
                 }
-            }
-            if !matchingAccountIds.isEmpty {
-                InsetSection {
-                    ForEach(matchingAccountIds, id: \.self) { accountId in
-                        AccountButton(model: model, account: AccountContext(accountId: accountId))
-                    }
-                } header: {
-                    Text(lang("My"))
-                }
+            } header: {
+                Text(lang("$saved_addresses_header"))
             }
         }
+    }
+
+    @ViewBuilder
+    private var myAccountsSection: some View {
+        if !matchingAccountIds.isEmpty {
+            InsetSection {
+                ForEach(matchingAccountIds, id: \.self) { accountId in
+                    AccountButton(model: model, account: AccountContext(accountId: accountId))
+                }
+            } header: {
+                Text(lang("My"))
+            }
+        }
+    }
+
+    private func makeTemporaryAccount(saved: SavedAddress) -> MAccount {
+        let byChain: [ApiChain: AccountChain] = [saved.chain: AccountChain(address: saved.address)]
+        return MAccount(id: saved.address + "-mainnet", title: saved.name, type: .view, byChain: byChain, isTemporary: true)
     }
 }
 

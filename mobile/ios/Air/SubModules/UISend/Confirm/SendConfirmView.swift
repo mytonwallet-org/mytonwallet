@@ -64,7 +64,7 @@ fileprivate struct AmountSection: View {
                             )
                         }
                         Spacer()
-                        FeeView(token: model.token, nativeToken: tokenStore.getNativeToken(chain: model.token.chainValue), fee: model.showingFee, explainedTransferFee: nil, includeLabel: true)
+                        FeeView(token: model.token, nativeToken: tokenStore.getNativeToken(chain: model.token.chain), fee: model.showingFee, explainedTransferFee: nil, includeLabel: true)
                     }
                 }
             }

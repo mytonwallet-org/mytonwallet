@@ -1,4 +1,4 @@
-import type { ActivitiesUpdate } from './socket';
+import type { ActivitiesUpdate } from '../../../common/websocket/abstractWsClient';
 import type { SocketFinality } from './types';
 
 import { pause } from '../../../../util/schedulers';

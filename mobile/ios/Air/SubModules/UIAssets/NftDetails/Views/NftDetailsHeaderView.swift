@@ -4,9 +4,6 @@ import WalletContext
 import WalletCore
 import Perception
 
-let mirrorStretchFactor: CGFloat = 2
-let blurHeight: CGFloat = 176
-let mirrorHeight: CGFloat = 92
 let collapsedImageSize: CGFloat = 144
 
 struct NftDetailsHeaderView: View {
@@ -15,19 +12,13 @@ struct NftDetailsHeaderView: View {
     var ns: Namespace.ID
     
     var nft: ApiNft { viewModel.nft }
-    var isExpanded: Bool { viewModel.isExpanded }
     
     var body: some View {
         WithPerceptionTracking {
             @Perception.Bindable var viewModel = viewModel
-            let layout = isExpanded ? AnyLayout(ZStackLayout(alignment: .bottom)) : AnyLayout(VStackLayout(spacing: 8))
-            
-            layout {
+            VStackLayout(spacing: 8) {
                 image
-                    .zIndex(-1)
                 labels
-                    .zIndex(1)
-                    .padding(.bottom, viewModel.isExpanded ? mirrorHeight : 0)
                     .offset(y: viewModel.isFullscreenPreviewOpen ? 100 : 0)
                 ActionsWithBackground(viewModel: viewModel)
             }
@@ -37,6 +28,9 @@ struct NftDetailsHeaderView: View {
     @ViewBuilder
     var image: some View {
         Image(viewModel: viewModel, ns: ns)
+            .padding(.top, 100)
+            .clipped()
+            .padding(.top, -100)
     }
 
     var labels: some View {
@@ -61,15 +55,12 @@ private struct Labels: View {
     var viewModel: NftDetailsViewModel
     
     var nft: ApiNft { viewModel.nft }
-    var isExpanded: Bool { viewModel.isExpanded }
-    
-    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         WithPerceptionTracking {
-            VStackLayout(alignment: isExpanded ? .leading : .center, spacing: 1) {
+            VStackLayout(alignment: .center, spacing: 1) {
                 Text(nft.displayName)
-                    .font(.system(size: viewModel.isExpanded ? 22 : 29, weight: .medium))
+                    .font(.system(size: 29, weight: .medium))
                 if let collection = nft.collection {
                     NftCollectionButton(name: collection.name, onTap: {
                         AppActions.showAssets(accountSource: .accountId(viewModel.account.id), selectedTab: 1, collectionsFilter: .collection(collection))
@@ -82,8 +73,8 @@ private struct Labels: View {
             }
             .padding(.horizontal, 16)
             .drawingGroup()
-            .frame(maxWidth: .infinity, alignment: isExpanded ? .leading : .center)
-            .environment(\.colorScheme, isExpanded ? .dark : colorScheme)
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, alignment: .center)
             .opacity(viewModel.shouldShowControls ? 1 : 0)
             .multilineTextAlignment(.center)
             .frame(maxWidth: 350)

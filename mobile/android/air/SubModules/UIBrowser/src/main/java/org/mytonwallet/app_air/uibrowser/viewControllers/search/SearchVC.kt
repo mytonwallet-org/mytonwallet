@@ -262,7 +262,7 @@ class SearchVC(context: Context) : WViewController(context),
                     openInAppBrowser(
                         InAppBrowserConfig(
                             url = site.url,
-                            injectTonConnectBridge = true,
+                            injectDappConnect = true,
                             saveInVisitedHistory = true,
                         )
                     )
@@ -311,7 +311,7 @@ class SearchVC(context: Context) : WViewController(context),
                     openInAppBrowser(
                         InAppBrowserConfig(
                             url = uri.toString(),
-                            injectTonConnectBridge = true,
+                            injectDappConnect = true,
                             saveInVisitedHistory = isValidUrl
                         )
                     )
@@ -337,7 +337,7 @@ class SearchVC(context: Context) : WViewController(context),
                             url = app.url!!,
                             title = app.name,
                             thumbnail = app.iconUrl,
-                            injectTonConnectBridge = true,
+                            injectDappConnect = true,
                             saveInVisitedHistory = true,
                         )
                     )
@@ -402,7 +402,7 @@ class SearchVC(context: Context) : WViewController(context),
                             openInAppBrowser(
                                 InAppBrowserConfig(
                                     url = uri.toString(),
-                                    injectTonConnectBridge = true,
+                                    injectDappConnect = true,
                                     saveInVisitedHistory = isValidUrl
                                 )
                             )
@@ -442,7 +442,7 @@ class SearchVC(context: Context) : WViewController(context),
                             openInAppBrowser(
                                 InAppBrowserConfig(
                                     url = site.url,
-                                    injectTonConnectBridge = true,
+                                    injectDappConnect = true,
                                     saveInVisitedHistory = true
                                 )
                             )

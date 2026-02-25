@@ -108,7 +108,7 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
         }
 
         val margin =
-            (if (image != null) ApplicationContextHolder.adaptiveContentStart else 12f).dp.roundToInt()
+            (if (image != null) ApplicationContextHolder.adaptiveContentStart else 20f).dp.roundToInt()
         listOf(tokenTitle, tokenSubtitle).forEach { view ->
             (view.layoutParams as? MarginLayoutParams)?.apply {
                 marginStart = margin

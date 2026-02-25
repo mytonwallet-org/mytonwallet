@@ -1,6 +1,7 @@
 import type { ApiChain } from '../types';
 import type { ChainSdk } from '../types/chains';
 
+import solana from './solana';
 import ton from './ton';
 import tron from './tron';
 
@@ -14,6 +15,7 @@ import tron from './tron';
 export const chains: { [K in ApiChain]: ChainSdk<K> } = {
   ton,
   tron,
+  solana,
 };
 
 export default chains;

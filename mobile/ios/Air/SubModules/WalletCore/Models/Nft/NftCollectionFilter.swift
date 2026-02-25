@@ -32,7 +32,7 @@ extension NftCollectionFilter {
         case .none:
             "nfts"
         case .collection(let nftCollection):
-            nftCollection.address
+            nftCollection.id
         case .telegramGifts:
             "super:telegram-gifts"
         }
@@ -43,7 +43,7 @@ extension NftCollectionFilter {
         case .none:
             collection
         case .collection(let nftCollection):
-            collection.filter { $1.nft.collectionAddress == nftCollection.address }
+            collection.filter { $1.nft.chain == nftCollection.chain && $1.nft.collectionAddress == nftCollection.address }
         case .telegramGifts:
             collection.filter { $1.nft.isTelegramGift == true }
         }

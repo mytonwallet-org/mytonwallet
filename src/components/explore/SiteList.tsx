@@ -46,7 +46,6 @@ function SiteList({ isActive, categoryId, sites }: OwnProps) {
           <Site
             key={`${site.url}-${site.name}`}
             site={site}
-            isInList
           />
         ))}
       </div>

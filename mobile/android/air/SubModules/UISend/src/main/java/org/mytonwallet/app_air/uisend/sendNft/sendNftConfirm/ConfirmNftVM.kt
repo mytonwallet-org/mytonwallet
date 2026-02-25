@@ -2,9 +2,9 @@ package org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm
 
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm.ConfirmNftVC.Mode
-import org.mytonwallet.app_air.walletcore.BURN_ADDRESS
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckNftDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
@@ -25,8 +25,8 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
 
     init {
         when (mode) {
-            Mode.Burn -> {
-                toAddress = BURN_ADDRESS
+            is Mode.Burn -> {
+                toAddress = mode.chain.burnAddress
             }
             is Mode.Send -> {
                 toAddress = mode.toAddress
@@ -38,14 +38,16 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
 
     val delegate: WeakReference<Delegate> = WeakReference(delegate)
 
-    fun requestFee(nft: ApiNft, comment: String?) {
+    fun requestFee(nft: ApiNft, isNftBurn: Boolean, comment: String?) {
         WalletCore.call(
             ApiMethod.Nft.CheckNftTransferDraft(
+                nft.chain ?: MBlockchain.ton,
                 MApiCheckNftDraftOptions(
                     AccountStore.activeAccountId!!,
-                    arrayOf(nft.toDictionary()),
+                    listOf(nft.toDictionary()),
                     toAddress,
-                    comment
+                    comment,
+                    isNftBurn
                 )
             ),
             callback = { res, err ->
@@ -59,17 +61,19 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
         )
     }
 
-    fun submitTransferNft(nft: ApiNft, comment: String?, passcode: String, onSent: () -> Unit) {
+    fun submitTransferNft(nft: ApiNft, isNftBurn: Boolean, comment: String?, passcode: String, onSent: () -> Unit) {
         if (resolvedAddress == null)
             return
         WalletCore.call(
             ApiMethod.Nft.SubmitNftTransfer(
-                AccountStore.activeAccountId!!,
-                passcode,
-                nft,
-                resolvedAddress!!,
-                comment,
-                feeValue ?: BigInteger.ZERO
+                chain = nft.chain ?: MBlockchain.ton,
+                accountId = AccountStore.activeAccountId!!,
+                passcode = passcode,
+                nft = nft,
+                address = resolvedAddress!!,
+                comment = comment,
+                fee = feeValue ?: BigInteger.ZERO,
+                isNftBurn = isNftBurn
             )
         ) { _, err ->
             if (err != null) {
@@ -82,6 +86,7 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
 
     fun signNftTransferData(
         nft: ApiNft,
+        isNftBurn: Boolean,
         comment: String?
     ): LedgerConnectVC.SignData.SignNftTransfer {
         return LedgerConnectVC.SignData.SignNftTransfer(
@@ -89,7 +94,8 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
             nft = nft,
             toAddress = resolvedAddress!!,
             comment = comment,
-            realFee = feeValue
+            realFee = feeValue,
+            isNftBurn = isNftBurn
         )
     }
 }

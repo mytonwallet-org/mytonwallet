@@ -51,6 +51,7 @@ dependencies {
     implementation(project("$airSubModulePath:Icons"))
     implementation(project("$airSubModulePath:UITransaction"))
     implementation(project("$airSubModulePath:UISend"))
+    implementation(project("$airSubModulePath:UISettings"))
     implementation(project("$airSubModulePath:UIStake"))
     implementation(project("$airSubModulePath:UIStake"))
     implementation(project("$airSubModulePath:UIStake"))

@@ -1,0 +1,147 @@
+@use "../../styles/mixins";
+
+$listHorizontalPadding: 1rem;
+
+.itemWrapper {
+  --color-site-border: linear-gradient(var(--color-accent) 0 0);
+
+  cursor: var(--custom-cursor, pointer);
+  position: relative;
+  max-width: max-content;
+
+  @include mixins.transition('background-color 150ms, color 150ms');
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      --color-background-first: var(--color-interactive-item-hover);
+
+      background-color: var(--color-interactive-item-hover);
+
+      .image {
+        transform: scale(1.05);
+      }
+    }
+  }
+
+  @media (pointer: coarse) {
+    &:active {
+      .image {
+        transform: scale(1.05);
+      }
+    }
+  }
+}
+
+.item {
+  position: relative;
+
+  display: flex;
+  flex-direction: column;
+
+  aspect-ratio: 1 / 1;
+  width: 11.5625rem;
+  height: auto;
+  border-radius: var(--border-radius-big);
+
+  &.extended {
+    aspect-ratio: 2 / 1;
+    width: min(23.125rem, calc(100vw - calc(2 * $listHorizontalPadding - var(--scrollbar-width))));
+
+    @include mixins.respond-below(xs) {
+      width: calc(100vw - calc(2 * $listHorizontalPadding - var(--scrollbar-width)));
+    }
+  }
+
+  &.withBorder {
+    overflow: hidden;
+    border: 0.125rem solid transparent;
+    border-radius: var(--border-radius-big);
+    background:
+      linear-gradient(var(--color-background-first) 0 0) padding-box,
+      var(--color-site-border) border-box;
+  }
+}
+
+.imageWrapper {
+  /* Fix for `border-radius` missing during transform on Safari. See https://stackoverflow.com/a/58283449 */
+  isolation: isolate;
+  position: absolute;
+  z-index: 0;
+  transform-origin: center;
+
+  overflow: hidden;
+  display: block !important;
+
+  width: 100%;
+  height: 100%;
+  border-radius: var(--border-radius-normal);
+}
+
+.image {
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 100%;
+  border-radius: var(--border-radius-normal);
+
+  object-fit: cover;
+
+  @include mixins.transition('transform 300ms, opacity 0.15s ease', !important);
+}
+
+.infoWrapper {
+  --color-black: var(--color-card-text);
+  --color-gray-2: var(--color-card-second-text);
+
+  position: relative;
+  z-index: 1;
+
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  justify-content: start;
+
+  margin-top: auto;
+  padding: 0.75rem;
+  border-radius: 0 0 var(--border-radius-big) var(--border-radius-big);
+
+  line-height: 1.0625rem;
+  text-overflow: ellipsis;
+
+  &::after {
+    content: '';
+
+    position: absolute;
+    z-index: -1;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+
+    border-radius: 0 0 var(--border-radius-big) var(--border-radius-big);
+
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.4) 100%);
+    backdrop-filter: blur(10px);
+  }
+}
+
+.badge {
+  position: absolute;
+  z-index: 2;
+  top: -0.5rem;
+  right: 1.25rem;
+
+  padding: 0 0.25rem;
+  border-radius: 0.3125rem;
+
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.125rem;
+  color: var(--color-accent-button-text);
+
+  background: var(--color-site-border);
+}

@@ -1,6 +1,10 @@
 import type { Connector } from '../../../util/PostMessageConnector';
 import type { ApiInitArgs, OnApiUpdate } from '../../types';
-import type { AllMethodArgs, AllMethodResponse, AllMethods } from '../../types/methods';
+import type {
+  AllMethods,
+  MethodArgsWithMaybePrefix,
+  MethodResponseWithMaybePrefix,
+} from '../../types/methods';
 
 import { logDebugApi, logDebugError } from '../../../util/logs';
 import { createConnector, createExtensionConnector } from '../../../util/PostMessageConnector';
@@ -51,7 +55,10 @@ export function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs) {
   initPromise = connector.init(initArgs);
 }
 
-export async function callApi<T extends keyof AllMethods>(fnName: T, ...args: AllMethodArgs<T>) {
+export async function callApi<T extends keyof AllMethods>(
+  fnName: T,
+  ...args: MethodArgsWithMaybePrefix<T>
+) {
   if (!connector) {
     logDebugError('API is not initialized when calling', fnName);
     return undefined;
@@ -63,7 +70,7 @@ export async function callApi<T extends keyof AllMethods>(fnName: T, ...args: Al
     const result = await (connector.request({
       name: fnName,
       args,
-    }) as Promise<AllMethodResponse<T>>);
+    }) as Promise<MethodResponseWithMaybePrefix<T>>);
 
     logDebugApi(`callApi: ${fnName}`, args, result);
 
@@ -73,13 +80,16 @@ export async function callApi<T extends keyof AllMethods>(fnName: T, ...args: Al
   }
 }
 
-export async function callApiWithThrow<T extends keyof AllMethods>(fnName: T, ...args: AllMethodArgs<T>) {
+export async function callApiWithThrow<T extends keyof AllMethods>(
+  fnName: T,
+  ...args: MethodArgsWithMaybePrefix<T>
+) {
   await initPromise!;
 
   return (connector!.request({
     name: fnName,
     args,
-  }) as AllMethodResponse<T>);
+  }) as MethodResponseWithMaybePrefix<T>);
 }
 
 const startedAt = Date.now();

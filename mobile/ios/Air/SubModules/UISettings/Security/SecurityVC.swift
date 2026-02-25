@@ -9,7 +9,7 @@ private let log = Log("SecurityVC")
 
 
 @MainActor
-internal class SecurityVC: WViewController {
+internal class SecurityVC: SettingsBaseVC {
     
     var hostingController: UIHostingController<SecurityView>? = nil
     var password: String

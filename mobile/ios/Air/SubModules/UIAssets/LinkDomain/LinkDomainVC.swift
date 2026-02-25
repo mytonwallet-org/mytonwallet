@@ -72,7 +72,7 @@ public final class LinkDomainVC: WViewController {
                 guard let self else { return }
                 if linkingSuccessful {
                     self.dismiss(animated: true) {
-                        AppActions.showToast(message: lang("Domain has been linked!"))
+                        AppActions.showToast(message: lang("Domain Linked"))
                     }
                 } else if let linkingError {
                     self.navigationController?.popViewController(animated: true)

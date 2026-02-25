@@ -13,17 +13,13 @@ import UIAssets
 import SwiftUI
 
 extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
-    
     public func headerIsAnimating() {
-
         let duration = isExpandingProgrammatically ? 0.2 : 0.3
         UIView.animateAdaptive(duration: duration) { [self] in
             updateTableViewHeaderFrame(animated: true)
             // reset status view to show wallet name in expanded mode and hide in collpased mode
-            if let balanceHeaderView {
-                balanceHeaderView.update(status: balanceHeaderView.updateStatusView.state,
-                                         animatedWithDuration: duration)
-            }
+            balanceHeaderView.update(status: balanceHeaderView.updateStatusView.state,
+                                     animatedWithDuration: duration)
         } completion: { [weak self] _ in
             guard let self else { return }
             scrollViewDidScroll(tableView)

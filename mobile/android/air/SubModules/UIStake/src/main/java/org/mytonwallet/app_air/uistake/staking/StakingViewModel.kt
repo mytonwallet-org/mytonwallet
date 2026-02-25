@@ -13,23 +13,19 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uistake.util.getTonStakingFees
-import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.PriceConversionUtils
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
-import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.STAKED_MYCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.STAKED_USDE_SLUG
-import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.submitStake
 import org.mytonwallet.app_air.walletcore.api.submitUnstake
+import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
@@ -87,15 +83,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
             return AccountStore.stakingData?.stakingState(tokenSlug)
         }
     var currentToken = TokenStore.getToken(if (mode == Mode.STAKE) tokenSlug else stakedTokenSlug)!!
-    private val stakedTokenSlug: String
-        get() {
-            return when (tokenSlug) {
-                TONCOIN_SLUG -> STAKE_SLUG
-                MYCOIN_SLUG -> STAKED_MYCOIN_SLUG
-                USDE_SLUG -> STAKED_USDE_SLUG
-                else -> throw Exception()
-            }
-        }
+    private val stakedTokenSlug: String get() = tokenSlugToStakingSlug(tokenSlug) ?: throw Exception()
     private val tonOperationFees = getTonStakingFees(stakingState?.stakingType).run {
         if (mode == Mode.UNSTAKE) this["unstake"] else this["stake"]
     }

@@ -330,6 +330,7 @@ class TonConnectRequestSendVC(
             }
 
             is TonConnectRequestSendViewModel.Event.OpenDappInBrowser -> {
+                activeDialog?.dismiss()
                 window?.dismissLastNav(onCompletion = {
                     WalletCore.notifyEvent(WalletEvent.OpenUrl(event.url))
                 })

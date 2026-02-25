@@ -191,7 +191,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
                 null,
                 InAppBrowserConfig(
                     link,
-                    injectTonConnectBridge = false,
+                    injectDappConnect = false,
                     injectDarkModeStyles = true,
                     title = title
                 )

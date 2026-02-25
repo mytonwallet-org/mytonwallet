@@ -166,7 +166,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
 
         titleStackViewCenterYAnchor = titleButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor, constant: centerYOffset)
         NSLayoutConstraint.activate([
-            titleButton.centerXAnchor.constraint(equalTo: centerXAnchor),
+            titleButton.centerXAnchor.constraint(equalTo: contentView.layoutMarginsGuide.centerXAnchor),
             titleStackViewCenterYAnchor,
             titleStackView.leadingAnchor.constraint(equalTo: titleButton.leadingAnchor),
             titleStackView.trailingAnchor.constraint(equalTo: titleButton.trailingAnchor),

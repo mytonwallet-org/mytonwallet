@@ -51,6 +51,12 @@ open class WViewController: UIViewController, WThemedView {
         true
     }
 
+    open var maxContentWidth: CGFloat? {
+        nil
+    }
+
+    private var appliedHorizontalSafeAreaInsetForMaxContentWidth: CGFloat = 0
+
     // set a view with background as UIViewController view, to do the rest, programmatically, inside the subclasses.
     open override func loadView() {
         let view = UIView()
@@ -82,6 +88,11 @@ open class WViewController: UIViewController, WThemedView {
         NotificationCenter.default.post(name: wViewControllerDidAppearNtf, object: self, userInfo: userInfo)
     }
     
+    open override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateMaxContentWidthIfNeeded()
+    }
+
     private var observer: NSObjectProtocol?
     private let notificationViewControllerKey = "viewController"
     private let wViewControllerDidAppearNtf = Notification.Name("WViewControllerDidAppear")
@@ -97,26 +108,6 @@ open class WViewController: UIViewController, WThemedView {
     }
     
     open func otherViewControllerDidAppear(_ vc: UIViewController) { }
-    
-    // MARK: - Sheet presentation
-    
-    open override func present(_ viewControllerToPresent: UIViewController, animated flag: Bool, completion: (() -> Void)? = nil) {
-        if let presentedViewController, presentedViewController.description.contains("UIInAppBrowser") {
-            WalletCoreData.notify(event: .minimizedSheetChanged(.replacedWithPlaceholder))
-            // TODO: is it guaranteed that placeholder will be taken before sheet is dismissed? seems so in practice but needs checking
-            self.dismiss(animated: false) {
-                super.present(viewControllerToPresent, animated: flag, completion: completion)
-            }
-
-        } else {
-            super.present(viewControllerToPresent, animated: flag, completion: completion)
-        }
-    }
-    
-    open override func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) {
-        super.dismiss(animated: flag, completion: completion)
-        WalletCoreData.notify(event: .sheetDismissed)
-    }
     
     // MARK: - Navigation bar
     
@@ -342,6 +333,11 @@ open class WViewController: UIViewController, WThemedView {
     
     open override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
+        updateMaxContentWidthIfNeeded()
+        updateBottomBarBlurConstraint()
+    }
+    
+    open func updateBottomBarBlurConstraint() {
         let newHeight = view.safeAreaInsets.bottom
         if let bottomBarBlurConstraint, view.safeAreaInsets.bottom > 30 {
             if bottomBarBlurConstraint.constant > 0, newHeight > bottomBarBlurConstraint.constant {
@@ -355,6 +351,34 @@ open class WViewController: UIViewController, WThemedView {
         }
     }
     
+    open func updateMaxContentWidthIfNeeded() {
+        guard let maxContentWidth, maxContentWidth > 0 else {
+            applyMaxContentWidthHorizontalInset(0)
+            return
+        }
+
+        let previousInset = appliedHorizontalSafeAreaInsetForMaxContentWidth
+        let baseSafeAreaLeft = max(0, view.safeAreaInsets.left - previousInset)
+        let baseSafeAreaRight = max(0, view.safeAreaInsets.right - previousInset)
+        let availableWidth = view.bounds.width - baseSafeAreaLeft - baseSafeAreaRight
+        guard availableWidth > 0 else { return }
+
+        let desiredInset = max(0, floor((availableWidth - maxContentWidth) * 0.5))
+        applyMaxContentWidthHorizontalInset(desiredInset)
+    }
+
+    private func applyMaxContentWidthHorizontalInset(_ inset: CGFloat) {
+        let inset = max(0, inset)
+        guard abs(inset - appliedHorizontalSafeAreaInsetForMaxContentWidth) > 0.5 else { return }
+
+        var newInsets = additionalSafeAreaInsets
+        let previousInset = appliedHorizontalSafeAreaInsetForMaxContentWidth
+        newInsets.left = max(0, newInsets.left - previousInset + inset)
+        newInsets.right = max(0, newInsets.right - previousInset + inset)
+        appliedHorizontalSafeAreaInsetForMaxContentWidth = inset
+        additionalSafeAreaInsets = newInsets
+    }
+
     // MARK: - Toast
     var toastView: UIView? = nil
     private var toastHider: DispatchWorkItem?
@@ -456,4 +480,3 @@ open class WViewController: UIViewController, WThemedView {
         present(vc, animated: false)
     }
 }
-

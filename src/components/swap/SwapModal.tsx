@@ -45,8 +45,6 @@ interface StateProps {
   accountChains?: Account['byChain'];
 }
 
-const FULL_SIZE_NBS_STATES = [SwapState.Password, SwapState.SelectTokenFrom, SwapState.SelectTokenTo];
-
 function SwapModal({
   currentSwap: {
     state,
@@ -282,19 +280,12 @@ function SwapModal({
     }
   }
 
-  const forceFullNative = FULL_SIZE_NBS_STATES.includes(renderingKey)
-    // Crosschain exchanges have additional information that may cause the height of the modal to be insufficient
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-    || (renderingKey === SwapState.Complete && renderedSwapType !== SwapType.OnChain);
-
   return (
     <Modal
       isOpen={isOpen}
       onClose={cancelSwap}
       noBackdropClose
       dialogClassName={styles.modalDialog}
-      nativeBottomSheetKey="swap"
-      forceFullNative={forceFullNative}
       hasCloseButton
       onCloseAnimationEnd={handleModalClose}
     >

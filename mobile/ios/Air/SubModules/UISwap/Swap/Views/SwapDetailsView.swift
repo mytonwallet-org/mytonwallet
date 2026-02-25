@@ -282,7 +282,7 @@ struct SwapDetailsView: View {
                         includeLabel: false
                     )
                 } else if let tonToken = TokenStore.tokens[TONCOIN_SLUG] {
-                    let fee = sellingToken.chain == "ton" ? displayEstimate.realNetworkFee : displayEstimate.networkFee
+                    let fee = sellingToken.chain == .ton ? displayEstimate.realNetworkFee : displayEstimate.networkFee
                     let feeAmountString = DecimalAmount.fromDouble(fee.value, tonToken).formatted(.defaultAdaptive)
                     Text("~\(feeAmountString)")
                 }

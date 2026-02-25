@@ -16,6 +16,7 @@ import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.sp
 import org.mytonwallet.app_air.uicomponents.helpers.CancelableRunnable
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -33,7 +34,7 @@ class WCounterButton(
     WThemedView {
     private val textPaintSecondary = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = WFont.Regular.typeface
-        textSize = 14f.dp
+        textSize = 14f.sp
     }
     private val counter = Counter(textPaintSecondary, this)
     private val ripple = WRippleDrawable.create(8f.dp)

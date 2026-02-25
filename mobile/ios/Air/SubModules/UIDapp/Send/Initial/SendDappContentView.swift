@@ -6,6 +6,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 import Perception
+import Dependencies
 
 enum SendDappViewOrPlaceholderContent {
     case placeholder(TonConnectPlaceholder)
@@ -31,10 +32,13 @@ struct SendDappViewOrPlaceholder: View {
 struct SendDappContentView: View {
     
     var accountContext: AccountContext
-    var request: MDappSendTransactions
+    var request: ApiUpdate.DappSendTransactions
+    var operationChain: ApiChain
     var onShowDetail: (ApiDappTransfer) -> ()
     
     var transactionsCount: Int { request.transactions.count }
+    
+    @Dependency(\.tokenStore) private var tokenStore
     
     var body: some View {
         WithPerceptionTracking {
@@ -49,9 +53,11 @@ struct SendDappContentView: View {
                         .padding(.horizontal, 16)
                 }
                 
-                totalAmountSection
-                
-                transfersSection
+                if request.shouldHideTransfers != true {
+                    totalAmountSection
+                    
+                    transfersSection
+                }
                 
                 previewSection
             }
@@ -76,7 +82,7 @@ struct SendDappContentView: View {
     var transfersSection: some View {
         InsetSection {
             ForEach(request.transactions, id: \.self) { tx in
-                TransferRow(transfer: tx, action: onShowDetail)
+                TransferRow(transfer: tx, chain: operationChain, action: onShowDetail)
             }
         } header: {
             Text(lang("transfer", arg1: transactionsCount))
@@ -88,7 +94,9 @@ struct SendDappContentView: View {
         if let emulation = request.emulation {
             InsetSection {
                 ForEach(emulation.activities) { activity in
-                    WPreviewActivityCell(activity: activity, accountContext: accountContext)
+                    WithPerceptionTracking {
+                        WPreviewActivityCell(.init(activity: activity, accountContext: accountContext, tokenStore: tokenStore))
+                    }
                 }
             } header: {
                 let preview = Text(lang("Preview"))

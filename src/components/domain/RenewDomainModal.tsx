@@ -42,12 +42,6 @@ interface StateProps {
   tonBalance: bigint;
 }
 
-const FULL_NATIVE_STATES = new Set([
-  DomainRenewalState.Password,
-  DomainRenewalState.ConnectHardware,
-  DomainRenewalState.ConfirmHardware,
-]);
-
 const THUMBNAILS_COUNT = 3;
 
 function RenewDomainModal({
@@ -81,7 +75,6 @@ function RenewDomainModal({
     return (addresses || []).map((address) => byAddress?.[address]).filter<ApiNft>(Boolean);
   }, [addresses, byAddress]);
   const isInsufficientBalance = realFee ? tonBalance < realFee : undefined;
-  const forceFullNative = FULL_NATIVE_STATES.has(renderingKey);
   const feeTerms = useMemo(() => (realFee ? { native: realFee } : undefined), [realFee]);
   const newExpireTimestamp = Date.now() + YEAR;
   const domainNftThumbnails = useMemo(() => {
@@ -250,7 +243,7 @@ function RenewDomainModal({
       case DomainRenewalState.ConfirmHardware:
         return (
           <LedgerConfirmOperation
-            text={lang('Please confirm transaction on your Ledger')}
+            text={lang('Please confirm action on your Ledger')}
             error={error}
             onClose={cancelDomainsRenewal}
             onTryAgain={handleHardwareSubmit}
@@ -265,8 +258,6 @@ function RenewDomainModal({
   return (
     <Modal
       isOpen={isOpen}
-      nativeBottomSheetKey="renew-domain"
-      forceFullNative={forceFullNative}
       dialogClassName={styles.modalDialog}
       onClose={cancelDomainsRenewal}
     >

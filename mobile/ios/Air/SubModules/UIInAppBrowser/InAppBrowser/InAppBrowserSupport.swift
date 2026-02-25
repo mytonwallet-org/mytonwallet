@@ -1,4 +1,3 @@
-
 import UIKit
 import UIComponents
 import WalletCore
@@ -6,138 +5,263 @@ import WalletContext
 
 private let log = Log("InAppBrowserSupport")
 
-public final class InAppBrowserSupport: WalletCoreData.EventsObserver, WMinimizableSheetDelegate {
-    
+@MainActor
+public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver, UIAdaptivePresentationControllerDelegate {
+
     public static let shared = InAppBrowserSupport()
-    
-    private weak var sheet: WMinimizableSheet?
-    private var browser: InAppBrowserVC?
-    
-    @MainActor private var presentedPrimarySheet: WMinimizableSheet? {
-        let rootVC = UIApplication.shared.sceneKeyWindow?.rootViewController as? UITabBarController
-        return rootVC?.presentedViewController as? WMinimizableSheet
+
+    private enum BrowserState {
+        case closed
+        case minimized
+        case minimizableSheetPresented
+        case systemSheetPresented
     }
-    
-    private init() {
-        inject_gestureRecognizerShouldBegin()
+
+    private enum SystemSheetDismissBehavior {
+        case minimizeToMinimizableSheet
+        case closeAndReset
+    }
+
+    private var browser: InAppBrowserVC?
+    private var sheetStateObservation: MinimizableSheetObservation?
+    private weak var observedSheetController: MinimizableSheetController?
+    private var state: BrowserState = .closed
+    private var systemSheetDismissBehavior: SystemSheetDismissBehavior = .minimizeToMinimizableSheet
+
+    private var sheetContainerViewController: MinimizableSheetContainerViewController? {
+        UIApplication.shared.sceneKeyWindow?.rootViewController?
+            .descendantViewController(of: MinimizableSheetContainerViewController.self)
+    }
+
+    private var sheetViewController: MinimizableSheetContentViewController? {
+        sheetContainerViewController?.sheetViewController as? MinimizableSheetContentViewController
+    }
+
+    private var sheetController: MinimizableSheetController? {
+        sheetContainerViewController?.sheetController
+    }
+
+    private override init() {
+        super.init()
         WalletCoreData.add(eventObserver: self)
     }
-    
+
     public func start() {
-        // make sure it is initialized
+        observeSheetStateIfNeeded()
     }
-    
+
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .accountChanged:
-            self.sheet = nil
-            self.browser = nil
-        case .minimizedSheetChanged(let state):
-            switch state {
-            case .closedExternally:
-                self.sheet = nil
-                self.browser = nil
-            default:
-                break
+            if state == .minimized {
+                closeBrowser(animated: false)
             }
         case .dappDisconnect(accountId: let accountId, origin: let origin):
-            if accountId == AccountStore.accountId, let browser, origin == browser.currentPage?.config.url.origin, sheet?.isExpanded != true {
+            if accountId == AccountStore.accountId,
+               let browser,
+               origin == browser.currentPage?.config.url.origin,
+               state != .minimizableSheetPresented {
                 browser.reload()
-            }
-        case .sheetDismissed:
-            if let rootVC = UIApplication.shared.sceneKeyWindow?.rootViewController {
-                restoreMinimizedBrowserIfNeeded(rootVC)
             }
         default:
             break
         }
     }
-    
-    @MainActor public func openInBrowser(_ url: URL, title: String?, injectTonConnect: Bool) {
-        let config = InAppBrowserPageVC.Config(url: url, title: title, injectTonConnectBridge: injectTonConnect)
-        if let presentedPrimarySheet {
-            if let browser = presentedPrimarySheet.browser {
-                browser.openPage(config: config)
-            } else if let browser {
-                browser.openPage(config: config)
-                presentedPrimarySheet.addBrowser(browser)
+
+    /// Called through AppActions
+    public func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool) {
+        let config = InAppBrowserPageConfig(url: url, title: title, injectDappConnect: injectDappConnect)
+        let browser = ensureBrowser()
+        browser.openPage(config: config)
+
+        if shouldPresentInSystemSheet() {
+            transitionToSystemSheet(browser)
+        } else {
+            transitionToMinimizableSheet(browser, targetSheetState: .expanded, animated: true)
+        }
+    }
+
+    private func ensureBrowser() -> InAppBrowserVC {
+        if let browser {
+            return browser
+        }
+        let browser = InAppBrowserVC()
+        browser.onCloseRequested = { [weak self] in
+            self?.handleBrowserCloseRequested()
+        }
+        self.browser = browser
+        return browser
+    }
+
+    private func shouldPresentInSystemSheet() -> Bool {
+        guard let root = UIApplication.shared.sceneKeyWindow?.rootViewController else { return false }
+        return root.presentedViewController != nil
+    }
+
+    private func transitionToSystemSheet(_ browser: InAppBrowserVC) {
+        state = .systemSheetPresented
+        observeSheetStateIfNeeded()
+        systemSheetDismissBehavior = .minimizeToMinimizableSheet
+
+        if sheetViewController?.browser === browser {
+            sheetViewController?.setBrowser(nil)
+        }
+        if let sheetController, sheetController.state != .hidden {
+            sheetController.close(animated: false)
+        }
+        browser.view.layer.removeAllAnimations()
+        browser.view.alpha = 1
+
+        if browser.presentingViewController != nil {
+            configureSystemSheet(browser)
+            return
+        }
+
+        guard let presenter = systemSheetPresenter() else {
+            log.fault("system browser sheet presenter is unavailable")
+            transitionToMinimizableSheet(browser, targetSheetState: .expanded, animated: true)
+            return
+        }
+
+        browser.modalPresentationStyle = .pageSheet
+        presenter.present(browser, animated: true) { [weak self, weak browser] in
+            guard let self, let browser else { return }
+            self.configureSystemSheet(browser)
+        }
+    }
+
+    private func transitionToMinimizableSheet(
+        _ browser: InAppBrowserVC,
+        targetSheetState: MinimizableSheetState,
+        animated: Bool
+    ) {
+        observeSheetStateIfNeeded()
+
+        guard let sheetViewController, let sheetController else {
+            log.fault("minimizable sheet container is unavailable")
+            finalizeClosedState()
+            return
+        }
+
+        systemSheetDismissBehavior = .minimizeToMinimizableSheet
+        sheetViewController.setBrowser(browser)
+        sheetController.setState(targetSheetState, animated: animated)
+        updateStateFromMinimizableSheetState(targetSheetState)
+    }
+
+    private func systemSheetPresenter() -> UIViewController? {
+        var candidate = topViewController()
+        while candidate is UIAlertController {
+            candidate = candidate?.presentingViewController
+        }
+        return candidate ?? UIApplication.shared.sceneKeyWindow?.rootViewController
+    }
+
+    private func configureSystemSheet(_ browser: InAppBrowserVC) {
+        browser.presentationController?.delegate = self
+        if let sheet = browser.sheetPresentationController {
+            sheet.detents = [.large()]
+            sheet.selectedDetentIdentifier = .large
+        }
+    }
+
+    private func handleBrowserCloseRequested() {
+        closeBrowser(animated: true)
+    }
+
+    private func closeBrowser(animated: Bool) {
+        switch state {
+        case .closed:
+            finalizeClosedState()
+        case .systemSheetPresented:
+            systemSheetDismissBehavior = .closeAndReset
+            if let browser, browser.presentingViewController != nil {
+                browser.dismiss(animated: animated)
             } else {
-                let browser = InAppBrowserVC()
-                self.browser = browser
-                browser.openPage(config: config)
-                presentedPrimarySheet.addBrowser(browser)
+                finalizeClosedState()
             }
-            presentedPrimarySheet.expand()
-        } else if let browser {
-            browser.openPage(config: config)
-            let sheet = WMinimizableSheet(browser: browser)
-            sheet.delegate = self
-            self.sheet = sheet
-            topViewController()?.present(sheet, animated: true)
-        } else {
-            let inAppBrowserVC = InAppBrowserVC()
-            inAppBrowserVC.openPage(config: config)
-            let sheet = WMinimizableSheet(browser: inAppBrowserVC)
-            sheet.delegate = self
-            self.sheet = sheet
-            topViewController()?.present(sheet, animated: true)
-        }
-    }
-    
-    private func restoreMinimizedBrowserIfNeeded(_ rootVC: UIViewController) {
-        if rootVC.presentedViewController == nil || rootVC.presentedViewController?.isBeingDismissed == true, let browser {
-            let sheet = WMinimizableSheet(browser: browser, startMinimized: true)
-            sheet.delegate = self
-            self.sheet = sheet
-            rootVC.present(sheet, animated: false)
-        }
-    }
-        
-    private func inject_gestureRecognizerShouldBegin() {
-        guard let cls = NSClassFromString("_UIFormSheetPresentationController") else { return }
-        let originalSelector = #selector(UIGestureRecognizerDelegate.gestureRecognizerShouldBegin(_:))
-        let swizzledSelector = #selector(Self.swizzled_gestureRecognizerShouldBegin(_:))
-        guard let swizzledMethod = class_getInstanceMethod(Self.self, swizzledSelector) else { return }
-        _ = class_addMethod(cls, originalSelector, method_getImplementation(swizzledMethod), method_getTypeEncoding(swizzledMethod))
-    }
-    
-    @objc private func swizzled_gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        // restrict impact of this method as much as possible
-        if gestureRecognizer.description.contains("UISheetPresentationControllerExteriorPanGesture") {
-            return false
-        }
-        return true
-    }
-
-    func minimizableSheetDidMinimize(_ sheet: WMinimizableSheet) {
-        log.info("minimizableSheetDidMinimize")
-        if let browser = sheet.removeBrowser() {
-            self.browser = browser
+        case .minimized, .minimizableSheetPresented:
+            if let sheetController, sheetController.state != .hidden {
+                sheetController.close(animated: animated)
+            } else {
+                finalizeClosedState()
+            }
         }
     }
 
-    func minimizableSheetDidExpand(_ sheet: WMinimizableSheet) {
-        log.info("minimizableSheetDidExpand")
-        if let browser = self.browser {
-            sheet.addBrowser(browser)
+    public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        guard state == .systemSheetPresented else { return }
+        if let browser, presentationController.presentedViewController !== browser {
+            return
+        }
+        switch systemSheetDismissBehavior {
+        case .minimizeToMinimizableSheet:
+            guard let browser else {
+                finalizeClosedState()
+                return
+            }
+            transitionToMinimizableSheet(browser, targetSheetState: .minimized, animated: true)
+        case .closeAndReset:
+            finalizeClosedState()
         }
     }
 
-    func minimizableSheetWillDismiss(_ sheet: WMinimizableSheet) {
-        log.info("minimizableSheetWillDismiss")
+    private func observeSheetStateIfNeeded() {
+        guard let controller = sheetController else { return }
+        guard observedSheetController !== controller else { return }
+
+        sheetStateObservation?.invalidate()
+        observedSheetController = controller
+        sheetStateObservation = controller.addObserver(options: .stateChanges) { [weak self] event in
+            guard let self else { return }
+            guard case let .stateDidChange(change) = event else { return }
+            self.handleMinimizableSheetStateChange(change.toState)
+        }
+
+        handleMinimizableSheetStateChange(controller.state)
     }
 
-    func minimizableSheetDidDismiss(_ sheet: WMinimizableSheet) {
-        log.info("minimizableSheetDidDismiss")
-        if let browser = sheet.removeBrowser() {
-            self.browser = browser
-        } else {
-            self.browser = nil
+    private func handleMinimizableSheetStateChange(_ sheetState: MinimizableSheetState) {
+        guard state != .systemSheetPresented else { return }
+        updateStateFromMinimizableSheetState(sheetState)
+
+        if sheetState == .hidden, state == .closed, browser != nil {
+            finalizeClosedState()
         }
     }
-    
-    func minimizableSheetDidClose(_ sheet: WMinimizableSheet) {
-        _ = sheet.removeBrowser()
-        self.browser = nil
+
+    private func updateStateFromMinimizableSheetState(_ sheetState: MinimizableSheetState) {
+        guard state != .systemSheetPresented else { return }
+        switch sheetState {
+        case .expanded:
+            if browser != nil {
+                state = .minimizableSheetPresented
+            } else {
+                state = .closed
+            }
+        case .minimized:
+            if browser != nil {
+                state = .minimized
+            } else {
+                state = .closed
+            }
+        case .hidden:
+            if state == .minimized || state == .minimizableSheetPresented {
+                state = .closed
+            }
+        }
+    }
+
+    private func finalizeClosedState() {
+        if let browser, browser.presentingViewController != nil {
+            browser.dismiss(animated: false)
+        }
+        if let sheetController, sheetController.state != .hidden {
+            sheetController.close(animated: false)
+        }
+        sheetViewController?.setBrowser(nil)
+        browser = nil
+        state = .closed
+        systemSheetDismissBehavior = .minimizeToMinimizableSheet
     }
 }

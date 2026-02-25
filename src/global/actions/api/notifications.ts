@@ -36,6 +36,7 @@ const abortableUnsubscribeNotifications = createAbortableFunction(
 
 addActionHandler('registerNotifications', async (global, actions, { userToken, platform }) => {
   const { pushNotifications } = global;
+  const { langCode } = global.settings;
 
   let createResult: ApiSubscribeNotificationsResult | { error: ApiAnyDisplayError } | undefined;
   let { enabledAccounts } = pushNotifications;
@@ -51,6 +52,7 @@ addActionHandler('registerNotifications', async (global, actions, { userToken, p
     createResult = await callApi('subscribeNotifications', {
       userToken,
       platform,
+      langCode,
       addresses: Object.values(notificationAddresses).flat(),
     });
   } else if (pushNotifications.userToken !== userToken && enabledAccounts.length) {
@@ -58,6 +60,7 @@ addActionHandler('registerNotifications', async (global, actions, { userToken, p
       callApi('subscribeNotifications', {
         userToken,
         platform,
+        langCode,
         addresses: Object.values(selectNotificationAddressesSlow(global, enabledAccounts)).flat(),
       }),
       callApi('unsubscribeNotifications', {
@@ -65,6 +68,13 @@ addActionHandler('registerNotifications', async (global, actions, { userToken, p
         addresses: Object.values(selectNotificationAddressesSlow(global, enabledAccounts)).flat(),
       }),
     ]);
+  } else if (pushNotifications.userToken === userToken && enabledAccounts.length) {
+    createResult = await callApi('subscribeNotifications', {
+      userToken,
+      platform,
+      langCode,
+      addresses: Object.values(selectNotificationAddressesSlow(global, enabledAccounts)).flat(),
+    });
   }
 
   global = getGlobal();
@@ -131,6 +141,7 @@ addActionHandler('deleteNotificationAccount', async (global, actions, { accountI
 
 addActionHandler('createNotificationAccount', async (global, actions, { accountId, withAbort }) => {
   const { userToken, platform } = global.pushNotifications;
+  const { langCode } = global.settings;
 
   if (!userToken || !platform) {
     return;
@@ -143,7 +154,12 @@ addActionHandler('createNotificationAccount', async (global, actions, { accountI
 
   setGlobal(createNotificationAccount(global, accountId));
 
-  const props = { userToken, platform, addresses };
+  const props = {
+    userToken,
+    platform,
+    langCode,
+    addresses,
+  };
   const result = withAbort
     ? await abortableSubscribeNotifications(props)
     : await callApi('subscribeNotifications', props);
@@ -167,6 +183,7 @@ addActionHandler('toggleNotifications', async (global, actions, { isEnabled }) =
   const {
     enabledAccounts, userToken, platform, isAvailable,
   } = global.pushNotifications;
+  const { langCode } = global.settings;
 
   if (!isAvailable || !userToken || (isEnabled && !platform)) {
     return;
@@ -195,7 +212,12 @@ addActionHandler('toggleNotifications', async (global, actions, { isEnabled }) =
 
   const addresses = Object.values(notificationAccounts).flat();
   const result = isEnabled
-    ? await abortableSubscribeNotifications({ userToken, platform: platform!, addresses })
+    ? await abortableSubscribeNotifications({
+      userToken,
+      platform: platform!,
+      langCode,
+      addresses,
+    })
     : await abortableUnsubscribeNotifications({ userToken, addresses });
 
   if (result && 'aborted' in result) {
