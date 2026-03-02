@@ -163,3 +163,20 @@ public extension View {
         self.modifier(_OffsetEffect(offset: CGSize(width: x, height: y)).ignoredByLayout())
     }
 }
+
+/// Position a view using a rectangular frame. Access using `.frame(rect:)`.
+struct FrameRectModifier: ViewModifier {
+    let rect: CGRect
+    func body(content: Content) -> some View {
+        content
+            .frame(width: rect.width, height: rect.height, alignment: .topLeading)
+            .position(x: rect.origin.x + rect.width / 2, y: rect.origin.y + rect.height / 2)
+    }
+}
+
+public extension View {
+    /// Position a view using a rectangular frame.
+    func frame(rect: CGRect) -> some View {
+        return modifier(FrameRectModifier(rect: rect))
+    }
+}

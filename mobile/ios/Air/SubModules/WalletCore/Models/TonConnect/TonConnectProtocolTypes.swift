@@ -346,9 +346,9 @@ public struct ApiDappSignDataResult: Codable, Sendable {
 
 public struct ApiTonConnectSignDataResponse: Codable, Sendable {
     public var id: String
-    public var result: ApiDappSignDataResult
+    public var result: ApiDappSignDataPayloadResult
 
-    public init(id: String, result: ApiDappSignDataResult) {
+    public init(id: String, result: ApiDappSignDataPayloadResult) {
         self.id = id
         self.result = result
     }

@@ -26,6 +26,22 @@ export const inactiveWalletTiming: FallbackPollingOptions = {
   forcedPollingPeriod: { focused: 2 * MINUTE, notFocused: 5 * MINUTE },
 };
 
+export const activeNftTiming: FallbackPollingOptions = {
+  pollOnStart: true,
+  minPollDelay: { focused: SEC, notFocused: 3 * SEC },
+  pollingStartDelay: 3 * SEC,
+  pollingPeriod: { focused: 30 * SEC, notFocused: MINUTE },
+  forcedPollingPeriod: { focused: 5 * MINUTE, notFocused: 10 * MINUTE },
+};
+
+export const inactiveNftTiming: FallbackPollingOptions = {
+  pollOnStart: false,
+  minPollDelay: { focused: 5 * SEC, notFocused: 30 * SEC },
+  pollingStartDelay: 5 * SEC,
+  pollingPeriod: { focused: MINUTE, notFocused: 5 * MINUTE },
+  forcedPollingPeriod: { focused: 10 * MINUTE, notFocused: 30 * MINUTE },
+};
+
 interface PollingLoopOptions<Dep> {
   period: Period;
   /** The minimum time between the `poll` calls */

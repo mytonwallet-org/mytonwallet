@@ -167,13 +167,16 @@ export const MTW_STATIC_BASE_URL = 'https://static.mytonwallet.org';
 export const MTW_CARDS_BASE_URL = `${MTW_STATIC_BASE_URL}/cards/v2/cards/`;
 export const MTW_CARDS_MINT_BASE_URL = `${MTW_STATIC_BASE_URL}/mint-cards/`;
 export const MYTONWALLET_PROMO_URL = 'https://mytonwallet.io/';
-export const MYTONWALLET_MULTISEND_DAPP_URL = 'https://multisend.mytonwallet.io/';
 export const MYTONWALLET_BLOG: Partial<Record<LangCode, string>> = {
   en: 'https://mytonwallet.io/en/blog/',
   ru: 'https://mytonwallet.io/ru/blog/',
 };
 export const MYTONWALLET_TERMS_OF_USE_URL = 'https://mytonwallet.io/terms-of-use';
 export const MYTONWALLET_PRIVACY_POLICY_URL = 'https://mytonwallet.io/privacy-policy';
+
+export const MULTISEND_DAPP_URL = process.env.MULTISEND_DAPP_URL || 'https://multisend.mytonwallet.io/';
+export const PORTFOLIO_DAPP_URL = process.env.PORTFOLIO_DAPP_URL || 'https://portfolio.mytonwallet.io/';
+
 export const NFT_MARKETPLACE_URL = 'https://getgems.io/';
 export const NFT_MARKETPLACE_TITLE = NFT_MARKETPLACE_TITLES.getgems;
 export const GETGEMS_BASE_MAINNET_URL = 'https://getgems.io/';
@@ -202,7 +205,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-278';
+export const LANG_CACHE_NAME = 'mtw-lang-279';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -757,7 +760,5 @@ export const UNKNOWN_TOKEN = {
   symbol: '[Unknown]',
   decimals: 9,
 } as const;
-
-export const PUSH_ADDRESS = 'EQBNl2Hnxgc-olNY_Qq9iB3Rd3P7GGrW2oUzLc47BW3EjHNy';
 
 export const DEFAULT_CHAIN: ApiChain = 'ton';

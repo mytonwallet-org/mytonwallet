@@ -1,7 +1,5 @@
-
 import UIKit
 import SwiftUI
-import Popovers
 import Perception
 
 struct MenuClippingContainer: View {

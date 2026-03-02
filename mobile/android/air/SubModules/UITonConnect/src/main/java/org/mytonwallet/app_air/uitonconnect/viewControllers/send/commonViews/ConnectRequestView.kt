@@ -152,7 +152,7 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
         linkTextView.setTextColor(WColor.Tint.color)
         infoTextView.setTextColor(WColor.PrimaryText.color)
 
-        val skeletonColor = WColor.SecondaryBackground.color
+        val skeletonColor = WColor.Background.color
         imageSkeletonView.setBackgroundColor(skeletonColor, IMAGE_SKELETON_RADIUS.dp)
         titleSkeletonView.setBackgroundColor(skeletonColor, SKELETON_RADIUS.dp)
         linkSkeletonView.setBackgroundColor(skeletonColor, SKELETON_RADIUS.dp)

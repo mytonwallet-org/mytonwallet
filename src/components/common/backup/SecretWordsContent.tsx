@@ -1,3 +1,4 @@
+import type { RefObject } from '../../../lib/teact/teact';
 import React, { memo } from '../../../lib/teact/teact';
 import { getActions } from '../../../global';
 
@@ -24,6 +25,7 @@ interface OwnProps {
   stickerClassName?: string;
   customButtonWrapperClassName?: string;
   buttonText: string;
+  stickerRef?: RefObject<HTMLDivElement | undefined>;
   onSubmit: NoneToVoidFunction;
 }
 
@@ -34,6 +36,7 @@ function SecretWordsContent({
   stickerClassName,
   customButtonWrapperClassName,
   buttonText,
+  stickerRef,
   onSubmit,
 }: OwnProps) {
   const { skipCheckMnemonic } = getActions();
@@ -57,6 +60,7 @@ function SecretWordsContent({
         nonInteractive
         noLoop={false}
         className={buildClassName(styles.modalSticker, stickerClassName)}
+        ref={stickerRef}
       />
 
       <SecretWordsList mnemonic={mnemonic} />

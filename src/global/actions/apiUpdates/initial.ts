@@ -192,6 +192,10 @@ addActionHandler('apiUpdate', (global, actions, update) => {
             ...currentNfts?.isLoadedByAddress,
             ...(shouldAppend && Boolean(collectionAddress) ? { [collectionAddress]: true } : {}),
           },
+          collectionLoadedTimestamps: {
+            ...currentNfts?.collectionLoadedTimestamps,
+            ...(shouldAppend && Boolean(collectionAddress) ? { [collectionAddress]: Date.now() } : {}),
+          },
           isFullLoadingByChain: isFullLoading !== undefined ? {
             ...currentNfts?.isFullLoadingByChain,
             [chain]: isFullLoading,

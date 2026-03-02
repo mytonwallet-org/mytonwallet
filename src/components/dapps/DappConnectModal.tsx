@@ -277,7 +277,7 @@ function DappConnectModal({
   }
 
   function renderDappInfo() {
-    const isViewMode = Boolean(selectedAccount && requiredProof && isViewAccount(accounts?.[selectedAccount].type));
+    const isViewMode = Boolean(selectedAccount && requiredProof && isViewAccount(accounts?.[selectedAccount]?.type));
 
     return (
       <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>

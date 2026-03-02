@@ -748,16 +748,6 @@ class SplashVC(context: Context) : WViewController(context),
             }
 
             is Deeplink.TonConnect2 -> {
-                if (deeplink.isConnectRequest &&
-                    AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW
-                ) {
-                    window?.topViewController?.showAlert(
-                        LocaleController.getString("Error"),
-                        LocaleController.getString("Action is not possible on a view-only wallet.")
-                    )
-                    nextDeeplink = null
-                    return
-                }
                 // Already handled
             }
 

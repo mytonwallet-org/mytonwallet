@@ -121,6 +121,7 @@
   --zoom-out-text: #108BE3;
   --tooltip-background: #FFFFFF;
   --tooltip-arrow: #D2D5D7;
+  --minimap-limit-color: #616770;
 
   -webkit-user-select: none;
   user-select: none;
@@ -145,6 +146,7 @@ html.theme-dark .lovely-chart--container {
   --zoom-out-text: #48AAF0;
   --tooltip-background: #1C2533;
   --tooltip-arrow: #D2D5D7;
+  --minimap-limit-color: #BFC0C2;
 }
 
 .lovely-chart--container > canvas,
@@ -379,6 +381,37 @@ html.theme-dark .lovely-chart--container {
   width: 5px;
 
   background: var(--minimap-mask);
+}
+
+.lovely-chart--minimap-limit-mask {
+  pointer-events: none;
+
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 100%;
+  border-right: 2px dashed var(--minimap-limit-color);
+  border-radius: 6px 0 0 6px;
+
+  color: var(--minimap-limit-color);
+
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.lovely-chart--minimap-limit-mask.lovely-chart--state-interactive {
+  pointer-events: auto;
+  cursor: var(--custom-cursor, pointer);
+  transition: opacity 200ms ease;
+}
+
+.lovely-chart--minimap-limit-mask.lovely-chart--state-interactive:hover {
+  opacity: 0.85;
 }
 
 .lovely-chart--minimap-slider {

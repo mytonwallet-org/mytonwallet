@@ -1,5 +1,6 @@
 import type { GlobalState } from '../types';
 
+import { CHAIN_ORDER } from '../../util/chain';
 import { explainApiTransferFee, getMaxTransferAmount } from '../../util/fee/transferFee';
 import { isValidAddressOrDomain } from '../../util/isValidAddress';
 import { orderByPattern } from '../../util/iteratees';
@@ -18,9 +19,6 @@ export function selectCurrentTransferMaxAmount(global: GlobalState) {
     canTransferFullBalance,
   });
 }
-
-// TRON validation is stricter than Solana, so we want to check TRON first.
-const CHAIN_ORDER = ['ton', 'tron', 'solana'];
 
 /**
  * Returns the token slug that should be set to current transfer form to keep the token in sync with the "to" address

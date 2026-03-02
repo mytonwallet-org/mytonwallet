@@ -10,9 +10,7 @@ import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.image.Content
-import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
-import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
+import org.mytonwallet.app_air.uicomponents.image.WNftImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
@@ -37,9 +35,8 @@ class HiddenNFTsItemCell(
 
     private lateinit var nft: ApiNft
 
-    private val imageView: WCustomImageView by lazy {
-        val img = WCustomImageView(context)
-        img
+    private val imageView: WNftImageView by lazy {
+        WNftImageView(context, 48.dp, 4.dp, 12f.dp)
     }
 
     private val titleLabel: WLabel by lazy {
@@ -115,6 +112,7 @@ class HiddenNFTsItemCell(
                 if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
             )
         }
+        imageView.updateTheme()
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
     }
@@ -127,11 +125,7 @@ class HiddenNFTsItemCell(
     ) {
         this.nft = nft
         this.isLast = isLast
-        nft.thumbnail?.let {
-            imageView.set(Content.ofUrl(it))
-        } ?: run {
-            imageView.setImageDrawable(null)
-        }
+        imageView.setNftImage(nft.thumbnail)
         nft.name?.let {
             titleLabel.text = it
         } ?: run {

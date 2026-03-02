@@ -41,7 +41,7 @@ function AccountInfo({
 
   const isHardware = currentAccount.type === 'hardware';
   const isView = isViewAccount(currentAccount.type);
-  const formattedAddress = formatAccountAddresses(currentAccount.byChain, 'list');
+  const formattedAddress = formatAccountAddresses(currentAccount.byChain);
 
   return (
     <div className={styles.info}>

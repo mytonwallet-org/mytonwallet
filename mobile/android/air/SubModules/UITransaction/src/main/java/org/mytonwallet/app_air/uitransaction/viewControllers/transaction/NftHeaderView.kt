@@ -12,17 +12,17 @@ import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatTextView
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
-import org.mytonwallet.app_air.uicomponents.widgets.WImageView
+import org.mytonwallet.app_air.uicomponents.image.WNftImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -30,10 +30,8 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
@@ -48,10 +46,7 @@ class NftHeaderView(
     WThemedView {
     private val colorSpan = WForegroundColorSpan()
 
-    private val imageView = WImageView(context, 12.dp).apply {
-        id = generateViewId()
-        layoutParams = LayoutParams(72.dp, 72.dp)
-    }
+    private val nftImageView = WNftImageView(context, 48.dp, 0, 12f.dp)
 
     private val nameTextView = AppCompatTextView(context).apply {
         id = generateViewId()
@@ -86,22 +81,22 @@ class NftHeaderView(
     init {
         reloadData()
 
-        addView(imageView)
+        addView(nftImageView, LayoutParams(72.dp, 72.dp))
         addView(nameTextView)
         addView(addressLabel)
 
         setConstraints {
-            toStart(imageView, 20f)
-            toCenterY(imageView)
+            toStart(nftImageView, 20f)
+            toCenterY(nftImageView)
 
-            topToTop(nameTextView, imageView, 7.5f)
-            startToEnd(nameTextView, imageView, 16f)
+            topToTop(nameTextView, nftImageView, 7.5f)
+            startToEnd(nameTextView, nftImageView, 16f)
             toEnd(nameTextView, 20f)
 
             setHorizontalBias(addressLabel.id, 0f)
             constrainedWidth(addressLabel.id, true)
-            bottomToBottom(addressLabel, imageView, 3.5f)
-            startToEnd(addressLabel, imageView, 8f)
+            bottomToBottom(addressLabel, nftImageView, 3.5f)
+            startToEnd(addressLabel, nftImageView, 8f)
             toEnd(addressLabel, 20f)
         }
 
@@ -115,7 +110,7 @@ class NftHeaderView(
         val nft = transaction.nft!!
 
         nameTextView.text = nft.name
-        imageView.loadUrl(nft.image ?: "")
+        nftImageView.setNftImage(nft.image)
 
         val address = transaction.peerAddress
         peerAddress = address
@@ -162,7 +157,8 @@ class NftHeaderView(
             }
         }
         addressLabel.text = addressAttr
-        addressLabel.movementMethod = ExtraHitLinkMovementMethod(addressLabel.paddingLeft, addressLabel.paddingTop)
+        addressLabel.movementMethod =
+            ExtraHitLinkMovementMethod(addressLabel.paddingLeft, addressLabel.paddingTop)
         addressLabel.highlightColor = Color.TRANSPARENT
     }
 
@@ -170,6 +166,7 @@ class NftHeaderView(
         colorSpan.color = WColor.SecondaryText.color
         nameTextView.setTextColor(WColor.PrimaryText.color)
         addressLabel.setTextColor(WColor.PrimaryText.color)
+        nftImageView.updateTheme()
     }
 
 }

@@ -21,6 +21,7 @@ interface OwnProps {
   withBorder?: boolean;
   backButtonText?: string;
   className?: string;
+  forceShowTitle?: boolean;
   onBackClick: NoneToVoidFunction;
 }
 
@@ -31,11 +32,12 @@ function Header({
   withBorder,
   className,
   backButtonText,
+  forceShowTitle,
   onBackClick,
 }: OwnProps) {
   const lang = useLang();
 
-  const isTitleAlwaysVisible = !topTargetRef;
+  const isTitleAlwaysVisible = !topTargetRef || forceShowTitle;
   const [isTitleVisible, setIsTitleVisible] = useState(isTitleAlwaysVisible);
   const safeAreaTop = calcSafeAreaTop();
   const intersectionRootMarginTop = HEADER_HEIGHT_REM * REM + safeAreaTop;

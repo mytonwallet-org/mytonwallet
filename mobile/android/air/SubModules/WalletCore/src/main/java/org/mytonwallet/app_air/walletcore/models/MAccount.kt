@@ -179,7 +179,8 @@ class MAccount(
     val isNew: Boolean
         get() {
             val balances = BalanceStore.getBalances(accountId) ?: return false
-            return balances.size <= (DEFAULT_SHOWN_TOKENS[network]?.size ?: 0) && balances.filter {
+            val defaultTokens = DEFAULT_SHOWN_TOKENS[network]
+            return balances.filter { defaultTokens?.contains(it.key) != true }.isEmpty() && balances.filter {
                 val token = TokenStore.getToken(it.key) ?: return@filter false
                 return@filter token.priceUsd *
                     it.value.doubleAbsRepresentation(token.decimals) >= 0.01

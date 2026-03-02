@@ -1,5 +1,5 @@
 {
-  "originHash" : "617c591f5181a5d642b31d66c4cf2390e471ebef4a7abf1b1324f29834b48dde",
+  "originHash" : "714f7fea1c5f24420d960c97b657e0ceaf1bca7424d4f0bf1a0106298216d0ef",
   "pins" : [
     {
       "identity" : "colorthiefswift",
@@ -61,15 +61,6 @@
       "state" : {
         "revision" : "04f2fd18cc9404a0a0917265a449002674f24ec9",
         "version" : "4.5.2"
-      }
-    },
-    {
-      "identity" : "popovers",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/nikstar/Popovers",
-      "state" : {
-        "branch" : "main",
-        "revision" : "ca0b09f9ffdbf2a7fc5e0c572596f8770b8bcf70"
       }
     },
     {

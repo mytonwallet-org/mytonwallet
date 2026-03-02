@@ -11,14 +11,28 @@ import type {
 
 import { buildAccountId, parseAccountId } from '../../util/account';
 import { mapValues } from '../../util/iteratees';
+import { createTaskQueue } from '../../util/schedulers';
 import { storage } from '../storages';
 
 const MIN_ACCOUNT_NUMBER = 0;
+
+// Serializes all read-modify-write operations on the same `StorageKey` to prevent
+// concurrent writes from restoring deleted accounts (e.g. polling races with removal)
+const storageWriteQueues = new Map<StorageKey, ReturnType<typeof createTaskQueue>>();
 
 export let loginResolve: AnyFunction;
 const loginPromise = new Promise<void>((resolve) => {
   loginResolve = resolve;
 });
+
+function getWriteQueue(key: StorageKey) {
+  let queue = storageWriteQueues.get(key);
+  if (!queue) {
+    queue = createTaskQueue(1);
+    storageWriteQueues.set(key, queue);
+  }
+  return queue;
+}
 
 export async function getAccountIds(): Promise<string[]> {
   return Object.keys(await storage.getItem('accounts') || {});
@@ -109,29 +123,35 @@ export async function getAccountValue(accountId: string, key: StorageKey) {
 }
 
 export async function removeAccountValue(accountId: string, key: StorageKey) {
-  const data = await storage.getItem(key);
-  if (!data) return;
+  return getWriteQueue(key).run(async () => {
+    const data = await storage.getItem(key);
+    if (!data) return;
 
-  const { [accountId]: removedValue, ...restData } = data;
-  await storage.setItem(key, restData);
+    const { [accountId]: _removed, ...restData } = data;
+    await storage.setItem(key, restData);
+  });
 }
 
 export async function setAccountValue(accountId: string, key: StorageKey, value: any) {
-  const data = await storage.getItem(key);
-  await storage.setItem(key, { ...data, [accountId]: value });
+  return getWriteQueue(key).run(async () => {
+    const data = await storage.getItem(key);
+    await storage.setItem(key, { ...data, [accountId]: value });
+  });
 }
 
 export async function removeNetworkAccountsValue(network: string, key: StorageKey) {
-  const data = await storage.getItem(key);
-  if (!data) return;
+  return getWriteQueue(key).run(async () => {
+    const data = await storage.getItem(key);
+    if (!data) return;
 
-  for (const accountId of Object.keys(data)) {
-    if (parseAccountId(accountId).network === network) {
-      delete data[accountId];
+    for (const accountId of Object.keys(data)) {
+      if (parseAccountId(accountId).network === network) {
+        delete data[accountId];
+      }
     }
-  }
 
-  await storage.setItem(key, data);
+    await storage.setItem(key, data);
+  });
 }
 
 export async function getCurrentNetwork() {

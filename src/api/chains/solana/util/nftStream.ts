@@ -5,7 +5,7 @@ import type { ApiNetwork, ApiNft } from '../../../types';
 import { createCallbackManager } from '../../../../util/callbacks';
 import { FallbackPollingScheduler } from '../../../common/polling/fallbackPollingScheduler';
 import { parseSolTx } from '../activities';
-import { fetchNftByAddress, getAccountNfts, streamAllAccountNfts } from '../nfts';
+import { fetchNftByAddress, streamAllAccountNfts } from '../nfts';
 import { getHeliusSocket } from './socket';
 
 export type OnNftUpdate = (params:
@@ -126,10 +126,11 @@ export class NftStream {
         break;
       }
       default: {
-        // Don't have parsed tx, but know it's NFT-related - update all nfts
-        const nfts = await getAccountNfts(this.#accountId);
-
-        this.#updateListeners.runCallbacks({ direction: 'set', nfts, hasNewNfts: true, isFullLoading: false });
+        // Can't determine exact NFT change from this transaction - trigger a full poll
+        // instead of the expensive inline `getAccountNfts`. `forceImmediatePoll` is throttled
+        // by `minPollDelay`, so rapid-fire socket events won't cause duplicate scans.
+        this.#fallbackPollingScheduler.forceImmediatePoll();
+        break;
       }
     }
   };

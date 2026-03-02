@@ -20,6 +20,14 @@ export async function getWalletBalance(network: ApiNetwork, address: string) {
   return BigInt(value);
 }
 
+export async function getWalletLastTransaction(network: ApiNetwork, address: string) {
+  const client = getSolanaClient(network);
+
+  const a = await client.getSignaturesForAddress(address as Address).send();
+
+  return a?.[0] || undefined;
+}
+
 export async function fetchAccountAssets(
   network: ApiNetwork,
   address: string,

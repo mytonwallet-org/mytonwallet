@@ -25,7 +25,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
@@ -55,8 +55,8 @@ class ReversedCornerView(
         )
     }
 
-    private val blurryBackgroundView =
-        if (DevicePerformanceClassifier.isHighClass && initialConfig.shouldBlur) initialConfig.blurRootView?.let {
+    private var blurryBackgroundView: WBlurryBackgroundView? =
+        if (WGlobalStorage.isBlurEnabled() && initialConfig.shouldBlur) initialConfig.blurRootView?.let {
             WBlurryBackgroundView(context, WBlurryBackgroundView.Side.BOTTOM).apply {
                 setupWith(it)
                 setBackgroundVisible(visible = true, animated = false)
@@ -200,7 +200,33 @@ class ReversedCornerView(
         }
     }
 
+    private fun syncBlurView() {
+        val blurEnabled = WGlobalStorage.isBlurEnabled() && initialConfig.shouldBlur && initialConfig.blurRootView != null
+        if (blurEnabled && blurryBackgroundView == null) {
+            blurryBackgroundView = WBlurryBackgroundView(context, WBlurryBackgroundView.Side.BOTTOM).apply {
+                setupWith(initialConfig.blurRootView)
+                setBackgroundVisible(visible = true, animated = false)
+            }
+            if (backgroundView.parent != null) {
+                addView(blurryBackgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+                if (isPlaying) {
+                    blurryBackgroundView!!.resumeBlurring()
+                    backgroundView.isGone = true
+                }
+            }
+        } else if (!blurEnabled && blurryBackgroundView != null) {
+            blurryBackgroundView?.let { blur ->
+                blur.pauseBlurring()
+                if (blur.parent != null) (blur.parent as ViewGroup).removeView(blur)
+            }
+            blurryBackgroundView = null
+            backgroundView.alpha = 1f
+            backgroundView.isVisible = true
+        }
+    }
+
     override fun updateTheme() {
+        syncBlurView()
         updateRadius()
 
         val bgColor = overlayColor
@@ -234,6 +260,7 @@ class ReversedCornerView(
     fun pauseBlurring(keepBlurAsImage: Boolean) {
         if (!isPlaying) return
         isPlaying = false
+        val blurryBackgroundView = blurryBackgroundView
         blurryBackgroundView?.apply {
             blurryBackgroundView.pauseBlurring()
             isGone = !keepBlurAsImage
@@ -248,6 +275,7 @@ class ReversedCornerView(
     fun resumeBlurring() {
         if (isPlaying) return
         isPlaying = true
+        val blurryBackgroundView = blurryBackgroundView
         blurryBackgroundView?.apply {
             alpha = 1f
             visibility = VISIBLE
@@ -274,8 +302,9 @@ class ReversedCornerView(
             backgroundView.alpha = targetAlpha
         } else {
             // Combine blur and normal background
-            if (blurryBackgroundView.alpha == targetAlpha) return
-            blurryBackgroundView.alpha = targetAlpha
+            val blurryBackgroundView = blurryBackgroundView
+            if (blurryBackgroundView?.alpha == targetAlpha) return
+            blurryBackgroundView?.alpha = targetAlpha
             backgroundView.alpha = 1 - targetAlpha
         }
         postInvalidateOnAnimation()

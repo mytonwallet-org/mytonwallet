@@ -460,6 +460,8 @@ export interface AccountState {
     wasTelegramGiftsAutoAdded?: boolean;
     isLoadedByAddress?: Record<string, true>;
     isFullLoadingByChain?: Partial<Record<ApiChain, boolean>>;
+    /** Collection address -> last loaded timestamp for cache TTL */
+    collectionLoadedTimestamps?: Record<string, number>;
   };
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];

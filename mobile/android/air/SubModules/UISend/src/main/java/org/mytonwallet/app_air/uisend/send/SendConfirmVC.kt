@@ -28,8 +28,8 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ScamLabelSpan
-import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
@@ -345,16 +345,12 @@ class SendConfirmVC(
         )
         view.addView(cancelButton, ViewGroup.LayoutParams(0, 50.dp))
         view.addView(confirmButton, ViewGroup.LayoutParams(0, 50.dp))
+        val buttonsBottomMargin = getButtonsBottomMargin()
         view.setConstraints {
             toCenterX(scrollView)
             topToBottom(scrollView, navigationBar!!)
             bottomToTop(scrollView, confirmButton, 20f)
-            toBottomPx(
-                confirmButton, 20.dp + max(
-                    (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
-                )
-            )
+            toBottomPx(confirmButton, buttonsBottomMargin)
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 confirmButton,
@@ -367,12 +363,7 @@ class SendConfirmVC(
                 setMargin(confirmButton.id, ConstraintSet.START, 20.dp)
                 setMargin(confirmButton.id, ConstraintSet.END, 20.dp)
             } else {
-                toBottomPx(
-                    cancelButton, 20.dp + max(
-                        (navigationController?.getSystemBars()?.bottom ?: 0),
-                        (window?.imeInsets?.bottom ?: 0)
-                    )
-                )
+                toBottomPx(cancelButton, buttonsBottomMargin)
                 topToTop(
                     bottomReversedCornerViewUpsideDown,
                     cancelButton,
@@ -456,14 +447,20 @@ class SendConfirmVC(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0
         )
+        val buttonsBottomMargin = getButtonsBottomMargin()
         view.setConstraints {
-            toBottomPx(
-                if (isSell) confirmButton else cancelButton, 20.dp + max(
-                    (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
-                )
-            )
+            toBottomPx(confirmButton, buttonsBottomMargin)
+            if (!isSell) {
+                toBottomPx(cancelButton, buttonsBottomMargin)
+            }
         }
+    }
+
+    private fun getButtonsBottomMargin(): Int {
+        return 20.dp + max(
+            (navigationController?.getSystemBars()?.bottom ?: 0),
+            (window?.imeInsets?.bottom ?: 0)
+        )
     }
 
     private fun resolvedAddress(destination: String): String {

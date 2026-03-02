@@ -23,6 +23,7 @@ import { IS_TON_MNEMONIC_ONLY } from '../../config';
 import { parseAccountId } from '../../util/account';
 import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import { range } from '../../util/iteratees';
+import { logDebugError } from '../../util/logs';
 import { createTaskQueue } from '../../util/schedulers';
 import chains from '../chains';
 import * as ton from '../chains/ton';
@@ -354,7 +355,7 @@ export async function importViewAccount(
       byChain: {},
     };
     let title: string | undefined;
-    let error: { error: string; chain: ApiChain } | undefined;
+    const errors: { error: string; chain: ApiChain }[] = [];
 
     await Promise.all(Object.entries(addressByChain).map(async ([_chain, address]) => {
       // TypeScript emits false notices, because it doesn't see relations between the key and value types in record
@@ -363,7 +364,7 @@ export async function importViewAccount(
       const chain = _chain as 'ton';
       const wallet = await chains[chain].getWalletFromAddress(network, address);
       if ('error' in wallet) {
-        error = { ...wallet, chain };
+        errors.push({ ...wallet, chain });
         return;
       }
 
@@ -371,7 +372,16 @@ export async function importViewAccount(
       if (wallet.title) title = wallet.title;
     }));
 
-    if (error) return error;
+    // Import of all submitted addresses failed
+    if (errors.length && errors.length === Object.keys(addressByChain).length) return errors[0];
+
+    if (errors.length) {
+      // An error occurred while importing some of the addresses.
+      // We are transferring it to the logs.
+      for (const error of errors) {
+        logDebugError('Import view address: ', error);
+      }
+    }
 
     const accountId = await addAccount(network, account);
     void activateAccount(accountId);

@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcore.models
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcore.SOLANA_SLUG
+import org.mytonwallet.app_air.walletcore.SOLANA_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.TON_USDT_TESTNET_SLUG
@@ -99,7 +100,8 @@ data class MTokenBalance(
             TRON_SLUG,
             TRON_USDT_SLUG,
             TRON_USDT_TESTNET_SLUG,
-            SOLANA_SLUG
+            SOLANA_SLUG,
+            SOLANA_USDT_SLUG,
         )
 
         // Factory method to create an instance from JSON

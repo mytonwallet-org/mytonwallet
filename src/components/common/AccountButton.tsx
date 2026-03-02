@@ -60,7 +60,7 @@ function AccountButton({
     !onClick && styles.account_inactive,
   );
 
-  const formattedAddress = formatAccountAddresses(byChain, 'card');
+  const formattedAddress = formatAccountAddresses(byChain);
 
   return (
     <div

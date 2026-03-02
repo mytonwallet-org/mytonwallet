@@ -624,7 +624,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         payloadToSign,
       });
 
-      const result: Parameters<typeof confirmDappRequestSignData<typeof this.protocolType>>[1] = await promise;
+      const signedResponse: Parameters<typeof confirmDappRequestSignData<typeof this.protocolType>>[1] = await promise;
 
       this.onUpdate({
         type: 'dappSignDataComplete',
@@ -634,7 +634,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       return {
         success: true,
         result: {
-          result,
+          result: signedResponse.result,
           id: message.id,
         },
       };

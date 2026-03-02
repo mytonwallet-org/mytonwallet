@@ -59,6 +59,8 @@ function renderChart(container: HTMLDivElement, data: any, baseCurrency: string)
       isStacked: true,
       valuePrefix,
       datasets,
+      limitDate: data.historyScanCursor ? data.historyScanCursor * 1000 : undefined,
+      onLimitedRangeClick: data.historyScanCursor ? handleLimitedRangeClick : undefined,
     });
   } else {
     if (!data.points || data.points.length === 0) {
@@ -75,6 +77,12 @@ function renderChart(container: HTMLDivElement, data: any, baseCurrency: string)
       labels,
       valuePrefix,
       datasets: [{ name: baseCurrency, color: AGGREGATED_COLOR, values }],
+      limitDate: data.historyScanCursor ? data.historyScanCursor * 1000 : undefined,
+      onLimitedRangeClick: data.historyScanCursor ? handleLimitedRangeClick : undefined,
     });
   }
+}
+
+function handleLimitedRangeClick() {
+  alert('Deep history analysis will be available in upcoming updates.');
 }

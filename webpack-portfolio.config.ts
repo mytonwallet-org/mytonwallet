@@ -16,7 +16,7 @@ const destinationDir = path.resolve(__dirname, 'dist-portfolio');
 const CSP = `
   default-src 'none';
   manifest-src 'self';
-  connect-src 'self' https:;
+  connect-src 'self' https: http://localhost:3100;
   script-src 'self' 'wasm-unsafe-eval';
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/;
   img-src 'self' data: https:;
@@ -40,7 +40,7 @@ export default function createConfig(
     },
 
     devServer: {
-      port: 3100,
+      port: 4325,
       host: '0.0.0.0',
       allowedHosts: 'all',
       static: [
@@ -166,6 +166,7 @@ export default function createConfig(
 
       new EnvironmentPlugin({
         APP_ENV: 'production',
+        PORTFOLIO_API_URL: '',
       }),
       new NormalModuleReplacementPlugin(
         /i18n\/en\.json/,

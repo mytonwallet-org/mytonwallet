@@ -6,7 +6,7 @@ import type { Layout } from '../../hooks/useMenuPosition';
 import type { DropdownItem } from '../ui/Dropdown';
 import type { TabWithProperties } from '../ui/TabList';
 
-import { MYTONWALLET_MULTISEND_DAPP_URL } from '../../config';
+import { MULTISEND_DAPP_URL } from '../../config';
 import { selectIsOffRampAllowed } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { vibrate } from '../../util/haptics';
@@ -44,9 +44,9 @@ function SentTabs({ isInsideModal, isOffRampAllowed }: OwnProps & StateProps) {
 
   const handleMultisendOpen = useLastCallback(() => {
     void vibrate();
-    void openUrl(MYTONWALLET_MULTISEND_DAPP_URL, {
+    void openUrl(MULTISEND_DAPP_URL, {
       title: getTranslation('Multisend'),
-      subtitle: getHostnameFromUrl(MYTONWALLET_MULTISEND_DAPP_URL),
+      subtitle: getHostnameFromUrl(MULTISEND_DAPP_URL),
     });
   });
 

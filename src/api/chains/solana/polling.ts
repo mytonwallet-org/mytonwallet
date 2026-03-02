@@ -15,14 +15,26 @@ import { NftStream } from './util/nftStream';
 import { getHeliusSocket } from './util/socket';
 import { fetchStoredWallet } from '../../common/accounts';
 import { getConcurrencyLimiter } from '../../common/polling/setupInactiveChainPolling';
-import { activeWalletTiming, inactiveWalletTiming, periodToMs } from '../../common/polling/utils';
+import {
+  activeNftTiming, activeWalletTiming, inactiveNftTiming, inactiveWalletTiming, periodToMs,
+} from '../../common/polling/utils';
 import { swapReplaceActivities } from '../../common/swap';
 import { sendUpdateTokens } from '../../common/tokens';
 import { txCallbacks } from '../../common/txCallbacks';
 import { BalanceStream } from '../../common/websocket/balanceStream';
-import { FIRST_TRANSACTIONS_LIMIT } from '../../constants';
+import { FIRST_TRANSACTIONS_LIMIT, MINUTE } from '../../constants';
 import { getTokenActivitySlice } from './activities';
 import { fetchAccountAssets } from './wallet';
+
+const activeSolanaWalletTiming = {
+  ...activeWalletTiming,
+  forcedPollingPeriod: { focused: 3 * MINUTE, notFocused: 10 * MINUTE },
+};
+
+const inactiveSolanaWalletTiming = {
+  ...inactiveWalletTiming,
+  forcedPollingPeriod: { focused: 10 * MINUTE, notFocused: 10 * MINUTE },
+};
 
 export function setupActivePolling(
   accountId: string,
@@ -79,7 +91,7 @@ function setupBalancePolling(
     network,
     address,
     () => sendUpdateTokens(onUpdate),
-    isActive ? activeWalletTiming : inactiveWalletTiming,
+    isActive ? activeSolanaWalletTiming : inactiveSolanaWalletTiming,
     fetchAccountAssets,
     undefined,
     isActive ? undefined : getConcurrencyLimiter('solana', network),
@@ -174,7 +186,7 @@ function setupNftPolling(
     parseAccountId(accountId).network,
     address,
     accountId,
-    isActive ? activeWalletTiming : inactiveWalletTiming,
+    isActive ? activeNftTiming : inactiveNftTiming,
   );
 
   nftStream.onUpdate((params) => {

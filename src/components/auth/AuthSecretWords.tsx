@@ -1,4 +1,4 @@
-import React, { memo } from '../../lib/teact/teact';
+import React, { memo, useRef } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
 import { IS_PRODUCTION } from '../../config';
@@ -22,6 +22,7 @@ const AuthSecretWords = ({ isActive, mnemonic }: OwnProps) => {
   const { openAuthBackupWalletModal, openCheckWordsPage } = getActions();
 
   const lang = useLang();
+  const triggerElementRef = useRef<HTMLDivElement>();
 
   const wordsCount = mnemonic?.length || 0;
   const canSkipMnemonicCheck = !IS_PRODUCTION;
@@ -34,7 +35,9 @@ const AuthSecretWords = ({ isActive, mnemonic }: OwnProps) => {
       <Header
         isActive={isActive}
         title={lang('%1$d Secret Words', wordsCount) as string}
+        topTargetRef={triggerElementRef}
         withBorder={isScrolled}
+        forceShowTitle
         onBackClick={openAuthBackupWalletModal}
       />
 
@@ -53,6 +56,7 @@ const AuthSecretWords = ({ isActive, mnemonic }: OwnProps) => {
           customButtonWrapperClassName={buildClassName(styles.buttons, styles.buttonsPush)}
           canSkipMnemonicCheck={canSkipMnemonicCheck}
           buttonText={lang('Let\'s Check')}
+          stickerRef={triggerElementRef}
           onSubmit={openCheckWordsPage}
         />
       </div>

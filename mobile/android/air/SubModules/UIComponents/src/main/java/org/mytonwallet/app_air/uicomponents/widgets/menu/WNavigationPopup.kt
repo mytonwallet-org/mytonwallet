@@ -45,7 +45,7 @@ class WNavigationPopup(
     private val transitionXOffset: Float = 48f.dp
 
     private val isBlurSupported: Boolean
-        get() = DevicePerformanceClassifier.isHighClass && WGlobalStorage.isBlurEnabled()
+        get() = WGlobalStorage.isBlurEnabled()
 
     private val contentContainerLayout = object : WFrameLayout(
         initialPopupView.context

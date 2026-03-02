@@ -15,7 +15,7 @@ import type {
 import type { LangFn } from '../../../../hooks/useLang';
 import type { DropdownItem } from '../../../ui/Dropdown';
 
-import { IS_CORE_WALLET } from '../../../../config';
+import { IS_CORE_WALLET, PORTFOLIO_DAPP_URL } from '../../../../config';
 import {
   selectAccountStakingStates, selectCurrentAccount,
   selectCurrentAccountId,
@@ -86,6 +86,8 @@ interface StateProps {
   seasonalTheme?: ApiBackendConfig['seasonalTheme'];
   activePromotion?: ApiPromotion;
 }
+
+const PORTFOLIO_HOST = new URL(PORTFOLIO_DAPP_URL).host;
 
 let mainKey = 0;
 
@@ -375,7 +377,7 @@ function Card({
               className={buildClassName(styles.change, 'rounded-font')}
               role="button"
               tabIndex={0}
-              onClick={() => openDeeplinkOrUrl('mtw://explore/portfolio.mytonwallet.io')}
+              onClick={() => openDeeplinkOrUrl(`mtw://explore/${PORTFOLIO_HOST}`)}
             >
               {!!changePrefix && (
                 <>

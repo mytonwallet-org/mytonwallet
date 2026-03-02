@@ -1,6 +1,6 @@
 import type { ApiChain } from '../api/types';
 
-import { getChainConfig } from './chain';
+import { getChainConfig, getSupportedChains } from './chain';
 import { isTonChainDns } from './dns';
 
 export function isValidAddress(address: string, chain: ApiChain, allowPrefix?: boolean) {
@@ -21,7 +21,8 @@ export function getChainFromAddress(
   availableChains: Partial<Record<ApiChain, unknown>>,
   allowDomain?: boolean,
 ): ApiChain | undefined {
-  const availableChainsArray = Object.keys(availableChains) as (keyof typeof availableChains)[];
+  const availableChainsArray = getSupportedChains().filter((chain) => chain in availableChains);
+
   return availableChainsArray.find((chain) => (
     allowDomain
       ? isValidAddressOrDomain(address, chain)
