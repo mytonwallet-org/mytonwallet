@@ -27,6 +27,7 @@ object MultisendLauncher {
                 injectDarkModeStyles = true,
                 topBarColorMode = InAppBrowserConfig.TopBarColorMode.SYSTEM,
                 forceCloseOnBack = true,
+                allowDownloads = true,
             )
         )
         nav.setRoot(browserVC)

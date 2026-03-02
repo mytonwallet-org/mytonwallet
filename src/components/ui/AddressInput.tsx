@@ -2,6 +2,7 @@ import type { ClipboardEvent } from 'react';
 import React, {
   type ElementRef,
   memo,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -194,6 +195,14 @@ function AddressInput({
       }
     };
   });
+
+  useEffect(() => {
+    if (value) {
+      handleAddressErrorCheck(value);
+    }
+    // Only re-validate when chain changes, not on every value change
+    // eslint-disable-next-line react-hooks-static-deps/exhaustive-deps
+  }, [chain]);
 
   const addressOverlay = useMemo(() => {
     if (!address) return undefined;

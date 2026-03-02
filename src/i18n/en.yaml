@@ -523,6 +523,8 @@ Previous: Previous
 Next: Next
 Insufficient %token% for fee.: Insufficient %token% for fee.
 Send NFT: Send NFT
+Send Collectible: Send Collectible
+Send Collectibles: Send Collectibles
 NFT has been sent!: NFT has been sent!
 Cannot be sent: Cannot be sent
 NFT is for sale: NFT is for sale

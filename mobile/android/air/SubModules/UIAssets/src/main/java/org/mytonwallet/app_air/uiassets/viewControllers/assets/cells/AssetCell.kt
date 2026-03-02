@@ -15,9 +15,9 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
+import org.mytonwallet.app_air.uicomponents.image.WNftImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
-import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -40,9 +40,8 @@ class AssetCell(
 
     var onTap: ((transaction: ApiNft) -> Unit)? = null
 
-    private val imageView: WImageView by lazy {
-        val img = WImageView(context, 16.dp)
-        img
+    private val imageView: WNftImageView by lazy {
+        WNftImageView(context, 48.dp, 4.dp, 16f.dp)
     }
 
     private val animationView: WAnimationView by lazy {
@@ -103,12 +102,11 @@ class AssetCell(
                 onTap?.invoke(it)
             }
         }
-
-        updateTheme()
     }
 
     private var _isDarkThemeApplied: Boolean? = null
     override fun updateTheme() {
+        imageView.updateTheme()
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
         if (!darkModeChanged)
             return
@@ -133,7 +131,7 @@ class AssetCell(
         this.nft = nft
         this.isInDragMode = isInDragMode
         this.animationsPaused = animationsPaused
-        imageView.loadUrl(nft.thumbnail ?: "")
+        imageView.setNftImage(nft.thumbnail)
         if (mode == AssetsVC.Mode.COMPLETE) {
             nft.name?.let {
                 titleLabel.text = it
@@ -161,6 +159,7 @@ class AssetCell(
         } else {
             stopShake()
         }
+        updateTheme()
     }
 
     fun pauseAnimation() {

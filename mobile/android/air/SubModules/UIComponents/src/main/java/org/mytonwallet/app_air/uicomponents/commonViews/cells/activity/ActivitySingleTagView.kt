@@ -7,8 +7,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.image.Content
-import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
+import org.mytonwallet.app_air.uicomponents.image.WNftImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -21,9 +20,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 
 class ActivitySingleTagView(context: Context) : WFrameLayout(context), WThemedView {
 
-    val imageView = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(12f.dp)
-    }
+    val imageView = WNftImageView(context, 32.dp, 0)
     val titleLabel = WLabel(context).apply {
         setStyle(16f, WFont.Medium)
         setSingleLine()
@@ -52,16 +49,13 @@ class ActivitySingleTagView(context: Context) : WFrameLayout(context), WThemedVi
     }
 
     fun configure(nft: ApiNft) {
-        nft.image?.let {
-            imageView.set(Content.ofUrl(it))
-        } ?: run {
-            imageView.clear()
-        }
+        imageView.setNftImage(nft.image)
         titleLabel.text = nft.name
         subtitleLabel.text = nft.collectionName
     }
 
     override fun updateTheme() {
+        imageView.updateTheme()
         setBackgroundColor(
             WColor.TrinaryBackground.color,
             12f.dp,

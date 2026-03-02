@@ -531,6 +531,8 @@ Previous: Anterior
 Next: Siguiente
 Insufficient %token% for fee.: "%token% insuficiente para la comisión."
 Send NFT: Enviar NFT
+Send Collectible: Enviar coleccionable
+Send Collectibles: Enviar coleccionables
 NFT has been sent!: NFT ha sido enviado!
 Cannot be sent: No se puede enviar
 NFT is for sale: NFT está a la venta

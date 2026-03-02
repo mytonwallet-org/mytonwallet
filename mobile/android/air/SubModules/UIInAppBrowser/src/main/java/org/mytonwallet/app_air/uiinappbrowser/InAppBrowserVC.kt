@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.uiinappbrowser
 
 import android.Manifest
-import android.app.Activity
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
@@ -21,9 +21,9 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.webkit.CookieManager
 import android.webkit.PermissionRequest
 import android.webkit.URLUtil
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
-import android.webkit.ValueCallback
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.widget.AppCompatImageView
@@ -48,6 +48,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.isBrightColor
+import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -321,6 +322,19 @@ class InAppBrowserVC(
                 return false
             }
         })
+        if (config.allowDownloads)
+            wv.setDownloadListener { url, _, _, _, _ ->
+                val configUri = config.url.toUriOrNull() ?: return@setDownloadListener
+                val downloadUri = url.toUriOrNull() ?: return@setDownloadListener
+                if (downloadUri.scheme != configUri.scheme || downloadUri.host != configUri.host)
+                    return@setDownloadListener
+                val intent = Intent(Intent.ACTION_VIEW)
+                intent.setData(downloadUri)
+                try {
+                    window?.startActivity(intent)
+                } catch (_: Exception) {
+                }
+            }
         wv.setBackgroundColor(0)
         wv.setWebChromeClient(object : WebChromeClient() {
             override fun onCreateWindow(
@@ -547,8 +561,10 @@ class InAppBrowserVC(
         when (config.topBarColorMode) {
             InAppBrowserConfig.TopBarColorMode.SYSTEM ->
                 animateBarBackground(null)
+
             InAppBrowserConfig.TopBarColorMode.CONTENT_BASED ->
                 animateBarBackground(null)
+
             InAppBrowserConfig.TopBarColorMode.FIXED ->
                 animateBarBackground(config.topBarColor)
         }

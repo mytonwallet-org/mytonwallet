@@ -20,7 +20,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
-import com.facebook.drawee.generic.RoundingParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.extensions.animateTintColor
@@ -28,8 +27,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.image.Content
-import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
+import org.mytonwallet.app_air.uicomponents.image.WNftImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
@@ -133,9 +131,7 @@ open class NftHeaderView(
         setSelectedIndex(collectionNFTs.indexOf(nft))
     }
 
-    val avatarImageView = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(12f.dp)
-        defaultPlaceholder = Content.Placeholder.Color(WColor.Transparent)
+    val avatarImageView = WNftImageView(context, 60.dp, 4.dp, 12f.dp).apply {
         setOnClickListener {
             if (isTracking || avatarCoverFlowView.scrollState != WCoverFlowView.ScrollState.IDLE)
                 return@setOnClickListener
@@ -309,11 +305,7 @@ open class NftHeaderView(
     }
 
     fun configNft() {
-        nft.image?.let {
-            avatarImageView.set(Content.ofUrl(it), nft.thumbnail)
-        } ?: run {
-            avatarImageView.setImageDrawable(null)
-        }
+        avatarImageView.setNftImage(nft.image, nft.thumbnail)
         animationView.isGone =
             !isAnimatedNft || avatarCoverFlowView.scrollState != WCoverFlowView.ScrollState.IDLE
         if (isAnimatedNft) {
@@ -521,8 +513,7 @@ open class NftHeaderView(
                 width = avatarWidth
                 height = avatarHeight
             }
-            avatarImageView.hierarchy.roundingParams =
-                RoundingParams.fromCornersRadius(avatarRounding)
+            avatarImageView.setCornerRadius(avatarRounding)
         }
         avatarImageView.translationX = avatarTranslationX
         avatarImageView.translationY = avatarTranslationY
@@ -628,7 +619,7 @@ open class NftHeaderView(
             }
             setBackgroundColor(
                 Color.TRANSPARENT,
-                avatarImageView.hierarchy.roundingParams?.cornersRadii?.get(0) ?: 0f,
+                12f.dp,
                 true
             )
             scaleX = avatarImageView.scaleX
@@ -639,6 +630,7 @@ open class NftHeaderView(
     }
 
     override fun updateTheme() {
+        avatarImageView.updateTheme()
         titleLabel.setTextColor(if (targetIsCollapsed) WColor.PrimaryText.color else Color.WHITE)
         subtitleLabel.setTextColor(if (targetIsCollapsed) WColor.PrimaryLightText.color else Color.WHITE)
         subtitleLabel.background = null

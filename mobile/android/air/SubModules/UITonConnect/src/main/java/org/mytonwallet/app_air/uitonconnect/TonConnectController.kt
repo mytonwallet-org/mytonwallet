@@ -37,13 +37,6 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
     }
 
     fun connectStart(link: String) {
-        if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
-            window.topViewController?.showAlert(
-                LocaleController.getString("Error"),
-                LocaleController.getString("Action is not possible on a view-only wallet.")
-            )
-            return
-        }
         WalletCore.call(
             ApiMethod.DApp.TonConnectHandleDeepLink(
                 url = link,

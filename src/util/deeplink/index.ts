@@ -663,7 +663,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
 
         const host = pathname.split('/').filter(Boolean)[1];
         if (host) {
-          const hostWithProtocol = `https://${host}`;
+          const hostWithProtocol = `http${!host.startsWith('localhost:') ? 's' : ''}://${host}`;
           const matchingUrl = isSubproject(hostWithProtocol)
             ? hostWithProtocol
             : getGlobal().exploreData?.sites.find(({ url }) => {

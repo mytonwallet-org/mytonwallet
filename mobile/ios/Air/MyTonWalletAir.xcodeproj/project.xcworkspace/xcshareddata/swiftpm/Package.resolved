@@ -56,15 +56,6 @@
       }
     },
     {
-      "identity" : "popovers",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/nikstar/Popovers",
-      "state" : {
-        "branch" : "main",
-        "revision" : "ca0b09f9ffdbf2a7fc5e0c572596f8770b8bcf70"
-      }
-    },
-    {
       "identity" : "swift-case-paths",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/pointfreeco/swift-case-paths",

@@ -21,7 +21,13 @@ fun generateAbbreviation(name: String?, address: String): String {
             .filter { it.isNotEmpty() }
             .take(2)
             .joinToString("") { part -> part.firstGrapheme().uppercase() }
-    } ?: address.take(2)
+    } ?: address.takeLast(6).let { suffix ->
+        if (suffix.length <= 3) {
+            suffix
+        } else {
+            suffix.take(3) + "\n" + suffix.drop(3)
+        }
+    }
 }
 
 /**
@@ -66,8 +72,24 @@ object AccountAvatarRenderer {
         paint: Paint
     ) {
         if (text.isEmpty()) return
-        val adjustedY = centerY - (paint.descent() + paint.ascent()) / 2f
-        canvas.drawText(text, centerX, adjustedY, paint)
+
+        val lines = text.split("\n")
+        if (lines.size < 2) {
+            val adjustedY = centerY - (paint.descent() + paint.ascent()) / 2f
+            canvas.drawText(text, centerX, adjustedY, paint)
+            return
+        }
+
+        paint.textSize *= 0.8f
+        val lineHeight = (paint.descent() - paint.ascent()) * 0.8f
+        val reducedLineHeight = lineHeight * 0.8f
+        val totalHeight = lineHeight + reducedLineHeight * (lines.size - 1)
+        var y = centerY - totalHeight / 2 - paint.ascent()
+        for (line in lines) {
+            canvas.drawText(line, centerX, y, paint)
+            y += reducedLineHeight
+        }
+        paint.textSize *= 1.25f
     }
 
     /**

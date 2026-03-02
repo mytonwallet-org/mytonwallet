@@ -8,7 +8,7 @@ import { getOrderedAccountChains } from './chain';
 import { shortenAddress } from './shortenAddress';
 import { shortenDomain } from './shortenDomain';
 
-type FormatVariant = 'card' | 'cardNarrow' | 'list';
+type FormatVariant = 'small' | 'medium';
 
 type FormatConfig = {
   single: [left: number, right: number];
@@ -17,26 +17,21 @@ type FormatConfig = {
 };
 
 const FORMAT_CONFIG: Record<FormatVariant, FormatConfig> = {
-  card: {
-    single: [3, 4],
+  small: {
+    single: [0, 4],
     domain: 8,
-    address: [0, 3],
+    address: [0, 4],
   },
-  cardNarrow: {
-    single: [3, 3],
-    domain: 6,
-    address: [0, 2],
-  },
-  list: {
+  medium: {
     single: [6, 6],
     domain: 12,
-    address: [0, 4],
+    address: [0, 6],
   },
 };
 
 export function formatAccountAddresses(
   byChain: Account['byChain'],
-  variant: FormatVariant = 'card',
+  variant: FormatVariant = 'medium',
 ): TeactNode | undefined {
   const chains = getOrderedAccountChains(byChain);
   if (chains.length === 0) return undefined;
@@ -66,12 +61,17 @@ export function formatAccountAddresses(
     const account = byChain[chain];
     if (!account) return;
 
+    if (index > 0) {
+      elements.push(variant === 'medium' ? ', ' : ' ');
+    }
+
+    if (variant === 'small' && index > 0) {
+      elements.push(renderIcon(chain));
+      return;
+    }
+
     const isDomain = Boolean(account.domain);
     const displayText = getShortText(account.domain ?? account.address, variant, isDomain ? 'domain' : 'address');
-
-    if (index > 0) {
-      elements.push(variant === 'list' ? ', ' : ' ');
-    }
     elements.push(renderIcon(chain), displayText);
   });
 

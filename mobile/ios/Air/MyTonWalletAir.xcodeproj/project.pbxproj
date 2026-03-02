@@ -39,7 +39,6 @@
 		585C72C22EB6284A00949B7A /* Dependencies in Frameworks */ = {isa = PBXBuildFile; productRef = 585C72C12EB6284A00949B7A /* Dependencies */; };
 		585C72C52EB6287700949B7A /* Perception in Frameworks */ = {isa = PBXBuildFile; productRef = 585C72C42EB6287700949B7A /* Perception */; };
 		586DE0E92EA26F180055359D /* Flow in Frameworks */ = {isa = PBXBuildFile; productRef = 586DE0E82EA26F180055359D /* Flow */; };
-		587BCB892DDB9DCA00E745A6 /* Popovers in Frameworks */ = {isa = PBXBuildFile; productRef = 587BCB882DDB9DCA00E745A6 /* Popovers */; };
 		587EB31E2D82DAF6009F0CE2 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 587EB31D2D82DAF6009F0CE2 /* Kingfisher */; };
 		5881C6E52E1738F3004FF258 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 5881C6E42E1738F3004FF258 /* GRDB */; };
 		58A1CF812E2FCACE00E1CE2C /* Ledger.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58CC83242DA443DA00EB7DEB /* Ledger.framework */; };
@@ -1167,7 +1166,6 @@
 			files = (
 				580CDB8F2DF46DA90078F79E /* GRDB in Frameworks */,
 				587EB31E2D82DAF6009F0CE2 /* Kingfisher in Frameworks */,
-				587BCB892DDB9DCA00E745A6 /* Popovers in Frameworks */,
 				5803A9342F203732007E1A9C /* BigInt in Frameworks */,
 				585C72C52EB6287700949B7A /* Perception in Frameworks */,
 				58BE2C722D33D8D000A71816 /* OrderedCollections in Frameworks */,
@@ -2281,7 +2279,6 @@
 				58CC83282DA4452D00EB7DEB /* XCRemoteSwiftPackageReference "hw-transport-ios-ble" */,
 				584B0F0A2DD3955600BDF9E7 /* XCRemoteSwiftPackageReference "lottie-spm" */,
 				58AA03B92DDBA87B00C970F4 /* XCRemoteSwiftPackageReference "swiftui-introspect" */,
-				587C28442DE32F2400503E94 /* XCRemoteSwiftPackageReference "Popovers" */,
 				580CDB8D2DF46DA90078F79E /* XCRemoteSwiftPackageReference "GRDB" */,
 				5860FC932E6BCBFB00A23D61 /* XCRemoteSwiftPackageReference "SwiftUI-Flow" */,
 				585C72C02EB6284A00949B7A /* XCRemoteSwiftPackageReference "swift-dependencies" */,
@@ -5197,22 +5194,6 @@
 				minimumVersion = 3.1.1;
 			};
 		};
-		587BCB872DDB9DCA00E745A6 /* XCRemoteSwiftPackageReference "Popovers" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/nikstar/Popovers";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
-		587C28442DE32F2400503E94 /* XCRemoteSwiftPackageReference "Popovers" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/nikstar/Popovers";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
 		587EB31C2D82DAF6009F0CE2 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/onevcat/Kingfisher";
@@ -5373,11 +5354,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5860FC932E6BCBFB00A23D61 /* XCRemoteSwiftPackageReference "SwiftUI-Flow" */;
 			productName = Flow;
-		};
-		587BCB882DDB9DCA00E745A6 /* Popovers */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 587BCB872DDB9DCA00E745A6 /* XCRemoteSwiftPackageReference "Popovers" */;
-			productName = Popovers;
 		};
 		587EB31D2D82DAF6009F0CE2 /* Kingfisher */ = {
 			isa = XCSwiftPackageProductDependency;

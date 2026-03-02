@@ -15,7 +15,7 @@ struct MenuFullscreenContainer: View {
                 Color.clear
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .allowsHitTesting(false)
-                //            Color.red.frame(rect: menuContext.sourceFrame)
+
                 MenuDrawAreaContainer(sourceX: menuContext.sourceX, showBelowSource: menuContext.showBelowSource)
                     .padding(.top, menuContext.showBelowSource ? menuContext.source.y : 100)
                     .padding(.bottom, menuContext.showBelowSource ? 34 : size.height - menuContext.source.y)

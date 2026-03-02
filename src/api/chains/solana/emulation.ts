@@ -27,7 +27,7 @@ function getFakeTransfer(rawTx: string, isDangerous: boolean): ApiDappTransfer {
   return {
     chain: 'solana',
     toAddress: '',
-    amount: 1n,
+    amount: 0n,
     rawPayload: rawTx,
     isDangerous,
     normalizedAddress: '',
@@ -166,6 +166,28 @@ export async function parseTransactionForPreview(rawTx: string, address: string,
       if (activity && activity.kind === 'transaction') {
         activity = { ...activity, comment: memoText };
         emulation!.activities[0] = activity;
+      } else {
+        // Guess that its memo-only transaction
+        emulation = {
+          networkFee: 0n,
+          received: 0n,
+          traceOutputs: [],
+          activities: [updateActivityMetadata({
+            id: '',
+            kind: 'transaction',
+            timestamp: 0,
+            comment: memoText,
+            fromAddress: address,
+            toAddress: instruction.programAddress,
+            amount: 0n,
+            slug: SOLANA.slug,
+            isIncoming: false,
+            normalizedAddress: address,
+            fee: 0n,
+            status: 'completed',
+          })],
+          realFee: 0n,
+        };
       }
     }
     if (SOLANA_PROGRAM_IDS.token.includes(instruction.programAddress)) {

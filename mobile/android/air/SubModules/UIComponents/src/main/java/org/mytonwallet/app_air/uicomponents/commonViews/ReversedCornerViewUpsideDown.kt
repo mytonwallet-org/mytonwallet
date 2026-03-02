@@ -37,7 +37,7 @@ class ReversedCornerViewUpsideDown(
         }
     }
 
-    private val blurryBackgroundView =
+    private var blurryBackgroundView: WBlurryBackgroundView? =
         if (WGlobalStorage.isBlurEnabled()) blurRootView?.let {
             WBlurryBackgroundView(context, fadeSide = WBlurryBackgroundView.Side.TOP)
         } else null
@@ -123,6 +123,7 @@ class ReversedCornerViewUpsideDown(
     private fun drawChildrenClipped(canvas: Canvas) {
         canvas.save()
         canvas.clipPath(path)
+        val blurryBackgroundView = blurryBackgroundView
         if (blurryBackgroundView?.parent != null) {
             blurryBackgroundView.draw(canvas)
         } else {
@@ -131,7 +132,25 @@ class ReversedCornerViewUpsideDown(
         canvas.restore()
     }
 
+    private fun syncBlurView() {
+        val blurEnabled = WGlobalStorage.isBlurEnabled() && blurRootView != null
+        if (blurEnabled && blurryBackgroundView == null) {
+            blurryBackgroundView = WBlurryBackgroundView(context, fadeSide = WBlurryBackgroundView.Side.TOP)
+            if (backgroundView.parent != null) (backgroundView.parent as ViewGroup).removeView(backgroundView)
+            isPlaying = false
+        } else if (!blurEnabled && blurryBackgroundView != null) {
+            blurryBackgroundView?.let { blur ->
+                blur.pauseBlurring()
+                if (blur.parent != null) (blur.parent as ViewGroup).removeView(blur)
+            }
+            blurryBackgroundView = null
+            isPlaying = false
+        }
+    }
+
     override fun updateTheme() {
+        syncBlurView()
+
         val bgColor = overlayColor
             ?: WColor.SecondaryBackground.color
         if (blurryBackgroundView == null)

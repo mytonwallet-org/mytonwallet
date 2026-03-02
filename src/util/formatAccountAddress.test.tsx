@@ -59,7 +59,7 @@ describe('formatAccountAddresses', () => {
     });
   });
 
-  describe('card variant (default)', () => {
+  describe('medium variant (default)', () => {
     describe('single-chain account', () => {
       test('TON chain with address', () => {
         const result = formatAccountAddresses(singleChainTonAccount);
@@ -69,9 +69,9 @@ describe('formatAccountAddresses', () => {
         expect(icons).toHaveLength(1);
         expect(icons[0].props.className).toBe('icon-chain-ton');
 
-        // Check address format (3 chars left, 4 chars right)
+        // Check address format (6 chars left, 6 chars right)
         const text = getTextContent(result);
-        expect(text).toEqual('UQA···U1V2');
+        expect(text).toEqual('UQA1B2···T0U1V2');
       });
 
       test('TON chain with domain', () => {
@@ -82,10 +82,9 @@ describe('formatAccountAddresses', () => {
         expect(icons).toHaveLength(1);
         expect(icons[0].props.className).toBe('icon-chain-ton');
 
-        // Check domain format (maxLength=8 for card variant)
-        // 'mywalletverylong.ton' (20 chars) -> 'm···.ton' (8 chars)
+        // Check domain format (maxLength=12)
         const text = getTextContent(result);
-        expect(text).toBe('m···.ton');
+        expect(text).toBe('mywal···.ton');
         expect(text).not.toContain('UQA');
       });
 
@@ -97,9 +96,9 @@ describe('formatAccountAddresses', () => {
         expect(icons).toHaveLength(1);
         expect(icons[0].props.className).toBe('icon-chain-tron');
 
-        // Check address format (3 chars left, 4 chars right)
+        // Check address format (6 chars left, 6 chars right)
         const text = getTextContent(result);
-        expect(text).toEqual('TR7···Lj6t');
+        expect(text).toEqual('TR7NHq···gjLj6t');
       });
     });
 
@@ -113,27 +112,27 @@ describe('formatAccountAddresses', () => {
         expect(icons[0].props.className).toBe('icon-chain-ton');
         expect(icons[1].props.className).toBe('icon-chain-tron');
 
-        // Check address format for multichain (0 chars left, 3 chars right for addresses)
+        // Check address format for multichain (0 chars left, 6 chars right for addresses)
         const text = getTextContent(result);
-        expect(text).toContain('···1V2');
-        expect(text).toContain('···j6t');
+        expect(text).toContain('···T0U1V2');
+        expect(text).toContain('···gjLj6t');
 
-        // Check space separator for card variant
-        expect(text).toMatch(/···1V2\s+···j6t/);
+        // Check comma separator for medium variant
+        expect(text).toContain(', ');
       });
 
       test('mixed: one with domain, one with address', () => {
         const result = formatAccountAddresses(multiChainDomainAccount);
 
-        // Check domain format for TON (maxLength=8 for card variant)
-        // 'wallet.ton' (10 chars) -> 'w···.ton' (8 chars)
+        // Check domain format for TON (maxLength=12)
         const text = getTextContent(result);
-        expect(text).toContain('w');
-        expect(text).toContain('···');
-        expect(text).toContain('.ton');
+        expect(text).toContain('wallet.ton');
 
-        // Check address format for TRON (0 chars left, 3 chars right)
-        expect(text).toContain('···j6t');
+        // Check address format for TRON (0 chars left, 6 chars right)
+        expect(text).toContain('···gjLj6t');
+
+        // Check comma separator
+        expect(text).toContain(', ');
       });
     });
 
@@ -158,87 +157,82 @@ describe('formatAccountAddresses', () => {
     });
   });
 
-  describe('list variant', () => {
+  describe('small variant', () => {
     describe('single-chain account', () => {
       test('TON chain with address', () => {
-        const result = formatAccountAddresses(singleChainTonAccount, 'list');
+        const result = formatAccountAddresses(singleChainTonAccount, 'small');
 
         // Check icon class
         const icons = findElementsByTag(result, 'i');
         expect(icons).toHaveLength(1);
         expect(icons[0].props.className).toBe('icon-chain-ton');
 
-        // Check address format (6 chars left, 6 chars right)
+        // Check address format (0 chars left, 4 chars right)
         const text = getTextContent(result);
-        expect(text).toEqual('UQA1B2···T0U1V2');
+        expect(text).toEqual('···U1V2');
       });
 
       test('TON chain with domain', () => {
-        const result = formatAccountAddresses(singleChainTonDomainAccount, 'list');
+        const result = formatAccountAddresses(singleChainTonDomainAccount, 'small');
 
         // Check icon class
         const icons = findElementsByTag(result, 'i');
         expect(icons).toHaveLength(1);
         expect(icons[0].props.className).toBe('icon-chain-ton');
 
-        // Check domain format (maxLength=12 for list variant)
-        // 'mywalletverylong.ton' (20 chars) -> 'mywal···.ton' (12 chars)
+        // Check domain format (maxLength=6)
         const text = getTextContent(result);
-        expect(text).toContain('mywal');
-        expect(text).toContain('···');
-        expect(text).toContain('.ton');
+        expect(text).toBe('m···.ton');
         expect(text).not.toContain('UQA');
       });
 
       test('TRON chain with address', () => {
-        const result = formatAccountAddresses(singleChainTronAccount, 'list');
+        const result = formatAccountAddresses(singleChainTronAccount, 'small');
 
         // Check icon class
         const icons = findElementsByTag(result, 'i');
         expect(icons).toHaveLength(1);
         expect(icons[0].props.className).toBe('icon-chain-tron');
 
-        // Check address format (6 chars left, 6 chars right)
+        // Check address format (0 chars left, 4 chars right)
         const text = getTextContent(result);
-        expect(text).toEqual('TR7NHq···gjLj6t');
+        expect(text).toEqual('···Lj6t');
       });
     });
 
     describe('multi-chain account', () => {
       test('TON and TRON with addresses only', () => {
-        const result = formatAccountAddresses(multiChainAccount, 'list');
+        const result = formatAccountAddresses(multiChainAccount, 'small');
 
-        // Check both icons
+        // Check both icons are present
         const icons = findElementsByTag(result, 'i');
         expect(icons).toHaveLength(2);
         expect(icons[0].props.className).toBe('icon-chain-ton');
         expect(icons[1].props.className).toBe('icon-chain-tron');
 
-        // Check address format for multichain (0 chars left, 4 chars right for addresses)
         const text = getTextContent(result);
-        expect(text).toContain('···U1V2');
-        expect(text).toContain('···Lj6t');
 
-        // Check comma separator
-        expect(text).toContain(', ');
+        // Only the first chain (TON) shows address text; TRON is icon-only
+        expect(text).toContain('···U1V2');
+        expect(text).not.toContain('···Lj6t');
+
+        // Check space separator for small variant
+        expect(text).toMatch(/···U1V2\s+/);
       });
 
       test('mixed: one with domain, one with address', () => {
-        const result = formatAccountAddresses(multiChainDomainAccount, 'list');
+        const result = formatAccountAddresses(multiChainDomainAccount, 'small');
 
-        // Check domain format for TON (4 chars left, 4 chars right)
-        // Note: 'wallet.ton' is 10 chars, which is less than 4+4+3=11, so it won't be shortened
+        // Only the first chain (TON) shows domain text; TRON is icon-only
         const text = getTextContent(result);
-        expect(text).toContain('wallet.ton');
-
-        // Check address format for TRON (0 chars left, 4 chars right)
-        expect(text).toContain('···Lj6t');
+        expect(text).toContain('w···.ton');
+        expect(text).not.toContain('Lj6t');
       });
     });
 
     describe('short addresses/domains', () => {
       test('short address that should not be truncated', () => {
-        const result = formatAccountAddresses(shortSingleChainTonAccount, 'list');
+        const result = formatAccountAddresses(shortSingleChainTonAccount, 'small');
 
         // Short address should be displayed as is (no truncation)
         const text = getTextContent(result);
@@ -247,7 +241,7 @@ describe('formatAccountAddresses', () => {
       });
 
       test('short domain in single-chain', () => {
-        const result = formatAccountAddresses(shortSingleChainTonDomainAccount, 'list');
+        const result = formatAccountAddresses(shortSingleChainTonDomainAccount, 'small');
 
         // Short domain should be displayed as is
         const text = getTextContent(result);

@@ -526,6 +526,8 @@ Previous: 上一页
 Next: 下一页
 Insufficient %token% for fee.: "%token% 不足以支付费用。"
 Send NFT: 发送 NFT
+Send Collectible: 发送收藏品
+Send Collectibles: 发送收藏品
 NFT has been sent!: NFT已发送！
 Cannot be sent: 无法发送
 NFT is for sale: NFT 正在出售

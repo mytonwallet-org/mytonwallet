@@ -2,7 +2,7 @@ import { getActions } from '../../../../../global';
 
 import type { DropdownItem } from '../../../../ui/Dropdown';
 
-import { MYTONWALLET_MULTISEND_DAPP_URL } from '../../../../../config';
+import { MULTISEND_DAPP_URL } from '../../../../../config';
 import { vibrate } from '../../../../../util/haptics';
 import { getTranslation } from '../../../../../util/langProvider';
 import { openUrl } from '../../../../../util/openUrl';
@@ -35,9 +35,9 @@ export function handleSendMenuItemClick(value: MenuHandler) {
 
     case 'multisend':
       void vibrate();
-      void openUrl(MYTONWALLET_MULTISEND_DAPP_URL, {
+      void openUrl(MULTISEND_DAPP_URL, {
         title: getTranslation('Multisend'),
-        subtitle: getHostnameFromUrl(MYTONWALLET_MULTISEND_DAPP_URL),
+        subtitle: getHostnameFromUrl(MULTISEND_DAPP_URL),
       });
       break;
 

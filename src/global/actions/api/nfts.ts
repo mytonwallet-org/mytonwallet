@@ -2,6 +2,7 @@ import { DEFAULT_CHAIN } from '../../../config';
 import { getChainConfig } from '../../../util/chain';
 import { findDifference, omit } from '../../../util/iteratees';
 import { callApi } from '../../../api';
+import { NFT_COLLECTION_CACHE_TTL } from '../../../api/constants';
 import { addActionHandler, setGlobal } from '../../index';
 import { updateAccountState, updateCurrentAccountState } from '../../reducers';
 import { selectAccountState, selectCurrentAccountId, selectCurrentAccountState } from '../../selectors';
@@ -9,17 +10,36 @@ import { selectAccountState, selectCurrentAccountId, selectCurrentAccountState }
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
 
 addActionHandler('fetchNftsFromCollection', (global, actions, { collection }) => {
+  const accountId = selectCurrentAccountId(global);
+  // Can be `undefined` during logout or before any account is selected
+  if (!accountId) return;
+
+  const accountState = selectAccountState(global, accountId);
+  const lastLoadedAt = accountState?.nfts?.collectionLoadedTimestamps?.[collection.address];
+  const now = Date.now();
+
+  if (lastLoadedAt !== undefined && (now - lastLoadedAt) < NFT_COLLECTION_CACHE_TTL) {
+    return;
+  }
+
   actions.clearNftCollectionLoading({ collection });
-  void callApi('fetchNftsFromCollection', selectCurrentAccountId(global)!, collection);
+  void callApi('fetchNftsFromCollection', accountId, collection);
 });
 
 addActionHandler('clearNftCollectionLoading', (global, actions, { collection }) => {
-  const currentAccountId = selectCurrentAccountId(global)!;
+  const currentAccountId = selectCurrentAccountId(global);
+  // Can be `undefined` during logout or before any account is selected
+  if (!currentAccountId) return;
+
   const accountState = selectAccountState(global, currentAccountId);
   global = updateAccountState(global, currentAccountId, {
     nfts: {
-      ...accountState!.nfts,
-      isLoadedByAddress: omit(accountState!.nfts?.isLoadedByAddress ?? {}, [collection.address]),
+      ...accountState?.nfts,
+      isLoadedByAddress: omit(accountState?.nfts?.isLoadedByAddress ?? {}, [collection.address]),
+      collectionLoadedTimestamps: omit(
+        accountState?.nfts?.collectionLoadedTimestamps ?? {},
+        [collection.address],
+      ),
     },
   });
   setGlobal(global);

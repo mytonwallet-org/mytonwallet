@@ -21,3 +21,5 @@ export const ANIMATION_LEVEL_DEFAULT = ANIMATION_LEVEL_MAX;
 export const THEME_DEFAULT = 'system';
 
 export const IS_CAPACITOR = false;
+
+export const PORTFOLIO_API_URL = process.env.PORTFOLIO_API_URL || 'https://api-portfolio.mytonwallet.io/api';

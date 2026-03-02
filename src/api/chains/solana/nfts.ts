@@ -1,18 +1,19 @@
 import type { Base58EncodedBytes } from '@solana/kit';
 
 import type {
-  ApiCheckTransactionDraftResult,
-  ApiNetwork,
-  ApiNft,
-  ApiNftMetadata,
-  ApiSubmitNftTransferResult,
-} from '../../types';
-import type {
   SolanaAssetProofRaw,
   SolanaSPLToken,
   SolanaSPLTokenByAddressRaw,
   SolanaSPLTokensByAddressRaw,
 } from './types';
+import {
+  type ApiCheckTransactionDraftResult,
+  type ApiNetwork,
+  type ApiNft,
+  type ApiNftMetadata,
+  type ApiSubmitNftTransferResult,
+  ApiTransactionDraftError,
+} from '../../types';
 
 import { parseAccountId } from '../../../util/account';
 import { getChainConfig } from '../../../util/chain';
@@ -25,6 +26,7 @@ import { fetchAllPaginated, streamPaginated } from '../../common/pagination';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
 import { NETWORK_CONFIG } from './constants';
 import { buildTransaction, estimateTransactionFee, sendSignedTransaction } from './transfer';
+import { getWalletBalance } from './wallet';
 
 export async function getAccountNfts(accountId: string, options?: {
   collectionAddress?: string;
@@ -285,6 +287,8 @@ export async function checkNftTransferDraft(options: {
 
   const client = getSolanaClient(network);
 
+  const walletBalance = await getWalletBalance(network, fromAddress);
+
   const tx = await buildTransaction(client, network, {
     type: 'simulation',
     amount: 0n,
@@ -295,7 +299,19 @@ export async function checkNftTransferDraft(options: {
     isNftBurn,
   });
 
-  const fee = await estimateTransactionFee(client, { network, serializedB64Transaction: tx });
+  const estimationResult = await estimateTransactionFee({ network, serializedB64Transaction: tx });
+
+  if ('error' in estimationResult) {
+    return { error: estimationResult.error };
+  }
+
+  const fee = estimationResult.fee;
+
+  const isEnoughBalanceWithFee = walletBalance >= fee;
+
+  if (!isEnoughBalanceWithFee) {
+    return { error: ApiTransactionDraftError.InsufficientBalance };
+  }
 
   return {
     fee,

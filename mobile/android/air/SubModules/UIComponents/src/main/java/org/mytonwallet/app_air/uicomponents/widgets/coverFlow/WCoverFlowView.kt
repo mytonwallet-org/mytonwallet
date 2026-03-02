@@ -12,10 +12,12 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
+import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Scroller
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.withSave
@@ -32,6 +34,10 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.typeface
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
@@ -56,8 +62,9 @@ class WCoverFlowView @JvmOverloads constructor(
 
     // Data and state
     private var covers = mutableListOf<CoverItem>()
-    private var coverDrawables = mutableMapOf<Int, Drawable>()
+    private var coverDrawables = mutableMapOf<Int, Drawable?>()
     private var placeholderDrawable: Drawable? = null
+    private var noImageDrawable: Drawable? = null
     private var currentIndex = 0
     private var lastNotifiedIndex = -1  // Track last notified index
     private var scrollOffset = 0f
@@ -88,8 +95,19 @@ class WCoverFlowView @JvmOverloads constructor(
     private var onScrollStateChangeListener: ((ScrollState) -> Unit)? = null
 
     init {
-        // Create placeholder drawable
         createPlaceholderDrawable()
+        createNoImageDrawable()
+    }
+
+    fun updateTheme() {
+        createPlaceholderDrawable()
+        createNoImageDrawable()
+        covers.forEachIndexed { index, cover ->
+            if (cover.imageUrl == null && cover.color == null) {
+                coverDrawables[index] = noImageDrawable ?: placeholderDrawable
+            }
+        }
+        invalidate()
     }
 
     fun onDestroy() {
@@ -113,6 +131,43 @@ class WCoverFlowView @JvmOverloads constructor(
         canvas.drawRoundRect(RectF(0f, 0f, COVER_WIDTH, COVER_HEIGHT), 20f, 20f, paint)
 
         placeholderDrawable = bitmap.toDrawable(context.resources)
+    }
+
+    private fun createNoImageDrawable() {
+        val bitmap = createBitmap(COVER_WIDTH.toInt(), COVER_HEIGHT.toInt())
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        paint.color = WColor.SecondaryBackground.color
+        canvas.drawRoundRect(RectF(0f, 0f, COVER_WIDTH, COVER_HEIGHT), 12f.dp, 12f.dp, paint)
+
+        val iconRes = if (ThemeManager.isDark)
+            org.mytonwallet.app_air.icons.R.drawable.img_nft_no_image_dark
+        else
+            org.mytonwallet.app_air.icons.R.drawable.img_nft_no_image_light
+        val iconDrawable = ContextCompat.getDrawable(context, iconRes)
+        val iconSize = 60f.dp.toInt()
+        val iconLeft = ((COVER_WIDTH - iconSize) / 2f).toInt()
+        val textSize = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP, 9f, context.resources.displayMetrics
+        )
+        val contentHeight = iconSize + 4f.dp + textSize
+        val iconTop = ((COVER_HEIGHT - contentHeight) / 2f).toInt()
+        iconDrawable?.setBounds(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
+        iconDrawable?.draw(canvas)
+
+        paint.color = WColor.SecondaryText.color
+        paint.textSize = textSize
+        paint.textAlign = Paint.Align.CENTER
+        paint.typeface = WFont.NunitoExtraBold.typeface
+        canvas.drawText(
+            LocaleController.getString("No Image"),
+            COVER_WIDTH / 2f,
+            iconTop + iconSize + 4f.dp + textSize,
+            paint
+        )
+
+        noImageDrawable = bitmap.toDrawable(context.resources)
     }
 
     fun setCovers(newCovers: List<CoverItem>) {
@@ -149,15 +204,9 @@ class WCoverFlowView @JvmOverloads constructor(
     private fun loadCoverImages() {
         covers.forEachIndexed { index, cover ->
             when {
-                cover.imageUrl != null -> {
-                    loadImageFromUrl(cover.imageUrl, index)
-                }
-
-                else -> {
-                    // Use color-based placeholder
-                    coverDrawables[index] =
-                        createColorDrawable(cover.color ?: DEFAULT_PLACEHOLDER.color)
-                }
+                cover.imageUrl != null -> loadImageFromUrl(cover.imageUrl, index)
+                cover.color != null -> coverDrawables[index] = createColorDrawable(cover.color)
+                else -> coverDrawables[index] = noImageDrawable ?: placeholderDrawable
             }
         }
     }

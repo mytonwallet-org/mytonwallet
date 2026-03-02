@@ -18,7 +18,7 @@ import {
 } from '../../../../lib/solana-program/computeBudget';
 import { toDecimal } from '../../../../util/decimals';
 import { buildTokenSlug, getTokenBySlug } from '../../../common/tokens';
-import { SOLANA_PROGRAM_IDS, WSOL_MINT } from '../constants';
+import { ATA_RENT_LAMPORTS, SOLANA_PROGRAM_IDS, WSOL_MINT } from '../constants';
 import { updateTokensMetadataByAddress } from './metadata';
 
 export function parseSimpleTransfer(address: string, tx: SolanaTransaction) {
@@ -99,9 +99,6 @@ export function parseTxComment(tx: SolanaTransaction | SolanaParsedTransaction) 
     return utf8.decode(rawBytes);
   }
 }
-
-// TODO: switch to actual data fetching
-const ATA_RENT_LAMPORTS = 2039280n;
 
 export async function parseTokenOperation(
   network: ApiNetwork,

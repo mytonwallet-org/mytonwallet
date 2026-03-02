@@ -716,11 +716,18 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     private fun switchToDisplayedAccountId() {
         val displayedAccount = this@WViewController.displayedAccount ?: return
         val displayedAccountId = displayedAccount.accountId ?: return
+        // Check if displayed account will be activated
         if (WalletCore.nextAccountId == displayedAccountId)
             return
+        // Check if displayed account is already activated
         if (WalletCore.nextAccountId == null && AccountStore.activeAccountId == displayedAccountId)
             return
         if (!WGlobalStorage.accountExists(displayedAccountId)) {
+            if (WGlobalStorage.accountIds().isEmpty()) {
+                // Resetting accounts is in progress; should not pop.
+                return
+            }
+            // Account doesn't exist anymore, pop to the previous screen.
             pop()
             return
         }

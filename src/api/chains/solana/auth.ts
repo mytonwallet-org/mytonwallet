@@ -23,12 +23,14 @@ import * as HDKey from '../../../lib/ed25519-hd-key';
 import { parseAccountId } from '../../../util/account';
 import isMnemonicPrivateKey from '../../../util/isMnemonicPrivateKey';
 import { logDebugError } from '../../../util/logs';
+import { pause } from '../../../util/schedulers';
 import { fetchStoredAccount } from '../../common/accounts';
 import { getKnownAddressInfo } from '../../common/addresses';
 import { getMnemonic } from '../../common/mnemonic';
 import { bytesToHex } from '../../common/utils';
 import { isValidAddress } from './address';
-import { SOLANA_DERIVATION_PATHS } from './constants';
+import { SOLANA_DEFAULT_DERIVATION_PATH, SOLANA_DERIVATION_PATHS } from './constants';
+import { getWalletBalance, getWalletLastTransaction } from './wallet';
 
 // Mimic @solana/kit signer w/o Web Crypto API
 function createNaclKeyPairSigner(privateKeyBytes: Uint8Array): SolanaKeyPairSigner {
@@ -71,7 +73,7 @@ export async function fetchPrivateKeyString(accountId: string, password: string,
     } else {
       const { network } = parseAccountId(accountId);
 
-      const privateKey = getRawWalletFromBip39Mnemonic(network, mnemonic).rawPrivateKey;
+      const privateKey = (await getRawWalletFromBip39Mnemonic(network, mnemonic)).rawPrivateKey;
 
       return bytesToHex(privateKey);
     }
@@ -82,8 +84,8 @@ export async function fetchPrivateKeyString(accountId: string, password: string,
   }
 }
 
-export function getWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]): ApiSolanaWallet {
-  const raw = getRawWalletFromBip39Mnemonic(network, mnemonic);
+export async function getWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]): Promise<ApiSolanaWallet> {
+  const raw = await getRawWalletFromBip39Mnemonic(network, mnemonic);
 
   return {
     address: raw.wallet.address,
@@ -126,15 +128,73 @@ export function getWalletFromAddress(
   };
 }
 
-function getRawWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]) {
+async function getRawWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]) {
   const seed = bip39.mnemonicToSeedSync(mnemonic.join(' '));
 
-  const seedByCustomPath = HDKey.derivePath(SOLANA_DERIVATION_PATHS.phantom, seed.toString('hex')).key;
+  const bestWallet = await pickBestWallet(network, seed.toString('hex'));
 
-  const derivedKeypair = nacl.sign.keyPair.fromSeed(seedByCustomPath);
-  const privateKeyBytes = derivedKeypair.secretKey.subarray(0, 32);
+  return { wallet: bestWallet.wallet, rawPrivateKey: bestWallet.privateKeyBytes };
+}
 
-  const wallet = createNaclKeyPairSigner(new Uint8Array(privateKeyBytes));
+const MULTIWALLET_BY_PATH_COUNT = 2;
 
-  return { wallet, rawPrivateKey: privateKeyBytes };
+export async function pickBestWallet(network: ApiNetwork, seed: string) {
+  const addresses = Object.entries(SOLANA_DERIVATION_PATHS).map((e) => {
+    const acc: {
+      wallet: SolanaKeyPairSigner;
+      privateKeyBytes: Uint8Array;
+      path: string;
+    }[] = [];
+
+    for (let i = 0; i < (e[0] === 'default' ? 1 : MULTIWALLET_BY_PATH_COUNT); i++) {
+      const path = e[1].replace('{index}', i.toString());
+      const seedByCustomPath = HDKey.derivePath(path, seed).key;
+
+      const derivedKeypair = nacl.sign.keyPair.fromSeed(seedByCustomPath);
+      const privateKeyBytes = derivedKeypair.secretKey.subarray(0, 32);
+
+      const wallet = createNaclKeyPairSigner(new Uint8Array(privateKeyBytes));
+
+      acc.push({ wallet, privateKeyBytes, path });
+    }
+
+    return acc;
+  }).flat();
+
+  const addressBalances = await Promise.all(addresses.map(async (e) => ({
+    wallet: e.wallet,
+    balance: await getWalletBalance(network, e.wallet.address),
+    privateKeyBytes: e.privateKeyBytes,
+    path: e.path,
+  })));
+
+  const bestWalletByBalance = addressBalances.reduce<typeof addressBalances[0] | undefined>((best, current) => {
+    return current.balance > (best?.balance ?? 0n) ? current : best;
+  }, undefined);
+
+  if (bestWalletByBalance) {
+    return bestWalletByBalance;
+  }
+
+  // TODO: rm after API plan upgrade from 10rpc, but now wait to avoid 429 error
+  await pause(500);
+
+  const addressLastTxs = await Promise.all(addresses.map(async (e) => ({
+    wallet: e.wallet,
+    lastTxTimestamp: (await getWalletLastTransaction(network, e.wallet.address))?.blockTime,
+    privateKeyBytes: e.privateKeyBytes,
+    path: e.path,
+  })));
+
+  const bestWalletByLastTx = addressLastTxs.reduce<typeof addressLastTxs[0] | undefined>((best, current) => {
+    return current?.lastTxTimestamp && current.lastTxTimestamp > (best?.lastTxTimestamp ?? 0) ? current : best;
+  }, undefined);
+
+  if (bestWalletByLastTx) {
+    return bestWalletByLastTx;
+  }
+
+  const defaultAddress = addressBalances.find((e) => e.path === SOLANA_DEFAULT_DERIVATION_PATH)!;
+
+  return defaultAddress;
 }

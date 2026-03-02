@@ -332,10 +332,7 @@ struct WalletConnectInjectionScript {
             });
             window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: register }));
 
-            const interval = setInterval(() => {
-                window.dispatchEvent(new CustomEvent('wallet-standard:request-provider'));
-                window.dispatchEvent(new CustomEvent('wallet-standard:register-wallet', { detail: register }));
-
+            if (!window.solana) {
                 window.solana = {
                     isMyTonWallet: true,
                     publicKey: null,
@@ -365,6 +362,11 @@ struct WalletConnectInjectionScript {
                         return solanaWallet.features['standard:events'].on(event, cb);
                     },
                 };
+            }
+
+            const interval = setInterval(() => {
+                window.dispatchEvent(new CustomEvent('wallet-standard:register-wallet', { detail: register }));
+                window.dispatchEvent(new CustomEvent('wallet-standard:request-provider'));
             }, 500);
 
             setTimeout(() => clearInterval(interval), 10000);

@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
@@ -53,9 +54,13 @@ class TonConnectRequestConnectVC(
         configure(update?.dapp)
     }
 
-    private val headerView = HeaderCell(context)
+    private val headerView = HeaderCell(context).apply {
+        alpha = 0f
+    }
 
-    private val accountView = SettingsAccountCell(context)
+    private val accountView = SettingsAccountCell(context).apply {
+        alpha = 0f
+    }
 
     private val buttonView: WButton = WButton(context, WButton.Type.PRIMARY).apply {
         text = LocaleController.getString("Connect Wallet")
@@ -82,7 +87,7 @@ class TonConnectRequestConnectVC(
         addView(
             accountView, LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                SettingsAccountCell.heightForItem(true)
             ).apply {
                 topMargin = 0.dp
                 leftMargin = 10.dp
@@ -139,7 +144,7 @@ class TonConnectRequestConnectVC(
 
             val account = AccountStore.accountById(update.accountId)
 
-            if (account?.accountType == MAccount.AccountType.VIEW) {
+            if (account?.accountType == MAccount.AccountType.VIEW && update.proof != null) {
                 showAlert(
                     LocaleController.getString("Error"),
                     LocaleController.getString("Action is not possible on a view-only wallet.")
@@ -183,7 +188,7 @@ class TonConnectRequestConnectVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
         scrollView.setPadding(
-            0, (WNavigationBar.Companion.DEFAULT_HEIGHT - 28).dp, 0, max(
+            0, (WNavigationBar.DEFAULT_HEIGHT - 28).dp, 0, max(
                 (navigationController?.getSystemBars()?.bottom ?: 0),
                 (window?.imeInsets?.bottom ?: 0)
             )
@@ -318,6 +323,8 @@ class TonConnectRequestConnectVC(
         updateButtonState()
         updateHeaderView()
         updateAccountView()
+        headerView.fadeIn()
+        accountView.fadeIn()
     }
 
     private fun updateButtonState() {

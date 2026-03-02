@@ -212,6 +212,13 @@ class TonConnectRequestSendVC(
         }
 
         confirmButtonView.setOnClickListener {
+            if (AccountStore.accountById(update?.accountId)?.isViewOnly == true) {
+                window?.topViewController?.showAlert(
+                    LocaleController.getString("Error"),
+                    LocaleController.getString("Action is not possible on a view-only wallet.")
+                )
+                return@setOnClickListener
+            }
             if (AccountStore.activeAccount?.isHardware == true) {
                 confirmHardware()
             } else {

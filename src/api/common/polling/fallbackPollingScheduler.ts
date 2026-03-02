@@ -35,6 +35,16 @@ export class FallbackPollingScheduler {
 
   #isDestroyed = false;
 
+  /**
+   * Stays `false` until the socket connects for the first time.
+   * On the very first connection, `pollOnStart` (if set) has already issued a fresh HTTP
+   * request — there is nothing to catch up on, so `onSocketConnect` must not trigger a
+   * second poll regardless of whether that initial request has finished.
+   * After the first connect this becomes `true`, so every subsequent reconnect re-polls
+   * as expected (to pick up balance changes that arrived while the socket was gone).
+   */
+  #hasEverConnected = false;
+
   /** `poll` is never executed in parallel */
   constructor(poll: PollCallback, isSocketConnected: boolean, options: FallbackPollingOptions) {
     this.#rawPoll = poll;
@@ -51,7 +61,12 @@ export class FallbackPollingScheduler {
   public onSocketConnect() {
     if (this.#isDestroyed) return;
     this.#schedulePolling(true);
-    this.#poll();
+    // On the very first connect, skip the poll when pollOnStart already issued one.
+    // On every reconnect, always poll to catch updates missed during the outage.
+    if (this.#hasEverConnected || !this.#options.pollOnStart) {
+      this.#poll();
+    }
+    this.#hasEverConnected = true;
   }
 
   /** Call this method when the socket source of data becomes unavailable */

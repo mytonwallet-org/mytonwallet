@@ -509,7 +509,15 @@ function TransferInitial({
               <i className={buildClassName(modalStyles.closeIcon, 'icon-close')} aria-hidden />
             </Button>
           )}
-          <SentTabs isInsideModal={!isStatic} />
+
+          {isNftTransfer ? (
+            <div className={buildClassName(styles.transferTitle, isStatic && styles.transferTitle_small)}>
+              {lang(nfts.length > 1 ? 'Send Collectibles' : 'Send Collectible')}
+            </div>
+          ) : (
+            <SentTabs isInsideModal={!isStatic} />
+          )}
+
           {nfts?.length === 1 && <NftInfo nft={nfts[0]} isStatic={isStatic} withMediaViewer />}
           {Boolean(nfts?.length) && nfts.length > 1 && <NftChips nfts={nfts} isStatic={isStatic} />}
 

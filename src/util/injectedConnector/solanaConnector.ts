@@ -89,11 +89,7 @@ export function registerSolanaInjectedWallet(connector: SolanaStandardWallet) {
     detail: register,
   }));
 
-  // this event & definition spam helps (proven)
-  const interval = setInterval(() => {
-    window.dispatchEvent(new CustomEvent('wallet-standard:request-provider'));
-    window.dispatchEvent(new CustomEvent('wallet-standard:register-wallet', { detail: register }));
-
+  if (!window.solana) {
     window.solana = {
       isMyTonWallet: true, // maybe it helps, who knows
       // eslint-disable-next-line no-null/no-null
@@ -136,6 +132,12 @@ export function registerSolanaInjectedWallet(connector: SolanaStandardWallet) {
         return solanaWallet.features['standard:events'].on(event, cb);
       },
     };
+  }
+
+  // this event & definition spam helps (proven)
+  const interval = setInterval(() => {
+    window.dispatchEvent(new CustomEvent('wallet-standard:register-wallet', { detail: register }));
+    window.dispatchEvent(new CustomEvent('wallet-standard:request-provider'));
   }, 500);
 
   setTimeout(() => clearInterval(interval), 10_000);

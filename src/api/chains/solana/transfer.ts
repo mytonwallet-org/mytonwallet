@@ -3,7 +3,6 @@ import type {
   Base58EncodedBytes,
   Instruction,
   Transaction,
-  TransactionMessageBytesBase64,
   TransactionSigner,
 } from '@solana/kit';
 import {
@@ -21,6 +20,7 @@ import {
 } from '@solana/kit';
 
 import type {
+  ApiAnyDisplayError,
   ApiFetchEstimateDieselResult,
   ApiNetwork,
   ApiNft,
@@ -32,6 +32,7 @@ import type { SolanaKeyPairSigner } from './types';
 import {
   type ApiCheckTransactionDraftOptions,
   type ApiCheckTransactionDraftResult,
+  ApiCommonError,
   ApiTransactionDraftError,
   ApiTransactionError,
 } from '../../types';
@@ -67,7 +68,8 @@ import { buildTokenSlug, getTokenBySlug } from '../../common/tokens';
 import { handleServerError } from '../../errors';
 import { isValidAddress } from './address';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
-import { SOLANA_PROGRAM_IDS } from './constants';
+import { ATA_RENT_LAMPORTS, SOLANA_PROGRAM_IDS } from './constants';
+import { emulateTransaction } from './emulation';
 import { getAssetProof } from './nfts';
 import { getWalletBalance } from './wallet';
 
@@ -107,12 +109,16 @@ export async function checkTransactionDraft(
       payload,
     });
 
-    const fee = await estimateTransactionFee(client, { network, serializedB64Transaction });
+    const estimationResult = await estimateTransactionFee({ network, serializedB64Transaction });
 
-    result.fee = fee;
-    result.realFee = fee;
+    if ('error' in estimationResult) {
+      return { error: estimationResult.error };
+    }
 
-    const totalTxAmount = tokenAddress ? fee : (amount ?? 0n) + fee;
+    result.fee = estimationResult.fee;
+    result.realFee = estimationResult.fee;
+
+    const totalTxAmount = tokenAddress ? estimationResult.fee : (amount ?? 0n) + estimationResult.fee;
     const isEnoughBalanceWithFee = walletBalance >= totalTxAmount;
 
     if (!isEnoughBalanceWithFee) {
@@ -196,20 +202,38 @@ export function fetchEstimateDiesel(accountId: string, tokenAddress: string): Ap
   return DIESEL_NOT_AVAILABLE;
 }
 
-export async function estimateTransactionFee(client: SolanaClient, options: {
+export async function estimateTransactionFee(options: {
   network: ApiNetwork;
   serializedB64Transaction: string;
-}) {
-  const feeResponse = await client.getFeeForMessage(
-    options.serializedB64Transaction as TransactionMessageBytesBase64,
-  ).send();
+}): Promise<{ fee: bigint } | { error: ApiAnyDisplayError }> {
+  const emulatedTransaction = await emulateTransaction(options.serializedB64Transaction, options.network);
 
-  if (feeResponse.value) {
-    const feeInLamports = feeResponse.value;
-    return BigInt(feeInLamports);
+  // eslint-disable-next-line no-null/no-null
+  if (emulatedTransaction && !emulatedTransaction.err && emulatedTransaction.fee !== null) {
+    let newATACount = 0n;
+
+    emulatedTransaction.postTokenBalances
+      .forEach((post) => {
+        const pre = emulatedTransaction.preTokenBalances?.find((p) => p.accountIndex === post.accountIndex);
+
+        if (!pre) {
+          // instruction may include ATA creating, so add it as additional fee (if exists)
+          newATACount++;
+        }
+      });
+
+    return { fee: BigInt(emulatedTransaction.fee) + newATACount * ATA_RENT_LAMPORTS };
   }
 
-  return 0n;
+  if (emulatedTransaction.err && (
+    emulatedTransaction.err['InsufficientFundsForRent']
+    || emulatedTransaction.err === 'AccountNotFound'
+  )) {
+    return { error: ApiTransactionDraftError.InsufficientBalance };
+  }
+  logDebugError('solana:estimateTransactionFee', options.serializedB64Transaction, emulatedTransaction.err);
+
+  return { error: ApiCommonError.Unexpected };
 }
 
 async function getTokenTransferATAs(
@@ -514,18 +538,9 @@ export async function buildTransaction(
     compiledTransaction = compileTransaction(transactionMessage);
   }
 
-  let serializedTx = '';
+  const signedBytes = getTransactionEncoder().encode(compiledTransaction);
 
-  if (options.type === 'real') {
-    // sendTransaction accepts base58 only, but autoencoder returns base64, so encode manually
-    const signedBytes = getTransactionEncoder().encode(compiledTransaction);
+  const decoder = options.type === 'real' ? getBase58Decoder() : getBase64Decoder();
 
-    const base58Encoder = getBase58Decoder();
-    serializedTx = base58Encoder.decode(signedBytes);
-  } else {
-    // getFeeForMessage accepts only message part (w/o headers) in base64, so encode manually
-    serializedTx = getBase64Decoder().decode(compiledTransaction.messageBytes);
-  }
-
-  return serializedTx;
+  return decoder.decode(signedBytes);
 }

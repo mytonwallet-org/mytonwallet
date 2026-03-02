@@ -404,6 +404,8 @@ export default function createConfig(
         GIVEAWAY_CHECKIN_URL: '',
         PROXY_API_BASE_URL: '',
         WALLET_CONNECT_PROJECT_ID: '',
+        MULTISEND_DAPP_URL: '',
+        PORTFOLIO_DAPP_URL: '',
       }),
       new ProvidePlugin({
         Buffer: ['buffer', 'Buffer'],

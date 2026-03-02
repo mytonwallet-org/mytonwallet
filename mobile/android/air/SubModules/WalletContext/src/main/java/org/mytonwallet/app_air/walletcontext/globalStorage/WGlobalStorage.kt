@@ -8,6 +8,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
+import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MCollectionTab
@@ -415,7 +416,7 @@ object WGlobalStorage {
     }
 
     fun isBlurEnabled(): Boolean {
-        return globalStorageProvider.getBool(IS_BLUR_ENABLED) ?: true
+        return globalStorageProvider.getBool(IS_BLUR_ENABLED) ?: DevicePerformanceClassifier.isHighClass
     }
 
     fun setBlurEnabled(enabled: Boolean) {

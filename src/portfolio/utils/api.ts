@@ -1,4 +1,5 @@
-const API_URL = 'https://mtw-portfolio-a62e64ba29f9.herokuapp.com/api';
+import { PORTFOLIO_API_URL } from '../config';
+
 const HISTORY_DAYS = 365;
 const MAX_RETRIES = 30;
 
@@ -46,7 +47,7 @@ export async function fetchChartData(
   });
 
   return fetchWithRetry(
-    `${API_URL}/net-worth-history?wallets=${wallets}&${params}`,
+    `${PORTFOLIO_API_URL}/net-worth-history?wallets=${wallets}&${params}`,
     onProgress,
   );
 }

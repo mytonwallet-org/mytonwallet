@@ -375,3 +375,17 @@ textarea.inputStatic {
   top: 1rem;
   right: 0;
 }
+
+.transferTitle {
+  margin: 1.5rem auto 1.3125rem;
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.0625rem;
+  color: var(--color-black);
+  text-align: center;
+
+  &_small {
+    margin: 0 0 1rem;
+  }
+}

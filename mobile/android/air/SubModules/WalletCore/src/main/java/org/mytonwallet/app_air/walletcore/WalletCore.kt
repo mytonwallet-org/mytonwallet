@@ -116,6 +116,7 @@ val DEFAULT_SHOWN_TOKENS = mapOf(
         TRON_USDT_SLUG,
         SOLANA_SLUG,
         SOLANA_USDT_SLUG,
+        SOLANA_USDC_SLUG,
     ),
     MBlockchainNetwork.TESTNET to setOf(
         TONCOIN_SLUG,
@@ -131,6 +132,7 @@ val TRUSTED_USDT_TOKENS = mapOf(
         TON_USDT_SLUG,
         TRON_USDT_SLUG,
         SOLANA_USDT_SLUG,
+        SOLANA_USDC_SLUG,
     ),
     MBlockchainNetwork.TESTNET to setOf(
         TON_USDT_TESTNET_SLUG,

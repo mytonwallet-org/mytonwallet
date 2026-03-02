@@ -1054,7 +1054,6 @@
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
 				584B0F0B2DD395FB00BDF9E7 /* XCRemoteSwiftPackageReference "lottie-spm" */,
-				587C28432DE32F1200503E94 /* XCRemoteSwiftPackageReference "Popovers" */,
 				580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
@@ -1600,7 +1599,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 4.7.0;
+				MARKETING_VERSION = 4.7.1;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1629,7 +1628,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 4.7.0;
+				MARKETING_VERSION = 4.7.1;
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1910,14 +1909,6 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 4.5.1;
-			};
-		};
-		587C28432DE32F1200503E94 /* XCRemoteSwiftPackageReference "Popovers" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/nikstar/Popovers";
-			requirement = {
-				branch = main;
-				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

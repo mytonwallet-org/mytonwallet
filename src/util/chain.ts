@@ -1,6 +1,7 @@
 import type { ApiChain, ApiNetwork, ApiToken, ApiTokenWithPrice } from '../api/types';
 
 import {
+  DEBUG,
   MYCOIN_MAINNET,
   MYCOIN_TESTNET,
   SOLANA,
@@ -123,6 +124,9 @@ export interface ChainConfig {
   /** Builds a link to transfer assets in this chain. If not set, the chain won't have the Deposit Link modal. */
   formatTransferUrl?(address: string, amount?: bigint, text?: string, jettonAddress?: string): string;
 }
+
+// The supported chains are stored in the correct order, the chain with the more specific address (Regex) must be first
+export const CHAIN_ORDER: ApiChain[] = ['ton', 'tron', 'solana'];
 
 const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   ton: {
@@ -328,6 +332,15 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   },
 };
 
+if (DEBUG) {
+  const configKeys = new Set(Object.keys(CHAIN_CONFIG));
+  const supportedSet = new Set(CHAIN_ORDER);
+  const missing = [...configKeys].filter((k) => !supportedSet.has(k as ApiChain));
+  if (missing.length) {
+    throw new Error(`SUPPORTED_CHAINS is missing chains from CHAIN_CONFIG: ${missing.join(', ')}`);
+  }
+}
+
 export function getChainConfig(chain: ApiChain): ChainConfig {
   return CHAIN_CONFIG[chain];
 }
@@ -375,7 +388,7 @@ export function getIsSupportedChain(chain?: string): chain is ApiChain {
 }
 
 export function getSupportedChains() {
-  return Object.keys(CHAIN_CONFIG) as (keyof typeof CHAIN_CONFIG)[];
+  return CHAIN_ORDER;
 }
 
 /** Returns the chains supported by the given account in the proper order for showing in the UI */
@@ -384,13 +397,13 @@ export function getOrderedAccountChains(byChain: Partial<Record<ApiChain, unknow
 }
 
 export function getChainsSupportingLedger(): ApiChain[] {
-  return (Object.keys(CHAIN_CONFIG) as (keyof typeof CHAIN_CONFIG)[])
+  return getSupportedChains()
     .filter((chain) => CHAIN_CONFIG[chain].isLedgerSupported);
 }
 
 export const getChainsSupportingNft = /* #__PURE__ */ withCache((): ReadonlySet<ApiChain> => {
   return new Set(
-    (Object.keys(CHAIN_CONFIG) as (keyof typeof CHAIN_CONFIG)[])
+    getSupportedChains()
       .filter((chain) => CHAIN_CONFIG[chain].isNftSupported),
   );
 });
