@@ -33,7 +33,7 @@ interface OwnProps extends AmountInputStateOutput {
   allTokens?: AmountInputToken[];
   isStatic?: boolean;
   hasError: boolean;
-  isMultichainAccount?: boolean;
+  withChainIcon?: boolean;
   isSensitiveDataHidden?: true;
   isMaxAmountLoading?: boolean;
   /** If true, the max amount label will say "All" instead of "Max" and all the amount digits will be shown (made for unstaking) */
@@ -54,7 +54,7 @@ function AmountInput({
   allTokens,
   isStatic,
   hasError,
-  isMultichainAccount,
+  withChainIcon,
   isSensitiveDataHidden,
   isMaxAmountLoading,
   isMaxAmountAllMode,
@@ -139,7 +139,7 @@ function AmountInput({
         selectedToken={token}
         allTokens={availableTokens}
         isInMode={isBaseCurrency}
-        isMultichainAccount={isMultichainAccount}
+        withChainIcon={withChainIcon}
         onChange={onTokenChange}
       />
     );

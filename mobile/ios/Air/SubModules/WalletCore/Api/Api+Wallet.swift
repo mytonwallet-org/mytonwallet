@@ -63,7 +63,7 @@ extension Api {
 
 // MARK: - Types
 
-public struct ApiDappRequestConfirmation: Encodable {
+public struct ApiDappRequestConfirmation: Encodable, Sendable {
     public var accountId: String
     /** Base64. Shall miss when no proof is required. Can be multiple for multichain. */
     public var proofSignatures: [String]?
@@ -74,7 +74,7 @@ public struct ApiDappRequestConfirmation: Encodable {
     }
 }
 
-public struct ApiGetAddressInfoResult: Decodable {
+public struct ApiGetAddressInfoResult: Decodable, Sendable {
     public var addressName: String?
     public var isScam: Bool?
     public var resolvedAddress: String?

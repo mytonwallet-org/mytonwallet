@@ -11,9 +11,7 @@ import type { DropdownItem } from './Dropdown';
 
 import { closeAllOverlays } from '../../global/helpers/misc';
 import {
-  selectCurrentAccountId,
   selectCurrentAccountState,
-  selectIsMultichainAccount,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
@@ -70,7 +68,6 @@ interface OwnProps {
 
 interface StateProps {
   savedAddresses?: SavedAddress[];
-  isMultichainAccount?: boolean;
   isTestnet?: boolean;
   selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 }
@@ -101,7 +98,6 @@ function InteractiveTextField({
   textClassName,
   savedAddresses,
   isTestnet,
-  isMultichainAccount,
   noDimming,
   withShareInMenu,
   selectedExplorerIds,
@@ -283,7 +279,7 @@ function InteractiveTextField({
         onClick={!shouldUseMenu ? handleCopy : undefined}
       >
         {isScam && <img src={scamImg} alt={lang('Scam')} className={styles.scamImage} />}
-        {isMultichainAccount && !isTransaction && (
+        {Boolean(chain) && !isTransaction && (
           <i
             className={buildClassName(styles.chainIcon, `icon-chain-${chain}`)}
             aria-label={chain && getChainTitle(chain)}
@@ -465,12 +461,10 @@ function InteractiveTextField({
 
 export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
-    const accountId = selectCurrentAccountId(global);
     const accountState = selectCurrentAccountState(global);
 
     return {
       savedAddresses: accountState?.savedAddresses,
-      isMultichainAccount: accountId ? selectIsMultichainAccount(global, accountId) : false,
       isTestnet: global.settings.isTestnet,
       selectedExplorerIds: global.settings.selectedExplorerIds,
     };

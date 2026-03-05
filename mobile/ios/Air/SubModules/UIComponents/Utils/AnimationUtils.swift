@@ -7,7 +7,7 @@
 
 import UIKit
 
-public class ValueAnimator {
+@MainActor public class ValueAnimator {
     public enum AnimationType {
         case spring
         case easeInOut

@@ -57,7 +57,7 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         case header
         case history
     }
-    enum Row: Hashable {
+    enum Row: Hashable, Sendable {
         case header
         case historyHeader
         case historyItem(MStakingHistoryItem)

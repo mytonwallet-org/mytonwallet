@@ -5,7 +5,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-private var log = Log("InAppBrowserPageVC")
+private let log = Log("InAppBrowserPageVC")
 
 protocol InAppBrowserPageDelegate: AnyObject {
     func inAppBrowserPageStateChanged(_ browserPageVC: InAppBrowserPageVC)
@@ -130,20 +130,26 @@ final class InAppBrowserPageVC: WViewController {
     
     func setupObservers() {
         self.urlObserver = webView?.observe(\.url) { [weak self] webView, _ in
-            if let self, let url = webView.url {
-                self.config.url = url
-                self.delegate?.inAppBrowserPageStateChanged(self)
+            Task { @MainActor in
+                if let self, let url = webView.url {
+                    self.config.url = url
+                    self.delegate?.inAppBrowserPageStateChanged(self)
+                }
             }
         }
         self.titleObserver = webView?.observe(\.title) { [weak self] webView, _ in
-            if let self {
-                self.config.title = webView.title
-                self.delegate?.inAppBrowserPageStateChanged(self)
+            Task { @MainActor in
+                if let self {
+                    self.config.title = webView.title
+                    self.delegate?.inAppBrowserPageStateChanged(self)
+                }
             }
         }
         self.backObserver = webView?.observe(\.canGoBack) { [weak self] webView, _ in
-            if let self {
-                self.delegate?.inAppBrowserPageStateChanged(self)
+            Task { @MainActor in
+                if let self {
+                    self.delegate?.inAppBrowserPageStateChanged(self)
+                }
             }
         }
     }
@@ -188,20 +194,17 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
                         withError error: any Error) {
     }
     
-    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
-                    decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async -> WKNavigationResponsePolicy {
         if downloadManager.handleNavigationResponse(navigationResponse, webView: webView) {
-            decisionHandler(.cancel)
-            return
+            return .cancel
         }
-        decisionHandler(.allow)
+        return .allow
     }
     
-    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
 
         guard let url = navigationAction.request.url else {
-            return decisionHandler(.cancel)
+            return .cancel
         }
         
         let allowedSchemes = ["itms-appss", "itms-apps", "tel", "sms", "mailto", "geo", "tg", "mtw"]
@@ -232,12 +235,12 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
             // Handle links with target="_blank"
             if navigationAction.targetFrame == nil {
                 openSystemUrl(url)
-                return decisionHandler(.cancel)
+                return .cancel
             } else {
-                return decisionHandler(.allow)
+                return .allow
             }
         } else {
-            return decisionHandler(.cancel)
+            return .cancel
         }
     }
     

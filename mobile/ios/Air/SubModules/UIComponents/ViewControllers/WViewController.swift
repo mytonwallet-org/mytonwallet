@@ -69,7 +69,7 @@ open class WViewController: UIViewController, WThemedView {
     open func scrollToTop(animated: Bool) {
     }
     
-    deinit {
+    /*isolated - doesn't work*/ deinit {
         if let observer {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -102,7 +102,9 @@ open class WViewController: UIViewController, WThemedView {
         observer = NotificationCenter.default.addObserver(forName: wViewControllerDidAppearNtf, object: nil, queue: .main) { [weak self] notification in
             guard let self, let vc = notification.userInfo?[notificationViewControllerKey] as? UIViewController else { return }
             if self !== vc {
-                otherViewControllerDidAppear(vc)
+                MainActor.assumeIsolated {
+                    self.otherViewControllerDidAppear(vc)
+                }
             }
         }
     }
@@ -252,7 +254,7 @@ open class WViewController: UIViewController, WThemedView {
         case fill
         case fillWithNavigationBar
         
-        public var constraints: (_ parent: WViewController, _ child: UIView) -> () {
+        @MainActor public var constraints: (_ parent: WViewController, _ child: UIView) -> () {
             switch self {
             case .fill:
                 return { parent, child in

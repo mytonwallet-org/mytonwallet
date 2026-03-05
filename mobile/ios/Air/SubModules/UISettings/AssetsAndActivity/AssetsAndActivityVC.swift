@@ -13,21 +13,11 @@ import UIKit
 import WalletContext
 import WalletCore
 
-// <<<<<<< HEAD
 public class AssetsAndActivityVC: WViewController {
     @AccountContext(source: .current)
     private var account: MAccount
     private var assetsAndActivityData: MAssetsAndActivityData {
         AccountStore.assetsAndActivityData(forAccountID: account.id) ?? .empty
-// =======
-// public class AssetsAndActivityVC: SettingsBaseVC {
-//     
-//     enum Section {
-//         case baseCurrency
-//         case hiddenNfts
-//         case hideNoCost
-//         case tokens
-// >>>>>>> master
     }
     private var baseCurrency: MBaseCurrency { TokenStore.baseCurrency }
 
@@ -113,6 +103,10 @@ public class AssetsAndActivityVC: WViewController {
             let balanceIDs = balances.keys.lazy.map { TokenID(slug: $0, isStaking: false) }
             ids.formUnion(balanceIDs)
             
+            if let walletTokenIDs = $account.balanceData?.walletTokens.map({ TokenID(slug: $0.tokenSlug, isStaking: false) }) {
+                ids.formUnion(walletTokenIDs)
+            }
+            
             let stakings = StakingStore.stakingData(forAccountID: account.id)?.stateById.values.lazy
                 .filter { stakingState in getFullStakingBalance(state: stakingState) > 0 }
                 .map { stakingState in  stakingState.tokenSlug }
@@ -137,7 +131,10 @@ public class AssetsAndActivityVC: WViewController {
             }
         }
         
-        MTokenBalance.sortForUI(apiTokens: &apiTokens, balances: balances)
+        MTokenBalance.sortForUI(apiTokens: &apiTokens,
+                                balances: balances,
+                                defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: account.network),
+                                importedTokenSlugs: assetsAndActivityData.importedSlugs)
         let dict = OrderedDictionary<TokenID, ApiToken>(uniqueKeysWithValues: apiTokens)
         return dict
     }
@@ -221,14 +218,7 @@ public class AssetsAndActivityVC: WViewController {
             case .hideNoCost:
                 let cell = tableView.dequeueReusableCell(withIdentifier: "hideNoCostTokensCell",
                                                          for: indexPath) as! AssetsAndActivityHideNoCostCell
-                cell.configure(isInModal: isModal) { [weak self] _ in
-                    guard let self else { return }
-                    processorQueue.async(flags: .barrier) {
-//                        let data = self.assetsAndActivityData
-//                        AccountStore.updateAssetsAndActivityData(data, forAccountID: accountId)
-                        // WalletCoreData.notify(event: .assetsAndActivityDataUpdated) ?
-                    }
-                }
+                cell.configure(isInModal: isModal) { _ in }
                 return cell
 
             case .addToken:
@@ -447,14 +437,14 @@ extension AssetsAndActivityVC: TokenSelectionVCDelegate {
 }
 
 extension AssetsAndActivityVC {
-    enum Section {
+    enum Section: Sendable {
         case baseCurrency
         case hiddenNfts
         case hideNoCost
         case tokens
     }
 
-    enum Item: Equatable, Hashable {
+    enum Item: Equatable, Hashable, Sendable {
         case baseCurrency
         case hiddenNfts
         case hideNoCost

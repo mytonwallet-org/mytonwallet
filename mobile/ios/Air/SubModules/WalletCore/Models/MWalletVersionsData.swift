@@ -8,9 +8,9 @@
 import Foundation
 import WalletContext
 
-public struct MWalletVersionsData {
+public struct MWalletVersionsData: Sendable {
     
-    public struct Version {
+    public struct Version: Sendable {
         public let address: String
         public let balance: BigInt
         public let isInitialized: Bool

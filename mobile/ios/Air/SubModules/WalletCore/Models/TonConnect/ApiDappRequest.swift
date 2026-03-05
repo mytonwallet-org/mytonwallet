@@ -5,7 +5,7 @@
 //  Created by nikstar on 27.08.2025.
 //
 
-public struct ApiDappRequest: Hashable, Codable {
+public struct ApiDappRequest: Hashable, Codable, Sendable {
     var url: String?
     var isUrlEnsured: Bool?
     var accountId: String?

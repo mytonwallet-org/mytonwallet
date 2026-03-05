@@ -194,7 +194,7 @@ class WNavigationController(
     fun viewWillDisappear() {
         Logger.d(Logger.LogTag.SCREEN, "NavWillDisappear: hash=${hashCode()}")
         isDisappeared = true
-        viewControllers.last().viewWillDisappear()
+        viewControllers.lastOrNull()?.viewWillDisappear()
     }
 
     fun viewDidAppear() {

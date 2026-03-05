@@ -117,7 +117,7 @@ public extension CALayer {
 }
 
 /// Disable implicit animations on a layer by setting layer.actions = noAnim
-public let noAnim: [String: CAAction] = [
+@MainActor public let noAnim: [String: CAAction] = [
     "bounds": NSNull(),
     "frame": NSNull(),
     "position": NSNull(),

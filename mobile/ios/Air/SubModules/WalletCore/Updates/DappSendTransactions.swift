@@ -108,7 +108,7 @@ extension ApiUpdate.DappSendTransactions {
         )
     }
     
-    public func hasSufficientBalance(accountContext: AccountContext) -> Bool {
+    @MainActor public func hasSufficientBalance(accountContext: AccountContext) -> Bool {
         let totals = combinedInfo.tokenTotals
         let balances = accountContext.balances
         for (slug, amount) in totals {

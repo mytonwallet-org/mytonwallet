@@ -1,5 +1,5 @@
 
-public struct ApiLedgerDeviceModel: Codable {
+public struct ApiLedgerDeviceModel: Codable, Sendable {
     public var id: String
     public var productName: String
     

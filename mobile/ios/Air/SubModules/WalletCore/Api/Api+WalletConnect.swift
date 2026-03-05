@@ -1,8 +1,8 @@
 import Foundation
 
 extension Api {
-    static var _lastWalletConnectRequestId = 0
-    public static var walletConnectRequestId: Int {
+    @MainActor static var _lastWalletConnectRequestId = 0
+    @MainActor public static var walletConnectRequestId: Int {
         _lastWalletConnectRequestId += 1
         return _lastWalletConnectRequestId
     }

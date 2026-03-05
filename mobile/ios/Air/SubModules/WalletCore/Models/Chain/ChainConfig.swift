@@ -6,9 +6,9 @@ import WalletContext
  Describes the chain features that distinguish it from other chains in the multichain-polymorphic parts of the code.
  Mirrors `ChainConfig` from `src/util/chain.ts`.
  */
-public struct ChainConfig {
+public struct ChainConfig: Sendable {
 
-    public struct ExplorerLink {
+    public struct ExplorerLink: Sendable {
         public var url: String
         public var param: String?
         
@@ -18,13 +18,13 @@ public struct ChainConfig {
         }
     }
     
-    public struct BuySwap {
+    public struct BuySwap: Sendable {
         public var tokenInSlug: String
         /// Amount as perceived by the user
         public var amountIn: String
     }
     
-    public struct Explorer {
+    public struct Explorer: Sendable {
         public var name: String
         public var baseUrl: [ApiNetwork: ExplorerLink]
         /// Use `{base}` as the base URL placeholder and `{address}` as the wallet address placeholder
@@ -36,7 +36,7 @@ public struct ChainConfig {
         public var doConvertHashFromBase64: Bool
     }
     
-    public struct RegexPattern {
+    public struct RegexPattern: Sendable {
         public var pattern: String
         public var isCaseInsensitive: Bool = false
         
@@ -96,7 +96,7 @@ public struct ChainConfig {
     /// Whether the chain supports net worth details
     public var isNetWorthSupported: Bool
     /// Builds a link to transfer assets in this chain. If not set, the chain won't have the Deposit Link modal.
-    public var formatTransferUrl: ((String, BigInt?, String?, String?) -> String)?
+    public var formatTransferUrl: (@Sendable (String, BigInt?, String?, String?) -> String)?
 }
 
 // MARK: - Built-in chain configs (mirrors `src/util/chain.ts`)

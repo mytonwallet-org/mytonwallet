@@ -91,6 +91,7 @@ struct SendComposeTitleView: View {
                 Text(lang("Send"))
                 Image.airBundle("ArrowUpDownSmall").opacity(0.5)
             }
+            .fixedSize(horizontal: true, vertical: false)
             .font(titleFont)
             .foregroundColor(Color(WTheme.primaryLabel))
             .padding(.horizontal, 10)

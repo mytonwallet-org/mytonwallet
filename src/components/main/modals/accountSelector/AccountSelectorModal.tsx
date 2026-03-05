@@ -51,8 +51,8 @@ import AddAccountSelector from './AddAccountSelector';
 import modalStyles from '../../../ui/Modal.module.scss';
 import styles from './AccountSelectorModal.module.scss';
 
-interface StateProps {
-  isOpen?: boolean;
+interface AccountSelectorOpenProps {
+  isOpen: true;
   currentAccountId: string;
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
@@ -76,9 +76,12 @@ interface StateProps {
   shouldHideAddAccountBackButton?: boolean;
 }
 
+type StateProps = AccountSelectorOpenProps
+  | ({ isOpen: false } & Partial<Omit<AccountSelectorOpenProps, 'isOpen'>>);
+
 function AccountSelectorModal({
   isOpen,
-  currentAccountId,
+  currentAccountId = '',
   baseCurrency,
   currencyRates,
   orderedAccounts,
@@ -94,7 +97,7 @@ function AccountSelectorModal({
   isTestnet,
   isLoading,
   error,
-  isPasswordPresent,
+  isPasswordPresent = false,
   withOtherWalletVersions,
   forceAddingTonOnlyAccount,
   initialAuthState,
@@ -117,6 +120,8 @@ function AccountSelectorModal({
   const contentRef = useRef<HTMLDivElement>();
 
   const allAccountsTokens = useMemo(() => {
+    if (!byAccountId || !tokenInfo || !settingsByAccountId || !baseCurrency || !currencyRates) return undefined;
+
     return selectMultipleAccountsTokensSlow(
       networkAccounts,
       byAccountId,
@@ -137,11 +142,9 @@ function AccountSelectorModal({
   ]);
 
   const allAccountsStakingStates = useMemo(() => {
-    return selectMultipleAccountsStakingStatesSlow(
-      networkAccounts,
-      byAccountId,
-      stakingDefault,
-    );
+    if (!byAccountId || !stakingDefault) return undefined;
+
+    return selectMultipleAccountsStakingStatesSlow(networkAccounts, byAccountId, stakingDefault);
   }, [networkAccounts, byAccountId, stakingDefault]);
 
   const initialRenderingKey = viewModeInitial === 'list'
@@ -409,7 +412,7 @@ function AccountSelectorModal({
     openSettingsWithState({ state: SettingsState.WalletVersion });
   });
 
-  function renderHeader(renderingState: AccountSelectorState, selectedTab: AccountTab) {
+  function renderHeader(renderingState: AccountSelectorState) {
     const isInactiveTabs = renderingKey === AccountSelectorState.Reorder;
 
     return (
@@ -469,7 +472,7 @@ function AccountSelectorModal({
       case AccountSelectorState.Cards:
         return (
           <>
-            {renderHeader(AccountSelectorState.Cards, selectedTab)}
+            {renderHeader(AccountSelectorState.Cards)}
             <AccountsGridView {...commonAccountsViewProps} />
             {renderFooter(AccountSelectorState.Cards, selectedTab)}
           </>
@@ -478,7 +481,7 @@ function AccountSelectorModal({
       case AccountSelectorState.List:
         return (
           <>
-            {renderHeader(AccountSelectorState.List, selectedTab)}
+            {renderHeader(AccountSelectorState.List)}
             <AccountsListView {...commonAccountsViewProps} />
             {renderFooter(AccountSelectorState.List, selectedTab)}
           </>
@@ -487,7 +490,7 @@ function AccountSelectorModal({
       case AccountSelectorState.Reorder:
         return (
           <>
-            {renderHeader(AccountSelectorState.Reorder, selectedTab)}
+            {renderHeader(AccountSelectorState.Reorder)}
             <AccountsListView
               {...commonAccountsViewProps}
               isReorder
@@ -611,6 +614,12 @@ function AccountSelectorModal({
 
 export default memo(withGlobal(
   (global): StateProps => {
+    const isOpen = global.isAccountSelectorOpen;
+
+    if (!isOpen) {
+      return { isOpen: false };
+    }
+
     const {
       accounts,
       accountSelectorActiveTab: activeTab,
@@ -622,7 +631,6 @@ export default memo(withGlobal(
       },
       byAccountId,
       currencyRates,
-      isAccountSelectorOpen: isOpen,
       settings: {
         byAccountId: settingsByAccountId,
         baseCurrency,

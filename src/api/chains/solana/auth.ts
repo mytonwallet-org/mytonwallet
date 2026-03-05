@@ -176,7 +176,7 @@ export async function pickBestWallet(network: ApiNetwork, seed: string) {
     return bestWalletByBalance;
   }
 
-  // TODO: rm after API plan upgrade from 10rpc, but now wait to avoid 429 error
+  // TODO: rm after API plan upgrade from 10rps, but now wait to avoid 429 error
   await pause(500);
 
   const addressLastTxs = await Promise.all(addresses.map(async (e) => ({

@@ -19,8 +19,6 @@ import { ANIMATED_STICKER_MIDDLE_SIZE_PX } from '../../config';
 import {
   selectAvailableUserForSwapTokens,
   selectCurrentAccount,
-  selectCurrentAccountId,
-  selectIsMultichainAccount,
   selectPopularTokens,
   selectSwapTokens,
 } from '../../global/selectors';
@@ -85,7 +83,6 @@ interface StateProps {
   baseCurrency: ApiBaseCurrency;
   isLoading?: boolean;
   error?: string;
-  isMultichain: boolean;
   availableChains?: Partial<Record<ApiChain, unknown>>;
   isSensitiveDataHidden?: true;
 }
@@ -118,7 +115,6 @@ function TokenSelector({
   error,
   shouldHideMyTokens,
   shouldHideNotSupportedTokens = false,
-  isMultichain,
   availableChains = EMPTY_OBJECT,
   selectedChain,
   isSensitiveDataHidden,
@@ -357,7 +353,6 @@ function TokenSelector({
 
   function renderToken(currentToken: TokenType) {
     const isAvailable = Boolean(!shouldFilter || currentToken.canSwap);
-    const withChainIcon = (isMultichain || !!shouldUseSwapTokens) && (!selectedChains || selectedChains.size > 1);
     const descriptionText = isAvailable
       ? getChainNetworkName(currentToken.chain)
       : lang('Unavailable');
@@ -371,7 +366,7 @@ function TokenSelector({
         key={currentToken.slug}
         isAvailable={isAvailable}
         isSensitiveDataHidden={isSensitiveDataHidden}
-        withChainIcon={withChainIcon}
+        withChainIcon
         descriptionText={descriptionText}
         token={currentToken}
         tokenPrice={tokenPrice}
@@ -522,7 +517,6 @@ export default memo(withGlobal<OwnProps>((global, ownProps): StateProps => {
   const userTokens = selectAvailableUserForSwapTokens(global, ownProps.isSwapOut);
   const popularTokens = selectPopularTokens(global);
   const swapTokens = selectSwapTokens(global);
-  const isMultichain = selectIsMultichainAccount(global, selectCurrentAccountId(global)!);
   const availableChains = selectCurrentAccount(global)?.byChain;
 
   return {
@@ -536,7 +530,6 @@ export default memo(withGlobal<OwnProps>((global, ownProps): StateProps => {
     userTokens,
     popularTokens,
     swapTokens,
-    isMultichain,
     availableChains,
     isSensitiveDataHidden,
   };

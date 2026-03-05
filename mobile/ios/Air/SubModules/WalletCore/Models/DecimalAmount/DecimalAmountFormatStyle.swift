@@ -36,7 +36,8 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
             tokenDecimals: value.decimals,
             decimalsCount: maxDecimals,
             forceCurrencyToRight: value.forceCurrencyToRight,
-            roundUp: roundUp
+            roundUp: roundUp,
+            isShortened: adaptivePreset == .baseCurrencyEquivalentShortened
         )
     }
 }

@@ -4,7 +4,7 @@ import UIKit
 import WalletContext
 import Perception
 
-@Perceptible
+@Perceptible @MainActor
 public final class SegmentedControlModel {
     
     public internal(set) var items: [SegmentedControlItem]

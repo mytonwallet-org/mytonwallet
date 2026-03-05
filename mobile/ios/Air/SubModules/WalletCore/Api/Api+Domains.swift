@@ -27,14 +27,14 @@ extension Api {
     }
 }
 
-public struct ApiDnsRenewalDraft: Decodable {
+public struct ApiDnsRenewalDraft: Decodable, Sendable {
     public let realFee: BigInt
 }
 
-public struct ApiDnsChangeWalletDraft: Decodable {
+public struct ApiDnsChangeWalletDraft: Decodable, Sendable {
     public let realFee: BigInt
 }
 
-public struct ApiDnsChangeWalletResult: Decodable {
+public struct ApiDnsChangeWalletResult: Decodable, Sendable {
     public let activityId: String
 }

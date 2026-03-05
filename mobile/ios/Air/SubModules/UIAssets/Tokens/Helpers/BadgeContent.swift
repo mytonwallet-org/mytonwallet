@@ -13,7 +13,7 @@ public enum BadgeContent {
     case chain(ApiChain)
 }
 
-func getBadgeContent(accountContext: AccountContext, slug: String, isStaking: Bool) -> BadgeContent? {
+@MainActor func getBadgeContent(accountContext: AccountContext, slug: String, isStaking: Bool) -> BadgeContent? {
     if let stakingBadge = accountContext.getStakingBadgeContent(tokenSlug: slug, isStaking: isStaking) {
         return .staking(stakingBadge)
     } else if let chain = accountContext.account.supportedChains.first(where: { $0.usdtSlug[accountContext.account.network] == slug }) {

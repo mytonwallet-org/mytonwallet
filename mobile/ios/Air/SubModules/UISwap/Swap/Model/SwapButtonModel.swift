@@ -16,7 +16,7 @@ struct SwapButtonConfiguration {
     let isEnabled: Bool
     let showLoading: Bool
 
-    func apply(to button: WButton) {
+    @MainActor func apply(to button: WButton) {
         switch title {
         case .swap(let sellingToken, let buyingToken):
             button.configureTitle(sellingToken: sellingToken, buyingToken: buyingToken)

@@ -20,7 +20,7 @@ private struct AttributeValueColumnModifier: ViewModifier {
     }
 }
 
-let animatedTransition: AnyTransition = .asymmetric(
+@MainActor let animatedTransition: AnyTransition = .asymmetric(
     insertion: .opacity.animation(.linear(duration: 0.09)),
     removal: .opacity.animation(.linear(duration: 0.08).delay(0.01))
 )

@@ -42,10 +42,7 @@
     background-color: var(--color-close-button-background-hover) !important;
   }
 
-  &:active {
-    // Optimization
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 }
 
 .menuButton {

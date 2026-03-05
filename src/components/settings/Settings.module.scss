@@ -537,10 +537,7 @@
     }
   }
 
-  &:active {
-    // Optimization
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 
   &:first-child {
     border-top-left-radius: var(--border-radius-default);

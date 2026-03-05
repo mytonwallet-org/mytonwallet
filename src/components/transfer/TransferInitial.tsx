@@ -18,7 +18,6 @@ import {
   selectCurrentAccountTokens,
   selectIsAllowSuspiciousActions,
   selectIsHardwareAccount,
-  selectIsMultichainAccount,
   selectIsMultisigWallet,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
@@ -88,7 +87,6 @@ interface StateProps {
   stateInit?: string;
   diesel?: ApiFetchEstimateDieselResult;
   isDieselAuthorizationStarted?: boolean;
-  isMultichainAccount: boolean;
   isMultisig: boolean;
   isSensitiveDataHidden?: true;
   scamWarningType?: ScamWarningType;
@@ -128,7 +126,6 @@ function TransferInitial({
   stateInit,
   diesel,
   isDieselAuthorizationStarted,
-  isMultichainAccount,
   isMultisig,
   isSensitiveDataHidden,
   scamWarningType,
@@ -548,7 +545,7 @@ function TransferInitial({
               allTokens={tokensToSelect}
               isStatic={isStatic}
               hasError={hasAmountError}
-              isMultichainAccount={isMultichainAccount}
+              withChainIcon
               isMaxAmountLoading={maxAmount === undefined}
               isSensitiveDataHidden={isSensitiveDataHidden}
               renderBottomRight={renderBottomRight}
@@ -697,7 +694,6 @@ export default memo(
         nativeTokenBalance: selectCurrentAccountTokenBalance(global, getNativeToken(chain).slug),
         diesel,
         isDieselAuthorizationStarted: accountState?.isDieselAuthorizationStarted,
-        isMultichainAccount: selectIsMultichainAccount(global, currentAccountId),
         isMultisig: selectIsMultisigWallet(global, currentAccountId, chain),
         isSensitiveDataHidden,
         scamWarningType,

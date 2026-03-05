@@ -84,9 +84,7 @@ $gapSize: 0.5rem;
     background-color: var(--color-accent-button-background-hover);
   }
 
-  &:active {
-    transition: none !important;
-  }
+  @include mixins.active-transition-optimization(!important);
 
   :global(html.animation-level-0) & {
     transition: none !important;
@@ -388,6 +386,12 @@ $gapSize: 0.5rem;
   .chainIcon + & {
     margin-inline-start: 0.25rem;
   }
+}
+
+.number {
+  margin-inline-start: 0.25rem;
+  font-weight: 700;
+  color: var(--color-gray-1);
 }
 
 .collection {

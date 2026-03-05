@@ -5,7 +5,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-private var log = Log("InAppBrowserVC")
+private let log = Log("InAppBrowserVC")
 
 @MainActor protocol InAppBrowserDelegate: AnyObject {
     func inAppBrowserTitleChanged(_ browserContainer: InAppBrowserVC)

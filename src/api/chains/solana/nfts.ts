@@ -19,6 +19,7 @@ import { parseAccountId } from '../../../util/account';
 import { getChainConfig } from '../../../util/chain';
 import { fetchJson, fixIpfsUrl } from '../../../util/fetch';
 import { compact, omitUndefined } from '../../../util/iteratees';
+import { logDebug } from '../../../util/logs';
 import { getSolanaClient } from './util/client';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { checkHasScamLink } from '../../common/addresses';
@@ -26,7 +27,9 @@ import { fetchAllPaginated, streamPaginated } from '../../common/pagination';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
 import { NETWORK_CONFIG } from './constants';
 import { buildTransaction, estimateTransactionFee, sendSignedTransaction } from './transfer';
-import { getWalletBalance } from './wallet';
+import { getIsWalletActive, getWalletBalance } from './wallet';
+
+const walletStatuses = new Map<string, 'active' | 'inactive'>();
 
 export async function getAccountNfts(accountId: string, options?: {
   collectionAddress?: string;
@@ -58,9 +61,22 @@ export async function getAccountNfts(accountId: string, options?: {
 export async function streamAllAccountNfts(accountId: string, options: {
   signal?: AbortSignal;
   onBatch: (nfts: ApiNft[]) => void;
+  ignorePreCheck?: boolean;
 }): Promise<void> {
   const { network } = parseAccountId(accountId);
   const { address } = await fetchStoredWallet(accountId, 'solana');
+
+  if (!options.ignorePreCheck) {
+    if (!walletStatuses.has(address)) {
+      const isActive = await getIsWalletActive(network, address);
+      walletStatuses.set(address, isActive ? 'active' : 'inactive');
+    }
+
+    if (walletStatuses.get(address) === 'inactive') {
+      logDebug('streamAllAccountNfts: wallet is inactive, skip polling', address);
+      return;
+    }
+  }
 
   const { nftBatchLimit, nftBatchPauseMs } = getChainConfig('solana');
   await streamPaginated({

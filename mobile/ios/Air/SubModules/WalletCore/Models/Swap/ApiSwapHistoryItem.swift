@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct ApiSwapHistoryItem: Codable {
+public struct ApiSwapHistoryItem: Codable, Sendable {
     public let id: String
     public let timestamp: Int64
     public let lt: Int64?

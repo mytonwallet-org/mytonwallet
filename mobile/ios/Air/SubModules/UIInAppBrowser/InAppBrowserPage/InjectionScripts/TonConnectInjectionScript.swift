@@ -40,7 +40,7 @@ struct TonConnectInjectionScript {
                 tonconnect: Object.assign(
                     {
                         deviceInfo: {
-                            platform: '\(devicePlatform)',
+                            platform: 'iphone',
                             appName: '\(appName)',
                             appVersion: '\(appVersion)',
                             maxProtocolVersion: \(supportedTonConnectVersion),

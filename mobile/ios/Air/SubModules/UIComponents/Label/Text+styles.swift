@@ -22,7 +22,7 @@ public enum TextStyle {
 }
 
 extension Text {
-    public func style(_ style: TextStyle) -> some View {
+    @MainActor public func style(_ style: TextStyle) -> some View {
         self
             .font(style.font)
             .if(style.color != nil) { view in

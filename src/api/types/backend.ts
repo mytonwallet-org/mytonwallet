@@ -367,6 +367,7 @@ export type ApiBackendConfig = {
   isUpdateRequired: boolean;
   isVestingEnabled?: boolean;
   isWebSocketEnabled?: boolean;
+  shouldAutoSwitchToAir?: boolean;
   swapVersion?: ApiSwapVersion;
   seasonalTheme?: 'newYear' | 'valentine';
 };

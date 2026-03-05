@@ -163,7 +163,7 @@ public final class BubbleView: UIView {
 
 // MARK: - Paths
 
-private let tail: CGPath = {
+@MainActor private let tail: CGPath = {
     let tail = CGMutablePath()
     tail.move(to: CGPoint(x: 23.0,   y: 0.0))
     tail.addLine(to: CGPoint(x: 31.0, y: 0.0))     // H31
@@ -196,11 +196,11 @@ private let tail: CGPath = {
     return tail
 }()
 
-private let tailMask: CGPath = {
+@MainActor private let tailMask: CGPath = {
     UIBezierPath.init(rect: .init(x: 0, y: 0, width: 31, height: 8)).cgPath
 }()
 
-private func makePathSingleLine(width: CGFloat) -> CGPath {
+@MainActor private func makePathSingleLine(width: CGFloat) -> CGPath {
     
     let bottomLeftCorner = UIBezierPath(roundedRect: .init(x: 4, y: -24, width: width + 44, height: 56), cornerRadius: 18)
     
@@ -214,7 +214,7 @@ private func makePathSingleLine(width: CGFloat) -> CGPath {
     return path
 }
 
-private func makePathMultiline(width: CGFloat, height: CGFloat) -> CGPath {
+@MainActor private func makePathMultiline(width: CGFloat, height: CGFloat) -> CGPath {
     
     let rect = CGRect(x: 4, y: 0, width: width, height: height)
     

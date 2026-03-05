@@ -14,9 +14,9 @@ import UIKit
 private let log = Log("AccountSettings")
 
 @Perceptible
-public final class AccountSettingsStore {
+public final class AccountSettingsStore: Sendable {
     
-    private var _byAccountId: UnfairLock<[String: AccountSettings]> = .init(initialState: [:])
+    private let _byAccountId: UnfairLock<[String: AccountSettings]> = .init(initialState: [:])
     
     @PerceptionIgnored
     @Dependency(\.accountStore) private var accountStore
@@ -34,7 +34,7 @@ public final class AccountSettingsStore {
     }
     
     public func `for`(accountId: String) -> AccountSettings {
-        access(keyPath: \.__byAccountId)
+        access(keyPath: \._byAccountId)
         return _byAccountId.withLock { _byAccountId in
             if let settings = _byAccountId[accountId] {
                 return settings
@@ -57,7 +57,7 @@ extension DependencyValues {
 }
 
 @Perceptible
-public final class AccountSettings {
+public final class AccountSettings: Sendable {
     
     public let accountId: String
     

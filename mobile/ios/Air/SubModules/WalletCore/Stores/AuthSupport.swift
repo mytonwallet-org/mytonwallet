@@ -9,7 +9,7 @@ public protocol AuthSupportProtocol {
     static func verifyPassword(password: String) async throws -> Bool
 }
 
-public var AuthSupport: AuthSupportProtocol.Type = AuthSupportImpl.self
+@MainActor public var AuthSupport: AuthSupportProtocol.Type = AuthSupportImpl.self
 
 public struct AuthCooldownError: Error {
     public var waitFor: TimeInterval

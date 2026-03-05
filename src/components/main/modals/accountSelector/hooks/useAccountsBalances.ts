@@ -16,16 +16,19 @@ export interface AccountBalance {
 }
 
 export function useAccountsBalances(
-  filteredAccounts: Array<[string, Account]>,
+  filteredAccounts: Array<[string, Account]> | undefined,
   allAccountsTokens: Record<string, UserToken[] | undefined> | undefined,
   allAccountsStakingStates: Record<string, ApiStakingState[] | undefined> | undefined,
-  baseCurrency: ApiBaseCurrency,
-  currencyRates: ApiCurrencyRates,
+  baseCurrency?: ApiBaseCurrency,
+  currencyRates?: ApiCurrencyRates,
 ) {
-  const shortBaseSymbol = useMemo(() => getShortCurrencySymbol(baseCurrency), [baseCurrency]);
+  const shortBaseSymbol = useMemo(
+    () => (baseCurrency ? getShortCurrencySymbol(baseCurrency) : ''),
+    [baseCurrency],
+  );
 
   const { balancesByAccountId, totalBalance } = useMemo(() => {
-    if (!allAccountsTokens || !allAccountsStakingStates) {
+    if (!allAccountsTokens || !allAccountsStakingStates || !currencyRates || !baseCurrency || !filteredAccounts) {
       const balancesByAccountId: Record<string, AccountBalance> = {};
       return { balancesByAccountId, totalBalance: undefined };
     }

@@ -48,7 +48,7 @@ Currency: Валюта
 Choose Currency to Send: Выберите валюту для отправки
 Send to: Отправить на
 Add a message, if needed: Добавьте сообщение, если нужно
-Show All Collectibles: Показать все коллекции
+Show All Collectibles: Показать все предметы
 You have no NFT in this wallet yet: |
   У вас пока нет NFT в
   этом кошельке.
@@ -65,6 +65,8 @@ M: М
 3M: 3М
 Y: Г
 No price data: Нет данных о цене
+$amount_K: "%amount%K"
+$amount_M: "%amount%M"
 Happening Now: Сейчас в тренде
 No Dapps Found!: Приложений не найдено!
 Open: Открыть

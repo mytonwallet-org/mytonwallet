@@ -263,6 +263,7 @@ export type ApiUpdateConfig = {
   supportAccountsCount?: number;
   countryCode?: ApiCountryCode;
   isAppUpdateRequired: boolean;
+  shouldAutoSwitchToAir?: boolean;
   swapVersion?: ApiSwapVersion;
   seasonalTheme: ApiBackendConfig['seasonalTheme'];
 };

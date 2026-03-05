@@ -15,7 +15,7 @@ import UIPasscode
 private let expandedHeightCutoff: CGFloat = 650
 
 @MainActor
-public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData.EventsObserver {
+public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData.EventsObserver, Sendable {
     
     private var viewModel: ActivityDetailsViewModel
     private var shouldDisableDetailsCollapse: Bool {

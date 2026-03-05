@@ -53,10 +53,7 @@
     }
   }
 
-  &:active {
-    // Optimization
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 
   :global(html.is-android) &,
   :global(html.is-ios) & {

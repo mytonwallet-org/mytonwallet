@@ -23,8 +23,8 @@ public func homeCardFontSize(for cardWidth: CGFloat, minimumScale: CGFloat) -> C
     56 * homeCardFontScalingFactor(cardWidth: cardWidth, minimumScale: minimumScale)
 }
 
-public let fontScalingFactor = homeCardFontScalingFactor(cardWidth: homeCardWidth)
-public let homeCardFontSize: CGFloat = homeCardFontSize(for: homeCardWidth)
+@MainActor public let fontScalingFactor = homeCardFontScalingFactor(cardWidth: homeCardWidth)
+@MainActor public let homeCardFontSize: CGFloat = homeCardFontSize(for: homeCardWidth)
 public let homeCollapsedFontSize: CGFloat = 40
 
 // MARK: - MtwCardBalanceView
@@ -46,7 +46,7 @@ public struct MtwCardBalanceView: View, Equatable {
 
     // MARK: Public
 
-    public struct Style: Equatable, Identifiable {
+    @MainActor public struct Style: Equatable, Identifiable, Sendable {
         public static let grid = Style(
             id: "grid",
             integerFont: .compactRounded(ofSize: 19 * fontScalingFactor, weight: .bold),

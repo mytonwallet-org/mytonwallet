@@ -212,7 +212,9 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
                     self.updateUnstakingInfo()
                     if timer == nil {
                         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-                            self?.updateUnstakingInfo()
+                            Task { @MainActor in
+                                self?.updateUnstakingInfo()
+                            }
                         }
                     }
                 } else {

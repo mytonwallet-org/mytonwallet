@@ -6,7 +6,7 @@ import WalletContext
 import SwiftUI
 import Perception
 
-let actionsRowHeight: CGFloat = TokenActionsView.rowHeight
+@MainActor let actionsRowHeight: CGFloat = TokenActionsView.rowHeight
 
 @MainActor
 class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableContent, WThemedView {

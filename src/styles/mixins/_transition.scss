@@ -7,3 +7,13 @@
     }
   }
 }
+
+// Disables transition on `:active` to make tap/click feedback instant instead of waiting
+// for the transition duration.
+// Also reduces compositor workload by skipping unnecessary animations on press events.
+
+@mixin active-transition-optimization($importantSuffix: '') {
+  &:active {
+    transition: none #{$importantSuffix};
+  }
+}

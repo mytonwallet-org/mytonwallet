@@ -249,6 +249,7 @@ class SettingsVC(context: Context) : WViewController(context),
         WalletCore.doOnBridgeReady {
             settingsVM.fillOtherAccounts(async = false)
             settingsVM.updateSettingsSection()
+            settingsVM.updateHelpSection()
             reloadData()
         }
     }
@@ -713,7 +714,9 @@ class SettingsVC(context: Context) : WViewController(context),
                 if (indexPath.row == 0)
                     return settingsVM.settingsSections.getOrNull(indexPath.section - 1)?.title
                 val item =
-                    settingsVM.settingsSections.getOrNull(indexPath.section - 1)?.children?.getOrNull(indexPath.row - 1)
+                    settingsVM.settingsSections.getOrNull(indexPath.section - 1)?.children?.getOrNull(
+                        indexPath.row - 1
+                    )
                 when (item?.identifier) {
                     SettingsItem.Identifier.ACCOUNT -> {
                         item.account?.accountId
@@ -793,6 +796,12 @@ class SettingsVC(context: Context) : WViewController(context),
                     reloadData()
                 })
                 headerView.configure()
+            }
+
+            WalletEvent.ConfigReceived -> {
+                val itemsChanged = settingsVM.updateHelpSection()
+                if (itemsChanged)
+                    reloadData()
             }
 
             else -> {}

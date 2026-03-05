@@ -61,6 +61,9 @@ export class BalanceStream {
 
   #isDestroyed = false;
 
+  #ensureIsPollingNeeded?: () => Promise<boolean>;
+  #walletStatus: 'active' | 'inactive' | undefined = undefined;
+
   constructor(
     chain: ApiChain,
     wsClient: AbstractWebsocketClient,
@@ -80,6 +83,7 @@ export class BalanceStream {
     ) => Promise<void>,
     /** To prevent too many simultaneous HTTP requests for inactive accounts */
     loadingConcurrencyLimiter?: ReturnType<typeof createTaskQueue>,
+    ensureIsPollingNeeded?: () => Promise<boolean>,
   ) {
     this.#chain = chain;
     this.#network = network;
@@ -88,7 +92,7 @@ export class BalanceStream {
     this.#loadingConcurrencyLimiter = loadingConcurrencyLimiter;
     this.#fetchBalancesCb = fetchBalancesCb;
     this.#importUnknownTokens = importUnknownTokens;
-
+    this.#ensureIsPollingNeeded = ensureIsPollingNeeded;
     this.#walletWatcher = wsClient.watchWallets(
       [{ address }],
       {
@@ -98,6 +102,10 @@ export class BalanceStream {
         onTraceInvalidated: this.#handleTraceInvalidated,
       },
     );
+
+    if (!ensureIsPollingNeeded) {
+      this.#walletStatus = 'active';
+    }
 
     this.#fallbackPollingScheduler = new FallbackPollingScheduler(
       this.#poll,
@@ -172,6 +180,21 @@ export class BalanceStream {
   #poll = async () => {
     try {
       this.#loadingListeners.runCallbacks(true);
+
+      if (!this.#walletStatus) {
+        const isEnsured = await this.#ensureIsPollingNeeded!();
+        if (!isEnsured) {
+          logDebug('balanceStream: wallet is inactive, skip polling', this.#address);
+          this.#walletStatus = 'inactive';
+
+          return;
+        }
+        this.#walletStatus = 'active';
+      }
+
+      if (this.#walletStatus === 'inactive') {
+        return;
+      }
 
       const throttledFetchBalances = this.#loadingConcurrencyLimiter?.wrap(this.#fetchBalancesCb)
         ?? this.#fetchBalancesCb;

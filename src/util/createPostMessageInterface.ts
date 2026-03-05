@@ -8,6 +8,7 @@ import type {
 } from './PostMessageConnector';
 
 import { decodeExtensionMessage, encodeError, encodeExtensionMessage } from './extensionMessageSerializer';
+import { isPortDisconnectedError } from './isPortDisconnectedError';
 import { logDebugError } from './logs';
 
 declare const self: WorkerGlobalScope;
@@ -20,6 +21,11 @@ type ApiConfig =
   | Record<string, AnyFunction>;
 type SendToOrigin = (data: WorkerMessageData, transferables?: Transferable[]) => void;
 
+const errorSenders = new Set<SendToOrigin>();
+let areGlobalErrorListenersBound = false;
+
+bindGlobalErrorListeners();
+
 /**
  * Provides functions, defined in this messenger (a window, a worker), to another messenger.
  * The other messenger can call the functions using `createConnector`.
@@ -30,6 +36,8 @@ export function createPostMessageInterface(
   target: DedicatedWorkerGlobalScope | Worker | InAppBrowserPostMessageAdapter = self as DedicatedWorkerGlobalScope,
   shouldIgnoreErrors?: boolean,
 ) {
+  let unsubscribeErrorHandler: VoidFunction | undefined;
+
   function sendToOrigin(data: WorkerMessageData, transferables?: Transferable[]) {
     data.channel = channel;
 
@@ -41,7 +49,7 @@ export function createPostMessageInterface(
   }
 
   if (!shouldIgnoreErrors) {
-    handleErrors(sendToOrigin);
+    unsubscribeErrorHandler = subscribeToUnhandledErrors(sendToOrigin);
   }
 
   function handleMessage(e: OriginMessageEvent) {
@@ -54,6 +62,7 @@ export function createPostMessageInterface(
   (target as DedicatedWorkerGlobalScope).addEventListener('message', handleMessage);
 
   return () => {
+    unsubscribeErrorHandler?.();
     (target as DedicatedWorkerGlobalScope).removeEventListener('message', handleMessage);
   };
 }
@@ -111,6 +120,8 @@ export function createExtensionInterface(
     const url = port.sender?.url;
     const origin = url ? new URL(url).origin : undefined;
 
+    let isPortDisconnected = false;
+
     const dAppUpdater = (update: ApiUpdate) => {
       sendToOrigin({
         type: 'update',
@@ -119,11 +130,24 @@ export function createExtensionInterface(
     };
 
     function sendToOrigin(data: WorkerMessageData) {
+      if (isPortDisconnected) {
+        return;
+      }
+
       data.channel = channel;
-      port.postMessage(encodeExtensionMessage(data));
+      try {
+        port.postMessage(encodeExtensionMessage(data));
+      } catch (err: any) {
+        if (isPortDisconnectedError(err)) {
+          isPortDisconnected = true;
+          return;
+        }
+
+        throw err;
+      }
     }
 
-    handleErrors(sendToOrigin);
+    const unsubscribeErrorHandler = subscribeToUnhandledErrors(sendToOrigin);
 
     port.onMessage.addListener((data: OriginMessageData | string) => {
       data = decodeExtensionMessage(data);
@@ -133,6 +157,8 @@ export function createExtensionInterface(
     });
 
     port.onDisconnect.addListener(() => {
+      isPortDisconnected = true;
+      unsubscribeErrorHandler();
       cleanUpdater?.(dAppUpdater);
     });
 
@@ -279,14 +305,31 @@ function isTransferable(obj: any) {
   return obj instanceof ArrayBuffer || obj instanceof ImageBitmap;
 }
 
-function handleErrors(sendToOrigin: SendToOrigin) {
+function subscribeToUnhandledErrors(sendToOrigin: SendToOrigin): VoidFunction {
+  errorSenders.add(sendToOrigin);
+  return () => {
+    errorSenders.delete(sendToOrigin);
+  };
+}
+
+function bindGlobalErrorListeners() {
+  if (areGlobalErrorListenersBound) return;
+
+  areGlobalErrorListenersBound = true;
+
   self.addEventListener('error', (e) => {
     const error = e.error || { name: 'Error', message: 'Uncaught exception in worker' };
     logDebugError(error.message, e.error);
 
-    sendToOrigin({
-      type: 'unhandledError',
-      error: encodeError(error),
+    errorSenders.forEach((sendToOrigin) => {
+      try {
+        sendToOrigin({
+          type: 'unhandledError',
+          error: encodeError(error),
+        });
+      } catch (err) {
+        logDebugError('Failed to send unhandledError message', err);
+      }
     });
   });
 
@@ -294,9 +337,15 @@ function handleErrors(sendToOrigin: SendToOrigin) {
     const error = e.reason || { name: 'Error', message: 'Unhandled rejection in worker' };
     logDebugError(error.message, e.reason);
 
-    sendToOrigin({
-      type: 'unhandledError',
-      error: encodeError(error),
+    errorSenders.forEach((sendToOrigin) => {
+      try {
+        sendToOrigin({
+          type: 'unhandledError',
+          error: encodeError(error),
+        });
+      } catch (err) {
+        logDebugError('Failed to send unhandledrejection message', err);
+      }
     });
   });
 }

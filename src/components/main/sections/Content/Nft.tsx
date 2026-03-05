@@ -39,7 +39,6 @@ interface OwnProps {
   selectedNfts?: ApiNft[];
   tonDnsExpiration?: number;
   isViewAccount?: boolean;
-  withChainIcon: boolean;
   style: string;
 }
 
@@ -51,13 +50,14 @@ interface UseLottieReturnType {
   unmarkHover?: NoneToVoidFunction;
 }
 
+const NFT_NUMBER_REGEX = /^(.*\S)\s*([#№][\d\\/]+)$/;
+
 function Nft({
   nft,
   appTheme,
   selectedNfts,
   tonDnsExpiration,
   isViewAccount,
-  withChainIcon,
   style,
 }: OwnProps) {
   const { selectNfts, clearNftSelection, openDomainRenewalModal, openNftAttributesModal } = getActions();
@@ -84,6 +84,20 @@ function Nft({
     withShouldRender: true,
   });
   const hasCollectionName = Boolean(nft.collectionName);
+
+  const { name: nftName, nftNumber } = useMemo(() => {
+    const fullName = (nft.name || '').trim();
+    const match = fullName.match(NFT_NUMBER_REGEX);
+
+    if (match) {
+      return {
+        name: match[1],
+        nftNumber: match[2],
+      };
+    }
+
+    return { name: fullName };
+  }, [nft.name]);
 
   useEffect(() => {
     if (nft.thumbnail) {
@@ -256,11 +270,12 @@ function Nft({
       )}
       <div className={styles.infoWrapper} title={nft.name}>
         {!hasCollectionName && renderChainIcon()}
-        <b className={styles.title}>{nft.name || shortenAddress(nft.address, 4)}</b>
+        <b className={styles.title}>{nftName || shortenAddress(nft.address, 4)}</b>
+        {nftNumber && <span className={styles.number}>{nftNumber}</span>}
       </div>
       {hasCollectionName && (
         <div className={styles.collection}>
-          {withChainIcon && renderChainIcon()}
+          {renderChainIcon()}
           {nft.collectionName}
         </div>
       )}

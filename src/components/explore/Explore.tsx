@@ -22,6 +22,7 @@ import {
 
 import useAutoScroll from '../../hooks/useAutoScroll';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
+import useDragScroll from '../../hooks/useDragScroll';
 import useLang from '../../hooks/useLang';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 import usePrevious2 from '../../hooks/usePrevious2';
@@ -126,6 +127,11 @@ function Explore({
     isDisabled: !isActive || featuredSites.length <= 1,
   });
 
+  useDragScroll({
+    containerRef: featuredContainerRef,
+    isDisabled: !isActive || IS_TOUCH_ENV || featuredSites.length <= 1,
+  });
+
   const filteredCategories = useMemo(() => {
     return categories?.filter((category) => allSites[category.id]?.length > 0);
   }, [categories, allSites]);
@@ -143,7 +149,7 @@ function Explore({
         <h2 className={buildClassName(styles.sectionHeader, styles.sectionHeaderFeatured)}>
           {lang(featuredTitle || 'Trending')}
         </h2>
-        <div className={styles.featuredList} ref={featuredContainerRef}>
+        <div className={buildClassName(styles.featuredList, 'no-swipe')} ref={featuredContainerRef}>
           {featuredSites.map((site) => (
             <SiteFeatured key={`${site.url}-${site.name}`} site={site} className={styles.featuredItem} />
           ))}

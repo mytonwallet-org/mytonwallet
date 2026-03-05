@@ -108,7 +108,6 @@ class SettingsItemCell: UICollectionViewCell, WThemedView {
         valueContainer.isTapToRevealEnabled = false
         
         let titleLabelLeadingConstraint = labelStack.leadingAnchor.constraint(equalTo: leadingGuide.trailingAnchor)
-        titleLabelLeadingConstraint.priority = .defaultLow
         
         titleCenterXConstraint = labelStack.centerXAnchor.constraint(equalTo: containerView.centerXAnchor)
         
@@ -116,7 +115,7 @@ class SettingsItemCell: UICollectionViewCell, WThemedView {
         valueToRightConstraint.priority = .defaultLow
 
         // This constraint will be deactivated, whenever rightArrow is not visible.
-        valueToLeftOfArrowConstraint = valueLabel.trailingAnchor.constraint(equalTo: rightArrow.leadingAnchor, constant: -8)
+        valueToLeftOfArrowConstraint = valueLabel.trailingAnchor.constraint(equalTo: rightArrow.leadingAnchor, constant: -16)
         
         gradeintView.translatesAutoresizingMaskIntoConstraints = false
         iconImageView.addSubview(gradeintView)

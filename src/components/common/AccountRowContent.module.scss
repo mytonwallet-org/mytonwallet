@@ -1,3 +1,5 @@
+@use "../../styles/mixins";
+
 .row {
   --background-color: var(--color-background-first);
 
@@ -20,10 +22,7 @@
         --background-color: var(--color-interactive-item-hover);
       }
 
-      &:active {
-        // Optimization
-        transition: none;
-      }
+      @include mixins.active-transition-optimization();
     }
   }
 

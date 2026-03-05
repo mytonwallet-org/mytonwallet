@@ -19,7 +19,7 @@ final class SplitHomeAssetsRowView: UIView, WThemedView, UICollectionViewDelegat
         case main
     }
     
-    private enum Item: Hashable {
+    private enum Item: Hashable, Sendable {
         case tab(DisplayAssetTab)
     }
     

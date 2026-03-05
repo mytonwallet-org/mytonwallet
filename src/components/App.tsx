@@ -36,6 +36,7 @@ import useInterval from '../hooks/useInterval';
 import useSyncEffect from '../hooks/useSyncEffect';
 import useTimeout from '../hooks/useTimeout';
 
+import AppEmpty from './AppEmpty';
 import AppInactive from './AppInactive';
 import AppLocked from './appLocked/AppLocked';
 import Auth from './auth/Auth';
@@ -220,6 +221,8 @@ function App({
         return <LedgerModal isOpen noBackdropClose onClose={closeThisTab} />;
       case AppState.Inactive:
         return <AppInactive />;
+      case AppState.Empty:
+        return <AppEmpty />;
     }
   }
 

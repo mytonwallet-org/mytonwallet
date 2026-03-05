@@ -19,7 +19,7 @@ struct SelectableAccount: Equatable, Hashable, Identifiable {
 }
 
 @Perceptible
-final class NotificationsSettingsViewModel: WalletCoreData.EventsObserver {
+@MainActor final class NotificationsSettingsViewModel: WalletCoreData.EventsObserver {
     
     var notificationsAreAllowed: Bool = true
     var selectableAccounts: [SelectableAccount]

@@ -4,17 +4,25 @@ import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
+import android.graphics.drawable.Drawable
 import android.text.SpannableStringBuilder
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.LinearInterpolator
+import androidx.core.content.ContextCompat
+import androidx.core.text.buildSpannedString
+import androidx.core.text.inSpans
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setSizeBounds
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.image.WNftImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -27,7 +35,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
+import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 @SuppressLint("ViewConstructor")
 class AssetCell(
@@ -35,6 +46,10 @@ class AssetCell(
     val mode: AssetsVC.Mode
 ) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
     WThemedView {
+
+    companion object {
+        private val NFT_NUMBER_REGEX = Regex("""^(.*\S)\s*([#№][\d/]+)$""")
+    }
 
     private val ripple = WRippleDrawable.create(16f.dp)
 
@@ -53,7 +68,8 @@ class AssetCell(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f)
+            setStyle(16f, WFont.DemiBold)
+            setLineHeight(24f)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(WColor.PrimaryText)
@@ -108,12 +124,70 @@ class AssetCell(
     override fun updateTheme() {
         imageView.updateTheme()
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-        if (!darkModeChanged)
-            return
+        if (!darkModeChanged) return
         _isDarkThemeApplied = ThemeManager.isDark
         ripple.rippleColor = WColor.SecondaryBackground.color
-        titleLabel.updateTheme()
-        subtitleLabel.updateTheme()
+        if (mode == AssetsVC.Mode.COMPLETE) {
+            nft?.let {
+                setNftTitle(it)
+                setNftSubtitle(it)
+            }
+            titleLabel.updateTheme()
+            subtitleLabel.updateTheme()
+        }
+    }
+
+    private fun setNftTitle(nft: ApiNft) {
+        val nftName = nft.name
+        if (nftName == null) {
+            titleLabel.text = SpannableStringBuilder(nft.address.formatStartEndAddress()).apply {
+                styleDots()
+            }
+            return
+        }
+        val match = NFT_NUMBER_REGEX.find(nftName)
+        titleLabel.text = if (match != null) {
+            val beforeHash = match.groupValues[1]
+            val fromHash = match.groupValues[2]
+            SpannableStringBuilder().apply {
+                inSpans(WTypefaceSpan(WFont.DemiBold, WColor.PrimaryText)) {
+                    append("$beforeHash ")
+                }
+                inSpans(WTypefaceSpan(WFont.DemiBold, WColor.SecondaryText)) {
+                    append(fromHash)
+                }
+            }
+        } else {
+            nftName
+        }
+    }
+
+    private fun setNftSubtitle(nft: ApiNft) {
+        val subtitleText = nft.collectionName ?: LocaleController.getString("Standalone NFT")
+        val chainDrawable = subtitleChainIconDrawable(nft)
+        subtitleLabel.text = if (chainDrawable != null) {
+            buildSpannedString {
+                inSpans(
+                    VerticalImageSpan(
+                        chainDrawable,
+                        verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
+                    )
+                ) { append(" ") }
+                inSpans(WSpacingSpan(4.dp)) { append(" ") }
+                append(subtitleText)
+            }
+        } else {
+            subtitleText
+        }
+    }
+
+    private fun subtitleChainIconDrawable(nft: ApiNft): Drawable? {
+        val chain = nft.chain ?: return null
+        val iconRes = chain.symbolIconPadded ?: chain.symbolIcon ?: return null
+        return ContextCompat.getDrawable(context, iconRes)?.mutate()?.apply {
+            setTint(WColor.SecondaryText.color)
+            setSizeBounds(12.dp, 12.dp)
+        }
     }
 
     private var nft: ApiNft? = null
@@ -133,16 +207,8 @@ class AssetCell(
         this.animationsPaused = animationsPaused
         imageView.setNftImage(nft.thumbnail)
         if (mode == AssetsVC.Mode.COMPLETE) {
-            nft.name?.let {
-                titleLabel.text = it
-            } ?: run {
-                titleLabel.text =
-                    SpannableStringBuilder(nft.address.formatStartEndAddress()).apply {
-                        styleDots()
-                    }
-            }
-            subtitleLabel.text =
-                nft.collectionName ?: LocaleController.getString("Standalone NFT")
+            setNftTitle(nft)
+            setNftSubtitle(nft)
         }
         if (mode == AssetsVC.Mode.COMPLETE || DevicePerformanceClassifier.isHighClass) {
             animationView.visibility = GONE

@@ -32,7 +32,7 @@ struct ConnectedDappButton: View {
     let dappName: String
     let iconURL: String
     let layoutVariant: LayoutSizeVariant
-    let onTap: () -> Void
+    let onTap: @MainActor () -> Void
 
     var body: some View {
         ConnectedDappGenericView(title: dappName,
@@ -49,7 +49,7 @@ struct ConnectedDappButton: View {
 
 struct ConnectedDappsSettingsButton: View {
     let layoutVariant: LayoutSizeVariant
-    let onTap: () -> Void
+    let onTap: @MainActor () -> Void
 
     private var title: String? {
         switch layoutVariant {
@@ -75,8 +75,8 @@ private struct ConnectedDappGenericView<ImageView: View>: View {
     let title: String?
     let layoutVariant: LayoutSizeVariant
     let regularSizeWithStroke: Bool
-    let image: () -> ImageView
-    let onTap: () -> Void
+    let image: @MainActor() -> ImageView
+    let onTap: @MainActor () -> Void
 
     var body: some View {
         let imageSideLength: Double = switch layoutVariant {

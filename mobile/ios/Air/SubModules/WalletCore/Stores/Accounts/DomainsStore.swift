@@ -7,16 +7,16 @@ import OrderedCollections
 private let log = Log("DomainsStore")
 
 @Perceptible
-public final class DomainsStore: WalletCoreData.EventsObserver {
+public final class DomainsStore: WalletCoreData.EventsObserver, Sendable {
     
-    private var _byAccountId: UnfairLock<[String: Domains]> = .init(initialState: [:])
+    private let _byAccountId: UnfairLock<[String: Domains]> = .init(initialState: [:])
     
     private init() {
         WalletCoreData.add(eventObserver: self)
     }
     
     public func `for`(accountId: String) -> Domains {
-        access(keyPath: \.__byAccountId)
+        access(keyPath: \._byAccountId)
         return _byAccountId.withLock { _byAccountId in
             if let domains = _byAccountId[accountId] {
                 return domains
@@ -49,7 +49,7 @@ extension DependencyValues {
 }
 
 @Perceptible
-public final class Domains {
+public final class Domains: Sendable {
     
     public let accountId: String
     

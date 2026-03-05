@@ -14,7 +14,6 @@ import {
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
-  selectIsMultichainAccount,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
@@ -46,7 +45,6 @@ interface StateProps {
   areTokensWithNoCostHidden?: boolean;
   isSensitiveDataHidden?: true;
   baseCurrency: ApiBaseCurrency;
-  isMultichainAccount: boolean;
   tokens?: UserToken[];
   pinnedSlugs?: string[];
   alwaysHiddenSlugs?: string[];
@@ -65,7 +63,6 @@ function SettingsAssets({
   areTinyTransfersHidden,
   areTokensWithNoCostHidden,
   baseCurrency,
-  isMultichainAccount,
   tokens,
   pinnedSlugs,
   alwaysHiddenSlugs = MEMO_EMPTY_ARRAY,
@@ -268,7 +265,6 @@ function SettingsAssets({
           tokens={tokensWithStaking}
           pinnedSlugs={pinnedSlugs}
           baseCurrency={baseCurrency}
-          withChainIcon={isMultichainAccount}
         />
       </div>
     </div>
@@ -300,7 +296,6 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     areTinyTransfersHidden,
     areTokensWithNoCostHidden,
     baseCurrency,
-    isMultichainAccount: selectIsMultichainAccount(global, currentAccountId!),
     tokens: selectCurrentAccountTokens(global),
     pinnedSlugs,
     alwaysHiddenSlugs,

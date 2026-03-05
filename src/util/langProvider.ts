@@ -122,7 +122,7 @@ export async function setLanguage(langCode: LangCode, callback?: NoneToVoidFunct
   runCallbacks();
 
   if (IS_ELECTRON) {
-    void window.electron?.setBiometricPrompt(getTranslation(NATIVE_BIOMETRICS_PROMPT_KEY));
+    void window.electron?.setBiometricPrompt?.(getTranslation(NATIVE_BIOMETRICS_PROMPT_KEY));
   }
 }
 

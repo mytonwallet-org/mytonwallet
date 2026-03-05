@@ -18,7 +18,7 @@ interface UseQRCodeHook {
   isInitialized: boolean;
 }
 
-let qrCode: QRCodeStyling;
+let QrCodeStylingClassConstructor: typeof QRCodeStyling | undefined;
 
 export default function useQrCode({
   address,
@@ -35,7 +35,8 @@ export default function useQrCode({
   hideLogo?: boolean;
   preferUrl?: boolean;
 }): UseQRCodeHook {
-  const [isInitialized, setIsInitialized] = useState(!!qrCode);
+  const qrCodeInstanceRef = useRef<QRCodeStyling>();
+  const [isInitialized, setIsInitialized] = useState(false);
   const logoUrl = IS_CORE_WALLET ? './coreWallet/logo.svg' : './logo.svg';
 
   const qrCodeRef = useRef<HTMLDivElement>();
@@ -43,47 +44,53 @@ export default function useQrCode({
   useEffect(() => {
     if (isInitialized) return;
 
+    function createInstance(QrCodeStyling: typeof QRCodeStyling) {
+      qrCodeInstanceRef.current = new QrCodeStyling({
+        width: QR_SIZE,
+        height: QR_SIZE,
+        margin: 0,
+        type: 'canvas',
+        dotsOptions: { type: 'rounded' },
+        cornersSquareOptions: { type: 'extra-rounded' },
+        imageOptions: {
+          imageSize: 0.4,
+          margin: 8,
+          crossOrigin: 'anonymous',
+        },
+        qrOptions: { errorCorrectionLevel: 'M' },
+        data: '',
+      });
+      setIsInitialized(true);
+    }
+
+    if (QrCodeStylingClassConstructor) {
+      createInstance(QrCodeStylingClassConstructor);
+      return;
+    }
+
     void import('qr-code-styling')
       .then(({ default: QrCodeStyling }) => {
-        qrCode = new QrCodeStyling({
-          width: QR_SIZE,
-          height: QR_SIZE,
-          image: chain ? getChainNetworkIcon(chain) : logoUrl,
-          margin: 0,
-          type: 'canvas',
-          dotsOptions: { type: 'rounded' },
-          cornersSquareOptions: { type: 'extra-rounded' },
-          imageOptions: { imageSize: 0.4, margin: 8, crossOrigin: 'anonymous' },
-          qrOptions: { errorCorrectionLevel: 'M' },
-          data: '',
-        });
-
-        setIsInitialized(true);
+        QrCodeStylingClassConstructor = QrCodeStyling;
+        createInstance(QrCodeStyling);
       });
-  }, [chain, isInitialized, logoUrl]);
+  }, [isInitialized]);
 
   useLayoutEffect(() => {
-    if (!isActive || !isInitialized) return;
+    const qrCode = qrCodeInstanceRef.current;
+    if (!isActive || !isInitialized || !qrCode || !qrCodeRef.current) return;
 
-    if (qrCodeRef.current && hiddenClassName) removeExtraClass(qrCodeRef.current, hiddenClassName);
+    if (hiddenClassName) removeExtraClass(qrCodeRef.current, hiddenClassName);
 
-    if (qrCodeRef.current) {
-      qrCode?.append(qrCodeRef.current);
-
-      qrCode._options.image = hideLogo
-        ? undefined
-        : (chain ? getChainNetworkIcon(chain) : logoUrl);
+    if (!qrCodeRef.current.hasChildNodes()) {
+      qrCode.append(qrCodeRef.current);
     }
-  }, [isActive, isInitialized, hiddenClassName, hideLogo, chain, logoUrl]);
 
-  useEffect(() => {
-    if (!address || !isActive || !qrCode || !isInitialized) return;
-
+    const image = hideLogo ? undefined : (chain ? getChainNetworkIcon(chain) : logoUrl);
     const formatTransferUrl = chain && getChainConfig(chain).formatTransferUrl;
-    const data = preferUrl && formatTransferUrl ? formatTransferUrl(address) : address;
+    const data = address && preferUrl && formatTransferUrl ? formatTransferUrl(address) : (address || '');
 
-    qrCode.update({ data });
-  }, [address, isActive, isInitialized, preferUrl, chain]);
+    qrCode.update({ data, image });
+  }, [isActive, isInitialized, hiddenClassName, address, chain, hideLogo, logoUrl, preferUrl]);
 
   return { qrCodeRef, isInitialized };
 }

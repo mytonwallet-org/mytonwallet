@@ -95,7 +95,7 @@ public struct _WThemeType {
 }
 
 // MARK: - Theme and Theme generator
-nonisolated(unsafe) public var WTheme: _WThemeType = generateTheme()
+nonisolated(unsafe) public var WTheme: _WThemeType = generateTheme(accentColor: getAccentColorByIndex(nil))
 
 public func getAccentColorByIndex(_ index: Int?) -> UIColor {
     if let index, index < ACCENT_COLORS.count {
@@ -108,20 +108,19 @@ public func getAccentColorByIndex(_ index: Int?) -> UIColor {
 // This method changes WTheme to a new theme with customized colors
 public func changeThemeColors(to index: Int?) {
     let accentColor = getAccentColorByIndex(index)
-    WColors = _WColorsType(primary: accentColor)
-    WTheme = generateTheme()
+    WTheme = generateTheme(accentColor: accentColor)
 }
 
 // Generate active theme using WColors
-fileprivate func generateTheme() -> _WThemeType {
+fileprivate func generateTheme(accentColor: UIColor) -> _WThemeType {
     return _WThemeType(
-        primaryButton: WThemePrimaryButton(background: WColors.primary,
+        primaryButton: WThemePrimaryButton(background: accentColor,
                                            tint: .white,
-                                           disabledBackground: WColors.primary.withAlphaComponent(0.5),
+                                           disabledBackground: accentColor.withAlphaComponent(0.5),
                                            disabledTint: .white),
         accentButton: WThemeAccentButton(background: WColors.groupedItem,
-                                         tint: WColors.primary),
-        unlockScreen: WThemeUnlockScreen(background: WColors.primary,
+                                         tint: accentColor),
+        unlockScreen: WThemeUnlockScreen(background: accentColor,
                                          tint: .white),
         setPasscodeInput: WThemePasscodeInput(border: .separator,
                                               empty: WColors.background,
@@ -131,11 +130,11 @@ fileprivate func generateTheme() -> _WThemeType {
                                                  fill: .white),
         unlockTaskPasscodeInput: WThemePasscodeInput(border: WColors.secondaryLabel,
                                                      empty: .clear,
-                                                     fill: WColors.primary,
+                                                     fill: accentColor,
                                                      fillBorder: .clear),
         wordInput: WThemeWordInput(background: WColors.sheetBackground),
         balanceHeaderView: WThemeBackgroundHeaderView(background: WColors.headerBackground,
-                                                      headIcons: WColors.primary,
+                                                      headIcons: accentColor,
                                                       balance: .label,
                                                       balanceDecimals: WColors.secondaryLabel,
                                                       secondary: WColors.headerSecondaryLabel,
@@ -148,7 +147,7 @@ fileprivate func generateTheme() -> _WThemeType {
         modularBackground: WColors.modularBackground,
         backgroundReverse: WColors.backgroundReverse,
         thumbBackground: WColors.thumbBackground,
-        tint: WColors.primary,
+        tint: accentColor,
         primaryLabel: .label,
         secondaryLabel: WColors.secondaryLabel,
         secondaryFill: WColors.secondaryFill,

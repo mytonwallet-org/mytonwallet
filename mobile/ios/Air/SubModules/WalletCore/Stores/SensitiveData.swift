@@ -12,7 +12,7 @@ import Dependencies
 
 
 @Perceptible
-public final class SensitiveData {
+public final class SensitiveData: Sendable {
     
     static let shared = SensitiveData()
     

@@ -57,30 +57,6 @@ public struct KeychainHelper {
         return CapacitorCredentialsStorage.getCredentials()?.password ?? ""
     }
     
-    // MARK: - AppLock settings
-    private static let appLockKey = "appLock"
-    public static func save(appLock: Bool) {
-        // TODO::
-    }
-
-    // MARK: - Recent addresses
-    private static var recentAddressesKey = "recentAddresses"
-    public static func save(accountId: String, recentAddresses: String?) {
-        _ = KeychainStorageProvider.set(key: "\(recentAddressesKey)_\(accountId)", value: recentAddresses ?? "")
-    }
-    public static func recentAddresses(accountId: String) -> String? {
-        KeychainStorageProvider.get(key: "\(recentAddressesKey)_\(accountId)").1
-    }
-
-    // MARK: - Passcode length
-    private static var passcodeLengthKey = "passcodeLength"
-    public static func save(passcodeLength: Int) {
-        _ = KeychainStorageProvider.set(key: passcodeLengthKey, value: "\(passcodeLength)")
-    }
-    public static func passcodeLength() -> Int {
-        Int(KeychainStorageProvider.get(key: passcodeLengthKey).1 ?? "") ?? 4
-    }
-    
     // MARK: - Keys
     public static func keys() -> [String] {
         KeychainStorageProvider.keys()
@@ -91,7 +67,6 @@ public struct KeychainHelper {
         log.info("deleteAllWallets")
         _ = CapacitorCredentialsStorage.deleteCredentials()
         KeychainHelper.save(biometricPasscode: nil)
-        KeychainHelper.save(appLock: true)
         [kSecClassGenericPassword,
          kSecClassInternetPassword,
          kSecClassCertificate,

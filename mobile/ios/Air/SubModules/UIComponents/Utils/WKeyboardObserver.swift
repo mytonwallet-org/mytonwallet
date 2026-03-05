@@ -18,14 +18,14 @@ public struct WKeyboardDisplayInfo {
     public var height: CGFloat { endFrame.height }
 }
 
-@MainActor public protocol WKeyboardObserverDelegate: AnyObject {
+@MainActor public protocol WKeyboardObserverDelegate: AnyObject, Sendable {
     func keyboardWillShow(info: WKeyboardDisplayInfo)
     func keyboardWillHide(info: WKeyboardDisplayInfo)
 }
 
-public class WKeyboardObserver {
+@MainActor public class WKeyboardObserver {
     
-    private weak var delegate: WKeyboardObserverDelegate?
+    @MainActor private weak var delegate: WKeyboardObserverDelegate?
     
     public static var displayedKeyboardOnce: Bool = false
     public static var keyboardHeight: CGFloat {
@@ -37,15 +37,16 @@ public class WKeyboardObserver {
         NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification,
                                                object: nil,
                                                queue: .main) { [weak delegate] notification in
+            guard let info = notification.userInfo,
+                  let animationDuration = info[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
+                  let animationCurve = info[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int,
+                  let beginFrame = info[UIResponder.keyboardFrameBeginUserInfoKey] as? CGRect,
+                  let endFrame = info[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+            else { return }
+            let screen = notification.object as? UIScreen
             MainActor.assumeIsolated {
-                guard let info = notification.userInfo,
-                      let animationDuration = info[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
-                      let animationCurve = info[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int,
-                      let beginFrame = info[UIResponder.keyboardFrameBeginUserInfoKey] as? CGRect,
-                      let endFrame = info[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
-                else { return }
                 keyboardHeight = endFrame.height
-                let screen = notification.object as? UIScreen ?? UIScreen.main
+                let screen = screen ?? UIScreen.main
                 let showInfo = WKeyboardDisplayInfo(animationDuration: animationDuration, animationCurve: animationCurve, beginFrame: beginFrame, endFrame: endFrame, screen: screen)
                 delegate?.keyboardWillShow(info: showInfo)
             }
@@ -54,15 +55,16 @@ public class WKeyboardObserver {
         NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification,
                                                object: nil,
                                                queue: .main) { [weak delegate] notification in
+            guard let info = notification.userInfo,
+                  let animationDuration = info[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
+                  let animationCurve = info[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int,
+                  let beginFrame = info[UIResponder.keyboardFrameBeginUserInfoKey] as? CGRect,
+                  let endFrame = info[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+            else { return }
+            let screen = notification.object as? UIScreen
             MainActor.assumeIsolated {
                 displayedKeyboardOnce = true
-                guard let info = notification.userInfo,
-                      let animationDuration = info[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
-                      let animationCurve = info[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int,
-                      let beginFrame = info[UIResponder.keyboardFrameBeginUserInfoKey] as? CGRect,
-                      let endFrame = info[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
-                else { return }
-                let screen = notification.object as? UIScreen ?? UIScreen.main
+                let screen = screen ?? UIScreen.main
                 let showInfo = WKeyboardDisplayInfo(animationDuration: animationDuration, animationCurve: animationCurve, beginFrame: beginFrame, endFrame: endFrame, screen: screen)
                 delegate?.keyboardWillHide(info: showInfo)
             }

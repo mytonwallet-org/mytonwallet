@@ -2,7 +2,3 @@ app_identifier("org.mytonwallet.app")
 
 itc_team_id("126235213")
 team_id("Y54Z4K69Z9")
-
-if ENV['IS_AIR_APP'] == '1'
-  app_identifier("org.mytonwallet.app-air")
-end

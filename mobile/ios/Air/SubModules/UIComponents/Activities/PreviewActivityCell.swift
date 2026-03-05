@@ -26,7 +26,7 @@ public class PreviewActivityCell: ActivityCell {
         ])
     }
     
-    public struct ConfigureOptions {
+    @MainActor public struct ConfigureOptions {
         var detailsOptions: ConfigureDetailsOptions
         var amountOptions: ConfigureAmountOptions
 
@@ -100,11 +100,17 @@ public struct WPreviewActivityCell: UIViewRepresentable {
     }
     
     public func sizeThatFits(_ proposal: ProposedViewSize, uiView cell: PreviewActivityCell, context: Context) -> CGSize? {
-        var fitting = cell.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
-        if let w = proposal.width, w > fitting.width {
-            fitting.width = w
+        if let proposedWidth = proposal.width, proposedWidth.isFinite {
+            let targetSize = CGSize(width: proposedWidth, height: UIView.layoutFittingCompressedSize.height)
+            let fitting = cell.systemLayoutSizeFitting(
+                targetSize,
+                withHorizontalFittingPriority: .required,
+                verticalFittingPriority: .fittingSizeLevel
+            )
+            return CGSize(width: proposedWidth, height: fitting.height)
         }
-        return .some(fitting)
+
+        return cell.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
     }
 }
 

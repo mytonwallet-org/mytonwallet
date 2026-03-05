@@ -8,7 +8,7 @@
 import Foundation
 
 // to easily encode/pass both objects and arrays :)
-public struct AnyEncodable: Codable {
+public struct AnyEncodable: Codable, @unchecked Sendable { // todo: switch to a safe implementation 
     private let _encode: (Encoder) throws -> Void
 
     public init<T: Encodable>(_ wrapped: T) {

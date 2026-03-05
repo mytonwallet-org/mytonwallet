@@ -363,7 +363,7 @@ function Content({
 
     return captureEvents(transitionRef.current!, {
       includedClosestSelector: '.swipe-container',
-      excludedClosestSelector: '.dapps-feed',
+      excludedClosestSelector: '.dapps-feed,.no-swipe',
       onSwipe: (e, direction) => {
         if (
           direction === SwipeDirection.Up

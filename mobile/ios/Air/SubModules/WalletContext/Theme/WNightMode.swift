@@ -58,7 +58,7 @@ public enum NightMode: String, Equatable, Hashable, Codable, Sendable {
     }
 }
 
-public enum ResolvedTheme: String, Codable {
+public enum ResolvedTheme: String, Codable, Sendable {
     case light = "light"
     case dark = "dark"
 }

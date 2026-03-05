@@ -56,17 +56,17 @@ extension Api {
 
 // MARK: Types
 
-public struct ApiSwapBuildResponse: Codable {
+public struct ApiSwapBuildResponse: Codable, Sendable {
     public let id: String
     public var transfers: [ApiSwapTransfer]
     public let fee: BigInt?
 }
 
-public struct ApiSwapSubmitResult: Codable {
+public struct ApiSwapSubmitResult: Codable, Sendable {
     public let paymentLink: String?
 }
 
-public struct ApiSwapCexValidateAddressParams: Encodable {
+public struct ApiSwapCexValidateAddressParams: Encodable, Sendable {
     public var slug: String
     public var address: String
 
@@ -76,12 +76,12 @@ public struct ApiSwapCexValidateAddressParams: Encodable {
     }
 }
 
-public struct ApiSwapCexValidateAddressResult: Decodable {
+public struct ApiSwapCexValidateAddressResult: Decodable, Sendable {
     public var result: Bool
     public var message: String?
 }
 
-public struct ApiSwapCexCreateTransactionResult: Decodable {
+public struct ApiSwapCexCreateTransactionResult: Decodable, Sendable {
     public var swap: ApiSwapHistoryItem
     public var activity: ApiActivity
 }

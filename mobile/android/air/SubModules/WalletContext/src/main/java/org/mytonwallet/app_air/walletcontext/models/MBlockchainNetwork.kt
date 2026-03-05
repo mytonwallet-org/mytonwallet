@@ -6,7 +6,9 @@ enum class MBlockchainNetwork(val value: String) {
 
     companion object {
         fun ofAccountId(accountId: String): MBlockchainNetwork {
-            return if (accountId.split("-")[1] == "mainnet") MAINNET else TESTNET
+            val networkValue =
+                accountId.substringAfterLast("-", MAINNET.value)
+            return if (networkValue == TESTNET.value) TESTNET else MAINNET
         }
     }
 

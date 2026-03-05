@@ -2,7 +2,7 @@ import WebKit
 import UIKit
 import UIComponents
 import WalletCore
-@preconcurrency import WalletContext
+import WalletContext
 
 public class SellVC: WViewController, UIScrollViewDelegate {
     private enum State {

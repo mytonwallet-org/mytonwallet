@@ -34,7 +34,7 @@ private let UPDATING_DELAY = 2
     weak var delegate: HomeVMDelegate?
     
     @PerceptionIgnored
-    let reachability = try! Reachability()
+    let reachability = Reachability()
     @PerceptionIgnored
     var waitingForNetwork: Bool? = nil
     @PerceptionIgnored
@@ -66,7 +66,7 @@ private let UPDATING_DELAY = 2
         WalletCoreData.add(eventObserver: self)
 
         // Listen for network connection events
-        reachability.whenReachable = { [weak self] reachability in
+        reachability.whenReachable = { [weak self] _ in
             guard let self else {return}
             if waitingForNetwork == true {
                 waitingForNetwork = false
@@ -80,13 +80,10 @@ private let UPDATING_DELAY = 2
             self?.waitingForNetwork = true
             self?.updateStatus()
         }
-        do {
-            try reachability.startNotifier()
-        } catch {
-        }
+        reachability.startNotifier()
     }
     
-    deinit {
+    isolated deinit {
         reachability.stopNotifier()
     }
     

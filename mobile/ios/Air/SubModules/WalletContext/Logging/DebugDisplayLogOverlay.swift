@@ -72,7 +72,7 @@ private final class DebugDisplayLogOverlayViewController: UIViewController {
     }
 }
 
-private final class DebugDisplayLogOverlay {
+@MainActor private final class DebugDisplayLogOverlay {
     static let shared = DebugDisplayLogOverlay()
 
     let formatter: DateFormatter

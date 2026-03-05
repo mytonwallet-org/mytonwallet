@@ -5,8 +5,8 @@ import Perception
 import Dependencies
 import SwiftNavigation
 
-@Perceptible @propertyWrapper
-public class AccountContext {
+@Perceptible @propertyWrapper @MainActor
+public final class AccountContext: Sendable {
     
     private(set) public var account: MAccount = DUMMY_ACCOUNT
 

@@ -65,6 +65,8 @@ M: M
 3M: 3M
 Y: "Y"
 No price data: No price data
+$amount_K: "%amount%K"
+$amount_M: "%amount%M"
 Happening Now: Happening Now
 No Dapps Found!: No Dapps Found!
 Open: Open

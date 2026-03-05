@@ -24,7 +24,7 @@ export type TokenWithId = Pick<ApiTokenWithPrice, 'slug' | 'symbol' | 'image' | 
 interface OwnProps<T extends TokenWithId> {
   selectedToken?: T | string;
   allTokens?: T[];
-  isMultichainAccount?: boolean;
+  withChainIcon?: boolean;
   theme?: 'purple';
   isInMode?: boolean;
   isDisabled?: boolean;
@@ -37,7 +37,7 @@ const EMPTY_TOKEN_LIST: never[] = [];
 function TokenDropdown<T extends TokenWithId>({
   selectedToken,
   allTokens = EMPTY_TOKEN_LIST,
-  isMultichainAccount,
+  withChainIcon,
   theme,
   isInMode,
   isDisabled,
@@ -58,8 +58,8 @@ function TokenDropdown<T extends TokenWithId>({
   );
 
   const items = useMemo(
-    () => allTokens.map((token) => tokenToDropdownItem(token, isMultichainAccount)),
-    [allTokens, isMultichainAccount],
+    () => allTokens.map((token) => tokenToDropdownItem(token, withChainIcon)),
+    [allTokens, withChainIcon],
   );
 
   const tokenById = useMemo(

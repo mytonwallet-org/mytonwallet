@@ -1,7 +1,7 @@
 import UIKit
 
 /// Discrete states supported by a minimizable sheet.
-public enum MinimizableSheetState: Equatable {
+public enum MinimizableSheetState: Equatable, Sendable {
     /// Sheet is fully hidden.
     case hidden
     /// Sheet is visible in compact/minimized mode.
@@ -11,10 +11,10 @@ public enum MinimizableSheetState: Equatable {
 }
 
 /// Configuration for `MinimizableSheetContainerViewController`.
-public struct MinimizableSheetConfiguration {
+public struct MinimizableSheetConfiguration: Sendable {
 
     /// Controls where the expanded sheet stops at the top edge.
-    public enum ExpandedTopInsetMode {
+    public enum ExpandedTopInsetMode: Sendable {
         /// Expanded sheet stops at the top safe area inset.
         case safeArea
     }
@@ -95,7 +95,7 @@ public enum MinimizableSheetEvent {
 }
 
 /// Observation categories for `MinimizableSheetController.addObserver`.
-public struct MinimizableSheetObservationOptions: OptionSet {
+public struct MinimizableSheetObservationOptions: OptionSet, Sendable {
     /// Option set raw value.
     public let rawValue: Int
 
@@ -135,7 +135,7 @@ public final class MinimizableSheetObservation {
 }
 
 /// Public control surface for a minimizable sheet.
-public final class MinimizableSheetController {
+ @MainActor public final class MinimizableSheetController {
 
     fileprivate weak var container: MinimizableSheetContainerViewController?
 

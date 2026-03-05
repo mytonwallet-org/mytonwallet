@@ -15,7 +15,7 @@ public enum BiometryType {
     case face
 }
 
-public struct BiometricHelper {
+@MainActor public struct BiometricHelper {
     
     /// Returns the effectively available biometry type that is ready to be used, or `nil` otherwise.
     ///

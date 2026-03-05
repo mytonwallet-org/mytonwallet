@@ -104,6 +104,7 @@ export const INITIAL_STATE: GlobalState = {
     animationLevel: ANIMATION_LEVEL_DEFAULT,
     areTinyTransfersHidden: !SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
     canPlaySounds: true,
+    hasOpenedAir: false,
     langCode: USER_AGENT_LANG_CODE,
     byAccountId: {},
     areTokensWithNoCostHidden: !SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,

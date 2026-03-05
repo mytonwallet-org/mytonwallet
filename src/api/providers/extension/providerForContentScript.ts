@@ -11,6 +11,18 @@ import { createExtensionInterface } from '../../../util/createPostMessageInterfa
 import { getProtocolManager } from '../../dappProtocols';
 import * as siteApi from '../../extensionMethods/sites';
 
+const ADAPTER_NOT_READY_ERROR_MESSAGE = 'dApp adapter is not initialized yet';
+
+function buildDappAdapterErrorResult() {
+  return {
+    success: false,
+    error: {
+      code: 0,
+      message: ADAPTER_NOT_READY_ERROR_MESSAGE,
+    },
+  };
+}
+
 const ALLOWED_METHODS = new Set([
   'flushMemoryCache',
   'prepareTransaction',
@@ -45,10 +57,15 @@ createExtensionInterface(CONTENT_SCRIPT_PORT, (
   if (parsedRequest.isDapp) {
     const adapter = getProtocolManager().getAdapter(parsedRequest.protocolType);
     if (!adapter) {
-      throw new Error('No dApp adapter found for request');
+      return buildDappAdapterErrorResult();
     }
 
-    const method = adapter[parsedRequest.fnName].bind(adapter);
+    const adapterMethod = adapter[parsedRequest.fnName];
+    if (typeof adapterMethod !== 'function') {
+      return buildDappAdapterErrorResult();
+    }
+
+    const method = adapterMethod.bind(adapter);
 
     const request: ApiDappRequest = { url: origin, isUrlEnsured: true };
 

@@ -115,7 +115,6 @@ private struct ActivityDetailsActionsToolbarRepresentable: UIViewRepresentable {
         let toolbar = ActivityDetailsActionsToolbar()
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         toolbar.configure(model: model)
-        toolbar.updateTheme()
         return toolbar
     }
 

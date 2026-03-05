@@ -60,7 +60,7 @@ public let HELP_CENTER_DOMAIN_SCAM_URL = "https://help.mytonwallet.io/intro/scam
 public let HELP_CENTER_DOMAIN_SCAM_URL_RU = "https://help.mytonwallet.io/ru/baza-znanii/moshennichestvo-i-skamy/moshennichestvo-s-ispolzovaniem-domenov-.ton"
 public let HELP_CENTER_SEED_SCAM_URL = "https://help.mytonwallet.io/intro/scams/leaked-seed-phrases"
 public let HELP_CENTER_SEED_SCAM_URL_RU = "https://help.mytonwallet.io/ru/baza-znanii/moshennichestvo-i-skamy/slitye-sid-frazy"
-public let DOMAIN_SCAM_REGEX = /^[-\w]{26,}\./
+public var DOMAIN_SCAM_REGEX: Regex<Substring> { /^[-\w]{26,}\./ }
 public let MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"
 
 public let CARD_RATIO: CGFloat = 208/358

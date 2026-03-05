@@ -20,6 +20,7 @@ import type {
 import type { Connector } from '../../util/PostMessageConnector';
 
 import { TONCONNECT_PROTOCOL_VERSION, TONCONNECT_WALLET_JSBRIDGE_KEY } from '../../config';
+import { isPortDisconnectedError } from '../../util/isPortDisconnectedError';
 import { tonConnectGetDeviceInfo } from '../../util/tonConnectEnvironment';
 import { transformTonConnectMessageToUnified } from '../../api/dappProtocols/adapters/tonConnect/utils';
 
@@ -105,53 +106,81 @@ class TonConnect implements ExtensionTonConnectBridge {
       }],
     };
 
-    const response = await this.request(
-      'connect',
-      [unifiedPayload, id],
-    ) as DappConnectionResult<DappProtocolType.TonConnect>;
+    try {
+      const response = await this.request(
+        'connect',
+        [unifiedPayload, id],
+      ) as DappConnectionResult<DappProtocolType.TonConnect>;
 
-    if (response.success) {
-      return this.emit<ConnectEvent>(response.session.protocolData);
+      if (response.success) {
+        return this.emit<ConnectEvent>(response.session.protocolData);
+      }
+
+      return this.emit<ConnectEvent>(TonConnect.buildConnectError(
+        id,
+        response.error?.message,
+        response.error?.code as any,
+      ));
+    } catch (error) {
+      return this.emit<ConnectEvent>(TonConnect.buildConnectError(
+        id,
+        TonConnect.getBridgeErrorMessage(error),
+      ));
     }
-
-    return this.emit<ConnectEvent>(TonConnect.buildConnectError(
-      id,
-      response.error.message,
-      response.error.code as any,
-    ));
   }
 
   async restoreConnection(): Promise<ConnectEvent> {
     const id = ++this.lastGeneratedId;
-    const response = await this.request('reconnect', [id]) as DappConnectionResult<DappProtocolType.TonConnect>;
+    try {
+      const response = await this.request('reconnect', [id]) as DappConnectionResult<DappProtocolType.TonConnect>;
 
-    if (!response.success) {
-      return this.emit<ConnectEvent>(TonConnect.buildConnectError(id));
+      if (!response.success) {
+        return this.emit<ConnectEvent>(TonConnect.buildConnectError(
+          id,
+          response.error?.message,
+          response.error?.code as any,
+        ));
+      }
+
+      return this.emit<ConnectEvent>(response.session.protocolData);
+    } catch (error) {
+      return this.emit<ConnectEvent>(TonConnect.buildConnectError(
+        id,
+        TonConnect.getBridgeErrorMessage(error),
+      ));
     }
-
-    return this.emit<ConnectEvent>(response.session.protocolData);
   }
 
   async send(message: AppMethodMessage) {
     const { id } = message;
     const unifiedMessage = transformTonConnectMessageToUnified(message);
 
-    const response = await this.request(
-      message.method,
-      [unifiedMessage],
-    ) as DappMethodResult<DappProtocolType.TonConnect>;
+    try {
+      const response = await this.request(
+        message.method,
+        [unifiedMessage],
+      ) as DappMethodResult<DappProtocolType.TonConnect>;
 
-    if (response.success) {
-      return response.result;
+      if (response.success) {
+        return response.result;
+      }
+
+      return {
+        error: {
+          code: response.error?.code as any,
+          message: response.error?.message || 'Unknown error.',
+        },
+        id,
+      };
+    } catch (error) {
+      return {
+        error: {
+          code: CONNECT_EVENT_ERROR_CODES.UNKNOWN_ERROR as any,
+          message: TonConnect.getBridgeErrorMessage(error),
+        },
+        id,
+      };
     }
-
-    return {
-      error: {
-        code: response.error.code as any,
-        message: response.error.message,
-      },
-      id,
-    };
   }
 
   disconnect() {
@@ -196,6 +225,18 @@ class TonConnect implements ExtensionTonConnectBridge {
         message: msg,
       },
     };
+  }
+
+  private static getBridgeErrorMessage(error: unknown) {
+    if (error instanceof Error && error.message) {
+      if (isPortDisconnectedError(error)) {
+        return 'Wallet extension is not connected';
+      }
+
+      return error.message;
+    }
+
+    return 'Unknown error.';
   }
 
   private emit<E extends WalletEvent>(event: E): E {

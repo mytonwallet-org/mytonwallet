@@ -7,7 +7,7 @@ import Perception
 import Dependencies
 import SwiftNavigation
 
-@Perceptible
+@Perceptible @MainActor
 public class ActivityCellViewModel {
     
     @PerceptionIgnored
@@ -379,7 +379,7 @@ public class ActivityCell: WHighlightCell {
         }
     }
     
-    struct ConfigureDetailsOptions {
+    @MainActor struct ConfigureDetailsOptions {
         var activity: ApiActivity
         var isMultichain = false
         var stakingState: ApiStakingState?

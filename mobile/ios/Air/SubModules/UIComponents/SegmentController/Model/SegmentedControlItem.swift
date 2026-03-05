@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 import WalletContext
 
-public struct SegmentedControlItem: Identifiable, Equatable, Hashable {
+public struct SegmentedControlItem: Identifiable, Equatable, Hashable, Sendable {
     
     public var id: String
     var title: String

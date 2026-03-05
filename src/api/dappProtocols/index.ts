@@ -43,8 +43,6 @@ class DappProtocolManager implements AbstractDappProtocolManager {
     this.config = config;
 
     const initPromises = Array.from(this.adapters.values()).map(async (registration) => {
-      if (registration.initialized) return;
-
       try {
         await registration.adapter.init(config);
         registration.initialized = true;
@@ -119,18 +117,26 @@ class DappProtocolManager implements AbstractDappProtocolManager {
 // Singleton instance
 let protocolManager: DappProtocolManager | undefined;
 
+function ensureProtocolAdaptersRegistered(manager: DappProtocolManager) {
+  if (!manager.getAdapter(DappProtocolType.TonConnect)) {
+    manager.registerAdapter(getTonConnectAdapter());
+  }
+
+  if (!manager.getAdapter(DappProtocolType.WalletConnect)) {
+    manager.registerAdapter(getWalletConnectAdapter());
+  }
+}
+
 export function getProtocolManager(): DappProtocolManager {
   if (!protocolManager) {
     protocolManager = new DappProtocolManager();
   }
+  ensureProtocolAdaptersRegistered(protocolManager);
   return protocolManager;
 }
 
 export function initProtocolManager(onUpdate: OnApiUpdate, env: AppEnvironment): Promise<void> {
   const manager = getProtocolManager();
-
-  manager.registerAdapter(getTonConnectAdapter());
-  manager.registerAdapter(getWalletConnectAdapter());
 
   const chainDappSupports = Object.fromEntries(
     (Object.entries(chains))

@@ -7,5 +7,6 @@ enum AnimationRendererFrameType {
 }
 
 protocol AnimationRenderer {
-    func render(queue: DispatchQueue, width: Int, height: Int, bytesPerRow: Int, data: Data, type: AnimationRendererFrameType, completion: @escaping () -> Void)
+    // todo: switch to async api
+    func render(queue: DispatchQueue, width: Int, height: Int, bytesPerRow: Int, data: Data, type: AnimationRendererFrameType, completion: @escaping @MainActor () -> Void)
 }

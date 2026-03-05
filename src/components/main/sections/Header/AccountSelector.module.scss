@@ -60,10 +60,7 @@ $iconGapSize: 1rem;
     opacity: 0.65;
   }
 
-  // Optimization
-  &:active {
-    transition: none !important;
-  }
+  @include mixins.active-transition-optimization(!important);
 }
 
 .accountTitleInner {

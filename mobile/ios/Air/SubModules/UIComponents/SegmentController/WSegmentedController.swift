@@ -239,7 +239,7 @@ public class WSegmentedController: WTouchPassView {
             segmentedControl.centerXAnchor.constraint(equalTo: centerXAnchor),
             segmentedControl.topAnchor.constraint(
                 equalTo: topAnchor,
-                constant: (barHeight - SegmentedControlConstants.height) / 2 + 3 - SegmentedControlConstants.topInset
+                constant: (barHeight - SegmentedControlConstants.height) / 2.0 + 3.0 - SegmentedControlConstants.topInset
             ),
             segmentedControl.heightAnchor.constraint(equalToConstant: SegmentedControlConstants.fullHeight),
             segmentedControl.widthAnchor.constraint(equalTo: widthAnchor)

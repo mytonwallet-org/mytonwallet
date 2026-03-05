@@ -218,8 +218,8 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
                 )
             )
             // from user perspective staked token is automatically pinned to be shown in UI at top of tokens list
-            AccountStore.updateAssetsAndActivityData(forAccountID: account.id, update: { settings in
-                settings.saveTokenPinning(slug: model.baseToken.slug, isStaking: true, isPinned: true)
+            AccountStore.updateAssetsAndActivityData(forAccountID: account.id, update: { [slug = model.baseToken.slug] settings in
+                settings.saveTokenPinning(slug: slug, isStaking: true, isPinned: true)
             })
         } catch {
             awaitingActivity = false

@@ -66,7 +66,7 @@ private let TON_GAS_REAL: [TonOperation: BigInt] = [
     .unstakeEthenaLocked: 37_612_000,
 ]
 
-public enum TonOperation {
+public enum TonOperation: Sendable {
     case stakeNominators
     case unstakeNominators
     case stakeLiquid

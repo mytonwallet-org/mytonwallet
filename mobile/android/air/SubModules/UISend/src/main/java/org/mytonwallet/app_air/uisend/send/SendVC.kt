@@ -240,24 +240,28 @@ class SendVC(
             autoCompleteConfig = AddressInputLayout.AutoCompleteConfig(
                 type = AddressInputLayout.AutoCompleteConfig.Type.EXTERNAL
             )
+            activeChain = TokenStore.getToken(viewModel.getTokenSlug())?.mBlockchain
             search("")
             isGone = true
             setRoundedOutline(ViewConstants.BLOCK_RADIUS.dp)
             onSelected = { account, savedAddress ->
+                val activeChainName = addressInputView.activeChain.name
                 when {
-                    account != null -> {
+                    account != null && account.addressByChain.containsKey(activeChainName) -> {
                         addressInputView.setAccount(account)
                         hideSuggestions()
                         focusAmount()
                         viewModel.onDestinationEntered(addressInputView.getKeyword())
                     }
 
-                    savedAddress != null -> {
+                    savedAddress != null && savedAddress.chain == activeChainName -> {
                         addressInputView.setAddress(savedAddress)
                         hideSuggestions()
                         focusAmount()
                         viewModel.onDestinationEntered(addressInputView.getKeyword())
                     }
+
+                    else -> suggestionsBoxView.search(addressInputView.getKeyword())
                 }
             }
             viewController = WeakReference(this@SendVC)
@@ -1000,9 +1004,17 @@ class SendVC(
     }
 
     private fun onAssetSelected(tokenSlug: String) {
+        val previousChain = addressInputView.activeChain
         val blockchain = TokenStore.getToken(tokenSlug)?.mBlockchain
         if (blockchain != null) {
+            if (previousChain != blockchain) {
+                addressInputView.setText("")
+                viewModel.onInputDestination("")
+                viewModel.onDestinationEntered("")
+            }
             addressInputView.activeChain = blockchain
+            suggestionsBoxView.activeChain = blockchain
+            suggestionsBoxView.search(addressInputView.getKeyword())
         }
         viewModel.onInputToken(tokenSlug)
         updateCommentViews()
@@ -1254,6 +1266,9 @@ class SendVC(
             for (blockchain in MBlockchain.supportedChains) {
                 if (blockchain.isValidAddress(address)) {
                     viewModel.onInputToken(blockchain.nativeSlug)
+                    addressInputView.activeChain = blockchain
+                    suggestionsBoxView.activeChain = blockchain
+                    suggestionsBoxView.search(addressInputView.getKeyword())
                     updateCommentViews()
                     break
                 }

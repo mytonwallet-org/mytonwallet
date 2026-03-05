@@ -207,6 +207,7 @@ export interface ChainSdk<T extends ApiChain> {
     accountId: string,
     options: {
       signal?: AbortSignal;
+      ignorePreCheck?: boolean;
       onBatch: (nfts: ApiNft[]) => void;
     }) => Promise<void>;
 

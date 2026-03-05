@@ -30,14 +30,12 @@ interface OwnProps {
   tokens?: UserToken[];
   pinnedSlugs?: string[];
   baseCurrency: ApiBaseCurrency;
-  withChainIcon?: boolean;
   isSensitiveDataHidden?: true;
 }
 
 function SettingsTokens({
   tokens,
   baseCurrency,
-  withChainIcon,
   isSensitiveDataHidden,
   pinnedSlugs = [],
 }: OwnProps) {
@@ -106,7 +104,7 @@ function SettingsTokens({
         onKeyDown={(e) => handleTokenKeyDown(token, e)}
         onClick={(e) => handleTokenVisibility(token, e)}
       >
-        <TokenIcon token={token} withChainIcon={withChainIcon} />
+        <TokenIcon token={token} withChainIcon />
         <div className={styles.tokenInfo}>
           <TokenTitle
             tokenName={tokenName}

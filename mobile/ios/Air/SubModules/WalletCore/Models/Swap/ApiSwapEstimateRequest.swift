@@ -5,7 +5,7 @@
 //  Created by nikstar on 31.08.2025.
 //
 
-public struct ApiSwapEstimateRequest: Codable {
+public struct ApiSwapEstimateRequest: Codable, Sendable {
     public let from: String
     public let to: String
     public let slippage: Double

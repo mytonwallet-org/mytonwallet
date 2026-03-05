@@ -27,25 +27,14 @@ import ObjectiveC
      for the first time to remove remnants in order to avoid conflicting.
 */
 
-public class LocaleManager: NSObject {
-    /// This handler will be called after every change in language. You can change it to handle minor localization issues in user interface.
-    @objc public static var updateHandler: () -> Void = {
-        return
-    }
-    
+@MainActor public class LocaleManager: NSObject {
+
     /**
      This handler will be called to get root viewController to initialize.
      
      - Important: Either this property or storyboard identifier's of root view controller must be set.
      */
     @objc public static var rootViewController: ((_ window: UIWindow) -> UIViewController?)? = nil
-    
-    /**
-     This handler will be called to get localized string before checking bundle. Allows custom translation for system strings.
-     
-     - Important: **DON'T USE** `NSLocalizedString()` inside the closure body. Use a `Dictionary` instead.
-    */
-    @objc public static var customTranslation: ((_ key: String) -> String?)? = nil
     
     /// Returns Base localization identifier
     @objc public class var base: String {
@@ -58,7 +47,7 @@ public class LocaleManager: NSObject {
      - Important: Either rootViewController must be set or storyboardIdentifier of root viewcontroller
          in Main.storyboard must set to a string.
     */
-    @MainActor internal class func reloadWindows(animated: Bool = true) {
+    internal class func reloadWindows(animated: Bool = true) {
         let windows = UIApplication.shared.sceneWindows
         for window in windows {
             if let rootViewController = self.rootViewController?(window) {

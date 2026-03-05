@@ -275,10 +275,7 @@
     background-color: var(--color-add-wallet-background-hover) !important;
   }
 
-  &:active {
-    // Optimization
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 }
 
 .addAccountIconTransition {

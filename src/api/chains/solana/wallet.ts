@@ -23,9 +23,9 @@ export async function getWalletBalance(network: ApiNetwork, address: string) {
 export async function getWalletLastTransaction(network: ApiNetwork, address: string) {
   const client = getSolanaClient(network);
 
-  const a = await client.getSignaturesForAddress(address as Address).send();
+  const lastWalletTransactions = await client.getSignaturesForAddress(address as Address).send();
 
-  return a?.[0] || undefined;
+  return lastWalletTransactions?.[0] || undefined;
 }
 
 export async function fetchAccountAssets(
@@ -163,4 +163,10 @@ export function getAddressInfo(
     resolvedAddress: addressOrDomain,
     addressName: getKnownAddressInfo(addressOrDomain)?.name,
   };
+}
+
+export async function getIsWalletActive(network: ApiNetwork, address: string) {
+  const balance = await getWalletBalance(network, address);
+
+  return balance > 0n;
 }

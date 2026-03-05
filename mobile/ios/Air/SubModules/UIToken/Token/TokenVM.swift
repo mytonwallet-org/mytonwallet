@@ -17,12 +17,12 @@ import WReachability
     func accountChanged()
 }
 
-class TokenVM: @unchecked Sendable {
+@MainActor final class TokenVM: Sendable {
 
-    let reachability = try! Reachability()
+    let reachability = Reachability()
     var waitingForNetwork: Bool? = nil
     
-    deinit {
+    isolated deinit {
         stopAllObservers()
         reachability.stopNotifier()
     }
@@ -38,7 +38,7 @@ class TokenVM: @unchecked Sendable {
         }
     }
     
-    var historyData: [[Double]]? { allHistoryData.withLock { $0[selectedPeriod] ?? nil } }
+    var historyData: [[Double]]? { allHistoryData.withLock { [selectedPeriod] in $0[selectedPeriod] ?? nil } }
     private var allHistoryData: UnfairLock<[ApiPriceHistoryPeriod: [[Double]]?]> = .init(initialState: [:])
     private var loadHistoryTask: UnfairLock<[ApiPriceHistoryPeriod: Task<Void, Never>]> = .init(initialState: [:])
     
@@ -53,7 +53,7 @@ class TokenVM: @unchecked Sendable {
         WalletCoreData.add(eventObserver: self)
         
         // Listen for network connection events
-        reachability.whenReachable = { [weak self] reachability in
+        reachability.whenReachable = { [weak self] _ in
             guard let self else {return}
             if waitingForNetwork == true {
                 waitingForNetwork = false
@@ -61,20 +61,13 @@ class TokenVM: @unchecked Sendable {
             } else {
                 waitingForNetwork = false
             }
-            DispatchQueue.main.async {
-                self.tokenVMDelegate?.stateChanged()
-            }
+            self.tokenVMDelegate?.stateChanged()
         }
         reachability.whenUnreachable = { [weak self] _ in
             self?.waitingForNetwork = true
-            DispatchQueue.main.async {
-                self?.tokenVMDelegate?.stateChanged()
-            }
+            self?.tokenVMDelegate?.stateChanged()
         }
-        do {
-            try reachability.startNotifier()
-        } catch {
-        }
+        reachability.startNotifier()
     }
     
     func stopAllObservers() {
@@ -91,7 +84,7 @@ class TokenVM: @unchecked Sendable {
     
     func loadPriceHistory(period: ApiPriceHistoryPeriod) {
         if let task = loadHistoryTask.withLock({ $0[period] }), !task.isCancelled {
-            Task { [weak self] in await self?.tokenVMDelegate?.priceDataUpdated() }
+            Task { [weak self] in self?.tokenVMDelegate?.priceDataUpdated() }
             return
         }
         let task = Task { [weak self] in
@@ -102,7 +95,7 @@ class TokenVM: @unchecked Sendable {
     
     private func _loadPriceHistory(period: ApiPriceHistoryPeriod, retriesLeft: Int = 3) async {
         if allHistoryData.withLock({ $0[period] }) != nil && period == selectedPeriod {
-            await tokenVMDelegate?.priceDataUpdated()
+            tokenVMDelegate?.priceDataUpdated()
         }
         do {
             let historyData = try await Api.fetchPriceHistory(slug: selectedToken.slug, period: period, baseCurrency: TokenStore.baseCurrency)
@@ -110,7 +103,7 @@ class TokenVM: @unchecked Sendable {
             let allHistoryData = self.allHistoryData.withLock { $0 }
             TokenStore.setHistoryData(tokenSlug: selectedToken.slug, data: allHistoryData)
             if period == selectedPeriod {
-                await tokenVMDelegate?.priceDataUpdated()
+                tokenVMDelegate?.priceDataUpdated()
             }
         } catch {
             if retriesLeft > 0 {
@@ -133,13 +126,9 @@ extension TokenVM: WalletCoreData.EventsObserver {
     func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .balanceChanged, .tokensChanged, .baseCurrencyChanged, .hideTinyTransfersChanged:
-            DispatchQueue.main.async {
-                self.tokenVMDelegate?.dataUpdated(isUpdateEvent: false)
-            }
+            tokenVMDelegate?.dataUpdated(isUpdateEvent: false)
         case .accountChanged:
-            DispatchQueue.main.async {
-                self.tokenVMDelegate?.accountChanged()
-            }
+            tokenVMDelegate?.accountChanged()
         default:
             break
         }

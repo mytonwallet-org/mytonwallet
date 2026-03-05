@@ -10,7 +10,8 @@ private let log = Log("LedgerConnectionManager")
 public typealias LedgerIdentifier = PeripheralIdentifier
 
 
-public final class LedgerConnectionManager: WalletCoreData.EventsObserver, @unchecked Swift.Sendable {
+@MainActor
+public final class LedgerConnectionManager: WalletCoreData.EventsObserver, Swift.Sendable {
     
     public static let shared = LedgerConnectionManager()
     
@@ -64,7 +65,7 @@ public final class LedgerConnectionManager: WalletCoreData.EventsObserver, @unch
         return ledgerInfo
     }
     
-    private func handleBleDisconnected() {
+    nonisolated private func handleBleDisconnected() {
         log.info("disconnected")
     }
     
@@ -113,6 +114,10 @@ public final class LedgerConnectionManager: WalletCoreData.EventsObserver, @unch
         } catch {
             await callback(nil); return
         }
+    }
+    
+    func disconnect() async throws {
+        try await bleTransport.disconnect()
     }
 }
 

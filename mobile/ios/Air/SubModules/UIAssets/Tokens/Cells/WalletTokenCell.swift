@@ -11,7 +11,7 @@ import WalletContext
 import WalletCore
 
 public class WalletTokenCell: WHighlightCell {
-    public static let defaultHeight = 60.0
+    nonisolated public static let defaultHeight = 60.0
 
     private static let pinIconSideLength: CGFloat = 12
     private static let pinIconSpacing: CGFloat = 4

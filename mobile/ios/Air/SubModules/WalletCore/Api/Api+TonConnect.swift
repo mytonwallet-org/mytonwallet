@@ -47,7 +47,7 @@ extension Api {
 }
 
 
-public struct ApiSignTransfersOptions: Encodable {
+public struct ApiSignTransfersOptions: Encodable, Sendable {
     public var password: String?
     public var vestingAddress: String?
     /** Unix seconds */
@@ -74,7 +74,7 @@ public struct ApiSseConnectionParams: Encodable {
     }
 }
 
-public enum ReturnStrategy: Equatable, Hashable, Codable {
+public enum ReturnStrategy: Equatable, Hashable, Codable, Sendable {
     case none
     case back
     case empty

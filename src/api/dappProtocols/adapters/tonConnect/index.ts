@@ -158,7 +158,8 @@ type SseDapp = {
 class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConnect> {
   readonly protocolType = DappProtocolType.TonConnect;
 
-  private onUpdate!: OnApiUpdate;
+  private hasWarnedAboutUpdateBeforeInit = false;
+  private onUpdate: OnApiUpdate;
 
   private resolveInit!: AnyFunction;
   private initPromise: Promise<unknown>;
@@ -176,21 +177,31 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
   private sseDapps: SseDapp[] = [];
 
   constructor() {
+    this.onUpdate = this.handleUpdateBeforeInit;
     this.initPromise = new Promise((resolve) => {
       this.resolveInit = resolve;
     });
   }
+
+  private handleUpdateBeforeInit = () => {
+    if (this.hasWarnedAboutUpdateBeforeInit) {
+      return;
+    }
+
+    this.hasWarnedAboutUpdateBeforeInit = true;
+    logDebugError('tonConnect:init', 'onUpdate called before adapter init');
+  };
 
   // ---------------------------------------------------------------------------
   // Lifecycle
   // ---------------------------------------------------------------------------
 
   async init(config: DappProtocolConfig) {
+    this.onUpdate = config.onUpdate;
+
     if (this.initialized) {
       return;
     }
-
-    this.onUpdate = config.onUpdate;
 
     this.resolveInit();
 
@@ -1223,7 +1234,7 @@ function formatConnectError(id: number, error: unknown): {
   error: DappProtocolError;
 } {
   let code = CONNECT_EVENT_ERROR_CODES.UNKNOWN_ERROR;
-  let message = 'Unhandled error';
+  let message = 'Unknown error.';
 
   if (error instanceof ApiUserRejectsError) {
     code = CONNECT_EVENT_ERROR_CODES.USER_REJECTS_ERROR;
@@ -1231,6 +1242,8 @@ function formatConnectError(id: number, error: unknown): {
   } else if (error instanceof TonConnectError) {
     code = error.code;
     message = error.message;
+  } else if (error instanceof Error) {
+    message = error.message || message;
   }
 
   return {

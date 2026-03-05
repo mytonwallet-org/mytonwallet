@@ -17,9 +17,9 @@ private let log = Log("LedgerAddAccountModel")
 
 @MainActor
 @Perceptible
-public final class LedgerAddAccountModel: LedgerBaseModel, @unchecked Sendable {
+public final class LedgerAddAccountModel: LedgerBaseModel, Sendable {
     
-    struct DiscoveredWallet: Identifiable, @unchecked Sendable {
+    struct DiscoveredWallet: Identifiable, Sendable {
         var id: Int
         var displayName: String?
         var address: String
@@ -45,7 +45,7 @@ public final class LedgerAddAccountModel: LedgerBaseModel, @unchecked Sendable {
         await super.init(steps: START_STEPS)
     }
     
-    deinit {
+    isolated deinit {
         log.info("deinit")
         task?.cancel()
     }

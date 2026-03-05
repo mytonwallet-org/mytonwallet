@@ -35,7 +35,6 @@ private final class NftDetailsActionsToolbar: ButtonsToolbar {
     var shareButton: WScalableButton!
     var moreButton: WScalableButton!
     
-
     struct Model: Equatable {
         let nft: ApiNft
         let accountId: String
@@ -47,27 +46,18 @@ private final class NftDetailsActionsToolbar: ButtonsToolbar {
     private var model: Model!
 
     func configure(model: Model) {
+        beginUpdate()
+        defer { endUpdate() }
+        
         self.model = model
         if wearButton == nil {
             setupButtons()
         }
         wearButton.isHidden = !model.nft.isMtwCard
-        wearButton.titleLabel.text = lang("Wear")
-        wearButton.imageView.image = UIImage.airBundle("WearIconBold")
-        
-        sendButton.titleLabel.text = lang("Send")
-        sendButton.imageView.image = UIImage.airBundle("SendIconBold" )
-        
-        shareButton.titleLabel.text = lang("Share")
-        shareButton.imageView.image = UIImage.airBundle("ShareIconBold")
-        
-        moreButton.titleLabel.text = lang("More")
-        moreButton.imageView.image = UIImage.airBundle("MoreIconBold")
-        update()
     }
 
     private func setupButtons() {
-        let wear = WScalableButton(title: "", image: nil, onTap: {})
+        let wear = WScalableButton(title: lang("Wear"), image: .airBundle("WearIconBold"), onTap: {})
         wear.attachMenu(presentOnTap: true, makeConfig: { [weak self] in
             guard let self, let model = self.model else { return MenuConfig(menuItems: []) }
             @Dependency(\.accountSettings) var _accountSettings
@@ -103,8 +93,8 @@ private final class NftDetailsActionsToolbar: ButtonsToolbar {
         wearButton = wear
 
         let send = WScalableButton(
-            title: "",
-            image: nil,
+            title: lang("Send"),
+            image: .airBundle("SendIconBold" ),
             onTap: { [weak self] in
                 guard let model = self?.model else { return }
                 AppActions.showSend(prefilledValues: .init(mode: .sendNft, nfts: [model.nft]))
@@ -114,8 +104,8 @@ private final class NftDetailsActionsToolbar: ButtonsToolbar {
         sendButton = send
 
         let share = WScalableButton(
-            title: "",
-            image: nil,
+            title: lang("Share"),
+            image: .airBundle("ShareIconBold"),
             onTap: { [weak self] in
                 guard let model = self?.model else { return }
                 AppActions.shareUrl(ExplorerHelper.viewNftUrl(network: model.accountNetwork, nftAddress: model.nft.address))
@@ -124,7 +114,7 @@ private final class NftDetailsActionsToolbar: ButtonsToolbar {
         addArrangedSubview(share)
         shareButton = share
 
-        let more = WScalableButton(title: "", image: nil, onTap: {})
+        let more = WScalableButton(title: lang("More"), image: .airBundle("MoreIconBold"), onTap: {})
         more.attachMenu(presentOnTap: true, makeConfig: { [weak self] in
             guard let model = self?.model else { return MenuConfig(menuItems: []) }
             let accountId = model.accountId
@@ -167,7 +157,6 @@ private struct NftDetailsActionsToolbarRepresentable: UIViewRepresentable {
         let toolbar = NftDetailsActionsToolbar()
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         toolbar.configure(model: model)
-        toolbar.updateTheme()
         return toolbar
     }
 

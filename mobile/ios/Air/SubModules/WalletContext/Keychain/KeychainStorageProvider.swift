@@ -1,7 +1,7 @@
 
 private let log = Log("KeychainStorageProvider")
 
-public protocol IKeychainStorageProvider {
+public protocol IKeychainStorageProvider: Sendable {
     func set(key: String, value: String) -> Bool
     func get(key: String) -> (Bool, String?)
     func remove(key: String) -> Bool
@@ -10,9 +10,9 @@ public protocol IKeychainStorageProvider {
 
 public let KeychainStorageProvider: IKeychainStorageProvider = CapacitorKeychainStorageProvider()
 
-public class CapacitorKeychainStorageProvider: IKeychainStorageProvider {
+public final class CapacitorKeychainStorageProvider: IKeychainStorageProvider, Sendable {
     
-    var keychainWrapper: KeychainWrapper = KeychainWrapper.init(serviceName: "cap_sec")
+    let keychainWrapper: KeychainWrapper = KeychainWrapper.init(serviceName: "cap_sec")
     
     public init() {}
     

@@ -28,11 +28,11 @@
 import Foundation
 
 protocol KeychainAttrRepresentable {
-    var keychainAttrValue: CFString { get }
+    var keychainAttrValue: String { get }
 }
 
 // MARK: - KeychainItemAccessibility
-public enum KeychainItemAccessibility {
+public enum KeychainItemAccessibility: Sendable {
     /**
      The data in the keychain item cannot be accessed after a restart until the device has been unlocked once by the user.
      
@@ -91,7 +91,7 @@ public enum KeychainItemAccessibility {
     @available(iOS 4, *)
     case whenUnlockedThisDeviceOnly
     
-    static func accessibilityForAttributeValue(_ keychainAttrValue: CFString) -> KeychainItemAccessibility? {
+    static func accessibilityForAttributeValue(_ keychainAttrValue: String) -> KeychainItemAccessibility? {
         for (key, value) in keychainItemAccessibilityLookup {
             if value == keychainAttrValue {
                 return key
@@ -102,20 +102,20 @@ public enum KeychainItemAccessibility {
     }
 }
 
-private let keychainItemAccessibilityLookup: [KeychainItemAccessibility:CFString] = {
-    var lookup: [KeychainItemAccessibility:CFString] = [
-        .afterFirstUnlock: kSecAttrAccessibleAfterFirstUnlock,
-        .afterFirstUnlockThisDeviceOnly: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-        .whenPasscodeSetThisDeviceOnly: kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-        .whenUnlocked: kSecAttrAccessibleWhenUnlocked,
-        .whenUnlockedThisDeviceOnly: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+private let keychainItemAccessibilityLookup: [KeychainItemAccessibility: String] = {
+    var lookup: [KeychainItemAccessibility: String] = [
+        .afterFirstUnlock: kSecAttrAccessibleAfterFirstUnlock as String,
+        .afterFirstUnlockThisDeviceOnly: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String,
+        .whenPasscodeSetThisDeviceOnly: kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly as String,
+        .whenUnlocked: kSecAttrAccessibleWhenUnlocked as String,
+        .whenUnlockedThisDeviceOnly: kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String,
     ]
 
     return lookup
 }()
 
 extension KeychainItemAccessibility : KeychainAttrRepresentable {
-    internal var keychainAttrValue: CFString {
+    internal var keychainAttrValue: String {
         return keychainItemAccessibilityLookup[self]!
     }
 }

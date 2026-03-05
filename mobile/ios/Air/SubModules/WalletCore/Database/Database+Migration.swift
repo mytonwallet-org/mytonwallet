@@ -76,7 +76,7 @@ func makeMigrator() -> DatabaseMigrator {
             var title: String?
             var addressByChain: [String: String]
             var ledger: _Ledger?
-            static var databaseTableName: String = "accounts"
+            static let databaseTableName: String = "accounts"
         }
         struct New_MAccount: Codable, FetchableRecord, PersistableRecord {
             public let id: String
@@ -84,7 +84,7 @@ func makeMigrator() -> DatabaseMigrator {
             public var type: String
             public var byChain: [String: _AccountChain]
             public var ledger: _Ledger?
-            static var databaseTableName: String = "accounts"
+            static let databaseTableName: String = "accounts"
         }
         struct _Ledger: Codable {
             var index: Int
@@ -126,7 +126,7 @@ func makeMigrator() -> DatabaseMigrator {
             var type: String
             var byChain: [String: _AccountChain]
             var ledger: Old_Ledger?
-            static var databaseTableName: String = "accounts"
+            static let databaseTableName: String = "accounts"
         }
         struct Old_Ledger: Codable {
             var index: Int
@@ -140,7 +140,7 @@ func makeMigrator() -> DatabaseMigrator {
             var title: String?
             var type: String
             var byChain: [String: _AccountChain]
-            static var databaseTableName: String = "accounts"
+            static let databaseTableName: String = "accounts"
         }
         // common
         struct _AccountChain: Codable {

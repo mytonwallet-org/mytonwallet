@@ -4,17 +4,16 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.Drawable
-import androidx.core.animation.doOnCancel
-import androidx.core.animation.doOnEnd
+import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import org.mytonwallet.app_air.uicomponents.extensions.crossFadeImage
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.uicomponents.widgets.fadeOutObjectAnimator
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -44,9 +43,10 @@ class PasscodeNumberView(
         lbl
     }
 
-    private val imageView: WImageView by lazy {
-        val iv = WImageView(context)
-        iv
+    private val imageView: AppCompatImageView by lazy {
+        AppCompatImageView(context).apply {
+            id = generateViewId()
+        }
     }
 
     var customDrawable: Drawable? = null
@@ -115,11 +115,17 @@ class PasscodeNumberView(
         updateBackground()
     }
 
+    private var prevColor: Int? = null
+    private var prevRadius: Float? = null
     fun updateBackground() {
         val color = if (showMotionBackgroundDrawable)
             (if (light ?: ThemeManager.isDark) Color.WHITE else Color.BLACK).colorWithAlpha(20)
         else WColor.BackgroundRipple.color
         val radius = if (measuredWidth == measuredHeight) 40f.dp else 16f.dp
+        if (prevColor == color && prevRadius == radius)
+            return
+        prevColor = color
+        prevRadius = radius
         // Always set background first to avoid nested RippleDrawables on repeated calls
         setBackgroundColor(0, radius)
         if (num == null) {
@@ -132,18 +138,11 @@ class PasscodeNumberView(
         isEnabled = customDrawable != null
         if (customDrawable == null) {
             if (isVisible && animated) {
-                imageView.fadeOutObjectAnimator()?.apply {
-                    fun cleanup() {
-                        if (customDrawable != null) return
-                        imageView.setImageDrawable(null)
-                        visibility = INVISIBLE
-                        imageView.alpha = 1f
-                    }
-
-                    doOnCancel { cleanup() }
-                    doOnEnd { cleanup() }
-
-                    start()
+                imageView.animate().cancel()
+                imageView.fadeOut {
+                    imageView.setImageDrawable(null)
+                    visibility = INVISIBLE
+                    imageView.alpha = 1f
                 }
             } else {
                 visibility = INVISIBLE

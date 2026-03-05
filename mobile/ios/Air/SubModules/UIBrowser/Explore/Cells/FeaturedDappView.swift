@@ -20,7 +20,7 @@ import WalletCore
 
 struct ExploreScreenFeaturedDappView: View {
     let site: ApiSite
-    let onTap: () -> Void
+    let onTap: @MainActor () -> Void
 
     private let cornerRadius: Double = 22
 

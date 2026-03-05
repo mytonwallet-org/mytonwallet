@@ -9,7 +9,8 @@ import UIComponents
 
 private let log = Log("LedgerBaseModel")
 
-public class LedgerBaseModel: @unchecked Sendable {
+@MainActor
+public class LedgerBaseModel: Sendable {
     
     var steps: OrderedDictionary<StepId, StepStatus>
     let startSteps: OrderedDictionary<StepId, StepStatus>
@@ -60,7 +61,7 @@ public class LedgerBaseModel: @unchecked Sendable {
         do {
             try await withRetries(4) {
                 if connection.bleTransport.isConnected {
-                    try await connection.bleTransport.disconnect()
+                    try await connection.disconnect()
                 }
                 let identifier: LedgerIdentifier
                 // connect to recorded deviceId instead? 

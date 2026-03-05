@@ -821,7 +821,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
 
     /// For changing settings from UI
     public func updateAssetsAndActivityData(forAccountID accountID: String,
-                                            update: (inout MAssetsAndActivityData) -> Void) {
+                                            update: @Sendable (inout MAssetsAndActivityData) -> Void) {
         let updatedSettings: MAssetsAndActivityData? = _assetsAndActivityData.withLock { dataState in
             switch dataState {
             case .notSet:
@@ -891,8 +891,8 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
 }
 
 extension _AccountStore: DependencyKey {
-    static public var liveValue: _AccountStore = .shared
-    static public var previewValue: _AccountStore = {
+    static public let liveValue: _AccountStore = .shared
+    static public let previewValue: _AccountStore = {
         let accountStore = _AccountStore()
         accountStore.accountsById = [
             MAccount(
@@ -986,7 +986,7 @@ extension DependencyValues {
     }
 }
 
-public enum ValueFetchingState<T> {
+public enum ValueFetchingState<T: Sendable>: Sendable {
     case notSet
     case data(T)
 }

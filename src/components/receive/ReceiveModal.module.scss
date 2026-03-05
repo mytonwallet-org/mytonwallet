@@ -120,12 +120,19 @@
 }
 
 .tab {
+  position: relative;
   flex-grow: 0 !important;
 
   @include mixins.byChainClass() using ($variables) {
     &:global(.current-tab) {
       color: map.get($variables, tabColor);
     }
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -0.375rem -0.75rem;
   }
 }
 
@@ -142,8 +149,6 @@
 
   background-color: var(--color-white);
 
-  transition: opacity 350ms ease-in-out;
-
   canvas {
     position: absolute;
     top: 0.5rem;
@@ -159,10 +164,6 @@
 .qrCodeStatic {
   max-width: 8rem;
   margin-bottom: 0.4375rem;
-}
-
-.qrCodeHidden {
-  opacity: 0;
 }
 
 .labelForInvoice {
