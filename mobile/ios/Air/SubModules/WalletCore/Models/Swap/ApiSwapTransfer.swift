@@ -6,7 +6,7 @@
 //
 
 
-public struct ApiSwapTransfer: Codable {
+public struct ApiSwapTransfer: Codable, Sendable {
     public let toAddress: String
     public let amount: String
     public let payload: String?

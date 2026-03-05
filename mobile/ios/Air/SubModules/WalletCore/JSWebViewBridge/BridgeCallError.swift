@@ -3,7 +3,7 @@ import Foundation
 import WalletContext
 
 
-public enum BridgeCallError: Error {
+public enum BridgeCallError: Error { // todo: remove Any associated values
     case message(BridgeCallErrorMessages, Any?)
     case customMessage(String, Any?)
     case unknown(baseError: Any? = nil)

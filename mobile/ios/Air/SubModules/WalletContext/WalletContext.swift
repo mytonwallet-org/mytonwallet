@@ -25,7 +25,7 @@ public enum DeeplinkOpenSource {
     case exploreSearchBar
 }
 
-public protocol WalletContextDelegate: NSObject {
+@MainActor public protocol WalletContextDelegate: NSObject, Sendable {
     func bridgeIsReady()
     func walletIsReady(isReady: Bool)
     func switchToCapacitor()
@@ -44,7 +44,7 @@ public extension WalletContextDelegate {
 public class WalletContextManager {
     private init() {}
     
-    public static weak var delegate: WalletContextDelegate? = nil
+    @MainActor public static weak var delegate: WalletContextDelegate? = nil
 }
 
 public let AirBundle = Bundle(for: WalletContextManager.self)

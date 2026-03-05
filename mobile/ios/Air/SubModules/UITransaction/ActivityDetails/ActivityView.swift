@@ -58,7 +58,7 @@ struct ActivityView: View {
                     
                     actionsRow
                 }
-                .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .named(ns)).height }, action: { maxY in
+                .onGeometryChange(for: CGFloat.self, of: { [ns] in $0.frame(in: .named(ns)).height }, action: { maxY in
                     model.collapsedHeight = maxY + 24
                     model.onHeightChange()
                 })
@@ -72,7 +72,7 @@ struct ActivityView: View {
                 
                 Color.clear.frame(width: 0, height: 0)
                     .padding(.bottom, 34 - 16)
-                    .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .named(ns)).maxY }, action: { maxY in
+                    .onGeometryChange(for: CGFloat.self, of: { [ns] in $0.frame(in: .named(ns)).maxY }, action: { maxY in
                         model.expandedHeight = maxY
                         model.onHeightChange()
                     })

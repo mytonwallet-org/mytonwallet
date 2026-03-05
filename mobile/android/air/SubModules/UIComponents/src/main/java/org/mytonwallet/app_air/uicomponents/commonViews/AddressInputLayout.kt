@@ -79,6 +79,9 @@ class AddressInputLayout(
     var focusCallback: ((hasFocus: Boolean) -> Unit)? = null
     var activeChain: MBlockchain = MBlockchain.ton
         set(value) {
+            if (field == value) {
+                return
+            }
             field = value
             autocompleteResult?.let { setAutocompleteResult(it) }
         }
@@ -481,7 +484,7 @@ class AddressInputLayout(
 
     private fun setAutocompleteResult(autocompleteResult: AutocompleteResult) {
         this.autocompleteResult = autocompleteResult
-        textField.setText(autocompleteResult.address(activeChain.name))
+        textField.setTextIfDiffer(autocompleteResult.address(activeChain.name))
         updateOverlayText()
         showOverlayViews()
     }

@@ -9,7 +9,7 @@ import SwiftUI
 import WalletCore
 import WalletContext
 
-func makeTappableAddressMenu(accountContext: AccountContext, addressModel: AddressViewModel) -> () -> MenuConfig {
+@MainActor func makeTappableAddressMenu(accountContext: AccountContext, addressModel: AddressViewModel) -> () -> MenuConfig {
     let chain = addressModel.chain
     
     return {

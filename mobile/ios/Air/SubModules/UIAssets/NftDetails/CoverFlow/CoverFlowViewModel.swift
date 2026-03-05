@@ -28,7 +28,7 @@ final class CoverFlowViewModel<Item: Identifiable> {
 }
 
 enum CoverFlowIsScrollingPreference: PreferenceKey {
-    static var defaultValue: Bool = false
+    static let defaultValue: Bool = false
     static func reduce(value: inout Bool, nextValue: () -> Bool) {
         value = value || nextValue()
     }

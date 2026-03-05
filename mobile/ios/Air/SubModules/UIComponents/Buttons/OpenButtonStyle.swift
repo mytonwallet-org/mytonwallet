@@ -21,7 +21,7 @@ public struct OpenButtonStyle: PrimitiveButtonStyle {
             .padding(.vertical, 8)
             .opacity(isHighlighted ? 0.5 : 1)
             .foregroundStyle(Color.air.folderFill)
-            .background(Color.air.folderFill, in: .containerRelative)
+            .background(Color.air.buttonBackground, in: .containerRelative)
             .contentShape(.containerRelative.inset(by: -10))
             .onTapGesture {
                 configuration.trigger()

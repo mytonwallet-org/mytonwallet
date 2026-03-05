@@ -96,13 +96,15 @@ final class ExploreCategoryVC: WViewController {
     }
 
     private static func makeDataSource(collectionView: UICollectionView,
-                                       categoryId: Int,
+                                       categoryId _: Int,
                                        exploreVM: ExploreVM,
                                        viewOutput: ViewOutput,
                                        backgroundColorSUI: Color) -> UICollectionViewDiffableDataSource<Section, Item> {
         // Register cell
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, _, item in
             cell.backgroundColor = nil
+            cell.clipsToBounds = false
+            cell.contentView.clipsToBounds = false
             switch item {
             case .dapp(let siteId):
                 if let site = exploreVM.exploreSites[siteId] {
@@ -114,7 +116,14 @@ final class ExploreCategoryVC: WViewController {
                         }
                         .margins(.all, 0)
                         // Disable the default highlight effect on cell selection, while still allowing didSelectItemAt to trigger
-                        .background { backgroundColorSUI }
+                        .background {
+                            backgroundColorSUI
+                                .overlay(alignment: .bottom) {
+                                    Rectangle().fill(Color.air.separator)
+                                        .frame(height: 1 / UIScreen.main.scale) // 1 physical pixel
+                                        .padding(.leading, 102)
+                                }
+                        }
                     }
                 }
             }

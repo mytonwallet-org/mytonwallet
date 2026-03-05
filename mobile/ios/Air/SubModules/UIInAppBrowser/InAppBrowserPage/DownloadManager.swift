@@ -4,7 +4,7 @@ import UIComponents
 import WebKit
 import WalletContext
 
-private var log = Log("DownloadManager")
+private let log = Log("DownloadManager")
 
 final class DownloadManager: NSObject, UIDocumentPickerDelegate {
     private weak var presentingViewController: UIViewController?

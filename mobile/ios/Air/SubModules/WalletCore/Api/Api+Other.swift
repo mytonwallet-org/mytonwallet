@@ -42,9 +42,9 @@ extension Api {
 
 // MARK: - Types
 
-public struct Moonpay {
+public struct Moonpay: Sendable {
     
-    public struct Offramp {
+    public struct Offramp: Sendable {
         
         /// https://support.moonpay.com/en/articles/362475-moonpay-s-supported-currencies
         /// Ordereded by priority
@@ -54,7 +54,7 @@ public struct Moonpay {
             TONCOIN_SLUG: 2000
         ]
         
-        public struct UrlRequestParams: Encodable {
+        public struct UrlRequestParams: Encodable, Sendable {
             public let chain: ApiChain
             public let address: String
             public let theme: ResolvedTheme
@@ -72,7 +72,7 @@ public struct Moonpay {
             }
         }
 
-        public struct UrlRequestResult: Decodable {
+        public struct UrlRequestResult: Decodable, Sendable {
             public var url: String
             
             /// Sandboxed version
@@ -93,11 +93,11 @@ public struct Moonpay {
     }
 }
 
-public struct MoonpayOnrampResult: Decodable {
+public struct MoonpayOnrampResult: Decodable, Sendable {
     public var url: String
 }
 
-public struct MoonpayOnrampParams: Encodable {
+public struct MoonpayOnrampParams: Encodable, Sendable {
     public let chain: ApiChain
     public let address: String
     public let theme: ResolvedTheme
@@ -111,7 +111,7 @@ public struct MoonpayOnrampParams: Encodable {
     }
 }
 
-public struct WaitForLedgerAppOptions: Encodable {
+public struct WaitForLedgerAppOptions: Encodable, Sendable {
     public var timeout: Int?
     public var attemptPause: Int?
 }

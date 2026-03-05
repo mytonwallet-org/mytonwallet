@@ -12,7 +12,7 @@ public struct HomeCardLayoutMetrics: Equatable {
     public var itemWidthWithSpacing: CGFloat { spacing + itemWidth }
     public var visibleInactiveCard: CGFloat { (containerWidth - itemWidth - 2 * spacing) / 2 }
     
-    public static var screen: HomeCardLayoutMetrics {
+    @MainActor public static var screen: HomeCardLayoutMetrics {
         forContainerWidth(screenWidth)
     }
     
@@ -31,18 +31,18 @@ public struct HomeCardLayoutMetrics: Equatable {
     }
 }
 
-var itemWidth: CGFloat { HomeCardLayoutMetrics.screen.itemWidth }
-var itemHeight: CGFloat { HomeCardLayoutMetrics.screen.itemHeight }
+@MainActor var itemWidth: CGFloat { HomeCardLayoutMetrics.screen.itemWidth }
+@MainActor var itemHeight: CGFloat { HomeCardLayoutMetrics.screen.itemHeight }
 
 let expansionOffset: CGFloat = 40
 let collapseOffset: CGFloat = 10
 
 let expansionInset: CGFloat = 30
 
-var horizontalPadding: CGFloat { insetSectionHorizontalPadding }
+@MainActor var horizontalPadding: CGFloat { insetSectionHorizontalPadding }
 let sectionSpacing: CGFloat = 16
 
-var inset: CGFloat { HomeCardLayoutMetrics.screen.inset }
-var spacing: CGFloat { HomeCardLayoutMetrics.screen.spacing }
-var itemWidthWithSpacing: CGFloat { HomeCardLayoutMetrics.screen.itemWidthWithSpacing }
-var visibleInactiveCard: CGFloat { HomeCardLayoutMetrics.screen.visibleInactiveCard }
+@MainActor var inset: CGFloat { HomeCardLayoutMetrics.screen.inset }
+@MainActor var spacing: CGFloat { HomeCardLayoutMetrics.screen.spacing }
+@MainActor var itemWidthWithSpacing: CGFloat { HomeCardLayoutMetrics.screen.itemWidthWithSpacing }
+@MainActor var visibleInactiveCard: CGFloat { HomeCardLayoutMetrics.screen.visibleInactiveCard }

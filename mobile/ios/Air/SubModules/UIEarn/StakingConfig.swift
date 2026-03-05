@@ -10,7 +10,7 @@ import WalletCore
 import WalletContext
 
 
-public struct StakingConfig: Identifiable, Equatable, Hashable {
+public struct StakingConfig: Identifiable, Equatable, Hashable, Sendable {
     public let id: String
     let _baseToken: ApiToken
     let _stakedToken: ApiToken
@@ -30,7 +30,7 @@ public struct StakingConfig: Identifiable, Equatable, Hashable {
 
 public extension StakingConfig {
 
-    static var ton = StakingConfig(
+    static let ton = StakingConfig(
         id: "ton",
         baseToken: .TONCOIN,
         stakedToken: .STAKED_TON,

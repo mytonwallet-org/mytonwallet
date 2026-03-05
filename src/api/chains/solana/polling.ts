@@ -24,7 +24,7 @@ import { txCallbacks } from '../../common/txCallbacks';
 import { BalanceStream } from '../../common/websocket/balanceStream';
 import { FIRST_TRANSACTIONS_LIMIT, MINUTE } from '../../constants';
 import { getTokenActivitySlice } from './activities';
-import { fetchAccountAssets } from './wallet';
+import { fetchAccountAssets, getIsWalletActive } from './wallet';
 
 const activeSolanaWalletTiming = {
   ...activeWalletTiming,
@@ -85,6 +85,10 @@ function setupBalancePolling(
 ) {
   const { network } = parseAccountId(accountId);
 
+  const checkIsWalletActive = async () => {
+    return await getIsWalletActive(network, address);
+  };
+
   const balanceStream = new BalanceStream(
     'solana',
     getHeliusSocket(network),
@@ -95,6 +99,7 @@ function setupBalancePolling(
     fetchAccountAssets,
     undefined,
     isActive ? undefined : getConcurrencyLimiter('solana', network),
+    checkIsWalletActive,
   );
 
   balanceStream.onUpdate((balances) => {

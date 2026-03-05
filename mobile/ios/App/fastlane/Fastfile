@@ -5,7 +5,6 @@ $workspace_path = 'App.xcworkspace'
 $project_path = '../App.xcodeproj/project.pbxproj'
 $plist_path = '../../App/App/Info.plist'
 
-$is_air = ENV['IS_AIR_APP'] == '1'
 $team_id = CredentialsManager::AppfileConfig.try_fetch_value(:team_id)
 $app_identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
 $profile_name = 'MyTonWallet Production profile'
@@ -14,12 +13,6 @@ $app_identifier_widget = "#{$app_identifier}.AirWidget"
 $profile_name_widget = 'MyTonWallet Production profile - Widget'
 $scheme_widget = 'AirWidgetExtension'
 
-if $is_air
-  $profile_name = 'MyTonWallet Air 4'
-  $scheme = 'MyTonWalletAir'
-end
-
-puts "$is_air: #{$is_air}"
 puts "$app_identifier: #{$app_identifier}"
 puts "$profile_name: #{$profile_name}"
 puts "$scheme: #{$scheme}"

@@ -73,6 +73,7 @@ private final class NavigationTransitionDelegate: NSObject, UINavigationControll
     }
 }
 
+@MainActor
 public final class ContentReplaceAnimationCoordinator {
     private weak var navigationController: UINavigationController?
     private let navigationDelegate = NavigationTransitionDelegate()

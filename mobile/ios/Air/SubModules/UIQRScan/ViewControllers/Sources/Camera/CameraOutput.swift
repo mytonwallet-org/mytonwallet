@@ -1,7 +1,7 @@
 import AVFoundation
 
-public struct CameraCode: Equatable {
-    public enum CodeType {
+public struct CameraCode: Equatable, Sendable {
+    public enum CodeType: Sendable {
         case qr
     }
     

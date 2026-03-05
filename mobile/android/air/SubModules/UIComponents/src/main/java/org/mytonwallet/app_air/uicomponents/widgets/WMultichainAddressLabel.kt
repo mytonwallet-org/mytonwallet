@@ -104,12 +104,22 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         }
     }
 
-    fun displayAddresses(account: MAccount?, style: Style, keyword: String = "") {
+    fun displayAddresses(
+        account: MAccount?,
+        style: Style,
+        keyword: String = ""
+    ) {
         if (account == null) {
             displayAddresses(emptyList(), style, keyword)
             return
         }
-        displayAddresses(account.network, account.accountId, account.byChain, style, keyword)
+        displayAddresses(
+            account.network,
+            account.accountId,
+            account.byChain,
+            style,
+            keyword
+        )
     }
 
     fun displayAddresses(
@@ -127,16 +137,17 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             style
         }
         val addresses = byChain.entries.let { entries ->
-            if (byChain.keys.isNotEmpty()) {
+            if (entries.size > 1) {
                 val perChainBalance =
                     accountId?.let { BalanceStore.totalBalanceInBaseCurrencyPerChain(accountId) }
                 entries.sortedWith(
                     compareByDescending<Map.Entry<String, AccountChain>> { (chainName, _) ->
                         MBlockchain.supportedChains.find { it.name == chainName }
                             ?.let { perChainBalance?.get(it) } ?: 0.0
-                    }.thenBy { (chainName, _) ->
-                        MBlockchain.supportedChainIndexes[chainName] ?: Int.MAX_VALUE
                     }
+                        .thenBy { (chainName, _) ->
+                            MBlockchain.supportedChainIndexes[chainName] ?: Int.MAX_VALUE
+                        }
                 )
             } else {
                 entries.toList()

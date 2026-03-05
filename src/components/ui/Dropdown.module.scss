@@ -54,10 +54,7 @@
   &.interactive {
     background-color: var(--color-input-button-background);
 
-    &:active {
-      // Optimization
-      transition: none !important;
-    }
+    @include mixins.active-transition-optimization(!important);
 
     @media (hover: hover) {
       &:hover,
@@ -159,10 +156,7 @@
     }
   }
 
-  &:active {
-    // Optimization
-    transition: none !important;
-  }
+  @include mixins.active-transition-optimization(!important);
 
   &:hover,
   &:focus-visible {

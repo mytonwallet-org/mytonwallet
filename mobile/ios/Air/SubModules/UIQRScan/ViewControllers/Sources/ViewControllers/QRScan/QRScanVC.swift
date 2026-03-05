@@ -15,11 +15,11 @@ public class QRScanVC: WViewController {
     
     private var recognizedStrings: Set<String> = []
     
-    private var callback: ((_ result: ScanResult?) -> ())?
+    private var callback: (@MainActor  (_ result: ScanResult?) -> ())?
     private var lastScannedString: String?
     private var messageHandlingTask: Task<Void, Never>?
     
-    public init(callback: @escaping ((_ result: ScanResult?) -> Void)) {
+    public init(callback: @escaping @MainActor (_ result: ScanResult?) -> Void) {
         self.callback = callback
         super.init(nibName: nil, bundle: nil)
     }
@@ -28,7 +28,7 @@ public class QRScanVC: WViewController {
         fatalError("init(coder:) has not been implemented")
     }
 
-    deinit {
+    isolated deinit {
         messageHandlingTask?.cancel()
         callback?(nil)
     }
@@ -51,7 +51,7 @@ public class QRScanVC: WViewController {
         authorizeAccessToCamera()
     }
 
-    private func authorizeAccessToCamera(completion: @escaping (_ granted: Bool) -> Void) {
+    private func authorizeAccessToCamera(completion: @escaping @MainActor @Sendable (_ granted: Bool) -> Void) {
         AVCaptureDevice.requestAccess(for: AVMediaType.video) { response in
             DispatchQueue.main.async {
                 if response {

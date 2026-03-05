@@ -1,3 +1,5 @@
+@use "../../styles/mixins";
+
 .wrapper {
   flex-shrink: 0;
 
@@ -24,10 +26,7 @@
     cursor: default;
   }
 
-  &:active {
-    // Optimization
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 
   &:focus-visible,
   &:hover {

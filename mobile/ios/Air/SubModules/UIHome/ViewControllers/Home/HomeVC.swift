@@ -19,7 +19,7 @@ private let log = Log("HomeVC")
 let homeBottomInset: CGFloat = 200
 
 @MainActor
-public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, HomeVMDelegate {
+public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, HomeVMDelegate, Sendable {
 
     let homeVM: HomeViewModel
     let headerViewModel: HomeHeaderViewModel

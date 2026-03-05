@@ -7,7 +7,7 @@
 
 import UIKit
 import UIComponents
-import DGCharts
+@preconcurrency import DGCharts
 import WalletCore
 import WalletContext
 
@@ -416,7 +416,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
                            historyData data: [[Double]]?,
                            range: ClosedRange<CGFloat>,
                            rangeOnly: Bool,
-                           completion: (() -> Void)? = nil) {
+                           completion: (@MainActor () -> Void)? = nil) {
         let historyData = reduceNumberOfPoints(data, to: 200)
         let scopedData = scope(data: data ?? [], range: range)
         _ = consume data

@@ -22,7 +22,7 @@ public enum IconConfig: View {
 public enum MenuItem: Identifiable, View {
     
     case button(id: String, title: String, leadingIcon: IconConfig? = nil, trailingIcon: IconConfig? = nil, isDangerous: Bool = false, action: @MainActor () -> Void, dismissOnSelect: Bool = true, reportWidth: Bool = true)
-    case customView(id: String, view: () -> AnyView, height: CGFloat, width: CGFloat? = nil)
+    case customView(id: String, view: @MainActor () -> AnyView, height: CGFloat, width: CGFloat? = nil)
     case wideSeparator(id: String = UUID().uuidString)
     
     public var id: String {
@@ -119,11 +119,11 @@ public struct MenuConfig {
         return displayMenuItems
     }
     
-    var totalHeight: CGFloat {
+    @MainActor var totalHeight: CGFloat {
         menuItems.reduce(into: 0) { $0 += $1.height }
     }
     
-    var requestedWidth: CGFloat? {
+    @MainActor var requestedWidth: CGFloat? {
         menuItems.compactMap(\.width).max()
     }
 }

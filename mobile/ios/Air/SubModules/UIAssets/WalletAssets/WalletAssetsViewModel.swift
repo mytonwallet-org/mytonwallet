@@ -12,7 +12,7 @@ private let log = Log("WalletAssetsViewModel")
     func walletAssetModelDidStopReordering(isCanceled: Bool)
 }
 
-public enum DisplayAssetTab: Hashable {
+public enum DisplayAssetTab: Hashable, Sendable {
     case tokens
     case nfts
     case nftCollectionFilter(NftCollectionFilter)

@@ -10,7 +10,8 @@ private let log = Log("AutolockStore")
 private let isAppLockEnabledKey = "settings.isAppLockEnabled"
 private let autolockValueKey = "settings.autolockValue"
 
-public final class AutolockStore: NSObject {
+@MainActor
+public final class AutolockStore: NSObject, Sendable {
 
     public static let shared = AutolockStore()
     

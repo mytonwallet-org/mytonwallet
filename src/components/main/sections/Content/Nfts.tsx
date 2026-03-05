@@ -1,7 +1,7 @@
 import React, { memo, useEffect, useMemo, useRef } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import type { ApiChain, ApiNft, ApiNftCollection } from '../../../../api/types';
+import type { ApiNft, ApiNftCollection } from '../../../../api/types';
 import type { Theme } from '../../../../global/types';
 
 import {
@@ -14,7 +14,6 @@ import {
 } from '../../../../config';
 import renderText from '../../../../global/helpers/renderText';
 import {
-  selectAccount,
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
@@ -22,7 +21,6 @@ import {
 import buildClassName from '../../../../util/buildClassName';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
 import { stopEvent } from '../../../../util/domEvents';
-import { isKeyCountGreater } from '../../../../util/isEmptyObject';
 import { openUrl } from '../../../../util/openUrl';
 import { getHostnameFromUrl } from '../../../../util/url';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
@@ -48,7 +46,6 @@ interface OwnProps {
 interface StateProps {
   orderedAddresses?: string[];
   selectedNfts?: ApiNft[];
-  accountChains?: Partial<Record<ApiChain, unknown>>;
   byAddress?: Record<string, ApiNft>;
   currentCollection?: ApiNftCollection;
   blacklistedNftAddresses?: string[];
@@ -61,10 +58,7 @@ interface StateProps {
   animationDuration: number;
 }
 
-const EMPTY_DICTIONARY = Object.freeze({});
-
 function Nfts({
-  accountChains = EMPTY_DICTIONARY,
   isActive,
   orderedAddresses,
   selectedNfts,
@@ -88,8 +82,6 @@ function Nfts({
   const appTheme = useAppTheme(theme);
 
   const hasSelection = Boolean(selectedNfts?.length);
-  const isMultichainAccount = isKeyCountGreater(accountChains, 1);
-
   useEffect(() => {
     if (currentCollection && currentCollection.address !== TELEGRAM_GIFTS_SUPER_COLLECTION) {
       fetchNftsFromCollection({ collection: currentCollection });
@@ -204,7 +196,6 @@ function Nfts({
         isViewAccount={isViewAccount}
         nftsByAddresses={byAddress!}
         selectedNfts={selectedNfts}
-        withChainIcon={isMultichainAccount}
       />
     </div>
   );
@@ -228,12 +219,10 @@ export default memo(
         whitelistedNftAddresses,
       } = selectCurrentAccountState(global) || {};
 
-      const currentAccountId = selectCurrentAccountId(global)!;
       const animationLevel = global.settings.animationLevel;
       const animationDuration = animationLevel === ANIMATION_LEVEL_MIN ? 0 : SLIDE_TRANSITION_DURATION_MS;
 
       return {
-        accountChains: selectAccount(global, currentAccountId)?.byChain,
         orderedAddresses,
         selectedNfts,
         byAddress,

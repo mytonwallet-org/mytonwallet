@@ -5,7 +5,7 @@ import OrderedCollections
 
 private let log = Log("ActivityViewModel")
 
-@MainActor public protocol ActivityViewModelDelegate: AnyObject {
+@MainActor public protocol ActivityViewModelDelegate: AnyObject, Sendable {
     func activityViewModelChanged()
 }
 
@@ -37,7 +37,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
     @MainActor public var isEmpty: Bool?
     @MainActor public var snapshot: NSDiffableDataSourceSnapshot<Section, Row>!
 
-    public weak var delegate: ActivityViewModelDelegate?
+    @MainActor public weak var delegate: ActivityViewModelDelegate?
 
     private var activitiesStore: _ActivityStore = .shared
     private var activityIdAliases: [String: String] = [:]
@@ -45,13 +45,15 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
     public private(set) var loadMoreTask: Task<Void, Never>?
 
     public init(accountId: String, token: ApiToken?, showFirstRow: Bool? = nil, delegate: any ActivityViewModelDelegate) async {
-        self.accountContext = AccountContext(accountId: accountId)
+        self.accountContext = await AccountContext(accountId: accountId)
         self.accountId = accountId
         self.token = token
         self.showFirstRow = showFirstRow ?? (token != nil)
         await getState(updatedIds: [], replacedIds: [:])
         WalletCoreData.add(eventObserver: self)
-        self.delegate = delegate // set delegate after getState so that it doesn't get notified on the initial load
+        await MainActor.run {
+            self.delegate = delegate // set delegate after getState so that it doesn't get notified on the initial load
+        }
     }
 
     private func getState(updatedIds: [String], replacedIds: [String: String]) async {

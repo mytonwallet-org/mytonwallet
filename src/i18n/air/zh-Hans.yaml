@@ -66,6 +66,8 @@ M: 月
 3M: 3 月
 Y: 年
 No price data: 暂无价格数据
+$amount_K: "%amount%万"
+$amount_M: "%amount%亿"
 Happening Now: 正在流行
 No Dapps Found!: 没有找到 dApp！
 Open: 打开

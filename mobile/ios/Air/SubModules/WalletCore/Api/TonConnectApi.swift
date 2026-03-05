@@ -14,22 +14,20 @@ extension Api {
     
     // MARK: Incrementing id
     
-    static var _lastTonConnectRequestId = 0
-    public static var tonConnectRequestId: Int {
+    @MainActor static var _lastTonConnectRequestId = 0
+    @MainActor public static var tonConnectRequestId: Int {
         _lastTonConnectRequestId += 1
         return _lastTonConnectRequestId
     }
     
     // MARK: Methods
     
-    public static func tonConnect_connect(request: ApiDappRequest, message: ApiDappConnectionRequest<TonConnectConnectRequest>, requestId: Int? = nil) async throws -> ApiDappConnectionResult<TonConnectConnectEvent> {
-        let id = requestId ?? self.tonConnectRequestId
-        return try await bridge.callApi("tonConnect_connect", request, message, id, decoding: ApiDappConnectionResult<TonConnectConnectEvent>.self)
+    public static func tonConnect_connect(request: ApiDappRequest, message: ApiDappConnectionRequest<TonConnectConnectRequest>, requestId: Int) async throws -> ApiDappConnectionResult<TonConnectConnectEvent> {
+        return try await bridge.callApi("tonConnect_connect", request, message, requestId, decoding: ApiDappConnectionResult<TonConnectConnectEvent>.self)
     }
     
-    public static func tonConnect_reconnect(request: ApiDappRequest, requestId: Int? = nil) async throws -> ApiDappConnectionResult<TonConnectConnectEvent> {
-        let id = requestId ?? self.tonConnectRequestId
-        return try await bridge.callApi("tonConnect_reconnect", request, id, decoding: ApiDappConnectionResult<TonConnectConnectEvent>.self)
+    public static func tonConnect_reconnect(request: ApiDappRequest, requestId: Int) async throws -> ApiDappConnectionResult<TonConnectConnectEvent> {
+        return try await bridge.callApi("tonConnect_reconnect", request, requestId, decoding: ApiDappConnectionResult<TonConnectConnectEvent>.self)
     }
     
     public static func tonConnect_disconnect(request: ApiDappRequest, message: ApiDappDisconnectRequest) async throws -> ApiDappMethodResult<ApiTonConnectDisconnectResult> {

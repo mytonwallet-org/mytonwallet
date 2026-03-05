@@ -10,7 +10,7 @@ import WalletContext
 
 private let log = Log("ConfigStore")
 
-public class ConfigStore {
+public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead of queue for thread safety
 
     public static let shared = ConfigStore()
     
@@ -80,8 +80,10 @@ public class ConfigStore {
     
     private func handleConfig(_ config: ApiUpdate.UpdateConfig) {
         if config.switchToClassic == true {
-            log.info("updateConfig.switchToClassic = true")
-            WalletContextManager.delegate?.switchToCapacitor()
+            Task {
+                log.info("updateConfig.switchToClassic = true")
+                await WalletContextManager.delegate?.switchToCapacitor()
+            }
             return
         }
         WalletCoreData.notify(event: .configChanged)

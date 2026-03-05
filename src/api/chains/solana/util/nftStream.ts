@@ -34,6 +34,7 @@ export class NftStream {
 
   #abortController?: AbortController;
   #isDestroyed = false;
+  #ignoreNextPollPreCheck = false;
 
   constructor(
     network: ApiNetwork,
@@ -129,6 +130,7 @@ export class NftStream {
         // Can't determine exact NFT change from this transaction - trigger a full poll
         // instead of the expensive inline `getAccountNfts`. `forceImmediatePoll` is throttled
         // by `minPollDelay`, so rapid-fire socket events won't cause duplicate scans.
+        this.#ignoreNextPollPreCheck = true;
         this.#fallbackPollingScheduler.forceImmediatePoll();
         break;
       }
@@ -137,6 +139,8 @@ export class NftStream {
 
   #poll = async () => {
     const streamedAddresses = new Set<string>();
+    const ignorePreCheck = this.#ignoreNextPollPreCheck;
+    this.#ignoreNextPollPreCheck = false;
 
     try {
       this.#abortController?.abort();
@@ -145,6 +149,7 @@ export class NftStream {
 
       await streamAllAccountNfts(this.#accountId, {
         signal: this.#abortController.signal,
+        ignorePreCheck,
         onBatch: (batchNfts) => {
           const hasNewNfts = batchNfts.some((nft) => !this.#persistedNftAddresses.has(nft.address));
           batchNfts.forEach((nft) => streamedAddresses.add(nft.address));

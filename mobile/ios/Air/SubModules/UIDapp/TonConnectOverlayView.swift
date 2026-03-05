@@ -29,7 +29,7 @@ final class TonConnectOverlayView: HostingView {
     }
 }
 
-@Perceptible
+@Perceptible @MainActor
 final class _TonConnectOverlayViewModel {
     @PerceptionIgnored
     weak var view: TonConnectOverlayView?

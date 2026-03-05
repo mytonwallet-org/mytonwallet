@@ -23,7 +23,7 @@ final class FooterView: UICollectionReusableView {
         versionLabel.font = .systemFont(ofSize: 14)
         addSubview(versionLabel)
         NSLayoutConstraint.activate([
-            versionLabel.topAnchor.constraint(equalTo: topAnchor),
+            versionLabel.topAnchor.constraint(equalTo: topAnchor, constant: 8),
             versionLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             versionLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
         ])

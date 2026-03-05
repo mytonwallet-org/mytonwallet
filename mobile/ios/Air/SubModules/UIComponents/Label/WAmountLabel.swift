@@ -31,21 +31,11 @@ public class WAmountLabel: UILabel {
         self.primaryColor = primaryColor
         self.showNegativeSign = showNegativeSign
         super.init(frame: CGRect.zero)
-        updateTheme()
+        setup()
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-    
-    public override func awakeFromNib() {
-        super.awakeFromNib()
-        setup()
-    }
-    
-    public override func prepareForInterfaceBuilder() {
-        super.prepareForInterfaceBuilder()
-        setup()
     }
     
     private func setup() {

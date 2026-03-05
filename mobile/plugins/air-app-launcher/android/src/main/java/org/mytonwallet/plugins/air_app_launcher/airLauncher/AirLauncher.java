@@ -56,6 +56,7 @@ abstract class PendingTask {
 
 public class AirLauncher {
   private static AirLauncher airLauncher;
+  private static String GLOBAL_STORAGE_HAS_OPENED_AIR = "settings.hasOpenedAir";
   private final Context applicationContext;
   PendingTask pendingAirTask;
   private boolean isOnTheAir = false;
@@ -129,6 +130,9 @@ public class AirLauncher {
 
     isOnTheAir = true;
 
+    if (!Boolean.TRUE.equals(capacitorGlobalStorageProvider.getBool(GLOBAL_STORAGE_HAS_OPENED_AIR))) {
+      capacitorGlobalStorageProvider.set(GLOBAL_STORAGE_HAS_OPENED_AIR, true, IGlobalStorageProvider.PERSIST_NORMAL);
+    }
     if (fromLegacy) {
       capacitorGlobalStorageProvider.setEmptyObject("tokenPriceHistory.bySlug", IGlobalStorageProvider.PERSIST_NO);
       LaunchConfig.setShouldStartOnAir(currentActivity, true);

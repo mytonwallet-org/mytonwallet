@@ -7,7 +7,7 @@
 
 import UIKit
 import WalletContext
-import DGCharts
+@preconcurrency import DGCharts
 
 public class WLineChartView: LineChartView {
     

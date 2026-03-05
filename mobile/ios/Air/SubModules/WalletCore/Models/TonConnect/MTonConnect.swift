@@ -7,7 +7,7 @@ import WalletContext
 //     https:github.com/ton-blockchain/ton-connect/blob/main/requests-responses.md#messages
 
 
-public enum TonConnectErrorCode: Int, Codable {
+public enum TonConnectErrorCode: Int, Codable, Sendable {
     case unknownError = 0
     case badRequestError = 1
     case manifestNotFoundError = 2

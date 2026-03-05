@@ -1,7 +1,7 @@
 
 import WalletContext
 
-public struct ApiLedgerAccountInfo: Codable {
+public struct ApiLedgerAccountInfo: Codable, Sendable {
   public var byChain: [String: ApiAnyChainWallet]
   public var driver: ApiLedgerDriver
   public var deviceId: String?

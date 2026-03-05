@@ -5,7 +5,7 @@
 //  Created by nikstar on 31.08.2025.
 //
 
-public struct ApiSwapCexCreateTransactionParams: Encodable {
+public struct ApiSwapCexCreateTransactionParams: Encodable, Sendable {
     public let from: String
     public let fromAmount: MDouble   // Always TON address
     public let fromAddress: String

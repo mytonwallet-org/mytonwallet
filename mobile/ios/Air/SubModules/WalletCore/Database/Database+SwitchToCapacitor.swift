@@ -8,6 +8,7 @@ private let log = Log("switchFromCapacitor")
 public func switchStorageToCapacitor(global: _GlobalStorage, db: any DatabaseWriter) async throws {
     try await moveAccounts(global: global, db: db)
     try await moveCurrentAccountId(global: global, db: db)
+    setHasOpenedAir(global: global)
     try await finalizeSwitch(global: global, db: db)
 }
 
@@ -28,6 +29,12 @@ private func moveCurrentAccountId(global: _GlobalStorage, db: any DatabaseWriter
     let accountId = AccountStore.accountId
     global.update {
         $0["currentAccountId"] = accountId
+    }
+}
+
+private func setHasOpenedAir(global: _GlobalStorage) {
+    global.update {
+        $0["settings.hasOpenedAir"] = true
     }
 }
 

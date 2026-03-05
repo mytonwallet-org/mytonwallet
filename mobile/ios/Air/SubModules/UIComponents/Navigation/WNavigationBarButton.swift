@@ -1,6 +1,7 @@
 import UIKit
 import WalletContext
 
+@MainActor
 public class WNavigationBarButton {
 
     public let view: UIView

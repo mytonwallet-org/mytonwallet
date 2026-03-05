@@ -11,7 +11,7 @@ import UIComponents
 import WalletContext
 import WalletCore
 
-func makeBaseCurrencyMenuConfig(accountId: String) -> () -> MenuConfig {
+@MainActor func makeBaseCurrencyMenuConfig(accountId: String) -> () -> MenuConfig {
     return {
         @Dependency(\.balanceStore) var balanceStore
         let amountUsd = balanceStore.accountBalanceData[accountId]?.totalBalanceUsd ?? 0

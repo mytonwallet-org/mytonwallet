@@ -2,7 +2,7 @@
 import Foundation
 import WalletContext
 
-public struct ApiSubmitTransferResult: Decodable, @unchecked Sendable {
+public struct ApiSubmitTransferResult: Decodable, Sendable {
     public var activityId: String?
     public var error: String?
 }

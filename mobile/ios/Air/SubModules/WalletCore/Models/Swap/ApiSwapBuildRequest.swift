@@ -1,7 +1,7 @@
 
 import Foundation
 
-public struct ApiSwapBuildRequest: Codable {
+public struct ApiSwapBuildRequest: Codable, Sendable {
     public let from: String
     public let to: String
     public let fromAddress: String

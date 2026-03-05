@@ -10,7 +10,7 @@ import UIComponents
 import WalletContext
 
 final class WalletSeeAllCell: UITableViewCell, WThemedView {
-    public static let defaultHeight = CGFloat(44)
+    nonisolated public static let defaultHeight = CGFloat(44)
     private static let regular17Font = UIFont.systemFont(ofSize: 17, weight: .regular)
 
     private var onTap: (() -> Void)?

@@ -52,6 +52,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
     private var account: MAccount? = null
     private var address: MSavedAddress? = null
     private var keyword: String = ""
+    private var filteredChainName: String? = null
     private var isFirst: Boolean = false
     private var isLast: Boolean = false
     private var animationState: AutoCompleteAddressItem.AnimationState =
@@ -184,6 +185,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
         if (!configureAccount(
                 account = account,
                 balance = item.value ?: "",
+                filteredChainName = item.filteredChainName,
                 keyword = item.keyword,
                 isFirst = item.isFirst,
                 isLast = item.isLast,
@@ -204,6 +206,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
         this.isFirst = item.isFirst
         this.isLast = item.isLast
         this.keyword = item.keyword
+        this.filteredChainName = item.filteredChainName
         this.animationState = item.animationState
 
         contentView.setConstraints {
@@ -315,6 +318,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
     private fun configureAccount(
         account: MAccount?,
         balance: String,
+        filteredChainName: String?,
         keyword: String,
         isFirst: Boolean,
         isLast: Boolean,
@@ -327,6 +331,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
         if (this.account == account &&
             titleLabel.text == account.name &&
             valueLabel.contentView.text == balance &&
+            this.filteredChainName == filteredChainName &&
             this.keyword == keyword &&
             this.isFirst == isFirst &&
             this.isLast == isLast &&
@@ -426,7 +431,20 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
         val account = this.account
         val address = this.address
         when {
-            account != null -> addressLabel.displayAddresses(account, style, keyword)
+            account != null -> {
+                val byChainToDisplay = filteredChainName?.let { chainName ->
+                    account.byChain[chainName]?.let { chainData ->
+                        mapOf(chainName to chainData)
+                    } ?: emptyMap()
+                } ?: account.byChain
+                addressLabel.displayAddresses(
+                    account.network,
+                    account.accountId,
+                    byChainToDisplay,
+                    style,
+                    keyword
+                )
+            }
             address != null -> addressLabel.displayAddresses(address, style, keyword)
         }
 

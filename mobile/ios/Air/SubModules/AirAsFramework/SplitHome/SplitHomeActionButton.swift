@@ -2,7 +2,7 @@ import UIKit
 import WalletCore
 import WalletContext
 
-@MainActor enum SplitHomeActionItem: CaseIterable, Hashable {
+enum SplitHomeActionItem: CaseIterable, Hashable, Sendable {
     case buy
     case deposit
     case earn
@@ -35,7 +35,7 @@ import WalletContext
         }
     }
     
-    func perform() {
+    @MainActor func perform() {
         switch self {
         case .buy: AppActions.showBuyWithCard(chain: nil, push: nil)
         case .deposit: AppActions.showReceive(chain: nil, title: nil)
@@ -47,7 +47,7 @@ import WalletContext
         }
     }
     
-    private func onScan() {
+    @MainActor private func onScan() {
         Task {
             if let result = await AppActions.scanQR() {
                 switch result {

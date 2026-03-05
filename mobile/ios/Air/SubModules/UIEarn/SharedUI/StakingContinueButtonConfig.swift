@@ -9,7 +9,7 @@ import UIKit
 import UIComponents
 import WalletContext
 
-extension WButtonConfig {
+@MainActor extension WButtonConfig {
     static let insufficientStakedBalance: WButtonConfig = .init(
         title: lang("Insufficient Balance"),
         isEnabled: false

@@ -3,13 +3,10 @@ import UIKit
 import SwiftUI
 import Perception
 
-// workaround for release build bug (Xcode 16.4) - try to remove in later versions
-extension CGRect: @retroactive @unchecked Sendable {}
-
-public struct SelectableMenuItem<Content: View>: View, @unchecked Sendable {
+public struct SelectableMenuItem<Content: View>: View, Sendable {
     
     var id: String
-    var action: @Sendable () -> ()
+    var action: @Sendable @MainActor () -> ()
     var dismissOnSelect: Bool
     @ViewBuilder var content: () -> Content
     
@@ -59,10 +56,10 @@ public struct WMenuButton: View {
     var title: String
     var leadingIcon: IconConfig?
     var trailingIcon: IconConfig?
-    var action: () -> ()
+    var action: @MainActor () -> ()
     var dismissOnSelect: Bool
     
-    public init(id: String, title: String, leadingIcon: IconConfig? = nil, trailingIcon: IconConfig? = nil, action: @escaping () -> Void, dismissOnSelect: Bool = true) {
+    public init(id: String, title: String, leadingIcon: IconConfig? = nil, trailingIcon: IconConfig? = nil, action: @escaping @MainActor () -> Void, dismissOnSelect: Bool = true) {
         self.id = id
         self.title = title
         self.leadingIcon = leadingIcon

@@ -41,9 +41,9 @@ import DappPassword from './DappPassword';
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Dapp.module.scss';
 
-interface StateProps {
+interface DappConnectOpenProps {
+  hasConnectRequest: true;
   state?: DappConnectState;
-  hasConnectRequest: boolean;
   dapp?: StoredDappConnection;
   error?: string;
   requiredPermissions?: ApiDappPermissions;
@@ -51,7 +51,7 @@ interface StateProps {
   currentAccountId: string;
   accounts?: Record<string, Account>;
   orderedAccounts: Array<[string, Account]>;
-  settingsByAccountId?: Record<string, AccountSettings>;
+  settingsByAccountId: Record<string, AccountSettings>;
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
   byAccountId: GlobalState['byAccountId'];
@@ -59,6 +59,9 @@ interface StateProps {
   stakingDefault: ApiStakingState;
   areTokensWithNoCostHidden?: boolean;
 }
+
+type StateProps = DappConnectOpenProps
+  | ({ hasConnectRequest: false; currentAccountId: string } & Partial<Omit<DappConnectOpenProps, 'hasConnectRequest'>>);
 
 function DappConnectModal({
   state,
@@ -98,7 +101,8 @@ function DappConnectModal({
   const dappHost = useMemo(() => dapp && dapp.url ? new URL(dapp.url).host : undefined, [dapp]);
 
   const allAccountsTokens = useMemo(() => {
-    if (!settingsByAccountId) return undefined;
+    if (!settingsByAccountId || !byAccountId || !tokenInfo || !baseCurrency || !currencyRates) return undefined;
+
     return selectMultipleAccountsTokensSlow(
       accounts,
       byAccountId,
@@ -119,11 +123,9 @@ function DappConnectModal({
   ]);
 
   const allAccountsStakingStates = useMemo(() => {
-    return selectMultipleAccountsStakingStatesSlow(
-      accounts,
-      byAccountId,
-      stakingDefault,
-    );
+    if (!byAccountId || !stakingDefault) return undefined;
+
+    return selectMultipleAccountsStakingStatesSlow(accounts, byAccountId, stakingDefault);
   }, [accounts, byAccountId, stakingDefault]);
 
   const { balancesByAccountId } = useAccountsBalances(
@@ -247,7 +249,7 @@ function DappConnectModal({
             )}
           </span>
           <div className={styles.accountList}>
-            {orderedAccounts.map(([accountId, { title, byChain, type }]) => {
+            {(orderedAccounts ?? []).map(([accountId, { title, byChain, type }]) => {
               const hasTonWallet = Boolean(byChain.ton);
               const isDisabled = !hasTonWallet || (!!requiredProof && isViewAccount(type));
               const isSelected = accountId === selectedAccount;
@@ -422,15 +424,18 @@ function DappConnectModal({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const accounts = selectNetworkAccounts(global);
-  const orderedAccounts = selectOrderedAccounts(global);
-  const hasConnectRequest = global.dappConnectRequest?.state !== undefined;
-
   const {
     state, dapp, error, accountId, permissions, proof,
   } = global.dappConnectRequest || {};
-
   const currentAccountId = accountId || selectCurrentAccountId(global)!;
+  const hasConnectRequest = state !== undefined;
+
+  if (!hasConnectRequest) {
+    return { hasConnectRequest: false, currentAccountId };
+  }
+
+  const accounts = selectNetworkAccounts(global);
+  const orderedAccounts = selectOrderedAccounts(global);
 
   const {
     settings: {

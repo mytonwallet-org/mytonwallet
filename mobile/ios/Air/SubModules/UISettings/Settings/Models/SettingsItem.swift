@@ -27,7 +27,7 @@ struct SettingsItem: Equatable, Identifiable {
         case helpCenter
         case support
         case about
-        case signout
+        case useResponsibly
     }
     
     let id: Identifier
@@ -173,26 +173,27 @@ extension SettingsItem.Identifier {
                 icon: UIImage.airBundle("SupportIcon30"),
                 title: lang("Get Support"),
                 hasPrimaryColor: false,
-                hasChild: false,
+                hasChild: true,
                 isDangerous: false
             )
         case .about:
             return SettingsItem(
                 id: .about,
-                icon: UIImage.airBundle("TermsIcon"),
+                icon: UIImage.airBundle("AboutIcon"),
                 title: lang("About %app_name%", arg1: APP_NAME),
                 hasPrimaryColor: false,
                 hasChild: true,
                 isDangerous: false
             )
-        case .signout:
+            
+        case .useResponsibly:
             return SettingsItem(
-                id: .signout,
-                icon: nil,
-                title: lang("Remove Wallet"),
+                id: .useResponsibly,
+                icon: UIImage.airBundle("ResponsibilityIcon30"),
+                title: lang("Use Responsibly"),
                 hasPrimaryColor: false,
                 hasChild: true,
-                isDangerous: true
+                isDangerous: false
             )
         }
     }

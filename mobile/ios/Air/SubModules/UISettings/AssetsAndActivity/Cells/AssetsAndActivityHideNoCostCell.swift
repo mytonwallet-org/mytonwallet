@@ -82,13 +82,7 @@ final class AssetsAndActivityHideNoCostCell: UITableViewCell {
         hideNoCostSwitch.addTarget(self,
                                    action: #selector(hideNoCostSwitched),
                                    for: .valueChanged)
-        contentView.addSubview(stackView)
-        NSLayoutConstraint.activate([
-            stackView.leftAnchor.constraint(equalTo: contentView.leftAnchor),
-            stackView.rightAnchor.constraint(equalTo: contentView.rightAnchor),
-            stackView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
-        ])
+        contentView.addStretchedToBounds(subview: stackView)
 
         updateTheme()
     }

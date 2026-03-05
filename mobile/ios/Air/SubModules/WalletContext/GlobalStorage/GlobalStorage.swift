@@ -23,7 +23,7 @@ public protocol IGlobalStorageProvider {
 
 public let GlobalStorage = _GlobalStorage()
 
-public enum GlobalStorageError: Error {
+public enum GlobalStorageError: Error, @unchecked Sendable { // todo: remove Any associated values
     case navigationError(any Error)
     case javaScriptError(any Error)
     case localStorageIsNull
@@ -42,7 +42,7 @@ private let capacitorUrl = URL(string: "capacitor://mytonwallet.local")!
 private let globalStateKey = "mytonwallet-global-state"
 
 
-public final class _GlobalStorage {
+public final class _GlobalStorage: @unchecked Sendable {
     
     private let _global: JSValue = .init(nil)
     private var autosync: Autosync? = nil
@@ -231,10 +231,10 @@ extension _GlobalStorage {
 extension _GlobalStorage {
     final class Autosync: NSObject {
         
-        private var onAutosync: () -> ()
+        private var onAutosync: @Sendable () -> ()
         private var observers: [Any] = []
         
-        init(onAutosync: @escaping () -> ()) {
+        init(onAutosync: @escaping @Sendable () -> ()) {
             self.onAutosync = onAutosync
             var observers: [Any] = []
             let notifications = [UIApplication.willResignActiveNotification, UIApplication.didEnterBackgroundNotification, UIApplication.willTerminateNotification, UIApplication.didReceiveMemoryWarningNotification]

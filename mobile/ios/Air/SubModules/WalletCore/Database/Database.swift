@@ -6,7 +6,8 @@ import WalletContext
 public let dbUrl = URL.documentsDirectory.appending(components: "air", "db", "db.sqlite")
 private let log = Log("Database")
 
-public var db: (any DatabaseWriter)?
+// todo: replace with isolated or UnfairLock
+nonisolated(unsafe) public var db: (any DatabaseWriter)?
 
 public func connectToDatabase() throws -> any DatabaseWriter {
     

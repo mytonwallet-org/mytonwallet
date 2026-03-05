@@ -66,6 +66,8 @@ M: М
 3M: 3М
 Y: Р
 No price data: Немає даних про ціну
+$amount_K: "%amount%K"
+$amount_M: "%amount%M"
 Happening Now: Актуальне
 No Dapps Found!: dApp не знайдено!
 Open: Відкрити

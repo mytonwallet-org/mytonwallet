@@ -22,7 +22,7 @@ enum HomeHeaderState {
     case expanded
 }
 
-@Perceptible
+@Perceptible @MainActor
 final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
     
     let accountSource: AccountSource

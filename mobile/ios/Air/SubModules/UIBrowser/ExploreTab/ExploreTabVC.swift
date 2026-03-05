@@ -1,7 +1,7 @@
 import UIKit
 import UIComponents
 import WalletCore
-@preconcurrency import WalletContext
+import WalletContext
 import UIDapp
 
 public class ExploreTabVC: WViewController {

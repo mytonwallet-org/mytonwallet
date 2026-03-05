@@ -6,7 +6,7 @@ import WalletContext
 import SwiftUI
 import Perception
 
-@Perceptible
+@Perceptible @MainActor 
 final class BuyWithCardModel {
     
     let supportedCurrencies: [MBaseCurrency] = [.USD, .EUR, .RUB]

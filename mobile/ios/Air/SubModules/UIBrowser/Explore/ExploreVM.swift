@@ -9,7 +9,7 @@ import Foundation
 import OrderedCollections
 import WalletContext
 import WalletCore
-@preconcurrency import WReachability
+import WReachability
 
 private let log = Log("ExploreVM")
 
@@ -18,7 +18,7 @@ private let log = Log("ExploreVM")
 }
 
 @MainActor final class ExploreVM: WalletCoreData.EventsObserver {
-    let reachability = try! Reachability()
+    let reachability = Reachability()
 
     // MARK: - Initializer
 
@@ -51,16 +51,12 @@ private let log = Log("ExploreVM")
         reachability.whenUnreachable = { [weak self] _ in
             self?.waitingForNetwork = true
         }
-        do {
-            try reachability.startNotifier()
-        } catch {
-            // logError || make method non-throwable
-        }
+        reachability.startNotifier()
 
         WalletCoreData.add(eventObserver: self)
     }
 
-    deinit {
+    isolated deinit {
         reachability.stopNotifier()
     }
 

@@ -168,8 +168,10 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         if let data = $account.balanceData {
             let assetsData = AccountStore.assetsAndActivityData(forAccountID: account.id) ?? .empty
             let tokenBalances = data.walletStaked + data.walletTokens
-            let sorted = MTokenBalance.sortedForUI(tokenBalances: tokenBalances, assetsAndActivityData: assetsData)
-
+            let sorted = MTokenBalance.sortedForUI(tokenBalances: tokenBalances,
+                                                   assetsAndActivityData: assetsData,
+                                                   balances: $account.balances,
+                                                   defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: account.network))
             let tokensToShow: [MTokenBalance] = if layoutMode.isCompact {
                 sorted.lazy
                     .filter { ($0.tokenPrice ?? 0) > 0 }

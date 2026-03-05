@@ -12,11 +12,9 @@ struct SettingsSection: Identifiable {
         case header
         case accounts
         case general
-        case walletData
         case questionAndAnswers
         case about
         case switchToCapacitor
-        case signout
     }
     let id: Section
     var children: [SettingsItem]

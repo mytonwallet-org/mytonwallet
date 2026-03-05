@@ -66,6 +66,8 @@ M: เดือน
 3M: 3 เดือน
 Y: ปี
 No price data: ไม่มีข้อมูลราคา
+$amount_K: "%amount%K"
+$amount_M: "%amount%M"
 Happening Now: กำลังเป็นกระแส
 No Dapps Found!: ไม่พบ dApp!
 Open: เปิด

@@ -49,7 +49,7 @@ public struct MenuSourceViewLayout {
     public var makeSubmenuConfig: (() -> MenuConfig)?
     
     @PerceptionIgnored
-    var actions: [String: () -> ()] = [:]
+    var actions: [String: @MainActor () -> ()] = [:]
     
     @PerceptionIgnored
     public var onAppear: (() -> ())?
@@ -83,7 +83,7 @@ public struct MenuSourceViewLayout {
         }
     }
     
-    func registerAction(id: String, action: @escaping () -> ()) {
+    func registerAction(id: String, action: @escaping @MainActor () -> ()) {
         actions[id] = action
     }
     

@@ -1,4 +1,3 @@
-
 import UIKit
 import WalletCore
 import WalletContext
@@ -275,6 +274,8 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     open func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animated: Bool, animatingDifferences: Bool? = nil) {
         guard let dataSource else { return }
         queue.async {
+            // @MainActor annotation conflicts with the docs which allow calling consistently on the background thread
+            // todo: switch to MainActor just to avoid these warnings?
             dataSource.apply(snapshot, animatingDifferences: animatingDifferences ?? animated)
         }
         if skeletonState == .loading {

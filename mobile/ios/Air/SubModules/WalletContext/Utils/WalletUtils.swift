@@ -42,19 +42,9 @@ fileprivate let thousandSpace: Character = " "
 public let walletAddressLength: Int = 48
 public let walletTextLimit: Int = 120
 
-public var supportedTonConnectVersion = 2
+public let supportedTonConnectVersion = 2
 
 public let appName = "MyTonWallet"
-public var devicePlatform: String {
-    switch UIDevice.current.userInterfaceIdiom {
-    case .phone:
-        return "iphone"
-    case .pad:
-        return "ipad"
-    default:
-        return ""
-    }
-}
 public let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
 
 public func formatStartEndAddress(_ address: String, prefix: Int = 6, suffix: Int = 6, separator: String = "···") -> String {
@@ -184,24 +174,27 @@ public func formatBigIntText(_ value: BigInt,
                             tokenDecimals: Int,
                             decimalsCount: Int? = nil,
                             forceCurrencyToRight: Bool = false,
-                            roundUp: Bool = true) -> String {
-    let rounded: BigInt = if let decimalsCount {
-        value.rounded(digitsToRound: tokenDecimals - decimalsCount, roundHalfUp: roundUp)
-    } else {
-        value
+                            roundUp: Bool = true,
+                            isShortened: Bool = false) -> String {
+    
+    // Try shorten first. Note that rounding must not be applied here, this is a truncation process.
+    var shortenedResult: String?
+    if isShortened {
+        let absDoubleValue = abs(Double(value) / pow(Double(10), Double(tokenDecimals)))
+        if LocalizationSupport.shared.isChinese {
+            if absDoubleValue >= 10_000 {
+                shortenedResult = formatShortenedDouble(absDoubleValue, kThreshold: 10_000, mThreshold: 100_000_000)
+            }
+        } else {
+            if absDoubleValue >= 1_000 {
+                shortenedResult = formatShortenedDouble(absDoubleValue, kThreshold: 1_000, mThreshold: 1_000_000)
+            }
+        }
     }
-    var result = "\(abs(rounded))"
-    while result.count < tokenDecimals + 1 {
-        result.insert("0", at: result.startIndex)
-    }
-    result.insert(contentsOf: decimalSeparator, at: result.index(result.endIndex, offsetBy: -tokenDecimals))
-    while result.hasSuffix("0") {
-        result.removeLast()
-    }
-    if result.hasSuffix(decimalSeparator) {
-        result.removeLast()
-    }
-    result = insertGroupingSeparator(in: result)
+    
+    var result = shortenedResult ?? insertGroupingSeparator(
+        in: formatClassicBigIntText(value, tokenDecimals: tokenDecimals, decimalsCount: decimalsCount, roundUp: roundUp)
+    )
 
     if let currency, currency.count > 0 {
         if currency.count > 1 || forceCurrencyToRight || currency == "₽" {
@@ -216,8 +209,42 @@ public func formatBigIntText(_ value: BigInt,
     } else if value >= 0, positiveSign {
         result.insert(contentsOf: "+\(signSpace)", at: result.startIndex)
     }
-
     return result
+}
+
+private func formatClassicBigIntText(_ value: BigInt, tokenDecimals: Int, decimalsCount: Int?, roundUp: Bool) -> String {
+    let rounded: BigInt = if let decimalsCount {
+        value.rounded(digitsToRound: tokenDecimals - decimalsCount, roundHalfUp: roundUp)
+    } else {
+        value
+    }
+    
+    var result = "\(abs(rounded))"
+    while result.count < tokenDecimals + 1 {
+        result.insert("0", at: result.startIndex)
+    }
+    result.insert(contentsOf: decimalSeparator, at: result.index(result.endIndex, offsetBy: -tokenDecimals))
+    while result.hasSuffix("0") {
+        result.removeLast()
+    }
+    if result.hasSuffix(decimalSeparator) {
+        result.removeLast()
+    }
+    return result
+}
+
+private func formatShortenedDouble(_ v: Double,  kThreshold: Double, mThreshold: Double) -> String {
+    assert(v >= 0 && kThreshold > 0 && mThreshold > 0)
+    
+    func formatValue(_ x: Double) -> String {
+        let frac = Int((x - floor(x)) * 10)
+        let s = frac > 0 ? "\(Int(x)).\(frac)" : "\(Int(x))"
+        return insertGroupingSeparator(in: s)
+    }
+        
+    if v < kThreshold { return formatValue(v) }
+    if v < mThreshold { return lang("$amount_K", arg1: formatValue(v / kThreshold)) }
+    return lang("$amount_M", arg1: formatValue(v / mThreshold))
 }
 
 /// Expects value 0...1 (0.42 -> 42%)

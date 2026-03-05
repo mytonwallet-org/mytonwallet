@@ -62,6 +62,7 @@ class WAutoCompleteAddressView(
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
     var autoCompleteConfig: AddressInputLayout.AutoCompleteConfig? = null
+    var activeChain: MBlockchain? = null
 
     private val recyclerView: WRecyclerView by lazy {
         WRecyclerView(context).apply {
@@ -116,10 +117,14 @@ class WAutoCompleteAddressView(
             pendingSections = null
 
             val network = AccountStore.activeAccount?.network ?: return@launch
+            val activeChainName = activeChain?.name
             val accounts: List<MAccount> = if (autoCompleteConfig?.accountAddresses == true) {
                 withContext(Dispatchers.IO) {
                     WalletCore.getAllAccounts()
                         .filter { it.accountId != AccountStore.activeAccountId }
+                        .filter { account ->
+                            activeChainName == null || account.byChain.containsKey(activeChainName)
+                        }
                         .filter { account ->
                             account.name.contains(keyword, ignoreCase = true) ||
                                 account.byChain.values.any {
@@ -133,8 +138,9 @@ class WAutoCompleteAddressView(
             }
             val savedAddresses: List<MSavedAddress> = withContext(Dispatchers.IO) {
                 (AddressStore.addressData?.savedAddresses ?: emptyList()).filter { savedAddress ->
-                    savedAddress.address.contains(keyword, true) ||
-                        savedAddress.name.contains(keyword, true)
+                    (activeChainName == null || savedAddress.chain == activeChainName) &&
+                        (savedAddress.address.contains(keyword, true) ||
+                        savedAddress.name.contains(keyword, true))
 
                 }.sortedBy { it.name }
             }
@@ -238,6 +244,7 @@ class WAutoCompleteAddressView(
                     title = address.name,
                     network = network,
                     savedAddress = address,
+                    filteredChainName = activeChain?.name,
                     keyword = keyword,
                     isFirst = index == 0,
                     isLast = index == addresses.size - 1
@@ -277,6 +284,7 @@ class WAutoCompleteAddressView(
                     title = account.name,
                     network = network,
                     account = account,
+                    filteredChainName = activeChain?.name,
                     value = balance,
                     keyword = keyword,
                     isFirst = index == 0,

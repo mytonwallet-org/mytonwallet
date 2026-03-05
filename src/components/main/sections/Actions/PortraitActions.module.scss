@@ -47,10 +47,7 @@
     }
   }
 
-  &:active {
-    // Optimization
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 
   :global(html.animation-level-0) & {
     transition: none !important;

@@ -8,7 +8,7 @@
 import Foundation
 
 
-public final class LocalizationSupport {
+public final class LocalizationSupport: Sendable {
     
     public static let shared = LocalizationSupport()
     private static let supportedLanguageCodes = Set(Language.supportedLanguages.map(\.langCode))
@@ -38,9 +38,21 @@ public final class LocalizationSupport {
         }
     }
     
-    public var locale: Locale!
-    public var bundle: Bundle!
+    public var isChinese: Bool {
+        langCode.hasPrefix("zh")
+    }
     
+    private let _locale: UnfairLock<Locale?> = .init(initialState: nil)
+    public var locale: Locale {
+        get { _locale.withLock { $0! } }
+        set { _locale.withLock { $0 = newValue } }
+    }
+    private let _bundle: UnfairLock<Bundle?> = .init(initialState: nil)
+    public var bundle: Bundle {
+        get { _bundle.withLock { $0! } }
+        set { _bundle.withLock { $0 = newValue } }
+    }
+
     @MainActor public func setLanguageCode(_ newValue: String) {
         guard newValue != langCode else { return }
         self.locale = Locale(identifier: newValue)

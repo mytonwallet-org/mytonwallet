@@ -66,6 +66,8 @@ M: A
 3M: 3A
 Y: Y
 No price data: Fiyat verisi yok
+$amount_K: "%amount%B"
+$amount_M: "%amount%M"
 Happening Now: Şu anda trend
 No Dapps Found!: dApp bulunamadı!
 Open: Aç

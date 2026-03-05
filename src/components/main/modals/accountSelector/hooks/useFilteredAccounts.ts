@@ -5,7 +5,7 @@ import type { Account, AccountType } from '../../../../../global/types';
 import { AccountTab } from '../constants';
 
 export function useFilteredAccounts(
-  orderedAccounts: Array<[string, Account]>,
+  orderedAccounts: Array<[string, Account]> | undefined,
   activeTab: number,
 ) {
   return useMemo(() => {
@@ -27,6 +27,6 @@ export function useFilteredAccounts(
         break;
     }
 
-    return orderedAccounts.filter(([_, account]) => allowedTypes.includes(account.type));
+    return (orderedAccounts ?? []).filter(([_, account]) => allowedTypes.includes(account.type));
   }, [orderedAccounts, activeTab]);
 }

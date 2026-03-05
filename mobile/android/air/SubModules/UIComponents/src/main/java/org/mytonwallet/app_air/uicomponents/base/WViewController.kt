@@ -407,6 +407,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
 
     // Called when:
     //  - Navigation-controller will push another view-controller over it
+    //  - Navigation-controller will pop the view-controller
     //  - Another navigation-controller is completely presented over it.
     //  - Window will replace it with another navigation controller
     open fun viewWillDisappear() {

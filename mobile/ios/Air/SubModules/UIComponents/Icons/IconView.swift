@@ -333,7 +333,7 @@ public class IconView: UIView, WThemedView {
         self.gradientLayer.cornerRadius = size / 2
 
         if size >= 80 {
-            largeLabel.font = UIFont.roundedNative(ofSize: 38, weight: .bold)
+            largeLabel.font = UIFont.roundedNative(ofSize: 32, weight: .bold)
             smallLabelTop.font = UIFont.roundedNative(ofSize: 24, weight: .heavy)
             smallLabelBottom.font = UIFont.roundedNative(ofSize: 24, weight: .heavy)
             smallLabelTopBottomConstraint.constant = -2.333

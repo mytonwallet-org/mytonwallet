@@ -9,7 +9,6 @@ import { IS_CAPACITOR } from '../../config';
 import {
   selectAccountStakingState,
   selectCurrentAccountId,
-  selectIsMultichainAccount,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
@@ -38,7 +37,6 @@ import styles from './Staking.module.scss';
 type StateProps = GlobalState['currentStaking'] & {
   stakingState?: ApiStakingState;
   tokenBySlug?: Record<string, ApiTokenWithPrice>;
-  isMultichainAccount: boolean;
 };
 
 const IS_OPEN_STATES = new Set([
@@ -56,7 +54,6 @@ function StakeModal({
   amount,
   error,
   tokenBySlug,
-  isMultichainAccount,
 }: StateProps) {
   const {
     startStaking,
@@ -105,7 +102,7 @@ function StakeModal({
     return (
       <TransactionBanner
         tokenIn={token}
-        withChainIcon={isMultichainAccount}
+        withChainIcon
         color="purple"
         text={formatCurrency(toDecimal(amount, token.decimals), token.symbol)}
         className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
@@ -231,7 +228,6 @@ function StakeModal({
 
 export default memo(withGlobal((global): StateProps => {
   const accountId = selectCurrentAccountId(global)!;
-  const isMultichainAccount = selectIsMultichainAccount(global, accountId);
   const stakingState = selectAccountStakingState(global, accountId);
   const tokenBySlug = global.tokenInfo.bySlug;
 
@@ -239,6 +235,5 @@ export default memo(withGlobal((global): StateProps => {
     ...global.currentStaking,
     stakingState,
     tokenBySlug,
-    isMultichainAccount,
   };
 })(StakeModal));

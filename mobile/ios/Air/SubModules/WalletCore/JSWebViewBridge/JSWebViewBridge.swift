@@ -118,7 +118,10 @@ public class JSWebViewBridge: UIViewController {
         view.alpha = 0.1
 
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
-            self?.webView?.evaluateJavaScript(";", completionHandler: nil)
+            Task { @MainActor in
+                guard let webView = self?.webView else { return }
+                _ = try? await webView.evaluateJavaScript(";")
+            }
         }
     }
 
@@ -188,7 +191,7 @@ public class JSWebViewBridge: UIViewController {
         webView?.loadFileURL(sdkIndexFileURL, allowingReadAccessTo: sdkReadAccessURL)
     }
     
-    private func _callApiImpl(methodName: String, args: [AnyEncodable?]) async throws -> Any? {
+    private func _callApiImpl(methodName: String, args: [AnyEncodable?]) async throws -> sending Any? { // todo: check use of sending
         let jsonData = try! JSONEncoder().encode(args)
         let argsString = String(data: jsonData, encoding: .utf8)!
         
@@ -235,11 +238,11 @@ public class JSWebViewBridge: UIViewController {
         throw BridgeCallError(message: error.localizedDescription, payload: error)
     }
     
-    func callApiRaw<each E: Encodable>(_ methodName: String, _ args: repeat each E) async throws -> Any? {
+    func callApiRaw<each E: Encodable>(_ methodName: String, _ args: repeat each E) async throws -> sending Any? {
         try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args))
     }
     
-    func callApi<each E: Encodable, T: Decodable>(_ methodName: String, _ args: repeat each E, decoding: T.Type) async throws -> T {
+    func callApi<each E: Encodable & Sendable, T: Decodable & Sendable>(_ methodName: String, _ args: repeat each E, decoding: T.Type) async throws -> T {
         let data = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args))
         do {
             return try JSONSerialization.decode(T.self, from: data.orThrow())
@@ -297,7 +300,7 @@ public class JSWebViewBridge: UIViewController {
     }
 }
 
-extension JSWebViewBridge: WKScriptMessageHandler {
+extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate class
     public func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
         assert(Thread.isMainThread)

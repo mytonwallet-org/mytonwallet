@@ -754,7 +754,7 @@ private extension UIPreviewParameters {
 
 // MARK: - ReorderableCell
 
-public struct ReorderableCellState: OptionSet {
+public struct ReorderableCellState: OptionSet, Sendable {
     public let rawValue: Int
     
     public init(rawValue: Int) {
@@ -772,6 +772,7 @@ public protocol ReorderableCell: UICollectionViewCell {
 // MARK: - Animations
 
 /// Composable wiggle animation. Attach to any view (e.g. a cell) to get reorder wiggle without subclassing.
+@MainActor
 public final class WiggleBehavior {
 
     private weak var view: UIView?

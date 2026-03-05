@@ -5,7 +5,7 @@
 //  Created by nikstar on 31.08.2025.
 //
 
-public struct ApiSwapCexEstimateOptions: Encodable {
+public struct ApiSwapCexEstimateOptions: Encodable, Sendable {
     public let from: String
     public let to: String
     public let fromAmount: String

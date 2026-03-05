@@ -29,7 +29,7 @@ extension Api {
 
 // MARK: - Types
 
-public struct ApiCheckNftTransferDraftOptions: Encodable {
+public struct ApiCheckNftTransferDraftOptions: Encodable, Sendable {
     public let accountId: String
     public let nfts: [ApiNft]
     public let toAddress: String

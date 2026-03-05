@@ -12,26 +12,26 @@ import WalletContext
 public class Api {
     
     // shared core api and bridge
-    static var shared: Api? = nil
+    @MainActor static var shared: Api? = nil
     
-    public static var bridge: JSWebViewBridge  {
+    @MainActor public static var bridge: JSWebViewBridge {
         get throws {
             try Api.shared.orThrow("bridge not ready").webViewBridge
         }
     }
     
-    let webViewBridge = JSWebViewBridge()
+    @MainActor let webViewBridge = JSWebViewBridge()
     
-    private init() {
+    @MainActor private init() {
     }
 
-    public static func prepare(on vc: UIViewController) {
+    @MainActor public static func prepare(on vc: UIViewController) {
         shared = Api()
         vc.addChild(shared!.webViewBridge)
         vc.view.addSubview(shared!.webViewBridge.view)
     }
     
-    public static func stop() {
+    @MainActor public static func stop() {
         shared?.webViewBridge.stop()
         shared?.webViewBridge.view.removeFromSuperview()
         shared?.webViewBridge.removeFromParent()

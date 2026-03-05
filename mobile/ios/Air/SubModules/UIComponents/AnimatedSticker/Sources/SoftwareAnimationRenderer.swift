@@ -4,7 +4,7 @@ import Dispatch
 import YUVConversion
 
 final class SoftwareAnimationRenderer: UIImageView, AnimationRenderer {
-    func render(queue: DispatchQueue, width: Int, height: Int, bytesPerRow: Int, data: Data, type: AnimationRendererFrameType, completion: @escaping () -> Void) {
+    func render(queue: DispatchQueue, width: Int, height: Int, bytesPerRow: Int, data: Data, type: AnimationRendererFrameType, completion: @escaping @MainActor () -> Void) {
         queue.async { [weak self] in
             let calculatedBytesPerRow = (4 * Int(width) + 15) & (~15)
             assert(bytesPerRow == calculatedBytesPerRow)

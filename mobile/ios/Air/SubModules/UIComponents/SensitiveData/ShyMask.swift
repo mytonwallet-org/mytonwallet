@@ -22,7 +22,7 @@ private let ADAPTIVE_COLOR = UIColor.airBundle("ShyColorAdaptive")
 
 public final class ShyMask: UIView, WThemedView {
 
-    public enum Theme {
+    public enum Theme: Sendable {
         case light
         case dark
         case adaptive
@@ -73,7 +73,7 @@ public final class ShyMask: UIView, WThemedView {
         fatalError("init(coder:) has not been implemented")
     }
     
-    deinit {
+    isolated deinit {
         updateTimer?.invalidate()
     }
     
@@ -123,7 +123,9 @@ public final class ShyMask: UIView, WThemedView {
     public func startUpdates() {
         if updateTimer == nil || updateTimer?.isValid == false {
             updateTimer = Timer.scheduledTimer(withTimeInterval: CHANGE_SPEED_INTERVAL, repeats: true) { [weak self] _ in
-                self?.updateAllAnimations()
+                Task { @MainActor in
+                    self?.updateAllAnimations()
+                }
             }
             updateTimer?.tolerance = 1.0
         }

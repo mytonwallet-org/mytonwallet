@@ -11,7 +11,7 @@ import WalletCore
 
 public struct MtwCardAddressLine: View {
     
-    public struct Style: Equatable, Hashable {
+    public struct Style: Equatable, Hashable, Sendable {
         public let font: Font
         public let textOpacity: CGFloat
         public let accountTypeIconSpacing: CGFloat

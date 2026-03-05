@@ -8,10 +8,8 @@ import { TransferState } from '../../global/types';
 
 import { BURN_ADDRESS, NFT_BATCH_SIZE } from '../../config';
 import {
-  selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
-  selectIsMultichainAccount,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
@@ -46,7 +44,6 @@ interface StateProps {
   tokens?: UserToken[];
   savedAddresses?: SavedAddress[];
   isMediaViewerOpen?: boolean;
-  isMultichainAccount: boolean;
 }
 
 function TransferModal({
@@ -67,7 +64,6 @@ function TransferModal({
   tokens,
   savedAddresses,
   isMediaViewerOpen,
-  isMultichainAccount,
 }: StateProps) {
   const {
     submitTransferConfirm,
@@ -159,7 +155,7 @@ function TransferModal({
             <TransactionBanner
               tokenIn={selectedToken}
               imageUrl={nfts?.[0]?.thumbnail}
-              withChainIcon={isMultichainAccount}
+              withChainIcon
               text={isNftTransfer
                 ? (nfts.length > 1 ? lang('%amount% NFTs', { amount: nfts.length }) : nfts[0]?.name || 'NFT')
                 : formatCurrency(toDecimal(amount!, decimals), symbol)}
@@ -235,7 +231,6 @@ function TransferModal({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const currentAccountId = selectCurrentAccountId(global);
   const accountState = selectCurrentAccountState(global);
 
   return {
@@ -243,6 +238,5 @@ export default memo(withGlobal((global): StateProps => {
     tokens: selectCurrentAccountTokens(global),
     savedAddresses: accountState?.savedAddresses,
     isMediaViewerOpen: Boolean(global.mediaViewer.mediaId),
-    isMultichainAccount: selectIsMultichainAccount(global, currentAccountId!),
   };
 })(TransferModal));

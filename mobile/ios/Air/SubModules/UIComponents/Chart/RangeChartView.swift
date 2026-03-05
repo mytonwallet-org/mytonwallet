@@ -113,12 +113,6 @@ public class RangeChartView: UIControl, WThemedView, UIGestureRecognizerDelegate
         self.upperBoundTintView.backgroundColor = Self.rangeViewTintColor
     }
     
-    public override func awakeFromNib() {
-        super.awakeFromNib()
-        
-        self.setup()
-    }
-    
     public var rangeDidChangeClosure: ((ClosedRange<CGFloat>) -> Void)?
     public var touchedOutsideClosure: (() -> Void)?
 

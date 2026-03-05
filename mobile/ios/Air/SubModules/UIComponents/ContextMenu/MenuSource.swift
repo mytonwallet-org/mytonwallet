@@ -120,8 +120,8 @@ public extension UIView {
     }
 }
 
-private var menuSourceDelegateKey: UInt8 = 0
-private var menuSourceSuppressNextTapKey: UInt8 = 0
+@MainActor private var menuSourceDelegateKey: UInt8 = 0
+@MainActor private var menuSourceSuppressNextTapKey: UInt8 = 0
 
 public extension UIView {
     /// Returns `true` if the tap should be suppressed (menu was just shown). Call from tap handler.

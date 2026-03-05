@@ -1,3 +1,5 @@
+@use "../../styles/mixins";
+
 .menuItem {
   cursor: var(--custom-cursor, pointer);
 
@@ -44,10 +46,7 @@
     }
   }
 
-  &:active {
-    // Optimization
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 
   &[aria-selected="true"] {
     color: var(--color-accent);

@@ -29,7 +29,6 @@ interface OwnProps {
   dnsExpiration?: Record<string, number>;
   isViewAccount?: boolean;
   selectedNfts?: ApiNft[];
-  withChainIcon: boolean;
   nftsByAddresses: Record<string, ApiNft>;
 }
 
@@ -50,7 +49,6 @@ function NftList({
   dnsExpiration,
   isViewAccount,
   selectedNfts,
-  withChainIcon,
   nftsByAddresses,
 }: OwnProps) {
   const containerRef = useRef<HTMLDivElement>();
@@ -146,7 +144,6 @@ function NftList({
       {viewportNftAddresses?.map((address, index) => (
         <Nft
           key={address}
-          withChainIcon={withChainIcon}
           nft={nftsByAddresses[address]}
           appTheme={appTheme}
           tonDnsExpiration={getDnsExpirationDate(nftsByAddresses[address], dnsExpiration)}

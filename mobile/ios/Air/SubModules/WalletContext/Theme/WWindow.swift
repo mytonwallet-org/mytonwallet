@@ -21,7 +21,8 @@ public final class WWindow: UIWindow, WThemedView, WSensitiveDataProtocol {
     @MainActor
     public func updateTheme() {
         tintColor = WTheme.tint
-
+        var visited: Set<ObjectIdentifier> = []
+        
         // update theme on view
         func updateViewTheme(on view: UIView) {
             if let view = view as? WThemedView {
@@ -38,6 +39,8 @@ public final class WWindow: UIWindow, WThemedView, WSensitiveDataProtocol {
             if !vc.isViewLoaded {
                 return
             }
+            guard nil == visited.update(with: ObjectIdentifier(vc)) else { return }
+            
             if let vc = vc as? WThemedView {
                 vc.updateTheme()
             }
@@ -65,7 +68,8 @@ public final class WWindow: UIWindow, WThemedView, WSensitiveDataProtocol {
     }
 
     public func updateSensitiveData() {
-        
+        var visited: Set<ObjectIdentifier> = []
+
         func _updateView(_ view: UIView) {
             if let view = view as? WSensitiveDataProtocol {
                 view.updateSensitiveData()
@@ -77,6 +81,8 @@ public final class WWindow: UIWindow, WThemedView, WSensitiveDataProtocol {
 
         func _updateViewController(_ vc: UIViewController) {
             guard vc.isViewLoaded else { return }
+            guard nil == visited.update(with: ObjectIdentifier(vc)) else { return }
+            
             if let vc = vc as? WSensitiveDataProtocol {
                 vc.updateSensitiveData()
             }
@@ -102,9 +108,12 @@ public final class WWindow: UIWindow, WThemedView, WSensitiveDataProtocol {
         if let rootViewController {
             _updateViewController(rootViewController)
         }
+        
+        NotificationCenter.default.post(name: .updateSensitiveData, object: self)
     }
 }
 
 public extension Notification.Name {
     static let updateTheme = Notification.Name("updateTheme")
+    static let updateSensitiveData = Notification.Name("updateSensitiveData")
 }

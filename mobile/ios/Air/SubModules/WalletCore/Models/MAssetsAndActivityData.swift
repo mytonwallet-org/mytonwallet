@@ -8,7 +8,7 @@
 import OrderedCollections
 import WalletContext
 
-public struct MAssetsAndActivityData: Equatable {
+public struct MAssetsAndActivityData: Equatable, Sendable {
     public static var empty: Self { MAssetsAndActivityData(dictionary: nil) }
 
     /// These tokens will be visible even if they are no cost tokens! Because user checked them manually!

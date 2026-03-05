@@ -15,7 +15,6 @@ import {
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
-  selectIsMultichainAccount,
   selectIsStakingDisabled,
   selectIsSwapDisabled,
   selectMycoin,
@@ -66,7 +65,6 @@ interface StateProps {
   baseCurrency: ApiBaseCurrency;
   theme: Theme;
   mycoin?: ApiTokenWithPrice;
-  isMultichainAccount: boolean;
   isSensitiveDataHidden?: true;
   states?: ApiStakingState[];
   isViewMode?: boolean;
@@ -91,7 +89,6 @@ function Assets({
   onStakedTokenClick,
   baseCurrency,
   mycoin,
-  isMultichainAccount,
   isSensitiveDataHidden,
   theme,
   states,
@@ -299,7 +296,7 @@ function Assets({
           isInvestorView={isInvestorViewEnabled}
           isActive={token.slug === currentTokenSlug}
           baseCurrency={baseCurrency}
-          withChainIcon={isMultichainAccount}
+          withChainIcon
           appTheme={appTheme}
           isSensitiveDataHidden={isSensitiveDataHidden}
           withContextMenu
@@ -394,7 +391,6 @@ export default memo(
         currentTokenSlug: accountState?.currentTokenSlug,
         baseCurrency: global.settings.baseCurrency,
         mycoin: selectMycoin(global),
-        isMultichainAccount: selectIsMultichainAccount(global, currentAccountId),
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
         theme: global.settings.theme,
         states,

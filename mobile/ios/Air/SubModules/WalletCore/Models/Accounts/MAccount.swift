@@ -22,7 +22,7 @@ public struct MAccount: Equatable, Hashable, Sendable, Codable, Identifiable, Fe
     public var byChain: [String: AccountChain] // keys have to be strings because encoding won't work with ApiChain as keys
     public var isTemporary: Bool?
 
-    static public var databaseTableName: String = "accounts"
+    static public let databaseTableName: String = "accounts"
 
     init(id: String, title: String?, type: AccountType, byChain: [String : AccountChain], isTemporary: Bool? = nil) {
         self.id = id
@@ -161,5 +161,5 @@ public extension MAccount {
 }
 
 public func getNetwork(accountId: String) -> ApiNetwork {
-    accountId.contains("mainnet") ? .mainnet  : .testnet
+    accountId.contains("testnet") ? .testnet  : .mainnet
 }

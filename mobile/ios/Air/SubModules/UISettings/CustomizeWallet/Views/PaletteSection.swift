@@ -20,7 +20,7 @@ private let _fallbackHorizontalPadding = 14.5
 private let itemSize = 30.0
 private let minimumSpacing = 16.0
 
-@Perceptible
+@Perceptible @MainActor
 final class PaletteSettingsViewModel {
     
     var accountId: String {
@@ -82,11 +82,9 @@ final class PaletteSettingsViewModel {
             let nftsByColorIndex = await getAccentColorsFromNfts(nftAddresses: Array(nfts.keys), nftsByAddress: nfts)
             try Task.checkCancellation()
             self.nftsByColorIndex = nftsByColorIndex
-            await MainActor.run {
-                withAnimation {
-                    isLoading = false
-                    availableColorIds = Set<Int?>(nftsByColorIndex.keys.map { $0 } + [nil])
-                }
+            withAnimation {
+                isLoading = false
+                availableColorIds = Set<Int?>(nftsByColorIndex.keys.map { $0 } + [nil])
             }
         }
     }

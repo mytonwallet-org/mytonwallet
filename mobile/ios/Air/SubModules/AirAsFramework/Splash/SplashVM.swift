@@ -11,7 +11,7 @@ import WalletCore
 
 private let log = Log("SplashVM")
 
-protocol SplashVMDelegate: AnyObject {
+@MainActor protocol SplashVMDelegate: AnyObject {
     // called when user does not have a wallet yet
     func navigateToIntro()
     
@@ -20,7 +20,7 @@ protocol SplashVMDelegate: AnyObject {
 
 }
 
-final class SplashVM: NSObject {
+@MainActor final class SplashVM: NSObject {
     
     private weak var splashVMDelegate: SplashVMDelegate?
     init(splashVMDelegate: SplashVMDelegate) {

@@ -11,7 +11,8 @@ private let START_STEPS: OrderedDictionary<StepId, StepStatus> = [
 ]
 private let log = Log("LedgerSignModel")
 
-public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
+@MainActor
+public final class LedgerSignModel: LedgerBaseModel, Sendable {
     
     public let accountId: String
     public let fromAddress: String
@@ -24,7 +25,7 @@ public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
         await super.init(steps: START_STEPS)
     }
     
-    deinit {
+    isolated deinit {
         log.info("deinit")
         task?.cancel()
     }
@@ -34,7 +35,7 @@ public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
         try await openApp()
         try await signAndSend()
         try? await Task.sleep(for: .seconds(0.8))
-        await onDone?()
+        onDone?()
     }
     
     func signAndSend() async throws {

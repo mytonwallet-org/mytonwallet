@@ -4,7 +4,7 @@ import UIKit
 import SwiftUI
 
 
-public enum SignData: @unchecked Sendable {
+public enum SignData: Sendable {
     case signTransfer(
         transferOptions: ApiSubmitTransferOptions
     )

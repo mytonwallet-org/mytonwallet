@@ -1,4 +1,5 @@
 import { CONTENT_SCRIPT_PORT, PAGE_CONNECTOR_CHANNEL } from './config';
+import { isPortDisconnectedError } from '../../../util/isPortDisconnectedError';
 
 const PAGE_ORIGIN = window.location.href;
 
@@ -33,7 +34,7 @@ function sendToPort(payload: any, isRepeated = false) {
       return;
     }
 
-    const isDisconnected = err.message.toString().includes('disconnected port');
+    const isDisconnected = isPortDisconnectedError(err);
     if (isDisconnected && !isRepeated) {
       connectPort();
       sendToPort(payload, true);

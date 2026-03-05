@@ -44,7 +44,7 @@ public enum AppStorageHelper {
 
     // Animations activated or not
     private static let animationsKey = "settings.animationLevel"
-    public static var animations: Bool {
+    @MainActor public static var animations: Bool {
         get {
             return (GlobalStorage.getInt(key: animationsKey) ?? 2) > 0
         }
@@ -155,7 +155,7 @@ public enum AppStorageHelper {
 
     // MARK: - Account AssetsAndActivity data
 
-    private static var assetsAndActivityDataKey = "settings.byAccountId"
+    private static let assetsAndActivityDataKey = "settings.byAccountId"
     public static func save(accountId: String, assetsAndActivityData: [String: Any]) {
         let assetsDataKeyPrefix = "\(assetsAndActivityDataKey).\(accountId)"
         assetsAndActivityData.forEach { dictKey, value in

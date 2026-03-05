@@ -9,12 +9,19 @@ import Perception
 import Dependencies
 import UIKitNavigation
 
-@Perceptible
-class Container {
+@Perceptible @MainActor
+final class Container {
     var headerViewModel: HomeHeaderViewModel?
     var accountContext: AccountContext?
-    var layout: HomeCardLayoutMetrics = .screen
-    var minimumHomeCardFontScale: CGFloat = 1
+    var layout: HomeCardLayoutMetrics
+    var minimumHomeCardFontScale: CGFloat
+    
+    init(headerViewModel: HomeHeaderViewModel? = nil, accountContext: AccountContext? = nil, layout: HomeCardLayoutMetrics = .screen, minimumHomeCardFontScale: CGFloat = 1) {
+        self.headerViewModel = headerViewModel
+        self.accountContext = accountContext
+        self.layout = layout
+        self.minimumHomeCardFontScale = minimumHomeCardFontScale
+    }
 }
 
 final class HomeCard: UICollectionViewCell {

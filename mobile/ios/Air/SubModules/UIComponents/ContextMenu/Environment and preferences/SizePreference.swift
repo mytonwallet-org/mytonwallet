@@ -9,7 +9,7 @@ import SwiftUI
 
 public enum SizePreference: PreferenceKey {
     
-    public static var defaultValue: [String: CGSize] = [:]
+    public static let defaultValue: [String: CGSize] = [:]
     
     public static func reduce(value: inout [String: CGSize], nextValue: () -> [String: CGSize]) {
         value.merge(nextValue(), uniquingKeysWith: { $1 })

@@ -88,21 +88,18 @@ public struct WalletCoreData {
         }
     }
     @MainActor private(set) static var eventObservers = [WeakEventsObserver]()
-    public static func add(eventObserver: EventsObserver) {
+    public static func add(eventObserver: EventsObserver & Sendable) {
         Task { @MainActor in
             WalletCoreData.eventObservers.append(WeakEventsObserver(value: eventObserver))
         }
     }
-    public static func remove(observer: EventsObserver) {
-        Task { @MainActor in
-            WalletCoreData.eventObservers.removeAll { $0.value === nil || $0.value === observer }
-        }
+    @MainActor public static func remove(observer: EventsObserver) {
+        WalletCoreData.eventObservers.removeAll { $0.value === nil || $0.value === observer }
     }
     @MainActor public static func removeObservers() {
         eventObservers.removeAll { it in
             (it.value is UIViewController) ||
-            (it.value is UIView) ||
-            (it.value is (any ObservableObject))
+            (it.value is UIView)
         }
     }
 
@@ -135,7 +132,7 @@ public struct WalletCoreData {
         }
     }
 
-    public static func start(db: any DatabaseWriter) async {
+    @MainActor public static func start(db: any DatabaseWriter) async {
         _ = LogStore.shared
         log.info("**** WalletCoreData.start() **** \(Date().formatted(.iso8601), .public)")
         await ActivityStore.use(db: db)
@@ -144,7 +141,7 @@ public struct WalletCoreData {
         log.info("AcountStore loaded \(accountIds.count) accounts")
         
         // Detect if this is new install and delete old keychain storage if needed
-        let isFirstLaunch = await (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.isFirstLaunch == true
+        let isFirstLaunch = (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.isFirstLaunch == true
         if isFirstLaunch {
             log.info("First launch detected. Will check if accounts from previous install should can be deleted.")
         }

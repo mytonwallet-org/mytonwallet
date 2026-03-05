@@ -13,7 +13,6 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountTokens,
   selectIsHardwareAccount,
-  selectIsMultichainAccount,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
@@ -49,7 +48,6 @@ interface StateProps {
   error?: string;
   state?: StakingState;
   isHardwareAccount?: boolean;
-  isMultichainAccount: boolean;
   isSensitiveDataHidden?: true;
 }
 
@@ -69,7 +67,6 @@ function StakingClaimModal({
   error,
   state = StakingState.ClaimPassword,
   isHardwareAccount,
-  isMultichainAccount,
   isSensitiveDataHidden,
 }: StateProps) {
   const { submitStakingClaim, cancelStakingClaim, clearStakingError } = getActions();
@@ -123,7 +120,7 @@ function StakingClaimModal({
       <>
         <TransactionBanner
           tokenIn={token}
-          withChainIcon={isMultichainAccount}
+          withChainIcon
           text={content}
           className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
           secondText={address && shortenAddress(address)}
@@ -252,7 +249,6 @@ export default memo(withGlobal((global): StateProps => {
     error,
     address: byChain?.ton?.address,
     isHardwareAccount,
-    isMultichainAccount: selectIsMultichainAccount(global, accountId!),
     isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
   };
 })(StakingClaimModal));

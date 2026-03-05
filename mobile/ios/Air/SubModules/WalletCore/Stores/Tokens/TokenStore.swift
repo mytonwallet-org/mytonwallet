@@ -15,7 +15,7 @@ private let HISTORY_DATA_STALENESS = 120.0
 private let log = Log("TokenStore")
 
 @Perceptible
-public class _TokenStore {
+public final class _TokenStore: Sendable {
 
     public static let shared = _TokenStore()
     
@@ -28,7 +28,7 @@ public class _TokenStore {
     private let sharedCache = SharedCache()
 
     @PerceptionIgnored
-    private var updateTokensTask: Task<Void, Never>?
+    private let updateTokensTask: UnfairLock<Task<Void, Never>?> = .init(initialState: nil)
     
     private init() {}
 
@@ -137,7 +137,7 @@ public class _TokenStore {
         self.tokens = tokens
         WalletCoreData.notify(event: .tokensChanged)
         if tokens.count > 0 {
-            DispatchQueue.global(qos: .background).async {
+            DispatchQueue.global(qos: .background).async { [tokens] in
                 AppStorageHelper.save(baseCurrency: self.baseCurrency, tokens: tokens, currencyRates: self.currencyRates)
             }
         }
@@ -293,21 +293,23 @@ extension _TokenStore: WalletCoreData.EventsObserver {
             scheduleSharedCacheUpdate(rates: update.rates)
 
         case .updateTokens(let dict):
-            self.updateTokensTask?.cancel()
-            self.updateTokensTask = Task.detached(priority: .low) {
-                do {
-                    // debounce
-                    try await Task.sleep(for: .seconds(0.2))
-                    
-                    let tokens = try (dict["tokens"] as? [String: Any]).orThrow().mapValues { try ApiToken(any: $0) }
-                    await Task.yield()
-                    try Task.checkCancellation()
-                    
-                    self.process(newTokens: tokens)
+            self.updateTokensTask.withLock {
+                $0?.cancel()
+                $0 = Task.detached(priority: .low) {
+                    do {
+                        // debounce
+                        try await Task.sleep(for: .seconds(0.2))
+                        
+                        let tokens = try (dict["tokens"] as? [String: Any]).orThrow().mapValues { try ApiToken(any: $0) }
+                        await Task.yield()
+                        try Task.checkCancellation()
+                        
+                        self.process(newTokens: tokens)
 
-                } catch is CancellationError {
-                } catch {
-                    log.fault("failed to decode updateTokens \(error, .public)")
+                    } catch is CancellationError {
+                    } catch {
+                        log.fault("failed to decode updateTokens \(error, .public)")
+                    }
                 }
             }
         
@@ -338,8 +340,7 @@ extension _TokenStore: DependencyKey {
 
 extension DependencyValues {
     public var tokenStore: _TokenStore {
-        get { self[_TokenStore.self] }
-        set { self[_TokenStore.self] = newValue }
+        self[_TokenStore.self]
     }
 }
 
@@ -347,9 +348,9 @@ extension DependencyValues {
 
 extension AppStorageHelper {
     // MARK: - Tokens dict
-    private static var tokensCurrencyKey = "cache.tokens.currency"
-    private static var tokensKey = "cache.tokens"
-    private static var currencyRatesKey = "cache.currencyRates"
+    private static let tokensCurrencyKey = "cache.tokens.currency"
+    private static let tokensKey = "cache.tokens"
+    private static let currencyRatesKey = "cache.currencyRates"
     
     fileprivate static func save(baseCurrency: MBaseCurrency, tokens: [String: ApiToken], currencyRates: [String: MDouble]) {
         UserDefaults.standard.set(baseCurrency.rawValue, forKey: tokensCurrencyKey)
@@ -385,7 +386,7 @@ extension AppStorageHelper {
     }
     
     // MARK: - SwapAssets dict
-    private static var swapAssetsArrayKey = "cache.swapAssets"
+    private static let swapAssetsArrayKey = "cache.swapAssets"
     public static func save(swapAssetsArray: [ApiToken]) {
         if let data = try? JSONSerialization.encode(swapAssetsArray) {
             UserDefaults.standard.set(data, forKey: AppStorageHelper.swapAssetsArrayKey)

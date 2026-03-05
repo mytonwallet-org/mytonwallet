@@ -3,7 +3,7 @@ import WalletCore
 import WalletContext
 import Perception
 
-public struct AddressViewModel {
+public struct AddressViewModel: Sendable {
     let chain: ApiChain
     
     /// The address returned via API. We assume that the API always returns raw (hex) wallet addresses
@@ -46,7 +46,7 @@ public struct AddressViewModel {
     }
     
     /// Must be called from inside `WithPerceptionTracking`.
-    func withLocalName(account: AccountContext) -> AddressViewModel {
+    @MainActor func withLocalName(account: AccountContext) -> AddressViewModel {
         var localName: String?
         if chain.isSupported {
             // search for my account first

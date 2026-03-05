@@ -12,7 +12,7 @@ import Perception
 import Dependencies
 import SwiftNavigation
 
-@Perceptible
+@Perceptible @MainActor
 public final class AccountIdProvider {
     
     public let source: AccountSource

@@ -18,7 +18,7 @@ public let TonConnectErrorCodes: [Int: String] = [
 private let log = Log("TonConnect")
 
 
-public final class TonConnect: WalletCoreData.EventsObserver {
+@MainActor public final class TonConnect: WalletCoreData.EventsObserver {
     
     public static let shared = TonConnect()
     

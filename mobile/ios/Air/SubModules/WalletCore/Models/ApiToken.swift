@@ -251,8 +251,9 @@ extension ApiToken {
 }
 
 extension ApiToken {
-    /// initialStubTokenSlugs
+    /// initial StubTokenSlugs
     /// These are shown when account is created and there are no transactions yet.
+    /// The order is defined as for displaying in UI.
     private static let DEFAULT_SLUGS: OrderedSet<String> = [TONCOIN_SLUG, TON_USDT_SLUG, TRX_SLUG, TRON_USDT_SLUG, SOLANA_SLUG, SOLANA_USDT_MAINNET_SLUG]
     private static let DEFAULT_TESTNET_SLUGS: OrderedSet<String> = [TONCOIN_SLUG, TRX_SLUG, TRON_USDT_TESTNET_SLUG, SOLANA_SLUG]
     

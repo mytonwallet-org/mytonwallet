@@ -3,9 +3,9 @@ import Foundation
 import WebKit
 
 
-public final class JSValue {
+public final class JSValue: Sendable {
     
-    private var _value: UnfairLock<Value>
+    private let _value: UnfairLock<Value>
     
     public init(_ object: Any?) {
         self._value = .init(uncheckedState: Value(object))

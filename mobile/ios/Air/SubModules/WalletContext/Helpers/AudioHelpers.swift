@@ -8,7 +8,7 @@
 import Foundation
 import AVFoundation
 
-public class AudioHelpers {
+@MainActor public class AudioHelpers {
     public enum Sound {
         case incomingTransaction
         

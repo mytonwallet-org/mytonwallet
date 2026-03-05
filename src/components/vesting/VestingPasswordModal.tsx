@@ -14,7 +14,6 @@ import {
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
   selectIsHardwareAccount,
-  selectIsMultichainAccount,
   selectMycoin,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
@@ -49,7 +48,6 @@ interface StateProps {
   state?: VestingUnfreezeState;
   mycoin?: ApiTokenWithPrice;
   isHardwareAccount?: boolean;
-  isMultichainAccount: boolean;
   isViewMode?: boolean;
 }
 
@@ -63,7 +61,6 @@ function VestingPasswordModal({
   mycoin,
   state = VestingUnfreezeState.Password,
   isHardwareAccount,
-  isMultichainAccount,
   isViewMode,
 }: StateProps) {
   const { submitClaimingVesting, cancelClaimingVesting, clearVestingError } = getActions();
@@ -107,7 +104,7 @@ function VestingPasswordModal({
       <>
         <TransactionBanner
           tokenIn={mycoin}
-          withChainIcon={isMultichainAccount}
+          withChainIcon
           text={formatCurrency(currentlyReadyToUnfreezeAmount, mycoin!.symbol, mycoin!.decimals)}
           className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
           secondText={address && shortenAddress(address)}
@@ -207,7 +204,6 @@ export default memo(withGlobal((global): StateProps => {
     state: unfreezeState,
     mycoin: selectMycoin(global),
     isHardwareAccount,
-    isMultichainAccount: selectIsMultichainAccount(global, currentAccountId),
     isViewMode: selectIsCurrentAccountViewMode(global),
   };
 })(VestingPasswordModal));

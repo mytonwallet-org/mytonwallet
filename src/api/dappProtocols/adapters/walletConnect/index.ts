@@ -94,12 +94,12 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
   // ---------------------------------------------------------------------------
 
   async init(config: DappProtocolConfig): Promise<void> {
+    this.onUpdate = config.onUpdate;
+    this.chainDappSupports = config.chainDappSupports ?? {};
+
     if (this.initialized) {
       return;
     }
-
-    this.onUpdate = config.onUpdate;
-    this.chainDappSupports = config.chainDappSupports ?? {};
 
     if (!WALLET_CONNECT_PROJECT_ID) {
       logDebugError('WalletConnectAdapter', 'No project ID provided');

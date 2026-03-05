@@ -18,7 +18,7 @@ public class WScalableButton: UIControl {
     
     public static let preferredHeight: CGFloat = 66
 
-    public let imageView: UIImageView = {
+    private let imageView: UIImageView = {
         let view = UIImageView()
         view.contentMode = .scaleAspectFit
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -26,9 +26,12 @@ public class WScalableButton: UIControl {
         return view
     }()
 
-    public let titleLabel: UILabel = {
+    private let baseTitleLabelFont = UIFont.systemFont(ofSize: 13, weight: .medium)
+    private let titleLabelHorMargin: CGFloat = 8
+
+    private lazy var titleLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 13, weight: .medium)
+        label.font = baseTitleLabelFont
         label.textColor = WTheme.primaryLabel
         label.translatesAutoresizingMaskIntoConstraints = false
         label.adjustsFontSizeToFitWidth = true
@@ -104,8 +107,8 @@ public class WScalableButton: UIControl {
             imageView.centerYAnchor.constraint(equalTo: containerContentView.centerYAnchor, constant: -10),
             
             titleLabelBottomConstraint,
-            titleLabel.leadingAnchor.constraint(equalTo: containerContentView.leadingAnchor, constant: 8),
-            titleLabel.trailingAnchor.constraint(equalTo: containerContentView.trailingAnchor, constant: -8),
+            titleLabel.leadingAnchor.constraint(equalTo: containerContentView.leadingAnchor, constant: titleLabelHorMargin),
+            titleLabel.trailingAnchor.constraint(equalTo: containerContentView.trailingAnchor, constant: -titleLabelHorMargin),
         ])
 
         addTarget(self, action: #selector(didTap), for: .touchUpInside)
@@ -229,7 +232,76 @@ public class WScalableButton: UIControl {
     }
 }
 
-open class ButtonsToolbar: UIView, WThemedView {
+extension WScalableButton: ButtonsToolbarItem {
+
+    public func onToolbarLayout(layoutContext: ButtonsToolbarLayoutContext) {
+        guard let text = titleLabel.text?.nilIfEmpty else { return }
+        switch layoutContext.pass {
+        case .draft:
+            let availableWidth = layoutContext.itemWidth - titleLabelHorMargin * 2
+            let maxFont = self.maxFontSize(for: text, maxWidth: availableWidth)
+            if let lFont = layoutContext.font {
+                if lFont.pointSize > maxFont.pointSize {
+                    layoutContext.font = maxFont
+                }
+            } else {
+                layoutContext.font = maxFont
+            }
+        case .finalizing:
+            titleLabel.font = layoutContext.font ?? baseTitleLabelFont
+        }
+    }
+
+    private func maxFontSize(for text: String, maxWidth: CGFloat) -> UIFont {
+        // In most cases the base font is good enough so we check it immediately
+        let width = (text as NSString).size(withAttributes: [.font: baseTitleLabelFont]).width
+        if width <= maxWidth {
+            return baseTitleLabelFont
+        }
+        
+        let minSize: CGFloat = 6
+        let maxSize: CGFloat = baseTitleLabelFont.pointSize
+        let tolerance: CGFloat = 0.5
+        var low = minSize
+        var high = maxSize
+        while (high - low) > tolerance {
+            let mid = (low + high) / 2
+            let font = baseTitleLabelFont.withSize(mid)
+            let width = (text as NSString).size(withAttributes: [.font: font]).width
+            if width <= maxWidth {
+                low = mid
+            } else {
+                high = mid
+            }
+        }
+        return baseTitleLabelFont.withSize(low)
+    }
+}
+
+// MARK: - Toolbar
+
+public protocol ButtonsToolbarItem {
+    func onToolbarLayout(layoutContext: ButtonsToolbarLayoutContext)
+}
+
+public class ButtonsToolbarLayoutContext {
+    enum Pass {
+        case draft
+        case finalizing
+    }
+    
+    var font: UIFont?
+    var itemWidth: CGFloat
+    var pass: Pass
+    
+    init(font: UIFont? = nil, itemWidth: CGFloat, pass: Pass) {
+        self.font = font
+        self.itemWidth = itemWidth
+        self.pass = pass
+    }
+}
+
+open class ButtonsToolbar: UIView {
     private struct ArrangedView {
         let view: UIView
         let widthConstraint: NSLayoutConstraint
@@ -240,12 +312,22 @@ open class ButtonsToolbar: UIView, WThemedView {
     private var updateCounter: Int = 0
     private let minItemWidth: CGFloat = 100
     
-    public var spacing: CGFloat = 10.0 {
+    public var spacing: CGFloat {
         didSet {
             if oldValue != spacing {
                 update()
             }
         }
+    }
+    
+    public override init(frame: CGRect) {
+        spacing = screenWidth < 390 ? 8 : 10
+        
+        super.init(frame: frame)
+    }
+    
+    @MainActor public required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
     
     public func beginUpdate() {
@@ -267,7 +349,12 @@ open class ButtonsToolbar: UIView, WThemedView {
     }
     
     public func addArrangedSubview(_ view: UIView) {
+        beginUpdate()
+        defer {
+            endUpdate()
+        }
         addSubview(view)
+        view.tintColor = .tintColor
         let widthConstraint = view.widthAnchor.constraint(equalToConstant: minItemWidth)
         let leadingConstraint = view.leadingAnchor.constraint(equalTo: leadingAnchor)
         arrangedSubviews.append(.init(view: view, widthConstraint: widthConstraint, leadingConstraint: leadingConstraint))
@@ -276,24 +363,29 @@ open class ButtonsToolbar: UIView, WThemedView {
              leadingConstraint,
              view.heightAnchor.constraint(equalTo: heightAnchor)
         ])
-        update()
     }
-    
-    nonisolated public func updateTheme() {
-        MainActor.assumeIsolated {
-            for btn in subviews {
-                btn.tintColor = WTheme.tint
-            }
-        }
-    }
-    
+        
     public override func layoutSubviews() {
         let width = bounds.width
         
-        let visibleCount = arrangedSubviews.filter { !$0.view.isHidden }.count
-        let visibleCountF = CGFloat(visibleCount)
+        let visibleItems = arrangedSubviews.filter { !$0.view.isHidden }
+        let visibleCount = visibleItems.count
+        let visibleCountF = CGFloat(visibleItems.count)
         var itemWidth = visibleCount > 0 ? ((width - spacing * (visibleCountF - 1)) /  visibleCountF).rounded() : minItemWidth
         itemWidth = min(itemWidth, minItemWidth)
+        
+        let context = ButtonsToolbarLayoutContext(font: nil, itemWidth: itemWidth, pass: .draft)
+        visibleItems.forEach { arrangedView in
+            if let item = arrangedView.view as? ButtonsToolbarItem {
+                item.onToolbarLayout(layoutContext: context)
+            }
+        }
+        context.pass = .finalizing
+        visibleItems.forEach { arrangedView in
+            if let item = arrangedView.view as? ButtonsToolbarItem {
+                item.onToolbarLayout(layoutContext: context)
+            }
+        }
         
         var offsetX = max(0.0, ((width - visibleCountF * (itemWidth + spacing) + spacing) / 2).rounded())
         for btn in arrangedSubviews {

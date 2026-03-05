@@ -9,7 +9,7 @@ public let StakingStore = _StakingStore.shared
 
 private let log = Log("StakingStore")
 
-public final class _StakingStore: WalletCoreData.EventsObserver {
+public final class _StakingStore: WalletCoreData.EventsObserver, Sendable {
     fileprivate static let shared = _StakingStore()
     
     private let _stakingData = UnfairLock<ValueFetchingState<[String: MStakingData]>>(initialState: .notSet)
@@ -31,10 +31,10 @@ public final class _StakingStore: WalletCoreData.EventsObserver {
         }
     }
     
-    private var _db: (any DatabaseWriter)?
+    private let _db: UnfairLock<(any DatabaseWriter)?> = .init(initialState: nil)
     private var db: any DatabaseWriter {
         get throws {
-            try _db.orThrow("database not ready")
+            try _db.withLock { $0 }.orThrow("database not ready")
         }
     }
     private var commonDataObservation: Task<Void, Never>?
@@ -45,10 +45,10 @@ public final class _StakingStore: WalletCoreData.EventsObserver {
     // MARK: - Database
     
     public func use(db: any DatabaseWriter) {
-        self._db = db
+        self._db.withLock { $0 = db }
 
         do {
-            let fetchAccountStaking = { db in
+            let fetchAccountStaking = { @Sendable db in
                 try MStakingData.fetchAll(db)
             }
             

@@ -45,7 +45,10 @@ import {
 import { callApi } from '../../../api';
 import { errorCodeToMessage } from '../../helpers/errors';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
-import { updateCurrentAccountId, updateCurrentAccountState } from '../../reducers';
+import {
+  updateCurrentAccountId,
+  updateCurrentAccountState,
+} from '../../reducers';
 import {
   selectCurrentAccountId,
   selectCurrentNetwork,
@@ -57,7 +60,7 @@ import {
 
 const ANIMATION_DELAY_MS = 320;
 
-addActionHandler('init', (_, actions) => {
+addActionHandler('init', (global, actions) => {
   requestMutation(() => {
     const { documentElement } = document;
 

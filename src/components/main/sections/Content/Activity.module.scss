@@ -72,10 +72,7 @@ $subheaderReleaseHeight: 1.25rem;
     background-color: var(--color-interactive-item-hover);
   }
 
-  &:active {
-    // Optimization
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 }
 
 .itemLast {

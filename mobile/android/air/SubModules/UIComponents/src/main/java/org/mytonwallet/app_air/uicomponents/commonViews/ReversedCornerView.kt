@@ -120,7 +120,7 @@ class ReversedCornerView(
             addView(backgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
             blurryBackgroundView?.let { addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT)) }
         }
-        pauseBlurring(false)
+        resumeBlurring()
     }
 
     override fun dispatchDraw(canvas: Canvas) {
@@ -201,12 +201,14 @@ class ReversedCornerView(
     }
 
     private fun syncBlurView() {
-        val blurEnabled = WGlobalStorage.isBlurEnabled() && initialConfig.shouldBlur && initialConfig.blurRootView != null
+        val blurEnabled =
+            WGlobalStorage.isBlurEnabled() && initialConfig.shouldBlur && initialConfig.blurRootView != null
         if (blurEnabled && blurryBackgroundView == null) {
-            blurryBackgroundView = WBlurryBackgroundView(context, WBlurryBackgroundView.Side.BOTTOM).apply {
-                setupWith(initialConfig.blurRootView)
-                setBackgroundVisible(visible = true, animated = false)
-            }
+            blurryBackgroundView =
+                WBlurryBackgroundView(context, WBlurryBackgroundView.Side.BOTTOM).apply {
+                    setupWith(initialConfig.blurRootView)
+                    setBackgroundVisible(visible = true, animated = false)
+                }
             if (backgroundView.parent != null) {
                 addView(blurryBackgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
                 if (isPlaying) {

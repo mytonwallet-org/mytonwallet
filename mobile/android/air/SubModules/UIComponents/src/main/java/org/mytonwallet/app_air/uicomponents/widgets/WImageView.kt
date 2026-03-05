@@ -60,21 +60,6 @@ class WImageView(
         setController(draweeController)
     }
 
-    fun crossFadeImage(newDrawable: Drawable) {
-        val fadeOut = ObjectAnimator.ofFloat(this, "alpha", 1f, 0f)
-        fadeOut.duration = if (drawable == null) 0 else AnimationConstants.VERY_QUICK_ANIMATION / 2
-        val fadeIn = ObjectAnimator.ofFloat(this, "alpha", 0f, 1f)
-        fadeIn.duration = AnimationConstants.VERY_QUICK_ANIMATION / 2
-
-        fadeOut.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                setImageDrawable(newDrawable)
-                fadeIn.start()
-            }
-        })
-        fadeOut.start()
-    }
-
     override fun updateTheme() {
         if (!isInitialized || bWidth > 0) {
             if (cornerRadius > 0 || circleRadius || bWidth > 0) {

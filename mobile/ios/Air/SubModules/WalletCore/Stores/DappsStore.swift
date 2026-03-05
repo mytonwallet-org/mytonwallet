@@ -4,7 +4,7 @@ import WalletContext
 
 public let DappsStore = _DappsStore.shared
 
-public final class _DappsStore {
+public final class _DappsStore: Sendable {
     
     public static let shared = _DappsStore()
     

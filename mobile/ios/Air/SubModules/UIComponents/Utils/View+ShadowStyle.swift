@@ -1,6 +1,6 @@
 import SwiftUI
 
-public struct ViewShadowStyle {
+public struct ViewShadowStyle: Sendable {
     public let color: Color
     public let blurRadius: CGFloat
     public let offset: CGVector

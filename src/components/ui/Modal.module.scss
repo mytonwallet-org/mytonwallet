@@ -312,10 +312,7 @@
     color: var(--color-text) !important;
   }
 
-  &:active {
-    // Optimization
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 
   :global(html.animation-level-0) & {
     transition: var(--no-animation-transition) !important;
@@ -360,10 +357,7 @@
     background-color: var(--color-close-button-background-hover) !important;
   }
 
-  &:active {
-    // Optimization
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 
   :global(html.animation-level-0) & {
     transition: var(--no-animation-transition) !important;

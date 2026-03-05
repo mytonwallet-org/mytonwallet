@@ -3,7 +3,7 @@ import WalletContext
 
 private let log = Log("WalletConnect")
 
-public final class WalletConnect {
+@MainActor public final class WalletConnect {
     public static let shared = WalletConnect()
 
     private init() {}

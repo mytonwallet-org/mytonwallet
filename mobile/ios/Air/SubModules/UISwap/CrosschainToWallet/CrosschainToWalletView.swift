@@ -168,7 +168,9 @@ struct CrosschainToWalletView: View {
         if let image = sellingToken.image?.nilIfEmpty, let url = URL(string: image) {
             UIImage.downloadImage(url: url) { img in
                 if let img {
-                    shareIt(image: img)
+                    Task { @MainActor in
+                        shareIt(image: img)
+                    }
                 }
             }
         } else {

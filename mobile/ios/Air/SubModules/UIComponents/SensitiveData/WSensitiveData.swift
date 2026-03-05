@@ -6,7 +6,7 @@ import WalletContext
 import Dependencies
 import Perception
 
-public final class WSensitiveData<Content: UIView>: WTouchPassView, WSensitiveDataProtocol {
+public final class WSensitiveData<Content: UIView>: WTouchPassView {
     
     public enum Alignment {
         case leading
@@ -26,6 +26,7 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView, WSensitiveDa
     private let _alignment: Alignment
     
     private var _isDisabled: Bool = false
+    private nonisolated(unsafe) var observationToken: NSObjectProtocol?
 
     public init(cols: Int, rows: Int, cellSize: CGFloat, cornerRadius: CGFloat, theme: ShyMask.Theme, alignment: Alignment) {
         self._cols = cols
@@ -40,8 +41,23 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView, WSensitiveDa
         setupMaskIfNeeded(isSensitiveDataHidden: false)
         setupContainer()
         updateSensitiveData()
+        
+        observationToken = NotificationCenter.default.addObserver(
+            forName: .updateSensitiveData,
+            object: nil,
+            queue: .main,
+            using: { [weak self]  _ in
+                MainActor.assumeIsolated {
+                    self?.updateSensitiveData()
+                }
+            }
+        )
     }
-
+    
+    deinit {
+        observationToken.map { NotificationCenter.default.removeObserver($0) }
+    }
+    
     private func setupMaskIfNeeded(isSensitiveDataHidden: Bool) {
         if !isSensitiveDataHidden || self.shyMask != nil { return }
         let shyMask = ShyMask(cols: _cols, rows: _rows, cellSize: _cellSize, theme: _theme)
@@ -90,6 +106,7 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView, WSensitiveDa
     }
 
     public func addContent(_ content: Content) {
+        assert(!content.translatesAutoresizingMaskIntoConstraints)
         self.content = content
         contentContainer.addSubview(content)
         NSLayoutConstraint.activate([
@@ -105,7 +122,7 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView, WSensitiveDa
         fatalError("init(coder:) has not been implemented")
     }
     
-    public func updateSensitiveData() {
+    private func updateSensitiveData() {
         let isSensitiveDataHidden = isDisabled == false && AppStorageHelper.isSensitiveDataHidden
         setupMaskIfNeeded(isSensitiveDataHidden: isSensitiveDataHidden)
         if isSensitiveDataHidden {
@@ -123,6 +140,24 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView, WSensitiveDa
         }
     }
     
+    /// This must have been the `sizeThatFits` implementation but to avoid any involved layout breakdown for existing consumers, let's create a new method.
+    /// - Note: in hidden mode the width returned is the mask one!
+    public func contentSizeThatFits(_ size: CGSize) -> CGSize {
+        var result = content?.sizeThatFits(size)
+        
+        let isSensitiveDataHidden = isDisabled == false && AppStorageHelper.isSensitiveDataHidden
+        if isSensitiveDataHidden {
+            let maskSize = CGSize(width: CGFloat(_cols) * _cellSize, height: CGFloat(_rows) * _cellSize)
+            if result == nil {
+                result = maskSize
+            } else {
+                result?.width = maskSize.width
+            }
+        }
+        
+        return result ?? .zero
+    }
+    
     public func setCols(_ newCols: Int) {
         self._cols = newCols
         shyMask?.setCols(newCols)
@@ -138,6 +173,12 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView, WSensitiveDa
         shyMask?.addGestureRecognizer(g)
     }
     
+    public func performTap() {
+        if !isDisabled && isTapToRevealEnabled && shyMask != nil {
+            onMaskTap()
+        }
+    }
+    
     @objc private func onMaskTap() {
         AppActions.setSensitiveDataIsHidden(false)
     }
@@ -145,8 +186,10 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView, WSensitiveDa
     public var isDisabled: Bool {
         get { _isDisabled }
         set {
-            _isDisabled = newValue
-            updateSensitiveData()
+            if _isDisabled != newValue {
+                _isDisabled = newValue
+                updateSensitiveData()
+            }
         }
     }
     

@@ -29,10 +29,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     private var isExpandedSplitLayout: Bool {
         splitViewController?.isCollapsed == false
     }
-    
-    var windowSafeAreaGuide = UILayoutGuide()
-    private var windowSafeAreaGuideContraint: NSLayoutConstraint!
-    
+        
     @Dependency(\.accountStore.currentAccountId) private var currentAccountId
     @Dependency(\.accountStore.orderedAccountIds) private var orderedAccountIds
     
@@ -44,13 +41,10 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         }
     }
     
-    public override func loadView() {
-        super.loadView()
-        setupViews()
-    }
-    
     public override func viewDidLoad() {
         super.viewDidLoad()
+
+        setupViews()
         WalletCoreData.add(eventObserver: self)
     }
     
@@ -63,6 +57,9 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     
     // MARK: - Setup settings
     func setupViews() {
+        view.backgroundColor = WTheme.groupedBackground
+        
+        settingsHeaderView = SettingsHeaderView()
         
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             addNavigationBar()
@@ -72,15 +69,17 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             navigationItem.leftBarButtonItem = UIBarButtonItem(
                 title: lang("Receive"),
                 image: UIImage.airBundle("QRIcon").withRenderingMode(.alwaysTemplate),
-                primaryAction: UIAction { _ in
-                    AppActions.showReceive(chain: nil, title: lang("Your Address"))
-                }
+                primaryAction: UIAction { [weak self] _ in self?.showReceiveWithQR() }
             )
+            navigationItem.rightBarButtonItem = UIBarButtonItem(
+                title: lang("More"),
+                image: UIImage(systemName: "ellipsis")?.withRenderingMode(.alwaysTemplate),
+                menu: makeMoreMenu()
+            )
+            navigationItem.titleView = settingsHeaderView.headerTouchTarget
+        } else {
+            additionalSafeAreaInsets = UIEdgeInsets(top: settingsHeaderView.layoutGeometry.legacyNavBarHeight, left: 0, bottom: 0, right: 0)
         }
-        
-        view.addLayoutGuide(windowSafeAreaGuide)
-        windowSafeAreaGuideContraint = windowSafeAreaGuide.topAnchor.constraint(equalTo: view.topAnchor, constant: 0)
-        windowSafeAreaGuideContraint.isActive = true
         
         var _configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         _configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
@@ -101,12 +100,13 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         _configuration.separatorConfiguration.bottomSeparatorInsets.leading = 62
         _configuration.headerMode = .none
         
+        let topSectionInset = settingsHeaderView.layoutGeometry.topSectionInset
         let layout = UICollectionViewCompositionalLayout(sectionProvider: { [weak self] sectionIdx, env in
             var configuration = _configuration
             configuration.footerMode = sectionIdx + 1 == self?.collectionView.numberOfSections ? .supplementary : .none
             let section = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: env)
-            section.contentInsets.top = 0
-            section.contentInsets.bottom = 24
+            section.contentInsets.top = sectionIdx == 0 ? topSectionInset : 0
+            section.contentInsets.bottom = 16
             return section
         })
         
@@ -117,7 +117,9 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         collectionView.delegate = self
         collectionView.delaysContentTouches = false
         collectionView.allowsSelection = true
-        
+        collectionView.contentInset.top = settingsHeaderView.layoutGeometry.scrollTopContentInset
+        collectionView.backgroundColor = WTheme.groupedBackground
+
         let listCellRegistration = AccountListCell.makeRegistration()
         
         dataSource = UICollectionViewDiffableDataSource<Section, Row>(collectionView: collectionView) { [weak self] (tableView, indexPath, itemIdentifier) -> UICollectionViewCell? in
@@ -160,10 +162,9 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         ])
         
         // Add header view
-        settingsHeaderView = SettingsHeaderView(vc: self)
-        settingsHeaderView.config()
         view.addSubview(settingsHeaderView)
-        settingsHeaderView.setupViews(settingsVC: self)
+        settingsHeaderView.setupViews(moreMenu: makeMoreMenu())
+        settingsHeaderView.delegate = self
         NSLayoutConstraint.activate([
             settingsHeaderView.topAnchor.constraint(equalTo: view.topAnchor),
             settingsHeaderView.leftAnchor.constraint(equalTo: view.leftAnchor),
@@ -172,30 +173,9 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
                 
         addBottomBarBlur()
         
-        updateTheme()
+        collectionView.reloadData()
     }
-    
-    public override func updateTheme() {
-        if !pauseReloadData {
-            view.backgroundColor = WTheme.groupedBackground
-            collectionView.backgroundColor = WTheme.groupedBackground
-            collectionView.reloadData()
-        }
-    }
-    
-    public override func viewIsAppearing(_ animated: Bool) {
-        super.viewIsAppearing(animated)
-        if let window = view.window {
-            windowSafeAreaGuideContraint.constant = window.safeAreaInsets.top
-            if IOS_26_MODE_ENABLED {
-                collectionView.contentInset.top = defaultHeight - window.safeAreaInsets.top
-            } else {
-                collectionView.contentInset.top = defaultHeight
-            }
-            
-        }
-    }
-    
+        
     public override func scrollToTop(animated: Bool) {
         collectionView?.setContentOffset(CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: animated)
     }
@@ -248,10 +228,8 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         case .about:
             let vc = AboutVC(showLegalSection: true)
             navigationController?.pushViewController(vc, animated: true)
-        case .signout:
-            if let accountId = AccountStore.accountId {
-                signoutPressed(removingAccountId: accountId, callback: { _ in })
-            }
+        case .useResponsibly:
+            navigationController?.pushViewController(UseResponsiblyVC(), animated: true)
         }
     }
     
@@ -285,6 +263,26 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         }
     }
     
+    private func showReceiveWithQR() {
+        AppActions.showReceive(chain: nil, title: lang("Your Address"))
+    }
+    
+    private func removeWalllet() {
+        if let accountId = AccountStore.accountId {
+            signoutPressed(removingAccountId: accountId, callback: { _ in })
+        }
+    }
+    
+    private func makeMoreMenu() -> UIMenu {
+        var items: [UIMenuElement] = []
+        
+        items += UIAction(title: lang("Remove Wallet"), image: UIImage(systemName: "trash"), attributes: .destructive) { [weak self] _ in
+            self?.removeWalllet()
+        }
+                    
+        return UIMenu(title: "", children: items)
+    }
+    
     // MARK: Data source
     
     func makeSnapshot() -> NSDiffableDataSourceSnapshot<SettingsVC.Section, SettingsVC.Row> {
@@ -307,36 +305,35 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             snapshot.appendItems([.addAccount])
         }
         
+        // General section
         snapshot.appendSections([.general])
-        snapshot.appendItems([.notifications])
         snapshot.appendItems([.appearance])
-        snapshot.appendItems([.assetsAndActivity])
-        snapshot.appendItems([.language])
-
-        snapshot.appendSections([.walletData])
         if AuthSupport.accountsSupportAppLock {
             snapshot.appendItems([.security])
+        }
+        snapshot.appendItems([.assetsAndActivity])
+        if let count = AccountStore.walletVersionsData?.versions.count, count > 0 {
+            snapshot.appendItems([.walletVersions])
         }
         if let count = DappsStore.dappsCount, count > 0 {
             snapshot.appendItems([.connectedApps])
         }
-        if let count = AccountStore.walletVersionsData?.versions.count, count > 0 {
-            snapshot.appendItems([.walletVersions])
-        }
-        
+        snapshot.appendItems([.notifications])
+        snapshot.appendItems([.language])
+
+        // Questions and answers
         snapshot.appendSections([.questionAndAnswers])
-        snapshot.appendItems([.tips])
-        snapshot.appendItems([.helpCenter])
         if ConfigStore.shared.config?.supportAccountsCount ?? 1 > 0 {
             snapshot.appendItems([.support])
         }
-        
+        snapshot.appendItems([.helpCenter])
+        snapshot.appendItems([.tips])
+        snapshot.appendItems([.useResponsibly])
+
+        // About
         snapshot.appendSections([.about])
         snapshot.appendItems([.about])
-        
-        snapshot.appendSections([.signout])
-        snapshot.appendItems([.signout])
-        
+                
         return snapshot
     }
     
@@ -375,8 +372,8 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     
     // scroll delegation
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        if collectionView.contentSize.height + view.safeAreaInsets.top + view.safeAreaInsets.bottom > collectionView.frame.height {
-            let requiredInset: CGFloat = max(16.0, collectionView.frame.height + 56.0 - collectionView.contentSize.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom)
+        if collectionView.contentSize.height + view.safeAreaInsets.vertical > collectionView.frame.height {
+            let requiredInset: CGFloat = max(16.0, collectionView.frame.height + 56.0 - collectionView.contentSize.height - view.safeAreaInsets.vertical)
             collectionView.contentInset.bottom = requiredInset
         }
     }
@@ -390,15 +387,20 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
                                           targetContentOffset: UnsafeMutablePointer<CGPoint>) {
         let topInset = collectionView.adjustedContentInset.top
         let realTargetY = targetContentOffset.pointee.y + topInset
+        let lg = settingsHeaderView.layoutGeometry
+        let fullScrollRange = lg.fullScrollRange
+        
         // snap to views
-        if realTargetY > 0 && collectionView.contentSize.height + view.safeAreaInsets.top + view.safeAreaInsets.bottom > collectionView.frame.height {
-            if realTargetY < 162 {
-                let isGoingDown = targetContentOffset.pointee.y > scrollView.contentOffset.y
-                let isStopped = abs(velocity.y) < 5
-                if isGoingDown || (isStopped && realTargetY >= 85) {
-                    targetContentOffset.pointee.y = 162 - topInset
+        if realTargetY > 0 && collectionView.contentSize.height + view.safeAreaInsets.vertical > collectionView.frame.height {
+            if realTargetY < fullScrollRange {
+                var isGoingDown = targetContentOffset.pointee.y > scrollView.contentOffset.y
+                if abs(velocity.y) < 5 {
+                    isGoingDown = realTargetY < fullScrollRange * lg.collapseThreshold
+                }
+                if isGoingDown {
+                    targetContentOffset.pointee.y = -topInset
                 } else {
-                    targetContentOffset.pointee.y = 0 - topInset
+                    targetContentOffset.pointee.y = fullScrollRange - topInset
                 }
             }
         }
@@ -422,18 +424,18 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
                 configHeader()
 
             case .balanceChanged:
-                updateDescriptionLabel()
+                updateHeaderBalance()
 
             case .notActiveAccountBalanceChanged:
                 reloadData(animated: true)
 
             case .baseCurrencyChanged(to: _), .tokensChanged:
-                updateDescriptionLabel()
+                updateHeaderBalance()
                 reloadData(animated: true)
                 
             case .stakingAccountData(let data):
                 if data.accountId == AccountStore.accountId {
-                    updateDescriptionLabel()
+                    updateHeaderBalance()
                     reloadData(animated: true)
                 }
 
@@ -455,9 +457,9 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         }
     }
     
-    private func updateDescriptionLabel() {
+    private func updateHeaderBalance() {
         if !pauseReloadData {
-            settingsHeaderView?.updateDescriptionLabel()
+            settingsHeaderView?.updateBalance()
         }
     }
     
@@ -473,5 +475,11 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
                 dataSource.apply(snapshot, animatingDifferences: false)
             }
         }
+    }
+}
+
+ extension SettingsVC: @MainActor SettingsHeaderViewDelegate {
+    func settingsHeaderViewDidTapQRCodeButton() {
+        showReceiveWithQR()
     }
 }

@@ -14,11 +14,10 @@ import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.Settin
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsSection
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.views.SettingsHeaderView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
 
 class SettingsVM {
@@ -39,37 +38,7 @@ class SettingsVM {
         SettingsSection(
             section = SettingsSection.Section.HELP,
             title = LocaleController.getString("Help"),
-            children = listOf(
-                SettingsItem(
-                    identifier = SettingsItem.Identifier.ASK_A_QUESTION,
-                    icon = R.drawable.ic_ask_question,
-                    title = LocaleController.getString("Get Support"),
-                    value = "@mysupport",
-                    hasTintColor = false
-                ),
-                SettingsItem(
-                    identifier = SettingsItem.Identifier.HELP_CENTER,
-                    icon = R.drawable.ic_help_center,
-                    title = LocaleController.getString("Help Center"),
-                    hasTintColor = false
-                ),
-                SettingsItem(
-                    identifier = SettingsItem.Identifier.MTW_FEATURES,
-                    icon = R.drawable.ic_features,
-                    title = LocaleController.getStringWithKeyValues(
-                        "%app_name% Features", listOf(
-                            Pair("%app_name%", "MyTonWallet")
-                        )
-                    ),
-                    hasTintColor = false
-                ),
-                SettingsItem(
-                    identifier = SettingsItem.Identifier.USE_RESPONSIBILITY,
-                    icon = R.drawable.ic_responsibility,
-                    title = LocaleController.getString("Use Responsibly"),
-                    hasTintColor = false
-                ),
-            )
+            children = emptyList(),
         ),
         SettingsSection(
             section = SettingsSection.Section.ABOUT,
@@ -246,6 +215,54 @@ class SettingsVM {
         )
 
         settingsSections[walletConfigSectionIndex].children = items
+    }
+
+    private val askAQuestionItem = SettingsItem(
+        identifier = SettingsItem.Identifier.ASK_A_QUESTION,
+        icon = R.drawable.ic_ask_question,
+        title = LocaleController.getString("Get Support"),
+        value = "@mysupport",
+        hasTintColor = false
+    )
+    private val helpSectionStaticItems = listOf(
+        SettingsItem(
+            identifier = SettingsItem.Identifier.HELP_CENTER,
+            icon = R.drawable.ic_help_center,
+            title = LocaleController.getString("Help Center"),
+            hasTintColor = false
+        ),
+        SettingsItem(
+            identifier = SettingsItem.Identifier.MTW_FEATURES,
+            icon = R.drawable.ic_features,
+            title = LocaleController.getStringWithKeyValues(
+                "%app_name% Features", listOf(
+                    Pair("%app_name%", "MyTonWallet")
+                )
+            ),
+            hasTintColor = false
+        ),
+        SettingsItem(
+            identifier = SettingsItem.Identifier.USE_RESPONSIBILITY,
+            icon = R.drawable.ic_responsibility,
+            title = LocaleController.getString("Use Responsibly"),
+            hasTintColor = false
+        ),
+    )
+
+    fun updateHelpSection(): Boolean {
+        val helpSectionIndex =
+            settingsSections.indexOfFirst { it.section == SettingsSection.Section.HELP }
+        if (helpSectionIndex == -1) return true
+
+        val dynamicItems = if ((ConfigStore.supportAccountsCount ?: 0.0) > 0) listOf(
+            askAQuestionItem
+        ) else listOf()
+        val newChildren = dynamicItems + helpSectionStaticItems
+
+        if (settingsSections[helpSectionIndex].children.map { it.identifier } == newChildren.map { it.identifier })
+            return false
+        settingsSections[helpSectionIndex].children = newChildren
+        return true
     }
 
     fun contentHeight(): Int {

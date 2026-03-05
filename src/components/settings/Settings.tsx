@@ -421,7 +421,7 @@ function Settings({
           className={buildClassName(styles.content, 'custom-scroll', styles.withBottomSpace)}
           onScroll={handleContentScroll}
         >
-          {IS_CAPACITOR && (
+          {isPortrait && IS_CAPACITOR && (
             <SettingsWallets
               currentWalletRef={currentWalletRef}
               onAddAccount={handleCloseSettings}

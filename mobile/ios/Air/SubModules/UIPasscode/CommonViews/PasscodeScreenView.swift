@@ -10,6 +10,8 @@ import UIComponents
 import WalletCore
 import WalletContext
 
+private let passcodeLength = 4
+
 protocol PasscodeScreenViewDelegate: PasscodeInputViewDelegate {
     @MainActor func animateSuccess()
     func onAuthenticated(taskDone: Bool, passcode: String)
@@ -192,7 +194,7 @@ public class PasscodeScreenView: UIView {
         passcodeInputView = PasscodeInputView(delegate: delegate,
                                               theme: matchHeaderColors && WTheme.unlockScreen.background != .label ? WTheme.unlockPasscodeInput : WTheme.unlockTaskPasscodeInput)
         passcodeInputView.isUserInteractionEnabled = false
-        passcodeInputView.setCirclesCount(to: KeychainHelper.passcodeLength())
+        passcodeInputView.setCirclesCount(to: passcodeLength)
         unlockView.addArrangedSubview(passcodeInputView)
 
         // gap

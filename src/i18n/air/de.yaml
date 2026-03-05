@@ -66,6 +66,8 @@ M: M
 3M: 3M
 Y: J
 No price data: Keine Preisdaten
+$amount_K: "%amount%K"
+$amount_M: "%amount%M"
 Happening Now: Aktuell im Trend
 No Dapps Found!: Keine dApp gefunden!
 Open: Öffnen

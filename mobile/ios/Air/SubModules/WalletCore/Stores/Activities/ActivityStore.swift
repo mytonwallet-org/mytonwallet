@@ -37,7 +37,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
          */
         var isInitialLoadedByChain: [String: Bool]?
 
-        static var databaseTableName: String = "account_activities"
+        static let databaseTableName: String = "account_activities"
     }
     
     private var byAccountId: [String: AccountState] = [:]
@@ -766,6 +766,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
     
     private func notifyAboutNewActivities(accountId: String, newActivities: [ApiActivity]) {
+        var shouldPlayChime = false
         for activity in newActivities {
             if !activity.isConfirmedOrCompleted {
                 continue
@@ -777,17 +778,24 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
                    !(AppStorageHelper.hideTinyTransfers && activity.isTinyOrScamTransaction),
                    !getPoisoningCache(accountId).isTransactionWithPoisoning(transaction: tx),
                    AppStorageHelper.sounds,
-                   WalletContextManager.delegate?.isAppUnlocked == true,
                    !notifiedIds.contains(activity.id)
                 {
                     log.info("notifying about tx: \(activity.id, .public)")
-                    AudioHelpers.play(sound: .incomingTransaction)
+                    shouldPlayChime = true
                     break
                 }
             case .swap:
                 break
             }
             notifiedIds.insert(activity.id)
+        }
+        if shouldPlayChime {
+            Task {
+                let isAppUnlocked = await WalletContextManager.delegate?.isAppUnlocked == true
+                if isAppUnlocked {
+                    await AudioHelpers.play(sound: .incomingTransaction)
+                }
+            }
         }
     }
 }

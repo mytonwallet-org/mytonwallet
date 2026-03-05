@@ -130,9 +130,7 @@
 
   font-size: 0.9375rem;
 
-  &:active {
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 
   &:hover,
   &:focus-visible {
@@ -231,10 +229,7 @@
     color: var(--color-red);
   }
 
-  &:active {
-    // Optimization
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 }
 
 .savedAddressDeleteIcon {

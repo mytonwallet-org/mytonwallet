@@ -114,7 +114,7 @@ struct DappFolderView: View {
 extension DappFolderView {
     private struct DappImageView: View {
         let iconURL: String
-        let onTap: () -> Void
+        let onTap: @MainActor () -> Void
 
         private let cornerRadius: Double = 18
 
@@ -136,7 +136,7 @@ extension DappFolderView {
         let firstIconURL: String
         let secondIconURL: String
         let restIconURLs: [String]
-        let onTap: () -> Void
+        let onTap: @MainActor () -> Void
 
         private let interItemSpacing: Double = 6
         @State private var isHighlighted: Bool = false

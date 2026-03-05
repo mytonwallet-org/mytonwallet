@@ -20,7 +20,6 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
-  selectIsMultichainAccount,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
@@ -64,7 +63,6 @@ type StateProps = GlobalState['currentStaking'] & {
   baseCurrency: ApiBaseCurrency;
   isNominators?: boolean;
   theme: Theme;
-  isMultichainAccount: boolean;
   stakingState?: ApiStakingState;
   isSensitiveDataHidden?: true;
 };
@@ -87,7 +85,6 @@ function UnstakeModal({
   tokens,
   baseCurrency,
   isNominators,
-  isMultichainAccount,
   theme,
   amount,
   stakingState,
@@ -191,7 +188,7 @@ function UnstakeModal({
     return (
       <TransactionBanner
         tokenIn={token}
-        withChainIcon={isMultichainAccount}
+        withChainIcon
         color="green"
         text={formatCurrency(toDecimal(unstakeAmount, token.decimals), token.symbol)}
         className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
@@ -459,7 +456,6 @@ export default memo(withGlobal((global): StateProps => {
   const accountId = selectCurrentAccountId(global)!;
   const tokens = selectCurrentAccountTokens(global);
   const { baseCurrency = DEFAULT_PRICE_CURRENCY, isSensitiveDataHidden } = global.settings;
-  const isMultichainAccount = selectIsMultichainAccount(global, accountId);
   const stakingState = selectAccountStakingState(global, accountId);
   const isNominators = stakingState?.type === 'nominators';
 
@@ -469,7 +465,6 @@ export default memo(withGlobal((global): StateProps => {
     baseCurrency,
     isNominators,
     theme: global.settings.theme,
-    isMultichainAccount,
     stakingState,
     isSensitiveDataHidden,
     isViewMode: selectIsCurrentAccountViewMode(global),

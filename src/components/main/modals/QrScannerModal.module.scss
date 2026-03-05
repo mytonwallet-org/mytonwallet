@@ -1,3 +1,5 @@
+@use "../../../styles/mixins";
+
 .title {
   position: absolute;
   z-index: 1;
@@ -107,10 +109,7 @@
     background-color: var(--color-flashlight-button-enabled-background) !important;
   }
 
-  &:active {
-    // Optimization
-    transition: none;
-  }
+  @include mixins.active-transition-optimization();
 
   :global(html.animation-level-0) & {
     transition: var(--no-animation-transition) !important;

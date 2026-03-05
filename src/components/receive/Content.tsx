@@ -99,7 +99,7 @@ function Content({
       <Transition
         key={`content_${lang.code}`}
         activeKey={activeTab}
-        name={isPortrait ? 'slide' : 'slideFade'}
+        name={isPortrait ? 'slide' : 'semiFade'}
         className={styles.contentWrapper}
         slideClassName={buildClassName(styles.content, isStatic && styles.contentStatic, 'custom-scroll')}
         shouldRestoreHeight={isStatic}

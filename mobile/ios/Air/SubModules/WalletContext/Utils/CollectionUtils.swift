@@ -29,4 +29,19 @@ extension Collection {
     public func apply<T>(_ function: (Self) -> T) -> T {
         function(self)
     }
+    
+    @inlinable
+    public func partition(_ predicate: (Element) throws -> Bool) rethrows -> (matches: [Element], nonMatches: [Element]) {
+      var groupA: [Element] = []
+      var groupB: [Element] = []
+      
+      for element in self {
+        switch try predicate(element) {
+        case true: groupA.append(element)
+        case false: groupB.append(element)
+        }
+      }
+      
+      return (groupA, groupB)
+    }
 }

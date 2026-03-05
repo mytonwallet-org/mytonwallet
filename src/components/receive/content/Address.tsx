@@ -35,17 +35,15 @@ function Address({
   const { verifyHardwareAddress } = getActions();
 
   const lang = useLang();
-  const { qrCodeRef, isInitialized } = useQrCode({
+  const { qrCodeRef } = useQrCode({
     address,
     chain,
     isActive,
-    hiddenClassName: styles.qrCodeHidden,
     preferUrl: true,
   });
   const qrClassNames = buildClassName(
     styles.qrCode,
     isStatic && styles.qrCodeStatic,
-    !isInitialized && styles.qrCodeHidden,
   );
 
   const handleVerify = (e: React.MouseEvent<HTMLAnchorElement>) => {

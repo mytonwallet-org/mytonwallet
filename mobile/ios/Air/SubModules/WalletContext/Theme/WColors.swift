@@ -45,9 +45,7 @@ public func closestAccentColor(for color: UIColor) -> UIColor {
     ACCENT_COLORS.min(by: { $0.distance(to: color) < $1.distance(to: color) })!
 }
 
-public struct _WColorsType {
-    
-    var primary: UIColor
+public struct _WColorsType: Sendable {
     
     public let background: UIColor = .airBundle("BackgroundColor")
     
@@ -65,7 +63,7 @@ public struct _WColorsType {
     let secondaryFill: UIColor = .airBundle("SecondaryFillColor")
     public let folderFill: UIColor = .airBundle("FolderFillColor")
     
-    let separator: UIColor = .airBundle("AirSeparatorColor")
+    public let separator: UIColor = .airBundle("AirSeparatorColor")
     let separatorDarkBackground: UIColor = .airBundle("AirSeparatorDarkBackgroundColor")
     
     let headerBackground: UIColor = .airBundle("HeaderBackgroundColor")
@@ -114,12 +112,11 @@ public struct _WColorsType {
         UIColor.airBundle("PurpleGradient1"),
     ]
     
-    init(primary: UIColor) {
-        self.primary = primary
+    init() {
     }
 }
 
-public var WColors: _WColorsType = _WColorsType(primary: .airBundle("TC1_PrimaryColor"))
+public let WColors: _WColorsType = _WColorsType()
 
 public extension UIColor {
     static var air: _WColorsType { WColors }
@@ -127,7 +124,7 @@ public extension UIColor {
 
 
 public extension Color {
-    struct Air {
+    struct Air: Sendable {
         public let checkmarkDisabled: Color = .airBundle("CheckmarkDisabledColor")
         public let menuSeparator: Color = .airBundle("MenuSeparator")
         public let menuWideSeparator: Color = .airBundle("MenuWideSeparator")
@@ -143,7 +140,9 @@ public extension Color {
         public let secondaryFill: Color = .airBundle("SecondaryFillColor")
         public let error: Color = .red
         public let folderFill: Color = .airBundle("FolderFillColor")
-      
+        public let separator: Color = .airBundle("AirSeparatorColor")
+        public let buttonBackground: Color = .airBundle("ButtonBackground")
+        
         public var tint: Color { Color(WTheme.tint) }
     }
     

@@ -8,6 +8,7 @@ import type { UserSwapToken, UserToken } from '../../global/types';
 import buildClassName from '../../util/buildClassName';
 import { unique } from '../../util/iteratees';
 import getChainNetworkIcon from '../../util/swap/getChainNetworkIcon';
+import { getIsNativeToken } from '../../util/tokens';
 
 import useLang from '../../hooks/useLang';
 
@@ -61,7 +62,7 @@ function TransactionBanner({
         {imageUrls.map((image) => (
           <img src={image} alt="" key={image} className={styles.image} />
         ))}
-        {withChainIcon && tokenIn?.chain && (
+        {withChainIcon && tokenIn?.chain && tokenIn.slug && !getIsNativeToken(tokenIn.slug) && (
           <img
             src={getChainNetworkIcon(tokenIn.chain)}
             alt=""

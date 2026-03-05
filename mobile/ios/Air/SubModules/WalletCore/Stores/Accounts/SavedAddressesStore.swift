@@ -4,12 +4,12 @@ import Perception
 import WalletContext
 
 @Perceptible
-public final class SavedAddressesStore {
+public final class SavedAddressesStore: Sendable {
     
-    private var _byAccountId: UnfairLock<[String: SavedAddresses]> = .init(initialState: [:])
+    private let _byAccountId: UnfairLock<[String: SavedAddresses]> = .init(initialState: [:])
     
     public func `for`(accountId: String) -> SavedAddresses {
-        access(keyPath: \.__byAccountId)
+        access(keyPath: \._byAccountId)
         return _byAccountId.withLock { _byAccountId in
             if let settings = _byAccountId[accountId] {
                 return settings
@@ -32,7 +32,7 @@ extension DependencyValues {
 }
 
 @Perceptible
-public final class SavedAddresses {
+public final class SavedAddresses: Sendable {
     
     public let accountId: String
     

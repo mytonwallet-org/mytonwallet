@@ -6,7 +6,7 @@ import WalletContext
 
 private let log = Log("Home-Actions")
 
-let actionsRowHeight = WScalableButton.preferredHeight
+@MainActor let actionsRowHeight = WScalableButton.preferredHeight
 
 final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     
@@ -102,7 +102,6 @@ final class ActionsView: ButtonsToolbar {
     init() {
         super.init(frame: .zero)
         setup() 
-        updateTheme()
     }
     
     required init(coder: NSCoder) {

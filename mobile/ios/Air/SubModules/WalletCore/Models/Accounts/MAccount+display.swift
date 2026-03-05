@@ -64,6 +64,57 @@ public extension MAccount {
         public var testnetImage: Image {
             Image.airBundle("inline_testnet")
         }
+
+        /// Builds NSAttributedString similar to `MtwCardAddressLine` (list style)
+        public func attributedString(font: UIFont, color: UIColor) -> NSAttributedString {
+            let result = NSMutableAttributedString()
+            let iconSize: CGFloat = font.pointSize
+            let singleChainCount = 6
+            let multiChainEndCount = 6
+            let itemsCount = items.count
+
+            let attributes: [NSAttributedString.Key : Any] = [.font: font, .foregroundColor: color]
+            let space = NSAttributedString(string: " ", attributes: attributes)
+
+            func appendIcon(_ name: String) {
+                guard let image = UIImage(named: name, in: AirBundle, compatibleWith: nil) else { return }
+                let scaled = image.resizedToFit(size: CGSize(width: iconSize, height: iconSize))
+                let attachment = NSTextAttachment()
+                attachment.image = scaled.withTintColor(color, renderingMode: .alwaysOriginal)
+                attachment.bounds = CGRect(x: 0, y: (font.capHeight - iconSize) / 2, width: iconSize, height: iconSize)
+                result.append(NSAttributedString(attachment: attachment))
+            }
+
+            if isTestnet {
+                appendIcon("inline_testnet")
+                result.append(space)
+            }
+            if let leadingIcon {
+                switch leadingIcon {
+                case .ledger: appendIcon("inline_ledger")
+                case .view: appendIcon("inline_view")
+                }
+                result.append(space)
+            }
+
+            for (idx, item) in items.enumerated() {
+                if idx > 0 {
+                    result.append(NSAttributedString(string: ", ", attributes: attributes))
+                }
+                appendIcon("inline_chain_\(item.chain.rawValue)")
+                let text: String
+                if item.isDomain {
+                    text = item.text
+                } else {
+                    text = formatStartEndAddress(item.text,
+                                                 prefix: itemsCount == 1 ? singleChainCount : 0,
+                                                 suffix: itemsCount == 1 ? singleChainCount : multiChainEndCount)
+                }
+                result.append(NSAttributedString(string: text, attributes: attributes))
+            }
+
+            return result
+        }
     }
     
     var addressLine: AddressLine {

@@ -3,6 +3,8 @@ import type { AccountChain } from '../../types';
 
 import {
   DEFAULT_STAKING_STATE,
+  IS_AIR_APP,
+  IS_CAPACITOR,
   IS_CORE_WALLET,
   MTW_CARDS_COLLECTION,
   STAKING_SLUG_PREFIX,
@@ -318,9 +320,16 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         supportAccountsCount,
         countryCode,
         isAppUpdateRequired,
+        shouldAutoSwitchToAir,
         swapVersion,
         seasonalTheme,
       } = update;
+
+      if (shouldAutoSwitchToAir && IS_CAPACITOR && !IS_AIR_APP && global.settings.hasOpenedAir !== true) {
+        global = updateSettings(global, {
+          shouldAutoSwitchToAirOnNextStart: true,
+        });
+      }
 
       const shouldRestrictSwapsAndOnOffRamp = (IS_IOS_APP && isLimitedRegion) || IS_CORE_WALLET;
       global = updateRestrictions(global, {

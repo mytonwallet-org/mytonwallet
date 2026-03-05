@@ -134,6 +134,7 @@ export enum AppState {
   Settings,
   Ledger,
   Inactive,
+  Empty,
 }
 
 export enum AuthState {
@@ -831,6 +832,8 @@ export type GlobalState = {
     isTestnet?: boolean;
     isSecurityWarningHidden?: boolean;
     areTokensWithNoCostHidden: boolean;
+    hasOpenedAir?: boolean;
+    shouldAutoSwitchToAirOnNextStart?: boolean;
     importToken?: {
       isLoading?: boolean;
       token?: UserToken | UserSwapToken;

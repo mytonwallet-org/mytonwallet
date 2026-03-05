@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct MPair: Equatable, Hashable, Codable {
+public struct MPair: Equatable, Hashable, Codable, Sendable {
 
     public let symbol: String
     public let slug: String
