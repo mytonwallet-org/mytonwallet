@@ -23,6 +23,7 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
 
   methods.initAccounts(onUpdate);
   methods.initAuth(onUpdate);
+  methods.initWallet(onUpdate);
   methods.initPolling(onUpdate);
   methods.initTransfer(onUpdate);
   methods.initTokens(onUpdate);

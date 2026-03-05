@@ -314,7 +314,7 @@ export async function upgradeMultichainAccounts(password: string) {
     }
 
     const { network } = parseAccountId(accountId);
-    const solanaWallet = await chains.solana.getWalletFromBip39Mnemonic(network, mnemonic);
+    const solanaWallet = await (chains.solana.getWalletFromBip39Mnemonic as any)(network, mnemonic, true);
     const currentAccount = await fetchStoredAccount<ApiBip39Account>(accountId);
 
     if (currentAccount.type !== 'bip39' || currentAccount.byChain.solana) {

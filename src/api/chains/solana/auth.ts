@@ -84,8 +84,12 @@ export async function fetchPrivateKeyString(accountId: string, password: string,
   }
 }
 
-export async function getWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]): Promise<ApiSolanaWallet> {
-  const raw = await getRawWalletFromBip39Mnemonic(network, mnemonic);
+export async function getWalletFromBip39Mnemonic(
+  network: ApiNetwork,
+  mnemonic: string[],
+  isMigration?: boolean,
+): Promise<ApiSolanaWallet> {
+  const raw = await getRawWalletFromBip39Mnemonic(network, mnemonic, isMigration);
 
   return {
     address: raw.wallet.address,
@@ -128,17 +132,17 @@ export function getWalletFromAddress(
   };
 }
 
-async function getRawWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]) {
+async function getRawWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[], isMigration?: boolean) {
   const seed = bip39.mnemonicToSeedSync(mnemonic.join(' '));
 
-  const bestWallet = await pickBestWallet(network, seed.toString('hex'));
+  const bestWallet = await pickBestWallet(network, seed.toString('hex'), isMigration);
 
   return { wallet: bestWallet.wallet, rawPrivateKey: bestWallet.privateKeyBytes };
 }
 
 const MULTIWALLET_BY_PATH_COUNT = 2;
 
-export async function pickBestWallet(network: ApiNetwork, seed: string) {
+export async function pickBestWallet(network: ApiNetwork, seed: string, isMigration?: boolean) {
   const addresses = Object.entries(SOLANA_DERIVATION_PATHS).map((e) => {
     const acc: {
       wallet: SolanaKeyPairSigner;
@@ -160,6 +164,12 @@ export async function pickBestWallet(network: ApiNetwork, seed: string) {
 
     return acc;
   }).flat();
+
+  const defaultAddress = addresses.find((e) => e.path === SOLANA_DEFAULT_DERIVATION_PATH)!;
+
+  if (isMigration) {
+    return defaultAddress;
+  }
 
   const addressBalances = await Promise.all(addresses.map(async (e) => ({
     wallet: e.wallet,
@@ -193,8 +203,6 @@ export async function pickBestWallet(network: ApiNetwork, seed: string) {
   if (bestWalletByLastTx) {
     return bestWalletByLastTx;
   }
-
-  const defaultAddress = addressBalances.find((e) => e.path === SOLANA_DEFAULT_DERIVATION_PATH)!;
 
   return defaultAddress;
 }

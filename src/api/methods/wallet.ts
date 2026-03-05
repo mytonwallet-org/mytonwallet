@@ -2,8 +2,17 @@ import * as tonWebMnemonic from 'tonweb-mnemonic';
 
 import type { DappProtocolType, DappSignDataResult } from '../dappProtocols';
 import type { ApiDappRequestConfirmation } from '../dappProtocols/adapters/tonConnect/types';
-import type { ApiAccountWithMnemonic, ApiAnyDisplayError, ApiChain, ApiNetwork, ApiSignedTransfer } from '../types';
+import type {
+  OnApiUpdate } from '../types';
+import {
+  type ApiAccountWithMnemonic,
+  type ApiAnyDisplayError,
+  type ApiChain,
+  type ApiNetwork,
+  type ApiSignedTransfer,
+} from '../types';
 
+import { logDebugError } from '../../util/logs';
 import chains from '../chains';
 import {
   fetchStoredAccount,
@@ -14,6 +23,12 @@ import {
 import * as dappPromises from '../common/dappPromises';
 import { getMnemonic } from '../common/mnemonic';
 import { upgradeMultichainAccounts } from './auth';
+
+let onUpdate: OnApiUpdate;
+
+export function initWallet(_onUpdate: OnApiUpdate) {
+  onUpdate = _onUpdate;
+}
 
 export function fetchPrivateKey(accountId: string, chain: ApiChain, password: string) {
   return chains[chain].fetchPrivateKeyString(accountId, password);
@@ -43,6 +58,7 @@ export async function checkWorkerStorageIntegrity(): Promise<boolean> {
 }
 
 export async function verifyPassword(password: string): Promise<boolean> {
+  let isValidPassword = false;
   try {
     const [accountId, account] = (await getAccountWithMnemonic()) ?? [];
     if (!accountId || !account) {
@@ -54,10 +70,22 @@ export async function verifyPassword(password: string): Promise<boolean> {
       return false;
     }
 
+    isValidPassword = true;
+
     await upgradeMultichainAccounts(password);
+
     return true;
-  } catch {
-    return false;
+  } catch (err: any) {
+    logDebugError('verifyPassword', err);
+
+    if (isValidPassword) {
+      onUpdate?.({
+        type: 'showError',
+        error: err,
+      });
+    }
+
+    return isValidPassword;
   }
 }
 

@@ -473,22 +473,12 @@ extension ExploreVC {
 
         @available(iOS 17.0, *)
         private func trendingDappsView(sites: [ApiSite]) -> some View {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: trendingDappsInterItemHSpacing) {
-                    ForEach(sites, id: \.url) { site in
-                        ExploreScreenFeaturedDappView(site: site, onTap: {
-                            viewOutput.trendingDappDidTap.send(site)
-                        })
-                        .aspectRatio(2, contentMode: .fill)
-                        .containerRelativeFrame(.horizontal) { hScrollWidth, _ in
-                            trendingDappViewWidth(basedOn: hScrollWidth)
-                        }
-                    }
-                } // end HStack
-                .scrollTargetLayout() // for paged scroll | works in pair with scrollTargetBehavior
-            } // end ScrollView
-            .scrollTargetBehavior(.viewAligned) // for paged scroll
-            .scrollClipDisabled() // for shadows be not clipped
+            AutoScrollingTrendingView(
+                sites: sites,
+                spacing: trendingDappsInterItemHSpacing,
+                viewOutput: viewOutput,
+                itemWidth: { trendingDappViewWidth(basedOn: $0) }
+            )
         }
 
         private func trendingDappsView_below_iOS17(sites: [ApiSite], screenGeometryProxy: GeometryProxy) -> some View {
@@ -529,5 +519,76 @@ extension ExploreVC {
                 })
             })
         }
+    }
+}
+
+// MARK: - Auto-Scrolling Trending View
+
+@available(iOS 17.0, *)
+private struct AutoScrollingTrendingView: View {
+    let sites: [ApiSite]
+    let spacing: Double
+    let viewOutput: ExploreVC.ViewOutput
+    let itemWidth: (CGFloat) -> CGFloat
+
+    private static let autoScrollInterval: UInt64 = 5_000_000_000
+    private static let manualScrollPause: UInt64 = 5_000_000_000
+
+    @State private var currentIndex: Int = 0
+    @State private var autoScrollTask: Task<Void, Never>?
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing) {
+                    ForEach(Array(sites.enumerated()), id: \.element.url) { index, site in
+                        ExploreScreenFeaturedDappView(site: site, onTap: {
+                            viewOutput.trendingDappDidTap.send(site)
+                        })
+                        .aspectRatio(2, contentMode: .fill)
+                        .containerRelativeFrame(.horizontal) { hScrollWidth, _ in
+                            itemWidth(hScrollWidth)
+                        }
+                        .id(index)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.viewAligned)
+            .scrollClipDisabled()
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { _ in cancelAutoScroll() }
+                    .onEnded { _ in startAutoScroll(delay: Self.manualScrollPause, proxy: proxy) }
+            )
+            .onAppear {
+                if sites.count > 1 {
+                    startAutoScroll(delay: Self.autoScrollInterval, proxy: proxy)
+                }
+            }
+            .onDisappear {
+                cancelAutoScroll()
+            }
+        }
+    }
+
+    private func startAutoScroll(delay: UInt64, proxy: ScrollViewProxy) {
+        guard sites.count > 1 else { return }
+        cancelAutoScroll()
+        autoScrollTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: delay)
+            while !Task.isCancelled {
+                currentIndex = (currentIndex + 1) % sites.count
+                withAnimation(.spring(duration: 0.5)) {
+                    proxy.scrollTo(currentIndex, anchor: .leading)
+                }
+                try? await Task.sleep(nanoseconds: Self.autoScrollInterval)
+            }
+        }
+    }
+
+    private func cancelAutoScroll() {
+        autoScrollTask?.cancel()
+        autoScrollTask = nil
     }
 }
