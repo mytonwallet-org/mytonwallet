@@ -957,7 +957,9 @@ $ledger_wrong_device: Bieżące konto jest skonfigurowane z inną frazą odzyski
 Show More: Pokaż więcej
 Search app or enter address: Wyszukaj aplikację lub wprowadź adres
 Connected Apps: Połączone aplikacje
+Connected Sites: Połączone aplikacje
 Popular Apps: Popularne aplikacje
+Popular Sites: Popularne aplikacje
 $wallets_amount:
   zeroValue: Brak portfeli
   oneValue: "%1$d portfel"

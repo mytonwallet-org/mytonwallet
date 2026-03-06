@@ -933,7 +933,9 @@ $ledger_wrong_device: The current account is set up with another Ledger recovery
 Show More: Show More
 Search app or enter address: Search app or enter address
 Connected Apps: Connected Apps
+Connected Sites: Connected Sites
 Popular Apps: Popular Apps
+Popular Sites: Popular Sites
 $wallets_amount:
   zeroValue: No wallets
   oneValue: "%1$d wallet"

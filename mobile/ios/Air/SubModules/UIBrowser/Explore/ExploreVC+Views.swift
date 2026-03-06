@@ -127,7 +127,7 @@ extension ExploreVC {
         // Connected Dapps Section
         if !connectedDapps.isEmpty {
             sections.append(SectionItem(identity: .connectedDapps, items: [
-                .sectionHeader(title: lang("Connected Apps"), isFirstHeader: isFirstHeader),
+                .sectionHeader(title: lang("Connected Sites"), isFirstHeader: isFirstHeader),
                 .connectedDapps(dapps: connectedDapps,
                                 layoutVariant: connectedDapps.count > 3 ? .regular : .compact),
             ]))
@@ -156,7 +156,7 @@ extension ExploreVC {
 
             if !dappFolderVMs.isEmpty {
                 sections.append(SectionItem(identity: .popularDapps, items: [
-                    .sectionHeader(title: lang("Popular Apps"), isFirstHeader: isFirstHeader),
+                    .sectionHeader(title: lang("Popular Sites"), isFirstHeader: isFirstHeader),
                     .dappFolders(folders: dappFolderVMs),
                 ]))
             }

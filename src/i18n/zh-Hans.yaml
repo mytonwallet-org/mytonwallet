@@ -938,7 +938,9 @@ $ledger_wrong_device: 当前账户使用了其他 Ledger 恢复短语或密码�
 Show More: 显示更多
 Search app or enter address: 搜索应用或输入地址
 Connected Apps: 已连接的应用
+Connected Sites: 已连接的应用
 Popular Apps: 热门应用
+Popular Sites: 热门应用
 $wallets_amount:
   zeroValue: 没有钱包
   oneValue: "%1$d 个钱包"

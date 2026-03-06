@@ -942,7 +942,9 @@ $ledger_wrong_device: Mevcut hesap başka bir Ledger kurtarma ifadesi veya parol
 Show More: Daha fazla göster
 Search app or enter address: Uygulama ara veya adres gir
 Connected Apps: Bağlı Uygulamalar
+Connected Sites: Bağlı Uygulamalar
 Popular Apps: Popüler Uygulamalar
+Popular Sites: Popüler Uygulamalar
 $wallets_amount:
   zeroValue: Cüzdan yok
   oneValue: "%1$d cüzdan"

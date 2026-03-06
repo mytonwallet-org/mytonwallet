@@ -956,7 +956,9 @@ $ledger_wrong_device: Поточний акаунт налаштовано з і
 Show More: Показати більше
 Search app or enter address: Пошук або адреса
 Connected Apps: Підключені додатки
+Connected Sites: Підключені додатки
 Popular Apps: Популярні додатки
+Popular Sites: Популярні додатки
 $wallets_amount:
   zeroValue: Немає гаманців
   oneValue: "%1$d гаманець"

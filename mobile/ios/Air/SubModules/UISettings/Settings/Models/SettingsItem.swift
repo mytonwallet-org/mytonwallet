@@ -116,7 +116,7 @@ extension SettingsItem.Identifier {
             return SettingsItem(
                 id: .connectedApps,
                 icon: UIImage.airBundle("DappsIcon"),
-                title: lang("Connected Apps"),
+                title: lang("Connected Sites"),
                 hasPrimaryColor: false,
                 hasChild: true,
                 isDangerous: false

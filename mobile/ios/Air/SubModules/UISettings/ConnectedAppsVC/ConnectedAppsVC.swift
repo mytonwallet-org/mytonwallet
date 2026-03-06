@@ -49,7 +49,7 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
     }
     
     private func setupViews() {
-        title = lang("Connected Apps")
+        title = lang("Connected Sites")
         
         addNavigationBar(
             title: title,

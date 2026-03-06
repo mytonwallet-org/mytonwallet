@@ -944,7 +944,9 @@ $ledger_wrong_device: La cuenta actual está configurada con otra frase de recup
 Show More: Mostrar más
 Search app or enter address: Buscar aplicación o ingresar dirección
 Connected Apps: Aplicaciones conectadas
+Connected Sites: Aplicaciones conectadas
 Popular Apps: Aplicaciones populares
+Popular Sites: Aplicaciones populares
 $wallets_amount:
   zeroValue: No hay billeteras
   oneValue: "%1$d billetera"

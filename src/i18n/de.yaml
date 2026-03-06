@@ -946,7 +946,9 @@ $ledger_wrong_device: Das aktuelle Konto ist mit einer anderen Ledger-Wiederhers
 Show More: Mehr anzeigen
 Search app or enter address: App suchen oder Adresse eingeben
 Connected Apps: Verbundene Apps
+Connected Sites: Verbundene Apps
 Popular Apps: Beliebte Apps
+Popular Sites: Beliebte Apps
 $wallets_amount:
   zeroValue: Keine Wallets
   oneValue: "%1$d Wallet"

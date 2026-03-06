@@ -950,7 +950,9 @@ $ledger_wrong_device: Текущий аккаунт создан из друго
 Show More: Показать ещё
 Search app or enter address: Поиск или адрес
 Connected Apps: Подключённые приложения
+Connected Sites: Подключённые приложения
 Popular Apps: Популярные приложения
+Popular Sites: Популярные приложения
 $wallets_amount:
   zeroValue: Нет кошельков
   oneValue: "%1$d кошелёк"
