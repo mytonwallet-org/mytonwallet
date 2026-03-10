@@ -18,7 +18,7 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         
     }
     
-    var onCompletion: (_ biometricsEnabled: Bool, _ passcode: String) -> Void
+    private let onCompletion: (_ biometricsEnabled: Bool, _ passcode: String) -> Void
 
     public init(onCompletion: @escaping (Bool, String) -> Void) {
         self.onCompletion = onCompletion
@@ -29,13 +29,22 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         fatalError("init(coder:) has not been implemented")
     }
 
-    var headerView: HeaderView!
-    var passcodeOptionsButton: WButton!
-    var passcodeInputView: PasscodeInputView!
-    var passcodeScreenView: PasscodeScreenView!
-    var bottomConstraint: NSLayoutConstraint!
-
-    private static let passcodeOptionsFromBottom = CGFloat(8)
+    private lazy var headerView = HeaderView(
+        animationName: "animation_guard",
+        animationPlaybackMode: .once,
+        title: lang("Wallet is ready!"),
+        description: lang("Create a code to protect it")
+    )
+    private lazy var passcodeInputView = PasscodeInputView(delegate: self, theme: WTheme.setPasscodeInput)
+    private lazy var passcodeScreenView = PasscodeScreenView(
+        title: "zzz",
+        replacedTitle: "xxx",
+        subtitle: "rrrr",
+        compactLayout: true,
+        biometricPassAllowed: false,
+        delegate: self,
+        matchHeaderColors: false
+    )
     
     public override func loadView() {
         super.loadView()
@@ -55,14 +64,6 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
             topView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor)
         ])
 
-        headerView = HeaderView(
-            animationName: "animation_guard",
-            animationPlaybackMode: .once,
-            title: lang("Wallet is ready!"),
-            description: lang(
-                "Create a code to protect it"
-            )
-        )
         topView.addSubview(headerView)
         NSLayoutConstraint.activate([
             headerView.topAnchor.constraint(equalTo: topView.topAnchor, constant: -10),
@@ -71,7 +72,6 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         ])
 
         // setup passcode input view
-        passcodeInputView = PasscodeInputView(delegate: self, theme: WTheme.setPasscodeInput)
         passcodeInputView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(passcodeInputView)
         NSLayoutConstraint.activate([
@@ -80,18 +80,6 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         ])
         passcodeInputView.isHidden = true
 
-        // listen for keyboard
-        WKeyboardObserver.observeKeyboard(delegate: self)
-
-        passcodeScreenView = PasscodeScreenView(
-            title: "zzz",
-            replacedTitle: "xxx",
-            subtitle: "rrrr",
-            compactLayout: true,
-            biometricPassAllowed: false,
-            delegate: self,
-            matchHeaderColors: false
-        )
         view.backgroundColor = WTheme.sheetBackground
         passcodeScreenView.layer.cornerRadius = 16
         
@@ -139,16 +127,6 @@ extension SetPasscodeVC: PasscodeInputViewDelegate {
                 self?.passcodeScreenView.passcodeInputView.currentPasscode = ""
             })
         }
-    }
-}
-
-extension SetPasscodeVC: WKeyboardObserverDelegate {
-    public func keyboardWillShow(info: WKeyboardDisplayInfo) {
-        bottomConstraint.constant = -info.height - SetPasscodeVC.passcodeOptionsFromBottom
-    }
-    
-    public func keyboardWillHide(info: WKeyboardDisplayInfo) {
-        bottomConstraint.constant = -SetPasscodeVC.passcodeOptionsFromBottom
     }
 }
 

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import org.mytonwallet.app_air.walletcontext.helpers.AddressHelpers
+import org.mytonwallet.app_air.walletcontext.helpers.DNSHelpers
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
@@ -392,7 +393,7 @@ fun parseWalletUrl(uri: Uri): ParsedWalletUrl? {
 
     var address: String? = null
     val path = updatedUrl.path?.trim('/') ?: ""
-    if (AddressHelpers.isValidAddress(path)) {
+    if (AddressHelpers.isValidAddress(path) || DNSHelpers.isDnsDomain(path)) {
         address = path
     }
 

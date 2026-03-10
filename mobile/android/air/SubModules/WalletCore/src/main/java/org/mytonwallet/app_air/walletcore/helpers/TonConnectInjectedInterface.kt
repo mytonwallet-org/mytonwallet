@@ -9,6 +9,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
@@ -363,7 +364,9 @@ class TonConnectInjectedInterface(
 
             "window:open" -> {
                 val url = invoke.args?.optJSONObject(0)?.optString("url") ?: return
-                webView.loadUrl(url)
+                if (WalletContextManager.delegate?.handleDeeplink(url) != true) {
+                    webView.loadUrl(url)
+                }
             }
 
             "window:close" -> {}

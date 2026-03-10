@@ -18,7 +18,7 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         
     }
     
-    var onCompletion: (_ biometricsEnabled: Bool, _ passcode: String) -> Void
+    private let onCompletion: (_ biometricsEnabled: Bool, _ passcode: String) -> Void
 
     public init(onCompletion: @escaping (Bool, String) -> Void, setPasscodeVC: SetPasscodeVC, selectedPasscode: String) {
         self.onCompletion = onCompletion
@@ -31,14 +31,25 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private var selectedPasscode: String!
+    private let selectedPasscode: String
     private weak var setPasscodeVC: SetPasscodeVC? = nil
 
-    var headerView: HeaderView!
-    var passcodeInputView: PasscodeInputView!
-    var passcodeScreenView: PasscodeScreenView!
-    
-    var bottomConstraint: NSLayoutConstraint!
+    private lazy var headerView = HeaderView(
+        animationName: "animation_guard",
+        animationPlaybackMode: .once,
+        title: lang("Wallet is ready!"),
+        description: lang("Create a code to protect it")
+    )
+    private lazy var passcodeInputView = PasscodeInputView(delegate: self, theme: WTheme.setPasscodeInput)
+    private lazy var passcodeScreenView = PasscodeScreenView(
+        title: "zzz",
+        replacedTitle: "xxx",
+        subtitle: "rrrr",
+        compactLayout: true,
+        biometricPassAllowed: false,
+        delegate: self,
+        matchHeaderColors: false
+    )
 
     public override func loadView() {
         super.loadView()
@@ -58,14 +69,6 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
             topView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor)
         ])
 
-        headerView = HeaderView(
-            animationName: "animation_guard",
-            animationPlaybackMode: .once,
-            title: lang("Wallet is ready!"),
-            description: lang(
-                "Create a code to protect it"
-            )
-        )
         topView.addSubview(headerView)
         NSLayoutConstraint.activate([
             headerView.topAnchor.constraint(equalTo: topView.topAnchor, constant: -10),
@@ -74,7 +77,6 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         ])
 
         // setup passcode input view
-        passcodeInputView = PasscodeInputView(delegate: self, theme: WTheme.setPasscodeInput)
         passcodeInputView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(passcodeInputView)
         NSLayoutConstraint.activate([
@@ -83,15 +85,6 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         ])
         passcodeInputView.isHidden = true
         
-        passcodeScreenView = PasscodeScreenView(
-            title: "zzz",
-            replacedTitle: "xxx",
-            subtitle: "rrrr",
-            compactLayout: true,
-            biometricPassAllowed: false,
-            delegate: self,
-            matchHeaderColors: false
-        )
         view.backgroundColor = WTheme.sheetBackground
         passcodeScreenView.layer.cornerRadius = 16
         

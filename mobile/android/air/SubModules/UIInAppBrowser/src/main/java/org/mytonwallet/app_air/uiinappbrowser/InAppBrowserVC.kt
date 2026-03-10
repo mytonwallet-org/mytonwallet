@@ -25,6 +25,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
+import android.webkit.JavascriptInterface
 import android.webkit.WebViewClient
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -104,8 +105,10 @@ private const val FETCH_HEADER_COLOR_JS = """
       return color.toLowerCase();
     }
 
-    const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/i);
     if (!match) return null;
+
+    if (match[4] !== undefined && parseFloat(match[4]) === 0) return null;
 
     const r = parseInt(match[1]).toString(16).padStart(2, '0');
     const g = parseInt(match[2]).toString(16).padStart(2, '0');
@@ -114,16 +117,53 @@ private const val FETCH_HEADER_COLOR_JS = """
     return '#' + r + g + b;
   }
 
-  const theme = document.querySelector('meta[name="theme-color"]')?.content;
-  if (theme) return rgbToHex(theme);
+  var themeMetas = document.querySelectorAll('meta[name="theme-color"]');
+  for (var i = 0; i < themeMetas.length; i++) {
+    var meta = themeMetas[i];
+    var media = meta.getAttribute('media');
+    if (media && !window.matchMedia(media).matches) continue;
+    var hex = rgbToHex(meta.content);
+    if (hex) return hex;
+  }
 
-  const nav = document.querySelector('header, nav, .navbar, body, html');
-  if (nav) {
-    const bg = getComputedStyle(nav).backgroundColor;
-    return rgbToHex(bg);
+  var els = Array.from(document.querySelectorAll('html, body, header, nav, .navbar')).reverse();
+  for (var i = 0; i < els.length; i++) {
+    var hex = rgbToHex(getComputedStyle(els[i]).backgroundColor);
+    if (hex) return hex;
   }
 
   return null;
+})();
+"""
+
+private const val OBSERVE_THEME_COLOR_JS = """
+(function() {
+  if (window._mtwThemeObserver) return;
+  window._mtwThemeObserver = true;
+
+  var pending = null;
+  function notify() {
+    if (pending) return;
+    pending = setTimeout(function() {
+      pending = null;
+      _mtwThemeBridge.onThemeColorChanged();
+    }, 100);
+  }
+
+  var headObserver = new MutationObserver(notify);
+  if (document.head) {
+    headObserver.observe(document.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['content'] });
+  }
+
+  var rootObserver = new MutationObserver(notify);
+  rootObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-color-mode'] });
+  if (document.body) {
+    rootObserver.observe(document.body, { attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-color-mode'] });
+  }
+
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', notify);
+  }
 })();
 """
 
@@ -146,6 +186,13 @@ class InAppBrowserVC(
     private var savedInExploreVisitedHistory = false
     private var shouldClearHistoryOnLoad = false
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+
+    private val themeColorBridge = object {
+        @JavascriptInterface
+        fun onThemeColorChanged() {
+            webView.post { setBarColorBasedOnContent() }
+        }
+    }
 
     private val topBar: InAppBrowserTopBarView by lazy {
         InAppBrowserTopBarView(
@@ -256,6 +303,9 @@ class InAppBrowserVC(
                 }
                 if (config.topBarColorMode == InAppBrowserConfig.TopBarColorMode.CONTENT_BASED) {
                     setBarColorBasedOnContent()
+                    webView.evaluateJavascript(OBSERVE_THEME_COLOR_JS, null)
+                    // Re-check after SPA hydration
+                    webView.postDelayed({ setBarColorBasedOnContent() }, 1000)
                 }
             }
 
@@ -428,6 +478,10 @@ class InAppBrowserVC(
                 it,
                 TonConnectHelper.TON_CONNECT_WALLET_JS_BRIDGE_INTERFACE
             )
+        }
+
+        if (config.topBarColorMode == InAppBrowserConfig.TopBarColorMode.CONTENT_BASED) {
+            webView.addJavascriptInterface(themeColorBridge, "_mtwThemeBridge")
         }
 
         webView.loadUrl(config.url)

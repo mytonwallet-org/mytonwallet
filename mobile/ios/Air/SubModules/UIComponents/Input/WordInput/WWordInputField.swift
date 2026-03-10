@@ -32,14 +32,18 @@ public class WWordInputField: UITextField {
     }
     
     public func distributeWords(_ words: [String]) {
+        guard !words.isEmpty else { return }
         var currentTextField: WWordInputField? = self
         for (i, word) in words.enumerated() {
-            currentTextField?.text = word
-            currentTextField?.delegate?.textFieldDidEndEditing?(currentTextField!)
+            guard let activeTextField = currentTextField else { break }
+            activeTextField.text = word
+            activeTextField.delegate?.textFieldDidEndEditing?(activeTextField)
             if i < words.count - 1 {
-                currentTextField = currentTextField?.input?.nextInput?.textField
+                currentTextField = activeTextField.input?.nextInput?.textField
             }
         }
-        _ = currentTextField?.input?.textFieldShouldReturn(currentTextField!)
+        if let currentTextField {
+            _ = currentTextField.input?.textFieldShouldReturn(currentTextField)
+        }
     }
 }

@@ -14,10 +14,26 @@ import WalletContext
 public class ImportWalletVC: CreateWalletBaseVC {
 
     private let introModel: IntroModel
-    
-    private var scrollView: UIScrollView!
-    private var wordInputs: [WWordInput]!
-    private var suggestionsView: WSuggestionsView!
+    private let scrollView = UIScrollView()
+    private var wordInputs: [WWordInput] = []
+    private let suggestionsView = WSuggestionsView()
+    private var isSubmitting = false
+    private lazy var headerView = HeaderView(
+        animationName: "animation_snitch",
+        animationPlaybackMode: .once,
+        title: lang("Enter Secret Words"),
+        description: lang("$auth_import_mnemonic_description", arg1: langJoin(["12", "24"], .or)),
+        animationSize: 96,
+    )
+    private lazy var bottomActionsView = BottomActionsView(
+        primaryAction: BottomAction(
+            title: lang("Continue"),
+            onPress: { [weak self] in
+                self?.continuePressed(scrollToBottom: false)
+            }
+        ),
+        reserveSecondaryActionHeight: false
+    )
 
     public init(introModel: IntroModel) {
         self.introModel = introModel
@@ -33,8 +49,13 @@ public class ImportWalletVC: CreateWalletBaseVC {
         setupViews()
     }
 
-    private var headerView: HeaderView!
-    private var bottomActionsView: BottomActionsView!
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if !isLoading {
+            isSubmitting = false
+            textChanged()
+        }
+    }
 
     func setupViews() {
         addNavigationBar(
@@ -43,7 +64,6 @@ public class ImportWalletVC: CreateWalletBaseVC {
             addBackButton: (navigationController?.viewControllers.count ?? 1) > 1 ? weakifyGoBack() : nil
         )
 
-        scrollView = UIScrollView()
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.delegate = self
 
@@ -61,14 +81,6 @@ public class ImportWalletVC: CreateWalletBaseVC {
             scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: view.widthAnchor),
         ])
 
-        // header
-        headerView = HeaderView(
-            animationName: "animation_snitch",
-            animationPlaybackMode: .once,
-            title: lang("Enter Secret Words"),
-            description: lang("$auth_import_mnemonic_description", arg1: langJoin(["12", "24"], .or)),
-            animationSize: 96,
-        )
         scrollView.addSubview(headerView)
         NSLayoutConstraint.activate([
             headerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 0),
@@ -87,8 +99,6 @@ public class ImportWalletVC: CreateWalletBaseVC {
             pasteButton.leftAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leftAnchor, constant: 48),
             pasteButton.rightAnchor.constraint(equalTo: scrollView.contentLayoutGuide.rightAnchor, constant: -48)
         ])
-
-        suggestionsView = WSuggestionsView()
 
         // 24 word inputs
         let wordsStackView1 = UIStackView()
@@ -116,8 +126,6 @@ public class ImportWalletVC: CreateWalletBaseVC {
         ])
         let fieldsCount = 24
         
-        wordInputs = [
-        ]
         for i in 0 ..< fieldsCount {
             let wordInput = WWordInput(
                 index: i,
@@ -139,15 +147,6 @@ public class ImportWalletVC: CreateWalletBaseVC {
             wordInputs.append(wordInput)
         }
         
-        // bottom action
-        let continueAction = BottomAction(
-            title: lang("Continue"),
-            onPress: {
-                self.continuePressed(scrollToBottom: false)
-            }
-        )
-
-        bottomActionsView = BottomActionsView(primaryAction: continueAction, reserveSecondaryActionHeight: false)
         view.addSubview(bottomActionsView)
         NSLayoutConstraint.activate([
             bottomActionsView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
@@ -204,17 +203,18 @@ public class ImportWalletVC: CreateWalletBaseVC {
         
     }
 
-    private var words: [String] = []
     func continuePressed(scrollToBottom: Bool = true) {
+        guard !isSubmitting, !isLoading else { return }
+        isSubmitting = true
         view.endEditing(true)
         if scrollToBottom {
             scrollView.scrollToBottom(animated: true)
         }
 
-        // check if all the words are in the possibleWordList
-        words = enteredWords()
+        let words = enteredWords()
         
         if !isValidImportWords(words) {
+            isSubmitting = false
             showMnemonicAlert()
             return
         }
@@ -295,6 +295,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
             showAlert(error: failure)
         }
         isLoading = false
+        isSubmitting = false
     }
     
     private func enteredWords() -> [String] {
@@ -323,7 +324,9 @@ extension ImportWalletVC: WKeyboardObserverDelegate {
 
 extension ImportWalletVC: WWordInputDelegate {
     public func resignedFirstResponder() {
-        continuePressed()
+        DispatchQueue.main.async { [weak self] in
+            self?.continuePressed(scrollToBottom: false)
+        }
     }
     
     public func textChanged() {

@@ -328,7 +328,7 @@ public func parseTonTransferUrl(_ url: URL) -> TonTransferUrl? {
     let updatedUrl = URL(string: url.absoluteString.replacingOccurrences(of: "+", with: "%20"), relativeTo: nil) ?? url
 
     let address = updatedUrl.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-    guard isValidWalletAddress(address) else {
+    guard isValidWalletAddress(address) || DNSHelpers.isDnsDomain(address) else {
         return nil
     }
     

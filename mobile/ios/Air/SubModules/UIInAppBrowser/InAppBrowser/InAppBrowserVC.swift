@@ -142,7 +142,8 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
                     navigationBar.titleLabel?.transform = titleIsNil ? .identity.scaledBy(x: 0.4, y: 0.4) : .identity
                 }
                 
-                let subtitle: String? = page.config.url.host(percentEncoded: false)
+                let host = page.config.url.host(percentEncoded: false)
+                let subtitle: String? = page.config.url.isSubproject ? nil : host
                 let subtitleIsNil = subtitle?.nilIfEmpty == nil
                 navigationBar.subtitleLabel?.text = subtitle
                 navigationBar.subtitleLabel?.isHidden = subtitleIsNil

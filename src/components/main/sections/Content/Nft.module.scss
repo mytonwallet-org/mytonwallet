@@ -140,7 +140,9 @@ $gapSize: 0.5rem;
   position: relative;
   top: 0.5rem;
   left: 0.5rem;
+
   width: calc(100% - max(0rem, 0.5rem - var(--scrollbar-width)));
+  margin-bottom: 1.25rem;
 }
 
 .item {

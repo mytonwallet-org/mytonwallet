@@ -59,14 +59,14 @@ public class WSuggestionsView: UIInputView {
         guard activeInput != nil else {
             self.suggestions = []
             heightConstraint.constant = 0
+            collectionView.collectionViewLayout.invalidateLayout()
             collectionView.reloadData()
             return
         }
         
-        // load suggestions
         self.suggestions = suggestions
         heightConstraint.constant = suggestions.isEmpty ? 0 : WSuggestionsView.defaultHeight
-        
+        collectionView.collectionViewLayout.invalidateLayout()
         collectionView.reloadData()
     }
 }
@@ -79,7 +79,8 @@ extension WSuggestionsView: UICollectionViewDelegate, UICollectionViewDataSource
     }
     
     public func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: SuggestionCell.identifier, for: indexPath) as? SuggestionCell else {
+        guard suggestions.indices.contains(indexPath.row),
+              let cell = collectionView.dequeueReusableCell(withReuseIdentifier: SuggestionCell.identifier, for: indexPath) as? SuggestionCell else {
             return UICollectionViewCell()
         }
         cell.configure(with: suggestions[indexPath.row])
@@ -88,14 +89,20 @@ extension WSuggestionsView: UICollectionViewDelegate, UICollectionViewDataSource
     
     // MARK: - Collection View Delegate Flow Layout
     public func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
+        guard suggestions.indices.contains(indexPath.row) else {
+            return .zero
+        }
         let text = suggestions[indexPath.row]
         let width = text.size(withAttributes: [NSAttributedString.Key.font: UIFont.systemFont(ofSize: 17)]).width + 32
         return CGSize(width: width, height: WSuggestionsView.defaultHeight)
     }
     
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        activeInput?.textField.text = suggestions[indexPath.row]
-        _ = activeInput?.textFieldShouldReturn(activeInput!.textField)
+        guard suggestions.indices.contains(indexPath.row), let activeInput else {
+            return
+        }
+        activeInput.textField.text = suggestions[indexPath.row]
+        _ = activeInput.textFieldShouldReturn(activeInput.textField)
     }
 }
 
