@@ -6,7 +6,7 @@ import React, {
   useRef,
 } from '../../lib/teact/teact';
 
-import { ANIMATION_END_DELAY, IS_EXTENSION, IS_TELEGRAM_APP } from '../../config';
+import { ANIMATION_END_DELAY, IS_CAPACITOR, IS_EXTENSION, IS_TELEGRAM_APP } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../util/captureEvents';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
@@ -135,6 +135,8 @@ function Modal({
 
   // Make sure to hide browser before presenting modals
   useEffect(() => {
+    if (!IS_CAPACITOR || isCompact) return;
+
     const browser = getInAppBrowser();
     if (!isOpen) {
       // Before showing browser, make sure that closed modals are updated state properly
@@ -145,7 +147,7 @@ function Modal({
     }
 
     void browser?.hide();
-  }, [isOpen]);
+  }, [isOpen, isCompact]);
 
   useEffect(() => {
     if (!IS_TOUCH_ENV || !isOpen || !isPortrait || !isSlideUp) {

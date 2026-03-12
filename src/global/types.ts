@@ -1233,7 +1233,7 @@ export interface ActionPayloads {
   // Account Settings
   setCardBackgroundNft: { nft: ApiNft };
   clearCardBackgroundNft: undefined;
-  checkCardNftOwnership: undefined;
+  checkCardNftOwnership: { accountId: string } | undefined;
   installAccentColorFromNft: { nft: ApiNft };
   clearAccentColorFromNft: undefined;
 

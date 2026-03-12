@@ -211,8 +211,21 @@ export function updateBalances(
   const importedSlugs = selectAccountSettings(global, accountId)?.importedSlugs ?? [];
   const network = selectCurrentNetwork(global);
 
-  // Force balance values for the default enabled tokens and manually imported tokens
-  for (const slug of [...getDefaultEnabledSlugs(network), ...importedSlugs]) {
+  // Initialize all default tokens with 0n if not yet set, across all chains.
+  // This ensures tokens from chains whose first balance fetch hasn't completed yet are still visible.
+  //
+  // For example: inactive (new) Solana wallets are never polled - BalanceStream skips fetching entirely
+  // once the wallet is determined to be inactive. So, it is necessary to initialize Solana tokens to 0n
+  // until the wallet receives its first transaction and becomes active.
+  // This is why all default tokens are initialized in this place.
+  for (const slug of getDefaultEnabledSlugs(network)) {
+    if (!(slug in newBalances)) {
+      newBalances[slug] = 0n;
+    }
+  }
+
+  // For manually imported tokens, only initialize for the current chain
+  for (const slug of importedSlugs) {
     if (getChainBySlug(slug) === chain && !(slug in newBalances)) {
       newBalances[slug] = 0n;
     }

@@ -1,5 +1,5 @@
-import type { ApiBalanceBySlug, ApiBaseCurrency, ApiChain, ApiCurrencyRates, ApiNetwork } from '../../api/types';
-import type { Account, AccountSettings, GlobalState, UserToken } from '../types';
+import type { ApiBalanceBySlug, ApiBaseCurrency, ApiChain, ApiCurrencyRates } from '../../api/types';
+import type { Account, AccountSettings, AccountState, GlobalState, UserToken } from '../types';
 
 import {
   MYCOIN_MAINNET,
@@ -23,12 +23,14 @@ import {
   selectCurrentAccountState,
 } from './accounts';
 
-function getIsNewAccount(balancesBySlug: ApiBalanceBySlug, tokenInfo: GlobalState['tokenInfo'], network: ApiNetwork) {
-  // Check if the number of balances equals the default token count
-  if (Object.keys(balancesBySlug).length !== getDefaultEnabledSlugs(network).size) {
-    return false;
-  }
+function getHasConfirmedActivities(activities: AccountState['activities']) {
+  const confirmedCount = (activities?.idsMain?.length ?? 0)
+    - (activities?.localActivityIds?.length ?? 0)
+    - Object.values(activities?.pendingActivityIds ?? {}).reduce<number>((sum, ids) => sum + (ids?.length ?? 0), 0);
+  return confirmedCount > 0;
+}
 
+function getAreAllBalancesNearZero(balancesBySlug: ApiBalanceBySlug, tokenInfo: GlobalState['tokenInfo']) {
   return Object.entries(balancesBySlug).every(([slug, balance]) => {
     const info = tokenInfo.bySlug[slug];
 
@@ -47,9 +49,10 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
   areTokensWithNoCostHidden: boolean = false,
   baseCurrency: ApiBaseCurrency,
   currencyRates: ApiCurrencyRates,
+  hasActivities: boolean = false,
 ) => {
   const { network } = parseAccountId(accountId);
-  const isNewAccount = getIsNewAccount(balancesBySlug, tokenInfo, network);
+  const shouldShowOnlyDefaultTokens = !hasActivities && getAreAllBalancesNearZero(balancesBySlug, tokenInfo);
   const pinnedSlugs = accountSettings.pinnedSlugs ?? [];
 
   const tokens = Object
@@ -67,13 +70,10 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
       const hasCost = balanceBig.mul(priceUsd ?? 0).gte(TINY_TRANSFER_MAX_COST);
       const isPricelessTokenWithBalance = PRICELESS_TOKEN_HASHES.has(codeHash!) && balance > 0n;
 
-      const isEnabled = (
-        (isNewAccount && getDefaultEnabledSlugs(network).has(slug))
-        || !areTokensWithNoCostHidden
-        || (areTokensWithNoCostHidden && hasCost)
-        || isPricelessTokenWithBalance
-        || accountSettings.alwaysShownSlugs?.includes(slug)
-      );
+      const isEnabled = accountSettings.alwaysShownSlugs?.includes(slug)
+        || (shouldShowOnlyDefaultTokens
+          ? getDefaultEnabledSlugs(network).has(slug)
+          : (hasCost || isPricelessTokenWithBalance || (!areTokensWithNoCostHidden && balance > 0n)));
 
       const isDisabled = !isEnabled || accountSettings.alwaysHiddenSlugs?.includes(slug);
 
@@ -116,14 +116,14 @@ export function selectCurrentToncoinBalance(global: GlobalState) {
 }
 
 export function selectAccountTokens(global: GlobalState, accountId: string) {
-  const balancesBySlug = selectAccountState(global, accountId)?.balances?.bySlug;
+  const accountState = selectAccountState(global, accountId);
+  const balancesBySlug = accountState?.balances?.bySlug;
   if (!balancesBySlug || !global.tokenInfo) {
     return undefined;
   }
 
   const accountSettings = selectAccountSettings(global, accountId);
   const { areTokensWithNoCostHidden, baseCurrency } = global.settings;
-
   return selectAccountTokensMemoizedFor(accountId)(
     balancesBySlug,
     global.tokenInfo,
@@ -131,6 +131,7 @@ export function selectAccountTokens(global: GlobalState, accountId: string) {
     areTokensWithNoCostHidden,
     baseCurrency,
     global.currencyRates,
+    getHasConfirmedActivities(accountState?.activities),
   );
 }
 
@@ -192,7 +193,8 @@ export function selectMultipleAccountsTokensSlow(
   if (!networkAccounts || !tokenInfo) return result;
 
   for (const accountId in networkAccounts) {
-    const balancesBySlug = byAccountId[accountId]?.balances?.bySlug;
+    const accountState = byAccountId[accountId];
+    const balancesBySlug = accountState?.balances?.bySlug;
     if (!balancesBySlug) {
       result[accountId] = undefined;
       continue;
@@ -206,6 +208,7 @@ export function selectMultipleAccountsTokensSlow(
       areTokensWithNoCostHidden,
       baseCurrency,
       currencyRates,
+      getHasConfirmedActivities(accountState?.activities),
     );
   }
 

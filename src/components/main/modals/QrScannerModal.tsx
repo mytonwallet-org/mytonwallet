@@ -6,7 +6,6 @@ import { getActions } from '../../../global';
 
 import buildClassName from '../../../util/buildClassName';
 import { vibrateOnSuccess } from '../../../util/haptics';
-import { pause } from '../../../util/schedulers';
 import { DPR, IS_IOS } from '../../../util/windowEnvironment';
 
 import useEffectWithPrevDeps from '../../../hooks/useEffectWithPrevDeps';
@@ -29,7 +28,6 @@ type Square = [Point, Point, Point, Point];
 
 const START_SCAN_DELAY_MS = IS_IOS ? 160 : 360;
 const MODAL_ANIMATION_DURATION_MS = IS_IOS ? 650 : 500;
-const DESTROY_SCANNER_DELAY_MS = IS_IOS ? 250 : 500;
 
 function QrScannerModal({ isOpen, onClose }: OwnProps) {
   const {
@@ -56,6 +54,10 @@ function QrScannerModal({ isOpen, onClose }: OwnProps) {
   const handleClose = useLastCallback(() => {
     setIsScannerStarted(false);
     setIsFlashlightEnabled(false);
+    // On iOS, we need to remove the extra class before closing the modal to prevent unnecessary flickering
+    if (IS_IOS) {
+      removeExtraClass(document.documentElement, styles.documentRoot);
+    }
     onClose();
   });
 
@@ -65,14 +67,12 @@ function QrScannerModal({ isOpen, onClose }: OwnProps) {
       resolution: Resolution['3840x2160'],
     };
 
-    const scanAreaCoordinates = getDomNodeDimensions(scanSquareRef.current);
-
     await BarcodeScanner.removeAllListeners();
     const listener = await BarcodeScanner.addListener(
       'barcodesScanned',
       async ({ barcodes: [barcode] }) => {
-        let qrCodeCoordinates = barcode.cornerPoints;
-        qrCodeCoordinates = qrCodeCoordinates ? sortCoordinatesClockwise(qrCodeCoordinates) : undefined;
+        const qrCodeCoordinates = barcode.cornerPoints;
+        const scanAreaCoordinates = getDomNodeDimensions(scanSquareRef.current);
 
         if (
           !scanAreaCoordinates
@@ -86,10 +86,6 @@ function QrScannerModal({ isOpen, onClose }: OwnProps) {
         await vibrateOnSuccess();
         handleQrCode({ data: barcode.rawValue });
         handleClose();
-        await pause(DESTROY_SCANNER_DELAY_MS);
-        if (IS_IOS) {
-          removeExtraClass(document.documentElement, styles.documentRoot);
-        }
       },
     );
 
@@ -148,6 +144,7 @@ function QrScannerModal({ isOpen, onClose }: OwnProps) {
       isOpen={isOpen}
       onClose={handleClose}
       onCloseAnimationEnd={onCloseAnimationEnd}
+      dialogClassName={styles.scannerDialog}
     >
       <div className={buildClassName(styles.scanner, isScannerStarted && styles.scannerStarted)}>
         <div
@@ -184,18 +181,6 @@ function QrScannerModal({ isOpen, onClose }: OwnProps) {
 }
 
 export default memo(QrScannerModal);
-
-function sortCoordinatesClockwise(coordinates: Square): Square {
-  coordinates.sort((a, b) => a[1] - b[1]);
-
-  const topHalf = coordinates.slice(0, 2) as [Point, Point];
-  const bottomHalf = coordinates.slice(2) as [Point, Point];
-
-  topHalf.sort((a, b) => b[0] - a[0]);
-  bottomHalf.sort((a, b) => a[0] - b[0]);
-
-  return [...topHalf, ...bottomHalf];
-}
 
 function getDomNodeDimensions(node: HTMLDivElement | undefined): Square | undefined {
   if (!node) {
