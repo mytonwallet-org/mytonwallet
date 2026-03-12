@@ -5,10 +5,10 @@ $labelSkeletonHeight: 1rem;
 $labelSidePadding: 0.5rem;
 
 .modalDialog {
-  height: 35rem;
+  height: 41rem;
 
   @supports (height: var(--safe-area-bottom)) {
-    height: calc(35rem + var(--safe-area-bottom));
+    height: calc(41rem + var(--safe-area-bottom));
   }
 
   @media (min-width: 416.01px) {

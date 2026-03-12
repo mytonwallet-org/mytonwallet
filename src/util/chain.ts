@@ -239,8 +239,8 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       testnet: TRC20_USDT_TESTNET.slug,
     },
     defaultEnabledSlugs: {
-      mainnet: [TRX.slug, TRC20_USDT_MAINNET.slug],
-      testnet: [TRX.slug, TRC20_USDT_TESTNET.slug],
+      mainnet: [TRC20_USDT_MAINNET.slug],
+      testnet: [TRC20_USDT_TESTNET.slug],
     },
     crosschainSwapSlugs: [TRX.slug, TRC20_USDT_MAINNET.slug],
     tokenInfo: [
@@ -297,6 +297,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     tokenInfo: [
       SOLANA,
       SOLANA_USDT_MAINNET,
+      SOLANA_USDC_MAINNET,
     ],
     explorers: [{
       id: 'solscan',

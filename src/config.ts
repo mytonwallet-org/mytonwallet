@@ -460,11 +460,11 @@ export const ALL_STAKING_POOLS = [
 
 export const PRIORITY_TOKEN_SLUGS = [
   TONCOIN.slug,
-  TON_USDT_MAINNET.slug,
-  TRX.slug,
-  TRC20_USDT_MAINNET.slug,
   SOLANA.slug,
+  TRC20_USDT_MAINNET.slug,
+  TON_USDT_MAINNET.slug,
   SOLANA_USDT_MAINNET.slug,
+  SOLANA_USDC_MAINNET.slug,
 ] as string[];
 
 export const INIT_SWAP_ASSETS: Record<'in' | 'out', ApiSwapAsset> = {
@@ -501,7 +501,7 @@ export const WINDOW_PROVIDER_CHANNEL = 'windowProvider';
 export const WINDOW_PROVIDER_PORT = `${IS_CORE_WALLET ? 'TonWallet' : 'MyTonWallet'}_popup_reversed`;
 
 export const SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY = IS_CORE_WALLET;
-export const PORTRAIT_MIN_ASSETS_TAB_VIEW = 4;
+export const PORTRAIT_MIN_ASSETS_TAB_VIEW = 6;
 export const LANDSCAPE_MIN_ASSETS_TAB_VIEW = 6;
 
 export const DEFAULT_PRICE_CURRENCY = 'USD';

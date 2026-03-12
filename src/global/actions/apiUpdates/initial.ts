@@ -226,7 +226,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
 
       setGlobal(global);
 
-      actions.checkCardNftOwnership();
+      actions.checkCardNftOwnership({ accountId });
       break;
     }
 
@@ -241,7 +241,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       }
       setGlobal(global);
 
-      actions.checkCardNftOwnership();
+      actions.checkCardNftOwnership({ accountId });
       break;
     }
 
@@ -251,7 +251,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       setGlobal(global);
 
       if (!IS_CORE_WALLET) {
-        actions.checkCardNftOwnership();
+        actions.checkCardNftOwnership({ accountId });
         const settings = selectAccountSettings(global, accountId);
         // If a user received an NFT card from the MyTonWallet collection, it is applied immediately.
         // But only if it is not already set.
