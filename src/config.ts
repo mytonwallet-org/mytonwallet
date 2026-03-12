@@ -417,7 +417,7 @@ export const SOLANA_USDT_MAINNET = {
   priceUsd: 1,
 } as const;
 
-export const SOLANA_USDС_MAINNET = {
+export const SOLANA_USDC_MAINNET = {
   name: 'USD Coin',
   symbol: 'USDC',
   decimals: 6,

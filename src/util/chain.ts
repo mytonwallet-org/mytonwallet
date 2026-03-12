@@ -5,8 +5,8 @@ import {
   MYCOIN_MAINNET,
   MYCOIN_TESTNET,
   SOLANA,
+  SOLANA_USDC_MAINNET,
   SOLANA_USDT_MAINNET,
-  SOLANA_USDС_MAINNET,
   TON_TSUSDE,
   TON_USDE,
   TON_USDT_MAINNET,
@@ -290,7 +290,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       testnet: undefined,
     },
     defaultEnabledSlugs: {
-      mainnet: [SOLANA.slug, SOLANA_USDT_MAINNET.slug, SOLANA_USDС_MAINNET.slug],
+      mainnet: [SOLANA.slug, SOLANA_USDT_MAINNET.slug, SOLANA_USDC_MAINNET.slug],
       testnet: [SOLANA.slug],
     },
     crosschainSwapSlugs: [SOLANA.slug, SOLANA_USDT_MAINNET.slug],
