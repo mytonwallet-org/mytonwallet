@@ -1,5 +1,7 @@
 # MyTonWallet · [mytonwallet.io](https://mytonwallet.io)
 
+[![gitcgr](https://gitcgr.com/badge/mytonwallet-org/mytonwallet.svg)](https://gitcgr.com/mytonwallet-org/mytonwallet)
+
 **The most feature-rich web wallet and browser extension for the [TON Network](https://ton.org)** – with support of jettons, NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.
 
 <img src="https://user-images.githubusercontent.com/102837730/193835310-1436afcd-ed78-4656-92c3-9c8f4beacacf.png" width="600" />
