@@ -41,9 +41,8 @@ public final class ImportExistingPickerVC: CreateWalletBaseVC {
         )
     }
     
-    public override func updateTheme() {
-        super.updateTheme()
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
     
     func onHeightChange(_ height: CGFloat) {

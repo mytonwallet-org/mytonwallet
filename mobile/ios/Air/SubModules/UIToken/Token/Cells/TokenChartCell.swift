@@ -6,43 +6,44 @@
 //
 
 import UIKit
+import UIActivityList
 import UIComponents
 import WalletCore
 import WalletContext
 
-class TokenChartCell: FirstRowCell {
+final class TokenChartCell: FirstRowCell {
+    private let horizontalInset = S.insetSectionHorizontalMargin
 
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
+    override init(frame: CGRect) {
+        super.init(frame: frame)
         setupViews()
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
 
     private lazy var chartContainerView: TokenExpandableChartView? = nil
-    var height: CGFloat? { chartContainerView?.height }
+    override var height: CGFloat? {
+        get { chartContainerView?.height }
+        set {}
+    }
 
     private func setupViews() {
-        selectionStyle = .none
         backgroundColor = .clear
         contentView.backgroundColor = .clear
     }
 
-    func setup(parentProcessorQueue: DispatchQueue,
-               onHeightChange: @escaping () -> Void) {
+    func setup(onHeightChange: @escaping () -> Void) {
         guard chartContainerView == nil else {
             return
         }
-        chartContainerView = TokenExpandableChartView(parentProcessorQueue: parentProcessorQueue,
-                                                      onHeightChange: onHeightChange)
+        chartContainerView = TokenExpandableChartView(onHeightChange: onHeightChange)
         contentView.addSubview(chartContainerView!)
         NSLayoutConstraint.activate([
             chartContainerView!.topAnchor.constraint(equalTo: contentView.topAnchor),
             chartContainerView!.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            chartContainerView!.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            chartContainerView!.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            chartContainerView!.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: horizontalInset),
+            chartContainerView!.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -horizontalInset),
         ])
     }
 

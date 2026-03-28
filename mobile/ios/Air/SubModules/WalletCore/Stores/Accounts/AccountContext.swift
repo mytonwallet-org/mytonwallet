@@ -23,7 +23,9 @@ public final class AccountContext: Sendable {
     @PerceptionIgnored
     @Dependency(\.nftStore) private var nftStore
     @PerceptionIgnored
-    @Dependency(\.balanceStore) private var balanceStore
+    @Dependency(\.balanceDataStore) private var balanceDataStore
+    @PerceptionIgnored
+    @Dependency(\.balancesStore) private var balancesStore
     @PerceptionIgnored
     @Dependency(\.stakingStore) private var stakingStore
     @PerceptionIgnored
@@ -72,20 +74,35 @@ public final class AccountContext: Sendable {
     public var isCurrent: Bool {
         account.id == accountStore.currentAccountId
     }
-    public var balanceData: MAccountBalanceData? {
-        balanceStore.accountBalanceData[accountId]
+    public var walletTokensData: MAccountWalletTokensData? {
+        balanceDataStore.walletTokensData(accountId: accountId)
+    }
+    public var walletTokens: [MTokenBalance]? {
+        walletTokensData?.walletTokens
+    }
+    public var walletStaked: [MTokenBalance]? {
+        walletTokensData?.walletStaked
+    }
+    public var balanceTotals: MAccountBalanceTotals? {
+        balanceDataStore.balanceTotals(accountId: accountId)
     }
     public var balance: BaseCurrencyAmount? {
-        balanceStore.accountBalanceData[accountId]?.totalBalance
+        balanceTotals?.totalBalance
     }
     public var balance24h: BaseCurrencyAmount? {
-        balanceStore.accountBalanceData[accountId]?.totalBalanceYesterday
+        balanceTotals?.totalBalanceYesterday
     }
     public var balanceChange: Double? {
-        balanceStore.accountBalanceData[accountId]?.totalBalanceChange
+        balanceTotals?.totalBalanceChange
+    }
+    public var balanceUsd: Double? {
+        balanceTotals?.totalBalanceUsd
+    }
+    public var balanceUsdByChain: [ApiChain: Double]? {
+        balanceTotals?.totalBalanceUsdByChain
     }
     public var balances: [String: BigInt] {
-        balanceStore.getAccountBalances(accountId: accountId)
+        balancesStore.getAccountBalances(accountId: accountId)
     }
     public var nft: ApiNft? {
         accountSettings.for(accountId: accountId).backgroundNft
@@ -96,7 +113,7 @@ public final class AccountContext: Sendable {
         return color
     }
     public var stakingData: MStakingData? {
-        stakingStore.stakingData(forAccountID: accountId)
+        stakingStore.stakingData(accountId: accountId)
     }
     public func getStakingBadgeContent(tokenSlug: String, isStaking: Bool) -> StakingBadgeContent? {
         guard let stakingState = stakingData?.bySlug(tokenSlug) else { return nil }

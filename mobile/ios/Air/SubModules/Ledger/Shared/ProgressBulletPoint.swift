@@ -15,7 +15,7 @@ struct ProgressBulletPoint: View {
             switch status {
             case .none, .hidden:
                 Circle()
-                    .fill(Color(WTheme.primaryLabel))
+                    .fill(Color.air.primaryLabel)
                     .frame(width: 3, height: 3)
                     .transition(.scale)
 
@@ -23,7 +23,7 @@ struct ProgressBulletPoint: View {
                 Image.airBundle("ActivityIndicator")
                     .renderingMode(.template)
                     .resizable()
-                    .foregroundStyle(Color(WTheme.tint))
+                    .foregroundStyle(.tint)
                     .rotationEffect(angle)
                     .transition(.scale)
                 

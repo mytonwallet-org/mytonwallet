@@ -53,7 +53,7 @@ public final class LedgerSelectWalletsVC: WViewController {
         )
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
 }

@@ -7,22 +7,20 @@ import type { ApiImportAddressByChain } from '../../api/types';
 
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
-import { getChainConfig, getChainTitle, getSupportedChains } from '../../util/chain';
+import { getChainConfig, getSupportedChains } from '../../util/chain';
 import { stopEvent } from '../../util/domEvents';
 import isEmptyObject from '../../util/isEmptyObject';
 import { isTonsiteAddress, isValidAddressOrDomain } from '../../util/isValidAddress';
-import { formatEnumeration } from '../../util/langProvider';
 import { getHostnameFromUrl } from '../../util/url';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useFocusAfterAnimation from '../../hooks/useFocusAfterAnimation';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
-import useLastCallback from '../../hooks/useLastCallback';
 
+import AddressInput from '../ui/AddressInput';
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import Button from '../ui/Button';
-import Input from '../ui/Input';
 import ModalHeader from '../ui/ModalHeader';
 
 import modalStyles from '../ui/Modal.module.scss';
@@ -52,13 +50,6 @@ function AuthImportViewAccount({
   useHistoryBack({
     isActive,
     onBack: onCancel,
-  });
-
-  const handleChange = useLastCallback((newValue: string) => {
-    setValue(newValue);
-    if (isInvalidAddress) {
-      setIsInvalidAddress(false);
-    }
   });
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -93,7 +84,7 @@ function AuthImportViewAccount({
   return (
     <div className={modalStyles.transitionContentWrapper}>
       <ModalHeader
-        title={lang('View Any Address')}
+        title={lang('View Mode')}
         onBackButtonClick={onCancel}
         onClose={onClose}
       />
@@ -111,22 +102,22 @@ function AuthImportViewAccount({
           className={styles.viewModeSticker}
         />
 
-        <Input
+        <AddressInput
           ref={inputRef}
+          label={lang('Address or Domain')}
           value={value}
-          hasError={isInvalidAddress}
-          placeholder={lang('Wallet Address or Domain')}
-          autoCapitalize="none"
-          autoComplete="off"
-          autoCorrect={false}
-          enterKeyHint="done"
-          onInput={handleChange}
+          address=""
+          addressName=""
+          withQrScan
+          shouldHideAddressBook
+          shouldValidateAllChains
+          onInput={setValue}
+          onError={setIsInvalidAddress}
+          onClose={onClose ?? onCancel}
         />
 
         <p className={styles.info}>
-          {renderText(lang('$import_view_account_note', {
-            chains: formatEnumeration(lang, getSupportedChains().map(getChainTitle), 'or'),
-          }))}
+          {renderText(lang('$import_view_account_note'))}
         </p>
 
         <div className={buildClassName(styles.buttons, isInModal && styles.buttonsInModal)}>

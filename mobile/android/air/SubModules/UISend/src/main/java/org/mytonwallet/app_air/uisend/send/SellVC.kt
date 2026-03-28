@@ -11,7 +11,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import androidx.appcompat.widget.AppCompatTextView
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.constraintlayout.widget.ConstraintSet
@@ -127,12 +127,12 @@ class SellVC(
     }
 
     private val commentInputView by lazy {
-        AppCompatTextView(context).apply {
-            typeface = WFont.Regular.typeface
+        WLabel(context).apply {
+            setStyle(16f)
             layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             setPaddingDp(20, 20, 20, 14)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
+            useCustomEmoji = true
         }
     }
 

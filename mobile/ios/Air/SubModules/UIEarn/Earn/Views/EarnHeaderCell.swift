@@ -10,7 +10,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-class EarnHeaderCell: UITableViewCell, WThemedView {
+class EarnHeaderCell: UITableViewCell {
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -116,7 +116,7 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
     }()
     
     private func setupViews() {
-        backgroundColor = WTheme.sheetBackground
+        backgroundColor = .air.sheetBackground
         contentView.addSubview(stackView)
         NSLayoutConstraint.activate([
             stackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
@@ -155,11 +155,11 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
         updateTheme()
     }
 
-    public func updateTheme() {
-        currentlyStakedLabel.textColor = WTheme.secondaryLabel
-        yourBalanceHintLabel.textColor = WTheme.secondaryLabel
-        bottomCornersViewContainer.backgroundColor = WTheme.groupedItem
-        bottomCornersView.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        currentlyStakedLabel.textColor = .air.secondaryLabel
+        yourBalanceHintLabel.textColor = .air.secondaryLabel
+        bottomCornersViewContainer.backgroundColor = .air.groupedItem
+        bottomCornersView.backgroundColor = .air.sheetBackground
     }
     
     private func updateUnstakingInfo() {
@@ -198,9 +198,9 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
                 integerFont: .compactRounded(ofSize: 48, weight: .bold),
                 fractionFont: .compactRounded(ofSize: 32, weight: .bold),
                 symbolFont: .compactRounded(ofSize: 32, weight: .bold),
-                integerColor: WTheme.primaryLabel,
-                fractionColor: isLargeAmount ? WTheme.secondaryLabel : WTheme.primaryLabel,
-                symbolColor: WTheme.secondaryLabel
+                integerColor: UIColor.label,
+                fractionColor: isLargeAmount ? .air.secondaryLabel : UIColor.label,
+                symbolColor: .air.secondaryLabel
             )
             unstakeButton.isHidden = stakingBalance == 0
             self.stakingConfig = config

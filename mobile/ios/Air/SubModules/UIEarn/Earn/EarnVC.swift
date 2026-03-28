@@ -121,7 +121,7 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
                             let amount = AnyDecimalAmount(earnedAmount, decimals: earnedDecimals, symbol: earnedSymbol, forceCurrencyToRight: true)
                             Text("\(lang("Earned")): \(amount.formatted(.defaultAdaptive))")
                                 .font(.system(size: 16))
-                                .foregroundStyle(Color(WTheme.secondaryLabel))
+                                .foregroundStyle(Color.air.secondaryLabel)
                                 .sensitiveData(alignment: .trailing, cols: 14, rows: 2, cellSize: 8, theme: .adaptive, cornerRadius: 4)
                         }
                     }
@@ -214,9 +214,9 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         updateTheme()
     }
     
-    public override func updateTheme() {
-        belowSafeAreaView.backgroundColor = WTheme.sheetBackground
-        tableView?.backgroundColor = WTheme.groupedItem
+    private func updateTheme() {
+        belowSafeAreaView.backgroundColor = .air.sheetBackground
+        tableView?.backgroundColor = .air.groupedItem
     }
     
     func updateClaimRewardsButton() {

@@ -784,13 +784,13 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                                 payload = null,
                                 allowGasless = null
                             )
-                        ).fee!!
+                        ).fullNativeFee ?: BigInteger.ZERO
                     } catch (apiError: JSWebViewBridge.ApiError) {
                         if (apiError.parsed == MBridgeError.INSUFFICIENT_BALANCE &&
                             apiError.parsedResult is MApiCheckTransactionDraftResult
                         ) {
                             firstTransactionFee =
-                                (apiError.parsedResult!! as MApiCheckTransactionDraftResult).fee
+                                (apiError.parsedResult!! as MApiCheckTransactionDraftResult).fullNativeFee
                                     ?: BigInteger.ZERO
                         } else {
                             throw apiError
@@ -977,7 +977,8 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                             amount = estimate.fromAmount ?: BigInteger.ZERO,
                             fee = estimate.fee,
                             tokenAddress = if (!tokenToSend.isBlockchainNative) tokenToSend.tokenAddress else null,
-                            noFeeCheck = true
+                            noFeeCheck = true,
+                            isGasless = false,
                         ),
                         result.swap.id
                     )

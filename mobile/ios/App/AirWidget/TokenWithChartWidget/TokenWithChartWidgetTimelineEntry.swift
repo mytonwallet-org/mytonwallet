@@ -1,13 +1,5 @@
-//
-//  TokenWidgetTimelineEntry.swift
-//  App
-//
-//  Created by nikstar on 23.09.2025.
-//
-
-import SwiftUI
-import WalletCore
 import WidgetKit
+import UIKit
 
 public struct TokenWithChartWidgetTimelineEntry: TimelineEntry {
     public var date: Date
@@ -70,4 +62,4 @@ public extension TokenWithChartWidgetTimelineEntry {
             chartStyle: .vivid,
         )
     }
-}   
+}

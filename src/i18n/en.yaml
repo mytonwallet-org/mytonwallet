@@ -131,6 +131,8 @@ Signing was confirmed!: Signing was confirmed!
 Activity Details: Activity Details
 No activities found: No activities found
 Comment Copied: Comment Copied
+Copy Text: Copy Text
+Message Copied: Message Copied
 Sender: Sender
 Recipient: Recipient
 "%chain% Address Copied": "%chain% Address Copied"
@@ -521,7 +523,7 @@ Contract Initialization Data Copied: Contract Initialization Data Copied
 Open NFT Collection: Open NFT Collection
 Previous: Previous
 Next: Next
-Insufficient %token% for fee.: Insufficient %token% for fee.
+Insufficient %token% for fee.%fee%: Insufficient %token% for fee.%fee%
 Send NFT: Send NFT
 Send Collectible: Send Collectible
 Send Collectibles: Send Collectibles
@@ -775,9 +777,10 @@ Upgrade for %amount% %currency%: Upgrade for %amount% %currency%
 This card has been sold out: This card has been sold out
 Import Existing Wallet: Import Existing Wallet
 View Any Address: View Any Address
+View Mode: View Mode
 "%counts% Secret Words": "%counts% Secret Words"
-Wallet Address or Domain: Wallet Address or Domain
-$import_view_account_note: Enter **any address** on %chains% network to open it in **View Mode**.
+Address or Domain: Address or Domain
+$import_view_account_note: Add **any** address to **monitor** its activity.
 $view_mode: View
 Import Wallet: Import Wallet
 Please top up your %token% balance.: Please top up your %token% balance.
@@ -945,6 +948,7 @@ No wallets: No wallets
 View as List: View as List
 View as Cards: View as Cards
 Reorder: Reorder
+Reorder Tabs: Reorder Tabs
 Rename: Rename
 Customize: Customize
 i18n_dragToSort: Drag to sort
@@ -1046,6 +1050,10 @@ My Assets: My Assets
 Owner: Owner
 Show All Wallets: Show All Wallets
 Ask a Question: Ask a Question
+Ask anything: Ask anything
+Agent: Agent
+Clear Chat: Clear Chat
+Unsupported link: Unsupported link
 MyTonWallet Features: MyTonWallet Features
 Notifications: Notifications
 Wrong passcode, please try again: Wrong passcode, please try again
@@ -1059,3 +1067,15 @@ Enabling biometric confirmation will reset the passcode.: Enabling biometric con
 Confirm action with your passcode: Confirm action with your passcode
 No Image: No Image
 Different blockchain. Cannot be selected: Different blockchain. Cannot be selected
+Top 5: Top 5
+Top 10: Top 10
+Top 30: Top 30
+Manage Assets: Manage Assets
+Pulse: Pulse
+Edit Message: Edit Message
+Toggle Hints: Toggle Hints
+AgentErrorResponseFailed: "Error: Failed to get response"
+AgentErrorConnectionFailed: "Error: Connection failed"
+Scroll To Bottom: Scroll To Bottom
+$agent_clear_chat_confirm: Are you sure you want to clear the chat history?
+$unknown_swap_token: Unknown token in swap link. Default tokens were used.

@@ -15,6 +15,12 @@ extension ApiUpdate {
             case valentine = "valentine"
         }
 
+        public enum PreferredAgent: String, Equatable, Hashable, Codable, Sendable, CaseIterable {
+            case local
+            case online
+            case hybrid
+        }
+
         public var type = "updateConfig"
         public var isLimited: Bool?
         public var isCopyStorageEnabled: Bool?
@@ -23,6 +29,8 @@ extension ApiUpdate {
         public var isAppUpdateRequired: Bool?
         public var seasonalTheme: SeasonalTheme?
         public var switchToClassic: Bool?
+        public var knowledgeBaseVersion: String?
+        public var preferredAgent: PreferredAgent?
 
         private enum CodingKeys: String, CodingKey {
             case type
@@ -33,6 +41,8 @@ extension ApiUpdate {
             case isAppUpdateRequired
             case seasonalTheme
             case switchToClassic
+            case knowledgeBaseVersion
+            case preferredAgent
         }
 
         public init(from decoder: Decoder) throws {
@@ -45,6 +55,8 @@ extension ApiUpdate {
             isAppUpdateRequired = try container.decodeIfPresent(Bool.self, forKey: .isAppUpdateRequired)
             switchToClassic = try container.decodeIfPresent(Bool.self, forKey: .switchToClassic)
             seasonalTheme = try? container.decodeIfPresent(SeasonalTheme.self, forKey: .seasonalTheme)
+            knowledgeBaseVersion = try? container.decodeIfPresent(String.self, forKey: .knowledgeBaseVersion)
+            preferredAgent = try? container.decodeIfPresent(PreferredAgent.self, forKey: .preferredAgent)
         }
     }
 }

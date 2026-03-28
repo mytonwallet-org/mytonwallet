@@ -5,8 +5,13 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.LinearInterpolator
+import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.animation.doOnCancel
 import androidx.core.content.ContextCompat
@@ -15,6 +20,7 @@ import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -35,12 +41,19 @@ open class WClearSegmentedControlItemView(context: Context) :
 
     internal val textView: WLabel
     internal val trailingImageView: AppCompatImageView
+    internal val badgeView: FrameLayout
+    private val badgeLabel: WLabel
     private val arrowDrawable = ContextCompat.getDrawable(context, R.drawable.ic_arrows_14)
     private val removeDrawable = ContextCompat.getDrawable(context, R.drawable.ic_collection_remove)
     private var shakeAnimator: ObjectAnimator? = null
 
     // Trailing image animator
     private var crossfadeAnimator: ValueAnimator? = null
+
+    // Badge animator
+    private var badgeWidthAnimator: ValueAnimator? = null
+    private var badgeTargetWidth: Int = 0
+    private var badgeCurrentWidth: Int = 0
 
     enum class TrailingButton {
         Arrow,
@@ -76,11 +89,42 @@ open class WClearSegmentedControlItemView(context: Context) :
             isVisible = false
         }
 
+        badgeLabel = WLabel(context).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER or Gravity.START
+            )
+            setStyle(12f, WFont.SemiBold)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setSingleLine()
+            setPadding(4.dp, 0, 4.dp, 0)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 9f.dp
+                setColor(WColor.Red.color)
+            }
+        }
+
+        badgeView = FrameLayout(context).apply {
+            id = generateViewId()
+            layoutParams = LayoutParams(0, 18.dp)
+            clipChildren = false
+            clipToPadding = false
+            visibility = GONE
+            alpha = 0f
+            addView(badgeLabel)
+        }
+
         addView(textView)
+        addView(badgeView)
         addView(trailingImageView)
 
         setConstraints {
             toCenterX(textView)
+            toEnd(badgeView)
+            toCenterY(badgeView)
             toEnd(trailingImageView, 8f)
             toCenterY(trailingImageView)
         }
@@ -132,11 +176,71 @@ open class WClearSegmentedControlItemView(context: Context) :
         rotation = 0f
     }
 
+    fun setBadge(text: String?) {
+        if (badgeLabel.text == text)
+            return
+        badgeLabel.text = text
+
+        val targetWidth = if (!text.isNullOrEmpty()) {
+            measureBadgeWidth()
+        } else {
+            0
+        }
+
+        if (targetWidth == badgeCurrentWidth) return
+
+        if (targetWidth > 0)
+            badgeTargetWidth = targetWidth
+
+        val startWidth = badgeCurrentWidth
+        val wasHidden = startWidth == 0
+        val willBeHidden = targetWidth == 0
+
+        if (targetWidth > 0) {
+            badgeView.visibility = VISIBLE
+        }
+
+        badgeWidthAnimator?.cancel()
+        badgeWidthAnimator = ValueAnimator.ofInt(startWidth, targetWidth).apply {
+            duration = AnimationConstants.VERY_QUICK_ANIMATION
+            interpolator = CubicBezierInterpolator.EASE_BOTH
+            addUpdateListener { animation ->
+                val fraction = animation.animatedFraction
+                badgeCurrentWidth = animation.animatedValue as Int
+                updatePaddings()
+                when {
+                    wasHidden -> badgeView.alpha = fraction
+                    willBeHidden -> badgeView.alpha = 1f - fraction
+                }
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (willBeHidden) {
+                        badgeView.visibility = GONE
+                        badgeView.alpha = 0f
+                    } else {
+                        badgeView.alpha = 1f
+                    }
+                }
+            })
+            start()
+        }
+    }
+
+    private fun measureBadgeWidth(): Int {
+        val widthSpec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+        val heightSpec = MeasureSpec.makeMeasureSpec(18.dp, MeasureSpec.EXACTLY)
+        badgeLabel.measure(widthSpec, heightSpec)
+        return maxOf(18.dp, badgeLabel.measuredWidth)
+    }
+
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         stopShake()
         crossfadeAnimator?.cancel()
         crossfadeAnimator = null
+        badgeWidthAnimator?.cancel()
+        badgeWidthAnimator = null
     }
 
     var selectedEndPadding = 11f.dp
@@ -144,6 +248,8 @@ open class WClearSegmentedControlItemView(context: Context) :
     var arrowVisibility: Float? = null
         set(value) {
             val value = value ?: 0f
+            if (field == value)
+                return
             field = value
 
             trailingImageView.apply {
@@ -230,6 +336,8 @@ open class WClearSegmentedControlItemView(context: Context) :
 
     override fun updateTheme() {
         arrowDrawable?.setTint(WColor.PrimaryText.color)
+        (badgeView.background as? GradientDrawable)?.setColor(WColor.Red.color)
+        badgeLabel.setTextColor(Color.WHITE)
         if (shouldShowBackground)
             setBackgroundColor(paintColor ?: WColor.SecondaryBackground.color, 16f.dp)
         else
@@ -244,8 +352,24 @@ open class WClearSegmentedControlItemView(context: Context) :
             16.dp
         }
 
-        textView.setPaddingLocalized(16.dp, 5.dp, endPadding, 5.dp)
-        trailingImageView.setPadding(0, selectedYPadding.roundToInt(), 0, selectedYPadding.roundToInt())
+        badgeView.translationX = (badgeTargetWidth - badgeCurrentWidth) - endPadding.toFloat()
+
+        val endGap =
+            if (badgeCurrentWidth == 0)
+                0
+            else (badgeView.alpha * 5.dp).roundToInt()
+        val textViewEndPadding = endPadding + endGap + badgeCurrentWidth
+        if (textView.paddingEnd == textViewEndPadding)
+            return
+
+        textView.setPaddingLocalized(16.dp, 5.dp, textViewEndPadding, 5.dp)
+        trailingImageView.setPadding(
+            0,
+            selectedYPadding.roundToInt(),
+            0,
+            selectedYPadding.roundToInt()
+        )
+        ((parent as? ViewGroup)?.parent as? WClearSegmentedControl)?.updateItemsTrailingViews()
     }
 
 }

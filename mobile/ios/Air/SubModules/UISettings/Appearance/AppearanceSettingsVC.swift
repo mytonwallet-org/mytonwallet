@@ -20,7 +20,7 @@ public final class AppearanceSettingsVC: SettingsBaseVC {
         
         navigationItem.title = lang("Appearance")
         
-        view.backgroundColor = WTheme.groupedBackground
+        view.backgroundColor = .air.groupedBackground
         
         hostingController = addHostingController(makeView(), constraints: .fill)
     }

@@ -5,326 +5,180 @@ import WalletContext
 import WalletCore
 import Perception
 import SwiftNavigation
+import Dependencies
 
-@MainActor
-public class NftDetailsVC: WViewController, UIScrollViewDelegate {
+public class NftDetailsVC: NftDetailsBaseVC {
+    private let nfts: [ApiNft]
+    private let accountId: String
     
-    let scrollView = UIScrollView(frame: .zero)
-    
-    var viewModel: NftDetailsViewModel
-    
-    var hostingController: UIHostingController<NftDetailsView>? = nil
-    private var scrollContentHeightConstraint: NSLayoutConstraint?
-    private var reportedHeight: CGFloat?
-    private var isOpenObserver: ObserveToken?
-    private var contentHeightObserver: ObserveToken?
-    
-    public init(accountId: String, nft: ApiNft, listContext: NftCollectionFilter, fixedNfts: [ApiNft]? = nil) {
-        self.viewModel = NftDetailsViewModel(accountId: accountId, isExpanded: false, nft: nft, listContext: listContext, fixedNfts: fixedNfts)
-        super.init(nibName: nil, bundle: nil)
-        viewModel.viewController = self
+    public init(accountId: String, nft selectedNft: ApiNft, listContext: NftCollectionFilter, fixedNfts: [ApiNft]? = nil) {
+
+        var nfts: [ApiNft] = []
+        
+        nfts = fixedNfts ?? Array(listContext.apply(to: NftStore.getAccountShownNfts(accountId: accountId) ?? [:]).values.map(\.nft))
+        if !nfts.contains(where: { $0.id == selectedNft.id }) {
+            nfts.append(selectedNft)
+        }
+
+        self.nfts = nfts
+        self.accountId = accountId
+        
+        let accountContext = AccountContext(accountId: accountId)
+        let accountType = accountContext.account.type
+        let domains = accountContext.domains
+        
+        let items: [NftDetailsItem] = nfts.map {
+            
+            let attributes: [NftDetailsItem.Attribute]? = $0.metadata?.attributes?.map { .init(traitType: $0.trait_type, value: $0.value) }
+            
+            var collection: NftDetailsItem.Collection? = nil
+            if let c = $0.collection {
+                collection = .init(name: c.name)
+            }
+
+            let tonDomain = domains.expirationDays(for: $0).map {
+                NftDetailsItem.TonDomain(
+                    expirationDays: $0,
+                    canRenew: accountType == .mnemonic
+                )
+            }
+
+            return .init(
+                id: $0.id,
+                name: $0.displayName,
+                description: $0.description,
+                thumbnailUrl: $0.thumbnail,
+                lottieUrl: $0.metadata?.lottie,
+                attributes: attributes,
+                collection: collection,
+                tonDomain: tonDomain,
+            )
+        }
+        let selectedIndex = nfts.firstIndex(where: { $0 == selectedNft }) ?? 0
+        
+        super.init(nfts:  items, selectedIndex: selectedIndex)
     }
-
-    required init?(coder: NSCoder) {
+    
+    @MainActor required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    public override func viewDidLoad() {
-        super.viewDidLoad()
-        setupViews()
+    private func resolveNft(for model: NftDetailsItemModel) -> ApiNft? {
+        guard let result = nfts.first(where: { $0.id == model.id}) else {
+            assertionFailure("Unable to find nft '\(model.name)'")
+            return nil
+        }
+        return result
     }
     
-    private func setupViews() {
-        
-        if let sheet = self.sheetPresentationController {
-            sheet.configureFullScreen(true)
-            sheet.configureAllowsInteractiveDismiss(false)
+    // MARK: - Actions
+    
+    override func nftDetailsOnShowCollection(forModel model: NftDetailsItemModel) {
+        guard let nft = resolveNft(for: model) else { return }
+        guard let collection = nft.collection else {
+            assertionFailure()
+            return
         }
+        AppActions.showAssets(accountSource: .accountId(accountId), selectedTab: 1, collectionsFilter: .collection(collection))
+    }
+    
+    override func nftDetailsOnRenewDomain(forModel model: NftDetailsItemModel) {
+        guard let nft = resolveNft(for: model) else { return }
+        AppActions.showRenewDomain(accountSource: .accountId(accountId), nftsToRenew: [nft.address])
+    }
 
-        addCloseNavigationItemIfNeeded()
-        configureNavigationItemWithTransparentBackground()
-        if !IOS_26_MODE_ENABLED {
-            navigationController?.viewControllers.dropLast().last?.navigationItem.backButtonDisplayMode = .minimal
-        }
+    override func ntfDetailsOnConfigureToolbarButton(forModel model: NftDetailsItemModel, action: NftDetailsItemModel.Action) -> NftDetailsToolbarButtonConfig? {
+        guard let nft = resolveNft(for: model) else { return nil }
         
-        scrollView.delegate = self
-        scrollView.showsHorizontalScrollIndicator = false
-        scrollView.showsVerticalScrollIndicator = false
-        scrollView.minimumZoomScale = 1.0
-        scrollView.alwaysBounceVertical = true
-        scrollView.bounces = true
-        view.addSubview(scrollView)
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-        scrollView.backgroundColor = .clear
-        
-        let hostingController = UIHostingController(rootView: NftDetailsView(viewModel: viewModel), ignoreSafeArea: true)
-        hostingController.view.backgroundColor = .clear
-        addChild(hostingController)
-        scrollView.addSubview(hostingController.view)
-        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
-        
-        let hostingControllerHeightConstraint = hostingController.view.heightAnchor.constraint(equalToConstant: 2000)
-        let scrollContentHeightContstraint = scrollView.contentLayoutGuide.heightAnchor.constraint(equalToConstant: 2000)
-        self.scrollContentHeightConstraint = scrollContentHeightContstraint
-        NSLayoutConstraint.activate([
-            hostingController.view.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-            hostingController.view.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
-            hostingController.view.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+        switch action {
+        case .wear:
+            guard nft.isMtwCard else { return nil }
+            return .init(
+                onMenuConfiguration: { [weak self] in
+                    guard let self else { return MenuConfig(menuItems: []) }
+                    @Dependency(\.accountSettings) var _accountSettings
+                    let accountSettings = _accountSettings.for(accountId: self.accountId)
+                    var items: [MenuItem] = []
+                    if let mtwCardId = nft.metadata?.mtwCardId {
+                        let isCurrent = mtwCardId == accountSettings.backgroundNft?.metadata?.mtwCardId
+                        if isCurrent {
+                            items += .button(id: "0-card", title: lang("Reset Card"), trailingIcon: .air("MenuInstallCard26")) {
+                                accountSettings.setBackgroundNft(nil)
+                            }
+                        } else {
+                            items += .button(id: "0-card", title: lang("Install Card"), trailingIcon: .air("MenuInstallCard26")) {
+                                accountSettings.setBackgroundNft(nft)
+                                accountSettings.setAccentColorNft(nft)
+                            }
+                        }
+                        let isCurrentAccent = mtwCardId == accountSettings.accentColorNft?.metadata?.mtwCardId
+                        if isCurrentAccent {
+                            items += .button(id: "0-palette", title: lang("Reset Palette"), trailingIcon: .air("custom.paintbrush.badge.xmark")) {
+                                accountSettings.setAccentColorNft(nil)
+                            }
+                        } else {
+                            items += .button(id: "0-palette", title: lang("Apply Palette"), trailingIcon: .air("MenuBrush26")) {
+                                accountSettings.setAccentColorNft(nft)
+                            }
+                        }
+                    }
+                    return MenuConfig(menuItems: items)
+                }
+            )
+        case .send:
+            return .init(
+                onTap: { [weak self] in
+                    guard let self else { return }
+                    AppActions.showSend(accountContext: AccountContext(accountId: self.accountId), prefilledValues: .init(mode: .sendNft, nfts: [nft]))
+                }
+            )
             
-            hostingController.view.centerXAnchor.constraint(equalTo: scrollView.frameLayoutGuide.centerXAnchor),
-            hostingController.view.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
-//            hostingController.view.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor).withPriority(.defaultHigh),
-            hostingControllerHeightConstraint,
-            scrollContentHeightContstraint,
-        ])
-        self.hostingController = hostingController
-        
-        UIView.performWithoutAnimation {
-            updateIsExpanded(viewModel.isExpanded)
-            updateFullscreenPreview(viewModel.isFullscreenPreviewOpen)
-        }
-        
-        isOpenObserver = observe { [weak self] in
-            guard let self else { return }
-            updateFullscreenPreview(viewModel.isFullscreenPreviewOpen)
-        }
-        
-        contentHeightObserver = observe { [weak self] in
-            guard let self else { return }
-            if viewModel.state == .collapsed {
-                reportedHeight = viewModel.contentHeight
-            }
-        }
+        case .share:
+            return .init(
+                onTap: { [weak self] in
+                    guard let self else { return }
+                    let accountContext = AccountContext(accountId: accountId)
+                    AppActions.shareUrl(ExplorerHelper.viewNftUrl(network: accountContext.account.network, nftAddress: nft.address))
+                }
+            )
                 
-        updateTheme()
-    }
-    
-    public override func updateTheme() {
-        view.backgroundColor = viewModel.isFullscreenPreviewOpen ? .black : WTheme.sheetBackground
-    }
-    
-    
-    public override func viewSafeAreaInsetsDidChange() {
-        super.viewSafeAreaInsetsDidChange()
-        viewModel.safeAreaInsets = view.safeAreaInsets
-    }
-    
-    public override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        let nextViewportHeight = scrollView.bounds.height
-        if abs(viewModel.viewportHeight - nextViewportHeight) > 0.5 {
-            viewModel.viewportHeight = nextViewportHeight
-        }
-    }
-    
-    public override func viewWillAppear(_ animated: Bool) {
-
-        if let sheet = self.sheetPresentationController {
-            sheet.configureAllowsInteractiveDismiss(false)
-        }
-        
-        Haptics.prepare(.transition)
-        if presentingViewController != nil,
-            let presentationConroller = self.navigationController?.presentationController,
-            let presentedView = presentationConroller.presentedView,
-            let dismissGestureRecognizer = presentedView.gestureRecognizers?.first(where: { $0.description.contains("_UISheetInteractionBackgroundDismissRecognizer") })
-        {
-            dismissGestureRecognizer.require(toFail: scrollView.panGestureRecognizer)
-        }
-    }
-    
-    public override func viewIsAppearing(_ animated: Bool) {
-        super.viewIsAppearing(animated)
-        UIView.performWithoutAnimation {
-            view.setNeedsLayout()
-            view.layoutIfNeeded()
-        }
-    }
-    
-    public override func viewDidAppear(_ animated: Bool) {
-        
-        super.viewDidAppear(animated)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            self.bringNavigationBarToFront()
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [self] in
-            if let navigationBar {
-                navigationBar.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
-            }
-        }
-    }
-    
-    public override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
-        
-        if let sheet = self.sheetPresentationController {
-            sheet.configureAllowsInteractiveDismiss(true)
-        }
-    }
-    
-    // MARK: Scroll view delegate
-    
-    var scrollToTopOnRelease = false
-    var allowsOpenMediaViewerForCurrentInteraction = true
-    
-    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        let offset = scrollView.contentOffset.y + scrollView.adjustedContentInset.top
-        viewModel.y = offset
-        
-        switch viewModel.state {
-        case .collapsed:
-            updateNavigationBarProgressiveBlur(offset)
-            navigationBar?.titleLabel?.alpha = calculateNavigationBarProgressiveBlurProgress(offset)
-        case .expanded, .preview:
-            updateNavigationBarProgressiveBlur(0)
-            navigationBar?.titleLabel?.alpha = 0
-        }
-        
-        if scrollView.isDecelerating { return }
-        
-        if abs(offset) < 50 {
-            Haptics.prepare(.transition)
-        }
-        switch viewModel.state {
-        case .collapsed:
-            if offset < -10 {
-                updateIsExpanded(true)
-                Haptics.play(.transition)
-                allowsOpenMediaViewerForCurrentInteraction = false
-//                scrollView.panGestureRecognizer.state = .ended
-            }
-        case .expanded:
-            if offset >= 10 {
-                updateIsExpanded(false)
-                allowsOpenMediaViewerForCurrentInteraction = false
-                Haptics.play(.transition)
-            } else if offset < -30 && allowsOpenMediaViewerForCurrentInteraction {
-                viewModel.onImageLongTap()
-                scrollView.panGestureRecognizer.state = .ended
-            }
-        case .preview:
-            if abs(offset) > 60 && scrollView.zoomScale == 1.0 {
-                viewModel.onImageLongTap()
-                scrollToTopOnRelease = true
-                scrollView.panGestureRecognizer.state = .ended
-            }
-        }
-        if let reportedHeight, let scrollContentHeightConstraint {
-            self.reportedHeight = nil
-            UIView.performWithoutAnimation {
-                scrollContentHeightConstraint.constant = reportedHeight
-                self.view.setNeedsLayout()
-                self.view.layoutIfNeeded()
-            }
-        }
-    }
-
-    public func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
-        let topInset = scrollView.adjustedContentInset.top
-        let targetY = targetContentOffset.pointee.y + topInset
-        let top = CGPoint(x: 0, y: -topInset)
-        if scrollToTopOnRelease {
-            self.scrollToTopOnRelease = false
-            targetContentOffset.pointee = top
-        } else {
-            switch viewModel.state {
-            case .collapsed:
-                if targetY > 0 && targetY <= 100 {
-                    targetContentOffset.pointee = top
+        case .more:
+            return .init(
+                onMenuConfiguration: { [weak self] in
+                    guard let self else { return MenuConfig(menuItems: []) }
+                    
+                    let accountContext = AccountContext(accountId: accountId)
+                    let accountType = accountContext.account.type
+                    let accountId = self.accountId
+                    var items: [MenuItem] = []
+                    if nft.isTonDns && !nft.isOnSale && accountType == .mnemonic {
+                        let linkedAddress = accountContext.domains.linkedAddressByAddress[nft.address]?.nilIfEmpty
+                        let title = linkedAddress == nil ? lang("Link to Wallet") : lang("Change Linked Wallet")
+                        items += .button(id: "0-link", title: title, trailingIcon: .system("link")) {
+                            AppActions.showLinkDomain(accountSource: .accountId(accountId), nftAddress: nft.address)
+                        }
+                    }
+                    items += .button(id: "0-hide", title: lang("Hide"), trailingIcon: .air("MenuHide26")) {
+                        NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
+                    }
+                    items += .button(id: "0-burn", title: lang("Burn"), trailingIcon: .air("MenuBurn26"), isDangerous: true) {
+                        AppActions.showSend(accountContext: AccountContext(accountId: self.accountId), prefilledValues: .init(mode: .burnNft, nfts: [nft]))
+                    }
+                    items += .wideSeparator()
+                    if nft.chain == .ton, !ConfigStore.shared.shouldRestrictBuyNfts {
+                        items += .button(id: "0-getgems", title: "Getgems", trailingIcon: .air("MenuGetgems26")) {
+                            let url = ExplorerHelper.nftUrl(nft)
+                            AppActions.openInBrowser(url)
+                        }
+                    }
+                    items += .button(id: "0-tonscan", title: ExplorerHelper.selectedExplorerName(for: nft.chain),
+                                     trailingIcon: .air(ExplorerHelper.selectedExplorerMenuIconName(for: nft.chain))) {
+                        let url = ExplorerHelper.explorerNftUrl(nft)
+                        AppActions.openInBrowser(url)
+                    }
+                    return MenuConfig(menuItems: items)
                 }
-            case .expanded:
-                targetContentOffset.pointee = top
-            case .preview:
-                if scrollView.zoomScale == 1 {
-                    targetContentOffset.pointee = top
-                }
-            }
-        }
-    }
-    
-    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        if !decelerate {
-            allowsOpenMediaViewerForCurrentInteraction = true
-        }
-    }
-    
-    public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-        allowsOpenMediaViewerForCurrentInteraction = true
-    }
-    
-    public func viewForZooming(in scrollView: UIScrollView) -> UIView? {
-        hostingController?.view
-    }
-
-    public func scrollViewDidZoom(_ scrollView: UIScrollView) {
-        guard let view = hostingController?.view else { return }
-        // Center image when smaller than scroll view
-        let imageViewSize = view.frame.size
-        let scrollSize = scrollView.bounds.size
-        let verticalPadding = imageViewSize.height < scrollSize.height ? (scrollSize.height - imageViewSize.height) / 2 : 0
-        let horizontalPadding = imageViewSize.width < scrollSize.width ? (scrollSize.width - imageViewSize.width) / 2 : 0
-        scrollView.contentInset = UIEdgeInsets(top: verticalPadding, left: horizontalPadding, bottom: verticalPadding, right: horizontalPadding)
-    }
-    
-    // MARK: Expansion handling
-    
-    func updateIsExpanded(_ isExpanded: Bool) {
-        let now = Date()
-        viewModel.isAnimatingSince = now
-        withAnimation(.spring(duration: 0.3)) {
-            viewModel.state = isExpanded ? .expanded : .collapsed
-        }
-        UIView.animate(withDuration: 0.3) {
-            //            self.setNeedsStatusBarAppearanceUpdate()
-            self.navigationBar?.alpha = isExpanded ? 0 : 1
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(0.3))
-            if viewModel.isAnimatingSince == now {
-                viewModel.isAnimatingSince = nil
-            }
-        }
-    }
-    
-    // MARK: Fullscreen preview handling
-    
-    private func updateFullscreenPreview(_ isOpen: Bool) {
-        scrollView.maximumZoomScale = isOpen ? 3.0 : 1.0
-        if isOpen {
-        } else {
-            scrollView.setZoomScale(1, animated: false)
-        }
-        UIView.animate(withDuration: 0.25) {
-            self.updateTheme()
-        }
-    }
-    
-    public override func goBack() {
-        if viewModel.isFullscreenPreviewOpen {
-            withAnimation(.spring) {
-                viewModel.state = .expanded
-            }
-        } else {
-            super.goBack()
+            )
         }
     }
 }
-
-
-#if DEBUG
-@available(iOS 18, *)
-#Preview {
-    let _ = (NftStore.configureForPreview())
-    let vc = NftDetailsVC(accountId: "0-mainnet", nft: .sampleMtwCard, listContext: .none)
-//    let _ = vc.viewModel.isExpanded = false
-//    let _ = vc.viewModel.isFullscreenPreviewOpen = true
-    previewNc(vc)
-}
-#endif

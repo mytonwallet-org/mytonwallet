@@ -189,7 +189,7 @@ class SettingsHeaderView: WTouchPassView {
     private var separatorView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = WTheme.separator
+        view.backgroundColor = .air.separator
         view.alpha = 0
         return view
     }()
@@ -313,7 +313,7 @@ class SettingsHeaderView: WTouchPassView {
         let addressLine = account.addressLine
         addressLabel.attributedText = addressLine.attributedString(
             font: .systemFont(ofSize: 16, weight: .regular),
-            color: WTheme.secondaryLabel
+            color: .air.secondaryLabel
         )
     }
     
@@ -420,7 +420,7 @@ private class TitleStackView: UIView {
             label.font = font
             label.translatesAutoresizingMaskIntoConstraints = false
             label.textAlignment = .center
-            label.textColor = WTheme.secondaryLabel
+            label.textColor = .air.secondaryLabel
             
             container = .init(cols: 8, rows: 2, cellSize: cellSize, cornerRadius: 4, theme: .adaptive, alignment: .leading)
             container.addContent(label)
@@ -453,7 +453,7 @@ private class TitleStackView: UIView {
 
     private lazy var separatorDotLabel: UILabel = {
         let label = UILabel()
-        label.textColor = WTheme.secondaryLabel
+        label.textColor = .air.secondaryLabel
         label.text = "\u{202f}·\u{202f}"
         label.font = font
         return label
@@ -466,7 +466,7 @@ private class TitleStackView: UIView {
         label.adjustsFontSizeToFitWidth = false
         label.allowsDefaultTighteningForTruncation = false
         label.font = font
-        label.textColor = WTheme.primaryLabel
+        label.textColor = UIColor.label
         return label
     }()
     
@@ -525,7 +525,7 @@ private class TitleStackView: UIView {
         }
         
         let oldBalance = self.balance
-        balance = BalanceStore.accountBalanceData[account.id]?.totalBalance
+        balance = BalanceDataStore.for(accountId: account.id).balanceTotals?.totalBalance
         if oldBalance != balance {
             fullBalance.label.text = balance?.formatted(.baseCurrencyEquivalent)
             shortenedBalance.label.text = balance?.formatted(.baseCurrencyEquivalentShortened)

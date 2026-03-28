@@ -177,8 +177,8 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         )
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
     
     @objc func onSend() {

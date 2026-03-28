@@ -20,7 +20,7 @@ struct WalletSettingsNavigationHeader: View {
     let viewModel: WalletSettingsViewModel
     
     @Dependency(\.accountStore.accountsById.values) var accounts
-    @Dependency(\.balanceStore) var balanceStore
+    @Dependency(\.balanceDataStore) var balanceDataStore
     
     var body: some View {
         WithPerceptionTracking {
@@ -59,6 +59,6 @@ struct WalletSettingsNavigationHeader: View {
     var total: BaseCurrencyAmount {
         let filter = viewModel.currentFilter
         let type = filter.accountType
-        return balanceStore.totalBalance(ofWalletsWithType: type)
+        return balanceDataStore.totalBalance(ofWalletsWithType: type)
     }
 }

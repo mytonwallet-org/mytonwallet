@@ -1,7 +1,9 @@
 import React, { memo, type TeactNode, useCallback, useEffect, useMemo, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiBaseCurrency, ApiCurrencyRates, ApiStakingState, ApiTokenWithPrice } from '../../api/types';
+import type {
+  ApiBaseCurrency, ApiCurrencyRates, ApiEthenaStakingState, ApiStakingState, ApiTokenWithPrice,
+} from '../../api/types';
 import type { UserToken } from '../../global/types';
 import type { Big } from '../../lib/big.js';
 import { StakingState } from '../../global/types';
@@ -145,8 +147,10 @@ function StakingInitial({
       decimals,
     });
   } else if (stakingState?.type === 'ethena') {
-    const { annualYieldStandard, annualYieldVerified } = stakingState;
-    annualYieldText = `${annualYieldStandard}%–${annualYieldVerified}%`;
+    const { annualYieldStandard, annualYieldVerified, isBoostAvailable } = stakingState;
+    annualYieldText = isBoostAvailable && annualYieldVerified !== undefined
+      ? `${annualYieldStandard}%–${annualYieldVerified}%`
+      : `${annualYieldStandard}%`;
   }
 
   const isNativeToken = getIsNativeToken(token?.slug);
@@ -461,7 +465,7 @@ function StakingInitial({
         <div className={buildClassName(styles.welcomeInformation, isStatic && styles.welcomeInformation_static)}>
           <div>{lang('Earn from your tokens while holding them', { symbol })}</div>
           <div className={styles.stakingApy}>{lang('Est. %annual_yield%', { annual_yield: annualYieldText })}</div>
-          {stakingType === 'ethena' && (
+          {stakingType === 'ethena' && (stakingState as ApiEthenaStakingState | undefined)?.isBoostAvailable && (
             <Button isText className={styles.textButton} onClick={handleCheckEligibility}>
               {lang('Check eligibility')}
             </Button>

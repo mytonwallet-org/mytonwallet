@@ -17,6 +17,7 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
+  selectIsMultichainAccount,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
@@ -53,6 +54,7 @@ interface StateProps {
   isNftBuyingDisabled?: boolean;
   dnsExpiration?: Record<string, number>;
   isViewAccount?: boolean;
+  isMultichainAccount?: boolean;
   isLoading?: boolean;
   theme: Theme;
   animationDuration: number;
@@ -69,6 +71,7 @@ function Nfts({
   blacklistedNftAddresses,
   whitelistedNftAddresses,
   isViewAccount,
+  isMultichainAccount,
   isLoading,
   theme,
   animationDuration,
@@ -194,6 +197,7 @@ function Nfts({
         addresses={nftAddresses}
         dnsExpiration={dnsExpiration}
         isViewAccount={isViewAccount}
+        isMultichainAccount={isMultichainAccount}
         nftsByAddresses={byAddress!}
         selectedNfts={selectedNfts}
       />
@@ -222,6 +226,8 @@ export default memo(
       const animationLevel = global.settings.animationLevel;
       const animationDuration = animationLevel === ANIMATION_LEVEL_MIN ? 0 : SLIDE_TRANSITION_DURATION_MS;
 
+      const accountId = selectCurrentAccountId(global);
+
       return {
         orderedAddresses,
         selectedNfts,
@@ -232,6 +238,7 @@ export default memo(
         isNftBuyingDisabled,
         dnsExpiration,
         isViewAccount: selectIsCurrentAccountViewMode(global),
+        isMultichainAccount: accountId ? selectIsMultichainAccount(global, accountId) : undefined,
         isLoading: isFullLoadingByChain ? Object.values(isFullLoadingByChain).some(Boolean) : undefined,
         theme: global.settings.theme,
         animationDuration,

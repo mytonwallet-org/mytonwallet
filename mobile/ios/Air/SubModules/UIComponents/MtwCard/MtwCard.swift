@@ -99,21 +99,23 @@ private struct _Card: View {
 }
 
 #Preview {
-    ScrollView {
-        VStack(spacing: 24) {
-            _Card(nft: black)
-            _Card(nft: platinum)
-            _Card(nft: gold)
-            _Card(nft: silver)
-            _Card(nft: standard)
-            _Card(nft: standardDark)
-            _Card(nft: nil)
+    withRegisteredCustomFontsForPreviewsIfNeeded {
+        ScrollView {
+            VStack(spacing: 24) {
+                _Card(nft: black)
+                _Card(nft: platinum)
+                _Card(nft: gold)
+                _Card(nft: silver)
+                _Card(nft: standard)
+                _Card(nft: standardDark)
+                _Card(nft: nil)
+            }
+            .padding(.bottom, 300)
         }
-        .padding(.bottom, 300)
-    }
-    .background {
-        Color.airBundle("HeaderBackgroundColor")
-            .ignoresSafeArea()
+        .background {
+            Color.airBundle("HeaderBackgroundColor")
+                .ignoresSafeArea()
+        }
     }
 }
 #endif

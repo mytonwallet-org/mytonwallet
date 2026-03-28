@@ -2,6 +2,7 @@ import WebKit
 import UIKit
 import UIComponents
 import WalletCore
+import Dependencies
 import WalletContext
 
 public class SellVC: WViewController, UIScrollViewDelegate {
@@ -21,15 +22,17 @@ public class SellVC: WViewController, UIScrollViewDelegate {
         }
     }
     
-    private let account: MAccount
+    @AccountContext private var account: MAccount
     private let tokenSlug: String
     private let webView = WKWebView()
     private let activityIndicator = WActivityIndicator()
     private var hasCompletedInitialWebViewLoad = false
+
+    @Dependency(\.balancesStore) private var balancesStore
     
-    public init(account: MAccount, tokenSlug: String) {
+    public init(accountContext: AccountContext, tokenSlug: String) {
         self.tokenSlug = tokenSlug
-        self.account = account
+        self._account = accountContext
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -134,7 +137,7 @@ public class SellVC: WViewController, UIScrollViewDelegate {
                 // Get max available amount to transfer
                 let amountString: String
                 do {
-                    let balance = BalanceStore.getAccountBalances(accountId: account.id)[tokenSlug] ?? .zero
+                    let balance = balancesStore.getAccountBalances(accountId: account.id)[tokenSlug] ?? .zero
                     let chainConfig = getChainConfig(chain: chain)
                     var amount: BigInt?
                     if chainConfig.canTransferFullNativeBalance {
@@ -150,12 +153,12 @@ public class SellVC: WViewController, UIScrollViewDelegate {
                                 tokenAddress: nil,
                                 allowGasless: nil
                             ))
-                            let explainedFee = explainApiTransferFee(input: draftResult, tokenSlug: tokenSlug)
+                            let explainedFee = draftResult.explainedFee
                             amount = getMaxTransferAmount(.init(
                                 tokenBalance: balance,
                                 tokenSlug: tokenSlug,
-                                fullFee: explainedFee.fullFee?.terms,
-                                canTransferFullBalance: explainedFee.canTransferFullBalance
+                                fullFee: explainedFee?.fullFee?.terms,
+                                canTransferFullBalance: explainedFee?.canTransferFullBalance ?? false
                             ))
                         } catch {
                             amount = balance
@@ -174,7 +177,7 @@ public class SellVC: WViewController, UIScrollViewDelegate {
                 }
                 
                 // Get the best currency
-                let preferredCurrency = TokenStore.baseCurrency;
+                let preferredCurrency = TokenStore.baseCurrency
                 let currency = Moonpay.Offramp.supportedCurrencies.first { $0 == preferredCurrency } ?? Moonpay.Offramp.supportedCurrencies.first!
                 
                 // fetch signed moonpay url

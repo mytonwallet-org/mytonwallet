@@ -17,6 +17,7 @@ import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.widgets.R
 import org.mytonwallet.app_air.widgets.utils.DeeplinkUtils
 import org.mytonwallet.app_air.widgets.utils.FontUtils
@@ -80,6 +81,7 @@ class ActionsWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        ApplicationContextHolder.update(context.applicationContext)
         WBaseStorage.init(context)
         LocaleController.init(context, WBaseStorage.getActiveLanguage())
         for (appWidgetId in appWidgetIds) {

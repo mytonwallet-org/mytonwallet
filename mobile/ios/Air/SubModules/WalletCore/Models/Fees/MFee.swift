@@ -58,6 +58,10 @@ public struct MFee: Equatable, Hashable, Codable, Sendable {
         self.nativeSum = nativeSum
     }
     
+    public var isNativeOnly: Bool {
+        (terms.token ?? 0) == 0 && (terms.stars ?? 0) == 0
+    }
+    
     public func toString(
         token: ApiToken,
         nativeToken: ApiToken

@@ -56,6 +56,10 @@ You have no NFT in this wallet yet: |
 Collapse: Згорнути
 Expand: Розгорнути
 Standalone NFT: Окремий NFT
+$nft_select: "Вибрати"
+$nft_batch_on_sale: Вибрані колекції виставлені на продаж.
+$nft_batch_different_chains: Вибрані колекції знаходяться в різних мережах.
+$nft_expired: "Закінчився"
 Linked Address: Пов’язана адреса
 Enter Address: Введіть адресу
 Show All Assets: Показати всі активи
@@ -98,6 +102,7 @@ Instantly: Миттєво
 Up to %1$@: До %1$@
 up to %1$@: до %1$@
 Current APY: Поточний APY
+Current APR: Поточний APR
 Est. earning per year: Орієнтовний річний дохід
 in: у
 Error: Помилка
@@ -301,6 +306,16 @@ Search or enter address: Знайдіть або введіть адресу
 View as Grid: Показати у вигляді сітки
 
 
+
+$web_permission_prompt: Дозволити %origin% доступ до %permissions%?
+$web_permission_allow: Дозволити
+$web_permission_deny: Не дозволяти
+$web_permission_camera: камери
+$web_permission_microphone: мікрофона
+$web_permission_location: геолокації
+$web_permission_device_features: функцій пристрою
+$web_permission_this_site: цьому сайту
+
 push_title_wallet: "%wallet_title%"
 push_activity_token_sent: Надіслано %amount% %symbol%
 push_activity_token_received: Отримано %amount% %symbol%
@@ -338,3 +353,8 @@ push_domain_expired_days_ago: Термін дії вашого домену %dom
 push_domain_expires_today: Термін дії вашого домену %domain% закінчується сьогодні. Будь ласка, продовжте його, щоб не втратити доступ
 push_domain_expires_tomorrow: Термін дії вашого домену %domain% закінчується завтра. Будь ласка, продовжте його, щоб не втратити доступ
 push_domain_expires_in_days: Термін дії вашого домену %domain% закінчується через %days% днів. Будь ласка, продовжте його, щоб не втратити доступ
+
+$more_nfts:
+  zeroValue: Немає NFT
+  oneValue: "+1 NFT"
+  otherValue: "+%1$d NFT"

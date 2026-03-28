@@ -67,7 +67,7 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
     }
     
     private var resolvedBackgroundColor: UIColor {
-        backgroundColor ?? WTheme.groupedItem
+        backgroundColor ?? .air.groupedItem
     }
     
     private struct ContentContainer<_Content: View>: View {

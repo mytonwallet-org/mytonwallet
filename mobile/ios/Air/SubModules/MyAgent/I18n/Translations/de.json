@@ -1,0 +1,57 @@
+{
+  "error.tokenNotFound": "Leider konnte ich keinen Token mit dem Namen \"{token}\" finden. Bitte überprüfe den Tokennamen und versuche es erneut.",
+  "error.rateLimit.hourly": "Du hast das stündliche Limit von {limit} Anfragen erreicht. Bitte warte einen Moment und versuche es später erneut.",
+  "error.rateLimit.daily": "Du hast das tägliche Limit von {limit} Anfragen erreicht. Bitte komm morgen wieder.",
+  "error.noNewsResults": "Leider konnte ich keine aktuellen Nachrichten zu diesem Thema finden. Bitte versuche es später erneut.",
+  "error.noAnswer": "Ich konnte keine Antwort finden.",
+  "error.noActionLink": "Ich habe deine Anfrage verstanden, konnte aber keinen Aktionslink erstellen.",
+  "error.generic": "Es ist leider ein Fehler aufgetreten. Bitte versuche es erneut.",
+
+  "send.summary.to": "**- An:** {address}",
+  "send.summary.amount": "**- Betrag:** {amount} ({name})",
+  "send.summary.fee": "**- Gebühr:** wird vor der endgültigen Bestätigung in der App angezeigt",
+  "send.message": "Hier ist eine Zusammenfassung deiner Überweisung:\n\n{summary}\n\nTippe auf die Schaltfläche unten, um den vorausgefüllten Sendebildschirm zu öffnen — du kannst vor der Bestätigung alles überprüfen.",
+  "send.button": "Senden {token}",
+
+  "receive.summary.to": "**- An:** {address}",
+  "receive.summary.amount": "**- Betrag:** {amount}",
+  "receive.summary.comment": "**- Kommentar:** {comment}",
+  "receive.message.withAddress": "Hier ist dein Zahlungslink zum Teilen:\n\n{summary}\n\nTeile diesen Link oder QR-Code — der Absender sieht einen vorausgefüllten Überweisungsbildschirm.",
+  "receive.message.noAddress": "Tippe auf die Schaltfläche unten, um den Empfangsbildschirm zu öffnen — du siehst deine Adresse und deinen QR-Code zum Teilen.",
+  "receive.button": "Empfangen {token}",
+  "receive.button.default": "Empfangen",
+
+  "swap.summary.from": "**- Von:** {amount}",
+  "swap.summary.to": "**- Nach:** {token}",
+  "swap.summary.fee": "**- Kurs & Gebühr:** wird vor der endgültigen Bestätigung angezeigt",
+  "swap.message": "Hier ist eine Zusammenfassung deines Tauschs:\n\n{summary}\n\nTippe auf die Schaltfläche unten, um den vorausgefüllten Tauschbildschirm zu öffnen — du kannst vor der Bestätigung alles überprüfen.",
+  "swap.button": "Tauschen",
+
+  "buyWithCard.summary.amount": "**- Betrag:** {amount}",
+  "buyWithCard.summary.payment": "**- Zahlung:** Karte (Optionen werden in der App angezeigt)",
+  "buyWithCard.message": "Hier ist eine Zusammenfassung deines Kaufs:\n\n{summary}\n\nTippe auf die Schaltfläche unten, um den Kaufbildschirm zu öffnen — wähle einen Anbieter und bestätige die Details dort.",
+  "buyWithCard.button": "Mit Karte kaufen",
+
+  "buyWithCrypto.summary.from": "**- Von:** {amount}",
+  "buyWithCrypto.summary.to": "**- Nach:** {token}",
+  "buyWithCrypto.summary.fee": "**- Kurs & Gebühr:** wird vor der endgültigen Bestätigung angezeigt",
+  "buyWithCrypto.message": "Hier ist eine Zusammenfassung deines Cross-Chain-Kaufs:\n\n{summary}\n\nTippe auf die Schaltfläche unten, um den vorausgefüllten Kaufbildschirm zu öffnen — du kannst vor der Bestätigung alles überprüfen.",
+  "buyWithCrypto.button": "Mit Krypto kaufen",
+
+  "price.summary.price": "**- Preis:** {currency}{price}",
+  "price.summary.change": "**- 24h Änderung:** {direction} {change}%",
+  "price.message.withData": "{token} ({name}):\n\n{summary}\n\nTippe auf die Schaltfläche unten für das vollständige Diagramm und Details.",
+  "price.message.noData": "Tippe auf die Schaltfläche unten, um den Preis, das Diagramm und Details von {token} in der App anzuzeigen.",
+  "price.button": "Anzeigen {token}",
+
+  "stake.message": "Tippe auf die Schaltfläche unten, um den Staking-Bildschirm zu öffnen — du kannst einen Pool wählen und Belohnungen verdienen.",
+  "stake.button": "Staken",
+
+  "portfolio.message": "Tippen Sie auf die Schaltfläche unten, um Ihr Portfolio anzuzeigen — sehen Sie alle Ihre Bestände, Salden und die Performance auf einen Blick.",
+  "portfolio.button": "Portfolio anzeigen",
+
+  "telegram.welcome": "Willkommen beim Crypto Agent! Schreib mir eine Nachricht über:\n- Token senden\n- Token empfangen\n- Token tauschen\n- Krypto kaufen\n- Token-Preise\n- Jede Frage zu Wallet/Krypto",
+  "telegram.typing": "Schreibe...",
+  "telegram.setaddress.usage": "Verwendung: /setaddress <Chain> <Name> <Adresse>",
+  "telegram.setaddress.added": "Adresse hinzugefügt: {name} ({chain}): {address}"
+}

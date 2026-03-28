@@ -58,7 +58,7 @@ struct LinkDomainView: View {
         .environment(\.isLoading, viewModel.isButtonLoading)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(WTheme.sheetBackground))
+        .background(Color.air.sheetBackground)
     }
 }
 
@@ -115,7 +115,7 @@ private struct LinkDomainAddressInput: View {
                     } else {
                         Button(action: onClear) {
                             Image(systemName: "xmark.circle.fill")
-                                .tint(Color(WTheme.secondaryLabel))
+                                .tint(.air.secondaryLabel)
                                 .imageScale(.small)
                         }
                     }

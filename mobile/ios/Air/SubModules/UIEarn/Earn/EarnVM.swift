@@ -26,9 +26,9 @@ protocol EarnMVDelegate: WViewController {
 @Perceptible
 public final class EarnVM: WalletCoreData.EventsObserver {
     
-    public static let sharedTon = EarnVM(config: .ton)
-    public static let sharedMycoin = EarnVM(config: .mycoin)
-    public static let sharedEthena = EarnVM(config: .ethena)
+    public static let sharedTon = EarnVM(config: .ton, accountContext: AccountContext(source: .current))
+    public static let sharedMycoin = EarnVM(config: .mycoin, accountContext: AccountContext(source: .current))
+    public static let sharedEthena = EarnVM(config: .ethena, accountContext: AccountContext(source: .current))
     
     @PerceptionIgnored
     weak var delegate: EarnMVDelegate? = nil {
@@ -45,7 +45,7 @@ public final class EarnVM: WalletCoreData.EventsObserver {
     var stakingState: ApiStakingState? { config.stakingState(stakingData: $account.stakingData) }
 
     @PerceptionIgnored
-    @AccountContext(source: .current) private var account: MAccount
+    @AccountContext private var account: MAccount
     var accountContext: AccountContext { $account }
 
     @PerceptionIgnored
@@ -80,15 +80,17 @@ public final class EarnVM: WalletCoreData.EventsObserver {
     @PerceptionIgnored
     private var isLoadingActivities = false
 
-    private init(config: StakingConfig) {
+    init(config: StakingConfig, accountContext: AccountContext) {
         self.config = config
-        self.currentAccountId = $account.accountId
+        self._account = accountContext
+        self.currentAccountId = accountContext.accountId
         WalletCoreData.add(eventObserver: self)
     }
     
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .accountChanged(let accountId, _):
+            guard $account.source == .current else { return }
             if accountId != self.currentAccountId {
                 self.currentAccountId = accountId
                 isLoadingStakingHistoryPage = nil

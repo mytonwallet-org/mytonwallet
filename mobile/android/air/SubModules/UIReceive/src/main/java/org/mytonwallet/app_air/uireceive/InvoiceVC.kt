@@ -20,7 +20,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ScrollView
 import android.widget.Toast
-import androidx.appcompat.widget.AppCompatEditText
+import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -79,15 +79,12 @@ class InvoiceVC(context: Context) : WViewController(context) {
     }
 
     private val commentInputView by lazy {
-        AppCompatEditText(context).apply {
-            id = View.generateViewId()
-            background = null
+        WEditText(context, multilinePaste = false).apply {
             hint = LocaleController.getString("Optional")
-            typeface = WFont.Regular.typeface
+            setStyle(16f)
             layoutParams =
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             setPaddingDp(20, 8, 20, 20)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             }

@@ -29,7 +29,7 @@ import { addBackendHeadersToSocketUrl } from '../../../common/backend';
 import { AbstractWebsocketClient } from '../../../common/websocket/abstractWsClient';
 import { SEC } from '../../../constants';
 import { NETWORK_CONFIG } from '../constants';
-import { parseActions } from './actions';
+import { parseActionsToActivities } from './actions';
 
 // Toncenter closes the socket after 30 seconds of inactivity
 const PING_INTERVAL = 20 * SEC;
@@ -400,7 +400,7 @@ async function parseSocketActions(network: ApiNetwork, message: ActionsSocketMes
       continue;
     }
 
-    activitiesByAddress[address] = parseActions(actions, {
+    activitiesByAddress[address] = parseActionsToActivities(actions, {
       network,
       walletAddress: address,
       addressBook: message.address_book,
@@ -408,7 +408,7 @@ async function parseSocketActions(network: ApiNetwork, message: ActionsSocketMes
       nftSuperCollectionsByCollectionAddress,
       isPending: message.finality === 'pending',
       finality: message.finality,
-    })[0].activities;
+    });
   }
 
   return activitiesByAddress;

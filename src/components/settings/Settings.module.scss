@@ -80,7 +80,7 @@
   justify-items: start;
 
   width: 100%;
-  padding: var(--header-padding-top) 0.125rem var(--header-padding-bottom);
+  padding: calc(var(--header-padding-top) + 0.3125rem) 0.125rem var(--header-padding-bottom);
 
   font-size: 1.0625rem;
   font-weight: 700;
@@ -97,6 +97,10 @@
 
   :global(html.is-mobile-telegram-app.is-fullscreen) & {
     padding-top: calc(var(--tg-safe-area-inset-top) + var(--header-title-height));
+  }
+
+  &_withWallet {
+    padding: var(--header-padding-top) 0.125rem var(--header-padding-bottom);
   }
 }
 
@@ -220,17 +224,19 @@
     --header-title-height: -1rem;
   }
 
-  @include mixins.respond-below(xs) {
-    padding-top: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom) + 0.75rem);
+  &_withWallet {
+    padding: 1.1875rem 1rem max(var(--safe-area-bottom), 1rem);
 
-    :global(html.is-mobile-telegram-app.is-fullscreen) & {
-      padding-top: 0.75rem;
+    @include mixins.respond-below(xs) {
+      padding-bottom: calc(var(--safe-area-bottom) + var(--bottombar-height) + 1.625rem);
     }
   }
 
   @include mixins.respond-below(xs) {
-    &.withBottomSpace {
-      padding-bottom: calc(var(--safe-area-bottom) + var(--bottombar-height) + 1.625rem);
+    padding-top: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom) + 1.1875rem);
+
+    :global(html.is-mobile-telegram-app.is-fullscreen) & {
+      padding-top: 0.75rem;
     }
   }
 }
@@ -246,11 +252,11 @@
 }
 
 .currentWalletSection {
-  margin: -2.5625rem 0 1.4375rem;
+  margin: -3rem 0 1.4375rem;
 }
 
 .blockTitle {
-  margin-bottom: 0.3125rem;
+  margin-bottom: 0.5rem;
   padding: 0 0.5rem;
 
   font-size: 0.8125rem;
@@ -258,8 +264,12 @@
   line-height: 1.125rem;
   color: var(--color-gray-2);
 
-  &:not(:first-of-type) {
-    margin-top: 0.0625rem;
+  &_small {
+    margin-bottom: 0.3125rem;
+
+    &:not(:first-of-type) {
+      margin-top: 0.0625rem;
+    }
   }
 }
 
@@ -455,16 +465,23 @@
   grid-template-areas: "icon content arrow";
   grid-template-columns: min-content 1fr min-content;
   grid-template-rows: 1fr;
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: center;
 
-  padding: 0.75rem 0.75rem 0.625rem 1rem;
+  padding: 0.625rem 0.75rem 0.625rem 0.625rem;
 
   text-decoration: none !important;
 
   @include mixins.transition("background-color 200ms, border-radius 200ms");
 
-  @include mixins.separatorBottomSettings(3.75rem, 0, -0.0625rem);
+  @include mixins.separatorBottomSettings(3.125rem);
+
+  &_menu {
+    gap: 1rem;
+    padding: 0.75rem 0.75rem 0.625rem 1rem;
+
+    @include mixins.separatorBottomSettings(3.75rem, 0, -0.0625rem);
+  }
 
   &_red {
     color: var(--color-red);
@@ -473,7 +490,8 @@
   &_small {
     grid-template-areas: "content action";
     grid-template-columns: 1fr min-content;
-    padding: 1rem;
+    height: 3rem;
+    padding: 0.875rem 1rem;
 
     @include mixins.separatorBottomSettings(1rem, 0);
   }
@@ -493,7 +511,8 @@
     align-items: flex-start;
     justify-content: flex-start;
 
-    padding: 0.9375rem 0.5rem 1rem 1rem;
+    height: 4.0625rem;
+    padding: 0.8125rem 0.5rem 1rem 1rem;
 
     @include mixins.separatorBottomSettings(1rem, 1.5rem);
   }
@@ -562,13 +581,18 @@
   border-radius: 0 0 var(--border-radius-default) var(--border-radius-default) !important;
 }
 
+.itemAutoLockLabel {
+  font-size: 1rem;
+  color: var(--color-black);
+}
+
 a.item:hover {
   color: var(--color-black);
 }
 
 .itemInfo {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
   align-items: center;
 
   font-size: 1rem;
@@ -590,6 +614,10 @@ a.item:hover {
   font-weight: 600;
   line-height: 1.25rem;
   color: var(--color-black);
+
+  &_accent {
+    color: var(--color-accent)
+  }
 }
 
 .itemSubtitle {
@@ -659,6 +687,7 @@ a.item:hover {
   font-size: 0.9375rem;
   font-weight: 600;
   line-height: 0.9375rem;
+  color: var(--color-black);
 }
 
 .languageNative {
@@ -701,10 +730,10 @@ a.item:hover {
 
 .changePasswordButton {
   width: 100%;
-  padding: 1rem;
+  padding: 0.875rem 1rem;
   border-radius: var(--border-radius-default);
 
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1rem;
   color: var(--color-accent);
@@ -1060,7 +1089,7 @@ a.item:hover {
 .nftName {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: var(--color-black-1);
+  color: var(--color-black);
 }
 
 .nftCollection {

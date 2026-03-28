@@ -35,6 +35,7 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
+import org.mytonwallet.app_air.walletcore.stores.AgentMessageStore
 import org.mytonwallet.app_air.walletcore.stores.AuthStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
@@ -66,7 +67,7 @@ const val VIRTUAL_STAKING_SLUG_PREFIX = "staking-"
 const val TON_DNS_COLLECTION = "EQC3dNlesgVD8YbAazcauIrXBPfiVhMMr5YYk2in0Mtsz0Bz"
 const val MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"
 
-val STAKING_SLUGS = listOf(
+val STAKING_SLUGS = setOf(
     STAKE_SLUG, STAKED_MYCOIN_SLUG, STAKED_USDE_SLUG
 )
 
@@ -157,7 +158,7 @@ object WalletCore {
     }
 
     val stores = listOf<IStore>(
-        AccountStore, ActivityStore, AddressStore, AuthStore, BalanceStore,
+        AccountStore, ActivityStore, AddressStore, AgentMessageStore, AuthStore, BalanceStore,
         ConfigStore, DappsStore, ExploreHistoryStore, NftStore, StakingStore, TokenStore
     )
 

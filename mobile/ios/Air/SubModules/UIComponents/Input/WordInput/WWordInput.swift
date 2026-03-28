@@ -83,9 +83,9 @@ public class WWordInput: UIView {
         updateTheme()
     }
 
-    func updateTheme() {
-        backgroundColor = WTheme.wordInput.background
-        numberLabel.textColor = WTheme.secondaryLabel
+    private func updateTheme() {
+        backgroundColor = .air.sheetBackground
+        numberLabel.textColor = .air.secondaryLabel
     }
     
     func showSuggestions(for keyword: String?) {
@@ -109,7 +109,7 @@ public class WWordInput: UIView {
 
 extension WWordInput: UITextFieldDelegate {
     public func textFieldDidBeginEditing(_ textField: UITextField) {
-        textField.textColor = WTheme.primaryLabel
+        textField.textColor = UIColor.label
         if let txt = trimmedText, !txt.isEmpty {
             showSuggestions(for: txt)
         }
@@ -126,7 +126,7 @@ extension WWordInput: UITextFieldDelegate {
     public func textFieldDidEndEditing(_ textField: UITextField) {
         let keyword = trimmedText ?? ""
         if isValidPrivateKeyHex(keyword) {
-            textField.textColor = WTheme.primaryLabel
+            textField.textColor = UIColor.label
             showSuggestions(for: nil)
             return
         }
@@ -135,12 +135,12 @@ extension WWordInput: UITextFieldDelegate {
                 txt.starts(with: keyword)
             }) {
                 textField.text = suggestion
-                textField.textColor = WTheme.primaryLabel
+                textField.textColor = UIColor.label
             } else {
-                textField.textColor = WTheme.error
+                textField.textColor = .air.error
             }
         } else {
-            textField.textColor = WTheme.primaryLabel
+            textField.textColor = UIColor.label
         }
         showSuggestions(for: nil)
     }

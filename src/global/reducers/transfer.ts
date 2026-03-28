@@ -9,7 +9,14 @@ import { selectCurrentTransferMaxAmount, selectTokenMatchingCurrentTransferAddre
 export function updateCurrentTransferByCheckResult(global: GlobalState, result: ApiCheckTransactionDraftResult) {
   const nextGlobal = updateCurrentTransfer(global, {
     toAddressName: result.addressName,
-    ...pick(result, ['fee', 'realFee', 'isScam', 'isMemoRequired', 'diesel', 'isToAddressNew', 'resolvedAddress']),
+    ...pick(result, [
+      'isScam',
+      'isMemoRequired',
+      'diesel',
+      'isToAddressNew',
+      'resolvedAddress',
+      'explainedFee',
+    ]),
   });
   return preserveMaxTransferAmount(global, nextGlobal);
 }

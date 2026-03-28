@@ -38,7 +38,7 @@ public class BaseCurrencyVC: SettingsBaseVC, UICollectionViewDelegate {
     }
 
     private func setupViews() {
-        view.backgroundColor = isModal ? WTheme.sheetBackground : WTheme.groupedBackground
+        view.backgroundColor = isModal ? .air.sheetBackground : .air.groupedBackground
 
         navigationItem.title = lang("Base Currency")
 

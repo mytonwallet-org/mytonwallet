@@ -35,19 +35,19 @@ enum SplitHomeActionItem: CaseIterable, Hashable, Sendable {
         }
     }
     
-    @MainActor func perform() {
+    @MainActor func perform(accountContext: AccountContext) {
         switch self {
-        case .buy: AppActions.showBuyWithCard(chain: nil, push: nil)
-        case .deposit: AppActions.showReceive(chain: nil, title: nil)
-        case .earn: AppActions.showEarn(tokenSlug: nil)
-        case .scan: onScan()
-        case .sell: AppActions.showSell(account: nil, tokenSlug: nil)
-        case .send: AppActions.showSend(prefilledValues: .init())
-        case .swap: AppActions.showSwap(defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil)
+        case .buy: AppActions.showBuyWithCard(accountContext: accountContext, chain: nil, push: nil)
+        case .deposit: AppActions.showReceive(accountContext: accountContext, chain: nil, title: nil)
+        case .earn: AppActions.showEarn(accountContext: accountContext, tokenSlug: nil)
+        case .scan: onScan(accountContext: accountContext)
+        case .sell: AppActions.showSell(accountContext: accountContext, tokenSlug: nil)
+        case .send: AppActions.showSend(accountContext: accountContext, prefilledValues: .init())
+        case .swap: AppActions.showSwap(accountContext: accountContext, defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil)
         }
     }
     
-    @MainActor private func onScan() {
+    @MainActor private func onScan(accountContext: AccountContext) {
         Task {
             if let result = await AppActions.scanQR() {
                 switch result {
@@ -57,7 +57,7 @@ enum SplitHomeActionItem: CaseIterable, Hashable, Sendable {
                         AppActions.showError(error: BridgeCallError.customMessage(lang("This QR Code is not supported"), nil))
                     }
                 case .address(address: let address, possibleChains: let chains):
-                    AppActions.showSend(prefilledValues: .init(address: address, token: chains.first?.nativeToken.slug))
+                    AppActions.showSend(accountContext: accountContext, prefilledValues: .init(address: address, token: chains.first?.nativeToken.slug))
                 }
             }
         }

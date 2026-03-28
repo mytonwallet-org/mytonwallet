@@ -16,12 +16,11 @@ export default function rgbToHex(rgb: [number, number, number]) {
   }).join('')}`;
 }
 
-export function euclideanDistance(color1: RGBColor, color2: RGBColor): number {
-  const r = 0.3 * ((color1[0] - color2[0]) ** 2);
-  const g = 0.59 * ((color1[1] - color2[1]) ** 2);
-  const b = 0.11 * ((color1[2] - color2[2]) ** 2);
+export function labEuclideanDistance(color1: RGBColor, color2: RGBColor): number {
+  const [l1, a1, b1] = rgbToLab(color1);
+  const [l2, a2, b2] = rgbToLab(color2);
 
-  return Math.sqrt(r + g + b);
+  return Math.sqrt((l1 - l2) ** 2 + (a1 - a2) ** 2 + (b1 - b2) ** 2);
 }
 
 function rgbToLab(rgb: RGBColor): RGBColor {

@@ -133,6 +133,8 @@ Signing was confirmed!: Die Signatur wurde bestätigt!
 Activity Details: Aktivitätsdetails
 No activities found: Keine Aktivitäten gefunden
 Comment Copied: Der Kommentar wurde kopiert
+Copy Text: Text kopieren
+Message Copied: Nachricht kopiert
 Sender: Absender
 Recipient: Empfänger
 "%chain% Address Copied": "%chain%-Adresse kopiert"
@@ -531,7 +533,7 @@ Contract Initialization Data Copied: Contract Initialization Data Copied
 Open NFT Collection: NFT-Sammlung öffnen
 Previous: Zurück
 Next: Weiter
-Insufficient %token% for fee.: Unzureichende %token% für Gebühr.
+Insufficient %token% for fee.%fee%: Unzureichende %token% für Gebühr.%fee%
 Send NFT: Senden von NFT
 Send Collectible: Sammlerstück senden
 Send Collectibles: Sammlerstücke senden
@@ -783,9 +785,10 @@ Upgrade for %amount% %currency%: Upgrade für %amount% %currency%
 This card has been sold out: Diese Karte ist ausverkauft
 Import Existing Wallet: Vorhandene Wallet importieren
 View Any Address: Beliebige Adresse anzeigen
+View Mode: Ansichtsmodus
 "%counts% Secret Words": "%counts% Geheime Wörter"
-Wallet Address or Domain: Wallet-Adresse oder Domain
-$import_view_account_note: Geben Sie **eine beliebige Adresse** im %chains%-Netzwerk ein, um sie im **Ansichtsmodus** zu öffnen.
+Address or Domain: Adresse oder Domain
+$import_view_account_note: Fügen Sie **eine beliebige** Adresse hinzu, um ihre Aktivitäten **zu verfolgen**.
 $view_mode: Ansicht
 Import Wallet: Wallet importieren
 Please top up your %token% balance.: Bitte laden Sie Ihr %token%-Guthaben auf.
@@ -958,6 +961,7 @@ No wallets: Keine Wallets
 View as List: Als Liste anzeigen
 View as Cards: Als Karten anzeigen
 Reorder: Neu anordnen
+Reorder Tabs: Tabs neu anordnen
 Rename: Umbenennen
 Customize: Anpassen
 i18n_dragToSort: Zum Sortieren ziehen
@@ -1059,6 +1063,10 @@ My Assets: Meine Vermögenswerte
 Owner: Eigentümer
 Show All Wallets: Alle Wallets anzeigen
 Ask a Question: Eine Frage stellen
+Ask anything: Frag, was du möchtest
+Agent: Agent
+Clear Chat: Chat löschen
+Unsupported link: Dieser Link wird nicht unterstützt
 MyTonWallet Features: MyTonWallet-Funktionen
 Notifications: Benachrichtigungen
 Wrong passcode, please try again.: Falscher Passcode, bitte versuchen Sie es erneut.
@@ -1072,3 +1080,15 @@ Enabling biometric confirmation will reset the passcode.: Die Aktivierung der bi
 Confirm action with your passcode: Bestätigen Sie die Aktion mit Ihrem Passcode
 No Image: Kein Bild
 Different blockchain. Cannot be selected: Andere Blockchain. Kann nicht ausgewählt werden
+Top 5: Top 5
+Top 10: Top 10
+Top 30: Top 30
+Manage Assets: Assets verwalten
+Pulse: Puls
+Edit Message: Nachricht bearbeiten
+Toggle Hints: Hinweise umschalten
+AgentErrorResponseFailed: "Fehler: Antwort konnte nicht abgerufen werden"
+AgentErrorConnectionFailed: "Fehler: Verbindung fehlgeschlagen"
+Scroll To Bottom: Nach unten scrollen
+$agent_clear_chat_confirm: Sind Sie sicher, dass Sie den Chatverlauf löschen möchten?
+$unknown_swap_token: Unbekannter Token im Swap-Link. Standard-Token wurden verwendet.

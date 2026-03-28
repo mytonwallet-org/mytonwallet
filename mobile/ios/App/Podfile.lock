@@ -1,46 +1,47 @@
 PODS:
-  - Capacitor (7.2.0):
+  - Capacitor (8.2.0):
     - CapacitorCordova
-  - CapacitorApp (7.0.1):
+  - CapacitorApp (8.0.1):
     - Capacitor
-  - CapacitorAppLauncher (7.0.1):
+  - CapacitorAppLauncher (8.0.1):
     - Capacitor
-  - CapacitorClipboard (7.0.1):
+  - CapacitorClipboard (8.0.1):
     - Capacitor
-  - CapacitorCommunityBluetoothLe (7.0.0):
+  - CapacitorCommunityBluetoothLe (8.1.0):
     - Capacitor
-  - CapacitorCordova (7.2.0)
-  - CapacitorDialog (7.0.0):
+  - CapacitorCordova (8.2.0)
+  - CapacitorDialog (8.0.0):
     - Capacitor
-  - CapacitorFilesystem (7.0.1):
+  - CapacitorFilesystem (8.1.2):
     - Capacitor
-  - CapacitorHaptics (7.0.1):
+    - IONFilesystemLib (~> 1.1.1)
+  - CapacitorHaptics (8.0.1):
     - Capacitor
-  - CapacitorKeyboard (7.0.3):
+  - CapacitorKeyboard (8.0.1):
     - Capacitor
-  - CapacitorMlkitBarcodeScanning (7.3.0):
+  - CapacitorMlkitBarcodeScanning (8.0.1):
     - Capacitor
-    - GoogleMLKit/BarcodeScanning (= 7.0.0)
-  - CapacitorNativeSettings (7.0.1):
+    - GoogleMLKit/BarcodeScanning (~> 8.0.0)
+  - CapacitorNativeSettings (8.0.0):
     - Capacitor
   - CapacitorPluginSafeArea (4.0.2):
     - Capacitor
-  - CapacitorPushNotifications (7.0.1):
+  - CapacitorPushNotifications (8.0.2):
     - Capacitor
-  - CapacitorSecureStoragePlugin (0.11.0):
+  - CapacitorSecureStoragePlugin (0.13.0):
     - Capacitor
     - SwiftKeychainWrapper
-  - CapacitorShare (7.0.1):
+  - CapacitorShare (8.0.1):
     - Capacitor
-  - CapacitorSplashScreen (7.0.0):
+  - CapacitorSplashScreen (8.0.1):
     - Capacitor
-  - CapacitorStatusBar (7.0.0):
+  - CapacitorStatusBar (8.0.1):
     - Capacitor
   - CapgoCapacitorNativeBiometric (0.0.1):
     - Capacitor
-  - CapgoNativeAudio (7.1.2):
+  - CapgoNativeAudio (8.3.1):
     - Capacitor
-  - CordovaPlugins (7.2.0):
+  - CordovaPlugins (8.1.0):
     - CapacitorCordova
   - FirebaseCore (11.9.0):
     - FirebaseCoreInternal (~> 11.9.0)
@@ -65,11 +66,11 @@ PODS:
   - GoogleDataTransport (10.1.0):
     - nanopb (~> 3.30910.0)
     - PromisesObjC (~> 2.4)
-  - GoogleMLKit/BarcodeScanning (7.0.0):
+  - GoogleMLKit/BarcodeScanning (8.0.0):
     - GoogleMLKit/MLKitCore
-    - MLKitBarcodeScanning (~> 6.0.0)
-  - GoogleMLKit/MLKitCore (7.0.0):
-    - MLKitCommon (~> 12.0.0)
+    - MLKitBarcodeScanning (~> 7.0.0)
+  - GoogleMLKit/MLKitCore (8.0.0):
+    - MLKitCommon (~> 13.0.0)
   - GoogleToolboxForMac/Defines (4.2.1)
   - GoogleToolboxForMac/Logger (4.2.1):
     - GoogleToolboxForMac/Defines (= 4.2.1)
@@ -100,25 +101,26 @@ PODS:
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
   - GTMSessionFetcher/Core (3.5.0)
-  - MauricewegnerCapacitorNavigationBar (7.0.0):
+  - IONFilesystemLib (1.1.1)
+  - MauricewegnerCapacitorNavigationBar (8.0.0):
     - Capacitor
-  - MLImage (1.0.0-beta6)
-  - MLKitBarcodeScanning (6.0.0):
-    - MLKitCommon (~> 12.0)
-    - MLKitVision (~> 8.0)
-  - MLKitCommon (12.0.0):
+  - MLImage (1.0.0-beta7)
+  - MLKitBarcodeScanning (7.0.0):
+    - MLKitCommon (~> 13.0)
+    - MLKitVision (~> 9.0)
+  - MLKitCommon (13.0.0):
     - GoogleDataTransport (~> 10.0)
     - GoogleToolboxForMac/Logger (< 5.0, >= 4.2.1)
     - "GoogleToolboxForMac/NSData+zlib (< 5.0, >= 4.2.1)"
     - GoogleUtilities/Logger (~> 8.0)
     - GoogleUtilities/UserDefaults (~> 8.0)
     - GTMSessionFetcher/Core (< 4.0, >= 3.3.2)
-  - MLKitVision (8.0.0):
+  - MLKitVision (9.0.0):
     - GoogleToolboxForMac/Logger (< 5.0, >= 4.2.1)
     - "GoogleToolboxForMac/NSData+zlib (< 5.0, >= 4.2.1)"
     - GTMSessionFetcher/Core (< 4.0, >= 3.3.2)
-    - MLImage (= 1.0.0-beta6)
-    - MLKitCommon (~> 12.0)
+    - MLImage (= 1.0.0-beta7)
+    - MLKitCommon (~> 13.0)
   - MytonwalletAirAppLauncher (0.0.1):
     - Capacitor
   - MytonwalletCapacitorUsbHid (0.0.1):
@@ -169,6 +171,7 @@ SPEC REPOS:
     - GoogleToolboxForMac
     - GoogleUtilities
     - GTMSessionFetcher
+    - IONFilesystemLib
     - MLImage
     - MLKitBarcodeScanning
     - MLKitCommon
@@ -228,47 +231,48 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@mytonwallet/capacitor-usb-hid"
 
 SPEC CHECKSUMS:
-  Capacitor: 03bc7cbdde6a629a8b910a9d7d78c3cc7ed09ea7
-  CapacitorApp: febecbb9582cb353aed037e18ec765141f880fe9
-  CapacitorAppLauncher: bab4ca931a308252d2bafcb78ca6a364bd1d4c4e
-  CapacitorClipboard: 70bfdb42b877b320a6e511ab94fa7a6a55d57ecb
-  CapacitorCommunityBluetoothLe: f911fcbecc25033bca1cfcc5782c46c11ebf62ec
-  CapacitorCordova: 5967b9ba03915ef1d585469d6e31f31dc49be96f
-  CapacitorDialog: 128228f7256464205eba2479629f2c00743f39a5
-  CapacitorFilesystem: e6261c410436f54908c11f94336c5b58286b1db0
-  CapacitorHaptics: 1f1e17041f435d8ead9ff2a34edd592c6aa6a8d6
-  CapacitorKeyboard: 62f36104f26d53d8b3a2a43f2a69fe714f1777d5
-  CapacitorMlkitBarcodeScanning: 05b2dfc7a70099f6d4594365c521534d79a17b1d
-  CapacitorNativeSettings: bef37b3c7e2184da7416a3f162c71de19fd27593
+  Capacitor: 49a454e1cdbd520bc106a220adca7913536a4933
+  CapacitorApp: 942306cd1acf7774a00e89a3986af3a67c8cad7a
+  CapacitorAppLauncher: 43949ccc5aaa5139a1ebe27a98c0a4d76c883fa7
+  CapacitorClipboard: c75fdaa6e622111119f35e7914ecfc67b05efecb
+  CapacitorCommunityBluetoothLe: e13e717be92b19f5573141b5d7a32a8ea16c4e69
+  CapacitorCordova: a9ac88d84a1f5280f33b349fe50fce1902683ac0
+  CapacitorDialog: 2aa33f33bb4b8b8d7f99e248b5f3fd15a19bf859
+  CapacitorFilesystem: 2db285a1ac6e475cc27cae2e1bea999000f9e2be
+  CapacitorHaptics: 4df2c625445cef39b67ea635a21802bc92df3b82
+  CapacitorKeyboard: 867eb4b3c901d9bb5c3d0c93b546185d52484e19
+  CapacitorMlkitBarcodeScanning: d97b2398adb4a8686fce9b1c0c6f09623f1baae8
+  CapacitorNativeSettings: 61b7c3d4081dec0b348cc383af83f3e1faa89106
   CapacitorPluginSafeArea: d6b696287c91ab0e790d01213124a3cdba97dc43
-  CapacitorPushNotifications: 6a2794788c583dd89215f1805ca4bced1b13dbdf
-  CapacitorSecureStoragePlugin: 450d402026ee3bcc018fa206504d9c0572fee78d
-  CapacitorShare: e573823f511f260f598d0423c33b1e3d7bbe5fd1
-  CapacitorSplashScreen: 7e7a0a1113833032f196b3af6fa437baccacf5bc
-  CapacitorStatusBar: a8c4c83ed2e973bdafb979e80e4b00d027832cb7
+  CapacitorPushNotifications: 5a1de4191a9fdbeacc84907313eede0bd59d2eb0
+  CapacitorSecureStoragePlugin: d083ff28d9ba5bc74924b9bcf9754ea605016b63
+  CapacitorShare: 0c58305114538568059bfc07111f22dcb9cb2a82
+  CapacitorSplashScreen: 4b46c72298db552b3c57ce021ef028b6dc7f1fa7
+  CapacitorStatusBar: 32206abd53b14f339763da26f71286deaa891e16
   CapgoCapacitorNativeBiometric: be4ceeff38739d9c0f59b8c41456a3b01cfeddf0
-  CapgoNativeAudio: e4560ab0b858c4c1eaec42017c35ed8692b2c26d
-  CordovaPlugins: 09eaf3779c4d1fa6331773fcd29e29dcd8a7afd6
+  CapgoNativeAudio: ecd3daa4bcffa3c69468398aba32fa20e2f1fd1d
+  CordovaPlugins: cfca8db13116183a0e348296c788e42924527215
   FirebaseCore: 7cfcf7e8b33985c06478fd2b96e2f7101eb61a1c
   FirebaseCoreInternal: 154779013b85b4b290fdba38414df475f42e3096
   FirebaseInstallations: c76d4931a485fc0cc2dc1d62d3ed0369846ea4b8
   FirebaseMessaging: 07e196b68580e68104df5c1c1b09ac26d04b24ea
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
-  GoogleMLKit: eff9e23ec1d90ea4157a1ee2e32a4f610c5b3318
+  GoogleMLKit: ddd51d7dff36ff28defa69afedd9cdce684fd857
   GoogleToolboxForMac: d1a2cbf009c453f4d6ded37c105e2f67a32206d8
   GoogleUtilities: 26a3abef001b6533cf678d3eb38fd3f614b7872d
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
-  MauricewegnerCapacitorNavigationBar: a7d0592621ac98fc992ff7c9301d671d1ba206f7
-  MLImage: 0ad1c5f50edd027672d8b26b0fee78a8b4a0fc56
-  MLKitBarcodeScanning: 0a3064da0a7f49ac24ceb3cb46a5bc67496facd2
-  MLKitCommon: 07c2c33ae5640e5380beaaa6e4b9c249a205542d
-  MLKitVision: 45e79d68845a2de77e2dd4d7f07947f0ed157b0e
-  MytonwalletAirAppLauncher: 2c1fa32c7af426d414d1dfcae4eb070e1ac98d34
+  IONFilesystemLib: dfa8706539ac9ab77ccfd6e5b3830ce9b5e57f6c
+  MauricewegnerCapacitorNavigationBar: 6f1a8adf40fb912ccaf42f1900c88cc397ba76da
+  MLImage: 2ab9c968e75f57911c16f4c9d9e8a8e9604a86a1
+  MLKitBarcodeScanning: 72c6437f13a900833b400136be53a8a5d86f42fa
+  MLKitCommon: 26b779f072a182c1603d4c88a101c350cac837b1
+  MLKitVision: fa8dea9012ac59497c79ddbe9ebf32051047ac4c
+  MytonwalletAirAppLauncher: 18b8c5cc85bc1d6161988e53221b1d54e7a9dd35
   MytonwalletCapacitorUsbHid: d37d8e638a45d54b9c08c90be9478cdad33603ef
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   SwiftKeychainWrapper: 807ba1d63c33a7d0613288512399cd1eda1e470c
 
-PODFILE CHECKSUM: a69e7fb51feef247a8cea960b015f7e5b9b1c4b7
+PODFILE CHECKSUM: 54b00e24474bfb05a330f26a6cdef5f4d693e521
 
 COCOAPODS: 1.16.2

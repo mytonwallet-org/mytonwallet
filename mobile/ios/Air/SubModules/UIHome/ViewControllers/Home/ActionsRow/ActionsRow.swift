@@ -30,6 +30,7 @@ final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        actionsView.accountContext = $account
         WalletCoreData.add(eventObserver: self)
     }
     
@@ -54,7 +55,7 @@ final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     }
     
     var calculatedHeight: CGFloat {
-        account.isView ? 0 : actionsRowHeight + 16
+        account.isView ? 0 : actionsRowHeight
     }
 
     nonisolated func walletCore(event: WalletCore.WalletCoreData.Event) {
@@ -94,6 +95,7 @@ final class ActionsContainerView: UIView {
 }
 
 final class ActionsView: ButtonsToolbar {
+    var accountContext: AccountContext?
     var addButton: UIView!
     var sendButton: UIView!
     var swapButton: UIView!
@@ -115,22 +117,33 @@ final class ActionsView: ButtonsToolbar {
         addButton = WScalableButton(
             title: lang("Fund"),
             image: .airBundle("AddIconBold"),
-            onTap: { AppActions.showReceive(chain: nil, title: nil) }
+            onTap: { [weak self] in
+                guard let accountContext = self?.accountContext else { return }
+                AppActions.showReceive(accountContext: accountContext, chain: nil, title: nil)
+            }
         )
         addArrangedSubview(addButton)
         
         let sendButton = WScalableButton(
             title: lang("Send"),
             image: .airBundle("SendIconBold"),
-            onTap: { AppActions.showSend(prefilledValues: .init()) }
+            onTap: { [weak self] in
+                guard let accountContext = self?.accountContext else { return }
+                AppActions.showSend(accountContext: accountContext, prefilledValues: .init())
+            }
         )
-        sendButton.attachMenu(makeConfig: {
+        sendButton.attachMenu(makeConfig: { [weak self] in
+            guard let accountContext = self?.accountContext else { return MenuConfig(menuItems: []) }
             var menuItems: [MenuItem] = [
-                .button(id: "0-send", title: lang("Send"), trailingIcon: .air("MenuSend26")) { AppActions.showSend(prefilledValues: .init()) },
+                .button(id: "0-send", title: lang("Send"), trailingIcon: .air("MenuSend26")) {
+                    AppActions.showSend(accountContext: accountContext, prefilledValues: .init())
+                },
                 .button(id: "0-multisend", title: lang("Multisend"), trailingIcon: .air("MenuMultisend26")) { AppActions.showMultisend() },
             ]
             if !ConfigStore.shared.shouldRestrictSell {
-                menuItems += .button(id: "0-sell", title: lang("Sell"), trailingIcon: .air("MenuSell26")) { AppActions.showSell(account: nil, tokenSlug: nil) }
+                menuItems += .button(id: "0-sell", title: lang("Sell"), trailingIcon: .air("MenuSell26")) {
+                    AppActions.showSell(accountContext: accountContext, tokenSlug: nil)
+                }
             }
             return MenuConfig(menuItems: menuItems)
         })
@@ -140,14 +153,20 @@ final class ActionsView: ButtonsToolbar {
         swapButton = WScalableButton(
             title: lang("Swap"),
             image: .airBundle("SwapIconBold"),
-            onTap: { AppActions.showSwap(defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil) }
+            onTap: { [weak self] in
+                guard let accountContext = self?.accountContext else { return }
+                AppActions.showSwap(accountContext: accountContext, defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil)
+            }
         )
         addArrangedSubview(swapButton)
         
         earnButton = WScalableButton(
             title: lang("Earn"),
             image: .airBundle("EarnIconBold"),
-            onTap: { AppActions.showEarn(tokenSlug: nil) }
+            onTap: { [weak self] in
+                guard let accountContext = self?.accountContext else { return }
+                AppActions.showEarn(accountContext: accountContext, tokenSlug: nil)
+            }
         )
         addArrangedSubview(earnButton)
     }

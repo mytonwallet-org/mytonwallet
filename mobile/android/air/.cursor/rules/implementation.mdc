@@ -1,0 +1,16 @@
+---
+description: Android Air Kotlin implementation rules grounded in current project patterns
+globs: **/*.kt,**/*.kts,**/*.java,**/AndroidManifest.xml
+alwaysApply: false
+---
+## Android Air Implementation Rules
+
+- Shared canonical context lives in `mobile/android/air/AI_CONTEXT.md`.
+- Prefer existing Air UI patterns: `WViewController`, `WViewControllerWithModelStore`, `WNavigationController`, `WWindow`, `WRecyclerViewAdapter`, `WThemedView`, and shared UI components from `UIComponents`.
+- Search sibling `SubModules` before creating new helpers, widgets, models, or storage keys.
+- Use `WalletCore`, existing stores, and `WalletEvent` notifications before duplicating state inside screens or view models.
+- Register and unregister `WalletCore.EventObserver` symmetrically. Tie coroutine scopes, callbacks, and listeners to the owning lifecycle.
+- Reuse `ThemeManager`, `WColor`, `LocaleController`, `WGlobalStorage`, `WSecureStorage`, and `WCacheStorage` rather than adding parallel systems.
+- Keep blockchain and business logic in the JS SDK unless the task explicitly requires native-only behavior.
+- Do not introduce Compose, Fragments, or a new navigation/state architecture unless the task explicitly requires them.
+- If a task compares Classic and Air, inspect Classic for behavior only and implement the Android change using Air code paths and abstractions.

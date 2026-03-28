@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "org.mytonwallet.app_air"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "org.mytonwallet.app"

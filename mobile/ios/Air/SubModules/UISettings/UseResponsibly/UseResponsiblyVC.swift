@@ -38,8 +38,8 @@ public final class UseResponsiblyVC: SettingsBaseVC {
         UseResponsiblyView()
     }
     
-    override public func updateTheme() {
-        view.backgroundColor = WTheme.groupedBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.groupedBackground
     }
 }
 

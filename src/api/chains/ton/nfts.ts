@@ -22,7 +22,9 @@ import {
 import { parseAccountId } from '../../../util/account';
 import { bigintMultiplyToNumber } from '../../../util/bigint';
 import { getChainConfig } from '../../../util/chain';
+import { explainApiTransferFee } from '../../../util/fee/transferFee';
 import { compact } from '../../../util/iteratees';
+import { getNativeToken } from '../../../util/tokens';
 import { generateQueryId } from './util';
 import { parseTonapiioNft } from './util/metadata';
 import {
@@ -219,11 +221,22 @@ export async function checkNftTransferDraft(options: {
 
   const checkResult = await checkMultiTransactionDraft(accountId, messages);
 
+  let fee: bigint | undefined;
+  let realFee: bigint | undefined;
+
   if (checkResult.emulation) {
     // todo: Use `received` from the emulation to calculate the real fee. Check what happens when the receiver is the same wallet.
     const batchFee = checkResult.emulation.networkFee;
-    result.fee = calculateNftTransferFee(nfts.length, messages.length, batchFee, NFT_TRANSFER_AMOUNT);
-    result.realFee = calculateNftTransferFee(nfts.length, messages.length, batchFee, NFT_TRANSFER_REAL_AMOUNT);
+    fee = calculateNftTransferFee(nfts.length, messages.length, batchFee, NFT_TRANSFER_AMOUNT);
+    realFee = calculateNftTransferFee(nfts.length, messages.length, batchFee, NFT_TRANSFER_REAL_AMOUNT);
+  }
+
+  if (fee !== undefined) {
+    result.explainedFee = explainApiTransferFee({
+      fee,
+      realFee: realFee ?? fee,
+      tokenSlug: getNativeToken('ton').slug,
+    });
   }
 
   if ('error' in checkResult) {

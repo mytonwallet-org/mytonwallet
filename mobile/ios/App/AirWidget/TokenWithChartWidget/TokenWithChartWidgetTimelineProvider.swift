@@ -1,12 +1,3 @@
-//
-//  TokenWidgetTimelineProvider.swift
-//  App
-//
-//  Created by nikstar on 23.09.2025.
-//
-
-import SwiftUI
-import WalletCore
 import WidgetKit
 import UIKit
 
@@ -16,7 +7,7 @@ struct TokenWithChartWidgetTimelineProvider: AppIntentTimelineProvider {
     }
 
     func snapshot(for configuration: TokenWithChartWidgetConfiguration, in context: Context) async -> TokenWithChartWidgetTimelineEntry {
-        return await loadEntry(for: configuration, date: .now)
+        await loadEntry(for: configuration, date: .now)
     }
 
     func timeline(for configuration: TokenWithChartWidgetConfiguration, in context: Context) async -> Timeline<TokenWithChartWidgetTimelineEntry> {
@@ -33,9 +24,15 @@ struct TokenWithChartWidgetTimelineProvider: AppIntentTimelineProvider {
         async let rates = store.ratesDictionary()
         
         let selectedSlug = configuration.token.slug
-        let token = await tokens[selectedSlug] ?? configuration.token
+        let loadedDisplayCurrency = await displayCurrency
+        let loadedTokens = await tokens
+        let loadedRates = await rates
+        let token = loadedTokens[selectedSlug] ?? configuration.token
         
-        let currencyRate = await BaseCurrencyAmount.fromDouble((token.priceUsd ?? 0) * (rates[displayCurrency.rawValue]?.value ?? 1), displayCurrency)
+        let currencyRate = BaseCurrencyAmount.fromDouble(
+            (token.priceUsd ?? 0) * (loadedRates[loadedDisplayCurrency.rawValue]?.value ?? loadedDisplayCurrency.fallbackExchangeRate),
+            loadedDisplayCurrency
+        )
         
         var image: UIImage?
         do {

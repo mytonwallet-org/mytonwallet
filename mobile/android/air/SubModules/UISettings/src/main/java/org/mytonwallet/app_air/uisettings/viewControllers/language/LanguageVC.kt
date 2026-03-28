@@ -160,9 +160,11 @@ class LanguageVC(context: Context) : WViewController(context),
                     isLast = indexPath.row == languages.size - 1
                 ) {
                     WGlobalStorage.setLangCode(language.langCode)
+                    WGlobalStorage.setLangSource(WGlobalStorage.LANG_SOURCE_USER)
                     AirPushNotifications.refreshSubscriptions()
                     switchLanguageIfRequired(language)
-                    if (LocaleController.init(context, WGlobalStorage.getLangCode())) {
+                    if (LocaleController.init(context, language.langCode)) {
+                        LocaleController.setApplicationLocale(language.langCode)
                         WalletContextManager.delegate?.restartApp()
                         WBaseStorage.setActiveLanguage(language.langCode)
                         WidgetsConfigurations.reloadWidgets(context)

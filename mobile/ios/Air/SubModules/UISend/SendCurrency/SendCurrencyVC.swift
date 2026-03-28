@@ -24,7 +24,7 @@ class SendCurrencyVC: WViewController {
     var currentTokenSlug: String
     var onSelect: (ApiToken) -> ()
     
-    @Dependency(\.balanceStore) private var balanceStore
+    @Dependency(\.balancesStore) private var balancesStore
     @Dependency(\.tokenStore) private var tokenStore
     
     public init(accountId: String, isMultichain: Bool, walletTokens: [MTokenBalance], currentTokenSlug: String, onSelect: @escaping (ApiToken) -> ()) {
@@ -120,9 +120,9 @@ class SendCurrencyVC: WViewController {
         updateTheme()
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.pickerBackground
-        tableView.backgroundColor = WTheme.pickerBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.pickerBackground
+        tableView.backgroundColor = .air.pickerBackground
     }
     
     @objc func hideKeyboard() {
@@ -179,7 +179,7 @@ extension SendCurrencyVC: UISearchBarDelegate, UISearchResultsUpdating {
 
 extension SendCurrencyVC: UITableViewDelegate {
     public func balanceChanged() {
-        walletTokens = balanceStore.getAccountBalances(accountId: accountId).map({ (key: String, value: BigInt) in
+        walletTokens = balancesStore.getAccountBalances(accountId: accountId).map({ (key: String, value: BigInt) in
             MTokenBalance(tokenSlug: key, balance: value, isStaking: false)
         })
         walletTokensBySlug = Dictionary(uniqueKeysWithValues: walletTokens.map { ($0.tokenSlug, $0) })

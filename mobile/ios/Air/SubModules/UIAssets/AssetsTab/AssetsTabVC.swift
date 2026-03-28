@@ -6,21 +6,18 @@
 //
 
 import UIKit
-import SwiftUI
 import UIComponents
 import WalletCore
 import WalletContext
 
-public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsViewControllerDelegate, WSegmentedControllerDelegate {
+public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsViewControllerDelegate {
     public enum Tab: String {
         case tokens
         case nfts
     }
     
     private let accountIdProvider: AccountIdProvider
-    
-    var accountId: String { accountIdProvider.accountId }
-    
+
     private var segmentedController: WSegmentedController!
     private let defaultTabIndex: Int
     private var nftsVC: NftsVC!
@@ -87,13 +84,12 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsVi
         view.addSubview(segmentedController)
         NSLayoutConstraint.activate([
             segmentedController.topAnchor.constraint(equalTo: view.topAnchor),
-            segmentedController.leftAnchor.constraint(equalTo: view.leftAnchor),
-            segmentedController.rightAnchor.constraint(equalTo: view.rightAnchor),
+            segmentedController.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor),
+            segmentedController.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor),
             segmentedController.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         segmentedController.separator.isHidden = true
         segmentedController.blurView.isHidden = true
-        segmentedController.delegate = self
         
         updateNavigationAppearance()
         configureNavigationItemWithTransparentBackground()
@@ -140,9 +136,8 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsVi
         }
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.pickerBackground
-        segmentedController?.updateTheme()
+    private func updateTheme() {
+        view.backgroundColor = .air.pickerBackground
     }
 
     public override func scrollToTop(animated: Bool) {
@@ -154,17 +149,5 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsVi
     public func nftsViewControllerDidChangeReorderingState(_ vc: NftsVC) {
         updateNavigationAppearance()
         updateReorderingBehavior()
-    }
-    
-    // MARK: - WSegmentedControllerDelegate
-    
-    public func segmentedControllerDidEndScrolling() {
-        // workaround for:
-        // on iPad open AssetsTabVC to tokens, swipe to nfts. sidebar obscures nfts
-        if segmentedController.segmentedControl.model.selectedItem?.id == Tab.nfts.rawValue {
-            UIView.animate(withDuration: 0.3) {
-                self.nftsVC.view.setNeedsLayout()
-            }
-        }
     }
 }

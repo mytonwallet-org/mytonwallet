@@ -77,31 +77,37 @@ class SwapSlippageRowView(
         gravity = Gravity.CENTER_VERTICAL
     }
 
-    private val slippageEditText = WAmountEditText(context, isLeadingSymbol = false).apply {
-        setBaseCurrencySymbol("%")
-        setPadding(12.dp, 0, 0, 0)
-        setText("${currentVal.toInt()}")
-        inputType = InputType.TYPE_NUMBER_FLAG_DECIMAL
-        keyListener = DigitsKeyListener.getInstance("0123456789.,")
-        doOnTextChanged { text, _, _, _ ->
-            val num = parseFloat(text.toString())
-            setTextColor(if (num > 0 && num <= 50) WColor.PrimaryText.color else WColor.Red.color)
+    private val slippageEditText =
+        WAmountEditText(context, isLeadingSymbol = false, scaleSymbolWithFraction = true).apply {
+            setBaseCurrencySymbol("%")
+            setPadding(12.dp, 0, 0, 0)
+            setText("${currentVal.toInt()}")
+            inputType = InputType.TYPE_NUMBER_FLAG_DECIMAL
+            keyListener = DigitsKeyListener.getInstance("0123456789.,")
+            doOnTextChanged { text, _, _, _ ->
+                val num = parseFloat(text.toString())
+                setTextColor(if (num > 0 && num <= 50) WColor.PrimaryText.color else WColor.Red.color)
+            }
         }
-    }
 
     private val editorView = LinearLayout(context).apply {
         id = generateViewId()
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(16.dp, 0, 24.dp, 0)
-        arrayOf(0.5, 1, 2, 5, 10).forEach { num ->
+        arrayOf(0.5f, 1f, 2f, 5f, 10f).forEach { num ->
             addView(WButton(context, WButton.Type.SECONDARY).apply {
-                setText("$num%")
+                val formatted = if (num % 1f == 0f) {
+                    num.toInt().toString()
+                } else {
+                    num.toString()
+                }
+                setText("$formatted%")
                 layoutParams = LayoutParams(40.dp, WRAP_CONTENT).apply {
                     marginStart = 4.dp
                 }
                 setOnClickListener {
-                    slippageEditText.setText(num.toString())
+                    slippageEditText.setText(formatted)
                 }
             })
         }

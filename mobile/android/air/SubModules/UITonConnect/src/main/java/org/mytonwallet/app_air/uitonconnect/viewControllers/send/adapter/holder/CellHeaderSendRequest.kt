@@ -13,8 +13,8 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
-import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.content.ContextCompat
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -44,14 +44,14 @@ class CellHeaderSendRequest(context: Context) : LinearLayout(context), WThemedVi
         defaultRounding = Content.Rounding.Radius(20f.dp)
     }
 
-    private val titleTextView = AppCompatTextView(context).apply {
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+    private val titleTextView = WLabel(context).apply {
+        setStyle(17f, WFont.Medium)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 26f)
         ellipsize = TextUtils.TruncateAt.END
         gravity = Gravity.CENTER
-        typeface = WFont.Medium.typeface
         movementMethod = LinkMovementMethod.getInstance()
         highlightColor = android.graphics.Color.TRANSPARENT
+        useCustomEmoji = true
     }
 
     private val dangerousView by lazy {

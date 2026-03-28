@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import me.everything.android.ui.overscroll.IOverScrollState
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.executeWithLowPriority
@@ -104,6 +105,13 @@ class ActivityListView<T>(
         fun headerModeChanged()
         fun startSorting()
         fun endSorting()
+        fun startSelectionMode(selectedCount: Int, shouldShowTransferActions: Boolean)
+        fun updateSelectionMode(
+            selectedCount: Int,
+            animationMode: TitleAnimationMode?,
+            shouldShowTransferActions: Boolean
+        )
+        fun endSelectionMode()
         fun onTransactionTap(accountId: String, transaction: MApiTransaction)
         fun pauseBlurViews()
         fun resumeBottomBlurViews()
@@ -157,6 +165,15 @@ class ActivityListView<T>(
             recyclerView.layoutManager?.smoothScrollToPosition(recyclerView, null, 0)
         } else {
             homeAssetsCell?.scrollToFirst()
+        }
+    }
+
+    private fun scrollAssetsCellToVisible() {
+        val cell = homeAssetsCell ?: return
+        val visibleTop = (dataSource?.navigationController?.getSystemBars()?.top ?: 0) +
+            HomeHeaderView.navDefaultHeight
+        if (cell.top < visibleTop) {
+            recyclerView.smoothScrollBy(0, cell.top - visibleTop)
         }
     }
 
@@ -934,13 +951,42 @@ class ActivityListView<T>(
                                     assetsShown = true
                                     updateSkeletonState(animated = true)
                                 },
-                                onReorderingRequested = {
-                                    delegate?.startSorting()
+                                onReorderingRequested = { reordering ->
+                                    if (reordering)
+                                        delegate?.startSorting()
+                                    else
+                                        delegate?.endSorting()
                                 },
                                 onForceEndReorderingRequested = {
                                     delegate?.endSorting()
+                                },
+                                onSelectionRequested = { selectedCount, shouldShowTransferActions ->
+                                    delegate?.startSelectionMode(
+                                        selectedCount,
+                                        shouldShowTransferActions
+                                    )
+                                },
+                                onSelectionChanged = {
+                                        selectedCount,
+                                        animationMode,
+                                        isInSelectionMode,
+                                        shouldShowTransferActions ->
+                                    if (isInSelectionMode) {
+                                        delegate?.updateSelectionMode(
+                                            selectedCount,
+                                            animationMode,
+                                            shouldShowTransferActions
+                                        )
+                                    } else {
+                                        delegate?.endSelectionMode()
+                                    }
+                                },
+                                onDetailsOpened = {
+                                    delegate?.endSelectionMode()
                                 }
-                            )
+                            ).also {
+                                it.onScrollToVisibleRequested = { scrollAssetsCellToVisible() }
+                            }
                         return homeAssetsCell!!
                     }
 

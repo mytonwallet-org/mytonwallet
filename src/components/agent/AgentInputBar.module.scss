@@ -1,0 +1,153 @@
+@use "../../styles/mixins";
+
+.wrapper {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+
+  :global(html.with-bottombar:not(.is-keyboard-open)) & {
+    padding-bottom: calc(var(--bottombar-height) + max(0.25rem, var(--safe-area-bottom)));
+  }
+
+  &.withSeparator::after {
+    @include mixins.separator-list-base('top');
+  }
+
+  @include mixins.respond-below(xs) {
+    background-color: var(--color-background-second);
+
+    :global(html.theme-dark) & {
+      background-color: var(--color-background-first);
+    }
+  }
+}
+
+.inputBar {
+  position: relative;
+  z-index: 1;
+
+  display: flex;
+  align-items: flex-end;
+
+  padding: 0.5rem 0.875rem 0.75rem;
+
+  @include mixins.respond-below(xs) {
+    @include mixins.backdropPatch();
+  }
+}
+
+.inputInnerWrapper {
+  margin-bottom: 0;
+}
+
+.inputField {
+  position: relative;
+  transform: translate3d(0, 0, 0); /* Preventing animation glitches in Safari */
+  flex: 1;
+  min-width: 0;
+}
+
+.input {
+  overflow-y: auto !important; /* Override textarea.input `overflow: hidden` */
+
+  height: auto;
+  max-height: 7.5rem; /* 5 lines × 1.25rem + vertical padding */
+  padding: 0.625rem 2.75rem 0.625rem 0.75rem !important;
+  border-radius: var(--border-radius-content) !important;
+
+  box-shadow: inset 0 0 0 0.0625rem var(--color-separator-input-stroke);
+
+  &:focus {
+    box-shadow: inset 0 0 0 0.0625rem var(--color-accent);
+  }
+}
+
+.inputButton {
+  cursor: var(--custom-cursor, pointer);
+
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.5rem;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: 50%;
+
+  font-size: 1.25rem;
+  color: var(--color-gray-3);
+
+  background: none;
+  outline: none;
+
+  @include mixins.transition(color 200ms);
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible,
+    &:active {
+      color: var(--color-accent);
+    }
+  }
+
+  @media (pointer: coarse) {
+    &:focus-visible,
+    &:active {
+      color: var(--color-accent);
+    }
+  }
+
+  @include mixins.active-transition-optimization();
+}
+
+.sendButtonWrapper {
+  overflow: visible;
+  flex-shrink: 0;
+
+  width: 100%;
+  max-width: 2.375rem;
+  height: 2.375rem;
+
+  @include mixins.transition("max-width 200ms ease, opacity 200ms ease", !important);
+
+  &:global(.not-open) {
+    pointer-events: none;
+    max-width: 0;
+    opacity: 0;
+
+    .sendButton {
+      transform: scale(0);
+    }
+  }
+}
+
+.sendButton {
+  cursor: var(--custom-cursor, pointer);
+
+  position: relative;
+  bottom: 0.0625rem;
+  transform-origin: left center;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 2.375rem;
+  height: 2.375rem;
+  margin-inline-start: 0.375rem;
+  border: none;
+  border-radius: 50%;
+
+  font-size: 1.375rem;
+  color: var(--color-accent-button-text);
+
+  background-color: var(--color-accent);
+
+  @include mixins.transition(transform 200ms ease);
+
+  @include mixins.active-transition-optimization();
+}

@@ -65,6 +65,7 @@ class ActivityCell(
             maxLines = 5
             isSingleLine = false
             ellipsize = TextUtils.TruncateAt.END
+            useCustomEmoji = true
         }
     }
     private var commentView: FrameLayout? = null
@@ -432,13 +433,13 @@ class ActivityCell(
     }
 
     private val cellHeight: Int
-    get() {
-        return if (withoutTagAndComment) {
-            if (dateView.isVisible) FIRST_DAY_MAIN_CONTENT_HEIGHT.dp else MAIN_CONTENT_HEIGHT.dp
-        } else {
-            0
+        get() {
+            return if (withoutTagAndComment) {
+                if (dateView.isVisible) FIRST_DAY_MAIN_CONTENT_HEIGHT.dp else MAIN_CONTENT_HEIGHT.dp
+            } else {
+                0
+            }
         }
-    }
 
     // Used in recycler-views not using custom rvAdapter
     class Holder(parentView: View) :

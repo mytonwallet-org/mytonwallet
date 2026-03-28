@@ -19,7 +19,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Space
-import androidx.appcompat.widget.AppCompatEditText
+import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.Guideline
 import androidx.core.content.ContextCompat
@@ -76,9 +76,7 @@ import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.PRICELESS_TOKEN_HASHES
-import org.mytonwallet.app_air.walletcore.STAKED_MYCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.STAKED_USDE_SLUG
-import org.mytonwallet.app_air.walletcore.STAKE_SLUG
+import org.mytonwallet.app_air.walletcore.STAKING_SLUGS
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -90,7 +88,6 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
-import java.math.BigInteger
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -230,7 +227,7 @@ class SendVC(
             addTextChangedListener { input ->
                 suggestionsBoxView.search(input)
             }
-            textFieldTopPadding = 19.dp
+            textFieldTopPadding = 12.dp
             textFieldBottomPadding = 14.dp
         }
     }
@@ -308,15 +305,12 @@ class SendVC(
     }
 
     private val commentInputView by lazy {
-        AppCompatEditText(context).apply {
-            id = generateViewId()
-            background = null
+        WEditText(context, multilinePaste = false).apply {
             hint = LocaleController.getString("Add a message, if needed")
-            typeface = WFont.Regular.typeface
+            setStyle(16f)
             layoutParams =
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            setPaddingDp(20, 20, 20, 14)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setPaddingDp(20, 13, 20, 14)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             }
@@ -519,12 +513,15 @@ class SendVC(
     private val onInputDestinationTextWatcher = object : TextWatcher {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
         override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+            val destination = viewModel.inputStateFlow.value.destination.trim()
             val address = s?.toString() ?: ""
+            if (destination == address) return
             viewModel.onInputDestination(address)
-            switchTokenBasedOnChain(address)
             if (address.isBlank()) {
                 viewModel.onDestinationEntered("")
                 updateContinueButtonType(false)
+            } else {
+                switchTokenBasedOnChain(address)
             }
         }
 
@@ -802,11 +799,14 @@ class SendVC(
             amountInputView.doOnMaxButtonClick(viewModel::onInputMaxButton)
             amountInputView.doOnEquivalentButtonClick(viewModel::onInputToggleFiatMode)
             amountInputView.doOnFeeButtonClick {
+                val explainedFee = viewModel.getConfirmationPageConfig()?.explainedFee
+                    ?: return@doOnFeeButtonClick
+                if (!explainedFee.supportsLegacyDetailsView) return@doOnFeeButtonClick
                 lateinit var dialogRef: WDialog
                 dialogRef = FeeDetailsDialog.create(
                     context,
                     TokenStore.getToken(viewModel.getTokenSlug())!!,
-                    viewModel.getConfirmationPageConfig()!!.explainedFee!!
+                    explainedFee
                 ) {
                     dialogRef.dismiss()
                 }
@@ -831,8 +831,7 @@ class SendVC(
         collectFlow(viewModel.uiStateFlow) {
             amountInputView.set(
                 it.uiInput,
-                (viewModel.getConfirmationPageConfig()?.explainedFee?.excessFee
-                    ?: BigInteger.ZERO) > BigInteger.ZERO
+                viewModel.getConfirmationPageConfig()?.explainedFee?.supportsLegacyDetailsView == true
             )
             continueButton.isLoading = it.uiButton.status.isLoading
             if (!it.uiButton.status.isLoading) {
@@ -889,8 +888,8 @@ class SendVC(
             WClearSegmentedControl.Item(
                 LocaleController.getString("Send"),
                 null,
-                if (isSell) null else {
-                    anchorView -> presentOffRampSendMenu(anchorView)
+                if (isSell) null else { anchorView ->
+                    presentOffRampSendMenu(anchorView)
                 }
             )
         )
@@ -1004,14 +1003,8 @@ class SendVC(
     }
 
     private fun onAssetSelected(tokenSlug: String) {
-        val previousChain = addressInputView.activeChain
         val blockchain = TokenStore.getToken(tokenSlug)?.mBlockchain
         if (blockchain != null) {
-            if (previousChain != blockchain) {
-                addressInputView.setText("")
-                viewModel.onInputDestination("")
-                viewModel.onDestinationEntered("")
-            }
             addressInputView.activeChain = blockchain
             suggestionsBoxView.activeChain = blockchain
             suggestionsBoxView.search(addressInputView.getKeyword())
@@ -1229,11 +1222,7 @@ class SendVC(
     private fun showServiceTokenWarningIfRequired() {
         val token = TokenStore.getToken(viewModel.getTokenSlug())
         if (token?.isLpToken == true ||
-            listOf(
-                STAKE_SLUG,
-                STAKED_MYCOIN_SLUG,
-                STAKED_USDE_SLUG
-            ).contains(viewModel.getTokenSlug()) ||
+            STAKING_SLUGS.contains(viewModel.getTokenSlug()) ||
             PRICELESS_TOKEN_HASHES.contains(viewModel.inputStateFlow.value.tokenCodeHash)
         )
             showAlert(

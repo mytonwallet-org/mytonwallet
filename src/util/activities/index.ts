@@ -252,6 +252,7 @@ function getLocalActivityIdReplacements(prevLocalActivities: ApiActivity[], next
 
   const nextActivityIds = new Set(extractKey(nextActivities, 'id'));
   const nextChainActivities = nextActivities.filter((activity) => !getIsTxIdLocal(activity.id));
+  const usedNextChainActivityIds = new Set<string>();
 
   for (const localActivity of prevLocalActivities) {
     const { id: prevId } = localActivity;
@@ -264,10 +265,11 @@ function getLocalActivityIdReplacements(prevLocalActivities: ApiActivity[], next
 
     // Otherwise, try to find a match by a heuristic
     const chainActivity = nextChainActivities.find((chainActivity) => {
-      return doesLocalActivityMatch(localActivity, chainActivity);
+      return !usedNextChainActivityIds.has(chainActivity.id) && doesLocalActivityMatch(localActivity, chainActivity);
     });
     if (chainActivity) {
       idReplacements[prevId] = chainActivity.id;
+      usedNextChainActivityIds.add(chainActivity.id);
     }
 
     // Otherwise, there is no match

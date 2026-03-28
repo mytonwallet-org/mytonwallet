@@ -63,6 +63,7 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
         gravity = Gravity.CENTER
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
+        useCustomEmoji = true
     }
 
     private val balanceView = WBalanceView(context).apply {

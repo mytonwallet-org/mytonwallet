@@ -45,6 +45,7 @@ class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit)
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(WColor.PrimaryText)
             compoundDrawablePadding = 4.dp
+            useCustomEmoji = true
         }
     }
 
@@ -54,6 +55,7 @@ class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(WColor.SecondaryText)
+            useCustomEmoji = true
         }
     }
 

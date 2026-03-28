@@ -19,6 +19,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.webkit.CookieManager
+import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
 import android.webkit.URLUtil
 import android.webkit.ValueCallback
@@ -37,7 +38,6 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
-import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.asImage
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -64,6 +64,7 @@ import org.mytonwallet.app_air.walletcore.stores.DappsStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import java.net.URL
 import java.net.URLEncoder
+import java.util.Locale
 import java.util.regex.Pattern
 
 const val FETCH_FAV_ICON_URL_JS = """
@@ -167,6 +168,10 @@ private const val OBSERVE_THEME_COLOR_JS = """
 })();
 """
 
+private const val ORIGIN_PERMISSION_CAMERA = "camera"
+private const val ORIGIN_PERMISSION_MICROPHONE = "microphone"
+private const val ORIGIN_PERMISSION_GEOLOCATION = "geolocation"
+
 @SuppressLint("ViewConstructor")
 class InAppBrowserVC(
     context: Context,
@@ -186,6 +191,7 @@ class InAppBrowserVC(
     private var savedInExploreVisitedHistory = false
     private var shouldClearHistoryOnLoad = false
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private val grantedPermissionsByOrigin = mutableMapOf<String, MutableSet<String>>()
 
     private val themeColorBridge = object {
         @JavascriptInterface
@@ -407,6 +413,17 @@ class InAppBrowserVC(
                 }
             }
 
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String?,
+                callback: GeolocationPermissions.Callback?
+            ) {
+                if (origin == null || callback == null) {
+                    callback?.invoke(origin, false, false)
+                    return
+                }
+                handleGeolocationPermissionRequest(origin, callback)
+            }
+
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
@@ -542,6 +559,7 @@ class InAppBrowserVC(
         super.onDestroy()
         fileChooserCallback?.onReceiveValue(null)
         fileChooserCallback = null
+        grantedPermissionsByOrigin.clear()
         webView.apply {
             stopLoading()
             webChromeClient = null
@@ -676,32 +694,298 @@ class InAppBrowserVC(
     }
 
     private fun handlePermissionRequest(request: PermissionRequest) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            var requiresCamera = false
-            for (resource in request.resources) {
-                if (resource == PermissionRequest.RESOURCE_VIDEO_CAPTURE) {
-                    requiresCamera = true
-                    break
+        val origin = normalizeOrigin(request.origin)
+        val requestedOriginPermissions = getRequestedMediaOriginPermissions(request.resources)
+        val missingOriginPermissions = getMissingOriginPermissions(origin, requestedOriginPermissions)
+
+        if (missingOriginPermissions.isEmpty()) {
+            requestMediaAndroidPermissions(request) { isGranted ->
+                if (isGranted) {
+                    safeGrantPermissionRequest(request, request.resources)
+                } else {
+                    safeDenyPermissionRequest(request)
                 }
             }
+            return
+        }
 
-            if (requiresCamera) {
-                if (checkSelfPermission(context, Manifest.permission.CAMERA) ==
-                    PackageManager.PERMISSION_GRANTED
-                ) {
-                    request.grant(request.resources)
-                } else {
-                    val activity = context as? WWindow ?: return
-                    activity.requestPermissions(arrayOf(Manifest.permission.CAMERA)) { _, grantResults ->
-                        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                            request.grant(request.resources)
-                        }
+        showOriginPermissionDialog(
+            origin = origin,
+            requestedPermissions = missingOriginPermissions,
+            onAllow = {
+                requestMediaAndroidPermissions(request) { isGranted ->
+                    if (isGranted) {
+                        grantOriginPermissions(origin, requestedOriginPermissions)
+                        safeGrantPermissionRequest(request, request.resources)
+                    } else {
+                        safeDenyPermissionRequest(request)
                     }
                 }
-                return
+            },
+            onDeny = {
+                safeDenyPermissionRequest(request)
+            }
+        )
+    }
+
+    private fun handleGeolocationPermissionRequest(
+        origin: String,
+        callback: GeolocationPermissions.Callback
+    ) {
+        val normalizedOrigin = normalizeOrigin(origin)
+        if (hasOriginPermission(normalizedOrigin, ORIGIN_PERMISSION_GEOLOCATION)) {
+            requestGeolocationAndroidPermissions { isGranted ->
+                callback.invoke(origin, isGranted, false)
+            }
+            return
+        }
+
+        val geolocationPermission = setOf(ORIGIN_PERMISSION_GEOLOCATION)
+        showOriginPermissionDialog(
+            origin = normalizedOrigin,
+            requestedPermissions = geolocationPermission,
+            onAllow = {
+                requestGeolocationAndroidPermissions { isGranted ->
+                    if (isGranted) {
+                        grantOriginPermissions(normalizedOrigin, geolocationPermission)
+                        callback.invoke(origin, true, false)
+                    } else {
+                        callback.invoke(origin, false, false)
+                    }
+                }
+            },
+            onDeny = {
+                callback.invoke(origin, false, false)
+            }
+        )
+    }
+
+    private fun requestMediaAndroidPermissions(
+        request: PermissionRequest,
+        onResult: (Boolean) -> Unit
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            onResult(true)
+            return
+        }
+
+        val permissionsToRequest = LinkedHashSet<String>()
+        request.resources.forEach { resource ->
+            if (
+                resource == PermissionRequest.RESOURCE_VIDEO_CAPTURE
+                && checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionsToRequest.add(Manifest.permission.CAMERA)
+            } else if (
+                resource == PermissionRequest.RESOURCE_AUDIO_CAPTURE
+                && checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
             }
         }
-        request.grant(request.resources)
+
+        if (permissionsToRequest.isEmpty()) {
+            onResult(true)
+            return
+        }
+
+        val activity = window ?: run {
+            onResult(false)
+            return
+        }
+        activity.requestPermissions(permissionsToRequest.toTypedArray()) { _, grantResults ->
+            val allGranted = grantResults.isNotEmpty() &&
+                grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+            onResult(allGranted)
+        }
+    }
+
+    private fun requestGeolocationAndroidPermissions(onResult: (Boolean) -> Unit) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            onResult(true)
+            return
+        }
+
+        val permissionsToRequest = LinkedHashSet<String>()
+        if (checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+        if (checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+
+        if (permissionsToRequest.isEmpty()) {
+            onResult(true)
+            return
+        }
+
+        val activity = window ?: run {
+            onResult(false)
+            return
+        }
+        activity.requestPermissions(permissionsToRequest.toTypedArray()) { _, grantResults ->
+            val hasAnyGrant = grantResults.any { it == PackageManager.PERMISSION_GRANTED }
+            onResult(hasAnyGrant)
+        }
+    }
+
+    private fun getRequestedMediaOriginPermissions(resources: Array<String>): Set<String> {
+        val originPermissions = mutableSetOf<String>()
+        resources.forEach { resource ->
+            if (resource == PermissionRequest.RESOURCE_VIDEO_CAPTURE) {
+                originPermissions.add(ORIGIN_PERMISSION_CAMERA)
+            } else if (resource == PermissionRequest.RESOURCE_AUDIO_CAPTURE) {
+                originPermissions.add(ORIGIN_PERMISSION_MICROPHONE)
+            }
+        }
+        return originPermissions
+    }
+
+    private fun getMissingOriginPermissions(
+        origin: String,
+        requestedPermissions: Set<String>
+    ): Set<String> {
+        val missingPermissions = mutableSetOf<String>()
+        requestedPermissions.forEach { requestedPermission ->
+            if (!hasOriginPermission(origin, requestedPermission)) {
+                missingPermissions.add(requestedPermission)
+            }
+        }
+        return missingPermissions
+    }
+
+    private fun hasOriginPermission(origin: String, permissionKey: String): Boolean {
+        val permissions = grantedPermissionsByOrigin[origin]
+        return permissions?.contains(permissionKey) == true
+    }
+
+    private fun grantOriginPermissions(origin: String, permissionKeys: Set<String>) {
+        if (permissionKeys.isEmpty()) {
+            return
+        }
+        val permissions = grantedPermissionsByOrigin.getOrPut(origin) { mutableSetOf() }
+        permissions.addAll(permissionKeys)
+    }
+
+    private fun showOriginPermissionDialog(
+        origin: String,
+        requestedPermissions: Set<String>,
+        onAllow: () -> Unit,
+        onDeny: () -> Unit
+    ) {
+        val activity = context as? Activity ?: run {
+            onDeny()
+            return
+        }
+        if (activity.isFinishing) {
+            onDeny()
+            return
+        }
+
+        val originName = getOriginDisplayName(origin)
+        val permissionList = buildPermissionLabel(requestedPermissions)
+        val permissionPrompt = LocaleController.getStringWithKeyValues(
+            "\$web_permission_prompt",
+            listOf(
+                Pair("%origin%", originName),
+                Pair("%permissions%", permissionList)
+            )
+        )
+        activity.runOnUiThread {
+            if (activity.isFinishing) {
+                onDeny()
+                return@runOnUiThread
+            }
+            androidx.appcompat.app.AlertDialog.Builder(activity)
+                .setMessage(permissionPrompt)
+                .setCancelable(false)
+                .setPositiveButton(LocaleController.getString("\$web_permission_allow")) { _, _ ->
+                    onAllow()
+                }
+                .setNegativeButton(LocaleController.getString("\$web_permission_deny")) { _, _ ->
+                    onDeny()
+                }
+                .show()
+        }
+    }
+
+    private fun buildPermissionLabel(requestedPermissions: Set<String>): String {
+        val labels = mutableListOf<String>()
+        if (requestedPermissions.contains(ORIGIN_PERMISSION_CAMERA)) {
+            labels.add(LocaleController.getString("\$web_permission_camera"))
+        }
+        if (requestedPermissions.contains(ORIGIN_PERMISSION_MICROPHONE)) {
+            labels.add(LocaleController.getString("\$web_permission_microphone"))
+        }
+        if (requestedPermissions.contains(ORIGIN_PERMISSION_GEOLOCATION)) {
+            labels.add(LocaleController.getString("\$web_permission_location"))
+        }
+
+        if (labels.isEmpty()) {
+            return LocaleController.getString("\$web_permission_device_features")
+        }
+        if (labels.size == 1) {
+            return labels[0]
+        }
+        return LocaleController.getFormattedEnumeration(labels, "and")
+    }
+
+    private fun getOriginDisplayName(origin: String): String {
+        if (origin.isBlank()) {
+            return LocaleController.getString("\$web_permission_this_site")
+        }
+        return try {
+            Uri.parse(origin).host?.takeIf { it.isNotBlank() } ?: origin
+        } catch (_: Exception) {
+            origin
+        }
+    }
+
+    private fun normalizeOrigin(uri: Uri?): String {
+        if (uri == null) {
+            return ""
+        }
+
+        val scheme = uri.scheme
+        val host = uri.host
+        if (scheme == null || host == null) {
+            return uri.toString()
+        }
+
+        return buildString {
+            append(scheme.lowercase(Locale.US))
+            append("://")
+            append(host.lowercase(Locale.US))
+            if (uri.port != -1) {
+                append(":")
+                append(uri.port)
+            }
+        }
+    }
+
+    private fun normalizeOrigin(origin: String?): String {
+        if (origin == null) {
+            return ""
+        }
+        return try {
+            normalizeOrigin(Uri.parse(origin))
+        } catch (_: Exception) {
+            origin
+        }
+    }
+
+    private fun safeGrantPermissionRequest(request: PermissionRequest, resources: Array<String>) {
+        try {
+            request.grant(resources)
+        } catch (_: IllegalStateException) {
+        }
+    }
+
+    private fun safeDenyPermissionRequest(request: PermissionRequest) {
+        try {
+            request.deny()
+        } catch (_: IllegalStateException) {
+        }
     }
 
     private fun openFileChooser(

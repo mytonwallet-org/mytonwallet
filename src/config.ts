@@ -28,6 +28,8 @@ export const DEBUG = APP_ENV !== 'production' && APP_ENV !== 'perf' && APP_ENV !
 export const DEBUG_MORE = false;
 export const DEBUG_API = false;
 export const DEBUG_VIEW_ACCOUNTS = false;
+export const TEST_MNEMONIC = process.env.TEST_MNEMONIC?.trim();
+export const TEST_PASSWORD = process.env.TEST_PASSWORD || 'test';
 
 export const IS_PRODUCTION = APP_ENV === 'production';
 export const IS_TEST = APP_ENV === 'test';
@@ -145,6 +147,8 @@ export const SOLANA_TESTNET_API_KEY = process.env.SOLANA_TESTNET_API_KEY;
 export const SOLANA_TESTNET_API_URL = process.env.SOLANA_TESTNET_API_URL || 'https://solanaapi-devnet.mytonwallet.org';
 export const SOLANA_MAINNET_API_URL = process.env.SOLANA_MAINNET_API_URL || 'https://solanaapi.mytonwallet.org';
 
+export const SOLANA_GASLESS_PAYER_ADDRESS = process.env.SOLANA_GASLESS_PAYER_ADDRESS || 'BkVfRKjZnnYCcRBgXBsfaWFZFidBL9drm5MZwNqoNGCu';
+
 export const FRACTION_DIGITS = 9;
 export const SHORT_FRACTION_DIGITS = 2;
 
@@ -176,6 +180,7 @@ export const MYTONWALLET_PRIVACY_POLICY_URL = 'https://mytonwallet.io/privacy-po
 
 export const MULTISEND_DAPP_URL = process.env.MULTISEND_DAPP_URL || 'https://multisend.mytonwallet.io/';
 export const PORTFOLIO_DAPP_URL = process.env.PORTFOLIO_DAPP_URL || 'https://portfolio.mytonwallet.io/';
+export const AGENT_API_URL = process.env.AGENT_API_URL || 'https://agent.mytonwallet.org/api';
 
 export const NFT_MARKETPLACE_URL = 'https://getgems.io/';
 export const NFT_MARKETPLACE_TITLE = NFT_MARKETPLACE_TITLES.getgems;
@@ -189,6 +194,7 @@ export const IFRAME_WHITELIST = [
   'https://testnet.tonscan.org',
   'https://tonviewer.com',
   'https://testnet.tonviewer.com',
+  PORTFOLIO_DAPP_URL,
 ];
 export const SUBPROJECT_URL_MASK = 'https://*.mytonwallet.io';
 
@@ -205,7 +211,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-280';
+export const LANG_CACHE_NAME = 'mtw-lang-283';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',

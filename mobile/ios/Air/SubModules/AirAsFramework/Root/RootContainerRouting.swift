@@ -67,10 +67,7 @@ struct TabRootContainerRouter: RootContainerRouting {
     }
     
     func showImportWalletVersion() {
-        let settingsVC = tabVC?.viewControllers?
-            .compactMap { $0 as? UINavigationController }
-            .first { nc in nc.viewControllers.first is SettingsVC }
-        settingsVC?.pushViewController(WalletVersionsVC(), animated: true)
+        _ = tabVC?.pushOnSettingsRoot(WalletVersionsVC(), animated: true)
     }
     
     func showTemporaryViewAccount(accountId: String) {

@@ -58,12 +58,16 @@ public class PasscodeScreenView: UIView {
             becomeFirstResponder()
         }
     }
+
+    private var accentColor: UIColor {
+        window?.tintColor ?? AirTintColor
+    }
     
     private var unlockScreenBackground: UIColor {
-        WTheme.unlockScreen.background != .label ? WTheme.unlockScreen.background : WTheme.groupedItem
+        accentColor != .label ? accentColor : .air.groupedItem
     }
     private var unlockScreenTintColor: UIColor {
-        WTheme.unlockScreen.background != .label ? .white : WTheme.backgroundReverse
+        accentColor != .label ? .white : .air.backgroundReverse
     }
 
     /// If not nil, indicates that authentication using the available biometry type is permitted.
@@ -80,6 +84,7 @@ public class PasscodeScreenView: UIView {
     internal var lockImageView: UIImageView?
     internal var enterPasscodeLabel: WReplacableLabel!
     private var customHeader: UIView?
+    private var isTryingBiometric = false
     
     private func setupViews(title: String,
                             replacedTitle: String?,
@@ -88,7 +93,7 @@ public class PasscodeScreenView: UIView {
                             matchHeaderColors: Bool) {
         semanticContentAttribute = .forceLeftToRight
 
-        backgroundColor = matchHeaderColors ? unlockScreenBackground : WTheme.groupedItem
+        backgroundColor = matchHeaderColors ? unlockScreenBackground : .air.groupedItem
         if matchHeaderColors {
             let darkOverlayView = UIView()
             darkOverlayView.translatesAutoresizingMaskIntoConstraints = false
@@ -137,7 +142,7 @@ public class PasscodeScreenView: UIView {
             self.lockImageView = lockImageView
             lockImageView.image = UIImage(systemName: "lock.fill")
             lockImageView.contentMode = .scaleAspectFit
-            lockImageView.tintColor = matchHeaderColors ? unlockScreenTintColor : WTheme.primaryLabel
+            lockImageView.tintColor = matchHeaderColors ? unlockScreenTintColor : UIColor.label
             lockImageView.translatesAutoresizingMaskIntoConstraints = false
             NSLayoutConstraint.activate([
                 lockImageView.widthAnchor.constraint(equalToConstant: 24),
@@ -162,22 +167,22 @@ public class PasscodeScreenView: UIView {
             case nil: hintText = lang("Enter code")
             }
             enterPasscodeLabel.label.text = hintText
-            enterPasscodeLabel.label.textColor = WTheme.secondaryLabel
+            enterPasscodeLabel.label.textColor = .air.secondaryLabel
         } else {
             enterPasscodeLabel.label.font = .systemFont(ofSize: 20)
             enterPasscodeLabel.label.numberOfLines = 2
             if let subtitle {
                 let attr = NSMutableAttributedString()
                 attr.append(NSAttributedString(string: title, attributes: [
-                    .foregroundColor: matchHeaderColors ? unlockScreenTintColor : WTheme.primaryLabel
+                    .foregroundColor: matchHeaderColors ? unlockScreenTintColor : UIColor.label
                 ]))
                 attr.append(NSAttributedString(string: "\n\(subtitle)", attributes: [
-                    .foregroundColor: matchHeaderColors ? unlockScreenTintColor.withAlphaComponent(0.5) : WTheme.secondaryLabel
+                    .foregroundColor: matchHeaderColors ? unlockScreenTintColor.withAlphaComponent(0.5) : .air.secondaryLabel
                 ]))
                 enterPasscodeLabel.label.attributedText = attr
             } else {
                 enterPasscodeLabel.label.text = title
-                enterPasscodeLabel.label.textColor = matchHeaderColors ? unlockScreenTintColor : WTheme.primaryLabel
+                enterPasscodeLabel.label.textColor = matchHeaderColors ? unlockScreenTintColor : UIColor.label
             }
             if let replacedTitle {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
@@ -191,8 +196,14 @@ public class PasscodeScreenView: UIView {
         unlockView.setCustomSpacing(compactLayout ? 32 : 20, after: enterPasscodeLabel)
 
         // passcode input view
-        passcodeInputView = PasscodeInputView(delegate: delegate,
-                                              theme: matchHeaderColors && WTheme.unlockScreen.background != .label ? WTheme.unlockPasscodeInput : WTheme.unlockTaskPasscodeInput)
+        let useUnlockPasscodeInputColors = matchHeaderColors && accentColor != .label
+        passcodeInputView = PasscodeInputView(
+            delegate: delegate,
+            borderColor: useUnlockPasscodeInputColors ? UIColor.white : .air.secondaryLabel,
+            emptyColor: useUnlockPasscodeInputColors ? UIColor.clear : UIColor.clear,
+            fillColor: useUnlockPasscodeInputColors ? UIColor.white : accentColor,
+            fillBorderColor: useUnlockPasscodeInputColors ? nil : UIColor.clear
+        )
         passcodeInputView.isUserInteractionEnabled = false
         passcodeInputView.setCirclesCount(to: passcodeLength)
         unlockView.addArrangedSubview(passcodeInputView)
@@ -221,14 +232,14 @@ public class PasscodeScreenView: UIView {
                 } else if compactLayout{
                     UIColor.clear
                 } else {
-                    WTheme.backgroundReverse.withAlphaComponent(0.12)
+                    .air.backgroundReverse.withAlphaComponent(0.12)
                 }
                 button.highlightBackgroundColor = if matchHeaderColors {
                     unlockScreenTintColor.withAlphaComponent(0.4)
                 } else if compactLayout {
-                    WTheme.backgroundReverse.withAlphaComponent(0.12)
+                    .air.backgroundReverse.withAlphaComponent(0.12)
                 } else {
-                    WTheme.backgroundReverse.withAlphaComponent(0.4)
+                    .air.backgroundReverse.withAlphaComponent(0.4)
                 }
                 button.addTarget(self, action: #selector(buttonPressed), for: .touchUpInside)
                 button.tag = r * 3 + c
@@ -238,7 +249,7 @@ public class PasscodeScreenView: UIView {
                     let buttonTitleLabel = UILabel()
                     buttonTitleLabel.translatesAutoresizingMaskIntoConstraints = false
                     buttonTitleLabel.font = .systemFont(ofSize: 37)
-                    buttonTitleLabel.textColor = matchHeaderColors ? unlockScreenTintColor : WTheme.primaryLabel
+                    buttonTitleLabel.textColor = matchHeaderColors ? unlockScreenTintColor : UIColor.label
                     let num: Int
                     if r < 3 {
                         // numbers between 1 and 9
@@ -257,7 +268,7 @@ public class PasscodeScreenView: UIView {
                     let buttonAlphabetLabel = UILabel()
                     buttonAlphabetLabel.translatesAutoresizingMaskIntoConstraints = false
                     buttonAlphabetLabel.font = .systemFont(ofSize: num > 0 ? 10 : 16, weight: .medium)
-                    buttonAlphabetLabel.textColor = matchHeaderColors ? unlockScreenTintColor : WTheme.primaryLabel
+                    buttonAlphabetLabel.textColor = matchHeaderColors ? unlockScreenTintColor : UIColor.label
                     buttonAlphabetLabel.text = alphabetText(forNum: num)
                     button.addSubview(buttonAlphabetLabel)
                     NSLayoutConstraint.activate([
@@ -285,7 +296,7 @@ public class PasscodeScreenView: UIView {
                         image = UIImage(named: "BackspaceIcon", in: AirBundle, compatibleWith: nil)!
                     }
                     let buttonImageView = UIImageView(image: image.withRenderingMode(.alwaysTemplate))
-                    buttonImageView.tintColor = matchHeaderColors ? unlockScreenTintColor : WTheme.primaryLabel
+                    buttonImageView.tintColor = matchHeaderColors ? unlockScreenTintColor : UIColor.label
                     buttonImageView.translatesAutoresizingMaskIntoConstraints = false
                     buttonImageView.contentMode = .scaleAspectFit
                     button.addSubview(buttonImageView)
@@ -413,9 +424,13 @@ public class PasscodeScreenView: UIView {
         guard effectiveBiometryType != nil else {
             return
         }
+        guard !isTryingBiometric else {
+            return
+        }
+        isTryingBiometric = true
         
-        Task { @MainActor [weak self] in
-            guard let self else { return }
+        Task { @MainActor in
+            defer { self.isTryingBiometric = false }
             
             let result = await BiometricHelper.authenticate()
             switch result {

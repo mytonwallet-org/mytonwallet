@@ -1,13 +1,14 @@
 import type { Address } from '@solana/kit';
 
 import type { ApiAddressInfo, ApiNetwork, ApiTokenWithMaybePrice } from '../../types';
-import type { SolanaSPLToken, SolanaSPLTokensByAddressRaw } from './types';
+import type { SolanaSPLToken, SolanaSplTokenAccountsByAddressRaw, SolanaSPLTokensByAddressRaw } from './types';
 import { ApiCommonError } from '../../types';
 
 import { SOLANA } from '../../../config';
 import { fetchJson } from '../../../util/fetch';
 import { getSolanaClient } from './util/client';
 import { getKnownAddressInfo } from '../../common/addresses';
+import { callBackendGet } from '../../common/backend';
 import { buildTokenSlug, updateTokens } from '../../common/tokens';
 import { isValidAddress } from './address';
 import { NETWORK_CONFIG, SOLANA_PROGRAM_IDS } from './constants';
@@ -18,6 +19,25 @@ export async function getWalletBalance(network: ApiNetwork, address: string) {
   const { value } = await client.getBalance(address as Address).send();
 
   return BigInt(value);
+}
+export async function getTokenBalance(network: ApiNetwork, address: string, tokenAddress: string) {
+  const request = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: '1',
+      method: 'getTokenAccounts',
+      params: {
+        owner: address,
+        mint: tokenAddress,
+      },
+    }),
+  };
+
+  const res = await fetchJson<SolanaSplTokenAccountsByAddressRaw>(NETWORK_CONFIG[network].rpcUrl, undefined, request);
+
+  return BigInt(res.result.token_accounts[0].amount);
 }
 
 export async function getWalletLastTransaction(network: ApiNetwork, address: string) {
@@ -166,7 +186,9 @@ export function getAddressInfo(
 }
 
 export async function getIsWalletActive(network: ApiNetwork, address: string) {
-  const balance = await getWalletBalance(network, address);
+  const isWalletActive = await callBackendGet<{ result: boolean }>(
+    `/utils/checkIsInitWallet?address=${address}&chain=solana`,
+  );
 
-  return balance > 0n;
+  return isWalletActive.result;
 }

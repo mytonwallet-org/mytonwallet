@@ -12,6 +12,9 @@ import WalletContext
 
 private let log = Log("BalanceHeaderView")
 
+private let additionalSpacingToNavigationBar: CGFloat = 6
+private let collapsedHeight: CGFloat = 102.0
+
 @MainActor protocol BalanceHeaderViewDelegate: AnyObject {
     func headerIsAnimating()
     var isTracking: Bool { get }
@@ -19,10 +22,11 @@ private let log = Log("BalanceHeaderView")
 
 
 @MainActor
-final class BalanceHeaderView: WTouchPassView, WThemedView, Sendable {
+final class BalanceHeaderView: WTouchPassView, Sendable {
     
     let headerViewModel: HomeHeaderViewModel
     let accountSource: AccountSource
+    let updateStatusAccountContext: AccountContext
     
     // MARK: View height
     
@@ -35,9 +39,9 @@ final class BalanceHeaderView: WTouchPassView, WThemedView, Sendable {
     
     var calculatedHeight: CGFloat {
         if headerViewModel.state == .expanded {
-            itemHeight + 63 + (IOS_26_MODE_ENABLED ? 13 : 0) - expansionInset
+            itemHeight - expansionInset + additionalSpacingToNavigationBar
         } else {
-            165.0
+            collapsedHeight + (IOS_26_MODE_ENABLED ? 0.0 : 12.0)
         }
     }
     
@@ -53,6 +57,7 @@ final class BalanceHeaderView: WTouchPassView, WThemedView, Sendable {
     init(headerViewModel: HomeHeaderViewModel, accountSource: AccountSource, delegate: BalanceHeaderViewDelegate?) {
         self.headerViewModel = headerViewModel
         self.accountSource = accountSource
+        self.updateStatusAccountContext = AccountContext(source: accountSource)
         self.delegate = delegate
         super.init(frame: .zero)
         setupViews()
@@ -87,7 +92,6 @@ final class BalanceHeaderView: WTouchPassView, WThemedView, Sendable {
         
         NSLayoutConstraint.activate(constraints)
         
-        updateTheme()
     }
     
     private func setupStatusView() {
@@ -97,7 +101,7 @@ final class BalanceHeaderView: WTouchPassView, WThemedView, Sendable {
         updateStatusViewContainer.translatesAutoresizingMaskIntoConstraints = false
         addSubview(updateStatusViewContainer)
 
-        updateStatusView = UpdateStatusView(accountSource: accountSource)
+        updateStatusView = UpdateStatusView(accountContext: updateStatusAccountContext)
         updateStatusViewContainer.addSubview(updateStatusView)
 
         updateStatusViewContainerTopConstraint = updateStatusViewContainer.topAnchor.constraint(equalTo: topAnchor)
@@ -116,8 +120,4 @@ final class BalanceHeaderView: WTouchPassView, WThemedView, Sendable {
     private func prepareTransitionGenerator() {
         Haptics.prepare(.transition)
     }
-
-    func updateTheme() {
-    }
 }
-

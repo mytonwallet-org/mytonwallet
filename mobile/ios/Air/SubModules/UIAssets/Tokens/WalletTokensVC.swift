@@ -1,5 +1,6 @@
 
 import Dependencies
+import UIActivityList
 import UIComponents
 import UIKit
 import WalletContext
@@ -7,24 +8,34 @@ import WalletCore
 
 private let log = Log("WalletTokens")
 
-public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserver, UITableViewDelegate, Sendable, WSegmentedControllerContent {
+public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserver, UICollectionViewDelegate, Sendable, WSegmentedControllerContent {
     @AccountContext private var account: MAccount
 
     private let layoutMode: LayoutMode
     
-    private let tableView: UITableView = UITableView(frame: .zero, style: .plain)
-    private lazy var dataSource: TableViewDataSource = makeDataSource()
+    private var collectionView: UICollectionView!
+    private lazy var dataSource: CollectionViewDataSource = makeDataSource()
     private var currentHeight: CGFloat = WalletTokenCell.defaultHeight * 4
     private var pendingInteractiveSwitchAccountId: String?
 
     public var onHeightChanged: ((_ animated: Bool) -> Void)?
 
-    public var visibleCells: [UITableViewCell] {
-        tableView.visibleCells
+    var skeletonViewCandidates: [UIView] {
+        collectionView.visibleCells.compactMap { ($0 as? ActivitySkeletonCollectionCell)?.contentView }
     }
 
     public var calculatedHeight: CGFloat {
         currentHeight
+    }
+
+    public var hostedHeight: CGFloat {
+        switch layoutMode {
+        case .expanded:
+            return currentHeight
+        case .compact, .compactLarge:
+            let maxVisibleRowsHeight = CGFloat(layoutMode.visibleRowsLimit) * WalletTokenCell.defaultHeight
+            return max(currentHeight, maxVisibleRowsHeight + WalletSeeAllCell.defaultHeight)
+        }
     }
 
     // MARK: - Init
@@ -43,8 +54,8 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
-        updateWalletTokens(animated: false)
         WalletCoreData.add(eventObserver: self)
+        updateWalletTokens(animated: false)
     }
 
     public override func viewWillAppear(_ animated: Bool) {
@@ -57,72 +68,107 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     private func setupViews() {
         view.backgroundColor = .clear
 
-        tableView.backgroundColor = .clear
-        tableView.delegate = self
-        tableView.separatorStyle = .none
-        tableView.delaysContentTouches = false
-        tableView.showsVerticalScrollIndicator = false
-        tableView.contentInsetAdjustmentBehavior = .scrollableAxes
+        var configuration = UICollectionLayoutListConfiguration(appearance: .plain)
+        configuration.backgroundColor = .clear
+        configuration.showsSeparators = false
+        let layout = UICollectionViewCompositionalLayout.list(using: configuration)
 
-        if layoutMode.isCompact {
-            tableView.bounces = false
-            tableView.isScrollEnabled = false
+        let collectionViewClass = layoutMode.isCompact ? _NoInsetsCollectionView.self : UICollectionView.self
+        collectionView = collectionViewClass.init(frame: .zero, collectionViewLayout: layout)
+        collectionView.backgroundColor = .clear
+        collectionView.delegate = self
+        collectionView.delaysContentTouches = false
+        collectionView.showsVerticalScrollIndicator = false
+        collectionView.contentInsetAdjustmentBehavior = .scrollableAxes
+
+        if case .compact = layoutMode {
+            collectionView.bounces = false
+            collectionView.isScrollEnabled = false
+            collectionView.showsHorizontalScrollIndicator = false
         }
 
-        tableView.register(layoutMode.isCompact ? WalletTokenCell.self : AssetsWalletTokenCell.self, forCellReuseIdentifier: "WalletToken")
-        tableView.register(ActivityCell.self, forCellReuseIdentifier: "Placeholder")
-        tableView.register(WalletSeeAllCell.self, forCellReuseIdentifier: "SeeAll")
-
-        view.addStretchedToBounds(subview: tableView)
+        view.addStretchedToBounds(subview: collectionView)
     }
 
-    private func makeDataSource() -> TableViewDataSource {
-        let dataSource = TableViewDataSource(tableView: tableView) { [unowned self] tableView, indexPath, item in
-            switch item {
-            case let .token(item):
-                let cell = tableView.dequeueReusableCell(withIdentifier: "WalletToken", for: indexPath) as! WalletTokenCell
-                let account = self.account
-                let token = item.tokenBalance
-                let badgeContent = getBadgeContent(accountContext: _account, slug: token.tokenSlug, isStaking: token.isStaking)
-
-                // when opened on full screen, background is highlighted for pinned cells
-                let highlightBackgroundWhenPinned = !layoutMode.isCompact
-                // add color under navBar area for being coherent with color of pinned cells
-                let showUnderNavbarPinningColor = indexPath.row == 0 && item.isPinned && highlightBackgroundWhenPinned
-                cell.underNavigationBarColorView.isVisible = showUnderNavbarPinningColor
-
-                cell.configure(with: item.tokenBalance,
-                               isLast: item.isLast,
-                               animated: item.animatedAmounts,
-                               badgeContent: badgeContent,
-                               isMultichain: account.isMultichain,
-                               isPinned: item.isPinned,
-                               highlightBackgroundWhenPinned: highlightBackgroundWhenPinned,
-                               onSelect: { [weak self] in
-                                   self?.didSelectToken(token)
-                               })
-                return cell
-
-            case .placeholder:
-                let cell = tableView.dequeueReusableCell(withIdentifier: "Placeholder", for: indexPath) as! ActivityCell
-                cell.configureSkeleton()
-                return cell
-
-            case .seeAll:
-                let cell = tableView.dequeueReusableCell(withIdentifier: "SeeAll", for: indexPath) as! WalletSeeAllCell
-                cell.configure(onTap: { [weak self] in self?.didSelectSeeAll() })
-                return cell
+    private func makeDataSource() -> CollectionViewDataSource {
+        let placeholderRegistration = UICollectionView.CellRegistration<ActivitySkeletonCollectionCell, Int> { cell, _, _ in
+            cell.configure()
+        }
+        let seeAllRegistration = UICollectionView.CellRegistration<WalletSeeAllCell, Int> { [unowned self] cell, _, tokensCount in
+            let visibleTokensMenu: UIMenu? = switch layoutMode {
+            case .compact:
+                makeVisibleTokensLimitMenu()
+            case .compactLarge, .expanded:
+                nil
+            }
+            cell.configure(tokensCount: tokensCount, menu: visibleTokensMenu)
+            cell.configurationUpdateHandler = { seeAllCell, state in
+                seeAllCell.isHighlighted = state.isHighlighted
             }
         }
-        dataSource.defaultRowAnimation = .fade
-        
+
+        let dataSource: CollectionViewDataSource
+        if layoutMode.isCompact {
+            let tokenRegistration = UICollectionView.CellRegistration<WalletTokenCell, TokenBalanceItem> { [unowned self] cell, indexPath, item in
+                configureTokenCell(cell, indexPath: indexPath, item: item)
+                cell.configurationUpdateHandler = { tokenCell, state in
+                    tokenCell.isHighlighted = state.isHighlighted
+                }
+            }
+            dataSource = CollectionViewDataSource(collectionView: collectionView) { collectionView, indexPath, item in
+                switch item {
+                case .token(let item):
+                    collectionView.dequeueConfiguredReusableCell(using: tokenRegistration, for: indexPath, item: item)
+                case .placeholder(let placeholderID):
+                    collectionView.dequeueConfiguredReusableCell(using: placeholderRegistration, for: indexPath, item: placeholderID)
+                case .seeAll(let tokensCount):
+                    collectionView.dequeueConfiguredReusableCell(using: seeAllRegistration, for: indexPath, item: tokensCount)
+                }
+            }
+        } else {
+            let tokenRegistration = UICollectionView.CellRegistration<AssetsWalletTokenCell, TokenBalanceItem> { [unowned self] cell, indexPath, item in
+                configureTokenCell(cell, indexPath: indexPath, item: item)
+                cell.configurationUpdateHandler = { tokenCell, state in
+                    tokenCell.isHighlighted = state.isHighlighted
+                }
+            }
+            dataSource = CollectionViewDataSource(collectionView: collectionView) { collectionView, indexPath, item in
+                switch item {
+                case .token(let item):
+                    collectionView.dequeueConfiguredReusableCell(using: tokenRegistration, for: indexPath, item: item)
+                case .placeholder(let placeholderID):
+                    collectionView.dequeueConfiguredReusableCell(using: placeholderRegistration, for: indexPath, item: placeholderID)
+                case .seeAll(let tokensCount):
+                    collectionView.dequeueConfiguredReusableCell(using: seeAllRegistration, for: indexPath, item: tokensCount)
+                }
+            }
+        }
+
         return dataSource
+    }
+
+    private func configureTokenCell(_ cell: WalletTokenCell, indexPath: IndexPath, item: TokenBalanceItem) {
+        let account = self.account
+        let token = item.tokenBalance
+        let badgeContent = getBadgeContent(accountContext: _account, slug: token.tokenSlug, isStaking: token.isStaking)
+
+        let highlightBackgroundWhenPinned = !layoutMode.isCompact
+        let showUnderNavbarPinningColor = indexPath.item == 0 && item.isPinned && highlightBackgroundWhenPinned
+        cell.underNavigationBarColorView.isVisible = showUnderNavbarPinningColor
+
+        cell.configure(with: item.tokenBalance,
+                       isLast: item.isLast,
+                       animated: item.animatedAmounts,
+                       badgeContent: badgeContent,
+                       isMultichain: account.isMultichain,
+                       isPinned: item.isPinned,
+                       highlightBackgroundWhenPinned: highlightBackgroundWhenPinned)
     }
 
     private func applySnapshot(animatedAmounts: Bool, walletTokensVM: WalletTokensVM) {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         let accountId = account.id
-        let assetsAndActivityData = AccountStore.assetsAndActivityData(forAccountID: accountId) ?? .empty
+        let assetsAndActivityData = AssetsAndActivityDataStore.data(accountId: accountId) ?? .empty
 
         snapshot.appendSections([.main])
         let items: [Item] = switch walletTokensVM {
@@ -150,7 +196,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         case let .realTokens(tokensToShow, allTokensCount):
             if allTokensCount > tokensToShow.count {
                 snapshot.appendSections([.seeAll])
-                snapshot.appendItems([.seeAll])
+                snapshot.appendItems([.seeAll(tokensCount: allTokensCount)])
             }
         case .tokensPlaceholders: break
         }
@@ -165,9 +211,9 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
 
     private func updateWalletTokens(animated: Bool) {
         let walletTokensVM: WalletTokensVM
-        if let data = $account.balanceData {
-            let assetsData = AccountStore.assetsAndActivityData(forAccountID: account.id) ?? .empty
-            let tokenBalances = data.walletStaked + data.walletTokens
+        if let walletTokensData = $account.walletTokensData {
+            let assetsData = AssetsAndActivityDataStore.data(accountId: account.id) ?? .empty
+            let tokenBalances = walletTokensData.walletStaked + walletTokensData.walletTokens
             let sorted = MTokenBalance.sortedForUI(tokenBalances: tokenBalances,
                                                    assetsAndActivityData: assetsData,
                                                    balances: $account.balances,
@@ -191,7 +237,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     }
 
     private func reloadStakeCells(animated _: Bool) { // Improvement: this should simply be an apply snapshot
-        for cell in tableView.visibleCells {
+        for cell in collectionView.visibleCells {
             if let cell = cell as? WalletTokenCell, let walletToken = cell.walletToken {
                 let badgeContent = getBadgeContent(accountContext: _account, slug: walletToken.tokenSlug, isStaking: walletToken.isStaking)
                 cell.configureBadge(badgeContent: badgeContent)
@@ -208,7 +254,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         }
     }
 
-    public func switchAcccountTo(accountId: String, animated: Bool) {
+    public func switchAccountTo(accountId: String, animated: Bool) {
         pendingInteractiveSwitchAccountId = accountId
         $account.accountId = accountId
         updateWalletTokens(animated: animated)
@@ -240,10 +286,13 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
             case .assetsAndActivityDataUpdated:
                 updateWalletTokens(animated: true)
 
-            case .balanceChanged(let accountId, _):
+            case .balanceChanged(let accountId):
                 if accountId == self.account.id {
                     updateWalletTokens(animated: true)
                 }
+
+            case .homeWalletVisibleTokensLimitChanged:
+                updateWalletTokens(animated: true)
 
             default:
                 break
@@ -281,15 +330,36 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     }
 
     private func goToStakedPage(slug: String) {
-        AppActions.showEarn(tokenSlug: stakingBaseSlug(for: slug))
+        AppActions.showEarn(accountContext: $account, tokenSlug: stakingBaseSlug(for: slug))
     }
 
     private func showEarnForToken(slug: String, isStaking: Bool) {
         if isStaking {
             goToStakedPage(slug: slug)
         } else {
-            AppActions.showEarn(tokenSlug: slug)
+            AppActions.showEarn(accountContext: $account, tokenSlug: slug)
         }
+    }
+
+    private func makeVisibleTokensLimitMenu() -> UIMenu {
+        UIMenu(
+            title: "",
+            options: [.displayInline, .singleSelection],
+            children: [
+                UIDeferredMenuElement.uncached { completion in
+                    let currentLimit = AppStorageHelper.homeWalletVisibleTokensLimit
+                    let actions = HomeWalletVisibleTokensLimit.allCases.map { limit in
+                        UIAction(
+                            title: limit.title,
+                            state: currentLimit == limit ? .on : .off
+                        ) { _ in
+                            AppStorageHelper.homeWalletVisibleTokensLimit = limit
+                        }
+                    }
+                    completion(actions)
+                }
+            ]
+        )
     }
 
     private func makeTokenMenu(walletToken: MTokenBalance) -> UIMenu {
@@ -347,16 +417,17 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
             } else {
                 if !isServiceToken {
                     primaryActions.append(UIAction(title: lang("Fund"), image: UIImage(systemName: "plus")) { _ in
-                        AppActions.showReceive(chain: token.chain, title: nil)
+                        AppActions.showReceive(accountContext: self.$account, chain: token.chain, title: nil)
                     })
                 }
                 primaryActions.append(UIAction(title: lang("Send"), image: UIImage(systemName: "arrow.up")) { _ in
-                    AppActions.showSend(prefilledValues: .init(token: token.slug))
+                    AppActions.showSend(accountContext: self.$account, prefilledValues: .init(token: token.slug))
                 })
                 if isSwapAvailable {
                     primaryActions.append(UIAction(title: lang("Swap"), image: UIImage(systemName: "arrow.left.arrow.right")) { _ in
                         let defaultBuying = token.slug == TONCOIN_SLUG ? nil : TONCOIN_SLUG
-                        AppActions.showSwap(defaultSellingToken: token.slug,
+                        AppActions.showSwap(accountContext: self.$account,
+                                            defaultSellingToken: token.slug,
                                             defaultBuyingToken: defaultBuying,
                                             defaultSellingAmount: nil,
                                             push: nil)
@@ -364,24 +435,25 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
                 }
                 if isStakingAvailable {
                     primaryActions.append(UIAction(title: lang("Stake"), image: UIImage(systemName: "cylinder.split.1x2")) { _ in
-                        AppActions.showEarn(tokenSlug: token.slug)
+                        AppActions.showEarn(accountContext: self.$account, tokenSlug: token.slug)
                     })
                 }
             }
         }
 
-        let assetsAndActivityData = AccountStore.assetsAndActivityData(forAccountID: accountID) ?? .empty
+        let assetsAndActivityData = AssetsAndActivityDataStore.data(accountId: accountID) ?? .empty
+        let isStaking = walletToken.isStaking
         switch assetsAndActivityData.isTokenPinned(slug: walletToken.tokenSlug, isStaked: walletToken.isStaking) {
         case .pinned:
             secondaryActions.append(UIAction(title: lang("Unpin"), image: UIImage(systemName: "pin.slash")) { _ in
-                AccountStore.updateAssetsAndActivityData(forAccountID: accountID, update: { settings in
-                    settings.saveTokenPinning(slug: walletToken.tokenSlug, isStaking: walletToken.isStaking, isPinned: false)
+                AssetsAndActivityDataStore.update(accountId: accountID, update: { settings in
+                    settings.saveTokenPinning(slug: tokenSlug, isStaking: isStaking, isPinned: false)
                 })
             })
         case .notPinned:
             secondaryActions.append(UIAction(title: lang("Pin"), image: UIImage(systemName: "pin")) { _ in
-                AccountStore.updateAssetsAndActivityData(forAccountID: accountID, update: { settings in
-                    settings.saveTokenPinning(slug: walletToken.tokenSlug, isStaking: walletToken.isStaking, isPinned: true)
+                AssetsAndActivityDataStore.update(accountId: accountID, update: { settings in
+                    settings.saveTokenPinning(slug: tokenSlug, isStaking: isStaking, isPinned: true)
                 })
             })
         }
@@ -403,17 +475,38 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         return UIMenu(title: "", children: menus)
     }
 
-    // MARK: - UITableViewDelegate
+    // MARK: - UICollectionViewDelegate
 
-    public func tableView(_: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+    public func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         guard let item = dataSource.itemIdentifier(for: indexPath) else {
-            Log.shared.error("Not found item for indexPath: \(indexPath)")
-            return 0
+            return false
         }
-        return item.defaultHeight
+
+        switch item {
+        case .placeholder:
+            return false
+        case .token, .seeAll:
+            return true
+        }
     }
 
-    public func tableView(_: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point _: CGPoint) -> UIContextMenuConfiguration? {
+    public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        collectionView.deselectItem(at: indexPath, animated: true)
+        guard let item = dataSource.itemIdentifier(for: indexPath) else {
+            return
+        }
+
+        switch item {
+        case .token(let item):
+            didSelectToken(item.tokenBalance)
+        case .seeAll:
+            didSelectSeeAll()
+        case .placeholder:
+            break
+        }
+    }
+
+    public func collectionView(_: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point _: CGPoint) -> UIContextMenuConfiguration? {
         guard let item = dataSource.itemIdentifier(for: indexPath) else {
             Log.shared.error("Not found item for indexPath: \(indexPath)")
             return nil
@@ -447,10 +540,10 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     public var onScrollStart: (() -> Void)?
     public var onScrollEnd: (() -> Void)?
 
-    public var scrollingView: UIScrollView? { tableView }
+    public var scrollingView: UIScrollView? { collectionView }
 }
 
-// MARK: - WalletSeeAllCell.Delegate
+// MARK: - Actions
 
 extension WalletTokensVC {
     private func didSelectSeeAll() {
@@ -461,7 +554,7 @@ extension WalletTokensVC {
 // MARK: - Diffable Data Source Types
 
 extension WalletTokensVC {
-    private typealias TableViewDataSource = UITableViewDiffableDataSource<Section, Item>
+    private typealias CollectionViewDataSource = UICollectionViewDiffableDataSource<Section, Item>
     
     private enum Section: Hashable {
         case main
@@ -471,12 +564,12 @@ extension WalletTokensVC {
     private enum Item: Hashable {
         case token(item: TokenBalanceItem)
         case placeholder(Int)
-        case seeAll
+        case seeAll(tokensCount: Int)
         
         var defaultHeight: CGFloat {
             switch self {
             case .token: WalletTokenCell.defaultHeight
-            case .placeholder: WalletTokenCell.defaultHeight
+            case .placeholder: ActivitySkeletonCollectionCell.defaultHeight
             case .seeAll: WalletSeeAllCell.defaultHeight
             }
         }
@@ -532,8 +625,10 @@ extension WalletTokensVC {
         fileprivate var visibleRowsLimit: Int {
             switch self {
             case .expanded: .max
-            case .compact: 5
-            case .compactLarge: 6
+            case .compact:
+                AppStorageHelper.homeWalletVisibleTokensLimit.rawValue
+            case .compactLarge:
+                6
             }
         }
     }

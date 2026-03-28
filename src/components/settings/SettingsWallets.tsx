@@ -42,6 +42,7 @@ type OwnProps = {
   onAddAccount: NoneToVoidFunction;
 };
 
+const MAX_TOTAL_WALLETS_WITHOUT_SHOW_ALL = 7;
 const MAX_VISIBLE_WALLETS = 5;
 
 const SettingsWallets = ({
@@ -101,11 +102,14 @@ const SettingsWallets = ({
     return orderedAccounts.filter(([accountId]) => accountId !== currentAccountId);
   }, [orderedAccounts, currentAccountId]);
 
-  const filteredAccounts = useMemo(() => {
-    return allAccountsExceptCurrent.slice(0, MAX_VISIBLE_WALLETS);
-  }, [allAccountsExceptCurrent]);
+  const shouldShowAllWalletsButton = orderedAccounts.length > MAX_TOTAL_WALLETS_WITHOUT_SHOW_ALL;
 
-  const shouldShowAllWalletsButton = allAccountsExceptCurrent.length > MAX_VISIBLE_WALLETS;
+  const filteredAccounts = useMemo(() => {
+    if (!shouldShowAllWalletsButton) {
+      return allAccountsExceptCurrent;
+    }
+    return allAccountsExceptCurrent.slice(0, MAX_VISIBLE_WALLETS);
+  }, [allAccountsExceptCurrent, shouldShowAllWalletsButton]);
 
   const handleAddWalletClick = useLastCallback(() => {
     onAddAccount();

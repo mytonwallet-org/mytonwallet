@@ -11,7 +11,7 @@ private let log = Log("HiddenNftsVC")
 
 
 @MainActor
-public class HiddenNftsVC: WViewController {
+public class HiddenNftsVC: WViewController, Sendable {
     
     enum Section {
         case hiddenByUser
@@ -101,7 +101,7 @@ public class HiddenNftsVC: WViewController {
                         })
                     }
                 }
-                .background(Color(WTheme.groupedItem))
+                .background(Color.air.groupedItem)
                 .margins(.all, 0)
             }
         }
@@ -118,7 +118,7 @@ public class HiddenNftsVC: WViewController {
                         })
                     }
                 }
-                .background(Color(WTheme.groupedItem))
+                .background(Color.air.groupedItem)
                 .margins(.all, 0)
             }
         }
@@ -166,7 +166,7 @@ public class HiddenNftsVC: WViewController {
         configuration.separatorConfiguration.bottomSeparatorInsets.leading = 60
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
         } else {
-            configuration.separatorConfiguration.color = WTheme.separator
+            configuration.separatorConfiguration.color = .air.separator
         }
         configuration.backgroundColor = .clear
         let layout = UICollectionViewCompositionalLayout.list(using: configuration)
@@ -177,9 +177,9 @@ public class HiddenNftsVC: WViewController {
         collectionView?.setContentOffset(CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: animated)
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
-        collectionView.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
+        collectionView.backgroundColor = .air.sheetBackground
     }
     
     public var scrollingView: UIScrollView? {

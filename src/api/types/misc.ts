@@ -314,7 +314,7 @@ export interface ApiSignedTransfer<T extends DappProtocolType = any> {
     seqno: number;
   } : {
     signature: string;
-    base58Tx: Base58EncodedBytes;
+    signedTx: Base58EncodedBytes;
   };
 }
 

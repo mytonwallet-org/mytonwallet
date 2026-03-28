@@ -1,7 +1,7 @@
 
 import Foundation
 
-public let STATE_VERSION: Int = 51
+public let STATE_VERSION: Int = 54
 
 private let log = Log("GlobalStorage+Migration")
 
@@ -10,7 +10,7 @@ public enum GlobalMigrationError: Error {
     case stateVersionTooOld
 }
 
-extension _GlobalStorage {
+extension GlobalStorage {
     
     fileprivate var stateVersion: Int? {
         get { self["stateVersion"] as? Int}
@@ -106,6 +106,21 @@ extension _GlobalStorage {
         if let v = self.stateVersion, v == 50 {
             _clearActivities()
             self.stateVersion = 51
+        }
+
+        if let v = self.stateVersion, v == 51 {
+            self.stateVersion = 52
+        }
+
+        if let v = self.stateVersion, v == 52 {
+            self.stateVersion = 53
+        }
+
+        if let v = self.stateVersion, v == 53 {
+            if self["settings.langSource"] == nil {
+                update { $0["settings.langSource"] = "user" }
+            }
+            self.stateVersion = 54
         }
 
         assert(self.stateVersion == STATE_VERSION)

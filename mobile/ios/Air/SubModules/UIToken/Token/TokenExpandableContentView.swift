@@ -9,9 +9,11 @@ import Perception
 @MainActor let actionsRowHeight: CGFloat = TokenActionsView.rowHeight
 
 @MainActor
-class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableContent, WThemedView {
+final class TokenExpandableContentView: WTouchPassView {
 
-    public static let requiredScrollOffset: CGFloat = 139 + 40 + 16 + actionsRowHeight // after actions section
+    private static let expandedBalanceOffsetBase: CGFloat = 139 - 53
+    private static let balanceToActionsSpacing: CGFloat = 40 + 16
+    public static let requiredScrollOffset: CGFloat = expandedBalanceOffsetBase + balanceToActionsSpacing + actionsRowHeight // after actions section
 
     private let navHeight = CGFloat(1048)
     private var token: ApiToken? = nil {
@@ -21,33 +23,30 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
     }
 
     // layout constants
-    let iconOffset: CGFloat = 15
+    let iconOffset: CGFloat = 15 - 53
     let iconSize: CGFloat = 60
-    let balanceExpandedOffset: CGFloat = 139
-    var balanceCollapsedOffset: CGFloat { -12 + (isInModal ? 6 : 0) }
+    var balanceExpandedOffset: CGFloat { Self.expandedBalanceOffsetBase }
+    var balanceCollapsedOffset: CGFloat { -12 + (isInModal ? 6 : 0)  - 53 }
     var belowNavbarPadding: CGFloat { (IOS_26_MODE_ENABLED ? (isInModal ? 16 : 10) : 0) }
-    var actionsOffset: CGFloat { 139 + 40 + 16 }
+    var actionsOffset: CGFloat { balanceExpandedOffset + Self.balanceToActionsSpacing }
     var expandedHeight: CGFloat { actionsOffset + actionsRowHeight + 16 }
 
     let iconScrollModifier = 0.85
     let balanceScrollModifier = 0.8
 
-    private let onHeightChange: () -> Void
-    private let parentProcessorQueue: DispatchQueue
     private let isInModal: Bool
     @AccountContext private var account: MAccount
 
     init(accountContext: AccountContext,
-         isInModal: Bool,
-         parentProcessorQueue: DispatchQueue,
-         onHeightChange: @escaping () -> Void) {
+         isInModal: Bool) {
         self._account = accountContext
-        self.onHeightChange = onHeightChange
-        self.parentProcessorQueue = parentProcessorQueue
         self.isInModal = isInModal
-        super.init()
+        super.init(frame: .zero)
         setupViews()
     }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
 
     // MARK: Sticky Views
 
@@ -57,13 +56,13 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
         TokenHeaderBalanceView(model: balanceModel)
     }
 
+    private var stickyViewTopConstraint: NSLayoutConstraint!
+    private var stickyViewHeightConstraint: NSLayoutConstraint!
     private var balanceStackTopConstraint: NSLayoutConstraint!
-    private var iconTopConstraint: NSLayoutConstraint? = nil
-    private var actionsTopConstraint: NSLayoutConstraint? = nil
-    private var chartContainerTopConstraint: NSLayoutConstraint? = nil
-    private var chartContainerBottomConstraint: NSLayoutConstraint? = nil
+    private var iconTopConstraint: NSLayoutConstraint?
+    private var actionsTopConstraint: NSLayoutConstraint?
 
-    lazy var stickyStackView: WTouchPassView = {
+    private lazy var stickyStackView: WTouchPassView = {
         let v = WTouchPassView()
         v.translatesAutoresizingMaskIntoConstraints = false
         v.addSubview(balanceHostingView)
@@ -76,7 +75,7 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
         return v
     }()
 
-    lazy var stickyView: WTouchPassView = {
+    private lazy var stickyView: WTouchPassView = {
         let v = WTouchPassView()
         v.translatesAutoresizingMaskIntoConstraints = false
         v.addSubview(stickyStackView)
@@ -93,7 +92,7 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
 
     private lazy var iconView: IconView = {
         let v = IconView(size: 60)
-        v.setChainSize(24, borderWidth: 1.5, borderColor: isInModal ? WTheme.sheetBackground : WTheme.groupedBackground, horizontalOffset: 5, verticalOffset: 1.5)
+        v.setChainSize(24, borderWidth: 1.5, borderColor: isInModal ? .air.sheetBackground : .air.groupedBackground, horizontalOffset: 5, verticalOffset: 1.5)
         v.config(with: token, isStaking: false, isWalletView: false, shouldShowChain: true)
         v.isUserInteractionEnabled = false
         return v
@@ -105,9 +104,9 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
         return v
     }()
 
-    private lazy var actionsView: TokenActionsView = TokenActionsView(token: token)
+    private lazy var actionsView: TokenActionsView = TokenActionsView(accountContext: _account, token: token)
 
-    lazy var contentView: WTouchPassView = {
+    private lazy var contentView: WTouchPassView = {
         let v = WTouchPassView()
         v.translatesAutoresizingMaskIntoConstraints = false
 
@@ -144,11 +143,29 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
     }()
 
     func setupViews() {
-        updateTheme()
-    }
+        translatesAutoresizingMaskIntoConstraints = false
 
-    func updateTheme() {
-        contentView.backgroundColor = isInModal ? WTheme.sheetBackground : WTheme.groupedBackground
+        addSubview(contentView)
+        addSubview(stickyView)
+
+        stickyViewTopConstraint = stickyView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: S.headerTopAdjustment)
+        stickyViewHeightConstraint = stickyView.heightAnchor.constraint(equalToConstant: 100)
+        let contentViewBottomConstraint = contentView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        contentViewBottomConstraint.priority = .defaultHigh
+
+        NSLayoutConstraint.activate([
+            bottomAnchor.constraint(greaterThanOrEqualTo: stickyView.bottomAnchor),
+
+            stickyViewTopConstraint,
+            stickyViewHeightConstraint,
+            stickyView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stickyView.trailingAnchor.constraint(equalTo: trailingAnchor),
+
+            contentView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            contentView.topAnchor.constraint(equalTo: topAnchor, constant: -1000),
+            contentViewBottomConstraint,
+        ])
     }
 
     func configure(token: ApiToken) {
@@ -157,7 +174,7 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
         actionsView.sendAvailable = account.supportsSend
         actionsView.swapAvailable = account.supportsSwap
         actionsView.earnAvailable = account.supportsEarn && token.earnAvailable
-        let walletTokens = $account.balanceData?.walletTokens
+        let walletTokens = $account.walletTokens
         let walletToken = walletTokens?.first { $0.tokenSlug == token.slug }
         balanceModel.token = token
         balanceModel.balance = walletToken?.balance ?? 0
@@ -166,6 +183,7 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
     }
 
     func update(scrollOffset: CGFloat) {
+        stickyViewHeightConstraint.constant = scrollOffset <= 0 ? 112 : max(38, 112 - scrollOffset)
 
         let iconScrollModifier = scrollOffset > 0 ? iconScrollModifier : 1
         let balanceScrollModifier = scrollOffset > 0 ? balanceScrollModifier : 1
@@ -255,9 +273,9 @@ private struct TokenHeaderBalanceView: View {
                 integerFont: .compactRounded(ofSize: 40, weight: .bold),
                 fractionFont: .compactRounded(ofSize: 33, weight: .bold),
                 symbolFont: .compactRounded(ofSize: 35, weight: .bold),
-                integerColor: WTheme.primaryLabel,
-                fractionColor: fadeDecimals ? WTheme.secondaryLabel : WTheme.primaryLabel,
-                symbolColor: WTheme.secondaryLabel
+                integerColor: UIColor.label,
+                fractionColor: fadeDecimals ? .air.secondaryLabel : UIColor.label,
+                symbolColor: .air.secondaryLabel
             )
             .contentTransition(.numericText())
             .lineLimit(1)
@@ -274,7 +292,7 @@ private struct TokenHeaderBalanceView: View {
         if let baseCurrencyAmount = model.baseCurrencyAmount {
             Text(baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true))
                 .font(.system(size: 17))
-                .foregroundStyle(Color(WTheme.secondaryLabel))
+                .foregroundStyle(Color.air.secondaryLabel)
                 .lineLimit(1)
                 .sensitiveData(alignment: .center, cols: 14, rows: 2, cellSize: 13, theme: .adaptive, cornerRadius: 13)
         } else {

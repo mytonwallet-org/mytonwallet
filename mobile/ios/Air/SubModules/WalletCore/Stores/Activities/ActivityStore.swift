@@ -242,11 +242,10 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     
     func fetchTokenActivities(accountId: String, limit: Int, token: ApiToken, shouldLoadWithBudget: Bool) async throws {
         var accountState = getAccountState(accountId)
-        var idsBySlug = accountState.idsBySlug ?? [:]
         var byId = accountState.byId ?? [:]
         
         var fetchedActivities: [ApiActivity] = []
-        var tokenIds = idsBySlug[token.slug] ?? []
+        var tokenIds = accountState.idsBySlug?[token.slug] ?? []
         var toTimestamp = tokenIds
             .last(where: { getIsIdSuitableForFetchingTimestamp(activity: byId[$0]) })
             .flatMap { id in byId[id]?.timestamp }
@@ -282,7 +281,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         fetchedActivities.sort(by: <)
         
         accountState = getAccountState(accountId)
-        byId = getAccountState(accountId).byId ?? [:]
+        byId = accountState.byId ?? [:]
         var newIds: [String] = []
         for activity in fetchedActivities {
             // TODO: remove temporary workaround
@@ -293,15 +292,8 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             newIds.append(activity.id)
         }
         
-        idsBySlug = accountState.idsBySlug ?? [:]
-        
-        tokenIds = Array(OrderedSet(
-            tokenIds + newIds
-        ))
-        tokenIds.sort {
-            compareActivityIds($0, $1, byId: byId)
-        }
-        idsBySlug = accountState.idsBySlug ?? [:]
+        tokenIds = mergeSortedActivityIds(newIds, accountState.idsBySlug?[token.slug] ?? [], byId: byId)
+        var idsBySlug = accountState.idsBySlug ?? [:]
         idsBySlug[token.slug] = tokenIds
         
         withAccountState(accountId) {

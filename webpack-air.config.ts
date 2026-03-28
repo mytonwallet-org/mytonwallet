@@ -78,6 +78,7 @@ export default function createConfig(
         APP_VERSION: appVersion,
         IS_CAPACITOR: '1',
         IS_AIR_APP: '1',
+        IS_ANDROID_DIRECT: '0',
         TONCENTER_MAINNET_URL: '',
         TONCENTER_MAINNET_KEY: '',
         TONCENTER_TESTNET_URL: '',

@@ -121,6 +121,7 @@ interface IWebpWorker extends Worker {
 }
 
 interface Window {
+  CapacitorWebFetch?: typeof fetch;
   webkitAudioContext: typeof AudioContext;
 }
 

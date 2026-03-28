@@ -73,6 +73,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
             isHorizontalFadingEdgeEnabled = true
+            useCustomEmoji = true
         }
     }
 

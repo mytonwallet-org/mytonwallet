@@ -28,6 +28,7 @@ interface OwnProps {
   appTheme: AppTheme;
   dnsExpiration?: Record<string, number>;
   isViewAccount?: boolean;
+  isMultichainAccount?: boolean;
   selectedNfts?: ApiNft[];
   nftsByAddresses: Record<string, ApiNft>;
 }
@@ -48,6 +49,7 @@ function NftList({
   appTheme,
   dnsExpiration,
   isViewAccount,
+  isMultichainAccount,
   selectedNfts,
   nftsByAddresses,
 }: OwnProps) {
@@ -148,6 +150,7 @@ function NftList({
           appTheme={appTheme}
           tonDnsExpiration={getDnsExpirationDate(nftsByAddresses[address], dnsExpiration)}
           isViewAccount={isViewAccount}
+          withChainIcon={isMultichainAccount}
           selectedNfts={selectedNfts}
           style={`--row: ${Math.floor((viewportIndex + index) / nftsPerRow)};`}
         />

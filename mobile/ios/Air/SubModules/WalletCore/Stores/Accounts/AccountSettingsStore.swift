@@ -1,47 +1,80 @@
-//
-//  AccountSettingsStore.swift
-//  WalletCore
-//
-//  Created by nikstar on 24.11.2025.
-//
-
-import Foundation
 import Dependencies
+import Foundation
+import GRDB
 import Perception
-import WalletContext
 import UIKit
+import WalletContext
 
 private let log = Log("AccountSettings")
 
-@Perceptible
-public final class AccountSettingsStore: Sendable {
-    
-    private let _byAccountId: UnfairLock<[String: AccountSettings]> = .init(initialState: [:])
-    
-    @PerceptionIgnored
-    @Dependency(\.accountStore) private var accountStore
-    
+public actor AccountSettingsStore: WalletCoreData.EventsObserver {
+    @MainActor private var byAccountId: MainActorByAccountIdStore<AccountSettings> = .init(initialValue: AccountSettings.init(accountId:))
+
+    private var db: (any DatabaseWriter)?
+
     init() {
-        Task {
-            await preload()
-        }
     }
-    
-    @concurrent func preload() async {
-        for accountId in accountStore.accountsById.keys {
-            _ = `for`(accountId: accountId)
-        }
+
+    func use(db: any DatabaseWriter) async {
+        self.db = db
+        await loadFromDb()
+        WalletCoreData.add(eventObserver: self)
     }
-    
-    public func `for`(accountId: String) -> AccountSettings {
-        access(keyPath: \._byAccountId)
-        return _byAccountId.withLock { _byAccountId in
-            if let settings = _byAccountId[accountId] {
-                return settings
+
+    @MainActor func clean() {
+        byAccountId.removeAll()
+    }
+
+    @MainActor public func `for`(accountId: String) -> AccountSettings {
+        byAccountId.for(accountId: accountId)
+    }
+
+    func persist(_ row: MAccountSettings) {
+        guard let db else {
+            assertionFailure("database not ready")
+            return
+        }
+
+        do {
+            try db.write { db in
+                if row.hasData {
+                    try row.upsert(db)
+                } else {
+                    try MAccountSettings.deleteOne(db, key: row.accountId)
+                }
             }
-            let settings = AccountSettings(accountId: accountId)
-            _byAccountId[accountId] = settings
-            return settings
+        } catch {
+            log.error("persist failed accountId=\(row.accountId, .public) error=\(error, .public)")
+        }
+    }
+
+    @MainActor public func walletCore(event: WalletCoreData.Event) {
+        switch event {
+        case .accountDeleted(let accountId):
+            byAccountId.remove(accountId: accountId)
+        case .accountsReset:
+            byAccountId.removeAll()
+        default:
+            break
+        }
+    }
+
+    private func loadFromDb() async {
+        do {
+            guard let db else {
+                assertionFailure("database not ready")
+                return
+            }
+            let rows = try await db.read { db in
+                try MAccountSettings.fetchAll(db)
+            }
+            await MainActor.run {
+                for row in rows {
+                    `for`(accountId: row.accountId).replace(row: row)
+                }
+            }
+        } catch {
+            log.error("initial load failed: \(error, .public)")
         }
     }
 }
@@ -56,79 +89,31 @@ extension DependencyValues {
     }
 }
 
+@MainActor
 @Perceptible
 public final class AccountSettings: Sendable {
-    
     public let accountId: String
-    
-    @PerceptionIgnored
-    @Dependency(\.accountStore.currentAccountId) var currentAccountId
-    
-    @PerceptionIgnored
-    private var _backgroundNft: ApiNft??
-    
-    init(accountId: String) {
+    public private(set) var backgroundNft: ApiNft?
+    public private(set) var accentColorNft: ApiNft?
+    public private(set) var accentColorIndex: Int?
+    public private(set) var isAllowSuspiciousActions = false
+
+    nonisolated init(accountId: String) {
         self.accountId = accountId
-        _ = backgroundNft
     }
-    
-    public var backgroundNft: ApiNft? {
-        access(keyPath: \.backgroundNft)
-        if let maybeNft = _backgroundNft {
-            return maybeNft
-        }
-        if let data = GlobalStorage["settings.byAccountId.\(accountId).cardBackgroundNft"], let nft = try? JSONSerialization.decode(ApiNft.self, from: data) {
-            _backgroundNft = .some(.some(nft))
-            return nft
-        }
-        _backgroundNft = .some(nil)
-        return nil
-    }
-    
+
     public func setBackgroundNft(_ nft: ApiNft?) {
-        withMutation(keyPath: \.backgroundNft) {
-            do {
-                if let nft {
-                    _backgroundNft = .some(.some(nft))
-                    let object = try JSONSerialization.encode(nft)
-                    GlobalStorage.update { $0["settings.byAccountId.\(accountId).cardBackgroundNft"] = object }
-                    Task(priority: .background) { try? await GlobalStorage.syncronize() }
-                } else {
-                    _backgroundNft = .some(nil)
-                    GlobalStorage.update { $0["settings.byAccountId.\(accountId).cardBackgroundNft"] = nil }
-                    Task(priority: .background) { try? await GlobalStorage.syncronize() }
-                }
-                WalletCoreData.notify(event: .cardBackgroundChanged(accountId, nft))
-            } catch {
-                log.fault("failed to save cardBackgroundNft: \(error, .public)")
-            }
-        }
+        backgroundNft = nft
+        persist()
+        WalletCoreData.notify(event: .cardBackgroundChanged(accountId, nft))
     }
-    
-    public var accentColorNft: ApiNft? {
-        access(keyPath: \.accentColorNft)
-        if let data = GlobalStorage["settings.byAccountId.\(accountId).accentColorNft"], let nft = try? JSONSerialization.decode(ApiNft.self, from: data) {
-            return nft
-        }
-        return nil
-    }
-    
+
     public func setAccentColorNft(_ nft: ApiNft?) {
-        withMutation(keyPath: \.accentColorNft) {
-            do {
-                if let nft {
-                    let object = try JSONSerialization.encode(nft)
-                    GlobalStorage.update { $0["settings.byAccountId.\(accountId).accentColorNft"] = object }
-                } else {
-                    GlobalStorage.update { $0["settings.byAccountId.\(accountId).accentColorNft"] = nil }
-                }
-                installAccentColorFromNft(accountId: accountId, nft: nft)
-            } catch {
-                log.fault("failed to save accentColorNft: \(error, .public)")
-            }
-        }
+        accentColorNft = nft
+        persist()
+        installAccentColorFromNft(accountId: accountId, nft: nft)
     }
-    
+
     private func installAccentColorFromNft(accountId: String, nft: ApiNft?) {
         Task.detached {
             let color: Int? = if let nft {
@@ -136,28 +121,49 @@ public final class AccountSettings: Sendable {
             } else {
                 nil
             }
-            self.setAccentColorIndex(index: color)
+            await self.setAccentColorIndex(index: color)
         }
     }
 
-    public var accentColorIndex: Int? {
-        access(keyPath: \.accentColorIndex)
-        if let index = GlobalStorage["settings.byAccountId.\(accountId).accentColorIndex"] as? Int {
-            return index
-        }
-        return nil
+    public func setIsAllowSuspiciousActions(_ isEnabled: Bool) {
+        isAllowSuspiciousActions = isEnabled
+        persist()
     }
 
     private func setAccentColorIndex(index newValue: Int?) {
-        withMutation(keyPath: \.accentColorIndex) {
-            GlobalStorage.update { $0["settings.byAccountId.\(accountId).accentColorIndex"] = newValue }
-        }
-        if accountId == currentAccountId {
+        accentColorIndex = newValue
+        @Dependency(\.accountStore) var accountStore
+        if accountId == accountStore.currentAccountId {
             changeThemeColors(to: newValue)
             DispatchQueue.main.async {
                 UIApplication.shared.sceneWindows.forEach { $0.updateTheme() }
             }
         }
-        Task(priority: .background) { try? await GlobalStorage.syncronize() }
+        persist()
+    }
+
+    fileprivate func replace(row: MAccountSettings?) {
+        backgroundNft = row?.cardBackgroundNft
+        accentColorNft = row?.accentColorNft
+        accentColorIndex = row?.accentColorIndex
+        isAllowSuspiciousActions = row?.isAllowSuspiciousActions ?? false
+    }
+
+    private var row: MAccountSettings {
+        MAccountSettings(
+            accountId: accountId,
+            cardBackgroundNft: backgroundNft,
+            accentColorNft: accentColorNft,
+            accentColorIndex: accentColorIndex,
+            isAllowSuspiciousActions: isAllowSuspiciousActions ? true : nil
+        )
+    }
+
+    private func persist() {
+        @Dependency(\.accountSettings) var accountSettingsStore
+        let row = self.row
+        Task {
+            await accountSettingsStore.persist(row)
+        }
     }
 }

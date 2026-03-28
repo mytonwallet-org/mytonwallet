@@ -65,6 +65,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProto
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         logAppStart()
+        StartupTrace.reset(flow: "process-launch", origin: appStart)
+        StartupTrace.beginInterval("startup.toHomeVisible")
+        StartupTrace.beginInterval("startup.toHomeReady")
+        StartupTrace.beginInterval("startup.toPresentUnlock")
+        StartupTrace.mark("appDelegate.didFinishLaunching.begin", details: "isOnAir=\(isOnTheAir)")
         
         if application.isProtectedDataAvailable {
             let isFirstLaunch = UserDefaults.standard.object(forKey: "firstLaunchDate") as? Date == nil
@@ -83,17 +88,25 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProto
             UserDefaults.standard.set(Date(), forKey: "lastLaunchDate")
             UserDefaults.standard.set(appVersion, forKey: "lastLaunchVersion")
         }
+
+        StartupTrace.mark(
+            "appDelegate.launchMetadata.ready",
+            details: "protectedData=\(application.isProtectedDataAvailable) firstLaunch=\(isFirstLaunch)"
+        )
         
         #if canImport(Capacitor)
         FirebaseApp.configure()
+        StartupTrace.mark("appDelegate.firebase.configure")
         #endif
         
         guard application.isProtectedDataAvailable else {
             log.error("application.isProtectedDataAvailable = false")
+            StartupTrace.mark("appDelegate.didFinishLaunching.abort", details: "protectedDataUnavailable")
             LogStore.shared.syncronize()
             return false
         }
         
+        StartupTrace.mark("appDelegate.didFinishLaunching.end")
         return true
     }
 
@@ -149,8 +162,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProto
             } else if let token = token {
                 log.info("capacitorDidRegisterForRemoteNotifications")
                 NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: token)
-                if self.isOnTheAir, GlobalStorage.globalDict != nil {
-                    AccountStore.didRegisterForPushNotifications(userToken: token)
+                if self.isOnTheAir {
+                    Task { @MainActor in
+                        AirLauncher.didRegisterForPushNotifications(userToken: token)
+                    }
                 }
             }
         })

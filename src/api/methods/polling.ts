@@ -196,6 +196,8 @@ export async function tryUpdateConfig() {
       swapVersion,
       seasonalTheme,
       isUpdateRequired: isAppUpdateRequired,
+      knowledgeBaseVersion,
+      preferredAgent,
     } = config;
 
     onUpdate({
@@ -208,6 +210,8 @@ export async function tryUpdateConfig() {
       isAppUpdateRequired,
       swapVersion,
       seasonalTheme,
+      knowledgeBaseVersion,
+      preferredAgent,
     });
 
     const localUtc = (new Date()).getTime();

@@ -12,7 +12,7 @@ struct HeaderDappIcon: View {
     var body: some View {
         DappIcon(iconUrl: dapp.iconUrl)
             .frame(width: 64, height: 64)
-            .background(Color(WTheme.secondaryFill))
+            .background(Color.air.secondaryFill)
             .overlay {
                 ContainerRelativeShape()
                     .strokeBorder(.foreground.opacity(0.1), lineWidth: 1)

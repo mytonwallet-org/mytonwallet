@@ -46,7 +46,7 @@ public struct AddressViewModel: Sendable {
     }
     
     /// Must be called from inside `WithPerceptionTracking`.
-    @MainActor func withLocalName(account: AccountContext) -> AddressViewModel {
+    @MainActor public func withLocalName(account: AccountContext) -> AddressViewModel {
         var localName: String?
         if chain.isSupported {
             // search for my account first
@@ -67,9 +67,9 @@ public struct AddressViewModel: Sendable {
         )
     }
     
-    var name: String? { localName ?? apiName }
+    public var name: String? { localName ?? apiName }
     
-    var address: String? { apiAddress }
+    public var address: String? { apiAddress }
     
     var addressToCopy: String? { apiAddress  }
 
@@ -99,14 +99,14 @@ public struct TappableAddress: View {
                 formatAddressAttributed(
                     text,
                     startEnd: compact,
-                    primaryColor: WTheme.secondaryLabel
+                    primaryColor: .air.secondaryLabel
                 )
             )
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 addr
                 if isMenuEnabled {
                     Image.airBundle("ArrowUpDownSmall")
-                        .foregroundColor(Color(WTheme.secondaryLabel))
+                        .foregroundColor(.air.secondaryLabel)
                         .opacity(0.8)
                         .offset(y: 1)
                 }
@@ -147,8 +147,8 @@ public struct TappableAddressFull: View {
         
         if let name = model.name {
             let nameText = Text(name)
-            let separator = Text("\u{A0}·\u{A0}").foregroundColor(Color(WTheme.secondaryLabel))
-            let addrText = Text(formatAddressAttributed(address, startEnd: compactAddressWithName, primaryColor: WTheme.secondaryLabel))
+            let separator = Text("\u{A0}·\u{A0}").foregroundColor(.air.secondaryLabel)
+            let addrText = Text(formatAddressAttributed(address, startEnd: compactAddressWithName, primaryColor: .air.secondaryLabel))
             return Text("\(nameText)\(separator)\(addrText)")
         }
         
@@ -160,7 +160,7 @@ public struct TappableAddressFull: View {
         guard let image = UIImage.airBundleOptional("inline_chain_\(chain.rawValue)") else { return Text("") }
         let resized = image.resizedToFit(size: CGSize(width: 16, height: 16)).withRenderingMode(.alwaysTemplate)
         return Text(Image(uiImage: resized))
-            .foregroundColor(Color(WTheme.secondaryLabel))
+            .foregroundColor(.air.secondaryLabel)
             .baselineOffset(-2)
             + Text(" ")
     }
@@ -176,7 +176,7 @@ public struct TappableAddressFull: View {
             Group {
                 if isMenuEnabled {
                     let more = Text(Image.airBundle("ArrowUpDownSmall"))
-                        .foregroundColor(Color(WTheme.secondaryLabel).opacity(0.8))
+                        .foregroundColor(.air.secondaryLabel.opacity(0.8))
                         .baselineOffset(-1)
                     
                     Text("\(chainIcon)\(text) \(more)")

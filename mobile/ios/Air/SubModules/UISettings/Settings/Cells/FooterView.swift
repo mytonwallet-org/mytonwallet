@@ -19,7 +19,7 @@ final class FooterView: UICollectionReusableView {
         let versionLabel = UILabel()
         versionLabel.translatesAutoresizingMaskIntoConstraints = false
         versionLabel.text = "MyTonWallet Air v\(appVersion) (\(bundleVersion))"
-        versionLabel.textColor = WTheme.secondaryLabel
+        versionLabel.textColor = .air.secondaryLabel
         versionLabel.font = .systemFont(ofSize: 14)
         addSubview(versionLabel)
         NSLayoutConstraint.activate([

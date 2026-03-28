@@ -76,8 +76,8 @@ public struct InsetButtonCell<Label: View>: View {
             InsetCell(horizontalPadding: horizontalPadding, verticalPadding: verticalPadding) {
                 label
                     .frame(maxWidth: .infinity, alignment: alignment)
-                    .foregroundStyle(Color(WTheme.tint))
-                    .tint(Color(WTheme.tint))
+                    .foregroundStyle(.tint)
+                    .tint(.accentColor)
             }
             .contentShape(.rect)
         }
@@ -126,7 +126,7 @@ public struct InsetExpandableCell: View {
                     if !isExpanded {
                         Button(action: {isExpanded = true}) {
                             Text(lang("Show All").lowercased())
-                                .tint(Color(WTheme.tint))
+                                .tint(.accentColor)
                         }
                         .buttonStyle(.borderless)
                     }

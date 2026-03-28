@@ -8,6 +8,7 @@ public protocol ReorderableCollectionViewControllerDelegate: UIScrollViewDelegat
     /// the controller perform `moveItem` (for direct data source management).
     func reorderController(_ controller: ReorderableCollectionViewController, moveItemAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) -> Bool
     func reorderController(_ controller: ReorderableCollectionViewController, canMoveItemAt indexPath: IndexPath) -> Bool
+    func reorderController(_ controller: ReorderableCollectionViewController, canStartSystemDragForItemAt indexPath: IndexPath) -> Bool
     func reorderController(_ controller: ReorderableCollectionViewController, previewForCell cell: UICollectionViewCell) -> ReorderableCollectionViewController.CellPreview?
     func reorderController(_ controller: ReorderableCollectionViewController, sizeForItemAt indexPath: IndexPath) -> CGSize?
     func reorderController(_ controller: ReorderableCollectionViewController, contextMenuConfigurationForItemAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration?
@@ -29,6 +30,7 @@ public extension ReorderableCollectionViewControllerDelegate {
     func reorderController(_ controller: ReorderableCollectionViewController, didChangeReorderingStateByExternalActor isExternalActor: Bool) { }
     func reorderController(_ controller: ReorderableCollectionViewController, didSelectItemAt indexPath: IndexPath) { }
     func reorderController(_ controller: ReorderableCollectionViewController, adjustPreviewFrame previewFrame: CGRect) -> CGRect { previewFrame }
+    func reorderController(_ controller: ReorderableCollectionViewController, canStartSystemDragForItemAt indexPath: IndexPath) -> Bool { true }
 }
 
 /// Helper that adds drag-and-drop reordering to a collection view.
@@ -598,6 +600,7 @@ extension ReorderableCollectionViewController: UICollectionViewDragDelegate, UIC
                                at indexPath: IndexPath) -> [UIDragItem] {
         guard !isReordering, let cell = collectionView.cellForItem(at: indexPath) else { return [] }
         guard collectionView.numberOfItems(inSection: indexPath.section) > 1 else { return [] }
+        guard delegate?.reorderController(self, canStartSystemDragForItemAt: indexPath) ?? true else { return [] }
         
         dragSessionSourceIndexPath = indexPath
         

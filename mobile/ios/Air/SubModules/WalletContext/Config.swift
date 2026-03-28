@@ -2,6 +2,7 @@
 import Foundation
 
 public let DEFAULT_TO_AIR = false
+public let SINGLETON_TABLE_ROW_ID: Int64 = 0
 
 // reference: src/config.ts
 

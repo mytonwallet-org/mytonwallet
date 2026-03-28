@@ -28,16 +28,14 @@ export function parsePlainAddressQr(global: GlobalState, qrData: string) {
   };
 }
 
-export function closeAllOverlays() {
-  return Promise.all([
-    // It's important to close the in-app browser before closing the modal, because when a modal closes, it calls
-    // `show()` on the hidden in-app browser, and calling `close()` right after `show()` causes the app to crash.
-    // Meanwhile, calling `close()` before `show()` makes the in-app browser ignore the `show()` call.
-    // A situation, where it happens, is pressing an "openUrl" notification while the app shows a TON Connect modal.
-    getInAppBrowser()?.close(),
-    getActions().closeAnyModal(),
-    getActions().closeMediaViewer(),
-  ]);
+export async function closeAllOverlays() {
+  // It's important to close the in-app browser before closing the modal, because when a modal closes, it calls
+  // `show()` on the hidden in-app browser, and calling `close()` right after `show()` causes the app to crash.
+  // Meanwhile, calling `close()` before `show()` makes the in-app browser ignore the `show()` call.
+  // A situation, where it happens, is pressing an "openUrl" notification while the app shows a TON Connect modal.
+  await getInAppBrowser()?.close();
+  getActions().closeAnyModal();
+  getActions().closeMediaViewer();
 }
 
 /** replaceMap: keys - old (removed) activity ids, value - new (added) activity ids */

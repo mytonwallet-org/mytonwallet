@@ -100,14 +100,25 @@ public final class BadgeView: UIView {
 
     public func configureChain(chain: ApiChain) {
         
-        backgroundColor = WTheme.secondaryLabel.withAlphaComponent(0.15)
-        label.textColor = WTheme.secondaryLabel
+        backgroundColor = .air.secondaryLabel.withAlphaComponent(0.15)
+        label.textColor = .air.secondaryLabel
         
         label.text = chain.usdtBadgeText
         
         backgroundGradient.isHidden = true
         labelGradient.isHidden = true
         
+        self.isHidden = false
+    }
+
+    public func configure(text: String, foregroundColor: UIColor, backgroundColor: UIColor) {
+        self.backgroundColor = backgroundColor
+        label.textColor = foregroundColor
+        label.text = text
+
+        backgroundGradient.isHidden = true
+        labelGradient.isHidden = true
+
         self.isHidden = false
     }
     

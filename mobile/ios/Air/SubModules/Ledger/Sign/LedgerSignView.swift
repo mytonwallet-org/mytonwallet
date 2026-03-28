@@ -17,7 +17,7 @@ struct LedgerSignView<HeaderView: View>: View {
                 headerView
                     .padding(44)
                 ZStack {
-                    Color(WTheme.background)
+                    Color.air.background
                         .clipShape(.rect(cornerRadius: 16))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .ignoresSafeArea()

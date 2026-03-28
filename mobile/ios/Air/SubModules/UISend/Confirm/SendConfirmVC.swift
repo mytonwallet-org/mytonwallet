@@ -40,32 +40,30 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         setupViews()
     }
 
-    private var goBackButton = WButton(style: .secondary)
+    private var goBackButton: WButton?
     private var continueButton = WButton(style: .primary)
     private var continueBottomConstraint: NSLayoutConstraint!
     
     private func setupViews() {        
         var continueTitle: String
-        var goBackTitle = lang("Edit")
-        var canGoBack = true
         var title: String
-        
+                
         switch model.mode {
         case .sendNft:
             title = lang("Is it all ok?")
-            continueTitle = lang("Send")
+            continueTitle = lang("Continue")
         case .burnNft:
-            continueTitle = lang("Burn")
-            continueButton.backgroundColor = WTheme.error
-            goBackTitle = lang("Cancel")
+            continueButton = WButton(style: .destructive)
+            continueTitle = lang("Confirm")
             title = lang("Burn")
         case .regular:
             title = lang("Is it all ok?")
             continueTitle = lang("Confirm")
+            goBackButton = WButton(style: .secondary)
+            goBackButton?.setTitle(lang("Edit"), for: .normal)
         case .sellToMoonpay:
             title = lang("Sell")
             continueTitle = lang("Sell %symbol%", arg1: model.token.symbol)
-            canGoBack = false
         }
 
         navigationItem.title = title
@@ -79,9 +77,8 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         view.addSubview(continueButton)
         continueBottomConstraint = continueButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16)
         
-        if canGoBack {
+        if canGoBack, let goBackButton {
             goBackButton.translatesAutoresizingMaskIntoConstraints = false
-            goBackButton.setTitle(goBackTitle, for: .normal)
             goBackButton.addTarget(self, action: #selector(goBackPressed), for: .touchUpInside)
             view.addSubview(goBackButton)
             
@@ -101,12 +98,22 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
             ])
         }
         
-        updateTheme()
+        // The very special warning tile for nft burning, sticked to the bottom of the screen.
+        // It was hard to achieve this in SwiftUI so do it here
+        if model.mode == .burnNft {
+            burnNftWarningTile.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(burnNftWarningTile)
+            
+            NSLayoutConstraint.activate([
+                burnNftWarningTile.bottomAnchor.constraint(equalTo: continueButton.topAnchor, constant:  -32),
+                burnNftWarningTile.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            ])
+        }
+        
+        view.backgroundColor = .air.sheetBackground
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
-    }
+    lazy var burnNftWarningTile = BurnNftWarningTile()
     
     @objc func continuePressed() {
         let account = model.account

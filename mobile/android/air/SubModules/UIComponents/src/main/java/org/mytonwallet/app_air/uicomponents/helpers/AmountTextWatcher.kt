@@ -5,7 +5,7 @@ import android.text.TextWatcher
 import android.text.style.RelativeSizeSpan
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 
-class AmountTextWatcher(proportion: Float = 16f / 22f) : TextWatcher {
+class AmountTextWatcher(val proportion: Float = 16f / 22f) : TextWatcher {
     private val span = RelativeSizeSpan(proportion)
     var decimals: Int? = null
 

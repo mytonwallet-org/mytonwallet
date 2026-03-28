@@ -26,7 +26,7 @@ public final class RenewDomainVC: WViewController {
     }
     
     private func setupViews() {
-        view.backgroundColor = WTheme.sheetBackground
+        view.backgroundColor = .air.sheetBackground
         navigationItem.titleView = HostingView {
             RenewDomainNavigationHeader(viewModel: viewModel)
         }

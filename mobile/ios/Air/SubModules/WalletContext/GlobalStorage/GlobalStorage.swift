@@ -1,6 +1,4 @@
-
 import Foundation
-import WebKit
 
 public protocol IGlobalStorageProvider {
     var dontSynchronize: Int { get set }
@@ -21,8 +19,6 @@ public protocol IGlobalStorageProvider {
     func deleteAll() async throws
 }
 
-public let GlobalStorage = _GlobalStorage()
-
 public enum GlobalStorageError: Error, @unchecked Sendable { // todo: remove Any associated values
     case navigationError(any Error)
     case javaScriptError(any Error)
@@ -32,51 +28,43 @@ public enum GlobalStorageError: Error, @unchecked Sendable { // todo: remove Any
     case localStorageIsInvalidJson(Any)
     case notReady
     case serializedValueIsNotAValidDict(Any?)
+    case localStorageReadbackFailed(String)
     case serializationError(any Error)
     case localStorageSetItemError(String)
 }
 
 
 private let log = Log("GlobalStorage")
-private let capacitorUrl = URL(string: "capacitor://mytonwallet.local")!
-private let globalStateKey = "mytonwallet-global-state"
 
+private struct WebViewStorageErrorPayload: Decodable {
+    let name: String?
+    let message: String?
+    let description: String?
+}
 
-public final class _GlobalStorage: @unchecked Sendable {
+@MainActor
+public final class GlobalStorage {
+    private var global = Value(nil)
     
-    private let _global: JSValue = .init(nil)
-    private var autosync: Autosync? = nil
-    
-    fileprivate init() {
-        autosync = Autosync(onAutosync: { [weak self] in
-            Task.detached(priority: .background) { [weak self] in
-                do {
-                    log.info("autosync")
-                    try await self?.syncronize()
-                } catch {
-                    log.fault("failed to autosync: \(error, .public)")
-                }
-            }
-        })
-    }
+    public init() {}
 
     public var globalDict: [String: Any]? {
-        _global.value as? [String: Any]
+        global.rawValue as? [String: Any]
     }
     
     public subscript(_ keyPath: String) -> Any? {
-        _global[keyPath]
+        global[keyPath]
     }
 
-    public func update(_ f: (inout JSValue.Value) -> ()) {
-        _global.update(f)
+    public func update(_ f: (inout Value) -> Void) {
+        f(&global)
     }
 
     public func loadFromWebView() async throws(GlobalStorageError) {
         do {
             log.info("load started")
             let json = try await WebViewGlobalStorageProvider().loadFromWebView()
-            _global.update { $0[""] = json }
+            update { $0[""] = json }
             log.info("load completed")
         } catch {
             log.fault("failed to load global dict from webview \(error, .public)")
@@ -87,47 +75,19 @@ public final class _GlobalStorage: @unchecked Sendable {
     
     public func syncronize() async throws(GlobalStorageError) {
         log.info("sync started")
-        let webView = await WebViewGlobalStorageProvider()
-        guard let dict = self.globalDict?.nilIfEmpty else {
-            throw .serializedValueIsNotAValidDict(_global.value)
-        }
-        do {
-            try await webView.saveToWebView(dict)
-        } catch .localStorageSetItemError(let error) {
-            // setItem might fail when localStorage runs out of memory. downsizing and trying again
-            do { // logs
-                log.error("syncronizer localStorageSetItemError \(error, .public). will clear cache and retry")
-                if let data = try? JSONSerialization.data(withJSONObject: dict, options: []) {
-                    let jsonString = String(data: data, encoding: .utf8)!
-                    log.info("globalStorage size trying to save \(jsonString.count)")
-                }
-                if let size = try? await webView.getStoredSize() {
-                    log.info("globalStorage size before clearCache \(size)")
-                }
-            }
-            
-            clearCache()
-            
-            guard let clearedDict = self.globalDict else {
-                throw .serializedValueIsNotAValidDict(_global.value)
-            }
-            do { // more logs
-                if let data = try? JSONSerialization.data(withJSONObject: clearedDict, options: []) {
-                    let jsonString = String(data: data, encoding: .utf8)!
-                    log.info("globalStorage size after clearing cache \(jsonString.count)")
-                }
-            }
-            try await webView.saveToWebView(clearedDict)
-        }
+        let webView = WebViewGlobalStorageProvider()
+        try await syncronize(using: webView, canRetryAfterClearingCache: true)
         log.info("sync completed")
     }
     
     /// Called when local storage object is too big to save.
-    private func clearCache() {
-        log.error("Clearing the cache!")
+    private func clearCache() -> Bool {
+        var didClear = false
         update { dict in
             if let byAccountId = dict["byAccountId"] as? [String: Any] {
                 for accountId in byAccountId.keys {
+                    guard dict["byAccountId.\(accountId).activities"] != nil else { continue }
+                    didClear = true
                     dict["byAccountId.\(accountId).activities.idsMain"] = []
                     dict["byAccountId.\(accountId).activities.isMainHistoryEndReached"] = false
                     dict["byAccountId.\(accountId).activities.idsBySlug"] = [:]
@@ -137,14 +97,105 @@ public final class _GlobalStorage: @unchecked Sendable {
                 }
             }
         }
+        if didClear {
+            log.error("Clearing the cache!")
+        }
+        return didClear
     }
 }
 
-extension _GlobalStorage {
+extension GlobalStorage {
+    private func syncronize(
+        using webView: WebViewGlobalStorageProvider,
+        canRetryAfterClearingCache: Bool
+    ) async throws(GlobalStorageError) {
+        guard let dict = globalDict?.nilIfEmpty else {
+            throw .serializedValueIsNotAValidDict(global.rawValue)
+        }
+        do {
+            try await webView.saveToWebView(dict)
+        } catch .localStorageSetItemError(let error) {
+            try await handleSaveFailure(
+                error,
+                attemptedDict: dict,
+                using: webView,
+                canRetryAfterClearingCache: canRetryAfterClearingCache
+            )
+        } catch .localStorageReadbackFailed(let details) {
+            await logFailedSaveDiagnostics(
+                attemptedDict: dict,
+                using: webView,
+                failureDescription: "localStorage readback failed \(details)"
+            )
+            throw .localStorageReadbackFailed(details)
+        }
+    }
+
+    private func handleSaveFailure(
+        _ error: String,
+        attemptedDict: [String: Any],
+        using webView: WebViewGlobalStorageProvider,
+        canRetryAfterClearingCache: Bool
+    ) async throws(GlobalStorageError) {
+        await logFailedSaveDiagnostics(
+            attemptedDict: attemptedDict,
+            using: webView,
+            failureDescription: "localStorageSetItemError \(error)"
+        )
+
+        guard canRetryAfterClearingCache, errorLikelyCausedByStorageQuota(error) else {
+            throw .localStorageSetItemError(error)
+        }
+
+        let previousGlobal = global
+        guard clearCache() else {
+            throw .localStorageSetItemError(error)
+        }
+
+        log.error("retrying global storage sync after clearing nonessential cache")
+        do {
+            try await syncronize(using: webView, canRetryAfterClearingCache: false)
+        } catch {
+            global = previousGlobal
+            throw error
+        }
+    }
+
+    private func logFailedSaveDiagnostics(
+        attemptedDict: [String: Any],
+        using webView: WebViewGlobalStorageProvider,
+        failureDescription: String
+    ) async {
+        log.error("syncronizer \(failureDescription, .public). will not mutate state automatically")
+        if let data = try? JSONSerialization.data(withJSONObject: attemptedDict, options: []) {
+            let jsonString = String(data: data, encoding: .utf8)!
+            log.info("globalStorage size trying to save \(jsonString.count)")
+        }
+        if let size = try? await webView.getStoredSize() {
+            log.info("globalStorage size before failed save \(size)")
+        }
+    }
+
+    private func errorLikelyCausedByStorageQuota(_ error: String) -> Bool {
+        let details: [String]
+        if let data = error.data(using: .utf8),
+           let payload = try? JSONDecoder().decode(WebViewStorageErrorPayload.self, from: data) {
+            details = [payload.name, payload.message, payload.description]
+                .compactMap { $0?.lowercased() }
+        } else {
+            details = [error.lowercased()]
+        }
+
+        return details.contains {
+            $0.contains("quotaexceeded")
+                || $0.contains("quota exceeded")
+                || $0.contains("quota")
+        }
+    }
     
     private func persistIfNeeded(persistInstantly: Bool) {
         guard persistInstantly else { return }
-        Task.detached(priority: .medium) {
+        Task(priority: .medium) {
             do {
                 try await self.syncronize()
             } catch {
@@ -225,26 +276,5 @@ extension _GlobalStorage {
     
     public func deleteAll() async throws {
         try await WebViewGlobalStorageProvider().deleteAll()
-    }
-}
-
-extension _GlobalStorage {
-    final class Autosync: NSObject {
-        
-        private var onAutosync: @Sendable () -> ()
-        private var observers: [Any] = []
-        
-        init(onAutosync: @escaping @Sendable () -> ()) {
-            self.onAutosync = onAutosync
-            var observers: [Any] = []
-            let notifications = [UIApplication.willResignActiveNotification, UIApplication.didEnterBackgroundNotification, UIApplication.willTerminateNotification, UIApplication.didReceiveMemoryWarningNotification]
-            for name in notifications {
-                let observer = NotificationCenter.default.addObserver(forName: name, object: nil, queue: nil) { _ in
-                    onAutosync()
-                }
-                observers.append(observer)
-            }
-            self.observers = observers
-        }
     }
 }

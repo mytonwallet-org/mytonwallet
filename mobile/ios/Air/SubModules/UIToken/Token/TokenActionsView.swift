@@ -14,9 +14,11 @@ class TokenActionsView: WTouchPassStackView {
     static let usesSplitHomeActionStyle = UIDevice.current.userInterfaceIdiom == .pad
     static let rowHeight: CGFloat = usesSplitHomeActionStyle ? WActionTileButton.sideLength : WScalableButton.preferredHeight
     
+    let accountContext: AccountContext
     var token: ApiToken?
     
-    init(token: ApiToken?) {
+    init(accountContext: AccountContext, token: ApiToken?) {
+        self.accountContext = accountContext
         self.token = token
         super.init(frame: .zero)
         setupViews()
@@ -163,17 +165,18 @@ class TokenActionsView: WTouchPassStackView {
     }
     
     func addPressed() {
-        AppActions.showReceive(chain: token?.chain, title: nil)
+        AppActions.showReceive(accountContext: accountContext, chain: token?.chain, title: nil)
     }
 
     func sendPressed() {
-        AppActions.showSend(prefilledValues: .init(
+        AppActions.showSend(accountContext: accountContext, prefilledValues: .init(
             token: token?.slug
         ))
     }
 
     func swapPressed() {
         AppActions.showSwap(
+            accountContext: accountContext,
             defaultSellingToken: token?.slug,
             defaultBuyingToken: token?.slug == "toncoin" ? nil : "toncoin",
             defaultSellingAmount: nil,
@@ -182,6 +185,6 @@ class TokenActionsView: WTouchPassStackView {
     }
 
     func earnPressed() {
-        AppActions.showEarn(tokenSlug: token?.slug)
+        AppActions.showEarn(accountContext: accountContext, tokenSlug: token?.slug)
     }
 }

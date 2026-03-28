@@ -23,7 +23,9 @@ import {
 import useAutoScroll from '../../hooks/useAutoScroll';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useDragScroll from '../../hooks/useDragScroll';
+import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
+import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 import usePrevious2 from '../../hooks/usePrevious2';
 import useScrolledState from '../../hooks/useScrolledState';
@@ -74,6 +76,7 @@ function Explore({
     getDapps,
     openSiteCategory,
     closeSiteCategory,
+    switchToWallet,
   } = getActions();
 
   const transitionRef = useRef<HTMLDivElement>();
@@ -81,6 +84,19 @@ function Explore({
 
   const lang = useLang();
   const { isLandscape, isPortrait } = useDeviceScreen();
+
+  const handleBack = useLastCallback(() => {
+    if (currentSiteCategoryId) {
+      closeSiteCategory();
+    } else {
+      switchToWallet();
+    }
+  });
+
+  useHistoryBack({
+    isActive,
+    onBack: handleBack,
+  });
 
   const { renderingKey } = useModalTransitionKeys(currentSiteCategoryId || 0, !!isActive);
   const prevSiteCategoryIdRef = useStateRef(usePrevious2(renderingKey));

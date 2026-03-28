@@ -50,6 +50,7 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : WFrameLa
     private val iconView = if (item.getIcon() != null) AppCompatImageView(context) else null
     private val separatorView = if (item.hasSeparator) View(context) else null
     private val arrowView = if (item.getSubItems() != null) AppCompatImageView(context) else null
+    private val arrowReserve = if (arrowView != null) 30.dp + 8.dp else 16.dp
 
     private val textMargin: Int
         get() {
@@ -75,10 +76,13 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : WFrameLa
                         (if (LocaleController.isRTL) Gravity.RIGHT else Gravity.LEFT)
                 bottomMargin = if (item.hasSeparator) 3.5f.dp.roundToInt() else 0
             }
-            if (LocaleController.isRTL)
+            if (LocaleController.isRTL) {
                 rightMargin = textMargin
-            else
+                if (arrowView != null) leftMargin = arrowReserve
+            } else {
                 leftMargin = textMargin
+                if (arrowView != null) rightMargin = arrowReserve
+            }
         })
         addView(subtitleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
             gravity = Gravity.BOTTOM or
@@ -139,8 +143,8 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : WFrameLa
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        label.maxWidth = w - textMargin - 16.dp
-        label.measure((w - textMargin - 16.dp).atMost, 0.unspecified)
+        label.maxWidth = w - textMargin - arrowReserve
+        label.measure((w - textMargin - arrowReserve).atMost, 0.unspecified)
     }
 
     override fun updateTheme() {

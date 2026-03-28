@@ -55,6 +55,10 @@ You have no NFT in this wallet yet: |
 Collapse: Collapse
 Expand: Expand
 Standalone NFT: Standalone NFT
+$nft_select: "Select"
+$nft_batch_on_sale: Selected collectibles are on sale.
+$nft_batch_different_chains: Selected collectibles are in different chains.
+$nft_expired: "Expired"
 Linked Address: Linked Address
 Enter Address: Enter Address
 Show All Assets: Show All Assets
@@ -97,6 +101,7 @@ Instantly: Instantly
 Up to %1$@: Up to %1$@
 up to %1$@: up to %1$@
 Current APY: Current APY
+Current APR: Current APR
 Est. earning per year: Est. earning per year
 in: in
 Error: Error
@@ -294,6 +299,16 @@ Search or enter address: Search or enter address
 View as Grid: View as Grid
 
 
+
+$web_permission_prompt: Allow %origin% to use your %permissions%?
+$web_permission_allow: Allow
+$web_permission_deny: "Don't allow"
+$web_permission_camera: camera
+$web_permission_microphone: microphone
+$web_permission_location: location
+$web_permission_device_features: device features
+$web_permission_this_site: this site
+
 push_title_wallet: "%wallet_title%"
 push_activity_token_sent: Sent %amount% %symbol%
 push_activity_token_received: Received %amount% %symbol%
@@ -331,3 +346,8 @@ push_domain_expired_days_ago: Your domain %domain% expired %days% days ago. Plea
 push_domain_expires_today: Your domain %domain% will expire today. Please renew it to avoid losing access
 push_domain_expires_tomorrow: Your domain %domain% will expire tomorrow. Please renew it to avoid losing access
 push_domain_expires_in_days: Your domain %domain% will expire in %days% days. Please renew it to avoid losing access
+
+$more_nfts:
+  zeroValue: No NFTs
+  oneValue: "+1 NFT"
+  otherValue: "+%1$d NFTs"

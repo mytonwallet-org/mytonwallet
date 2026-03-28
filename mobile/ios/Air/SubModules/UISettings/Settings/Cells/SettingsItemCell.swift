@@ -11,7 +11,7 @@ import UIComponents
 import WalletContext
 
 
-class SettingsItemCell: UICollectionViewCell, WThemedView {
+class SettingsItemCell: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: .zero)
@@ -44,7 +44,7 @@ class SettingsItemCell: UICollectionViewCell, WThemedView {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = .systemFont(ofSize: 14)
-        lbl.textColor = WTheme.secondaryLabel
+        lbl.textColor = .air.secondaryLabel
         return lbl
     }()
     
@@ -158,20 +158,20 @@ class SettingsItemCell: UICollectionViewCell, WThemedView {
         updateTheme()
     }
     
-    public func updateTheme() {
+    private func updateTheme() {
         backgroundColor = .clear
         contentView.backgroundColor = .clear
         if containerView.backgroundColor != .clear {
-            containerView.backgroundColor = WTheme.groupedItem
+            containerView.backgroundColor = .air.groupedItem
         }
-        containerView.highlightBackgroundColor = WTheme.highlight
-        valueLabel.textColor = WTheme.secondaryLabel
+        containerView.highlightBackgroundColor = .air.highlight
+        valueLabel.textColor = .air.secondaryLabel
     }
     
     func configure(with item: SettingsItem, value: String?) {
         self.item = item
         iconImageView.setSize(30)
-        iconImageView.config(with: item.icon, tintColor: WTheme.tint)
+        iconImageView.config(with: item.icon, tintColor: .tintColor)
         valueContainer.isDisabled = true
         titleLabel.font = .systemFont(ofSize: 17, weight: .regular)
         titleLabel.text = item.title
@@ -185,15 +185,15 @@ class SettingsItemCell: UICollectionViewCell, WThemedView {
         valueLabel.text = value
         if item.isDangerous {
             titleCenterXConstraint.isActive = true
-            titleLabel.textColor = item.hasPrimaryColor ? WTheme.primaryButton.background : WTheme.error
+            titleLabel.textColor = item.hasPrimaryColor ? UIColor.tintColor : .air.error
             rightArrow.isHidden = true
         } else {
             titleCenterXConstraint.isActive = false
-            titleLabel.textColor = item.hasPrimaryColor ? WTheme.primaryButton.background : WTheme.primaryLabel
+            titleLabel.textColor = item.hasPrimaryColor ? UIColor.tintColor : UIColor.label
             rightArrow.isHidden = !item.hasChild
         }
         valueToLeftOfArrowConstraint.isActive = !rightArrow.isHidden
-        containerView.backgroundColor = WTheme.groupedItem
+        containerView.backgroundColor = .air.groupedItem
         gradeintView.isHidden = item.icon == nil || !item.highlightIcon
     }
 }

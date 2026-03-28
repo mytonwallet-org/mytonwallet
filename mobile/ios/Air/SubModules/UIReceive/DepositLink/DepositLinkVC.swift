@@ -8,13 +8,18 @@
 import UIKit
 import SwiftUI
 import UIComponents
+import WalletCore
 import WalletContext
 
 final class DepositLinkVC: WViewController {
     
     var hostingController: UIHostingController<DepositLinkView>?
+    private let accountContext: AccountContext
+    private let chain: ApiChain
     
-    init() {
+    init(accountContext: AccountContext, chain: ApiChain) {
+        self.accountContext = accountContext
+        self.chain = chain
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -25,12 +30,15 @@ final class DepositLinkVC: WViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        view.backgroundColor = WTheme.sheetBackground
+        view.backgroundColor = .air.sheetBackground
         
         navigationItem.title = lang("Deposit Link")
         addCloseNavigationItemIfNeeded()
         
-        let hostingController = addHostingController(DepositLinkView(), constraints: .fill)
+        let hostingController = addHostingController(
+            DepositLinkView(accountContext: accountContext, nativeToken: chain.nativeToken),
+            constraints: .fill
+        )
         self.hostingController = hostingController
         
         bringNavigationBarToFront()

@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcore.moshi
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MExplainedTransferFee
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
 import java.math.BigInteger
@@ -80,8 +81,15 @@ data class MApiCheckTransactionDraftResult(
     val isBounceable: Boolean?,
     val isMemoRequired: Boolean?,
     val error: MApiAnyDisplayError?,
-    val diesel: MTransferDiesel?
-)
+    val diesel: MTransferDiesel?,
+    val explainedFee: MExplainedTransferFee?
+) {
+    val fullNativeFee: BigInteger?
+        get() = explainedFee?.fullFee?.nativeSum ?: fee
+
+    val realNativeFee: BigInteger?
+        get() = explainedFee?.realFee?.nativeSum ?: realFee ?: fullNativeFee
+}
 
 @JsonClass(generateAdapter = true)
 data class MApiCheckStakeDraftResult(
@@ -105,6 +113,7 @@ data class MTransferDiesel(
     override val remainingFee: BigInteger?,
     override val nativeAmount: BigInteger?,
     val amount: BigInteger?,
+    val transaction: String? = null,
 ) : IDiesel {
     override val tokenAmount: BigInteger?
         get() = amount
@@ -163,6 +172,7 @@ data class MApiSubmitTransferOptions(
     val isGasless: Boolean? = null,
     val dieselAmount: BigInteger? = null,
     val isGaslessWithStars: Boolean? = null,
+    val gaslessTransaction: String? = null,
 )
 
 @JsonClass(generateAdapter = false)

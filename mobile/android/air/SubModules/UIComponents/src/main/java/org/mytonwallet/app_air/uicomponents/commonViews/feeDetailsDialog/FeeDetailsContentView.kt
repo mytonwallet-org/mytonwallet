@@ -23,8 +23,8 @@ import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBoldSpannableStringBuilder
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
-import org.mytonwallet.app_air.walletcore.models.MFee
-import org.mytonwallet.app_air.walletcore.models.explainedFee.IExplainedFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.IExplainedFee
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import java.math.BigInteger
 import kotlin.math.max
@@ -170,7 +170,7 @@ class FeeDetailsContentView(
     @SuppressLint("SetTextI18n")
     private fun fillDetailsLabel() {
         val fee =
-            feeDetails.fullFee?.apply { precision = MFee.FeePrecision.EXACT }
+            feeDetails.fullFee?.apply { precision = MFeePrecision.EXACT }
                 ?.toString(token, appendNonNative = feeDetails.isGasless) ?: ""
         val nativeToken = token.nativeToken
         val symbol = nativeToken?.symbol?.uppercase() ?: ""

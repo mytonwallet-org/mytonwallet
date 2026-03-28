@@ -49,7 +49,7 @@ public struct FeeDetailsView: View {
             HStack {
                 Text(lang("Final Fee"))
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(Color(WTheme.tint))
+                    .foregroundStyle(.tint)
                 
                 Spacer()
                 
@@ -70,7 +70,7 @@ public struct FeeDetailsView: View {
                     
                     .padding(.trailing, 3) // visually balance ~
                     .frame(maxWidth: realLargerThanExcess ? .infinity : nil, alignment: .leading)
-                    .background(Color(WTheme.tint))
+                    .background(Color.accentColor)
                     .clipShape(.rect(cornerRadius: 4))
                 
                 if showExcess {

@@ -97,8 +97,8 @@ private struct WalletRow: View {
         InsetButtonCell(horizontalPadding: 0, verticalPadding: 12, action: onTap) {
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .foregroundStyle(Color(WTheme.tint))
-                .tint(Color(WTheme.tint))
+                .foregroundStyle(.tint)
+                .tint(.accentColor)
         }
         .allowsHitTesting(discoveredWallet.status != .alreadyImported)
         .opacity(discoveredWallet.status != .alreadyImported ? 1 : 0.4)

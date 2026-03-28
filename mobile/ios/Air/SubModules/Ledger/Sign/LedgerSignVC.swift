@@ -50,8 +50,8 @@ public final class LedgerSignVC<HeaderView: View>: WViewController {
         LedgerSignView(headerView: self.headerView, viewModel: self.model.viewModel)
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
     
     public override func viewDidAppear(_ animated: Bool) {
@@ -71,4 +71,3 @@ public final class LedgerSignVC<HeaderView: View>: WViewController {
         }
     }
 }
-

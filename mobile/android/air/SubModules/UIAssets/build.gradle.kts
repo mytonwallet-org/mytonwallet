@@ -3,9 +3,15 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+    }
+}
+
 android {
     namespace = "org.mytonwallet.app_air.uiassets"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 23
@@ -26,9 +32,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
-    }
-    kotlinOptions {
-        jvmTarget = "1.8"
     }
 }
 
@@ -59,6 +62,7 @@ dependencies {
     implementation(project("$airSubModulePath:UIPasscode"))
     implementation(project("$airSubModulePath:UIReceive"))
     implementation(project("$airSubModulePath:Ledger"))
+    implementation(project("$airSubModulePath:vkryl:android"))
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

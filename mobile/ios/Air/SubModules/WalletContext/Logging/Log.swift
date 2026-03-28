@@ -25,7 +25,7 @@ public actor LogStore {
         }
     }
     
-    fileprivate func write(_ entry: LogEntry) {
+    private func append(_ entry: LogEntry) {
         if let entry = entry.composedForFile.data(using: .utf8) {
             let count = buffer.withLock { buffer in
                 buffer.append(entry)
@@ -33,6 +33,15 @@ public actor LogStore {
             }
             if count > MAX_BUFFER { syncronize() }
         }
+    }
+
+    fileprivate func write(_ entry: LogEntry) {
+        append(entry)
+    }
+
+    fileprivate func writeCritical(_ entry: LogEntry) {
+        append(entry)
+        syncronize()
     }
     
     public nonisolated func syncronize() {
@@ -131,6 +140,16 @@ public struct Log: Sendable {
     
     public func fault(_ message: LogMessage, fileOnly: Bool = false, fileID: String = #fileID, function: String = #function, line: Int = #line) {
         log(.fault, message, fileOnly: fileOnly, fileID: fileID, function: function, line: line)
+    }
+
+    public func critical(_ message: LogMessage, fileOnly: Bool = false, fileID: String = #fileID, function: String = #function, line: Int = #line) async {
+        let entry = LogEntry(category: category, level: .fault, message: message, date: .now, fileID: fileID, function: function, line: line)
+        #if DEBUG
+        if (!fileOnly || PRINT_ALL) && !PRINT_NOTHING {
+            print(entry.composedForDisplay)
+        }
+        #endif
+        await LogStore.shared.writeCritical(entry)
     }
 }
 

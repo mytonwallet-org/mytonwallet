@@ -6,9 +6,11 @@ import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.helpers.FeeEstimationHelpers
-import org.mytonwallet.app_air.walletcore.models.MFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
 import org.mytonwallet.app_air.walletcore.models.SwapType
-import org.mytonwallet.app_air.walletcore.models.explainedFee.ExplainedSwapFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.ExplainedSwapFee
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
 import java.math.BigDecimal
@@ -132,14 +134,14 @@ class SwapHelpers {
             val starsFee = if (dieselKey == "stars") dieselFeeBigInt else null
             val tokenFee = if (dieselKey == "token") dieselFeeBigInt else null
 
-            val fullNetworkTerms = MFee.FeeTerms(
+            val fullNetworkTerms = MFeeTerms(
                 token = tokenFee,
                 native = nativeBalanceBigInt,
                 stars = starsFee
             )
 
             val fullFee = MFee(
-                precision = if (isExact) MFee.FeePrecision.EXACT else MFee.FeePrecision.LESS_THAN,
+                precision = if (isExact) MFeePrecision.EXACT else MFeePrecision.LESS_THAN,
                 terms = fullNetworkTerms,
                 nativeSum = fullNetworkTerms.native,
                 networkTerms = fullNetworkTerms
@@ -163,14 +165,14 @@ class SwapHelpers {
                     swapEstimateResponse.request.tokenToSend.decimals
                 )
 
-                val realNetworkTerms = MFee.FeeTerms(
+                val realNetworkTerms = MFeeTerms(
                     token = if (dieselKey == "token") dieselRealBigInt else null,
                     stars = if (dieselKey == "stars") dieselRealBigInt else null,
                     native = nativeRealBigInt
                 )
 
                 MFee(
-                    precision = if (isExact) MFee.FeePrecision.EXACT else MFee.FeePrecision.APPROXIMATE,
+                    precision = if (isExact) MFeePrecision.EXACT else MFeePrecision.APPROXIMATE,
                     terms = realNetworkTerms,
                     nativeSum = nativeRealBigInt,
                     networkTerms = realNetworkTerms
@@ -205,7 +207,7 @@ class SwapHelpers {
             val isExact =
                 realNetworkFee?.let { networkFee.subtract(it).compareTo(BigDecimal.ZERO) == 0 }
                     ?: false
-            val precision = if (isExact) MFee.FeePrecision.EXACT else MFee.FeePrecision.LESS_THAN
+            val precision = if (isExact) MFeePrecision.EXACT else MFeePrecision.LESS_THAN
 
             val nativeFeeBigInt = CoinUtils.fromDecimal(
                 networkFee,
@@ -218,13 +220,13 @@ class SwapHelpers {
 
             val isNative = swapEstimateResponse.request.tokenToSend.isBlockchainNative
 
-            val networkTerms = MFee.FeeTerms(
+            val networkTerms = MFeeTerms(
                 token = null,
                 native = nativeFeeBigInt,
                 stars = null
             )
 
-            val fullTerms = MFee.FeeTerms(
+            val fullTerms = MFeeTerms(
                 token = if (!isNative) dex.ourFee?.toBigDecimalOrNull()?.let {
                     CoinUtils.fromDecimal(it, swapEstimateResponse.request.tokenToSend.decimals)
                 } else null,
@@ -245,7 +247,7 @@ class SwapHelpers {
             )
 
             val realTerms = realNativeFeeBigInt?.let {
-                MFee.FeeTerms(
+                MFeeTerms(
                     token = fullTerms.token,
                     native = fullTerms.native?.minus(nativeFeeBigInt - it),
                     stars = null
@@ -253,7 +255,7 @@ class SwapHelpers {
             }
 
             val realNetworkTerms = realNativeFeeBigInt?.let {
-                MFee.FeeTerms(
+                MFeeTerms(
                     token = null,
                     native = it,
                     stars = null
@@ -262,7 +264,7 @@ class SwapHelpers {
 
             val realFee = realTerms?.let {
                 MFee(
-                    precision = if (isExact) MFee.FeePrecision.EXACT else MFee.FeePrecision.APPROXIMATE,
+                    precision = if (isExact) MFeePrecision.EXACT else MFeePrecision.APPROXIMATE,
                     terms = it,
                     nativeSum = it.native,
                     networkTerms = realNetworkTerms

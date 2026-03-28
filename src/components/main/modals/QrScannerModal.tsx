@@ -75,7 +75,8 @@ function QrScannerModal({ isOpen, onClose }: OwnProps) {
         const scanAreaCoordinates = getDomNodeDimensions(scanSquareRef.current);
 
         if (
-          !scanAreaCoordinates
+          !barcode.rawValue
+          || !scanAreaCoordinates
           || !qrCodeCoordinates
           || isQrCodeOutsideScanArea(scanAreaCoordinates, qrCodeCoordinates)
         ) {

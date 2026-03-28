@@ -12,6 +12,7 @@ import android.widget.FrameLayout
 import android.widget.ScrollView
 import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.extensions.atMost
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.suppressLayoutCompat
@@ -20,6 +21,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -32,6 +34,22 @@ class WMenuPopupView(
     private val onWillDismiss: (() -> Unit)?,
     private val onDismiss: () -> Unit,
 ) : WFrameLayout(context), WThemedView {
+
+    companion object {
+        fun measureWidth(
+            context: Context,
+            items: List<WMenuPopup.Item>
+        ): Int {
+            return WMenuPopupView(
+                context,
+                items,
+                onWillDismiss = null,
+                onDismiss = {}
+            ).apply {
+                measure(ApplicationContextHolder.screenWidth.atMost, 0.unspecified)
+            }.measuredWidth
+        }
+    }
 
     var popupWindow: INavigationPopup? = null
     private val itemViews = ArrayList<FrameLayout>(items.size)
@@ -124,7 +142,11 @@ class WMenuPopupView(
         finalHeight = min(totalHeight, maxHeight)
     }
 
-    fun present(initialHeight: Int, fromTop: Boolean, updateListener: ((fraction: Float) -> Unit)? = null) {
+    fun present(
+        initialHeight: Int,
+        fromTop: Boolean,
+        updateListener: ((fraction: Float) -> Unit)? = null
+    ) {
         presentFromTop = fromTop
         isAnimating = true
         measureChildren(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)

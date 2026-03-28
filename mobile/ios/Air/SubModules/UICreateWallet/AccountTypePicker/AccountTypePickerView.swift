@@ -40,7 +40,7 @@ struct AccountTypePickerView: View {
                     Divider()
                 }
                 .frame(height: 22)
-                .foregroundStyle(Color(WTheme.secondaryLabel))
+                .foregroundStyle(Color.air.secondaryLabel)
 
             }
 
@@ -63,7 +63,7 @@ struct AccountTypePickerView: View {
                     .padding(.horizontal, 32)
                     .padding(.bottom, -16)
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
                     .environment(\.openURL, OpenURLAction { _ in
                         onWalletVersion()
                         return .handled
@@ -164,7 +164,7 @@ private struct Item: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Image.airBundle("RightArrowIcon")
             }
-            .foregroundStyle(Color(WTheme.primaryLabel))
+            .foregroundStyle(Color.air.primaryLabel)
             .backportGeometryGroup()
         }
     }

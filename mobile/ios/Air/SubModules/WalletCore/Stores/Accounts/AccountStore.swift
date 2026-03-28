@@ -128,50 +128,51 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     private var currentAccountIdObservation: Task<Void, Never>?
     private var accountsObservation: Task<Void, Never>?
 
-    func use(db: any DatabaseWriter) {
-        loadOrderedAccountIds()
-        
+    func use(db: any DatabaseWriter) throws {
         self._db = db
+        loadOrderedAccountIds()
 
+        let accounts = try db.read { db in
+            try MAccount.fetchAll(db)
+        }
+        let currentAccountId: String?
         do {
-            let currentAccountId = try! db.read { db in
+            currentAccountId = try db.read { db in
                 try String.fetchOne(db, sql: "SELECT current_account_id FROM common")
             }
-            updateFromDb(currentAccountId: currentAccountId)
+        } catch {
+            log.fault("failed to load current_account_id during startup: \(error, .public). will continue with account fallback if possible")
+            currentAccountId = nil
+        }
+        updateFromDb(accounts: accounts)
+        updateFromDb(currentAccountId: currentAccountId)
+        persistFallbackCurrentAccountIdIfNeeded(preferredAccountId: currentAccountId, db: db)
 
-            let observation = ValueObservation.tracking { db in
-                try String.fetchOne(db, sql: "SELECT current_account_id FROM common")
-            }
-            currentAccountIdObservation = Task { [weak self] in
-                do {
-                    for try await accountId in observation.values(in: db) {
-                        try Task.checkCancellation()
-                        self?.updateFromDb(currentAccountId: accountId)
-                    }
-                } catch {
-                    log.error("\(error)")
+        let currentAccountObservation = ValueObservation.tracking { db in
+            try String.fetchOne(db, sql: "SELECT current_account_id FROM common")
+        }
+        currentAccountIdObservation = Task { [weak self] in
+            do {
+                for try await accountId in currentAccountObservation.values(in: db) {
+                    try Task.checkCancellation()
+                    self?.updateFromDb(currentAccountId: accountId)
                 }
+            } catch {
+                log.error("\(error)")
             }
         }
 
-        do {
-            let accounts = try! db.read { db in
-                try MAccount.fetchAll(db)
-            }
-            updateFromDb(accounts: accounts)
-
-            let observation = ValueObservation.tracking { db in
-                try MAccount.fetchAll(db)
-            }
-            accountsObservation = Task { [weak self] in
-                do {
-                    for try await accounts in observation.values(in: db) {
-                        try Task.checkCancellation()
-                        self?.updateFromDb(accounts: accounts)
-                    }
-                } catch {
-                    log.error("\(error)")
+        let accountsValueObservation = ValueObservation.tracking { db in
+            try MAccount.fetchAll(db)
+        }
+        accountsObservation = Task { [weak self] in
+            do {
+                for try await accounts in accountsValueObservation.values(in: db) {
+                    try Task.checkCancellation()
+                    self?.updateFromDb(accounts: accounts)
                 }
+            } catch {
+                log.error("\(error)")
             }
         }
         
@@ -179,7 +180,13 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     }
 
     private func updateFromDb(currentAccountId: String?) {
-        self.accountId = currentAccountId
+        let resolvedAccountId = resolveCurrentAccountId(preferredAccountId: currentAccountId)
+        if currentAccountId == nil, let resolvedAccountId {
+            log.fault("current_account_id missing, using fallback account \(resolvedAccountId, .public)")
+        } else if let currentAccountId, let resolvedAccountId, currentAccountId != resolvedAccountId {
+            log.fault("current_account_id is invalid, using fallback account \(resolvedAccountId, .public) instead of \(currentAccountId, .public)")
+        }
+        self.accountId = resolvedAccountId
     }
 
     private func updateFromDb(accounts: [MAccount]) {
@@ -195,6 +202,59 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             self.orderedAccountIds = orderedAccountIds
             saveOrderedAccountIds()
         }
+        if accountId == nil || accountId.flatMap({ accountsById[$0] }) == nil {
+            accountId = resolveCurrentAccountId(preferredAccountId: nil)
+        }
+    }
+
+    private func resolveCurrentAccountId(preferredAccountId: String?) -> String? {
+        if let preferredAccountId,
+           let preferredAccount = accountsById[preferredAccountId],
+           !preferredAccount.isTemporaryView
+        {
+            return preferredAccountId
+        }
+        for accountId in orderedAccountIds where accountsById[accountId]?.isTemporaryView != true {
+            return accountId
+        }
+        return accountsById.values
+            .filter { !$0.isTemporaryView }
+            .map(\.id)
+            .sorted()
+            .first
+    }
+
+    private func persistFallbackCurrentAccountIdIfNeeded(preferredAccountId: String?, db: any DatabaseWriter) {
+        guard let fallbackAccountId = resolveCurrentAccountId(preferredAccountId: preferredAccountId),
+              shouldPersistFallbackCurrentAccountId(preferredAccountId: preferredAccountId, fallbackAccountId: fallbackAccountId)
+        else {
+            return
+        }
+        Task {
+            do {
+                try await db.write { db in
+                    try db.execute(
+                        sql: "UPDATE common SET current_account_id = ?",
+                        arguments: [fallbackAccountId]
+                    )
+                }
+            } catch {
+                log.error("failed to persist fallback current_account_id: \(error, .public)")
+            }
+        }
+    }
+
+    private func shouldPersistFallbackCurrentAccountId(preferredAccountId: String?, fallbackAccountId: String) -> Bool {
+        guard let preferredAccountId else {
+            return true
+        }
+        guard preferredAccountId != fallbackAccountId else {
+            return false
+        }
+        guard let preferredAccount = accountsById[preferredAccountId] else {
+            return true
+        }
+        return preferredAccount.isTemporaryView
     }
     
     // MARK: - Current account
@@ -451,21 +511,20 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             _ = try MAccount.deleteAll(db)
         }
 
-        try await GlobalStorage.deleteAll()
-        GlobalStorage.update {
+        let migrationGlobalStorage = GlobalStorage()
+        try await migrationGlobalStorage.deleteAll()
+        migrationGlobalStorage.update {
             $0["stateVersion"] = STATE_VERSION
         }
-        try await GlobalStorage.syncronize()
+        try await migrationGlobalStorage.syncronize()
 
         await ActivityStore.clean()
-        BalanceStore.clean()
+        await BalanceDataStore.clean()
         NftStore.clean()
         AccountStore.clean()
-        // TODO: Remove all capacitor storage data!
         DispatchQueue.main.async {
             Api.shared?.webViewBridge.recreateWebView()
         }
-        AppStorageHelper.deleteAllWallets()
         KeychainHelper.deleteAllWallets()
         WalletCoreData.notify(event: .accountsReset)
     }
@@ -477,7 +536,6 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         }
         let timestamps = await ActivityStore.getNewestActivityTimestamps(accountId: nextAccountId)
         try await Api.removeAccount(accountId: accountId, nextAccountId: nextAccountId, newestActivityTimestamps: timestamps)
-        AppStorageHelper.remove(accountId: accountId)
         try await db.write { db in
             _ = try MAccount.deleteOne(db, key: accountId)
         }
@@ -501,14 +559,33 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     }
     
     private func loadOrderedAccountIds() {
-        if let stored = GlobalStorage["settings.orderedAccountIds"] as? [String] {
-            orderedAccountIds = OrderedSet(stored)
+        do {
+            guard let db = _db else {
+                assertionFailure("database not ready")
+                return
+            }
+            let row = try db.read { db in
+                try MOrderedAccountIds.fetchOne(db, key: SINGLETON_TABLE_ROW_ID)
+            }
+            orderedAccountIds = OrderedSet(row?.orderedAccountIds ?? [])
+        } catch {
+            log.error("loadOrderedAccountIds failed: \(error, .public)")
         }
     }
     
     private func saveOrderedAccountIds() {
-        GlobalStorage.update { $0["settings.orderedAccountIds"] = Array(orderedAccountIds) }
-        Task { try? await GlobalStorage.syncronize() }
+        do {
+            guard let db = _db else {
+                assertionFailure("database not ready")
+                return
+            }
+            let row = MOrderedAccountIds(orderedAccountIds: Array(orderedAccountIds))
+            try db.write { db in
+                try row.upsert(db)
+            }
+        } catch {
+            log.error("saveOrderedAccountIds failed: \(error, .public)")
+        }
     }
     
     // MARK: - Domains
@@ -652,24 +729,19 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     }
     
     @MainActor public func selectedNotificationsAccounts(accounts: [MAccount]) async {
-        do {
-            let toEnableAccountIds = Set(accounts.map(\.id))
-            let oldEnabledAccountIds = Set(AppStorageHelper.pushNotifications?.enabledAccounts ?? [])
-            if oldEnabledAccountIds == toEnableAccountIds {
-                return
-            }
-            let toUnsubscribeAccounts = oldEnabledAccountIds
-                .filter { !toEnableAccountIds.contains($0) }
-                .compactMap { accountsById[$0] }
-            for account in toUnsubscribeAccounts {
-                await _unsubscribeNotifications(account: account)
-            }
-            for account in accounts {
-                await _subscribeNotifications(account: account)
-            }
-            try await GlobalStorage.syncronize()
-        } catch {
-            log.info("selectedNotificationsAccounts: \(error)")
+        let toEnableAccountIds = Set(accounts.map(\.id))
+        let oldEnabledAccountIds = Set(AppStorageHelper.pushNotifications?.enabledAccounts ?? [])
+        if oldEnabledAccountIds == toEnableAccountIds {
+            return
+        }
+        let toUnsubscribeAccounts = oldEnabledAccountIds
+            .filter { !toEnableAccountIds.contains($0) }
+            .compactMap { accountsById[$0] }
+        for account in toUnsubscribeAccounts {
+            await _unsubscribeNotifications(account: account)
+        }
+        for account in accounts {
+            await _subscribeNotifications(account: account)
         }
     }
 
@@ -761,116 +833,6 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         AppStorageHelper.pushNotifications = updatedInfo
     }
 
-    // MARK: - AssetsAndActivityData
-
-    private let _assetsAndActivityData = UnfairLock<ValueFetchingState<[String: MAssetsAndActivityData]>>(initialState: .notSet)
-    
-    public var currentAccountAssetsAndActivityData: MAssetsAndActivityData? {
-        guard let accountID = AccountStore.accountId else { return nil }
-        return assetsAndActivityData(forAccountID: accountID)
-    }
-    
-    /// [AccountID: MAssetsAndActivityData]
-    public func assetsAndActivityData(forAccountID accountID: String) -> MAssetsAndActivityData? {
-        _assetsAndActivityData.withLock { dataState in
-            switch dataState {
-            case .notSet: nil
-            case .data(let assetsSettingsDict): assetsSettingsDict[accountID]
-            }
-        }
-    }
-    
-    /// Without this state it is impossible to understand whether the data has not yet been loaded or MAssetsAndActivityData is nil because nothing has been write.
-    /// Was added as a workaround to prevent data being erased in BalanceStore. In BalanceStore when `recalculateAccountData()` called,
-    /// MAssetsAndActivityData is not loaded yet. It is needed some time after `recalculateAccountData()` called for MAssetsAndActivityData to be parsed and set.
-    /// This is an artifact of current data layer implementation, which is needed to be addressed.
-    ///
-    /// Account data loading and recalculateAccountData() happens in non-deterministic order.  notifyAccountChanged event, which initiate MAssetsAndActivityData
-    /// loading from persistent storage, happens after ~650ms after recalculateAccountData(). Then after ~200ms MAssetsAndActivityData is finally parsed and set.
-    public var isAssetsAndActivityDataLoaded: Bool {
-        _assetsAndActivityData.withLock { dataState in
-            switch dataState {
-            case .notSet: false
-            case .data: true
-            }
-        }
-    }
-    
-    /// For setting data from bridge
-    public func setAssetsAndActivityData(_ settings: MAssetsAndActivityData, forAccountID accountID: String) {
-        let hasChanged = _assetsAndActivityData.withLock { dataState in
-            switch dataState {
-            case .notSet:
-                dataState = .data([accountID: settings])
-                return true
-
-            case .data(var settingsDict):
-                let isChanged = Self.update_AccountsAssetsAndActivityDict(&settingsDict,
-                                                                          withSettings: settings,
-                                                                          forAccountID: accountID)
-                if isChanged { dataState = .data(settingsDict) }
-                return isChanged
-            }
-        }
-
-        guard hasChanged else { return }
-
-        AppStorageHelper.save(accountId: accountID, assetsAndActivityData: settings.toDictionary)
-        WalletCoreData.notify(event: .assetsAndActivityDataUpdated)
-    }
-
-    /// For changing settings from UI
-    public func updateAssetsAndActivityData(forAccountID accountID: String,
-                                            update: @Sendable (inout MAssetsAndActivityData) -> Void) {
-        let updatedSettings: MAssetsAndActivityData? = _assetsAndActivityData.withLock { dataState in
-            switch dataState {
-            case .notSet:
-                // this branch signals about incorrect usage / races.
-                let message = "Trying to update data that is not set yet. "
-                  + " Check `isAssetsAndActivityDataLoaded` state first to prevent data erasing on concurrent access"
-                Log.shared.fault(LogMessage(stringLiteral: message))
-                assertionFailure(message)
-                return nil
-                
-            case .data(var settingsDict):
-                // there can still be a race in this branch too. The existence of settingsDict only guarantees that settings
-                // for one account have already been set. Settings for other accounts may still being loaded.
-                // This solves situation with recalculateAccountData() in BalanceStore, but still brittle.
-                var accountAssetsSettings = settingsDict[accountID] ?? .empty
-                update(&accountAssetsSettings)
-                
-                let isChanged = Self.update_AccountsAssetsAndActivityDict(&settingsDict,
-                                                                          withSettings: accountAssetsSettings,
-                                                                          forAccountID: accountID)
-                if isChanged {
-                    dataState = .data(settingsDict)
-                    return accountAssetsSettings
-                } else {
-                    return nil
-                }
-            }
-        }
-
-        guard let updatedSettings else { return }
-
-        // Improvement: potential race with AppStorageHelper.save and reading data
-        AppStorageHelper.save(accountId: accountID, assetsAndActivityData: updatedSettings.toDictionary)
-        WalletCoreData.notify(event: .assetsAndActivityDataUpdated)
-    }
-    
-    private static func update_AccountsAssetsAndActivityDict(_ settingsDict: inout [String: MAssetsAndActivityData],
-                                                             withSettings accountAssetsSettings: MAssetsAndActivityData,
-                                                             forAccountID accountID: String) -> Bool {
-        let dataWasChanged: Bool
-        if settingsDict[accountID] != accountAssetsSettings {
-            settingsDict[accountID] = accountAssetsSettings
-            dataWasChanged = true
-        } else {
-            dataWasChanged = false
-        }
-        return dataWasChanged
-    }
-
     // MARK: - Misc
     
     public internal(set) var updatingActivities: Bool {
@@ -884,6 +846,14 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     }
 
     public func clean() {
+        currentAccountIdObservation?.cancel()
+        currentAccountIdObservation = nil
+        accountsObservation?.cancel()
+        accountsObservation = nil
+        _db = nil
+        accountId = nil
+        accountsById = [:]
+        orderedAccountIds = []
         self.walletVersionsData = nil
         self.updatingActivities = false
         self.updatingBalance = false

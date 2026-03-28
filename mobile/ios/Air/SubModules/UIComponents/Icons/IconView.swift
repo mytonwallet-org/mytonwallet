@@ -11,7 +11,7 @@ import WalletCore
 import WalletContext
 import Kingfisher
 
-public class IconView: UIView, WThemedView {
+public class IconView: UIView {
     private static let labelFont = UIFont.systemFont(ofSize: 20, weight: .semibold)
     
     public var imageView: UIImageView!
@@ -144,9 +144,9 @@ public class IconView: UIView, WThemedView {
         super.traitCollectionDidChange(previousTraitCollection)
     }
     
-    public func updateTheme() {
+    private func updateTheme() {
         if self.chainBorderColor == nil {
-            chainAccessoryView.backgroundColor = WTheme.groupedItem
+            chainAccessoryView.backgroundColor = .air.groupedItem
         }
     }
     
@@ -165,7 +165,7 @@ public class IconView: UIView, WThemedView {
             imageView.image = .airBundle(image)
         }
         if let accessoryStatus = activityAccessoryStatus(for: activity), !isTransactionConfirmation {
-            setChainSize(18, borderWidth: 1.667, borderColor: WTheme.groupedItem, horizontalOffset: 2 + 1.667, verticalOffset: 2 + 1.667)
+            setChainSize(18, borderWidth: 1.667, borderColor: .air.groupedItem, horizontalOffset: 2 + 1.667, verticalOffset: 2 + 1.667)
             switch accessoryStatus {
             case .pending:
                 chainAccessoryView.configurePending()
@@ -243,7 +243,7 @@ public class IconView: UIView, WThemedView {
             resolveGradientColors = nil
             gradientLayer.colors = resolveGradientColors?()
             imageView.image = UIImage(named: "AddAccountIcon", in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate)
-            imageView.tintColor = WTheme.backgroundReverse
+            imageView.tintColor = .air.backgroundReverse
             return
         }
         let content = account.avatarContent

@@ -1,0 +1,57 @@
+{
+  "error.tokenNotFound": "ขออภัย ไม่พบโทเค็นชื่อ \"{token}\" กรุณาตรวจสอบชื่อโทเค็นแล้วลองใหม่อีกครั้ง",
+  "error.rateLimit.hourly": "คุณใช้งานครบ {limit} คำขอต่อชั่วโมงแล้ว กรุณารอสักครู่แล้วลองใหม่",
+  "error.rateLimit.daily": "คุณใช้งานครบ {limit} คำขอต่อวันแล้ว กรุณากลับมาใหม่พรุ่งนี้",
+  "error.noNewsResults": "ขออภัย ไม่พบข่าวล่าสุดในหัวข้อนี้ กรุณาลองใหม่ภายหลัง",
+  "error.noAnswer": "ไม่พบคำตอบ",
+  "error.noActionLink": "เข้าใจคำขอของคุณแล้ว แต่ไม่สามารถสร้างลิงก์การดำเนินการได้",
+  "error.generic": "ขออภัย เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
+
+  "send.summary.to": "**- ถึง:** {address}",
+  "send.summary.amount": "**- จำนวน:** {amount} ({name})",
+  "send.summary.fee": "**- ค่าธรรมเนียม:** จะแสดงในแอปก่อนยืนยัน",
+  "send.message": "สรุปการโอนของคุณ:\n\n{summary}\n\nแตะปุ่มด้านล่างเพื่อเปิดหน้าจอส่ง — คุณสามารถตรวจสอบทุกอย่างก่อนยืนยัน",
+  "send.button": "ส่ง {token}",
+
+  "receive.summary.to": "**- ถึง:** {address}",
+  "receive.summary.amount": "**- จำนวน:** {amount}",
+  "receive.summary.comment": "**- ข้อความ:** {comment}",
+  "receive.message.withAddress": "ลิงก์ชำระเงินของคุณ:\n\n{summary}\n\nแชร์ลิงก์หรือ QR โค้ดนี้ — ผู้ส่งจะเห็นหน้าจอโอนที่กรอกข้อมูลแล้ว",
+  "receive.message.noAddress": "แตะปุ่มด้านล่างเพื่อเปิดหน้าจอรับ — คุณจะเห็นที่อยู่และ QR โค้ดเพื่อแชร์",
+  "receive.button": "รับ {token}",
+  "receive.button.default": "รับ",
+
+  "swap.summary.from": "**- จาก:** {amount}",
+  "swap.summary.to": "**- เป็น:** {token}",
+  "swap.summary.fee": "**- อัตราและค่าธรรมเนียม:** จะแสดงก่อนยืนยัน",
+  "swap.message": "สรุปการแลกเปลี่ยนของคุณ:\n\n{summary}\n\nแตะปุ่มด้านล่างเพื่อเปิดหน้าจอแลกเปลี่ยน — คุณสามารถตรวจสอบทุกอย่างก่อนยืนยัน",
+  "swap.button": "แลกเปลี่ยน",
+
+  "buyWithCard.summary.amount": "**- จำนวน:** {amount}",
+  "buyWithCard.summary.payment": "**- ชำระเงิน:** บัตร (ตัวเลือกในแอป)",
+  "buyWithCard.message": "สรุปการซื้อของคุณ:\n\n{summary}\n\nแตะปุ่มด้านล่างเพื่อเปิดหน้าจอซื้อ — เลือกผู้ให้บริการและยืนยันรายละเอียด",
+  "buyWithCard.button": "ซื้อด้วยบัตร",
+
+  "buyWithCrypto.summary.from": "**- จาก:** {amount}",
+  "buyWithCrypto.summary.to": "**- เป็น:** {token}",
+  "buyWithCrypto.summary.fee": "**- อัตราและค่าธรรมเนียม:** จะแสดงก่อนยืนยัน",
+  "buyWithCrypto.message": "สรุปการซื้อข้ามเชนของคุณ:\n\n{summary}\n\nแตะปุ่มด้านล่างเพื่อเปิดหน้าจอซื้อ — คุณสามารถตรวจสอบทุกอย่างก่อนยืนยัน",
+  "buyWithCrypto.button": "ซื้อด้วยคริปโต",
+
+  "price.summary.price": "**- ราคา:** {currency}{price}",
+  "price.summary.change": "**- เปลี่ยนแปลง 24 ชม.:** {direction} {change}%",
+  "price.message.withData": "{token} ({name}):\n\n{summary}\n\nแตะปุ่มด้านล่างเพื่อดูกราฟและรายละเอียดทั้งหมด",
+  "price.message.noData": "แตะปุ่มด้านล่างเพื่อดูราคา กราฟ และรายละเอียดของ {token} ในแอป",
+  "price.button": "ดู {token}",
+
+  "stake.message": "แตะปุ่มด้านล่างเพื่อเปิดหน้าจอ Staking — คุณสามารถเลือกพูลและเริ่มรับรางวัล",
+  "stake.button": "Stake",
+
+  "portfolio.message": "แตะปุ่มด้านล่างเพื่อดูพอร์ตโฟลิโอของคุณ — ดูสินทรัพย์ ยอดคงเหลือ และผลการดำเนินงานทั้งหมดในที่เดียว",
+  "portfolio.button": "ดูพอร์ตโฟลิโอ",
+
+  "telegram.welcome": "ยินดีต้อนรับสู่ Crypto Agent! ส่งข้อความถึงฉันเกี่ยวกับ:\n- ส่งโทเค็น\n- รับโทเค็น\n- แลกเปลี่ยนโทเค็น\n- ซื้อคริปโต\n- ราคาโทเค็น\n- คำถามเกี่ยวกับกระเป๋าเงิน",
+  "telegram.typing": "กำลังพิมพ์...",
+  "telegram.setaddress.usage": "การใช้งาน: /setaddress <เชน> <ชื่อ> <ที่อยู่>",
+  "telegram.setaddress.added": "เพิ่มที่อยู่แล้ว: {name} ({chain}): {address}"
+}

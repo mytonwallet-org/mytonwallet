@@ -48,14 +48,14 @@ class NftHeaderView(
 
     private val nftImageView = WNftImageView(context, 48.dp, 0, 12f.dp)
 
-    private val nameTextView = AppCompatTextView(context).apply {
-        id = generateViewId()
+    private val nameTextView = WLabel(context).apply {
         textAlignment = TEXT_ALIGNMENT_VIEW_START
         typeface = WFont.Medium.typeface
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
         layoutParams = LayoutParams(LayoutParams.MATCH_CONSTRAINT, lineHeight)
+        useCustomEmoji = true
     }
 
     private var peerAddress: String? = null
@@ -69,6 +69,7 @@ class NftHeaderView(
         foreground = WRippleDrawable.create(12f.dp).apply {
             rippleColor = WColor.SubtitleText.color.colorWithAlpha(25)
         }
+        useCustomEmoji = true
         setOnLongClickListener {
             val address = peerAddress ?: return@setOnLongClickListener false
             val blockchain = (transaction as? MApiTransaction.Transaction)?.nft?.chain

@@ -3,9 +3,15 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+    }
+}
+
 android {
     namespace = "org.mytonwallet.app_air.uisend"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 23
@@ -26,9 +32,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
-    }
-    kotlinOptions {
-        jvmTarget = "1.8"
     }
 }
 

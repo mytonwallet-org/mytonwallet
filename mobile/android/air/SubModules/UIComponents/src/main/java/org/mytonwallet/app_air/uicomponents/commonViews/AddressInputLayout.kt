@@ -62,8 +62,8 @@ import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import java.lang.ref.WeakReference
 
@@ -189,7 +189,7 @@ class AddressInputLayout(
         }
     }.apply {
         background = null
-        hint = LocaleController.getString("Wallet Address or Domain")
+        hint = LocaleController.getString("Address or Domain")
         typeface = WFont.Regular.typeface
         layoutParams = LayoutParams(MATCH_PARENT, WRAP_CONTENT)
         maxLines = 3
@@ -468,6 +468,10 @@ class AddressInputLayout(
     fun setText(text: String) {
         textField.setText(text)
         hideOverlayViews()
+    }
+
+    fun setMaxLines(maxLines: Int) {
+        textField.maxLines = maxLines
     }
 
     fun setAddress(savedAddress: MSavedAddress) {

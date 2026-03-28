@@ -144,7 +144,7 @@ function SettingsDeveloperOptions({
         />
 
         <div className={buildClassName(styles.item, styles.item_small)} onClick={handleAddTonOnlyWallet}>
-          {lang('Create TON-Only Wallet')}
+          <span className={styles.itemTitle}>{lang('Create TON-Only Wallet')}</span>
 
           <i className={buildClassName(styles.iconChevronRight, 'icon-plus')} aria-hidden />
         </div>
@@ -153,7 +153,7 @@ function SettingsDeveloperOptions({
           className={buildClassName(styles.item, styles.item_small, !canViewAllWalletVersions && styles.item_disabled)}
           onClick={onShowAllWalletVersions}
         >
-          {lang('All Wallet Versions')}
+          <span className={styles.itemTitle}>{lang('All Wallet Versions')}</span>
 
           <div className={styles.itemInfo}>
             {canViewAllWalletVersions ? (
@@ -187,7 +187,7 @@ function SettingsDeveloperOptions({
           <p className={styles.blockTitle}>{lang('Dangerous')}</p>
           <div className={styles.settingsBlock}>
             <div className={buildClassName(styles.item, styles.item_small)} onClick={() => copyStorageData()}>
-              {lang('Copy Storage Data')}
+              <span className={styles.itemTitle}>{lang('Copy Storage Data')}</span>
 
               <i className={buildClassName(styles.iconChevronRight, 'icon-copy')} aria-hidden />
             </div>
@@ -201,11 +201,11 @@ function SettingsDeveloperOptions({
             !CAN_DOWNLOAD_LOGS
               ? (
                 <>
-                  {lang('Copy Logs')}
+                  <span className={styles.itemTitle}>{lang('Copy Logs')}</span>
 
                   <i className={buildClassName(styles.iconChevronRight, 'icon-copy')} aria-hidden />
                 </>
-              ) : lang('Download Logs')
+              ) : <span className={styles.itemTitle}>{lang('Download Logs')}</span>
           }
         </div>
       </div>
@@ -242,10 +242,8 @@ async function getLogsString({
     addressByChain: mapValues(account.byChain, (accountChain) => accountChain.address),
   }));
 
-  const [mainLogs, apiLogs = []] = await Promise.all([
-    getLogs(),
-    callApi('getLogs'),
-  ]);
+  const mainLogs = getLogs();
+  const apiLogs = await callApi('getLogs') ?? [];
 
   const time = new Date();
   const timezoneOffset = -time.getTimezoneOffset();

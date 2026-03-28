@@ -13,8 +13,8 @@ import WalletCore
 
 @MainActor func makeBaseCurrencyMenuConfig(accountId: String) -> () -> MenuConfig {
     return {
-        @Dependency(\.balanceStore) var balanceStore
-        let amountUsd = balanceStore.accountBalanceData[accountId]?.totalBalanceUsd ?? 0
+        @Dependency(\.balanceDataStore) var balanceDataStore
+        let amountUsd = balanceDataStore.balanceTotals(accountId: accountId)?.totalBalanceUsd ?? 0
 
         let items: [MenuItem] = MBaseCurrency.allCases.map { bc in
             MenuItem.customView(
@@ -41,7 +41,7 @@ import WalletCore
                                     Text(amount.formatted(.baseCurrencyEquivalent))
                                         .font(.system(size: 15))
                                         .padding(.bottom, 1)
-                                        .foregroundStyle(Color(WTheme.secondaryLabel))
+                                        .foregroundStyle(Color.air.secondaryLabel)
                                         .lineLimit(1)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -50,7 +50,7 @@ import WalletCore
                                     Image.airBundle("BaseCurrencyCheckmark")
                                 }
                             }
-                            .foregroundStyle(Color(WTheme.primaryLabel))
+                            .foregroundStyle(Color.air.primaryLabel)
                             .padding(EdgeInsets(top: -3, leading: 0, bottom: -3, trailing: 0))
                         })
                     )

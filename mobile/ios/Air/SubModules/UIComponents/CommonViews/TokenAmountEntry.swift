@@ -195,7 +195,7 @@ public struct TokenAmountEntry: View {
         if inBaseCurrency {
             let sign = TokenStore.baseCurrency.sign
             Text(verbatim: sign)
-                .foregroundStyle(Color((amount ?? 0) == 0 ? UIColor.placeholderText : insufficientFunds ? WTheme.error : WTheme.primaryLabel))
+                .foregroundStyle(Color((amount ?? 0) == 0 ? UIColor.placeholderText : insufficientFunds ? .air.error : UIColor.label))
                 .font(.system(size: 24, weight: .medium))
         }
     }

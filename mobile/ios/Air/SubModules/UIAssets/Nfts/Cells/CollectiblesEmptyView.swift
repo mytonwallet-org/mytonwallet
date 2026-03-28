@@ -10,7 +10,7 @@ import UIComponents
 import WalletContext
 
 
-class CollectiblesEmptyView: UICollectionViewCell, WThemedView {
+class CollectiblesEmptyView: UICollectionViewCell {
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -39,10 +39,5 @@ class CollectiblesEmptyView: UICollectionViewCell, WThemedView {
             emptyView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             emptyView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
         ])
-
-        updateTheme()
-    }
-    
-    func updateTheme() {
     }
 }

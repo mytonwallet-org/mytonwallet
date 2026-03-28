@@ -18,6 +18,7 @@ import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.emoji.EmojiHelper
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.textOffset
@@ -46,6 +47,16 @@ open class WLabel(context: Context) : AppCompatTextView(context), WThemedView {
     }
 
     override var isTinted = false
+
+    var useCustomEmoji = false
+
+    override fun setText(text: CharSequence?, type: BufferType?) {
+        if (useCustomEmoji && !text.isNullOrEmpty()) {
+            super.setText(EmojiHelper.replaceEmoji(text, this), type)
+        } else {
+            super.setText(text, type)
+        }
+    }
 
     private var keyword: String? = null
     var highlightRanges: List<IntRange> = emptyList()

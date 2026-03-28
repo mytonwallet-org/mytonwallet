@@ -66,8 +66,8 @@ struct ClaimRewardsView: View {
         Rectangle().fill(
             LinearGradient(colors: [
                 .clear,
-                Color(WTheme.background).opacity(0.65),
-                Color(WTheme.background).opacity(0.95),
+                .air.background.opacity(0.65),
+                .air.background.opacity(0.95),
             ], startPoint: .top, endPoint: .bottom)
         )
         .padding(.top, -30)
@@ -98,7 +98,7 @@ struct ClaimRewardsButtonContent: View {
     var icon: some View {
         ZStack {
             LinearGradient(
-                colors: WColors.greenGradient.map(Color.init),
+                colors: UIColor.air.greenGradient.map(Color.init),
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -163,7 +163,7 @@ struct ClaimRewardsConfirmContent: View {
     }
     
     var amountSection: some View {
-        InsetSection(backgroundColor: WTheme.sheetBackground) {
+        InsetSection(backgroundColor: .air.sheetBackground) {
             AmountCell(amount: viewModel.amount.amount, token: viewModel.amount.token, format: .init(showPlus: true))
                 .contentTransition(.numericText())
                 .animation(.default, value: viewModel.amount)

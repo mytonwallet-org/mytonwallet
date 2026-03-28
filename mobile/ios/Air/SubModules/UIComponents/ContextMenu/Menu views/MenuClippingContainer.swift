@@ -21,7 +21,7 @@ struct MenuClippingContainer: View {
                     if menuContext.menuShown {
                         HStack {
                             let menu = menuContext.makeConfig()
-                            if let submemu = menuContext.makeSubmenuConfig?() {
+                            if let submemu = menuContext.makeSubmenuConfig.flatMap({ $0() }) {
                                 StackedContent {
                                     MenuViewFromConfig(menuConfig: menu, width: effectiveWidth)
                                         .frame(maxHeight: .infinity, alignment: .top)

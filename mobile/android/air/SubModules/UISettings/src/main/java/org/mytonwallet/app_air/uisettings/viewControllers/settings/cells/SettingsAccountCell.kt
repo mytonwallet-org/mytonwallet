@@ -58,6 +58,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
             isHorizontalFadingEdgeEnabled = true
+            useCustomEmoji = true
         }
     }
 

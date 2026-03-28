@@ -33,7 +33,7 @@ public final class MinimizableSheetContentViewController: WViewController {
     }
 
     private func setupViews() {
-        view.backgroundColor = WTheme.browserOpaqueBar
+        view.backgroundColor = .air.browserOpaqueBar
         blurView = WBlurView()
         view.addSubview(blurView)
         blurView.translatesAutoresizingMaskIntoConstraints = false

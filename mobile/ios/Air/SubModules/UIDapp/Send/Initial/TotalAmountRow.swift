@@ -45,9 +45,9 @@ public struct TotalAmountRow: View {
                 integerFont: .systemFont(ofSize: 24, weight: .semibold),
                 fractionFont: .systemFont(ofSize: 20, weight: .semibold),
                 symbolFont: .systemFont(ofSize: 20, weight: .semibold),
-                integerColor: WTheme.primaryLabel,
-                fractionColor: WTheme.primaryLabel,
-                symbolColor: WTheme.secondaryLabel,
+                integerColor: UIColor.label,
+                fractionColor: UIColor.label,
+                symbolColor: .air.secondaryLabel,
                 forceSymbolColor: true,
             )
         )
@@ -60,7 +60,7 @@ public struct TotalAmountRow: View {
             let tokens = Text(_tokens)
             Text("\(bc) (\(tokens))")
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(Color(WTheme.secondaryLabel))
+                .foregroundColor(.air.secondaryLabel)
         } else {
             bc
         }

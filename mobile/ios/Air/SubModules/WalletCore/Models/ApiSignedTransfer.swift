@@ -14,13 +14,13 @@ public struct ApiSignedTransfer: Equatable, Hashable, Codable, Sendable {
 
 public enum ApiSignedTransferPayload: Equatable, Hashable, Codable, Sendable {
     case ton(base64: String, seqno: Int)
-    case walletConnect(signature: String, base58Tx: String)
+    case walletConnect(signature: String, signedTx: String)
 
     enum CodingKeys: String, CodingKey {
         case base64
         case seqno
         case signature
-        case base58Tx
+        case signedTx
     }
 
     public init(from decoder: Decoder) throws {
@@ -31,8 +31,8 @@ public enum ApiSignedTransferPayload: Equatable, Hashable, Codable, Sendable {
             return
         }
         if let signature = try container.decodeIfPresent(String.self, forKey: .signature),
-           let base58Tx = try container.decodeIfPresent(String.self, forKey: .base58Tx) {
-            self = .walletConnect(signature: signature, base58Tx: base58Tx)
+           let signedTx = try container.decodeIfPresent(String.self, forKey: .signedTx) {
+            self = .walletConnect(signature: signature, signedTx: signedTx)
             return
         }
         throw DecodingError.dataCorruptedError(forKey: .base64, in: container, debugDescription: "Unsupported signed transfer payload")
@@ -44,9 +44,9 @@ public enum ApiSignedTransferPayload: Equatable, Hashable, Codable, Sendable {
         case .ton(let base64, let seqno):
             try container.encode(base64, forKey: .base64)
             try container.encode(seqno, forKey: .seqno)
-        case .walletConnect(let signature, let base58Tx):
+        case .walletConnect(let signature, let signedTx):
             try container.encode(signature, forKey: .signature)
-            try container.encode(base58Tx, forKey: .base58Tx)
+            try container.encode(signedTx, forKey: .signedTx)
         }
     }
 }

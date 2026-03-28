@@ -43,7 +43,7 @@ internal class SecurityVC: SettingsBaseVC {
         )
     }
     
-    override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
 }

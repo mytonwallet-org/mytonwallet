@@ -399,7 +399,7 @@ class SettingsVC(context: Context) : WViewController(context),
                     PresentationConfig(
                         overFullScreen = false,
                         isBottomSheet = true,
-                        aboveKeyboard = true
+                        aboveKeyboard = false
                     )
                 )
                 nav.setRoot(

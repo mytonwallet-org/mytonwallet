@@ -251,7 +251,9 @@ class WMenuPopup {
             yOffset: Int = 0,
             positioning: Positioning,
             centerHorizontally: Boolean = false,
-            windowBackgroundStyle: BackgroundStyle = BackgroundStyle.Transparent,
+            windowBackgroundStyle: BackgroundStyle =
+                BackgroundStyle.Cutout.fromView(view, roundRadius = 16f.dp),
+            backdropStyle: BackdropStyle = BackdropStyle.BlurDimmed,
             onWillDismiss: (() -> Unit)? = null,
             displayProgressListener: ((progress: Float) -> Unit)? = null,
         ): INavigationPopup {
@@ -267,7 +269,12 @@ class WMenuPopup {
                 })
 
             popupWindow =
-                WNavigationPopup(initialPopupView, popupWidth, windowBackgroundStyle).apply {
+                WNavigationPopup(
+                    initialPopupView,
+                    popupWidth,
+                    windowBackgroundStyle,
+                    backdropStyle
+                ).apply {
                     setOnDismissListener {
                         view.post {
                             view.unlockView()
@@ -350,5 +357,10 @@ class WMenuPopup {
                 }
             }
         }
+    }
+
+    sealed interface BackdropStyle {
+        object BlurDimmed : BackdropStyle
+        object Transparent : BackdropStyle
     }
 }

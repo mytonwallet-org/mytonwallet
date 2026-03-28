@@ -73,7 +73,7 @@
 
 .tabsInModal,
 .receiveHeader {
-  padding-top: var(--safe-area-top);
+  padding-top: max(var(--safe-area-top), 1rem);
   background-color: var(--color-background-first-disabled) !important;
 }
 

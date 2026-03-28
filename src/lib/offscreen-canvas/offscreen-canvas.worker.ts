@@ -1,5 +1,5 @@
 import { COLORS_TO_DETECT } from '../../util/accentColor/constants';
-import { euclideanDistance, hex2rgb } from '../../util/colors';
+import { hex2rgb, labEuclideanDistance } from '../../util/colors';
 import { createPostMessageInterface } from '../../util/createPostMessageInterface';
 import { getCachedImageUrl } from '../../util/getCachedImageUrl';
 import { logDebugError } from '../../util/logs';
@@ -57,7 +57,7 @@ async function processNftImage(url: string, quality: number, colorCount: number)
 
     const dominantRgb = palette[0];
 
-    const distances = COLORS_TO_DETECT.map(({ color }) => euclideanDistance(dominantRgb, hex2rgb(color)));
+    const distances = COLORS_TO_DETECT.map(({ color }) => labEuclideanDistance(dominantRgb, hex2rgb(color)));
     const minDistance = Math.min(...distances);
     const minDistanceIndex = distances.indexOf(minDistance);
 

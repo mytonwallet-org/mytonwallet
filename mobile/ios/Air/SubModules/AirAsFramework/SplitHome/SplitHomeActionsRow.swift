@@ -5,24 +5,19 @@ import WalletContext
 import SwiftNavigation
 
 @MainActor
-final class SplitHomeActionsRowCell: FirstRowCell {
-    static let assetsTopSpacing: CGFloat = 24
-    static let rowHeight: CGFloat = SplitHomeActionsRowView.rowHeight + assetsTopSpacing + SplitHomeAssetsRowView.rowHeight
-    
+final class SplitHomeActionsSectionCell: UICollectionViewCell {
+    static let bottomSpacing: CGFloat = 8
+
     private let actionsRowView = SplitHomeActionsRowView()
-    private let assetsRowView = SplitHomeAssetsRowView()
     
-    // remove after conversion to collection view
     override class var layerClass: AnyClass { Layer.self }
     
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-        selectionStyle = .none
+    override init(frame: CGRect) {
+        super.init(frame: frame)
         backgroundColor = .clear
         contentView.backgroundColor = .clear
         clipsToBounds = false
         actionsRowView.translatesAutoresizingMaskIntoConstraints = false
-        assetsRowView.translatesAutoresizingMaskIntoConstraints = false
         
         let actionsHostView: UIView
         if #available(iOS 26, *) {
@@ -43,25 +38,18 @@ final class SplitHomeActionsRowCell: FirstRowCell {
         }
         
         contentView.addSubview(actionsHostView)
-        contentView.addSubview(assetsRowView)
         
         NSLayoutConstraint.activate([
             actionsHostView.topAnchor.constraint(equalTo: contentView.topAnchor),
             actionsHostView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             actionsHostView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             actionsHostView.heightAnchor.constraint(equalToConstant: SplitHomeActionsRowView.rowHeight),
-            
-            assetsRowView.topAnchor.constraint(equalTo: actionsHostView.bottomAnchor, constant: Self.assetsTopSpacing),
-            assetsRowView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            assetsRowView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            assetsRowView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            assetsRowView.heightAnchor.constraint(equalToConstant: SplitHomeAssetsRowView.rowHeight),
+            actionsHostView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -Self.bottomSpacing),
         ])
     }
     
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
     
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -74,29 +62,83 @@ final class SplitHomeActionsRowCell: FirstRowCell {
     }
     
     private weak var configuredAccountContext: AccountContext?
-    private weak var configuredParentViewController: SplitHomeVC?
     
     private func configureIfNeeded() {
         guard let splitHomeVC = splitHomeViewController else { return }
-        assetsRowView.delegate = splitHomeVC
         let accountContext = splitHomeVC.splitHomeAccountContext
-        if configuredAccountContext !== accountContext || configuredParentViewController !== splitHomeVC {
+        if configuredAccountContext !== accountContext {
             configuredAccountContext = accountContext
-            configuredParentViewController = splitHomeVC
             actionsRowView.configure(accountContext: accountContext)
-            assetsRowView.configure(accountSource: accountContext.source, parentViewController: splitHomeVC)
         }
-        assetsRowView.updateTheme()
     }
-    
+
+    private var splitHomeViewController: SplitHomeVC? {
+        var responder: UIResponder? = self
+        while let current = responder {
+            if let splitHomeVC = current as? SplitHomeVC {
+                return splitHomeVC
+            }
+            responder = current.next
+        }
+        return nil
+    }
+}
+
+@MainActor
+final class SplitHomeAssetsSectionCell: UICollectionViewCell {
+    private let assetsRowView = SplitHomeAssetsRowView()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+        assetsRowView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(assetsRowView)
+        NSLayoutConstraint.activate([
+            assetsRowView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            assetsRowView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            assetsRowView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            assetsRowView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            assetsRowView.heightAnchor.constraint(equalToConstant: SplitHomeAssetsRowView.rowHeight),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        configureIfNeeded()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        configureIfNeeded()
+    }
+
     var isAssetsReordering: Bool {
         assetsRowView.isReordering
     }
-    
+
     func stopAssetsReordering(isCanceled: Bool) {
         assetsRowView.stopReordering(isCanceled: isCanceled)
     }
-    
+
+    private var configuredAccountSource: AccountSource?
+    private weak var configuredParentViewController: SplitHomeVC?
+
+    private func configureIfNeeded() {
+        guard let splitHomeVC = splitHomeViewController else { return }
+        let accountSource = splitHomeVC.splitHomeAccountContext.source
+        assetsRowView.delegate = splitHomeVC
+        if configuredAccountSource != accountSource || configuredParentViewController !== splitHomeVC {
+            configuredAccountSource = accountSource
+            configuredParentViewController = splitHomeVC
+            assetsRowView.configure(accountSource: accountSource, parentViewController: splitHomeVC)
+        }
+        assetsRowView.updateTheme()
+    }
+
     private var splitHomeViewController: SplitHomeVC? {
         var responder: UIResponder? = self
         while let current = responder {
@@ -117,9 +159,10 @@ private class Layer: CALayer {
 }
 
 @MainActor
-final class SplitHomeActionsRowView: UIView, WThemedView, UICollectionViewDelegate {
+final class SplitHomeActionsRowView: UIView, UICollectionViewDelegate {
     static let rowHeight: CGFloat = WActionTileButton.sideLength
     static let itemSpacing: CGFloat = 16
+    static let horizontalInset: CGFloat = S.insetSectionHorizontalMargin
     
     private enum Section: Hashable {
         case main
@@ -149,7 +192,9 @@ final class SplitHomeActionsRowView: UIView, WThemedView, UICollectionViewDelega
             guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: SplitHomeActionCollectionCell.reuseIdentifier, for: indexPath) as? SplitHomeActionCollectionCell else {
                 return UICollectionViewCell()
             }
-            cell.configure(item: action)
+            if let accountContext = self.accountContext {
+                cell.configure(item: action, accountContext: accountContext)
+            }
             return cell
         }
     }
@@ -193,7 +238,7 @@ final class SplitHomeActionsRowView: UIView, WThemedView, UICollectionViewDelega
         dataSource.apply(snapshot, animatingDifferences: false)
     }
     
-    func updateTheme() {
+    private func updateTheme() {
         collectionView.backgroundColor = .clear
     }
     
@@ -203,7 +248,7 @@ final class SplitHomeActionsRowView: UIView, WThemedView, UICollectionViewDelega
         layout.itemSize = CGSize(width: WActionTileButton.sideLength, height: WActionTileButton.sideLength)
         layout.minimumInteritemSpacing = Self.itemSpacing
         layout.minimumLineSpacing = Self.itemSpacing
-        layout.sectionInset = .zero
+        layout.sectionInset = UIEdgeInsets(top: 0, left: Self.horizontalInset, bottom: 0, right: Self.horizontalInset)
         return layout
     }
 }
@@ -278,6 +323,7 @@ private final class SplitHomeActionCollectionCell: UICollectionViewCell {
     
     private var actionButton: WActionTileButton?
     private var item: SplitHomeActionItem?
+    private weak var accountContext: AccountContext?
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -289,7 +335,7 @@ private final class SplitHomeActionCollectionCell: UICollectionViewCell {
         fatalError("init(coder:) has not been implemented")
     }
     
-    func configure(item: SplitHomeActionItem) {
+    func configure(item: SplitHomeActionItem, accountContext: AccountContext) {
         if actionButton == nil {
             let actionButton = WActionTileButton(title: item.title, image: item.image)
             actionButton.translatesAutoresizingMaskIntoConstraints = false
@@ -303,12 +349,15 @@ private final class SplitHomeActionCollectionCell: UICollectionViewCell {
             self.actionButton = actionButton
         }
 
+        self.accountContext = accountContext
+
         guard self.item != item else { return }
 
         self.item = item
         actionButton?.configure(title: item.title, image: item.image)
-        actionButton?.onTap = { [item] in
-            item.perform()
+        actionButton?.onTap = { [weak self, item] in
+            guard let accountContext = self?.accountContext else { return }
+            item.perform(accountContext: accountContext)
         }
     }
 }

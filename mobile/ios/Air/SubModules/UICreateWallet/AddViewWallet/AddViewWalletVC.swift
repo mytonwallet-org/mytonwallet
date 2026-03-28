@@ -39,8 +39,8 @@ public class AddViewWalletVC: CreateWalletBaseVC {
         headerView = HeaderView(
             animationName: "animation_bill",
             animationPlaybackMode: .loop,
-            title: lang("View Any Address"),
-            description: lang("$import_view_account_note", arg1: langJoin(ApiChain.allCases.map(\.title), .or)),
+            title: lang("View Mode"),
+            description: lang("$import_view_account_note"),
             animationSize: isCompactScreen ? 120 : 160
         )
         view.addSubview(headerView)
@@ -49,7 +49,7 @@ public class AddViewWalletVC: CreateWalletBaseVC {
         
         addressContainer = UIView()
         addressContainer.translatesAutoresizingMaskIntoConstraints = false
-        addressContainer.backgroundColor = WTheme.sheetBackground
+        addressContainer.backgroundColor = .air.sheetBackground
         addressContainer.layer.cornerRadius = S.insetSectionCornerRadius
         addressContainer.layer.masksToBounds = true
         view.addSubview(addressContainer)
@@ -68,7 +68,7 @@ public class AddViewWalletVC: CreateWalletBaseVC {
         addressTextView.textContainer.maximumNumberOfLines = 0
         addressTextView.typingAttributes = [
             .font: UIFont.systemFont(ofSize: 17),
-            .foregroundColor: WTheme.primaryLabel,
+            .foregroundColor: UIColor.label,
         ]
         addressTextView.dataDetectorTypes = []
         addressTextView.returnKeyType = .continue
@@ -90,14 +90,14 @@ public class AddViewWalletVC: CreateWalletBaseVC {
         pasteButton.translatesAutoresizingMaskIntoConstraints = false
         pasteButton.setTitle(lang("Paste"), for: .normal)
         pasteButton.titleLabel?.font = .systemFont(ofSize: 17)
-        pasteButton.tintColor = WTheme.tint
+        pasteButton.tintColor = .tintColor
         pasteButton.addTarget(self, action: #selector(onPaste), for: .touchUpInside)
         addressContainer.addSubview(pasteButton)
         
         clearButton = UIButton(type: .system)
         clearButton.translatesAutoresizingMaskIntoConstraints = false
         clearButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
-        clearButton.tintColor = WTheme.secondaryLabel
+        clearButton.tintColor = .air.secondaryLabel
         clearButton.addTarget(self, action: #selector(onClear), for: .touchUpInside)
         clearButton.alpha = 0.8
         addressContainer.addSubview(clearButton)

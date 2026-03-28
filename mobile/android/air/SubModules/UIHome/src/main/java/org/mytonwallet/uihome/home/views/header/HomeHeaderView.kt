@@ -2,6 +2,7 @@ package org.mytonwallet.uihome.home.views.header
 
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.graphics.Canvas
 import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
@@ -67,6 +68,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import androidx.core.graphics.withClip
 
 @SuppressLint("ViewConstructor")
 open class HomeHeaderView(
@@ -112,6 +114,8 @@ open class HomeHeaderView(
     private var maxExpandProgress = currentExpandProgress
 
     private var activeValueAnimator: ValueAnimator? = null
+    private var topContentClipInset = 0
+    private var isUpdateStatusHidden = false
 
     var expandedContentHeight: Float = 0f
     var diffPx: Float = 0f
@@ -182,6 +186,7 @@ open class HomeHeaderView(
         isHorizontalFadingEdgeEnabled = true
         ellipsize = TextUtils.TruncateAt.MARQUEE
         isSelected = true
+        useCustomEmoji = true
         setPadding(10.dp, 4.dp, 10.dp, 4.dp)
         foreground = WRippleDrawable.create(12f.dp).apply {
             rippleColor = WColor.SubtitleText.color.colorWithAlpha(25)
@@ -329,6 +334,33 @@ open class HomeHeaderView(
                 expand(false, null)
             }
         }
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        if (topContentClipInset <= 0 || width == 0 || height == 0) {
+            super.dispatchDraw(canvas)
+            return
+        }
+        canvas.withClip(0, topContentClipInset, width, height) {
+            super.dispatchDraw(canvas)
+        }
+    }
+
+    fun setTopContentClipInset(inset: Int) {
+        val newInset = inset.coerceAtLeast(0)
+        if (topContentClipInset == newInset) {
+            return
+        }
+        topContentClipInset = newInset
+        invalidate()
+    }
+
+    fun setUpdateStatusHidden(isHidden: Boolean) {
+        if (isUpdateStatusHidden == isHidden) {
+            return
+        }
+        isUpdateStatusHidden = isHidden
+        render()
     }
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -828,8 +860,13 @@ open class HomeHeaderView(
             balanceLabel.y + balanceLabel.height - 10.dp + (10f * balanceExpandProgress).dp
         updateWalletNameMargin(balanceExpandProgress)
 
-        updateStatusView.alpha = balanceExpandProgress
-        updateStatusView.isGone = balanceExpandProgress == 0f
+        if (isUpdateStatusHidden) {
+            updateStatusView.alpha = 0f
+            updateStatusView.isGone = true
+        } else {
+            updateStatusView.alpha = balanceExpandProgress
+            updateStatusView.isGone = balanceExpandProgress == 0f
+        }
 
         balanceSkeletonView.pivotX = balanceSkeletonView.width.toFloat() / 2
         balanceSkeletonView.pivotY = balanceView.balanceBaseline + balanceView.offset2 * 2

@@ -14,7 +14,7 @@ protocol PasscodeInputViewDelegate: AnyObject {
     func passcodeSelected(passcode: String)
 }
 
-class PasscodeInputView: UIStackView, WThemedView {
+class PasscodeInputView: UIStackView {
     
     // MARK: Make view present keyboard
     var _inputView: UIView?
@@ -29,7 +29,10 @@ class PasscodeInputView: UIStackView, WThemedView {
 
     // MARK: Init and setup view
     weak var delegate: PasscodeInputViewDelegate?
-    let theme: WThemePasscodeInput
+    let borderColor: UIColor
+    let emptyColor: UIColor
+    let fillColor: UIColor
+    let fillBorderColor: UIColor?
 
     var circles = [UIView]()
     var currentPasscode = String() {
@@ -41,9 +44,12 @@ class PasscodeInputView: UIStackView, WThemedView {
     var maxPasscodeLength = 6
     var passcodeLength = PasscodeInputView.defaultPasscodeLength
 
-    init(delegate: PasscodeInputViewDelegate?, theme: WThemePasscodeInput) {
+    init(delegate: PasscodeInputViewDelegate?, borderColor: UIColor, emptyColor: UIColor, fillColor: UIColor, fillBorderColor: UIColor? = nil) {
         self.delegate = delegate
-        self.theme = theme
+        self.borderColor = borderColor
+        self.emptyColor = emptyColor
+        self.fillColor = fillColor
+        self.fillBorderColor = fillBorderColor
         super.init(frame: CGRect.zero)
         setupView()
     }
@@ -120,14 +126,14 @@ class PasscodeInputView: UIStackView, WThemedView {
     }
     
     func fillIn(_ i: Int) {
-        let newColor = theme.fill
+        let newColor = fillColor
         let circle = circles[i]
         guard circle.backgroundColor != newColor else { return }
         UIView.animate(withDuration: 0.12, delay: 0, options: [.curveEaseOut]) {
             circle.transform = .init(scaleX: 1.3, y: 1.3)
             circle.backgroundColor = newColor
-            if let fillBorder = self.theme.fillBorder {
-                circle.layer.borderColor = fillBorder.cgColor
+            if let fillBorderColor = self.fillBorderColor {
+                circle.layer.borderColor = fillBorderColor.cgColor
             }
         } completion: { ok in
             if ok {
@@ -139,13 +145,13 @@ class PasscodeInputView: UIStackView, WThemedView {
     }
     
     func fillOut(_ i: Int) {
-        let newColor = theme.empty
+        let newColor = emptyColor
         let circle = circles[i]
         guard circle.backgroundColor != newColor else { return }
         UIView.animate(withDuration: 0.1) {
             circle.backgroundColor = newColor
-            if self.theme.fillBorder != nil {
-                circle.layer.borderColor = self.theme.border.cgColor
+            if self.fillBorderColor != nil {
+                circle.layer.borderColor = self.borderColor.cgColor
             }
         }
     }
@@ -156,9 +162,9 @@ class PasscodeInputView: UIStackView, WThemedView {
                 circle.layer.removeAllAnimations()
                 
                 circle.transform = .init(scaleX: 1.3, y: 1.3)
-                circle.backgroundColor = self.theme.fill
-                if let fillBorder = self.theme.fillBorder {
-                    circle.layer.borderColor = fillBorder.cgColor
+                circle.backgroundColor = self.fillColor
+                if let fillBorderColor = self.fillBorderColor {
+                    circle.layer.borderColor = fillBorderColor.cgColor
                 }
             }
         } completion: { _ in
@@ -167,7 +173,7 @@ class PasscodeInputView: UIStackView, WThemedView {
                 UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseInOut]) {
                     circle.transform = .init(translationX: center.x - circle.center.x, y: center.y - circle.center.y).scaledBy(x: 0.9, y: 0.9)
                     circle.alpha = 0.9
-                    if self.theme.fillBorder != nil {
+                    if self.fillBorderColor != nil {
                         circle.backgroundColor = UIColor.systemGreen
                     }
                 } completion: { _ in
@@ -192,9 +198,9 @@ class PasscodeInputView: UIStackView, WThemedView {
         }
     }
     
-    func updateTheme() {
+    private func updateTheme() {
         for circle in circles {
-            circle.layer.borderColor = theme.border.resolvedColor(with: AppStorageHelper.activeNightMode.traitCollection).cgColor
+            circle.layer.borderColor = borderColor.resolvedColor(with: AppStorageHelper.activeNightMode.traitCollection).cgColor
         }
     }
 

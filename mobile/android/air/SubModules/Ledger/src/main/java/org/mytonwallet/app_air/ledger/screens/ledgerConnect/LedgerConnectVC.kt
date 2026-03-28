@@ -154,7 +154,7 @@ class LedgerConnectVC(
 
         data class SignNftTransfer(
             override val accountId: String,
-            val nft: ApiNft,
+            val nfts: List<ApiNft>,
             val toAddress: String,
             val comment: String?,
             val realFee: BigInteger?,
@@ -689,10 +689,10 @@ class LedgerConnectVC(
                     try {
                         val result = WalletCore.call(
                             SubmitNftTransfer(
-                                chain = signData.nft.chain ?: MBlockchain.ton,
+                                chain = signData.nfts.first().chain ?: MBlockchain.ton,
                                 accountId = signData.accountId,
                                 passcode = "",
-                                nft = signData.nft,
+                                nfts = signData.nfts,
                                 address = signData.toAddress,
                                 comment = signData.comment,
                                 fee = signData.realFee ?: BigInteger.ZERO,

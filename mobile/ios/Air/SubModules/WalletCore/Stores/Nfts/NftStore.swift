@@ -154,36 +154,40 @@ public final class _NftStore: Sendable {
     }
     
     // MARK: - Hidden
-    
-    public func setHiddenByUser(accountId: String, nftId: String, isHidden newValue: Bool) {
+
+    public func setHiddenByUser(accountId: String, nftId: String, isHidden: Bool) {
+        setHiddenByUser(accountId: accountId, nftIds: [nftId], isHidden: isHidden)
+    }
+
+    public func setHiddenByUser(accountId: String, nftIds: [String], isHidden newValue: Bool) {
         _nfts.withLock {
-            if var displayNft = $0[accountId]?[nftId] {
-                let oldShouldHide = displayNft.shouldHide
-                
-                if newValue == true {
-                    displayNft.isUnhiddenByUser = false
-                    if displayNft.nft.isScam != true {
-                        displayNft.isHiddenByUser = true
+            for nftId in nftIds {
+                if var displayNft = $0[accountId]?[nftId] {
+                    let oldShouldHide = displayNft.shouldHide
+                    
+                    if newValue == true {
+                        displayNft.isUnhiddenByUser = false
+                        if displayNft.nft.isScam != true {
+                            displayNft.isHiddenByUser = true
+                        }
+                    } else { // newValue == false
+                        displayNft.isHiddenByUser = false
+                        if displayNft.nft.isScam == true {
+                            displayNft.isUnhiddenByUser = true
+                        }
                     }
-                } else { // newValue == false
-                    displayNft.isHiddenByUser = false
-                    if displayNft.nft.isScam == true {
-                        displayNft.isUnhiddenByUser = true
-                    }
-                }
-                
-                if displayNft.shouldHide != oldShouldHide {
-                    _ = $0[accountId]?.removeValue(forKey: nftId)
-                    if displayNft.shouldHide {
-                        $0[accountId]?[nftId] = displayNft
+                    
+                    if displayNft.shouldHide != oldShouldHide {
+                        _ = $0[accountId]?.removeValue(forKey: nftId)
+                        if displayNft.shouldHide {
+                            $0[accountId]?[nftId] = displayNft
+                        } else {
+                            $0[accountId]?.updateValue(displayNft, forKey: nftId, insertingAt: 0)
+                        }
                     } else {
-                        $0[accountId]?.updateValue(displayNft, forKey: nftId, insertingAt: 0)
+                        $0[accountId]?[nftId] = displayNft
                     }
-                } else {
-                    $0[accountId]?[nftId] = displayNft
                 }
-                
-                 // move to the end so that it doesn't interfere with ordering
             }
         }
         _checkNftsOrder(accountId: accountId)
@@ -380,13 +384,16 @@ public final class _NftStore: Sendable {
     
     private func _removeAccountNftIfNoLongerAvailable(accountId: String) {
         if let nfts = self.nfts[accountId] {
-            @Dependency(\.accountSettings) var _accountSettings
-            let accountSettings = _accountSettings.for(accountId: accountId)
-            if let nft = accountSettings.backgroundNft, nfts[nft.id] == nil {
-                accountSettings.setBackgroundNft(nil)
-            }
-            if let nft = accountSettings.accentColorNft, nfts[nft.id] == nil {
-                accountSettings.setAccentColorNft(nil)
+            let nftIds = Set(nfts.keys)
+            Task { @MainActor in
+                @Dependency(\.accountSettings) var _accountSettings
+                let accountSettings = _accountSettings.for(accountId: accountId)
+                if let nft = accountSettings.backgroundNft, nftIds.contains(nft.id) == false {
+                    accountSettings.setBackgroundNft(nil)
+                }
+                if let nft = accountSettings.accentColorNft, nftIds.contains(nft.id) == false {
+                    accountSettings.setAccentColorNft(nil)
+                }
             }
         }
     }

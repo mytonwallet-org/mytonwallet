@@ -293,6 +293,7 @@ extension _TokenStore: WalletCoreData.EventsObserver {
             scheduleSharedCacheUpdate(rates: update.rates)
 
         case .updateTokens(let dict):
+            nonisolated(unsafe) let dict = dict
             self.updateTokensTask.withLock {
                 $0?.cancel()
                 $0 = Task.detached(priority: .low) {

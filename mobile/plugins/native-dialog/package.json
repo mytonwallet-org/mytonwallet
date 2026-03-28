@@ -1,6 +1,6 @@
 {
   "name": "@capacitor/dialog",
-  "version": "7.0.0",
+  "version": "8.0.0",
   "description": "The Dialog API provides methods for triggering native dialog windows for alerts, confirmations, and input prompts",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -44,23 +44,23 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@capacitor/android": "7.2.0",
-    "@capacitor/core": "7.2.0",
+    "@capacitor/android": "https://github.com/mytonwallet-org/capacitor/raw/d3a43ea8fb48f388e399d93b44bdf95478777a8b/android/dist.tgz",
+    "@capacitor/core": "8.2.0",
     "@capacitor/docgen": "0.3.0",
-    "@capacitor/ios": "7.2.0",
+    "@capacitor/ios": "8.2.0",
     "@ionic/eslint-config": "0.4.0",
     "@ionic/prettier-config": "4.0.0",
     "@ionic/swiftlint-config": "2.0.0",
-    "eslint": "8.57.1",
+    "eslint": "9.27.0",
     "prettier": "3.5.3",
     "prettier-plugin-java": "2.6.7",
     "rimraf": "6.0.1",
     "rollup": "4.41.0",
     "swiftlint": "2.0.0",
-    "typescript": "5.8.3"
+    "typescript": "5.9.3"
   },
   "peerDependencies": {
-    "@capacitor/core": ">=7.0.0"
+    "@capacitor/core": ">=8.0.0"
   },
   "prettier": "@ionic/prettier-config",
   "swiftlint": "@ionic/swiftlint-config",

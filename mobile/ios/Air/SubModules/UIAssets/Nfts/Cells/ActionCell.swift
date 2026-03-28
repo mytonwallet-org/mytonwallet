@@ -4,7 +4,7 @@ import WalletContext
 import UIComponents
 
 
-class ActionCell: WHighlightCollectionViewCell, WThemedView {
+class ActionCell: WHighlightCollectionViewCell {
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -32,9 +32,9 @@ class ActionCell: WHighlightCollectionViewCell, WThemedView {
         updateTheme()
     }
     
-    func updateTheme() {
+    private func updateTheme() {
         backgroundColor = .clear
-        label.textColor = WTheme.tint
+        label.textColor = .tintColor
     }
     
     func configure(with title: String) {

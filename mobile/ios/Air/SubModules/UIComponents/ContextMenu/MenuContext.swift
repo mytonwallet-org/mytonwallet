@@ -46,7 +46,7 @@ public struct MenuSourceViewLayout {
     @PerceptionIgnored
     public var makeConfig: () -> MenuConfig = { MenuConfig(menuItems: []) }
     @PerceptionIgnored
-    public var makeSubmenuConfig: (() -> MenuConfig)?
+    public var makeSubmenuConfig: (() -> MenuConfig?)?
     
     @PerceptionIgnored
     var actions: [String: @MainActor () -> ()] = [:]

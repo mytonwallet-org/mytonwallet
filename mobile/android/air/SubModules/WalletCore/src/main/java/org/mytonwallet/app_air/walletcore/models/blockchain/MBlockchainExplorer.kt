@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.walletcore.models.blockchain
 import android.net.Uri
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
-import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 
 @JsonClass(generateAdapter = false)
 enum class MBlockchainExplorer(val identifier: String) {

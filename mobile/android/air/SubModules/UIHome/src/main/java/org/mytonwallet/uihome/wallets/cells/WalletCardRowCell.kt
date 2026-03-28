@@ -89,6 +89,7 @@ class WalletCardRowCell(
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
             isHorizontalFadingEdgeEnabled = true
+            useCustomEmoji = true
         }
     }
 

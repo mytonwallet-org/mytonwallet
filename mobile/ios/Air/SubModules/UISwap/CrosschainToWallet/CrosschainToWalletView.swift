@@ -49,16 +49,16 @@ struct CrosschainToWalletView: View {
             Image(systemName: "clock.fill")
                 .imageScale(.small)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(Color(WTheme.secondaryLabel))
+                .foregroundColor(.air.secondaryLabel)
             AmountText(
                 amount: DecimalAmount.fromDouble(amount, sellingToken),
                 format: .init(),
                 integerFont: .systemFont(ofSize: 17, weight: .semibold),
                 fractionFont: .systemFont(ofSize: 17, weight: .semibold),
                 symbolFont: .systemFont(ofSize: 17, weight: .semibold),
-                integerColor: WTheme.primaryLabel,
-                fractionColor: WTheme.primaryLabel,
-                symbolColor: WTheme.secondaryLabel
+                integerColor: UIColor.label,
+                fractionColor: UIColor.label,
+                symbolColor: .air.secondaryLabel
             )
         }
     }
@@ -80,7 +80,7 @@ struct CrosschainToWalletView: View {
         let copy = Text(
             Image("HomeCopy", bundle: AirBundle)
         )
-        .foregroundColor(Color(WTheme.secondaryLabel))
+        .foregroundColor(.air.secondaryLabel)
 
         let addressText = Text(address: address)
         let text = Text("\(addressText) \(copy)")
@@ -122,13 +122,13 @@ struct CrosschainToWalletView: View {
         let attr = NSMutableAttributedString(string: text,
                                              attributes: [
             .font: UIFont.systemFont(ofSize: 13),
-            .foregroundColor: WTheme.secondaryLabel
+            .foregroundColor: UIColor.air.secondaryLabel
         ])
         // Highlight specified terms
         let highlightLinks = ["https://support.changelly.com/support/home", "mailto:support@changelly.org"]
         for (i, highlight) in [lang("Changelly Live Chat"), "support@changelly.org"].enumerated() {
             let range = (attr.string as NSString).range(of: highlight)
-            attr.addAttribute(.foregroundColor, value: WTheme.primaryButton.background, range: range)
+            attr.addAttribute(.foregroundColor, value: UIColor.tintColor, range: range)
             attr.addAttribute(.link, value: highlightLinks[i], range: range)
         }
         return Text(attr)
@@ -146,7 +146,7 @@ struct CrosschainToWalletView: View {
                     Image("HomeCopy", bundle: AirBundle)
                 }
             }
-            .foregroundStyle(Color(WTheme.secondaryLabel))
+            .foregroundStyle(Color.air.secondaryLabel)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)

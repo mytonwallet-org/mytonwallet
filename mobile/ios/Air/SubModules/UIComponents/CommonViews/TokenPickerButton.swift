@@ -38,7 +38,7 @@ public struct TokenPickerButton: View {
                     size: 20,
                     chainSize: 8,
                     chainBorderWidth: 0.667,
-                    chainBorderColor: WTheme.secondaryFill,
+                    chainBorderColor: .air.secondaryFill,
                     chainHorizontalOffset: 3,
                     chainVerticalOffset: 1
                 )
@@ -60,7 +60,7 @@ public struct TokenPickerButton: View {
             .fixedSize()
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(Color(WTheme.secondaryFill), in: .capsule)
+            .background(Color.air.secondaryFill, in: .capsule)
         }
         .buttonStyle(.plain)
         .padding(.trailing, onTap == nil ? 2 : 0)

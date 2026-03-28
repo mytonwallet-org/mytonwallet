@@ -96,11 +96,16 @@ public func getChainByNativeSlug(_ tokenSlug: String) -> ApiChain? {
 // MARK: - ChainConfig extensions
 
 public extension ApiChain {
+    var isOnrampSupported: Bool {
+        guard isSupported else { return false }
+        return config.canBuyWithCardInRussia || ConfigStore.shared.config?.countryCode != "RU"
+    }
+
     var isOfframpSupported: Bool {
         switch self {
-        case .solana, .other:
+        case .other:
             false
-        case .ton, .tron:
+        case .ton, .tron, .solana:
             true
         }
     }

@@ -89,10 +89,10 @@ final class AssetsAndActivityTokenCell: UITableViewCell {
         
         backgroundColor = .clear
         contentView.backgroundColor = .clear
-        containerView.backgroundColor = WTheme.groupedItem
-        showTokenSwitch.tintColor = WTheme.secondaryLabel
-        titleLabel.textColor = WTheme.primaryLabel
-        symbolLabel.textColor = WTheme.secondaryLabel
+        containerView.backgroundColor = .air.groupedItem
+        showTokenSwitch.tintColor = .air.secondaryLabel
+        titleLabel.textColor = UIColor.label
+        symbolLabel.textColor = .air.secondaryLabel
     }
         
     private var onTokenVisibilityChange: ((String, Bool) -> Void)? = nil

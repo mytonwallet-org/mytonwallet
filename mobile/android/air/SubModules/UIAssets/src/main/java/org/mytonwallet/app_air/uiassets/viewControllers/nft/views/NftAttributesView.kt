@@ -85,11 +85,13 @@ class NftAttributesView(
                 text = attribute.traitType
                 setTextColor(WColor.PrimaryText)
                 setPaddingLocalized(0, 0, 12.dp, 0)
+                useCustomEmoji = true
             }
             val valueLabel = WLabel(context).apply {
                 setStyle(15f)
                 text = attribute.value
                 setTextColor(WColor.PrimaryText)
+                useCustomEmoji = true
             }
             val separator = WBaseView(context).apply {
                 if (index != attributes.lastIndex) {

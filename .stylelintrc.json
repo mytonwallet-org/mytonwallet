@@ -8,6 +8,7 @@
     "src/styles/brilliant-icons.css",
     "coverage/**",
     "dist-electron/*.css",
+    "dist-push/*.css",
     "mobile/**/public/*.css"
   ],
   "plugins": [

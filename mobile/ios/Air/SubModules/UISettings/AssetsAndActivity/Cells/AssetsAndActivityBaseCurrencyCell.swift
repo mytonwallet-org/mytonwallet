@@ -27,7 +27,7 @@ class AssetsAndActivityBaseCurrencyCell: UITableViewCell {
     private var separatorView: UIView = {
         let separator = UIView()
         separator.translatesAutoresizingMaskIntoConstraints = false
-        separator.backgroundColor = WTheme.separator
+        separator.backgroundColor = .air.separator
         return separator
     }()
     
@@ -154,16 +154,16 @@ class AssetsAndActivityBaseCurrencyCell: UITableViewCell {
         updateTheme()
     }
 
-    public func updateTheme() {
+    private func updateTheme() {
         if isInModal {
-            optionsView.backgroundColor = WTheme.groupedItem
+            optionsView.backgroundColor = .air.groupedItem
         } else {
-            optionsView.backgroundColor = WTheme.groupedItem
+            optionsView.backgroundColor = .air.groupedItem
         }
-        hintLabel.textColor = WTheme.secondaryLabel
-        baseCurrencyValueLabel.textColor = WTheme.secondaryLabel
-        rightArrow.tintColor = WTheme.secondaryLabel
-        baseCurrencyView.highlightBackgroundColor = WTheme.highlight
+        hintLabel.textColor = .air.secondaryLabel
+        baseCurrencyValueLabel.textColor = .air.secondaryLabel
+        rightArrow.tintColor = .air.secondaryLabel
+        baseCurrencyView.highlightBackgroundColor = .air.highlight
         baseCurrencyView.backgroundColor = optionsView.backgroundColor
     }
 

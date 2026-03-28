@@ -154,7 +154,7 @@ function SettingsPushNotifications({
           <>
             <div className={styles.settingsBlock}>
               <div className={buildClassName(styles.item, styles.item_small)} onClick={handlePushNotificationsToggle}>
-                {lang('Push Notifications')}
+                <span className={styles.itemTitle}>{lang('Push Notifications')}</span>
 
                 <Switcher
                   className={styles.menuSwitcher}
@@ -175,7 +175,7 @@ function SettingsPushNotifications({
         )}
         <div className={styles.settingsBlock}>
           <div className={buildClassName(styles.item, styles.item_small)} onClick={handleCanPlaySoundToggle}>
-            {lang('Play Sounds')}
+            <span className={styles.itemTitle}>{lang('Play Sounds')}</span>
 
             <Switcher
               className={styles.menuSwitcher}

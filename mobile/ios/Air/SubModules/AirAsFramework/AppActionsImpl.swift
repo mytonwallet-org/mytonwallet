@@ -36,11 +36,6 @@ private class AppActionsImpl: AppActionsProtocol {
         return TabRootContainerRouter()
     }
     
-    static var rootContainerVC: RootContainerVC? {
-        let windows = UIApplication.shared.sceneWindows
-        return windows.compactMap { $0.rootViewController?.descendantViewController(of: RootContainerVC.self) }.first
-    }
-    
     static func copyString(_ string: String?, toastMessage: String) {
         if let string {
             UIPasteboard.general.setItems([[
@@ -70,13 +65,7 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func lockApp(animated: Bool) {
         guard AuthSupport.accountsSupportAppLock else { return }
-        if let rootContainerVC {
-            rootContainerVC.showLock(animated: animated, onUnlock: {
-                AirLauncher.appUnlocked = true
-                WalletContextManager.delegate?.walletIsReady(isReady: true)
-            })
-            AirLauncher.appUnlocked = false
-        }
+        AirLauncher.lockApp(animated: animated)
     }
     
     static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool) {
@@ -89,18 +78,22 @@ private class AppActionsImpl: AppActionsProtocol {
         UIApplication.shared.open(URL(string: "https://t.me/\(channel)")!)
     }
     
-    static func repeatActivity(_ activity: ApiActivity) {
-        if AccountStore.account?.supportsSend != true {
-            AppActions.showError(error: BridgeCallError.customMessage(lang("Read-only account"), nil))
-            return
-        }
+    static func repeatActivity(accountContext: AccountContext, _ activity: ApiActivity) {
         let action = {
             switch activity {
             case .transaction(let transaction):
+                guard accountContext.account.supportsSend else {
+                    AppActions.showError(error: BridgeCallError.customMessage(lang("Read-only account"), nil))
+                    return
+                }
                 if transaction.isStaking {
-                    AppActions.showEarn(tokenSlug: transaction.slug)
+                    guard accountContext.account.supportsEarn else {
+                        AppActions.showError(error: BridgeCallError.customMessage(lang("Earn is not supported on this account."), nil))
+                        return
+                    }
+                    AppActions.showEarn(accountContext: accountContext, tokenSlug: transaction.slug)
                 } else if transaction.type == nil && transaction.nft == nil && !transaction.isIncoming {
-                    AppActions.showSend(prefilledValues: .init(
+                    AppActions.showSend(accountContext: accountContext, prefilledValues: .init(
                         address: transaction.toAddress,
                         amount: transaction.amount == 0 ? nil : abs(transaction.amount),
                         token: transaction.slug,
@@ -108,7 +101,17 @@ private class AppActionsImpl: AppActionsProtocol {
                     ))
                 }
             case .swap(let swap):
-                AppActions.showSwap(defaultSellingToken: swap.from, defaultBuyingToken: swap.to, defaultSellingAmount: swap.fromAmount.value, push: nil)
+                guard accountContext.account.supportsSwap else {
+                    AppActions.showError(error: BridgeCallError.customMessage(lang("Swap is not supported on this account."), nil))
+                    return
+                }
+                AppActions.showSwap(
+                    accountContext: accountContext,
+                    defaultSellingToken: swap.from,
+                    defaultBuyingToken: swap.to,
+                    defaultSellingAmount: swap.fromAmount.value,
+                    push: nil
+                )
             }
         }
         if let presenting = topWViewController()?.presentingViewController {
@@ -244,13 +247,12 @@ private class AppActionsImpl: AppActionsProtocol {
         topViewController()?.present(nc, animated: true)
     }
     
-    static func showBuyWithCard(chain: ApiChain?, push: Bool?) {
-        guard let account = AccountStore.account else { return }
-        guard account.network == .mainnet else {
+    static func showBuyWithCard(accountContext: AccountContext, chain: ApiChain?, push: Bool?) {
+        guard accountContext.account.network == .mainnet else {
             AppActions.showError(error: DisplayError(text: lang("Buying with card is not supported in Testnet.")))
             return
         }
-        let buyWithCardVC = BuyWithCardVC(chain: chain ?? account.firstChain)
+        let buyWithCardVC = BuyWithCardVC(accountContext: accountContext, chain: chain ?? accountContext.account.firstChain)
         pushIfNeeded(buyWithCardVC, push: push)
     }
     
@@ -282,8 +284,8 @@ private class AppActionsImpl: AppActionsProtocol {
         }
     }
     
-    static func showEarn(tokenSlug: String?) {
-        let earnVC = EarnRootVC(tokenSlug: tokenSlug)
+    static func showEarn(accountContext: AccountContext, tokenSlug: String?) {
+        let earnVC = EarnRootVC(accountContext: accountContext, tokenSlug: tokenSlug)
         topViewController()?.present(WNavigationController(rootViewController: earnVC), animated: true)
     }
     
@@ -369,8 +371,8 @@ private class AppActionsImpl: AppActionsProtocol {
         }
     }
     
-    static func showReceive(chain: ApiChain?, title: String?) {
-        let receiveVC = ReceiveVC(chain: chain, title: title)
+    static func showReceive(accountContext: AccountContext, chain: ApiChain?, title: String?) {
+        let receiveVC = ReceiveVC(accountContext: accountContext, chain: chain, title: title)
         topViewController()?.present(WNavigationController(rootViewController: receiveVC), animated: true)
     }
 
@@ -391,27 +393,31 @@ private class AppActionsImpl: AppActionsProtocol {
         topViewController()?.present(alert, animated: true)
     }
     
-    static func showSend(prefilledValues: SendPrefilledValues) {
-        if AccountStore.account?.supportsSend != true {
+    static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues) {
+        if accountContext.account.supportsSend != true {
             AppActions.showError(error: BridgeCallError.customMessage(lang("Read-only account"), nil))
             return
         }
-        topViewController()?.present(SendVC(prefilledValues: prefilledValues), animated: true)
+        topViewController()?.present(SendVC(accountContext: accountContext, prefilledValues: prefilledValues), animated: true)
     }
     
-    static func showSell(account: MAccount?, tokenSlug: String?) {
-        guard let account = account ?? AccountStore.account else { return }
+    static func showSell(accountContext: AccountContext, tokenSlug: String?) {
         let tokenSlug = tokenSlug ?? TONCOIN_SLUG
-        let vc = SellVC(account: account, tokenSlug: tokenSlug)
+        let vc = SellVC(accountContext: accountContext, tokenSlug: tokenSlug)
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
     }
     
-    static func showSwap(defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) {
-        if AccountStore.account?.supportsSwap != true {
+    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) {
+        if accountContext.account.supportsSwap != true {
             AppActions.showError(error: BridgeCallError.customMessage(lang("Swap is not supported on this account."), nil))
             return
         }
-        let swapVC = SwapVC(defaultSellingToken: defaultSellingToken, defaultBuyingToken: defaultBuyingToken, defaultSellingAmount: defaultSellingAmount)
+        let swapVC = SwapVC(
+            accountContext: accountContext,
+            defaultSellingToken: defaultSellingToken,
+            defaultBuyingToken: defaultBuyingToken,
+            defaultSellingAmount: defaultSellingAmount
+        )
         pushIfNeeded(swapVC, push: push)
     }
     

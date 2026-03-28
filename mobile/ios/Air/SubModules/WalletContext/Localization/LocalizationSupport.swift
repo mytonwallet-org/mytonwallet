@@ -12,34 +12,33 @@ public final class LocalizationSupport: Sendable {
     
     public static let shared = LocalizationSupport()
     private static let supportedLanguageCodes = Set(Language.supportedLanguages.map(\.langCode))
+    private static let langCodeStorageKey = "settings.langCode"
+    private static let langSourceStorageKey = "settings.langSource"
+    private static let langSourceSystem = "system"
+    private static let langSourceUser = "user"
+    private static let nativeLanguageMigrationKey = "settings.langMigrationToUserDefaultsCompleted"
+    private static let appleLanguagesStorageKey = "AppleLanguages"
+    private static let appleTextDirectionStorageKey = "AppleTextDirection"
+    private static let forceRightToLeftStorageKey = "NSForceRightToLeftWritingDirection"
     
     init() {
-        let code = self.langCode
-        self.locale = Locale(identifier: code)
-        self.bundle = Bundle(path: AirBundle.path(forResource: code, ofType: "lproj")!)!
+        applyLanguageCode(self.langCode)
     }
     
-    private let key = "selectedLanguageCode"
-
     public var langCode: String {
-        let fetchedValue: String
-        if let lang = UserDefaults.appGroup?.string(forKey: key), !lang.isEmpty {
-            fetchedValue = lang
-        } else if let lang = UserDefaults.standard.string(forKey: key), !lang.isEmpty {
-            UserDefaults.appGroup?.set(lang, forKey: key)
-            fetchedValue = lang
-        } else {
-            fetchedValue = LocalizationSupport.preferredSupportedLanguageCode() ?? "en"
-        }
-        if LocalizationSupport.supportedLanguageCodes.contains(fetchedValue) {
-            return fetchedValue
-        } else {
-            return "en"
-        }
+        let storedLangCode = LocalizationSupport.storedLanguageCode()
+        let resolved = storedLangCode
+            ?? LocalizationSupport.preferredSupportedLanguageCode()
+            ?? "en"
+        return LocalizationSupport.normalizedSupportedLanguageCode(resolved)
     }
     
     public var isChinese: Bool {
         langCode.hasPrefix("zh")
+    }
+
+    public var needsLegacyGlobalStorageMigration: Bool {
+        !LocalizationSupport.didCompleteNativeLanguageMigration()
     }
     
     private let _locale: UnfairLock<Locale?> = .init(initialState: nil)
@@ -54,16 +53,106 @@ public final class LocalizationSupport: Sendable {
     }
 
     @MainActor public func setLanguageCode(_ newValue: String) {
-        guard newValue != langCode else { return }
-        self.locale = Locale(identifier: newValue)
-        self.bundle = Bundle(path: AirBundle.path(forResource: newValue, ofType: "lproj")!)!
-        UserDefaults.appGroup?.set(newValue, forKey: key)
-        UserDefaults.standard.set(newValue, forKey: key)
+        let normalized = LocalizationSupport.normalizedSupportedLanguageCode(newValue)
+        let isAlreadySelected = LocalizationSupport.storedLanguageCode() == normalized
+        guard !isAlreadySelected else { return }
+
+        LocalizationSupport.persistLanguageCode(normalized)
+        applyLanguageCode(normalized)
         NotificationCenter.default.post(name: .languageDidChange, object: nil)
     }
+
+    @MainActor public func migrateLanguageFromGlobalStorageIfNeeded(global: GlobalStorage) {
+        guard !LocalizationSupport.didCompleteNativeLanguageMigration() else { return }
+        LocalizationSupport.persistLanguageCode(LocalizationSupport.storedLanguageCode(global: global))
+        LocalizationSupport.markNativeLanguageMigrationCompleted()
+        applyLanguageCode(langCode)
+    }
+
+    @MainActor public func syncLanguageFromGlobalStorage(global: GlobalStorage) {
+        LocalizationSupport.persistLanguageCode(LocalizationSupport.storedLanguageCode(global: global))
+        LocalizationSupport.markNativeLanguageMigrationCompleted()
+        applyLanguageCode(langCode)
+    }
+
+    @MainActor public func syncLanguageToGlobalStorage(global: GlobalStorage) {
+        let storedLanguageCode = LocalizationSupport.storedLanguageCode()
+        global.update {
+            $0[LocalizationSupport.langCodeStorageKey] = storedLanguageCode
+            $0[LocalizationSupport.langSourceStorageKey] = storedLanguageCode == nil
+                ? LocalizationSupport.langSourceSystem
+                : LocalizationSupport.langSourceUser
+        }
+    }
+
+    private static func normalizedSupportedLanguageCode(_ code: String) -> String {
+        if supportedLanguageCodes.contains(code) {
+            return code
+        }
+        return "en"
+    }
+
+    private func applyLanguageCode(_ code: String) {
+        self.locale = Locale(identifier: code)
+        self.bundle = Bundle(path: AirBundle.path(forResource: code, ofType: "lproj")!)!
+    }
+
 }
 
 private extension LocalizationSupport {
+    static var userDefaultsStores: [UserDefaults] {
+        var stores = [UserDefaults.standard]
+        if let appGroup = UserDefaults.appGroup {
+            stores.append(appGroup)
+        }
+        return stores
+    }
+
+    static func storedLanguageCode() -> String? {
+        for defaults in userDefaultsStores {
+            if let code = defaults.string(forKey: langCodeStorageKey)?.nilIfEmpty {
+                return normalizedSupportedLanguageCode(code)
+            }
+        }
+        return nil
+    }
+
+    @MainActor static func storedLanguageCode(global: GlobalStorage) -> String? {
+        guard
+            global.getString(key: langSourceStorageKey) == langSourceUser,
+            let code = global.getString(key: langCodeStorageKey)?.nilIfEmpty
+        else {
+            return nil
+        }
+        return normalizedSupportedLanguageCode(code)
+    }
+
+    static func persistLanguageCode(_ code: String?) {
+        for defaults in userDefaultsStores {
+            if let code {
+                defaults.set(code, forKey: langCodeStorageKey)
+                defaults.set([code], forKey: appleLanguagesStorageKey)
+            } else {
+                defaults.removeObject(forKey: langCodeStorageKey)
+                defaults.removeObject(forKey: appleLanguagesStorageKey)
+                defaults.removeObject(forKey: appleTextDirectionStorageKey)
+                defaults.removeObject(forKey: forceRightToLeftStorageKey)
+            }
+            defaults.synchronize()
+        }
+    }
+
+    static func didCompleteNativeLanguageMigration() -> Bool {
+        userDefaultsStores.contains { $0.bool(forKey: nativeLanguageMigrationKey) }
+    }
+
+    static func markNativeLanguageMigrationCompleted() {
+        for defaults in userDefaultsStores {
+            defaults.set(true, forKey: nativeLanguageMigrationKey)
+            defaults.synchronize()
+        }
+    }
+
     static func preferredSupportedLanguageCode() -> String? {
         for identifier in Locale.preferredLanguages {
             if supportedLanguageCodes.contains(identifier) {

@@ -256,7 +256,7 @@ export type ApiStakingCommonResponse = {
   jettonPools: Omit<ApiStakingJettonPool, 'poolConfig'>[];
   ethena: {
     apy: number;
-    apyVerified: number;
+    apyVerified?: number;
     rate: number;
     isDisabled?: boolean;
   };
@@ -370,4 +370,6 @@ export type ApiBackendConfig = {
   shouldAutoSwitchToAir?: boolean;
   swapVersion?: ApiSwapVersion;
   seasonalTheme?: 'newYear' | 'valentine';
+  knowledgeBaseVersion?: string;
+  preferredAgent?: 'local' | 'online' | 'hybrid';
 };

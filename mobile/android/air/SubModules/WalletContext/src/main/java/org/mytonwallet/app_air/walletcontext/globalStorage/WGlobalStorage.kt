@@ -93,6 +93,8 @@ object WGlobalStorage {
     private const val ASSETS_AND_ACTIVITY = "settings.byAccountId"
     private const val BIOMETRIC_KIND = "settings.authConfig.kind"
     private const val LANG_CODE = "settings.langCode"
+    private const val LANG_SOURCE = "settings.langSource"
+    const val LANG_SOURCE_USER = "user"
     private const val PRICE_HISTORY = "tokenPriceHistory.bySlug"
     private const val AUTO_LOCK_VALUE = "settings.autolockValue"
     private const val IS_APP_LOCK_ENABLED = "settings.isAppLockEnabled"
@@ -416,7 +418,8 @@ object WGlobalStorage {
     }
 
     fun isBlurEnabled(): Boolean {
-        return globalStorageProvider.getBool(IS_BLUR_ENABLED) ?: DevicePerformanceClassifier.isHighClass
+        return globalStorageProvider.getBool(IS_BLUR_ENABLED)
+            ?: DevicePerformanceClassifier.isHighClass
     }
 
     fun setBlurEnabled(enabled: Boolean) {
@@ -805,6 +808,24 @@ object WGlobalStorage {
         }
     }
 
+    private val HOME_ASSETS_LIMIT_ALLOWED = setOf(5, 10, 30)
+    private const val HOME_ASSETS_LIMIT_DEFAULT = 5
+    fun setHomeAssetsTopLimit(accountId: String, limit: Int) {
+        val safeLimit =
+            if (HOME_ASSETS_LIMIT_ALLOWED.contains(limit)) limit else HOME_ASSETS_LIMIT_DEFAULT
+        globalStorageProvider.set(
+            "byAccountId.$accountId.tokens.homeTopLimit",
+            safeLimit,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    fun getHomeAssetsTopLimit(accountId: String): Int {
+        val current = globalStorageProvider.getInt("byAccountId.$accountId.tokens.homeTopLimit")
+            ?: return HOME_ASSETS_LIMIT_DEFAULT
+        return if (HOME_ASSETS_LIMIT_ALLOWED.contains(current)) current else HOME_ASSETS_LIMIT_DEFAULT
+    }
+
     fun setWasTelegramGiftsAutoAdded(accountId: String, value: Boolean) {
         globalStorageProvider.set(
             "byAccountId.$accountId.nfts.wasTelegramGiftsAutoAdded",
@@ -848,26 +869,33 @@ object WGlobalStorage {
         globalStorageProvider.set(
             LANG_CODE,
             langCode,
+            IGlobalStorageProvider.PERSIST_NO
+        )
+        cachedLangCode = langCode
+    }
+
+    fun setLangSource(langSource: String) {
+        globalStorageProvider.set(
+            LANG_SOURCE,
+            langSource,
             IGlobalStorageProvider.PERSIST_INSTANT
         )
     }
 
     fun getLangCode(): String {
-        val resolved = globalStorageProvider.getString(LANG_CODE)
-            ?: cachedLangCode
-            ?: resolveSystemLanguageCode()
+        val storedLangCode = globalStorageProvider.getString(LANG_CODE)
+
+        val resolved = cachedLangCode
+        // `appSpecificLanguageCode` is the language user selected for the app from App Settings or OS Settings
+        // It's guaranteed to have correct value at this stage, unless user didn't set language at all
+            ?: LocaleController.appSpecificLanguageCode()
+            // Fallback to OS Language if supported
+            ?: LocaleController.resolveSystemLanguageCode(ApplicationContextHolder.applicationContext)
+            // This should not happen usually, unless user has a system language which MTW doesn't support
+            ?: storedLangCode
             ?: WLanguage.ENGLISH.langCode
         cachedLangCode = resolved
         return resolved
-    }
-
-    private fun resolveSystemLanguageCode(): String? {
-        val context = try {
-            ApplicationContextHolder.applicationContext
-        } catch (_: Throwable) {
-            return null
-        }
-        return LocaleController.resolveSystemLanguageCode(context)
     }
 
     fun getCardsInfo(accountId: String): JSONObject? {
@@ -930,7 +958,7 @@ object WGlobalStorage {
         )
     }
 
-    private const val LAST_STATE: Int = 53
+    private const val LAST_STATE: Int = 54
 
     fun migrate() {
         // Lock the storage
@@ -1176,6 +1204,17 @@ object WGlobalStorage {
                     IGlobalStorageProvider.PERSIST_NO
                 )
             }
+        }
+
+        if (currentState < 54 && !globalStorageProvider.contains(LANG_SOURCE)) {
+            globalStorageProvider.set(
+                LANG_SOURCE,
+                LANG_SOURCE_USER,
+                IGlobalStorageProvider.PERSIST_NO
+            )
+            LocaleController.setApplicationLocale(
+                globalStorageProvider.getString(LANG_CODE) ?: WLanguage.ENGLISH.langCode
+            )
         }
 
         // Update and unlock the storage

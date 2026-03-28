@@ -57,7 +57,7 @@ public class WalletVersionsVC: SettingsBaseVC, UICollectionViewDelegate {
     private func setupViews() {
         title = lang("TON Wallet Versions")
         walletVersionsData = AccountStore.walletVersionsData
-        view.backgroundColor = isModal ? WTheme.sheetBackground : WTheme.groupedBackground
+        view.backgroundColor = isModal ? .air.sheetBackground : .air.groupedBackground
 
         var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         configuration.backgroundColor = .clear
@@ -224,7 +224,7 @@ private struct WalletVersionsFooter: View {
     private func makeAttributedHint(_ text: String) -> AttributedString {
         var attributed = AttributedString(text)
         if let range = attributed.range(of: "ton.org") {
-            attributed[range].foregroundColor = Color.air.tint
+            attributed[range].foregroundColor = .accentColor
             attributed[range].link = URL(string: "https://ton.org")
         }
         return attributed

@@ -85,8 +85,8 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
         }
     }
     
-    override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
 
     func _onConfirm() {

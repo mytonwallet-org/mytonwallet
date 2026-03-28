@@ -191,8 +191,8 @@ import Perception
         )
         let draft = try await Api.checkTransactionDraft(chain: chain, options: options)
         let decimals = chain.nativeToken.decimals
-        let networkFee = draft.fee.flatMap { MDouble.forBigInt($0, decimals: decimals) }
-        let realNetworkFee = draft.realFee.flatMap { MDouble.forBigInt($0, decimals: decimals) }
+        let networkFee = draft.fullNativeFee.flatMap { MDouble.forBigInt($0, decimals: decimals) }
+        let realNetworkFee = draft.realNativeFee.flatMap { MDouble.forBigInt($0, decimals: decimals) }
         return (networkFee, realNetworkFee)
     }
 }

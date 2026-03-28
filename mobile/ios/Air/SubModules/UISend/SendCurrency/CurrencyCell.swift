@@ -11,7 +11,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-class CurrencyCell: UITableViewCell, WThemedView {
+class CurrencyCell: UITableViewCell {
     
     private static let font = UIFont.systemFont(ofSize: 16, weight: .medium)
     private static let secondaryFont = UIFont.systemFont(ofSize: 13, weight: .regular)
@@ -73,12 +73,12 @@ class CurrencyCell: UITableViewCell, WThemedView {
         stackView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(currencySelected)))
     }
     
-    public func updateTheme() {
+    private func updateTheme() {
         backgroundColor = .clear
         stackView.backgroundColor = .clear
-        stackView.highlightBackgroundColor = WTheme.highlight
-        amountLabel.textColor = WTheme.secondaryLabel
-        selectedIcon.tintColor = WTheme.tint
+        stackView.highlightBackgroundColor = .air.highlight
+        amountLabel.textColor = .air.secondaryLabel
+        selectedIcon.tintColor = .tintColor
     }
     
     @objc private func currencySelected() {

@@ -39,6 +39,7 @@ interface OwnProps {
   selectedNfts?: ApiNft[];
   tonDnsExpiration?: number;
   isViewAccount?: boolean;
+  withChainIcon?: boolean;
   style: string;
 }
 
@@ -58,6 +59,7 @@ function Nft({
   selectedNfts,
   tonDnsExpiration,
   isViewAccount,
+  withChainIcon,
   style,
 }: OwnProps) {
   const { selectNfts, clearNftSelection, openDomainRenewalModal, openNftAttributesModal } = getActions();
@@ -269,13 +271,13 @@ function Nft({
         </div>
       )}
       <div className={styles.infoWrapper} title={nft.name}>
-        {!hasCollectionName && renderChainIcon()}
+        {!hasCollectionName && withChainIcon && renderChainIcon()}
         <b className={styles.title}>{nftName || shortenAddress(nft.address, 4)}</b>
         {nftNumber && <span className={styles.number}>{nftNumber}</span>}
       </div>
       {hasCollectionName && (
         <div className={styles.collection}>
-          {renderChainIcon()}
+          {withChainIcon && renderChainIcon()}
           {nft.collectionName}
         </div>
       )}

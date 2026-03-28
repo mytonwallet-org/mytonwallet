@@ -13,9 +13,39 @@ import Dependencies
 
 private let log = Log("WalletCoreData")
 
+public protocol StartupContextError: Error {
+    var startupContextDescription: String { get }
+    var underlyingStartupError: (any Error)? { get }
+}
+
+public struct WalletCoreStartupError: StartupContextError, @unchecked Sendable {
+    public enum Step: String, Sendable {
+        case accountStoreInitialLoad
+    }
+
+    public let step: Step
+    public let bootstrapAccountCountHint: Int?
+    public let underlyingError: any Error
+
+    public init(step: Step, bootstrapAccountCountHint: Int?, underlyingStartupError: any Error) {
+        self.step = step
+        self.bootstrapAccountCountHint = bootstrapAccountCountHint
+        self.underlyingError = underlyingStartupError
+    }
+
+    public var startupContextDescription: String {
+        let accountCount = bootstrapAccountCountHint.map(String.init) ?? "unknown"
+        return "component=walletCoreData step=\(step.rawValue) bootstrapAccountCountHint=\(accountCount)"
+    }
+
+    public var underlyingStartupError: (any Error)? {
+        underlyingError
+    }
+}
+
 public struct WalletCoreData {
     public enum Event: @unchecked Sendable {
-        case balanceChanged(accountId: String, isFirstUpdate: Bool)
+        case balanceChanged(accountId: String)
         case notActiveAccountBalanceChanged
         case tokensChanged
         case swapTokensChanged
@@ -31,9 +61,11 @@ public struct WalletCoreData {
         case accountDeleted(accountId: String)
         case accountsReset
         case stakingAccountData(MStakingData)
+        case rawBalancesChanged(accountId: String)
         case assetsAndActivityDataUpdated
         case hideTinyTransfersChanged
         case hideNoCostTokensChanged
+        case homeWalletVisibleTokensLimitChanged
         case cardBackgroundChanged(_ accountId: String, _ nft: ApiNft?)
         case accentColorNftChanged(_ accountId: String, _ nft: ApiNft?)
         case walletVersionsDataReceived
@@ -67,10 +99,10 @@ public struct WalletCoreData {
         case nftReceived(ApiUpdate.NftReceived)
         case nftSent(ApiUpdate.NftSent)
         case nftPutUpForSale(ApiUpdate.NftPutUpForSale)
-        case exchangeWithLedger(apdu: String, callback: @Sendable (String?) async -> ())
-        case isLedgerJettonIdSupported(callback: @Sendable (Bool?) async -> ())
-        case isLedgerUnsafeSupported(callback: @Sendable (Bool?) async -> ())
-        case getLedgerDeviceModel(callback: @Sendable (ApiLedgerDeviceModel?) async -> ())
+        case exchangeWithLedger(apdu: String, callback: @MainActor (String?) async -> ())
+        case isLedgerJettonIdSupported(callback: @MainActor (Bool?) async -> ())
+        case isLedgerUnsafeSupported(callback: @MainActor (Bool?) async -> ())
+        case getLedgerDeviceModel(callback: @MainActor (ApiLedgerDeviceModel?) async -> ())
         
     }
     
@@ -79,6 +111,9 @@ public struct WalletCoreData {
     }
 
     private init() {}
+    
+    @MainActor private static var hasStartedMinimal = false
+    @MainActor private static var hasStartedRemaining = false
 
     // ability to observe events
     final class WeakEventsObserver {
@@ -116,13 +151,10 @@ public struct WalletCoreData {
     }
 
     public static func notifyAccountChanged(to account: MAccount, isNew: Bool) {
-        @Dependency(\.accountSettings) var _accountSettings
-        let accountSettings = _accountSettings.for(accountId: account.id)
-        DispatchQueue.main.async {
+        Task { @MainActor in
+            @Dependency(\.accountSettings) var _accountSettings
+            let accountSettings = _accountSettings.for(accountId: account.id)
             AccountStore.walletVersionsData = nil
-            // Improvement: data race – reading via assetsAndActivityData(for:) can be called while writing
-            let assetsAndActivityData = MAssetsAndActivityData(dictionary: AppStorageHelper.assetsAndActivityData(for: account.id))
-            AccountStore.setAssetsAndActivityData(assetsAndActivityData, forAccountID: account.id)
             DappsStore.updateDappCount()
             changeThemeColors(to: accountSettings.accentColorIndex)
             UIApplication.shared.sceneKeyWindow?.updateTheme()
@@ -132,39 +164,110 @@ public struct WalletCoreData {
         }
     }
 
-    @MainActor public static func start(db: any DatabaseWriter) async {
+    @MainActor public static func startMinimal(db: any DatabaseWriter, bootstrapAccountCountHint: Int? = nil) async throws {
+        guard !hasStartedMinimal else { return }
         _ = LogStore.shared
-        log.info("**** WalletCoreData.start() **** \(Date().formatted(.iso8601), .public)")
-        await ActivityStore.use(db: db)
-        AccountStore.use(db: db)
+        log.info("**** WalletCoreData.startMinimal() **** \(Date().formatted(.iso8601), .public)")
+        StartupTrace.beginInterval("walletCoreData.startMinimal")
+        StartupTrace.mark("walletCoreData.startMinimal.begin")
+        hasStartedMinimal = true
+        var didSucceed = false
+        defer {
+            if didSucceed {
+                StartupTrace.mark("walletCoreData.startMinimal.end")
+                StartupTrace.endInterval("walletCoreData.startMinimal", details: "result=done")
+            } else {
+                hasStartedMinimal = false
+                StartupTrace.endInterval("walletCoreData.startMinimal", details: "result=failed")
+            }
+        }
+        SettingsStore.liveValue.use(db: db)
+        StartupTrace.mark("walletCoreData.settings.ready")
+        do {
+            try AccountStore.use(db: db)
+        } catch {
+            let details = "step=accountStoreInitialLoad bootstrapAccountCountHint=\(bootstrapAccountCountHint.map(String.init) ?? "unknown") error=\(String(reflecting: error))"
+            log.fault("wallet core minimal startup failed \(details, .public)")
+            StartupTrace.mark("walletCoreData.accountStore.failed", details: details)
+            throw WalletCoreStartupError(
+                step: .accountStoreInitialLoad,
+                bootstrapAccountCountHint: bootstrapAccountCountHint,
+                underlyingStartupError: error
+            )
+        }
         let accountIds = Set(AccountStore.accountsById.keys)
-        log.info("AcountStore loaded \(accountIds.count) accounts")
-        
-        // Detect if this is new install and delete old keychain storage if needed
-        let isFirstLaunch = (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.isFirstLaunch == true
-        if isFirstLaunch {
-            log.info("First launch detected. Will check if accounts from previous install should can be deleted.")
-        }
-        if isFirstLaunch && accountIds.isEmpty && GlobalStorage.keysIn(key: "accounts")?.isEmpty != false {
-            log.info("Deleting accounts from previous install")
-            KeychainHelper.deleteAccountsFromPreviousInstall()
-        }
-        
-        TokenStore.loadFromCache()
-        StakingStore.use(db: db)
-        BalanceStore.loadFromCache(accountIds: accountIds)
-        NftStore.loadFromCache(accountIds: accountIds)
-        _ = AccountSettingsStore.liveValue
-        _ = DomainsStore.liveValue
-        _ = AutolockStore.shared
+        log.info("AccountStore loaded \(accountIds.count) accounts")
+        StartupTrace.mark("walletCoreData.accountStore.ready", details: "accounts=\(accountIds.count)")
+        await AccountSettingsStore.liveValue.use(db: db)
+        StartupTrace.mark("walletCoreData.accountSettings.ready")
+        didSucceed = true
     }
 
-    public static func clean() async {
+    @MainActor public static func startDeferred(db: any DatabaseWriter) async {
+        guard hasStartedMinimal else { return }
+        guard !hasStartedRemaining else { return }
+        hasStartedRemaining = true
+        StartupTrace.beginInterval("walletCoreData.startDeferred")
+        StartupTrace.mark("walletCoreData.startDeferred.begin")
+        let accountIds = Set(AccountStore.accountsById.keys)
+        await runDeferredStartupStep("activityStore") {
+            await ActivityStore.use(db: db)
+        }
+        await runDeferredStartupStep("savedAddresses") {
+            await SavedAddressesStore.liveValue.use(db: db)
+        }
+        await runDeferredStartupStep("tokenStore") {
+            TokenStore.loadFromCache()
+        }
+        await runDeferredStartupStep("assetsAndActivity") {
+            await AssetsAndActivityDataStore.use(db: db)
+        }
+        await runDeferredStartupStep("staking") {
+            await StakingStore.use(db: db)
+        }
+        await runDeferredStartupStep("balances") {
+            await BalancesStore.use(db: db)
+        }
+        await runDeferredStartupStep("balanceData") {
+            await BalanceDataStore.use()
+        }
+        await runDeferredStartupStep("nftStore") {
+            NftStore.loadFromCache(accountIds: accountIds)
+        }
+        await runDeferredStartupStep("domains") {
+            await DomainsStore.liveValue.use(db: db)
+        }
+        await runDeferredStartupStep("autolock") {
+            _ = AutolockStore.shared
+        }
+        StartupTrace.mark("walletCoreData.startDeferred.end")
+        StartupTrace.endInterval("walletCoreData.startDeferred", details: "result=done")
+    }
+
+    @MainActor private static func runDeferredStartupStep(_ name: String, operation: @MainActor () async -> Void) async {
+        StartupTrace.beginInterval("walletCoreData.deferred.\(name)")
+        StartupTrace.mark("walletCoreData.deferred.begin", details: "step=\(name) essential=false")
+        await operation()
+        log.info("wallet core deferred startup step ready step=\(name, .public)")
+        StartupTrace.mark("walletCoreData.deferred.ready", details: "step=\(name) essential=false")
+        StartupTrace.endInterval("walletCoreData.deferred.\(name)", details: "result=done")
+    }
+
+    @MainActor public static func clean() async {
         await ActivityStore.clean()
-        BalanceStore.clean()
+        await AssetsAndActivityDataStore.clean()
+        await StakingStore.clean()
+        await BalancesStore.clean()
+        await BalanceDataStore.clean()
         TokenStore.clean()
         NftStore.clean()
+        SettingsStore.liveValue.clean()
+        SavedAddressesStore.liveValue.clean()
+        AccountSettingsStore.liveValue.clean()
+        DomainsStore.liveValue.clean()
         AccountStore.clean()
         ConfigStore.shared.clean()
+        hasStartedMinimal = false
+        hasStartedRemaining = false
     }
 }

@@ -38,7 +38,7 @@ public class LanguageVC: SettingsBaseVC, UICollectionViewDelegate {
     
     private func setupViews() {
         
-        view.backgroundColor = WTheme.groupedBackground
+        view.backgroundColor = .air.groupedBackground
         
         navigationItem.title = lang("Language")
         
@@ -46,7 +46,7 @@ public class LanguageVC: SettingsBaseVC, UICollectionViewDelegate {
         configuration.headerTopPadding = 24
         let layout = UICollectionViewCompositionalLayout.list(using: configuration)
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        collectionView.backgroundColor = WTheme.sheetBackground
+        collectionView.backgroundColor = .air.sheetBackground
         collectionView.delegate = self
         collectionView.delaysContentTouches = false
         
@@ -86,9 +86,6 @@ public class LanguageVC: SettingsBaseVC, UICollectionViewDelegate {
         if let id = dataSource?.itemIdentifier(for: indexPath) {
             LocalizationSupport.shared.setLanguageCode(id)
             AccountStore.refreshEnabledNotificationSubscriptions()
-            // do we need this?
-            UserDefaults.standard.set([id], forKey: "AppleLanguages")
-            UserDefaults.standard.synchronize()
             WalletContextManager.delegate?.restartApp()
         }
     }

@@ -18,7 +18,7 @@ struct LedgerAddAccountView: View {
                     .padding(.top, 50)
                     .padding(.bottom, 30)
                 ZStack {
-                    Color(WTheme.background)
+                    Color.air.background
                         .clipShape(.rect(cornerRadius: 16))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .ignoresSafeArea()

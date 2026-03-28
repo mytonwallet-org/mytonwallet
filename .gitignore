@@ -5,6 +5,7 @@ dist-multisend
 dist-push
 dist-giveaways
 dist-air
+dist-agent
 MyTonWallet-chrome.zip
 MyTonWallet-firefox.zip
 MyTonWallet-firefox-sources.tgz
@@ -30,4 +31,6 @@ statoscope-reference.json
 mobile/ios/buildServer.json
 mobile/ios/Air/scripts/strings/.venv
 mobile/ios/App/App/Resources/Localizable.xcstrings
+mobile/ios/App/AirWidget/Localizable.xcstrings
 mobile/plugins/native-enclave/android/build/
+AGENTS.md

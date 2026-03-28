@@ -6,7 +6,7 @@ import type { Theme } from '../../../global/types';
 import { SELF_UNIVERSAL_HOST_URL } from '../../../config';
 import { getChainConfig } from '../../../util/chain';
 import { toDecimal } from '../../../util/decimals';
-import { explainApiTransferFee, getMaxTransferAmount } from '../../../util/fee/transferFee';
+import { getMaxTransferAmount } from '../../../util/fee/transferFee';
 import { callApi } from '../../../api';
 
 const SUPPORTED_CURRENCIES: ApiBaseCurrency[] = ['EUR'];
@@ -73,10 +73,11 @@ export default function useOffRampUrl({
           if (isCancelled || !isOpenRef.current) return;
 
           if (result && !('error' in result)) {
-            const { fullFee, canTransferFullBalance } = explainApiTransferFee({
-              ...result,
-              tokenSlug,
-            });
+            const { fullFee, canTransferFullBalance } = result.explainedFee ?? {
+              fullFee: undefined,
+              canTransferFullBalance: false,
+            };
+
             maxAmount = getMaxTransferAmount({
               tokenBalance: balance,
               tokenSlug,

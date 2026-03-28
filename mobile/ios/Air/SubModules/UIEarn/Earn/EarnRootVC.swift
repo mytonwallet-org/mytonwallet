@@ -7,7 +7,7 @@ import WalletContext
 
 
 @MainActor
-public class EarnRootVC: WViewController, WSegmentedController.Delegate {
+public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendable {
     
     public let tokenSlug: String?
     
@@ -15,7 +15,7 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
     private var mycoinVC: EarnVC!
     private var ethenaVC: EarnVC!
 
-    @AccountContext(source: .current) private var account: MAccount
+    @AccountContext private var account: MAccount
     
     private var segmentedController: WSegmentedController!
     
@@ -50,7 +50,8 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
         return items
     }
     
-    public init(tokenSlug: String?) {
+    public init(accountContext: AccountContext, tokenSlug: String?) {
+        self._account = accountContext
         self.tokenSlug = tokenSlug ?? TONCOIN_SLUG
         super.init(nibName: nil, bundle: nil)
     }
@@ -65,17 +66,17 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
     }
     
     func setupViews() {
-        view.backgroundColor = WTheme.sheetBackground
+        view.backgroundColor = .air.sheetBackground
       
-        tonVC = EarnVC(earnVM: .sharedTon)
-        mycoinVC = EarnVC(earnVM: .sharedMycoin)
-        ethenaVC = EarnVC(earnVM: .sharedEthena)
+        tonVC = EarnVC(earnVM: EarnVM(config: .ton, accountContext: _account))
+        mycoinVC = EarnVC(earnVM: EarnVM(config: .mycoin, accountContext: _account))
+        ethenaVC = EarnVC(earnVM: EarnVM(config: .ethena, accountContext: _account))
 
         addChild(tonVC)
         addChild(mycoinVC)
         addChild(ethenaVC)
         
-        let capsuleColor = UIColor { WTheme.secondaryLabel.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.2 : 0.12 ) }
+        let capsuleColor = UIColor { .air.secondaryLabel.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.2 : 0.12 ) }
         let items = segmentedControlItems
         segmentedController = WSegmentedController(
             items: items,
@@ -130,9 +131,8 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
         segmentedController.replace(items: items)
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
-        segmentedController.updateTheme()
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
     
     public override func scrollToTop(animated: Bool) {
@@ -144,7 +144,9 @@ extension EarnRootVC: WalletCoreData.EventsObserver {
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .accountChanged:
-            updateWithStakingState()
+            if $account.source == .current {
+                updateWithStakingState()
+            }
         case .stakingAccountData(let data):
             if data.accountId == $account.accountId {
                 updateWithStakingState()

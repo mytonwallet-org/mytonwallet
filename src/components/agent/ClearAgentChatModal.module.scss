@@ -1,0 +1,14 @@
+.description {
+  text-align: center;
+}
+
+.buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.button {
+  flex: 1 1 calc(50% - 0.25rem);
+}

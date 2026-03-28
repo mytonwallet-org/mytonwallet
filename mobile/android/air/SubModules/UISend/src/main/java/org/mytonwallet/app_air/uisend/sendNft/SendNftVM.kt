@@ -8,12 +8,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.helpers.DNSHelpers
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
+import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiAnyDisplayError
@@ -26,11 +36,12 @@ import java.lang.ref.WeakReference
 import java.math.BigInteger
 
 @SuppressLint("ViewConstructor")
-class SendNftVM(delegate: Delegate, val nft: ApiNft) {
+class SendNftVM(delegate: Delegate, val nfts: List<ApiNft>) {
     interface Delegate {
         fun showError(error: MBridgeError?)
         fun feeUpdated(fee: BigInteger?, err: MBridgeError?)
         fun addressInfoUpdated(info: AddressInfo?)
+        fun addressSearchCandidatesChanged(enabled: Boolean)
     }
 
     data class AddressInfo(
@@ -65,6 +76,33 @@ class SendNftVM(delegate: Delegate, val nft: ApiNft) {
     val delegate: WeakReference<Delegate> = WeakReference(delegate)
     private val vmScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var addressInfoJob: Job? = null
+    private val chain = nfts.first().chain ?: MBlockchain.ton
+    private val otherAccountsFlow: StateFlow<List<MAccount>> =
+        AccountStore.activeAccountIdFlow
+            .mapNotNull { accountId ->
+                WalletCore.getAllAccounts().filter { account -> account.accountId != accountId }
+            }
+            .stateIn(vmScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val savedAddressesFlow: StateFlow<List<MSavedAddress>> =
+        AccountStore.activeAccountIdFlow
+            .mapNotNull {
+                AddressStore.addressData?.savedAddresses
+            }
+            .stateIn(vmScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val hasAddressSearchCandidatesFlow: Flow<Boolean> =
+        combine(
+            otherAccountsFlow,
+            savedAddressesFlow,
+        ) { otherAccounts, savedAddresses -> otherAccounts.isNotEmpty() || savedAddresses.isNotEmpty() }
+
+
+    init {
+        hasAddressSearchCandidatesFlow
+            .onEach { this.delegate.get()?.addressSearchCandidatesChanged(it) }
+            .launchIn(vmScope)
+    }
 
     fun onInputDestination(destination: String) {
         if (inputAddress == destination) {
@@ -97,7 +135,6 @@ class SendNftVM(delegate: Delegate, val nft: ApiNft) {
             return
         }
 
-        val chain = nft.chain ?: MBlockchain.ton
         addressInfoJob?.cancel()
         addressInfoJob = vmScope.launch {
             applyAddressInfo(fetchAddressInfo(chain, destination))
@@ -105,10 +142,9 @@ class SendNftVM(delegate: Delegate, val nft: ApiNft) {
     }
 
     private suspend fun fetchAddressInfo(chain: MBlockchain, destination: String): AddressInfo? {
-        val savedName = AddressStore.getSavedAddress(destination, chain.name)
-            ?.name
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
+        val savedName = savedAddressesFlow.value.firstOrNull { savedAddress ->
+            savedAddress.address == destination && savedAddress.chain == chain.name
+        }?.name?.trim()?.takeIf { it.isNotEmpty() }
         if (savedName != null) {
             return AddressInfo(
                 chain = chain,
@@ -118,8 +154,22 @@ class SendNftVM(delegate: Delegate, val nft: ApiNft) {
             )
         }
 
+        val otherAccountName = otherAccountsFlow.value.firstOrNull { account ->
+            account.byChain[chain.name]?.address == destination
+        }?.name?.trim()?.takeIf { it.isNotEmpty() }
+        if (otherAccountName != null) {
+            return AddressInfo(
+                chain = chain,
+                input = destination,
+                resolvedAddress = destination,
+                addressName = otherAccountName,
+            )
+        }
+
         val isValid =
-            chain.isValidAddress(destination) || (chain == MBlockchain.ton && DNSHelpers.isDnsDomain(destination))
+            chain.isValidAddress(destination) || (chain == MBlockchain.ton && DNSHelpers.isDnsDomain(
+                destination
+            ))
         if (!isValid) {
             return null
         }
@@ -167,10 +217,10 @@ class SendNftVM(delegate: Delegate, val nft: ApiNft) {
         delegate.get()?.feeUpdated(null, null)
         WalletCore.call(
             ApiMethod.Nft.CheckNftTransferDraft(
-                nft.chain ?: MBlockchain.ton,
+                chain,
                 MApiCheckNftDraftOptions(
                     AccountStore.activeAccountId!!,
-                    listOf(nft.toDictionary()),
+                    nfts.map { it.toDictionary() },
                     inputAddress,
                     inputComment,
                     false
@@ -180,12 +230,12 @@ class SendNftVM(delegate: Delegate, val nft: ApiNft) {
                 resolvedAddress = res?.resolvedAddress
                 addressName = res?.addressName
                 isScam = res?.isScam == true
-                feeValue = res?.fee
+                feeValue = res?.realNativeFee
                 if (err?.parsed?.errorName == MBridgeError.UNKNOWN.errorName)
                     err?.parsed?.customMessage =
                         LocaleController.getString("Invalid address")
                 delegate.get()?.feeUpdated(
-                    (res ?: err?.parsedResult as? MApiCheckTransactionDraftResult)?.fee,
+                    (res ?: err?.parsedResult as? MApiCheckTransactionDraftResult)?.realNativeFee,
                     err?.parsed
                 )
             }

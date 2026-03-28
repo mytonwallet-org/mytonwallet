@@ -175,14 +175,14 @@ export async function fetchActivityDetails(
       continue;
     }
 
-    activity = fillActivityDetails(activity, parsedTrace);
+    result = fillActivityDetails(activity, parsedTrace);
   }
 
   if (!result) {
     logDebugError('Trace unavailable for activity', activity.id);
   }
 
-  return activity;
+  return result ?? activity;
 }
 
 export function fillActivityDetails(activity: ApiActivity, parsedTrace: ParsedTrace): ApiActivity {

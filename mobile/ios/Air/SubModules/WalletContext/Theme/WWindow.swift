@@ -7,7 +7,7 @@
 
 import UIKit
 
-public final class WWindow: UIWindow, WThemedView, WSensitiveDataProtocol {
+public final class WWindow: UIWindow, WSensitiveDataProtocol {
     
     public override init(windowScene: UIWindowScene) {
         super.init(windowScene: windowScene)
@@ -20,50 +20,7 @@ public final class WWindow: UIWindow, WThemedView, WSensitiveDataProtocol {
     
     @MainActor
     public func updateTheme() {
-        tintColor = WTheme.tint
-        var visited: Set<ObjectIdentifier> = []
-        
-        // update theme on view
-        func updateViewTheme(on view: UIView) {
-            if let view = view as? WThemedView {
-                view.updateTheme()
-            }
-            for subview in view.subviews {
-                updateViewTheme(on: subview)
-            }
-        }
-
-        // update theme on view controller
-        func updateTheme(on vc: UIViewController?) {
-            guard let vc else {return}
-            if !vc.isViewLoaded {
-                return
-            }
-            guard nil == visited.update(with: ObjectIdentifier(vc)) else { return }
-            
-            if let vc = vc as? WThemedView {
-                vc.updateTheme()
-            }
-            updateViewTheme(on: vc.view)
-            updateTheme(on: vc.presentedViewController)
-            if let vc = vc as? UITabBarController {
-                for tabVC in vc.viewControllers ?? [] {
-                    updateTheme(on: tabVC)
-                }
-            }
-            if let vc = vc as? UINavigationController {
-                for navChildVC in vc.viewControllers {
-                    updateTheme(on: navChildVC)
-                }
-            }
-            for vc in vc.children {
-                updateTheme(on: vc)
-            }
-        }
-        
-        // start theme update on root vc
-        updateTheme(on: rootViewController)
-        
+        tintColor = AirTintColor
         NotificationCenter.default.post(name: .updateTheme, object: self)
     }
 

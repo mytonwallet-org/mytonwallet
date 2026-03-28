@@ -32,7 +32,9 @@ import { parseAccountId } from '../../../util/account';
 import { bigintDivideToNumber, bigintMultiplyToNumber } from '../../../util/bigint';
 import { fromDecimal } from '../../../util/decimals';
 import { getDevSettings } from '../../../util/devSettings';
+import { explainApiTransferFee } from '../../../util/fee/transferFee';
 import { getIsActiveStakingState } from '../../../util/staking';
+import { getNativeToken } from '../../../util/tokens';
 import calcJettonStakingApr from '../../../util/ton/calcJettonStakingApr';
 import {
   buildJettonClaimPayload,
@@ -72,8 +74,15 @@ export async function checkStakeDraft(accountId: string, amount: bigint, state: 
         amount: amount + TON_GAS.stakeNominators,
         payload: { type: 'comment', text: STAKE_COMMENT },
       });
-      if ('fee' in result && result.fee) {
-        result.fee = TON_GAS.stakeNominators + result.fee;
+      if (result.explainedFee?.fullFee?.nativeSum !== undefined) {
+        const baseFee = result.explainedFee.fullFee.nativeSum;
+        const baseRealFee = result.explainedFee.realFee?.nativeSum ?? baseFee;
+
+        result.explainedFee = explainApiTransferFee({
+          fee: baseFee + TON_GAS.stakeNominators,
+          realFee: baseRealFee + TON_GAS.stakeNominators,
+          tokenSlug: getNativeToken('ton').slug,
+        });
       }
       break;
     }
@@ -84,8 +93,15 @@ export async function checkStakeDraft(accountId: string, amount: bigint, state: 
         amount: amount + TON_GAS.stakeLiquid,
         payload: buildLiquidStakingDepositBody(),
       });
-      if ('fee' in result && result.fee) {
-        result.fee = TON_GAS.stakeLiquid + result.fee;
+      if (result.explainedFee?.fullFee?.nativeSum !== undefined) {
+        const baseFee = result.explainedFee.fullFee.nativeSum;
+        const baseRealFee = result.explainedFee.realFee?.nativeSum ?? baseFee;
+
+        result.explainedFee = explainApiTransferFee({
+          fee: baseFee + TON_GAS.stakeLiquid,
+          realFee: baseRealFee + TON_GAS.stakeLiquid,
+          tokenSlug: getNativeToken('ton').slug,
+        });
       }
       break;
     }
@@ -595,6 +611,7 @@ async function buildEthenaState(options: StakingStateOptions): Promise<ApiEthena
     commonData, commonData: { ethena: { apy, apyVerified } },
     backendState: { ethena: { isVerified, isBoostAvailable } },
   } = options;
+  const verifiedApy = apyVerified ?? apy;
 
   const rate = network === 'testnet' ? 1 : commonData.ethena.rate;
 
@@ -611,9 +628,9 @@ async function buildEthenaState(options: StakingStateOptions): Promise<ApiEthena
     type: 'ethena',
     tokenSlug: TON_USDE.slug,
     yieldType: 'APY',
-    annualYield: isVerified ? apyVerified : apy,
+    annualYield: isVerified && isBoostAvailable ? verifiedApy : apy,
     annualYieldStandard: apy,
-    annualYieldVerified: apyVerified,
+    annualYieldVerified: isBoostAvailable ? verifiedApy : undefined,
     balance,
     pool: ETHENA_STAKING_VAULT,
     tokenBalance,
@@ -624,8 +641,8 @@ async function buildEthenaState(options: StakingStateOptions): Promise<ApiEthena
   };
 
   // If the user never passed verification and has no active USDe staking, we should optimistically show the high APY.
-  if (isVerified === undefined && !getIsActiveStakingState(state)) {
-    state.annualYield = apyVerified;
+  if (isBoostAvailable && isVerified === undefined && !getIsActiveStakingState(state)) {
+    state.annualYield = verifiedApy;
   }
 
   return state;

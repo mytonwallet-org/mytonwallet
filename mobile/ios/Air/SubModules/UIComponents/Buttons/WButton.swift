@@ -12,15 +12,21 @@ public enum WButtonStyle {
     case primary
     case secondary
     case clearBackground
+    case destructive
+    case thickCapsule
 }
 
-public class WButton: WBaseButton, WThemedView {
+public class WButton: WBaseButton {
 
     public static let defaultHeight: CGFloat = 50
     static let borderRadius: CGFloat = 12
     public static let font = UIFont.systemFont(ofSize: 17, weight: .semibold)
 
     public private(set) var style = WButtonStyle.primary
+
+    private var accentColor: UIColor {
+        window?.tintColor ?? AirTintColor
+    }
 
     public convenience init(style: WButtonStyle = .primary) {
         self.init(type: .system)
@@ -30,12 +36,58 @@ public class WButton: WBaseButton, WThemedView {
     
     private func setup() {
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            configuration = style == .primary ? .prominentGlass() : .glass()
+            switch style {
+            case .clearBackground, .secondary:
+                configuration = .glass()
+                
+            case .primary:
+                configuration = .prominentGlass()
+                
+            case .destructive:
+                var config = UIButton.Configuration.prominentGlass()
+                config.baseBackgroundColor = destructiveColor
+                config.baseForegroundColor = .white
+                configuration = config
+                
+            case .thickCapsule:
+                var config = UIButton.Configuration.glass()
+                config.cornerStyle = .capsule
+                config.titleLineBreakMode = .byTruncatingTail
+                config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+                    var outgoing = incoming
+                    outgoing.font = UIFont.systemFont(ofSize: 17, weight: .medium)
+                    return outgoing
+                }
+                config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
+                configuration = config
+                configurationUpdateHandler = { button in
+                    guard var updated = button.configuration else { return }
+                    updated.baseBackgroundColor = button.isEnabled ? nil : .air.secondaryFill
+                    button.configuration = updated
+                }
+                setNeedsUpdateConfiguration()
+            }
+            
         } else {
             // disable default styling of iOS 15+ to prevent tint/font set conflict issues
             // setting configuration to .none on interface builder makes text disappear
-            configuration = .none
-            layer.cornerRadius = Self.borderRadius
+            switch style {
+            case .thickCapsule:
+                var config = UIButton.Configuration.filled()
+                config.cornerStyle = .capsule
+                config.titleLineBreakMode = .byTruncatingTail
+                config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+                    var outgoing = incoming
+                    outgoing.font = UIFont.systemFont(ofSize: 17, weight: .medium)
+                    return outgoing
+                }
+                config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
+                configuration = config
+                
+            default:
+                configuration = .none
+                layer.cornerRadius = Self.borderRadius
+            }
         }
 
         let heightConstraint = heightAnchor.constraint(equalToConstant: Self.defaultHeight)
@@ -47,29 +99,39 @@ public class WButton: WBaseButton, WThemedView {
     }
     
     private var primaryButtonTint: UIColor {
-        if WTheme.primaryButton.background == .label {
-            return WTheme.background
+        if accentColor == .label {
+            return .air.background
         } else {
-            return WTheme.primaryButton.tint
+            return UIColor.white
         }
     }
     
-    public func updateTheme() {
+    private var destructiveColor: UIColor { .air.error }
+    
+    private func updateTheme() {
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            tintColor = WTheme.tint
+            tintColor = .tintColor
         } else {
             switch style {
             case .primary:
-                backgroundColor = isEnabled ? WTheme.primaryButton.background : WTheme.primaryButton.disabledBackground
-                tintColor = isEnabled ? primaryButtonTint : WTheme.primaryButton.disabledTint
+                backgroundColor = isEnabled ? accentColor : accentColor.withAlphaComponent(0.5)
+                tintColor = isEnabled ? primaryButtonTint : UIColor.white
+
+            case .destructive:
+                backgroundColor = isEnabled ? destructiveColor : destructiveColor.withAlphaComponent(0.5)
+                tintColor = isEnabled ? .white : .white.withAlphaComponent(0.5)
 
             case .secondary:
-                backgroundColor = isEnabled ? WTheme.tint.withAlphaComponent(0.15) : .clear
-                tintColor = isEnabled ? WTheme.tint : WTheme.tint.withAlphaComponent(0.5)
+                backgroundColor = isEnabled ? accentColor.withAlphaComponent(0.15) : .clear
+                tintColor = isEnabled ? .tintColor : accentColor.withAlphaComponent(0.5)
+
+            case .thickCapsule:
+                backgroundColor = .air.secondaryFill
+                tintColor = .tintColor
 
             case .clearBackground:
                 backgroundColor = .clear
-                tintColor = isEnabled ? WTheme.tint : WTheme.tint.withAlphaComponent(0.5)
+                tintColor = isEnabled ? .tintColor : accentColor.withAlphaComponent(0.5)
             }
         }
     }
@@ -77,6 +139,18 @@ public class WButton: WBaseButton, WThemedView {
     public override var isEnabled: Bool {
         didSet {
             updateTheme()
+        }
+    }
+    
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            //
+        } else {
+            if style == .thickCapsule {
+                layer.cornerRadius = min(bounds.height, bounds.width) / 2
+            }
         }
     }
     
@@ -98,7 +172,7 @@ public class WButton: WBaseButton, WThemedView {
     private func createLoadingView() -> WActivityIndicator {
         let indicator = WActivityIndicator()
         indicator.translatesAutoresizingMaskIntoConstraints = false
-        indicator.tintColor = style == .secondary ? WTheme.primaryButton.background : .white
+        indicator.tintColor = (style == .secondary || style == .thickCapsule) ? .tintColor : .white
         addSubview(indicator)
         NSLayoutConstraint.activate([
             indicator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
@@ -113,4 +187,3 @@ public class WButton: WBaseButton, WThemedView {
         self.isEnabled = config.isEnabled
     }
 }
-

@@ -9,7 +9,7 @@ public struct InsetDivider: View {
 
     public var body: some View {
         Rectangle()
-            .fill(Color(WTheme.separator))
+            .fill(Color.air.separator)
             .frame(height: 0.33)
             .padding(.leading, 16)
             .padding(.trailing, -16)

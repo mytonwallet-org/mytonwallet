@@ -32,7 +32,7 @@ const activeInstances: Record<ButtonTypes, number> = {
 const BUTTON_COLORS = {
   light: {
     default: { text: '#3F4650', background: '#E2E3E5' },
-    primary: { text: '#FFFFFF', background: '#0088CC' },
+    primary: { text: '#FFFFFF', background: '#2C92F0' },
     destructive: { text: '#FFFFFF', background: '#F35B5B' },
   },
   dark: {

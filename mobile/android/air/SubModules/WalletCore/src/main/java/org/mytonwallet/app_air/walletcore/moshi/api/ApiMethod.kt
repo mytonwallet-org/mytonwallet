@@ -6,7 +6,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.api.ArgumentsBuilder
-import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
@@ -30,6 +29,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import org.mytonwallet.app_air.walletcore.moshi.MEnvironmentVariables
 import org.mytonwallet.app_air.walletcore.moshi.MImportedViewWalletResponse
 import org.mytonwallet.app_air.walletcore.moshi.MImportedWalletResponse
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
@@ -135,6 +135,13 @@ sealed class ApiMethod<T> {
             override val type: Type = Result::class.java
             override val arguments: String = ArgumentsBuilder()
                 .jsObject(params, Params::class.java)
+                .build()
+        }
+
+        class GetEnvironmentVariables : ApiMethod<MEnvironmentVariables>() {
+            override val name: String = "getEnvironmentVariables"
+            override val type: Type = MEnvironmentVariables::class.java
+            override val arguments: String = ArgumentsBuilder()
                 .build()
         }
     }
@@ -790,7 +797,7 @@ sealed class ApiMethod<T> {
             chain: MBlockchain,
             accountId: String,
             passcode: String,
-            nft: ApiNft,
+            nfts: List<ApiNft>,
             address: String,
             comment: String?,
             fee: BigInteger,
@@ -802,7 +809,7 @@ sealed class ApiMethod<T> {
                 .string(chain.name)
                 .string(accountId)
                 .string(passcode)
-                .jsObject(arrayOf(nft.toDictionary()), Array<JSONObject>::class.java)
+                .jsObject(nfts.map { it.toDictionary() }.toTypedArray(), Array<JSONObject>::class.java)
                 .string(address)
                 .string(comment)
                 .bigInt(fee)

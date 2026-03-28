@@ -107,8 +107,8 @@ export function getTokenBySlug(slug: string): ApiTokenWithPrice | undefined {
   return tokensCache.bySlug[slug];
 }
 
-export function getTokenByAddress(tokenAddress: string) {
-  return getTokenBySlug(buildTokenSlug('ton', tokenAddress));
+export function getTokenByAddress(tokenAddress: string, chain?: ApiChain) {
+  return getTokenBySlug(buildTokenSlug(chain ?? 'ton', tokenAddress));
 }
 
 export function sendUpdateTokens(onUpdate: OnApiUpdate) {

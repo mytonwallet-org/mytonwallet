@@ -66,6 +66,7 @@ import Dependencies
         let accountId = accountStore.resolveAccountId(source: accountSource)
         let collections = NftStore.getCollections(accountId: accountId)
         let gifts = collections.telegramGiftsCollections
+        guard !gifts.isEmpty else { return nil }
         
         items += .button(
             id: "1-back",
@@ -110,6 +111,16 @@ import Dependencies
 @MainActor func configureTokensMenu(menuContext: MenuContext, onReorder: @escaping () -> ()) {
     menuContext.makeConfig = {
         var items: [MenuItem] = []
+        let currentLimit = AppStorageHelper.homeWalletVisibleTokensLimit
+        items += HomeWalletVisibleTokensLimit.allCases.map { limit in
+            MenuItem.button(
+                id: "0-limit-\(limit.rawValue)",
+                title: limit.title,
+                trailingIcon: currentLimit == limit ? .system("checkmark") : nil,
+                action: { AppStorageHelper.homeWalletVisibleTokensLimit = limit }
+            )
+        }
+        items += .wideSeparator()
         items += .button(id: "0-add", title: lang("Add Token"), trailingIcon: .system("plus")) {
             AppActions.showAddToken()
         }

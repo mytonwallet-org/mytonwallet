@@ -36,9 +36,6 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
         applySnapshot(animated: false)
     }
 
-    public override func updateTheme() {
-    }
-
     private func setupViews() {
         view.backgroundColor = .clear
 
@@ -114,7 +111,7 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
             snapshot.appendSections([.buyCrypto])
 
             var buyCryptoItems: [ReceiveItem] = []
-            if chain.isOfframpSupported {
+            if chain.isOnrampSupported {
                 buyCryptoItems.append(.buyWithCard)
             }
             buyCryptoItems.append(.buyWithCrypto)
@@ -139,11 +136,20 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
         case .address:
             break
         case .buyWithCard:
-            AppActions.showBuyWithCard(chain: chain, push: true)
+            AppActions.showBuyWithCard(accountContext: $account, chain: chain, push: true)
         case .buyWithCrypto:
-            AppActions.showSwap(defaultSellingToken: chain.defaultSellingSlug, defaultBuyingToken: chain.defaultBuyingSlug, defaultSellingAmount: nil, push: true)
+            AppActions.showSwap(
+                accountContext: $account,
+                defaultSellingToken: chain.defaultSellingSlug,
+                defaultBuyingToken: chain.defaultBuyingSlug,
+                defaultSellingAmount: nil,
+                push: true
+            )
         case .depositLink:
-            topWViewController()?.navigationController?.pushViewController(DepositLinkVC(), animated: true)
+            topWViewController()?.navigationController?.pushViewController(
+                DepositLinkVC(accountContext: $account, chain: chain),
+                animated: true
+            )
         }
     }
 

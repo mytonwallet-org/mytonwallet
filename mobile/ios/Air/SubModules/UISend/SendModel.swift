@@ -36,7 +36,7 @@ struct DraftData {
 public final class SendModel: Sendable {
     
     @PerceptionIgnored
-    @AccountContext(source: .current) var account: MAccount
+    @AccountContext var account: MAccount
     
     @PerceptionIgnored
     @Dependency(\.tokenStore.baseCurrency) var baseCurrency
@@ -56,7 +56,7 @@ public final class SendModel: Sendable {
     var comment: String = ""
     var binaryPayload: String?
     
-    var nfts: [ApiNft]?
+    var nfts: [ApiNft] = []
 
     let mode: SendMode
 
@@ -65,7 +65,7 @@ public final class SendModel: Sendable {
     @PerceptionIgnored
     var addressViewModel: AddressViewModel {
         let apiName = draftData.transactionDraft?.addressName
-        let chain = nfts?.first?.chain ?? token.chain
+        let chain = nfts.first?.chain ?? token.chain
         
         // A temporary solution to detect how would (if any) the address be saved
         var saveKey: String?
@@ -110,10 +110,10 @@ public final class SendModel: Sendable {
 
     private let flow: any SendFlow
 
-    init(prefilledValues: SendPrefilledValues) {
+    init(accountContext: AccountContext, prefilledValues: SendPrefilledValues) {
         @Dependency(\.tokenStore) var tokenStore
-        @Dependency(\.accountStore) var accountStore
         
+        self._account = accountContext
         self.mode = prefilledValues.mode
         
         let tokenSlug: String = if let jetton = prefilledValues.jetton?.nilIfEmpty, let tokenSlug = tokenStore.tokens.first(where: { tokenSlug, token in token.tokenAddress == jetton })?.key {
@@ -123,7 +123,7 @@ public final class SendModel: Sendable {
         } else if let token = prefilledValues.token {
             token
         } else {
-            accountStore.get(accountIdOrCurrent: nil).firstChain.nativeToken.slug
+            accountContext.account.firstChain.nativeToken.slug
         }
         self._token = TokenProvider(tokenSlug: tokenSlug)
 
@@ -152,7 +152,7 @@ public final class SendModel: Sendable {
         self.flow = isNftFlow ? NftSendFlow() : TokenSendFlow()
 
         if mode == .burnNft {
-            let burnChain = self.nfts?.first?.chain ?? self.token.chain
+            let burnChain = self.nfts.first?.chain ?? self.token.chain
             self.addressInput.textFieldInput = burnChain == .ton ? BURN_ADDRESS : NFT_BURN_PLACEHOLDER_ADDRESS
         }
         
@@ -169,7 +169,8 @@ public final class SendModel: Sendable {
         
         observers += observe { [weak self] in
             guard let self else { return }
-            _ = (self.account.id, self.addressOrDomain, self.token, self.amount, self.commentPayload)
+            // Avoid subscribing draft validation to draft-derived state via `commentPayload`.
+            _ = (self.account.id, self.addressOrDomain, self.token, self.amount, self.binaryPayload, self.comment, self.isMessageEncrypted)
             self.checkTransactionDraft()
         }
         observers += observe { [weak self] in
@@ -223,8 +224,29 @@ public final class SendModel: Sendable {
             )
         )
         maxToSend = maxAmount.map { TokenAmount($0, token) }
-        if let balance, amount == balance, amount ?? 0 > (maxAmount ?? 0) {
-            amount = maxAmount
+        adjustAmountForDraft(balance: balance, explainedFee: explainedFee)
+    }
+    
+    private func adjustAmountForDraft(balance: BigInt?, explainedFee: ExplainedTransferFee) {
+        guard
+            let balance,
+            let amount,
+            let fullFee = getFullTransferFee(explainedFee.fullFee?.terms, tokenSlug: token.slug),
+            amount <= balance,
+            fullFee < balance,
+            amount + fullFee >= balance
+        else {
+            return
+        }
+        
+        let adjustedAmount = balance - fullFee
+        guard adjustedAmount != amount else {
+            return
+        }
+        
+        self.amount = adjustedAmount
+        if switchedToBaseCurrencyInput {
+            updateBaseCurrencyAmount(adjustedAmount)
         }
     }
     
@@ -308,7 +330,7 @@ public final class SendModel: Sendable {
         !insufficientFunds &&
         resolvedAddress != nil &&
         !(isCommentRequired && comment.isEmpty) &&
-        (amount ?? 0 > 0 || nfts?.count ?? 0 > 0) &&
+        (amount ?? 0 > 0 || nfts.count > 0) &&
         !shouldShowMultisigWarning &&
         !shouldShowGasWarning &&
         !shouldShowDomainScamWarning
@@ -365,7 +387,8 @@ public final class SendModel: Sendable {
     }
     
     var showingFee: MFee? {
-        let fee = draftData.transactionDraft?.fee
+        let currentExplainedFee = explainedFee
+        let fee = currentExplainedFee?.fullFee?.nativeSum
         let isNativeFullBalance = token.isNative && token.chain.canTransferFullNativeBalance && accountBalance?.amount == amount
         let nativeTokenBalance = $account.balances[token.nativeTokenSlug] ?? 0
         let isEnoughNativeCoin = if isNativeFullBalance {
@@ -375,7 +398,7 @@ public final class SendModel: Sendable {
         }
         let isGaslessWithStars = dieselStatus == .starsFee
         let isDieselAvailable = dieselStatus == .available || isGaslessWithStars
-        let withDiesel = explainedFee?.isGasless == true
+        let withDiesel = currentExplainedFee?.isGasless == true
         let dieselAmount = draftData.transactionDraft?.diesel?.tokenAmount ?? 0
         let isEnoughDiesel = withDiesel && amount ?? 0 > 0 && (accountBalance?.amount ?? 0) > 0 && dieselAmount > 0
           ? (isGaslessWithStars
@@ -385,13 +408,9 @@ public final class SendModel: Sendable {
         let isInsufficientFee = (fee != nil && !isEnoughNativeCoin && !isDieselAvailable) || (withDiesel && !isEnoughDiesel)
         let isInsufficientBalance = accountBalance != nil && amount != nil && amount! > (accountBalance?.amount ?? 0)
         let shouldShowFull = isInsufficientFee && !isInsufficientBalance
-        return shouldShowFull ? explainedFee?.fullFee : explainedFee?.realFee
+        return shouldShowFull ? currentExplainedFee?.fullFee : currentExplainedFee?.realFee
     }
-    
-    var explainedTransferFee: ExplainedTransferFee? {
-        explainedFee ?? draftData.transactionDraft.flatMap { explainApiTransferFee(input: $0, tokenSlug: token.slug) }
-    }
-    
+
     var commentPayload: AnyTransferPayload? {
         if let binaryPayload = self.binaryPayload?.nilIfEmpty {
             return .base64(data: binaryPayload)

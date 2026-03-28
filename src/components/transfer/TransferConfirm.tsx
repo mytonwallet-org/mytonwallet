@@ -19,7 +19,6 @@ import { selectCurrentAccountId, selectNetworkAccounts } from '../../global/sele
 import buildClassName from '../../util/buildClassName';
 import { getChainConfig, getChainTitle } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
-import { explainApiTransferFee } from '../../util/fee/transferFee';
 import { getLocalAddressName } from '../../util/getLocalAddressName';
 import { vibrate } from '../../util/haptics';
 import { getChainBySlug } from '../../util/tokens';
@@ -62,8 +61,6 @@ function TransferConfirm({
     amount,
     toAddress,
     resolvedAddress,
-    fee,
-    realFee,
     comment,
     shouldEncrypt,
     promiseId,
@@ -78,6 +75,7 @@ function TransferConfirm({
     stateInit,
     isOfframp,
     isNftBurn,
+    explainedFee,
   },
   token,
   currentAccountId,
@@ -108,12 +106,6 @@ function TransferConfirm({
   const addressName = localAddressName || toAddressName;
   const isBurning = resolvedAddress === BURN_ADDRESS || isNftBurn;
   const isNotcoinBurning = resolvedAddress === NOTCOIN_EXCHANGERS[0];
-  const explainedFee = explainApiTransferFee({
-    fee,
-    realFee,
-    diesel,
-    tokenSlug,
-  });
 
   useHistoryBack({
     isActive,
@@ -134,7 +126,7 @@ function TransferConfirm({
   }
 
   function renderAmountWithFee() {
-    if (!explainedFee.realFee || !token) {
+    if (!explainedFee?.realFee || !token) {
       return undefined;
     }
 

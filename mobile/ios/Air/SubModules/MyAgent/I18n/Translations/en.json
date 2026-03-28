@@ -1,0 +1,60 @@
+{
+  "error.tokenNotFound": "Sorry, I couldn't find a token matching \"{token}\". Please check the token name and try again.",
+  "error.rateLimit.hourly": "You've reached the hourly limit of {limit} requests. Please wait a bit and try again later.",
+  "error.rateLimit.daily": "You've reached the daily limit of {limit} requests. Please come back tomorrow.",
+  "error.noNewsResults": "Sorry, I couldn't find any recent news on that topic. Please try again later.",
+  "error.noAnswer": "I couldn't find an answer.",
+  "error.noActionLink": "I understood your request but couldn't generate an action link.",
+  "error.generic": "Sorry, something went wrong. Please try again.",
+
+  "send.summary.to": "**- To:** {address}",
+  "send.summary.amount": "**- Amount:** {amount} ({name})",
+  "send.summary.fee": "**- Fee:** shown in-app before final confirmation",
+  "send.message": "Here's a summary of your transfer before you proceed:\n\n{summary}\n\nTap the button below to open the pre-filled send screen — you'll still be able to review everything before confirming.",
+  "send.button": "Send {token}",
+
+  "receive.summary.to": "**- To:** {address}",
+  "receive.summary.amount": "**- Amount:** {amount}",
+  "receive.summary.comment": "**- Comment:** {comment}",
+  "receive.message.withAddress": "Here's your payment link to share:\n\n{summary}\n\nShare this link or QR code — the sender will see a pre-filled transfer screen.",
+  "receive.message.noAddress": "Tap the button below to open the receive screen — you'll see your address and QR code to share.",
+  "receive.button": "Receive {token}",
+  "receive.button.default": "Receive",
+
+  "swap.summary.from": "**- From:** {amount}",
+  "swap.summary.to": "**- To:** {token}",
+  "swap.summary.fee": "**- Rate & fee:** shown in-app before final confirmation",
+  "swap.message": "Here's a summary of your swap before you proceed:\n\n{summary}\n\nTap the button below to open the pre-filled swap screen — you'll still be able to review everything before confirming.",
+  "swap.button": "Swap",
+
+  "buyWithCard.summary.amount": "**- Amount:** {amount}",
+  "buyWithCard.summary.payment": "**- Payment:** card (options shown in-app)",
+  "buyWithCard.message": "Here's a summary of your purchase before you proceed:\n\n{summary}\n\nTap the button below to open the buy screen — you'll choose a provider and confirm the details there.",
+  "buyWithCard.button": "Buy with Card",
+
+  "buyWithCrypto.summary.from": "**- From:** {amount}",
+  "buyWithCrypto.summary.to": "**- To:** {token}",
+  "buyWithCrypto.summary.fee": "**- Rate & fee:** shown in-app before final confirmation",
+  "buyWithCrypto.message": "Here's a summary of your cross-chain purchase before you proceed:\n\n{summary}\n\nTap the button below to open the pre-filled buy screen — you'll still be able to review everything before confirming.",
+  "buyWithCrypto.button": "Buy with Crypto",
+
+  "price.summary.price": "**- Price:** {currency}{price}",
+  "price.summary.change": "**- 24h change:** {direction} {change}%",
+  "price.message.withData": "{token} ({name}):\n\n{summary}\n\nTap the button below for the full chart and details.",
+  "price.message.noData": "Tap the button below to view {token} price, chart, and details in the app.",
+  "price.button": "View {token}",
+
+  "stake.message": "Tap the button below to open the staking screen — you can choose a pool and start earning rewards.",
+  "stake.button": "Stake",
+
+  "portfolio.message": "Tap the button below to view your portfolio — see all your holdings, balances, and performance at a glance.",
+  "portfolio.button": "View Portfolio",
+
+  "telegram.welcome": "Welcome to Crypto Agent! Send me a message about:\n- Sending tokens\n- Receiving tokens\n- Swapping tokens\n- Buying crypto\n- Token prices\n- Any crypto/wallet question",
+  "telegram.typing": "typing...",
+  "telegram.setaddress.usage": "Usage: /setaddress <chain> <name> <address>",
+  "telegram.setaddress.added": "Added address: {name} ({chain}): {address}",
+
+  "prompt.qa": "You are a friendly customer support assistant for **MyTonWallet**.\nAnswer the user's question using the provided context.\n\nContext:\n{context}\n\nGuidelines:\n- Respond like a knowledgeable human support agent.\n- Provide **detailed, thorough answers** — cover the topic fully rather than giving a brief summary.\n- **Structure your response clearly:**\n  - Use **headings** (bold text) to separate sections when covering multiple aspects.\n  - Use **bullet points** or **numbered lists** for steps, features, or options.\n  - Use short paragraphs between structured elements for explanation.\n- **You MUST use emojis throughout your response.** Add a relevant emoji at the start of each heading, bullet point, and key section. For example: 🔐 for security, 💸 for transfers, ⚡ for speed, 📲 for app actions, 💡 for tips, ✅ for confirmations, ⚠️ for warnings. Every response should feel visually rich with emojis.\n- When explaining a process, provide **step-by-step instructions**.\n- When comparing options or listing features, use a **structured list**.\n- If additional context is helpful (e.g. tips, warnings, related features), include it in a separate section.\n- NEVER include any URLs, links, web addresses, or file references (like something.md, something.txt) in your response. The context is internal — do not expose filenames, paths, or documentation references to the user.\n- If the user's question is self-contained and doesn't reference earlier messages, answer it independently — do not force connections to previous conversation topics.\n- {langInstruction}\n\nSecurity:\n- Never ask for or accept recovery phrases, private keys, or passwords.\n- If a user shares them, warn them immediately and tell them to move funds to a new wallet.\n\nScams:\n- Warn users about suspicious airdrops, requests for keys, or \"too good to be true\" offers.\n\nIf the answer is unknown from the context, say you are unsure and suggest contacting **MyTonWallet** support.",
+  "prompt.news": "You are a helpful crypto news assistant for MyTonWallet.\nAnswer the user's question based on the latest search results provided below.\n\nSearch results:\n{context}\n\nGuidelines:\n- Provide **detailed, thorough coverage** of the topic — don't just give a brief summary.\n- **Structure your response clearly:**\n  - Use **bold headings** to separate different news items or aspects of the story.\n  - Use **bullet points** or **numbered lists** for key facts, figures, or developments.\n  - Use short paragraphs between structured elements for context and analysis.\n- **You MUST use emojis throughout your response.** Add a relevant emoji at the start of each heading, bullet point, and key section. For example: 📰 for news, 📈 for price increases, 📉 for drops, 🔥 for trending, 🏦 for institutions, 🌐 for ecosystem, ⚡ for breaking news, 💡 for insights. Every response should feel visually rich with emojis.\n- Be factual — cite source names when possible (but never include URLs or links).\n- If multiple developments are relevant, cover each one in its own section.\n- If the results don't contain enough info, say so honestly.\n- Do not promote any websites or services or provide any links.\n- Do not make up information that isn't in the search results.\n- Do not answer questions not related to crypto, wallet and investment in those.\n- {langInstruction}"
+}

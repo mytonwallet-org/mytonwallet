@@ -124,7 +124,7 @@ fileprivate struct ButtonPressedStateReporter: ButtonStyle {
 // MARK: - on FrameChange Modifier
 
 extension View {
-    public func onFrameChange(inCoordinateSpace coordinateSpace: CoordinateSpace,
+    public func onFrameChange(inCoordinateSpace coordinateSpace: String,
                               emitChangesWhenOffscreen: Bool = false,
                               visibilityThreshold: Double = 0.1,
                               _ onChange: @escaping @MainActor (CGRect) -> Void) -> some View {
@@ -136,7 +136,7 @@ extension View {
 }
 
 fileprivate struct FrameTrackerModifier: ViewModifier {
-    private let coordinateSpace: CoordinateSpace
+    private let coordinateSpace: String
     private let emitChangesWhenOffscreen: Bool
     private let visibilityThreshold: Double
     private let onFrameChange: (CGRect) -> Void
@@ -148,7 +148,7 @@ fileprivate struct FrameTrackerModifier: ViewModifier {
         true // before iOS 18.0 onScrollVisibilityChange not available, so observe always
     }
 
-    init(coordinateSpace: CoordinateSpace,
+    init(coordinateSpace: String,
          emitChangesWhenOffscreen: Bool,
          visibilityThreshold: Double,
          onFrameChange: @escaping (CGRect) -> Void) {
@@ -160,6 +160,7 @@ fileprivate struct FrameTrackerModifier: ViewModifier {
     }
 
     func body(content: Content) -> some View {
+        let coordinateSpace = coordinateSpace
         content.applyModifierConditionally {
             if #available(iOS 18.0, *) {
                 $0.onScrollVisibilityChange(threshold: visibilityThreshold) { isVisible in
@@ -170,8 +171,8 @@ fileprivate struct FrameTrackerModifier: ViewModifier {
                 $0
             }
         }
-        .onGeometryChange(for: CGRect.self, of: { proxy in
-            proxy.frame(in: coordinateSpace)
+        .onGeometryChange(for: CGRect.self, of: { [coordinateSpace] proxy in
+            proxy.frame(in: .named(coordinateSpace))
         }, action: { frame in
             // isVisible == nil is for first emission, as `.onScrollVisibilityChange` is called
             // after `.onGeometryChange` when view appears.

@@ -7,6 +7,7 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.drawable.ShapeDrawable
+import android.net.Uri
 import android.os.Build
 import android.text.Spannable
 import android.text.SpannableString
@@ -38,8 +39,8 @@ import com.google.android.material.navigation.NavigationBarView
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.animatorx.FloatAnimator
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
-import android.net.Uri
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -69,6 +70,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
+import org.mytonwallet.app_air.uireceive.ReceiveBackgroundCache
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -85,17 +87,17 @@ import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.helpers.SubprojectHelpers
 import org.mytonwallet.app_air.walletcore.api.activateAccount
+import org.mytonwallet.app_air.walletcore.helpers.SubprojectHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
+import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.R
-import org.mytonwallet.app_air.uireceive.ReceiveBackgroundCache
 import org.mytonwallet.uihome.home.HomeVC
 import kotlin.math.roundToInt
 
@@ -106,8 +108,9 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
     companion object {
         const val ID_HOME = 1
-        const val ID_EXPLORE = 2
-        const val ID_SETTINGS = 3
+        const val ID_AGENT = 2
+        const val ID_EXPLORE = 3
+        const val ID_SETTINGS = 4
 
         const val SEARCH_HEIGHT = 44
         const val SEARCH_TOP_MARGIN = 4
@@ -129,7 +132,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     private var updateFloatingButton: WLabel? = null
     private var updateFloatingButtonBackground: WRippleDrawable? = null
 
-    private val bottomCornerView: ReversedCornerViewUpsideDown by lazy {
+    override val bottomCornerView: ReversedCornerViewUpsideDown by lazy {
         ReversedCornerViewUpsideDown(context, contentView).apply {
             setBlurOverlayColor(WColor.SecondaryBackground.color)
         }
@@ -153,11 +156,18 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             .setIcon(R.drawable.ic_home)
         menu.add(
             Menu.NONE,
+            ID_AGENT,
+            Menu.NONE,
+            LocaleController.getString("Agent")
+        )
+            .setIcon(R.drawable.ic_agent)
+        menu.add(
+            Menu.NONE,
             ID_EXPLORE,
             Menu.NONE,
             LocaleController.getString("Explore")
         )
-            .setIcon(R.drawable.ic_browser)
+            .setIcon(R.drawable.ic_explore)
         menu.add(
             Menu.NONE,
             ID_SETTINGS,
@@ -184,6 +194,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             if (isSwitchingTabs) {
                 return@setOnItemSelectedListener false
             }
+            updateHorizontalPadding(item.itemId)
 
             bottomNavigationView.post {
                 hideTooltips()
@@ -733,7 +744,8 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             bottomNavigationView.itemIconTintList = colorStateList
             bottomNavigationView.itemTextColor = colorStateList
             bottomNavigationView.itemActiveIndicatorColor = indicatorColorStateList
-            bottomNavigationView.itemRippleColor = ColorStateList.valueOf(WColor.Tint.color.colorWithAlpha(38))
+            bottomNavigationView.itemRippleColor =
+                ColorStateList.valueOf(WColor.Tint.color.colorWithAlpha(38))
         }
 
         for (navView in stackNavigationControllers.values) {
@@ -800,6 +812,9 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                     WFont.SemiBold.typeface
                 else
                     WFont.DemiBold.typeface
+            val fontMetrics = view.paint.fontMetrics
+            val textHeight = (fontMetrics.descent - fontMetrics.ascent).roundToInt()
+            view.layoutParams?.height = textHeight
         }
     }
 
@@ -828,7 +843,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         )
         bottomNavigationFrameLayout.clipToPadding = false
         onUpdateAdditionalHeight()
-        bottomCornerView.setHorizontalPadding(ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat())
+        updateHorizontalPadding()
 
         if (!isKeyboardOpen && searchEditText.hasFocus()) {
             searchEditText.clearFocus()
@@ -865,6 +880,10 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             when (id) {
                 ID_HOME -> {
                     HomeVC(context, MScreenMode.Default)
+                }
+
+                ID_AGENT -> {
+                    AgentVC(context)
                 }
 
                 ID_EXPLORE -> {
@@ -912,8 +931,15 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                 elevation = 6f.dp
                 alpha = 0f
                 setOnClickListener {
+                    val url = if (EnvironmentStore.isAndroidDirect) {
+                        EnvironmentStore.appVersion?.let {
+                            "https://github.com/mytonwallet-org/mytonwallet/releases/download/v$it/MyTonWallet.apk"
+                        } ?: "https://github.com/mytonwallet-org/mytonwallet/releases/latest"
+                    } else {
+                        "https://get.mytonwallet.io/android-store"
+                    }
                     val intent = Intent(Intent.ACTION_VIEW)
-                    intent.setData("https://get.mytonwallet.io/android-store".toUri())
+                    intent.setData(url.toUri())
                     window?.startActivity(intent)
                 }
             }
@@ -1014,6 +1040,15 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         val nav = WNavigationController(window!!)
         nav.setRoot(browserVC)
         window?.present(nav)
+    }
+
+    private fun updateHorizontalPadding(itemId: Int = bottomNavigationView.selectedItemId) {
+        bottomCornerView.setHorizontalPadding(
+            if (itemId == ID_AGENT)
+                0f
+            else
+                ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
+        )
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
@@ -1294,6 +1329,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             return !bottomCornerView.isPlaying
         }
 
+
     override fun pauseBlurring() {
         searchBlurryBackgroundView?.pauseBlurring()
         bottomCornerView.pauseBlurring()
@@ -1307,6 +1343,24 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     override fun setSearchText(text: String) {
         searchView.requestFocus()
         searchEditText.setText(text)
+    }
+
+    override fun switchToFirstTab(): Boolean {
+        if (bottomNavigationView.selectedItemId != ID_HOME) {
+            bottomNavigationView.selectedItemId = ID_HOME
+            return true
+        }
+        return false
+    }
+
+    override fun hideTabBar() {
+        bottomNavigationView.fadeOut()
+        bottomCornerView.fadeOut()
+    }
+
+    override fun showTabBar() {
+        bottomNavigationView.fadeIn()
+        bottomCornerView.fadeIn()
     }
 
     override fun onDestroy() {

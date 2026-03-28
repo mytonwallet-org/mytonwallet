@@ -77,7 +77,7 @@ private struct Cell: View {
                 } else {
                     Button(action: onClear) {
                         Image(systemName: "xmark.circle.fill")
-                            .tint(Color(WTheme.secondaryLabel))
+                            .tint(Color.air.secondaryLabel)
                             .imageScale(.small)
                     }
                 }

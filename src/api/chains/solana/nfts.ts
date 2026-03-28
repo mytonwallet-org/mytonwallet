@@ -17,16 +17,18 @@ import {
 
 import { parseAccountId } from '../../../util/account';
 import { getChainConfig } from '../../../util/chain';
+import { explainApiTransferFee } from '../../../util/fee/transferFee';
 import { fetchJson, fixIpfsUrl } from '../../../util/fetch';
 import { compact, omitUndefined } from '../../../util/iteratees';
 import { logDebug } from '../../../util/logs';
+import { getNativeToken } from '../../../util/tokens';
 import { getSolanaClient } from './util/client';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { checkHasScamLink } from '../../common/addresses';
 import { fetchAllPaginated, streamPaginated } from '../../common/pagination';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
 import { NETWORK_CONFIG } from './constants';
-import { buildTransaction, estimateTransactionFee, sendSignedTransaction } from './transfer';
+import { buildTransaction, estimateTransactionFee, FALLBACK_FEE, sendSignedTransaction } from './transfer';
 import { getIsWalletActive, getWalletBalance } from './wallet';
 
 const walletStatuses = new Map<string, 'active' | 'inactive'>();
@@ -318,7 +320,15 @@ export async function checkNftTransferDraft(options: {
   const estimationResult = await estimateTransactionFee({ network, serializedB64Transaction: tx });
 
   if ('error' in estimationResult) {
-    return { error: estimationResult.error };
+    const fee = FALLBACK_FEE;
+    return {
+      error: estimationResult.error,
+      explainedFee: explainApiTransferFee({
+        fee,
+        realFee: fee,
+        tokenSlug: getNativeToken('solana').slug,
+      }),
+    };
   }
 
   const fee = estimationResult.fee;
@@ -326,12 +336,24 @@ export async function checkNftTransferDraft(options: {
   const isEnoughBalanceWithFee = walletBalance >= fee;
 
   if (!isEnoughBalanceWithFee) {
-    return { error: ApiTransactionDraftError.InsufficientBalance };
+    const fallbackFee = fee ?? FALLBACK_FEE;
+    return {
+      error: ApiTransactionDraftError.InsufficientBalance,
+      explainedFee: explainApiTransferFee({
+        fee: fallbackFee,
+        realFee: fallbackFee,
+        tokenSlug: getNativeToken('solana').slug,
+      }),
+    };
   }
 
   return {
-    fee,
     resolvedAddress: toAddress,
+    explainedFee: explainApiTransferFee({
+      fee,
+      realFee: fee,
+      tokenSlug: getNativeToken('solana').slug,
+    }),
   };
 }
 

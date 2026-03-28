@@ -51,10 +51,7 @@ struct NotificationsSettingsView: View {
                 }
             }
             .onChange(of: viewModel.playSounds) { playSounds in
-                Task {
-                    AppStorageHelper.sounds = playSounds
-                    try await GlobalStorage.syncronize()
-                }
+                AppStorageHelper.sounds = playSounds
             }
         }
     }
@@ -140,8 +137,8 @@ struct SelectableAccountRow: View {
         InsetButtonCell(horizontalPadding: 0, verticalPadding: 9, action: onTap) {
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .foregroundStyle(Color(WTheme.tint))
-                .tint(Color(WTheme.tint))
+                .foregroundStyle(.tint)
+                .tint(.accentColor)
         }
         .allowsHitTesting(isEnabled)
         .opacity(isEnabled ? 1 : 0.4)

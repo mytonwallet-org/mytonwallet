@@ -1,0 +1,17 @@
+---
+description: Android Air architecture, module map, build entrypoints, and classic boundary
+globs: **/*.kt,**/*.kts,**/*.java,**/AndroidManifest.xml,README.md,docs/**/*.md,AI_CONTEXT.md,AGENTS.md,CLAUDE.md
+alwaysApply: false
+---
+## Android Air Context
+
+- Shared canonical context lives in `mobile/android/air/AI_CONTEXT.md`.
+- Android Air lives in `mobile/android/air`.
+- Android Classic lives in sibling `mobile/android/app` and is reference-only unless the task explicitly targets it.
+- Use Classic to mirror behavior when asked, but keep implementation changes inside Air.
+
+## Cursor Focus
+
+- Use `AI_CONTEXT.md` for module map, bridge/store flow, and build commands.
+- Prefer matching `UI*` modules for feature work and `UIComponents` for shared UI primitives.
+- Route native wallet calls through `WalletCore` and existing helpers instead of ad-hoc bridge access.

@@ -20,9 +20,9 @@ struct SendingHeaderView: View {
     var body: some View {
         WithPerceptionTracking {
             let text = lang("Send to") + " "
-            if let nft = model.nfts?.first {
+            if model.nfts.count > 0 {
                 NftOverviewView(
-                    nft: nft,
+                    nfts: model.nfts,
                     isOutgoing: true,
                     text: text,
                     addressViewModel: model.addressViewModel

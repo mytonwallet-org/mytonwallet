@@ -42,7 +42,6 @@ public class SwitchAccountVC: WViewController {
     
     // MARK: - Properties
     
-    var dismissCallback: (() -> Void)?
     var startingGestureRecognizer: UIGestureRecognizer?
     
     private let activeAccount: MAccount
@@ -196,7 +195,6 @@ public class SwitchAccountVC: WViewController {
         ])
         
         Haptics.prepare(.selection)
-        updateTheme()
     }
     
     private func configureDataSource() {
@@ -251,7 +249,7 @@ public class SwitchAccountVC: WViewController {
             }
         }
         let dividerRegistration = UICollectionView.CellRegistration<UICollectionViewCell, Void> { cell, _, _ in
-            cell.contentView.backgroundColor = WTheme.backgroundReverse.withAlphaComponent(0.1)
+            cell.contentView.backgroundColor = .air.backgroundReverse.withAlphaComponent(0.1)
             cell.backgroundColor = .clear
             cell.isUserInteractionEnabled = false
         }
@@ -307,7 +305,7 @@ public class SwitchAccountVC: WViewController {
             var configuration = UICollectionLayoutListConfiguration(appearance: .plain)
             configuration.headerMode = .none
             configuration.backgroundColor = .clear
-            configuration.separatorConfiguration.color = WTheme.separator
+            configuration.separatorConfiguration.color = .air.separator
             configuration.separatorConfiguration.bottomSeparatorInsets.leading = 62
             configuration.itemSeparatorHandler = { [weak self] indexPath, separatorConfiguration in
                 guard let self else { return separatorConfiguration }
@@ -329,8 +327,6 @@ public class SwitchAccountVC: WViewController {
     }
     
     // MARK: - Theme
-    
-    public override func updateTheme() {}
     
     public override var prefersStatusBarHidden: Bool { true }
     
@@ -385,13 +381,12 @@ public class SwitchAccountVC: WViewController {
         UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.75, initialSpringVelocity: 0.2) { [self] in
             collectionView.transform = .identity
             tabBarIcon.transform = .identity.translatedBy(x: 0, y: -5)
-            tabImageView.tintColor = WTheme.tint
-            tabLabel.textColor = WTheme.tint
+            tabImageView.tintColor = UIColor.tintColor
+            tabLabel.textColor = UIColor.tintColor
         }
     }
     
     public override func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) {
-        dismissCallback?()
         UIView.transition(with: self.view, duration: 0.2) { [self] in
             view.layer.backgroundColor = UIColor.black.withAlphaComponent(0.0).cgColor
         }
@@ -400,7 +395,7 @@ public class SwitchAccountVC: WViewController {
             blurView.alpha = 0
         }
         let collectionHeight = collectionViewHeightConstraint?.constant ?? calculatedHeight
-        let targetColor = switchedAccount ? WTheme.secondaryLabel : iconColor
+        let targetColor = switchedAccount ? .air.secondaryLabel : iconColor
         UIView.animate(withDuration: duration, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.2) { [self] in
             if flag {
                 collectionView.transform = .init(translationX: 60.0, y: collectionHeight / 2 - 30).scaledBy(x: 0.25, y: 0.25)
@@ -497,7 +492,7 @@ private struct ActionRowView: View {
     private var iconView: some View {
         icon
             .renderingMode(.template)
-            .foregroundStyle(Color.air.tint)
+            .foregroundStyle(.tint)
             .frame(width: actionRowIconSize, height: actionRowIconSize)
             .font(.system(size: 18, weight: .regular))
     }

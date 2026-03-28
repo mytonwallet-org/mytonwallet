@@ -22,6 +22,7 @@ import android.widget.TextView
 import androidx.core.animation.doOnEnd
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withSave
+import androidx.core.view.doOnPreDraw
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
@@ -59,7 +60,8 @@ class WClearSegmentedControl(
         val onRemove: ((v: View) -> Unit)?,
         // onClick, usually opens a popup menu
         var onClick: ((v: View) -> Unit)?,
-        var arrowVisibility: Float? = null
+        var arrowVisibility: Float? = null,
+        var badge: String? = null
     )
 
     var horizontalFadingEdge: Boolean
@@ -310,6 +312,8 @@ class WClearSegmentedControl(
 
     init {
         id = generateViewId()
+        clipChildren = false
+        clipToPadding = false
         addView(recyclerView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
             gravity = Gravity.CENTER
         })
@@ -317,6 +321,11 @@ class WClearSegmentedControl(
 
     private fun createRecyclerView() = object : WRecyclerView(context) {
         private var isDrawThumb: Boolean = false
+
+        init {
+            clipChildren = false
+            clipToPadding = false
+        }
 
         override fun dispatchDraw(canvas: Canvas) {
             if (!shouldRenderHoveringThumb) {
@@ -366,7 +375,8 @@ class WClearSegmentedControl(
 
             val textView = itemView.textView
             textView.setTextColor(if (isDrawThumb) primaryTextColor else secondaryTextColor)
-            textView.paint.typeface = if (isDrawThumb) WFont.DemiBold.typeface else WFont.Medium.typeface
+            textView.paint.typeface =
+                if (isDrawThumb) WFont.DemiBold.typeface else WFont.Medium.typeface
             val frameResult = super.drawChild(canvas, itemView, drawingTime)
 
             drawChildText(canvas, itemView, textView)
@@ -479,7 +489,7 @@ class WClearSegmentedControl(
     }
 
     fun updateItemsTrailingViews() {
-        recyclerView.post {
+        recyclerView.doOnPreDraw {
             updateThumbPosition(
                 position = currentPosition,
                 targetPosition = currentPosition.toInt(),
@@ -588,6 +598,14 @@ class WClearSegmentedControl(
         animator.start()
     }
 
+    fun setBadge(index: Int, badge: String?) {
+        if (!isValidIndex(index)) return
+        items[index].badge = badge
+        val cell = recyclerView.findViewHolderForAdapterPosition(index)?.itemView
+            as? WClearSegmentedControlItemView
+        cell?.setBadge(badge)
+    }
+
     fun updateOnMenuPressed(index: Int, onMenuPressed: ((v: View) -> Unit)?) {
         if (!isEnabled)
             return
@@ -688,6 +706,7 @@ class WClearSegmentedControl(
                 onRemove?.invoke(cell)
             }
         )
+        cell.setBadge(item.badge)
     }
 
     private fun handleCellClick(

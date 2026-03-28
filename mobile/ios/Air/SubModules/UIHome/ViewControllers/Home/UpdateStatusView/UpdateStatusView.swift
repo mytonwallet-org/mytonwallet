@@ -10,15 +10,21 @@ import UIComponents
 import WalletContext
 import WalletCore
 import Dependencies
+import SwiftNavigation
 
 public final class UpdateStatusView: UIStackView {
     
-    @AccountContext var account: MAccount
+    public let accountContext: AccountContext
     
-    public init(accountSource: AccountSource) {
-        self._account = AccountContext(source: accountSource)
+    public init(accountContext: AccountContext) {
+        self.accountContext = accountContext
         super.init(frame: .zero)
         setupViews()
+        setupObservers()
+    }
+
+    public convenience init(accountSource: AccountSource) {
+        self.init(accountContext: AccountContext(source: accountSource))
     }
     
     public override init(frame: CGRect) {
@@ -32,7 +38,7 @@ public final class UpdateStatusView: UIStackView {
     private var activityIndicator: WActivityIndicator!
     private var activityIndicatorContainer: UIView!
     private var statusLabel: UILabel!
-    private let updatingColor = WTheme.secondaryLabel
+    private let updatingColor = UIColor.air.secondaryLabel
     private var arrowImage = UIImageView(image: .airBundle("HomeTitleArrow"))
     
     private func setupViews() {
@@ -67,6 +73,15 @@ public final class UpdateStatusView: UIStackView {
         let g = UITapGestureRecognizer(target: self, action: #selector(onTap))
         addGestureRecognizer(g)
     }
+
+    private func setupObservers() {
+        observe { [weak self] in
+            guard let self else { return }
+            _ = accountContext.account.displayName
+            guard state == .updated || title.isEmpty else { return }
+            setState(newState: state, animatedWithDuration: title.isEmpty ? nil : 0.2)
+        }
+    }
     
     @objc func onTap() {
         AppActions.showWalletSettings()
@@ -84,7 +99,7 @@ public final class UpdateStatusView: UIStackView {
     private var animationCompletionHandler: (() -> Void)?
 
     public func setState(newState: State, animatedWithDuration duration: TimeInterval?) {
-        let currentDisplayName = account.displayName
+        let currentDisplayName = accountContext.account.displayName
         if state == newState &&
            (state != .updated || title == currentDisplayName) {
             return
@@ -152,7 +167,7 @@ public final class UpdateStatusView: UIStackView {
         activityIndicator.stopAnimating(animated: false)
         activityIndicatorContainer.isHidden = true
         statusLabel.font = .systemFont(ofSize: 17, weight: .semibold)
-        statusLabel.textColor = WTheme.primaryLabel
+        statusLabel.textColor = UIColor.label
         arrowImage.isHidden = false
     }
     

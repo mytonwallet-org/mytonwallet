@@ -23,6 +23,12 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
     private let textStack = UIStackView()
     private let contentStack = UIStackView()
     private let imageView = NftViewStatic()
+    private let noImagePlaceholderView = NftNoImagePlaceholderView()
+    private let domainExpirationBannerView = NftDomainExpirationBannerView()
+    private let forSaleTagView = NftForSaleTagView()
+    private var forSaleTagTopConstraint: NSLayoutConstraint?
+    private var forSaleTagTrailingConstraint: NSLayoutConstraint?
+    private var selectionIcon: UIImageView?
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -46,12 +52,18 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageContainerView.addSubview(imageView)
 
-        titleLabel.font = .systemFont(ofSize: 14)
+        noImagePlaceholderView.translatesAutoresizingMaskIntoConstraints = false
+        noImagePlaceholderView.isHidden = true
+        imageContainerView.addSubview(noImagePlaceholderView)
+
+        imageContainerView.addSubview(domainExpirationBannerView)
+
+        titleLabel.font = .systemFont(ofSize: 14, weight: .medium)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.numberOfLines = 1
 
         subtitleLabel.font = .systemFont(ofSize: 12)
-        subtitleLabel.textColor = WTheme.secondaryLabel
+        subtitleLabel.textColor = .air.secondaryLabel
         subtitleLabel.lineBreakMode = .byTruncatingTail
         subtitleLabel.numberOfLines = 1
 
@@ -70,6 +82,12 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
         contentStack.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(contentStack)
 
+        imageContainerView.addSubview(forSaleTagView)
+        let forSaleTagTopConstraint = forSaleTagView.topAnchor.constraint(equalTo: imageContainerView.topAnchor, constant: -NftForSaleTagView.Style.regular.topOverlap)
+        let forSaleTagTrailingConstraint = forSaleTagView.trailingAnchor.constraint(equalTo: imageContainerView.trailingAnchor, constant: -NftForSaleTagView.Style.regular.trailingInset)
+        self.forSaleTagTopConstraint = forSaleTagTopConstraint
+        self.forSaleTagTrailingConstraint = forSaleTagTrailingConstraint
+
         NSLayoutConstraint.activate([
             backgroundView1.topAnchor.constraint(equalTo: contentView.topAnchor),
             backgroundView1.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
@@ -85,14 +103,34 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
             imageView.leadingAnchor.constraint(equalTo: imageContainerView.leadingAnchor),
             imageView.trailingAnchor.constraint(equalTo: imageContainerView.trailingAnchor),
             imageView.bottomAnchor.constraint(equalTo: imageContainerView.bottomAnchor),
-            
+
+            noImagePlaceholderView.topAnchor.constraint(equalTo: imageContainerView.topAnchor),
+            noImagePlaceholderView.leadingAnchor.constraint(equalTo: imageContainerView.leadingAnchor),
+            noImagePlaceholderView.trailingAnchor.constraint(equalTo: imageContainerView.trailingAnchor),
+            noImagePlaceholderView.bottomAnchor.constraint(equalTo: imageContainerView.bottomAnchor),
+
+            domainExpirationBannerView.leadingAnchor.constraint(equalTo: imageContainerView.leadingAnchor),
+            domainExpirationBannerView.trailingAnchor.constraint(equalTo: imageContainerView.trailingAnchor),
+            domainExpirationBannerView.bottomAnchor.constraint(equalTo: imageContainerView.bottomAnchor),
+
+            forSaleTagTopConstraint,
+            forSaleTagTrailingConstraint,
+
             imageContainerView.widthAnchor.constraint(equalTo: imageContainerView.heightAnchor),
         ])
+
+        imageView.onStateChange = { [weak self] state in
+            self?.applyImageState(state)
+        }
     }
     
     override func prepareForReuse() {
         super.prepareForReuse()
-        imageView.kf.cancelDownloadTask()
+        imageView.reset()
+        noImagePlaceholderView.isHidden = true
+        imageView.isHidden = false
+        domainExpirationBannerView.text = nil
+        forSaleTagView.isHidden = true
         wiggle.prepareForReuse()
     }
     
@@ -100,13 +138,45 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
         super.layoutSubviews()
         wiggle.layoutDidChange()
     }
+    
+    private func configureSelection(isSelected: Bool?) {
+        guard let isSelected else {
+            selectionIcon?.removeFromSuperview()
+            selectionIcon = nil
+            return
+        }
+        
+        if selectionIcon == nil {
+            let selectionIcon = UIImageView()
+            selectionIcon.translatesAutoresizingMaskIntoConstraints = false
+            imageContainerView.addSubview(selectionIcon)
+            NSLayoutConstraint.activate([
+                selectionIcon.trailingAnchor.constraint(equalTo: imageContainerView.trailingAnchor, constant: -6),
+                selectionIcon.topAnchor.constraint(equalTo: imageContainerView.topAnchor, constant: 6),
+                selectionIcon.widthAnchor.constraint(equalToConstant: 28),
+                selectionIcon.heightAnchor.constraint(equalToConstant: 28),
+            ])
+            self.selectionIcon = selectionIcon
+        }
+        
+        selectionIcon?.image = .airBundleOptional(isSelected ? "SelectedItem" : "UnselectedItem")
+    }
 
-    func configure(nft: ApiNft?, compactMode: Bool, isMultichain: Bool) {
+    func configure(nft: ApiNft?, compactMode: Bool, isMultichain: Bool, domainExpirationText: String?, isSelected: Bool?) {
         let cornerRadius = NftCell.getCornerRadius(compactMode: compactMode)
+        let forSaleTagStyle: NftForSaleTagView.Style = compactMode ? .compact : .regular
         imageContainerView.layer.cornerRadius = cornerRadius
-        imageContainerView.backgroundColor = WTheme.secondaryFill
+        imageContainerView.backgroundColor = .air.secondaryFill
+        noImagePlaceholderView.apply(style: compactMode ? .compact : .regular)
 
         imageView.configure(nft: nft)
+        domainExpirationBannerView.style = compactMode ? .compact : .regular
+        domainExpirationBannerView.text = domainExpirationText
+        forSaleTagView.style = forSaleTagStyle
+        forSaleTagTopConstraint?.constant = -forSaleTagStyle.topOverlap
+        forSaleTagTrailingConstraint?.constant = -forSaleTagStyle.trailingInset
+        forSaleTagView.isHidden = !(nft?.isOnSale ?? false)
+        configureSelection(isSelected: isSelected)
 
         if compactMode {
             textStack.isHidden = true
@@ -123,9 +193,20 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
             }
             attr.append(NSAttributedString(string: subtitle, attributes: [
                 .font: subtitleLabel.font ?? .systemFont(ofSize: 12),
-                .foregroundColor: WTheme.secondaryLabel
+                .foregroundColor: UIColor.air.secondaryLabel
             ]))
             subtitleLabel.attributedText = attr
+        }
+    }
+
+    private func applyImageState(_ state: NftViewStatic.ImageState) {
+        switch state {
+        case .loading, .loaded:
+            noImagePlaceholderView.isHidden = true
+            imageView.isHidden = false
+        case .unavailable:
+            noImagePlaceholderView.isHidden = false
+            imageView.isHidden = true
         }
     }
 

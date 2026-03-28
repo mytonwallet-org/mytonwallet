@@ -26,16 +26,19 @@ dependencies {
     implementation(libs.androidx.core.ktx)
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+    }
+}
+
 android {
     namespace = "me.vkryl.core"
-    compileSdk = 35
+    compileSdk = 36
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
-    }
-    kotlinOptions {
-        jvmTarget = "1.8"
     }
 }
 

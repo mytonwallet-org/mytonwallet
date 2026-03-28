@@ -72,7 +72,7 @@ public final class ExplorerHelper {
         }
         return explorerNftUrl(nft)
     }
-    
+
     public static func tonscanNftUrl(_ nft: ApiNft) -> URL {
         if nft.chain != .ton {
             return addressUrl(chain: nft.chain, address: nft.address)
@@ -101,12 +101,30 @@ public final class ExplorerHelper {
         return addressUrl(chain: chain, address: nft.address)
     }
     
+    public static func getgemsNftCollectionUrl(collectionAddress: String) -> URL? {
+        guard let collectionAddress = collectionAddress.nilIfEmpty else {
+            return nil
+        }
+        return URL(string: "https://getgems.io/collection/\(collectionAddress)")
+    }
+    
+    public static func tonscanNftCollectionUrl(collectionAddress: String) -> URL? {
+        guard let collectionAddress = collectionAddress.nilIfEmpty else {
+            return nil
+        }
+        return URL(string: "https://tonscan.org/nft/\(collectionAddress)")
+    }
+
     public static func nftCollectionUrl(_ nft: ApiNft) -> URL {
         guard let collectionAddress = nft.collectionAddress?.nilIfEmpty else {
             return explorerNftUrl(nft)
         }
         if nft.chain == .ton {
-            return URL(string: "https://getgems.io/collection/\(collectionAddress)")!
+            guard let url = getgemsNftCollectionUrl(collectionAddress: collectionAddress) else {
+                assertionFailure("Unable to create collection url for \(collectionAddress)")
+                return explorerNftUrl(nft)
+            }
+            return url
         }
         let network = AccountStore.activeNetwork
         if let explorer = selectedExplorerConfig(for: nft.chain),

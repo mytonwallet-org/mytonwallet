@@ -14,6 +14,7 @@ import type { PreparedTransactionToSign } from '../types';
 import { ApiCommonError } from '../../../types';
 
 import { parseAccountId } from '../../../../util/account';
+import { randomBytes } from '../../../../util/random';
 import withCache from '../../../../util/withCache';
 import { hexToBytes } from '../../../common/utils';
 import { signDataWithPrivateKey, signTonProofWithPrivateKey } from '../../../dappProtocols/adapters/tonConnect/signing';
@@ -161,9 +162,10 @@ class MnemonicSigner extends PrivateKeySigner {
 
 class MockSigner extends PrivateKeySigner {
   public isMock = true;
+  private readonly privateKey = randomBytes(64);
 
   public getPrivateKey() {
-    return Buffer.alloc(64);
+    return this.privateKey;
   }
 }
 

@@ -79,17 +79,18 @@ public final class BubbleView: UIView {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        UIView.performWithoutAnimation {
-            var bubbleBounds = bounds
-            if bubbleBounds.height <= 40 {
-                bubbleBounds.size.height = 32
-            }
-            bubbleBounds = bubbleBounds.offsetBy(dx: direction == .incoming ? -4 : 4, dy: 0)
-            if bubbleBounds != bubbleLayer.frame {
-                bubbleLayer.frame = bubbleBounds
-                bubbleLayer.path = makeShape(bounds: bubbleLayer.bounds)
-            }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        var bubbleBounds = bounds
+        if bubbleBounds.height <= 40 {
+            bubbleBounds.size.height = 32
         }
+        bubbleBounds = bubbleBounds.offsetBy(dx: direction == .incoming ? -4 : 4, dy: 0)
+        if bubbleBounds != bubbleLayer.frame {
+            bubbleLayer.frame = bubbleBounds
+            bubbleLayer.path = makeShape(bounds: bubbleLayer.bounds)
+        }
+        CATransaction.commit()
     }
 
     private func makeShape(bounds: CGRect) -> CGPath {
@@ -150,13 +151,19 @@ public final class BubbleView: UIView {
     private func setDirection(_ direction: Direction, isError: Bool) {
         self.direction = direction
         self.isError = isError
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         bubbleLayer.fillColor =  isError ? errorColor.cgColor : direction.color.cgColor
         bubbleLayer.transform = direction.transform
+        CATransaction.commit()
         setNeedsLayout()
     }
     
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         bubbleLayer.fillColor =  isError ? errorColor.cgColor : direction.color.cgColor
+        CATransaction.commit()
     }
 }
 
@@ -295,4 +302,3 @@ public struct SBubbleView: UIViewRepresentable {
         return calculatedSize
     }
 }
-

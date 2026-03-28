@@ -33,8 +33,8 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
@@ -126,11 +126,21 @@ class WAutoCompleteAddressView(
                             activeChainName == null || account.byChain.containsKey(activeChainName)
                         }
                         .filter { account ->
-                            account.name.contains(keyword, ignoreCase = true) ||
-                                account.byChain.values.any {
-                                    it.address.contains(keyword, ignoreCase = true) ||
-                                        it.domain?.contains(keyword, ignoreCase = true) == true
+                            if (activeChainName != null) {
+                                doesAddressItemFitSearch(
+                                    address = account.byChain[activeChainName]?.address,
+                                    name = account.name,
+                                    query = keyword,
+                                )
+                            } else {
+                                account.byChain.values.any { chainInfo ->
+                                    doesAddressItemFitSearch(
+                                        address = chainInfo.address,
+                                        name = account.name,
+                                        query = keyword,
+                                    )
                                 }
+                            }
                         }.sortedBy { it.name }
                 }
             } else {
@@ -139,15 +149,30 @@ class WAutoCompleteAddressView(
             val savedAddresses: List<MSavedAddress> = withContext(Dispatchers.IO) {
                 (AddressStore.addressData?.savedAddresses ?: emptyList()).filter { savedAddress ->
                     (activeChainName == null || savedAddress.chain == activeChainName) &&
-                        (savedAddress.address.contains(keyword, true) ||
-                        savedAddress.name.contains(keyword, true))
+                        doesAddressItemFitSearch(
+                            address = savedAddress.address,
+                            name = savedAddress.name,
+                            query = keyword,
+                        )
 
                 }.sortedBy { it.name }
+            }
+            val savedAddressKeys = savedAddresses.map { "${it.chain}:${it.address}" }.toHashSet()
+            val filteredAccounts = accounts.filter { account ->
+                if (activeChainName != null) {
+                    val accountAddress =
+                        account.byChain[activeChainName]?.address ?: return@filter false
+                    !savedAddressKeys.contains("$activeChainName:$accountAddress")
+                } else {
+                    account.byChain.entries.any { (chain, chainData) ->
+                        !savedAddressKeys.contains("$chain:${chainData.address}")
+                    }
+                }
             }
 
             val newSections = createSections(
                 buildSavedAddressItems(keyword, network, savedAddresses),
-                buildAccountItems(keyword, network, accounts)
+                buildAccountItems(keyword, network, filteredAccounts)
             )
 
             sections = checkAndPrepareForDisappearAnimation(keyword, newSections)
@@ -156,7 +181,7 @@ class WAutoCompleteAddressView(
             rvAdapter.reloadData()
 
             if (autoSelect) {
-                autoSelectIfOnlyOne(keyword, savedAddresses, accounts)
+                autoSelectIfOnlyOne(keyword, savedAddresses, filteredAccounts)
             }
         }
     }
@@ -355,20 +380,22 @@ class WAutoCompleteAddressView(
         val cell = cellHolder.cell as IAutoCompleteAddressItemCell
         val children = sections[indexPath.section].children
         val item = children[indexPath.row]
-        val onLongClick = if (indexPath.section == 0 && indexPath.row > 0) {
-            {
-                val contentView = (cellHolder.cell as? WAutoCompleteAddressCell)?.contentView
-                if (contentView != null && item.savedAddress != null) {
-                    onAddressClicked(
-                        contentView,
-                        item.network,
-                        item.savedAddress
-                    )
+        val onLongClick =
+            if (indexPath.section == 0 && indexPath.row > 0 && item.savedAddress != null) {
+                {
+
+                    val contentView = (cellHolder.cell as? WAutoCompleteAddressCell)?.contentView
+                    if (contentView != null) {
+                        onAddressClicked(
+                            contentView,
+                            item.network,
+                            item.savedAddress
+                        )
+                    }
                 }
+            } else {
+                null
             }
-        } else {
-            null
-        }
         cell.configure(
             item,
             onTap = {
@@ -443,5 +470,22 @@ class WAutoCompleteAddressView(
             showTemporaryViewOption = true,
             windowBackgroundStyle = windowBackgroundStyle
         )
+    }
+
+    private fun doesAddressItemFitSearch(address: String?, name: String, query: String): Boolean {
+        if (query.isBlank()) return true
+
+        val normalizedQuery = query.trim().lowercase()
+        if (normalizedQuery.isEmpty()) return true
+
+        val normalizedAddress = address?.lowercase() ?: ""
+        if (normalizedAddress.startsWith(normalizedQuery) ||
+            normalizedAddress.endsWith(normalizedQuery)
+        ) return true
+
+
+        return name.lowercase()
+            .split("\\s+".toRegex())
+            .any { part -> part.startsWith(normalizedQuery) }
     }
 }

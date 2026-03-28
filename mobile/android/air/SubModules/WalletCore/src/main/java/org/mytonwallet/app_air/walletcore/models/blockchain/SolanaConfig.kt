@@ -13,7 +13,7 @@ object SolanaConfig : MBlockchainConfig {
 
     override val symbolIcon = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_sol
 
-    override val symbolIconPadded = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_sol
+    override val symbolIconPadded = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_sol_15
 
     override val receiveOrnamentImage = org.mytonwallet.app_air.icons.R.drawable.receive_ornament_sol_light
 
@@ -28,7 +28,7 @@ object SolanaConfig : MBlockchainConfig {
     override val isEncryptedCommentSupported = false
 
     override val burnAddress = null
-    override val canBuyWithCard = false
+    override val canBuyWithCard = true
 
     override fun isValidAddress(address: String): Boolean =
         Regex("""^[1-9A-HJ-NP-Za-km-z]{32,44}$""").matches(address)

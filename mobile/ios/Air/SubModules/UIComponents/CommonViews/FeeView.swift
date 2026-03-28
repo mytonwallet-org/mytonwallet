@@ -18,7 +18,7 @@ public struct FeeView: View {
     private let explainedTransferFee: ExplainedTransferFee?
     private let includeLabel: Bool
     
-    private var shouldShowDetails: Bool { explainedTransferFee != nil }
+    private var shouldShowDetails: Bool { explainedTransferFee?.supportsLegacyDetailsView == true }
     
     public init(token: ApiToken, nativeToken: ApiToken, fee: MFee?, explainedTransferFee: ExplainedTransferFee?, includeLabel: Bool) {
         self.token = token
@@ -30,32 +30,41 @@ public struct FeeView: View {
     
     public var body: some View {
         if let fee = fee ?? explainedTransferFee?.realFee {
-            Button(action: showFeeDetails) {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    let value = Text(fee.toString(token: token, nativeToken: nativeToken))
-                    if includeLabel {
-                        let label = Text(lang("$fee_value_with_colon", arg1: ""))
-                        Text("\(label)\(value)")
-                    } else {
-                        value
-                    }
-                    if shouldShowDetails {
-                        Image(systemName: "questionmark.circle.fill")
-                            .imageScale(.medium)
-                            .foregroundStyle(Color(WTheme.secondaryLabel.withAlphaComponent(0.3)))
-                    }
+            if shouldShowDetails {
+                Button(action: showFeeDetails) {
+                    feeContent(fee, showsDetailsIcon: true)
                 }
-                .padding(2)
-                .contentShape(.rect)
+                .padding(-2)
+                .buttonStyle(.plain)
+                .animation(.snappy, value: shouldShowDetails)
+            } else {
+                feeContent(fee, showsDetailsIcon: false)
             }
-            .padding(-2)
-            .buttonStyle(.plain)
-            .animation(.snappy, value: shouldShowDetails)
         }
+    }
+    
+    @ViewBuilder
+    private func feeContent(_ fee: MFee, showsDetailsIcon: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            let value = Text(fee.toString(token: token, nativeToken: nativeToken))
+            if includeLabel {
+                let label = Text(lang("$fee_value_with_colon", arg1: ""))
+                Text("\(label)\(value)")
+            } else {
+                value
+            }
+            if showsDetailsIcon {
+                Image(systemName: "questionmark.circle.fill")
+                    .imageScale(.medium)
+                    .foregroundStyle(Color(.air.secondaryLabel.withAlphaComponent(0.3)))
+            }
+        }
+        .padding(2)
+        .contentShape(.rect)
     }
 
     func showFeeDetails() {
-        if let explainedTransferFee {
+        if shouldShowDetails, let explainedTransferFee {
             if let vc = topWViewController() {
                 vc.view.endEditing(true)
                 vc.showTip(title: "Blockchain Fee Details", wide: true) {
@@ -65,4 +74,3 @@ public struct FeeView: View {
         }
     }
 }  
-

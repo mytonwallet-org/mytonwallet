@@ -33,7 +33,7 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
     }
     
     private func setupViews() {
-        view.backgroundColor = WTheme.background
+        view.backgroundColor = .air.background
         
         let closeButton = if IOS_26_MODE_ENABLED {
             WNavigationBarButton(icon: UIImage(systemName: "xmark"), onPress: { [weak self] in
@@ -46,7 +46,7 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         }
         
         let image = IOS_26_MODE_ENABLED ? UIImage(systemName: "ellipsis") : UIImage(named: "More22", in: AirBundle, with: nil)
-        let moreButton = WNavigationBarButton(icon: image, tintColor: WTheme.tint, onPress: nil, menu: makeMenu(), showsMenuAsPrimaryAction: true)
+        let moreButton = WNavigationBarButton(icon: image, tintColor: .tintColor, onPress: nil, menu: makeMenu(), showsMenuAsPrimaryAction: true)
         
         addNavigationBar(navHeight: 60, title: " ", subtitle: "", leadingItem: closeButton, trailingItem: moreButton, tintColor: nil, titleColor: nil, closeIcon: false, addBackButton: { [weak self] in
             self?.goBack()
@@ -70,7 +70,6 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         bringNavigationBarToFront()
         updateNavigationBar()
         
-        updateTheme()
     }
     
     private var pages: [InAppBrowserPageVC] {
@@ -169,9 +168,6 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         }
     }
     
-    override func updateTheme() {
-    }
-    
     private func makeMenu() -> UIMenu {
         let reloadAction = UIAction(title: lang("Reload Page"),
                                     image: UIImage(systemName: "arrow.clockwise")) { [weak self] _ in
@@ -241,7 +237,7 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
 
     private func makeExplorerTitleText(_ title: String, label: UILabel) -> NSAttributedString {
         let font = label.font ?? .systemFont(ofSize: 17, weight: .semibold)
-        let color = label.textColor ?? WTheme.primaryLabel
+        let color = label.textColor ?? UIColor.label
         let attr = NSMutableAttributedString(string: title, attributes: [
             .font: font,
             .foregroundColor: color,

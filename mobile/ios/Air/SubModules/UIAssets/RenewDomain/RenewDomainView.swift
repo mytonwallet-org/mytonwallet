@@ -54,7 +54,7 @@ struct RenewDomainView: View {
         .environment(\.isLoading, viewModel.isButtonLoading)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(WTheme.sheetBackground))
+        .background(Color.air.sheetBackground)
     }
 }
 

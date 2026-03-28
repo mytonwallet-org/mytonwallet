@@ -24,7 +24,7 @@ public struct CellBackgroundHighlight: View {
     
     public var body: some View {
         Rectangle()
-            .fill(isHighlighted ? Color.air.highlight : normalColor)
+            .fill(isHighlighted ? .air.highlight : normalColor)
             .animation(.linear(duration: isHighlighted ? 0.1 : 0.5), value: isHighlighted)
             .clipShape(.rect(cornerRadius: isSwiped ? swipeCornerRadius : 0))
             .animation(.smooth(duration: 0.15), value: isSwiped)

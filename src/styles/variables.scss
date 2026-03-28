@@ -3,9 +3,9 @@
 :root {
   // Color names comes from figma file
   --color-white: #FFF;
-  --color-default-accent: #0088CC;
-  --color-default-accent-hover: #0088CCCC;
-  --color-accent: #0088CC;
+  --color-default-accent: #2C92F0;
+  --color-default-accent-hover: #2C92F0CC;
+  --color-accent: #2C92F0;
   --color-black: #2C333E;
   --color-black-rgb: 44, 51, 62;
   --color-gray-1: #616770;
@@ -18,7 +18,7 @@
   --color-purple-1: #5E6BDE;
   --color-purple-2: #6875E9;
   --color-orange: #DC7C00;
-  --color-accent-10o: #0088CC1A;
+  --color-accent-10o: #2C92F01A;
 
   --color-background-first: #FFFFFF;
   --color-background-first-disabled: #FAFAFA;
@@ -26,6 +26,7 @@
   --color-background-window: #F3F4F5;
   --color-background-drop-down: #FFFFFF;
   --color-background-tab-bar: #F3F4F5CC;
+  --color-background-tab-bar-explore: #F3F4F5E5;
   --color-background-first-blur: #FFFFFFCC;
   --color-background-lock: rgba(255, 255, 255, 0.8);
   --color-background-purple-1: #F9FAFE;
@@ -43,7 +44,7 @@
 
   --color-accent-button-text: #FFFFFF;
   --color-accent-button-text-hover: #FFFFFF;
-  --color-accent-button-background: #0088CC;
+  --color-accent-button-background: #2C92F0;
   --color-accent-button-background-hover: #16A5ED;
 
   --color-red-button-text: #FFFFFF;
@@ -172,7 +173,7 @@
   --color-vesting-text: #007FBE;
   --color-vesting-background: #B4DBF0;
 
-  --color-gradient-main-blue2-green: linear-gradient(81.88deg, #0088CC 19.42%, #1EC160 71.55%);
+  --color-gradient-main-blue2-green: linear-gradient(81.88deg, #2C92F0 19.42%, #1EC160 71.55%);
   --color-gradient-main-gray2-green: linear-gradient(90deg, #8B8F96 25%, #10B853 75%);
   --color-gradient-activity-gray-green-bg: linear-gradient(135deg, #EAFBF1 13.89%, #EDF1F6 86.11%);
 
@@ -278,6 +279,7 @@
     --color-background-window: #0E0E0F;
     --color-background-drop-down: #222224;
     --color-background-tab-bar: #1C1C1EE5;
+    --color-background-tab-bar-explore: #131314E5;
     --color-background-first-blur: #1C1C1EE5;
     --color-background-lock: rgba(28, 28, 30, 0.8);
     --color-background-purple-1: #191D2A;

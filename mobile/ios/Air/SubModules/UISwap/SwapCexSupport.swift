@@ -38,12 +38,13 @@ enum SwapCexSupport {
                 payload: nil,
                 stateInit: nil,
                 tokenAddress: sellingToken.tokenAddress,
-                realFee: draft.realFee,
+                realFee: draft.realNativeFee,
                 isGasless: false,
                 dieselAmount: nil,
                 isGaslessWithStars: nil,
+                gaslessTransaction: nil,
                 password: passcode,
-                fee: draft.fee,
+                fee: draft.fullNativeFee,
                 noFeeCheck: nil
             )
             _ = try await Api.swapCexSubmit(chain: sellingToken.chain, options: options, swapId: createResult.swap.id)

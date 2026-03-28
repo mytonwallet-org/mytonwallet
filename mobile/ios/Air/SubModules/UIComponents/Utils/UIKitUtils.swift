@@ -106,6 +106,27 @@ public extension CGRect {
         }
         return result
     }
+    
+    static func fromSize(_ size: CGSize) -> CGRect {
+        CGRect(origin: .zero, size: size)
+    }
+
+    static func square(_ size: CGFloat) -> CGRect {
+        CGRect(x: 0, y: 0, width: size, height: size)
+    }
+
+    static func fromSize(width: CGFloat = 0, height: CGFloat = 0) -> CGRect {
+        CGRect(x: 0, y: 0, width: width, height: height)
+    }
+    
+    func copyWith(x: CGFloat? = nil, y: CGFloat? = nil, width: CGFloat? = nil, height: CGFloat? = nil) -> CGRect {
+        .init(
+            x: x ?? origin.x,
+            y: y ?? origin.y,
+            width: width ?? size.width,
+            height: height ?? size.height
+        )
+    }
 }
 
 public extension NSDirectionalEdgeInsets {

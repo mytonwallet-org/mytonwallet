@@ -1,22 +1,80 @@
-import Foundation
 import Dependencies
+import Foundation
+import GRDB
 import Perception
 import WalletContext
 
-@Perceptible
-public final class SavedAddressesStore: Sendable {
-    
-    private let _byAccountId: UnfairLock<[String: SavedAddresses]> = .init(initialState: [:])
-    
-    public func `for`(accountId: String) -> SavedAddresses {
-        access(keyPath: \._byAccountId)
-        return _byAccountId.withLock { _byAccountId in
-            if let settings = _byAccountId[accountId] {
-                return settings
+private let log = Log("SavedAddressesStore")
+
+public actor SavedAddressesStore: WalletCoreData.EventsObserver {
+    @MainActor private var byAccountId: MainActorByAccountIdStore<SavedAddresses> = .init(initialValue: SavedAddresses.init(accountId:))
+
+    private var db: (any DatabaseWriter)?
+
+    init() {
+    }
+
+    func use(db: any DatabaseWriter) async {
+        self.db = db
+        await loadFromDb()
+        WalletCoreData.add(eventObserver: self)
+    }
+
+    @MainActor func clean() {
+        byAccountId.removeAll()
+    }
+
+    @MainActor public func `for`(accountId: String) -> SavedAddresses {
+        byAccountId.for(accountId: accountId)
+    }
+
+    func persist(accountId: String, values: [SavedAddress]) {
+        guard let db else {
+            assertionFailure("database not ready")
+            return
+        }
+
+        let row = MAccountSavedAddresses(accountId: accountId, addresses: values)
+        do {
+            try db.write { db in
+                if row.hasData {
+                    try row.upsert(db)
+                } else {
+                    try MAccountSavedAddresses.deleteOne(db, key: accountId)
+                }
             }
-            let savedAddresses = SavedAddresses(accountId: accountId)
-            _byAccountId[accountId] = savedAddresses
-            return savedAddresses
+        } catch {
+            log.error("persist failed accountId=\(accountId, .public) error=\(error, .public)")
+        }
+    }
+
+    @MainActor public func walletCore(event: WalletCoreData.Event) {
+        switch event {
+        case .accountDeleted(let accountId):
+            byAccountId.remove(accountId: accountId)
+        case .accountsReset:
+            byAccountId.removeAll()
+        default:
+            break
+        }
+    }
+
+    private func loadFromDb() async {
+        do {
+            guard let db else {
+                assertionFailure("database not ready")
+                return
+            }
+            let rows = try await db.read { db in
+                try MAccountSavedAddresses.fetchAll(db)
+            }
+            await MainActor.run {
+                for row in rows {
+                    `for`(accountId: row.accountId).replace(values: row.addresses)
+                }
+            }
+        } catch {
+            log.error("initial load failed: \(error, .public)")
         }
     }
 }
@@ -31,53 +89,50 @@ extension DependencyValues {
     }
 }
 
+@MainActor
 @Perceptible
 public final class SavedAddresses: Sendable {
-    
     public let accountId: String
-    
-    init(accountId: String) {
+    public private(set) var values: [SavedAddress] = []
+
+    nonisolated init(accountId: String) {
         self.accountId = accountId
-    }
-    
-    private var key: String { "byAccountId.\(accountId).savedAddresses" }
-    
-    public var values: [SavedAddress] {
-        access(keyPath: \.values)
-        if let value = GlobalStorage[key], let addresses = try? JSONSerialization.decode([SavedAddress].self, from: value) {
-            return addresses
-        }
-        return []
     }
 
     public func save(_ newValue: SavedAddress, addOnly: Bool = false) {
-        withMutation(keyPath: \.values) {
-            var values = self.values.filter { !$0.matches(newValue) }
-            guard !addOnly || values.count == self.values.count else { return }
-            values.append(newValue)
-            if let object = try? JSONSerialization.encode(values) {
-                GlobalStorage.update { $0[key] = object }
-                Task { try? await GlobalStorage.syncronize() }
-            }
-        }
+        var nextValues = values.filter { !$0.matches(newValue) }
+        guard !addOnly || nextValues.count == values.count else { return }
+        nextValues.append(newValue)
+        guard nextValues != values else { return }
+        values = nextValues
+        persist(values: nextValues)
     }
 
     public func delete(_ valueToDelete: SavedAddress) {
-        withMutation(keyPath: \.values) {
-            let values = self.values.filter { !$0.matches(valueToDelete) }
-            if let object = try? JSONSerialization.encode(values) {
-                GlobalStorage.update { $0[key] = object }
-                Task { try? await GlobalStorage.syncronize() }
-            }
-        }
+        let nextValues = values.filter { !$0.matches(valueToDelete) }
+        guard nextValues != values else { return }
+        values = nextValues
+        persist(values: nextValues)
     }
-    
+
     public func getMatching(_ searchString: String) -> [SavedAddress] {
-        return searchString.isEmpty ? values : values
-            .filter { $0.name.lowercased().contains(searchString) || $0.address.lowercased().contains(searchString) }
+        searchString.isEmpty
+            ? values
+            : values.filter { $0.name.lowercased().contains(searchString) || $0.address.lowercased().contains(searchString) }
     }
-    
+
     public func get(chain: ApiChain, address: String) -> SavedAddress? {
-        values.first(where: { $0.matches(chain: chain, address: address )})
+        values.first(where: { $0.matches(chain: chain, address: address) })
+    }
+
+    fileprivate func replace(values: [SavedAddress]) {
+        self.values = values
+    }
+
+    private func persist(values: [SavedAddress]) {
+        @Dependency(\.savedAddresses) var savedAddressesStore
+        Task {
+            await savedAddressesStore.persist(accountId: accountId, values: values)
+        }
     }
 }

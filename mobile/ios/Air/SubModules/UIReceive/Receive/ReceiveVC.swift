@@ -22,9 +22,10 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
     private var segmentedController: WSegmentedController!
     private var hostingController: UIHostingController<ReceiveHeaderView>!
     
-    @AccountContext(source: .current) private var account: MAccount
+    @AccountContext private var account: MAccount
 
-    public init(chain: ApiChain? = nil, title: String? = nil) {
+    public init(accountContext: AccountContext, chain: ApiChain? = nil, title: String? = nil) {
+        self._account = accountContext
         self.customTitle = title
         self.selectedChain = chain
         super.init(nibName: nil, bundle: nil)
@@ -40,7 +41,7 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
     }
     
     func setupViews() {
-        view.backgroundColor = WTheme.sheetBackground
+        view.backgroundColor = .air.sheetBackground
       
         segmentedController = WSegmentedController(
             items: makeChainItems(),
@@ -121,8 +122,8 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
         }
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
     
     public override func scrollToTop(animated: Bool) {
@@ -145,6 +146,6 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
 #if DEBUG
 @available(iOS 26, *)
 #Preview {
-    previewSheet(ReceiveVC())
+    previewSheet(ReceiveVC(accountContext: AccountContext(source: .current)))
 }
 #endif

@@ -1,0 +1,57 @@
+{
+  "error.tokenNotFound": "Niestety nie znaleziono tokena \"{token}\". Sprawdź nazwę tokena i spróbuj ponownie.",
+  "error.rateLimit.hourly": "Osiągnięto limit {limit} zapytań na godzinę. Poczekaj chwilę i spróbuj później.",
+  "error.rateLimit.daily": "Osiągnięto dzienny limit {limit} zapytań. Wróć jutro.",
+  "error.noNewsResults": "Niestety nie znaleziono aktualnych wiadomości na ten temat. Spróbuj później.",
+  "error.noAnswer": "Nie udało się znaleźć odpowiedzi.",
+  "error.noActionLink": "Zrozumiałem Twoje zapytanie, ale nie udało się wygenerować linku akcji.",
+  "error.generic": "Przepraszamy, coś poszło nie tak. Spróbuj ponownie.",
+
+  "send.summary.to": "**- Do:** {address}",
+  "send.summary.amount": "**- Kwota:** {amount} ({name})",
+  "send.summary.fee": "**- Opłata:** zostanie pokazana w aplikacji przed potwierdzeniem",
+  "send.message": "Podsumowanie Twojego przelewu:\n\n{summary}\n\nDotknij przycisku poniżej, aby otworzyć ekran wysyłania — przed potwierdzeniem możesz wszystko sprawdzić.",
+  "send.button": "Wyślij {token}",
+
+  "receive.summary.to": "**- Do:** {address}",
+  "receive.summary.amount": "**- Kwota:** {amount}",
+  "receive.summary.comment": "**- Komentarz:** {comment}",
+  "receive.message.withAddress": "Twój link płatności do udostępnienia:\n\n{summary}\n\nUdostępnij ten link lub kod QR — nadawca zobaczy wypełniony ekran przelewu.",
+  "receive.message.noAddress": "Dotknij przycisku poniżej, aby otworzyć ekran odbioru — zobaczysz swój adres i kod QR do udostępnienia.",
+  "receive.button": "Odbierz {token}",
+  "receive.button.default": "Odbierz",
+
+  "swap.summary.from": "**- Z:** {amount}",
+  "swap.summary.to": "**- Na:** {token}",
+  "swap.summary.fee": "**- Kurs i opłata:** zostaną pokazane przed potwierdzeniem",
+  "swap.message": "Podsumowanie Twojej wymiany:\n\n{summary}\n\nDotknij przycisku poniżej, aby otworzyć ekran wymiany — przed potwierdzeniem możesz wszystko sprawdzić.",
+  "swap.button": "Wymień",
+
+  "buyWithCard.summary.amount": "**- Kwota:** {amount}",
+  "buyWithCard.summary.payment": "**- Płatność:** karta (opcje w aplikacji)",
+  "buyWithCard.message": "Podsumowanie Twojego zakupu:\n\n{summary}\n\nDotknij przycisku poniżej, aby otworzyć ekran zakupu — wybierz dostawcę i potwierdź szczegóły.",
+  "buyWithCard.button": "Kup kartą",
+
+  "buyWithCrypto.summary.from": "**- Z:** {amount}",
+  "buyWithCrypto.summary.to": "**- Na:** {token}",
+  "buyWithCrypto.summary.fee": "**- Kurs i opłata:** zostaną pokazane przed potwierdzeniem",
+  "buyWithCrypto.message": "Podsumowanie Twojego zakupu cross-chain:\n\n{summary}\n\nDotknij przycisku poniżej, aby otworzyć ekran zakupu — przed potwierdzeniem możesz wszystko sprawdzić.",
+  "buyWithCrypto.button": "Kup za krypto",
+
+  "price.summary.price": "**- Cena:** {currency}{price}",
+  "price.summary.change": "**- Zmiana 24h:** {direction} {change}%",
+  "price.message.withData": "{token} ({name}):\n\n{summary}\n\nDotknij przycisku poniżej, aby zobaczyć pełny wykres i szczegóły.",
+  "price.message.noData": "Dotknij przycisku poniżej, aby zobaczyć cenę, wykres i szczegóły {token} w aplikacji.",
+  "price.button": "Zobacz {token}",
+
+  "stake.message": "Dotknij przycisku poniżej, aby otworzyć ekran stakingu — możesz wybrać pulę i zacząć zarabiać nagrody.",
+  "stake.button": "Stakuj",
+
+  "portfolio.message": "Kliknij przycisk poniżej, aby zobaczyć swoje portfolio — sprawdź wszystkie swoje aktywa, salda i wyniki w jednym miejscu.",
+  "portfolio.button": "Zobacz Portfolio",
+
+  "telegram.welcome": "Witaj w Crypto Agent! Napisz do mnie o:\n- Wysyłaniu tokenów\n- Odbieraniu tokenów\n- Wymianie tokenów\n- Kupnie krypto\n- Cenach tokenów\n- Pytaniach o portfel",
+  "telegram.typing": "Pisze...",
+  "telegram.setaddress.usage": "Użycie: /setaddress <sieć> <nazwa> <adres>",
+  "telegram.setaddress.added": "Dodano adres: {name} ({chain}): {address}"
+}

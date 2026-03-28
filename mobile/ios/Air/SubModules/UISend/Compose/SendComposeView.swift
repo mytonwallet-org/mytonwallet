@@ -20,6 +20,9 @@ public struct SendComposeView: View {
         WithPerceptionTracking {
             @Perception.Bindable var model = model
             InsetList {
+                if model.mode.isNftRelated {
+                    NftSection(model: self.model)
+                }
                 RecipientAddressSection(model: model.addressInput)
                 if !model.addressInput.isFocused {
                     Group {
@@ -31,14 +34,11 @@ public struct SendComposeView: View {
                             .padding(.horizontal, 16)
                         }
                         if model.shouldShowMultisigWarning {
-                            WarningView(
-                                header: lang("Multisig Wallet Detected"),
-                                text: lang("$multisig_warning_text", arg1: "[\(lang("$multisig_warning_link"))](\(model.seedPhraseScamHelpUrl.absoluteString))"),
-                                kind: .error
-                            )
-                            .padding(.horizontal, 16)
+                            MultisigWalletWarning()
                         }
-                        AmountSection(model: self.model, focused: $amountFocused)
+                        if !model.mode.isNftRelated {
+                            AmountSection(model: self.model, focused: $amountFocused)
+                        }
                         if model.shouldShowGasWarning {
                             WarningView(
                                 text: lang("$seed_phrase_scam_warning", arg1: "[\(lang("$help_center_prepositional"))](\(model.seedPhraseScamHelpUrl.absoluteString))"),
@@ -46,7 +46,6 @@ public struct SendComposeView: View {
                             )
                             .padding(.horizontal, 16)
                         }
-                        NftSection(model: self.model)
                         CommentOrMemoSection(model: self.model, commentIsEnrypted: $model.isMessageEncrypted, commentOrMemo: $model.comment)
                     }
                     .transition(.opacity.combined(with: .offset(y: 20)))
@@ -93,10 +92,10 @@ struct SendComposeTitleView: View {
             }
             .fixedSize(horizontal: true, vertical: false)
             .font(titleFont)
-            .foregroundColor(Color(WTheme.primaryLabel))
+            .foregroundColor(.air.primaryLabel)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(Color(WTheme.secondaryLabel).opacity(0.12))
+            .background(Color.air.secondaryLabel.opacity(0.12))
             .clipShape(Capsule())
             .menuSource(menuContext: menuContext)
             .onAppear { configureMenu() }
@@ -105,7 +104,7 @@ struct SendComposeTitleView: View {
                 Button(action: onSellTapped) {
                     Text(lang("Sell"))
                         .font(titleFont)
-                        .foregroundStyle(Color(WTheme.secondaryLabel))
+                        .foregroundStyle(Color.air.secondaryLabel)
                 }
             }
         }
@@ -141,7 +140,7 @@ fileprivate struct AmountSection: View {
                     amountInBaseCurrency: $model.amountInBaseCurrency,
                     switchedToBaseCurrencyInput: $model.switchedToBaseCurrencyInput,
                     fee: model.showingFee,
-                    explainedFee: model.explainedTransferFee,
+                    explainedFee: model.explainedFee,
                     isFocused: $focused,
                     onTokenSelect: onTokenTapped,
                     onUseAll: model.onUseAll
@@ -159,7 +158,7 @@ fileprivate struct AmountSection: View {
             }
         }
     }
-    
+
     func onTokenTapped() {
         let walletTokens = model.$account.balances.map { (key: String, value: BigInt) in
             MTokenBalance(tokenSlug: key, balance: value, isStaking: false)
@@ -171,33 +170,6 @@ fileprivate struct AmountSection: View {
         }
         let nav = WNavigationController(rootViewController: vc)
         topViewController()?.present(nav, animated: true)
-    }
-}
-
-
-// MARK: -
-
-
-internal struct NftSection: View {
-
-    let model: SendModel
-
-    @Dependency(\.tokenStore) private var tokenStore
-    
-    var body: some View {
-        WithPerceptionTracking {
-            if let nfts = model.nfts, nfts.count > 0 {
-                InsetSection {
-                    ForEach(nfts, id: \.id) { nft in
-                        NftPreviewRow(nft: nft)
-                    }
-                } header: {
-                    Text("^[\(nfts.count) Assets](inflect: true)")
-                } footer: {
-                    FeeView(token: model.token, nativeToken: tokenStore.getNativeToken(chain: model.token.chain), fee: model.showingFee, explainedTransferFee: nil, includeLabel: true)
-                }
-            }
-        }
     }
 }
 

@@ -274,7 +274,7 @@ struct PaletteItemView: View {
     
     var lockColor: Color {
         if paletteColor.id == ACCENT_BNW_INDEX {
-            return Color.air.groupedItem
+            return .air.groupedItem
         }
         return .white
     }

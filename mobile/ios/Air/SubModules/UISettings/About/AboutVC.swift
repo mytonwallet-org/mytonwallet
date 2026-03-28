@@ -46,8 +46,8 @@ public final class AboutVC: SettingsBaseVC {
         AboutView(showLegalSection: showLegalSection)
     }
     
-    override public func updateTheme() {
-        view.backgroundColor = WTheme.groupedBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.groupedBackground
     }
 }
 

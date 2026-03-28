@@ -1,9 +1,12 @@
 import UIKit
 import UIComponents
+import WalletCore
 
 @MainActor
 final class RootHostVC: UIViewController, VisibleContentProviding {
     private(set) var contentViewController: UIViewController?
+    private(set) var baseRootState: AppRootState?
+    private(set) var currentRootState: AppRootState?
     
     var visibleContentProviderViewController: UIViewController {
         contentViewController ?? self
@@ -11,12 +14,21 @@ final class RootHostVC: UIViewController, VisibleContentProviding {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black
+        view.backgroundColor = .systemBackground
     }
     
-    func setContentViewController(_ newContentViewController: UIViewController, animationDuration: Double?) {
+    func setContentViewController(_ newContentViewController: UIViewController, rootState: AppRootState, animationDuration: Double?) {
         if contentViewController === newContentViewController {
+            baseRootState = rootState
+            if currentRootState != .unlock {
+                currentRootState = rootState
+            }
             return
+        }
+
+        baseRootState = rootState
+        if currentRootState != .unlock {
+            currentRootState = rootState
         }
         
         if let currentContentViewController = contentViewController {
@@ -45,5 +57,21 @@ final class RootHostVC: UIViewController, VisibleContentProviding {
         }
         
         contentViewController = newContentViewController
+    }
+
+    func setUnlockPresented(_ isPresented: Bool) {
+        currentRootState = isPresented ? .unlock : baseRootState
+    }
+
+    func reset() {
+        presentedViewController?.dismiss(animated: false)
+        if let currentContentViewController = contentViewController {
+            currentContentViewController.willMove(toParent: nil)
+            currentContentViewController.view.removeFromSuperview()
+            currentContentViewController.removeFromParent()
+        }
+        contentViewController = nil
+        baseRootState = nil
+        currentRootState = nil
     }
 }

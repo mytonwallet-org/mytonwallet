@@ -32,4 +32,4 @@ This directory hosts every Swift module that composes the Air app. Use the list 
 - `WReachability` – Network reachability monitoring and status notifications.
 - `YUVConversion` – Accelerated YUV↔RGB conversion routines backing animation and camera surfaces.
 
-Each module is added to `MyTonWalletAir.xcodeproj`; update this document whenever you introduce, rename, or retire a module so future contributors can orient instantly.
+Each module is declared in `Package.swift`; update this document whenever you introduce, rename, or retire a module so future contributors can orient instantly.

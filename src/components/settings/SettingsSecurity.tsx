@@ -404,7 +404,7 @@ function SettingsSecurity({
             <div className={styles.settingsBlock}>
               <div className={buildClassName(styles.item)} onClick={handleOpenBackupWallet}>
                 <img className={styles.menuIcon} src={backupImg} alt={lang('$back_up_security')} />
-                {lang('$back_up_security')}
+                <span className={styles.itemTitle}>{lang('$back_up_security')}</span>
 
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
@@ -421,7 +421,7 @@ function SettingsSecurity({
               <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
                 <div className={styles.item} onClick={handleBiometricAuthToggle}>
                   <img className={styles.menuIcon} src={biometricsImg} alt={lang('Biometric Authentication')} />
-                  {lang('Biometric Authentication')}
+                  <span className={styles.itemTitle}>{lang('Biometric Authentication')}</span>
 
                   <Switcher
                     className={styles.menuSwitcher}
@@ -447,7 +447,9 @@ function SettingsSecurity({
                   isSimple
                   onClick={handleChangePasswordClick}
                 >
-                  {getDoesUsePinPad() ? lang('Change Passcode') : lang('Change Password')}
+                  <span className={buildClassName(styles.itemTitle, styles.itemTitle_accent)}>
+                    {getDoesUsePinPad() ? lang('Change Passcode') : lang('Change Password')}
+                  </span>
                 </Button>
               </div>
               <p className={styles.blockDescription}>{
@@ -462,7 +464,7 @@ function SettingsSecurity({
           <>
             <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
               <div className={buildClassName(styles.item, styles.itemSmall)} onClick={handleAppLockToggle}>
-                {lang('App Lock')}
+                <span className={styles.itemTitle}>{lang('App Lock')}</span>
 
                 <Switcher
                   className={styles.menuSwitcher}
@@ -478,6 +480,7 @@ function SettingsSecurity({
                   theme="light"
                   shouldTranslateOptions
                   className={buildClassName(styles.item, styles.item_small, styles.itemAutoLock)}
+                  labelClassName={styles.itemAutoLockLabel}
                   onChange={handleAutolockChange}
                 />
               </Collapsible>
@@ -493,7 +496,9 @@ function SettingsSecurity({
                 )}
                 onClick={isAutoConfirmAvailable ? handleAutoConfirmToggle : undefined}
               >
-                {getDoesUsePinPad() ? lang('Remember Passcode') : lang('Remember Password')}
+                <span className={styles.itemTitle}>
+                  {getDoesUsePinPad() ? lang('Remember Passcode') : lang('Remember Password')}
+                </span>
 
                 <Switcher
                   className={styles.menuSwitcher}
@@ -517,7 +522,7 @@ function SettingsSecurity({
             <>
               <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
                 <div className={buildClassName(styles.item, styles.item_small)} onClick={onAutoUpdateEnabledToggle}>
-                  {lang('Auto-Updates')}
+                  <span className={styles.itemTitle}>{lang('Auto-Updates')}</span>
 
                   <Switcher
                     className={styles.menuSwitcher}
@@ -538,7 +543,7 @@ function SettingsSecurity({
                 className={buildClassName(styles.item, styles.itemSmall)}
                 onClick={handleAllowSuspiciousActionsToggle}
               >
-                {lang('Allow Suspicious Actions')}
+                <span className={styles.itemTitle}>{lang('Allow Suspicious Actions')}</span>
 
                 <Switcher
                   className={styles.menuSwitcher}

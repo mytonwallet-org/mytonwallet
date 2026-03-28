@@ -641,7 +641,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
       if (!message.payload.isSignOnly) {
         const sentTransaction = await this.chainDappSupports[message.chain]!.sendSignedTransaction!(
-          signedTransactions[0].payload.base58Tx,
+          signedTransactions[0].payload.signedTx,
           network,
         );
 
@@ -667,7 +667,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       // DApp accepts signedTx in extension and signature only in walletConnect
       const toReturn = message.payload.topic && !message.payload.isFullTxRequested
         ? signedTransactions[0].payload.signature
-        : signedTransactions[0].payload.base58Tx;
+        : signedTransactions[0].payload.signedTx;
 
       return {
         success: true,

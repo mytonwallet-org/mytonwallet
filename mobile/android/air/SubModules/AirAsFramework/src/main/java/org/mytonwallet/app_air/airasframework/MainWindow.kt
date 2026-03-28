@@ -76,6 +76,7 @@ class MainWindow : WWindow() {
         if (LocaleController.init(this, langCode)) {
             WalletContextManager.delegate?.restartApp()
             WBaseStorage.setActiveLanguage(langCode)
+            WGlobalStorage.setLangCode(langCode)
             WidgetsConfigurations.reloadWidgets(this)
         }
 

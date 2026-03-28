@@ -56,6 +56,10 @@ You have no NFT in this wallet yet: |
 Collapse: Contraer
 Expand: Expandir
 Standalone NFT: NFT independiente
+$nft_select: "Seleccionar"
+$nft_batch_on_sale: Los coleccionables seleccionados están a la venta.
+$nft_batch_different_chains: Los coleccionables seleccionados están en cadenas diferentes.
+$nft_expired: "Vencido"
 Linked Address: Dirección vinculada
 Enter Address: Introduce la dirección
 Show All Assets: Mostrar todos los activos
@@ -98,6 +102,7 @@ Instantly: Al instante
 Up to %1$@: Hasta %1$@
 up to %1$@: hasta %1$@
 Current APY: APY actual
+Current APR: APR actual
 Est. earning per year: Ganancia anual estimada
 in: en
 Error: Error
@@ -295,6 +300,16 @@ Search or enter address: Buscar o introducir dirección
 View as Grid: Ver en cuadrícula
 
 
+
+$web_permission_prompt: ¿Permitir que %origin% use tu %permissions%?
+$web_permission_allow: Permitir
+$web_permission_deny: No permitir
+$web_permission_camera: cámara
+$web_permission_microphone: micrófono
+$web_permission_location: ubicación
+$web_permission_device_features: funciones del dispositivo
+$web_permission_this_site: este sitio
+
 push_title_wallet: "%wallet_title%"
 push_activity_token_sent: Enviado %amount% %symbol%
 push_activity_token_received: Recibido %amount% %symbol%
@@ -332,3 +347,8 @@ push_domain_expired_days_ago: Tu dominio %domain% venció hace %days% días. Ren
 push_domain_expires_today: Tu dominio %domain% vencerá hoy. Renuévalo para evitar perder el acceso
 push_domain_expires_tomorrow: Tu dominio %domain% vencerá mañana. Renuévalo para evitar perder el acceso
 push_domain_expires_in_days: Tu dominio %domain% vencerá en %days% días. Renuévalo para evitar perder el acceso
+
+$more_nfts:
+  zeroValue: Sin NFTs
+  oneValue: "+1 NFT"
+  otherValue: "+%1$d NFTs"

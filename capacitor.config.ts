@@ -72,6 +72,9 @@ const config: CapacitorConfig = {
       // This is necessary since Cap7, otherwise input will be hidden by the keyboard.
       resizeOnFullScreen: true,
     },
+    NativeAudio: {
+      hls: false,
+    },
   },
 };
 

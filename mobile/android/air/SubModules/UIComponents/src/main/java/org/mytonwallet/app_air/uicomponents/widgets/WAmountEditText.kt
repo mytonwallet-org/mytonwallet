@@ -26,7 +26,8 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 class WAmountEditText(
     context: Context,
-    val isLeadingSymbol: Boolean = true
+    val isLeadingSymbol: Boolean = true,
+    val scaleSymbolWithFraction: Boolean = false
 ) : AppCompatEditText(context), WThemedView {
     val amountTextWatcher = AmountTextWatcher()
 
@@ -73,6 +74,13 @@ class WAmountEditText(
                         currentColor
                     }
                 )
+                val fullMeasured = paint.measureText(symbol)
+                val originalSize =
+                    if (scaleSymbolWithFraction && additional > 0 && fullMeasured > 0f) {
+                        val size = paint.textSize
+                        paint.textSize = size * (additional.toFloat() / fullMeasured)
+                        size
+                    } else null
                 if (isLeadingSymbol)
                     canvas.drawText(symbol, scrollX.toFloat(), baseline.toFloat(), paint)
                 else
@@ -82,6 +90,9 @@ class WAmountEditText(
                         baseline.toFloat(),
                         paint
                     )
+                if (originalSize != null) {
+                    paint.textSize = originalSize
+                }
                 paint.color = currentColor
             }
         }
@@ -124,7 +135,17 @@ class WAmountEditText(
     }
 
     private fun updateSymbolWidth(animated: Boolean) {
-        val width = currentSymbol?.let { paint.measureText(it) } ?: 0f
+        val width = currentSymbol?.let {
+            if (scaleSymbolWithFraction && text?.contains('.') == true) {
+                val originalSize = paint.textSize
+                paint.textSize = originalSize * amountTextWatcher.proportion
+                val measured = paint.measureText(it)
+                paint.textSize = originalSize
+                measured
+            } else {
+                paint.measureText(it)
+            }
+        } ?: 0f
         symbolSize.changeValue(width, animated && isAttachedToWindow)
     }
 
@@ -168,7 +189,11 @@ class WAmountEditText(
     }
 
     override fun getPaddingLeft(): Int {
-        return super.getPaddingLeft() - additional
+        return if (isLeadingSymbol) super.getPaddingLeft() - additional else super.getPaddingLeft()
+    }
+
+    override fun getPaddingRight(): Int {
+        return if (!isLeadingSymbol) super.getPaddingRight() - additional else super.getPaddingRight()
     }
 
     /* Init */
@@ -183,6 +208,27 @@ class WAmountEditText(
         }
 
         addTextChangedListener(amountTextWatcher)
+        if (scaleSymbolWithFraction) {
+            addTextChangedListener(object : android.text.TextWatcher {
+                private var hadDecimal = false
+                override fun beforeTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    count: Int,
+                    after: Int
+                ) {
+                    hadDecimal = s?.contains('.') == true
+                }
+
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    val hasDecimal = s?.contains('.') == true
+                    if (hasDecimal != hadDecimal) {
+                        updateSymbolWidth(false)
+                    }
+                }
+            })
+        }
         updateTheme()
     }
 }

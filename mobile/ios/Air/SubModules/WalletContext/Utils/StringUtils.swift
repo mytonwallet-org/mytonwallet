@@ -106,7 +106,7 @@ public extension String {
         for scalar in unicodeScalars {
             combinedValue += Int(scalar.value)
         }
-        return WColors.gradients[Int(combinedValue) % WColors.gradients.count]
+        return UIColor.air.gradients[Int(combinedValue) % UIColor.air.gradients.count]
     }
 
     var shortChars: String {

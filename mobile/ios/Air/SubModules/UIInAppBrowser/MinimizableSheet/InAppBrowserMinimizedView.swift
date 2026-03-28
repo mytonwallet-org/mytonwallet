@@ -56,7 +56,7 @@ private struct InAppBrowserMinimizedViewContent: View {
     var xMark: some View {
         Button(action: viewModel.closeAction) {
             Image.airBundle("MinimizedBrowserXMark24")
-                .foregroundStyle(Color(WTheme.primaryLabel))
+                .foregroundStyle(Color.air.primaryLabel)
                 .padding(10)
                 .contentShape(.containerRelative)
                 .containerShape(.rect)
@@ -79,7 +79,7 @@ private struct InAppBrowserMinimizedViewContent: View {
                     .font(.system(size: 17, weight: .semibold))
                     .lineLimit(1)
             }
-            .foregroundStyle(Color(WTheme.primaryLabel))
+            .foregroundStyle(Color.air.primaryLabel)
             .frame(maxWidth: .infinity)
             .frame(height: 44)
             .padding(.trailing, 30)

@@ -8,6 +8,20 @@
 import Foundation
 
 extension URL {
+    public var isTelegramURL: Bool {
+        let normalizedScheme = scheme?.lowercased()
+        if normalizedScheme == "tg" {
+            return true
+        }
+
+        guard (normalizedScheme == "http" || normalizedScheme == "https"),
+              let host = host?.lowercased() else {
+            return false
+        }
+
+        return host == "t.me" || host == "telegram.me"
+    }
+
     public var isSubproject: Bool {
         guard let host = self.host?.lowercased() else {
             return false

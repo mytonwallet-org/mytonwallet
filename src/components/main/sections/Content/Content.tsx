@@ -21,6 +21,7 @@ import {
   selectCurrentAccountTokens,
   selectEnabledTokensCountMemoizedFor,
 } from '../../../../global/selectors';
+import { clearAgentChat } from '../../../../util/agent/agentStorage';
 import buildClassName from '../../../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../../../util/captureEvents';
 import { getChainsSupportingNft } from '../../../../util/chain';
@@ -34,12 +35,16 @@ import { getScrollableContainer } from '../../helpers/scrollableContainer';
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useEffectOnce from '../../../../hooks/useEffectOnce';
 import useElementVisibility from '../../../../hooks/useElementVisibility';
+import useFlag from '../../../../hooks/useFlag';
 import useHistoryBack from '../../../../hooks/useHistoryBack';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import useScrolledState from '../../../../hooks/useScrolledState';
 import useSyncEffect from '../../../../hooks/useSyncEffect';
 
+import Agent from '../../../agent/Agent';
+import AgentMenu from '../../../agent/AgentMenu';
+import ClearAgentChatModal from '../../../agent/ClearAgentChatModal';
 import CategoryHeader from '../../../explore/CategoryHeader';
 import Explore from '../../../explore/Explore';
 import TabList from '../../../ui/TabList';
@@ -77,6 +82,7 @@ interface StateProps {
   };
   currentSiteCategoryId?: number;
   collectionTabs?: ApiNftCollection[];
+  hasAgentMessages?: boolean;
 }
 
 const MAIN_CONTENT_TABS_LENGTH = Object.values(ContentTab).length / 2;
@@ -104,6 +110,7 @@ function Content({
   hasVesting,
   currentSiteCategoryId,
   collectionTabs,
+  hasAgentMessages,
   onTabsStuck,
 }: OwnProps & StateProps) {
   const {
@@ -113,6 +120,7 @@ function Content({
     openNftCollection,
     closeNftCollection,
     openSettingsWithState,
+    setAgentMeta,
   } = getActions();
 
   const lang = useLang();
@@ -140,6 +148,13 @@ function Content({
       const [address, chain] = parseCollectionId(value);
       openNftCollection({ chain: chain || DEFAULT_CHAIN, address }, { forceOnHeavyAnimation: true });
     }
+  });
+
+  const [isClearAgentChatModalOpen, openClearAgentChatModal, closeClearAgentChatModal] = useFlag(false);
+
+  const handleClearAgentChat = useLastCallback(() => {
+    void clearAgentChat();
+    setAgentMeta({ messageCount: 0, lastTimestamp: undefined });
   });
 
   const nftCollections = useMemo(() => {
@@ -229,6 +244,7 @@ function Content({
     const mainContentTabs = compact([
       !shouldShowSeparateAssetsPanel && { id: ContentTab.Assets, title: lang('Assets'), className: styles.tab },
       { id: ContentTab.Activity, title: lang('Activity'), className: styles.tab },
+      !isPortrait && !IS_CORE_WALLET && { id: ContentTab.Agent, title: lang('Agent'), className: styles.tab },
       !isPortrait && !IS_CORE_WALLET && { id: ContentTab.Explore, title: lang('Explore'), className: styles.tab },
       doesSupportNft && {
         id: ContentTab.Nft,
@@ -401,8 +417,9 @@ function Content({
   });
 
   // `isScrolled` state should be updated after tab is switched
+  // Agent manages its own scroll container, so we skip it here
   const handleContentTransitionStop = useLastCallback(() => {
-    if (isPortrait) return;
+    if (isPortrait || activeContentTab === ContentTab.Agent) return;
 
     requestMeasure(() => {
       const scrollContainer = getScrollableContainer(transitionRef.current, isPortrait);
@@ -482,6 +499,8 @@ function Content({
             onScroll={isLandscape ? handleContentScroll : undefined}
           />
         );
+      case ContentTab.Agent:
+        return <Agent isActive={isActive} onScroll={isLandscape ? handleContentScroll : undefined} />;
       case ContentTab.Explore:
         return <Explore isActive={isActive} onScroll={isLandscape ? handleContentScroll : undefined} />;
       case ContentTab.Nft:
@@ -526,6 +545,18 @@ function Content({
           >
             {renderTabsPanel()}
           </Transition>
+          {isLandscape && (
+            <AgentMenu
+              className={buildClassName(
+                styles.agentMenuButton,
+                tabs[activeTabIndex]?.id === ContentTab.Agent
+                && !currentCollection
+                && hasAgentMessages
+                && styles.agentMenuButton_visible,
+              )}
+              onClearChat={openClearAgentChatModal}
+            />
+          )}
         </div>
         <Transition
           ref={transitionRef}
@@ -561,6 +592,11 @@ function Content({
       <HideNftModal
         isOpen={Boolean(selectedNftsToHide?.addresses.length)}
         selectedNftsToHide={selectedNftsToHide}
+      />
+      <ClearAgentChatModal
+        isOpen={isClearAgentChatModalOpen}
+        onClose={closeClearAgentChatModal}
+        onConfirm={handleClearAgentChat}
       />
     </div>
   );
@@ -604,6 +640,7 @@ export default memo(
         hasVesting,
         currentSiteCategoryId,
         collectionTabs,
+        hasAgentMessages: Boolean(global.agentMeta?.messageCount),
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

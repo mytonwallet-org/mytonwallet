@@ -3,7 +3,7 @@ import UIKit
 import CoreImage
 import CoreGraphics
 
-let UIScreenScale = UIScreen.main.scale
+@MainActor let UIScreenScale = UIScreen.main.scale
 
 public enum QrCodeIcon {
     case none
@@ -12,17 +12,17 @@ public enum QrCodeIcon {
     case custom(UIImage?)
 }
 
-private func floorToContextPixels(_ value: CGFloat, scale: CGFloat? = UIScreenScale) -> CGFloat {
+@MainActor private func floorToContextPixels(_ value: CGFloat, scale: CGFloat? = UIScreenScale) -> CGFloat {
     let scale = scale ?? UIScreenScale
     return floor(value * scale) / scale
 }
 
-private func roundToContextPixels(_ value: CGFloat, scale: CGFloat? = UIScreenScale) -> CGFloat {
+@MainActor private func roundToContextPixels(_ value: CGFloat, scale: CGFloat? = UIScreenScale) -> CGFloat {
     let scale = scale ?? UIScreenScale
     return round(value * scale) / scale
 }
 
-public func qrCodeCutout(size: Int, dimensions: CGSize, scale: CGFloat?) -> (Int, CGRect, CGFloat) {
+@MainActor public func qrCodeCutout(size: Int, dimensions: CGSize, scale: CGFloat?) -> (Int, CGRect, CGFloat) {
     var cutoutSize = Int(round(CGFloat(size) * 0.297))
     if size == 39 {
         cutoutSize = 11
@@ -38,7 +38,7 @@ public func qrCodeCutout(size: Int, dimensions: CGSize, scale: CGFloat?) -> (Int
     return (cutoutSize, cutoutRect, quadSize)
 }
 
-public func generateQrCode(string: String, color: UIColor, backgroundColor: UIColor? = nil, icon: QrCodeIcon, ecl: String = "M") -> (Int, (TransformImageArguments) -> DrawingContext?)? {
+@MainActor public func generateQrCode(string: String, color: UIColor, backgroundColor: UIColor? = nil, icon: QrCodeIcon, ecl: String = "M") -> (Int, (TransformImageArguments) -> DrawingContext?)? {
     guard let data = string.data(using: .isoLatin1, allowLossyConversion: false),
           let filter = CIFilter(name: "CIQRCodeGenerator") else {
         return nil
@@ -139,7 +139,7 @@ public func generateQrCode(string: String, color: UIColor, backgroundColor: UICo
         let halfLen = scaledSquareSize * 4 / 2
         let blockLen = scaledSquareSize * 4 * 2
         
-        func drawAt(x: Int, y: Int, fill: Bool, corners: UIRectCorner) {
+        @MainActor func drawAt(x: Int, y: Int, fill: Bool, corners: UIRectCorner) {
             if !fill && corners.isEmpty {
                 return
             }

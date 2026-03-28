@@ -74,14 +74,9 @@ final class PlainWebView: WViewController {
         config.userContentController = contentController
         
         webView = WKWebView(frame: .zero, configuration: config)
-        webView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(webView)
-        NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: view.topAnchor),
-            webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
-        ])
+        view.addStretchedToSafeArea(subview: webView,
+                                    top: \.topAnchor,
+                                    bottom: \.bottomAnchor)
         webView.isOpaque = false // prevents flashing white during load
         if #available(iOS 26, *) {
             webView.scrollView.topEdgeEffect.style = .hard
@@ -94,7 +89,7 @@ final class PlainWebView: WViewController {
         webView.load(URLRequest(url: url))
     }
     
-    override func updateTheme() {
+    private func updateTheme() {
         view.backgroundColor = _backgroundColor
         webView.backgroundColor = _backgroundColor
         webView.scrollView.backgroundColor = _backgroundColor

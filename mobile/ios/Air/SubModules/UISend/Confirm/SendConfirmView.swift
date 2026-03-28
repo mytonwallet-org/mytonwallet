@@ -15,16 +15,48 @@ struct SendConfirmView: View {
     
     var body: some View {
         WithPerceptionTracking {
-            InsetList {
-                ToSection(model: model)
-                NftSection(model: model)
-                AmountSection(model: model)
-                CommentSection(model: model)
+            switch model.mode {
+            case .burnNft: ConfirmNftBurningView(model: model)
+            case .sendNft: ConfirmNftSendView(model: model)
+            default:
+                InsetList {
+                    ToSection(model: model)
+                    NftSection(model: model)
+                    AmountSection(model: model)
+                    CommentSection(model: model)
+                }
             }
         }
     }
 }
 
+fileprivate struct ConfirmNftBurningView: View {
+    let model: SendModel
+    
+    var body: some View {
+        WithPerceptionTracking {
+            InsetList {
+                NftSection(model: model)
+                NftFeeSection(model: model)
+            }
+        }
+    }
+}
+
+fileprivate struct ConfirmNftSendView: View {
+    let model: SendModel
+    
+    var body: some View {
+        WithPerceptionTracking {
+            InsetList {
+                NftSection(model: model)
+                ToSection(model: model)
+                NftFeeSection(model: model)
+                CommentSection(model: model)
+            }
+        }
+    }
+}
 
 fileprivate struct ToSection: View {
     let model: SendModel

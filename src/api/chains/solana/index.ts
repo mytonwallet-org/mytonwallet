@@ -20,7 +20,13 @@ import {
 } from './nfts';
 import { setupActivePolling, setupInactivePolling } from './polling';
 import { fetchTransactionById } from './transactionInfo';
-import { checkTransactionDraft, fetchEstimateDiesel, sendSignedTransaction, submitGasfullTransfer } from './transfer';
+import {
+  checkTransactionDraft,
+  fetchEstimateDiesel,
+  sendSignedTransaction,
+  submitGasfullTransfer,
+  submitGaslessTransfer,
+} from './transfer';
 import { getAddressInfo } from './wallet';
 
 function notSupported(): never {
@@ -43,7 +49,7 @@ const solanaSdk: ChainSdk<'solana'> = {
   checkTransactionDraft,
   fetchEstimateDiesel,
   submitGasfullTransfer,
-  submitGaslessTransfer: notSupported,
+  submitGaslessTransfer,
   getAddressInfo,
   verifyLedgerWalletAddress: notSupported,
   fetchPrivateKeyString,

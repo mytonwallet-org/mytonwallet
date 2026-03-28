@@ -17,7 +17,7 @@ public class AssetsAndActivityVC: WViewController {
     @AccountContext(source: .current)
     private var account: MAccount
     private var assetsAndActivityData: MAssetsAndActivityData {
-        AccountStore.assetsAndActivityData(forAccountID: account.id) ?? .empty
+        AssetsAndActivityDataStore.data(accountId: account.id) ?? .empty
     }
     private var baseCurrency: MBaseCurrency { TokenStore.baseCurrency }
 
@@ -103,11 +103,11 @@ public class AssetsAndActivityVC: WViewController {
             let balanceIDs = balances.keys.lazy.map { TokenID(slug: $0, isStaking: false) }
             ids.formUnion(balanceIDs)
             
-            if let walletTokenIDs = $account.balanceData?.walletTokens.map({ TokenID(slug: $0.tokenSlug, isStaking: false) }) {
+            if let walletTokenIDs = $account.walletTokens?.map({ TokenID(slug: $0.tokenSlug, isStaking: false) }) {
                 ids.formUnion(walletTokenIDs)
             }
             
-            let stakings = StakingStore.stakingData(forAccountID: account.id)?.stateById.values.lazy
+            let stakings = StakingStore.stakingData(accountId: account.id)?.stateById.values.lazy
                 .filter { stakingState in getFullStakingBalance(state: stakingState) > 0 }
                 .map { stakingState in  stakingState.tokenSlug }
             
@@ -146,7 +146,7 @@ public class AssetsAndActivityVC: WViewController {
         tableViewBackgroundView.backgroundColor = .clear
         tableView.backgroundView = tableViewBackgroundView
         tableView.backgroundColor = .clear
-        tableView.separatorColor = WTheme.separator
+        tableView.separatorColor = .air.separator
         tableView.register(AssetsAndActivityBaseCurrencyCell.self, forCellReuseIdentifier: "baseCurrencyCell")
         tableView.register(AssetsAndActivityHideNoCostCell.self, forCellReuseIdentifier: "hideNoCostTokensCell")
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
@@ -198,16 +198,16 @@ public class AssetsAndActivityVC: WViewController {
                             Spacer()
                             Text("\(NftStore.getAccountHiddenNftsCount(accountId: accountId))")
                                 .padding(.horizontal, 8)
-                                .foregroundStyle(Color(WTheme.secondaryLabel))
+                                .foregroundStyle(Color.air.secondaryLabel)
                             Image.airBundle("RightArrowIcon")
                                 .renderingMode(.template)
-                                .foregroundStyle(Color(WTheme.secondaryLabel))
+                                .foregroundStyle(Color.air.secondaryLabel)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .background {
                         ZStack {
-                            Color(WTheme.groupedItem)
+                            Color.air.groupedItem
                             Color.clear
                                 .highlightBackground(state.isHighlighted)
                         }
@@ -233,11 +233,11 @@ public class AssetsAndActivityVC: WViewController {
                             Text(lang("Add Token"))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .foregroundStyle(Color(WTheme.tint))
+                        .foregroundStyle(.tint)
                     }
                     .background {
                         ZStack {
-                            Color(WTheme.groupedItem)
+                            Color.air.groupedItem
                             Color.clear
                                 .highlightBackground(state.isHighlighted)
                         }
@@ -251,14 +251,16 @@ public class AssetsAndActivityVC: WViewController {
                 let token = token.wrappedValue
                 let cell = tableView.dequeueReusableCell(withIdentifier: "tokenCell",
                                                          for: indexPath) as! AssetsAndActivityTokenCell
-                let isHidden = assetsAndActivityData.isTokenHidden(slug: tokenID.slug, isStaking: tokenID.isStaking)
+                let tokenSlug = tokenID.slug
+                let isStaking = tokenID.isStaking
+                let isHidden = assetsAndActivityData.isTokenHidden(slug: tokenSlug, isStaking: isStaking)
                 cell.configure(with: token,
-                               isStaking: tokenID.isStaking,
+                               isStaking: isStaking,
                                balance: $account.balances[token.slug] ?? 0,
                                importedSlug: assetsAndActivityData.importedSlugs.contains(token.slug),
                                isHidden: isHidden) { tokenSlug, isVisible in
-                    AccountStore.updateAssetsAndActivityData(forAccountID: accountId, update: { settings in
-                        settings.saveTokenHidden(slug: tokenSlug, isStaking: tokenID.isStaking, isHidden: !isVisible)
+                    AssetsAndActivityDataStore.update(accountId: accountId, update: { settings in
+                        settings.saveTokenHidden(slug: tokenSlug, isStaking: isStaking, isHidden: !isVisible)
                     })
                 }
                 cell.separatorInset.left = 68
@@ -290,15 +292,15 @@ public class AssetsAndActivityVC: WViewController {
         dataSource.apply(snapshot, animatingDifferences: animated)
     }
 
-    public override func updateTheme() {
-        let backgroundColor = isModal ? WTheme.sheetBackground : WTheme.groupedBackground
+    private func updateTheme() {
+        let backgroundColor = isModal ? UIColor.air.sheetBackground : UIColor.air.groupedBackground
         view.backgroundColor = backgroundColor
         tableView.backgroundColor = backgroundColor
-        tokensHeaderLabel.textColor = WTheme.secondaryLabel
-        addTokenIcon.tintColor = WTheme.tint
-        addTokenSeparator.backgroundColor = WTheme.separator
-        addTokenView.highlightBackgroundColor = WTheme.highlight
-        addTokenView.backgroundColor = WTheme.groupedItem
+        tokensHeaderLabel.textColor = .air.secondaryLabel
+        addTokenIcon.tintColor = .tintColor
+        addTokenSeparator.backgroundColor = .air.separator
+        addTokenView.highlightBackgroundColor = .air.highlight
+        addTokenView.backgroundColor = .air.groupedItem
     }
 
     public override func viewWillLayoutSubviews() {
@@ -323,18 +325,19 @@ public class AssetsAndActivityVC: WViewController {
     }
 
     private func removeImportedToken(tokenSlug: String) {
-        AccountStore.updateAssetsAndActivityData(forAccountID: account.id, update: { settings in
+        AssetsAndActivityDataStore.update(accountId: account.id, update: { settings in
             settings.removeImportedToken(slug: tokenSlug)
         })
-        applySnapshot(makeSnapshot(), animated: true)
     }
 }
 
 extension AssetsAndActivityVC: UITableViewDelegate {
     public func tableView(_: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        switch section {
-        case 2: tokensHeaderView
-        default: configured(object: UIView()) { $0.backgroundColor = .clear }
+        switch dataSource.sectionIdentifier(for: section) {
+        case .tokens:
+            tokensHeaderView
+        default:
+            configured(object: UIView()) { $0.backgroundColor = .clear }
         }
     }
 
@@ -411,17 +414,13 @@ extension AssetsAndActivityVC: WalletCoreData.EventsObserver {
             snapshot.reconfigureItems([.baseCurrency])
             applySnapshot(snapshot, animated: true)
         case .balanceChanged:
-            if TokenStore.tokens[TONCOIN_SLUG]?.price?.nilIfZero != nil {
-                applySnapshot(makeSnapshot(), animated: true)
-            } else {
-                var snapshot = dataSource.snapshot()
-                snapshot.reconfigureItems(snapshot.itemIdentifiers)
-                applySnapshot(snapshot, animated: true)
-            }
+            applySnapshot(makeSnapshot(), animated: true)
         case .nftsChanged(let accountId):
             if accountId == account.id {
                 applySnapshot(makeSnapshot(), animated: true)
             }
+        case .assetsAndActivityDataUpdated:
+            applySnapshot(makeSnapshot(), animated: true)
         default:
             break
         }
@@ -431,9 +430,7 @@ extension AssetsAndActivityVC: WalletCoreData.EventsObserver {
 extension AssetsAndActivityVC: TokenSelectionVCDelegate {
     public func didSelect(token _: WalletCore.MTokenBalance) {}
 
-    public func didSelect(token selectedToken: WalletCore.ApiToken) {
-        applySnapshot(makeSnapshot(), animated: true)
-    }
+    public func didSelect(token _: WalletCore.ApiToken) {}
 }
 
 extension AssetsAndActivityVC {

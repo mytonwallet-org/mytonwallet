@@ -17,6 +17,7 @@ env:
   BRILLIANT_API_BASE_URL: ${{ vars.BRILLIANT_API_BASE_URL }}
   SWAP_FEE_ADDRESS: ${{ vars.SWAP_FEE_ADDRESS }}
   DIESEL_ADDRESS: ${{ vars.DIESEL_ADDRESS }}
+  AGENT_API_URL: ${{ vars.AGENT_API_URL }}
 
 jobs:
   build-web:

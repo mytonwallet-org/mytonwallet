@@ -12,7 +12,7 @@ import WalletContext
 
 private let stickerSize: CGFloat = 120
 
-public class EmptyEarnView: WTouchPassStackView, WThemedView {
+public class EmptyEarnView: WTouchPassStackView {
     
     let config: StakingConfig
     
@@ -74,8 +74,8 @@ public class EmptyEarnView: WTouchPassStackView, WThemedView {
         updateTheme()
     }
     
-    public func updateTheme() {
-        estimatedAPYLabel.textColor = WTheme.secondaryLabel
+    private func updateTheme() {
+        estimatedAPYLabel.textColor = .air.secondaryLabel
     }
     
     @objc func whyThisIsSafePressed() {

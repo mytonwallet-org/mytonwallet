@@ -68,6 +68,7 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
     }
     
     var apy: Double { stakingState.apy }
+    var yieldType: ApiYieldType { stakingState.yieldType }
     var type: ApiStakingType { stakingState.type }
 
     var isNativeToken: Bool {

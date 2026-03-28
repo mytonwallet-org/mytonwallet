@@ -14,9 +14,10 @@ final class BuyWithCardModel {
     var selectedCurrency: MBaseCurrency
     
     @PerceptionIgnored
-    @AccountContext(source: .current) var account: MAccount
+    @AccountContext var account: MAccount
     
-    init(chain: ApiChain, selectedCurrency: MBaseCurrency?) {
+    init(accountContext: AccountContext, chain: ApiChain, selectedCurrency: MBaseCurrency?) {
+        self._account = accountContext
         self.chain = chain
         self.selectedCurrency = selectedCurrency == .RUB || ConfigStore.shared.config?.countryCode == "RU" ? .RUB : .USD
     }

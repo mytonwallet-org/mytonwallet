@@ -22,7 +22,7 @@ public struct Checkmark: View {
                 .stroke(Color.air.checkmarkDisabled, lineWidth: 1.2)
             if isOn {
                 Circle()
-                    .fill(Color.air.tint)
+                    .fill(.tint)
                     .transition(.opacity
                         .combined(with: .scale(scale: 0.2))
                     )

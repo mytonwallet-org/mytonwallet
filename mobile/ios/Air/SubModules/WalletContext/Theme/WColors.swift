@@ -8,7 +8,6 @@
 import UIKit
 import SwiftUI
 
-
 public extension UIColor {
     static func airBundle(_ named: String) -> UIColor {
         UIColor(named: named, in: AirBundle, compatibleWith: nil)!
@@ -45,39 +44,39 @@ public func closestAccentColor(for color: UIColor) -> UIColor {
     ACCENT_COLORS.min(by: { $0.distance(to: color) < $1.distance(to: color) })!
 }
 
-public struct _WColorsType: Sendable {
+public struct WColors: Sendable {
     
     public let background: UIColor = .airBundle("BackgroundColor")
     
     public let groupedBackground: UIColor = .airBundle("GroupedBackgroundColor")
-    let sidebarBackground: UIColor = .airBundle("SidebarBackgroundColor")
+    public let sidebarBackground: UIColor = .airBundle("SidebarBackgroundColor")
 
-    let groupedItem: UIColor = .airBundle("GroupedItemColor")
+    public let groupedItem: UIColor = .airBundle("GroupedItemColor")
     public let sheetBackground: UIColor = .airBundle("SheetBackgroundColor")
-    let modularBackground: UIColor = .airBundle("ModularBackgroundColor")
+    public let modularBackground: UIColor = .airBundle("ModularBackgroundColor")
 
-    let backgroundReverse: UIColor = .airBundle("BackgroundReverseColor")
+    public let backgroundReverse: UIColor = .airBundle("BackgroundReverseColor")
     public let thumbBackground: UIColor = .airBundle("ThumbBackgroundColor")
     
-    let secondaryLabel: UIColor = .airBundle("AirSecondaryLabelColor")
-    let secondaryFill: UIColor = .airBundle("SecondaryFillColor")
+    public let secondaryLabel: UIColor = .airBundle("AirSecondaryLabelColor")
+    public let secondaryFill: UIColor = .airBundle("SecondaryFillColor")
+    public let agentBubbleFill: UIColor = .airBundle("AgentBubbleColor")
+    public let agentHintBackground: UIColor = .airBundle("AgentHintBackgroundColor")
     public let folderFill: UIColor = .airBundle("FolderFillColor")
+    public let positiveAmount: UIColor = .airBundle("TextGreen")
+    public let negativeAmount: UIColor = .airBundle("TextRed")
+    public let error: UIColor = .airBundle("TextRed")
     
     public let separator: UIColor = .airBundle("AirSeparatorColor")
-    let separatorDarkBackground: UIColor = .airBundle("AirSeparatorDarkBackgroundColor")
+    public let separatorDarkBackground: UIColor = .airBundle("AirSeparatorDarkBackgroundColor")
     
-    let headerBackground: UIColor = .airBundle("HeaderBackgroundColor")
-    public let headerSecondaryLabel: UIColor = .airBundle("HeaderSecondaryLabelColor")
-    let headerSkeleton: UIColor = .airBundle("HeaderSkeletonColor")
-    
+    public let headerBackground: UIColor = .airBundle("HeaderBackgroundColor")
     public let highlight: UIColor = .airBundle("HighlightColor")
     public let altHighlight: UIColor = .airBundle("AltHighlightColor")
     
-    let sheetOpaqueBar: UIColor = .airBundle("SheetOpaqueBarColor")
-    let browserOpaqueBar: UIColor = .airBundle("BrowserOpaqueBarColor")
-    let pickerBackground: UIColor = .airBundle("PickerBackgroundColor")
+    public let browserOpaqueBar: UIColor = .airBundle("BrowserOpaqueBarColor")
+    public let pickerBackground: UIColor = .airBundle("PickerBackgroundColor")
     public let blurBackground: UIColor = .airBundle("BlurBackgroundColor")
-    public let blurDim: UIColor = .airBundle("BlurDimColor")
     public let textPurple: UIColor = .airBundle("TextPurple")
     public let activityNftFill: UIColor = .airBundle("ActivityNftFill")
     
@@ -116,12 +115,9 @@ public struct _WColorsType: Sendable {
     }
 }
 
-public let WColors: _WColorsType = _WColorsType()
-
 public extension UIColor {
-    static var air: _WColorsType { WColors }
+    static let air = WColors()
 }
-
 
 public extension Color {
     struct Air: Sendable {
@@ -138,12 +134,22 @@ public extension Color {
         public let highlight: Color = .airBundle("HighlightColor")
         public let altHighlight: Color = .airBundle("AltHighlightColor")
         public let secondaryFill: Color = .airBundle("SecondaryFillColor")
-        public let error: Color = .red
+        public let agentBubbleFill: Color = .airBundle("AgentBubbleColor")
+        public let agentHintBackground: Color = .airBundle("AgentHintBackgroundColor")
+        public let error: Color = .airBundle("TextRed")
+        public let positiveAmount: Color = .airBundle("TextGreen")
+        public let negativeAmount: Color = .airBundle("TextRed")
+        public let modularBackground: Color = .airBundle("ModularBackgroundColor")
         public let folderFill: Color = .airBundle("FolderFillColor")
         public let separator: Color = .airBundle("AirSeparatorColor")
+        public let separatorDarkBackground: Color = .airBundle("AirSeparatorDarkBackgroundColor")
         public let buttonBackground: Color = .airBundle("ButtonBackground")
-        
-        public var tint: Color { Color(WTheme.tint) }
+        public let backgroundReverse: Color = .airBundle("BackgroundReverseColor")
+        public let thumbBackground: Color = .airBundle("ThumbBackgroundColor")
+        public let browserOpaqueBar: Color = .airBundle("BrowserOpaqueBarColor")
+        public let pickerBackground: Color = .airBundle("PickerBackgroundColor")
+        public let headerBackground: Color = .airBundle("HeaderBackgroundColor")
+        public var tint: Color { .accentColor }
     }
     
     static let air = Air()

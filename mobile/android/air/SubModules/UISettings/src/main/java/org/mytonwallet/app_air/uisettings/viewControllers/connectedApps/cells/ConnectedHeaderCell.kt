@@ -8,6 +8,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.appcompat.widget.AppCompatTextView
 import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -36,14 +37,13 @@ class ConnectedHeaderCell(context: Context) :
         setImageResource(R.drawable.ic_hand_stop_24)
     }
 
-    private val titleLabel = AppCompatTextView(context).apply {
-        id = generateViewId()
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+    private val titleLabel = WLabel(context).apply {
+        setStyle(16f, WFont.Medium)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         includeFontPadding = false
         ellipsize = TextUtils.TruncateAt.END
-        typeface = WFont.Medium.typeface
         maxLines = 1
+        useCustomEmoji = true
         text =
             LocaleController.getString("Logged in with MyTonWallet")
     }

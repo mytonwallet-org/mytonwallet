@@ -57,8 +57,18 @@
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES"
       launchAutomaticallySubstyle = "2">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
+      <RemoteRunnable
+         runnableDebuggingMode = "2"
+         BundleIdentifier = "com.apple.springboard">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "582009C62E820AD20010E2B5"
+            BuildableName = "AirWidgetExtension.appex"
+            BlueprintName = "AirWidgetExtension"
+            ReferencedContainer = "container:App.xcodeproj">
+         </BuildableReference>
+      </RemoteRunnable>
+      <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "504EC3031FED79650016851F"
@@ -66,7 +76,7 @@
             BlueprintName = "MyTonWallet"
             ReferencedContainer = "container:App.xcodeproj">
          </BuildableReference>
-      </BuildableProductRunnable>
+      </MacroExpansion>
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "_XCWidgetKind"
@@ -81,6 +91,11 @@
          <EnvironmentVariable
             key = "_XCWidgetFamily"
             value = "systemMedium"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "_XCWidgetKind"
+            value = "TokenWithChartWidget"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

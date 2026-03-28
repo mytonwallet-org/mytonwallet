@@ -8,7 +8,7 @@
 import UIKit
 import WalletContext
 
-public class SkeletonView: UIView, WThemedView {
+public class SkeletonView: UIView {
     
     private var gradientLayer: CAGradientLayer!
     
@@ -80,7 +80,7 @@ public class SkeletonView: UIView, WThemedView {
         gradientLayer.removeAnimation(forKey: "skeletonAnimation")
     }
     
-    public func updateTheme() {
+    private func updateTheme() {
         gradientLayer.colors = [colors[0].cgColor, colors[1].cgColor, colors[1].cgColor, colors[0].cgColor]
     }
     

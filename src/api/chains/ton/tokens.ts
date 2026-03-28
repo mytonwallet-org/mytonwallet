@@ -106,15 +106,9 @@ async function parseTokenBalance(
         logDebugError('fetchJettonMetadata', error);
         return undefined;
       });
-    const metadataToUse = jettonMetadata && !('error' in jettonMetadata)
-      ? jettonMetadata
-      : {
-        name: tokenAddress,
-        symbol: tokenAddress.slice(0, 4),
-        decimals: DEFAULT_DECIMALS,
-      } satisfies JettonMetadata;
+    if (!jettonMetadata || ('error' in jettonMetadata)) return undefined;
 
-    const token = buildTokenByMetadata(tokenAddress, metadataToUse);
+    const token = buildTokenByMetadata(tokenAddress, jettonMetadata);
 
     return {
       slug: token.slug,

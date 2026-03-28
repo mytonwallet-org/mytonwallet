@@ -114,3 +114,5 @@ scripts/**/*.json
 mytonwallet-sdk.js
 
 SubModules/WalletContext/Resources/Strings/Localizable.xcstrings
+# Generated from WalletContext/Resources/Strings/Localizable.xcstrings
+SubModules/WalletContext/Resources/Strings/*.lproj/

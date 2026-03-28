@@ -12,7 +12,7 @@ import WalletContext
 
 private let log = Log("BalanceHeaderView+update")
 
-private let throttleDuration = 0.03
+private let throttleDuration = 0.25
 
 @MainActor extension BalanceHeaderView {
     

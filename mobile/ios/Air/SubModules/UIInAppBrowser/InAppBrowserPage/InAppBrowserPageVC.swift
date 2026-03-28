@@ -56,7 +56,7 @@ final class InAppBrowserPageVC: WViewController {
     }
     
     private func setupViews() {
-        view.backgroundColor = WTheme.background
+        view.backgroundColor = .air.background
         view.translatesAutoresizingMaskIntoConstraints = false
         
         let webViewConfiguration = WKWebViewConfiguration()
@@ -154,10 +154,10 @@ final class InAppBrowserPageVC: WViewController {
         }
     }
     
-    override func updateTheme() {
-        view.backgroundColor = WTheme.background
-        webView?.backgroundColor = WTheme.background
-        webView?.scrollView.backgroundColor = WTheme.background
+    private func updateTheme() {
+        view.backgroundColor = .air.background
+        webView?.backgroundColor = .air.background
+        webView?.scrollView.backgroundColor = .air.background
     }
     
     func reload() {

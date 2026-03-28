@@ -1,16 +1,6 @@
-//
-//  ChangeView.swift
-//  App
-//
-//  Created by nikstar on 24.09.2025.
-//
-
 import SwiftUI
-import WalletContext
-import WalletCore
 
 struct ChangeView: View {
-    
     var changePercent: Double?
     var changeInCurrency: BaseCurrencyAmount?
     var useColors: Bool
@@ -28,7 +18,6 @@ struct ChangeView: View {
             .foregroundStyle(useColors ? color : .white.opacity(0.75))
         }
     }
-    
     var color: Color {
         let change = changePercent ?? 0
         if abs(change) <= 0.2 {

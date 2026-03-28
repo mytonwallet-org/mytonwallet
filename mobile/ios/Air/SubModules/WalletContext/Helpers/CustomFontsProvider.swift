@@ -41,7 +41,7 @@ final class CustomFontsProvider {
 
     // MARK: Private
 
-    private static let bundle = Bundle(for: CustomFontsProvider.self)
+    private static let bundle = AirBundle
 }
 
 #endif

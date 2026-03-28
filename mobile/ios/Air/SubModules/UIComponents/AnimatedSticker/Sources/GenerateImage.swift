@@ -17,7 +17,7 @@ public let deviceColorSpace: CGColorSpace = {
 
 private let grayscaleColorSpace = CGColorSpaceCreateDeviceGray()
 
-let deviceScale = UIScreen.main.scale
+@MainActor let deviceScale = UIScreen.main.scale
 
 public func generateImagePixel(_ size: CGSize, scale: CGFloat, pixelGenerator: (CGSize, UnsafeMutablePointer<UInt8>, Int) -> Void) -> UIImage? {
     let scaledSize = CGSize(width: size.width * scale, height: size.height * scale)
@@ -111,7 +111,7 @@ public func generateGrayscaleAlphaMaskImage(image: UIImage) -> UIImage? {
     return UIImage(cgImage: image, scale: selectedScale, orientation: .up)
 }
 
-public func generateImage(_ size: CGSize, contextGenerator: (CGSize, CGContext) -> Void, opaque: Bool = false, scale: CGFloat? = nil) -> UIImage? {
+@MainActor public func generateImage(_ size: CGSize, contextGenerator: (CGSize, CGContext) -> Void, opaque: Bool = false, scale: CGFloat? = nil) -> UIImage? {
     let selectedScale = scale ?? deviceScale
     let scaledSize = CGSize(width: size.width * selectedScale, height: size.height * selectedScale)
     let bytesPerRow = (4 * Int(scaledSize.width) + 15) & (~15)
@@ -143,7 +143,7 @@ public func generateImage(_ size: CGSize, contextGenerator: (CGSize, CGContext) 
     return UIImage(cgImage: image, scale: selectedScale, orientation: .up)
 }
 
-public func generateImage(_ size: CGSize, opaque: Bool = false, scale: CGFloat? = nil, rotatedContext: (CGSize, CGContext) -> Void) -> UIImage? {
+@MainActor public func generateImage(_ size: CGSize, opaque: Bool = false, scale: CGFloat? = nil, rotatedContext: (CGSize, CGContext) -> Void) -> UIImage? {
     let selectedScale = scale ?? deviceScale
     let scaledSize = CGSize(width: size.width * selectedScale, height: size.height * selectedScale)
     let bytesPerRow = (4 * Int(scaledSize.width) + 15) & (~15)
@@ -177,7 +177,7 @@ public func generateImage(_ size: CGSize, opaque: Bool = false, scale: CGFloat? 
     return UIImage(cgImage: image, scale: selectedScale, orientation: .up)
 }
 
-public func generateFilledCircleImage(diameter: CGFloat, color: UIColor?, strokeColor: UIColor? = nil, strokeWidth: CGFloat? = nil, backgroundColor: UIColor? = nil) -> UIImage? {
+@MainActor public func generateFilledCircleImage(diameter: CGFloat, color: UIColor?, strokeColor: UIColor? = nil, strokeWidth: CGFloat? = nil, backgroundColor: UIColor? = nil) -> UIImage? {
     return generateImage(CGSize(width: diameter, height: diameter), contextGenerator: { size, context in
         context.clear(CGRect(origin: CGPoint(), size: size))
         if let backgroundColor = backgroundColor {
@@ -208,7 +208,7 @@ public func generateFilledCircleImage(diameter: CGFloat, color: UIColor?, stroke
     })
 }
 
-public func generateAdjustedStretchableFilledCircleImage(diameter: CGFloat, color: UIColor) -> UIImage? {
+@MainActor public func generateAdjustedStretchableFilledCircleImage(diameter: CGFloat, color: UIColor) -> UIImage? {
     let corner: CGFloat = diameter / 2.0
     return generateImage(CGSize(width: diameter + 2.0, height: diameter + 2.0), contextGenerator: { size, context in
         context.clear(CGRect(origin: CGPoint(), size: size))
@@ -226,7 +226,7 @@ public func generateAdjustedStretchableFilledCircleImage(diameter: CGFloat, colo
     })?.stretchableImage(withLeftCapWidth: Int(diameter / 2) + 1, topCapHeight: Int(diameter / 2) + 1)
 }
 
-public func generateCircleImage(diameter: CGFloat, lineWidth: CGFloat, color: UIColor?, strokeColor: UIColor? = nil, strokeWidth: CGFloat? = nil, backgroundColor: UIColor? = nil) -> UIImage? {
+@MainActor public func generateCircleImage(diameter: CGFloat, lineWidth: CGFloat, color: UIColor?, strokeColor: UIColor? = nil, strokeWidth: CGFloat? = nil, backgroundColor: UIColor? = nil) -> UIImage? {
     return generateImage(CGSize(width: diameter, height: diameter), contextGenerator: { size, context in
         context.clear(CGRect(origin: CGPoint(), size: size))
         if let backgroundColor = backgroundColor {
@@ -245,13 +245,13 @@ public func generateCircleImage(diameter: CGFloat, lineWidth: CGFloat, color: UI
     })
 }
 
-public func generateStretchableFilledCircleImage(radius: CGFloat, color: UIColor?, backgroundColor: UIColor? = nil) -> UIImage? {
+@MainActor public func generateStretchableFilledCircleImage(radius: CGFloat, color: UIColor?, backgroundColor: UIColor? = nil) -> UIImage? {
     let intRadius = Int(radius)
     let cap = intRadius == 1 ? 2 : intRadius
     return generateFilledCircleImage(diameter: radius * 2.0, color: color, backgroundColor: backgroundColor)?.stretchableImage(withLeftCapWidth: cap, topCapHeight: cap)
 }
 
-public func generateStretchableFilledCircleImage(diameter: CGFloat, color: UIColor?, strokeColor: UIColor? = nil, strokeWidth: CGFloat? = nil, backgroundColor: UIColor? = nil) -> UIImage? {
+@MainActor public func generateStretchableFilledCircleImage(diameter: CGFloat, color: UIColor?, strokeColor: UIColor? = nil, strokeWidth: CGFloat? = nil, backgroundColor: UIColor? = nil) -> UIImage? {
     let intRadius = Int(diameter / 2.0)
     let intDiameter = Int(diameter)
     let cap: Int
@@ -268,7 +268,7 @@ public func generateStretchableFilledCircleImage(diameter: CGFloat, color: UICol
     return generateFilledCircleImage(diameter: diameter, color: color, strokeColor: strokeColor, strokeWidth: strokeWidth, backgroundColor: backgroundColor)?.stretchableImage(withLeftCapWidth: cap, topCapHeight: cap)
 }
 
-public func generateVerticallyStretchableFilledCircleImage(radius: CGFloat, color: UIColor?, backgroundColor: UIColor? = nil) -> UIImage? {
+@MainActor public func generateVerticallyStretchableFilledCircleImage(radius: CGFloat, color: UIColor?, backgroundColor: UIColor? = nil) -> UIImage? {
     return generateImage(CGSize(width: radius * 2.0, height: radius * 2.0 + radius), contextGenerator: { size, context in
         context.clear(CGRect(origin: CGPoint(), size: size))
         if let backgroundColor = backgroundColor {
@@ -287,7 +287,7 @@ public func generateVerticallyStretchableFilledCircleImage(radius: CGFloat, colo
     })?.stretchableImage(withLeftCapWidth: Int(radius), topCapHeight: Int(radius))
 }
 
-public func generateSmallHorizontalStretchableFilledCircleImage(diameter: CGFloat, color: UIColor?, backgroundColor: UIColor? = nil) -> UIImage? {
+@MainActor public func generateSmallHorizontalStretchableFilledCircleImage(diameter: CGFloat, color: UIColor?, backgroundColor: UIColor? = nil) -> UIImage? {
     return generateImage(CGSize(width: diameter + 1.0, height: diameter), contextGenerator: { size, context in
         context.clear(CGRect(origin: CGPoint(), size: size))
         
@@ -384,7 +384,7 @@ public func generateGradientTintedImage(image: UIImage?, colors: [UIColor]) -> U
     return tintedImage
 }
 
-public func generateScaledImage(image: UIImage?, size: CGSize, opaque: Bool = true, scale: CGFloat? = nil) -> UIImage? {
+@MainActor public func generateScaledImage(image: UIImage?, size: CGSize, opaque: Bool = true, scale: CGFloat? = nil) -> UIImage? {
     guard let image = image else {
         return nil
     }
@@ -397,7 +397,7 @@ public func generateScaledImage(image: UIImage?, size: CGSize, opaque: Bool = tr
     }, opaque: opaque, scale: scale)
 }
 
-private func generateSingleColorImage(size: CGSize, color: UIColor) -> UIImage? {
+@MainActor private func generateSingleColorImage(size: CGSize, color: UIColor) -> UIImage? {
     return generateImage(size, contextGenerator: { size, context in
         context.setFillColor(color.cgColor)
         context.fill(CGRect(origin: CGPoint(), size: size))
@@ -408,7 +408,7 @@ public enum DrawingContextBltMode {
     case Alpha
 }
 
-public class DrawingContext {
+@MainActor public class DrawingContext {
     public let size: CGSize
     public let scale: CGFloat
     private let scaledSize: CGSize

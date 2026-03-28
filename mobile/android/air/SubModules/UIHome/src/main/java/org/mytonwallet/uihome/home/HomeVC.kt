@@ -15,6 +15,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
 import org.mytonwallet.app_air.uicomponents.base.ISortableView
+import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.executeWithLowPriority
@@ -52,10 +53,9 @@ import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.api.requestDAppList
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.SwapType
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -584,6 +584,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             navigationBar?.bringToFront()
         } else {
             headerView.bringToFront()
+            if (stickyHeaderView.isInActionMode) {
+                stickyHeaderView.bringToFront()
+            }
         }
     }
 
@@ -982,10 +985,16 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     }
 
     override fun startSorting() {
+        if (currentActivityListView.homeAssetsCell?.isInSelectionMode == true) {
+            currentActivityListView.homeAssetsCell?.closeSelectionMode()
+            headerView.setUpdateStatusHidden(false)
+        }
+        setHeaderActionModeClipEnabled(true)
         currentActivityListView.homeAssetsCell?.startSorting()
         stickyHeaderView.enterActionMode(onResult = { save ->
             currentActivityListView.homeAssetsCell?.endSorting(save)
         })
+        sortViews()
     }
 
     override fun endSorting() {
@@ -994,10 +1003,86 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     private fun endSorting(save: Boolean) {
         currentActivityListView.homeAssetsCell?.endSorting(save)
+        setHeaderActionModeClipEnabled(false)
         stickyHeaderView.exitActionMode()
+        sortViews()
+    }
+
+    override fun startSelectionMode(
+        selectedCount: Int,
+        shouldShowTransferActions: Boolean
+    ) {
+        setHeaderActionModeClipEnabled(true)
+        headerView.setUpdateStatusHidden(true)
+        stickyHeaderView.enterSelectionMode(
+            selectedCount = selectedCount,
+            shouldShowTransferActions = shouldShowTransferActions,
+            onClose = ::endSelectionMode,
+            onHide = ::hideSelectedAssets,
+            onSelectAll = ::selectAllVisibleAssets,
+            onSend = ::sendSelectedAssets,
+            onBurn = ::burnSelectedAssets
+        )
+        sortViews()
+    }
+
+    override fun updateSelectionMode(
+        selectedCount: Int,
+        animationMode: TitleAnimationMode?,
+        shouldShowTransferActions: Boolean
+    ) {
+        stickyHeaderView.updateSelectionMode(
+            selectedCount = selectedCount,
+            animationMode = animationMode,
+            shouldShowTransferActions = shouldShowTransferActions,
+            onClose = ::endSelectionMode,
+            onHide = ::hideSelectedAssets,
+            onSelectAll = ::selectAllVisibleAssets,
+            onSend = ::sendSelectedAssets,
+            onBurn = ::burnSelectedAssets
+        )
+    }
+
+    override fun endSelectionMode() {
+        currentActivityListView.homeAssetsCell?.closeSelectionMode()
+        setHeaderActionModeClipEnabled(false)
+        headerView.setUpdateStatusHidden(false)
+        stickyHeaderView.exitActionMode()
+        sortViews()
+    }
+
+    private fun setHeaderActionModeClipEnabled(isEnabled: Boolean) {
+        headerView.setTopContentClipInset(
+            if (isEnabled) headerView.collapsedMinHeight else 0
+        )
+    }
+
+    private fun hideSelectedAssets() {
+        currentActivityListView.homeAssetsCell?.hideSelectedAssets()
+        endSelectionMode()
+    }
+
+    private fun sendSelectedAssets() {
+        if (currentActivityListView.homeAssetsCell?.sendSelectedNfts() == true) {
+            endSelectionMode()
+        }
+    }
+
+    private fun burnSelectedAssets() {
+        if (currentActivityListView.homeAssetsCell?.burnSelectedNfts() == true) {
+            endSelectionMode()
+        }
+    }
+
+    private fun selectAllVisibleAssets() {
+        currentActivityListView.homeAssetsCell?.selectAllVisibleAssets()
     }
 
     override fun onBackPressed(): Boolean {
+        if (currentActivityListView.homeAssetsCell?.isInSelectionMode == true) {
+            endSelectionMode()
+            return false
+        }
         if (currentActivityListView.homeAssetsCell?.isInDragMode == true) {
             endSorting(false)
             return false

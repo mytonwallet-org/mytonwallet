@@ -27,7 +27,7 @@ public struct MtwCardSelection: ViewModifier {
                 if isSelected {
                     RoundedRectangle(cornerRadius: cornerRadius + lineWidth)
                         .strokeBorder(lineWidth: lineWidth)
-                        .foregroundStyle(Color.air.tint)
+                        .foregroundStyle(.tint)
                         .padding(-lineWidth)
                 }
             }

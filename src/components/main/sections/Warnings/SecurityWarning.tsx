@@ -1,7 +1,7 @@
 import React, { memo } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import { MYTONWALLET_PROMO_URL } from '../../../../config';
+import { MYTONWALLET_PROMO_URL, TEST_MNEMONIC } from '../../../../config';
 import buildClassName from '../../../../util/buildClassName';
 import { openUrl } from '../../../../util/openUrl';
 
@@ -38,7 +38,7 @@ function SecurityWarning({ isSecurityWarningHidden }: StateProps) {
     closeSecurityWarning();
   });
 
-  if (!shouldRender) {
+  if (TEST_MNEMONIC || !shouldRender) {
     return undefined;
   }
 

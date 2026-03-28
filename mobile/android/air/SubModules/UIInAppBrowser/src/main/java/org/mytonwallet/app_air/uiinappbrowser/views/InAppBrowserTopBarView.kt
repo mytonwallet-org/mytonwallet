@@ -83,6 +83,7 @@ class InAppBrowserTopBarView(
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
             pivotX = 0f
+            useCustomEmoji = true
             if (optionsOnTitle && !options.isNullOrEmpty()) {
                 text = textWithArrow(options.find { it.identifier == selectedOption }?.title, true)
                 setOnClickListener {
@@ -159,6 +160,7 @@ class InAppBrowserTopBarView(
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
             pivotX = 0f
+            useCustomEmoji = true
             if (optionsOnTitle) {
                 text = options?.find { it.identifier == selectedOption }?.subtitle
             } else {

@@ -23,7 +23,7 @@ public class ExploreTabVC: WViewController {
     }
     
     func setupViews() {
-        view.backgroundColor = WTheme.background
+        view.backgroundColor = .air.background
       
         // Improvement: move navigationItem setup of Explore screen to ExploreVC | merge with ExploreVC to 1 class
         navigationItem.title = lang("Explore")
@@ -105,7 +105,7 @@ public class ExploreTabVC: WViewController {
 
             let separatorView = UIView()
             separatorView.translatesAutoresizingMaskIntoConstraints = false
-            separatorView.backgroundColor = WTheme.border
+            separatorView.backgroundColor = UIColor.separator
             searchBarContainer.addSubview(separatorView)
             NSLayoutConstraint.activate([
                 separatorView.topAnchor.constraint(equalTo: searchBarContainer.topAnchor),
@@ -134,7 +134,7 @@ public class ExploreTabVC: WViewController {
     
     private static func makeBlurView() -> WBlurView {
         let color = UIColor {
-            $0.userInterfaceStyle != .dark ? WColors.blurBackground : WColors.blurBackground.withAlphaComponent(0.85)
+            $0.userInterfaceStyle != .dark ? UIColor.air.blurBackground : UIColor.air.blurBackground.withAlphaComponent(0.85)
         }
         return WBlurView(background: color)
     }
@@ -149,8 +149,8 @@ public class ExploreTabVC: WViewController {
         }
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.background
+    private func updateTheme() {
+        view.backgroundColor = .air.background
     }
     
     public override func scrollToTop(animated: Bool) {

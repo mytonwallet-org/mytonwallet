@@ -23,15 +23,26 @@
     backdrop-filter: saturate(180%) blur(20px);
   }
 
+  &.withAgent {
+    box-shadow: none;
+  }
+
   &.hidden {
     pointer-events: none;
     transform: translateY(100%);
   }
 
   @include mixins.backdropPatch();
+
+  // In the Android app, the virtual keyboard can shift the page so that the bottom bar overlaps the input of the agent
+  :global(html.is-android-app.is-keyboard-open.is-agent-active) & {
+    display: none;
+  }
 }
 
 .button {
+  position: relative;
+
   display: flex;
   flex-direction: column;
   gap: 0.1875rem;

@@ -1,5 +1,6 @@
 import UIKit
 import UIBrowser
+import UIAgent
 import UIComponents
 import UIHome
 import UISettings
@@ -7,6 +8,31 @@ import UIAssets
 import WalletCore
 import WalletContext
 import SwiftNavigation
+
+private final class LazySplitRootNavigationController: WNavigationController {
+    private let makeRootViewController: () -> UIViewController
+    private var didInstallRootViewController = false
+
+    init(makeRootViewController: @escaping () -> UIViewController) {
+        self.makeRootViewController = makeRootViewController
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        ensureRootViewControllerInstalled()
+    }
+
+    func ensureRootViewControllerInstalled() {
+        guard !didInstallRootViewController else { return }
+        didInstallRootViewController = true
+        viewControllers = [makeRootViewController()]
+    }
+}
 
 @MainActor
 final class SplitRootViewController: UISplitViewController, VisibleContentProviding {
@@ -17,6 +43,7 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
     private let sidebarNavigationController: WNavigationController
     
     private(set) var homeNavigationController: WNavigationController
+    private(set) var agentNavigationController: WNavigationController
     private(set) var exploreNavigationController: WNavigationController
     private(set) var settingsNavigationController: WNavigationController
     
@@ -31,8 +58,15 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         self.sidebarNavigationController = WNavigationController(rootViewController: sidebarViewController)
         
         self.homeNavigationController = WNavigationController(rootViewController: SplitHomeVC())
-        self.exploreNavigationController = WNavigationController(rootViewController: ExploreTabVC())
-        self.settingsNavigationController = WNavigationController(rootViewController: SettingsVC())
+        self.agentNavigationController = LazySplitRootNavigationController {
+            AgentVC()
+        }
+        self.exploreNavigationController = LazySplitRootNavigationController {
+            ExploreTabVC()
+        }
+        self.settingsNavigationController = LazySplitRootNavigationController {
+            SettingsVC()
+        }
         
         super.init(style: .doubleColumn)
     }
@@ -168,6 +202,8 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         switch tab {
         case .home:
             homeNavigationController
+        case .agent:
+            agentNavigationController
         case .explore:
             exploreNavigationController
         case .settings:

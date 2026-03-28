@@ -23,7 +23,7 @@ struct WalletSettingsAddButton: View {
             if !viewModel.isReordering {
                 ZStack {
                     LinearGradient(
-                        colors: [Color.clear, Color.air.sheetBackground.opacity(0.85)],
+                        colors: [Color.clear, .air.sheetBackground.opacity(0.85)],
                         startPoint: .top,
                         endPoint: .bottom,
                     )

@@ -10,10 +10,11 @@ protocol SplitHomeAssetsRowViewDelegate: AnyObject {
 }
 
 @MainActor
-final class SplitHomeAssetsRowView: UIView, WThemedView, UICollectionViewDelegate, WalletAssetsViewModelDelegate, NftsViewControllerDelegate {
+final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAssetsViewModelDelegate, NftsViewControllerDelegate {
     static let itemSize = CGSize(width: 368, height: 424)
     static let rowHeight: CGFloat = 424
     static let itemSpacing: CGFloat = 16
+    static let horizontalInset: CGFloat = S.insetSectionHorizontalMargin
     
     private enum Section: Hashable {
         case main
@@ -129,7 +130,7 @@ final class SplitHomeAssetsRowView: UIView, WThemedView, UICollectionViewDelegat
         layout.itemSize = Self.itemSize
         layout.minimumInteritemSpacing = Self.itemSpacing
         layout.minimumLineSpacing = Self.itemSpacing
-        layout.sectionInset = .zero
+        layout.sectionInset = UIEdgeInsets(top: 0, left: Self.horizontalInset, bottom: 0, right: Self.horizontalInset)
         return layout
     }
     
@@ -335,8 +336,8 @@ private final class SplitHomeAssetSectionCollectionCell: UICollectionViewCell {
         }
     }
     
-    func updateTheme() {
-        cardView.backgroundColor = WTheme.groupedItem
-        titleLabel.textColor = WTheme.primaryLabel
+    fileprivate func updateTheme() {
+        cardView.backgroundColor = .air.groupedItem
+        titleLabel.textColor = UIColor.label
     }
 }

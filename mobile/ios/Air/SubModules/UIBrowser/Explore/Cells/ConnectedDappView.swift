@@ -108,7 +108,7 @@ private struct ConnectedDappGenericView<ImageView: View>: View {
             VStack(alignment: .center, spacing: 8) {
                 image().frame(width: imageSideLength, height: imageSideLength)
                     .onTapWithHighlightInScroll(action: onTap)
-                    .innerStrokeOverlay(regularSizeWithStroke ? Color.air.groupedItem : Color.clear,
+                    .innerStrokeOverlay(regularSizeWithStroke ? .air.groupedItem : Color.clear,
                                         cornerRadius: 16,
                                         lineWidth: 1,
                                         clipToStroke: true)

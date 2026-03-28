@@ -40,7 +40,13 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         title: lang("Wallet is ready!"),
         description: lang("Create a code to protect it")
     )
-    private lazy var passcodeInputView = PasscodeInputView(delegate: self, theme: WTheme.setPasscodeInput)
+    private lazy var passcodeInputView = PasscodeInputView(
+        delegate: self,
+        borderColor: UIColor.separator,
+        emptyColor: .air.background,
+        fillColor: UIColor.label,
+        fillBorderColor: nil
+    )
     private lazy var passcodeScreenView = PasscodeScreenView(
         title: "zzz",
         replacedTitle: "xxx",
@@ -85,7 +91,7 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         ])
         passcodeInputView.isHidden = true
         
-        view.backgroundColor = WTheme.sheetBackground
+        view.backgroundColor = .air.sheetBackground
         passcodeScreenView.layer.cornerRadius = 16
         
         view.addSubview(passcodeScreenView)

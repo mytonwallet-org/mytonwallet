@@ -35,10 +35,11 @@ import { parseAccountId } from '../../../util/account';
 import { bigintMultiplyToNumber } from '../../../util/bigint';
 import { fromDecimal, toDecimal } from '../../../util/decimals';
 import { getToncoinAmountForTransfer } from '../../../util/fee/getTonOperationFees';
-import { getDieselTokenAmount, isDieselAvailable } from '../../../util/fee/transferFee';
+import { explainApiTransferFee, getDieselTokenAmount, isDieselAvailable } from '../../../util/fee/transferFee';
 import { omit, pick, split } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
 import { pause } from '../../../util/schedulers';
+import { getNativeToken } from '../../../util/tokens';
 import { getMaxMessagesInTransaction } from '../../../util/ton/transfer';
 import { parsePayloadSlice } from './util/metadata';
 import { sendExternal } from './util/sendExternal';
@@ -289,8 +290,6 @@ export async function checkTransactionDraft(
     );
     fee += networkFee;
     realFee += networkFee;
-    result.fee = fee;
-    result.realFee = realFee;
     result.diesel = DIESEL_NOT_AVAILABLE;
 
     let isEnoughBalance: boolean;
@@ -316,6 +315,17 @@ export async function checkTransactionDraft(
         isEnoughBalance = canTransferGasfully && amount <= balance;
       }
     }
+
+    const tokenSlug = tokenAddress
+      ? getTokenByAddress(tokenAddress)!.slug
+      : getNativeToken('ton').slug;
+
+    result.explainedFee = explainApiTransferFee({
+      fee,
+      realFee,
+      diesel: result.diesel,
+      tokenSlug,
+    });
 
     return isEnoughBalance ? result : {
       ...result,
@@ -804,7 +814,7 @@ async function isTokenBalanceInsufficient(
     tokenAddresses.map((tokenAddress) =>
       tokenAddress !== STON_PTON_ADDRESS
         ? getTokenBalanceWithMintless(network, walletAddress, tokenAddress)
-        : 0n,
+        : Promise.resolve(0n),
     ),
   );
 

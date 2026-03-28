@@ -1,4 +1,5 @@
 import UIKit
+import UIActivityList
 import UIComponents
 import WalletContext
 import WalletCore
@@ -53,7 +54,7 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         tableView.showsVerticalScrollIndicator = false
-        tableView.register(ActivityCell.self, forCellReuseIdentifier: "Transaction")
+        tableView.register(ActivityDetailsListRowCell.self, forCellReuseIdentifier: "Transaction")
         tableView.rowHeight = UITableView.automaticDimension
         tableView.allowsSelection = false
         tableView.delaysContentTouches = false
@@ -61,7 +62,7 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
         if IOS_26_MODE_ENABLED {
             tableView.separatorInset = UIEdgeInsets(top: 0, left: 62, bottom: 0, right: 12)
         } else {
-            tableView.separatorColor = WTheme.separator
+            tableView.separatorColor = .air.separator
             tableView.separatorInset.left = 62
         }
         
@@ -69,26 +70,19 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
         dataSource.apply(makeSnapshot(), animatingDifferences: false)
 
         tableView.backgroundColor = .clear
-        view.backgroundColor = WTheme.sheetBackground
+        view.backgroundColor = .air.sheetBackground
     }
     
     private func makeDataSource() -> UITableViewDiffableDataSource<Section, Row> {
         let dataSource = UITableViewDiffableDataSource<Section, Row>(tableView: tableView) { [unowned self] tableView, indexPath, item in
             switch item {
             case .activity(let activityId):
-                let cell = tableView.dequeueReusableCell(withIdentifier: "Transaction", for: indexPath) as! ActivityCell
+                let cell = tableView.dequeueReusableCell(withIdentifier: "Transaction", for: indexPath) as! ActivityDetailsListRowCell
                 let activity = self.activitiesById[activityId]!
-                cell.configure(
-                    with: activity,
-                    accountContext: _account,
-                    delegate: self,
-                    shouldFadeOutSkeleton: false,
-                    showsRightChevron: true
-                )
+                cell.configure(with: activity, accountContext: _account, delegate: self)
                 return cell
             }
         }
-        dataSource.defaultRowAnimation = .fade
         return dataSource
     }
 
@@ -101,5 +95,36 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
 
     public func onSelect(transaction: ApiActivity) {
         AppActions.showActivityDetails(accountId: account.id, activity: transaction, context: context)
+    }
+}
+
+private final class ActivityDetailsListRowCell: UITableViewCell {
+    private let activityCell = ActivityCell(frame: .zero)
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        selectionStyle = .none
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+        activityCell.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(activityCell)
+        NSLayoutConstraint.activate([
+            activityCell.topAnchor.constraint(equalTo: contentView.topAnchor),
+            activityCell.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            activityCell.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            activityCell.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+
+    func configure(with activity: ApiActivity, accountContext: AccountContext, delegate: ActivityCell.Delegate) {
+        activityCell.configure(
+            with: activity,
+            accountContext: accountContext,
+            delegate: delegate,
+            showsRightChevron: true
+        )
     }
 }

@@ -13,7 +13,7 @@ import WalletContext
 private let log = Log("WViewController")
 
 
-open class WViewController: UIViewController, WThemedView {
+open class WViewController: UIViewController {
 
     open var navigationBar: WNavigationBar? = nil
     open var customNavigationBarBackground: UIView? = nil
@@ -60,12 +60,10 @@ open class WViewController: UIViewController, WThemedView {
     // set a view with background as UIViewController view, to do the rest, programmatically, inside the subclasses.
     open override func loadView() {
         let view = UIView()
-        view.backgroundColor = WTheme.background
+        view.backgroundColor = .air.background
         self.view = view
     }
     
-    open func updateTheme() {
-    }
     open func scrollToTop(animated: Bool) {
     }
     
@@ -93,7 +91,7 @@ open class WViewController: UIViewController, WThemedView {
         updateMaxContentWidthIfNeeded()
     }
 
-    private var observer: NSObjectProtocol?
+    nonisolated(unsafe) private var observer: NSObjectProtocol?
     private let notificationViewControllerKey = "viewController"
     private let wViewControllerDidAppearNtf = Notification.Name("WViewControllerDidAppear")
     

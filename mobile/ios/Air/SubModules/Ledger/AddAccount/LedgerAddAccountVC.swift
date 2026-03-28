@@ -51,8 +51,8 @@ public final class LedgerAddAccountVC: WViewController {
         LedgerAddAccountView(viewModel: self.model.viewModel)
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
     
     public override func viewDidAppear(_ animated: Bool) {

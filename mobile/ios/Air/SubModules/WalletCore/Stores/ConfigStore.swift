@@ -77,6 +77,8 @@ public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead o
     public var shouldRestrictBuyNfts: Bool { config?.isLimited == true }
     public var shouldRestrictSites: Bool { config?.isLimited == true }
     public var shouldRestrictSell: Bool { config?.isLimited == true }
+    public var knowledgeBaseVersion: String? { config?.knowledgeBaseVersion }
+    public var preferredAgent: ApiUpdate.UpdateConfig.PreferredAgent { config?.preferredAgent ?? .online }
     
     private func handleConfig(_ config: ApiUpdate.UpdateConfig) {
         if config.switchToClassic == true {

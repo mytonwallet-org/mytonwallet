@@ -50,6 +50,7 @@ import type {
 import type { AUTOLOCK_OPTIONS_LIST } from '../config';
 import type { AuthConfig } from '../util/authApi/types';
 import type { CapacitorPlatform } from '../util/capacitor/platform';
+import type { ExplainedTransferFee } from '../util/fee/transferFee';
 import type { LedgerTransport } from '../util/ledger/types';
 
 export type IAnchorPosition = {
@@ -96,6 +97,7 @@ export type DialogType = {
 };
 
 export type LangCode = 'en' | 'es' | 'ru' | 'zh-Hant' | 'zh-Hans' | 'tr' | 'de' | 'th' | 'uk' | 'pl';
+export type LanguageSource = 'system' | 'user';
 
 export interface LangItem {
   langCode: LangCode;
@@ -130,6 +132,7 @@ type SignOutLevel = 'account' | 'network' | 'all';
 export enum AppState {
   Auth,
   Main,
+  Agent,
   Explore,
   Settings,
   Ledger,
@@ -358,6 +361,7 @@ export enum ActiveTab {
 export enum ContentTab {
   Assets,
   Activity,
+  Agent,
   Explore,
   Nft,
 }
@@ -424,6 +428,22 @@ export interface Account {
 export type AssetPairs = Record<string, {
   isReverseProhibited?: boolean;
 }>;
+
+export interface AgentMessage {
+  id: number;
+  text: string;
+  isOutgoing: boolean;
+  timestamp: number;
+  isTyping?: boolean;
+}
+
+export interface AgentHint {
+  id: string;
+  langCode: LangCode;
+  title: string;
+  subtitle: string;
+  prompt: string;
+}
 
 export interface AccountState {
   balances?: {
@@ -617,9 +637,6 @@ export type GlobalState = {
     error?: string;
     // Should be ignored when `nfts` is defined and not empty
     amount?: bigint;
-    // Every time this field value changes, the `amount` value should be actualized using `preserveMaxTransferAmount`
-    fee?: bigint;
-    realFee?: bigint;
     comment?: string;
     binPayload?: string;
     promiseId?: string;
@@ -640,6 +657,12 @@ export type GlobalState = {
     isTransferReadonly?: boolean;
     isOfframp?: boolean;
     isNftBurn?: boolean;
+    /**
+     * Normalized explanation of the fee and gasless parameters for the current draft, ready for UI consumption.
+     * Calculated on the API layer inside chain-specific `checkTransactionDraft`.
+     * Every time this field value changes, the `amount` value should be actualized using `preserveMaxTransferAmount`.
+     */
+    explainedFee?: ExplainedTransferFee;
   };
 
   currentSwap: {
@@ -822,6 +845,7 @@ export type GlobalState = {
     isSeasonalThemingDisabled?: boolean;
     developerSettingsOverrides?: DeveloperSettingsOverrides;
     langCode: LangCode;
+    langSource?: LanguageSource;
     byAccountId: Record<string, AccountSettings>;
     areTinyTransfersHidden?: boolean;
     canPlaySounds?: boolean;
@@ -863,6 +887,9 @@ export type GlobalState = {
   isCustomizeWalletModalOpen?: boolean;
   customizeWalletReturnTo?: 'accountSelector' | 'settings';
   areSettingsOpen?: boolean;
+  isAgentOpen?: boolean;
+  agentMeta?: { messageCount: number; lastTimestamp?: number };
+  agentHints?: AgentHint[];
   isExploreOpen?: boolean;
   isAppUpdateAvailable?: boolean;
   // Force show the "Update MyTonWallet" pop-up on all platforms
@@ -1123,6 +1150,10 @@ export interface ActionPayloads {
   openNftAttributesModal: { nft: ApiNft; withOwner?: true };
   closeNftAttributesModal: undefined;
 
+  openAgent: undefined;
+  closeAgent: undefined;
+  setAgentMeta: { messageCount: number; lastTimestamp?: number };
+  setAgentHints: { hints: AgentHint[] };
   openExplore: undefined;
   closeExplore: undefined;
 
@@ -1152,6 +1183,7 @@ export interface ActionPayloads {
 
   // BottomBar actions
   switchToWallet: undefined;
+  switchToAgent: undefined;
   switchToExplore: undefined;
   switchToSettings: undefined;
 

@@ -136,7 +136,7 @@ struct SwapDetailsView: View {
             .frame(maxHeight: model.isExpanded ? nil : 44, alignment: .top)
             .clipShape(.rect(cornerRadius: S.insetSectionCornerRadius))
             .frame(height: 400, alignment: .top)
-            .tint(Color(WTheme.tint))
+            .tint(.accentColor)
             .animation(.spring(duration: model.isExpanded ? 0.45 : 0.3), value: model.isExpanded)
             .animation(.snappy, value: model.slippageExpanded)
         }
@@ -154,8 +154,8 @@ struct SwapDetailsView: View {
                         .rotationEffect(model.isExpanded ? .radians(-0.5 * .pi) : .radians(0.5 * .pi))
                 }
                 .font13()
-                .tint(Color(WTheme.secondaryLabel))
-                .foregroundStyle(Color(WTheme.secondaryLabel))
+                .tint(.air.secondaryLabel)
+                .foregroundStyle(Color.air.secondaryLabel)
             }
             .frame(minHeight: 44)
             .frame(height: 44)
@@ -172,7 +172,7 @@ struct SwapDetailsView: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     HStack(spacing: 0) {
                         Text(lang("Exchange Rate"))
-                            .foregroundStyle(Color(WTheme.secondaryLabel))
+                            .foregroundStyle(Color.air.secondaryLabel)
                         Spacer(minLength: 4)
                         let priceAmount = DecimalAmount.fromDouble(exchangeRate.price, exchangeRate.fromToken)
                         Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(.none, maxDecimals: min(6, sellingToken.decimals)))")
@@ -188,7 +188,7 @@ struct SwapDetailsView: View {
         VStack(spacing: 0) {
             InsetDetailCell(alignment: .firstTextBaseline) {
                 Text(lang("Slippage"))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
                     .overlay(alignment: .trailingFirstTextBaseline) {
                         InfoButton(
                             title: lang("Slippage"),
@@ -270,7 +270,7 @@ struct SwapDetailsView: View {
         if let displayEstimate {
             InsetDetailCell {
                 Text(lang("Blockchain Fee"))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
             } value: {
                 if let nativeToken = TokenStore.tokens[sellingToken.nativeTokenSlug],
                    let feeDetails = model.feeDetails {
@@ -295,7 +295,7 @@ struct SwapDetailsView: View {
         if displayEstimate != nil {
             InsetDetailCell {
                 Text(lang("Aggregator Fee"))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
                     .overlay(alignment: .trailingFirstTextBaseline) {
                         let feePercent = displayEstimate?.ourFeePercent ?? DEFAULT_OUR_SWAP_FEE
                         InfoButton(title: lang("Aggregator Fee"), message: lang("$swap_aggregator_fee_tooltip", arg1: "\(feePercent)"))
@@ -316,7 +316,7 @@ struct SwapDetailsView: View {
         if let displayEstimate {
             InsetDetailCell {
                 Text(lang("Price Impact"))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
                     .overlay(alignment: .trailingFirstTextBaseline) {
                         InfoButton(title: lang("Price Impact"), message: lang("$swap_price_impact_tooltip1") + "\n\n" +  lang("$swap_price_impact_tooltip2"))
                     }
@@ -337,7 +337,7 @@ struct SwapDetailsView: View {
         if let displayEstimate {
             InsetDetailCell {
                 Text(lang("Minimum Received"))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
                     .overlay(alignment: .trailingFirstTextBaseline) {
                         InfoButton(title: lang("Minimum Received"), message: lang("$swap_minimum_received_tooltip2"))
                     }
@@ -368,7 +368,7 @@ private struct SlippagePickerButton: View {
             .padding(.leading, 18)
             .padding(.trailing, 14)
             .padding(.vertical, 8)
-            .background(Color(WTheme.secondaryFill), in: .capsule)
+            .background(Color.air.secondaryFill, in: .capsule)
         }
         .buttonStyle(.plain)
     }
@@ -383,7 +383,7 @@ private struct InfoButton: View {
         Button(action: onTap) {
             Image.airBundle("InfoIcon")
                 .renderingMode(.template)
-                .foregroundStyle(Color(WTheme.secondaryLabel.withAlphaComponent(0.3)))
+                .foregroundStyle(Color(.air.secondaryLabel.withAlphaComponent(0.3)))
                 .padding(4)
                 .contentShape(.circle)
         }

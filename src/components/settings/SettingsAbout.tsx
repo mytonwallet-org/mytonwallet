@@ -111,7 +111,7 @@ function SettingsAbout({
             onClick={handleUrlClick}
           >
             <img className={styles.menuIcon} src={videoImg} alt={lang('Watch Video about Features')} />
-            {lang('Watch Video about Features')}
+            <span className={styles.itemTitle}>{lang('Watch Video about Features')}</span>
 
             <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
           </a>
@@ -123,7 +123,7 @@ function SettingsAbout({
             onClick={handleUrlClick}
           >
             <img className={styles.menuIcon} src={hotImg} alt={lang('Enjoy Monthly Updates in Blog')} />
-            {lang('Enjoy Monthly Updates in Blog')}
+            <span className={styles.itemTitle}>{lang('Enjoy Monthly Updates in Blog')}</span>
 
             <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
           </a>
@@ -135,7 +135,7 @@ function SettingsAbout({
             onClick={handleUrlClick}
           >
             <img className={styles.menuIcon} src={helpcenterImg} alt={lang('Learn New Things in Help Center')} />
-            {lang('Learn New Things in Help Center')}
+            <span className={styles.itemTitle}>{lang('Learn New Things in Help Center')}</span>
 
             <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
           </a>

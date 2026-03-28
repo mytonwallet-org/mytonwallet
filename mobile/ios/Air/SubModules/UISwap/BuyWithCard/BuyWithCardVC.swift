@@ -19,8 +19,8 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
     let model: BuyWithCardModel
     var observer: ObserveToken?
     
-    public init(chain: ApiChain) {
-        self.model = BuyWithCardModel(chain: chain, selectedCurrency: TokenStore.baseCurrency)
+    public init(accountContext: AccountContext, chain: ApiChain) {
+        self.model = BuyWithCardModel(accountContext: accountContext, chain: chain, selectedCurrency: TokenStore.baseCurrency)
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -80,7 +80,7 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
         if currency == .RUB {
             open(url: model.account.dreamwalkersLink)
         } else {
-            guard let address = AccountStore.account?.getAddress(chain: model.chain) else { return }
+            guard let address = model.account.getAddress(chain: model.chain) else { return }
             Task {
                 let activeTheme = ResolvedTheme(traitCollection: traitCollection)
                 do {

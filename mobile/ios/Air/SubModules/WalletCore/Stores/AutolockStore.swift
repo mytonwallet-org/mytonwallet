@@ -7,8 +7,6 @@ import Kingfisher
 public let DEFAULT_AUTOLOCK_OPTION = MAutolockOption.tenMinutes
 
 private let log = Log("AutolockStore")
-private let isAppLockEnabledKey = "settings.isAppLockEnabled"
-private let autolockValueKey = "settings.autolockValue"
 
 @MainActor
 public final class AutolockStore: NSObject, Sendable {
@@ -25,21 +23,10 @@ public final class AutolockStore: NSObject, Sendable {
     
     public var autolockOption: MAutolockOption {
         get {
-            if let s = GlobalStorage[autolockValueKey] as? String, let option = MAutolockOption(rawValue: s) {
-                return option
-            }
-            return DEFAULT_AUTOLOCK_OPTION
+            AppStorageHelper.autolockOption
         }
         set {
-            GlobalStorage.update {
-                if newValue != .never {
-                    $0[isAppLockEnabledKey] = true
-                }
-                $0[autolockValueKey] = newValue.rawValue
-            }
-            Task {
-                try? await GlobalStorage.syncronize()
-            }
+            AppStorageHelper.autolockOption = newValue
             restartTimerIfValid()
         }
     }
@@ -63,4 +50,3 @@ public final class AutolockStore: NSObject, Sendable {
         self.timer?.invalidate()
     }
 }
-

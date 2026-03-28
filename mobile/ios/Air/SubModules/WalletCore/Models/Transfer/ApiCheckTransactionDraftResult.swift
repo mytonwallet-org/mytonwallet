@@ -23,6 +23,7 @@ public struct ApiCheckTransactionDraftResult: Equatable, Codable, Sendable {
     /// and `realFee` fields should be ignored, because they don't consider an extra transfer of the diesel to the
     /// MTW wallet.
     public let diesel: ApiFetchEstimateDieselResult?
+    public let explainedFee: ExplainedTransferFee?
     
     // staking extension
     public var tokenAmount: BigInt?
@@ -31,13 +32,12 @@ public struct ApiCheckTransactionDraftResult: Equatable, Codable, Sendable {
 
 
 extension ApiCheckTransactionDraftResult {
+    public var fullNativeFee: BigInt? {
+        explainedFee?.fullFee?.nativeSum ?? fee
+    }
     
-    /// Like **diesel** but checks that status is not "not-abailable"
-    public var dieselAvailable: ApiFetchEstimateDieselResult? {
-        if let diesel, diesel.status != .notAvailable {
-            return diesel
-        }
-        return nil
+    public var realNativeFee: BigInt? {
+        explainedFee?.realFee?.nativeSum ?? realFee ?? fullNativeFee
     }
 }
 

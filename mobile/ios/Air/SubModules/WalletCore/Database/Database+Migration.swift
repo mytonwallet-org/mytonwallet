@@ -176,5 +176,93 @@ func makeMigrator() -> DatabaseMigrator {
             t.add(column: "isTemporary", .boolean)
         }
     }
+    migrator.registerMigration("v9") { db in
+        try db.create(table: "account_balances") { t in
+            t.column("accountId", .text)
+                .notNull()
+                .references("accounts", column: "id", onDelete: .cascade)
+            t.column("chain", .text).notNull()
+            t.column("balances", .jsonText).notNull()
+            t.column("updatedAt", .datetime).notNull()
+            t.primaryKey(["accountId", "chain"])
+        }
+        try db.create(table: "account_assets_and_activity_data") { t in
+            t.primaryKey("accountId", .text)
+                .references("accounts", column: "id", onDelete: .cascade)
+            t.column("alwaysHiddenSlugs", .jsonText).notNull().defaults(to: "[]")
+            t.column("importedSlugs", .jsonText).notNull().defaults(to: "[]")
+            t.column("pinnedSlugs", .jsonText)
+            t.column("didAutoPinStaking", .boolean).notNull().defaults(to: false)
+        }
+        try db.create(table: "one_time_migrations") { t in
+            t.primaryKey("id", .text)
+            t.column("executedAt", .datetime).notNull()
+        }
+    }
+    migrator.registerMigration("v10") { db in
+        try db.create(table: "account_settings") { t in
+            t.primaryKey("accountId", .text)
+                .references("accounts", column: "id", onDelete: .cascade)
+            t.column("cardBackgroundNft", .jsonText)
+            t.column("accentColorNft", .jsonText)
+            t.column("accentColorIndex", .integer)
+            t.column("isAllowSuspiciousActions", .boolean)
+        }
+        try db.create(table: "settings") { t in
+            t.primaryKey("id", .integer)
+            t.column("theme", .text).notNull().defaults(to: "system")
+            t.column("areAnimationsDisabled", .boolean).notNull().defaults(to: false)
+            t.column("isSeasonalThemingDisabled", .boolean).notNull().defaults(to: false)
+            t.column("canPlaySounds", .boolean).notNull().defaults(to: true)
+            t.column("areTinyTransfersHidden", .boolean).notNull().defaults(to: true)
+            t.column("areTokensWithNoCostHidden", .boolean).notNull().defaults(to: true)
+            t.column("authConfig", .jsonText)
+            t.column("autolockValue", .text).notNull().defaults(to: "3")
+            t.column("isSensitiveDataHidden", .boolean).notNull().defaults(to: false)
+            t.column("selectedExplorerIds", .jsonText).notNull().defaults(to: "{}")
+            t.column("isTokenChartExpanded", .boolean).notNull().defaults(to: false)
+            t.column("pushNotifications", .jsonText)
+            t.column("currentTokenPeriod", .text).notNull().defaults(to: "1D")
+        }
+        try db.execute(sql: "INSERT INTO settings (id) VALUES (0)")
+        try db.create(table: "account_ordering") { t in
+            t.primaryKey("id", .integer)
+            t.column("orderedAccountIds", .jsonText).notNull().defaults(to: "[]")
+        }
+        try db.create(table: "account_saved_addresses") { t in
+            t.primaryKey("accountId", .text)
+                .references("accounts", column: "id", onDelete: .cascade)
+            t.column("addresses", .jsonText).notNull().defaults(to: "[]")
+        }
+        try db.create(table: "account_domains") { t in
+            t.primaryKey("accountId", .text)
+                .references("accounts", column: "id", onDelete: .cascade)
+            t.column("expirationByAddress", .jsonText).notNull().defaults(to: "{}")
+            t.column("linkedAddressByAddress", .jsonText).notNull().defaults(to: "{}")
+            t.column("nftsByAddress", .jsonText).notNull().defaults(to: "{}")
+            t.column("orderedAddresses", .jsonText).notNull().defaults(to: "[]")
+        }
+    }
+    migrator.registerMigration("v11") { db in
+        try db.alter(table: "settings") { t in
+            t.add(column: "walletTokensLimit", .integer)
+                .notNull()
+                .defaults(to: 5)
+        }
+    }
+    migrator.registerMigration("v12") { db in
+        try db.create(table: "agent_history_messages") { t in
+            t.primaryKey("id", .text)
+            t.column("sort_index", .integer).notNull()
+            t.column("role", .text).notNull()
+            t.column("text", .text).notNull()
+            t.column("timestamp", .datetime).notNull()
+            t.column("action_title", .text)
+            t.column("action_url", .text)
+            t.column("system_style_kind", .text)
+            t.column("system_style_date", .text)
+            t.column("system_style_time", .text)
+        }
+    }
     return migrator
 }

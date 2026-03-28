@@ -48,6 +48,10 @@ function SettingsTokens({
 
   const [tokenToDelete, setTokenToDelete] = useState<UserToken | undefined>();
 
+  const handleDeleteTokenModalClose = useLastCallback(() => {
+    setTokenToDelete(undefined);
+  });
+
   const handleOpenAddTokenPage = useLastCallback(() => {
     openSettingsWithState({ state: SettingsState.SelectTokenList });
   });
@@ -152,14 +156,14 @@ function SettingsTokens({
           onClick={handleOpenAddTokenPage}
           onKeyDown={handleOpenAddTokenPageKeyDown}
         >
-          {lang('Add Token')}
+          <span className={styles.itemTitle}>{lang('Add Token')}</span>
           <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
         </div>
 
         {tokens?.map(renderToken)}
       </div>
 
-      <DeleteTokenModal token={tokenToDelete} />
+      <DeleteTokenModal token={tokenToDelete} onClose={handleDeleteTokenModalClose} />
     </>
   );
 }

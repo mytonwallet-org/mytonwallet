@@ -108,7 +108,7 @@ public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
                 ])
             }
         )
-        hostingController.view.backgroundColor = WTheme.sheetBackground
+        hostingController.view.backgroundColor = .air.sheetBackground
         
         _ = addBottomButton()
         let title: String = lang("$unstake_asset", arg1: model.baseToken.symbol)
@@ -124,16 +124,11 @@ public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
         
         bringNavigationBarToFront()
 
-        updateTheme()
-        
         amountChanged(amount: nil)
     }
     
     public override func viewDidAppear(_ animated: Bool) {
         model.isAmountFieldFocused = true
-    }
-    
-    public override func updateTheme() {
     }
     
     func amountChanged(amount: BigInt?) {

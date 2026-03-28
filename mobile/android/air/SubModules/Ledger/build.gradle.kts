@@ -1,12 +1,18 @@
 plugins {
-    id("com.google.devtools.ksp") version "2.2.0-2.0.2"
+    alias(libs.plugins.google.devtools.ksp)
     id("com.android.library")
     alias(libs.plugins.jetbrains.kotlin.android)
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+    }
+}
+
 android {
     namespace = "org.mytonwallet.app_air.ledger"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 23
@@ -27,9 +33,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
-    }
-    kotlinOptions {
-        jvmTarget = "1.8"
     }
 }
 

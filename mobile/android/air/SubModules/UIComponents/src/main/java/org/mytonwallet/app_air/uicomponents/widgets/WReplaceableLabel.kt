@@ -34,6 +34,7 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
         isHorizontalFadingEdgeEnabled = true
         ellipsize = TextUtils.TruncateAt.MARQUEE
         gravity = Gravity.CENTER
+        useCustomEmoji = true
     }
 
     private val currentLabel = WLabel(context).apply {
@@ -41,6 +42,7 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
         isHorizontalFadingEdgeEnabled = true
         ellipsize = TextUtils.TruncateAt.MARQUEE
         gravity = Gravity.CENTER
+        useCustomEmoji = true
     }
 
     private val expandDrawable = ContextCompat.getDrawable(

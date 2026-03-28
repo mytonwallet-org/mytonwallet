@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 
-public struct TransformImageViewContentAnimations: OptionSet {
+public struct TransformImageViewContentAnimations: OptionSet, Sendable {
     public var rawValue: Int32
     
     public init(rawValue: Int32) {

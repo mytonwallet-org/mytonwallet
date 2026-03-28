@@ -152,7 +152,7 @@ final class HomeCard: UICollectionViewCell {
     private func applyTransform(headerViewModel: HomeHeaderViewModel) {
         let layout = container.layout
         // background
-        let ofs: CGFloat = layout.itemHeight/2 - 17*CARD_RATIO + (IOS_26_MODE_ENABLED ? -114 : -116)
+        let ofs: CGFloat = layout.itemHeight/2 - 17*CARD_RATIO + (IOS_26_MODE_ENABLED ? -124 : -126)
         let scale: CGFloat = 34/layout.itemWidth
         // card content
         let r: CGFloat = homeCardFontSize(for: layout.itemWidth)/homeCollapsedFontSize

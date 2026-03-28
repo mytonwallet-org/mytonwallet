@@ -135,7 +135,7 @@ export async function getJettonMinterData(network: ApiNetwork, address: string) 
       if (err.message.includes('exit_code: -13')) {
         return { error: ApiTokenImportError.AddressDoesNotExist };
       }
-      if (err.message.includes('exit_code: 11')) {
+      if (err.message.includes('exit_code: 11') || err.message.includes('exit_code: 9')) {
         return { error: ApiTokenImportError.NotATokenAddress };
       }
     }

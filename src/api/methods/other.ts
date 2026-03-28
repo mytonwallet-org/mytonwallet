@@ -4,6 +4,7 @@ import type { LangCode, Theme } from '../../global/types';
 import type { StorageKey } from '../storages/types';
 import type { ApiAnyDisplayError, ApiBaseCurrency, ApiChain } from '../types';
 
+import { APP_ENV, APP_VERSION, IS_ANDROID_DIRECT } from '../../config';
 import { setIsAppFocused } from '../../util/focusAwareDelay';
 import { getLogs, logDebugError } from '../../util/logs';
 import { pause } from '../../util/schedulers';
@@ -164,6 +165,14 @@ export function waitForLedgerApp(
   };
 
   return Promise.race([waitForDeadline(), checkApp()]);
+}
+
+export function getEnvironmentVariables() {
+  return {
+    appEnv: APP_ENV,
+    appVersion: APP_VERSION,
+    isAndroidDirect: IS_ANDROID_DIRECT,
+  };
 }
 
 export async function renderBlurredReceiveBg(

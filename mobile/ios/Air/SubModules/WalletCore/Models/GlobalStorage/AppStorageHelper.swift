@@ -12,105 +12,79 @@ import WalletContext
 private let log = Log("AppStorageHelper")
 
 public enum AppStorageHelper {
+    private static var settingsStore: SettingsStore { SettingsStore.liveValue }
 
     public static func reset() {}
 
-    public static func remove(accountId: String) {
-        GlobalStorage.remove(keys: [
-            "accounts.byId.\(accountId)",
-            "byAccountId.\(accountId)",
-            "settings.byAccountId.\(accountId)",
-        ], persistInstantly: true)
-    }
-
-    public static func deleteAllWallets() {
-        GlobalStorage.setEmptyObjects(keys: [
-            "accounts.byId",
-            "byAccountId",
-            "settings.byAccountId",
-        ], persistInstantly: true)
-    }
-
     // Active night mode
-    private static let activeNightModeKey = "settings.theme"
     public static var activeNightMode: NightMode {
         get {
-            return NightMode(rawValue: GlobalStorage.getString(key: activeNightModeKey) ?? "") ?? .system
+            settingsStore.theme
         }
         set {
-            GlobalStorage.set(key: activeNightModeKey, value: "\(newValue)", persistInstantly: false)
+            settingsStore.setTheme(newValue)
         }
     }
 
     // Animations activated or not
-    private static let animationsKey = "settings.animationLevel"
     @MainActor public static var animations: Bool {
         get {
-            return (GlobalStorage.getInt(key: animationsKey) ?? 2) > 0
+            !settingsStore.areAnimationsDisabled
         }
         set {
             UIView.setAnimationsEnabled(newValue)
-            GlobalStorage.set(key: animationsKey, value: newValue ? 2 : 0, persistInstantly: false)
+            settingsStore.setAreAnimationsDisabled(!newValue)
         }
     }
 
-    private static let seasonalThemingDisabledKey = "settings.isSeasonalThemingDisabled"
     public static var isSeasonalThemingDisabled: Bool {
         get {
-            return GlobalStorage.getBool(key: seasonalThemingDisabledKey) ?? false
+            settingsStore.isSeasonalThemingDisabled
         }
         set {
-            GlobalStorage.set(
-                key: seasonalThemingDisabledKey,
-                value: newValue ? true : nil,
-                persistInstantly: false
-            )
+            settingsStore.setIsSeasonalThemingDisabled(newValue)
             WalletCoreData.notify(event: .configChanged)
         }
     }
 
     // Sounds activated or not
-    private static let soundsKey = "settings.canPlaySounds"
     public static var sounds: Bool {
         get {
-            return GlobalStorage.getBool(key: soundsKey) ?? true
+            settingsStore.canPlaySounds
         }
         set {
-            GlobalStorage.set(key: soundsKey, value: newValue, persistInstantly: false)
+            settingsStore.setCanPlaySounds(newValue)
         }
     }
 
     // Hide tiny transfers or not
-    private static let hideTinyTransfersKey = "settings.areTinyTransfersHidden"
     public static var hideTinyTransfers: Bool {
         get {
-            return GlobalStorage.getBool(key: hideTinyTransfersKey) ?? true
+            settingsStore.areTinyTransfersHidden
         }
         set {
-            GlobalStorage.set(key: hideTinyTransfersKey, value: newValue, persistInstantly: false)
+            settingsStore.setAreTinyTransfersHidden(newValue)
         }
     }
 
     // Hide tiny transfers or not
-    private static let hideNoCostTokensKey = "settings.areTokensWithNoCostHidden"
     public static var hideNoCostTokens: Bool {
         get {
-            return GlobalStorage.getBool(key: hideNoCostTokensKey) ?? true
+            settingsStore.areTokensWithNoCostHidden
         }
         set {
-            GlobalStorage.set(key: hideNoCostTokensKey, value: newValue, persistInstantly: false)
+            settingsStore.setAreTokensWithNoCostHidden(newValue)
             WalletCoreData.notify(event: .hideNoCostTokensChanged)
         }
     }
 
     // Is chart view expanded
-    private static let isTokenChartExpandedKey = "settings.isTokenChartExpanded"
     public static var isTokenChartExpanded: Bool {
         get {
-            return GlobalStorage.getBool(key: isTokenChartExpandedKey) ?? false
+            settingsStore.isTokenChartExpanded
         }
         set {
-            GlobalStorage.set(key: isTokenChartExpandedKey, value: newValue, persistInstantly: false)
+            settingsStore.setIsTokenChartExpanded(newValue)
         }
     }
 
@@ -118,107 +92,80 @@ public enum AppStorageHelper {
 
     public static let selectedCurrencyKey = "settings.baseCurrency"
     public static func save(selectedCurrency: String?) {
-        GlobalStorage.set(key: selectedCurrencyKey, value: selectedCurrency, persistInstantly: true)
+        UserDefaults.standard.set(selectedCurrency, forKey: selectedCurrencyKey)
     }
 
     public static func selectedCurrency() -> String {
-        return GlobalStorage["selectedCurrencyKey"] as? String ?? "USD"
+        UserDefaults.standard.string(forKey: selectedCurrencyKey) ?? "USD"
     }
 
-    private static let selectedExplorerIdsKey = "settings.selectedExplorerIds"
     public static func selectedExplorerId(for chain: ApiChain) -> String? {
-        guard let dict = GlobalStorage.getDict(key: selectedExplorerIdsKey) else { return nil }
-        return dict[chain.rawValue] as? String
+        settingsStore.selectedExplorerId(for: chain)
     }
 
     public static func save(selectedExplorerId: String, for chain: ApiChain) {
-        var dict = GlobalStorage.getDict(key: selectedExplorerIdsKey) ?? [:]
-        dict[chain.rawValue] = selectedExplorerId
-        GlobalStorage.set(key: selectedExplorerIdsKey, value: dict, persistInstantly: true)
+        settingsStore.setSelectedExplorerId(selectedExplorerId, for: chain)
     }
 
     // MARK: - Current Token Time Period
 
     public static func save(currentTokenPeriod: String) {
-        guard let activeAccountId = AccountStore.accountId else {
-            return
-        }
-        GlobalStorage.set(key: "byAccountId.\(activeAccountId).currentTokenPeriod", value: currentTokenPeriod, persistInstantly: false)
+        settingsStore.setCurrentTokenPeriod(currentTokenPeriod)
     }
 
     public static func selectedCurrentTokenPeriod() -> String {
-        guard let activeAccountId = AccountStore.accountId else {
-            return "1D"
-        }
-        return GlobalStorage.getString(key: "byAccountId.\(activeAccountId).currentTokenPeriod") ?? "1D"
+        settingsStore.currentTokenPeriod
     }
 
-    // MARK: - Account AssetsAndActivity data
-
-    private static let assetsAndActivityDataKey = "settings.byAccountId"
-    public static func save(accountId: String, assetsAndActivityData: [String: Any]) {
-        let assetsDataKeyPrefix = "\(assetsAndActivityDataKey).\(accountId)"
-        assetsAndActivityData.forEach { dictKey, value in
-            let storageKey = "\(assetsDataKeyPrefix).\(dictKey)"
-            GlobalStorage.set(key: storageKey, value: value, persistInstantly: false)
+    public static var homeWalletVisibleTokensLimit: HomeWalletVisibleTokensLimit {
+        get {
+            settingsStore.homeWalletVisibleTokensLimit
         }
-    }
-
-    public static func assetsAndActivityData(for accountId: String) -> [String: Any]? {
-        guard let jsonDictionary = GlobalStorage.getDict(key: "\(assetsAndActivityDataKey).\(accountId)") else {
-            return nil
+        set {
+            guard settingsStore.homeWalletVisibleTokensLimit != newValue else { return }
+            settingsStore.setHomeWalletVisibleTokensLimit(newValue)
+            WalletCoreData.notify(event: .homeWalletVisibleTokensLimitChanged)
         }
-        return jsonDictionary
     }
 
     // MARK: - Is biometric auth enabled
 
-    private static let isBiometricActivatedKey = "settings.authConfig.kind"
-    private enum AuthKind: String {
-        case password
-        case nativeBiometrics = "native-biometrics"
-    }
-
     public static func save(isBiometricActivated: Bool) {
-        let kind: AuthKind = isBiometricActivated ? .nativeBiometrics : .password
-        GlobalStorage.set(key: isBiometricActivatedKey, value: kind.rawValue, persistInstantly: true)
+        settingsStore.setIsBiometricActivated(isBiometricActivated)
     }
 
     public static func isBiometricActivated() -> Bool {
-        GlobalStorage.getString(key: isBiometricActivatedKey) == AuthKind.nativeBiometrics.rawValue
+        settingsStore.isBiometricActivated
+    }
+
+    public static var autolockOption: MAutolockOption {
+        get {
+            settingsStore.autolockOption
+        }
+        set {
+            settingsStore.setAutolockOption(newValue)
+        }
     }
 
     // MARK: - Sensitive data
 
-    private static let isSensitiveDataHiddenKey = "settings.isSensitiveDataHidden"
     public static var isSensitiveDataHidden: Bool {
         get {
-            GlobalStorage[isSensitiveDataHiddenKey] as? Bool ?? false
+            settingsStore.isSensitiveDataHidden
         }
         set {
-            GlobalStorage.update { $0[isSensitiveDataHiddenKey] = newValue }
+            settingsStore.setIsSensitiveDataHidden(newValue)
         }
     }
 
     // MARK: - Push notifications
 
-    private static let pushNotificationsKey = "pushNotifications"
     public static var pushNotifications: GlobalPushNotifications? {
         get {
-            if let any = GlobalStorage[pushNotificationsKey], let value = try? JSONSerialization.decode(GlobalPushNotifications.self, from: any) {
-                return value
-            }
-            return nil
+            settingsStore.pushNotifications
         }
         set {
-            do {
-                if let newValue {
-                    let any = try JSONSerialization.encode(newValue)
-                    GlobalStorage.update { $0[pushNotificationsKey] = any }
-                }
-            } catch {
-                assertionFailure("\(error)")
-            }
+            settingsStore.setPushNotifications(newValue)
         }
     }
 }

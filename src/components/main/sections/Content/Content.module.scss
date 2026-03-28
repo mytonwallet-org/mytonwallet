@@ -160,15 +160,71 @@
   }
 }
 
+.agentMenuButton {
+  pointer-events: none;
+
+  position: relative;
+  z-index: 1;
+  top: 0.125rem;
+  transform: scale(0);
+
+  flex-shrink: 0;
+
+  width: 0;
+  height: 2rem;
+  padding-right: 0;
+
+  font-size: 1rem;
+
+  opacity: 0;
+
+  @include mixins.transition("opacity 200ms, transform 200ms, width 200ms, padding-right 200ms", !important);
+
+  &_visible {
+    pointer-events: auto;
+
+    transform: scale(1);
+
+    width: 2.375rem;
+    padding-right: 1.5rem;
+
+    opacity: 1;
+  }
+
+  &::before {
+    pointer-events: none;
+    content: "";
+
+    position: absolute;
+    top: 0;
+    right: 100%;
+
+    width: 2rem;
+    height: 100%;
+
+    background: linear-gradient(to right, transparent, var(--color-background-first));
+  }
+}
+
 .landscapeContainer {
   .tabsContainer {
+    display: flex;
+    align-items: center;
+
     height: 3rem;
+    border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+
+    background-color: var(--color-background-first);
+  }
+
+  .tabsContent {
+    overflow: hidden;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .tabs {
     padding: 0.625rem;
-    border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
-    background-color: var(--color-background-first);
   }
 
   .tabsOverlay {

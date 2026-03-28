@@ -5,11 +5,14 @@ import android.annotation.SuppressLint
 import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Rect
+import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputConnectionWrapper
 import androidx.appcompat.widget.AppCompatEditText
+import androidx.core.widget.doAfterTextChanged
+import org.mytonwallet.app_air.uicomponents.emoji.EmojiHelper
 import org.mytonwallet.app_air.uicomponents.helpers.EditTextTint
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -24,9 +27,17 @@ open class WEditText(
     delegate: Delegate? = null,
     private val multilinePaste: Boolean,
 ) : AppCompatEditText(context), WThemedView {
+    var useCustomEmoji = true
+        set(value) {
+            if (field == value) return
+            field = value
+            updateEmojiWatcher()
+        }
+
     init {
         id = generateViewId()
         background = null
+        updateEmojiWatcher()
     }
 
     var nextFocusView: WeakReference<WEditText>? = null
@@ -122,6 +133,27 @@ open class WEditText(
                 return true
             }
             return super.commitText(text, newCursorPosition)
+        }
+    }
+
+    private var isApplyingEmoji = false
+    private var emojiWatcher: TextWatcher? = null
+    private fun updateEmojiWatcher() {
+        if (useCustomEmoji) {
+            if (emojiWatcher == null) {
+                emojiWatcher = doAfterTextChanged { editable ->
+                    if (!isApplyingEmoji && editable != null) {
+                        isApplyingEmoji = true
+                        EmojiHelper.replaceEmojiInPlace(editable, this)
+                        isApplyingEmoji = false
+                    }
+                }
+            }
+        } else {
+            emojiWatcher?.let {
+                removeTextChangedListener(it)
+                emojiWatcher = null
+            }
         }
     }
 }

@@ -23,9 +23,9 @@ struct TransferRow: View {
                 }
                 Spacer()
                 Image.airBundle("RightArrowIcon")
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
             }
-            .foregroundStyle(Color(WTheme.primaryLabel))
+            .foregroundStyle(Color.air.primaryLabel)
             .frame(minHeight: 60)
         }
     }
@@ -39,7 +39,7 @@ struct TransferRow: View {
             size: 40,
             chainSize: 16,
             chainBorderWidth: 1.333,
-            chainBorderColor: WTheme.groupedItem,
+            chainBorderColor: .air.groupedItem,
             chainHorizontalOffset: 2,
             chainVerticalOffset: 1
         )
@@ -59,9 +59,9 @@ struct TransferRow: View {
                 integerFont: .systemFont(ofSize: 16, weight: .medium),
                 fractionFont: .systemFont(ofSize: 16, weight: .medium),
                 symbolFont: .systemFont(ofSize: 16, weight: .medium),
-                integerColor: WTheme.primaryLabel,
-                fractionColor: WTheme.primaryLabel,
-                symbolColor: WTheme.secondaryLabel,
+                integerColor: UIColor.label,
+                fractionColor: UIColor.label,
+                symbolColor: .air.secondaryLabel,
                 forceSymbolColor: true,
             )
             .opacity(transfer.isScam == true ? 0.7 : 1)
@@ -75,6 +75,6 @@ struct TransferRow: View {
             .fontWeight(.semibold)
         Text("\(to) \(addr)")
             .font14h18()
-            .foregroundStyle(Color(WTheme.secondaryLabel))
+            .foregroundStyle(Color.air.secondaryLabel)
     }
 }

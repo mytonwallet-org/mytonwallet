@@ -1,17 +1,5 @@
-//
-//  AirWidget.swift
-//  AirWidget
-//
-//  Created by nikstar on 23.09.2025.
-//
-
 import SwiftUI
-import WalletCore
-import WalletContext
-import UIComponents
-import WidgetKit
 import UIKit
-import Charts
 
 private let blurRadius: CGFloat = 100
 private let defaultAccentColor = "0079C8" // design has 0088CC but it iOS then applies a brightening layer
@@ -24,7 +12,6 @@ func colorForSlug(_ tokenSlug: String, tokenColor: String?) -> Color {
 }
 
 struct CardBackground: View {
-    
     var tokenSlug: String
     var tokenColor: String?
     
@@ -86,7 +73,6 @@ struct CardBackground: View {
         }
         .drawingGroup()
     }
-    
     private var backgroundColor: Color {
         colorForSlug(tokenSlug, tokenColor: tokenColor)
     }
@@ -124,4 +110,3 @@ private extension Color {
         Swift.max(min, Swift.min(max, value))
     }
 }
-

@@ -44,8 +44,8 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
         
         hostingController = addHostingController(makeView(), constraints: .fillWithNavigationBar)
 
-        configureSheetWithOpaqueBackground(color: WTheme.sheetBackground)
-        view.backgroundColor = WTheme.sheetBackground
+        configureSheetWithOpaqueBackground(color: .air.sheetBackground)
+        view.backgroundColor = .air.sheetBackground
     }
     
     func makeView() -> AccountTypePickerView {

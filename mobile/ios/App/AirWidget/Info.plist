@@ -4,10 +4,10 @@
 <dict>
 	<key>UIAppFonts</key>
 	<array>
-		<string>../../Frameworks/WalletContext.framework/Nunito-ExtraBold.ttf</string>
-		<string>../../Frameworks/WalletContext.framework/SFCompactDisplayMedium.otf</string>
-		<string>../../Frameworks/WalletContext.framework/SFCompactRoundedBold.otf</string>
-		<string>../../Frameworks/WalletContext.framework/SFCompactRoundedSemibold.otf</string>
+		<string>../../AirModules_WalletContext.bundle/Nunito-ExtraBold.ttf</string>
+		<string>../../AirModules_WalletContext.bundle/SFCompactDisplayMedium.otf</string>
+		<string>../../AirModules_WalletContext.bundle/SFCompactRoundedBold.otf</string>
+		<string>../../AirModules_WalletContext.bundle/SFCompactRoundedSemibold.otf</string>
 	</array>
 	<key>NSExtension</key>
 	<dict>

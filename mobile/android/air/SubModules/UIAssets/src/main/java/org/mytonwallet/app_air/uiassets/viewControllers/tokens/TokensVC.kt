@@ -40,6 +40,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.frameAsPath
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedControllerItemVC
 import org.mytonwallet.app_air.uireceive.ReceiveVC
 import org.mytonwallet.app_air.uisend.send.SendVC
@@ -83,6 +84,10 @@ class TokensVC(
     WSegmentedControllerItemVC {
     override val TAG = "Tokens"
 
+    override var segmentedController: WSegmentedController? = null
+    override var badge: String? = null
+    var onScrollToVisibleRequested: (() -> Unit)? = null
+
     private var isShowingAccountMultichain = WGlobalStorage.isMultichain(showingAccountId)
     private var _showingAccount: MAccount? = null
     private fun fetchAccount(accountId: String): MAccount {
@@ -105,6 +110,7 @@ class TokensVC(
 
     companion object {
         val TOKEN_CELL = WCell.Type(1)
+        private val HOME_ASSETS_TOP_LIMITS = listOf(5, 10, 30)
     }
 
     override var title: String?
@@ -124,6 +130,9 @@ class TokensVC(
 
     private var walletTokens: Array<MTokenBalance> = emptyArray()
     private var pinnedSlugs: Set<String> = emptySet()
+    var totalVisibleTokensCount: Int = 0
+        private set
+    private var currentHomeAssetsLimit = WGlobalStorage.getHomeAssetsTopLimit(showingAccountId)
 
     private var thereAreMoreToShow: Boolean = false
     private var isScreenFullyVisible = false
@@ -205,7 +214,11 @@ class TokensVC(
             )
             window.present(navVC)
         }
+        v.onMenuTap = { anchorView ->
+            presentHomeTopLimitMenu(anchorView)
+        }
         v.visibility = View.GONE
+        v.setCounter(null)
         v
     }
 
@@ -217,7 +230,7 @@ class TokensVC(
                 actionText = LocaleController.getString("Add Tokens"),
                 animation = org.mytonwallet.app_air.uicomponents.R.raw.animation_empty
             ) {
-                openManageTokens()
+                openManageAssets()
             }
             isGone = true
         }
@@ -235,7 +248,7 @@ class TokensVC(
             allEdges(recyclerView)
             toCenterX(emptyDataView)
             if (mode == Mode.HOME) {
-                toTop(showAllView, 300f)
+                toTop(showAllView)
                 toCenterX(showAllView)
                 toTop(emptyDataView)
             } else {
@@ -250,6 +263,7 @@ class TokensVC(
         dataUpdated(forceUpdate = false)
 
         updateTheme()
+        updateShowAllPosition()
     }
 
     private var _isDarkThemeApplied: Boolean? = null
@@ -275,10 +289,13 @@ class TokensVC(
             return
         scope.coroutineContext.cancelChildren()
         walletTokens = emptyArray()
+        totalVisibleTokensCount = 0
+        showAllView.setCounter(null)
         rvAdapter.reloadData()
         prevSize = -1
         showingAccountId = accountId
         isShowingAccountMultichain = WGlobalStorage.isMultichain(accountId)
+        currentHomeAssetsLimit = WGlobalStorage.getHomeAssetsTopLimit(accountId)
         dataUpdated(forceUpdate = true)
     }
 
@@ -318,15 +335,19 @@ class TokensVC(
             }
             withContext(Dispatchers.Main) {
                 pinnedSlugs = newPinnedSlugs
+                totalVisibleTokensCount = filteredWalletTokens.size
+                val limit = currentHomeAssetsLimit
                 walletTokens = if (mode == Mode.HOME) {
-                    filteredWalletTokens.take(5).toTypedArray()
+                    filteredWalletTokens.take(limit).toTypedArray()
                 } else {
                     filteredWalletTokens.toTypedArray()
                 }
-                val moreToShow = mode == Mode.HOME && filteredWalletTokens.size > 5
+                val moreToShow = mode == Mode.HOME && totalVisibleTokensCount > limit
                 val moreToShowChanged = thereAreMoreToShow != moreToShow
                 thereAreMoreToShow = moreToShow
+                showAllView.setCounter(totalVisibleTokensCount)
                 showAllView.visibility = if (thereAreMoreToShow) View.VISIBLE else View.GONE
+                updateShowAllPosition()
                 updateEmptyTokensState()
                 if (walletTokens.size != prevSize || moreToShowChanged) {
                     prevSize = walletTokens.size
@@ -394,6 +415,21 @@ class TokensVC(
                 onHeightChanged?.invoke()
             }
             start()
+        }
+    }
+
+    private var prevShowAllViewToTop = -1
+    private fun updateShowAllPosition() {
+        if (mode != Mode.HOME) {
+            return
+        }
+        val newShowAllViewToTop = (60 * walletTokens.size).dp
+        if (prevShowAllViewToTop == newShowAllViewToTop) {
+            return
+        }
+        prevShowAllViewToTop = newShowAllViewToTop
+        view.setConstraints {
+            toTopPx(showAllView, newShowAllViewToTop)
         }
     }
 
@@ -487,6 +523,7 @@ class TokensVC(
         recyclerView.adapter = null
         recyclerView.removeAllViews()
         showAllView.onTap = null
+        showAllView.onMenuTap = null
     }
 
     override fun onFullyVisible() {
@@ -513,6 +550,113 @@ class TokensVC(
         emptyDataView.isVisible = shouldShowEmptyState
         recyclerView.isGone = shouldShowEmptyState
         onHeightChanged?.invoke()
+    }
+
+    fun setHomeAssetsTopLimit(limit: Int) {
+        if (mode != Mode.HOME) {
+            return
+        }
+        val safeLimit = if (HOME_ASSETS_TOP_LIMITS.contains(limit)) limit else HOME_ASSETS_TOP_LIMITS.first()
+        if (safeLimit == currentHomeAssetsLimit) {
+            return
+        }
+        val isReducing = safeLimit < currentHomeAssetsLimit
+        currentHomeAssetsLimit = safeLimit
+        WGlobalStorage.setHomeAssetsTopLimit(showingAccountId, safeLimit)
+        dataUpdated(forceUpdate = true)
+        if (isReducing) {
+            onScrollToVisibleRequested?.invoke()
+        }
+    }
+
+    fun presentHomeTopLimitMenu(anchorView: View) {
+        if (mode != Mode.HOME) {
+            return
+        }
+        currentHomeAssetsLimit = WGlobalStorage.getHomeAssetsTopLimit(showingAccountId)
+        WMenuPopup.present(
+            anchorView,
+            buildHomeTopLimitItems(),
+            popupWidth = WRAP_CONTENT,
+            positioning = WMenuPopup.Positioning.ALIGNED,
+            centerHorizontally = true,
+            windowBackgroundStyle = WMenuPopup.BackgroundStyle.Cutout.fromView(
+                anchorView,
+                roundRadius = 16f.dp
+            ),
+            backdropStyle = WMenuPopup.BackdropStyle.Transparent
+        )
+    }
+
+    fun presentHomeAssetsMenu(anchorView: View, onReorderTapped: (() -> Unit)? = null) {
+        if (mode != Mode.HOME) {
+            return
+        }
+        currentHomeAssetsLimit = WGlobalStorage.getHomeAssetsTopLimit(showingAccountId)
+        val items = buildHomeTopLimitItems().toMutableList()
+        if (items.isNotEmpty()) {
+            items[items.lastIndex].hasSeparator = true
+        }
+        items.add(
+            WMenuPopup.Item(
+                WMenuPopup.Item.Config.Item(
+                    icon = WMenuPopup.Item.Config.Icon(
+                        R.drawable.ic_manage_30,
+                        WColor.PrimaryLightText
+                    ),
+                    title = LocaleController.getString("Manage Assets")
+                ),
+                hasSeparator = onReorderTapped != null
+            ) {
+                openManageAssets()
+            }
+        )
+        if (onReorderTapped != null) {
+            items.add(
+                WMenuPopup.Item(
+                    WMenuPopup.Item.Config.Item(
+                        icon = WMenuPopup.Item.Config.Icon(
+                            org.mytonwallet.app_air.uiassets.R.drawable.ic_reorder,
+                            WColor.PrimaryLightText
+                        ),
+                        title = LocaleController.getString("Reorder Tabs")
+                    ),
+                    hasSeparator = false
+                ) {
+                    onReorderTapped()
+                }
+            )
+        }
+        WMenuPopup.present(
+            anchorView,
+            items,
+            popupWidth = WRAP_CONTENT,
+            positioning = WMenuPopup.Positioning.BELOW,
+            centerHorizontally = true,
+            windowBackgroundStyle = WMenuPopup.BackgroundStyle.Cutout.fromView(
+                anchorView,
+                roundRadius = 16f.dp
+            )
+        )
+    }
+
+    private fun buildHomeTopLimitItems(): List<WMenuPopup.Item> {
+        return HOME_ASSETS_TOP_LIMITS.mapIndexed { index, option ->
+            WMenuPopup.Item(
+                WMenuPopup.Item.Config.SelectableItem(
+                    title = LocaleController.getString("Top $option"),
+                    subtitle = null,
+                    isSelected = currentHomeAssetsLimit == option
+                ),
+                hasSeparator = false
+            ) {
+                setHomeAssetsTopLimit(option)
+            }.apply {
+                if (index == HOME_ASSETS_TOP_LIMITS.lastIndex) {
+                    hasSeparator = false
+                }
+            }
+        }
     }
 
     private fun onTokenPressed(tokenView: View, tokenBalance: MTokenBalance, token: MToken) {
@@ -561,8 +705,8 @@ class TokensVC(
             add(
                 WMenuPopup.Item(
                     R.drawable.ic_manage_30,
-                    LocaleController.getString("Manage Tokens")
-                ) { openManageTokens() }
+                    LocaleController.getString("Manage Assets")
+                ) { openManageAssets() }
             )
         }
     }
@@ -585,7 +729,7 @@ class TokensVC(
         actions.add(
             WMenuPopup.Item(
                 R.drawable.ic_plus_30,
-                LocaleController.getString("Fund")
+                LocaleController.getString("Add")
             ) { openAdd(token) }
         )
         actions.add(
@@ -605,7 +749,7 @@ class TokensVC(
             actions.add(
                 WMenuPopup.Item(
                     R.drawable.ic_stake_30,
-                    LocaleController.getString(if (hasActiveStaking) "Earning" else "Earn")
+                    LocaleController.getString("Stake")
                 ) { openStake(token, hasActiveStaking) }
             )
         }
@@ -686,7 +830,7 @@ class TokensVC(
         window.present(navVC)
     }
 
-    private fun openManageTokens() {
+    private fun openManageAssets() {
         val window = this.window ?: return
         val navVC = WNavigationController(window).apply {
             setRoot(AssetsAndActivitiesVC(context))

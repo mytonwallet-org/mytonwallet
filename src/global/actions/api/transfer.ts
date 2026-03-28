@@ -13,7 +13,8 @@ import { DEFAULT_CHAIN, NFT_BATCH_SIZE } from '../../../config';
 import { bigintDivideToNumber } from '../../../util/bigint';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import { getChainConfig } from '../../../util/chain';
-import { explainApiTransferFee, getDieselTokenAmount } from '../../../util/fee/transferFee';
+import { toDecimal } from '../../../util/decimals';
+import { getDieselTokenAmount } from '../../../util/fee/transferFee';
 import { split } from '../../../util/iteratees';
 import { getTranslation } from '../../../util/langProvider';
 import { shouldShowDomainScamWarning, shouldShowSeedPhraseScamWarning } from '../../../util/scamDetection';
@@ -205,10 +206,19 @@ addActionHandler('fetchNftFee', async (global, actions, payload) => {
   }
   setGlobal(global);
 
+  const nativeToken = getChainConfig(chain).nativeToken;
+
   if (result?.error) {
+    const feeDisplay = result.explainedFee?.fullFee?.nativeSum;
+
     actions.showError({
       error: result?.error === ApiTransactionDraftError.InsufficientBalance
-        ? getTranslation('Insufficient %token% for fee.', { token: getChainConfig(chain).nativeToken.slug })
+        ? getTranslation('Insufficient %token% for fee.%fee%', {
+          token: nativeToken.slug,
+          fee: feeDisplay !== undefined
+            ? ` (~${toDecimal(feeDisplay, nativeToken.decimals)} ${nativeToken.slug})`
+            : '',
+        })
         : result.error,
     });
   }
@@ -242,9 +252,10 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
   }
 
   global = getGlobal();
-  const explainedFee = explainApiTransferFee(global.currentTransfer);
-  const fullNativeFee = explainedFee.fullFee?.nativeSum;
-  const realNativeFee = explainedFee.realFee?.nativeSum;
+
+  const { explainedFee } = global.currentTransfer;
+  const fullNativeFee = explainedFee?.fullFee?.nativeSum;
+  const realNativeFee = explainedFee?.realFee?.nativeSum;
 
   let result: { activityId: string } | { activityIds: string[] } | { error: string } | undefined;
 
@@ -290,6 +301,7 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
       stateInit,
       isGaslessWithStars,
       noFeeCheck: true,
+      gaslessTransaction: diesel?.transaction,
     };
 
     result = await callApi('submitTransfer', chain, options);
@@ -333,7 +345,7 @@ addActionHandler('cancelTransfer', (global, actions, { shouldReset } = {}) => {
 
 addActionHandler('fetchTransferDieselState', async (global, actions, { tokenSlug }) => {
   const { tokenAddress, chain } = selectToken(global, tokenSlug);
-  if (!tokenAddress) return;
+  if (!tokenAddress || chain !== 'ton') return;
 
   const diesel = await callApi('fetchEstimateDiesel', selectCurrentAccountId(global)!, chain, tokenAddress);
   if (!diesel) return;

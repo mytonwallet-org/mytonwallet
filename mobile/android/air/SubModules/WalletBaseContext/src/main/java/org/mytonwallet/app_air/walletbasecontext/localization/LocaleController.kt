@@ -1,12 +1,16 @@
 package org.mytonwallet.app_air.walletbasecontext.localization
 
+import android.app.LocaleManager
 import android.content.Context
 import android.os.Build
 import android.text.SpannableStringBuilder
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.utils.toHashMapStringNested
 import java.io.IOException
+import java.util.Locale
 
 object LocaleController {
     val PLURAL_RULES: Map<String, (Int) -> Int> = mapOf(
@@ -98,12 +102,33 @@ object LocaleController {
         return true
     }
 
+    fun setApplicationLocale(langCode: String) {
+        AppCompatDelegate.setApplicationLocales(
+            LocaleListCompat.forLanguageTags(
+                toLocaleTag(
+                    langCode
+                )
+            )
+        )
+    }
+
+    // If user already set language, it will return the app-specific lang, otherwise, it will be null.
+    fun appSpecificLanguageCode(): String? {
+        val applicationLocales = AppCompatDelegate.getApplicationLocales()
+        val locales = (0 until applicationLocales.size()).mapNotNull { index ->
+            applicationLocales[index]
+        }
+        return locales.firstNotNullOfOrNull { locale -> WLanguage.valueOfLocale(locale)?.langCode }
+    }
+
+    // Get system language
     fun resolveSystemLanguageCode(context: Context): String? {
+        val locales = mutableListOf<Locale>()
         val configuration = context.resources.configuration
-        val locales = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            (0 until configuration.locales.size()).map { configuration.locales[it] }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            locales.addAll((0 until configuration.locales.size()).map { configuration.locales[it] })
         } else {
-            listOf(configuration.locale)
+            locales.add(configuration.locale)
         }
 
         return locales.firstNotNullOfOrNull { locale -> WLanguage.valueOfLocale(locale)?.langCode }
@@ -211,4 +236,10 @@ object LocaleController {
         get() {
             return if (isRTL) -1 else 1
         }
+
+    private fun toLocaleTag(langCode: String): String = when (langCode) {
+        "zh-Hans" -> "zh-CN"
+        "zh-Hant" -> "zh-TW"
+        else -> langCode
+    }
 }

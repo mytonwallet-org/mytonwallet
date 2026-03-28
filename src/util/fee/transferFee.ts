@@ -1,4 +1,4 @@
-import type { ApiCheckTransactionDraftResult, ApiFetchEstimateDieselResult } from '../../api/types';
+import type { ApiFetchEstimateDieselResult } from '../../api/types';
 import type { FeePrecision, FeeTerms } from './types';
 
 import { Big } from '../../lib/big.js';
@@ -6,7 +6,10 @@ import { bigintMax, bigintMin } from '../bigint';
 import { getChainConfig } from '../chain';
 import { getChainBySlug, getIsNativeToken } from '../tokens';
 
-type ApiFee = Pick<ApiCheckTransactionDraftResult, 'fee' | 'realFee' | 'diesel'> & {
+type ApiFee = {
+  fee?: bigint;
+  realFee?: bigint;
+  diesel?: ApiFetchEstimateDieselResult;
   /** The slug of the token that is being transferred */
   tokenSlug: string;
 };

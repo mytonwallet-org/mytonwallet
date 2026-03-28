@@ -85,7 +85,7 @@ struct DappHeaderView: View {
     var icon: some View {
         DappIcon(iconUrl: dapp.iconUrl)
             .frame(width: 40, height: 40)
-            .background(Color(WTheme.secondaryFill))
+            .background(Color.air.secondaryFill)
             .clipShape(.rect(cornerRadius: 12))
     }
 

@@ -117,7 +117,9 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
             var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
             snapshot.appendSections([.main])
             snapshot.appendItems(accountIds.map(Item.account))
-            dataSource.apply(snapshot, animatingDifferences: false)
+            dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in
+                self?.scrollToSelectedIfPossible(animated: false)
+            }
             syncSelection(with: accountIds)
         }
         
@@ -174,8 +176,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     }
     
     private func updateSelection(to accountId: String, animated: Bool) {
-        guard selectedAccountId != accountId else { return }
-        guard dataSource.indexPath(for: .account(accountId)) != nil else { return }
+        guard selectedAccountId != accountId || pendingSelectionScroll else { return }
         selectedAccountId = accountId
         pendingSelectionScroll = true
         scrollToSelectedIfPossible(animated: animated)

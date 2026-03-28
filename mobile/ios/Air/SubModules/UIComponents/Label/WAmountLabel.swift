@@ -24,7 +24,7 @@ public class WAmountLabel: UILabel {
     private let decimalsFont: UIFont
     public init(numberFont: UIFont? = nil,
                 decimalsFont: UIFont? = nil,
-                primaryColor: UIColor = WTheme.primaryLabel,
+                primaryColor: UIColor = UIColor.label,
                 showNegativeSign: Bool = false) {
         self.numberFont = numberFont ?? WAmountLabel.defaultNumberFont
         self.decimalsFont = decimalsFont ?? WAmountLabel.defaultDecimalsFont
@@ -77,7 +77,7 @@ public class WAmountLabel: UILabel {
         updateTheme(hidePositiveSign: hidePositiveSign, forcePositiveColor: forcePositiveColor)
     }
 
-    func updateTheme(hidePositiveSign: Bool = false, forcePositiveColor: UIColor? = nil) {
+    private func updateTheme(hidePositiveSign: Bool = false, forcePositiveColor: UIColor? = nil) {
         guard let tokenDecimals else {
             attributedText = nil
             return
@@ -90,18 +90,18 @@ public class WAmountLabel: UILabel {
             .components(separatedBy: ".")
         let attr = NSMutableAttributedString(string: "\(amount > 0 && !hidePositiveSign ? "+\(signSpace)" : "")\(components[0])", attributes: [
             NSAttributedString.Key.font: numberFont,
-            NSAttributedString.Key.foregroundColor: amount > 0 ? (forcePositiveColor ?? WTheme.positiveAmount) : primaryColor
+            NSAttributedString.Key.foregroundColor: amount > 0 ? (forcePositiveColor ?? .air.positiveAmount) : primaryColor
         ])
         if components.count > 1 {
             attr.append(NSAttributedString(string: ".\(components[1])", attributes: [
                 NSAttributedString.Key.font: decimalsFont,
-                NSAttributedString.Key.foregroundColor: amount > 0 ? (forcePositiveColor ?? WTheme.positiveAmount) : primaryColor
+                NSAttributedString.Key.foregroundColor: amount > 0 ? (forcePositiveColor ?? .air.positiveAmount) : primaryColor
             ]))
         }
         if !currency.isEmpty {
             attr.append(NSAttributedString(string: " \(currency)", attributes: [
                 NSAttributedString.Key.font: decimalsFont,
-                NSAttributedString.Key.foregroundColor: amount > 0 ? (forcePositiveColor ?? WTheme.positiveAmount) : primaryColor
+                NSAttributedString.Key.foregroundColor: amount > 0 ? (forcePositiveColor ?? .air.positiveAmount) : primaryColor
             ]))
         }
         attributedText = attr

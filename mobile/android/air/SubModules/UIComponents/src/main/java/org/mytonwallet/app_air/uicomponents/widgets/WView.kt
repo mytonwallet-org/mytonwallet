@@ -23,11 +23,13 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewOutlineProvider
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.TranslateAnimation
 import android.view.inputmethod.InputMethodManager
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.Guideline
 import androidx.core.view.children
+import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import me.vkryl.android.AnimatorUtils
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -39,6 +41,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegment
 import org.mytonwallet.app_air.walletbasecontext.utils.x
 import org.mytonwallet.app_air.walletbasecontext.utils.y
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 
 @SuppressLint("ViewConstructor")
 open class WView(
@@ -224,6 +227,10 @@ fun View.fadeIn(
     targetAlpha: Float = 1f,
     onCompletion: (() -> Unit)? = null
 ) {
+    if (alpha == targetAlpha) {
+        onCompletion?.invoke()
+        return
+    }
     if (!WGlobalStorage.getAreAnimationsActive()) {
         alpha = targetAlpha
         onCompletion?.invoke()
@@ -232,6 +239,51 @@ fun View.fadeIn(
     animate()
         .alpha(targetAlpha)
         .setDuration(duration)
+        .withEndAction {
+            onCompletion?.invoke()
+        }
+}
+
+fun View.scaleOut(
+    duration: Long = AnimationConstants.QUICK_ANIMATION,
+    targetScale: Float = 0f,
+    onCompletion: (() -> Unit)? = null
+) {
+    isVisible = true
+    if (!WGlobalStorage.getAreAnimationsActive()) {
+        scaleX = targetScale
+        scaleY = targetScale
+        onCompletion?.invoke()
+        return
+    }
+    animate()
+        .scaleX(targetScale)
+        .scaleY(targetScale)
+        .setDuration(duration)
+        .setInterpolator(WInterpolator.emphasized)
+        .withEndAction {
+            isGone = true
+            onCompletion?.invoke()
+        }
+}
+
+fun View.scaleIn(
+    duration: Long = AnimationConstants.QUICK_ANIMATION,
+    targetScale: Float = 1f,
+    onCompletion: (() -> Unit)? = null
+) {
+    isVisible = true
+    if (!WGlobalStorage.getAreAnimationsActive()) {
+        scaleX = targetScale
+        scaleY = targetScale
+        onCompletion?.invoke()
+        return
+    }
+    animate()
+        .scaleX(targetScale)
+        .scaleY(targetScale)
+        .setDuration(duration)
+        .setInterpolator(WInterpolator.emphasized)
         .withEndAction {
             onCompletion?.invoke()
         }

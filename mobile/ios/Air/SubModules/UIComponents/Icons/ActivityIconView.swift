@@ -28,7 +28,7 @@ public struct ActivityIconView: UIViewRepresentable {
             let chainSize = max(0, accessorySize - 2 * borderWidth)
             let horizontalOffset = horizontalOffsetForAccessorySize(accessorySize)
             let verticalOffset = verticalOffsetForAccessorySize(accessorySize)
-            uiView.setChainSize(chainSize, borderWidth: borderWidth, borderColor: WTheme.sheetBackground, horizontalOffset: horizontalOffset, verticalOffset: verticalOffset)
+            uiView.setChainSize(chainSize, borderWidth: borderWidth, borderColor: .air.sheetBackground, horizontalOffset: horizontalOffset, verticalOffset: verticalOffset)
         }
         uiView.imageView.layer.removeAllAnimationsRecursive()
     }

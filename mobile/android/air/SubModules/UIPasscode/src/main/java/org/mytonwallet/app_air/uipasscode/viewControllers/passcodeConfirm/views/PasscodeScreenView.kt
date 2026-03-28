@@ -330,7 +330,7 @@ class PasscodeScreenView(
     private fun animateViews() {
         ValueAnimator.ofInt(0, 800.dp).apply {
             startDelay = 0
-            duration = AnimationConstants.VERY_VERY_SLOW_ANIMATION
+            duration = AnimationConstants.VERY_SLOW_ANIMATION
 
             addUpdateListener { updatedAnimation ->
                 val updatedValue = updatedAnimation.animatedValue as Int
@@ -468,7 +468,10 @@ class PasscodeScreenView(
     }
 
     fun tryBiometrics() {
-        Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "tryBiometrics: Attempting biometric authentication")
+        Logger.d(
+            Logger.LogTag.PASSCODE_CONFIRM,
+            "tryBiometrics: Attempting biometric authentication"
+        )
         inBiometry.animatedValue = true
 
         BiometricHelpers.authenticate(
@@ -511,7 +514,10 @@ class PasscodeScreenView(
             if (correct) {
                 Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "checkPasscode: Passcode correct")
             } else {
-                Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "checkPasscode: Passcode incorrect hasCooldown=${cooldownDate != null}")
+                Logger.d(
+                    Logger.LogTag.PASSCODE_CONFIRM,
+                    "checkPasscode: Passcode incorrect hasCooldown=${cooldownDate != null}"
+                )
                 inBiometry.animatedValue = false
                 passcodeInputView.resetInput()
                 if ((passcodeViewState as? PasscodeViewState.Default)?.isUnlockScreen == true && cooldownDate != null)
@@ -543,7 +549,10 @@ class PasscodeScreenView(
         val remainingMillis = cooldownEndTime?.let { it - System.currentTimeMillis() } ?: 0
 
         if (remainingMillis > 0) {
-            Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "setupCooldown: Cooldown active remainingMs=$remainingMillis")
+            Logger.d(
+                Logger.LogTag.PASSCODE_CONFIRM,
+                "setupCooldown: Cooldown active remainingMs=$remainingMillis"
+            )
             passcodeKeyboardView.lockKeypad()
             startCooldownTimer(cooldownEndTime!!)
         } else {

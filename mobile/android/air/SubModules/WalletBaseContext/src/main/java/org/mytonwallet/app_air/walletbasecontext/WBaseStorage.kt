@@ -4,8 +4,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 
 // BaseStorage is used to store common data which can be accessed/modified through the `main applications` and `widgets`.
 object WBaseStorage {
@@ -19,16 +21,38 @@ object WBaseStorage {
 
     var isInitialized = false
         private set
+    private var cachedLanguage: String? = null
 
     fun init(context: Context) {
         isInitialized = true
         sharedPreferences =
             context.applicationContext.getSharedPreferences(CACHE_PREF_NAME, Context.MODE_PRIVATE)
+        cachedLanguage = null
+    }
+
+    private fun resolveSystemLanguageCode(): String? {
+        val context = try {
+            ApplicationContextHolder.applicationContext
+        } catch (_: Throwable) {
+            return null
+        }
+        return LocaleController.resolveSystemLanguageCode(context)
     }
 
     fun getActiveLanguage(): String {
-        return sharedPreferences.getString(CACHE_ACTIVE_LANGUAGE, WLanguage.ENGLISH.langCode)
-            ?: WLanguage.ENGLISH.langCode
+        cachedLanguage?.let {
+            // Cached language is valid, since we either invalidate it by calling `init` or set the new language on WBaseStorage
+            return it
+        }
+
+        cachedLanguage =
+            LocaleController.appSpecificLanguageCode()
+                ?: resolveSystemLanguageCode()
+                    ?: sharedPreferences.getString(
+                    CACHE_ACTIVE_LANGUAGE,
+                    WLanguage.ENGLISH.langCode
+                ) ?: WLanguage.ENGLISH.langCode
+        return cachedLanguage!!
     }
 
     fun setActiveLanguage(value: String) {

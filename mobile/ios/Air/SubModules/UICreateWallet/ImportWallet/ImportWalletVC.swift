@@ -165,7 +165,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
         
         let separatorView = UIView()
         separatorView.translatesAutoresizingMaskIntoConstraints = false
-        separatorView.backgroundColor = WTheme.border
+        separatorView.backgroundColor = UIColor.separator
         view.addSubview(separatorView)
         NSLayoutConstraint.activate([
             separatorView.topAnchor.constraint(equalTo: blurView.topAnchor),

@@ -39,7 +39,7 @@ final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate {
         }
     }
     
-    func loadFromWebView() async throws(GlobalStorageError) -> Any {
+    func loadFromWebView() async throws(GlobalStorageError) -> sending Any {
         log.info("[wv] load started")
         try await prepareWebView()
         
@@ -82,9 +82,14 @@ final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate {
         }
         let script = """
             try {
-                return localStorage.setItem('\(globalStateKey)', jsonString);
+                localStorage.setItem('\(globalStateKey)', jsonString);
+                return null;
             } catch (e) {
-                return JSON.stringify(e);
+                return JSON.stringify({
+                    name: e?.name ?? null,
+                    message: e?.message ?? null,
+                    description: String(e)
+                });
             }
             """
         let maybeError: Any?
@@ -95,6 +100,27 @@ final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate {
         }
         if let error = maybeError as? String {
             throw .localStorageSetItemError(error)
+        }
+
+        let readback: Any?
+        do {
+            log.info("[wv] verifying getItem after setItem")
+            readback = try await webView.evaluateJavaScript("localStorage.getItem('\(globalStateKey)')")
+            log.info("[wv] verification getItem result received")
+        } catch {
+            throw .javaScriptError(error)
+        }
+
+        guard !(readback is NSNull) else {
+            throw .localStorageReadbackFailed("localStorage returned null after setItem")
+        }
+        guard let storedString = readback as? String else {
+            throw .localStorageReadbackFailed("localStorage returned a non-string value after setItem")
+        }
+        guard storedString == jsonString else {
+            throw .localStorageReadbackFailed(
+                "readback mismatch expectedLength=\(jsonString.count) actualLength=\(storedString.count)"
+            )
         }
     }
     

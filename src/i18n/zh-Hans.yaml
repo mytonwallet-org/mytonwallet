@@ -132,6 +132,8 @@ Signing was confirmed!: 签署已确认!
 Activity Details: 活动详情
 No activities found: 未找到活动
 Comment Copied: 留言栏已复制
+Copy Text: 复制文本
+Message Copied: 消息已复制
 Sender: 发送者
 Recipient: 接收者
 "%chain% Address Copied": "%chain% 地址已复制"
@@ -524,7 +526,7 @@ Contract Initialization Data Copied: Contract Initialization Data Copied
 Open NFT Collection: 打开 NFT 收藏
 Previous: 上一页
 Next: 下一页
-Insufficient %token% for fee.: "%token% 不足以支付费用。"
+Insufficient %token% for fee.%fee%: "%token% 不足以支付费用。%fee%"
 Send NFT: 发送 NFT
 Send Collectible: 发送收藏品
 Send Collectibles: 发送收藏品
@@ -776,9 +778,10 @@ Upgrade for %amount% %currency%: 升级需 %amount% %currency%
 This card has been sold out: 此卡片已售罄
 Import Existing Wallet: 导入现有钱包
 View Any Address: 查看任意地址
+View Mode: 查看模式
 "%counts% Secret Words": "%counts%个助记词"
-Wallet Address or Domain: 钱包地址或域名
-$import_view_account_note: 输入 %chains% 网络上的**任意地址**以**查看模式**打开。
+Address or Domain: 地址或域名
+$import_view_account_note: 添加**任意**地址即可**监控**其活动。
 $view_mode: 查看
 Import Wallet: 导入钱包
 Please top up your %token% balance.: 请充值您的%token%余额。
@@ -950,6 +953,7 @@ No wallets: 没有钱包
 View as List: 列表视图
 View as Cards: 卡片视图
 Reorder: 重新排序
+Reorder Tabs: 重新排序标签
 Rename: 重命名
 Customize: 自定义
 i18n_dragToSort: 拖动以排序
@@ -1051,6 +1055,10 @@ My Assets: 我的资产
 Owner: 所有者
 Show All Wallets: 显示所有钱包
 Ask a Question: 提问
+Ask anything: 尽管提问
+Agent: 助手
+Clear Chat: 清空聊天
+Unsupported link: 此链接不受支持
 MyTonWallet Features: MyTonWallet 功能
 Notifications: 通知
 Wrong passcode, please try again: 密码错误，请重试。
@@ -1065,3 +1073,15 @@ Confirm operation with your passcode: 使用您的密码确认操作
 Confirm action with your passcode: 用密码确认操作
 No Image: 无图片
 Different blockchain. Cannot be selected: 不同的区块链。无法选择
+Top 5: Top 5
+Top 10: Top 10
+Top 30: Top 30
+Manage Assets: 管理资产
+Pulse: 脉搏
+Edit Message: 编辑消息
+Toggle Hints: 切换提示
+AgentErrorResponseFailed: "错误：无法获取响应"
+AgentErrorConnectionFailed: "错误：连接失败"
+Scroll To Bottom: 滚动到底部
+$agent_clear_chat_confirm: 您确定要清空聊天记录吗？
+$unknown_swap_token: 交换链接中的代币未知。已使用默认代币。

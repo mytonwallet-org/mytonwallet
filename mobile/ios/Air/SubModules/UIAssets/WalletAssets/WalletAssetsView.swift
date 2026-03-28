@@ -6,40 +6,19 @@
 //
 
 import UIKit
-import SwiftUI
 import UIComponents
 import WalletContext
 
-final class WalletAssetsView: WTouchPassView, WThemedView {
-    var bottomConstraint: NSLayoutConstraint!
-
+final class WalletAssetsView: WTouchPassView {
     let walletTokensVC: WalletTokensVC
     let walletCollectiblesView: NftsVC
-
-    lazy var contentVcs: [any WSegmentedControllerContent] = [
-        walletTokensVC,
-        walletCollectiblesView
-    ]
-    lazy var contentItems: [SegmentedControlItem] = [
-        SegmentedControlItem(
-            id: "tokens_placeholder",
-            title: lang("Assets"),
-            viewController: walletTokensVC
-        ),
-        SegmentedControlItem(
-            id: "nfts_placeholder",
-            title: lang("Collectibles"),
-            viewController: walletCollectiblesView
-        ),
-    ]
 
     var onScrollingOffsetChanged: ((CGFloat) -> Void)?
     var scrollProgress: CGFloat = 0
 
-    init(walletTokensVC: WalletTokensVC, walletCollectiblesView: NftsVC, onScrollingOffsetChanged: ((CGFloat) -> Void)?) {
+    init(walletTokensVC: WalletTokensVC, walletCollectiblesView: NftsVC) {
         self.walletTokensVC = walletTokensVC
         self.walletCollectiblesView = walletCollectiblesView
-        self.onScrollingOffsetChanged = onScrollingOffsetChanged
         super.init(frame: .zero)
         setupViews()
     }
@@ -48,47 +27,48 @@ final class WalletAssetsView: WTouchPassView, WThemedView {
         fatalError("init(coder:) has not been implemented")
     }
     
-    lazy var segmentedController = WSegmentedController(
-        items: contentItems,
-        goUnderNavBar: false,
-        animationSpeed: .medium,
-        delegate: self
+    lazy var tabsContainer = WSegmentedPagerView(
+        items: [
+            WSegmentedPagerItem(
+                id: "tokens_placeholder",
+                title: lang("Assets"),
+                viewController: walletTokensVC
+            ),
+            WSegmentedPagerItem(
+                id: "nfts_placeholder",
+                title: lang("Collectibles"),
+                viewController: walletCollectiblesView
+            ),
+        ],
+        onScrollProgressChanged: { [weak self] progress in
+            self?.scrollProgress = progress
+            self?.onScrollingOffsetChanged?(progress)
+        }
     )
     
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
-        segmentedController.translatesAutoresizingMaskIntoConstraints = false
-        segmentedController.blurView.isHidden = true
-        segmentedController.separator.isHidden = true
-        addSubview(segmentedController)
-        bottomConstraint = segmentedController.bottomAnchor.constraint(equalTo: bottomAnchor)
+        tabsContainer.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(tabsContainer)
         NSLayoutConstraint.activate([
-            segmentedController.leftAnchor.constraint(equalTo: leftAnchor),
-            segmentedController.rightAnchor.constraint(equalTo: rightAnchor),
-            segmentedController.topAnchor.constraint(equalTo: topAnchor),
-            bottomConstraint,
+            tabsContainer.leftAnchor.constraint(equalTo: leftAnchor),
+            tabsContainer.rightAnchor.constraint(equalTo: rightAnchor),
+            tabsContainer.topAnchor.constraint(equalTo: topAnchor),
+            tabsContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
-        segmentedController.delegate?.segmentedController(scrollOffsetChangedTo: 0)
+        tabsContainer.onScrollProgressChanged?(0)
         
         updateTheme()
     }
     
-    func updateTheme() {
-        backgroundColor = WTheme.accentButton.background
+    private func updateTheme() {
+        backgroundColor = .air.groupedItem
     }
     
     var selectedIndex: Int {
-        get { segmentedController.selectedIndex ?? 0 }
+        get { tabsContainer.selectedIndex ?? 0 }
         set {
-            segmentedController.scrollView.contentOffset = CGPoint(x: CGFloat(newValue) * segmentedController.scrollView.frame.width, y: 0)
-            segmentedController.scrollView.delegate?.scrollViewDidScroll?(segmentedController.scrollView)
+            tabsContainer.handleSegmentChange(to: newValue, animated: false)
         }
-    }
-}
-
-extension WalletAssetsView: WSegmentedController.Delegate {
-    func segmentedController(scrollOffsetChangedTo progress: CGFloat) {
-        self.scrollProgress = progress
-        onScrollingOffsetChanged?(progress)
     }
 }

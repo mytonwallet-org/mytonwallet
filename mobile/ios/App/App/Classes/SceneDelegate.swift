@@ -17,28 +17,36 @@ import Capacitor
 
 private let log = Log("SceneDelegate")
 
-final class SceneDelegate: UIResponder, UISceneDelegate {
+@MainActor
+final class SceneDelegate: UIResponder, UISceneDelegate, UIWindowSceneDelegate {
     
     var window: WWindow?
     var appSwitcher: AppSwitcher?
     private var backgroundCover: UIView?
+    private var pendingShortcutItem: UIApplicationShortcutItem?
 
     // MARK: Lifecycle
     
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        StartupTrace.mark("sceneDelegate.willConnect.begin", details: summarize(connectionOptions))
         
-        guard let windowScene = scene as? UIWindowScene else { return }
+        guard let windowScene = scene as? UIWindowScene else {
+            StartupTrace.mark("sceneDelegate.willConnect.abort", details: "windowScene=nil")
+            return
+        }
         
         let window = WWindow(windowScene: windowScene)
-        window.rootViewController = SharedSplashVC()
-        window.makeKeyAndVisible()
         self.window = window
-        window.makeKeyAndVisible()
 
         appSwitcher = AppSwitcher(window: window)
         appSwitcher?.startTheApp()
+        window.makeKeyAndVisible()
+        StartupTrace.mark("sceneDelegate.window.ready")
+        StartupTrace.mark("sceneDelegate.appSwitcher.started")
         
-        if let userActivity = connectionOptions.userActivities.first, userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+        if let shortcutItem = connectionOptions.shortcutItem {
+            pendingShortcutItem = shortcutItem
+        } else if let userActivity = connectionOptions.userActivities.first, userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
             handleUrl(url)
         } else if let urlContext = connectionOptions.urlContexts.first {
             handleUrl(urlContext.url)
@@ -46,12 +54,13 @@ final class SceneDelegate: UIResponder, UISceneDelegate {
             handleNotification(notificationResponse)
         }
         
-        WidgetCenter.shared.reloadAllTimelines()
+        StartupTrace.mark("sceneDelegate.willConnect.end")
     }
     
     func sceneWillResignActive(_ scene: UIScene) {
         log.info("sceneWillResignActive")
 
+        HomeScreenQuickAction.updateShortcutItems()
         WidgetCenter.shared.reloadAllTimelines()
     }
     
@@ -65,6 +74,10 @@ final class SceneDelegate: UIResponder, UISceneDelegate {
         if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
             handleUrl(url)
         }
+    }
+
+    func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem) async -> Bool {
+        return handleShortcutItem(shortcutItem)
     }
     
     private func handleUrl(_ url: URL) {
@@ -91,7 +104,6 @@ final class SceneDelegate: UIResponder, UISceneDelegate {
             if let window, self.backgroundCover == nil {
                 let view = WBlurView()
                 view.translatesAutoresizingMaskIntoConstraints = false
-//                view.backgroundColor = WTheme.tint.withAlphaComponent(0.5)
                 window.addSubview(view)
                 view.frame = window.bounds
                 self.backgroundCover = view
@@ -123,6 +135,11 @@ final class SceneDelegate: UIResponder, UISceneDelegate {
                 self.backgroundCover = nil
             }
         }
+
+        if let pendingShortcutItem {
+            self.pendingShortcutItem = nil
+            _ = handleShortcutItem(pendingShortcutItem)
+        }
     }
     
     // MARK: App switcher
@@ -145,8 +162,16 @@ final class SceneDelegate: UIResponder, UISceneDelegate {
         AirLauncher.isOnTheAir = false
         appSwitcher?.startTheApp()
     }
-}
 
+    @discardableResult
+    private func handleShortcutItem(_ shortcutItem: UIApplicationShortcutItem) -> Bool {
+        HomeScreenQuickAction.handle(shortcutItem)
+    }
+
+    private func summarize(_ connectionOptions: UIScene.ConnectionOptions) -> String {
+        "urlContexts=\(connectionOptions.urlContexts.count) userActivities=\(connectionOptions.userActivities.count) notificationResponse=\(connectionOptions.notificationResponse != nil) shortcutItem=\(connectionOptions.shortcutItem != nil)"
+    }
+}
 
 extension UIApplication {
     @MainActor var connectedSceneDelegate: SceneDelegate? {

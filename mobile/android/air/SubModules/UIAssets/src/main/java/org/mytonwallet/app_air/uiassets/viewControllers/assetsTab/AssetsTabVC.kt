@@ -6,6 +6,7 @@ import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.title
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.TokensVC
+import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
@@ -26,7 +27,8 @@ import java.util.concurrent.Executors
 class AssetsTabVC(
     context: Context,
     val showingAccountId: String,
-    defaultSelectedIdentifier: String?
+    private val defaultSelectedIdentifier: String?,
+    private var initialSelectionSnapshot: AssetsVC.SelectionSnapshot? = null
 ) :
     WViewController(context),
     WalletCore.EventObserver {
@@ -52,6 +54,8 @@ class AssetsTabVC(
     }
 
     private val backgroundExecutor = Executors.newSingleThreadExecutor()
+    private var selectionAssetsVC: AssetsVC? = null
+    private var reorderingAssetsVC: AssetsVC? = null
 
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = true
@@ -65,17 +69,136 @@ class AssetsTabVC(
     }
 
     private val collectiblesVC: AssetsVC by lazy {
-        AssetsVC(
+        val vc = AssetsVC(
             context,
             showingAccountId,
-            AssetsVC.Mode.COMPLETE,
+            AssetsVC.ViewMode.COMPLETE,
             injectedWindow = window,
             isShowingSingleCollection = false,
+            onReorderingRequested = {
+                openReordering(collectiblesVC)
+            },
             onScroll = { recyclerView ->
                 segmentedController.updateBlurViews(recyclerView)
                 updateBlurViews(recyclerView)
             }
         )
+        bindSelection(vc)
+    }
+
+    private fun bindSelection(vc: AssetsVC) = vc.apply {
+        onSelectionRequested = { nftAddressToSelect ->
+            openSelectionMode(vc, nftAddressToSelect)
+        }
+        onSelectionChanged = { selectedCount, animationMode, isInSelectionMode ->
+            if (selectionAssetsVC === vc && isInSelectionMode) {
+                configureSelectionActionBar(vc)
+                updateSelectionActionBarTitle(selectedCount, animationMode)
+                segmentedController?.showActionBar()
+            }
+        }
+    }
+
+    private fun updateSelectionActionBarTitle(
+        selectedCount: Int,
+        animationMode: TitleAnimationMode? = null
+    ) {
+        val title = if (selectedCount == 0) {
+            LocaleController.getString("\$nft_select")
+        } else {
+            selectedCount.toString()
+        }
+        if (animationMode != null) {
+            segmentedController.actionBarView.setTitle(title, true, animationMode)
+        } else {
+            segmentedController.actionBarView.setTitle(title, false)
+        }
+    }
+
+    private fun configureSelectionActionBar(assetsVC: AssetsVC) {
+        CollectionsMenuHelpers.configureSelectionActionBar(
+            actionBar = segmentedController.actionBarView,
+            shouldShowTransferActions = assetsVC.shouldShowSelectionTransferActions(),
+            onCloseTapped = { closeSelectionMode() },
+            onHideTapped = {
+                assetsVC.hideSelectedAssets();
+                closeSelectionMode()
+            },
+            onSelectAllTapped = { assetsVC.selectAllVisibleAssets() },
+            onSendTapped = { if (assetsVC.sendSelectedNfts()) closeSelectionMode() },
+            onBurnTapped = { if (assetsVC.burnSelectedNfts()) closeSelectionMode() }
+        )
+    }
+
+    private fun openSelectionMode(
+        assetsVC: AssetsVC,
+        nftAddressToSelect: String? = null
+    ) {
+        if (reorderingAssetsVC != null) {
+            return
+        }
+        if (selectionAssetsVC !== assetsVC) {
+            selectionAssetsVC?.closeSelectionMode()
+        }
+        val index = segmentedController.items.indexOfFirst { it.viewController === assetsVC }
+        if (index >= 0 && segmentedController.currentIndex != index) {
+            segmentedController.setActiveIndex(index)
+        }
+        selectionAssetsVC = assetsVC
+        assetsVC.onAutoClose = { closeSelectionMode() }
+        configureSelectionActionBar(assetsVC)
+        updateSelectionActionBarTitle(assetsVC.selectedCount())
+        assetsVC.openSelectionMode(nftAddressToSelect)
+        segmentedController.showActionBar()
+    }
+
+    private fun closeSelectionMode() {
+        val assetsVC = selectionAssetsVC ?: run {
+            segmentedController.hideActionBar()
+            return
+        }
+        selectionAssetsVC = null
+        assetsVC.onAutoClose = null
+        assetsVC.closeSelectionMode()
+        segmentedController.hideActionBar()
+    }
+
+    private fun configureReorderActionBar() {
+        CollectionsMenuHelpers.configureReorderActionBar(
+            actionBar = segmentedController.actionBarView,
+            onSaveTapped = { endReordering(save = true) },
+            onCancelTapped = { endReordering(save = false) }
+        )
+    }
+
+    private fun openReordering(assetsVC: AssetsVC) {
+        if (reorderingAssetsVC != null) {
+            return
+        }
+        closeSelectionMode()
+        val index = segmentedController.items.indexOfFirst { it.viewController === assetsVC }
+        if (index >= 0 && segmentedController.currentIndex != index) {
+            segmentedController.setActiveIndex(index)
+        }
+        reorderingAssetsVC = assetsVC
+        configureReorderActionBar()
+        assetsVC.startSorting()
+        segmentedController.showActionBar()
+    }
+
+    private fun endReordering(save: Boolean) {
+        val assetsVC = reorderingAssetsVC ?: run {
+            segmentedController.hideActionBar()
+            return
+        }
+        reorderingAssetsVC = null
+        if (save) {
+            assetsVC.saveList()
+        } else {
+            assetsVC.reloadList()
+        }
+        assetsVC.endSorting()
+        segmentedController.hideActionBar()
     }
 
     val segmentItems: MutableList<WSegmentedControllerItem>
@@ -105,7 +228,12 @@ class AssetsTabVC(
                                     showingAccountId,
                                     v,
                                     navigationController!!,
-                                    null
+                                    onReorderTapped = {
+                                        openReordering(collectiblesVC)
+                                    },
+                                    onSelectTapped = {
+                                        openSelectionMode(collectiblesVC)
+                                    }
                                 )
                             }
                         } else {
@@ -119,7 +247,10 @@ class AssetsTabVC(
                 items.addAll(homeNftCollections.mapNotNull { homeNftCollection ->
                     when (homeNftCollection.address) {
                         TAB_COINS -> {
-                            WSegmentedControllerItem(tokensVC, identifierForVC(tokensVC))
+                            WSegmentedControllerItem(
+                                tokensVC,
+                                identifierForVC(tokensVC),
+                            )
                         }
 
                         TAB_COLLECTIBLES -> {
@@ -131,9 +262,15 @@ class AssetsTabVC(
                                         showingAccountId,
                                         v,
                                         navigationController!!,
-                                        null
+                                        onReorderTapped = {
+                                            openReordering(collectiblesVC)
+                                        },
+                                        onSelectTapped = {
+                                            openSelectionMode(collectiblesVC)
+                                        }
                                     )
-                                } else null)
+                                } else null
+                            )
                         }
 
                         else -> {
@@ -148,18 +285,23 @@ class AssetsTabVC(
                                         ?.let { AssetsVC.CollectionMode.SingleCollection(collection = it) }
                                 }
                             if (collectionMode != null) {
-                                val vc = AssetsVC(
+                                lateinit var vc: AssetsVC
+                                vc = AssetsVC(
                                     context,
                                     showingAccountId,
-                                    AssetsVC.Mode.COMPLETE,
+                                    AssetsVC.ViewMode.COMPLETE,
                                     injectedWindow = window,
                                     collectionMode = collectionMode,
                                     isShowingSingleCollection = false,
+                                    onReorderingRequested = {
+                                        openReordering(vc)
+                                    },
                                     onScroll = { recyclerView ->
                                         segmentedController.updateBlurViews(recyclerView)
                                         updateBlurViews(recyclerView)
                                     }
                                 )
+                                bindSelection(vc)
                                 WSegmentedControllerItem(
                                     viewController = vc,
                                     identifier = identifierForVC(vc),
@@ -167,6 +309,12 @@ class AssetsTabVC(
                                         CollectionsMenuHelpers.presentPinnedCollectionMenuOn(
                                             v,
                                             collectionMode,
+                                            onReorderTapped = {
+                                                openReordering(vc)
+                                            },
+                                            onSelectTapped = {
+                                                openSelectionMode(vc)
+                                            },
                                             onRemoveTapped = {
                                                 showAlert(
                                                     LocaleController.getString("Remove Tab"),
@@ -205,7 +353,7 @@ class AssetsTabVC(
                                                     ),
                                                     primaryIsDanger = true
                                                 )
-                                            }, onReorderTapped = null
+                                            }
                                         )
                                     }
                                 )
@@ -248,6 +396,23 @@ class AssetsTabVC(
         WalletCore.registerObserver(this)
         updateCollectiblesClick()
         updateTheme()
+        applyInitialSelectionSnapshot()
+    }
+
+    private fun applyInitialSelectionSnapshot() {
+        val selectionSnapshot = initialSelectionSnapshot ?: return
+        val targetAssetsVC = segmentedController.items.firstOrNull {
+            it.identifier == defaultSelectedIdentifier
+        }?.viewController as? AssetsVC ?: return
+        val index = segmentedController.items.indexOfFirst { it.viewController === targetAssetsVC }
+        if (index >= 0 && segmentedController.currentIndex != index) {
+            segmentedController.setActiveIndex(index)
+        }
+        targetAssetsVC.onAutoClose = { closeSelectionMode() }
+        selectionAssetsVC = targetAssetsVC
+        configureSelectionActionBar(targetAssetsVC)
+        targetAssetsVC.restoreSelectionSnapshot(selectionSnapshot)
+        initialSelectionSnapshot = null
     }
 
     fun updateCollectiblesClick() {
@@ -264,7 +429,12 @@ class AssetsTabVC(
                             showingAccountId,
                             v,
                             navigationController!!,
-                            onReorderTapped = null
+                            onReorderTapped = {
+                                openReordering(collectiblesVC)
+                            },
+                            onSelectTapped = {
+                                openSelectionMode(collectiblesVC)
+                            }
                         )
                     }
                 } else {
@@ -283,8 +453,17 @@ class AssetsTabVC(
         segmentedController.scrollToTop()
     }
 
+    override fun onBackPressed(): Boolean {
+        if (selectionAssetsVC != null) {
+            closeSelectionMode()
+            return false
+        }
+        return super.onBackPressed()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        backgroundExecutor.shutdown()
         segmentedController.onDestroy()
     }
 

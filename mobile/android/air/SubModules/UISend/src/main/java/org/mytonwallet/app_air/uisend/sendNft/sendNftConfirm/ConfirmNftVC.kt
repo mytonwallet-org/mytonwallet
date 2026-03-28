@@ -7,6 +7,7 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextPaint
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -15,6 +16,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
+import com.google.android.material.chip.ChipGroup
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListIconDualLineCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -28,14 +30,17 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ScamLabelSpan
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
+import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
+import org.mytonwallet.app_air.uicomponents.widgets.WTagView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.passcode.headers.PasscodeHeaderSendView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -60,22 +65,37 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import java.math.BigInteger
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
 
 class ConfirmNftVC(
     context: Context,
     val mode: Mode,
-    private val nft: ApiNft,
+    private val nfts: List<ApiNft>,
     private val comment: String?
-) :
-    WViewController(context),
-    ConfirmNftVM.Delegate, WalletCore.EventObserver {
+) : WViewController(context), ConfirmNftVM.Delegate, WalletCore.EventObserver {
+
     override val TAG = "ConfirmNft"
+
+    constructor(context: Context, mode: Mode, nft: ApiNft, comment: String?) : this(
+        context,
+        mode,
+        listOf(nft),
+        comment
+    )
 
     override val displayedAccount =
         DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
     val account = AccountStore.activeAccount
+    private val firstNft = nfts.first()
+    private val chain = firstNft.chain ?: MBlockchain.ton
+
+    private companion object {
+        const val MAX_VISIBLE_NFT_TAGS = 10
+        const val NFT_BATCH_SIZE = 4
+        const val BURN_CHUNK_DURATION_APPROX_SEC = 30
+    }
 
     sealed class Mode {
         abstract val chain: MBlockchain
@@ -102,8 +122,8 @@ class ConfirmNftVC(
     override var title: String?
         get() = LocaleController.getString(
             when (mode) {
-                is Mode.Send -> "Send NFT"
-                is Mode.Burn -> "Burn NFT"
+                is Mode.Send -> if (nfts.size > 1) "Send Collectibles" else "Send NFT"
+                is Mode.Burn -> if (nfts.size > 1) "Burn" else "Burn NFT"
             }
         )
         set(_) {}
@@ -118,16 +138,55 @@ class ConfirmNftVC(
 
     private val nftView = ListIconDualLineCell(context).apply {
         id = View.generateViewId()
-        configure(Content.ofUrl(nft.image ?: ""), nft.name, nft.collectionName, false, 12f.dp)
+        configure(
+            Content.ofUrl(firstNft.image ?: ""),
+            firstNft.name,
+            firstNft.collectionName,
+            false,
+            12f.dp
+        )
         allowSeparator(false)
     }
 
+    private val multipleNftView = ChipGroup(context).apply {
+        id = View.generateViewId()
+        setPaddingDp(16)
+        isSingleLine = false
+        chipSpacingHorizontal = 8.dp
+        chipSpacingVertical = 8.dp
+        nfts.take(MAX_VISIBLE_NFT_TAGS).forEach { nft ->
+            addView(WTagView(context).apply {
+                configure(Content.ofUrl(nft.thumbnail ?: nft.image ?: ""), nft.name)
+            })
+        }
+        val remainingNfts = nfts.size - MAX_VISIBLE_NFT_TAGS
+        if (remainingNfts > 0) {
+            addView(
+                WLabel(context).apply {
+                    setStyle(14f, WFont.Regular)
+                    setTextColor(WColor.SecondaryText)
+                    gravity = Gravity.CENTER_VERTICAL
+                    text = LocaleController.getString("%amount% NFTs")
+                        .replace("%amount%", "+$remainingNfts")
+                },
+                ViewGroup.LayoutParams(WRAP_CONTENT, 28.dp)
+            )
+        }
+    }
+
     private val assetSectionView = WView(context).apply {
-        addView(titleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        addView(nftView, ViewGroup.LayoutParams(MATCH_PARENT, ListIconDualLineCell.HEIGHT.dp))
-        setConstraints {
-            toTop(titleLabel)
-            topToBottom(nftView, titleLabel)
+        if (nfts.size == 1) {
+            addView(titleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(nftView, ViewGroup.LayoutParams(MATCH_PARENT, ListIconDualLineCell.HEIGHT.dp))
+            setConstraints {
+                toTop(titleLabel)
+                topToBottom(nftView, titleLabel)
+            }
+        } else {
+            addView(multipleNftView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            setConstraints {
+                toTop(multipleNftView)
+            }
         }
     }
 
@@ -144,7 +203,7 @@ class ConfirmNftVC(
             id = View.generateViewId()
             typeface = WFont.Regular.typeface
             layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            setPaddingDp(20, 19, 20, 14)
+            setPaddingDp(20, 12, 20, 14)
 
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
@@ -255,6 +314,17 @@ class ConfirmNftVC(
         }
     }
 
+    private val burnWarningLabel by lazy {
+        WAlertLabel(
+            context,
+            burnWarningText(),
+            WColor.Red.color,
+            coloredText = true
+        ).apply {
+            id = View.generateViewId()
+        }
+    }
+
     override fun setupViews() {
         super.setupViews()
 
@@ -275,10 +345,24 @@ class ConfirmNftVC(
             )
         )
         view.addView(confirmButton, ViewGroup.LayoutParams(0, 50.dp))
+        if (mode is Mode.Burn) {
+            view.addView(
+                burnWarningLabel,
+                ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                    constrainedWidth = true
+                }
+            )
+        }
         view.setConstraints {
             toCenterX(scrollView)
             topToBottom(scrollView, navigationBar!!)
-            bottomToTop(scrollView, confirmButton, 20f)
+            if (mode is Mode.Burn) {
+                bottomToTop(scrollView, burnWarningLabel, 20f)
+                bottomToTop(burnWarningLabel, confirmButton, 35f)
+                toCenterX(burnWarningLabel, 20f)
+            } else {
+                bottomToTop(scrollView, confirmButton, 20f)
+            }
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 confirmButton,
@@ -299,8 +383,7 @@ class ConfirmNftVC(
                 is Mode.Burn -> {
                     showAlert(
                         title,
-                        LocaleController.getString("Are you sure you want to burn this NFT? It will be lost forever.")
-                            .trim(),
+                        burnWarningText(),
                         button = LocaleController.getString("Confirm"),
                         buttonPressed = {
                             confirmSend()
@@ -325,15 +408,41 @@ class ConfirmNftVC(
             is Mode.Burn -> {
                 confirmButton.isLoading = true
                 viewModel.requestFee(
-                    nft = nft,
+                    nfts = nfts,
                     isNftBurn = true,
                     comment = comment
                 )
             }
+
             is Mode.Send -> {
                 confirmButton.isLoading = false
                 feeUpdated(mode.fee, null)
             }
+        }
+    }
+
+    private fun burnWarningText(): String {
+        return if (nfts.size > 1) {
+            val burnWarning = LocaleController.getString("\$multi_burn_nft_warning")
+                .replace("%amount%", nfts.size.toString())
+                .trim()
+            val durationWarning = LocaleController.getString("\$multi_send_nft_warning")
+                .replace("%duration%", burnDurationMinutesText())
+                .trim()
+            "$burnWarning $durationWarning"
+        } else {
+            LocaleController.getString("Are you sure you want to burn this NFT? It will be lost forever.")
+                .trim()
+        }
+    }
+
+    private fun burnDurationMinutesText(): String {
+        val durationMinutes =
+            (ceil(nfts.size / NFT_BATCH_SIZE.toDouble()) * BURN_CHUNK_DURATION_APPROX_SEC) / 60
+        return if (durationMinutes % 1.0 == 0.0) {
+            durationMinutes.roundToInt().toString()
+        } else {
+            durationMinutes.toString()
         }
     }
 
@@ -349,6 +458,10 @@ class ConfirmNftVC(
         assetSectionView.setBackgroundColor(
             WColor.Background.color,
             0f,
+            ViewConstants.BLOCK_RADIUS.dp
+        )
+        multipleNftView.setBackgroundColor(
+            WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp
         )
         addressSectionView.setBackgroundColor(
@@ -380,7 +493,7 @@ class ConfirmNftVC(
 
     override fun showError(error: MBridgeError?) {
         super.showError(error)
-        sentNftAddress = null
+        sentNftAddresses = null
     }
 
     override fun feeUpdated(fee: BigInteger?, err: MBridgeError?) {
@@ -420,7 +533,11 @@ class ConfirmNftVC(
         return (mode as? Mode.Send)?.isScam == true
     }
 
-    private fun buildRecipientPreview(address: String, name: String?, isScam: Boolean): CharSequence {
+    private fun buildRecipientPreview(
+        address: String,
+        name: String?,
+        isScam: Boolean
+    ): CharSequence {
         val safeName = name?.takeIf { it.isNotBlank() }
         return buildSpannedString {
             if (isScam) {
@@ -465,13 +582,13 @@ class ConfirmNftVC(
 
     private fun confirmSend() {
         if (account?.isHardware == true) {
-            sentNftAddress = nft.address
+            sentNftAddresses = nfts.mapTo(mutableSetOf()) { it.address }
             push(
                 LedgerConnectVC(
                     context,
                     LedgerConnectVC.Mode.ConnectToSubmitTransfer(
                         account.tonAddress!!,
-                        viewModel.signNftTransferData(nft, mode is Mode.Burn, comment)
+                        viewModel.signNftTransferData(nfts, mode is Mode.Burn, comment)
                     ) {
                         // Wait for Pending Activity event...
                     },
@@ -487,9 +604,9 @@ class ConfirmNftVC(
                         LocaleController.getString("Confirm")
                     ),
                     task = { passcode ->
-                        sentNftAddress = nft.address
+                        sentNftAddresses = nfts.mapTo(mutableSetOf()) { it.address }
                         viewModel.submitTransferNft(
-                            nft,
+                            nfts,
                             mode is Mode.Burn,
                             comment,
                             passcode
@@ -520,7 +637,7 @@ class ConfirmNftVC(
                         startIndex = length - address.length,
                         length = address.length,
                         network = displayedAccount.network,
-                        blockchain = nft.chain,
+                        blockchain = chain,
                         address = viewModel.resolvedAddress!!,
                         popupXOffset = startOffset.roundToInt(),
                         centerHorizontally = false,
@@ -539,27 +656,31 @@ class ConfirmNftVC(
                 (view.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
             ).apply {
                 config(
-                    Content.ofUrl(nft.image ?: ""),
-                    nft.name ?: "",
+                    Content.ofUrl(firstNft.image ?: ""),
+                    if (nfts.size == 1) {
+                        firstNft.name ?: ""
+                    } else {
+                        LocaleController.getString("%amount% NFTs")
+                            .replace("%amount%", nfts.size.toString())
+                    },
                     addressAttr,
                     Content.Rounding.Radius(12f.dp)
                 )
             }
         }
 
-    private var sentNftAddress: String? = null
+    private var sentNftAddresses: MutableSet<String>? = null
     private fun checkReceivedActivity(receivedActivity: MApiTransaction) {
-        if (sentNftAddress == null) {
+        val pendingAddresses = sentNftAddresses ?: return
+        val nftAddress = (receivedActivity as? MApiTransaction.Transaction)?.nft?.address ?: return
+        if (!pendingAddresses.remove(nftAddress)) {
+            return
+        }
+        if (pendingAddresses.isNotEmpty()) {
             return
         }
 
-        val txMatch =
-            receivedActivity is MApiTransaction.Transaction && receivedActivity.nft?.address == sentNftAddress
-        if (!txMatch) {
-            return
-        }
-
-        sentNftAddress = null
+        sentNftAddresses = null
         WalletCore.unregisterObserver(this)
         if (window?.topNavigationController != navigationController) {
             window?.dismissNav(navigationController)

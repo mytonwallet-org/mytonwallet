@@ -78,6 +78,7 @@ final class ExploreCategoryVC: WViewController {
         collectionView.alwaysBounceVertical = true
         collectionView.delaysContentTouches = false
         collectionView.clipsToBounds = false
+        collectionView.showsVerticalScrollIndicator = false
         
         collectionView.contentInsetAdjustmentBehavior = .automatic
         

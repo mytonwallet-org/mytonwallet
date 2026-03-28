@@ -36,7 +36,7 @@ struct SwapChangellyView: View {
                 .frame(height: 16)
             Text(lang("Cross-chain exchange provided by Changelly"))
         }
-        .foregroundStyle(Color(WTheme.secondaryLabel))
+        .foregroundStyle(Color.air.secondaryLabel)
     }
     
     var text: some View {
@@ -49,7 +49,7 @@ struct SwapChangellyView: View {
         )
         return Text(LocalizedStringKey(disclaimer))
             .lineSpacing(3)
-            .foregroundStyle(Color(WTheme.secondaryLabel))
+            .foregroundStyle(Color.air.secondaryLabel)
             .font(.footnote)
             .padding(.top, 2)
     }

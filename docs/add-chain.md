@@ -96,10 +96,10 @@ If in doubt about what backend exposes, ask — do *not* guess or scrape public 
 
 ## Common Pitfalls
 
-| Pitfall | Fix |
-|---------|-----|
-| Added chain but missed `$byChain` styles | Add style map entry before shipping |
-| Added special-case UI `if (chain === '<name>')` | Replace with a config flag in `CHAIN_CONFIG` |
-| Method missing in one chain SDK | Add stub throwing `Not supported in <ChainName>` |
-| Catching stub error to hide feature | Gate the feature in UI instead |
+| Pitfall                                                       | Fix                                                    |
+|---------------------------------------------------------------|--------------------------------------------------------|
+| Added chain but missed `$byChain` styles                      | Add style map entry before shipping                    |
+| Added special-case UI `if (chain === '<name>')`               | Replace with a config flag in `CHAIN_CONFIG`           |
+| Method missing in one chain SDK                               | Add stub throwing `Not supported in <ChainName>`       |
+| Catching stub error to hide feature                           | Gate the feature in UI instead                         |
 | Left `doesBackendSocketSupport` = false after backend enabled | Set it to true and remove temporary polling-only logic |

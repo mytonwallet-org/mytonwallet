@@ -17,7 +17,7 @@ struct StepView: View {
                 if let subtitle = step.status.displaySubtitle {
                     Text(subtitle)
                         .fixedSize(horizontal: false, vertical: true)
-                        .foregroundStyle(Color(WTheme.secondaryLabel))
+                        .foregroundStyle(Color.air.secondaryLabel)
                         .transition(.opacity.combined(with: .offset(y: -20)))
                 }
             }

@@ -1,8 +1,11 @@
 package org.mytonwallet.app_air.uisend.sendNft
 
+import android.animation.Animator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -12,19 +15,21 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.Space
-import androidx.appcompat.widget.AppCompatEditText
+import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.widget.doOnTextChanged
+import com.google.android.material.chip.ChipGroup
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListIconDualLineCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
-import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
+import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -33,11 +38,11 @@ import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
-import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.WTagView
+import org.mytonwallet.app_air.uicomponents.widgets.autoComplete.WAutoCompleteAddressView
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.setRoundedOutline
-import org.mytonwallet.app_air.uicomponents.widgets.autoComplete.WAutoCompleteAddressView
 import org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm.ConfirmNftVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -45,6 +50,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
@@ -53,7 +60,6 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import java.math.BigInteger
@@ -62,18 +68,24 @@ import kotlin.math.max
 @SuppressLint("ViewConstructor")
 class SendNftVC(
     context: Context,
-    val nft: ApiNft,
+    val nfts: List<ApiNft>,
 ) : WViewController(context), SendNftVM.Delegate, WalletCore.EventObserver {
+
+    private companion object {
+        const val MAX_VISIBLE_NFT_TAGS = 10
+    }
+
+    constructor(context: Context, nft: ApiNft) : this(context, listOf(nft))
+
     override val TAG = "SendNft"
 
     override val displayedAccount =
         DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
-    private val viewModel = SendNftVM(this, nft)
-
-    private val separatorBackgroundDrawable = SeparatorBackgroundDrawable().apply {
-        backgroundWColor = WColor.Background
-    }
+    private val viewModel = SendNftVM(this, nfts)
+    private val firstNft = nfts.first()
+    private val chain = firstNft.chain ?: MBlockchain.ton
+    private var suggestionAnimator: Animator? = null
 
     private val title1 = HeaderCell(context).apply {
         id = View.generateViewId()
@@ -103,6 +115,7 @@ class SendNftVC(
             }).apply {
             id = View.generateViewId()
             showCloseOnTextEditing = true
+            activeChain = chain
             pasteInterceptor = { pastedText ->
                 val address = pastedText.trim()
                 if (!MBlockchain.isValidAddressOnAnyChain(address)) {
@@ -124,7 +137,7 @@ class SendNftVC(
             addTextChangedListener { input ->
                 suggestionsBoxView.search(input)
             }
-            textFieldTopPadding = 19.dp
+            textFieldTopPadding = 12.dp
             textFieldBottomPadding = 14.dp
         }
     }
@@ -134,24 +147,28 @@ class SendNftVC(
             autoCompleteConfig = AddressInputLayout.AutoCompleteConfig(
                 type = AddressInputLayout.AutoCompleteConfig.Type.EXTERNAL
             )
+            activeChain = chain
             search("")
             isGone = true
             setRoundedOutline(ViewConstants.BLOCK_RADIUS.dp)
             onSelected = { account, savedAddress ->
+                val activeChainName = addressInputView.activeChain.name
                 when {
-                    account != null -> {
+                    account != null && account.addressByChain.containsKey(activeChainName) -> {
                         addressInputView.setAccount(account)
                         hideSuggestions()
                         clearAddressFocus()
                         viewModel.onDestinationEntered(addressInputView.getKeyword())
                     }
 
-                    savedAddress != null -> {
+                    savedAddress != null && savedAddress.chain == activeChainName -> {
                         addressInputView.setAddress(savedAddress)
                         hideSuggestions()
                         clearAddressFocus()
                         viewModel.onDestinationEntered(addressInputView.getKeyword())
                     }
+
+                    else -> suggestionsBoxView.search(addressInputView.getKeyword())
                 }
             }
             viewController = WeakReference(this@SendNftVC)
@@ -170,7 +187,41 @@ class SendNftVC(
     private val nftView by lazy {
         ListIconDualLineCell(context).apply {
             id = View.generateViewId()
-            configure(Content.ofUrl(nft.image ?: ""), nft.name, nft.collectionName, false, 12f.dp)
+            configure(
+                Content.ofUrl(firstNft.image ?: ""),
+                firstNft.name,
+                firstNft.collectionName,
+                false,
+                12f.dp
+            )
+        }
+    }
+
+    private val multipleNftView by lazy {
+        ChipGroup(context).apply {
+            id = View.generateViewId()
+            setPaddingDp(16)
+            isSingleLine = false
+            chipSpacingHorizontal = 8.dp
+            chipSpacingVertical = 8.dp
+            nfts.take(MAX_VISIBLE_NFT_TAGS).forEach { nft ->
+                addView(WTagView(context).apply {
+                    configure(Content.ofUrl(nft.thumbnail ?: nft.image ?: ""), nft.name)
+                })
+            }
+            val remainingNfts = nfts.size - MAX_VISIBLE_NFT_TAGS
+            if (remainingNfts > 0) {
+                addView(
+                    WLabel(context).apply {
+                        setStyle(14f, WFont.Regular)
+                        setTextColor(WColor.SecondaryText)
+                        gravity = Gravity.CENTER_VERTICAL
+                        text = LocaleController.getString("%amount% NFTs")
+                            .replace("%amount%", "+$remainingNfts")
+                    },
+                    ViewGroup.LayoutParams(WRAP_CONTENT, 28.dp)
+                )
+            }
         }
     }
 
@@ -183,16 +234,31 @@ class SendNftVC(
         )
     }
 
+    private val assetContentView by lazy {
+        LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            if (nfts.size == 1) {
+                addView(title2, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+                addView(
+                    nftView,
+                    ViewGroup.LayoutParams(MATCH_PARENT, ListIconDualLineCell.HEIGHT.dp)
+                )
+            } else {
+                addView(
+                    multipleNftView,
+                    ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+                )
+            }
+        }
+    }
+
     private val commentInputView by lazy {
-        AppCompatEditText(context).apply {
-            id = View.generateViewId()
-            background = null
+        WEditText(context, multilinePaste = false).apply {
             hint = LocaleController.getString("Add a message, if needed")
-            typeface = WFont.Regular.typeface
+            setStyle(16f)
             layoutParams =
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            setPaddingDp(20, 8, 20, 20)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setPaddingDp(20, 13, 20, 20)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             }
@@ -214,6 +280,10 @@ class SendNftVC(
     private val headerContentContainer by lazy {
         LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
+            if (nfts.size > 1) {
+                addView(assetContentView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+                addView(Space(context), ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+            }
             addView(title1, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(addressInputView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(Space(context), ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
@@ -223,12 +293,10 @@ class SendNftVC(
     private val primaryContent by lazy {
         LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            addView(title2, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            addView(
-                nftView,
-                ViewGroup.LayoutParams(MATCH_PARENT, ListIconDualLineCell.HEIGHT.dp)
-            )
-            addView(Space(context), ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+            if (nfts.size == 1) {
+                addView(assetContentView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+                addView(Space(context), ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+            }
             addView(title3, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(commentInputView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         }
@@ -278,15 +346,35 @@ class SendNftVC(
             id = View.generateViewId()
         }.apply {
             isEnabled = false
-            text = LocaleController.getString("Wallet Address or Domain")
+            text = LocaleController.getString("Address or Domain")
         }
+    }
+
+    private val onInputDestinationTextWatcher = object : TextWatcher {
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+            val destination = viewModel.inputAddress.trim()
+            val address = s?.toString() ?: ""
+            if (destination == address) return
+            viewModel.onInputDestination(address)
+            if (address.isBlank()) {
+                viewModel.onDestinationEntered("")
+                updateContinueButtonType(false)
+            }
+        }
+
+        override fun afterTextChanged(s: Editable?) {}
     }
 
     override fun setupViews() {
         super.setupViews()
 
         WalletCore.registerObserver(this)
-        setNavTitle(LocaleController.getString("\$send_action"))
+        setNavTitle(
+            LocaleController.getString(
+                if (nfts.size > 1) "Send Collectibles" else "Send Collectible"
+            )
+        )
         setupNavBar(true)
 
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
@@ -337,28 +425,22 @@ class SendNftVC(
             val confirmNftVC = ConfirmNftVC(
                 context,
                 ConfirmNftVC.Mode.Send(
-                    nft.chain ?: MBlockchain.ton,
+                    chain,
                     viewModel.inputAddress,
                     resolvedAddress,
                     feeValue,
-                    addressName = addressInputView.autocompleteResult?.name ?: viewModel.addressName,
+                    addressName = addressInputView.autocompleteResult?.name
+                        ?: viewModel.addressName,
                     isScam = viewModel.isScam || viewModel.addressInfo?.isScam == true
                 ),
-                nft,
+                nfts,
                 viewModel.inputComment
             )
             view.hideKeyboard()
             push(confirmNftVC)
         }
 
-        addressInputView.doOnTextChanged { text, _, _, _ ->
-            val address = text.toString()
-            viewModel.onInputDestination(address)
-            if (address.isBlank()) {
-                viewModel.onDestinationEntered("")
-                updateContinueButtonType(false)
-            }
-        }
+        addressInputView.addTextChangedListener(onInputDestinationTextWatcher)
         addressInputView.doAfterQrCodeScanned { address ->
             viewModel.onDestinationEntered(address)
         }
@@ -366,15 +448,15 @@ class SendNftVC(
         commentInputView.doOnTextChanged { text, _, _, _ ->
             viewModel.onInputComment(text.toString())
         }
-
-        suggestionsBoxView.isEnabled = hasAddressSearchCandidates()
         updateTheme()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        suggestionAnimator?.cancel()
         viewModel.onDestroy()
         WalletCore.unregisterObserver(this)
+        addressInputView.removeTextChangedListener(onInputDestinationTextWatcher)
     }
 
     override fun updateTheme() {
@@ -389,6 +471,9 @@ class SendNftVC(
             WColor.Background.color,
             0f,
             ViewConstants.BLOCK_RADIUS.dp
+        )
+        multipleNftView.setBackgroundColor(
+            WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp
         )
         commentInputView.setBackgroundColor(
             WColor.Background.color,
@@ -437,7 +522,6 @@ class SendNftVC(
             return
         }
 
-        val chain = nft.chain ?: MBlockchain.ton
         val nativeToken = TokenStore.getToken(chain.nativeSlug)
         val feeString = if (fee != null && nativeToken != null) {
             fee.toString(
@@ -453,7 +537,8 @@ class SendNftVC(
             LocaleController.getString("\$fee_value_with_colon").replace("%fee%", it)
         }
         val shouldShowFee = !feeLabel.text.isNullOrBlank()
-        feeLabel.visibility = if (shouldShowFee && !suggestionsBoxView.isVisible) View.VISIBLE else View.GONE
+        feeLabel.visibility =
+            if (shouldShowFee && !suggestionsBoxView.isVisible) View.VISIBLE else View.GONE
 
         continueButton.isLoading = false
         continueButton.isEnabled = err == null
@@ -470,6 +555,10 @@ class SendNftVC(
         }
     }
 
+    override fun addressSearchCandidatesChanged(enabled: Boolean) {
+        suggestionsBoxView.isEnabled = enabled
+    }
+
     private fun clearAddressFocus() {
         if (addressInputView.inputFieldHasFocus()) {
             addressInputView.resetInputFieldFocus()
@@ -484,11 +573,89 @@ class SendNftVC(
         if (primaryContent.isGone && suggestionsBoxView.isVisible) {
             return
         }
-        primaryContent.isGone = true
-        suggestionsBoxView.isVisible = true
-        continueButton.isGone = true
-        feeLabel.isGone = true
-        scrollView.scrollTo(0, 0)
+        suggestionAnimator?.cancel()
+        val dy = 32f.dp
+        val shouldShowFee = !feeLabel.text.isNullOrBlank()
+
+        with(primaryContent) {
+            isVisible = true
+            alpha = 1f
+            translationY = 0f
+        }
+        with(suggestionsBoxView) {
+            isVisible = true
+            alpha = 0f
+            translationY = -dy
+        }
+        with(continueButton) {
+            isVisible = true
+            alpha = 1f
+            translationY = 0f
+        }
+        with(feeLabel) {
+            isVisible = shouldShowFee
+            alpha = 1f
+            translationY = 0f
+        }
+
+        val onEnd = {
+            with(primaryContent) {
+                isGone = true
+                alpha = 0f
+                translationY = dy
+            }
+            with(suggestionsBoxView) {
+                alpha = 1f
+                translationY = 0f
+            }
+            with(continueButton) {
+                isGone = true
+                alpha = 0f
+                translationY = dy
+            }
+            with(feeLabel) {
+                isGone = true
+                alpha = 0f
+                translationY = dy
+            }
+            scrollView.scrollTo(0, 0)
+        }
+
+        if (!WGlobalStorage.getAreAnimationsActive()) {
+            onEnd()
+            return
+        }
+
+        suggestionAnimator = animatorSet {
+            together {
+                duration(AnimationConstants.NAV_PUSH)
+                interpolator(WInterpolator.emphasized)
+                viewProperty(primaryContent) {
+                    alpha(0f)
+                    translationY(dy)
+                }
+                viewProperty(suggestionsBoxView) {
+                    alpha(1f)
+                    translationY(0f)
+                }
+                viewProperty(continueButton) {
+                    alpha(0f)
+                    translationY(dy)
+                }
+                if (shouldShowFee) {
+                    viewProperty(feeLabel) {
+                        alpha(0f)
+                        translationY(dy)
+                    }
+                }
+                intValues(scrollView.scrollY, 0) {
+                    onUpdate { animatedValue ->
+                        scrollView.scrollTo(0, animatedValue)
+                    }
+                }
+            }
+            onEnd { onEnd() }
+        }.apply { start() }
     }
 
     private fun hideSuggestions() {
@@ -498,17 +665,82 @@ class SendNftVC(
         if (primaryContent.isVisible && !suggestionsBoxView.isVisible) {
             return
         }
-        primaryContent.isVisible = true
-        suggestionsBoxView.isGone = true
-        continueButton.isVisible = true
-        feeLabel.isVisible = !feeLabel.text.isNullOrBlank()
-    }
+        suggestionAnimator?.cancel()
+        val dy = 32f.dp
+        val shouldShowFee = !feeLabel.text.isNullOrBlank()
 
-    private fun hasAddressSearchCandidates(): Boolean {
-        val hasOtherAccounts =
-            WalletCore.getAllAccounts().any { it.accountId != AccountStore.activeAccountId }
-        val hasSavedAddresses = AddressStore.addressData?.savedAddresses?.isNotEmpty() == true
-        return hasOtherAccounts || hasSavedAddresses
+        with(primaryContent) {
+            isVisible = true
+            alpha = 0f
+            translationY = dy
+        }
+        with(suggestionsBoxView) {
+            isVisible = true
+            alpha = 1f
+            translationY = 0f
+        }
+        with(continueButton) {
+            isVisible = true
+            alpha = 0f
+            translationY = dy
+        }
+        with(feeLabel) {
+            isVisible = shouldShowFee
+            alpha = 0f
+            translationY = dy
+        }
+
+        val onEnd = {
+            with(primaryContent) {
+                alpha = 1f
+                translationY = 0f
+            }
+            with(suggestionsBoxView) {
+                isGone = true
+                alpha = 0f
+                translationY = -dy
+            }
+            with(continueButton) {
+                alpha = 1f
+                translationY = 0f
+            }
+            with(feeLabel) {
+                isVisible = shouldShowFee
+                alpha = 1f
+                translationY = 0f
+            }
+        }
+
+        if (!WGlobalStorage.getAreAnimationsActive()) {
+            onEnd()
+            return
+        }
+
+        suggestionAnimator = animatorSet {
+            together {
+                duration(AnimationConstants.NAV_PUSH)
+                interpolator(WInterpolator.emphasized)
+                viewProperty(primaryContent) {
+                    alpha(1f)
+                    translationY(0f)
+                }
+                viewProperty(suggestionsBoxView) {
+                    alpha(0f)
+                    translationY(-dy)
+                }
+                viewProperty(continueButton) {
+                    alpha(1f)
+                    translationY(0f)
+                }
+                if (shouldShowFee) {
+                    viewProperty(feeLabel) {
+                        alpha(1f)
+                        translationY(0f)
+                    }
+                }
+            }
+            onEnd { onEnd() }
+        }.apply { start() }
     }
 
     private fun updateAddressOverlay(info: SendNftVM.AddressInfo, destination: String) {
@@ -604,6 +836,10 @@ class SendNftVC(
                 walletEvent.pendingActivities?.forEach {
                     checkReceivedActivity(it)
                 }
+            }
+
+            is WalletEvent.AccountSavedAddressesChanged -> {
+                suggestionsBoxView.search(addressInputView.getKeyword())
             }
 
             else -> {}

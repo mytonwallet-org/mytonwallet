@@ -20,15 +20,17 @@ final class CrosschainFromWalletVC: WViewController, WalletCoreData.EventsObserv
         sellingToken: TokenAmount,
         buyingToken: TokenAmount,
         swapFee: MDouble,
-        networkFee: MDouble
+        networkFee: MDouble,
+        accountContext: AccountContext
     ) {
         self.model = CrosschainFromWalletModel(
             sellingToken: sellingToken,
             buyingToken: buyingToken,
             swapFee: swapFee,
-            networkFee: networkFee
+            networkFee: networkFee,
+            accountContext: accountContext
         )
-        self.accountId = AccountStore.accountId
+        self.accountId = accountContext.accountId
         super.init(nibName: nil, bundle: nil)
         WalletCoreData.add(eventObserver: self)
     }
@@ -103,8 +105,8 @@ final class CrosschainFromWalletVC: WViewController, WalletCoreData.EventsObserv
         updateTheme()
     }
     
-    override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
     
     @objc private func containerPressed() {

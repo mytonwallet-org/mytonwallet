@@ -43,6 +43,7 @@ class WalletCardCell(
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 17f)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
+        useCustomEmoji = true
         setTextColor(WColor.PrimaryText)
         gravity = Gravity.CENTER
     }

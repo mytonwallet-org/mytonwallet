@@ -20,7 +20,7 @@ private let DARK_COLOR = UIColor.airBundle("ShyColorDark")
 private let ADAPTIVE_COLOR = UIColor.airBundle("ShyColorAdaptive")
 
 
-public final class ShyMask: UIView, WThemedView {
+public final class ShyMask: UIView {
 
     public enum Theme: Sendable {
         case light
@@ -108,7 +108,7 @@ public final class ShyMask: UIView, WThemedView {
         }
     }
 
-    public func updateTheme() {
+    private func updateTheme() {
         for layer in cellLayers {
             layer.backgroundColor = currentColor
         }

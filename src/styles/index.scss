@@ -21,6 +21,14 @@ html, body {
 
   transition: background-color 350ms;
 
+  &.is-agent-active.with-bottombar {
+    --color-app-background: var(--color-background-second);
+
+    &.theme-dark {
+      --color-app-background: var(--color-background-first);
+    }
+  }
+
   @include mixins.respond-below(xs) {
     height: calc(var(--vh, 1vh) * 100);
   }

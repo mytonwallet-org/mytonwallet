@@ -1,23 +1,24 @@
 package org.mytonwallet.uihome.home.views.header
 
-import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.core.content.ContextCompat
+import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.WActionBar
+import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
-import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
-import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
-import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
@@ -28,7 +29,6 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.views.UpdateStatusView
-import kotlin.math.max
 
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class StickyHeaderView(
@@ -36,6 +36,11 @@ class StickyHeaderView(
     private val screenMode: MScreenMode,
     private val onActionClick: (HeaderActionsView.Identifier) -> Unit
 ) : WFrameLayout(context), WThemedView, WProtectedView {
+
+    private enum class ActionMode {
+        REORDER,
+        SELECT
+    }
 
     init {
         clipChildren = false
@@ -105,28 +110,16 @@ class StickyHeaderView(
         }
     }
 
-
-    private val cancelButton: WLabel by lazy {
-        WLabel(context).apply {
-            text = LocaleController.getString("Cancel")
-            setTextColor(WColor.Tint)
-            isTinted = true
-            setStyle(18f, WFont.Medium)
-            setPaddingDp(12, 4, 12, 4)
+    private val actionBar: WActionBar by lazy {
+        WActionBar(context).apply {
             alpha = 0f
+            isInvisible = true
         }
     }
 
-    private val saveButton: WLabel by lazy {
-        WLabel(context).apply {
-            text = LocaleController.getString("Save")
-            setTextColor(WColor.Tint)
-            isTinted = true
-            setStyle(18f, WFont.Medium)
-            setPaddingDp(12, 4, 12, 4)
-            alpha = 0f
-        }
-    }
+    private var actionMode: ActionMode? = null
+    val isInActionMode: Boolean get() = actionMode != null
+    private var hiddenViewsForActionMode: List<View> = emptyList()
 
     private fun setupViews() {
         addView(
@@ -173,6 +166,9 @@ class StickyHeaderView(
                 rightMargin = 8.dp
             topMargin = 1.dp
         })
+        addView(actionBar, LayoutParams(MATCH_PARENT, HomeHeaderView.navDefaultHeight).apply {
+            gravity = Gravity.CENTER or Gravity.TOP
+        })
 
         listOf(scanButton, lockButton, eyeButton).forEach {
             it.updateColors(WColor.Tint, WColor.BackgroundRipple)
@@ -182,10 +178,7 @@ class StickyHeaderView(
     }
 
     override fun updateTheme() {
-        if (cancelButton.parent == null) {
-            cancelButton.updateTheme()
-            saveButton.updateTheme()
-        }
+        actionBar.updateTheme()
         updateEyeIcon()
     }
 
@@ -207,7 +200,7 @@ class StickyHeaderView(
     fun updateActions() {
         lockButton.visibility =
             if (WGlobalStorage.isPasscodeSet()) VISIBLE else GONE
-        val statusViewMargin = if (lockButton.isVisible) 96.dp else 56.dp
+        val statusViewMargin = defaultStatusViewMargin()
         (updateStatusView.layoutParams as? MarginLayoutParams)?.let { layoutParams ->
             updateStatusView.layoutParams = layoutParams.apply {
                 marginStart = statusViewMargin
@@ -218,67 +211,86 @@ class StickyHeaderView(
 
     val animationDuration = AnimationConstants.QUICK_ANIMATION / 2
     fun enterActionMode(onResult: (save: Boolean) -> Unit) {
-        if (saveButton.parent == null) {
-            addView(cancelButton, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                marginStart = 4.dp
-                topMargin = 1.dp
-            })
-            addView(saveButton, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                gravity = Gravity.END or Gravity.CENTER_VERTICAL
-                marginEnd = 4.dp
-                topMargin = 1.dp
-            })
-        }
-        cancelButton.setOnClickListener {
-            onResult(false)
-            exitActionMode()
-        }
-        saveButton.setOnClickListener {
-            onResult(true)
-            exitActionMode()
-        }
-        scanButton.fadeOut(animationDuration)
-        lockButton.fadeOut(animationDuration)
-        eyeButton.fadeOut(animationDuration) {
-            scanButton.isClickable = false
-            lockButton.isClickable = false
-            eyeButton.isClickable = false
-            cancelButton.fadeIn(animationDuration)
-            saveButton.fadeIn(animationDuration) {
-                cancelButton.isClickable = true
-                saveButton.isClickable = true
+        actionMode = ActionMode.REORDER
+        CollectionsMenuHelpers.configureReorderActionBar(
+            actionBar = actionBar,
+            onSaveTapped = {
+                onResult(true)
+                exitActionMode()
+            },
+            onCancelTapped = {
+                onResult(false)
+                exitActionMode()
             }
+        )
+        enterHeaderActionMode(needUpdateStatusView = false)
+    }
+
+    fun enterSelectionMode(
+        selectedCount: Int,
+        shouldShowTransferActions: Boolean,
+        onClose: () -> Unit,
+        onHide: () -> Unit,
+        onSelectAll: () -> Unit,
+        onSend: (() -> Unit)? = null,
+        onBurn: (() -> Unit)? = null
+    ) {
+        actionMode = ActionMode.SELECT
+        configureSelectionActionBar(
+            selectedCount = selectedCount,
+            animationMode = null,
+            shouldShowTransferActions = shouldShowTransferActions,
+            onClose = onClose,
+            onHide = onHide,
+            onSelectAll = onSelectAll,
+            onSend = onSend,
+            onBurn = onBurn
+        )
+        enterHeaderActionMode(needUpdateStatusView = true)
+    }
+
+    fun updateSelectionMode(
+        selectedCount: Int,
+        animationMode: TitleAnimationMode?,
+        shouldShowTransferActions: Boolean,
+        onClose: () -> Unit,
+        onHide: () -> Unit,
+        onSelectAll: () -> Unit,
+        onSend: (() -> Unit)? = null,
+        onBurn: (() -> Unit)? = null
+    ) {
+        if (actionMode != ActionMode.SELECT) {
+            return
         }
-        post {
-            animateUpdateStatusViewMargin(
-                8.dp + max(
-                    saveButton.measuredWidth,
-                    cancelButton.measuredWidth
-                )
-            )
-        }
+        configureSelectionActionBar(
+            selectedCount = selectedCount,
+            animationMode = animationMode,
+            shouldShowTransferActions = shouldShowTransferActions,
+            onClose = onClose,
+            onHide = onHide,
+            onSelectAll = onSelectAll,
+            onSend = onSend,
+            onBurn = onBurn
+        )
     }
 
     fun exitActionMode() {
-        if (!cancelButton.isClickable) {
+        if (!actionBar.isVisible) {
             return
         }
-        cancelButton.setOnClickListener(null)
-        saveButton.setOnClickListener(null)
-        cancelButton.fadeOut(animationDuration)
-        saveButton.fadeOut(animationDuration) {
-            cancelButton.isClickable = false
-            saveButton.isClickable = false
-            scanButton.fadeIn(animationDuration)
-            lockButton.fadeIn(animationDuration)
-            eyeButton.fadeIn(animationDuration) {
-                scanButton.isClickable = true
-                lockButton.isClickable = true
-                eyeButton.isClickable = true
+        actionMode = null
+        actionBar.fadeOut(animationDuration) {
+            actionBar.isInvisible = true
+            hiddenViewsForActionMode.forEach {
+                it.alpha = 0f
+                it.visibility = View.VISIBLE
+                it.isClickable = true
             }
+            hiddenViewsForActionMode.forEach { view ->
+                view.fadeIn(animationDuration)
+            }
+            hiddenViewsForActionMode = emptyList()
         }
-        animateUpdateStatusViewMargin(if (lockButton.isVisible) 96.dp else 56.dp)
     }
 
     private fun updateEyeIcon() {
@@ -290,30 +302,75 @@ class StickyHeaderView(
         )
     }
 
-    private fun animateUpdateStatusViewMargin(newMargin: Int) {
-        if (!WGlobalStorage.getAreAnimationsActive()) {
-            updateStatusView.layoutParams =
-                (updateStatusView.layoutParams as MarginLayoutParams).apply {
-                    marginStart = newMargin
-                    marginEnd = newMargin
-                }
+    private fun enterHeaderActionMode(needUpdateStatusView: Boolean) {
+        if (actionBar.isVisible) {
             return
         }
-        ValueAnimator.ofInt(
-            (updateStatusView.layoutParams as MarginLayoutParams).marginStart,
-            newMargin
-        ).apply {
-            interpolator = AccelerateDecelerateInterpolator()
-            duration = AnimationConstants.QUICK_ANIMATION
-            addUpdateListener { animation ->
-                val value = animation.animatedValue as Int
-                updateStatusView.layoutParams =
-                    (updateStatusView.layoutParams as MarginLayoutParams).apply {
-                        marginStart = value
-                        marginEnd = value
-                    }
-            }
-            start()
+        hiddenViewsForActionMode = currentHeaderViews(needUpdateStatusView)
+        hiddenViewsForActionMode.forEach { it.isClickable = false }
+        hiddenViewsForActionMode.forEach { view ->
+            view.fadeOut(animationDuration)
         }
+        actionBar.isVisible = true
+        actionBar.alpha = 0f
+        actionBar.fadeIn(animationDuration)
+    }
+
+    private fun configureSelectionActionBar(
+        selectedCount: Int,
+        animationMode: TitleAnimationMode?,
+        shouldShowTransferActions: Boolean,
+        onClose: () -> Unit,
+        onHide: () -> Unit,
+        onSelectAll: () -> Unit,
+        onSend: (() -> Unit)? = null,
+        onBurn: (() -> Unit)? = null
+    ) {
+        CollectionsMenuHelpers.configureSelectionActionBar(
+            actionBar = actionBar,
+            shouldShowTransferActions = shouldShowTransferActions,
+            onCloseTapped = onClose,
+            onHideTapped = onHide,
+            onSelectAllTapped = onSelectAll,
+            onSendTapped = onSend,
+            onBurnTapped = onBurn
+        )
+        val title = if (selectedCount == 0) {
+            LocaleController.getString("\$nft_select")
+        } else {
+            selectedCount.toString()
+        }
+        if (animationMode != null) {
+            actionBar.setTitle(title, true, animationMode)
+        } else {
+            actionBar.setTitle(title, false)
+        }
+    }
+
+    private fun currentHeaderViews(needUpdateStatusView: Boolean): List<View> {
+        val views = mutableListOf<View>()
+        when (screenMode) {
+            MScreenMode.Default -> if (scanButton.isVisible) {
+                views.add(scanButton)
+            }
+
+            is MScreenMode.SingleWallet -> if (backButton.isVisible) {
+                views.add(backButton)
+            }
+        }
+        if (needUpdateStatusView && updateStatusView.isVisible) {
+            views.add(updateStatusView)
+        }
+        if (lockButton.isVisible) {
+            views.add(lockButton)
+        }
+        if (eyeButton.isVisible) {
+            views.add(eyeButton)
+        }
+        return views
+    }
+
+    private fun defaultStatusViewMargin(): Int {
+        return if (lockButton.isVisible) 96.dp else 56.dp
     }
 }

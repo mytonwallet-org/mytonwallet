@@ -7,8 +7,8 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import androidx.appcompat.widget.AppCompatTextView
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -19,20 +19,22 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class ListTitleValueCell(context: Context) : FrameLayout(context), WThemedView {
 
-    private val titleView = AppCompatTextView(context).apply {
+    private val titleView = WLabel(context).apply {
         isSingleLine = true
         maxLines = 1
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-        typeface = WFont.Medium.typeface
+        setStyle(16f, WFont.Medium)
         movementMethod = LinkMovementMethod.getInstance()
         highlightColor = Color.TRANSPARENT
+        useCustomEmoji = true
     }
 
-    private val valueView = AppCompatTextView(context).apply {
+    private val valueView = WLabel(context).apply {
         isSingleLine = true
         maxLines = 1
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-        typeface = WFont.Regular.typeface
+        setStyle(16f)
+        useCustomEmoji = true
     }
 
     var textColor: WColor? = null

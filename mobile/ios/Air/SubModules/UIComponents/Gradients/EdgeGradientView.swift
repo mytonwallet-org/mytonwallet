@@ -60,7 +60,7 @@ public final class EdgeGradientView: UIView {
         applyDirection()
     }
     
-    private func applyColors() {
+    private func applyColors(caller: String = #function) {
         let transparentColor = color.withAlphaComponent(0).cgColor
         let solidColor = color.cgColor
         let axisLength: CGFloat = switch direction {

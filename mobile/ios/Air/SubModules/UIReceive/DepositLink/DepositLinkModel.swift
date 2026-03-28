@@ -19,7 +19,8 @@ final class DepositLinkModel: TokenSelectionVCDelegate {
     @PerceptionIgnored
     let nativeToken: ApiToken
     var chain: ApiChain { nativeToken.chain }
-    var account: MAccount
+    let accountContext: AccountContext
+    var account: MAccount { accountContext.account }
     var tokenAmount: TokenAmount
     var comment: String = ""
     var url: String? = nil
@@ -32,8 +33,8 @@ final class DepositLinkModel: TokenSelectionVCDelegate {
     @PerceptionIgnored
     private var urlObservation: ObserveToken?
     
-    init(nativeToken: ApiToken) {
-        self.account = AccountStore.account!
+    init(accountContext: AccountContext, nativeToken: ApiToken) {
+        self.accountContext = accountContext
         self.nativeToken = nativeToken
         self.tokenAmount = TokenAmount(0, nativeToken)
         tokenAmount.optionalAmount = nil
@@ -64,7 +65,8 @@ final class DepositLinkModel: TokenSelectionVCDelegate {
             isModal: true,
             onlySupportedChains: true
         )
-        topViewController()?.present(tokenSelectionVC, animated: true)
+        let nc = WNavigationController(rootViewController: tokenSelectionVC)
+        topViewController()?.present(nc, animated: true)
     }
     
     func didSelect(token: MTokenBalance) {

@@ -22,7 +22,7 @@ extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
                                      animatedWithDuration: duration)
         } completion: { [weak self] _ in
             guard let self else { return }
-            scrollViewDidScroll(tableView)
+            scrollViewDidScroll(collectionView)
         }
     }
 
@@ -39,8 +39,8 @@ extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
         isExpandingProgrammatically = true
         UIView.animate(withDuration: 0.2) { [weak self] in
             guard let self else {return}
-            tableView.contentOffset = .init(x: 0, y: -expansionOffset)
-            tableView.contentInset.top = expansionInset
+            collectionView.contentOffset = .init(x: 0, y: -expansionOffset)
+            collectionView.contentInset.top = expansionInset
         } completion: { [weak self] _ in
             guard let self else {return}
             isExpandingProgrammatically = false
@@ -48,6 +48,6 @@ extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
     }
 
     public var isTracking: Bool {
-        return tableView.isTracking
+        return collectionView.isTracking
     }
 }

@@ -104,7 +104,7 @@ struct WordCheckView: View {
             ForEach($model.tests) { $test in
                 GridRow {
                     Text("\(test.id + 1).")
-                        .foregroundColor(Color.air.secondaryLabel)
+                        .foregroundColor(.air.secondaryLabel)
                     HFlow(spacing: 8) {
                         ForEach(test.words, id: \.self) { word in
                             let state: Item.State = test.selection != word ? .none : !model.revealCorrect ? .selected : word == test.correctWord.word ? .correct : .wrong

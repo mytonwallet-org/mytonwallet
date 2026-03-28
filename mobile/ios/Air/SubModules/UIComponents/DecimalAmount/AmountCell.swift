@@ -36,7 +36,7 @@ public struct AmountCell: View {
             size: 28,
             chainSize: 12,
             chainBorderWidth: 0.667,
-            chainBorderColor: WTheme.groupedItem,
+            chainBorderColor: .air.groupedItem,
             chainHorizontalOffset: 3,
             chainVerticalOffset: 1
         )
@@ -53,9 +53,9 @@ public struct AmountCell: View {
             integerFont: .systemFont(ofSize: 24, weight: .semibold),
             fractionFont: .systemFont(ofSize: 20, weight: .semibold),
             symbolFont: .systemFont(ofSize: 20, weight: .semibold),
-            integerColor: WTheme.primaryLabel,
-            fractionColor: WTheme.primaryLabel,
-            symbolColor: WTheme.secondaryLabel
+            integerColor: UIColor.label,
+            fractionColor: UIColor.label,
+            symbolColor: .air.secondaryLabel
         )
     }
 }

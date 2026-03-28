@@ -106,7 +106,7 @@ extension WSuggestionsView: UICollectionViewDelegate, UICollectionViewDataSource
     }
 }
 
-fileprivate class SuggestionCell: UICollectionViewCell, WThemedView {
+fileprivate class SuggestionCell: UICollectionViewCell {
     static let identifier = "SuggestionCell"
     
     private let suggestionLabel = {
@@ -150,8 +150,8 @@ fileprivate class SuggestionCell: UICollectionViewCell, WThemedView {
         suggestionLabel.text = text
     }
     
-    func updateTheme() {
-        suggestionLabel.textColor = WTheme.primaryLabel
-        separator.backgroundColor = WTheme.primaryLabel.withAlphaComponent(0.1)
+    private func updateTheme() {
+        suggestionLabel.textColor = UIColor.label
+        separator.backgroundColor = UIColor.label.withAlphaComponent(0.1)
     }
 }

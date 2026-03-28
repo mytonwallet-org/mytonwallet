@@ -25,11 +25,13 @@ class ActivitySingleTagView(context: Context) : WFrameLayout(context), WThemedVi
         setStyle(16f, WFont.Medium)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
+        useCustomEmoji = true
     }
     val subtitleLabel = WLabel(context).apply {
         setStyle(13f, WFont.Medium)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
+        useCustomEmoji = true
     }
 
     init {

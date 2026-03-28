@@ -118,8 +118,8 @@ public final class CrosschainToWalletVC: WViewController {
         updateTheme()
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
     
     @objc private func containerPressed() {

@@ -1,29 +1,6 @@
 
 import WalletContext
 
-public protocol ApiFee {
-    var fee: BigInt? { get }
-    var realFee: BigInt? { get }
-    var diesel: ApiFetchEstimateDieselResult? { get }
-}
-
-extension ApiCheckTransactionDraftResult: ApiFee {}
-
-public struct ApiTransferFeeInput: ApiFee {
-    public var fee: BigInt?
-    public var realFee: BigInt?
-    public var diesel: ApiFetchEstimateDieselResult?
-    public var tokenSlug: String
-    
-    public init(fee: BigInt?, realFee: BigInt?, diesel: ApiFetchEstimateDieselResult?, tokenSlug: String) {
-        self.fee = fee
-        self.realFee = realFee
-        self.diesel = diesel
-        self.tokenSlug = tokenSlug
-    }
-}
-
-
 public struct ExplainedTransferFee: Equatable, Hashable, Codable, Sendable {
     
     public typealias FeeDetails = MFee
@@ -60,6 +37,12 @@ public struct ExplainedTransferFee: Equatable, Hashable, Codable, Sendable {
         self.realFee = realFee
         self.excessFee = excessFee
     }
+    
+    public var supportsLegacyDetailsView: Bool {
+        realFee?.precision != .exact
+            && fullFee?.isNativeOnly == true
+            && realFee?.isNativeOnly == true
+    }
 }
 
 public struct MaxTransferAmountInput {
@@ -67,7 +50,7 @@ public struct MaxTransferAmountInput {
     var tokenBalance: BigInt?
     /** The slug of the token that is being transferred */
     var tokenSlug: String
-    /** The full fee terms calculated by `explainApiTransferFee`. Undefined means that they're unknown. */
+    /** The full fee terms provided by the API. Undefined means that they're unknown. */
     var fullFee: MFee.FeeTerms?
     /** Whether the full token balance can be transferred despite the fee. */
     var canTransferFullBalance: Bool
@@ -83,7 +66,7 @@ public struct MaxTransferAmountInput {
 public struct BalanceSufficientForTransferInput {
     /** The wallet balance of the transferred token. Undefined means that it's unknown. */
     var tokenBalance: BigInt?
-    /** The full fee terms calculated by `explainApiTransferFee`. Undefined means that they're unknown. */
+    /** The full fee terms provided by the API. Undefined means that they're unknown. */
     var fullFee: MFee.FeeTerms?
     /** Whether the full token balance can be transferred despite the fee. */
     var canTransferFullBalance: Bool
@@ -99,27 +82,6 @@ public struct BalanceSufficientForTransferInput {
         self.nativeTokenBalance = nativeTokenBalance
         self.transferAmount = transferAmount
     }
-}
-
-/**
- * Converts the transfer fee data returned from API into data that is ready to be displayed in the transfer form UI.
- */
-public func explainApiTransferFee(input: ApiTransferFeeInput) -> ExplainedTransferFee {
-    if let diesel = input.diesel, isDieselAvailable(diesel) {
-        return explainGaslessFee(diesel)
-    }
-    return explainGasfullTransferFee(input)
-}
-
-public func explainApiTransferFee(input: ApiFee, tokenSlug: String) -> ExplainedTransferFee {
-    explainApiTransferFee(
-        input: ApiTransferFeeInput(
-            fee: input.fee,
-            realFee: input.realFee,
-            diesel: input.diesel,
-            tokenSlug: tokenSlug
-        )
-    )
 }
 
 /**
@@ -166,93 +128,17 @@ public func isDieselAvailable(_ diesel: ApiFetchEstimateDieselResult) -> Bool {
 }
 
 public func getDieselTokenAmount(diesel: ApiFetchEstimateDieselResult) -> BigInt {
-    return diesel.status == .starsFee ? .zero : (diesel.amount ?? .zero);
+    return diesel.status == .starsFee ? .zero : (diesel.amount ?? .zero)
 }
 
-public func shouldUseDiesel(_ input: ApiFee) -> Bool {
-    if let diesel = input.diesel {
-        return isDieselAvailable(diesel)
-    }
-    return false
-}
-
-public func explainDieselEstimate(_ dieselEstimate: ApiFetchEstimateDieselResult) -> ExplainedTransferFee? {
-    guard isDieselAvailable(dieselEstimate) else { return nil }
-    return explainGaslessFee(dieselEstimate)
-}
-
-/**
- * Converts the data of a transfer not involving diesel
- */
-private func explainGasfullTransferFee(_ input: ApiTransferFeeInput) -> ExplainedTransferFee {
-    let chain = getChainBySlug(input.tokenSlug) ?? FALLBACK_CHAIN
-    var result = ExplainedTransferFee(
-        isGasless: false,
-        canTransferFullBalance: isNativeToken(input.tokenSlug) && getChainConfig(chain: chain).canTransferFullNativeBalance,
-        fullFee: nil,
-        realFee: nil,
-        excessFee: nil
-    )
-    
-    if let inputFee = input.fee {
-        result.fullFee = .init(
-            precision: input.realFee == input.fee ? .exact : .lessThan,
-            terms: .init(token: nil, native: input.fee, stars: nil),
-            nativeSum: inputFee
-        )
-        result.realFee = result.fullFee
+public func getFullTransferFee(_ terms: MFee.FeeTerms?, tokenSlug: String) -> BigInt? {
+    guard let terms else {
+        return nil
     }
     
-    if let realFee = input.realFee {
-        result.realFee = .init(
-            precision: realFee == input.fee ? .exact : .approximate,
-            terms: .init(token: nil, native: input.realFee, stars: nil),
-            nativeSum: realFee
-        )
-    }
-    
-    if let inputFee = input.fee, let realFee = input.realFee {
-        result.excessFee = inputFee - realFee
-    }
-    
-    return result
-}
-
-/**
- * Converts the diesel of semi-diesel transfer data
- */
-private func explainGaslessFee(_ diesel: ApiFetchEstimateDieselResult) -> ExplainedTransferFee {
-    let isStarsDiesel = diesel.status == .starsFee
-    let dieselAmount = diesel.amount ?? .zero
-    let realFeeInDiesel = convertFee(amount: diesel.realFee, exampleFromAmount: diesel.nativeAmount, exampleToAmount: dieselAmount)
-    // Cover as much displayed real fee as possible with diesel, because in the excess it will return as the native token.
-    let dieselRealFee = min(dieselAmount, realFeeInDiesel)
-    // Cover the remaining real fee with the native token.
-    let nativeRealFee = max(.zero, diesel.realFee - diesel.nativeAmount)
-    
-    return .init(
-        isGasless: true,
-        canTransferFullBalance: false,
-        fullFee: .init(
-            precision: .lessThan,
-            terms: .init(
-                token: isStarsDiesel ? nil : dieselAmount,
-                native: diesel.remainingFee,
-                stars: isStarsDiesel ? dieselAmount : nil
-            ),
-            nativeSum: diesel.nativeAmount + diesel.remainingFee
-        ),
-        realFee: .init(
-            precision: .approximate,
-            terms: .init(
-                token: isStarsDiesel ? nil : dieselRealFee,
-                native: nativeRealFee,
-                stars: isStarsDiesel ? dieselRealFee : nil
-            ),
-            nativeSum: diesel.realFee
-        ),
-        excessFee: diesel.nativeAmount + diesel.remainingFee - diesel.realFee
-    )
+    let tokenPart = terms.token ?? .zero
+    let nativePart = isNativeToken(tokenSlug) ? (terms.native ?? .zero) : .zero
+    return tokenPart + nativePart
 }
 
 /**

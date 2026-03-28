@@ -18,7 +18,7 @@ private enum Constants {
     static let cornerRadius: CGFloat = 5
 }
 
-public class RangeChartView: UIControl, WThemedView, UIGestureRecognizerDelegate {
+public class RangeChartView: UIControl, UIGestureRecognizerDelegate {
     private enum Marker {
         case lower
         case upper
@@ -108,7 +108,7 @@ public class RangeChartView: UIControl, WThemedView, UIGestureRecognizerDelegate
         layoutViews()
     }
     
-    public func updateTheme() {
+    private func updateTheme() {
         self.lowerBoundTintView.backgroundColor = Self.rangeViewTintColor
         self.upperBoundTintView.backgroundColor = Self.rangeViewTintColor
     }

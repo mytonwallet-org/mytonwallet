@@ -22,7 +22,7 @@ struct TransactionAmountRow: View {
                 }
                 Spacer()
             }
-            .foregroundStyle(Color(WTheme.primaryLabel))
+            .foregroundStyle(Color.air.primaryLabel)
             .frame(minHeight: 60)
         }
     }
@@ -36,7 +36,7 @@ struct TransactionAmountRow: View {
             size: 40,
             chainSize: 16,
             chainBorderWidth: 1.333,
-            chainBorderColor: WTheme.groupedItem,
+            chainBorderColor: .air.groupedItem,
             chainHorizontalOffset: 2,
             chainVerticalOffset: 1
         )
@@ -52,9 +52,9 @@ struct TransactionAmountRow: View {
             integerFont: .systemFont(ofSize: 16, weight: .medium),
             fractionFont: .systemFont(ofSize: 16, weight: .medium),
             symbolFont: .systemFont(ofSize: 16, weight: .medium),
-            integerColor: WTheme.primaryLabel,
-            fractionColor: WTheme.primaryLabel,
-            symbolColor: WTheme.secondaryLabel,
+            integerColor: UIColor.label,
+            fractionColor: UIColor.label,
+            symbolColor: .air.secondaryLabel,
             forceSymbolColor: true,
         )
     }
@@ -70,9 +70,9 @@ struct TransactionAmountRow: View {
             integerFont: .systemFont(ofSize: 14, weight: .regular),
             fractionFont: .systemFont(ofSize: 14, weight: .regular),
             symbolFont: .systemFont(ofSize: 14, weight: .regular),
-            integerColor: WTheme.secondaryLabel,
-            fractionColor: WTheme.secondaryLabel,
-            symbolColor: WTheme.secondaryLabel,
+            integerColor: .air.secondaryLabel,
+            fractionColor: .air.secondaryLabel,
+            symbolColor: .air.secondaryLabel,
             forceSymbolColor: true,
         )
     }

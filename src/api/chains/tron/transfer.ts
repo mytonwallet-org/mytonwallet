@@ -14,7 +14,10 @@ import type {
 } from '../../types';
 
 import { parseAccountId } from '../../../util/account';
+import { explainApiTransferFee } from '../../../util/fee/transferFee';
 import { logDebugError } from '../../../util/logs';
+import { getNativeToken } from '../../../util/tokens';
+import { getTokenByAddress } from '../../common/tokens';
 import { fetchPrivateKeyString } from './auth';
 import { getChainParameters, getTronClient } from './util/tronweb';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
@@ -82,8 +85,15 @@ export async function checkTransactionDraft(
       }
     }
 
-    result.fee = fee;
-    result.realFee = fee;
+    const tokenSlug = tokenAddress
+      ? getTokenByAddress(tokenAddress, 'tron')!.slug
+      : getNativeToken('tron').slug;
+
+    result.explainedFee = explainApiTransferFee({
+      fee,
+      realFee: fee,
+      tokenSlug,
+    });
 
     const trxAmount = tokenAddress ? fee : (amount ?? 0n) + fee;
     const isEnoughTrx = trxBalance >= trxAmount;

@@ -1,6 +1,6 @@
 # MyTonWallet · [mytonwallet.io](https://mytonwallet.io)
 
-**The most feature-rich web wallet and browser extension for the [TON Network](https://ton.org)** – with support of jettons, NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.
+**The most feature-rich wallet for the [TON Network](https://ton.org)** – available as a native mobile app (iOS & Android), desktop app (Electron), web app, browser extension, and Telegram Mini App. Supports jettons, NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.
 
 <img src="https://user-images.githubusercontent.com/102837730/193835310-1436afcd-ed78-4656-92c3-9c8f4beacacf.png" width="600" />
 
@@ -8,6 +8,7 @@ The wallet is **self-custodial and safe**. The developers **do not** have access
 
 ## Table of contents
 
+- [Architecture](#architecture)
 - [Requirements](#requirements)
 - [Local Setup](#local-setup)
 - [Dev Mode](#dev-mode)
@@ -15,6 +16,19 @@ The wallet is **self-custodial and safe**. The developers **do not** have access
 - [Electron](./docs/electron.md)
 - [Verifying GPG Signatures](./docs/gpg-check.md)
 - [Support Us](#support-us)
+
+## Architecture
+
+MyTonWallet is built on two pillars that share a single TypeScript SDK (`src/api/`) for all blockchain logic (TON, TRON, Solana):
+
+| Pillar | UI | Platforms | Code |
+|--------|----|-----------|------|
+| **Air** | Native (UIKit + SwiftUI / Kotlin) | iOS, Android | `mobile/ios/Air/`, `mobile/android/air/` |
+| **Classic** | Teact (TypeScript) | Web, Electron, Browser Extension, Telegram Mini App | `src/` |
+
+On **Air** platforms the UI is fully native while the SDK runs headlessly in an invisible WebView — delivering a first-class mobile experience with platform-native performance and feel. On **Classic** platforms the SDK and UI run together in a single web context.
+
+For detailed architecture docs — including the SDK layer, chain SDKs, bridge protocol, state management, and build system — see **[docs/technical/summary.md](./docs/technical/summary.md)**.
 
 ## Requirements
 

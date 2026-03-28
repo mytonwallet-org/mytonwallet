@@ -1,22 +1,8 @@
-//
-//  ChartView.swift
-//  App
-//
-//  Created by nikstar on 23.09.2025.
-//
-
 import SwiftUI
-import WalletCore
-import WalletContext
-import UIComponents
 import WidgetKit
-import UIKit
-import Charts
 
 struct ChartView: View {
-    
     var token: ApiToken
-    // Date (unix timestamp) and value
     var chartData: [(Double, Double)]
     var chartStyle: ChartStyle
     
@@ -32,35 +18,23 @@ struct ChartView: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.primary.opacity(0.06))
                 .overlay(
-                    Text(LocalizedStringResource("No Data", bundle: LocalizationSupport.shared.bundle))
+                    Text(localized("No Data"))
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(.white.opacity(0.76))
                 )
         } else {
-            let minY = points.min(by: { $0.value < $1.value })!.value // points is not empty
-            Chart(points) { point in
-                
-                AreaMark(
-                    x: .value("Time", point.date),
-                    yStart: .value("Price", point.value),
-                    yEnd: .value("PriceBaseline", minY * 0.98),
-                )
-                .interpolationMethod(.monotone)
-                .foregroundStyle(foregroundStyle)
-
-                LineMark(
-                    x: .value("Time", point.date),
-                    y: .value("Price", point.value)
-                )
-                .interpolationMethod(.monotone)
-                .foregroundStyle(isVivid ? .white : tintColor)
-                .lineStyle(.init(lineWidth: 2, lineCap: .round, lineJoin: .round))
-
+            GeometryReader { geometry in
+                let scaledPoints = scaledPoints(in: geometry.size)
+                ZStack {
+                    areaPath(for: scaledPoints, size: geometry.size)
+                        .fill(areaGradient)
+                    linePath(for: scaledPoints)
+                        .stroke(
+                            isVivid ? Color.white : tintColor,
+                            style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
+                        )
+                }
             }
-            .chartXAxis(.hidden)
-            .chartYAxis(.hidden)
-            .chartLegend(.hidden)
-            .chartYScale(domain: yScaleRange)
         }
     }
 
@@ -98,35 +72,71 @@ struct ChartView: View {
         return (minValue - bottomPadding)...(maxValue + topPadding)
     }
     
-    var foregroundStyle: some ShapeStyle {
-        if isVivid {
-            AnyShapeStyle(
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0.35),
-                        Color.white.opacity(0.01),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .blendMode(.plusLighter)
-            )
-        } else {
-            AnyShapeStyle(
-                LinearGradient(
-                    colors: [
-                        tintColor.opacity(0.20),
-                        tintColor.opacity(0.01),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .blendMode(.hardLight)
+    private func scaledPoints(in size: CGSize) -> [CGPoint] {
+        guard let firstDate = points.first?.date, let lastDate = points.last?.date else {
+            return []
+        }
+
+        let dateRange = max(lastDate.timeIntervalSince(firstDate), 1)
+        let yRange = yScaleRange.upperBound - yScaleRange.lowerBound
+
+        return points.map { point in
+            let xProgress = point.date.timeIntervalSince(firstDate) / dateRange
+            let yProgress = yRange == 0 ? 0.5 : (point.value - yScaleRange.lowerBound) / yRange
+
+            return CGPoint(
+                x: size.width * xProgress,
+                y: size.height * (1 - yProgress)
             )
         }
     }
 
-    var tintColor: Color {
+    private func linePath(for scaledPoints: [CGPoint]) -> Path {
+        Path { path in
+            guard let firstPoint = scaledPoints.first else { return }
+            path.move(to: firstPoint)
+            for point in scaledPoints.dropFirst() {
+                path.addLine(to: point)
+            }
+        }
+    }
+
+    private func areaPath(for scaledPoints: [CGPoint], size: CGSize) -> Path {
+        Path { path in
+            guard let firstPoint = scaledPoints.first, let lastPoint = scaledPoints.last else { return }
+            path.move(to: CGPoint(x: firstPoint.x, y: size.height))
+            path.addLine(to: firstPoint)
+            for point in scaledPoints.dropFirst() {
+                path.addLine(to: point)
+            }
+            path.addLine(to: CGPoint(x: lastPoint.x, y: size.height))
+            path.closeSubpath()
+        }
+    }
+
+    private var areaGradient: LinearGradient {
+        if isVivid {
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.35),
+                    Color.white.opacity(0.01),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        } else {
+            LinearGradient(
+                colors: [
+                    tintColor.opacity(0.20),
+                    tintColor.opacity(0.01),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
+
+    private var tintColor: Color {
         colorForSlug(token.slug, tokenColor: token.color)
     }
 }

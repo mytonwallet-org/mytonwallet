@@ -30,6 +30,7 @@ public struct ApiFetchEstimateDieselResult: Equatable, Codable, Sendable {
     /// An approximate fee that will be actually spent. The difference between `nativeAmount+remainingFee` and this
     /// number is called "excess" and will be returned back to the wallet. Measured in the native token.
     let realFee: BigInt
+    public let transaction: String?
 }
 
 extension ApiFetchEstimateDieselResult {

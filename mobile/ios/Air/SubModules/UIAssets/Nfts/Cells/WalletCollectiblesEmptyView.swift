@@ -10,7 +10,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-class WalletCollectiblesEmptyView: UICollectionViewCell, WThemedView {
+class WalletCollectiblesEmptyView: UICollectionViewCell {
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -64,9 +64,9 @@ class WalletCollectiblesEmptyView: UICollectionViewCell, WThemedView {
         updateTheme()
     }
     
-    func updateTheme() {
-        titleLabel.textColor = WTheme.primaryLabel
-        subtitleButton.setTitleColor(WTheme.tint, for: .normal)
+    private func updateTheme() {
+        titleLabel.textColor = UIColor.label
+        subtitleButton.setTitleColor(.tintColor, for: .normal)
     }
     
     func config() {

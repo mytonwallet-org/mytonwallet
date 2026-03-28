@@ -14,6 +14,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
+import org.mytonwallet.app_air.walletcontext.sqlStorage.WSQLStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
 import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -70,6 +71,13 @@ class AirAsFrameworkApplication {
             )
 
             t = System.currentTimeMillis()
+            WSQLStorage.init(applicationContext)
+            Logger.i(
+                Logger.LogTag.AIR_APPLICATION,
+                "WSQLStorage.init: ${System.currentTimeMillis() - t}ms"
+            )
+
+            t = System.currentTimeMillis()
             WGlobalStorage.init(globalStorageProvider)
             Logger.i(
                 Logger.LogTag.AIR_APPLICATION,
@@ -99,7 +107,8 @@ class AirAsFrameworkApplication {
                 "initTheme: ${System.currentTimeMillis() - t}ms"
             )
 
-            LocaleController.init(applicationContext, WGlobalStorage.getLangCode())
+            val langCode = WGlobalStorage.getLangCode()
+            LocaleController.init(applicationContext, langCode)
 
             t = System.currentTimeMillis()
             Fresco.initialize(applicationContext)
@@ -151,7 +160,10 @@ class AirAsFrameworkApplication {
             )
 
             val end = System.currentTimeMillis()
-            Logger.i(Logger.LogTag.AIR_APPLICATION, "onCreate: Total initialization time=${end - start}ms")
+            Logger.i(
+                Logger.LogTag.AIR_APPLICATION,
+                "onCreate: Total initialization time=${end - start}ms"
+            )
 
             Logger.i(Logger.LogTag.AIR_APPLICATION, "onCreate: Setting up bridge")
             WalletCore.setupBridge(applicationContext, bridgeHostView, forcedRecreation = true) {

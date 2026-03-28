@@ -190,13 +190,9 @@ public class TokenSelectionVC: WViewController {
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(hideKeyboard))
         tapGesture.cancelsTouchesInView = false
         tableView.addGestureRecognizer(tapGesture)
-        view.addSubview(tableView)
-        NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
-            tableView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            tableView.rightAnchor.constraint(equalTo: view.rightAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
+        view.addStretchedToSafeArea(subview: tableView,
+                                    top: \.topAnchor,
+                                    bottom: \.bottomAnchor)
         
         activityIndicatorView = WActivityIndicator()
         activityIndicatorView.translatesAutoresizingMaskIntoConstraints = false
@@ -244,10 +240,11 @@ public class TokenSelectionVC: WViewController {
         case .apiToken(let token, _):
             let cell = tableView.dequeueReusableCell(withIdentifier: "Token", for: indexPath) as! TokenCell
             let isAvailable = isTokenAvailable(slug: token.slug)
+            let tokenSlug = token.slug
             cell.configure(with: token, isAvailable: isAvailable) { [weak self] in
                 guard let self, isTokenAvailable(slug: token.slug) else { return }
-                AccountStore.updateAssetsAndActivityData(forAccountID: account.id, update: { settings in
-                    settings.saveImportedToken(slug: token.slug)
+                AssetsAndActivityDataStore.update(accountId: account.id, update: { settings in
+                    settings.saveImportedToken(slug: tokenSlug)
                 })
                 delegate?.didSelect(token: token)
                 navigationController?.popViewController(animated: true)
@@ -268,8 +265,8 @@ public class TokenSelectionVC: WViewController {
     
     // MARK: - Theme
     
-    public override func updateTheme() {
-        tableView?.backgroundColor = WTheme.pickerBackground
+    private func updateTheme() {
+        tableView?.backgroundColor = .air.pickerBackground
     }
     
     // MARK: - Actions
@@ -281,7 +278,7 @@ public class TokenSelectionVC: WViewController {
     // MARK: - Data
     
     private func updateWalletTokens() {
-        walletTokens = showMyAssets ? $account.balanceData?.walletTokens ?? [] : []
+        walletTokens = showMyAssets ? $account.walletTokens ?? [] : []
     }
     
     private func filterTokens() {

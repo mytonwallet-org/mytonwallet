@@ -80,7 +80,7 @@ fileprivate struct _SwapSelectorsView: View {
         VStack(spacing: 11) {
             HStack {
                 Text(lang("You sell"))
-                    .foregroundColor(Color(WTheme.secondaryLabel))
+                    .foregroundColor(Color.air.secondaryLabel)
                 Spacer()
                 if let tokenBalance {
                     UseAllButton(amount: DecimalAmount(tokenBalance, sellingToken), onTap: onUseAll)
@@ -117,7 +117,7 @@ fileprivate struct _SwapSelectorsView: View {
         Button(action: onReverse) {
             ZStack {
                 Circle()
-                    .fill(Color(WTheme.secondaryFill))
+                    .fill(Color.air.secondaryFill)
                     .frame(width: 32, height: 32)
                 Image("ReverserIcon", bundle: AirBundle)
             }
@@ -131,7 +131,7 @@ fileprivate struct _SwapSelectorsView: View {
         VStack(spacing: 11) {
             Text(lang("You buy"))
                 .font(.footnote)
-                .foregroundColor(Color(WTheme.secondaryLabel))
+                .foregroundColor(Color.air.secondaryLabel)
                 .frame(maxWidth: .infinity, alignment: .leading)
             TokenAmountEntry(
                 amount: $buyingAmount,

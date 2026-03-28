@@ -826,18 +826,21 @@ addActionHandler('setSwapDex', (global, actions, { dexLabel }) => {
 });
 
 function convertTransferFeesToSwapFees(
-  txDraft: Pick<ApiCheckTransactionDraftResult, 'fee' | 'realFee'>,
+  txDraft: Pick<ApiCheckTransactionDraftResult, 'explainedFee'>,
   chain: ApiChain,
 ) {
   const nativeToken = getNativeToken(chain);
   let networkFee: string | undefined;
   let realNetworkFee: string | undefined;
 
-  if (txDraft?.fee !== undefined) {
-    networkFee = toDecimal(txDraft.fee, nativeToken.decimals);
+  const fullFee = txDraft?.explainedFee?.fullFee?.nativeSum;
+  const realFee = txDraft?.explainedFee?.realFee?.nativeSum;
+
+  if (fullFee !== undefined) {
+    networkFee = toDecimal(fullFee, nativeToken.decimals);
   }
-  if (txDraft?.realFee !== undefined) {
-    realNetworkFee = toDecimal(txDraft.realFee, nativeToken.decimals);
+  if (realFee !== undefined) {
+    realNetworkFee = toDecimal(realFee, nativeToken.decimals);
   }
 
   return { networkFee, realNetworkFee };

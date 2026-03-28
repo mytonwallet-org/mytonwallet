@@ -91,22 +91,22 @@ public struct TipView<Content: View>: View {
             .padding(.horizontal, 16)
             .padding(.top, 18)
             .padding(.bottom, 18)
-            .background(Color(WTheme.modularBackground))
+            .background(Color.air.modularBackground)
             
             Rectangle()
-                .fill(Color(WTheme.separator))
+                .fill(Color.air.separator)
                 .frame(height: 0.333)
             
             Button(action: dismiss) {
                 Text(lang("OK"))
                     .fontWeight(.semibold)
                     .font17h22()
-                    .foregroundStyle(Color(WTheme.tint))
-                    .tint(Color(WTheme.tint))
+                    .foregroundStyle(.tint)
+                    .tint(.accentColor)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .contentShape(.rect)
-                    .background(Color(WTheme.modularBackground))
+                    .background(Color.air.modularBackground)
             }
         }
         .clipShape(.rect(cornerRadius: 14))
@@ -125,7 +125,7 @@ public struct TipView<Content: View>: View {
         switch kind {
         case .info:
             Image.airBundle("TipIcon")
-                .foregroundStyle(Color(WTheme.tint))
+                .foregroundStyle(.tint)
                 .padding(4)
 
         case .warning:

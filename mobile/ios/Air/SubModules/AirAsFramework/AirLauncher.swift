@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import UIAgent
 import UIComponents
 import WalletCore
 import WalletContext
@@ -28,135 +29,224 @@ public class AirLauncher {
     public static var isOnTheAir: Bool {
         get {
             if canSwitchToCapacitor {
-                UserDefaults.standard.object(forKey: "isOnAir") as? Bool ?? DEFAULT_TO_AIR
+                return UserDefaults.standard.object(forKey: "isOnAir") as? Bool ?? DEFAULT_TO_AIR
             } else {
-                true
+                UserDefaults.standard.set(true, forKey: "isOnAir")
+                return true
             }
         }
         set {
             if canSwitchToCapacitor {
                 UserDefaults.standard.set(newValue, forKey: "isOnAir")
+            } else {
+                UserDefaults.standard.set(true, forKey: "isOnAir")
             }
         }
     }
     
     private static var window: WWindow!
-    private static var startVC: SplashVC?
-    
-    private static var db: (any DatabaseWriter)?
-    
-    static var deeplinkHandler: DeeplinkHandler? = nil {
+    private static var runtimeCoordinator: AirRuntimeCoordinator? {
         didSet {
+            guard let runtimeCoordinator else { return }
             if let pendingDeeplinkURL {
-                _ = deeplinkHandler?.handle(pendingDeeplinkURL)
+                _ = runtimeCoordinator.handle(url: pendingDeeplinkURL)
                 self.pendingDeeplinkURL = nil
             }
             if let pendingNotification {
-                deeplinkHandler?.handleNotification(pendingNotification)
+                runtimeCoordinator.handle(notification: pendingNotification)
                 self.pendingNotification = nil
             }
         }
     }
+
+    private static var db: (any DatabaseWriter)?
+    private static var hasStartedDeferredLaunch = false
     static var pendingDeeplinkURL: URL? = nil
     static var pendingNotification: UNNotification? = nil
+    static var pendingPushToken: String? = nil
     static var appUnlocked = false
+    private static var hasStartedWalletCore = false
     
     public static func set(window: WWindow) {
         AirLauncher.window = window
+        StartupTrace.mark("airLauncher.window.set")
+    }
+
+    public static func installRootViewControllerIfNeeded() {
+        guard let window else { return }
+        RootStateCoordinator.shared.installAsRootViewController(on: window, animationDuration: nil)
     }
     
     public static func soarIntoAir() async {
         log.info("soarIntoAir")
-        
+        StartupTrace.beginInterval("airLauncher.soarIntoAir")
+        StartupTrace.mark("airLauncher.soarIntoAir.begin")
+        hasStartedWalletCore = false
+        hasStartedDeferredLaunch = false
+        appUnlocked = false
+        runtimeCoordinator?.reset()
+        runtimeCoordinator = nil
+        RootStateCoordinator.shared.reset()
+        AgentStore.shared.clean()
+        installRootViewControllerIfNeeded()
+
+        let launchPreparation: DatabaseBootstrapResult
         do {
-            do {
-                try await GlobalStorage.loadFromWebView()
-            } catch {
-                log.fault("failed to load global storage: \(error, .public).")
-                GlobalStorage.update { $0[""] = [:] }
-            }
-            try await GlobalStorage.migrate()
+            launchPreparation = try await DatabaseBootstrap.prepare()
         } catch {
-            log.fault("failed to initialize global storage: \(error, .public) will continue with empty storage")
-            GlobalStorage.update { $0["stateVersion"] = STATE_VERSION }
-            try! await GlobalStorage.syncronize()
+            StartupTrace.endInterval("airLauncher.soarIntoAir", details: "result=failed.bootstrap")
+            await presentStartupFailure(error, phase: .databaseBootstrap)
+            return
         }
-        
-        log.info("connecting to database")
-        
-        let db = try! connectToDatabase()
+        let db = launchPreparation.db
         self.db = db
         WalletCore.db = db
         
-        try! await switchStorageFromCapacitorIfNeeded(global: GlobalStorage, db: db)
-        
         configureAppActions()
-        // Prepare storage
+        StartupTrace.mark("airLauncher.appActions.configured")
         AppStorageHelper.reset()
-        await WalletCoreData.start(db: db)
+        StartupTrace.mark("airLauncher.appStorage.reset")
+        do {
+            try await WalletCoreData.startMinimal(
+                db: db,
+                bootstrapAccountCountHint: launchPreparation.databaseAccountCount
+            )
+        } catch {
+            StartupTrace.endInterval("airLauncher.soarIntoAir", details: "result=failed.walletCoreMinimal")
+            await presentStartupFailure(error, phase: .walletCoreBootstrap)
+            return
+        }
+        StartupTrace.mark("airLauncher.walletCoreData.minimal.end")
 
-        // Load theme
-        let accountId = AccountStore.accountId ?? ""
-        @Dependency(\.accountSettings) var _accountSettings
-        let accountSettings = _accountSettings.for(accountId: accountId)
-        let activeColorTheme = accountSettings.accentColorIndex
-        changeThemeColors(to: activeColorTheme)
+        let isFirstLaunch = (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.isFirstLaunch == true
+        if isFirstLaunch && AccountStore.accountsById.isEmpty && launchPreparation.shouldDeletePreviousInstallAccountsOnFirstLaunch {
+            log.info("Deleting accounts from previous install")
+            KeychainHelper.deleteAccountsFromPreviousInstall()
+        }
         
-        // Set animations enabled or not
         UIView.setAnimationsEnabled(AppStorageHelper.animations)
         
         let nightMode = AppStorageHelper.activeNightMode
         window?.overrideUserInterfaceStyle = nightMode.userInterfaceStyle
+        installCurrentAccountTheme()
         window?.updateTheme()
-        
-        startVC = SplashVC(nibName: nil, bundle: nil)
-        deeplinkHandler = DeeplinkHandler(deeplinkNavigator: startVC!)
-        self.window?.rootViewController = startVC
-        
-        if self.window?.isKeyWindow == true {
-            UIView.transition(with: window!, duration: 0.2, options: .transitionCrossDissolve) {
-            }
-        } else {
+        StartupTrace.mark("airLauncher.theme.ready", details: "nightMode=\(String(describing: nightMode)) animations=\(AppStorageHelper.animations)")
+
+        let runtimeCoordinator = AirRuntimeCoordinator()
+        self.runtimeCoordinator = runtimeCoordinator
+        runtimeCoordinator.beginLaunch()
+        DispatchQueue.main.async {
+            runtimeCoordinator.start()
+        }
+        Task { @MainActor in
+            await finishDeferredLaunch()
+        }
+        StartupTrace.mark("airLauncher.window.rootSet")
+
+        if self.window?.isKeyWindow != true {
             self.window?.makeKeyAndVisible()
         }
-        
+        StartupTrace.mark("airLauncher.window.visible")
+        StartupTrace.endInterval("airLauncher.soarIntoAir")
+    }
+
+    static func finishDeferredLaunch() async {
+        guard !hasStartedDeferredLaunch else { return }
+        guard let db else { return }
+        hasStartedDeferredLaunch = true
+
+        await WalletCoreData.startDeferred(db: db)
+        AgentStore.shared.start()
+        StartupTrace.mark("airLauncher.walletCoreData.start.end")
+        hasStartedWalletCore = true
+        if let pendingPushToken {
+            AccountStore.didRegisterForPushNotifications(userToken: pendingPushToken)
+            self.pendingPushToken = nil
+        }
+        installCurrentAccountTheme()
+        window?.updateTheme()
+
         UIApplication.shared.registerForRemoteNotifications()
+        StartupTrace.mark("airLauncher.remoteNotifications.requested")
+        runtimeCoordinator?.walletCoreBootstrapDidFinish()
+    }
+
+    private static func presentStartupFailure(_ error: any Error, phase: StartupFailurePhase) async {
+        hasStartedDeferredLaunch = false
+        hasStartedWalletCore = false
+        await StartupFailureManager.handle(error, phase: phase) {
+            Task { @MainActor in
+                await AirLauncher.soarIntoAir()
+            }
+        }
+    }
+
+    private static func installCurrentAccountTheme() {
+        let accountId = AccountStore.accountId ?? ""
+        @Dependency(\.accountSettings) var _accountSettings
+        let activeColorTheme = _accountSettings.for(accountId: accountId).accentColorIndex
+        changeThemeColors(to: activeColorTheme)
+        StartupTrace.mark("airLauncher.theme.account.ready", details: "accent=\(String(describing: activeColorTheme))")
     }
     
     public static func switchToCapacitor() async {
         log.info("switchToCapacitor")
-        isOnTheAir = false
         do {
             try await AccountStore.removeAllTemporaryAccounts()
         } catch {
             log.error("failed to remove all temporary accounts: \(error, .public)")
         }
-        if let db {
-            try! await switchStorageToCapacitor(global: GlobalStorage, db: db)
+
+        guard let db else {
+            log.error("failed to switch to capacitor: database is unavailable")
+            AppActions.showError(error: DisplayError(text: "Unable to switch to Classic app."))
+            return
         }
+
+        do {
+            try await DatabaseBootstrap.exportStateToCapacitor(db: db)
+        } catch {
+            log.error("failed to export state before switching to capacitor: \(error, .public)")
+            AppActions.showError(error: DisplayError(text: capacitorSwitchErrorMessage(for: error)))
+            return
+        }
+
+        isOnTheAir = false
+        hasStartedWalletCore = false
         (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.switchToCapacitor()
         UIView.transition(with: window!, duration: 0.5, options: .transitionCrossDissolve) {
         } completion: { _ in
             Task {
                 Api.stop()
                 await WalletCoreData.clean()
-                self.startVC = nil
+                AgentStore.shared.clean()
+                self.runtimeCoordinator?.reset()
+                self.runtimeCoordinator = nil
+                WalletContextManager.delegate = nil
+                RootStateCoordinator.shared.reset()
             }
         }
+    }
+
+    private static func capacitorSwitchErrorMessage(for error: any Error) -> String {
+        if let storageDetails = StartupFailureDiagnostics.webViewStorageDetails(error),
+           storageDetails.localizedCaseInsensitiveContains("quotaexceeded") {
+            return "Unable to switch to Classic app because browser storage is full."
+        }
+        return "Unable to switch to Classic app."
     }
     
     public static func setAppIsFocused(_ isFocused: Bool) {
         guard isOnTheAir else { return }
         Task {
-            // may fail at launch, which is ok
             try? await Api.setIsAppFocused(isFocused)
         }
     }
     
     public static func handle(url: URL) {
         guard isOnTheAir else { return }
-        if let deeplinkHandler {
-            _ = deeplinkHandler.handle(url)
+        if let runtimeCoordinator {
+            _ = runtimeCoordinator.handle(url: url)
         } else {
             pendingDeeplinkURL = url
         }
@@ -164,10 +254,23 @@ public class AirLauncher {
     
     public static func handle(notification: UNNotification) {
         guard isOnTheAir else { return }
-        if let deeplinkHandler {
-            deeplinkHandler.handleNotification(notification)
+        if let runtimeCoordinator {
+            runtimeCoordinator.handle(notification: notification)
         } else {
             pendingNotification = notification
         }
+    }
+
+    public static func didRegisterForPushNotifications(userToken: String) {
+        guard isOnTheAir else { return }
+        guard hasStartedWalletCore else {
+            pendingPushToken = userToken
+            return
+        }
+        AccountStore.didRegisterForPushNotifications(userToken: userToken)
+    }
+
+    static func lockApp(animated: Bool) {
+        runtimeCoordinator?.lockApp(animated: animated)
     }
 }

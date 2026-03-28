@@ -1,6 +1,9 @@
 package org.mytonwallet.app_air.walletbasecontext.theme
 
 object ViewConstants {
+    // Corner radius for tags
+    var TAG_RADIUS = 8f
+
     // Corner radius for content blocks
     var BLOCK_RADIUS = 16f
 

@@ -68,7 +68,7 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
         appearance.configureWithTransparentBackground()
         navigationItem.standardAppearance = appearance
 
-        configureSheetWithOpaqueBackground(color: WTheme.sheetBackground)
+        configureSheetWithOpaqueBackground(color: .air.sheetBackground)
         currentSheetPresentationController?.delegate = self
 
         let hostingController = addHostingController(makeView(), constraints: .fill)

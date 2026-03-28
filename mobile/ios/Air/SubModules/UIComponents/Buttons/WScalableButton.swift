@@ -9,7 +9,48 @@ import UIKit
 import WalletContext
 
 public class WScalableButton: UIControl {
+    
+    public enum Style {
+        case standard, thinGlass
+    }
+    
     public var onTap: (() -> Void)?
+
+    public let style: Style
+    
+    /// If nil then UIColor.label is used
+    public var titleColor: UIColor? {
+        didSet {
+            titleLabel.textColor = titleColor
+        }
+    }
+
+    /// If nil then .tintColor is used
+    public var imageTintColor: UIColor? {
+        didSet {
+            imageView.tintColor = imageTintColor
+        }
+    }
+    
+    public var fillColor: UIColor? {
+        didSet {
+            assert(style == .thinGlass)
+            thinGlassView?.fillColor = fillColor
+        }
+    }
+
+    public var highlightedFillColor: UIColor? {
+        didSet {
+            assert(style == .thinGlass)
+        }
+    }
+
+    public var edgeColor: UIColor? {
+        didSet {
+            assert(style == .thinGlass)
+            thinGlassView?.edgeColor = edgeColor
+        }
+    }
 
     private var titleLabelBottomConstraint: NSLayoutConstraint!
     private var titleLabelCenterYConstraint: NSLayoutConstraint!
@@ -32,7 +73,7 @@ public class WScalableButton: UIControl {
     private lazy var titleLabel: UILabel = {
         let label = UILabel()
         label.font = baseTitleLabelFont
-        label.textColor = WTheme.primaryLabel
+        label.textColor = UIColor.label
         label.translatesAutoresizingMaskIntoConstraints = false
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.5
@@ -41,34 +82,55 @@ public class WScalableButton: UIControl {
     }()
 
     private lazy var containerView: UIView = {
-        if #available(iOS 26, iOSApplicationExtension 26, *) {
-            let effect = UIGlassEffect(style: .regular)
-            effect.isInteractive = true
-            effect.tintColor = WColors.folderFill
-            let view = UIVisualEffectView(effect: effect)
-            view.cornerConfiguration = .corners(radius: .init(floatLiteral: baseCornerRadius))
+        switch style {
+        case .standard:
+            if #available(iOS 26, iOSApplicationExtension 26, *) {
+                let effect = UIGlassEffect(style: .regular)
+                effect.isInteractive = true
+                effect.tintColor = UIColor.air.folderFill
+                let view = UIVisualEffectView(effect: effect)
+                view.cornerConfiguration = .corners(radius: .init(floatLiteral: baseCornerRadius))
+                return view
+            }
+            
+            let view = UIView()
+            view.backgroundColor = .air.groupedItem
+            view.layer.cornerRadius = baseCornerRadius
+            view.layer.cornerCurve = .continuous
+            view.clipsToBounds = true
+            view.isUserInteractionEnabled = false
+            return view
+            
+        case .thinGlass:
+            let view = ThinGlassView()
+            view.isUserInteractionEnabled = false
             return view
         }
-
-        let view = UIView()
-        view.backgroundColor = WTheme.groupedItem
-        view.layer.cornerRadius = baseCornerRadius
-        view.layer.cornerCurve = .continuous
-        view.clipsToBounds = true
-        view.isUserInteractionEnabled = false
-        return view
     }()
     
+    private var thinGlassView: ThinGlassView? {
+        guard let cv = containerView as? ThinGlassView else {
+            assertionFailure()
+            return nil
+        }
+        return cv
+    }
+    
     private var containerContentView: UIView {
-        if #available(iOS 26, iOSApplicationExtension 26, *),
-           let effectView = containerView as? UIVisualEffectView {
-            effectView.contentView
-        } else {
+        switch style {
+        case .standard:
+            if #available(iOS 26, iOSApplicationExtension 26, *), let effectView = containerView as? UIVisualEffectView {
+                effectView.contentView
+            } else {
+                containerView
+            }
+        case .thinGlass:
             containerView
         }
     }
 
-    public init(title: String, image: UIImage?, onTap: (() -> Void)? = nil) {
+    public init(title: String, image: UIImage?, style: Style = .standard, onTap: (() -> Void)? = nil) {
+        self.style = style
         self.onTap = onTap
         super.init(frame: .zero)
         setup()
@@ -125,9 +187,25 @@ public class WScalableButton: UIControl {
 
     public override var isHighlighted: Bool {
         didSet {
-            guard !IOS_26_MODE_ENABLED else { return }
-            UIView.animate(withDuration: isHighlighted ? 0.1 : 0.3, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
-                self.containerView.backgroundColor = self.isHighlighted ? WTheme.highlight : WTheme.groupedItem
+            switch style {
+            case .standard:
+                guard !IOS_26_MODE_ENABLED else { return }
+                UIView.animate(withDuration: isHighlighted ? 0.1 : 0.3, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+                    self.containerView.backgroundColor = self.isHighlighted ? .air.highlight : .air.groupedItem
+                }
+            case .thinGlass:
+                UIView.animate(withDuration: isHighlighted ? 0.1 : 0.3, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+                    let fillColor = self.fillColor
+                    var effectiveFillColor = fillColor
+                    var transform: CGAffineTransform = .identity
+                    if self.isHighlighted {
+                        effectiveFillColor = self.highlightedFillColor ?? fillColor?.withAlphaComponent(max(fillColor?.alpha ?? 0, 0.2))
+                        let scale: CGFloat = 1.15
+                        transform = CGAffineTransform(scaleX: scale, y: scale)
+                    }
+                    self.thinGlassView?.fillColor = effectiveFillColor
+                    self.transform = transform
+                }
             }
         }
     }
@@ -140,8 +218,12 @@ public class WScalableButton: UIControl {
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-            titleLabel.textColor = WTheme.primaryLabel
-            imageView.tintColor = .tintColor
+            if titleColor == nil {
+                titleLabel.textColor = UIColor.label
+            }
+            if imageTintColor == nil {
+                imageView.tintColor = .tintColor
+            }
         }
     }
     
@@ -161,13 +243,18 @@ public class WScalableButton: UIControl {
         menuContext.onAppear = { [weak self] in
             guard let self else { return }
             
-            // Reset current interaction session transfomations
-            if #available(iOS 26, iOSApplicationExtension 26, *), let effectView = self.containerView as? UIVisualEffectView {
-                effectView.effect = UIBlurEffect(style: .systemUltraThinMaterial)
-                let effect = UIGlassEffect(style: .regular)
-                effect.isInteractive = true
-                effect.tintColor = WColors.folderFill
-                effectView.effect = effect
+            // Reset current interaction session transformations
+            switch style {
+            case .standard:
+                if #available(iOS 26, iOSApplicationExtension 26, *), let effectView = self.containerView as? UIVisualEffectView {
+                    effectView.effect = UIBlurEffect(style: .systemUltraThinMaterial)
+                    let effect = UIGlassEffect(style: .regular)
+                    effect.isInteractive = true
+                    effect.tintColor = UIColor.air.folderFill
+                    effectView.effect = effect
+                }
+            case .thinGlass:
+                self.transform = .identity // cancel highlighting
             }
         }
 
@@ -280,6 +367,7 @@ extension WScalableButton: ButtonsToolbarItem {
 
 // MARK: - Toolbar
 
+@MainActor
 public protocol ButtonsToolbarItem {
     func onToolbarLayout(layoutContext: ButtonsToolbarLayoutContext)
 }

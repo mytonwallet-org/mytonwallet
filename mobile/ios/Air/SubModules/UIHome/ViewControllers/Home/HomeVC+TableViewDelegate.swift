@@ -25,19 +25,19 @@ extension HomeVC {
         
         scrollView.contentInset.top = headerViewModel.state == .expanded ? expansionInset : 0
         
-        let realTargetY = targetContentOffset.pointee.y + scrollView.contentInset.top - (headerViewModel.state == .expanded ? expansionInset : 0)
+        let realTargetY = targetContentOffset.pointee.y + scrollView.adjustedContentInset.top - (headerViewModel.state == .expanded ? expansionInset : 0)
         let isTargetCollapsed = headerViewModel.state == .collapsed || realTargetY > collapseOffset
         
         if isTargetCollapsed && realTargetY > 0 && realTargetY < 120 {
             let isGoingDown = targetContentOffset.pointee.y > scrollView.contentOffset.y
             let isStopped = targetContentOffset.pointee.y == scrollView.contentOffset.y
             if headerViewModel.state == .collapsed && (isGoingDown || (isStopped && realTargetY - 52 >= 0)) {
-                targetContentOffset.pointee.y = 110 - scrollView.contentInset.top
+                targetContentOffset.pointee.y = 110 - scrollView.adjustedContentInset.top
             } else {
-                targetContentOffset.pointee.y = -scrollView.contentInset.top
+                targetContentOffset.pointee.y = -scrollView.adjustedContentInset.top
             }
         } else if !isTargetCollapsed, realTargetY != 0 {
-            targetContentOffset.pointee.y = -scrollView.contentInset.top
+            targetContentOffset.pointee.y = -scrollView.adjustedContentInset.top
         }
     }
 }

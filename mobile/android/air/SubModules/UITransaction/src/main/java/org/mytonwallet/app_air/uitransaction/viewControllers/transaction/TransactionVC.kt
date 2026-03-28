@@ -101,7 +101,9 @@ import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.MFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
@@ -263,6 +265,7 @@ class TransactionVC(
         val lbl = WLabel(context)
         lbl.setStyle(16f)
         lbl.setTextColor(Color.WHITE)
+        lbl.useCustomEmoji = true
         lbl
     }
 
@@ -577,7 +580,8 @@ class TransactionVC(
                                 setTextColor(WColor.Tint)
                                 isTinted = true
                                 setOnClickListener {
-                                    val url = transaction.nft?.collectionUrl ?: return@setOnClickListener
+                                    val url =
+                                        transaction.nft?.collectionUrl ?: return@setOnClickListener
                                     WalletCore.notifyEvent(
                                         WalletEvent.OpenUrl(url)
                                     )
@@ -810,8 +814,8 @@ class TransactionVC(
             letterSpacing = -0.015f
             breakStrategy = Layout.BREAK_STRATEGY_SIMPLE
             hyphenationFrequency = Layout.HYPHENATION_FREQUENCY_NONE
-            setPadding(0, 0, 0, 16.dp)
-            foreground = WRippleDrawable.create(0f).apply {
+            setPaddingDp(8, 4, 8, 4)
+            foreground = WRippleDrawable.create(12f.dp).apply {
                 rippleColor = WColor.SubtitleText.color.colorWithAlpha(25)
             }
             setOnClickListener {
@@ -841,9 +845,10 @@ class TransactionVC(
             setConstraints {
                 toTop(addressDetailsLabel)
                 toStart(addressDetailsLabel)
-                toStart(addressLabel, 20f)
-                toEnd(addressLabel, 20f)
-                topToBottom(addressLabel, addressDetailsLabel, 8f)
+                toStart(addressLabel, 12f)
+                toEnd(addressLabel, 12f)
+                topToBottom(addressLabel, addressDetailsLabel, 4f)
+                toBottom(addressLabel, 12f)
             }
             transactionAddress = this
         }
@@ -864,15 +869,10 @@ class TransactionVC(
 
         val peerAddress = transaction.peerAddress
         val addressName = transaction.addressName()
-        val activeAccount = AccountStore.activeAccount
-        val chainIconDrawable = if (activeAccount?.isMultichain == true) {
-            TokenStore.getToken(transaction.getTxSlug())?.chain?.let { chain ->
-                MBlockchain.valueOf(chain).symbolIconPadded?.let { symbol ->
-                    ContextCompat.getDrawable(context, symbol)?.mutate()
-                }
+        val chainIconDrawable = TokenStore.getToken(transaction.getTxSlug())?.chain?.let { chain ->
+            MBlockchain.valueOf(chain).symbolIconPadded?.let { symbol ->
+                ContextCompat.getDrawable(context, symbol)?.mutate()
             }
-        } else {
-            null
         }
 
         val addressText = buildSpannedString {
@@ -1255,7 +1255,7 @@ class TransactionVC(
 
             is MApiTransaction.Swap -> {
                 val isNative = transaction.fromToken?.isBlockchainNative == true
-                val feeTerms = MFee.FeeTerms(
+                val feeTerms = MFeeTerms(
                     token = if (!isNative && transaction.ourFee != null && transaction.ourFee!!.isFinite()) transaction.ourFee!!.toBigInteger(
                         transaction.fromToken!!.decimals
                     ) else BigInteger.ZERO,
@@ -1266,7 +1266,7 @@ class TransactionVC(
                     stars = null
                 )
                 return MFee(
-                    if (transaction.status.uiStatus == MApiTransaction.UIStatus.PENDING) MFee.FeePrecision.APPROXIMATE else MFee.FeePrecision.EXACT,
+                    if (transaction.status.uiStatus == MApiTransaction.UIStatus.PENDING) MFeePrecision.APPROXIMATE else MFeePrecision.EXACT,
                     feeTerms,
                     nativeSum = null
                 ).toString(
@@ -1554,9 +1554,10 @@ class TransactionVC(
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
             is WalletEvent.AccountSavedAddressesChanged,
-            is WalletEvent.ByChainUpdated  -> {
+            is WalletEvent.ByChainUpdated -> {
                 reloadData()
             }
+
             is WalletEvent.ReceivedNewActivities -> {
                 walletEvent.newActivities?.find {
                     return@find if (it.isLocal())

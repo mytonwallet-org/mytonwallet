@@ -41,6 +41,7 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
+import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -139,6 +140,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             if (res.equals("null")) {
                 injected = true
                 onBridgeReady()
+                EnvironmentStore.loadEnvVariable()
             } else {
                 Handler(context.mainLooper).postDelayed({
                     injectIfNeeded(onBridgeReady)
@@ -428,13 +430,14 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     val chainRaw = objectJSONObject.optString("chain")
                     val chain = MBlockchain.valueOfOrNull(chainRaw)
                     val isFullLoading = objectJSONObject.opt("isFullLoading") as? Boolean
-                    val streamedAddresses = objectJSONObject.optJSONArray("streamedAddresses")?.let { array ->
-                        buildSet {
-                            for (index in 0 until array.length()) {
-                                add(array.optString(index))
+                    val streamedAddresses =
+                        objectJSONObject.optJSONArray("streamedAddresses")?.let { array ->
+                            buildSet {
+                                for (index in 0 until array.length()) {
+                                    add(array.optString(index))
+                                }
                             }
                         }
-                    }
                     val shouldAppend = collectionAddress.isNotEmpty() || isFullLoading == true
                     Handler(Looper.getMainLooper()).post {
                         NftStore.checkCardNftOwnership(accountId)

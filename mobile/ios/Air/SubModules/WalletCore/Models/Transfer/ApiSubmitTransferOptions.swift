@@ -24,6 +24,7 @@ public struct ApiSubmitTransferOptions: ApiTransactionCommonOptions, Equatable, 
     /// Must be set for gasless transfer (this can't be encoded with Swift type system)
     public var dieselAmount: BigInt?
     public var isGaslessWithStars: Bool?
+    public var gaslessTransaction: String?
     
     // ApiSubmitGasfullTransferOptions
       /** Required only for mnemonic accounts */
@@ -35,7 +36,22 @@ public struct ApiSubmitTransferOptions: ApiTransactionCommonOptions, Equatable, 
     // ApiSubmitGaslessTransferOptions
     // nothing here, see comments about optionality above
     
-    public init(accountId: String, toAddress: String, amount: BigInt, payload: AnyTransferPayload?, stateInit: String?, tokenAddress: String?, realFee: BigInt?, isGasless: Bool?, dieselAmount: BigInt?, isGaslessWithStars: Bool?, password: String?, fee: BigInt?, noFeeCheck: Bool?) {
+    public init(
+        accountId: String,
+        toAddress: String,
+        amount: BigInt,
+        payload: AnyTransferPayload?,
+        stateInit: String?,
+        tokenAddress: String?,
+        realFee: BigInt?,
+        isGasless: Bool?,
+        dieselAmount: BigInt?,
+        isGaslessWithStars: Bool?,
+        gaslessTransaction: String?,
+        password: String?,
+        fee: BigInt?,
+        noFeeCheck: Bool?
+    ) {
         self.accountId = accountId
         self.toAddress = toAddress
         self.amount = amount
@@ -46,6 +62,7 @@ public struct ApiSubmitTransferOptions: ApiTransactionCommonOptions, Equatable, 
         self.isGasless = isGasless
         self.dieselAmount = dieselAmount
         self.isGaslessWithStars = isGaslessWithStars
+        self.gaslessTransaction = gaslessTransaction
         self.password = password
         self.fee = fee
         self.noFeeCheck = noFeeCheck

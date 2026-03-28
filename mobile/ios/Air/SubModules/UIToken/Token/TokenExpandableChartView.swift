@@ -13,8 +13,21 @@ import WalletContext
 
 fileprivate let dateFormatter = DateFormatter()
 
+fileprivate func applyTint(to dataSet: LineChartDataSet) {
+    dataSet.colors = [.tintColor]
+    dataSet.highlightColor = .tintColor
+
+    let gradientColors = [UIColor.tintColor.withAlphaComponent(0.2).cgColor, UIColor.clear.cgColor]
+    let gradient = CGGradient(
+        colorsSpace: CGColorSpaceCreateDeviceRGB(),
+        colors: gradientColors as CFArray,
+        locations: [0.4, 1.0]
+    )!
+    dataSet.fill = LinearGradientFill(gradient: gradient, angle: -90)
+}
+
 @MainActor
-final class TokenExpandableChartView: UIView, WThemedView {
+final class TokenExpandableChartView: UIView {
 
     static let collapsedHeight = CGFloat(60)
     private static let expandedChartMaxHeight = CGFloat(200)
@@ -29,12 +42,11 @@ final class TokenExpandableChartView: UIView, WThemedView {
         30 + 16 + 76 + expandedChartHeight
     }
 
-    private let parentProcessorQueue: DispatchQueue
+    private let parentProcessorQueue = DispatchQueue(label: "TokenExpandableChartView")
     private let locker = DispatchSemaphore(value: 1)
     private let onHeightChange: () -> Void
 
-    public init(parentProcessorQueue: DispatchQueue, onHeightChange: @escaping () -> Void) {
-        self.parentProcessorQueue = parentProcessorQueue
+    public init(onHeightChange: @escaping () -> Void) {
         self.onHeightChange = onHeightChange
         super.init(frame: .zero)
         setupViews()
@@ -56,6 +68,11 @@ final class TokenExpandableChartView: UIView, WThemedView {
     private var onPeriodChange: ((ApiPriceHistoryPeriod) -> Void)? = nil
 
     private var selectedRange: ClosedRange<CGFloat> = 0...1
+
+    override func tintColorDidChange() {
+        super.tintColorDidChange()
+        refreshChartTint()
+    }
 
     func configure(token: ApiToken, historyData: [[Double]]?, onPeriodChange: @escaping (ApiPriceHistoryPeriod) -> Void) {
         self.token = token
@@ -182,7 +199,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.text = lang("No price data")
-        label.textColor = WTheme.secondaryLabel
+        label.textColor = UIColor.air.secondaryLabel
         label.font = .systemFont(ofSize: 13)
         label.alpha = 0
         return label
@@ -193,7 +210,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
                                                         withConfiguration: UIImage.SymbolConfiguration(pointSize: 10,
                                                                                                        weight: .bold))!
             .withRenderingMode(.alwaysTemplate))
-        arrowImageView.tintColor = WTheme.primaryLabel.withAlphaComponent(0.3)
+        arrowImageView.tintColor = UIColor.label.withAlphaComponent(0.3)
         arrowImageView.translatesAutoresizingMaskIntoConstraints = false
         arrowImageView.contentMode = .center
         return arrowImageView
@@ -329,10 +346,29 @@ final class TokenExpandableChartView: UIView, WThemedView {
         }
     }
 
-    func updateTheme() {
-        backgroundColor = WTheme.groupedItem
-        priceTitleLabel.textColor = WTheme.secondaryLabel
-        loadingIndicator.tintColor = WTheme.tint
+    private func updateTheme() {
+        backgroundColor = UIColor.air.groupedItem
+        priceTitleLabel.textColor = UIColor.air.secondaryLabel
+        loadingIndicator.tintColor = .tintColor
+        refreshChartTint()
+    }
+
+    private func refreshChartTint() {
+        [collapsedChartData, expandedChartData, rangeChartData]
+            .compactMap { $0 }
+            .forEach { data in
+                data.dataSets
+                    .compactMap { $0 as? LineChartDataSet }
+                    .forEach { applyTint(to: $0) }
+            }
+
+        collapsedChart.notifyDataSetChanged()
+        expandedChart.notifyDataSetChanged()
+        rangeChart.chartView.notifyDataSetChanged()
+
+        if rangeChart.chartView.data != nil {
+            rangeChart.imageView.image = rangeChart.chartView.asImage(padding: 0)
+        }
     }
 
     // MARK: - Data mehods
@@ -348,13 +384,13 @@ final class TokenExpandableChartView: UIView, WThemedView {
             let priceString = priceAmount.formatted(.baseCurrencyHighPrecision, roundUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
-                .foregroundColor: WTheme.primaryLabel
+                .foregroundColor: UIColor.label
             ])
             priceValueLabel.attributedText = attr
 
             let percent = NSAttributedString(string: "\(expandedChart.xAxis.valueFormatter?.stringForValue(lastHighlight.x, axis: collapsedChart.xAxis) ?? "")", attributes: [
                 .font: UIFont.systemFont(ofSize: 14),
-                .foregroundColor: WTheme.secondaryLabel
+                .foregroundColor: UIColor.air.secondaryLabel
             ])
             priceChangeLabel.attributedText = percent
 
@@ -366,7 +402,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
             let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
-                .foregroundColor: WTheme.primaryLabel
+                .foregroundColor: UIColor.label
             ])
             priceValueLabel.attributedText = attr
             var percentChange: Double?
@@ -376,7 +412,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
             if let percentChange {
                 let percent = NSAttributedString(string: formatPercent(percentChange), attributes: [
                     .font: UIFont.systemFont(ofSize: 14),
-                    .foregroundColor: percentChange > 0 ? WTheme.positiveAmount : (percentChange == 0 ? WTheme.secondaryLabel : WTheme.negativeAmount)
+                    .foregroundColor: percentChange > 0 ? UIColor.air.positiveAmount : (percentChange == 0 ? UIColor.air.secondaryLabel : UIColor.air.negativeAmount)
                 ])
                 priceChangeLabel.attributedText = percent
             } else {
@@ -393,14 +429,14 @@ final class TokenExpandableChartView: UIView, WThemedView {
             let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
-                .foregroundColor: WTheme.primaryLabel
+                .foregroundColor: UIColor.label
             ])
             priceValueLabel.attributedText = attr
 
             if let percentChange {
                 let percent = NSAttributedString(string: formatPercent(percentChange), attributes: [
                     .font: UIFont.systemFont(ofSize: 14),
-                    .foregroundColor: percentChange > 0 ? WTheme.positiveAmount : (percentChange == 0 ? WTheme.secondaryLabel : WTheme.negativeAmount)
+                    .foregroundColor: percentChange > 0 ? UIColor.air.positiveAmount : (percentChange == 0 ? UIColor.air.secondaryLabel : UIColor.air.negativeAmount)
                 ])
                 priceChangeLabel.attributedText = percent
             } else {
@@ -455,20 +491,13 @@ final class TokenExpandableChartView: UIView, WThemedView {
             let scopedDataEntries: [ChartDataEntry] = (scopedData ?? []).map { item in ChartDataEntry(x: item[0], y: item[1]) }
 
             let collapsedDataSet = LineChartDataSet(entries: allDataEntries)
-            collapsedDataSet.colors = [WTheme.tint]
             collapsedDataSet.drawCirclesEnabled = false
             collapsedDataSet.drawFilledEnabled = true
             collapsedDataSet.drawValuesEnabled = false
             collapsedDataSet.drawHorizontalHighlightIndicatorEnabled = false
             collapsedDataSet.lineWidth = 1
-            collapsedDataSet.highlightColor = WTheme.tint
             collapsedDataSet.mode = .cubicBezier
-
-            let gradientColors = [WTheme.tint.withAlphaComponent(0.2).cgColor, UIColor.clear.cgColor]
-            let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                                      colors: gradientColors as CFArray,
-                                      locations: [0.4, 1.0])!
-            collapsedDataSet.fill = LinearGradientFill(gradient: gradient, angle: -90)
+            applyTint(to: collapsedDataSet)
             let collapsedChartData = LineChartData(dataSet: collapsedDataSet)
 
             let expandedDataSet = collapsedDataSet.copy() as! LineChartDataSet
@@ -642,7 +671,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
             lineChartAnimationView.alpha = 1
             drawChart(period: self.displayedPeriod, historyData: nil, range: selectedRange, rangeOnly: false)
             updateBlock(0, heightConstraint.constant)
-            let heightAnimator = ValueAnimator(startValue: heightConstraint.constant, endValue: targetHeight, duration: 0.35)
+            let heightAnimator = ValueAnimator(startValue: heightConstraint.constant, endValue: targetHeight, duration: 0.18)
             heightAnimator.addUpdateBlock { progress, value in
                 updateBlock(progress, value)
             }

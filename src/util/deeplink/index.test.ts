@@ -5,7 +5,9 @@ import { ActiveTab, ContentTab } from '../../global/types';
 
 import {
   DEFAULT_SWAP_AMOUNT,
+  DEFAULT_SWAP_FIRST_TOKEN_SLUG,
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
+  PORTFOLIO_DAPP_URL,
   TON_USDT_MAINNET,
   TONCOIN,
   TRC20_USDT_MAINNET,
@@ -321,13 +323,105 @@ describe('processSelfDeeplink', () => {
     });
 
     it('should start swap with custom parameters using https://my.tt protocol', async () => {
+      mockGlobal.swapTokenInfo = {
+        bySlug: {
+          'ton-usdt': { slug: 'ton-usdt' } as any,
+          [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
+        },
+      };
+
       const result = await processSelfDeeplink('https://my.tt/swap?in=ton-usdt&out=toncoin&amount=50');
 
       expect(result).toBe(true);
+      expect(mockActions.showError).not.toHaveBeenCalled();
       expect(mockActions.startSwap).toHaveBeenCalledWith({
         tokenInSlug: 'ton-usdt',
         tokenOutSlug: TONCOIN.slug,
         amountIn: '50',
+      });
+    });
+
+    it('should show error and use default tokenInSlug when in param is unknown', async () => {
+      mockGlobal.swapTokenInfo = {
+        bySlug: {
+          [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
+          [TON_USDT_MAINNET.slug]: { slug: TON_USDT_MAINNET.slug } as any,
+        },
+      };
+
+      const result = await processSelfDeeplink('mtw://swap?in=unknown-token&out=ton-usdt');
+
+      expect(result).toBe(true);
+      expect(mockActions.showError).toHaveBeenCalledWith({
+        error: '$unknown_swap_token',
+      });
+      expect(mockActions.startSwap).toHaveBeenCalledWith({
+        tokenInSlug: DEFAULT_SWAP_FIRST_TOKEN_SLUG,
+        tokenOutSlug: TON_USDT_MAINNET.slug,
+        amountIn: DEFAULT_SWAP_AMOUNT,
+      });
+    });
+
+    it('should show error and use default tokenInSlug when in is unknown and out is toncoin', async () => {
+      mockGlobal.swapTokenInfo = {
+        bySlug: {
+          [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
+          [TON_USDT_MAINNET.slug]: { slug: TON_USDT_MAINNET.slug } as any,
+        },
+      };
+
+      const result = await processSelfDeeplink('mtw://swap?in=unknown-token&out=toncoin');
+
+      expect(result).toBe(true);
+      expect(mockActions.showError).toHaveBeenCalledWith({
+        error: '$unknown_swap_token',
+      });
+      expect(mockActions.startSwap).toHaveBeenCalledWith({
+        tokenInSlug: DEFAULT_SWAP_FIRST_TOKEN_SLUG,
+        tokenOutSlug: DEFAULT_SWAP_SECOND_TOKEN_SLUG,
+        amountIn: DEFAULT_SWAP_AMOUNT,
+      });
+    });
+
+    it('should show error and use default tokenOutSlug when out param is unknown', async () => {
+      mockGlobal.swapTokenInfo = {
+        bySlug: {
+          [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
+          [TON_USDT_MAINNET.slug]: { slug: TON_USDT_MAINNET.slug } as any,
+        },
+      };
+
+      const result = await processSelfDeeplink(`mtw://swap?in=toncoin&out=unknown-token`);
+
+      expect(result).toBe(true);
+      expect(mockActions.showError).toHaveBeenCalledWith({
+        error: '$unknown_swap_token',
+      });
+      expect(mockActions.startSwap).toHaveBeenCalledWith({
+        tokenInSlug: DEFAULT_SWAP_FIRST_TOKEN_SLUG,
+        tokenOutSlug: DEFAULT_SWAP_SECOND_TOKEN_SLUG,
+        amountIn: DEFAULT_SWAP_AMOUNT,
+      });
+    });
+
+    it('should show error and use both defaults when both in and out params are unknown', async () => {
+      mockGlobal.swapTokenInfo = {
+        bySlug: {
+          [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
+          [TON_USDT_MAINNET.slug]: { slug: TON_USDT_MAINNET.slug } as any,
+        },
+      };
+
+      const result = await processSelfDeeplink('mtw://swap?in=unknown-in&out=unknown-out');
+
+      expect(result).toBe(true);
+      expect(mockActions.showError).toHaveBeenCalledWith({
+        error: '$unknown_swap_token',
+      });
+      expect(mockActions.startSwap).toHaveBeenCalledWith({
+        tokenInSlug: DEFAULT_SWAP_FIRST_TOKEN_SLUG,
+        tokenOutSlug: DEFAULT_SWAP_SECOND_TOKEN_SLUG,
+        amountIn: DEFAULT_SWAP_AMOUNT,
       });
     });
 
@@ -433,6 +527,15 @@ describe('processSelfDeeplink', () => {
         error: 'Staking is not supported in Testnet.',
       });
       expect(mockActions.startStaking).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Portfolio command', () => {
+    it('should open portfolio URL', async () => {
+      const result = await processSelfDeeplink('mtw://portfolio');
+
+      expect(result).toBe(true);
+      expect(openUrl).toHaveBeenCalledWith(PORTFOLIO_DAPP_URL);
     });
   });
 
@@ -1055,11 +1158,7 @@ describe('processSelfDeeplink Transaction command', () => {
 
 describe('getDeeplinkFromLocation', () => {
   const mockLocation = (pathname: string, search: string) => {
-    Object.defineProperty(window, 'location', {
-      value: { pathname, search },
-      writable: true,
-      configurable: true,
-    });
+    window.history.replaceState({}, '', `${pathname}${search}`);
   };
 
   it.each([

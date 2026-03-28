@@ -97,7 +97,7 @@ struct TonConnectHeaderPlaceholder: View {
     
     var icon: some View {
         Rectangle()
-            .fill(Color(WTheme.groupedItem))
+            .fill(Color.air.groupedItem)
             .frame(width: 64, height: 64)
             .clipShape(.rect(cornerRadius: 16))
     }
@@ -116,7 +116,7 @@ struct TonConnectHeaderPlaceholder: View {
         let chevron = Text("›")
             .foregroundColor(.secondary)
         let dapp = Text("Dapp Name")
-            .foregroundColor(Color(WTheme.tint))
+            .foregroundStyle(.tint)
             .redacted(reason: .placeholder)
         HStack(spacing: 4) {
             wallet

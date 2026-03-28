@@ -7,9 +7,9 @@ import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatTextView
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
-import androidx.core.view.isGone
 import androidx.customview.widget.ViewDragHelper
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
@@ -60,14 +60,13 @@ class ConnectedAppsCell(context: Context) :
         defaultRounding = Content.Rounding.Radius(8f.dp)
     }
 
-    private val titleLabel = AppCompatTextView(context).apply {
-        id = generateViewId()
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+    private val titleLabel = WLabel(context).apply {
+        setStyle(16f, WFont.Medium)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         includeFontPadding = false
         ellipsize = TextUtils.TruncateAt.END
-        typeface = WFont.Medium.typeface
         maxLines = 1
+        useCustomEmoji = true
     }
 
     private val subtitleLabel = AppCompatTextView(context).apply {

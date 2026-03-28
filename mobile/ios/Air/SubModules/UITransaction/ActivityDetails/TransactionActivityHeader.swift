@@ -39,9 +39,9 @@ struct TransactionActivityHeader: View {
     var amountView: some View {
         let shouldShowSign = amountDisplayMode != .noSign
         let isStake = transaction.type == .stake
-        let amountColor: UIColor = isStake ? .air.textPurple : WTheme.primaryLabel
-        let fractionColor: UIColor = isStake ? .air.textPurple : abs(amount.doubleValue) >= 10 ? WTheme.secondaryLabel : WTheme.primaryLabel
-        let symbolColor: UIColor = isStake ? .air.textPurple : WTheme.secondaryLabel
+        let amountColor: UIColor = isStake ? .air.textPurple : UIColor.label
+        let fractionColor: UIColor = isStake ? .air.textPurple : abs(amount.doubleValue) >= 10 ? UIColor.air.secondaryLabel : UIColor.label
+        let symbolColor: UIColor = isStake ? .air.textPurple : UIColor.air.secondaryLabel
         Button {
             onTokenTapped?(token)
         } label: {
@@ -109,7 +109,7 @@ struct SIconView<Content: View, Attachment: View>: View {
                         .clipShape(.circle)
                         .background {
                             Circle()
-                                .fill(Color(WTheme.sheetBackground))
+                                .fill(Color.air.sheetBackground)
                                 .padding(-borderWidth)
                         }
                         .frame(width: accessorySize, height: accessorySize)

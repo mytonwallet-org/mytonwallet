@@ -51,6 +51,7 @@ class NotificationSettingsAccountCell(
             setStyle(16f, WFont.Medium)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
+            useCustomEmoji = true
         }
     }
 

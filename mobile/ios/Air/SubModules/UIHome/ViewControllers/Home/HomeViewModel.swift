@@ -89,12 +89,9 @@ private let UPDATING_DELAY = 2
     
     func walletCore(event: WalletCoreData.Event) {
         switch event {
-        case .balanceChanged(let accountId, let isFirstUpdate):
+        case .balanceChanged(let accountId):
             if accountId == self.account.id {
                 dataUpdated()
-                if isFirstUpdate {
-                    delegate?.transactionsUpdated(accountChanged: false, isUpdateEvent: false)
-                }
             }
             break
         case .tokensChanged, .swapTokensChanged:
@@ -157,13 +154,6 @@ private let UPDATING_DELAY = 2
         !$account.balances.isEmpty
     }
     
-    var isGeneralDataAvailable: Bool {
-        TokenStore.swapAssets != nil &&
-        TokenStore.tokens.count > 1 &&
-        balancesLoaded &&
-        ($account.balances[TONCOIN_SLUG] != nil || $account.balances[TRX_SLUG] != nil)
-    }
-    
     // MARK: - Init wallet info
     func initWalletInfo() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -183,11 +173,6 @@ private let UPDATING_DELAY = 2
             // make sure balances are loaded
             if !balancesLoaded {
                 log.info("Balances not loaded yet")
-                return
-            }
-            // make sure default event for receiving toncoin is also called
-            if BalanceStore.balancesEventCalledOnce[account.id] == nil {
-                log.info("balancesEventCalledOnce not loaded yet")
                 return
             }
             // make sure assets are loaded

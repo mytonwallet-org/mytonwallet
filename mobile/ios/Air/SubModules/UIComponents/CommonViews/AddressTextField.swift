@@ -83,7 +83,7 @@ public struct AddressTextField: UIViewRepresentable {
         view.typingAttributes = [
             .paragraphStyle: paragraphStyle,
             .font: UIFont.systemFont(ofSize: 17),
-            .foregroundColor: WTheme.primaryLabel,
+            .foregroundColor: UIColor.label,
         ]
         view.dataDetectorTypes = []
         view.returnKeyType = .next

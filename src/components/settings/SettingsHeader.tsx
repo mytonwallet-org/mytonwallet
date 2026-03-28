@@ -6,6 +6,7 @@ import type { Layout } from '../../hooks/useMenuPosition';
 import type { DropdownItem } from '../ui/Dropdown';
 
 import { IS_CAPACITOR } from '../../config';
+import { requestMeasure } from '../../lib/fasterdom/fasterdom';
 import { selectCurrentAccount, selectCurrentAccountId } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { vibrate } from '../../util/haptics';
@@ -136,7 +137,9 @@ function SettingsHeader({
     const element = headerRef.current;
     if (!element) return;
 
-    setSettingsHeaderHeight(element.getBoundingClientRect().height);
+    requestMeasure(() => {
+      setSettingsHeaderHeight(element.getBoundingClientRect().height);
+    });
   }, [isInsideModal, isPortrait, windowHeight, windowWidth]);
 
   const { isVisible } = useElementVisibility({
@@ -162,6 +165,7 @@ function SettingsHeader({
         className={buildClassName(
           styles.header,
           styles.mobileHeader,
+          styles.headerWithWallet,
           'with-notch-on-scroll',
           isScrolled && 'is-scrolled',
         )}

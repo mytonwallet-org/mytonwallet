@@ -38,19 +38,19 @@ public struct SwapOverviewView: View {
             Button {
                 onTokenTapped?(fromToken)
             } label: {
-                WUIIconViewToken(token: fromToken, isWalletView: false, showldShowChain: true, size: 60, chainSize: 22, chainBorderWidth: 1.5, chainBorderColor: WTheme.sheetBackground, chainHorizontalOffset: 6, chainVerticalOffset: 2)
+                WUIIconViewToken(token: fromToken, isWalletView: false, showldShowChain: true, size: 60, chainSize: 22, chainBorderWidth: 1.5, chainBorderColor: .air.sheetBackground, chainHorizontalOffset: 6, chainVerticalOffset: 2)
                     .frame(width: 64, height: 60, alignment: .leading)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
             Image(systemName: "chevron.forward")
                 .font(.body)
-                .foregroundStyle(Color(WTheme.secondaryLabel))
+                .foregroundStyle(Color.air.secondaryLabel)
                 .frame(width: 32, height: 32)
             Button {
                 onTokenTapped?(toToken)
             } label: {
-                WUIIconViewToken(token: toToken, isWalletView: false, showldShowChain: true, size: 60, chainSize: 22, chainBorderWidth: 1.5, chainBorderColor: WTheme.sheetBackground, chainHorizontalOffset: 6, chainVerticalOffset: 2)
+                WUIIconViewToken(token: toToken, isWalletView: false, showldShowChain: true, size: 60, chainSize: 22, chainBorderWidth: 1.5, chainBorderColor: .air.sheetBackground, chainHorizontalOffset: 6, chainVerticalOffset: 2)
                     .frame(width: 64, height: 60, alignment: .leading)
                     .padding(.leading, 4)
                     .contentShape(.rect)
@@ -72,9 +72,9 @@ public struct SwapOverviewView: View {
                 integerFont: .compactRounded(ofSize: 17, weight: .bold),
                 fractionFont: .compactRounded(ofSize: 17, weight: .bold),
                 symbolFont: .compactRounded(ofSize: 17, weight: .bold),
-                integerColor: WTheme.primaryLabel,
-                fractionColor: WTheme.secondaryLabel,
-                symbolColor: WTheme.secondaryLabel
+                integerColor: UIColor.label,
+                fractionColor: .air.secondaryLabel,
+                symbolColor: .air.secondaryLabel
             )
             .sensitiveData(alignment: .center, cols: 10, rows: 2, cellSize: 9, theme: .adaptive, cornerRadius: 5)
         }
@@ -94,9 +94,9 @@ public struct SwapOverviewView: View {
                 integerFont: .compactRounded(ofSize: 34, weight: .bold),
                 fractionFont: .compactRounded(ofSize: 28, weight: .bold),
                 symbolFont: .compactRounded(ofSize: 28, weight: .bold),
-                integerColor: WTheme.primaryLabel,
-                fractionColor: WTheme.secondaryLabel,
-                symbolColor: WTheme.secondaryLabel
+                integerColor: UIColor.label,
+                fractionColor: .air.secondaryLabel,
+                symbolColor: .air.secondaryLabel
             )
             .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 11, theme: .adaptive, cornerRadius: 10)
         }

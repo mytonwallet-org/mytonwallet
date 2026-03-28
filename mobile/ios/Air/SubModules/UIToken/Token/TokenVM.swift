@@ -123,9 +123,13 @@ import WReachability
 }
 
 extension TokenVM: WalletCoreData.EventsObserver {
-    func walletCore(event: WalletCoreData.Event) {
+    @MainActor func walletCore(event: WalletCoreData.Event) {
         switch event {
-        case .balanceChanged, .tokensChanged, .baseCurrencyChanged, .hideTinyTransfersChanged:
+        case .rawBalancesChanged(let accountId):
+            if accountId == self.accountId {
+                tokenVMDelegate?.dataUpdated(isUpdateEvent: false)
+            }
+        case .tokensChanged, .baseCurrencyChanged, .hideTinyTransfersChanged:
             tokenVMDelegate?.dataUpdated(isUpdateEvent: false)
         case .accountChanged:
             tokenVMDelegate?.accountChanged()

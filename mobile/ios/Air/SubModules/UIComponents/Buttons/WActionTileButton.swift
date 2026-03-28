@@ -28,14 +28,14 @@ public final class WActionTileButton: UIControl {
         if #available(iOS 26, iOSApplicationExtension 26, *) {
             let effect = UIGlassEffect(style: .regular)
             effect.isInteractive = true
-            effect.tintColor = WColors.folderFill
+            effect.tintColor = UIColor.air.folderFill
             let view = UIVisualEffectView(effect: effect)
             view.cornerConfiguration = .corners(radius: 26)
             return view
         }
 
         let view = UIView()
-        view.backgroundColor = WTheme.groupedItem
+        view.backgroundColor = .air.groupedItem
         view.layer.cornerRadius = 16
         view.layer.cornerCurve = .continuous
         view.clipsToBounds = true

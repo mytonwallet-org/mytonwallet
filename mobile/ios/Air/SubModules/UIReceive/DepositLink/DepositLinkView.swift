@@ -13,9 +13,13 @@ import Perception
 
 struct DepositLinkView: View {
     
-    @State private var model: DepositLinkModel = .init(nativeToken: .toncoin)
+    @State private var model: DepositLinkModel
     
     @FocusState private var commentIsFocused: Bool
+
+    init(accountContext: AccountContext, nativeToken: ApiToken) {
+        _model = State(initialValue: DepositLinkModel(accountContext: accountContext, nativeToken: nativeToken))
+    }
     
     var body: some View {
         WithPerceptionTracking {
@@ -91,7 +95,7 @@ struct TappableDepositLink: View {
     var body: some View {
         let link = Text(depostitLink.map { "\($0)\u{200B}" }.joined() )
         let more = Text(Image.airBundle("ArrowUpDownSmall"))
-            .foregroundColor(Color(WTheme.secondaryLabel).opacity(0.8))
+            .foregroundColor(.air.secondaryLabel.opacity(0.8))
             .baselineOffset(-1)
 
         Text("\(link) \(more)")

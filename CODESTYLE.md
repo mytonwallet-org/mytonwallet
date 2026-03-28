@@ -213,3 +213,40 @@ Wrap components in `memo()`, but **only** if none of their props are inherently 
 - Avoid nested selectors and tag-based selectors. Every styled element must have its own class.
 - Use `rem` instead of `px`. Conversion formula: `N px = N / 16 rem`.
 
+---
+
+## Commit Messages
+
+Follow this pattern for PR titles and commit messages:
+
+### Format
+
+```
+[Tag] Component / Area: Imperative description
+```
+
+- **Tag** (optional): `[Refactoring]`, `[Perf]`, `[Size]`, `[Dev]`, `[SEO]`, `[CI]`, `[Security]`, or a platform tag such as `[Classic]`, `[iOS]`, `[Android]`, `[Electron]`.
+- Use `[Classic]` for changes inside `src/` (excluding `src/api/`), i.e. the classic web/extension UI layer.
+- **Component or domain area** — capitalized.
+- **Colon**, followed by an imperative-mood description starting with a capital letter.
+- Prefer plain text over code entities, but use backticks (`` ` ``) when referencing programmatic names.
+- Each sentence starts with a capital letter.
+- If a commit contains more than one task, separate them with a semicolon.
+- No trailing period or semicolon.
+
+### Examples
+
+```
+Video Player: Hide download button in fullscreen
+Message / Round Video: Fix progressive loading
+PWA: Support system sharing menu
+[SEO] Replace `meta[noindex]` with `link[canonical]`
+[iOS] Startup: Add logs and signposts
+[Refactoring] Fix @typescript-eslint/await-thenable errors
+[Classic] Accounts: Allow view-only accounts to connect to dapps
+```
+
+### Linking Pull Requests to Issues
+
+Add `Closes #<issue_number>` to the PR description to link it to the corresponding issue.
+

@@ -181,7 +181,8 @@ class HeaderActionsView(
         WMenuPopup.present(
             anchorView,
             items,
-            positioning = Positioning.BELOW
+            positioning = Positioning.BELOW,
+            backdropStyle = WMenuPopup.BackdropStyle.Transparent
         )
     }
 

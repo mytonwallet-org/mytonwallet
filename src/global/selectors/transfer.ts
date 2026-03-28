@@ -3,10 +3,10 @@ import type { GlobalState } from '../types';
 
 import { getChainConfig, getTrustedUsdtSlugs } from '../../util/chain';
 import { CHAIN_ORDER } from '../../util/chain';
-import { explainApiTransferFee, getMaxTransferAmount } from '../../util/fee/transferFee';
+import { getMaxTransferAmount } from '../../util/fee/transferFee';
 import { isValidAddressOrDomain } from '../../util/isValidAddress';
 import { orderByPattern } from '../../util/iteratees';
-import { getChainBySlug } from '../../util/tokens';
+import { getChainBySlug, getIsNativeToken } from '../../util/tokens';
 import { selectCurrentAccount } from './accounts';
 import {
   selectChainTokenWithMaxBalanceSlow,
@@ -17,11 +17,21 @@ import {
 export function selectCurrentTransferMaxAmount(global: GlobalState) {
   const { currentTransfer } = global;
   const tokenBalance = selectCurrentAccountTokenBalance(global, currentTransfer.tokenSlug);
-  const { fullFee, canTransferFullBalance } = explainApiTransferFee(currentTransfer);
+
+  const { explainedFee } = currentTransfer;
+
+  const fullFeeTerms = explainedFee?.fullFee?.terms;
+
+  const canTransferFullBalance = explainedFee?.canTransferFullBalance ?? (
+    fullFeeTerms === undefined && getIsNativeToken(currentTransfer.tokenSlug)
+      ? getChainConfig(getChainBySlug(currentTransfer.tokenSlug)).canTransferFullNativeBalance
+      : false
+  );
+
   return getMaxTransferAmount({
     tokenBalance,
     tokenSlug: currentTransfer.tokenSlug,
-    fullFee: fullFee?.terms,
+    fullFee: fullFeeTerms,
     canTransferFullBalance,
   });
 }

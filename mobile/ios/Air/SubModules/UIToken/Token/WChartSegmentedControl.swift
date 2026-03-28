@@ -1,7 +1,7 @@
 import UIKit
 import WalletContext
 
-public class WChartSegmentedControl: UISegmentedControl, WThemedView {
+public class WChartSegmentedControl: UISegmentedControl {
     
     private var isFirstRender = true
     private var backgroundLayer: CALayer?
@@ -44,13 +44,13 @@ public class WChartSegmentedControl: UISegmentedControl, WThemedView {
         updateTheme()
     }
         
-    public func updateTheme() {
+    private func updateTheme() {
         if #available(iOS 26, *) {
-            selectedSegmentTintColor = WTheme.groupedItem
-            backgroundColor = WTheme.balanceHeaderView.background
+            selectedSegmentTintColor = UIColor.air.groupedItem
+            backgroundColor = UIColor.air.headerBackground
         } else {
-            backgroundLayer?.backgroundColor = WTheme.balanceHeaderView.background.resolvedColor(with: traitCollection).cgColor
-            selectorImageView?.layer.backgroundColor  = WTheme.groupedItem.resolvedColor(with: traitCollection).cgColor
+            backgroundLayer?.backgroundColor = UIColor.air.headerBackground.resolvedColor(with: traitCollection).cgColor
+            selectorImageView?.layer.backgroundColor  = UIColor.air.groupedItem.resolvedColor(with: traitCollection).cgColor
         }
     }
     

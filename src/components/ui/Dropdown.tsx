@@ -32,6 +32,7 @@ interface OwnProps<T extends string> {
   selectedValue?: T;
   items: DropdownItem<T>[];
   className?: string;
+  labelClassName?: string;
   itemClassName?: string;
   menuClassName?: string;
   theme?: 'light' | 'inherit';
@@ -53,6 +54,7 @@ function Dropdown<T extends string>({
   items,
   selectedValue,
   className,
+  labelClassName,
   itemClassName,
   menuClassName,
   theme,
@@ -119,7 +121,7 @@ function Dropdown<T extends string>({
       className={fullClassName}
       onClick={isFullyInteractive && !disabled && withMenu ? openMenu : undefined}
     >
-      {label && <span className={styles.label}>{label}</span>}
+      {label && <span className={buildClassName(styles.label, labelClassName)}>{label}</span>}
 
       {isLoading ? (
         <Spinner className={styles.spinner} />

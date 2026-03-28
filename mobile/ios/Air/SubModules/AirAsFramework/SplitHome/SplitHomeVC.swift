@@ -1,35 +1,30 @@
 import UIKit
+import UIActivityList
 import UIComponents
 import WalletCore
 import WalletContext
 
 @MainActor
-final class SplitHomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, ActivityViewModelDelegate, WalletCoreData.EventsObserver, SplitHomeAssetsRowViewDelegate {
+final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, ActivityListViewModelDelegate, WalletCoreData.EventsObserver, SplitHomeAssetsRowViewDelegate {
     @AccountContext private var account: MAccount
     
     var splitHomeAccountContext: AccountContext { $account }
     private var calledReady = false
     
-    private var _activityViewModel: ActivityViewModel?
-    override var activityViewModel: ActivityViewModel? { _activityViewModel }
     private var switchAccountTask: Task<Void, Never>?
     private weak var accountSwitchSnapshotView: UIView?
-    private weak var splitHomeActionsRowCell: SplitHomeActionsRowCell?
+    private let actionsCustomSectionID = "actions"
+    private let assetsCustomSectionID = "assets"
+    private weak var splitHomeAssetsSectionCell: SplitHomeAssetsSectionCell?
+    private var isAssetsReordering = false
+    private var actionsCustomSectionCellRegistration: UICollectionView.CellRegistration<SplitHomeActionsSectionCell, Row>!
+    private var actionsCustomSectionDescriptor: CustomSectionDescriptor!
+    private var assetsCustomSectionCellRegistration: UICollectionView.CellRegistration<SplitHomeAssetsSectionCell, Row>!
+    private var assetsCustomSectionDescriptor: CustomSectionDescriptor!
     
-    override var hideNavigationBar: Bool { false }
     override var hideBottomBar: Bool { false }
-    override var headerPlaceholderHeight: CGFloat { 12 }
-    override var firstRowPlaceholderHeight: CGFloat { SplitHomeActionsRowCell.rowHeight }
-    override var firstRow: UITableViewCell.Type? { SplitHomeActionsRowCell.self }
-    
-    override var isGeneralDataAvailable: Bool {
-        guard let accountId = resolvedAccountId else { return false }
-        let balances = BalanceStore.getAccountBalances(accountId: accountId)
-        return TokenStore.swapAssets != nil
-            && TokenStore.tokens.count > 1
-            && !balances.isEmpty
-            && (balances[TONCOIN_SLUG] != nil || balances[TRX_SLUG] != nil)
-    }
+    override var headerPlaceholderHeight: CGFloat { 0 }
+    override var customSections: [CustomSectionDescriptor] { [actionsCustomSectionDescriptor, assetsCustomSectionDescriptor] }
     
     private lazy var lockItem: UIBarButtonItem = UIBarButtonItem(
         title: lang("Lock"),
@@ -55,6 +50,7 @@ final class SplitHomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, 
     init(accountSource: AccountSource = .current) {
         self._account = AccountContext(source: accountSource)
         super.init(nibName: nil, bundle: nil)
+        configureCustomSections()
         
         if $account.source != .current {
             _account.onAccountDeleted = { [weak self] in
@@ -76,12 +72,19 @@ final class SplitHomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, 
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        StartupTrace.markOnce("home.viewDidLoad", details: "layout=split")
         setupViews()
         registerForOtherViewControllerAppearNotifications()
         WalletCoreData.add(eventObserver: self)
         Task {
             await reloadActivityViewModel(accountChanged: true)
         }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        StartupTrace.markOnce("home.visible", details: "layout=split")
+        StartupTrace.endInterval("startup.toHomeVisible", details: "layout=split")
     }
     
     override func otherViewControllerDidAppear(_ vc: UIViewController) {
@@ -96,24 +99,40 @@ final class SplitHomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, 
         }
     }
     
-    override func configureFirstRow(cell: UITableViewCell) {
-        super.configureFirstRow(cell: cell)
-        
-        guard let splitHomeActionsRowCell = cell as? SplitHomeActionsRowCell else { return }
-        self.splitHomeActionsRowCell = splitHomeActionsRowCell
+    private func configureAssetsCustomSection(cell: SplitHomeAssetsSectionCell) {
+        splitHomeAssetsSectionCell = cell
+        isAssetsReordering = cell.isAssetsReordering
         updateNavigationItem()
     }
     
-    override func updateTheme() {
-        view.backgroundColor = WTheme.groupedBackground
+    private func configureCustomSections() {
+        actionsCustomSectionCellRegistration = UICollectionView.CellRegistration<SplitHomeActionsSectionCell, Row> { cell, _, _ in
+            cell.backgroundColor = .clear
+        }
+        actionsCustomSectionDescriptor = CustomSectionDescriptor(id: actionsCustomSectionID) { [unowned self] collectionView, indexPath in
+            collectionView.dequeueConfiguredReusableCell(using: actionsCustomSectionCellRegistration, for: indexPath, item: .custom(actionsCustomSectionID))
+        }
+        assetsCustomSectionCellRegistration = UICollectionView.CellRegistration<SplitHomeAssetsSectionCell, Row> { [unowned self] cell, _, _ in
+            cell.backgroundColor = .clear
+            configureAssetsCustomSection(cell: cell)
+        }
+        assetsCustomSectionDescriptor = CustomSectionDescriptor(id: assetsCustomSectionID) { [unowned self] collectionView, indexPath in
+            collectionView.dequeueConfiguredReusableCell(using: assetsCustomSectionCellRegistration, for: indexPath, item: .custom(assetsCustomSectionID))
+        }
     }
     
-    override func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animated: Bool, animatingDifferences: Bool? = nil) {
-        if isGeneralDataAvailable && !calledReady {
+    private func updateTheme() {
+        view.backgroundColor = .air.groupedBackground
+    }
+    
+    override func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animatingDifferences: Bool = true) {
+        if activityViewModel?.idsByDate != nil && !calledReady {
             calledReady = true
+            StartupTrace.markOnce("home.dataReady", details: "layout=split")
+            StartupTrace.endInterval("startup.toHomeReady", details: "layout=split")
             WalletContextManager.delegate?.walletIsReady(isReady: true)
         }
-        super.applySnapshot(snapshot, animated: animated, animatingDifferences: animatingDifferences)
+        super.applySnapshot(snapshot, animatingDifferences: animatingDifferences)
     }
     
     func activityViewModelChanged() {
@@ -139,12 +158,9 @@ final class SplitHomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, 
         case .accountsReset:
             guard $account.source == .current else { return }
             stopReordering(isCanceled: true)
-            _activityViewModel = nil
-            applySnapshot(makeSnapshot(), animated: false)
-            updateSkeletonState()
             calledReady = false
-        case .balanceChanged(let accountId, let isFirstUpdate):
-            if accountId == resolvedAccountId, isFirstUpdate, _activityViewModel == nil {
+        case .balanceChanged(let accountId):
+            if accountId == resolvedAccountId, activityViewModel == nil {
                 Task {
                     await reloadActivityViewModel(accountChanged: true)
                 }
@@ -162,7 +178,7 @@ final class SplitHomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, 
     }
     
     private func setupViews() {
-        view.backgroundColor = WTheme.groupedBackground
+        view.backgroundColor = .air.groupedBackground
         updateNavigationItem()
         
         if !IOS_26_MODE_ENABLED {
@@ -171,11 +187,8 @@ final class SplitHomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, 
         
         super.setupTableViews(tableViewBottomConstraint: 0)
         additionalSafeAreaInsets = UIEdgeInsets(top: 0, left: 4, bottom: 0, right: 4)
-        tableView.contentInset.top = 0
-        skeletonTableView.contentInset.top = 0
         
-        applySnapshot(makeSnapshot(), animated: false)
-        applySkeletonSnapshot(makeSkeletonSnapshot(), animated: false)
+        applySnapshot(makeSnapshot(), animatingDifferences: false)
         updateSkeletonState()
         
         updateTheme()
@@ -194,13 +207,13 @@ final class SplitHomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, 
     
     private func reloadActivityViewModel(accountChanged: Bool) async {
         guard let accountId = resolvedAccountId else {
-            _activityViewModel = nil
-            applySnapshot(makeSnapshot(), animated: false)
+            activityViewModel = nil
+            applySnapshot(makeSnapshot(), animatingDifferences: true)
             updateSkeletonState()
             calledReady = false
             return
         }
-        _activityViewModel = await ActivityViewModel(accountId: accountId, token: nil, showFirstRow: true, delegate: self)
+        activityViewModel = await ActivityListViewModel(accountId: accountId, token: nil, customSectionIDs: customSectionIDs, delegate: self)
         transactionsUpdated(accountChanged: accountChanged, isUpdateEvent: false)
     }
     
@@ -214,11 +227,15 @@ final class SplitHomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, 
     }
     
     private func stopReordering(isCanceled: Bool) {
-        splitHomeActionsRowCell?.stopAssetsReordering(isCanceled: isCanceled)
+        splitHomeAssetsSectionCell?.stopAssetsReordering(isCanceled: isCanceled)
+        if splitHomeAssetsSectionCell == nil, isAssetsReordering {
+            isAssetsReordering = false
+            updateNavigationItem()
+        }
     }
     
     private var isReorderingNfts: Bool {
-        splitHomeActionsRowCell?.isAssetsReordering == true
+        isAssetsReordering
     }
     
     private func updateNavigationItem() {
@@ -242,6 +259,7 @@ final class SplitHomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, 
     }
     
     func splitHomeAssetsRowViewDidChangeReorderingState(_ view: SplitHomeAssetsRowView) {
+        isAssetsReordering = view.isReordering
         updateNavigationItem()
     }
     
@@ -259,28 +277,28 @@ final class SplitHomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, 
     private func prepareAccountSwitchCrossfade() -> UIView? {
         cleanupAccountSwitchCrossfade()
         view.layoutIfNeeded()
-        tableView.layoutIfNeeded()
-        guard let snapshot = tableView.snapshotView(afterScreenUpdates: false) else {
-            tableView.alpha = 1
+        collectionView.layoutIfNeeded()
+        guard let snapshot = collectionView.snapshotView(afterScreenUpdates: false) else {
+            collectionView.alpha = 1
             return nil
         }
-        snapshot.frame = tableView.frame
+        snapshot.frame = collectionView.frame
         snapshot.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(snapshot)
         view.bringSubviewToFront(snapshot)
         accountSwitchSnapshotView = snapshot
-        tableView.alpha = 0
+        collectionView.alpha = 0
         return snapshot
     }
 
     private func finishAccountSwitchCrossfade(snapshot: UIView?) {
         guard let snapshot else {
-            tableView.alpha = 1
+            collectionView.alpha = 1
             return
         }
         guard accountSwitchSnapshotView === snapshot else { return }
         UIView.animate(withDuration: 0.24, delay: 0, options: [.beginFromCurrentState, .curveEaseInOut]) { [self] in
-            tableView.alpha = 1
+            collectionView.alpha = 1
             snapshot.alpha = 0
         } completion: { [weak self] _ in
             snapshot.removeFromSuperview()
@@ -299,6 +317,6 @@ final class SplitHomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, 
             accountSwitchSnapshotView?.removeFromSuperview()
             accountSwitchSnapshotView = nil
         }
-        tableView.alpha = 1
+        collectionView.alpha = 1
     }
 }

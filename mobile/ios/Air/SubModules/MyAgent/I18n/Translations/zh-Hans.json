@@ -1,0 +1,57 @@
+{
+  "error.tokenNotFound": "抱歉，找不到名为 \"{token}\" 的代币。请检查代币名称后重试。",
+  "error.rateLimit.hourly": "您已达到每小时 {limit} 次请求的限制。请稍等片刻后重试。",
+  "error.rateLimit.daily": "您已达到每日 {limit} 次请求的限制。请明天再来。",
+  "error.noNewsResults": "抱歉，未找到该主题的最新新闻。请稍后重试。",
+  "error.noAnswer": "未找到答案。",
+  "error.noActionLink": "已理解您的请求，但无法生成操作链接。",
+  "error.generic": "抱歉，出现了问题。请重试。",
+
+  "send.summary.to": "**- 收款方:** {address}",
+  "send.summary.amount": "**- 金额:** {amount} ({name})",
+  "send.summary.fee": "**- 手续费:** 确认前将在应用中显示",
+  "send.message": "您的转账摘要:\n\n{summary}\n\n点击下方按钮打开发送页面 — 确认前您可以检查所有内容。",
+  "send.button": "发送 {token}",
+
+  "receive.summary.to": "**- 收款方:** {address}",
+  "receive.summary.amount": "**- 金额:** {amount}",
+  "receive.summary.comment": "**- 备注:** {comment}",
+  "receive.message.withAddress": "您的付款链接:\n\n{summary}\n\n分享此链接或二维码 — 发送方将看到预填的转账页面。",
+  "receive.message.noAddress": "点击下方按钮打开接收页面 — 您将看到您的地址和二维码。",
+  "receive.button": "接收 {token}",
+  "receive.button.default": "接收",
+
+  "swap.summary.from": "**- 从:** {amount}",
+  "swap.summary.to": "**- 到:** {token}",
+  "swap.summary.fee": "**- 汇率和手续费:** 确认前显示",
+  "swap.message": "您的兑换摘要:\n\n{summary}\n\n点击下方按钮打开兑换页面 — 确认前您可以检查所有内容。",
+  "swap.button": "兑换",
+
+  "buyWithCard.summary.amount": "**- 金额:** {amount}",
+  "buyWithCard.summary.payment": "**- 支付方式:** 银行卡（选项在应用中显示）",
+  "buyWithCard.message": "您的购买摘要:\n\n{summary}\n\n点击下方按钮打开购买页面 — 选择提供商并确认详情。",
+  "buyWithCard.button": "银行卡购买",
+
+  "buyWithCrypto.summary.from": "**- 从:** {amount}",
+  "buyWithCrypto.summary.to": "**- 到:** {token}",
+  "buyWithCrypto.summary.fee": "**- 汇率和手续费:** 确认前显示",
+  "buyWithCrypto.message": "您的跨链购买摘要:\n\n{summary}\n\n点击下方按钮打开购买页面 — 确认前您可以检查所有内容。",
+  "buyWithCrypto.button": "加密货币购买",
+
+  "price.summary.price": "**- 价格:** {currency}{price}",
+  "price.summary.change": "**- 24小时变化:** {direction} {change}%",
+  "price.message.withData": "{token} ({name}):\n\n{summary}\n\n点击下方按钮查看完整图表和详情。",
+  "price.message.noData": "点击下方按钮在应用中查看 {token} 的价格、图表和详情。",
+  "price.button": "查看 {token}",
+
+  "stake.message": "点击下方按钮打开质押页面 — 您可以选择矿池并开始赚取奖励。",
+  "stake.button": "质押",
+
+  "portfolio.message": "点击下方按钮查看您的投资组合 — 一览所有持仓、余额和收益表现。",
+  "portfolio.button": "查看投资组合",
+
+  "telegram.welcome": "欢迎使用 Crypto Agent！向我发送关于以下内容的消息：\n- 发送代币\n- 接收代币\n- 兑换代币\n- 购买加密货币\n- 代币价格\n- 任何钱包问题",
+  "telegram.typing": "正在输入...",
+  "telegram.setaddress.usage": "用法: /setaddress <链> <名称> <地址>",
+  "telegram.setaddress.added": "已添加地址: {name} ({chain}): {address}"
+}

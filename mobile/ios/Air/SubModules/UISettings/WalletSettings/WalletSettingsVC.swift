@@ -18,9 +18,7 @@ import UIKitNavigation
 private let maxWidth: CGFloat = 580
 
 public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delegate {
-    
-    @Dependency(\.balanceStore) private var balanceStore
-    
+
     lazy var items = [
         SegmentedControlItem(
             id: "all",
@@ -60,7 +58,7 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
         
         super.viewDidLoad()
         
-        view.backgroundColor = WTheme.sheetBackground
+        view.backgroundColor = .air.sheetBackground
         
         observe { [weak self] in
             guard let self else { return }
@@ -88,7 +86,7 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
                 sheet.selectedDetentIdentifier = .init("twoThirds")
             }
             if #available(iOS 26.1, *) {
-                sheet.backgroundEffect = UIColorEffect(color: WTheme.sheetBackground)
+                sheet.backgroundEffect = UIColorEffect(color: .air.sheetBackground)
             }
         }
         

@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 import argparse
+import copy
 import json
 import os
 import re
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 
 import yaml  # pip install pyyaml
@@ -172,6 +176,13 @@ def build_strings_map(per_locale: dict, source_locale: str, locales: list[str], 
     return dict(sorted(strings.items(), key=lambda x: str(x[0])))
 
 
+def with_extraction_state(strings: dict, extraction_state: str) -> dict:
+    updated_strings = copy.deepcopy(strings)
+    for bucket in updated_strings.values():
+        bucket["extractionState"] = extraction_state
+    return updated_strings
+
+
 def write_catalog(output_path: Path, source_locale: str, strings: dict):
     catalog = {
         "sourceLanguage": source_locale,
@@ -183,18 +194,62 @@ def write_catalog(output_path: Path, source_locale: str, strings: dict):
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(catalog, f, ensure_ascii=False, indent=2)
 
+
+def compile_catalog(source_catalog: Path, output_dir: Path):
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(prefix="xcstrings-compile-") as tmp_dir:
+        compiled_output_dir = Path(tmp_dir) / output_dir.name
+        try:
+            subprocess.run(
+                [
+                    "xcrun",
+                    "xcstringstool",
+                    "compile",
+                    str(source_catalog),
+                    "--output-directory",
+                    str(compiled_output_dir),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError as error:
+            raise SystemExit("xcrun is required to compile localized strings resources.") from error
+        except subprocess.CalledProcessError as error:
+            stderr = (error.stderr or "").strip()
+            stdout = (error.stdout or "").strip()
+            details = stderr or stdout or str(error)
+            raise SystemExit(f"Failed to compile localized strings resources: {details}") from error
+
+        for existing_item in output_dir.glob("*.lproj"):
+            if existing_item.is_dir():
+                shutil.rmtree(existing_item)
+            else:
+                existing_item.unlink()
+
+        for compiled_item in compiled_output_dir.iterdir():
+            if not compiled_item.name.endswith(".lproj"):
+                continue
+            shutil.copytree(compiled_item, output_dir / compiled_item.name)
+
 def main():
     ap = argparse.ArgumentParser(description="Build .xcstrings from JSON or YAML locale files.")
     ap.add_argument("--input-dir", default="../../../../../src/i18n", help="Directory with *.json, *.yaml, or *.yml files")
     ap.add_argument("--source-locale", default="en", help="Source language code")
     ap.add_argument("--output", default="../../SubModules/WalletContext/Resources/Strings/Localizable.xcstrings", help="Output .xcstrings path")
+    ap.add_argument("--compiled-output", default="../../SubModules/WalletContext/Resources/Strings", help="Output directory for compiled .strings and .stringsdict resources generated from the main .xcstrings catalog")
     ap.add_argument("--push-output", default="../../../App/App/Resources/Localizable.xcstrings", help="Output .xcstrings path for push* keys in main app bundle")
+    ap.add_argument("--widget-output", default="../../../App/AirWidget/Localizable.xcstrings", help="Output .xcstrings path for the widget extension bundle")
     ap.add_argument("--push-prefix", default="push_", help="Localization key prefix for push catalog")
+    ap.add_argument("--skip-compiled-output", action="store_true", help="Skip compiling the main .xcstrings catalog into .strings and .stringsdict resources")
     args = ap.parse_args()
 
     input_dir = resolve_relative_to_script(args.input_dir)
     output_path = resolve_relative_to_script(args.output)
+    compiled_output_path = resolve_relative_to_script(args.compiled_output)
     push_output_path = resolve_relative_to_script(args.push_output)
+    widget_output_path = resolve_relative_to_script(args.widget_output)
 
     if not input_dir.exists():
         raise SystemExit(f"Input directory '{input_dir}' does not exist.")
@@ -270,7 +325,11 @@ def main():
         source_locale=args.source_locale,
         locales=locales,
     )
+    widget_strings = with_extraction_state(strings, "extracted")
     write_catalog(output_path=output_path, source_locale=args.source_locale, strings=strings)
+    write_catalog(output_path=widget_output_path, source_locale=args.source_locale, strings=widget_strings)
+    if not args.skip_compiled_output:
+        compile_catalog(source_catalog=output_path, output_dir=compiled_output_path)
 
     push_strings = build_strings_map(
         per_locale=per_locale,
@@ -281,6 +340,9 @@ def main():
     write_catalog(output_path=push_output_path, source_locale=args.source_locale, strings=push_strings)
 
     print(f"Wrote {output_path} with {len(strings)} entries across {len(locales)} locales.")
+    print(f"Wrote {widget_output_path} with {len(strings)} entries across {len(locales)} locales.")
+    if not args.skip_compiled_output:
+        print(f"Compiled {output_path.name} into {compiled_output_path}.")
     print(f"Wrote {push_output_path} with {len(push_strings)} push entries across {len(locales)} locales.")
     print(f"Source locale '{args.source_locale}' had {len(source_locale_files)} input files.")
     print()

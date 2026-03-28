@@ -21,6 +21,25 @@ export type SolanaSPLTokenGrouping = {
   };
 };
 
+export type SolanaSplTokenAccountsByAddressRaw = {
+  jsonrpc: '2.0';
+  result: {
+    last_indexed_slot: number;
+    total: number;
+    limit: number;
+    cursor: string;
+    token_accounts: {
+      address: string;
+      mint: string;
+      owner: string;
+      amount: number;
+      delegated_amount: number;
+      frozen: boolean;
+    }[];
+  };
+  id: string;
+};
+
 export type SolanaSPLToken = {
   interface: 'FungibleToken' | 'MplCoreAsset' | 'ProgrammableNFT' | 'V1_NFT';
   id: string;
@@ -162,7 +181,7 @@ export type SolanaParsedTransaction = {
     toUserAccount: string;
     tokenAmount: number;
     mint: string;
-    tokenStandard: 'Fungible' | 'ProgrammableNonFungible';
+    tokenStandard: 'Fungible' | 'ProgrammableNonFungible' | 'NonFungible';
   }[];
   nativeTransfers: {
     fromUserAccount: string;
@@ -311,7 +330,7 @@ export type SolanaInstruction = SolanaInstructionRaw | SolanaInstructionParsed;
 
 export type SolanaTransactionEmulationResult = {
   accounts: string[] | null;
-  err: null;
+  err: any;
   fee: number;
   innerInstructions: SolanaInnerIntrution[];
   loadedAccountsDataSize: number;

@@ -134,8 +134,8 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         updateSensitiveData()
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
     
     private func makeView() -> SendComposeView {
@@ -182,7 +182,7 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
 
     private func showSell() {
         dismiss(animated: true)
-        AppActions.showSell(account: model.account, tokenSlug: model.token.slug)
+        AppActions.showSell(accountContext: model.$account, tokenSlug: model.token.slug)
     }
     
     private func showMultisend() {
@@ -196,7 +196,7 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    let vc = SendComposeVC(model: SendModel(prefilledValues: .init()))
+    let vc = SendComposeVC(model: SendModel(accountContext: AccountContext(source: .current), prefilledValues: .init()))
     previewSheet(vc)
 }
 #endif

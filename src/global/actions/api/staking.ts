@@ -91,7 +91,7 @@ addActionHandler('fetchStakingFee', async (global, actions, payload) => {
 
   global = getGlobal();
   global = updateCurrentStaking(global, {
-    fee: result.fee,
+    fee: result.explainedFee?.fullFee?.nativeSum,
   });
   setGlobal(global);
 });
@@ -125,7 +125,7 @@ addActionHandler('submitStakingInitial', async (global, actions, payload) => {
         }
 
         global = updateCurrentStaking(global, {
-          fee: result.fee,
+          fee: result.explainedFee?.fullFee?.nativeSum,
           amount,
           error: undefined,
           tokenAmount: result.tokenAmount,
@@ -154,7 +154,7 @@ addActionHandler('submitStakingInitial', async (global, actions, payload) => {
         }
 
         global = updateCurrentStaking(global, {
-          fee: result.fee,
+          fee: result.explainedFee?.fullFee?.nativeSum,
           amount,
           error: undefined,
         });

@@ -85,7 +85,7 @@ private final class SegmentedControlReorderingVC: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        view.backgroundColor = WTheme.groupedItem // Fully hides tabs underneath
+        view.backgroundColor = .air.groupedItem // Fully hides tabs underneath
 
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .horizontal

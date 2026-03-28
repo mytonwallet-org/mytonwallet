@@ -61,7 +61,7 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
                 sheet.prefersGrabberVisible = viewModel.detailsCollapseEnabled
             }
             if #available(iOS 26.1, *) {
-                sheet.backgroundEffect = UIColorEffect(color: WTheme.sheetBackground)
+                sheet.backgroundEffect = UIColorEffect(color: .air.sheetBackground)
             }
             if !viewModel.detailsCollapseEnabled {
                 sheet.detents = makeDetents()
@@ -84,21 +84,21 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
     public override func viewDidLoad() {
         super.viewDidLoad()
         let activity = self.activity
-        if let accountId = AccountStore.accountId, activity.shouldLoadDetails == true {
+        if activity.shouldLoadDetails == true {
             Task { [weak self] in
+                guard let self else { return }
                 do {
+                    let accountId = self.viewModel.accountContext.accountId
                     let tx = try await ActivityStore.fetchActivityDetails(accountId: accountId, activity: activity)
-                    if let self {
-                        self.viewModel.activity = tx
-                    }
+                    self.viewModel.activity = tx
                 } catch {
                 }
             }
         }
     }
 
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
 
 
@@ -219,10 +219,10 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
             on: self,
             onDone: { [weak self] passcode in
                 guard let self,
-                      let accountId = AccountStore.accountId,
                       case .transaction(let tx) = self.activity else { return }
                 Task {
                     do {
+                        let accountId = self.viewModel.accountContext.accountId
                         self.decryptedComment = try await Api.decryptComment(accountId: accountId, activity: tx, password: passcode)
                         self.hostingController?.rootView = self.makeView()
                     } catch {

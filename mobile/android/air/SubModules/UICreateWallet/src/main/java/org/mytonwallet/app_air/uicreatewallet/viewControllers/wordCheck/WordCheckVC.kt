@@ -37,6 +37,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
+import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 import java.lang.ref.WeakReference
 import kotlin.math.max
 
@@ -56,7 +57,7 @@ class WordCheckVC(
 
     override val isSwipeBackAllowed: Boolean
         get() {
-            return !isKeyboardOpen && DEBUG_MODE
+            return !isKeyboardOpen && (DEBUG_MODE || EnvironmentStore.isBeta)
         }
 
     override val shouldDisplayTopBar = false

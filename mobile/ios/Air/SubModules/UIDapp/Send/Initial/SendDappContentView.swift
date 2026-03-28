@@ -2,6 +2,7 @@
 import SwiftUI
 import UIKit
 import UIPasscode
+import UIActivityList
 import UIComponents
 import WalletCore
 import WalletContext
@@ -123,7 +124,7 @@ struct SendDappContentView: View {
                 Text(lang("Preview is currently unavailable."))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
                     .font(.system(size: 13))
             }
         }

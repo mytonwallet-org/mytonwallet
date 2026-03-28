@@ -361,7 +361,7 @@ extension ExploreVC {
                     if #available(iOS 26.0, *) {
                         $0 // no need in scrollOffsetDidChange
                     } else {
-                        $0.onFrameChange(inCoordinateSpace: .named(Self.screenSafeAreaCoordinateSpaceName)) { frame in
+                        $0.onFrameChange(inCoordinateSpace: Self.screenSafeAreaCoordinateSpaceName) { frame in
                             viewOutput.scrollOffsetDidChange.send(-frame.origin.y)
                         }
                     }

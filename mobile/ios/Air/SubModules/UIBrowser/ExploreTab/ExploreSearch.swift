@@ -75,7 +75,7 @@ struct ExploreSearchView: View {
                 let glass = Image(systemName: "magnifyingglass")
                 let prompt = Text(lang("Search app or enter address"))
                     .font(viewModel.isActive ? .system(size: 17, weight: .regular) : .system(size: 15, weight: .medium))
-                    .foregroundStyle(viewModel.isActive ? .secondary : Color(WTheme.primaryLabel))
+                    .foregroundStyle(viewModel.isActive ? .secondary : Color.air.primaryLabel)
                 HStack {
                     glass
                     TextField(text: $viewModel.string, prompt: prompt, label: { EmptyView() })

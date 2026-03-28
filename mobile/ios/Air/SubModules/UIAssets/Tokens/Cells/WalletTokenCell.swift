@@ -10,7 +10,7 @@ import UIKit
 import WalletContext
 import WalletCore
 
-public class WalletTokenCell: WHighlightCell {
+public class WalletTokenCell: WHighlightCollectionViewCell {
     nonisolated public static let defaultHeight = 60.0
 
     private static let pinIconSideLength: CGFloat = 12
@@ -21,7 +21,7 @@ public class WalletTokenCell: WHighlightCell {
     private let regular16Font = UIFont.systemFont(ofSize: 16, weight: .regular)
     private let regular14Font = UIFont.systemFont(ofSize: 14, weight: .regular)
 
-    private static let pinningColor: UIColor = UIColor.air.altHighlight.withAlphaComponent(0.4)
+    private static let pinningColor: UIColor = .air.altHighlight.withAlphaComponent(0.4)
     
     public var walletToken: MTokenBalance?
     private var tokenImage: String?
@@ -38,7 +38,7 @@ public class WalletTokenCell: WHighlightCell {
     private var pinIconView: UIView = configured(object: UIImageView()) {
         $0.translatesAutoresizingMaskIntoConstraints = false
         $0.image = UIImage(systemName: "pin.fill")
-        $0.tintColor = .air.headerSecondaryLabel
+        $0.tintColor = .air.secondaryLabel
         $0.contentMode = .scaleAspectFit
     }
 
@@ -58,10 +58,9 @@ public class WalletTokenCell: WHighlightCell {
     private var baseCurrencyAmountLabel: WAmountLabel!
     private var separatorView: UIView!
     private let badge = BadgeView()
-    private var onSelect: (() -> Void)?
 
-    public override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
+    public override init(frame: CGRect) {
+        super.init(frame: frame)
         setupViews()
     }
 
@@ -75,9 +74,8 @@ public class WalletTokenCell: WHighlightCell {
     
     private func setupViews() {
         isExclusiveTouch = true
-        selectionStyle = .none
-        contentView.isUserInteractionEnabled = true
-        contentView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(itemSelected)))
+        contentView.backgroundColor = .clear
+        contentView.heightAnchor.constraint(equalToConstant: Self.defaultHeight).isActive = true
         
         mainView.backgroundColor = .clear
         contentView.addStretchedToBounds(subview: mainView, insets: UIEdgeInsets(top: 10, left: 12, bottom: 10, right: 12))
@@ -90,7 +88,7 @@ public class WalletTokenCell: WHighlightCell {
             iconView.centerYAnchor.constraint(equalTo: mainView.centerYAnchor),
         ])
         iconView.layer.cornerRadius = 20
-        iconView.setChainSize(14, borderWidth: 1.333, borderColor: WTheme.background, horizontalOffset: 3, verticalOffset: 1)
+        iconView.setChainSize(14, borderWidth: 1.333, borderColor: .air.background, horizontalOffset: 3, verticalOffset: 1)
 
         // tokenName
         mainView.addSubview(tokenNameLabel)
@@ -170,7 +168,7 @@ public class WalletTokenCell: WHighlightCell {
         // separator
         separatorView = UIView()
         separatorView.translatesAutoresizingMaskIntoConstraints = false
-        separatorView.backgroundColor = IOS_26_MODE_ENABLED ? UIColor.separator : isUIAssets ? WTheme.separatorDarkBackground : WTheme.separator
+        separatorView.backgroundColor = IOS_26_MODE_ENABLED ? UIColor.separator : isUIAssets ? .air.separatorDarkBackground : .air.separator
         addSubview(separatorView)
         NSLayoutConstraint.activate([
             separatorView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 0),
@@ -184,13 +182,13 @@ public class WalletTokenCell: WHighlightCell {
         updateTheme()
     }
 
-    func updateTheme() {
-        baseBackgroundColor = .clear
-        highlightBackgroundColor = WTheme.highlight
-        tokenNameLabel.textColor = WTheme.primaryLabel
-        amountLabel.textColor = WTheme.primaryLabel
-        tokenPriceLabel.textColor = WTheme.balanceHeaderView.secondary
-        baseCurrencyAmountLabel.textColor = WTheme.balanceHeaderView.secondary
+    private func updateTheme() {
+        highlightBackgroundColor = .air.highlight
+        backgroundColor = .clear
+        tokenNameLabel.textColor = UIColor.label
+        amountLabel.textColor = UIColor.label
+        tokenPriceLabel.textColor = .air.secondaryLabel
+        baseCurrencyAmountLabel.textColor = .air.secondaryLabel
     }
 
     // MARK: - Configure using MTokenBalance
@@ -203,14 +201,12 @@ public class WalletTokenCell: WHighlightCell {
                           badgeContent: BadgeContent?,
                           isMultichain: Bool,
                           isPinned: Bool,
-                          highlightBackgroundWhenPinned: Bool,
-                          onSelect: @escaping () -> Void) {
+                          highlightBackgroundWhenPinned: Bool) {
         let previousTokenSlug = self.walletToken?.tokenSlug
         let previousBalance = self.walletToken?.balance
         let previousBaseCurrencyAmount = self.walletToken?.toBaseCurrency
         let tokenChanged = previousTokenSlug != walletToken.tokenSlug
         self.walletToken = walletToken
-        self.onSelect = onSelect
         // token
         let token = TokenStore.getToken(slug: walletToken.tokenSlug)
 
@@ -244,11 +240,11 @@ public class WalletTokenCell: WHighlightCell {
                 string: baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true),
                 attributes: [
                     .font: regular14Font,
-                    .foregroundColor: WTheme.secondaryLabel,
+                    .foregroundColor: UIColor.air.secondaryLabel,
                 ]
             )
             if let percentChange24h = token?.percentChange24h, let percentChange24hRounded = token?.percentChange24hRounded {
-                let color = abs(percentChange24h) < 0.005 ? WTheme.secondaryLabel : percentChange24h > 0 ? WTheme.positiveAmount : WTheme.negativeAmount
+                let color = abs(percentChange24h) < 0.005 ? UIColor.air.secondaryLabel : percentChange24h > 0 ? UIColor.air.positiveAmount : UIColor.air.negativeAmount
                 if percentChange24hRounded != 0 {
                     attr.append(NSAttributedString(string: " \(formatPercent(percentChange24hRounded / 100))",
                                                    attributes: [.font: regular14Font, .foregroundColor: color]))
@@ -322,9 +318,6 @@ public class WalletTokenCell: WHighlightCell {
         }
     }
 
-    @objc private func itemSelected(_: UIGestureRecognizer) {
-        onSelect?()
-    }
 }
 
 public class AssetsWalletTokenCell: WalletTokenCell {

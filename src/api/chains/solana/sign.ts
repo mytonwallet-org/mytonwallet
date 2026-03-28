@@ -80,14 +80,14 @@ export async function signTransfer(
 
   const outputDecoder = isLegacyOutput ? getBase58Decoder() : getBase64Decoder();
 
-  const base58Transaction = outputDecoder.decode(signedBytes) as Base58EncodedBytes;
-  const base58Signature = outputDecoder.decode(mySignatureBytes);
+  const serializedTransaction = outputDecoder.decode(signedBytes) as Base58EncodedBytes;
+  const serializedSignature = outputDecoder.decode(mySignatureBytes);
 
   return [{
     chain: 'solana',
     payload: {
-      signature: base58Signature,
-      base58Tx: base58Transaction,
+      signature: serializedSignature,
+      signedTx: serializedTransaction,
     },
   }];
 }

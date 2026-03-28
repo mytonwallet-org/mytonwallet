@@ -24,12 +24,12 @@ public struct TappableTransactionId: View {
         HStack(alignment: .firstTextBaseline, spacing: 3) {
             tx
             Image.airBundle("ArrowUpDownSmall")
-                .foregroundColor(Color(WTheme.secondaryLabel))
+                .foregroundColor(Color.air.secondaryLabel)
                 .opacity(0.8)
                 .offset(y: 1)
         }
         .menuSource(menuContext: menuContext)
-        .foregroundStyle(Color(WTheme.primaryLabel))
+        .foregroundStyle(Color.air.primaryLabel)
         .opacity(hover ? 0.8 : 1)
         .task(id: txId) {
             menuContext.onAppear = { hover = true }
@@ -71,11 +71,11 @@ public struct ChangellyTransactionId: View {
         HStack(alignment: .firstTextBaseline, spacing: 3) {
             tx
             Image.airBundle("ArrowUpDownSmall")
-                .foregroundColor(Color(WTheme.secondaryLabel))
+                .foregroundColor(Color.air.secondaryLabel)
                 .opacity(0.8)
                 .offset(y: 1)
         }
-        .foregroundStyle(Color(WTheme.primaryLabel))
+        .foregroundStyle(Color.air.primaryLabel)
         .opacity(hover ? 0.8 : 1)
         .menuSource(menuContext: menuContext)
         .task {

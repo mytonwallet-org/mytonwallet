@@ -56,6 +56,10 @@ You have no NFT in this wallet yet: |
 Collapse: Zwiń
 Expand: Rozwiń
 Standalone NFT: Samodzielne NFT
+$nft_select: "Wybierz"
+$nft_batch_on_sale: Wybrane kolekcjonerskie są wystawione na sprzedaż.
+$nft_batch_different_chains: Wybrane kolekcjonerskie znajdują się w różnych sieciach.
+$nft_expired: "Wygasł"
 Linked Address: Powiązany adres
 Enter Address: Wpisz adres
 Show All Assets: Pokaż wszystkie aktywa
@@ -98,6 +102,7 @@ Instantly: Natychmiast
 Up to %1$@: Do %1$@
 up to %1$@: do %1$@
 Current APY: Bieżący APY
+Current APR: Bieżący APR
 Est. earning per year: Szacowany roczny zysk
 in: w
 Error: Błąd
@@ -301,6 +306,16 @@ Search or enter address: Wyszukaj lub wpisz adres
 View as Grid: Pokaż jako siatkę
 
 
+
+$web_permission_prompt: Zezwolić %origin% na użycie %permissions%?
+$web_permission_allow: Zezwól
+$web_permission_deny: Nie zezwalaj
+$web_permission_camera: aparatu
+$web_permission_microphone: mikrofonu
+$web_permission_location: lokalizacji
+$web_permission_device_features: funkcji urządzenia
+$web_permission_this_site: tej witryny
+
 push_title_wallet: "%wallet_title%"
 push_activity_token_sent: Wysłano %amount% %symbol%
 push_activity_token_received: Otrzymano %amount% %symbol%
@@ -338,3 +353,8 @@ push_domain_expired_days_ago: Twoja domena %domain% wygasła %days% dni temu. Od
 push_domain_expires_today: Twoja domena %domain% wygaśnie dzisiaj. Odnów ją, aby nie utracić dostępu
 push_domain_expires_tomorrow: Twoja domena %domain% wygaśnie jutro. Odnów ją, aby nie utracić dostępu
 push_domain_expires_in_days: Twoja domena %domain% wygaśnie za %days% dni. Odnów ją, aby nie utracić dostępu
+
+$more_nfts:
+  zeroValue: Brak NFT
+  oneValue: "+1 NFT"
+  otherValue: "+%1$d NFT"

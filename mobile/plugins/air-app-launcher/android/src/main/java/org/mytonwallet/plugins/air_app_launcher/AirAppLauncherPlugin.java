@@ -15,11 +15,11 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations;
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage;
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController;
 import org.mytonwallet.plugins.air_app_launcher.airLauncher.AirLauncher;
 
 @CapacitorPlugin(name = "AirAppLauncher")
 public class AirAppLauncherPlugin extends Plugin {
-
   private AirLauncher airLauncher;
 
   public boolean isChromeVersionSupported(Context context) {
@@ -52,9 +52,15 @@ public class AirAppLauncherPlugin extends Plugin {
   @PluginMethod
   public void setLanguage(PluginCall call) {
     new Handler(Looper.getMainLooper()).post(() -> {
+      String langCode = call.getString("langCode");
+      if (langCode == null)
+        return;
       WBaseStorage.INSTANCE.init(getActivity());
-      WBaseStorage.INSTANCE.setActiveLanguage(call.getString("langCode"));
-      WidgetsConfigurations.INSTANCE.reloadWidgets(getActivity());
+      if (!WBaseStorage.INSTANCE.getActiveLanguage().equals(langCode)) {
+        WBaseStorage.INSTANCE.setActiveLanguage(langCode);
+        WidgetsConfigurations.INSTANCE.reloadWidgets(getActivity());
+      }
+      LocaleController.INSTANCE.setApplicationLocale(langCode);
     });
   }
 

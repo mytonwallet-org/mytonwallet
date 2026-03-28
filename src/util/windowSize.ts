@@ -12,7 +12,8 @@ const SAFE_AREA_INITIALIZATION_DELAY = SECOND;
 
 const { documentElement } = document;
 const initialHeight = window.innerHeight;
-const virtualKeyboardOpenListeners: NoneToVoidFunction[] = [];
+const virtualKeyboardOpenListeners = new Set<NoneToVoidFunction>();
+const virtualKeyboardCloseListeners = new Set<NoneToVoidFunction>();
 
 let currentWindowSize = updateSizes();
 
@@ -50,6 +51,10 @@ if (IS_CAPACITOR) {
 
         if (IS_IOS) {
           void adjustBodyPaddingForKeyboard(0);
+        }
+
+        for (const cb of virtualKeyboardCloseListeners) {
+          safeExec(cb);
         }
       });
     });
@@ -91,7 +96,14 @@ export default {
 
 // Registers a callback that will be fired each time the virtual keyboard is opened and the <body> size is adjusted
 export function onVirtualKeyboardOpen(cb: NoneToVoidFunction) {
-  virtualKeyboardOpenListeners.push(cb);
+  virtualKeyboardOpenListeners.add(cb);
+  return () => virtualKeyboardOpenListeners.delete(cb);
+}
+
+// Registers a callback that will be fired each time the virtual keyboard starts hiding
+export function onVirtualKeyboardClose(cb: NoneToVoidFunction) {
+  virtualKeyboardCloseListeners.add(cb);
+  return () => virtualKeyboardCloseListeners.delete(cb);
 }
 
 function patchVh() {

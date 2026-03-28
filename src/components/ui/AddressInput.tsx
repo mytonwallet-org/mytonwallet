@@ -19,6 +19,7 @@ import {
   selectNetworkAccounts,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import { getSupportedChains } from '../../util/chain';
 import { readClipboardContent } from '../../util/clipboard';
 import { isTonChainDns } from '../../util/dns';
 import { getLocalAddressName } from '../../util/getLocalAddressName';
@@ -61,6 +62,8 @@ interface OwnProps {
   isReadonly?: boolean;
   withQrScan?: boolean;
   withCurrentAccount?: boolean;
+  shouldHideAddressBook?: boolean;
+  shouldValidateAllChains?: boolean;
   address: string;
   addressName: string;
   addressBookChain?: ApiChain;
@@ -69,6 +72,7 @@ interface OwnProps {
   error?: string;
   onInput: (value: string, isValueReplaced?: boolean) => void;
   onPaste?: (value: string) => void;
+  onError?: (hasError: boolean) => void;
   onClose: NoneToVoidFunction;
 }
 
@@ -94,6 +98,8 @@ function AddressInput({
   isReadonly,
   withQrScan,
   withCurrentAccount,
+  shouldHideAddressBook,
+  shouldValidateAllChains,
   address,
   addressName,
   addressBookChain,
@@ -106,6 +112,7 @@ function AddressInput({
   error,
   onInput,
   onPaste,
+  onError,
   onClose,
 }: OwnProps & StateProps) {
   const {
@@ -121,6 +128,7 @@ function AddressInput({
   const [addressForDeletion, setAddressForDeletion] = useState<string | undefined>();
   const [chainForDeletion, setChainForDeletion] = useState<ApiChain | undefined>();
   const [localError, setLocalError] = useState<string | undefined>(undefined);
+
   const [isAddressBookOpen, openAddressBook, closeAddressBook] = useFlag();
   const [isFocused, markFocused, unmarkFocused] = useFlag();
   const [shouldRenderPasteButton, setShouldRenderPasteButton] = useState(IS_CLIPBOARDS_SUPPORTED);
@@ -138,8 +146,9 @@ function AddressInput({
   }, [currentAccountId, accounts, withCurrentAccount]);
 
   const shouldUseAddressBook = useMemo(() => {
-    return addressBookAccountIds.length > 0 || (savedAddresses && savedAddresses.length > 0);
-  }, [addressBookAccountIds.length, savedAddresses]);
+    return !shouldHideAddressBook
+      && (addressBookAccountIds.length > 0 || (savedAddresses && savedAddresses.length > 0));
+  }, [shouldHideAddressBook, addressBookAccountIds.length, savedAddresses]);
 
   const localAddressName = useMemo(() => {
     return chain && value ? getLocalAddressName({
@@ -222,6 +231,11 @@ function AddressInput({
     );
   }, [address, localAddressName, addressName]);
 
+  function changeError(errorMessage: string | undefined) {
+    setLocalError(errorMessage);
+    onError?.(Boolean(errorMessage));
+  }
+
   const handlePasteClick = useLastCallback(async () => {
     try {
       const { type, text } = await readClipboardContent();
@@ -271,13 +285,18 @@ function AddressInput({
 
     if (!address) return;
 
-    const isAddressValid = chain ? isValidAddressOrDomain(address, chain) : undefined;
-    const hasAddressError = address.length > 0 && !isAddressValid;
+    let isAddressValid: boolean | undefined;
+    if (chain) {
+      isAddressValid = isValidAddressOrDomain(address, chain);
+    } else if (shouldValidateAllChains) {
+      isAddressValid = getSupportedChains().some((c) => isValidAddressOrDomain(address, c));
+    }
+    const hasAddressError = isAddressValid !== undefined && address.length > 0 && !isAddressValid;
 
     if (hasAddressError) {
-      setLocalError(lang('Incorrect address'));
+      changeError(lang('Incorrect address'));
     } else {
-      setLocalError(undefined);
+      changeError(undefined);
     }
   }
 
@@ -318,18 +337,18 @@ function AddressInput({
     requestAnimationFrame(() => {
       handleAddressBookClose();
       handleAddressValidate(addressToCheck);
-      handleAddressErrorCheck(value);
+      handleAddressErrorCheck(addressToCheck);
     });
   });
 
   function hanldeInputChange(value: string) {
     onInput(value);
-    setLocalError(undefined);
+    changeError(undefined);
   }
 
   const handleAddressPaste = useLastCallback((event: ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     event.preventDefault();
-    let value = event.clipboardData.getData('text');
+    let value = event.clipboardData.getData('text').trim();
     value = cleanTonsiteAddress(value);
     onInput(value, false);
     onPaste?.(value);
@@ -339,7 +358,7 @@ function AddressInput({
   const handleAddressClear = useLastCallback(() => {
     onInput('');
     handleAddressValidate();
-    setLocalError(undefined);
+    changeError(undefined);
   });
 
   const handleAddressBookClose = useLastCallback(() => {

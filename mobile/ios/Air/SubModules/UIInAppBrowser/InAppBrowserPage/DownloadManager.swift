@@ -170,7 +170,7 @@ extension DownloadManager: SingleDownloadDelegate {
     }
 }
 
-private var documentPickerCompletionKey: UInt8 = 0
+@MainActor private var documentPickerCompletionKey: UInt8 = 0
 
 private struct DestinationFileInfo {
     var fileName: String
@@ -185,7 +185,7 @@ private protocol SingleDownloadDelegate: AnyObject {
     func singleDownload(_ download: SingleDownload, didCompleteWith error: Error?)
 }
 
-private final class SingleDownload {
+@MainActor private final class SingleDownload {
     private weak var delegate: SingleDownloadDelegate?
     private var downloadedFileUrl: URL?
 
@@ -193,7 +193,7 @@ private final class SingleDownload {
         self.delegate = delegate
     }
 
-    deinit {
+    isolated deinit {
         removeTempDirectory()
     }
 

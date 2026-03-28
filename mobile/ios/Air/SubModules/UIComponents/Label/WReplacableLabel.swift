@@ -76,7 +76,7 @@ public class WReplacableLabel: UIView {
             string: text,
             attributes: [
                 .font: label.font ?? .systemFont(ofSize: 15),
-                .foregroundColor: label.textColor ?? WTheme.primaryLabel
+                .foregroundColor: label.textColor ?? UIColor.label
             ]
         ))
         label.attributedText = attr

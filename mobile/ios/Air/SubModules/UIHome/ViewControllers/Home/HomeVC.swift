@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import UIActivityList
 import UIComponents
 import WalletCore
 import WalletContext
@@ -19,14 +20,11 @@ private let log = Log("HomeVC")
 let homeBottomInset: CGFloat = 200
 
 @MainActor
-public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, HomeVMDelegate, Sendable {
+public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMDelegate, Sendable {
 
     let homeVM: HomeViewModel
     let headerViewModel: HomeHeaderViewModel
     
-    private var _activityViewModel: ActivityViewModel?
-    public override var activityViewModel: ActivityViewModel? { self._activityViewModel }
-
     private var calledReady = false
 
     var popRecognizer: InteractivePopRecognizer?
@@ -62,9 +60,8 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     private var windowSafeAreaGuideContraint: NSLayoutConstraint!
 
     private let actionsVC: ActionsVC
-    private var actionsTopConstraint: NSLayoutConstraint!
+    private var actionsBottomConstraint: NSLayoutConstraint!
     private var walletAssetsVC: WalletAssetsVC!
-    private var assetsHeightConstraint: NSLayoutConstraint!
     
     private var headerBottomConstraint: NSLayoutConstraint!
     private var headerGradientLeading = EdgeGradientView()
@@ -74,16 +71,22 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     var isExpandingProgrammatically: Bool = false
 
     private var appearedOneTime = false
+    private let multisigWalletWarningCustomSectionID = "multisig-wallet-warning"
+    private let assetsCustomSectionID = "assets"
+    private var multisigWalletWarningCustomSectionCellRegistration: UICollectionView.CellRegistration<UICollectionViewCell, Row>!
+    private var multisigWalletWarningCustomSectionDescriptor: CustomSectionDescriptor!
+    private var assetsCustomSectionCellRegistration: UICollectionView.CellRegistration<HomeAssetsRowCell, Row>!
+    private var assetsCustomSectionDescriptor: CustomSectionDescriptor!
     
     public init(accountSource: AccountSource = .current) {
         self.actionsVC = ActionsVC(accountSource: accountSource)
         homeVM = HomeViewModel(accountSource: accountSource)
         headerViewModel = HomeHeaderViewModel(accountSource: accountSource)
         super.init(nibName: nil, bundle: nil)
+        configureCustomSections()
         homeVM.delegate = self
     }
 
-    public override var hideNavigationBar: Bool { false }
     public override var hideBottomBar: Bool { false }
 
     required init?(coder: NSCoder) {
@@ -101,14 +104,17 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
 
     public override func loadView() {
         super.loadView()
+        StartupTrace.markOnce("home.loadView", details: "layout=tab")
 
         setupViews()
 
         homeVM.initWalletInfo()
+        StartupTrace.markOnce("home.initWalletInfo.begin", details: "layout=tab")
     }
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        StartupTrace.markOnce("home.viewDidLoad", details: "layout=tab")
         registerForOtherViewControllerAppearNotifications()
     }
     
@@ -128,7 +134,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     
     // MARK: - Setup home views
     func setupViews() {
-        view.backgroundColor = WTheme.groupedItem
+        view.backgroundColor = .air.headerBackground
 
         headerTouchTarget.translatesAutoresizingMaskIntoConstraints = false
         headerTouchTarget.text = String(repeating: "A", count: 20)
@@ -184,7 +190,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
 
         bottomSeparatorView.translatesAutoresizingMaskIntoConstraints = false
         bottomSeparatorView.isUserInteractionEnabled = false
-        bottomSeparatorView.backgroundColor = UIColor { WTheme.separator.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.8 : 0.2) }
+        bottomSeparatorView.backgroundColor = UIColor { .air.separator.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.8 : 0.2) }
         bottomSeparatorView.alpha = 0
         view.addSubview(bottomSeparatorView)
         NSLayoutConstraint.activate([
@@ -197,10 +203,6 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         if IOS_26_MODE_ENABLED {
             headerBlurView.isHidden = true
             bottomSeparatorView.isHidden = true
-        }
-        
-        if #available(iOS 26, *) {
-            skeletonTableView.topEdgeEffect.isHidden = true
         }
         
         navigationBarProgressiveBlurDelta = 16
@@ -228,12 +230,12 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         } else {
             actionsHostView = actionsContainerView
         }
-        tableView.addSubview(actionsHostView)
-        actionsTopConstraint = actionsHostView.topAnchor.constraint(equalTo: tableView.contentLayoutGuide.topAnchor, constant: headerHeightWithoutAssets).withPriority(.init(950))
+        collectionView.addSubview(actionsHostView)
+        actionsBottomConstraint = actionsHostView.bottomAnchor.constraint(equalTo: collectionView.contentLayoutGuide.topAnchor, constant: headerPlaceholderHeight).withPriority(.init(950))
         NSLayoutConstraint.activate([
             actionsHostView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: horizontalPadding),
             actionsHostView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -horizontalPadding),
-            actionsTopConstraint,
+            actionsBottomConstraint,
             actionsView.topAnchor.constraint(greaterThanOrEqualTo: windowSafeAreaGuide.topAnchor,
                                              constant: 50).withPriority(.init(900)), // will be broken when assets push it from below and out of frame; button height constrain has priority = 800
         ])
@@ -241,18 +243,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         
         walletAssetsVC = WalletAssetsVC(accountSource: homeVM.$account.source)
         addChild(walletAssetsVC)
-        let assetsView = walletAssetsVC.view!
-        tableView.addSubview(assetsView)
-        assetsHeightConstraint = assetsView.heightAnchor.constraint(equalToConstant: 0)
-
-        NSLayoutConstraint.activate([
-            assetsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: horizontalPadding),
-            assetsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -horizontalPadding),
-            assetsView.topAnchor.constraint(equalTo: actionsView.bottomAnchor, constant: sectionSpacing),
-            assetsView.topAnchor.constraint(equalTo: balanceHeaderView.bottomAnchor, constant: sectionSpacing).withPriority(.init(949)),
-
-            assetsHeightConstraint,
-        ])
+        _ = walletAssetsVC.view
         walletAssetsVC.didMove(toParent: self)
         
         let spacing: CGFloat = IOS_26_MODE_ENABLED ? -124 : -100
@@ -265,19 +256,23 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         addBottomBarBlur()
         
         // fix gesture recognizer over BHV
-        tableView.superview?.addGestureRecognizer(tableView.panGestureRecognizer)
+        collectionView.superview?.addGestureRecognizer(collectionView.panGestureRecognizer)
 
         isInitializingCache = false
-        applySnapshot(makeSnapshot(), animated: false)
-        applySkeletonSnapshot(makeSkeletonSnapshot(), animated: false)
+        applySnapshot(makeSnapshot(), animatingDifferences: false)
         updateSkeletonState()
 
-        updateTheme()
-        
         headerContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(headerContainer)
+
+//        headerContainer.alpha = 0.5
+//        headerContainer.backgroundColor = .yellow
+//        actionsHostView.backgroundColor = .green
         
-        headerBottomConstraint = headerContainer.bottomAnchor.constraint(equalTo: walletAssetsVC.view.topAnchor, constant: -sectionSpacing).withPriority(.defaultHigh)
+        headerBottomConstraint = headerContainer.bottomAnchor.constraint(
+            equalTo: actionsHostView.bottomAnchor,
+            constant: 0
+        ).withPriority(.defaultHigh)
         
         NSLayoutConstraint.activate([
             headerContainer.heightAnchor.constraint(equalToConstant: itemHeight),
@@ -299,7 +294,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         ])
 
         headerGradientLeading.translatesAutoresizingMaskIntoConstraints = false
-        headerGradientLeading.color = WTheme.groupedBackground.withAlphaComponent(0.6)
+        headerGradientLeading.color = .air.groupedBackground.withAlphaComponent(0.6)
         headerGradientLeading.direction = .leading
         view.addSubview(headerGradientLeading)
         NSLayoutConstraint.activate([
@@ -310,7 +305,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         ])
 
         headerGradientTrailing.translatesAutoresizingMaskIntoConstraints = false
-        headerGradientTrailing.color = WTheme.groupedBackground.withAlphaComponent(0.6)
+        headerGradientTrailing.color = .air.groupedBackground.withAlphaComponent(0.6)
         headerGradientTrailing.direction = .trailing
         view.addSubview(headerGradientTrailing)
         NSLayoutConstraint.activate([
@@ -320,10 +315,8 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
             headerGradientTrailing.bottomAnchor.constraint(equalTo: accountSelector.bottomAnchor),
         ])
         
-        tableView.contentInset.top = expansionInset
-        skeletonTableView.contentInset.top = expansionInset
-        tableView.contentOffset.y = -expansionInset
-        skeletonTableView.contentOffset.y = -expansionInset
+        collectionView.contentInset.top = expansionInset
+        collectionView.contentOffset.y = -expansionInset
 
         headerViewModel.onSelect = { [weak self] in
             guard let self else { return }
@@ -341,10 +334,10 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         }
         
         balanceHeaderView.alpha = 0
-        tableView.alpha = 0
+        collectionView.alpha = 0
         UIView.animate(withDuration: 0.3) {
             self.balanceHeaderView.alpha = 1
-            self.tableView.alpha = 1
+            self.collectionView.alpha = 1
         }
     }
 
@@ -356,12 +349,12 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
 
     public override func scrollToTop(animated: Bool) {
         if animated {
-            tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top), animated: animated)
+            collectionView.setContentOffset(CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: animated)
         } else {
-            tableView.layer.removeAllAnimations()
-            tableView.contentOffset.y = -tableView.adjustedContentInset.top
+            collectionView.layer.removeAllAnimations()
+            collectionView.contentOffset.y = -collectionView.adjustedContentInset.top
         }
-        scrollViewDidScroll(tableView)
+        scrollViewDidScroll(collectionView)
     }
 
     public override func viewWillAppear(_ animated: Bool) {
@@ -371,6 +364,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
             return
         }
         appearedOneTime = true
+        StartupTrace.markOnce("home.viewWillAppear.first", details: "layout=tab")
         appearedForFirstTime()
     }
 
@@ -385,6 +379,8 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        StartupTrace.markOnce("home.visible", details: "layout=tab")
+        StartupTrace.endInterval("startup.toHomeVisible", details: "layout=tab")
         if headerTouchTarget.gestureRecognizers?.nilIfEmpty == nil {
             let g = UITapGestureRecognizer(target: self, action: #selector(onHeaderTap))
             headerTouchTarget.addGestureRecognizer(g)
@@ -397,19 +393,19 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     }
 
     private func updateSafeAreaInsets() {
-        tableView.contentInset.bottom = view.safeAreaInsets.bottom + 16 + homeBottomInset
+        collectionView.contentInset.bottom = view.safeAreaInsets.bottom + 16 + homeBottomInset
         let navBarHeight = navigationController!.navigationBar.frame.height
         windowSafeAreaGuideContraint.constant = view.safeAreaInsets.top - navBarHeight
         balanceHeaderView.updateStatusViewContainerTopConstraint.constant = (navBarHeight - 44) / 2 - S.updateStatusViewTopAdjustment
-        scrollViewDidScroll(tableView)
+        scrollViewDidScroll(collectionView)
     }
 
     func contentOffsetChanged() {
         // `tableView.contentInset` is not be applied until `scrollViewWillEndDragging` so inset is calculated here based on expansion state
-        let topContentInset = headerViewModel.state == .expanded ? expansionInset : 0
-        balanceHeaderView.updateHeight(scrollOffset: tableView.contentOffset.y + topContentInset, isExpandingProgrammatically: isExpandingProgrammatically)
-        updateHeaderBlur(y: tableView.contentOffset.y + tableView.contentInset.top)
-        headerViewModel.scrollOffsetChanged(to: tableView.contentOffset.y)
+        let topContentInset = (collectionView.adjustedContentInset.top - collectionView.contentInset.top) + (headerViewModel.state == .expanded ? expansionInset : 0.0)
+        balanceHeaderView.updateHeight(scrollOffset: collectionView.contentOffset.y + topContentInset, isExpandingProgrammatically: isExpandingProgrammatically)
+        updateHeaderBlur(y: collectionView.contentOffset.y + collectionView.contentInset.top)
+        headerViewModel.scrollOffsetChanged(to: collectionView.contentOffset.y + (collectionView.adjustedContentInset.top - collectionView.contentInset.top))
     }
 
     func updateHeaderBlur(y: CGFloat) {
@@ -421,41 +417,96 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     // MARK: - Variable height
 
     var bhvHeight: CGFloat {
-        balanceHeaderView.calculatedHeight + S.bhvTopAdjustment
+        balanceHeaderView.calculatedHeight
     }
     var actionsHeight: CGFloat {
         actionsVC.calculatedHeight
     }
+    var actionsHeightWithSpacer: CGFloat {
+        let actionsHeight = self.actionsHeight
+        return actionsHeight > 0 ? actionsHeight + 16 : 0
+    }
     var assetsHeight: CGFloat {
         walletAssetsVC.computedHeight()
     }
-    var headerHeight: CGFloat {
-        return bhvHeight + actionsHeight + assetsHeight
-    }
-    var headerHeightWithoutAssets: CGFloat {
-        return bhvHeight +
-            (view.safeAreaInsets.top - (navigationController?.navigationBar.frame.height ?? 0)) - S.bhvTopAdjustment
-    }
+    
+    // MARK: Collection view placeholders
+    
     public override var headerPlaceholderHeight: CGFloat {
-        return max(0, headerHeight + 8) // TODO: where does this 8 come from?
+        return max(0, bhvHeight + actionsHeightWithSpacer)
+    }
+    private var assetsCustomSectionHeight: CGFloat {
+        return max(0, assetsHeight - sectionSpacing)
+    }
+    public override var customSections: [CustomSectionDescriptor] {
+        [multisigWalletWarningCustomSectionDescriptor, assetsCustomSectionDescriptor]
+    }
+    private var displayedActivitiesAccountId: String {
+        activityViewModel?.accountId ?? homeVM.account.id
+    }
+    private func customSectionIDs(for accountId: String) -> [String] {
+        let account = AccountStore.get(accountId: accountId)
+        var ids: [String] = []
+        if account.byChain.values.contains(where: { $0.isMultisig == true }) {
+            ids.append(multisigWalletWarningCustomSectionID)
+        }
+        ids.append(assetsCustomSectionID)
+        return ids
+    }
+    public override var activeCustomSectionIDs: [String] {
+        customSectionIDs(for: displayedActivitiesAccountId)
+    }
+    private func configureAssetsCustomSection(cell: HomeAssetsRowCell) {
+        cell.configure(assetsView: walletAssetsVC.view, height: assetsCustomSectionHeight)
+    }
+    private func configureCustomSections() {
+        multisigWalletWarningCustomSectionCellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, Row> { cell, _, _ in
+            cell.backgroundColor = .clear
+            cell.contentConfiguration = UIHostingConfiguration {
+                MultisigWalletWarning()
+            }
+            .background {
+                Color.clear
+            }
+            .margins(.all, 0)
+        }
+        multisigWalletWarningCustomSectionDescriptor = CustomSectionDescriptor(id: multisigWalletWarningCustomSectionID) { [unowned self] collectionView, indexPath in
+            collectionView.dequeueConfiguredReusableCell(using: multisigWalletWarningCustomSectionCellRegistration, for: indexPath, item: .custom(multisigWalletWarningCustomSectionID))
+        }
+        assetsCustomSectionCellRegistration = UICollectionView.CellRegistration<HomeAssetsRowCell, Row> { [unowned self] cell, _, _ in
+            cell.backgroundColor = .clear
+            configureAssetsCustomSection(cell: cell)
+        }
+        assetsCustomSectionDescriptor = CustomSectionDescriptor(id: assetsCustomSectionID) { [unowned self] collectionView, indexPath in
+            collectionView.dequeueConfiguredReusableCell(using: assetsCustomSectionCellRegistration, for: indexPath, item: .custom(assetsCustomSectionID))
+        }
     }
     private var appliedHeaderHeightWithoutAssets: CGFloat?
     private var appliedHeaderPlaceholderHeight: CGFloat?
+    private var appliedAssetsCustomSectionHeight: CGFloat?
 
     public override var navigationBarProgressiveBlurMinY: CGFloat {
-        get { bhvHeight + actionsHeight - 50 }
+        get { bhvHeight + actionsHeightWithSpacer - 50 }
         set { _ = newValue }
+    }
+
+    private func updateHeaderBottomConstraint() {
+        headerBottomConstraint?.constant = -actionsHeightWithSpacer
     }
 
     func updateTableViewHeaderFrame(animated: Bool = true) {
         if headerPlaceholderHeight != appliedHeaderPlaceholderHeight ||
-            headerHeightWithoutAssets != appliedHeaderHeightWithoutAssets {
+            bhvHeight != appliedHeaderHeightWithoutAssets ||
+            assetsCustomSectionHeight != appliedAssetsCustomSectionHeight {
             appliedHeaderPlaceholderHeight = headerPlaceholderHeight
-            appliedHeaderHeightWithoutAssets = headerHeightWithoutAssets
+            appliedHeaderHeightWithoutAssets = bhvHeight
+            appliedAssetsCustomSectionHeight = assetsCustomSectionHeight
             let updates = { [self] in
-                headerBottomConstraint.constant = actionsHeight > 0 ? -actionsRowHeight - (sectionSpacing * 2) : -sectionSpacing
-                actionsTopConstraint.constant = headerHeightWithoutAssets + (actionsHeight > 0 ? 0 :  -(actionsRowHeight + sectionSpacing))
-                assetsHeightConstraint.constant = max(0, assetsHeight - sectionSpacing)
+                actionsBottomConstraint.constant = headerPlaceholderHeight
+                updateHeaderBottomConstraint()
+                if let cell = visibleCustomSectionCell(id: assetsCustomSectionID) as? HomeAssetsRowCell {
+                    configureAssetsCustomSection(cell: cell)
+                }
                 reconfigureHeaderPlaceholder(animated: true)
             }
             if animated && skeletonState != .loading {
@@ -471,28 +522,20 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         }
     }
     
-    override public var isGeneralDataAvailable: Bool {
-        homeVM.isGeneralDataAvailable
-    }
-
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.balanceHeaderView.background
-        headerGradientLeading.color = WTheme.groupedBackground.withAlphaComponent(0.6)
-        headerGradientTrailing.color = WTheme.groupedBackground.withAlphaComponent(0.6)
-    }
-
     public func updateSensitiveData() {
         let isHidden = AppStorageHelper.isSensitiveDataHidden
         hideItem.image = .airBundle(isHidden ? "HomeUnhide24" : "HomeHide24")
-        scrollViewDidScroll(tableView)
+        scrollViewDidScroll(collectionView)
     }
 
-    public override func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animated: Bool, animatingDifferences: Bool? = nil) {
-        if isGeneralDataAvailable && !calledReady {
+    public override func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animatingDifferences: Bool = true) {
+        if activityViewModel?.idsByDate != nil && !calledReady {
             calledReady = true
+            StartupTrace.markOnce("home.dataReady", details: "layout=tab")
+            StartupTrace.endInterval("startup.toHomeReady", details: "layout=tab")
             WalletContextManager.delegate?.walletIsReady(isReady: true)
         }
-        super.applySnapshot(snapshot, animated: animated, animatingDifferences: animatingDifferences)
+        super.applySnapshot(snapshot, animatingDifferences: animatingDifferences)
     }
 
     @objc func scanPressed() {
@@ -506,7 +549,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
                     }
                     
                 case .address(address: let addr, possibleChains: let chains):
-                    AppActions.showSend(prefilledValues: .init(
+                    AppActions.showSend(accountContext: actionsVC.$account, prefilledValues: .init(
                         address: addr,
                         token: chains.first?.nativeToken.slug
                     ))
@@ -526,46 +569,24 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     
     public override func updateSkeletonViewMask() {
         var skeletonViews = [UIView]()
-        for cell in skeletonTableView.visibleCells {
+        for cell in collectionView.visibleCells {
             if let transactionCell = cell as? ActivityCell {
                 skeletonViews.append(transactionCell.contentView)
             }
         }
-        for view in skeletonTableView.subviews {
+        for view in collectionView.visibleSupplementaryViews(ofKind: UICollectionView.elementKindSectionHeader) {
             if let headerCell = view as? ActivityDateCell, let skeletonView = headerCell.skeletonView {
                 skeletonViews.append(skeletonView)
             }
         }
-        for cell in walletAssetsVC.skeletonViewCandidates {
-            if let skeletonCell = cell as? ActivityCell {
-                skeletonViews.append(skeletonCell.contentView)
-            }
+        for view in walletAssetsVC.skeletonViewCandidates {
+            skeletonViews.append(view)
         }
         skeletonView.applyMask(with: skeletonViews)
     }
 
     @objc func onHeaderTap() {
         AppActions.showWalletSettings()
-    }
-    
-    // MONITORING ////////////////////////////////////////////////////////////////////////////////////////////////////
-    var lastTimestamp: CFTimeInterval?
-    var displayLink: CADisplayLink?
-
-    func startMonitoring() {
-        displayLink = CADisplayLink(target: self, selector: #selector(frameTick))
-        displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 120, maximum: 120, preferred: 120)
-        displayLink?.add(to: .main, forMode: .common)
-    }
-
-    @objc func frameTick(link: CADisplayLink) {
-        if let last = lastTimestamp {
-            let delta = link.timestamp - last
-            if delta > (1.0 / 120.0) * 1.1 {
-                print("Frame drop! Δt = \(delta * 1000) ms")
-            }
-        }
-        lastTimestamp = link.timestamp
     }
     
     func updateNavigationItem() {
@@ -601,17 +622,17 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     }
 
     func changeAccountTo(accountId: String, isNew: Bool) async {
-        _activityViewModel = await ActivityViewModel(accountId: accountId, token: nil, delegate: self)
-        transactionsUpdated(accountChanged: true, isUpdateEvent: false)
+        if activityViewModel?.accountId != accountId {
+            activityViewModel = await ActivityListViewModel(accountId: accountId, token: nil, customSectionIDs: customSectionIDs(for: accountId), delegate: self)
+            transactionsUpdated(accountChanged: true, isUpdateEvent: false)
+        }
         actionsVC.setAccountId(accountId: accountId, animated: true)
         if isNew {
             expandHeader()
         }
-        scrollViewDidScroll(tableView)
+        scrollViewDidScroll(collectionView)
 
         updateNavigationItem()
-        
-        animateTableViewOpacity(1)
     }
     
     private var activateAccountTask: Task<Void, any Error>?
@@ -625,12 +646,6 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         
         switchActivitiesTask?.cancel()
         switchActivitiesTask = Task {
-            self.forceAnimation = true
-            
-            animateTableViewOpacity(0)
-            
-            try await Task.sleep(for: .seconds(0.03))
-            
             UIView.animate(withDuration: 0.30) { [self] in
                 actionsVC.setAccountId(accountId: accountId, animated: true)
                 walletAssetDidChangeHeight(animated: true)
@@ -640,35 +655,15 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
                 changeThemeColors(to: accountSettings.accentColorIndex)
                 UIApplication.shared.sceneWindows.forEach { $0.updateTheme() }
             }
-            balanceHeaderView.updateStatusView.$account.accountId = accountId
-            balanceHeaderView.updateStatusView.setState(newState: balanceHeaderView.updateStatusView.state, animatedWithDuration: 0.2)
+            balanceHeaderView.updateStatusAccountContext.accountId = accountId
 
-            try await Task.sleep(for: .seconds(0.12))
-            
-            _activityViewModel = await ActivityViewModel(accountId: accountId, token: nil, delegate: self)
+            let nextActivityViewModel = await ActivityListViewModel(accountId: accountId, token: nil, customSectionIDs: customSectionIDs(for: accountId), delegate: self)
+            guard !Task.isCancelled else { return }
+            activityViewModel = nextActivityViewModel
             transactionsUpdated(accountChanged: false, isUpdateEvent: false)
 
-            try await Task.sleep(for: .seconds(0.3))
+            try await Task.sleep(for: .seconds(0.45))
             try await AccountStore.activateAccount(accountId: accountId)
-            
-            animateTableViewOpacity(1)
-            
-            self.forceAnimation = false
-        }
-    }
-    
-    func animateTableViewOpacity(_ alpha: CGFloat) {
-        UIView.animate(withDuration: 0.25) { [self] in
-            for (_, subview) in tableView.subviews.enumerated() {
-                if let cell = subview as? ActivityDateCell {
-                    cell.contentView.alpha = alpha
-                }
-            }
-            for cell in tableView.visibleCells {
-                if let cell = cell as? ActivityCell {
-                    cell.contentView.alpha = alpha
-                }
-            }
         }
     }
     
@@ -683,9 +678,45 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     }
 }
 
-extension HomeVC: ActivityViewModelDelegate {
+extension HomeVC: ActivityListViewModelDelegate {
     public func activityViewModelChanged() {
         transactionsUpdated(accountChanged: false, isUpdateEvent: true)
+    }
+}
+
+@MainActor
+private final class HomeAssetsRowCell: FirstRowCell {
+    private var assetsHeightConstraint: NSLayoutConstraint?
+    private weak var hostedView: UIView?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+
+    func configure(assetsView: UIView, height: CGFloat) {
+        if hostedView !== assetsView {
+            hostedView?.removeFromSuperview()
+            hostedView = assetsView
+            assetsView.removeFromSuperview()
+            assetsView.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview(assetsView)
+            let heightConstraint = assetsView.heightAnchor.constraint(equalToConstant: height)
+            assetsHeightConstraint = heightConstraint
+            NSLayoutConstraint.activate([
+                assetsView.topAnchor.constraint(equalTo: contentView.topAnchor),
+                assetsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: horizontalPadding),
+                assetsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -horizontalPadding),
+                assetsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+                heightConstraint,
+            ])
+        }
+        assetsHeightConstraint?.constant = height
+        self.height = height
     }
 }
 

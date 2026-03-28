@@ -29,7 +29,7 @@ struct HiddenByUserCell: View {
             .id(isHiddenByUser)
             .buttonBorderShape(.capsule)
             .buttonStyle(.bordered)
-            .tint(Color(WTheme.tint))
+            .tint(.accentColor)
             .padding(.trailing, 12)
             .animation(.snappy, value: isHiddenByUser)
         }

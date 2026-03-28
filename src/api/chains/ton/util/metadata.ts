@@ -7,20 +7,21 @@ import { Cell } from '@ton/core/dist/boc/Cell';
 import { Slice } from '@ton/core/dist/boc/Slice';
 import { Dictionary } from '@ton/core/dist/dict/Dictionary';
 
-import type {
-  ApiActivity,
-  ApiAnyDisplayError,
-  ApiMtwCardBorderShineType,
-  ApiMtwCardTextType,
-  ApiMtwCardType,
-  ApiNetwork,
-  ApiNft,
-  ApiNftAttribute,
-  ApiNftMetadata,
-  ApiNftSuperCollection,
-  ApiParsedPayload,
-} from '../../../types';
 import type { JettonMetadata } from '../types';
+import {
+  type ApiActivity,
+  type ApiAnyDisplayError,
+  type ApiMtwCardBorderShineType,
+  type ApiMtwCardTextType,
+  type ApiMtwCardType,
+  type ApiNetwork,
+  type ApiNft,
+  type ApiNftAttribute,
+  type ApiNftMetadata,
+  type ApiNftSuperCollection,
+  type ApiParsedPayload,
+  ApiTokenImportError,
+} from '../../../types';
 
 import {
   DEBUG,
@@ -119,6 +120,9 @@ export async function fetchJettonMetadata(
   let metadata: JettonMetadata;
 
   const slice = minterData.content.asSlice();
+  if (slice.remainingBits < 8) {
+    return { error: ApiTokenImportError.NotATokenAddress };
+  }
   const prefix = slice.loadUint(8);
 
   if (prefix === OFFCHAIN_CONTENT_PREFIX) {
@@ -656,7 +660,7 @@ export function parseTonapiioNft(
       render_type?: string;
       attributes?: {
         trait_type: string;
-        value: string;
+        value: any;
       }[];
       lottie?: string;
     };
@@ -681,7 +685,10 @@ export function parseTonapiioNft(
     const isFragmentGift = getIsFragmentGift(nftSuperCollectionsByCollectionAddress, collectionAddress);
 
     const metadata = {
-      ...(Array.isArray(attributes) && { attributes }),
+      ...(Array.isArray(attributes) && {
+        // `nft.metadata.attributes[number].value` is almost always `string`, but can also be an object, which breaks on Air (https://tonscan.org/nft/EQAglL_g6q2AhMK_BT9jN1F-8jBlv2pOI30vRkPluU9kcXgV)
+        attributes: attributes.filter((a) => typeof a.value === 'string'),
+      }),
       ...(isWhitelisted && lottie && { lottie: getProxiedLottieUrl(lottie) }),
       ...(collectionAddress === MTW_CARDS_COLLECTION && buildMtwCardsNftMetadata(rawMetadata)),
       ...(isFragmentGift && { fragmentUrl: image!.replace(NFT_FRAGMENT_GIFT_IMAGE_TO_URL_REGEX, 'https://$1') }),

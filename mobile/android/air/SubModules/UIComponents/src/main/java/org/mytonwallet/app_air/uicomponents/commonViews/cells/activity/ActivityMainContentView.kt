@@ -70,6 +70,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.MARQUEE
         isSelected = true
+        useCustomEmoji = true
     }
 
     private val bottomRightLabel: WSensitiveDataContainer<WLabel> by lazy {
@@ -244,8 +245,8 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
                     drawable.setBounds(0, 0, width, height)
                     val imageSpan = VerticalImageSpan(drawable)
                     builder.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    builder.append(" ")
                 }
-                builder.append(" ")
             }
             val addressStart = builder.length
             val addressToShow = transaction.addressToShow()
@@ -335,7 +336,8 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
             return
         }
         val builder = SpannableStringBuilder()
-        val rateBigInt = (swap.fromAmount.absoluteValue / swap.toAmount).toBigInteger(fromToken.decimals)!!
+        val rateBigInt =
+            (swap.fromAmount.absoluteValue / swap.toAmount).toBigInteger(fromToken.decimals)!!
         val rate = rateBigInt.toString(
             fromToken.decimals,
             fromToken.symbol,

@@ -63,6 +63,7 @@ class SettingsHeaderView(
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
+            useCustomEmoji = true
         }
     }
 

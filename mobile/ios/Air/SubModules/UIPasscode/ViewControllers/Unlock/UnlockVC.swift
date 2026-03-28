@@ -72,7 +72,7 @@ public class UnlockVC: WViewController {
             )
             if cancellable {
                 let navVC = WNavigationController(rootViewController: unlockVC)
-                navVC.navigationBar.tintColor = WTheme.balanceHeaderView.headIcons
+                navVC.navigationBar.tintColor = AirTintColor
                 return navVC
             } else {
                 return unlockVC
@@ -171,6 +171,7 @@ public class UnlockVC: WViewController {
     private let cancellable: Bool
     private let onCancel: (() -> Void)?
     private let useBioOnPresent: Bool
+    private let successCompletionDelay: TimeInterval
     private var viewStartedDismissing: Bool = false
     private var cancelOnDisappear = true
     
@@ -186,7 +187,8 @@ public class UnlockVC: WViewController {
         onDone: @escaping (_ passcode: String) -> Void,
         cancellable: Bool = false,
         onCancel: (() -> Void)? = nil,
-        useBioOnPresent: Bool = false
+        useBioOnPresent: Bool = false,
+        successCompletionDelay: TimeInterval = 0.4
     ) {
         self.unlockTitle = title
         self.replacedTitle = replacedTitle
@@ -200,6 +202,7 @@ public class UnlockVC: WViewController {
         self.cancellable = cancellable
         self.onCancel = onCancel
         self.useBioOnPresent = useBioOnPresent
+        self.successCompletionDelay = successCompletionDelay
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .fullScreen
     }
@@ -221,7 +224,7 @@ public class UnlockVC: WViewController {
     }
     
     public override var preferredStatusBarStyle: UIStatusBarStyle {
-        if WTheme.primaryButton.background == .label {
+        if AirTintColor == .label {
             return .default
         }
         return .lightContent
@@ -296,7 +299,7 @@ public class UnlockVC: WViewController {
             matchHeaderColors: shouldBeThemedLikeHeader
         )
         if compactLayout {
-            view.backgroundColor = WTheme.sheetBackground
+            view.backgroundColor = .air.sheetBackground
             passcodeScreenView.layer.cornerRadius = 16
         }
         indicatorView = WActivityIndicator()
@@ -383,7 +386,9 @@ extension UnlockVC: PasscodeScreenViewDelegate {
             guard let self else { return }
             if success {
                 animateSuccess()
-                try? await Task.sleep(for: .seconds(0.4))
+                if successCompletionDelay > 0 {
+                    try? await Task.sleep(for: .seconds(successCompletionDelay))
+                }
                 onAuthenticated(taskDone: false, passcode: passcode)
             } else {
                 try? await Task.sleep(for: .seconds(0.2))

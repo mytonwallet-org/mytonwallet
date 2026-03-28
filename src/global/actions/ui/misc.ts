@@ -416,6 +416,7 @@ addActionHandler('changeLanguage', (global, actions, { langCode }) => {
     settings: {
       ...global.settings,
       langCode,
+      langSource: 'user',
     },
   };
 });
@@ -570,7 +571,8 @@ addActionHandler('closeQrScanner', (global) => {
   };
 });
 
-addActionHandler('handleQrCode', async (global, actions, { data }) => {
+addActionHandler('handleQrCode', async (global, actions, { data: rawData }) => {
+  const data = rawData.trim();
   const { currentTransfer, currentSwap, currentDomainLinking } = global.currentQrScan || {};
 
   if (currentTransfer) {
@@ -748,6 +750,22 @@ addActionHandler('closeAnyModal', () => {
   closeModal();
 });
 
+addActionHandler('openAgent', (global) => {
+  return { ...global, isAgentOpen: true };
+});
+
+addActionHandler('closeAgent', (global) => {
+  return { ...global, isAgentOpen: undefined };
+});
+
+addActionHandler('setAgentMeta', (global, actions, payload) => {
+  return { ...global, agentMeta: { ...global.agentMeta, ...payload } };
+});
+
+addActionHandler('setAgentHints', (global, actions, { hints }) => {
+  return { ...global, agentHints: hints };
+});
+
 addActionHandler('openExplore', (global) => {
   return { ...global, isExploreOpen: true };
 });
@@ -791,11 +809,12 @@ addActionHandler('switchAccountAndOpenUrl', async (global, actions, payload) => 
 });
 
 addActionHandler('switchToWallet', (global: GlobalState, actions) => {
-  const { areSettingsOpen, isExploreOpen } = global;
+  const { areSettingsOpen, isAgentOpen, isExploreOpen } = global;
   const accountState = selectCurrentAccountState(global);
   const areAssetsActive = accountState?.activeContentTab === ContentTab.Assets;
-  const isWalletTabActive = !isExploreOpen && !areSettingsOpen;
+  const isWalletTabActive = !isAgentOpen && !isExploreOpen && !areSettingsOpen;
 
+  actions.closeAgent(undefined, { forceOnHeavyAnimation: true });
   actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
   actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
 
@@ -805,6 +824,16 @@ addActionHandler('switchToWallet', (global: GlobalState, actions) => {
   }
 });
 
+addActionHandler('switchToAgent', (global: GlobalState, actions) => {
+  const { isAgentOpen } = global;
+
+  if (isAgentOpen) return;
+
+  actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
+  actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
+  actions.openAgent(undefined, { forceOnHeavyAnimation: true });
+});
+
 addActionHandler('switchToExplore', (global: GlobalState, actions) => {
   const { isExploreOpen } = global;
 
@@ -812,11 +841,13 @@ addActionHandler('switchToExplore', (global: GlobalState, actions) => {
     actions.closeSiteCategory(undefined, { forceOnHeavyAnimation: true });
   }
 
+  actions.closeAgent(undefined, { forceOnHeavyAnimation: true });
   actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
   actions.openExplore(undefined, { forceOnHeavyAnimation: true });
 });
 
 addActionHandler('switchToSettings', (global: GlobalState, actions) => {
+  actions.closeAgent(undefined, { forceOnHeavyAnimation: true });
   actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
   actions.openSettings(undefined, { forceOnHeavyAnimation: true });
 });

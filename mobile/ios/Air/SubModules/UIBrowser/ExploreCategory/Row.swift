@@ -53,7 +53,7 @@ struct ExploreCategoryRow: View {
             Text(site.description).font(.system(size: 14))
                 .multilineTextAlignment(.leading)
                 .lineLimit(1)
-                .foregroundStyle(Color(WTheme.secondaryLabel))
+                .foregroundStyle(Color.air.secondaryLabel)
             
             Spacer(minLength: 0)
             
@@ -66,7 +66,7 @@ struct ExploreCategoryRow: View {
                     }
                     Text(lang("Open"))
                 }
-                .foregroundStyle(Color(WTheme.tint))
+                .foregroundStyle(.tint)
             }
             .buttonStyle(OpenButtonStyle())
             .padding(.bottom, 10)

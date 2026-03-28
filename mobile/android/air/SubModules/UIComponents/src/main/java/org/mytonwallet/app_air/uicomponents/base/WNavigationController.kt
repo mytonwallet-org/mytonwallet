@@ -13,6 +13,7 @@ import androidx.core.graphics.Insets
 import androidx.core.view.isGone
 import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
@@ -47,6 +48,7 @@ class WNavigationController(
         val navigationController: WNavigationController?
         val activeNavigationController: WNavigationController?
         val pausedBlurViews: Boolean
+        val bottomCornerView: ReversedCornerViewUpsideDown
         fun getBottomNavigationHeight(): Int
         fun minimize(
             nav: WNavigationController,
@@ -61,6 +63,10 @@ class WNavigationController(
         fun pauseBlurring()
         fun resumeBlurring()
         fun setSearchText(text: String)
+        fun switchToFirstTab(): Boolean
+
+        fun hideTabBar()
+        fun showTabBar()
     }
 
     var tabBarController: ITabBarController? = null
@@ -161,6 +167,17 @@ class WNavigationController(
         }
     }
 
+    fun onBottomSheetHeightChanged() {
+        if (!presentationConfig.isBottomSheet || isBottomSheetHeightAnimating) {
+            return
+        }
+        val topVC = viewControllers.lastOrNull() ?: return
+        val newNavHeight = topVC.getModalHalfExpandedHeight() ?: return
+        val windowHeight = window.windowView.height.takeIf { it > 0 } ?: return
+        updateLayoutParams { height = newNavHeight }
+        this.y = (windowHeight - newNavHeight).toFloat()
+    }
+
     // Set root view controller right after init
     fun setRoot(viewController: WViewController) {
         if (viewControllers.isNotEmpty())
@@ -216,7 +233,8 @@ class WNavigationController(
     }
 
     // Called whenever we want to add a view controller to the stack and present it
-    private var isAnimating = false
+    private var isTransitionAnimating = false
+    private var isBottomSheetHeightAnimating = false
     fun push(
         viewController: WViewController,
         animated: Boolean = true,
@@ -230,6 +248,7 @@ class WNavigationController(
         viewController.navigationController = this
         addViewController(viewController)
         addView(viewController.view, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        var pendingHeightAnimation: ValueAnimator? = null
         if (presentationConfig.isBottomSheet) {
             if (hidingVC.isExpandable) {
                 throw Exception("Pushing on an expandable bottom-sheet is not supported.")
@@ -241,23 +260,34 @@ class WNavigationController(
                 throw Exception("Pushing expandable bottom-sheet is not supported.")
             }
             // Presented as modal. Should setup bottom sheet behaviour.
-            viewController.getModalHalfExpandedHeight()?.let { newHeight ->
-                updateLayoutParams {
-                    height = max(this@WNavigationController.height, newHeight)
-                }
+            viewController.getModalHalfExpandedHeight()?.let { newVCHeight ->
                 val hidingVCHeight =
                     hidingVC.getModalHalfExpandedHeight() ?: hidingVC.view.measuredHeight
-                val newVCHeight = viewController.getModalHalfExpandedHeight()
-                    ?: viewController.view.measuredHeight
-                val diff = hidingVCHeight - newVCHeight
-                animate()
-                    .translationYBy(diff.toFloat())
-                    .setDuration(if (WGlobalStorage.getAreAnimationsActive()) AnimationConstants.NAV_PUSH else 0)
-                    .setInterpolator(WInterpolator.emphasized)
-                    .withEndAction {
-                        setupBottomSheetBehaviour(viewController)
+                val startTranslationY = translationY
+                if (!WGlobalStorage.getAreAnimationsActive()) {
+                    translationY = startTranslationY + (hidingVCHeight - newVCHeight)
+                    updateLayoutParams { height = newVCHeight }
+                    setupBottomSheetBehaviour(viewController)
+                } else {
+                    isBottomSheetHeightAnimating = true
+                    pendingHeightAnimation = ValueAnimator.ofFloat(0f, 1f).apply {
+                        duration = AnimationConstants.NAV_PUSH
+                        interpolator = WInterpolator.emphasized
+                        addUpdateListener { animator ->
+                            val fraction = animator.animatedValue as Float
+                            val currentHeight =
+                                (hidingVCHeight + (newVCHeight - hidingVCHeight) * fraction).roundToInt()
+                            updateLayoutParams { height = currentHeight }
+                            translationY = startTranslationY + (hidingVCHeight - currentHeight)
+                        }
+                        doOnEnd {
+                            isBottomSheetHeightAnimating = false
+                            updateLayoutParams { height = newVCHeight }
+                            setupBottomSheetBehaviour(viewController)
+                            onBottomSheetHeightChanged()
+                        }
                     }
-                    .start()
+                }
             }
         }
         viewController.viewWillAppear()
@@ -285,18 +315,19 @@ class WNavigationController(
                         if (ended)
                             return
                         ended = true
-                        isAnimating = false
+                        isTransitionAnimating = false
                         WGlobalStorage.decDoNotSynchronize()
                         unblockTouches()
                         onEnd()
                     }
                 })
             viewController.view.post {
-                isAnimating = true
+                isTransitionAnimating = true
                 WGlobalStorage.incDoNotSynchronize()
                 viewController.view.y = 0f
                 viewController.view.visibility = VISIBLE
                 animation.start()
+                pendingHeightAnimation?.start()
             }
         } else {
             onEnd()
@@ -354,6 +385,7 @@ class WNavigationController(
                     viewController.onModalSlide(offset.roundToInt(), progress)
                 } else {
                     window.activeOverlay?.alpha = slideOffset
+                    viewController.onModalSlide(bottomSheet.top, slideOffset)
                 }
             }
         })
@@ -396,6 +428,8 @@ class WNavigationController(
         if (viewControllers.size == 1) {
             if (window.isAnimating)
                 return
+            if (tabBarController?.switchToFirstTab() == true)
+                return
             window.dismissLastNav(onCompletion = onCompletion)
             return
         }
@@ -424,18 +458,29 @@ class WNavigationController(
             val prevVC = viewControllers.getOrNull(viewControllers.size - 2) ?: return
             val topVCHeight = topVC.getModalHalfExpandedHeight() ?: topVC.view.measuredHeight
             val prevVCHeight = prevVC.getModalHalfExpandedHeight() ?: prevVC.view.measuredHeight
-            val diff = topVCHeight - prevVCHeight
-            animate()
-                .translationYBy(diff.toFloat())
-                .setDuration(if (WGlobalStorage.getAreAnimationsActive()) AnimationConstants.NAV_POP else 0)
-                .setInterpolator(WInterpolator.emphasized)
-                .withEndAction {
-                    updateLayoutParams {
-                        height = prevVCHeight
+            val startTranslationY = translationY
+            if (!WGlobalStorage.getAreAnimationsActive()) {
+                translationY = startTranslationY + (topVCHeight - prevVCHeight)
+                updateLayoutParams { height = prevVCHeight }
+                setupBottomSheetBehaviour(prevVC)
+            } else {
+                ValueAnimator.ofFloat(0f, 1f).apply {
+                    duration = AnimationConstants.NAV_POP
+                    interpolator = WInterpolator.emphasized
+                    addUpdateListener { animator ->
+                        val fraction = animator.animatedValue as Float
+                        val currentHeight =
+                            (topVCHeight + (prevVCHeight - topVCHeight) * fraction).roundToInt()
+                        updateLayoutParams { height = currentHeight }
+                        translationY = startTranslationY + (topVCHeight - currentHeight)
                     }
-                    setupBottomSheetBehaviour(prevVC)
+                    doOnEnd {
+                        updateLayoutParams { height = prevVCHeight }
+                        setupBottomSheetBehaviour(prevVC)
+                    }
+                    start()
                 }
-                .start()
+            }
         }
     }
 
@@ -494,7 +539,7 @@ class WNavigationController(
 
     // Return FALSE if consumed the back event.
     fun onBackPressed(): Boolean {
-        if (isAnimating || keyboardAnimationInProgress)
+        if (isTransitionAnimating || keyboardAnimationInProgress)
             return false
         if (viewControllers.lastOrNull()?.isLockedScreen == true) {
             window.moveTaskToBack(true)
@@ -502,6 +547,8 @@ class WNavigationController(
         }
         if (viewControllers.lastOrNull()?.isBackAllowed == false) {
             if (window.isAnimating)
+                return false
+            if (tabBarController?.switchToFirstTab() == true)
                 return false
             if (window.dismissLastNav()) {
                 viewControllers.last().viewWillDisappear()

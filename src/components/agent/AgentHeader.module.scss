@@ -1,0 +1,61 @@
+@use "../../styles/mixins";
+
+.header {
+  position: absolute !important;
+  z-index: 3;
+  top: 0;
+  left: 0;
+
+  display: grid;
+  grid-template-columns: 1fr max-content 1fr;
+  align-items: center;
+  justify-items: end;
+
+  width: 100%;
+  padding: calc(var(--header-padding-top) + 0.3125rem) 1rem var(--header-padding-bottom);
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.0625rem;
+
+  background-color: var(--color-background-first);
+  backdrop-filter: saturate(180%) blur(20px);
+
+  :global(html.theme-dark) & {
+    background-color: var(--color-background-window);
+  }
+
+  @include mixins.transition(background-color 300ms);
+
+  &:global(.is-scrolled) {
+    @supports (backdrop-filter: saturate(180%) blur(20px)) {
+      background-color: var(--color-background-first-blur) !important;
+    }
+  }
+}
+
+.headerTitle {
+  display: flex;
+  justify-content: center;
+
+  padding: 0 0.5rem;
+
+  line-height: var(--header-title-height);
+  color: var(--color-black);
+}
+
+.menuButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 1.5rem;
+  height: 1.5rem;
+
+  font-size: 1rem;
+  color: var(--color-accent);
+
+  @include mixins.respond-below(xs) {
+    height: var(--header-title-height);
+  }
+}

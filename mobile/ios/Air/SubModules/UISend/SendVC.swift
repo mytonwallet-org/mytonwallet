@@ -18,8 +18,8 @@ public final class SendVC: WNavigationController {
     let sendModel: SendModel
     let rootVC: UIViewController
 
-    public init(prefilledValues: SendPrefilledValues) {
-        self.sendModel = SendModel(prefilledValues: prefilledValues)
+    public init(accountContext: AccountContext, prefilledValues: SendPrefilledValues) {
+        self.sendModel = SendModel(accountContext: accountContext, prefilledValues: prefilledValues)
         
         switch sendModel.mode {
         case .burnNft, .sellToMoonpay:

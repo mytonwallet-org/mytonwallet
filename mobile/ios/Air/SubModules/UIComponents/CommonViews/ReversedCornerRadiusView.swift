@@ -71,7 +71,7 @@ public class ReversedCornerRadiusView: UIView {
         borderLayer!.path = path.cgPath
         borderLayer!.fillColor = UIColor.clear.cgColor
         
-        borderLayer!.strokeColor = WTheme.separator.withAlphaComponent((traitCollection.userInterfaceStyle == .dark ? 1 : 0.2) * (1 - (radius / ReversedCornerRadiusView.defaultRadius))).cgColor
+        borderLayer!.strokeColor = UIColor.air.separator.withAlphaComponent((traitCollection.userInterfaceStyle == .dark ? 1 : 0.2) * (1 - (radius / ReversedCornerRadiusView.defaultRadius))).cgColor
         borderLayer!.lineWidth = 1
         layer.addSublayer(borderLayer!)
         layer.masksToBounds = true

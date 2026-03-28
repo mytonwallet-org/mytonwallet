@@ -22,7 +22,6 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
 
 @SuppressLint("ViewConstructor")
@@ -38,6 +37,7 @@ class WAutoCompleteCell(context: Context, val onRemove: () -> Unit) :
             isHorizontalFadingEdgeEnabled = true
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
+            useCustomEmoji = true
         }
     }
 
@@ -101,17 +101,15 @@ class WAutoCompleteCell(context: Context, val onRemove: () -> Unit) :
         this.isLast = isLast
         titleLabel.text = address.name
         val valueSpan = SpannableStringBuilder()
-        if (AccountStore.activeAccount?.isMultichain == true) {
-            MBlockchain.valueOf(address.chain).symbolIcon?.let {
-                val drawable = ContextCompat.getDrawable(context, it)!!
-                drawable.mutate()
-                drawable.setTint(WColor.PrimaryLightText.color)
-                val width = 12.dp
-                val height = 12.dp
-                drawable.setBounds(0, 0, width, height)
-                val imageSpan = VerticalImageSpan(drawable)
-                valueSpan.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
+        MBlockchain.valueOf(address.chain).symbolIcon?.let {
+            val drawable = ContextCompat.getDrawable(context, it)!!
+            drawable.mutate()
+            drawable.setTint(WColor.PrimaryLightText.color)
+            val width = 12.dp
+            val height = 12.dp
+            drawable.setBounds(0, 0, width, height)
+            val imageSpan = VerticalImageSpan(drawable)
+            valueSpan.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             valueSpan.append(" ")
         }
         valueSpan.append(address.address.formatStartEndAddress(prefix = 6, suffix = 6))

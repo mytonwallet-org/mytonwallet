@@ -139,7 +139,7 @@ function SettingsAppearance({
         <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
           <div className={styles.item} onClick={handleAirVersionSwitch}>
             <img className={styles.menuIcon} src={airImg} alt="" aria-hidden />
-            MyTonWallet Air
+            <span className={styles.itemTitle}>MyTonWallet Air</span>
 
             <Switcher
               className={styles.menuSwitcher}
@@ -225,7 +225,10 @@ function SettingsAppearance({
                 onClick={handleCustomizeWalletClick}
               >
                 {renderPalleteIcon()}
-                {lang('Customize Wallet')}
+
+                <span className={buildClassName(styles.itemTitle, styles.itemTitle_accent)}>
+                  {lang('Customize Wallet')}
+                </span>
 
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </a>
@@ -239,7 +242,7 @@ function SettingsAppearance({
         <p className={styles.blockTitle}>{lang('Other')}</p>
         <div className={styles.settingsBlock}>
           <div className={buildClassName(styles.item, styles.item_small)} onClick={handleAnimationLevelToggle}>
-            {lang('Enable Animations')}
+            <span className={styles.itemTitle}>{lang('Enable Animations')}</span>
 
             <Switcher
               className={styles.menuSwitcher}
@@ -248,7 +251,7 @@ function SettingsAppearance({
             />
           </div>
           <div className={buildClassName(styles.item, styles.item_small)} onClick={handleSeasonalThemingToggle}>
-            {lang('Enable Seasonal Theming')}
+            <span className={styles.itemTitle}>{lang('Enable Seasonal Theming')}</span>
 
             <Switcher
               className={styles.menuSwitcher}

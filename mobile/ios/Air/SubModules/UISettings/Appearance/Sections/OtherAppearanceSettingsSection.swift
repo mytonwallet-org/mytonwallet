@@ -50,7 +50,6 @@ struct OtherAppearanceSettingsSection: View {
                 try await Task.sleep(for: .seconds(0.2)) // delay so button animation doesn't get disabled inflight
                 if animationEnabled != AppStorageHelper.animations {
                     AppStorageHelper.animations = animationEnabled
-                    try await GlobalStorage.syncronize()
                 }
             } catch {}
         }
@@ -60,7 +59,6 @@ struct OtherAppearanceSettingsSection: View {
                 let isDisabled = !seasonalThemingEnabled
                 if isDisabled != AppStorageHelper.isSeasonalThemingDisabled {
                     AppStorageHelper.isSeasonalThemingDisabled = isDisabled
-                    try await GlobalStorage.syncronize()
                 }
             } catch {}
         }

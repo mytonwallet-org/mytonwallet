@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.core.content.ContextCompat
+import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.recyclerview.widget.RecyclerView
@@ -14,6 +15,7 @@ import androidx.viewpager2.widget.ViewPager2
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.ISortableView
+import org.mytonwallet.app_air.uicomponents.base.WActionBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -179,6 +181,13 @@ class WSegmentedController(
     }
 
     private val clearSegmentedControl = WClearSegmentedControl(context)
+    private val actionBar: WActionBar by lazy {
+        WActionBar(context).apply {
+            isInvisible = true
+        }
+    }
+    val actionBarView: WActionBar
+        get() = actionBar
     private val closeButton: WImageButton by lazy {
         val v = WImageButton(context)
         v.setPadding(8.dp)
@@ -202,6 +211,8 @@ class WSegmentedController(
 
     private val contentView: WView by lazy {
         val v = WView(context)
+        v.clipChildren = false
+        v.clipToPadding = false
         v.addView(
             clearSegmentedControl,
             ViewGroup.LayoutParams(0, navHeight)
@@ -296,16 +307,35 @@ class WSegmentedController(
     private fun applyItems(selectedItem: Int = 0) {
         items.forEach {
             it.viewController.navigationController = navigationController
+            (it.viewController as? WSegmentedControllerItemVC)?.segmentedController = this
         }
         clearSegmentedControl.setItems(items.map {
             WClearSegmentedControl.Item(
-                it.viewController.title ?: "",
-                it.onRemovePressed,
-                it.onMenuPressed,
+                title = it.viewController.title ?: "",
+                onRemove = it.onRemovePressed,
+                onClick = it.onMenuPressed,
             )
         }, selectedItem, this)
-        clearSegmentedControl.isVisible = items.size > 1
+        clearSegmentedControl.isVisible = items.size > 1 && !actionBar.isVisible
+        syncCloseButtonVisibility()
         clearSegmentedControl.updateItemsTrailingViews()
+    }
+
+    private fun headerViews(): List<View> {
+        return buildList {
+            add(clearSegmentedControl)
+            if (closeButton.parent != null) {
+                add(closeButton)
+            }
+        }
+    }
+
+    private fun syncCloseButtonVisibility() {
+        if (closeButton.parent == null) {
+            return
+        }
+        closeButton.visibility = clearSegmentedControl.visibility
+        closeButton.alpha = clearSegmentedControl.alpha
     }
 
     fun updateItems(
@@ -401,6 +431,64 @@ class WSegmentedController(
             toEnd(clearSegmentedControl, if (items.size < 3 || forceCenterTabs) 0f else 56f)
         }
         clearSegmentedControl.horizontalFadingEdge = true
+        syncCloseButtonVisibility()
+    }
+
+    fun showActionBar() {
+        if (actionBar.isVisible) return
+
+        if (actionBar.parent == null) {
+            contentView.addView(actionBar, ViewGroup.LayoutParams(0, navHeight))
+            contentView.setConstraints {
+                toCenterX(actionBar)
+                topToTop(actionBar, clearSegmentedControl)
+                bottomToBottom(actionBar, clearSegmentedControl)
+            }
+        }
+
+        headerViews().forEach {
+            it.animate().cancel()
+        }
+        actionBar.animate().cancel()
+
+        if (!clearSegmentedControl.isVisible) {
+            viewPager.isUserInputEnabled = false
+            actionBar.isVisible = true
+            actionBar.alpha = 1f
+            syncCloseButtonVisibility()
+            return
+        }
+
+        headerViews().fadeOut(
+            AnimationConstants.SUPER_QUICK_ANIMATION,
+            finishVisibility = View.INVISIBLE
+        ) {
+            viewPager.isUserInputEnabled = false
+            actionBar.isVisible = true
+            actionBar.alpha = 0f
+            actionBar.fadeIn(AnimationConstants.SUPER_QUICK_ANIMATION)
+        }
+    }
+
+    fun hideActionBar() {
+        if (!actionBar.isVisible) return
+
+        actionBar.animate().cancel()
+        headerViews().forEach {
+            it.animate().cancel()
+        }
+
+        actionBar.fadeOut(AnimationConstants.SUPER_QUICK_ANIMATION) {
+            actionBar.isInvisible = true
+            viewPager.isUserInputEnabled = !isTabLocked
+            val shouldShowSegmentedControl = items.size > 1
+            headerViews().forEach {
+                it.isVisible = shouldShowSegmentedControl
+            }
+            if (shouldShowSegmentedControl) {
+                headerViews().fadeIn(AnimationConstants.SUPER_QUICK_ANIMATION)
+            }
+        }
     }
 
     fun scrollToTop() {
@@ -440,6 +528,14 @@ class WSegmentedController(
         clearSegmentedControl.updateOnMenuPressed(index = index, onMenuPressed = onMenuPressed)
     }
 
+    fun setBadge(identifier: String, badge: String?) {
+        val index = items.indexOfFirst { it.identifier == identifier }
+        if (index < 0) return
+        val item = items[index]
+        (item.viewController as? WSegmentedControllerItemVC)?.badge = badge
+        clearSegmentedControl.setBadge(index, badge)
+    }
+
     fun setDragAllowed(enabled: Boolean) {
         clearSegmentedControl.isDragAllowed = enabled
     }
@@ -455,7 +551,7 @@ class WSegmentedController(
     fun unlockTab() {
         isTabLocked = false
         clearSegmentedControl.isEnabled = true
-        viewPager.isUserInputEnabled = true
+        viewPager.isUserInputEnabled = !actionBar.isVisible
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {

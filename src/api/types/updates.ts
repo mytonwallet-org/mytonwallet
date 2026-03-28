@@ -266,6 +266,8 @@ export type ApiUpdateConfig = {
   shouldAutoSwitchToAir?: boolean;
   swapVersion?: ApiSwapVersion;
   seasonalTheme: ApiBackendConfig['seasonalTheme'];
+  knowledgeBaseVersion?: string;
+  preferredAgent?: ApiBackendConfig['preferredAgent'];
 };
 
 export type ApiUpdateWalletVersions = {

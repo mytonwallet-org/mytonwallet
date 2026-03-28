@@ -19,7 +19,7 @@ struct TransactionFeeRow: View {
                 }
                 Spacer()
             }
-            .foregroundStyle(Color(WTheme.primaryLabel))
+            .foregroundStyle(Color.air.primaryLabel)
             .frame(minHeight: 60)
         }
     }
@@ -34,9 +34,9 @@ struct TransactionFeeRow: View {
             integerFont: .systemFont(ofSize: 16, weight: .medium),
             fractionFont: .systemFont(ofSize: 16, weight: .medium),
             symbolFont: .systemFont(ofSize: 16, weight: .medium),
-            integerColor: WTheme.primaryLabel,
-            fractionColor: WTheme.primaryLabel,
-            symbolColor: WTheme.secondaryLabel,
+            integerColor: UIColor.label,
+            fractionColor: UIColor.label,
+            symbolColor: .air.secondaryLabel,
             forceSymbolColor: true,
         )
     }
@@ -52,9 +52,9 @@ struct TransactionFeeRow: View {
             integerFont: .systemFont(ofSize: 14, weight: .regular),
             fractionFont: .systemFont(ofSize: 14, weight: .regular),
             symbolFont: .systemFont(ofSize: 14, weight: .regular),
-            integerColor: WTheme.secondaryLabel,
-            fractionColor: WTheme.secondaryLabel,
-            symbolColor: WTheme.secondaryLabel,
+            integerColor: .air.secondaryLabel,
+            fractionColor: .air.secondaryLabel,
+            symbolColor: .air.secondaryLabel,
             forceSymbolColor: true,
         )
     }

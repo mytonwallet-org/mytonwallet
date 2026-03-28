@@ -82,7 +82,7 @@ extension View {
     public func highlightBackground(_ isHighlighted: Bool) -> some View {
         self.background {
             if isHighlighted {
-                Color(WTheme.highlight)
+                Color.air.highlight
                     .transition(
                         .asymmetric(
                             insertion: .opacity.animation(.linear(duration: 0.1)),

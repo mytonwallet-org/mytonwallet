@@ -28,7 +28,7 @@ struct AccountInfo {
     @PerceptionIgnored
     @Dependency(\.accountSettings) var accountSettings
     @PerceptionIgnored
-    @Dependency(\.balanceStore.accountBalanceData) var balanceData
+    @Dependency(\.balanceDataStore) var balanceDataStore
     @PerceptionIgnored
     @Dependency(\.tokenStore.baseCurrency) var baseCurrency
     
@@ -78,13 +78,13 @@ struct AccountInfo {
     }
     
     var balance: BaseCurrencyAmount? {
-        balanceData[selectedAccountId]?.totalBalance
+        balanceDataStore.balanceTotals(accountId: selectedAccountId)?.totalBalance
     }
 }
 
 
-@Perceptible
-final class AccountMtwCards: WalletCoreData.EventsObserver {
+@Perceptible @MainActor
+final class AccountMtwCards: WalletCoreData.EventsObserver, Sendable {
     
     let accountId: String
 

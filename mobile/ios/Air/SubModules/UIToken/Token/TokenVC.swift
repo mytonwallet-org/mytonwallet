@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import UIActivityList
 import UIComponents
 import WalletCore
 import WalletContext
@@ -13,7 +14,7 @@ import WalletContext
 private let log = Log("TokenVC")
 
 @MainActor
-public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataProtocol {
+public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtocol {
 
     private var tokenVM: TokenVM!
 
@@ -22,25 +23,23 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
     private let isInModal: Bool
     private var accountContext: AccountContext { $account }
 
-    var _activityViewModel: ActivityViewModel?
-    public override var activityViewModel: ActivityViewModel? { self._activityViewModel }
-
-    var windowSafeAreaGuide = UILayoutGuide()
-    var windowSafeAreaGuideContraint: NSLayoutConstraint!
+    private var headerBlurView: WBlurView!
+    private let bottomSeparatorView = UIView()
 
     public init(accountSource: AccountSource, token: ApiToken, isInModal: Bool) async {
         self._account = AccountContext(source: accountSource)
         self.token = token
         self.isInModal = isInModal
         super.init(nibName: nil, bundle: nil)
+        configureCustomSections()
         let accountId = $account.accountId
-        self._activityViewModel = await ActivityViewModel(accountId: accountId, token: token, delegate: self)
+        self.activityViewModel = await ActivityListViewModel(accountId: accountId, token: token, customSectionIDs: customSectionIDs, delegate: self)
         tokenVM = TokenVM(accountId: accountId,
                                            selectedToken: token,
                                            tokenVMDelegate: self)
         tokenVM.refreshTransactions()
     }
-
+    
     public override var hideBottomBar: Bool {
         false
     }
@@ -49,34 +48,41 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
         fatalError("init(coder:) has not been implemented")
     }
 
+    private lazy var navigationTitleView: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 17, weight: .semibold)
+        label.text = token.name
+        label.textAlignment = .center
+        label.alpha = 0
+        return label
+    }()
+
     private lazy var expandableContentView = TokenExpandableContentView(
         accountContext: accountContext,
-        isInModal: isInModal,
-        parentProcessorQueue: processorQueue,
-        onHeightChange: { [weak self] in
-            self?.updateHeaderHeight()
-        }
+        isInModal: isInModal
     )
+    private let chartCustomSectionID = "chart"
+    private var chartCustomSectionCellRegistration: UICollectionView.CellRegistration<TokenChartCell, Row>!
+    private var chartCustomSectionDescriptor: CustomSectionDescriptor!
 
     private func updateHeaderHeight() {
         reconfigureHeaderPlaceholder(animated: false)
     }
 
     public override var headerPlaceholderHeight: CGFloat {
-        return expandableContentView.expandedHeight + view.safeAreaInsets.top - 40
+        expandableContentView.expandedHeight + 32
     }
 
     private var tokenChartCell: TokenChartCell? = nil
-    public override var firstRowPlaceholderHeight: CGFloat {
+    private var chartCustomSectionHeight: CGFloat {
         return 56 + (tokenChartCell?.height ??
             (AppStorageHelper.isTokenChartExpanded ? TokenExpandableChartView.expandedHeight : TokenExpandableChartView.collapsedHeight)
         )
     }
-    public override var firstRow: UITableViewCell.Type? { TokenChartCell.self }
-    public override func configureFirstRow(cell: UITableViewCell) {
-        guard let cell = cell as? TokenChartCell else { return }
+    public override var customSections: [CustomSectionDescriptor] { [chartCustomSectionDescriptor] }
+    private func configureChartCustomSection(cell: TokenChartCell) {
         tokenChartCell = cell
-        cell.setup(parentProcessorQueue: processorQueue, onHeightChange: { [weak self] in
+        cell.setup(onHeightChange: { [weak self] in
             self?.updateHeaderHeight()
         })
         cell.configure(token: token,
@@ -85,24 +91,15 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
             tokenVM.selectedPeriod = period
         }
     }
-
-    private lazy var expandableNavigationView: ExpandableNavigationView = {
-
-        let image = UIImage(named: "More22", in: AirBundle, with: nil)
-        let moreButton = WNavigationBarButton(icon: image, tintColor: WTheme.tint, onPress: nil, menu: makeMenu(), showsMenuAsPrimaryAction: true)
-
-        let navigationBar = WNavigationBar(
-            navHeight: isInModal ? 46 : 40,
-            topOffset: (isInModal ? 0 : -6) + S.headerTopAdjustment,
-            title: token.name,
-            trailingItem: moreButton,
-            addBackButton: { [weak self] in
-                self?.navigationController?.popViewController(animated: true)
-            })
-        let expandableNavigationView = ExpandableNavigationView(navigationBar: navigationBar,
-                                                                expandableContent: expandableContentView)
-        return expandableNavigationView
-    }()
+    private func configureCustomSections() {
+        chartCustomSectionCellRegistration = UICollectionView.CellRegistration<TokenChartCell, Row> { [unowned self] cell, _, _ in
+            cell.backgroundColor = .clear
+            configureChartCustomSection(cell: cell)
+        }
+        chartCustomSectionDescriptor = CustomSectionDescriptor(id: chartCustomSectionID) { [unowned self] collectionView, indexPath in
+            collectionView.dequeueConfiguredReusableCell(using: chartCustomSectionCellRegistration, for: indexPath, item: .custom(chartCustomSectionID))
+        }
+    }
 
     public override func loadView() {
         super.loadView()
@@ -110,66 +107,80 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
     }
 
     private func setupViews() {
-
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            // set title to get blurred background
-            navigationItem.attributedTitle = AttributedString(token.name, attributes: AttributeContainer([.foregroundColor: UIColor.clear]))
-            navigationItem.trailingItemGroups = [
-                UIBarButtonItemGroup(
-                    barButtonItems: [
-                        UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: makeMenu())
-                    ],
-                    representativeItem: nil
-                )
-            ]
-        } else {
-            navigationController?.setNavigationBarHidden(true, animated: false)
+        navigationItem.titleView = navigationTitleView
+        navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: makeMenu())
+        if !IOS_26_MODE_ENABLED {
+            configureNavigationItemWithTransparentBackground()
         }
-
-        view.addLayoutGuide(windowSafeAreaGuide)
-        windowSafeAreaGuideContraint = windowSafeAreaGuide.topAnchor.constraint(equalTo: view.topAnchor, constant: 0)
+        
+        navigationController?.setNavigationBarHidden(false, animated: false)
 
         super.setupTableViews(tableViewBottomConstraint: 0)
         UIView.performWithoutAnimation {
-            applySnapshot(makeSnapshot(), animated: false)
-            applySkeletonSnapshot(makeSkeletonSnapshot(), animated: false)
+            applySnapshot(makeSnapshot(), animatingDifferences: false)
             updateSkeletonState()
         }
 
-        view.addSubview(expandableNavigationView)
+        view.addSubview(expandableContentView)
         NSLayoutConstraint.activate([
-            windowSafeAreaGuideContraint,
-
-            expandableNavigationView.topAnchor.constraint(equalTo: view.topAnchor),
-            expandableNavigationView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            expandableNavigationView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            expandableContentView.topAnchor.constraint(equalTo: view.topAnchor),
+            expandableContentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            expandableContentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
+
+        headerBlurView = WBlurView()
+        headerBlurView.alpha = 0
+        headerBlurView.isUserInteractionEnabled = false
+        view.addSubview(headerBlurView)
+        NSLayoutConstraint.activate([
+            headerBlurView.topAnchor.constraint(equalTo: view.topAnchor),
+            headerBlurView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerBlurView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerBlurView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+        ])
+
+        bottomSeparatorView.translatesAutoresizingMaskIntoConstraints = false
+        bottomSeparatorView.isUserInteractionEnabled = false
+        bottomSeparatorView.backgroundColor = UIColor { .air.separator.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.8 : 0.2) }
+        bottomSeparatorView.alpha = 0
+        view.addSubview(bottomSeparatorView)
+        NSLayoutConstraint.activate([
+            bottomSeparatorView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bottomSeparatorView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomSeparatorView.bottomAnchor.constraint(equalTo: headerBlurView.bottomAnchor),
+            bottomSeparatorView.heightAnchor.constraint(equalToConstant: 0.333),
+        ])
+
+        if IOS_26_MODE_ENABLED {
+            headerBlurView.isHidden = true
+            bottomSeparatorView.isHidden = true
+        }
 
         if !isInModal {
             addBottomBarBlur()
         }
 
-        updateTheme()
+        view.backgroundColor = isInModal ? .air.sheetBackground : .air.groupedBackground
+        navigationTitleView.textColor = UIColor.label
 
         updateSensitiveData()
     }
 
-    public override func viewDidLoad() {
-        super.viewDidLoad()
-    }
-
     public override func viewIsAppearing(_ animated: Bool) {
-        if let navbarHeight = navigationController?.navigationBar.frame.height {
-            if IOS_26_MODE_ENABLED {
-                additionalSafeAreaInsets.top = -navbarHeight + (isInModal ? -5 : 1)
-            }
-        }
-        tableView.contentInset.bottom = view.safeAreaInsets.bottom + 16
+        super.viewIsAppearing(animated)
+        updateSafeAreaInsets()
         updateSkeletonViewMask()
     }
 
-    public override func updateTheme() {
-        view.backgroundColor = isInModal ? WTheme.sheetBackground : WTheme.groupedBackground
+    public override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        updateSafeAreaInsets()
+    }
+
+    private func updateSafeAreaInsets() {
+        collectionView.contentInset.bottom = view.safeAreaInsets.bottom + 16
+        guard headerBlurView != nil else { return }
+        scrollViewDidScroll(collectionView)
     }
 
     public func updateSensitiveData() {
@@ -178,12 +189,12 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
 
     public override func updateSkeletonViewMask() {
         var skeletonViews = [UIView]()
-        for cell in skeletonTableView.visibleCells {
+        for cell in collectionView.visibleCells {
             if let transactionCell = cell as? ActivityCell {
                 skeletonViews.append(transactionCell.contentView)
             }
         }
-        for view in skeletonTableView.subviews {
+        for view in collectionView.visibleSupplementaryViews(ofKind: UICollectionView.elementKindSectionHeader) {
             if let headerCell = view as? ActivityDateCell, let skeletonView = headerCell.skeletonView {
                 skeletonViews.append(skeletonView)
             }
@@ -192,34 +203,49 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
     }
 
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        if tableView.contentSize.height > tableView.frame.height {
-            let requiredInset = tableView.frame.height + TokenExpandableContentView.requiredScrollOffset - tableView.contentSize.height
-            tableView.contentInset.bottom = max(view.safeAreaInsets.bottom + 16, requiredInset)
+        if collectionView.contentSize.height > collectionView.frame.height {
+            let requiredInset = collectionView.frame.height + TokenExpandableContentView.requiredScrollOffset - collectionView.contentSize.height
+            collectionView.contentInset.bottom = max(view.safeAreaInsets.bottom + 16, requiredInset)
         }
     }
 
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        expandableNavigationView.update(scrollOffset: scrollView.contentOffset.y)
+        let scrollOffset = scrollOffset(for: scrollView)
+        expandableContentView.update(scrollOffset: scrollOffset)
+        updateNavigationBarChrome(scrollOffset: scrollOffset)
     }
 
     public func scrollViewWillEndDragging(_ scrollView: UIScrollView,
                                           withVelocity velocity: CGPoint,
                                           targetContentOffset: UnsafeMutablePointer<CGPoint>) {
-        let realTargetY = targetContentOffset.pointee.y
+        let automaticTopInset = scrollView.adjustedContentInset.top - scrollView.contentInset.top
+        let realTargetY = targetContentOffset.pointee.y + automaticTopInset
+        let currentScrollOffset = scrollOffset(for: scrollView)
         // snap to views
-        if realTargetY > 0 && tableView.contentSize.height > tableView.frame.height {
+        if realTargetY > 0 && collectionView.contentSize.height > collectionView.frame.height {
             if realTargetY < expandableContentView.actionsOffset + 30 {
-                let isGoingDown = realTargetY > scrollView.contentOffset.y
-                let isStopped = realTargetY == scrollView.contentOffset.y
+                let isGoingDown = realTargetY > currentScrollOffset
+                let isStopped = realTargetY == currentScrollOffset
                 if isGoingDown || (isStopped && realTargetY >= expandableContentView.actionsOffset / 2) {
-                    targetContentOffset.pointee.y = expandableContentView.actionsOffset - 4 // matching home screen
+                    targetContentOffset.pointee.y = expandableContentView.actionsOffset - automaticTopInset - 4 // matching home screen
                 } else {
-                    targetContentOffset.pointee.y = 0
+                    targetContentOffset.pointee.y = -automaticTopInset
                 }
             } else if realTargetY < expandableContentView.actionsOffset + actionsRowHeight {
-                targetContentOffset.pointee.y = expandableContentView.actionsOffset + actionsRowHeight
+                targetContentOffset.pointee.y = expandableContentView.actionsOffset + actionsRowHeight - automaticTopInset
             }
         }
+    }
+
+    private func scrollOffset(for scrollView: UIScrollView) -> CGFloat {
+        scrollView.contentOffset.y + scrollView.adjustedContentInset.top - scrollView.contentInset.top
+    }
+
+    private func updateNavigationBarChrome(scrollOffset: CGFloat) {
+        let progress = min(1, max(0, (scrollOffset - 260) / 16))
+        headerBlurView.alpha = progress
+        bottomSeparatorView.alpha = progress
+        navigationTitleView.alpha = min(1, max(0, (30 - scrollOffset) / 14 + 1))
     }
 
     private func makeMenu() -> UIMenu {
@@ -251,17 +277,17 @@ extension TokenVC: TokenVMDelegate {
     }
     func priceDataUpdated() {
         expandableContentView.configure(token: token)
-        reconfigureFirstRowCell()
+        reconfigureCustomSection(id: chartCustomSectionID)
     }
     func stateChanged() {
         expandableContentView.configure(token: token)
-        reconfigureFirstRowCell()
+        reconfigureCustomSection(id: chartCustomSectionID)
     }
     func accountChanged() {
         guard accountContext.source == .current else { return }
         let newAccountId = accountContext.accountId
         Task {
-            self._activityViewModel = await ActivityViewModel(accountId: newAccountId, token: token, delegate: self)
+            self.activityViewModel = await ActivityListViewModel(accountId: newAccountId, token: token, customSectionIDs: customSectionIDs, delegate: self)
             self.tokenVM = TokenVM(accountId: newAccountId, selectedToken: token, tokenVMDelegate: self)
             self.tokenVM.refreshTransactions()
         }
@@ -275,7 +301,7 @@ extension TokenVC: TabItemTappedProtocol {
 }
 
 
-extension TokenVC: ActivityViewModelDelegate {
+extension TokenVC: ActivityListViewModelDelegate {
     public func activityViewModelChanged() {
         super.transactionsUpdated(accountChanged: false, isUpdateEvent: false)
     }

@@ -97,7 +97,7 @@ public struct AccountListCell: View {
                 if showCurrentAccountHighlight && accountContext.isCurrent {
                     Circle()
                         .strokeBorder(lineWidth: borderWidth)
-                        .foregroundStyle(Color.air.tint)
+                        .foregroundStyle(.tint)
                         .padding(-borderWidth)
                 }
             }

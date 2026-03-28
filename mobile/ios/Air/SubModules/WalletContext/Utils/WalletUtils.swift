@@ -73,7 +73,7 @@ public func formatAddressAttributed(
 
         let primaryFont = primaryFont ?? UIFont.systemFont(ofSize: 17, weight: .regular)
         let secondaryFont = secondaryFont ?? UIFont.systemFont(ofSize: 17, weight: .regular)
-        let primaryColor = primaryColor ?? WTheme.primaryLabel
+        let primaryColor = primaryColor ?? UIColor.label
         let secondaryColor = secondaryColor ?? primaryColor
 
         at.addAttributes([
@@ -93,8 +93,8 @@ public func formatAddressAttributed(
 
         let primaryFont = primaryFont ?? UIFont.systemFont(ofSize: 17, weight: .regular)
         let secondaryFont = secondaryFont ?? primaryFont
-        let primaryColor = primaryColor ?? WTheme.primaryLabel
-        let secondaryColor = secondaryColor ?? WTheme.secondaryLabel
+        let primaryColor = primaryColor ?? UIColor.label
+        let secondaryColor = secondaryColor ?? .air.secondaryLabel
 
         if len > 25 {
             at.addAttributes([
@@ -403,6 +403,10 @@ extension Double {
     public func rounded(decimals: Int) -> Double {
         let m = pow(10.0, Double(decimals))
         return (self * m).rounded() / m
+    }
+    
+    public func string(decimals: Int) -> String {
+        String(format: "%0\(decimals)f", self)
     }
 }
 

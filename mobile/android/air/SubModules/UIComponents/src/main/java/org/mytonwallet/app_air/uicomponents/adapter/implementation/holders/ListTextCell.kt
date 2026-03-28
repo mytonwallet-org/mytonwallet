@@ -4,18 +4,16 @@ import android.content.Context
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup
-import androidx.appcompat.widget.AppCompatTextView
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
-import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
-class ListTextCell(context: Context) : AppCompatTextView(context), WThemedView {
+class ListTextCell(context: Context) : WLabel(context) {
     init {
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -25,19 +23,14 @@ class ListTextCell(context: Context) : AppCompatTextView(context), WThemedView {
         maxLines = 1
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         setPaddingDp(20f, 16f, 20f, 8f)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-        typeface = WFont.Medium.typeface
+        setStyle(16f, WFont.Medium)
         gravity =
             if (LocaleController.isRTL)
                 Gravity.RIGHT
             else
                 Gravity.LEFT
-        updateTheme()
-    }
-
-    var textColor: WColor? = null
-    override fun updateTheme() {
-        setTextColor(textColor?.color ?: WColor.PrimaryText.color)
+        useCustomEmoji = true
+        setTextColor(WColor.PrimaryText)
     }
 
     class Holder(parent: ViewGroup) :
@@ -53,9 +46,8 @@ class ListTextCell(context: Context) : AppCompatTextView(context), WThemedView {
                 else
                     Gravity.LEFT
             view.setTextSize(TypedValue.COMPLEX_UNIT_SP, item.textSize ?: 16f)
-            view.textColor = item.textColor
+            view.setTextColor(item.textColor ?: WColor.PrimaryText)
             view.typeface = item.font ?: WFont.Medium.typeface
-            view.updateTheme()
         }
     }
 }

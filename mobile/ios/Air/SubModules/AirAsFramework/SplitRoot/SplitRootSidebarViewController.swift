@@ -19,7 +19,7 @@ protocol SplitRootSidebarViewControllerDelegate: AnyObject {
 }
 
 @MainActor
-final class SplitRootSidebarViewController: WViewController, WalletCoreData.EventsObserver, UICollectionViewDelegate {
+final class SplitRootSidebarViewController: WViewController, WalletCoreData.EventsObserver, UICollectionViewDelegate, Sendable {
     private enum Section: Hashable {
         case tabs
         case accounts
@@ -39,7 +39,8 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     private let accountSelectorGradientTrailing = EdgeGradientView()
     private let collectionTopGradient = EdgeGradientView()
     private var accountSelectorHeightConstraint: NSLayoutConstraint?
-    private let updateStatusView = UpdateStatusView(accountSource: .current)
+    private let updateStatusAccountContext = AccountContext(source: .current)
+    private lazy var updateStatusView = UpdateStatusView(accountContext: updateStatusAccountContext)
     
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
@@ -73,8 +74,8 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         updateAccountSelectorHeightIfNeeded()
     }
     
-    override func updateTheme() {
-        view.backgroundColor = WTheme.sidebarBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sidebarBackground
         updateStatusViewState(animated: false)
     }
     
@@ -96,12 +97,12 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         accountSelectorHeightConstraint = accountSelector.heightAnchor.constraint(equalToConstant: selectorHeight)
         
         accountSelectorGradientLeading.translatesAutoresizingMaskIntoConstraints = false
-        accountSelectorGradientLeading.color = WTheme.sidebarBackground.withAlphaComponent(0.6)
+        accountSelectorGradientLeading.color = .air.sidebarBackground.withAlphaComponent(0.6)
         accountSelectorGradientLeading.direction = .leading
         view.addSubview(accountSelectorGradientLeading)
         
         accountSelectorGradientTrailing.translatesAutoresizingMaskIntoConstraints = false
-        accountSelectorGradientTrailing.color = WTheme.sidebarBackground.withAlphaComponent(0.6)
+        accountSelectorGradientTrailing.color = .air.sidebarBackground.withAlphaComponent(0.6)
         accountSelectorGradientTrailing.direction = .trailing
         view.addSubview(accountSelectorGradientTrailing)
         
@@ -109,7 +110,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         view.insertSubview(collectionView, at: 0)
         
         collectionTopGradient.translatesAutoresizingMaskIntoConstraints = false
-        collectionTopGradient.color = WTheme.sidebarBackground
+        collectionTopGradient.color = .air.sidebarBackground
         collectionTopGradient.direction = .top
         collectionTopGradient.solidEdgeLength = sidebarTopGradientSolidInset
         view.insertSubview(collectionTopGradient, belowSubview: accountSelector)
@@ -141,9 +142,9 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
             collectionTopGradient.heightAnchor.constraint(equalToConstant: sidebarTopContentInset + sidebarTopGradientSolidInset),
         ])
         
-        accountSelectorGradientLeading.color = WTheme.sidebarBackground.withAlphaComponent(0.6)
-        accountSelectorGradientTrailing.color = WTheme.sidebarBackground.withAlphaComponent(0.6)
-        collectionTopGradient.color = WTheme.sidebarBackground
+        accountSelectorGradientLeading.color = .air.sidebarBackground.withAlphaComponent(0.6)
+        accountSelectorGradientTrailing.color = .air.sidebarBackground.withAlphaComponent(0.6)
+        collectionTopGradient.color = .air.sidebarBackground
         collectionView?.backgroundColor = .clear
         
         accountSelector.onSelect = { [weak self] accountId in
@@ -159,7 +160,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         var accountsConfiguration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         accountsConfiguration.headerMode = .none
         accountsConfiguration.backgroundColor = .clear
-        accountsConfiguration.separatorConfiguration.color = WTheme.separator
+        accountsConfiguration.separatorConfiguration.color = .air.separator
         accountsConfiguration.separatorConfiguration.bottomSeparatorInsets.leading = 62
         
         let layout = UICollectionViewCompositionalLayout { sectionIndex, layoutEnvironment in
@@ -232,7 +233,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
                 .margins(.vertical, 0)
                 
                 var background = UIBackgroundConfiguration.listGroupedCell()
-                background.backgroundColor = state.isHighlighted ? WTheme.highlight : .clear
+                background.backgroundColor = state.isHighlighted ? .air.highlight : .clear
                 listCell.backgroundConfiguration = background
             }
         }
@@ -252,7 +253,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     private func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Item> {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         snapshot.appendSections([.tabs])
-        snapshot.appendItems(SplitRootTab.allCases.map(Item.tab), toSection: .tabs)
+        snapshot.appendItems(SplitRootTab.visibleTabs.map(Item.tab), toSection: .tabs)
         
         snapshot.appendSections([.accounts])
         let currentAccountId = AccountStore.accountId
@@ -334,7 +335,6 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
             updateStatusView.setState(newState: .updated, animatedWithDuration: nil)
             applySnapshot(animated: true)
         case .accountNameChanged:
-            updateStatusView.setState(newState: .updated, animatedWithDuration: 0.2)
             applySnapshot(animated: true)
         case .accountDeleted(_), .accountsReset:
             applySnapshot(animated: true)

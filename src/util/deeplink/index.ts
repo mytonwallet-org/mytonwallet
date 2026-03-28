@@ -9,10 +9,12 @@ import { ActiveTab, ContentTab } from '../../global/types';
 
 import {
   DEFAULT_SWAP_AMOUNT,
+  DEFAULT_SWAP_FIRST_TOKEN_SLUG,
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
   GIVEAWAY_CHECKIN_URL,
   IS_CAPACITOR,
   IS_EXPLORER,
+  PORTFOLIO_DAPP_URL,
   TONCOIN,
   TRC20_USDT_MAINNET,
   TRX,
@@ -65,6 +67,7 @@ export const enum DeeplinkCommand {
   Token = 'token',
   Transaction = 'tx',
   Nft = 'nft',
+  Portfolio = 'portfolio',
 }
 
 const EXPLORER_ALLOWED_COMMANDS = new Set([
@@ -544,9 +547,24 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
         } else if (isLedger) {
           actions.showError({ error: 'Swap is not yet supported by Ledger.' });
         } else {
+          const swapBySlug = global.swapTokenInfo?.bySlug;
+          const rawIn = searchParams.get('in');
+          const rawOut = searchParams.get('out');
+          let tokenInSlug = (rawIn && swapBySlug?.[rawIn]) ? rawIn : DEFAULT_SWAP_FIRST_TOKEN_SLUG;
+          let tokenOutSlug = (rawOut && swapBySlug?.[rawOut]) ? rawOut : DEFAULT_SWAP_SECOND_TOKEN_SLUG;
+
+          if (tokenInSlug === tokenOutSlug) {
+            tokenInSlug = DEFAULT_SWAP_FIRST_TOKEN_SLUG;
+            tokenOutSlug = DEFAULT_SWAP_SECOND_TOKEN_SLUG;
+          }
+
+          if ((rawIn && tokenInSlug !== rawIn) || (rawOut && tokenOutSlug !== rawOut)) {
+            actions.showError({ error: '$unknown_swap_token' });
+          }
+
           actions.startSwap({
-            tokenInSlug: searchParams.get('in') || TONCOIN.slug,
-            tokenOutSlug: searchParams.get('out') || DEFAULT_SWAP_SECOND_TOKEN_SLUG,
+            tokenInSlug,
+            tokenOutSlug,
             amountIn: toNumberOrEmptyString(searchParams.get('amount')) || DEFAULT_SWAP_AMOUNT,
           });
         }
@@ -795,6 +813,11 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
 
         // Pass activities to avoid duplicate API call
         actions.openTransactionInfo({ txId, chain, activities });
+        return true;
+      }
+
+      case DeeplinkCommand.Portfolio: {
+        void openUrl(PORTFOLIO_DAPP_URL);
         return true;
       }
 

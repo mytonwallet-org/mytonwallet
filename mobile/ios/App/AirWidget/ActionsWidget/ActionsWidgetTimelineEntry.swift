@@ -1,12 +1,3 @@
-//
-//  TokenWidgetTimelineEntry.swift
-//  App
-//
-//  Created by nikstar on 23.09.2025.
-//
-
-import SwiftUI
-import WalletCore
 import WidgetKit
 
 public struct ActionsWidgetTimelineEntry: TimelineEntry {
@@ -16,9 +7,9 @@ public struct ActionsWidgetTimelineEntry: TimelineEntry {
 
 public extension ActionsWidgetTimelineEntry {
     static var placeholder: ActionsWidgetTimelineEntry {
-        return ActionsWidgetTimelineEntry(
+        ActionsWidgetTimelineEntry(
             date: .now,
             style: .neutral,
         )
     }
-}   
+}

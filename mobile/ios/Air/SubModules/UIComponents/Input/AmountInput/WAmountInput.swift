@@ -11,7 +11,7 @@ import UIKit
 import WalletContext
 
 @MainActor
-public class WAmountInput: UITextField, WThemedView {
+public class WAmountInput: UITextField {
     
     public var maximumFractionDigits: Int
     
@@ -94,7 +94,7 @@ public class WAmountInput: UITextField, WThemedView {
                 at.addAttribute(.font, value: integerFont as Any, range: NSRange(location: 0, length: text.count))
             }
             
-            at.addAttribute(.foregroundColor, value: error ? WTheme.error : WTheme.primaryLabel, range: NSRange(location: 0, length: text.count))
+            at.addAttribute(.foregroundColor, value: error ? .air.error : UIColor.label, range: NSRange(location: 0, length: text.count))
             
             self.attributedText = at
         }
@@ -108,7 +108,7 @@ public class WAmountInput: UITextField, WThemedView {
         return size
     }
     
-    public func updateTheme() {
+    private func updateTheme() {
         reapplyFormatting()
     }
 }

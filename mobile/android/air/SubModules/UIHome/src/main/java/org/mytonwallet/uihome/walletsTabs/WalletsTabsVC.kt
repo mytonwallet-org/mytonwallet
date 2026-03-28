@@ -219,7 +219,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                             WNavigationController.PresentationConfig(
                                 overFullScreen = false,
                                 isBottomSheet = true,
-                                aboveKeyboard = true
+                                aboveKeyboard = false
                             )
                     ).apply {
                         setRoot(vc)
@@ -541,7 +541,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(org.mytonwallet.uihome.R.drawable.ic_reorder),
-                        title = LocaleController.getString("Reorder"),
+                        title = LocaleController.getString("Reorder Tabs"),
                     ),
                     onTap = {
                         toggleReorder(true)
@@ -549,7 +549,8 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 )
             ),
             positioning = WMenuPopup.Positioning.BELOW,
-            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = 16f.dp)
+            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = 16f.dp),
+            backdropStyle = WMenuPopup.BackdropStyle.Transparent
         )
     }
 

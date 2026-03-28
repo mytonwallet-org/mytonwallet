@@ -1,18 +1,19 @@
 [versions]
-googleServices = "4.4.2"
-gradle = "8.11.1"
-kotlin = "2.2.0"
-coreKtx = "1.13.1"
+googleServices = "4.4.4"
+gradle = "8.13.2"
+kotlin = "2.3.10"
+ksp = "2.3.6"
+coreKtx = "1.17.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
-appcompat = "1.7.0"
+appcompat = "1.7.1"
 leakcanaryAndroid = "2.14"
-material = "1.12.0"
-activity = "1.9.2"
+material = "1.13.0"
+activity = "1.12.4"
 constraintlayout = "2.2.1"
 biometric = "1.1.0"
-lottie = "6.6.10"
+lottie = "6.7.1"
 fresco = "3.6.0"
 zxing = "3.5.3"
 moshi = "1.15.2"
@@ -26,7 +27,7 @@ paletteKtx = "1.0.0"
 webkit = "1.14.0"
 blurview = "version-2.0.6"
 timber = "5.0.1"
-firebaseMessaging = "24.1.0" # Sync with capacitor app
+firebaseMessaging = "25.0.0" # Sync with capacitor app
 workRuntimeKtx = "2.10.5"
 browser = "1.8.0"
 
@@ -72,3 +73,4 @@ androidx-browser = { group = "androidx.browser", name = "browser", version.ref =
 
 [plugins]
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

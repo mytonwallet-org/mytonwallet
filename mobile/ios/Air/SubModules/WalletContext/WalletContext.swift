@@ -47,4 +47,8 @@ public class WalletContextManager {
     @MainActor public static weak var delegate: WalletContextDelegate? = nil
 }
 
+#if SWIFT_PACKAGE
+public let AirBundle = Bundle.module
+#else
 public let AirBundle = Bundle(for: WalletContextManager.self)
+#endif

@@ -261,6 +261,7 @@ class WNavigationBar(
             toTopPx(closeButton, topOffset)
             toBottom(closeButton)
             toEnd(closeButton, trailingMarginDp ?: if (height < DEFAULT_HEIGHT) 11f else 8f)
+            endToStart(titleLinearLayout, closeButton, 4f)
         }
     }
 

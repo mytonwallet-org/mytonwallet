@@ -1,14 +1,18 @@
 package org.mytonwallet.app_air.uicomponents.widgets.menu
 
+import android.graphics.Canvas
+import android.graphics.Path
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.view.View.GONE
 import android.view.View.VISIBLE
 import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
+import androidx.core.graphics.withSave
 import androidx.core.view.children
 import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -28,7 +32,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import kotlin.math.roundToInt
@@ -36,8 +39,12 @@ import kotlin.math.roundToInt
 class WNavigationPopup(
     private val initialPopupView: WMenuPopupView,
     private val popupWidth: Int,
-    private val windowBackgroundStyle: WMenuPopup.BackgroundStyle
+    private val windowBackgroundStyle: WMenuPopup.BackgroundStyle,
+    private val backdropStyle: WMenuPopup.BackdropStyle
 ) : INavigationPopup {
+    companion object {
+        private const val BACKDROP_BLUR_RADIUS = 14f
+    }
 
     private val popupHost: WPopupHost? get() = PopupHelpers.popupHost
 
@@ -46,6 +53,12 @@ class WNavigationPopup(
 
     private val isBlurSupported: Boolean
         get() = WGlobalStorage.isBlurEnabled()
+    private val shouldUseTransparentBackdrop: Boolean
+        get() = backdropStyle is WMenuPopup.BackdropStyle.Transparent
+    private val shouldUseDimBackdrop: Boolean
+        get() = !shouldUseTransparentBackdrop
+    private val shouldUseBlurBackdrop: Boolean
+        get() = isBlurSupported && backdropStyle is WMenuPopup.BackdropStyle.BlurDimmed
 
     private val contentContainerLayout = object : WFrameLayout(
         initialPopupView.context
@@ -142,6 +155,97 @@ class WNavigationPopup(
     }
 
     private var windowBackgroundDrawable: Drawable? = null
+    private var blurCutoutPath: Path? = null
+    private val blurVisiblePath = Path()
+    private val windowBlurBackground: WBlurryBackgroundView by lazy {
+        WBlurryBackgroundView(initialPopupView.context, null, BACKDROP_BLUR_RADIUS)
+    }
+    private val blurBackdropContainer = object : WFrameLayout(initialPopupView.context) {
+        override fun dispatchDraw(canvas: Canvas) {
+            val cutoutPath = blurCutoutPath
+            if (cutoutPath == null) {
+                super.dispatchDraw(canvas)
+                return
+            }
+
+            blurVisiblePath.reset()
+            blurVisiblePath.addRect(
+                0f,
+                0f,
+                width.toFloat(),
+                height.toFloat(),
+                Path.Direction.CW
+            )
+            if (!blurVisiblePath.op(cutoutPath, Path.Op.DIFFERENCE)) {
+                super.dispatchDraw(canvas)
+                return
+            }
+
+            canvas.withSave {
+                clipPath(blurVisiblePath)
+                super.dispatchDraw(this)
+            }
+        }
+    }.apply {
+        addView(windowBlurBackground, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+    }
+    private var isBlurBackdropAttached = false
+
+    private fun getBlurRootView(host: WPopupHost): ViewGroup? {
+        return host.windowView?.children
+            ?.lastOrNull { child ->
+                child is ViewGroup &&
+                    child !is JSWebViewBridge &&
+                    child !is WPopupHost
+            } as? ViewGroup ?: (host.windowView as? ViewGroup)
+    }
+
+    private fun configureBlurBackdrop() {
+        windowBlurBackground.post {
+            windowBlurBackground.setBlurEnabled(isBlurSupported)
+            windowBlurBackground.setBlurRadius(BACKDROP_BLUR_RADIUS)
+            windowBlurBackground.setOverlayColor(WColor.Background, 0)
+            windowBlurBackground.resumeBlurring()
+            windowBlurBackground.invalidate()
+        }
+    }
+
+    private fun ensureBlurBackdropAttached(host: WPopupHost) {
+        if (!shouldUseBlurBackdrop || isBlurBackdropAttached) {
+            return
+        }
+
+        getBlurRootView(host)?.let { viewGroup ->
+            windowBlurBackground.setupWith(viewGroup)
+        }
+
+        if (windowBlurBackground.parent is ViewGroup) {
+            (windowBlurBackground.parent as ViewGroup).removeView(windowBlurBackground)
+        }
+        if (blurBackdropContainer.parent is ViewGroup) {
+            (blurBackdropContainer.parent as ViewGroup).removeView(blurBackdropContainer)
+        }
+        if (windowBlurBackground.parent !== blurBackdropContainer) {
+            blurBackdropContainer.addView(
+                windowBlurBackground,
+                FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            )
+        }
+
+        host.addView(blurBackdropContainer, 0, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        isBlurBackdropAttached = true
+    }
+
+    private fun updateBackdropProgress(progress: Float) {
+        if (shouldUseDimBackdrop) {
+            windowBackgroundDrawable?.alpha = (255 * progress).roundToInt()
+        } else {
+            windowBackgroundDrawable?.alpha = 0
+        }
+        if (shouldUseBlurBackdrop && isBlurBackdropAttached) {
+            blurBackdropContainer.alpha = progress
+        }
+    }
 
     private val rootContainerLayout: WFrameLayout = object : WFrameLayout(
         initialPopupView.context
@@ -149,7 +253,12 @@ class WNavigationPopup(
         override fun updateTheme() {
             contentContainerLayout.updateTheme()
             popupViews.forEach { it.updateTheme() }
-            (windowBackgroundDrawable as? WCutoutDrawable)?.color = WColor.PopupWindow.color
+            if (shouldUseDimBackdrop) {
+                (windowBackgroundDrawable as? WCutoutDrawable)?.color = WColor.PopupWindow.color
+            }
+            if (shouldUseBlurBackdrop) {
+                configureBlurBackdrop()
+            }
         }
     }.apply {
         val params = FrameLayout.LayoutParams(
@@ -157,11 +266,20 @@ class WNavigationPopup(
             WRAP_CONTENT
         )
         if (windowBackgroundStyle is WMenuPopup.BackgroundStyle.Cutout) {
-            background = WCutoutDrawable().apply {
-                color = WColor.PopupWindow.color
-                cutoutPath = windowBackgroundStyle.cutoutPath
-                windowBackgroundDrawable = this
+            blurCutoutPath = if (shouldUseBlurBackdrop) windowBackgroundStyle.cutoutPath else null
+            if (shouldUseDimBackdrop) {
+                background = WCutoutDrawable().apply {
+                    color = WColor.PopupWindow.color
+                    cutoutPath = windowBackgroundStyle.cutoutPath
+                    windowBackgroundDrawable = this
+                }
+            } else {
+                background = null
+                windowBackgroundDrawable = null
             }
+        } else {
+            blurCutoutPath = null
+            windowBackgroundDrawable = null
         }
         addView(contentContainerLayout, params)
         setOnClickListener { dismiss() }
@@ -188,18 +306,29 @@ class WNavigationPopup(
         x: Int, y: Int, initialHeight: Int = 0, fromTop: Boolean = true
     ) {
         val popupHost = this.popupHost ?: return
+        ensureBlurBackdropAttached(popupHost)
         contentContainerLayout.apply {
             translationX = x.toFloat() - popupHost.paddingLeft
             translationY = y.toFloat() - popupHost.paddingTop
-            elevation =
-                (if (windowBackgroundStyle is WMenuPopup.BackgroundStyle.Transparent) 4f else 2f).dp
+            val elevationValue = if (!shouldUseDimBackdrop ||
+                windowBackgroundStyle is WMenuPopup.BackgroundStyle.Transparent
+            ) {
+                4f
+            } else {
+                2f
+            }
+            elevation = elevationValue.dp
         }
         popupHost.addView(rootContainerLayout)
-        windowBackgroundDrawable?.alpha = 0
+        if (shouldUseBlurBackdrop) {
+            configureBlurBackdrop()
+            blurBackdropContainer.alpha = 0f
+        }
+        updateBackdropProgress(0f)
         val interpolator = LinearInterpolator()
         initialPopupView.present(initialHeight, fromTop) { animationFraction ->
             val interpolated = interpolator.getInterpolation(animationFraction)
-            windowBackgroundDrawable?.alpha = (255 * interpolated).roundToInt()
+            updateBackdropProgress(interpolated)
             displayProgressListener?.invoke(animationFraction)
         }
         PopupHelpers.popupShown(this)
@@ -218,7 +347,7 @@ class WNavigationPopup(
         nextPopupView.translationX = transitionXOffset
         nextPopupView.lockView()
 
-        val layoutWidth = if (popupWidth == WRAP_CONTENT) WRAP_CONTENT else popupWidth
+        val layoutWidth = if (popupWidth == WRAP_CONTENT) contentContainerLayout.width else popupWidth
         contentContainerLayout.addView(
             nextPopupView,
             FrameLayout.LayoutParams(layoutWidth, WRAP_CONTENT)
@@ -338,7 +467,7 @@ class WNavigationPopup(
             dismiss { animationFraction ->
                 val reversed = 1 - animationFraction
                 val reversedInterpolated = interpolator.getInterpolation(reversed)
-                windowBackgroundDrawable?.alpha = (255 * reversedInterpolated).roundToInt()
+                updateBackdropProgress(reversedInterpolated)
                 displayProgressListener?.invoke(reversedInterpolated)
             }
             PopupHelpers.popupDismissed(this@WNavigationPopup)
@@ -352,7 +481,12 @@ class WNavigationPopup(
         isDismissed = true
         PopupHelpers.popupDismissed(this@WNavigationPopup)
 
-        popupHost?.removeView(rootContainerLayout)
+        (rootContainerLayout.parent as? ViewGroup)?.removeView(rootContainerLayout)
+        if (isBlurBackdropAttached) {
+            windowBlurBackground.pauseBlurring()
+            (blurBackdropContainer.parent as? ViewGroup)?.removeView(blurBackdropContainer)
+            isBlurBackdropAttached = false
+        }
         onDismissListener?.invoke()
     }
 }

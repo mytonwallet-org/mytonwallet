@@ -7,7 +7,7 @@ import Dependencies
 import SwiftNavigation
 
 /// Provides token for `tokenSlug`. If token with that slug is deleted, falls back to native token.
-@propertyWrapper @Perceptible
+@propertyWrapper @Perceptible @MainActor
 public final class TokenProvider {
     
     public var slug: String

@@ -28,6 +28,7 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
             is Mode.Burn -> {
                 toAddress = mode.chain.burnAddress
             }
+
             is Mode.Send -> {
                 toAddress = mode.toAddress
                 resolvedAddress = mode.resolvedAddress
@@ -38,13 +39,13 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
 
     val delegate: WeakReference<Delegate> = WeakReference(delegate)
 
-    fun requestFee(nft: ApiNft, isNftBurn: Boolean, comment: String?) {
+    fun requestFee(nfts: List<ApiNft>, isNftBurn: Boolean, comment: String?) {
         WalletCore.call(
             ApiMethod.Nft.CheckNftTransferDraft(
-                nft.chain ?: MBlockchain.ton,
+                nfts.first().chain ?: MBlockchain.ton,
                 MApiCheckNftDraftOptions(
                     AccountStore.activeAccountId!!,
-                    listOf(nft.toDictionary()),
+                    nfts.map { it.toDictionary() },
                     toAddress,
                     comment,
                     isNftBurn
@@ -52,24 +53,30 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
             ),
             callback = { res, err ->
                 resolvedAddress = res?.resolvedAddress
-                feeValue = res?.fee
+                feeValue = res?.realNativeFee
                 delegate.get()?.feeUpdated(
-                    (res ?: err?.parsedResult as? MApiCheckTransactionDraftResult)?.fee,
+                    (res ?: err?.parsedResult as? MApiCheckTransactionDraftResult)?.realNativeFee,
                     err?.parsed
                 )
             }
         )
     }
 
-    fun submitTransferNft(nft: ApiNft, isNftBurn: Boolean, comment: String?, passcode: String, onSent: () -> Unit) {
+    fun submitTransferNft(
+        nfts: List<ApiNft>,
+        isNftBurn: Boolean,
+        comment: String?,
+        passcode: String,
+        onSent: () -> Unit
+    ) {
         if (resolvedAddress == null)
             return
         WalletCore.call(
             ApiMethod.Nft.SubmitNftTransfer(
-                chain = nft.chain ?: MBlockchain.ton,
+                chain = nfts.first().chain ?: MBlockchain.ton,
                 accountId = AccountStore.activeAccountId!!,
                 passcode = passcode,
-                nft = nft,
+                nfts = nfts,
                 address = resolvedAddress!!,
                 comment = comment,
                 fee = feeValue ?: BigInteger.ZERO,
@@ -85,13 +92,13 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
     }
 
     fun signNftTransferData(
-        nft: ApiNft,
+        nfts: List<ApiNft>,
         isNftBurn: Boolean,
         comment: String?
     ): LedgerConnectVC.SignData.SignNftTransfer {
         return LedgerConnectVC.SignData.SignNftTransfer(
             accountId = AccountStore.activeAccountId!!,
-            nft = nft,
+            nfts = nfts,
             toAddress = resolvedAddress!!,
             comment = comment,
             realFee = feeValue,

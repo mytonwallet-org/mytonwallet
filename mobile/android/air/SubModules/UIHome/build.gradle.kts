@@ -3,9 +3,15 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+    }
+}
+
 android {
     namespace = "org.mytonwallet.uihome"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 23
@@ -27,9 +33,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
 }
 
 val airSubModulePath = project.property("airSubModulePath")
@@ -50,6 +53,7 @@ dependencies {
     implementation(project("$airSubModulePath:UIBrowser"))
     implementation(project("$airSubModulePath:UIInAppBrowser"))
     implementation(project("$airSubModulePath:UISettings"))
+    implementation(project("$airSubModulePath:UIAgent"))
     implementation(project("$airSubModulePath:UITransaction"))
     implementation(project("$airSubModulePath:UIComponents"))
     implementation(project("$airSubModulePath:UITonConnect"))

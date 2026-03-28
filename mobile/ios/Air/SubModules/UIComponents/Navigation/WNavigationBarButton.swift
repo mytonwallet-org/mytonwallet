@@ -67,6 +67,13 @@ extension UIBarButtonItem {
         }
         return legacyButtonItem(title: title, style: .done, action: action)
     }
+
+    public static func textButtonItem(text: String, action: @escaping () -> Void) -> UIBarButtonItem {
+        if #available(iOS 26, iOSApplicationExtension 26, *) {
+            return UIBarButtonItem(title: text, primaryAction: UIAction { _ in action() })
+        }
+        return legacyButtonItem(title: text, style: .done, action: action)
+    }
     
     public func asSingleItemGroup() -> UIBarButtonItemGroup {
         UIBarButtonItemGroup(barButtonItems: [self], representativeItem: nil)

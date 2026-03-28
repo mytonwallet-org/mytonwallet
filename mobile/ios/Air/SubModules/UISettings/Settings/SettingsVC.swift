@@ -57,7 +57,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     
     // MARK: - Setup settings
     func setupViews() {
-        view.backgroundColor = WTheme.groupedBackground
+        view.backgroundColor = .air.groupedBackground
         
         settingsHeaderView = SettingsHeaderView()
         
@@ -95,7 +95,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         }
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
         } else {
-            _configuration.separatorConfiguration.color = WTheme.separator
+            _configuration.separatorConfiguration.color = .air.separator
         }
         _configuration.separatorConfiguration.bottomSeparatorInsets.leading = 62
         _configuration.headerMode = .none
@@ -118,7 +118,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         collectionView.delaysContentTouches = false
         collectionView.allowsSelection = true
         collectionView.contentInset.top = settingsHeaderView.layoutGeometry.scrollTopContentInset
-        collectionView.backgroundColor = WTheme.groupedBackground
+        collectionView.backgroundColor = .air.groupedBackground
 
         let listCellRegistration = AccountListCell.makeRegistration()
         
@@ -224,7 +224,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             let url = Language.current == .ru ? HELP_CENTER_URL_RU : HELP_CENTER_URL
             navigationController?.pushPlainWebView(title: title, url: URL(string: url)!)
         case .support:
-            UIApplication.shared.open(URL(string: "https://t.me/\(SUPPORT_USERNAME)")!)
+            UIApplication.shared.open(SupportDiagnostics.supportURL)
         case .about:
             let vc = AboutVC(showLegalSection: true)
             navigationController?.pushViewController(vc, animated: true)
@@ -264,7 +264,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     }
     
     private func showReceiveWithQR() {
-        AppActions.showReceive(chain: nil, title: lang("Your Address"))
+        AppActions.showReceive(accountContext: AccountContext(source: .current), chain: nil, title: lang("Your Address"))
     }
     
     private func removeWalllet() {

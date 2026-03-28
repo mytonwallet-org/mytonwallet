@@ -64,7 +64,7 @@ extension AddressCell {
                 AddressCell(address: address, chain: chain)
             }
             .background {
-                Color(WTheme.groupedItem)
+                Color.air.groupedItem
             }
             .margins(.horizontal, 16)
             .margins(.vertical, 12)

@@ -66,7 +66,7 @@ private struct Item: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Image.airBundle("RightArrowIcon")
             }
-            .foregroundStyle(Color(WTheme.primaryLabel))
+            .foregroundStyle(Color.air.primaryLabel)
             .backportGeometryGroup()
         }
     }

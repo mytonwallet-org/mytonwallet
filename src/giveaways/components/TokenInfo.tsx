@@ -6,7 +6,7 @@ import buildClassName from '../../util/buildClassName';
 
 import styles from './TokenInfo.module.scss';
 
-import DEFAULT_TOKEN_IMAGE_URL from '../../assets/coins/coin_ton.png';
+import DEFAULT_TOKEN_IMAGE_URL from '../../assets/coins/coin_ton.svg';
 
 const DEFAULT_TOKEN_SYMBOL = 'Toncoin';
 

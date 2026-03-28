@@ -102,7 +102,7 @@ fileprivate struct UnstakeInfoSection: View {
                     HStack {
                         Text(lang("Receiving"))
                             .font17h22()
-                            .foregroundStyle(Color(WTheme.secondaryLabel))
+                            .foregroundStyle(Color.air.secondaryLabel)
                         Spacer()
                         receivingBadge
                     }
@@ -113,7 +113,7 @@ fileprivate struct UnstakeInfoSection: View {
                         HStack {
                             Text(lang("Instant Withdrawal"))
                                 .font17h22()
-                                .foregroundStyle(Color(WTheme.secondaryLabel))
+                                .foregroundStyle(Color.air.secondaryLabel)
                             Spacer()
                             Text(lang("up to %1$@", arg1: amnt.formatted(.none, maxDecimals: 0)))
                         }
@@ -143,7 +143,7 @@ fileprivate struct UnstakeInfoSection: View {
             HStack(spacing: 4) {
                 Image(systemName: "clock.fill")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color(WTheme.secondaryLabel))
+                    .foregroundColor(.air.secondaryLabel)
                     .imageScale(.small)
                 Text(formatTimeToWait(remaining))
             }

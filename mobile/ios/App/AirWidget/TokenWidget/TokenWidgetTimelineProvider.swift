@@ -1,22 +1,13 @@
-//
-//  TokenWidgetTimelineProvider.swift
-//  App
-//
-//  Created by nikstar on 23.09.2025.
-//
-
-import SwiftUI
-import WalletCore
 import WidgetKit
 import UIKit
 
 struct TokenWidgetTimelineProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> TokenWidgetTimelineEntry {
-        return TokenWidgetTimelineEntry.placeholder
+        TokenWidgetTimelineEntry.placeholder
     }
 
     func snapshot(for configuration: TokenWidgetConfiguration, in context: Context) async -> TokenWidgetTimelineEntry {
-        return await loadEntry(for: configuration, date: .now)
+        await loadEntry(for: configuration, date: .now)
     }
 
     func timeline(for configuration: TokenWidgetConfiguration, in context: Context) async -> Timeline<TokenWidgetTimelineEntry> {
@@ -35,7 +26,10 @@ struct TokenWidgetTimelineProvider: AppIntentTimelineProvider {
         let selectedSlug = configuration.token.slug
         let token = tokens[selectedSlug] ?? configuration.token
         
-        let currencyRate = BaseCurrencyAmount.fromDouble((token.priceUsd ?? 0) * (rates[displayCurrency.rawValue]?.value ?? 1), displayCurrency)
+        let currencyRate = BaseCurrencyAmount.fromDouble(
+            (token.priceUsd ?? 0) * (rates[displayCurrency.rawValue]?.value ?? displayCurrency.fallbackExchangeRate),
+            displayCurrency
+        )
         let changeInCurrency = BaseCurrencyAmount.fromDouble((token.percentChange24hRounded ?? 0) * 0.01 * currencyRate.doubleValue, displayCurrency)
         
         var image: UIImage?

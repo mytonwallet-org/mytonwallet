@@ -24,11 +24,7 @@ import buildClassName from '../../util/buildClassName';
 import { getChainConfig } from '../../util/chain';
 import { SECOND } from '../../util/dateFormat';
 import { stopEvent } from '../../util/domEvents';
-import {
-  explainApiTransferFee,
-  getMaxTransferAmount,
-  isBalanceSufficientForTransfer,
-} from '../../util/fee/transferFee';
+import { getMaxTransferAmount, isBalanceSufficientForTransfer } from '../../util/fee/transferFee';
 import { vibrate } from '../../util/haptics';
 import { isValidAddressOrDomain } from '../../util/isValidAddress';
 import { debounce } from '../../util/schedulers';
@@ -73,8 +69,6 @@ interface StateProps {
   isActive: boolean;
   isLoading?: boolean;
   isComplete?: boolean;
-  nativeFee?: bigint;
-  realNativeFee?: bigint;
   tokenSlug: string;
   tokens?: UserToken[];
   savedAddresses?: SavedAddress[];
@@ -92,6 +86,7 @@ interface StateProps {
   scamWarningType?: ScamWarningType;
   isAllowSuspiciousActions: boolean;
   isTransferReadonly?: boolean;
+  explainedFee?: ExplainedTransferFee;
 }
 
 const COMMENT_MAX_SIZE_BYTES = 5000;
@@ -111,8 +106,6 @@ function TransferInitial({
   comment = '',
   shouldEncrypt,
   tokens,
-  nativeFee,
-  realNativeFee,
   savedAddresses,
   nativeTokenBalance,
   isEncryptedCommentSupported,
@@ -131,6 +124,7 @@ function TransferInitial({
   scamWarningType,
   isAllowSuspiciousActions,
   isTransferReadonly,
+  explainedFee,
 }: OwnProps & StateProps) {
   const {
     submitTransferInitial,
@@ -190,20 +184,20 @@ function TransferInitial({
   const shouldDisableClearButton = !toAddress && !(comment || binPayload) && !shouldEncrypt
     && !(isNftTransfer ? isStatic : amount !== undefined);
 
-  const explainedFee = useMemo(
-    () => explainApiTransferFee({
-      fee: nativeFee, realFee: realNativeFee, diesel, tokenSlug,
-    }),
-    [nativeFee, realNativeFee, diesel, tokenSlug],
-  );
+  const safeExplainedFee = useMemo(() => {
+    return explainedFee ?? {
+      isGasless: false,
+      canTransferFullBalance: false,
+    };
+  }, [explainedFee]);
 
   // Note: this constant has 3 distinct meaningful values
   const isEnoughBalance = isBalanceSufficientForTransfer({
     tokenBalance: balance,
     nativeTokenBalance,
     transferAmount: isNftTransfer ? 0n : amount,
-    fullFee: explainedFee.fullFee?.terms,
-    canTransferFullBalance: explainedFee.canTransferFullBalance,
+    fullFee: safeExplainedFee.fullFee?.terms,
+    canTransferFullBalance: safeExplainedFee.canTransferFullBalance,
   });
 
   const isAmountMissing = !isNftTransfer && !amount;
@@ -211,8 +205,8 @@ function TransferInitial({
   const maxAmount = getMaxTransferAmount({
     tokenBalance: balance,
     tokenSlug,
-    fullFee: explainedFee.fullFee?.terms,
-    canTransferFullBalance: explainedFee.canTransferFullBalance,
+    fullFee: safeExplainedFee.fullFee?.terms,
+    canTransferFullBalance: safeExplainedFee.canTransferFullBalance,
   });
 
   const isDieselNotAuthorized = diesel?.status === 'not-authorized';
@@ -227,13 +221,13 @@ function TransferInitial({
   useInterval(updateDieselState, authorizeDieselInterval);
 
   const fullFee = useMemo(() => {
-    return getFullFee(explainedFee.fullFee?.terms, tokenSlug);
-  }, [explainedFee.fullFee, tokenSlug]);
+    return getFullFee(safeExplainedFee.fullFee?.terms, tokenSlug);
+  }, [safeExplainedFee.fullFee, tokenSlug]);
 
   useEffect(() => {
     if (
       balance && amount && fullFee !== undefined
-      && amount < balance
+      && amount <= balance
       && fullFee < balance
       && amount + fullFee >= balance
     ) {
@@ -371,7 +365,7 @@ function TransferInitial({
     && isEnoughBalance
     && !hasCommentError
     && !isMultisig
-    && (!explainedFee.isGasless || diesel?.status === 'available' || diesel?.status === 'stars-fee')
+    && (!safeExplainedFee.isGasless || diesel?.status === 'available' || diesel?.status === 'stars-fee')
     && !(isNftTransfer && !nfts?.length),
   );
 
@@ -399,13 +393,13 @@ function TransferInitial({
       binPayload,
       shouldEncrypt,
       nfts,
-      isGasless: explainedFee.isGasless,
+      isGasless: safeExplainedFee.isGasless,
       isGaslessWithStars: diesel?.status === 'stars-fee',
       stateInit,
     });
   });
 
-  const [isFeeModalOpen, openFeeModal, closeFeeModal] = useFeeModal(explainedFee);
+  const [isFeeModalOpen, openFeeModal, closeFeeModal] = useFeeModal(safeExplainedFee);
 
   const tokensToSelect = useMemo(
     () => (tokens ?? []).filter((token) => isSelectableToken(token, tokenSlug)),
@@ -465,7 +459,7 @@ function TransferInitial({
     let precision: FeePrecision = 'exact';
 
     if (!isAmountMissing) {
-      const actualFee = hasInsufficientFeeError ? explainedFee.fullFee : explainedFee.realFee;
+      const actualFee = hasInsufficientFeeError ? safeExplainedFee.fullFee : safeExplainedFee.realFee;
       if (actualFee) {
         ({ terms, precision } = actualFee);
       }
@@ -595,10 +589,10 @@ function TransferInitial({
       <FeeDetailsModal
         isOpen={isFeeModalOpen}
         onClose={closeFeeModal}
-        fullFee={explainedFee.fullFee?.terms}
-        realFee={explainedFee.realFee?.terms}
-        realFeePrecision={explainedFee.realFee?.precision}
-        excessFee={explainedFee.excessFee}
+        fullFee={safeExplainedFee.fullFee?.terms}
+        realFee={safeExplainedFee.realFee?.terms}
+        realFeePrecision={safeExplainedFee.realFee?.precision}
+        excessFee={safeExplainedFee.excessFee}
         excessFeePrecision="approximate"
         token={transferToken}
       />
@@ -649,8 +643,6 @@ export default memo(
         amount,
         comment,
         shouldEncrypt,
-        fee,
-        realFee,
         tokenSlug,
         isLoading,
         state,
@@ -661,6 +653,7 @@ export default memo(
         stateInit,
         scamWarningType,
         isTransferReadonly,
+        explainedFee,
       } = global.currentTransfer;
 
       const isLedger = selectIsHardwareAccount(global);
@@ -677,8 +670,6 @@ export default memo(
         amount,
         comment,
         shouldEncrypt,
-        nativeFee: fee,
-        realNativeFee: realFee,
         nfts,
         tokenSlug,
         binPayload,
@@ -699,6 +690,7 @@ export default memo(
         scamWarningType,
         isAllowSuspiciousActions: selectIsAllowSuspiciousActions(global, currentAccountId),
         isTransferReadonly,
+        explainedFee,
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

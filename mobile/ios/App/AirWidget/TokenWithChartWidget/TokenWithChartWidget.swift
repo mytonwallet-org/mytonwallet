@@ -1,17 +1,6 @@
-//
-//  AirWidget.swift
-//  AirWidget
-//
-//  Created by nikstar on 23.09.2025.
-//
-
 import SwiftUI
-import WalletCore
-import WalletContext
-import UIComponents
 import WidgetKit
 import UIKit
-import Charts
 
 public struct TokenWithChartWidget: Widget {
     public let kind: String = "TokenWithChartWidget"
@@ -25,8 +14,8 @@ public struct TokenWithChartWidget: Widget {
         .contentMarginsDisabled()
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
         .containerBackgroundRemovable()
-        .configurationDisplayName(Text(LocalizedStringResource("Rate with Chart", bundle: LocalizationSupport.shared.bundle)))
-        .description(Text(LocalizedStringResource("$rate_with_chart_description", bundle: LocalizationSupport.shared.bundle)))
+        .configurationDisplayName(Text(localized("Rate with Chart")))
+        .description(Text(localized("$rate_with_chart_description")))
     }
 }
 

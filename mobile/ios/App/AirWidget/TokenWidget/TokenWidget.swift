@@ -1,16 +1,5 @@
-//
-//  AirWidget.swift
-//  AirWidget
-//
-//  Created by nikstar on 23.09.2025.
-//
-
 import SwiftUI
-import WalletCore
-import WalletContext
-import UIComponents
 import WidgetKit
-import UIKit
 
 public struct TokenWidget: Widget {
     public let kind: String = "TokenWidget"
@@ -24,8 +13,8 @@ public struct TokenWidget: Widget {
         .contentMarginsDisabled()
         .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryInline, .accessoryRectangular])
         .containerBackgroundRemovable()
-        .configurationDisplayName(Text(LocalizedStringResource("Rate", bundle: LocalizationSupport.shared.bundle)))
-        .description(Text(LocalizedStringResource("$rate_description", bundle: LocalizationSupport.shared.bundle)))
+        .configurationDisplayName(Text(localized("Rate")))
+        .description(Text(localized("$rate_description")))
     }
 }
 

@@ -189,6 +189,12 @@ object AccountStore : IStore {
                 isReorder = false
             )
             WGlobalStorage.removeAccount(removingAccountId)
+            if (WCacheStorage.getInitialScreen() == WCacheStorage.InitialScreen.LOCK &&
+                WGlobalStorage.accountIds().isNotEmpty() &&
+                !WGlobalStorage.isPasscodeSet()
+            ) {
+                WCacheStorage.setInitialScreen(WCacheStorage.InitialScreen.HOME)
+            }
             StakingStore.setStakingState(removingAccountId, null)
             BalanceStore.removeBalances(removingAccountId)
             WCacheStorage.clean(removingAccountId)

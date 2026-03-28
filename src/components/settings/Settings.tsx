@@ -391,7 +391,7 @@ function Settings({
 
   function renderHandleDeeplinkButton() {
     return (
-      <div className={styles.item} onClick={handleDeeplinkHookToggle}>
+      <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleDeeplinkHookToggle}>
         <img className={styles.menuIcon} src={tonLinksImg} alt={lang('Handle ton:// links')} />
         {lang('Handle ton:// links')}
 
@@ -418,7 +418,7 @@ function Settings({
         />
 
         <div
-          className={buildClassName(styles.content, 'custom-scroll', styles.withBottomSpace)}
+          className={buildClassName(styles.content, 'custom-scroll', styles.contentWithWallet)}
           onScroll={handleContentScroll}
         >
           {isPortrait && IS_CAPACITOR && (
@@ -430,7 +430,7 @@ function Settings({
 
           {IS_CORE_WALLET && (
             <div className={styles.block}>
-              <div className={styles.item} onClick={handleClickInstallApp}>
+              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleClickInstallApp}>
                 <img className={styles.menuIcon} src={upgradeImg} alt={lang('Upgrade to MyTonWallet')} />
                 <span className={styles.itemTitle}>{lang('Upgrade to MyTonWallet')}</span>
 
@@ -440,7 +440,7 @@ function Settings({
           )}
           {!IS_CORE_WALLET && IS_WEB && (
             <div className={styles.block}>
-              <div className={styles.item} onClick={handleClickInstallApp}>
+              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleClickInstallApp}>
                 <img className={styles.menuIcon} src={installAppImg} alt={lang('Install App')} />
                 <span className={styles.itemTitle}>{lang('Install App')}</span>
 
@@ -451,7 +451,7 @@ function Settings({
           {IS_EXTENSION && (
             <div className={styles.block}>
               {PROXY_HOSTS && (
-                <div className={styles.item} onClick={handleTonProxyToggle}>
+                <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleTonProxyToggle}>
                   <img className={styles.menuIcon} src={tonProxyImg} alt={lang('TON Proxy')} />
                   <span className={styles.itemTitle}>{lang('TON Proxy')}</span>
 
@@ -471,9 +471,14 @@ function Settings({
             </div>
           )}
 
-          {!IS_CORE_WALLET && <p className={styles.blockTitle}>{lang('Settings')}</p>}
+          {!IS_CORE_WALLET && (
+            <p className={buildClassName(styles.blockTitle, styles.blockTitleSmall)}>
+              {lang('Settings')}
+            </p>
+          )}
+
           <div className={styles.block}>
-            <div className={styles.item} onClick={handleAppearanceOpen}>
+            <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleAppearanceOpen}>
               <img className={styles.menuIcon} src={appearanceImg} alt={lang('Appearance')} />
               <div className={styles.itemContent}>
                 <span className={styles.itemTitle}>{lang('Appearance')}</span>
@@ -483,7 +488,7 @@ function Settings({
               <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
             </div>
             {isPasswordPresent && (
-              <div className={styles.item} onClick={handleSecurityOpen}>
+              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleSecurityOpen}>
                 <img className={styles.menuIcon} src={securityImg} alt={lang('Security')} />
                 <div className={styles.itemContent}>
                   <span className={styles.itemTitle}>{lang('Security')}</span>
@@ -496,7 +501,7 @@ function Settings({
               </div>
             )}
             {!SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY && (
-              <div className={styles.item} onClick={handleAssetsOpen}>
+              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleAssetsOpen}>
                 <img className={styles.menuIcon} src={assetsActivityImg} alt={lang('Assets & Activity')} />
                 <div className={styles.itemContent}>
                   <span className={styles.itemTitle}>{lang('Assets & Activity')}</span>
@@ -507,7 +512,7 @@ function Settings({
               </div>
             )}
             {!!versions?.length && (
-              <div className={styles.item} onClick={handleOpenWalletVersion}>
+              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleOpenWalletVersion}>
                 <img className={styles.menuIcon} src={walletVersionImg} alt={lang('Wallet Versions')} />
                 <div className={styles.itemContent}>
                   <span className={styles.itemTitle}>{lang('Wallet Versions')}</span>
@@ -518,7 +523,7 @@ function Settings({
               </div>
             )}
             {!IS_CORE_WALLET && IS_DAPP_SUPPORTED && !isViewMode && dapps.length > 0 && (
-              <div className={styles.item} onClick={handleConnectedDappsOpen}>
+              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleConnectedDappsOpen}>
                 <img className={styles.menuIcon} src={connectedDappsImg} alt={lang('Apps')} />
                 <div className={styles.itemContent}>
                   <span className={styles.itemTitle}>{lang('Apps')}</span>
@@ -528,7 +533,7 @@ function Settings({
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
             )}
-            <div className={styles.item} onClick={handlePushNotificationsOpen}>
+            <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handlePushNotificationsOpen}>
               <img
                 className={styles.menuIcon}
                 src={notifications}
@@ -543,7 +548,7 @@ function Settings({
               <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
             </div>
             {!IS_CORE_WALLET && (
-              <div className={styles.item} onClick={handleLanguageOpen}>
+              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleLanguageOpen}>
                 <img className={styles.menuIcon} src={languageImg} alt={lang('Language')} />
                 <div className={styles.itemContent}>
                   <span className={styles.itemTitle}>{lang('Language')}</span>
@@ -554,7 +559,11 @@ function Settings({
             )}
           </div>
 
-          {!IS_CORE_WALLET && <p className={styles.blockTitle}>{lang('Help')}</p>}
+          {!IS_CORE_WALLET && (
+            <p className={buildClassName(styles.blockTitle, styles.blockTitleSmall)}>
+              {lang('Help')}
+            </p>
+          )}
 
           <div className={styles.block}>
             {!IS_CORE_WALLET && (
@@ -564,7 +573,7 @@ function Settings({
                     href={`https://t.me/${SUPPORT_USERNAME}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={styles.item}
+                    className={buildClassName(styles.item, styles.itemMenu)}
                   >
                     <img className={styles.menuIcon} src={supportImg} alt={lang('Ask a Question')} />
                     <span className={styles.itemTitle}>{lang('Ask a Question')}</span>
@@ -579,7 +588,7 @@ function Settings({
                   href={getHelpCenterUrl(langCode, 'home')}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={styles.item}
+                  className={buildClassName(styles.item, styles.itemMenu)}
                 >
                   <img className={styles.menuIcon} src={helpcenterImg} alt={lang('Help Center')} />
                   <span className={styles.itemTitle}>{lang('Help Center')}</span>
@@ -590,7 +599,7 @@ function Settings({
                   href={getTelegramTipsChannelUrl(langCode)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={styles.item}
+                  className={buildClassName(styles.item, styles.itemMenu)}
                 >
                   <img className={styles.menuIcon} src={tipsImg} alt={lang('MyTonWallet Features')} />
                   <span className={styles.itemTitle}>{lang('MyTonWallet Features')}</span>
@@ -599,7 +608,7 @@ function Settings({
                 </a>
               </>
             )}
-            <div className={styles.item} onClick={handleDisclaimerOpen}>
+            <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleDisclaimerOpen}>
               <img className={styles.menuIcon} src={disclaimerImg} alt={lang('Use Responsibly')} />
               <span className={styles.itemTitle}>{lang('Use Responsibly')}</span>
 
@@ -609,14 +618,14 @@ function Settings({
 
           {!IS_CORE_WALLET && (
             <>
-              <p className={styles.blockTitle}>{lang('About')}</p>
+              <p className={buildClassName(styles.blockTitle, styles.blockTitleSmall)}>{lang('About')}</p>
               <div className={styles.block}>
                 {!isNftBuyingDisabled && (
                   <a
                     href={MTW_CARDS_WEBSITE}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={styles.item}
+                    className={buildClassName(styles.item, styles.itemMenu)}
                   >
                     <img className={styles.menuIcon} src={mtwCardsImg} alt={lang('MyTonWallet Cards NFT')} />
                     <span className={styles.itemTitle}>{lang('MyTonWallet Cards NFT')}</span>
@@ -625,7 +634,7 @@ function Settings({
                   </a>
                 )}
                 {IS_EXTENSION && (
-                  <div className={styles.item} onClick={handleClickInstallApp}>
+                  <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleClickInstallApp}>
                     <img className={styles.menuIcon} src={installAppImg} alt={lang('Install App')} />
                     <span className={styles.itemTitle}>{lang('Install App')}</span>
 
@@ -633,7 +642,7 @@ function Settings({
                   </div>
                 )}
                 {IS_CAPACITOR && (
-                  <div className={styles.item} onClick={handleClickInstallOnDesktop}>
+                  <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleClickInstallOnDesktop}>
                     <img className={styles.menuIcon} src={installDesktopImg} alt={lang('Install on Desktop')} />
                     <span className={styles.itemTitle}>{lang('Install on Desktop')}</span>
 
@@ -641,14 +650,14 @@ function Settings({
                   </div>
                 )}
                 {IS_ELECTRON && (
-                  <div className={styles.item} onClick={handleClickInstallOnMobile}>
+                  <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleClickInstallOnMobile}>
                     <img className={styles.menuIcon} src={installMobileImg} alt={lang('Install on Mobile')} />
                     <span className={styles.itemTitle}>{lang('Install on Mobile')}</span>
 
                     <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
                   </div>
                 )}
-                <div className={styles.item} onClick={handleAboutOpen}>
+                <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleAboutOpen}>
                   <img className={styles.menuIcon} src={aboutImg} alt="" />
                   <span className={styles.itemTitle}>{lang('About %app_name%', { app_name: APP_NAME })}</span>
 
@@ -660,7 +669,7 @@ function Settings({
 
           {!isPortrait && (
             <div className={styles.block}>
-              <div className={buildClassName(styles.item, styles.item_red)} onClick={openLogOutModal}>
+              <div className={buildClassName(styles.item, styles.itemMenu, styles.item_red)} onClick={openLogOutModal}>
                 <img
                   className={styles.menuIcon}
                   src={exitImg}

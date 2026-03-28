@@ -8,7 +8,7 @@
 import UIKit
 import WalletContext
 
-public class WSearchBar: UISearchBar, UISearchBarDelegate, WThemedView {
+public class WSearchBar: UISearchBar, UISearchBarDelegate {
 
     public var onChange: ((String) -> Void)?
     public var onSubmit: ((String) -> Void)?
@@ -50,8 +50,8 @@ public class WSearchBar: UISearchBar, UISearchBarDelegate, WThemedView {
         updateTheme()
     }
 
-    public func updateTheme() {
-        backgroundColor = WTheme.background
+    private func updateTheme() {
+        backgroundColor = .air.background
     }
     
     public override var intrinsicContentSize: CGSize {

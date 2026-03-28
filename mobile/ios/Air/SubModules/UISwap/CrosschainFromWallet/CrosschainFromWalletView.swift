@@ -3,7 +3,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-final class CrosschainFromWalletView: UIStackView, WThemedView {
+final class CrosschainFromWalletView: UIStackView {
     
     private let buyingToken: ApiToken!
     private let onAddressChanged: (String) -> Void
@@ -34,7 +34,7 @@ final class CrosschainFromWalletView: UIStackView, WThemedView {
         lbl.text = lang("Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.", arg1: getChainName(buyingToken.chain))
         lbl.font = .systemFont(ofSize: 13)
         lbl.numberOfLines = 0
-        lbl.textColor = WTheme.secondaryLabel
+        lbl.textColor = UIColor.air.secondaryLabel
         return lbl
     }()
     
@@ -47,13 +47,13 @@ final class CrosschainFromWalletView: UIStackView, WThemedView {
         updateTheme()
     }
     
-    public func updateTheme() {
-        addressTextField.backgroundColor = WTheme.background
+    private func updateTheme() {
+        addressTextField.backgroundColor = UIColor.air.background
         addressTextField.attributedPlaceholder = NSAttributedString(
             string: lang("Your address on another blockchain"),
             attributes: [
                 .font: UIFont.systemFont(ofSize: 17),
-                .foregroundColor: WTheme.secondaryLabel
+                .foregroundColor: UIColor.air.secondaryLabel
             ])
     }
     

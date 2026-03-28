@@ -184,7 +184,7 @@ function SettingsAssets({
           />
           <div className={buildClassName(styles.item, styles.item_small)} onClick={handleInvestorViewToggle}>
             <div>
-              {lang('Investor View')}
+              <span className={styles.itemTitle}>{lang('Investor View')}</span>
               {' '}
               <IconWithTooltip
                 message={lang('Focus on asset value rather than current balance')}
@@ -200,7 +200,7 @@ function SettingsAssets({
           </div>
           <div className={buildClassName(styles.item, styles.item_small)} onClick={handleTinyTransfersHiddenToggle}>
             <div>
-              {lang('Hide Tiny Transfers')}
+              <span className={styles.itemTitle}>{lang('Hide Tiny Transfers')}</span>
               {' '}
               <IconWithTooltip
                 message={
@@ -225,7 +225,7 @@ function SettingsAssets({
           shouldRenderHiddenNftsSection && (
             <div className={styles.settingsBlock}>
               <div className={buildClassName(styles.item, styles.item_small)} onClick={handleOpenHiddenNfts}>
-                {lang('Hidden NFTs')}
+                <span className={styles.itemTitle}>{lang('Hidden NFTs')}</span>
                 <div className={styles.itemInfo}>
                   {hiddenNftsCount}
                   <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
@@ -238,7 +238,7 @@ function SettingsAssets({
         <div className={styles.settingsBlock}>
           <div className={buildClassName(styles.item, styles.item_small)} onClick={handleTokensWithNoPriceToggle}>
             <div>
-              {lang('Hide Tokens With No Cost')}
+              <span className={styles.itemTitle}>{lang('Hide Tokens With No Cost')}</span>
               {' '}
               <IconWithTooltip
                 message={

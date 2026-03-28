@@ -71,7 +71,7 @@ fileprivate struct AddressRowView: View {
                             .font(.system(size: 17))
                             .lineLimit(1)
                         Image("HomeCopy", bundle: AirBundle)
-                            .foregroundStyle(Color(WTheme.secondaryLabel))
+                            .foregroundStyle(Color.air.secondaryLabel)
                     }
                     .frame(height: 20)
                     
@@ -88,7 +88,7 @@ fileprivate struct AddressRowView: View {
 //                            .fixedSize()
                     }
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
                     .frame(height: 18)
                 }
                 .padding(.trailing, 0)
@@ -100,8 +100,7 @@ fileprivate struct AddressRowView: View {
             
             Button(action: onOpenExplorer) {
                 Image("HomeGlobe", bundle: AirBundle)
-                    .foregroundStyle(Color(WTheme.tint))
-                    .tint(Color(WTheme.tint))
+                    .foregroundStyle(.tint)
                     .padding(10)
                     .contentShape(.circle)
             }

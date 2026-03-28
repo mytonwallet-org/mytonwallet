@@ -22,7 +22,7 @@ public struct NftPreviewRow: View {
             HStack(spacing: 10) {
                 image
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(nft.name ?? "NFT")
+                    Text(nft.displayName)
                         .font17h22()
                         .lineLimit(1)
                     Text(nft.collectionName ?? lang("Standalone NFT"))

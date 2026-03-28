@@ -62,7 +62,7 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
         configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
             self?.trailingSwipeActions(for: indexPath)
         }
-        configuration.backgroundColor = isModal ? WTheme.sheetBackground : WTheme.groupedBackground
+        configuration.backgroundColor = isModal ? .air.sheetBackground : .air.groupedBackground
         let layout = UICollectionViewCompositionalLayout.list(using: configuration)
         
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
@@ -169,9 +169,9 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
         updateEmptyAssetsView()
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = isModal ? WTheme.sheetBackground : WTheme.groupedBackground
-        collectionView?.backgroundColor = isModal ? WTheme.sheetBackground : WTheme.groupedBackground
+    private func updateTheme() {
+        view.backgroundColor = isModal ? .air.sheetBackground : .air.groupedBackground
+        collectionView?.backgroundColor = isModal ? .air.sheetBackground : .air.groupedBackground
     }
 
     public override func scrollToTop(animated: Bool) {

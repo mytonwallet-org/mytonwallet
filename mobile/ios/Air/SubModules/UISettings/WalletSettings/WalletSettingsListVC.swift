@@ -77,7 +77,7 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
     
     func setupViews() {
         
-        view.backgroundColor = WTheme.sheetBackground
+        view.backgroundColor = .air.sheetBackground
         
         let layout = makeLayout()
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
@@ -85,7 +85,7 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
         
         collectionView.delegate = self
         collectionView.translatesAutoresizingMaskIntoConstraints = false
-        collectionView.backgroundColor = WTheme.sheetBackground
+        collectionView.backgroundColor = .air.sheetBackground
         collectionView.alwaysBounceVertical = false
         collectionView.showsVerticalScrollIndicator = false
         collectionView.contentInset = UIEdgeInsets(top: 114, left: 0, bottom: 80, right: 0)

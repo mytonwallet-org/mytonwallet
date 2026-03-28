@@ -107,11 +107,15 @@ public class JSWebViewBridge: UIViewController {
     
     private var webView: WKWebView?
     private let start = Date()
+    private var isApiReady = false
+    private var bridgeReadyWaiters: [CheckedContinuation<Void, Never>] = []
 
     private let updateQueue = DispatchQueue(label: "onUpdate", qos: .background, attributes: [.concurrent])
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        StartupTrace.beginInterval("bridge.startup")
+        StartupTrace.markOnce("bridge.viewDidLoad")
         
         recreateWebView()
         view.isUserInteractionEnabled = false
@@ -127,7 +131,9 @@ public class JSWebViewBridge: UIViewController {
 
     private var onBridgeReady: (() -> Void)? = nil
     func recreateWebView(onCompletion: (() -> Void)? = nil) {
+        StartupTrace.markOnce("bridge.recreateWebView")
         onBridgeReady = onCompletion
+        isApiReady = false
         webView?.removeFromSuperview()
         webView = nil
 
@@ -182,12 +188,14 @@ public class JSWebViewBridge: UIViewController {
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         if !isViewAppeared {
+            StartupTrace.markOnce("bridge.viewWillAppear.first")
             loadHtml()
             isViewAppeared = true
         }
     }
     
     private func loadHtml() {
+        StartupTrace.markOnce("bridge.loadHtml")
         webView?.loadFileURL(sdkIndexFileURL, allowingReadAccessTo: sdkReadAccessURL)
     }
     
@@ -196,6 +204,12 @@ public class JSWebViewBridge: UIViewController {
         let argsString = String(data: jsonData, encoding: .utf8)!
         
         if self.webView == nil { // app switched to legacy mode
+            throw BridgeCallError.customMessage("Switched to legacy app", nil)
+        }
+        if !isApiReady {
+            await waitUntilBridgeIsReady()
+        }
+        guard self.webView != nil else {
             throw BridgeCallError.customMessage("Switched to legacy app", nil)
         }
         
@@ -287,14 +301,31 @@ public class JSWebViewBridge: UIViewController {
                 })
             } else {
                 //log.debug("JavaScript injected successfully")
+                self?.isApiReady = true
+                let waiters = self?.bridgeReadyWaiters ?? []
+                self?.bridgeReadyWaiters.removeAll()
+                waiters.forEach { $0.resume() }
+                StartupTrace.markOnce("bridge.injected")
+                StartupTrace.endInterval("bridge.startup", details: "result=ready")
                 WalletContextManager.delegate?.bridgeIsReady()
                 self?.onBridgeReady?()
                 self?.onBridgeReady = nil
             }
         }
     }
+
+    private func waitUntilBridgeIsReady() async {
+        guard !isApiReady else { return }
+        await withCheckedContinuation { continuation in
+            bridgeReadyWaiters.append(continuation)
+        }
+    }
     
     func stop() {
+        isApiReady = false
+        let waiters = bridgeReadyWaiters
+        bridgeReadyWaiters.removeAll()
+        waiters.forEach { $0.resume() }
         webView?.removeFromSuperview()
         webView = nil
     }
@@ -304,7 +335,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
     public func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
         assert(Thread.isMainThread)
-        let body = message.body
+        nonisolated(unsafe) let body = message.body
         let messageName = message.name
         updateQueue.async {
             assert(!Thread.isMainThread)
@@ -323,8 +354,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                       let methodName = data?["methodName"] as? String else {
                     return
                 }
-                DispatchQueue.main.async { [weak self] in
-                    guard let self else { return }
+                Task { @MainActor in
                     switch methodName {
                     case "capacitorStorageGetItem":
                         guard let key = data?["arg0"] as? String
@@ -332,12 +362,10 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                             return
                         }
                         let result = KeychainHelper.getStorage(key: key)
-                        Task {
-                            do {
-                                _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: result)
-                            } catch {
-                                log.fault("Error injecting getItem response to JavaScript: \(error)")
-                            }
+                        do {
+                            _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: result)
+                        } catch {
+                            log.fault("Error injecting getItem response to JavaScript: \(error)")
                         }
                         
                     case "capacitorStorageSetItem":
@@ -347,12 +375,10 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                             return
                         }
                         KeychainHelper.saveStorage(key: key, value: value)
-                        Task {
-                            do {
-                                _ = try await self.webView?.nativeCallOkVoid(requestNumber: requestNumber)
-                            } catch {
-                                log.fault("Error injecting setItem response to JavaScript: \(error)")
-                            }
+                        do {
+                            _ = try await self.webView?.nativeCallOkVoid(requestNumber: requestNumber)
+                        } catch {
+                            log.fault("Error injecting setItem response to JavaScript: \(error)")
                         }
                         
                     case "capacitorStorageRemoveItem":
@@ -361,24 +387,18 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                             return
                         }
                         KeychainHelper.saveStorage(key: key, value: nil)
-                        Task {
-                            do {
-                                _ = try await self.webView?.nativeCallOkVoid(requestNumber: requestNumber)
-                            } catch {
-                                log.fault("Error injecting removeItem response to JavaScript: \(error)")
-                            }
+                        do {
+                            _ = try await self.webView?.nativeCallOkVoid(requestNumber: requestNumber)
+                        } catch {
+                            log.fault("Error injecting removeItem response to JavaScript: \(error)")
                         }
-                        break
                         
                     case "capacitorStorageKeys":
-                        Task {
-                            do {
-                                _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: KeychainHelper.keys())
-                            } catch {
-                                log.fault("Error injecting keys response to JavaScript: \(error)")
-                            }
+                        do {
+                            _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: KeychainHelper.keys())
+                        } catch {
+                            log.fault("Error injecting keys response to JavaScript: \(error)")
                         }
-                        break
                         
                     case "exchangeWithLedger":
                         guard let apdu = data?["arg0"] as? String else {
@@ -441,7 +461,6 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                         
                     default:
                         fatalError("nativeCall (\(methodName)) not defined.")
-                        break
                     }
                 }
                 

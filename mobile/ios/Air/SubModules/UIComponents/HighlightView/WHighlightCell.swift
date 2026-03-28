@@ -68,31 +68,38 @@ open class WHighlightCollectionViewCell: UICollectionViewCell {
     open var highlightingTime: Double = 0.1
     open var unhighlightingTime: Double = 0.5
 
-    // if `highlightBackgroundColor` is set, the view background will be changed to the new color on highlight
-    open var highlightBackgroundColor: UIColor? = nil {
+    open var baseBackgroundColor: UIColor? = nil {
         didSet {
             if !isHighlighted {
-                oldBackground = highlightBackgroundColor
-            } else {
+                backgroundColor = baseBackgroundColor
+            }
+        }
+    }
+    
+    open var highlightBackgroundColor: UIColor? = nil {
+        didSet {
+            if isHighlighted {
                 backgroundColor = highlightBackgroundColor
             }
         }
     }
     
-    // old background holds background color before highlight state change
     private var oldBackground: UIColor? = nil
+
     open override var isHighlighted: Bool {
         didSet {
-            if oldBackground == nil {
-                return
-            }
             if isHighlighted != oldValue {
-                let switchBackgroundColor = oldBackground
-                oldBackground = backgroundColor
+                let defaultColor = baseBackgroundColor ?? oldBackground ?? backgroundColor
+                if isHighlighted {
+                    oldBackground = defaultColor
+                }
                 UIView.animate(withDuration: isHighlighted ? highlightingTime : unhighlightingTime,
                                delay: 0,
                                options: UIView.AnimationOptions.allowUserInteraction) {
-                    self.backgroundColor = switchBackgroundColor
+                    self.backgroundColor = self.isHighlighted ? self.highlightBackgroundColor : defaultColor
+                }
+                if !isHighlighted {
+                    oldBackground = nil
                 }
             }
         }
@@ -111,5 +118,11 @@ open class WHighlightCollectionViewCell: UICollectionViewCell {
     open override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         isHighlighted = false
         super.touchesCancelled(touches, with: event)
+    }
+
+    open override func prepareForReuse() {
+        super.prepareForReuse()
+        oldBackground = nil
+        isHighlighted = false
     }
 }

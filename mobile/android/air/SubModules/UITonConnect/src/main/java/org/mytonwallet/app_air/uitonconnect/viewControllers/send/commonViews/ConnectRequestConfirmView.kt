@@ -6,6 +6,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import androidx.appcompat.widget.AppCompatTextView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -20,14 +21,13 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 class ConnectRequestConfirmView(context: Context) : WView(context), WThemedView {
     private val imageView = WImageView(context, 20.dp)
 
-    private val titleTextView = AppCompatTextView(context).apply {
-        id = generateViewId()
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 36f)
+    private val titleTextView = WLabel(context).apply {
+        setStyle(36f, WFont.Medium)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 44f)
         ellipsize = TextUtils.TruncateAt.END
         gravity = Gravity.CENTER
-        typeface = WFont.Medium.typeface
         maxLines = 1
+        useCustomEmoji = true
     }
 
     private val infoTextView = AppCompatTextView(context).apply {

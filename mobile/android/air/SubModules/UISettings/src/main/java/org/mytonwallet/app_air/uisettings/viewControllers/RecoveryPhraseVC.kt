@@ -43,6 +43,7 @@ import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.helpers.PrivateKeyHelper
+import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 import java.lang.ref.WeakReference
 import kotlin.random.Random
 
@@ -64,8 +65,10 @@ open class RecoveryPhraseVC(
     open val skipTitle = LocaleController.getString("Close")
     open val checkMode: WordCheckMode = WordCheckMode.Check
 
-    private var skipAvailable = checkMode == WordCheckMode.Check || DEBUG_MODE
-    private var isShowingPrivateKey = wordsCount == 1 && PrivateKeyHelper.isValidPrivateKeyHex(words.first())
+    private var skipAvailable =
+        checkMode == WordCheckMode.Check || (DEBUG_MODE || EnvironmentStore.isBeta)
+    private var isShowingPrivateKey =
+        wordsCount == 1 && PrivateKeyHelper.isValidPrivateKeyHex(words.first())
 
     val animationView = WAnimationView(context).apply {
         play(
@@ -166,7 +169,10 @@ open class RecoveryPhraseVC(
     }
 
     val skipButton: WButton by lazy {
-        val btn = WButton(context, if (isShowingPrivateKey) WButton.Type.PRIMARY else WButton.Type.SECONDARY)
+        val btn = WButton(
+            context,
+            if (isShowingPrivateKey) WButton.Type.PRIMARY else WButton.Type.SECONDARY
+        )
         btn.text = skipTitle
         btn.setOnClickListener {
             skipPressed()

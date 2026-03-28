@@ -9,8 +9,8 @@ Permission Denied: İzin reddedildi
 USB: USB
 Bluetooth: Bluetooth
 Locked: Kilitli
-Enter Passcode: Parola gir
-Enter passcode or use fingerprint: Parola girin veya parmak izi kullanın
+Enter Passcode: Geçiş kodunu girin
+Enter passcode or use fingerprint: Geçiş kodunu girin veya parmak izi kullanın
 Use PIN: PIN kullan
 Try again in %1$@: "%1$@ sonra tekrar deneyin"
 Try again in %1$@ and %2$@: "%1$@ ve %2$@ sonra tekrar deneyin"
@@ -56,6 +56,10 @@ You have no NFT in this wallet yet: |
 Collapse: Daralt
 Expand: Genişlet
 Standalone NFT: Bağımsız NFT
+$nft_select: "Seç"
+$nft_batch_on_sale: Seçilen koleksiyonlar satışa çıkarılmış.
+$nft_batch_different_chains: Seçilen koleksiyonlar farklı zincirlerde.
+$nft_expired: "Süresi doldu"
 Linked Address: Bağlı adres
 Enter Address: Adres girin
 Show All Assets: Tüm varlıkları göster
@@ -83,7 +87,7 @@ Tokens on Home Screen: Ana ekrandaki tokenlar
 Current Wallet Version: Mevcut cüzdan sürümü
 Tokens on Other Versions: Diğer sürümlerdeki tokenlar
 Show Recovery Phrase: Kurtarma ifadesini göster
-Passcode: Parola
+Passcode: Geçiş kodu
 Lock the app after: Uygulamayı şu kadar sonra kilitle
 Never: Asla
 "%1$@ seconds": "%1$@ saniye"
@@ -98,6 +102,7 @@ Instantly: Anında
 Up to %1$@: "%1$@'a kadar"
 up to %1$@: "%1$@'a kadar"
 Current APY: Güncel APY
+Current APR: Güncel APR
 Est. earning per year: Tahmini yıllık kazanç
 in: içinde
 Error: Hata
@@ -168,8 +173,8 @@ Confirm Actions:
 "Connect to %1$@?": "%1$@ uygulamasına bağlanmak istiyor musunuz?"
 "Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.": Hesabınızda değeri 0,01 $'ın altındaki tokenları gösterme. Aşağıdaki listeden tek tek tokenları açıp kapatabilirsiniz.
 "Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.": 0,01 $'dan düşük işlemleri gösterme. Bu tür küçük işlemler genellikle spam veya dolandırıcılık için kullanılır.
-"Enter passcode or use Touch ID": Parola girin veya Touch ID kullanın
-"Enter your Wallet Passcode": Cüzdan parolanızı girin
+"Enter passcode or use Touch ID": Geçiş kodunu girin veya Touch ID kullanın
+"Enter your Wallet Passcode": Cüzdan geçiş kodunuzu girin
 "Estimated APY": Tahmini APY
 "Expired swap": Takasın süresi doldu
 "Failed swap": Takas başarısız
@@ -188,9 +193,9 @@ OK: Tamam
 "Open Collection": Koleksiyonu aç
 "Open in Explorer": Explorer'da aç
 "Open in...": "...'da aç"
-"Passcode changed": Parola değiştirildi
+"Passcode changed": Geçiş kodu değiştirildi
 "Please make sure your internet connection is working and try again.": Lütfen internet bağlantınızın çalıştığından emin olun ve tekrar deneyin.
-"Please set a passcode on your device, and then try to use biometric authentication.": Lütfen cihazınıza bir parola ayarlayın ve ardından biyometrik doğrulamayı yeniden deneyin.
+"Please set a passcode on your device, and then try to use biometric authentication.": Lütfen cihazınıza bir geçiş kodu ayarlayın ve ardından biyometrik doğrulamayı yeniden deneyin.
 Please try again: Lütfen tekrar deneyin
 "Please wait...": Lütfen bekleyin...
 Popular: Popüler
@@ -200,7 +205,7 @@ Receiving address: Alıcı adresi
 Remove: Kaldır
 "Request for unstaking": Stake çözme talebi
 "Save to Favorites": Favorilere kaydet
-Set a passcode: Parola ayarla
+Set a passcode: Geçiş kodu ayarla
 "Show All %1$@": "Tüm %1$@ öğelerini göster"
 "Staking Details": Stake detayları
 "TON Wallet Versions": TON cüzdan sürümleri
@@ -220,7 +225,7 @@ Wallet is Locked: Cüzdan kilitli
 Warning: Uyarı
 Wear: Kullan
 Your Address: Adresiniz
-Passcodes don't match. Please try again.: Parolalar eşleşmiyor. Lütfen tekrar deneyin.
+Passcodes don't match. Please try again.: Geçiş kodları eşleşmiyor. Lütfen tekrar deneyin.
 Secret phrase was copied to clipboard: Gizli ifade panoya kopyalandı
 Copy Anyway: Yine de kopyala
 12 Words: 12 Kelime
@@ -282,8 +287,8 @@ Swap Failed: Takas başarısız oldu
 The wallet is ready: Cüzdan hazır
 Unexpected error. Please let the support know.: Beklenmeyen bir hata oluştu. Lütfen destek ekibine bildirin.
 Unlock it and open the TON App: Cihazın kilidini açın ve TON uygulamasını başlatın
-Use 4-digit Passcode: 4 haneli parola kullan
-Use 6-digit Passcode: 6 haneli parola kullan
+Use 4-digit Passcode: 4 haneli geçiş kodu kullan
+Use 6-digit Passcode: 6 haneli geçiş kodu kullan
 You don’t have any cards to customize yet: Henüz özelleştirebileceğiniz kart yok
 Authorize %token% Fee: "%token% ücretini onayla"
 Awaiting Previous Fee: Önceki ücret bekleniyor
@@ -294,6 +299,16 @@ Scan: Tara
 Search or enter address: Adres arayın veya girin
 View as Grid: Izgara olarak görüntüle
 
+
+
+$web_permission_prompt: "%origin% sitesinin %permissions% kullanmasına izin verilsin mi?"
+$web_permission_allow: İzin ver
+$web_permission_deny: İzin verme
+$web_permission_camera: kamera
+$web_permission_microphone: mikrofon
+$web_permission_location: konum
+$web_permission_device_features: cihaz özellikleri
+$web_permission_this_site: bu site
 
 push_title_wallet: "%wallet_title%"
 push_activity_token_sent: Gönderildi %amount% %symbol%
@@ -332,3 +347,8 @@ push_domain_expired_days_ago: Alan adınız %domain% %days% gün önce süresi d
 push_domain_expires_today: Alan adınız %domain% bugün süresi dolacak. Erişimi kaybetmemek için lütfen yenileyin
 push_domain_expires_tomorrow: Alan adınız %domain% yarın süresi dolacak. Erişimi kaybetmemek için lütfen yenileyin
 push_domain_expires_in_days: Alan adınız %domain% %days% gün içinde süresi dolacak. Erişimi kaybetmemek için lütfen yenileyin
+
+$more_nfts:
+  zeroValue: NFT yok
+  oneValue: "+1 NFT"
+  otherValue: "+%1$d NFT"

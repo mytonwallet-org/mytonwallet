@@ -44,6 +44,7 @@ class HiddenNFTsItemCell(
         lbl.setStyle(16f, WFont.Medium)
         lbl.setSingleLine()
         lbl.ellipsize = TextUtils.TruncateAt.END
+        lbl.useCustomEmoji = true
         lbl
     }
 
@@ -52,6 +53,7 @@ class HiddenNFTsItemCell(
         lbl.setStyle(14f)
         lbl.setSingleLine()
         lbl.ellipsize = TextUtils.TruncateAt.END
+        lbl.useCustomEmoji = true
         lbl
     }
 

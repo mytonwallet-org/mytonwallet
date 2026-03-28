@@ -5,6 +5,13 @@ import { logDebugError } from '../logs';
 import { getIsActivityPending } from './index';
 
 function compareActivities(a: ApiActivity, b: ApiActivity, isAsc = false) {
+  // When called from ID-based functions, `activityById[id]` may be `undefined`
+  // if `byId` was updated before the merge (e.g., activity removed or not yet added)
+  if (!a || !b) {
+    if (!a && !b) return 0;
+    return !a ? 1 : -1;
+  }
+
   // The activity sorting is tuned to match the Toncenter API sorting as close as possible.
   // Putting the pending activities first, because when they get confirmed, their timestamp gets bigger than any current
   // confirmed activity timestamp. This reduces the movement in the activity list.
@@ -37,8 +44,8 @@ function sortActivityIds(activityById: Record<string, ApiActivity>, ids: readonl
 }
 
 export function mergeSortedActivities(...lists: (readonly ApiActivity[])[]) {
-  // It's hard to make sure the input is sorted, so we check and sort just in case.
-  // Otherwise, there may be unwanted duplicates in the returned array.
+  // Input lists may be unsorted when `byId` is updated before the merge (e.g., pending status changed).
+  // This is expected — we detect and re-sort to ensure correct merge behavior.
   for (let i = 0; i < lists.length; i++) {
     if (!areActivitiesSortedAndUnique(lists[i])) {
       logDebugError(`Activity list ${i} is unsorted or has duplicates`, { stack: new Error().stack });
@@ -46,12 +53,15 @@ export function mergeSortedActivities(...lists: (readonly ApiActivity[])[]) {
     }
   }
 
-  return mergeSortedArrays(lists, (a1, a2) => compareActivities(a1, a2), true);
+  return uniqueByKey(
+    mergeSortedArrays(lists, (a1, a2) => compareActivities(a1, a2), true),
+    'id',
+  );
 }
 
 export function mergeSortedActivityIds(activityById: Record<string, ApiActivity>, ...lists: (readonly string[])[]) {
-  // It's hard to make sure the input is sorted, so we check and sort just in case.
-  // Otherwise, there may be unwanted duplicates in the returned array.
+  // Input lists may be unsorted when `byId` is updated before the merge (e.g., pending status changed).
+  // This is expected — we detect and re-sort to ensure correct merge behavior.
   for (let i = 0; i < lists.length; i++) {
     if (!areActivityIdsSortedAndUnique(activityById, lists[i])) {
       logDebugError(`Activity id list ${i} is unsorted or has duplicates`, { stack: new Error().stack });
@@ -59,11 +69,11 @@ export function mergeSortedActivityIds(activityById: Record<string, ApiActivity>
     }
   }
 
-  return mergeSortedArrays(
+  return unique(mergeSortedArrays(
     lists,
     (id1, id2) => compareActivities(activityById[id1], activityById[id2]),
     true,
-  );
+  ));
 }
 
 export function mergeSortedActivitiesToMaxTime(...lists: (readonly ApiActivity[])[]) {
@@ -83,10 +93,10 @@ export function mergeSortedActivityIdsToMaxTime(
   ...lists: (readonly string[])[]
 ) {
   const fromTimestamp = Math.max(
-    ...lists.map((ids) => ids.length ? activityById[ids[ids.length - 1]].timestamp : -Infinity),
+    ...lists.map((ids) => ids.length ? activityById[ids[ids.length - 1]]?.timestamp ?? -Infinity : -Infinity),
   );
 
-  const filterPredicate = (id: string) => activityById[id].timestamp >= fromTimestamp;
+  const filterPredicate = (id: string) => (activityById[id]?.timestamp ?? -Infinity) >= fromTimestamp;
 
   return mergeSortedActivityIds(
     activityById,

@@ -25,12 +25,16 @@ private let log = Log("AppSwitcher")
         log.info("AppSwitcher.init")
         self.window = window
         AirLauncher.set(window: window)
+        StartupTrace.mark("appSwitcher.init")
     }
     
     func startTheApp() {
         let canSwitchToCapacitor = (UIApplication.shared.delegate as? AppDelegate)?.canSwitchToCapacitor ?? true
         log.info("startTheApp isOnTheAir=\(AirLauncher.isOnTheAir) canSwitchToCapacitor=\(canSwitchToCapacitor)")
+        StartupTrace.mark("appSwitcher.start", details: "isOnAir=\(AirLauncher.isOnTheAir) canSwitchToCapacitor=\(canSwitchToCapacitor)")
         if AirLauncher.isOnTheAir || !canSwitchToCapacitor {
+            StartupTrace.mark("appSwitcher.launchingAir")
+            AirLauncher.installRootViewControllerIfNeeded()
             Task(priority: .userInitiated) {
                 await AirLauncher.soarIntoAir()
             }

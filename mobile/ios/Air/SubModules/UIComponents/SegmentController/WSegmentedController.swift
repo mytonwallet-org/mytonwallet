@@ -19,11 +19,13 @@ public protocol WSegmentedControllerContent: UIViewController {
     var scrollingView: UIScrollView? { get }
     func scrollToTop(animated: Bool)
     var calculatedHeight: CGFloat { get }
+    var hostedHeight: CGFloat { get }
 }
 
 public extension WSegmentedControllerContent {
     // FIXME: - default implementation is ambiguous
     var calculatedHeight: CGFloat { 0 }
+    var hostedHeight: CGFloat { calculatedHeight }
 }
 
 extension WSegmentedControllerContent {
@@ -69,11 +71,11 @@ public class WSegmentedController: WTouchPassView {
 
     private static let notSelectedDefaultAttr = [
         NSAttributedString.Key.font: UIFont.systemFont(ofSize: 17, weight: .semibold),
-        NSAttributedString.Key.foregroundColor: WTheme.secondaryLabel
+        NSAttributedString.Key.foregroundColor: UIColor.air.secondaryLabel
     ]
     private static let selectedDefaultAttr = [
         NSAttributedString.Key.font: UIFont.systemFont(ofSize: 17, weight: .semibold),
-        NSAttributedString.Key.foregroundColor: WTheme.primaryLabel
+        NSAttributedString.Key.foregroundColor: UIColor.label
     ]
 
     private let barHeight: CGFloat
@@ -133,9 +135,9 @@ public class WSegmentedController: WTouchPassView {
                 model.selection = .init(item1: model.items[0].id)
             }
         }
-        model.primaryColor = primaryTextColor ?? WTheme.primaryLabel
-        model.secondaryColor = secondaryTextColor ?? WTheme.secondaryLabel
-        model.capsuleColor = capsuleFillColor ?? WTheme.thumbBackground
+        model.primaryColor = primaryTextColor ?? UIColor.label
+        model.secondaryColor = secondaryTextColor ?? UIColor.air.secondaryLabel
+        model.capsuleColor = capsuleFillColor ?? UIColor.air.thumbBackground
         model.onSelect = { [weak self] item in
             guard let self else { return }
             if let index = model.getItemIndexById(itemId: item.id) {
@@ -201,7 +203,7 @@ public class WSegmentedController: WTouchPassView {
 
         separator = UIView()
         separator.translatesAutoresizingMaskIntoConstraints = false
-        separator.backgroundColor = WTheme.separator
+        separator.backgroundColor = UIColor.air.separator
         separator.alpha = 0
         addSubview(separator)
         scrollViewWidthConstraint = scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: scrollView.widthAnchor, multiplier: CGFloat(viewControllers.count))
@@ -413,9 +415,6 @@ public class WSegmentedController: WTouchPassView {
                 blurView.alpha = 0
             }
         }
-    }
-
-    public func updateTheme() {
     }
 
     public func scrollToTop(animated: Bool) {

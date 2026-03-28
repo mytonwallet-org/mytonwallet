@@ -54,6 +54,7 @@ struct TokenSendFlow: SendFlow {
         guard let resolved = context.transactionDraft?.resolvedAddress else {
             throw BridgeCallError.customMessage(lang("Address not resolved"), nil)
         }
+        let diesel = context.transactionDraft?.diesel
         return ApiSubmitTransferOptions(
             accountId: context.accountId,
             toAddress: resolved,
@@ -63,8 +64,9 @@ struct TokenSendFlow: SendFlow {
             tokenAddress: context.token.tokenAddress,
             realFee: explainedFee?.realFee?.nativeSum,
             isGasless: explainedFee?.isGasless,
-            dieselAmount: context.transactionDraft?.diesel?.tokenAmount,
-            isGaslessWithStars: nil,
+            dieselAmount: diesel?.tokenAmount,
+            isGaslessWithStars: diesel?.status == .starsFee,
+            gaslessTransaction: diesel?.transaction,
             password: password,
             fee: explainedFee?.fullFee?.nativeSum,
             noFeeCheck: nil
@@ -102,7 +104,7 @@ struct TokenSendFlow: SendFlow {
             throw BridgeCallError.message(.walletNotInitialized, nil)
         }
         
-        let explainedFee = explainApiTransferFee(input: draft, tokenSlug: context.token.slug)
+        let explainedFee = draft.explainedFee
         
         return SendFlowDraftResult(
             draftData: DraftData(
@@ -149,13 +151,13 @@ struct NftSendFlow: SendFlow {
             isNftBurn: isNftBurn
         ))
         try handleDraftError(draft)
-        
+                
         return SendFlowDraftResult(
             draftData: DraftData(
                 status: .valid,
                 transactionDraft: draft
             ),
-            explainedFee: nil,
+            explainedFee: draft.explainedFee,
             requiresMemo: draft.isMemoRequired ?? false
         )
     }
@@ -172,7 +174,7 @@ struct NftSendFlow: SendFlow {
             nfts: context.nfts ?? [],
             toAddress: resolved,
             comment: context.payload?.comment,
-            totalRealFee: context.transactionDraft?.realFee ?? 0,
+            totalRealFee: context.transactionDraft?.realNativeFee ?? 0,
             isNftBurn: context.nftSendMode == .burn
         )
         if let error = result.error {
@@ -194,7 +196,7 @@ struct NftSendFlow: SendFlow {
             nft: nft,
             toAddress: resolved,
             comment: context.payload?.comment,
-            realFee: context.transactionDraft?.realFee,
+            realFee: context.transactionDraft?.realNativeFee,
             isNftBurn: context.nftSendMode == .burn
         )
     }

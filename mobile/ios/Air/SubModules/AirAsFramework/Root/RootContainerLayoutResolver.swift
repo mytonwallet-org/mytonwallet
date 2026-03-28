@@ -10,6 +10,7 @@ protocol RootContainerLayoutResolving {
 @MainActor
 struct RootContainerLayoutResolver: RootContainerLayoutResolving {
     func buildActiveRootViewController() -> UIViewController {
+        StartupTrace.mark("rootContainer.activeRoot.build", details: "layout=\(shouldUseSplitLayout ? "split" : "tab")")
         if shouldUseSplitLayout {
             return RootContainerVC(contentViewController: SplitRootViewController())
         }

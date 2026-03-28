@@ -61,7 +61,7 @@ struct SwapCexDetailsView: View {
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxHeight: isExpanded ? nil : 44, alignment: .top)
             .frame(height: 400, alignment: .top)
-            .tint(Color(WTheme.tint))
+            .tint(.accentColor)
             .animation(.spring(duration: isExpanded ? 0.45 : 0.3), value: isExpanded)
         }
     }
@@ -78,8 +78,8 @@ struct SwapCexDetailsView: View {
                         .rotationEffect(isExpanded ? .radians(-0.5 * .pi) : .radians(0.5 * .pi))
                 }
                 .font13()
-                .tint(Color(WTheme.secondaryLabel))
-                .foregroundStyle(Color(WTheme.secondaryLabel))
+                .tint(.air.secondaryLabel)
+                .foregroundStyle(Color.air.secondaryLabel)
             }
             .frame(minHeight: 44)
             .contentShape(.rect)
@@ -95,7 +95,7 @@ struct SwapCexDetailsView: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     HStack(spacing: 0) {
                         Text(lang("Exchange Rate"))
-                            .foregroundStyle(Color(WTheme.secondaryLabel))
+                            .foregroundStyle(Color.air.secondaryLabel)
                         Spacer(minLength: 4)
                         let priceAmount = DecimalAmount.fromDouble(exchangeRate.price, exchangeRate.fromToken)
                         Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(.none, maxDecimals: min(6, sellingToken.decimals)))")
@@ -111,7 +111,7 @@ struct SwapCexDetailsView: View {
         if let feeDetails, let nativeToken = TokenStore.tokens[sellingToken.nativeTokenSlug] {
             InsetDetailCell {
                 Text(lang("Blockchain Fee"))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
             } value: {
                 FeeView(
                     token: sellingToken,

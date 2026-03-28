@@ -24,10 +24,6 @@ public struct MAssetsAndActivityData: Equatable, Sendable {
     private var pinnedSlugs: OrderedSet<String> { _pinnedSlugs ?? [] }
     private var _pinnedSlugs: OrderedSet<String>?
 
-    public var pinningFeatureHasNotYetBeenEverUsed: Bool {
-        _pinnedSlugs == nil
-    }
-
     init(dictionary: [String: Any]?) {
         if let dictionary {
             // alwaysShownSlugs = Set(dictionary["alwaysShownSlugs"] as? [String] ?? [])
@@ -91,6 +87,10 @@ public struct MAssetsAndActivityData: Equatable, Sendable {
     public enum PinningInfo {
         case pinned(index: Int)
         case notPinned
+    }
+
+    public var hasPinnedTokens: Bool {
+        !pinnedSlugs.isEmpty
     }
 
     public func isTokenPinned(slug: String, isStaked: Bool) -> PinningInfo {

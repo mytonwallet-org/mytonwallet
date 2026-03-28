@@ -11,7 +11,8 @@ struct ActionsRow: View {
     var model: ActivityDetailsViewModel
     
     var shouldShowRepeat: Bool {
-        guard let account  = AccountStore.account, account.type != .view else { return false }
+        let account = model.accountContext.account
+        guard account.type != .view else { return false }
         
         switch model.activity {
         case .transaction(let tx):
@@ -39,7 +40,7 @@ struct ActionsRow: View {
                 showRepeat: shouldShowRepeat,
                 showShare: shouldShowShare,
                 onDetailsExpanded: { model.onDetailsExpanded() },
-                onRepeat: { AppActions.repeatActivity(model.activity) },
+                onRepeat: { AppActions.repeatActivity(accountContext: model.accountContext, model.activity) },
                 onShare: {
                     if let chain = TokenStore.tokens[model.activity.slug]?.chain, chain.isSupported {
                         let txHash = model.activity.parsedTxId.hash
@@ -54,7 +55,7 @@ struct ActionsRow: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
                 .padding(.bottom, 16)
-                .tint(Color(WTheme.tint))
+                .tint(.accentColor)
         }
     }
 }
@@ -122,4 +123,3 @@ private struct ActivityDetailsActionsToolbarRepresentable: UIViewRepresentable {
         uiView.configure(model: model)
     }
 }
-

@@ -17,9 +17,10 @@ import styles from './DeleteTokenModal.module.scss';
 
 interface OwnProps {
   token?: UserToken;
+  onClose?: NoneToVoidFunction;
 }
 
-function DeleteTokenModal({ token }: OwnProps) {
+function DeleteTokenModal({ token, onClose }: OwnProps) {
   const {
     deleteToken,
   } = getActions();
@@ -35,6 +36,7 @@ function DeleteTokenModal({ token }: OwnProps) {
 
   const handleClose = useLastCallback(() => {
     setIsOpen(false);
+    onClose?.();
   });
 
   const handleDeleteToken = useLastCallback(() => {

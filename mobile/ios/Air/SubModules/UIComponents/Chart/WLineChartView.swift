@@ -50,6 +50,11 @@ public class WLineChartView: LineChartView {
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+
+    public override func tintColorDidChange() {
+        super.tintColorDidChange()
+        setNeedsDisplay()
+    }
     
     @objc private func onLongPress(gestureRecognizer: UILongPressGestureRecognizer) {
         switch gestureRecognizer.state {
@@ -121,17 +126,17 @@ class ChartMarker: Marker {
             width: 6,
             height: 6))
         
-        WTheme.background.setFill()
+        UIColor.air.background.setFill()
         outerView.fill()
         outerView.stroke()
         
-        WTheme.tint.setFill()
+        UIColor.tintColor.setFill()
         innerView.fill()
         innerView.stroke()
     }
 }
 
-class CustomLineChartRenderer: LineChartRenderer {
+class CustomLineChartRenderer: LineChartRenderer, @unchecked Sendable {
     
     override func drawHighlightLines(context: CGContext, point: CGPoint, set: any LineScatterCandleRadarChartDataSetProtocol) {
         if set.isVerticalHighlightIndicatorEnabled && point.x < viewPortHandler.contentRight {
@@ -140,7 +145,7 @@ class CustomLineChartRenderer: LineChartRenderer {
             let dashPattern: [CGFloat] = [5.0, 3.0]
             context.setLineDash(phase: 0, lengths: dashPattern)
             
-            let colors = [WTheme.tint.cgColor, UIColor.clear.cgColor] as CFArray
+            let colors = [UIColor.tintColor.cgColor, UIColor.clear.cgColor] as CFArray
             let colorSpace = CGColorSpaceCreateDeviceRGB()
             let gradient = CGGradient(colorsSpace: colorSpace, colors: colors, locations: [0.0, 1.0])!
             
@@ -168,105 +173,108 @@ class CustomLineChartRenderer: LineChartRenderer {
     
     @objc open override func drawCubicBezier(context: CGContext, dataSet: LineChartDataSetProtocol) {
         guard let dataProvider = dataProvider as? LineChartView else { return }
-        
-        let trans = dataProvider.getTransformer(forAxis: dataSet.axisDependency)
-        
         let phaseY = animator.phaseY
-        
-        _xBounds.set(chart: dataProvider, dataSet: dataSet, animator: animator)
-        
-        // Determine the highlight position
-        let highlightIndex = dataProvider.highlighted.first?.x ?? -1
-        
-        // get the color that is specified for this position from the DataSet
-        let drawingColor = dataSet.colors.first!
-        
-        let intensity = dataSet.cubicIntensity
-        
-        // the path for the cubic-spline
-        let cubicPath1 = CGMutablePath()
-        let cubicPath2 = CGMutablePath()
-        
-        let valueToPixelMatrix = trans.valueToPixelMatrix
-        
-        if _xBounds.range >= 1
-        {
-            var prevDx: CGFloat = 0.0
-            var prevDy: CGFloat = 0.0
-            var curDx: CGFloat = 0.0
-            var curDy: CGFloat = 0.0
+        nonisolated(unsafe) let context = context
+        MainActor.assumeIsolated {
+            let trans = dataProvider.getTransformer(forAxis: dataSet.axisDependency)
             
-            // Take an extra point from the left, and an extra from the right.
-            // That's because we need 4 points for a cubic bezier (cubic=4), otherwise we get lines moving and doing weird stuff on the edges of the chart.
-            // So in the starting `prev` and `cur`, go -2, -1
             
-            let firstIndex = _xBounds.min + 1
             
-            var prevPrev: ChartDataEntry! = nil
-            var prev: ChartDataEntry! = dataSet.entryForIndex(max(firstIndex - 2, 0))
-            var cur: ChartDataEntry! = dataSet.entryForIndex(max(firstIndex - 1, 0))
-            var next: ChartDataEntry! = cur
-            var nextIndex: Int = -1
+            _xBounds.set(chart: dataProvider, dataSet: dataSet, animator: animator)
             
-            if cur == nil { return }
+            // Determine the highlight position
+            let highlightIndex = dataProvider.highlighted.first?.x ?? -1
             
-            // let the spline start
-            cubicPath1.move(to: CGPoint(x: CGFloat(cur.x), y: CGFloat(cur.y * phaseY)), transform: valueToPixelMatrix)
+            // get the color that is specified for this position from the DataSet
+            let drawingColor = dataSet.colors.first!
             
-            for j in _xBounds.dropFirst()  // same as firstIndex
+            let intensity = dataSet.cubicIntensity
+            
+            // the path for the cubic-spline
+            let cubicPath1 = CGMutablePath()
+            let cubicPath2 = CGMutablePath()
+            
+            let valueToPixelMatrix = trans.valueToPixelMatrix
+            
+            if _xBounds.range >= 1
             {
-                prevPrev = prev
-                prev = cur
-                cur = nextIndex == j ? next : dataSet.entryForIndex(j)
+                var prevDx: CGFloat = 0.0
+                var prevDy: CGFloat = 0.0
+                var curDx: CGFloat = 0.0
+                var curDy: CGFloat = 0.0
                 
-                nextIndex = j + 1 < dataSet.entryCount ? j + 1 : j
-                next = dataSet.entryForIndex(nextIndex)
+                // Take an extra point from the left, and an extra from the right.
+                // That's because we need 4 points for a cubic bezier (cubic=4), otherwise we get lines moving and doing weird stuff on the edges of the chart.
+                // So in the starting `prev` and `cur`, go -2, -1
                 
-                if next == nil { break }
+                let firstIndex = _xBounds.min + 1
                 
-                let isHighlighted = highlightIndex == -1 || cur.x <= highlightIndex
-                if !isHighlighted && prev.x <= highlightIndex {
-                    cubicPath2.move(to: CGPoint(x: CGFloat(cur.x), y: CGFloat(cur.y * phaseY)), transform: valueToPixelMatrix)
+                var prevPrev: ChartDataEntry! = nil
+                var prev: ChartDataEntry! = dataSet.entryForIndex(max(firstIndex - 2, 0))
+                var cur: ChartDataEntry! = dataSet.entryForIndex(max(firstIndex - 1, 0))
+                var next: ChartDataEntry! = cur
+                var nextIndex: Int = -1
+                
+                if cur == nil { return }
+                
+                // let the spline start
+                cubicPath1.move(to: CGPoint(x: CGFloat(cur.x), y: CGFloat(cur.y * phaseY)), transform: valueToPixelMatrix)
+                
+                for j in _xBounds.dropFirst()  // same as firstIndex
+                {
+                    prevPrev = prev
+                    prev = cur
+                    cur = nextIndex == j ? next : dataSet.entryForIndex(j)
+                    
+                    nextIndex = j + 1 < dataSet.entryCount ? j + 1 : j
+                    next = dataSet.entryForIndex(nextIndex)
+                    
+                    if next == nil { break }
+                    
+                    let isHighlighted = highlightIndex == -1 || cur.x <= highlightIndex
+                    if !isHighlighted && prev.x <= highlightIndex {
+                        cubicPath2.move(to: CGPoint(x: CGFloat(cur.x), y: CGFloat(cur.y * phaseY)), transform: valueToPixelMatrix)
+                    }
+                    
+                    prevDx = CGFloat(cur.x - prevPrev.x) * intensity
+                    prevDy = CGFloat(cur.y - prevPrev.y) * intensity
+                    curDx = CGFloat(next.x - prev.x) * intensity
+                    curDy = CGFloat(next.y - prev.y) * intensity
+                    
+                    let path = isHighlighted ? cubicPath1 : cubicPath2
+                    path.addCurve(
+                        to: CGPoint(
+                            x: CGFloat(cur.x),
+                            y: CGFloat(cur.y) * CGFloat(phaseY)),
+                        control1: CGPoint(
+                            x: CGFloat(prev.x) + prevDx,
+                            y: (CGFloat(prev.y) + prevDy) * CGFloat(phaseY)),
+                        control2: CGPoint(
+                            x: CGFloat(cur.x) - curDx,
+                            y: (CGFloat(cur.y) - curDy) * CGFloat(phaseY)),
+                        transform: valueToPixelMatrix)
                 }
-
-                prevDx = CGFloat(cur.x - prevPrev.x) * intensity
-                prevDy = CGFloat(cur.y - prevPrev.y) * intensity
-                curDx = CGFloat(next.x - prev.x) * intensity
-                curDy = CGFloat(next.y - prev.y) * intensity
-                
-                let path = isHighlighted ? cubicPath1 : cubicPath2
-                path.addCurve(
-                    to: CGPoint(
-                        x: CGFloat(cur.x),
-                        y: CGFloat(cur.y) * CGFloat(phaseY)),
-                    control1: CGPoint(
-                        x: CGFloat(prev.x) + prevDx,
-                        y: (CGFloat(prev.y) + prevDy) * CGFloat(phaseY)),
-                    control2: CGPoint(
-                        x: CGFloat(cur.x) - curDx,
-                        y: (CGFloat(cur.y) - curDy) * CGFloat(phaseY)),
-                    transform: valueToPixelMatrix)
             }
-        }
-        
-        context.saveGState()
-        defer { context.restoreGState() }
-        
-        if dataSet.isDrawFilledEnabled
-        {
-            let fillPath = cubicPath1.mutableCopy()
-            drawCubicFill(context: context, dataSet: dataSet, spline: fillPath!, matrix: valueToPixelMatrix, bounds: _xBounds)
-        }
-        
-        if dataSet.isDrawLineWithGradientEnabled
-        {
-            drawGradientLine(context: context, dataSet: dataSet, spline: cubicPath1, matrix: valueToPixelMatrix)
-            drawGradientLine(context: context, dataSet: dataSet, spline: cubicPath2, matrix: valueToPixelMatrix)
-        }
-        else
-        {
-            drawLine(context: context, spline: cubicPath1, drawingColor: drawingColor, lineWidth: dataSet.lineWidth)
-            drawLine(context: context, spline: cubicPath2, drawingColor: drawingColor.withAlphaComponent(0.25), lineWidth: dataSet.lineWidth)
+            
+            context.saveGState()
+            defer { context.restoreGState() }
+            
+            if dataSet.isDrawFilledEnabled
+            {
+                let fillPath = cubicPath1.mutableCopy()
+                drawCubicFill(context: context, dataSet: dataSet, spline: fillPath!, matrix: valueToPixelMatrix, bounds: _xBounds)
+            }
+            
+            if dataSet.isDrawLineWithGradientEnabled
+            {
+                drawGradientLine(context: context, dataSet: dataSet, spline: cubicPath1, matrix: valueToPixelMatrix)
+                drawGradientLine(context: context, dataSet: dataSet, spline: cubicPath2, matrix: valueToPixelMatrix)
+            }
+            else
+            {
+                drawLine(context: context, spline: cubicPath1, drawingColor: drawingColor, lineWidth: dataSet.lineWidth)
+                drawLine(context: context, spline: cubicPath2, drawingColor: drawingColor.withAlphaComponent(0.25), lineWidth: dataSet.lineWidth)
+            }
         }
     }
     
@@ -362,22 +370,28 @@ class CustomLineChartRenderer: LineChartRenderer {
         
         let fillMin = dataSet.fillFormatter?.getFillLinePosition(dataSet: dataSet, dataProvider: dataProvider) ?? 0.0
         
-        var pt1 = CGPoint(x: CGFloat((dataProvider as? LineChartView)?.highlighted.first?.x ?? dataSet.entryForIndex(bounds.min + bounds.range)?.x ?? 0.0), y: fillMin)
-        var pt2 = CGPoint(x: CGFloat(dataSet.entryForIndex(bounds.min)?.x ?? 0.0), y: fillMin)
-        pt1 = pt1.applying(matrix)
-        pt2 = pt2.applying(matrix)
+        nonisolated(unsafe) let spline = spline
+        nonisolated(unsafe) let context = context
         
-        spline.addLine(to: pt1)
-        spline.addLine(to: pt2)
-        spline.closeSubpath()
-        
-        if dataSet.fill != nil
-        {
-            drawFilledPath(context: context, path: spline, fill: dataSet.fill!, fillAlpha: dataSet.fillAlpha)
-        }
-        else
-        {
-            drawFilledPath(context: context, path: spline, fillColor: dataSet.fillColor, fillAlpha: dataSet.fillAlpha)
+        MainActor.assumeIsolated {
+            
+            var pt1 = CGPoint(x: CGFloat((dataProvider as? LineChartView)?.highlighted.first?.x ?? dataSet.entryForIndex(bounds.min + bounds.range)?.x ?? 0.0), y: fillMin)
+            var pt2 = CGPoint(x: CGFloat(dataSet.entryForIndex(bounds.min)?.x ?? 0.0), y: fillMin)
+            pt1 = pt1.applying(matrix)
+            pt2 = pt2.applying(matrix)
+            
+            spline.addLine(to: pt1)
+            spline.addLine(to: pt2)
+            spline.closeSubpath()
+            
+            if dataSet.fill != nil
+            {
+                drawFilledPath(context: context, path: spline, fill: dataSet.fill!, fillAlpha: dataSet.fillAlpha)
+            }
+            else
+            {
+                drawFilledPath(context: context, path: spline, fillColor: dataSet.fillColor, fillAlpha: dataSet.fillAlpha)
+            }
         }
     }
 }

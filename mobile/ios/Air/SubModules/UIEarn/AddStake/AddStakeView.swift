@@ -88,13 +88,20 @@ fileprivate struct AmountSection: View {
 fileprivate struct StakeInfoSection: View {
     
     var model: AddStakeModel
-    
+
+    var yieldTypeLabel: String {
+        switch model.yieldType {
+        case .apr: "Current APR"
+        case .apy: "Current APY"
+        }
+    }
+
     var body: some View {
         WithPerceptionTracking {
             InsetSection {
                 InsetCell {
                     HStack {
-                        Text(lang("Current APY"))
+                        Text(lang(yieldTypeLabel))
                             .font17h22()
                         Spacer()
                         apyBadge
@@ -115,7 +122,7 @@ fileprivate struct StakeInfoSection: View {
                     Text(model.config.explainTitle)
                         .font17h22()
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .tint(Color(WTheme.tint))
+                        .tint(.accentColor)
                         .padding(.top, -1)
                 }
             } header: {
@@ -133,7 +140,7 @@ fileprivate struct StakeInfoSection: View {
             .padding(.top, 2.66)
             .padding(.bottom, 2.66)
             .padding(.horizontal, 6)
-            .foregroundStyle(Color(WTheme.background))
+            .foregroundStyle(Color.air.background)
             .background {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(earnGradient)

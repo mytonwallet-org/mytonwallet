@@ -201,6 +201,10 @@ extension ApiToken {
 
 extension ApiToken {
     
+    public var chainId: String {
+        chain.rawValue
+    }
+    
     public var isOnChain: Bool {
         AccountStore.account?.supports(chain: chain) ?? false
     }

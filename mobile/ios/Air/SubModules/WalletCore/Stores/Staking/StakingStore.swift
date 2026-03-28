@@ -1,122 +1,136 @@
-
-import GRDB
-import Foundation
-import WalletContext
-import os
 import Dependencies
+import Foundation
+import GRDB
+import Perception
+import WalletContext
 
 public let StakingStore = _StakingStore.shared
 
 private let log = Log("StakingStore")
 
-public final class _StakingStore: WalletCoreData.EventsObserver, Sendable {
+public final class AccountStaking: Sendable {
+    @Perceptible
+    public final class State: Sendable {
+        private let _data: UnfairLock<MStakingData?> = .init(initialState: nil)
+
+        nonisolated init() {}
+
+        public var data: MStakingData? {
+            access(keyPath: \._data)
+            return _data.withLock { $0 }
+        }
+
+        fileprivate func replace(_ data: MStakingData?) {
+            withMutation(keyPath: \._data) {
+                _data.withLock { $0 = data }
+            }
+        }
+    }
+
+    public let accountId: String
+    public let state = State()
+
+    init(accountId: String) {
+        self.accountId = accountId
+    }
+
+    public var data: MStakingData? {
+        state.data
+    }
+
+    func replace(_ data: MStakingData?) {
+        state.replace(data)
+    }
+}
+
+public actor _StakingStore: WalletCoreData.EventsObserver {
     fileprivate static let shared = _StakingStore()
-    
-    private let _stakingData = UnfairLock<ValueFetchingState<[String: MStakingData]>>(initialState: .notSet)
-    public func stakingData(forAccountID accountId: String) -> MStakingData? {
-        _stakingData.withLock { dataSate in
-            switch dataSate {
-            case .notSet: nil
-            case .data(let stakingData): stakingData[accountId]
-            }
-        }
-    }
-    
-    public var isStakingDataLoaded: Bool {
-        _stakingData.withLock { dataState in
-            switch dataState {
-            case .notSet: false
-            case .data: true
-            }
-        }
-    }
-    
-    private let _db: UnfairLock<(any DatabaseWriter)?> = .init(initialState: nil)
-    private var db: any DatabaseWriter {
-        get throws {
-            try _db.withLock { $0 }.orThrow("database not ready")
-        }
-    }
-    private var commonDataObservation: Task<Void, Never>?
-    private var accountsObservation: Task<Void, Never>?
+
+    nonisolated private let byAccountId: ByAccountIdStore<AccountStaking> = .init(initialValue: { AccountStaking(accountId: $0) })
+    private var db: (any DatabaseWriter)?
 
     private init() {}
-    
-    // MARK: - Database
-    
+
+    public nonisolated func stakingData(accountId: String) -> MStakingData? {
+        byAccountId.for(accountId: accountId).data
+    }
+
     public func use(db: any DatabaseWriter) {
-        self._db.withLock { $0 = db }
-
-        do {
-            let fetchAccountStaking = { @Sendable db in
-                try MStakingData.fetchAll(db)
-            }
-            
-            do {
-                let accountStaking = try db.read(fetchAccountStaking)
-                updateFromDb(accountStaking: accountStaking)
-            } catch {
-                log.error("accountStaking intial load: \(error, .public)")
-            }
-
-            let observation = ValueObservation.tracking(fetchAccountStaking)
-            accountsObservation = Task { [weak self] in
-                do {
-                    for try await accountStaking in observation.values(in: db) {
-                        self?.updateFromDb(accountStaking: accountStaking)
-                    }
-                } catch {
-                    log.error("accountStaking: \(error, .public)")
-                }
-            }
-        }
-
+        self.db = db
+        loadFromDb()
         WalletCoreData.add(eventObserver: self)
     }
-    
-    private func updateFromDb(accountStaking: [MStakingData]) {
-        guard !accountStaking.isEmpty else { return } // lots of calls with empty array on app start
-        
-        let byId = mutate(value: [String: MStakingData]()) {
-            for stakingData in accountStaking {
-                $0[stakingData.accountId] = stakingData
-            }
+
+    public func clean() {
+        byAccountId.removeAll()
+    }
+
+    @MainActor public func walletCore(event: WalletCoreData.Event) {
+        Task {
+            await handleEvent(event)
         }
-        
-        self._stakingData.withLock { dataState in dataState = .data(byId) }
-        notifyObserversAllAccounts(stakingData: byId)
     }
-    
-    // MARK: - Events
-    
-    public func walletCore(event: WalletCoreData.Event) {
-        Task { await self.handleEvent(event) }
+
+    private func handleEvent(_ event: WalletCoreData.Event) {
+        switch event {
+        case .updateStaking(let update):
+            handleUpdate(update)
+        case .accountDeleted(let accountId):
+            handleAccountDeleted(accountId: accountId)
+        case .accountsReset:
+            clean()
+        default:
+            break
+        }
     }
-    
-    func handleEvent(_ event: WalletCoreData.Event) async {
+
+    private func handleUpdate(_ update: ApiUpdate.UpdateStaking) {
+        let stakingData = MStakingData(
+            accountId: update.accountId,
+            stateById: update.states.dictionaryByKey(\.id),
+            totalProfit: update.totalProfit,
+            shouldUseNominators: update.shouldUseNominators
+        )
+
+        applyInMemory(stakingData)
+
         do {
-            switch event {
-            case .updateStaking(let update):
-                let stakingData = MStakingData(
-                    accountId: update.accountId,
-                    stateById: update.states.dictionaryByKey(\.id),
-                    totalProfit: update.totalProfit,
-                    shouldUseNominators: update.shouldUseNominators
-                )
-                try await db.write { db in
-                    try stakingData.upsert(db)
-                }
-            default:
-                break
+            guard let db else {
+                assertionFailure("database not ready")
+                return
+            }
+            try db.write { db in
+                try stakingData.upsert(db)
             }
         } catch {
-            log.info("handleEvent: \(error)")
+            log.error("handleUpdate failed accountId=\(update.accountId, .public) error=\(error, .public)")
         }
     }
-    
-    private func notifyObserversAllAccounts(stakingData: [String: MStakingData]) {
-        stakingData.values.forEach { accountStaking in
-            WalletCoreData.notify(event: .stakingAccountData(accountStaking))
+
+    private func handleAccountDeleted(accountId: String) {
+        byAccountId.existing(accountId: accountId)?.replace(nil)
+        byAccountId.remove(accountId: accountId)
+    }
+
+    private func applyInMemory(_ stakingData: MStakingData) {
+        byAccountId.for(accountId: stakingData.accountId).replace(stakingData)
+        WalletCoreData.notify(event: .stakingAccountData(stakingData))
+    }
+
+    private func loadFromDb() {
+        do {
+            guard let db else {
+                assertionFailure("database not ready")
+                return
+            }
+            let rows = try db.read { db in
+                try MStakingData.fetchAll(db)
+            }
+            for stakingData in rows {
+                applyInMemory(stakingData)
+            }
+        } catch {
+            log.error("staking initial load: \(error, .public)")
         }
     }
 }

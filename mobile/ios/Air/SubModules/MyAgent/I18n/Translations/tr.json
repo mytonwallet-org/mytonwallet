@@ -1,0 +1,57 @@
+{
+  "error.tokenNotFound": "Maalesef \"{token}\" adında bir token bulunamadı. Lütfen token adını kontrol edip tekrar deneyin.",
+  "error.rateLimit.hourly": "Saatlik {limit} istek limitine ulaştınız. Lütfen biraz bekleyip tekrar deneyin.",
+  "error.rateLimit.daily": "Günlük {limit} istek limitine ulaştınız. Lütfen yarın tekrar gelin.",
+  "error.noNewsResults": "Maalesef bu konuda güncel haber bulunamadı. Lütfen daha sonra tekrar deneyin.",
+  "error.noAnswer": "Bir cevap bulunamadı.",
+  "error.noActionLink": "İsteğinizi anladım ancak bir işlem bağlantısı oluşturamadım.",
+  "error.generic": "Maalesef bir hata oluştu. Lütfen tekrar deneyin.",
+
+  "send.summary.to": "**- Kime:** {address}",
+  "send.summary.amount": "**- Miktar:** {amount} ({name})",
+  "send.summary.fee": "**- Ücret:** onaylamadan önce uygulamada gösterilecek",
+  "send.message": "Transfer özetiniz:\n\n{summary}\n\nÖnceden doldurulmuş gönderme ekranını açmak için aşağıdaki düğmeye dokunun — onaylamadan önce her şeyi gözden geçirebilirsiniz.",
+  "send.button": "Gönder {token}",
+
+  "receive.summary.to": "**- Kime:** {address}",
+  "receive.summary.amount": "**- Miktar:** {amount}",
+  "receive.summary.comment": "**- Yorum:** {comment}",
+  "receive.message.withAddress": "Paylaşmak için ödeme bağlantınız:\n\n{summary}\n\nBu bağlantıyı veya QR kodunu paylaşın — gönderen önceden doldurulmuş transfer ekranını görecek.",
+  "receive.message.noAddress": "Alma ekranını açmak için aşağıdaki düğmeye dokunun — adresinizi ve QR kodunuzu göreceksiniz.",
+  "receive.button": "Al {token}",
+  "receive.button.default": "Al",
+
+  "swap.summary.from": "**- Kimden:** {amount}",
+  "swap.summary.to": "**- Kime:** {token}",
+  "swap.summary.fee": "**- Oran ve ücret:** onaylamadan önce gösterilecek",
+  "swap.message": "Takas özetiniz:\n\n{summary}\n\nÖnceden doldurulmuş takas ekranını açmak için aşağıdaki düğmeye dokunun — onaylamadan önce her şeyi gözden geçirebilirsiniz.",
+  "swap.button": "Takas",
+
+  "buyWithCard.summary.amount": "**- Miktar:** {amount}",
+  "buyWithCard.summary.payment": "**- Ödeme:** kart (seçenekler uygulamada gösterilecek)",
+  "buyWithCard.message": "Satın alma özetiniz:\n\n{summary}\n\nSatın alma ekranını açmak için aşağıdaki düğmeye dokunun — sağlayıcı seçip detayları onaylayın.",
+  "buyWithCard.button": "Kartla satın al",
+
+  "buyWithCrypto.summary.from": "**- Kimden:** {amount}",
+  "buyWithCrypto.summary.to": "**- Kime:** {token}",
+  "buyWithCrypto.summary.fee": "**- Oran ve ücret:** onaylamadan önce gösterilecek",
+  "buyWithCrypto.message": "Zincirler arası satın alma özetiniz:\n\n{summary}\n\nÖnceden doldurulmuş satın alma ekranını açmak için aşağıdaki düğmeye dokunun — onaylamadan önce her şeyi gözden geçirebilirsiniz.",
+  "buyWithCrypto.button": "Kripto ile satın al",
+
+  "price.summary.price": "**- Fiyat:** {currency}{price}",
+  "price.summary.change": "**- 24s değişim:** {direction} {change}%",
+  "price.message.withData": "{token} ({name}):\n\n{summary}\n\nTam grafik ve detaylar için aşağıdaki düğmeye dokunun.",
+  "price.message.noData": "{token} fiyatını, grafiğini ve detaylarını uygulamada görmek için aşağıdaki düğmeye dokunun.",
+  "price.button": "Görüntüle {token}",
+
+  "stake.message": "Staking ekranını açmak için aşağıdaki düğmeye dokunun — bir havuz seçip ödül kazanmaya başlayabilirsiniz.",
+  "stake.button": "Stake",
+
+  "portfolio.message": "Portföyünüzü görüntülemek için aşağıdaki düğmeye dokunun — tüm varlıklarınızı, bakiyelerinizi ve performansınızı bir bakışta görün.",
+  "portfolio.button": "Portföyü Görüntüle",
+
+  "telegram.welcome": "Crypto Agent'a hoş geldiniz! Bana şunlar hakkında mesaj gönderin:\n- Token gönderme\n- Token alma\n- Token takas\n- Kripto satın alma\n- Token fiyatları\n- Cüzdan hakkında herhangi bir soru",
+  "telegram.typing": "Yazıyor...",
+  "telegram.setaddress.usage": "Kullanım: /setaddress <zincir> <ad> <adres>",
+  "telegram.setaddress.added": "Adres eklendi: {name} ({chain}): {address}"
+}

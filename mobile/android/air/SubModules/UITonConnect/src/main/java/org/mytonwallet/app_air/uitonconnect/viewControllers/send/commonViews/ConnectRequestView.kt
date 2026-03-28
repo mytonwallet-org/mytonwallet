@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import androidx.core.view.doOnLayout
 import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
@@ -43,14 +44,13 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
         visibility = GONE
     }
 
-    private val titleTextView = AppCompatTextView(context).apply {
-        id = generateViewId()
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+    private val titleTextView = WLabel(context).apply {
+        setStyle(22f, WFont.Medium)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 28f)
         ellipsize = TextUtils.TruncateAt.END
         gravity = Gravity.CENTER
-        typeface = WFont.Medium.typeface
         maxLines = 1
+        useCustomEmoji = true
     }
 
     private val titleSkeletonView = WBaseView(context).apply {

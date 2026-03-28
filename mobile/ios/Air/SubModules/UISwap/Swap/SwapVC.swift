@@ -8,7 +8,7 @@ import WalletContext
 public final class SwapVC: WViewController, WSensitiveDataProtocol {
 
     private var swapModel: SwapModel!
-    @AccountContext(source: .current) private var account: MAccount
+    @AccountContext private var account: MAccount
     
     private var hostingController: UIHostingController<SwapView>!
 
@@ -21,7 +21,8 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
 
     private var awaitingActivity = false
 
-    public init(defaultSellingToken: String? = nil, defaultBuyingToken: String? = nil, defaultSellingAmount: Double? = nil) {
+    public init(accountContext: AccountContext, defaultSellingToken: String? = nil, defaultBuyingToken: String? = nil, defaultSellingAmount: Double? = nil) {
+        self._account = accountContext
         super.init(nibName: nil, bundle: nil)
         self.swapModel = SwapModel(
             delegate: self,
@@ -71,8 +72,8 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         updateTheme()
     }
     
-    public override func updateTheme() {
-        view.backgroundColor = WTheme.sheetBackground
+    private func updateTheme() {
+        view.backgroundColor = .air.sheetBackground
     }
     
     func makeView() -> SwapView {
@@ -147,7 +148,8 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
                 sellingToken: TokenAmount(swapModel.input.sellingAmount ?? 0, swapModel.input.sellingToken),
                 buyingToken: TokenAmount(swapModel.input.buyingAmount ?? 0, swapModel.input.buyingToken),
                 swapFee: cexEstimate.swapFee,
-                networkFee: networkFee
+                networkFee: networkFee,
+                accountContext: _account
             )
             navigationController?.pushViewController(crosschainSwapVC, animated: true)
         }

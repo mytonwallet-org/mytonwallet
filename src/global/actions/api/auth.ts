@@ -144,10 +144,8 @@ addActionHandler('startCreatingWallet', async (global, actions) => {
     return;
   }
 
-  const promiseCalls = [
-    callApi('generateMnemonic', !IS_TON_MNEMONIC_ONLY && !global.auth.forceAddingTonOnlyAccount),
-    ...(!isPasswordPresent ? [pause(CREATING_DURATION)] : []),
-  ] as [Promise<Promise<string[]> | undefined>, Promise<void> | undefined];
+  const mnemonicPromise = callApi('generateMnemonic', !IS_TON_MNEMONIC_ONLY && !global.auth.forceAddingTonOnlyAccount);
+  const pausePromise = isPasswordPresent ? Promise.resolve() : pause(CREATING_DURATION);
 
   setGlobal(
     updateAuth(global, {
@@ -157,7 +155,7 @@ addActionHandler('startCreatingWallet', async (global, actions) => {
     }),
   );
 
-  const [mnemonic] = await Promise.all(promiseCalls);
+  const [mnemonic] = await Promise.all([mnemonicPromise, pausePromise]);
 
   global = updateAuth(getGlobal(), {
     mnemonic,

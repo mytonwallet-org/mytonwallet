@@ -37,7 +37,7 @@ struct StakingConfirmHeaderView: View {
             size: 60,
             chainSize: 24,
             chainBorderWidth: 1.5,
-            chainBorderColor: WTheme.sheetBackground,
+            chainBorderColor: .air.sheetBackground,
             chainHorizontalOffset: 6,
             chainVerticalOffset: 2
         )
@@ -54,9 +54,9 @@ struct StakingConfirmHeaderView: View {
             integerFont: .compactRounded(ofSize: 34, weight: .bold),
             fractionFont: .compactRounded(ofSize: 28, weight: .bold),
             symbolFont: .compactRounded(ofSize: 28, weight: .bold),
-            integerColor: WTheme.primaryLabel,
-            fractionColor: isLargeAmount ? WTheme.secondaryLabel : WTheme.primaryLabel,
-            symbolColor: WTheme.secondaryLabel
+            integerColor: UIColor.label,
+            fractionColor: isLargeAmount ? .air.secondaryLabel : UIColor.label,
+            symbolColor: .air.secondaryLabel
         )
     }
     

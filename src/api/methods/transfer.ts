@@ -136,6 +136,7 @@ export async function submitTransfer(
     isGasless,
     dieselAmount = 0n,
     isGaslessWithStars,
+    gaslessTransaction,
     ...commonOptions
   } = options;
   const {
@@ -160,6 +161,7 @@ export async function submitTransfer(
       tokenAddress,
       dieselAmount,
       isGaslessWithStars,
+      gaslessTransaction,
     });
   } else {
     result = await chains[chain].submitGasfullTransfer(commonOptions);

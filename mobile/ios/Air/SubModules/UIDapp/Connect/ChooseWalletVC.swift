@@ -44,13 +44,13 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
         
         navigationItem.title = lang("Choose Wallet")
         addCloseNavigationItemIfNeeded()
-        configureSheetWithOpaqueBackground(color: WTheme.sheetBackground)
+        configureSheetWithOpaqueBackground(color: .air.sheetBackground)
         
         var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         configuration.headerMode = .supplementary
         let layout = UICollectionViewCompositionalLayout.list(using: configuration)
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        collectionView.backgroundColor = WTheme.sheetBackground
+        collectionView.backgroundColor = .air.sheetBackground
         collectionView.delegate = self
         collectionView.delaysContentTouches = false
         
@@ -66,7 +66,7 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
         let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(elementKind: UICollectionView.elementKindSectionHeader) { [host] supplementaryView, _, _ in
             var content = UIListContentConfiguration.groupedHeader()
             content.text = lang("Wallet to use on %host%", arg1: host)
-            content.textProperties.color = WTheme.secondaryLabel
+            content.textProperties.color = .air.secondaryLabel
             supplementaryView.contentConfiguration = content
         }
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, String> { [allowViewAccounts] cell, _, accountId in

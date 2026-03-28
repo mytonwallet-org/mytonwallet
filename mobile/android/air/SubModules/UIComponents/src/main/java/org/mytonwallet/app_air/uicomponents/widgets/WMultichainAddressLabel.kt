@@ -565,8 +565,8 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         // Select wallet card screen styles
         val miniCardWalletStyle: Style = Style(
             singleChainStyle = ChainStyle(
-                displayChainIcon = false,
-                iconMargin = 0.dp,
+                displayChainIcon = true,
+                iconMargin = 1.dp,
                 addressKeepCount = 8,
                 domainKeepCount = 12,
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN
@@ -606,8 +606,8 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         // Select wallet card row screen styles
         val cardRowWalletStyle: Style = Style(
             singleChainStyle = ChainStyle(
-                displayChainIcon = false,
-                iconMargin = 0.dp,
+                displayChainIcon = true,
+                iconMargin = 2.dp,
                 addressKeepCount = 12,
                 domainKeepCount = 100,
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN
@@ -646,8 +646,8 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         // Select wallet card row screen styles
         val settingsHeaderWalletStyle: Style = Style(
             singleChainStyle = ChainStyle(
-                displayChainIcon = false,
-                iconMargin = 0.dp,
+                displayChainIcon = true,
+                iconMargin = 1.5f.dp.roundToInt(),
                 addressKeepCount = 12,
                 domainKeepCount = 100,
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN

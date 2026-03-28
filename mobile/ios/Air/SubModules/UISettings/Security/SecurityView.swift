@@ -37,9 +37,9 @@ struct SecurityView: View {
                         Text(lang("$back_up_auth"))
                         Spacer()
                         Image.airBundle("RightArrowIcon")
-                            .foregroundStyle(Color(WTheme.secondaryLabel))
+                            .foregroundStyle(Color.air.secondaryLabel)
                     }
-                    .foregroundStyle(Color(WTheme.primaryLabel))
+                    .foregroundStyle(Color.air.primaryLabel)
                     .frame(height: 44)
                 }
             } header: {

@@ -33,7 +33,7 @@ public class WActivityIndicator: UIView {
         imageView = UIImageView()
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.image = UIImage(named: "ActivityIndicator", in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate)
-        imageView.tintColor = WTheme.secondaryLabel
+        imageView.tintColor = .air.secondaryLabel
         addSubview(imageView)
         NSLayoutConstraint.activate([
             imageView.topAnchor.constraint(equalTo: topAnchor),

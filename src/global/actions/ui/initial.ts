@@ -1,7 +1,7 @@
 import type {
   Account, AccountSettings, AccountState, ToastType,
 } from '../../types';
-import { AppState } from '../../types';
+import { AppState, AuthState } from '../../types';
 
 import {
   DEFAULT_SWAP_FIRST_TOKEN_SLUG,
@@ -11,10 +11,13 @@ import {
   IS_EXPLORER,
   IS_EXTENSION,
   IS_TELEGRAM_APP,
+  TEST_MNEMONIC,
+  TEST_PASSWORD,
   TONCOIN,
 } from '../../../config';
 import { requestMutation } from '../../../lib/fasterdom/fasterdom';
 import { parseAccountId } from '../../../util/account';
+import { clearAgentChat } from '../../../util/agent/agentStorage';
 import authApi from '../../../util/authApi';
 import { initCapacitorWithGlobal } from '../../../util/capacitor';
 import {
@@ -44,11 +47,13 @@ import {
 } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { errorCodeToMessage } from '../../helpers/errors';
+import { isErrorTransferResult } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
   updateCurrentAccountId,
   updateCurrentAccountState,
 } from '../../reducers';
+import { createAccountsFromGlobal, updateAuth } from '../../reducers/misc';
 import {
   selectCurrentAccountId,
   selectCurrentNetwork,
@@ -127,6 +132,10 @@ addActionHandler('afterInit', (global, actions) => {
     document.addEventListener('click', initializeSounds, { once: true });
   }
 
+  if (TEST_MNEMONIC) {
+    void tryAutoImportTestMnemonic(actions);
+  }
+
   if (!IS_EXPLORER) return;
 
   void callApi('clearStorageForExplorerMode');
@@ -139,6 +148,48 @@ addActionHandler('afterInit', (global, actions) => {
     actions.showToast({ message: getTranslation('$explorer_mode_warning') });
   }
 });
+
+async function tryAutoImportTestMnemonic(actions: any) {
+  if (!TEST_MNEMONIC || IS_EXPLORER) return;
+
+  const global = getGlobal();
+  if (selectCurrentAccountId(global)) return;
+
+  const mnemonic = TEST_MNEMONIC.split(/\s+/).map((word) => word.trim().toLowerCase()).filter(Boolean);
+  if (!mnemonic.length) return;
+
+  const mainNetwork = selectCurrentNetwork(global);
+  const accounts = await callApi('importMnemonic', [mainNetwork], mnemonic, TEST_PASSWORD);
+  if (!accounts) {
+    return;
+  }
+
+  if (isErrorTransferResult(accounts)) {
+    actions.showError({ error: accounts.error });
+    return;
+  }
+
+  const firstAccount = accounts[0];
+  if (!firstAccount) {
+    return;
+  }
+
+  let nextGlobal = getGlobal();
+  nextGlobal = updateAuth(nextGlobal, {
+    accounts,
+    mnemonic: undefined,
+    password: undefined,
+    isLoading: false,
+    error: undefined,
+    state: AuthState.ready,
+  });
+  nextGlobal = createAccountsFromGlobal(nextGlobal, true);
+  nextGlobal = updateCurrentAccountId(nextGlobal, firstAccount.accountId);
+  setGlobal(nextGlobal);
+
+  actions.tryAddNotificationAccount({ accountId: firstAccount.accountId });
+  actions.afterSignIn();
+}
 
 addActionHandler('afterSignIn', (global, actions) => {
   setGlobal({ ...global, appState: AppState.Main });
@@ -158,6 +209,8 @@ addActionHandler('afterSignOut', (global, actions, payload) => {
     actions.setInMemoryPassword({ password: undefined, force: true });
 
     actions.resetApiSettings({ areAllDisabled: true });
+
+    void clearAgentChat();
   }
 });
 

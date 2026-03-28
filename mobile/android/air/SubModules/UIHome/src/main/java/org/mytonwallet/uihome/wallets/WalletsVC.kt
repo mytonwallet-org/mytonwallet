@@ -569,7 +569,7 @@ class WalletsVC(
                             org.mytonwallet.uihome.R.drawable.ic_reorder,
                             tintColor = WColor.SecondaryText
                         ),
-                        title = LocaleController.getString("Reorder")
+                        title = LocaleController.getString("Reorder Tabs")
                     ),
                     hasSeparator = false,
                     onTap = {
@@ -606,7 +606,7 @@ class WalletsVC(
                 WMenuPopup.Item(
                     config = WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
-                            org.mytonwallet.uihome.R.drawable.ic_remove,
+                            org.mytonwallet.app_air.icons.R.drawable.ic_remove,
                             tintColor = WColor.Red
                         ),
                         title = LocaleController.getString("Remove"),

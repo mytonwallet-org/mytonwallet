@@ -1,13 +1,5 @@
-//
-//  TokenWidgetTimelineEntry.swift
-//  App
-//
-//  Created by nikstar on 23.09.2025.
-//
-
-import SwiftUI
-import WalletCore
 import WidgetKit
+import UIKit
 
 public struct TokenWidgetTimelineEntry: TimelineEntry {
     public var date: Date
@@ -29,4 +21,4 @@ public extension TokenWidgetTimelineEntry {
             changeInCurrency: BaseCurrencyAmount.fromDouble(0.24, .USD)
         )
     }
-}   
+}

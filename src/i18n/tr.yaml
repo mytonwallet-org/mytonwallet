@@ -133,6 +133,8 @@ Signing was confirmed!: İmza onaylandı!
 Activity Details: Aktivite Detayları
 No activities found: Aktivite bulunamadı
 Comment Copied: Açıklama kopyalandı
+Copy Text: Metni kopyala
+Message Copied: Mesaj kopyalandı
 Sender: Gönderici
 Recipient: Alıcı
 "%chain% Address Copied": "%chain% Adresi kopyalandı"
@@ -527,7 +529,7 @@ Contract Initialization Data Copied: Contract Initialization Data Copied
 Open NFT Collection: NFT Koleksiyonunu Aç
 Previous: Önceki
 Next: Sonraki
-Insufficient %token% for fee.: Ücret için yetersiz %token%.
+Insufficient %token% for fee.%fee%: Ücret için yetersiz %token%.%fee%
 Send NFT: NFT gönder
 Send Collectible: Koleksiyon öğesi gönder
 Send Collectibles: Koleksiyon öğelerini gönder
@@ -779,9 +781,10 @@ Upgrade for %amount% %currency%: "%amount% %currency% karşılığında yükselt
 This card has been sold out: Bu kart tükendi
 Import Existing Wallet: Mevcut Cüzdanı İçe Aktar
 View Any Address: Herhangi Bir Adresi Görüntüle
+View Mode: Görüntüleme Modu
 "%counts% Secret Words": "%counts% Gizli Kelime"
-Wallet Address or Domain: Cüzdan Adresi veya Alan Adı
-$import_view_account_note: "%chains% ağındaki **herhangi bir adresi** **Görüntüleme Modu**'nda açmak için girin."
+Address or Domain: Adres veya Alan Adı
+$import_view_account_note: Etkinliğini **izlemek** için **herhangi bir** adres ekleyin.
 $view_mode: Görüntüle
 Import Wallet: Cüzdanı içe aktar
 Please top up your %token% balance.: Lütfen %token% bakiyenizi yükleyin.
@@ -954,6 +957,7 @@ No wallets: Cüzdan yok
 View as List: Liste olarak görüntüle
 View as Cards: Kart olarak görüntüle
 Reorder: Yeniden sırala
+Reorder Tabs: Sekmeleri yeniden sırala
 Rename: Yeniden adlandır
 Customize: Özelleştir
 i18n_dragToSort: Sıralamak için sürükle
@@ -1055,6 +1059,10 @@ My Assets: Varlıklarım
 Owner: Sahip
 Show All Wallets: Tüm cüzdanları göster
 Ask a Question: Bir Soru Sor
+Ask anything: Her şeyi sor
+Agent: Asistan
+Clear Chat: Sohbeti temizle
+Unsupported link: Bu bağlantı desteklenmiyor
 MyTonWallet Features: MyTonWallet Özellikleri
 Notifications: Bildirimler
 Wrong passcode, please try again: Kod hatalı, lütfen tekrar deneyin.
@@ -1068,3 +1076,15 @@ Enabling biometric confirmation will reset the passcode.: Biyometrik doğrulama 
 Confirm action with your passcode: ยืนยันการดำเนินการด้วยรหัสผ่านของคุณ
 No Image: Resim Yok
 Different blockchain. Cannot be selected: Farklı blockchain. Seçilemez
+Top 5: Top 5
+Top 10: Top 10
+Top 30: Top 30
+Manage Assets: Varlıkları yönet
+Pulse: Nabız
+Edit Message: Mesajı düzenle
+Toggle Hints: İpuçlarını değiştir
+AgentErrorResponseFailed: "Hata: Yanıt alınamadı"
+AgentErrorConnectionFailed: "Hata: Bağlantı başarısız"
+Scroll To Bottom: Alta kaydır
+$agent_clear_chat_confirm: Sohbet geçmişini temizlemek istediğinizden emin misiniz?
+$unknown_swap_token: Swap bağlantısında bilinmeyen token. Varsayılan tokenlar kullanıldı.

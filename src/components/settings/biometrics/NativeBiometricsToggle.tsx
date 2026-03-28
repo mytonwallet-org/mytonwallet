@@ -119,7 +119,7 @@ function NativeBiometricsToggle({ isBiometricAuthEnabled, onEnable }: OwnProps &
       <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
         <div className={styles.item} onClick={handleBiometricAuthToggle}>
           <img className={styles.menuIcon} src={icon} alt="" />
-          {switcherTitle}
+          <span className={styles.itemTitle}>{switcherTitle}</span>
 
           <Switcher
             className={styles.menuSwitcher}

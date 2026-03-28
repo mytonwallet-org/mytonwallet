@@ -1,0 +1,34 @@
+@use "../../styles/mixins";
+
+.button {
+  cursor: var(--custom-cursor, pointer);
+
+  position: absolute;
+  z-index: 2;
+  right: 1rem;
+  bottom: calc(4.5rem + var(--bottombar-height) + max(var(--safe-area-bottom), 0rem));
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 2.375rem;
+  height: 2.375rem;
+  border: 0.0625rem solid var(--color-separator-input-stroke);
+  border-radius: 50%;
+
+  font-size: 1.375rem;
+  color: var(--color-gray-2);
+
+  background-color: var(--color-background-first);
+
+  &:global(.not-open) {
+    pointer-events: none;
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  @include mixins.transition("opacity 150ms ease, transform 150ms ease", !important);
+
+  @include mixins.active-transition-optimization();
+}

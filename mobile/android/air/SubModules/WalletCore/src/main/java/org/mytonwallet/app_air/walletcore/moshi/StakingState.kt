@@ -75,7 +75,7 @@ sealed class StakingState {
         val lockedBalance: BigInteger?,
         val unlockTime: Long?,
         val annualYieldStandard: Float,
-        val annualYieldVerified: Float,
+        val annualYieldVerified: Float?,
     ) : StakingState()
 
     @JsonClass(generateAdapter = true)

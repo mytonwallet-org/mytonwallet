@@ -23,6 +23,7 @@ object NftStore : IStore {
 
     private val cachedNftCollections = ConcurrentHashMap<String, List<MCollectionTabToShow>>()
     private val cachedHasHiddenNfts = ConcurrentHashMap<String, Boolean>()
+    private val ignoredExpiringAddressesByAccount = ConcurrentHashMap<String, MutableSet<String>>()
 
     data class NftData(
         val accountId: String,
@@ -107,18 +108,29 @@ object NftStore : IStore {
     }
 
     fun hideNft(nft: ApiNft) {
+        hideNft(listOf(nft))
+    }
+
+    fun hideNft(nfts: List<ApiNft>) {
         val nftData = nftData ?: return
-        if (nft.isHidden != true) {
-            if (!nftData.blacklistedNftAddresses.contains(nft.address)) {
+
+        var shouldPersistBlacklist = false
+        for (nft in nfts) {
+            if (nft.isHidden != true && !nftData.blacklistedNftAddresses.contains(nft.address)) {
                 nftData.blacklistedNftAddresses.add(nft.address)
-                WGlobalStorage.setBlacklistedNftAddresses(
-                    nftData.accountId,
-                    nftData.blacklistedNftAddresses
-                )
+                shouldPersistBlacklist = true
             }
-        } // else: it's hidden by default
+        }
+        if (shouldPersistBlacklist) {
+            WGlobalStorage.setBlacklistedNftAddresses(
+                nftData.accountId,
+                nftData.blacklistedNftAddresses
+            )
+        }
+
         // Make sure it's not in whitelist (maybe nft was hidden before and added to whitelist, so do it in all conditions)
-        nftData.whitelistedNftAddresses.remove(nft.address)
+        val addressesToHide = nfts.map { it.address }.toSet()
+        nftData.whitelistedNftAddresses.removeAll(addressesToHide)
         WGlobalStorage.setWhitelistedNftAddresses(
             nftData.accountId,
             nftData.whitelistedNftAddresses
@@ -137,7 +149,10 @@ object NftStore : IStore {
         streamedAddresses: Set<String>? = null
     ) {
         val streamPruneContext =
-            if (chain != null && streamedAddresses != null) StreamPruneContext(chain, streamedAddresses) else null
+            if (chain != null && streamedAddresses != null) StreamPruneContext(
+                chain,
+                streamedAddresses
+            ) else null
         val incomingNfts = if (streamPruneContext == null) nfts.orEmpty() else emptyList()
         val mergeMode = if (shouldAppend) NftsMergeMode.APPEND else NftsMergeMode.PREPEND
 
@@ -258,8 +273,8 @@ object NftStore : IStore {
         val byAddress = when {
             mergeMode == NftsMergeMode.APPEND && preferExistingOnConflict -> {
                 linkedMapOf<String, ApiNft>().apply {
-                    putAll(incomingByAddress)
                     putAll(existingByAddress)
+                    putAll(incomingByAddress)
                 }
             }
 
@@ -314,6 +329,17 @@ object NftStore : IStore {
         nftData?.linkedAddressByAddress = linkedAddressByAddress
     }
 
+    fun getIgnoredExpiringAddresses(accountId: String): Set<String> {
+        return ignoredExpiringAddressesByAccount[accountId] ?: emptySet()
+    }
+
+    fun addIgnoredExpiringAddresses(accountId: String, addresses: Collection<String>) {
+        ignoredExpiringAddressesByAccount
+            .getOrPut(accountId) { mutableSetOf() }
+            .addAll(addresses)
+        WalletCore.notifyEvent(WalletEvent.NftDomainExpirationDismissed(accountId))
+    }
+
     fun add(accountId: String, nft: ApiNft) {
         cacheExecutor.execute {
             if (nftData?.accountId != accountId)
@@ -351,6 +377,7 @@ object NftStore : IStore {
         clearActiveNftData()
         cachedNftCollections.clear()
         cachedHasHiddenNfts.clear()
+        ignoredExpiringAddressesByAccount.clear()
     }
 
     private fun clearActiveNftData() {
@@ -514,7 +541,10 @@ object NftStore : IStore {
         return hasHiddenNft
     }
 
-    private fun writeCollectionsToCache(accountId: String, collections: List<MCollectionTabToShow>) {
+    private fun writeCollectionsToCache(
+        accountId: String,
+        collections: List<MCollectionTabToShow>
+    ) {
         val arrCollections = JSONArray()
         for (it in collections) {
             arrCollections.put(it.toDictionary())

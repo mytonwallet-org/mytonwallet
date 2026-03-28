@@ -8,9 +8,9 @@
 import UIKit
 import WalletContext
 
-public class WBlurView: UIVisualEffectView, WThemedView {
+public class WBlurView: UIVisualEffectView {
     
-    public static func attach(to view: UIView, style: UIBlurEffect.Style = .light, background: UIColor = WColors.blurBackground) -> WBlurView {
+    public static func attach(to view: UIView, style: UIBlurEffect.Style = .light, background: UIColor = UIColor.air.blurBackground) -> WBlurView {
         let v = WBlurView(style: style, background: background)
         view.insertSubview(v, at: 0)
         NSLayoutConstraint.activate([
@@ -25,7 +25,7 @@ public class WBlurView: UIVisualEffectView, WThemedView {
     private var _backgroundColor: UIColor? = nil
     private let enableSaturation = true
     
-    public init(style: UIBlurEffect.Style = .light, background: UIColor = WColors.blurBackground) {
+    public init(style: UIBlurEffect.Style = .light, background: UIColor = UIColor.air.blurBackground) {
         super.init(effect: UIBlurEffect(style: style))
         translatesAutoresizingMaskIntoConstraints = false
         self._backgroundColor = background
@@ -37,8 +37,8 @@ public class WBlurView: UIVisualEffectView, WThemedView {
         fatalError("init(coder:) has not been implemented")
     }
     
-    public func updateTheme() {
-        backgroundColor = _backgroundColor ?? WColors.blurBackground
+    private func updateTheme() {
+        backgroundColor = _backgroundColor ?? UIColor.air.blurBackground
     }
     
     public func updateEffect(style: UIBlurEffect.Style) {

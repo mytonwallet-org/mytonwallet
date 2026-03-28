@@ -1,0 +1,57 @@
+{
+  "error.tokenNotFound": "К сожалению, не удалось найти токен \"{token}\". Пожалуйста, проверьте название и попробуйте снова.",
+  "error.rateLimit.hourly": "Вы достигли лимита в {limit} запросов в час. Пожалуйста, подождите немного и попробуйте позже.",
+  "error.rateLimit.daily": "Вы достигли дневного лимита в {limit} запросов. Пожалуйста, возвращайтесь завтра.",
+  "error.noNewsResults": "К сожалению, не удалось найти новости по этой теме. Попробуйте позже.",
+  "error.noAnswer": "Не удалось найти ответ.",
+  "error.noActionLink": "Я понял ваш запрос, но не смог создать ссылку для действия.",
+  "error.generic": "Произошла ошибка. Пожалуйста, попробуйте снова.",
+
+  "send.summary.to": "**- Кому:** {address}",
+  "send.summary.amount": "**- Сумма:** {amount} ({name})",
+  "send.summary.fee": "**- Комиссия:** будет показана в приложении перед подтверждением",
+  "send.message": "Сводка вашего перевода:\n\n{summary}\n\nНажмите кнопку ниже, чтобы открыть экран отправки — вы сможете всё проверить перед подтверждением.",
+  "send.button": "Отправить {token}",
+
+  "receive.summary.to": "**- Кому:** {address}",
+  "receive.summary.amount": "**- Сумма:** {amount}",
+  "receive.summary.comment": "**- Комментарий:** {comment}",
+  "receive.message.withAddress": "Ваша ссылка для оплаты:\n\n{summary}\n\nПоделитесь этой ссылкой или QR-кодом — отправитель увидит заполненный экран перевода.",
+  "receive.message.noAddress": "Нажмите кнопку ниже, чтобы открыть экран получения — вы увидите свой адрес и QR-код.",
+  "receive.button": "Получить {token}",
+  "receive.button.default": "Получить",
+
+  "swap.summary.from": "**- Из:** {amount}",
+  "swap.summary.to": "**- В:** {token}",
+  "swap.summary.fee": "**- Курс и комиссия:** будут показаны перед подтверждением",
+  "swap.message": "Сводка вашего обмена:\n\n{summary}\n\nНажмите кнопку ниже, чтобы открыть экран обмена — вы сможете всё проверить перед подтверждением.",
+  "swap.button": "Обменять",
+
+  "buyWithCard.summary.amount": "**- Сумма:** {amount}",
+  "buyWithCard.summary.payment": "**- Оплата:** картой (варианты в приложении)",
+  "buyWithCard.message": "Сводка вашей покупки:\n\n{summary}\n\nНажмите кнопку ниже, чтобы открыть экран покупки — выберите провайдера и подтвердите детали.",
+  "buyWithCard.button": "Купить картой",
+
+  "buyWithCrypto.summary.from": "**- Из:** {amount}",
+  "buyWithCrypto.summary.to": "**- В:** {token}",
+  "buyWithCrypto.summary.fee": "**- Курс и комиссия:** будут показаны перед подтверждением",
+  "buyWithCrypto.message": "Сводка вашей кросс-чейн покупки:\n\n{summary}\n\nНажмите кнопку ниже, чтобы открыть экран покупки — вы сможете всё проверить перед подтверждением.",
+  "buyWithCrypto.button": "Купить за крипто",
+
+  "price.summary.price": "**- Цена:** {currency}{price}",
+  "price.summary.change": "**- Изменение за 24ч:** {direction} {change}%",
+  "price.message.withData": "{token} ({name}):\n\n{summary}\n\nНажмите кнопку ниже для просмотра графика и подробностей.",
+  "price.message.noData": "Нажмите кнопку ниже, чтобы посмотреть цену, график и детали {token} в приложении.",
+  "price.button": "Смотреть {token}",
+
+  "stake.message": "Нажмите кнопку ниже, чтобы открыть экран стейкинга — вы можете выбрать пул и начать получать вознаграждения.",
+  "stake.button": "Стейкинг",
+
+  "portfolio.message": "Нажмите кнопку ниже, чтобы просмотреть своё портфолио — все ваши активы, балансы и динамика в одном месте.",
+  "portfolio.button": "Открыть Портфолио",
+
+  "telegram.welcome": "Добро пожаловать в Crypto Agent! Напишите мне о:\n- Отправке токенов\n- Получении токенов\n- Обмене токенов\n- Покупке крипто\n- Ценах токенов\n- Любых вопросах о кошельке",
+  "telegram.typing": "Печатает...",
+  "telegram.setaddress.usage": "Использование: /setaddress <сеть> <имя> <адрес>",
+  "telegram.setaddress.added": "Адрес добавлен: {name} ({chain}): {address}"
+}

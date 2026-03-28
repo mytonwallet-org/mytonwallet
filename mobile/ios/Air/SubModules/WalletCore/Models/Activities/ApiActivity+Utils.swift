@@ -197,11 +197,11 @@ public extension ApiActivity {
         return .image(icon)
     }
     
-    private var green: [UIColor] { WColors.greenGradient }
-    private var red: [UIColor] { WColors.redGradient }
-    private var gray: [UIColor] { WColors.grayGradient }
-    private var blue: [UIColor] { WColors.blueGradient }
-    private var indigo: [UIColor] { WColors.indigoGradient }
+    private var green: [UIColor] { UIColor.air.greenGradient }
+    private var red: [UIColor] { UIColor.air.redGradient }
+    private var gray: [UIColor] { UIColor.air.grayGradient }
+    private var blue: [UIColor] { UIColor.air.blueGradient }
+    private var indigo: [UIColor] { UIColor.air.indigoGradient }
     
     var iconColors: [UIColor] {
         let colors: [UIColor] = switch self.type {

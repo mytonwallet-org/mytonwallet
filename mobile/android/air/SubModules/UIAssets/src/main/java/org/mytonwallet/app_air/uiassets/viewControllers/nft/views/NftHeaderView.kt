@@ -182,6 +182,7 @@ open class NftHeaderView(
         marqueeRepeatLimit = -1
         pivotX = 0f
         isHorizontalFadingEdgeEnabled = true
+        useCustomEmoji = true
     }
     val subtitleLabel = WLabel(context).apply {
         setStyle(16f, WFont.Regular)
@@ -190,6 +191,7 @@ open class NftHeaderView(
         setSingleLine(true)
         marqueeRepeatLimit = -1
         isHorizontalFadingEdgeEnabled = true
+        useCustomEmoji = true
         setPaddingDp(12, 2, 12, 4)
         setOnClickListener {
             delegate.get()?.onCollectionTapped()

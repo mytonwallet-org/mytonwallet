@@ -106,7 +106,7 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
             ),
             constraints: .fill
         )
-        hostingController.view.backgroundColor = WTheme.sheetBackground
+        hostingController.view.backgroundColor = .air.sheetBackground
 
         _ = addBottomButton()
         let title: String = lang("$stake_asset", arg1: model.baseToken.symbol)
@@ -121,17 +121,12 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
         view.addSubview(fakeTextField)
 
         bringNavigationBarToFront()
-
-        updateTheme()
-
         amountChanged(amount: nil)
     }
 
     public override func viewDidAppear(_: Bool) {
         model.isAmountFieldFocused = true
     }
-
-    public override func updateTheme() {}
 
     func amountChanged(amount: BigInt?) {
 
@@ -218,7 +213,7 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
                 )
             )
             // from user perspective staked token is automatically pinned to be shown in UI at top of tokens list
-            AccountStore.updateAssetsAndActivityData(forAccountID: account.id, update: { [slug = model.baseToken.slug] settings in
+            AssetsAndActivityDataStore.update(accountId: account.id, update: { [slug = model.baseToken.slug] settings in
                 settings.saveTokenPinning(slug: slug, isStaking: true, isPinned: true)
             })
         } catch {

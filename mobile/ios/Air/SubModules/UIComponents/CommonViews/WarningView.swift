@@ -11,13 +11,16 @@ public struct WarningView: View {
     public enum Kind {
         case error
         case warning
+        case info
         
         var color: Color {
             switch self {
             case .error:
-                Color(WTheme.error)
+                .air.error
             case .warning:
                 Color.orange
+            case .info:
+                Color.blue
             }
         }
     }

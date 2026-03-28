@@ -30,6 +30,7 @@ env:
   SWAP_FEE_ADDRESS: ${{ vars.SWAP_FEE_ADDRESS }}
   DIESEL_ADDRESS: ${{ vars.DIESEL_ADDRESS }}
   WALLET_CONNECT_PROJECT_ID: ${{ vars.WALLET_CONNECT_PROJECT_ID }}
+  AGENT_API_URL: ${{ vars.AGENT_API_URL }}
 
 jobs:
   electron-release:
@@ -321,6 +322,7 @@ jobs:
           echo "APP_NAME=\"${APP_NAME}\"
           APP_COMMIT_HASH=${{ github.sha }}
           PROXY_HOSTS=\"${PROXY_HOSTS}\"
+          AGENT_API_URL=\"${AGENT_API_URL}\"
           STAKING_POOLS=\"${STAKING_POOLS}\"" >.env
           bash deploy/firefox_pack_sources.sh
           node deploy/firefoxPatchVersion.js
@@ -407,6 +409,8 @@ jobs:
           node-version: ${{ vars.NODE_VERSION }}
 
       - name: Build and sync mobile project
+        env:
+          CAP_PLATFORM: android
         run: |
           if [ -z "$PUBLISH_REPO" ]; then
             npm run mobile:build:staging
@@ -451,6 +455,7 @@ jobs:
       - name: Build project for direct apk
         env:
           IS_ANDROID_DIRECT: 1
+          CAP_PLATFORM: android
         run: |
           if [ -z "$PUBLISH_REPO" ]; then
             npm run mobile:build:staging
@@ -490,7 +495,11 @@ jobs:
           node-version: ${{ vars.NODE_VERSION }}
 
       - name: Build and sync mobile project
+        env:
+          CAP_PLATFORM: ios
         run: |
+          defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
+
           if [ -z "$PUBLISH_REPO" ]; then
             npm run mobile:build:staging
           else

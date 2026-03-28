@@ -87,13 +87,13 @@ final class AssetsAndActivityHideNoCostCell: UITableViewCell {
         updateTheme()
     }
 
-    public func updateTheme() {
+    private func updateTheme() {
         if isInModal {
-            optionsView.backgroundColor = WTheme.groupedItem
+            optionsView.backgroundColor = .air.groupedItem
         } else {
-            optionsView.backgroundColor = WTheme.groupedItem
+            optionsView.backgroundColor = .air.groupedItem
         }
-        hintLabel.textColor = WTheme.secondaryLabel
+        hintLabel.textColor = .air.secondaryLabel
     }
 
     @objc private func hideNoCostSwitched() {

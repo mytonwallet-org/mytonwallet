@@ -15,14 +15,16 @@ final class CrosschainFromWalletModel {
     
     var addressInputString: String = ""
     
-    @AccountContext(source: .current) private var account: MAccount
+    @AccountContext private var account: MAccount
     
     init(
         sellingToken: TokenAmount,
         buyingToken: TokenAmount,
         swapFee: MDouble,
-        networkFee: MDouble
+        networkFee: MDouble,
+        accountContext: AccountContext
     ) {
+        self._account = accountContext
         self.sellingToken = sellingToken
         self.buyingToken = buyingToken
         self.swapFee = swapFee

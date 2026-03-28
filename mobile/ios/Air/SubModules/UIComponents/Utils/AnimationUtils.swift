@@ -22,7 +22,7 @@ import UIKit
     private var prevProgress: CGFloat
     private var animationType: AnimationType
 
-    private lazy var springAnimation = makeSpringAnimation("", initialVelocity: initialVelocity)
+    private lazy var springCurve = SpringCurve(initialVelocity: initialVelocity)
 
     private var updateBlock: ((_ progress: CGFloat, _ value: CGFloat) -> Void)?
     private var completionBlock: (() -> Void)?
@@ -66,16 +66,16 @@ import UIKit
         guard let startTime = self.startTime else { return }
         
         let elapsedTime = CACurrentMediaTime() - startTime
-        let fraction = min(elapsedTime / duration, 1.0)
+        let fraction = duration > 0 ? min(elapsedTime / duration, 1.0) : 1.0
         
         var progress: CGFloat
         switch animationType {
         case .spring:
-            progress = springAnimation.value(at: fraction)
+            progress = springCurve.value(at: fraction)
         case .easeInOut:
             progress = CGFloat(UIView.easeInOut(Float(fraction), Float(), Float(1)))
         }
-        
+
         if progress > 0.998 && progress == prevProgress {
             progress = 1
         } else {
@@ -91,5 +91,109 @@ import UIKit
             displayLink = nil
             completionBlock?()
         }
+    }
+}
+
+private struct SpringCurve {
+    private let mass: CGFloat
+    private let stiffness: CGFloat
+    private let damping: CGFloat
+    private let initialVelocity: CGFloat
+    private let referenceDuration: CGFloat
+    private let finalProgress: CGFloat
+
+    init(initialVelocity: CGFloat) {
+        let animation = makeSpringAnimation("", initialVelocity: initialVelocity)
+        let mass = animation.mass
+        let stiffness = animation.stiffness
+        let damping = animation.damping
+        let initialVelocity = animation.initialVelocity
+        let referenceDuration = max(animation.duration, .ulpOfOne)
+
+        self.mass = mass
+        self.stiffness = stiffness
+        self.damping = damping
+        self.initialVelocity = initialVelocity
+        self.referenceDuration = referenceDuration
+        self.finalProgress = max(
+            SpringCurve.rawProgress(
+                at: referenceDuration,
+                mass: mass,
+                stiffness: stiffness,
+                damping: damping,
+                initialVelocity: initialVelocity
+            ),
+            .ulpOfOne
+        )
+    }
+
+    func value(at fraction: CGFloat) -> CGFloat {
+        let clampedFraction = max(0, min(1, fraction))
+        let time = referenceDuration * clampedFraction
+        let progress = rawProgress(at: time) / finalProgress
+        return min(max(progress, 0), 1)
+    }
+
+    private func rawProgress(at time: CGFloat) -> CGFloat {
+        SpringCurve.rawProgress(
+            at: time,
+            mass: mass,
+            stiffness: stiffness,
+            damping: damping,
+            initialVelocity: initialVelocity
+        )
+    }
+
+    private static func rawProgress(
+        at time: CGFloat,
+        mass: CGFloat,
+        stiffness: CGFloat,
+        damping: CGFloat,
+        initialVelocity: CGFloat
+    ) -> CGFloat {
+        1 - displacement(
+            at: time,
+            mass: mass,
+            stiffness: stiffness,
+            damping: damping,
+            initialVelocity: initialVelocity
+        )
+    }
+
+    private static func displacement(
+        at time: CGFloat,
+        mass: CGFloat,
+        stiffness: CGFloat,
+        damping: CGFloat,
+        initialVelocity: CGFloat
+    ) -> CGFloat {
+        guard mass > 0, stiffness > 0 else {
+            return max(0, 1 - time)
+        }
+
+        let y0: CGFloat = 1
+        let yPrime0 = -initialVelocity
+        let naturalFrequency = sqrt(stiffness / mass)
+        let dampingRatio = damping / (2 * sqrt(stiffness * mass))
+
+        if dampingRatio > 1.0001 {
+            let sqrtTerm = sqrt(dampingRatio * dampingRatio - 1)
+            let r1 = -naturalFrequency * (dampingRatio - sqrtTerm)
+            let r2 = -naturalFrequency * (dampingRatio + sqrtTerm)
+            let c1 = (yPrime0 - r2 * y0) / (r1 - r2)
+            let c2 = y0 - c1
+            return c1 * exp(r1 * time) + c2 * exp(r2 * time)
+        }
+
+        if dampingRatio < 0.9999 {
+            let dampedFrequency = naturalFrequency * sqrt(1 - dampingRatio * dampingRatio)
+            let coefficient = (yPrime0 + dampingRatio * naturalFrequency * y0) / dampedFrequency
+            return exp(-dampingRatio * naturalFrequency * time) * (
+                y0 * cos(dampedFrequency * time) + coefficient * sin(dampedFrequency * time)
+            )
+        }
+
+        let coefficient = yPrime0 + naturalFrequency * y0
+        return (y0 + coefficient * time) * exp(-naturalFrequency * time)
     }
 }

@@ -17,6 +17,7 @@ object WCacheStorage {
     private const val CACHE_PREF_HAS_HIDDEN_NFT = "hasHiddenNFT."
     private const val CACHE_PREF_EXPLORE = "exploreHistory."
     private const val CACHE_INITIAL_SCREEN = "initialScreen"
+    private const val CACHE_AGENT_CLIENT_ID = "agentClientId"
 
     fun init(context: Context) {
         sharedPreferences = context.getSharedPreferences(CACHE_PREF_NAME, Context.MODE_PRIVATE)
@@ -117,22 +118,38 @@ object WCacheStorage {
         LOCK(2);
     }
 
-    private var cachedInitialScreen: Int? = null
+    private var cachedInitialScreen: InitialScreen? = null
+
     fun getInitialScreen(): InitialScreen? {
-        cachedInitialScreen = sharedPreferences.getInt(CACHE_INITIAL_SCREEN, 0)
-        return InitialScreen.entries.firstOrNull {
-            it.value == cachedInitialScreen
+        return cachedInitialScreen ?: run {
+            val value = sharedPreferences.getInt(CACHE_INITIAL_SCREEN, InitialScreen.INTRO.value)
+            InitialScreen.entries.firstOrNull { it.value == value }
+                ?.also { cachedInitialScreen = it }
         }
     }
 
     fun setInitialScreen(initialScreen: InitialScreen) {
-        if (initialScreen.value == cachedInitialScreen)
-            return
+        if (cachedInitialScreen == initialScreen) return
+
+        cachedInitialScreen = initialScreen
         sharedPreferences.edit {
             putInt(CACHE_INITIAL_SCREEN, initialScreen.value)
         }
     }
 
+    fun getAgentClientId(): String? {
+        return sharedPreferences.getString(CACHE_AGENT_CLIENT_ID, null)
+    }
+
+    fun setAgentClientId(value: String?) {
+        sharedPreferences.edit {
+            value?.let {
+                putString(CACHE_AGENT_CLIENT_ID, value)
+            } ?: run {
+                remove(CACHE_AGENT_CLIENT_ID)
+            }
+        }
+    }
 
     fun clean(accountIds: Array<String>) {
         for (accountId in accountIds) {

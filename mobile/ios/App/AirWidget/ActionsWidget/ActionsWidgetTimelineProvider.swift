@@ -1,19 +1,8 @@
-//
-//  ActionsWidgetTimelineProvider.swift
-//  App
-//
-//  Created by nikstar on 23.09.2025.
-//
-
-import SwiftUI
-import WalletCore
 import WidgetKit
 
-
 struct ActionsWidgetTimelineProvider: AppIntentTimelineProvider {
-    
     func placeholder(in context: Context) -> ActionsWidgetTimelineEntry {
-        return ActionsWidgetTimelineEntry.placeholder
+        ActionsWidgetTimelineEntry.placeholder
     }
 
     func snapshot(for configuration: ActionsWidgetConfiguration, in context: Context) async -> ActionsWidgetTimelineEntry {

@@ -29,7 +29,9 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
         switch style {
         case .primary:
             UIColor.white // FIXME: Doesn't work for white theme color
-        case .secondary, .clearBackground:
+        case .destructive:
+            .white
+        case .secondary, .clearBackground, .thickCapsule:
             .tintColor
         }
     }
@@ -40,8 +42,10 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
             .tintColor
         case .secondary:
             .tintColor.withAlphaComponent(0.15)
-        case .clearBackground:
+        case .clearBackground, .thickCapsule:
             .clear
+        case .destructive:
+            .air.error
         }
     }
     

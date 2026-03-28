@@ -111,7 +111,7 @@ struct ActivityView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
             }
-            .background(Color(WTheme.groupedItem))
+            .background(Color.air.groupedItem)
             .clipShape(.rect(cornerRadius: 12))
             .frame(maxWidth: 420)
             .frame(maxWidth: .infinity)
@@ -157,7 +157,7 @@ struct ActivityView: View {
     @ViewBuilder
     var encryptedCommentSection: some View {
         
-        let canDecrypt = AccountStore.account?.type == .mnemonic
+        let canDecrypt = model.accountContext.account.type == .mnemonic
         
         if activity.transaction?.encryptedComment != nil {
             if let decryptedComment {
@@ -172,7 +172,7 @@ struct ActivityView: View {
                         if canDecrypt {
                             Text(lang("Tap to reveal"))
                                 .font(.system(size: 10))
-                                .foregroundStyle(Color(WTheme.secondaryLabel))
+                                .foregroundStyle(Color.air.secondaryLabel)
                         }
                     }
                     .contentShape(.rect)
@@ -254,12 +254,12 @@ struct ActivityView: View {
             InsetDetailCell {
                 Text(lang("Collection"))
                     .font17h22()
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
             } value: {
                 if let name = nft.collectionName?.nilIfEmpty, let _ = nft.collectionAddress {
                     Button(action: onNftCollectionTap) {
                         Text(name)
-                            .foregroundStyle(Color(WTheme.tint))
+                            .foregroundStyle(.tint)
                             .font17h22()
                     }
                 } else {
@@ -271,9 +271,15 @@ struct ActivityView: View {
     }
 
     func onNftCollectionTap() {
-        if let accountId = AccountStore.accountId, let nft = activity.transaction?.nft, let name = nft.collectionName?.nilIfEmpty, let address = nft.collectionAddress {
+        let accountContext = model.accountContext
+        let accountId = accountContext.accountId
+        if let nft = activity.transaction?.nft, let name = nft.collectionName?.nilIfEmpty, let address = nft.collectionAddress {
             if NftStore.accountOwnsCollection(accountId: accountId, address: address, chain: nft.chain) {
-                AppActions.showAssets(accountSource: .accountId(accountId), selectedTab: 1, collectionsFilter: .collection(.init(chain: nft.chain, address: address, name: name)))
+                AppActions.showAssets(
+                    accountSource: accountContext.source,
+                    selectedTab: 1,
+                    collectionsFilter: .collection(.init(chain: nft.chain, address: address, name: name))
+                )
             } else {
                 AppActions.openInBrowser(ExplorerHelper.nftCollectionUrl(nft))
             }
@@ -286,7 +292,7 @@ struct ActivityView: View {
             InsetDetailCell {
                 Text(lang("Changelly Payment Address"))
                     .font17h22()
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
             } value: {
                 Text(formatAddressAttributed(payinAddress, startEnd: true))
                     .frame(maxWidth: .infinity, alignment: .trailing)
@@ -299,7 +305,7 @@ struct ActivityView: View {
         if let transaction = activity.transaction, let token {
             InsetDetailCell {
                 Text(lang("Amount"))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
             } value: {
                 let amount = TokenAmount(transaction.amount, token)
                 let inToken = amount
@@ -317,7 +323,7 @@ struct ActivityView: View {
         if let swap = activity.swap, let ex = ExchangeRateHelpers.getSwapRate(fromAmount: swap.fromAmount.value, toAmount: swap.toAmount.value, fromToken: swap.fromToken, toToken: swap.toToken) {
             InsetDetailCell {
                 Text(lang("Exchange Rate"))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
             } value: {
                 let exchangeAmount = TokenAmount.fromDouble(ex.price, ex.fromToken)
                 let exchangeRateString = exchangeAmount.formatted(.compact,
@@ -370,7 +376,7 @@ struct ActivityView: View {
             if chain.isSupported, let fee = _computeDisplayFee(nativeToken: chain.nativeToken) {
                 InsetDetailCell {
                     Text(lang("Fee"))
-                        .foregroundStyle(Color(WTheme.secondaryLabel))
+                        .foregroundStyle(Color.air.secondaryLabel)
                 } value: {
                     FeeView(
                         token: token,
@@ -390,7 +396,7 @@ struct ActivityView: View {
         if !activity.isBackendSwapId && txId.count > 20 {
             InsetDetailCell {
                 Text(lang("Transaction ID"))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
                     .fixedSize()
             } value: {
                 TappableTransactionId(chain: self.chain, txId: txId)
@@ -404,7 +410,7 @@ struct ActivityView: View {
         if let id = activity.swap?.cex?.transactionId {
             InsetDetailCell {
                 Text("Changelly ID")
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .foregroundStyle(Color.air.secondaryLabel)
                     .fixedSize()
             } value: {
                 ChangellyTransactionId(id: id)

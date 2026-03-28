@@ -8,7 +8,7 @@
 import UIKit
 import WalletContext
 
-public class WNavigationBar: WTouchPassView, WThemedView {
+public class WNavigationBar: WTouchPassView {
 
     private var _shouldPassTouches: Bool = false
     public override var shouldPassTouches: Bool {
@@ -106,7 +106,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
 
         separatorView.translatesAutoresizingMaskIntoConstraints = false
         separatorView.translatesAutoresizingMaskIntoConstraints = false
-        separatorView.backgroundColor = WTheme.separator
+        separatorView.backgroundColor = .air.separator
         separatorView.alpha = 0
         addSubview(separatorView)
         NSLayoutConstraint.activate([
@@ -152,7 +152,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
             let subtitleLabel = UILabel()
             self.subtitleLabel = subtitleLabel
             subtitleLabel.text = subtitle
-            subtitleLabel.textColor = WTheme.secondaryLabel
+            subtitleLabel.textColor = .air.secondaryLabel
             subtitleLabel.font = .systemFont(ofSize: 13, weight: .regular)
             titleStackView.addArrangedSubview(subtitleLabel)
         }
@@ -210,7 +210,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
         if closeIcon {
             let closeButton = UIButton(type: .system)
             closeButton.translatesAutoresizingMaskIntoConstraints = false
-            closeButton.backgroundColor = closeIconFillColor ?? WTheme.secondaryLabel.withAlphaComponent(0.15)
+            closeButton.backgroundColor = closeIconFillColor ?? .air.secondaryLabel.withAlphaComponent(0.15)
             closeButton.layer.cornerRadius = 15
             closeButton.layer.masksToBounds = true
             contentView.addSubview(closeButton)
@@ -221,7 +221,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
                 closeButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
             ])
             closeButton.setImage(UIImage(named: "XMark", in: AirBundle, with: nil)!, for: .normal)
-            closeButton.tintColor = closeIconColor ?? WTheme.secondaryLabel
+            closeButton.tintColor = closeIconColor ?? .air.secondaryLabel
             closeButton.addTarget(self, action: #selector(closeButtonPressed), for: .touchUpInside)
         }
 
@@ -269,9 +269,9 @@ public class WNavigationBar: WTouchPassView, WThemedView {
         onBackPressed?()
     }
 
-    public func updateTheme() {
+    private func updateTheme() {
         UIView.animate(withDuration: 0.3) {
-            self.backButton?.tintColor = WTheme.tint
+            self.backButton?.tintColor = .tintColor
         }
     }
 

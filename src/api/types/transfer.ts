@@ -3,6 +3,7 @@
  */
 
 import type { DieselStatus } from '../../global/types';
+import type { ExplainedTransferFee } from '../../util/fee/transferFee';
 import type { ApiAnyDisplayError } from './errors';
 import type { ApiLocalTransactionParams } from './misc';
 
@@ -34,13 +35,17 @@ export interface ApiCheckTransactionDraftOptions extends ApiTransactionCommonOpt
 
 export interface ApiSubmitTransferOptions extends ApiSubmitGasfullTransferOptions {
   /**
-   * The `realFee` obtained earlier from the `checkTransactionDraft` method. Measured in the native token.
-   * To show in the created local transaction.
+   * The real fee (from `explainedFee.realFee.nativeSum`) to show in the created local transaction.
    */
   realFee?: bigint;
   isGasless?: boolean;
   dieselAmount?: bigint;
   isGaslessWithStars?: boolean;
+
+  /**
+   * The transaction to be signed and sent. Only used for gasless transfers in Solana.
+   */
+  gaslessTransaction?: string;
 }
 
 export interface ApiSubmitGasfullTransferOptions extends ApiTransactionCommonOptions {
@@ -56,20 +61,10 @@ export interface ApiSubmitGaslessTransferOptions extends ApiSubmitGasfullTransfe
   tokenAddress: string;
   dieselAmount: bigint;
   isGaslessWithStars?: boolean;
+  gaslessTransaction?: string;
 }
 
 export interface ApiCheckTransactionDraftResult {
-  /**
-   * The full fee that will be appended to the transaction. Measured in the native token. It's charged on top of the
-   * transferred amount, unless it's a full-TON transfer.
-   */
-  fee?: bigint;
-  /**
-   * An approximate fee that will be actually spent. The difference between `fee` and this number is called "excess" and
-   * will be returned back to the wallet. Measured in the native token. Undefined means that it can't be estimated.
-   * If the value is equal to `fee`, then it's known that there will be no excess.
-   */
-  realFee?: bigint;
   addressName?: string;
   isScam?: boolean;
   resolvedAddress?: string;
@@ -79,11 +74,15 @@ export interface ApiCheckTransactionDraftResult {
   error?: ApiAnyDisplayError;
   /**
    * Describes a possibility to use diesel for this transfer. The UI should prefer diesel when this field is defined,
-   * and the diesel status is not "not-available". When the diesel is available, and the UI decides to use it, the `fee`
-   * and `realFee` fields should be ignored, because they don't consider an extra transfer of the diesel to the
-   * MTW wallet.
+   * and the diesel status is not "not-available". When the diesel is available, and the UI decides to use it, the fee
+   * in `explainedFee` should be used instead.
    */
   diesel?: ApiFetchEstimateDieselResult;
+  /**
+   * Normalized explanation of the fee and gasless parameters for this draft, ready for UI consumption.
+   * Filled by chain-specific `checkTransactionDraft` implementations.
+   */
+  explainedFee?: ExplainedTransferFee;
 }
 
 /**
@@ -117,6 +116,12 @@ export interface ApiFetchEstimateDieselResult {
    * number is called "excess" and will be returned back to the wallet. Measured in the native token.
    */
   realFee: bigint;
+
+  /**
+   * An approximate fee that will be actually spent. The difference between `nativeAmount+remainingFee` and this
+   * number is called "excess" and will be returned back to the wallet. Measured in the native token.
+   */
+  transaction?: string;
 }
 
 export interface ApiSubmitGasfullTransferResult {
