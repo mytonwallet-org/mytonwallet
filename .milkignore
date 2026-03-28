@@ -1,0 +1,2 @@
+# Exclude dev-only / local proof-of-concept artifacts from public mirror releases.
+dev/poc-dapps/
