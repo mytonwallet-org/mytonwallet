@@ -23,6 +23,7 @@ import useLastCallback from '../../hooks/useLastCallback';
 
 import Transition from '../../components/ui/Transition';
 import Check from './Check';
+import ConfirmAddress from './ConfirmAddress';
 import Forward from './Forward';
 import ForwardConfirm from './ForwardConfirm';
 import ManageWallet from './ManageWallet';
@@ -33,6 +34,7 @@ enum AppPages {
   Check,
   Forward,
   ForwardConfirm,
+  ConfirmAddress,
   Help,
   ManageWallet,
 }
@@ -50,6 +52,7 @@ function App() {
   const [isJustSentRequest, markJustSentRequest] = useFlag(false);
   const [address, setAddress] = useState<string>('');
   const [domain, setDomain] = useState<string>();
+  const [isAddressConfirmed, setIsAddressConfirmed] = useState<boolean>(false);
 
   useLayoutEffect(applyDocumentClasses, []);
 
@@ -59,10 +62,12 @@ function App() {
 
   const handleConnectClick = useLastCallback(async () => {
     await tonConnectUi.openModal();
+    setIsAddressConfirmed(true);
   });
 
   const handleDisconnectClick = useLastCallback(async () => {
     await tonConnectUi.disconnect();
+    setIsAddressConfirmed(false);
   });
 
   return (
@@ -89,9 +94,11 @@ function App() {
           setCheck={setCheck}
           isJustSentRequest={isJustSentRequest}
           markJustSentRequest={markJustSentRequest}
+          isAddressConfirmed={isAddressConfirmed}
           onConnectClick={handleConnectClick}
           onDisconnectClick={handleDisconnectClick}
           onForwardClick={() => setActiveKey(AppPages.Forward)}
+          onConfirmAddressClick={() => setActiveKey(AppPages.ConfirmAddress)}
         />
       ) : activeKey === AppPages.Forward ? (
         <Forward
@@ -103,7 +110,7 @@ function App() {
           onForward={() => setActiveKey(AppPages.ForwardConfirm)}
           onBack={() => setActiveKey(AppPages.Check)}
         />
-      ) : activeKey === AppPages.ForwardConfirm && (
+      ) : activeKey === AppPages.ForwardConfirm ? (
         <ForwardConfirm
           isActive={isActive}
           check={check!}
@@ -113,7 +120,17 @@ function App() {
           onConfirm={() => setActiveKey(AppPages.Check)}
           onBack={() => setActiveKey(AppPages.Forward)}
         />
-      )}
+      ) : activeKey === AppPages.ConfirmAddress && wallet ? (
+        <ConfirmAddress
+          isActive={isActive}
+          wallet={wallet}
+          onConfirm={() => {
+            setIsAddressConfirmed(true);
+            setActiveKey(AppPages.Check);
+          }}
+          onCancel={() => setActiveKey(AppPages.Check)}
+        />
+      ) : undefined}
     </Transition>
   );
 }

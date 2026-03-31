@@ -1,6 +1,7 @@
 import '../global/actions/ui/shared';
 import '../util/handleError';
 import '../util/bigintPatch';
+import '../lib/tonConnectFriendlyPatch';
 
 import React from '../lib/teact/teact';
 import TeactDOM from '../lib/teact/teact-dom';

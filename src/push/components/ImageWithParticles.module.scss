@@ -38,7 +38,9 @@
 
   background-color: var(--push-token-bg);
 
-  &:active .logoImg {
+  transition: transform 150ms;
+
+  &:active {
     transform: scale(0.96);
   }
 }

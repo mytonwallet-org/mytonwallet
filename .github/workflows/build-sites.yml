@@ -1,0 +1,80 @@
+name: Build sites
+
+on:
+  push:
+    branches:
+      - deploy/push
+      - deploy/multisend
+      - deploy/portfolio
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-multisend:
+    if: github.ref == 'refs/heads/deploy/multisend'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare the Node environment
+        uses: mytonwallet-org/shared-actions/prepare_node@master
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Build
+        run: npm run multisend:build
+
+      - name: Upload site artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: multisend.mytonwallet.io
+          path: dist-multisend
+
+  build-push:
+    if: github.ref == 'refs/heads/deploy/push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare the Node environment
+        uses: mytonwallet-org/shared-actions/prepare_node@master
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Build
+        env:
+          PUSH_API_URL: ${{ vars.PUSH_API_URL }}
+          PUSH_APPLE_OAUTH_CLIENT_ID: ${{ vars.PUSH_APPLE_OAUTH_CLIENT_ID }}
+          PUSH_FACEBOOK_OAUTH_CLIENT_ID: ${{ vars.PUSH_FACEBOOK_OAUTH_CLIENT_ID }}
+          PUSH_GOOGLE_OAUTH_CLIENT_ID: ${{ vars.PUSH_GOOGLE_OAUTH_CLIENT_ID }}
+          PUSH_MICROSOFT_OAUTH_CLIENT_ID: ${{ vars.PUSH_MICROSOFT_OAUTH_CLIENT_ID }}
+        run: npm run push:build
+
+      - name: Upload site artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: push.bot
+          path: dist-push
+
+  build-portfolio:
+    if: github.ref == 'refs/heads/deploy/portfolio'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare the Node environment
+        uses: mytonwallet-org/shared-actions/prepare_node@master
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Build
+        run: npm run portfolio:build
+
+      - name: Upload site artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: portfolio.mytonwallet.io
+          path: dist-portfolio

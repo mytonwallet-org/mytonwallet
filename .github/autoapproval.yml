@@ -1,0 +1,17 @@
+from_owner:
+  - mytonwalletorg
+  - anton-fin-design
+  - korenskoy
+  - troman29
+  - Sina-KH
+  - nikstar
+  - difhel
+  - Garrethta
+
+required_labels:
+  - auto-approve
+
+auto_squash_merge_labels:
+  - auto-merge
+
+apply_labels: []

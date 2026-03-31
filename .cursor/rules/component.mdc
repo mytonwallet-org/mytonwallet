@@ -1,0 +1,106 @@
+---
+description:
+globs: *.tsx
+alwaysApply: false
+---
+## Component Style Guide
+
+### 1. Basics & Imports
+
+* All components use JSX and render with Teact.
+* **Always** import `React` and built-in hooks from `src/lib/teact/teact`.
+* Do not import from `'react'` in components. Prefer Teact types (`TeactNode`, `ElementRef`, `FC`) exported by `src/lib/teact/teact`.
+* Built-in hooks live in `src/lib/teact/teact`. Import them from there.
+
+### 2. Props & Types
+
+* Split your props into two types:
+  * **OwnProps**: data passed in by the parent
+  * **StateProps**: data injected by `withGlobal` HOC
+* Merge them as `OwnProps & StateProps` when defining your component.
+* You can skip one or both if they are not used.
+* **Order rule**: list any function types *last* in your props definitions.
+
+### 3. Hooks
+* **useLastCallback** is your go-to for callbacks, since it won't trigger re-renders and always uses the latest scope.
+* Only use **useCallback** when you really need to memoize a render function.
+* Prefer **useFlag()** over `useState<boolean>()` for simple boolean toggles.
+* Check the `hooks/` folders for additional utilities.
+
+### 4. Component Signature
+Prefer the simple function form. `FC` is acceptable where convenient (some existing components use it).
+
+```ts
+// Common
+const Component = (props: OwnProps & StateProps) => { … }
+
+// Acceptable
+const Component: FC<OwnProps & StateProps> = (props) => { … }
+```
+
+### 5. Memoization
+* Wrap most components with `memo()` to avoid unnecessary updates.
+* Don't pass freshly created objects or arrays as props to memoized components.
+* **Known exception** (not memoized): `MenuItem`.
+
+### 6. Localization
+
+* Call `const lang = useLang()` at the top of your component.
+* Look up the localization guide for YAML keys and substitutions.
+
+---
+
+### Example
+
+```ts
+import React, { memo, useRef, useState } from '../../lib/teact/teact';
+
+import useLang from '../../hooks/useLang';
+import useLastCallback from '../../hooks/useLastCallback';
+import { getActions, withGlobal } from '../../global';
+
+import styles from './Component.module.scss';
+
+type OwnProps = {
+  id: string;
+  className?: string;
+  onClick?: NoneToVoidFunction;
+};
+
+type StateProps = {
+  stateValue?: string;
+};
+
+// Constants first
+const MAX_ITEMS = 10;
+
+const Component = ({ id, className, stateValue, onClick }: OwnProps & StateProps) => {
+  const { someAction } = getActions();
+
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [color, setColor] = useState('#FF00FF');
+
+  const lang = useLang();
+
+  const handleClick = useLastCallback(() => {
+    if (!ref.current) return;
+    const el = ref.current;
+    setColor(el.value);
+    onClick?.();
+    someAction(el.value);
+  });
+
+  return (
+    <div ref={ref} className={styles.root + (className ? ` ${className}` : '')}>
+      <button onClick={handleClick}>{lang('Button')}</button>
+      <p>{stateValue}</p>
+    </div>
+  );
+};
+
+export default memo(withGlobal<OwnProps>((global, { id }): StateProps => {
+  const stateValue = selectValue(global, id);
+  return { stateValue };
+})(Component));
+```

@@ -31,5 +31,5 @@ export function initTonConnect(
 }
 
 export function getWalletAddress(wallet: Wallet) {
-  return Address.parse(wallet.account.address).toString();
+  return Address.parse(wallet.account.address).toString({ bounceable: false });
 }
