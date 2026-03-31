@@ -258,9 +258,9 @@ Unexpected: Beklenmedik hata
 You can save this address for quick access while sending.: Gönderirken hızlı erişim için bu adresi kaydedebilirsiniz.
 Stake Again: Yeniden stake edin
 Earned: Kazanıldı
-Select wallet to use on this dapp: Bu dapp üzerinde kullanılacak cüzdanı seçin
+Select wallet to use on this app: Bu uygulama üzerinde kullanılacak cüzdanı seçin
 Connect: Bağlan
-Dapp Permissions: Dapp İzinleri
+App Permissions: Uygulama İzinleri
 $dapp_can_view_balance: "%dappname% cüzdan adresini ve bakiyesini görüntüleyebilecek."
 Payload: Yük
 $many_transactions: "%1$d Transfer"
@@ -273,11 +273,10 @@ Install our native app or browser extension.: Yerel uygulamamızı veya tarayıc
 Scam: Sahtekarlık
 Scam comment is hidden.: Scam yorumu gizlendi.
 Display: Görüntüle
-Connected Dapps: Bağlı Dapp'ler
-Disconnect All Dapps: Tüm Dapp'lerin bağlantısını kesin
+Disconnect All Apps: Tüm uygulamaların bağlantısını kesin
 Disconnect: Bağlantıyı kes
-Disconnect Dapp: Dapp'in bağlantısını kes
-Disconnect Dapps: Dapp'lerin bağlantısını kes
+Disconnect App: Uygulamanın bağlantısını kes
+Disconnect Apps: Uygulamaların bağlantısını kes
 Are you sure you want to disconnect?: "%dappname% bağlantısını kesmek istediğinizden emin misiniz?"
 Are you sure you want to disconnect all websites?: Tüm web sitelerinin bağlantısını kesmek istediğinizden emin misiniz?
 Logged in with %app_name%: "%app_name% ile oturum açıldı"
@@ -520,7 +519,7 @@ $dapp_liquid_staking_vote_payload: "%votingAddress% teklifi için \"%vote%\" oyu
 $dapp_single_nominator_change_validator_payload: SingleNominator staking sözleşmesi doğrulayıcısının adresi %address% olarak değiştiriliyor
 $dapp_single_nominator_withdraw_payload: "%amount%'un SingleNominator staking sözleşmesinden çekilmesi"
 $dapp_vesting_add_whitelist_payload: Vesting cüzdanı beyaz listesine %address% ekleniyor
-Connecting dapps is not yet supported by Ledger.: Dapp'lerin bağlanması henüz Ledger tarafından desteklenmiyor.
+Connecting apps is not yet supported by Ledger.: Uygulamaların bağlanması henüz Ledger tarafından desteklenmiyor.
 Time synchronization issue. Please ensure your device's time settings are correct.: Time synchronization issue. Zaman senkronizasyonu sorunu. Lütfen cihazınızın saat ayarlarının doğru olduğundan emin olun.
 Data Copied: Veri kopyalandı
 URL Copied: URL Copied
@@ -894,7 +893,7 @@ Collectibles: Koleksiyonlar
 Bluetooth unavailable: Bluetooth kullanılamıyor
 $bluetooth_enable_guide: Cihaz ayarlarında Bluetooth'u açın ve uygulamanın Bluetooth'a erişmesine izin verin.
 Canceled by the user: Kullanıcı tarafından iptal edildi
-The proof for signing provided by the Dapp is too large: Dapp tarafından sağlanan imzalama kanıtı çok büyük
+The proof for signing provided by the app is too large: Uygulama tarafından sağlanan imzalama kanıtı çok büyük
 $domain_like_scam_warning: |
   Girilen adres büyük olasılıkla bir **DOLANDIRICILIKTIR**. Bu, herhangi bir borsanın veya token cüzdanınızın adresi **DEĞİLDİR**.
 
@@ -1044,11 +1043,11 @@ $transfer_inactive_contract_error: |
   Kesinlikle bu adrese göndermek istiyorsanız, adresi "UQ..." formatında girin.
 $transaction_not_found: Transfer bulunamadı.
 $could_not_determine_address: Transferden cüzdan adresi belirlenemedi
-WrongAddress: Dapp başka bir cüzdandan işlem talep etti.
-WrongNetwork: Dapp başka bir ağdan işlem talep etti.
+WrongAddress: Uygulama başka bir cüzdandan işlem talep etti.
+WrongNetwork: Uygulama başka bir ağdan işlem talep etti.
 Another transfer was sent from this wallet simultaneously. Please try again.: Bu cüzdandan aynı anda başka bir transfer gönderildi. Lütfen tekrar deneyin.
 Confirm action with your password: İşlemi şifrenizle onaylayın
-$dapps-description: "%app_name% destekleyen dapp'lerde giriş yapabilirsiniz. Cüzdan adresini, bakiyeyi görüntüleyebilir ve işlem talep edebilirler."
+$dapps-description: "%app_name% destekleyen uygulamalarda giriş yapabilirsiniz. Cüzdan adresini, bakiyeyi görüntüleyebilir ve işlem talep edebilirler."
 Please verify the action.: Lütfen işlemi doğrulayın.
 $service_token_transfer_warning: Yatırımınızı çekmek veya hizmet işlemlerini tamamlamak için gerekli olan önemli bir hizmet token'ını transfer etmek üzeresiniz. Lütfen bunun yapmak istediğiniz işlem olduğundan emin olun.
 $ledger_outdated: Bu işlem, Ledger %chain% Uygulamanızın sürümü tarafından desteklenmiyor. Lütfen Ledger Live kullanarak güncelleyin.
@@ -1088,3 +1087,4 @@ AgentErrorConnectionFailed: "Hata: Bağlantı başarısız"
 Scroll To Bottom: Alta kaydır
 $agent_clear_chat_confirm: Sohbet geçmişini temizlemek istediğinizden emin misiniz?
 $unknown_swap_token: Swap bağlantısında bilinmeyen token. Varsayılan tokenlar kullanıldı.
+$action_not_available_view_mode: Bu işlem Görüntüleme Cüzdanları için kullanılamaz

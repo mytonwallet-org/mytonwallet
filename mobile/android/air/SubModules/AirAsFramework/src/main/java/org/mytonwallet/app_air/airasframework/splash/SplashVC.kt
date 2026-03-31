@@ -35,6 +35,14 @@ import org.mytonwallet.app_air.uicreatewallet.viewControllers.intro.IntroVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.wordCheck.WordCheckVC
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
+import org.mytonwallet.app_air.uisettings.viewControllers.appearance.AppearanceVC
+import org.mytonwallet.app_air.uisettings.viewControllers.appInfo.AppInfoVC
+import org.mytonwallet.app_air.uisettings.viewControllers.assetsAndActivities.AssetsAndActivitiesVC
+import org.mytonwallet.app_air.uisettings.viewControllers.connectedApps.ConnectedAppsVC
+import org.mytonwallet.app_air.uisettings.viewControllers.language.LanguageVC
+import org.mytonwallet.app_air.uisettings.viewControllers.notificationSettings.NotificationSettingsVC
+import org.mytonwallet.app_air.uisettings.viewControllers.userResponsibility.UserResponsibilityVC
+import org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.WalletVersionsVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uireceive.ReceiveVC
@@ -747,6 +755,61 @@ class SplashVC(context: Context) : WViewController(context),
                 window?.present(navVC)
             }
 
+            is Deeplink.Send -> {
+                if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
+                    nextDeeplink = null
+                    return
+                }
+
+                val error = LocaleController.getStringOrNull(
+                    when {
+                        deeplink.hasUnsupportedParams ->
+                            "\$unsupported_deeplink_parameter"
+
+                        deeplink.expiry != null && (System.currentTimeMillis() / 1000 > deeplink.expiry!!) ->
+                            "\$transfer_link_expired"
+
+                        deeplink.comment != null && deeplink.binary != null ->
+                            "\$transfer_text_and_bin_exclusive"
+
+                        else -> null
+                    }
+                )
+
+                error?.let {
+                    showAlertOverTopVC(
+                        LocaleController.getString("Error"),
+                        error
+                    )
+                    nextDeeplink = null
+                    return
+                }
+
+                val blockchain = MBlockchain.valueOfOrNull(deeplink.chain)
+                val nativeSlug = blockchain?.nativeSlug
+
+                val tokenSlug = deeplink.tokenSlug
+                    ?.let { TokenStore.getToken(it, false)?.slug }
+                    ?: nativeSlug
+
+                val token = TokenStore.getToken(tokenSlug)
+                val amountString = CoinUtils.toDecimalString(deeplink.amount, token?.decimals)
+
+                val navVC = WNavigationController(window!!)
+                navVC.setRoot(
+                    SendVC(
+                        context, tokenSlug, InitialValues(
+                            address = deeplink.address,
+                            amount = amountString,
+                            binary = deeplink.binary,
+                            comment = deeplink.comment,
+                            init = deeplink.init
+                        )
+                    )
+                )
+                window?.present(navVC)
+            }
+
             is Deeplink.TonConnect2 -> {
                 // Already handled
             }
@@ -865,6 +928,10 @@ class SplashVC(context: Context) : WViewController(context),
 
             is Deeplink.Explore -> {
                 tabsVC?.switchToExplore(deeplink.targetUri)
+            }
+
+            is Deeplink.Agent -> {
+                tabsVC?.switchToAgent()
             }
 
             is Deeplink.Url -> {
@@ -988,6 +1055,21 @@ class SplashVC(context: Context) : WViewController(context),
                 }
             }
 
+            is Deeplink.Settings -> {
+                val subVC = when (deeplink.page) {
+                    "appearance" -> AppearanceVC(context)
+                    "notifications" -> NotificationSettingsVC(context)
+                    "assets" -> AssetsAndActivitiesVC(context)
+                    "dapps" -> ConnectedAppsVC(context)
+                    "language" -> LanguageVC(context)
+                    "about" -> AppInfoVC(context)
+                    "disclaimer" -> UserResponsibilityVC(context)
+                    "wallet-version" -> WalletVersionsVC(context)
+                    else -> null
+                }
+                tabsVC?.switchToSettings(subVC)
+            }
+
             is Deeplink.SwitchToLegacy -> {
                 // Already handled!
             }
@@ -1020,7 +1102,7 @@ class SplashVC(context: Context) : WViewController(context),
             }
             val nftVC = NftVC(
                 context,
-                showingAccountId = AccountStore.activeAccountId ?: return@call ,
+                showingAccountId = AccountStore.activeAccountId ?: return@call,
                 nft = nft,
                 collectionNFTs = listOf(nft),
                 shouldShowOwner = true,

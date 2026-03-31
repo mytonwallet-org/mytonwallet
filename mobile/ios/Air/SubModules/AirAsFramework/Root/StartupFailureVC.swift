@@ -140,8 +140,7 @@ final class StartupFailureVC: WViewController {
             do {
                 let logs = try await SupportDiagnostics.prepareLogsExportFile()
                 let vc = UIActivityViewController(activityItems: [logs], applicationActivities: nil)
-                vc.popoverPresentationController?.sourceView = self.exportLogsButton
-                self.present(vc, animated: true)
+                self.presentActivityViewController(vc, sourceView: self.exportLogsButton)
             } catch {
                 self.log.fault("startup log export failed \(error, .public)")
                 self.showAlert(

@@ -66,7 +66,7 @@ Remove Wallet: 离开
 Something went wrong.: 什么地方出错了···
 Something went wrong: 什么地方出错了···
 Logo: Logo
-$about_description1: 安全地存储加密货币，探索 dAPP 并以**光速**进行区块链支付
+$about_description1: 安全地存储加密货币，探索应用并以**光速**进行区块链支付
 $about_description2: 您的钱包是**非托管**且**安全**的。开发人员无法挪用您的资金，亦无法访问您的浏览器历史记录或任何个人信息。
 What is TON Proxy?: 什么是 TON 代理?
 $about_extension_description1: TON 代理 支持匿名访问 TON 网站 ，这创造了通往**去中心化网络**的新方式！
@@ -255,9 +255,9 @@ Earning: 赚取中
 You can save this address for quick access while sending.: 您可以保存此地址以便在发送时快速访问。
 Stake Again: 再次质押
 Earned: 获得
-Select wallet to use on this dapp: 选择在此 dapp 上使用的钱包
+Select wallet to use on this app: 选择在此应用上使用的钱包
 Connect: 连接
-Dapp Permissions: Dapp 权限
+App Permissions: 应用权限
 $dapp_can_view_balance: "%dappname% 将能够查看钱包地址和余额。"
 Payload: 有效载荷
 $many_transactions: "%1$d 笔转账"
@@ -271,11 +271,10 @@ Scam: 骗局
 Scam comment is hidden.: 诈骗评论被隐藏。
 Display: 展示
 Nested Transaction: 嵌套事务
-Connected Dapps: 连接的 Dapps
-Disconnect All Dapps: 断开所有 Dapps
+Disconnect All Apps: 断开所有应用
 Disconnect: 断开
-Disconnect Dapp: 断开 Dapp
-Disconnect Dapps: 断开 Dapps
+Disconnect App: 断开应用
+Disconnect Apps: 断开应用
 Are you sure you want to disconnect?: 您确定要断开 %dappname% 吗？
 Are you sure you want to disconnect all websites?: 您确定要断开所有网站吗？
 Logged in with %app_name%: 使用 %app_name% 登录
@@ -517,7 +516,7 @@ $dapp_liquid_staking_vote_payload: 对提案 %votingAddress% 投票“%vote%”
 $dapp_single_nominator_change_validator_payload: 将 SingleNominator 质押合约验证者的地址更改为 %address%
 $dapp_single_nominator_withdraw_payload: 从 SingleNominator 质押合约中提取 %amount%
 $dapp_vesting_add_whitelist_payload: 将 %address% 添加到归属钱包白名单
-Connecting dapps is not yet supported by Ledger.: Ledger 尚不支持连接 dapp。
+Connecting apps is not yet supported by Ledger.: Ledger 尚不支持连接应用。
 Time synchronization issue. Please ensure your device's time settings are correct.: 时间同步问题。 请确保您设备的时间设置正确。
 Data Copied: 数据被复制
 URL Copied: URL Copied
@@ -890,7 +889,7 @@ Collectibles: 收藏品
 Bluetooth unavailable: 蓝牙不可用
 $bluetooth_enable_guide: 请在设备设置中开启蓝牙并允许应用访问蓝牙。
 Canceled by the user: 用户已取消
-The proof for signing provided by the Dapp is too large: Dapp 提供的签名证明过大
+The proof for signing provided by the app is too large: 应用提供的签名证明过大
 $domain_like_scam_warning: |
   输入的地址很可能是一个**骗局**。这**不是**任何交易所或您的代币钱包地址。
 
@@ -1040,11 +1039,11 @@ $transfer_inactive_contract_error: |
   如果您确实想发送到此地址，请以 "UQ..." 格式输入地址。
 $transaction_not_found: 未找到转账。
 $could_not_determine_address: 无法从转账中确定钱包地址
-WrongAddress: 去中心化应用 (dapp) 请求了另一个钱包的操作。
-WrongNetwork: 去中心化应用 (dapp) 请求了另一个网络的操作。
+WrongAddress: 应用请求了另一个钱包的操作。
+WrongNetwork: 应用请求了另一个网络的操作。
 Another transfer was sent from this wallet simultaneously. Please try again.: 同时从此钱包发送了另一笔转账。请重试。
 Confirm action with your password: 用密码确认操作
-$dapps-description: 您可以在支持 %app_name% 的去中心化应用 (dapps) 上登录。它们可以查看钱包地址、余额并请求操作。
+$dapps-description: 您可以在支持 %app_name% 的应用上登录。它们可以查看钱包地址、余额并请求操作。
 Please verify the action.: 请验证操作。
 $service_token_transfer_warning: 您即将转移一个重要的服务代币，该代币是提取存款或完成服务操作所必需的。请确保这是您打算执行的操作。
 $ledger_outdated: 此操作不受您的 Ledger %chain% 应用程序版本支持。请使用 Ledger Live 更新它。
@@ -1085,3 +1084,4 @@ AgentErrorConnectionFailed: "错误：连接失败"
 Scroll To Bottom: 滚动到底部
 $agent_clear_chat_confirm: 您确定要清空聊天记录吗？
 $unknown_swap_token: 交换链接中的代币未知。已使用默认代币。
+$action_not_available_view_mode: 此操作不适用于查看钱包

@@ -195,7 +195,7 @@ class SettingsVM {
                 SettingsItem(
                     identifier = SettingsItem.Identifier.CONNECTED_APPS,
                     icon = R.drawable.ic_apps,
-                    title = LocaleController.getString("Connected Dapps"),
+                    title = LocaleController.getString("Connected Apps"),
                     hasTintColor = false,
                 )
             else null,

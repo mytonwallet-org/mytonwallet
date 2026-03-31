@@ -862,6 +862,21 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         targetUri?.let { cachedExploreVC?.findSiteAndOpenTargetUri(it) }
     }
 
+    fun switchToAgent() {
+        navigationController?.popToRoot(false)
+        bottomNavigationView.selectedItemId = ID_AGENT
+        window?.dismissToRoot()
+    }
+
+    fun switchToSettings(pushVC: WViewController? = null) {
+        navigationController?.popToRoot(false)
+        bottomNavigationView.selectedItemId = ID_SETTINGS
+        window?.dismissToRoot()
+        pushVC?.let {
+            navigationController?.push(it)
+        }
+    }
+
     private var cachedExploreVC: ExploreVC? = null
         set(value) {
             field = value

@@ -56,7 +56,6 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     private var amountLabel: WAmountLabel!
     private var amount2Container: WSensitiveData<UILabel> = .init(cols: 9, rows: 2, cellSize: 7, cornerRadius: 4, theme: .adaptive, alignment: .trailing)
     private var baseCurrencyAmountLabel: WAmountLabel!
-    private var separatorView: UIView!
     private let badge = BadgeView()
 
     public override init(frame: CGRect) {
@@ -165,18 +164,6 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         ])
         badge.alpha = 0
 
-        // separator
-        separatorView = UIView()
-        separatorView.translatesAutoresizingMaskIntoConstraints = false
-        separatorView.backgroundColor = IOS_26_MODE_ENABLED ? UIColor.separator : isUIAssets ? .air.separatorDarkBackground : .air.separator
-        addSubview(separatorView)
-        NSLayoutConstraint.activate([
-            separatorView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 0),
-            separatorView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: IOS_26_MODE_ENABLED ? -12 : 0),
-            separatorView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 62),
-            separatorView.heightAnchor.constraint(equalToConstant: IOS_26_MODE_ENABLED ? 1 : 0.33),
-        ])
-
         contentView.backgroundColor = .clear
 
         updateTheme()
@@ -196,7 +183,6 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     private var prevToken: String?
 
     public func configure(with walletToken: MTokenBalance,
-                          isLast: Bool,
                           animated: Bool = true,
                           badgeContent: BadgeContent?,
                           isMultichain: Bool,
@@ -280,8 +266,6 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         let fiatAmountCols = 5 + (amountCols % 6)
         amountContainer.setCols(amountCols)
         amount2Container.setCols(fiatAmountCols)
-
-        separatorView.isHidden = isLast
         prevToken = token?.slug
     }
 

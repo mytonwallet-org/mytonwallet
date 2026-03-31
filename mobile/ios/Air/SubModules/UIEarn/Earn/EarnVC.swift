@@ -179,9 +179,6 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
             indicatorView.centerXAnchor.constraint(equalTo: emptyView.centerXAnchor),
             indicatorView.centerYAnchor.constraint(equalTo: emptyView.centerYAnchor)
         ])
-        if earnVM.historyItems == nil {
-            indicatorView.startAnimating(animated: false)
-        }
         
         claimRewardsViewModel.viewController = self
         claimRewardsViewModel.onClaim = { [weak self] in
@@ -248,17 +245,38 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         }
     }
     
-    private func updateLoadingState() {
-        if emptyView.alpha == 0 && earnVM.historyItems != nil, earnVM.allLoadedOnce, let apy = stakingState?.apy {
-            indicatorView.stopAnimating(animated: true)
-            let apyString = formatPercent(apy/100)
+    private func updateLoadingState(animated: Bool = true) {
+        let isLoadingInitialHistory = earnVM.historyItems == nil
+        let shouldShowEmptyState = earnVM.allLoadedOnce && earnVM.historyItems?.isEmpty == true
+        
+        if let apy = stakingState?.apy {
+            let apyString = formatPercent(apy / 100)
             emptyView.estimatedAPYLabel.text = "\(lang("Est. %annual_yield%", arg1: apyString))"
-            if earnVM.historyItems?.count == 0 {
-                UIView.animate(withDuration: 0.5) { [weak self] in
-                    guard let self else {return}
-                    emptyView.alpha = 1
-                }
-            }
+            emptyView.estimatedAPYLabel.isHidden = false
+        } else {
+            emptyView.estimatedAPYLabel.text = nil
+            emptyView.estimatedAPYLabel.isHidden = true
+        }
+        
+        if isLoadingInitialHistory {
+            indicatorView.startAnimating(animated: animated)
+        } else {
+            indicatorView.stopAnimating(animated: animated)
+        }
+        
+        setEmptyStateVisible(shouldShowEmptyState, animated: animated)
+    }
+    
+    private func setEmptyStateVisible(_ isVisible: Bool, animated: Bool) {
+        let alpha: CGFloat = isVisible ? 1 : 0
+        guard emptyView.alpha != alpha else { return }
+        let changes: () -> Void = { [weak self] in
+            self?.emptyView.alpha = alpha
+        }
+        if animated {
+            UIView.animate(withDuration: 0.25, animations: changes)
+        } else {
+            changes()
         }
     }
     
@@ -413,8 +431,7 @@ extension EarnVC: EarnMVDelegate {
     }
     
     public func newPageLoaded(animateChanges: Bool) {
-        updateLoadingState()
-        indicatorView.stopAnimating(animated: true)
+        updateLoadingState(animated: animateChanges)
         if animateChanges {
             applySnapshot(animated: true, reloadHeader: true)
         } else {

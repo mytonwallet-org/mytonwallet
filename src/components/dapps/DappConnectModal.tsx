@@ -406,7 +406,7 @@ function DappConnectModal({
       <Modal
         isOpen={isConfirmOpen}
         isCompact
-        title={lang('Dapp Permissions')}
+        title={lang('App Permissions')}
         onClose={closeConfirm}
       >
         <div className={styles.description}>

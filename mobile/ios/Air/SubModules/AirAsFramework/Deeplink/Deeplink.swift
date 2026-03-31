@@ -7,7 +7,9 @@ import WalletContext
 enum Deeplink {
     case tonConnect2(requestLink: String)
     case walletConnect(requestLink: String)
+    case agent
     case invoice(address: String, amount: BigInt?, comment: String?, binaryPayload: String?, token: String?, jetton: String?, stateInit: String?)
+    case send(chain: ApiChain, address: String, amount: BigInt?, comment: String?, binaryPayload: String?, tokenSlug: String?, stateInit: String?)
     case swap(from: String?, to: String?, amountIn: Double?)
     case buyWithCard
     case sell(Sell)
@@ -22,6 +24,7 @@ enum Deeplink {
     case transaction(chain: ApiChain, txId: String)
     case nftAddress(nftAddress: String)
     case view(addressOrDomainByChain: [String: String])
+    case settings(section: AppSettingsSection?)
 }
 
 extension Deeplink {

@@ -132,7 +132,7 @@ struct DebugView: View {
                             try db.orThrow("database not ready").backup(to: DatabaseQueue(path: exportUrl.path(percentEncoded: false)))
                             DispatchQueue.main.async {
                                 let vc = UIActivityViewController(activityItems: [exportUrl], applicationActivities: nil)
-                                topViewController()?.present(vc, animated: true)
+                                topViewController()?.presentActivityViewController(vc)
                             }
                         } catch {
                             log.info("export failed: \(error, .public)")
@@ -198,7 +198,7 @@ struct DebugView: View {
             let logs = try await SupportDiagnostics.prepareLogsExportFile()
             await MainActor.run {
                 let vc = UIActivityViewController(activityItems: [logs], applicationActivities: nil)
-                topViewController()?.present(vc, animated: true)
+                topViewController()?.presentActivityViewController(vc)
             }
         } catch {
             Log.shared.fault("failed to share logs \(error, .public)")

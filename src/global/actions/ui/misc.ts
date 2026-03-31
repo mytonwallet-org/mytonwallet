@@ -832,6 +832,7 @@ addActionHandler('switchToAgent', (global: GlobalState, actions) => {
   actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
   actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
   actions.openAgent(undefined, { forceOnHeavyAnimation: true });
+  actions.setActiveContentTab({ tab: ContentTab.Agent }, { forceOnHeavyAnimation: true });
 });
 
 addActionHandler('switchToExplore', (global: GlobalState, actions) => {

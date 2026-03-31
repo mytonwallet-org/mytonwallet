@@ -37,7 +37,7 @@ function DisconnectDappModal({ isOpen, dapp, onClose }: OwnProps) {
     onClose();
   });
 
-  const title = dapp ? lang('Disconnect Dapp') : lang('Disconnect Dapps');
+  const title = dapp ? lang('Disconnect App') : lang('Disconnect Apps');
   const description = dapp
     ? lang('Are you sure you want to disconnect?', { dappname: <strong>{dapp.name}</strong> })
     : lang('Are you sure you want to disconnect all websites?');

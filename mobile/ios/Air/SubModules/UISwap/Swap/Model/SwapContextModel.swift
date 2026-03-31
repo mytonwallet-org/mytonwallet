@@ -6,6 +6,7 @@ struct SwapContext {
     let buying: ApiToken
     let swapType: SwapType
     let isValidPair: Bool
+    let isBuyAmountInputDisabled: Bool
 }
 
 @MainActor final class SwapContextModel {
@@ -20,31 +21,64 @@ struct SwapContext {
         return swapType
     }
 
+    func currentBuyAmountInputDisabled(selling: ApiToken, buying: ApiToken, accountChains: Set<ApiChain>) -> Bool {
+        let swapType = getSwapType(from: selling.slug, to: buying.slug, accountChains: accountChains)
+        guard swapType == .onChain else { return true }
+        return pairModel.cachedIsReverseProhibited(selling: selling, buying: buying) ?? true
+    }
+
     func updateContext(selling: ApiToken, buying: ApiToken, accountChains: Set<ApiChain>) async throws -> SwapContext {
         let swapType = updateSwapType(selling: selling, buying: buying, accountChains: accountChains)
-        let isValidPair = try await pairModel.updatePair(selling: selling, buying: buying)
+        let pairState = try await pairModel.updatePair(selling: selling, buying: buying)
+        let isValidPair = pairState.isValidPair
         self.isValidPair = isValidPair
-        let context = SwapContext(selling: selling, buying: buying, swapType: swapType, isValidPair: isValidPair)
+        let context = SwapContext(
+            selling: selling,
+            buying: buying,
+            swapType: swapType,
+            isValidPair: isValidPair,
+            isBuyAmountInputDisabled: swapType != .onChain || pairState.isReverseProhibited
+        )
         self.context = context
         return context
     }
 }
 
 @MainActor private final class SwapPairModel {
-    var prevPair: (String, String) = ("", "")
-    var isValidPair = true
+    struct PairState {
+        let isValidPair: Bool
+        let isReverseProhibited: Bool
+    }
 
-    func updatePair(selling: ApiToken, buying: ApiToken) async throws -> Bool {
+    var prevPair: (String, String) = ("", "")
+    var pairState = PairState(isValidPair: true, isReverseProhibited: false)
+
+    func updatePair(selling: ApiToken, buying: ApiToken) async throws -> PairState {
         let pair = (selling.slug, buying.slug)
-        guard pair != prevPair else { return isValidPair }
-        prevPair = pair
-        if selling.chain == .ton && buying.chain == .ton && selling.slug != buying.slug {
-            isValidPair = true
-            return true
-        }
+        guard pair != prevPair else { return pairState }
         let pairs = try await Api.swapGetPairs(symbolOrMinter: selling.swapIdentifier)
         try Task.checkCancellation()
-        isValidPair = pairs.contains(where: { $0.slug == buying.slug })
-        return isValidPair
+        let currentPair = pairs.first(where: { $0.slug == buying.slug })
+        let isWellKnownAllowedPair = selling.slug != buying.slug
+            && selling.chain == buying.chain
+            && selling.chain.isOnchainSwapSupported
+        let nextState = PairState(
+            isValidPair: currentPair != nil || isWellKnownAllowedPair,
+            isReverseProhibited: currentPair?.isReverseProhibited == true
+        )
+        prevPair = pair
+        pairState = nextState
+        return nextState
+    }
+
+    func cachedIsReverseProhibited(selling: ApiToken, buying: ApiToken) -> Bool? {
+        let pair = (selling.slug, buying.slug)
+        if pair == prevPair {
+            return pairState.isReverseProhibited
+        }
+        guard let pairs = TokenStore.swapPairs[selling.swapIdentifier] else {
+            return nil
+        }
+        return pairs.first(where: { $0.slug == buying.slug })?.isReverseProhibited == true
     }
 }

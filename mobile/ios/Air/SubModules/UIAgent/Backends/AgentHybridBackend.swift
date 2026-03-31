@@ -119,10 +119,16 @@ final class AgentHybridBackend: AgentBackend {
         editContext: AgentBackendEditContext?
     ) async {
         guard context != nil else { return }
-        let userAddresses = AgentRequestContext.current(using: accountContext).userAddresses ?? []
+        let requestContext = AgentRequestContext.current(using: accountContext)
+        let userAddresses = requestContext.userAddresses ?? []
+        let savedAddresses = requestContext.savedAddresses ?? []
 
         do {
-            let classification = try await agent.classify(message: text, userAddresses: userAddresses)
+            let classification = try await agent.classify(
+                message: text,
+                userAddresses: userAddresses,
+                savedAddresses: savedAddresses
+            )
             guard !Task.isCancelled else { return }
 
             let needsRealAgent = classification.intents.contains { intent in
@@ -137,7 +143,8 @@ final class AgentHybridBackend: AgentBackend {
                 await processLocally(text,
                                      typingIndicatorID: typingIndicatorID,
                                      classification: classification,
-                                     userAddresses: userAddresses)
+                                     userAddresses: userAddresses,
+                                     savedAddresses: savedAddresses)
             }
         } catch {
             log.error("classify failed, falling back to real agent conversationId=\(conversationID, .public) error=\(error, .public)")
@@ -151,11 +158,13 @@ final class AgentHybridBackend: AgentBackend {
     private func processLocally(_ text: String,
                                 typingIndicatorID: AgentItemID,
                                 classification: ClassificationResult,
-                                userAddresses: [any AgentUserAddress]) async {
+                                userAddresses: [any AgentUserAddress],
+                                savedAddresses: [any AgentUserAddress] = []) async {
         let (results, _) = await agent.processClassified(
             classification: classification,
             message: text,
             userAddresses: userAddresses,
+            savedAddresses: savedAddresses,
             conversationId: conversationID
         )
 

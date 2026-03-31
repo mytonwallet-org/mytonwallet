@@ -202,9 +202,20 @@ public class HomeTabBarController: UITabBarController {
             rootVC.dismiss(animated: true)
         }
     }
+
+    public func switchToAgent() {
+        selectedIndex = tabIndex(for: .agent)
+    }
     
     public func switchToExplore() {
         selectedIndex = tabIndex(for: .explore)
+    }
+
+    public func switchToSettings(path: [UIViewController]) {
+        selectedIndex = tabIndex(for: .settings)
+        guard let settingsNavigationController else { return }
+        guard let rootViewController = settingsNavigationController.viewControllers.first else { return }
+        settingsNavigationController.setViewControllers([rootViewController] + path, animated: false)
     }
 
     @discardableResult

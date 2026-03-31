@@ -176,8 +176,7 @@ final class InAppBrowserPageVC: WViewController {
     func share() {
         let activityViewController = UIActivityViewController(activityItems: [config.url], applicationActivities: nil)
         activityViewController.excludedActivityTypes = [.assignToContact, .print]
-        activityViewController.popoverPresentationController?.sourceView = self.webView
-        self.present(activityViewController, animated: true, completion: nil)
+        presentActivityViewController(activityViewController, sourceView: webView)
     }
 }
 

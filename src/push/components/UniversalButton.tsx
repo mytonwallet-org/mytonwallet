@@ -2,8 +2,9 @@ import React from '../../lib/teact/teact';
 
 import type { OwnProps as ButtonProps } from '../../components/ui/Button';
 
-import { IS_TELEGRAM_APP, THEME_DEFAULT } from '../../config';
+import { THEME_DEFAULT } from '../../config';
 import { pick } from '../../util/iteratees';
+import { isInsideTelegram } from '../../util/telegram';
 
 import useAppTheme from '../../hooks/useAppTheme';
 import useTelegramBottomButton from '../hooks/useTelegramBottomButton';
@@ -25,7 +26,7 @@ function UniversalButton(props: OwnProps) {
     text: props.children,
   });
 
-  if (IS_TELEGRAM_APP) {
+  if (isInsideTelegram()) {
     return undefined;
   }
 

@@ -49,6 +49,11 @@ will be forwarded to this address.: будет переслано на этот 
 Confirm: Подтвердить
 Edit: Изменить
 
+# Confirm address screen
+Confirm Your Address: Подтвердите ваш адрес
+"You will receive the transfer to this address:": "Вы получите перевод на этот адрес:"
+Cancel: Отменить
+
 # Connect wallet screen
 Select NFT: Выбрать NFT
 Change Wallet: Изменить кошелёк
@@ -59,3 +64,8 @@ to send and receive NFTs right inside Telegram: для того, чтобы от
 
 # Errors
 Before transferring this NFT, please remove it from sale on Fragment.: Прежде чем передавать этот NFT, пожалуйста, снимите его с продажи на Fragment.
+
+# OIDC
+"Authorized as %target%": "Авторизован как %target%"
+"Authorize as %targetHint%": "Авторизуйтесь как %targetHint%"
+"Select your provider:": "Выберите провайдера:"

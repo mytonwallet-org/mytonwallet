@@ -260,9 +260,9 @@ Unexpected: Nieoczekiwany
 You can save this address for quick access while sending.: Możesz zapisać ten adres, aby szybko się do niego dostać podczas wysyłania.
 Stake Again: Zastaw ponownie
 Earned: Zarobione
-Select wallet to use on this dapp: Wybierz portfel, którego chcesz używać w tym dappie
+Select wallet to use on this app: Wybierz portfel, którego chcesz używać w tej aplikacji
 Connect: Połącz
-Dapp Permissions: Uprawnienia aplikacji
+App Permissions: Uprawnienia aplikacji
 $dapp_can_view_balance: "%dappname% będzie mógł zobaczyć adres portfela i saldo."
 Payload: Ładunek
 $many_transactions:
@@ -279,11 +279,10 @@ Install our native app or browser extension.: Zainstaluj naszą natywną aplikac
 Scam: Oszustwo
 Scam comment is hidden.: Komentarz o oszustwie jest ukryty.
 Display: Wyświetl
-Connected Dapps: Połączone aplikacje
-Disconnect All Dapps: Rozłącz wszystkie aplikacje
+Disconnect All Apps: Rozłącz wszystkie aplikacje
 Disconnect: Rozłącz
-Disconnect Dapp: Rozłącz aplikację
-Disconnect Dapps: Rozłącz aplikacje
+Disconnect App: Rozłącz aplikację
+Disconnect Apps: Rozłącz aplikacje
 Are you sure you want to disconnect?: Czy na pewno chcesz rozłączyć %dappname%?
 Are you sure you want to disconnect all websites?: Czy na pewno chcesz rozłączyć wszystkie witryny?
 Logged in with %app_name%: Zalogowany za pomocą %app_name%
@@ -527,7 +526,7 @@ $dapp_liquid_staking_vote_payload: Głosowanie „%vote%” na propozycję %voti
 $dapp_single_nominator_change_validator_payload: Zmiana adresu walidatora umowy stakingowej SingleNominator na %address%
 $dapp_single_nominator_withdraw_payload: Wycofanie %amount% z umowy stakingu SingleNominator
 $dapp_vesting_add_whitelist_payload: Dodanie %address% do białej listy portfeli uprawnień
-Connecting dapps is not yet supported by Ledger.: Łączenie dappów nie jest jeszcze obsługiwane przez Ledger.
+Connecting apps is not yet supported by Ledger.: Łączenie aplikacji nie jest jeszcze obsługiwane przez Ledger.
 Time synchronization issue. Please ensure your device's time settings are correct.: Problem z synchronizacją czasu. Upewnij się, że ustawienia czasu urządzenia są poprawne.
 Data Copied: Dane zostały skopiowane
 URL Copied: URL Copied
@@ -908,7 +907,7 @@ Collectibles: Kolekcjonerskie
 Bluetooth unavailable: Bluetooth niedostępne
 $bluetooth_enable_guide: Włącz Bluetooth w ustawieniach urządzenia i zezwól aplikacji na dostęp do Bluetooth.
 Canceled by the user: Anulowano przez użytkownika
-The proof for signing provided by the Dapp is too large: Dowód do podpisu dostarczony przez Dapp jest zbyt duży
+The proof for signing provided by the app is too large: Dowód do podpisu dostarczony przez aplikację jest zbyt duży
 $domain_like_scam_warning: |
   Wprowadzony adres to prawdopodobnie **OSZUSTWO**. To **NIE** jest adres żadnej giełdy ani Twojego portfela tokenów.
 
@@ -1060,11 +1059,11 @@ $transfer_inactive_contract_error: |
   Jeśli na pewno chcesz wysłać na ten adres, wprowadź adres w formacie "UQ...".
 $transaction_not_found: Transfer nie znaleziony.
 $could_not_determine_address: Nie można określić adresu portfela z transferu
-WrongAddress: Aplikacja zdecentralizowana (dapp) zażądała działania z innego portfela.
-WrongNetwork: Aplikacja zdecentralizowana (dapp) zażądała działania z innej sieci.
+WrongAddress: Aplikacja zażądała działania z innego portfela.
+WrongNetwork: Aplikacja zażądała działania z innej sieci.
 Another transfer was sent from this wallet simultaneously. Please try again.: Inny transfer został wysłany z tego portfela jednocześnie. Proszę spróbować ponownie.
 Confirm action with your password: Potwierdź działanie swoim hasłem
-$dapps-description: Możesz logować się w zdecentralizowanych aplikacjach (dapps), które obsługują %app_name%. Mogą one przeglądać adres portfela, saldo i żądać działań.
+$dapps-description: Możesz logować się w aplikacjach, które obsługują %app_name%. Mogą one przeglądać adres portfela, saldo i żądać działań.
 Please verify the action.: Proszę zweryfikować działanie.
 $service_token_transfer_warning: Zamierzasz przelać ważny token usługowy wymagany do wypłaty depozytu lub wykonania działań usługowych. Upewnij się, że to jest działanie, które zamierzasz podjąć.
 $ledger_outdated: Ta akcja nie jest obsługiwana przez Twoją wersję aplikacji Ledger %chain%. Zaktualizuj ją za pomocą Ledger Live.
@@ -1104,3 +1103,4 @@ AgentErrorConnectionFailed: "Błąd: Połączenie nieudane"
 Scroll To Bottom: Przewiń na dół
 $agent_clear_chat_confirm: Czy na pewno chcesz wyczyścić historię czatu?
 $unknown_swap_token: Nieznany token w linku wymiany. Użyto domyślnych tokenów.
+$action_not_available_view_mode: Ta akcja jest niedostępna dla portfeli podglądu

@@ -127,7 +127,7 @@ function ConnectWallet({ isActive, wallet, onConnectClick, onDisconnectClick }: 
     <div className={buildClassName(commonStyles.container, commonStyles.container_centered)}>
       <Header
         walletUrl={walletUrl}
-        connectedWalletFriendly={connectedWalletFriendly}
+        accountAddress={connectedWalletFriendly}
         accountBalance={accountBalance}
         onDisconnectClick={handleDisconnectClick}
       />

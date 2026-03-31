@@ -12,10 +12,12 @@ protocol RootContainerRouting {
     func isHomeRootSelected() -> Bool
     func pushOnHome(_ viewController: UIViewController) -> Bool
     func showAddWallet(network: ApiNetwork, showCreateWallet: Bool, showSwitchToOtherVersion: Bool)
+    func showAgent()
     func showAssets(accountSource: AccountSource, selectedTab index: Int, collectionsFilter: NftCollectionFilter)
     func showExplore()
     func showHome(popToRoot: Bool)
     func showImportWalletVersion()
+    func showSettings(path: [UIViewController])
     func showTemporaryViewAccount(accountId: String)
 }
 
@@ -53,6 +55,10 @@ struct TabRootContainerRouter: RootContainerRouting {
             showSwitchToOtherVersion: showSwitchToOtherVersion
         )
     }
+
+    func showAgent() {
+        tabVC?.switchToAgent()
+    }
     
     func showAssets(accountSource: AccountSource, selectedTab index: Int, collectionsFilter: NftCollectionFilter) {
         presentAssetsModally(accountSource: accountSource, selectedTab: index, collectionsFilter: collectionsFilter)
@@ -67,7 +73,11 @@ struct TabRootContainerRouter: RootContainerRouting {
     }
     
     func showImportWalletVersion() {
-        _ = tabVC?.pushOnSettingsRoot(WalletVersionsVC(), animated: true)
+        showSettings(path: [WalletVersionsVC()])
+    }
+
+    func showSettings(path: [UIViewController]) {
+        tabVC?.switchToSettings(path: path)
     }
     
     func showTemporaryViewAccount(accountId: String) {
@@ -109,6 +119,10 @@ struct SplitRootContainerRouter: RootContainerRouting {
         navigationController.modalPresentationStyle = .formSheet
         topViewController()?.present(navigationController, animated: true)
     }
+
+    func showAgent() {
+        splitVC?.showAgent()
+    }
     
     func showAssets(accountSource: AccountSource, selectedTab index: Int, collectionsFilter: NftCollectionFilter) {
         guard let splitVC, !splitVC.isCollapsed else {
@@ -127,7 +141,11 @@ struct SplitRootContainerRouter: RootContainerRouting {
     }
     
     func showImportWalletVersion() {
-        splitVC?.showImportWalletVersion()
+        showSettings(path: [WalletVersionsVC()])
+    }
+
+    func showSettings(path: [UIViewController]) {
+        splitVC?.showSettings(path: path)
     }
     
     func showTemporaryViewAccount(accountId: String) {

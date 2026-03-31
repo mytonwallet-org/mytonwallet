@@ -164,14 +164,27 @@ public struct TokenAmountEntry: View {
     public var insufficientFunds: Bool
     @Binding public var triggerFocused: Bool
     public var onTokenPickerTapped: (() -> ())?
+    public var isInputEnabled: Bool
+    public var onInputTapped: (() -> ())?
     
-    public init(amount: Binding<BigInt?>, token: ApiToken?, inBaseCurrency: Bool, insufficientFunds: Bool, triggerFocused: Binding<Bool>, onTokenPickerTapped: (() -> ())?) {
+    public init(
+        amount: Binding<BigInt?>,
+        token: ApiToken?,
+        inBaseCurrency: Bool,
+        insufficientFunds: Bool,
+        triggerFocused: Binding<Bool>,
+        onTokenPickerTapped: (() -> ())?,
+        isInputEnabled: Bool = true,
+        onInputTapped: (() -> ())? = nil
+    ) {
         self._amount = amount
         self.token = token
         self.inBaseCurrency = inBaseCurrency
         self.insufficientFunds = insufficientFunds
         self._triggerFocused = triggerFocused
         self.onTokenPickerTapped = onTokenPickerTapped
+        self.isInputEnabled = isInputEnabled
+        self.onInputTapped = onInputTapped
     }
 
     private var decimals: Int? {
@@ -184,9 +197,25 @@ public struct TokenAmountEntry: View {
     
     public var body: some View {
         HStack(spacing: 0) {
-            symbol
-            textField
+            HStack(spacing: 0) {
+                symbol
+                textField
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
+            .onTapGesture {
+                if let onInputTapped {
+                    onInputTapped()
+                } else if isInputEnabled {
+                    triggerFocused = true
+                }
+            }
             tokenPicker
+        }
+        .onChange(of: isInputEnabled) { isEnabled in
+            if !isEnabled {
+                triggerFocused = false
+            }
         }
     }
 
@@ -212,6 +241,7 @@ public struct TokenAmountEntry: View {
                 error: insufficientFunds
             )
             .id(inBaseCurrency)
+            .allowsHitTesting(isInputEnabled)
         } else {
             Text(" ")
                 .font(.system(size: 24, weight: .semibold))

@@ -19,6 +19,7 @@ import WalletContext
     static func showAddToken()
     static func showAddWallet(network: ApiNetwork, showCreateWallet: Bool, showSwitchToOtherVersion: Bool)
     static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool)
+    static func showAgent()
     static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter)
     static func showAssetsAndActivity()
     static func showBuyWithCard(accountContext: AccountContext, chain: ApiChain?, push: Bool?)
@@ -39,6 +40,7 @@ import WalletContext
     static func showRenewDomain(accountSource: AccountSource, nftsToRenew: [String])
     static func showRenameAccount(accountId: String)
     static func showSaveAddressDialog(accountContext: AccountContext, chain: ApiChain, address: String)
+    static func showSettings(section: AppSettingsSection?)
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues)
     static func showSell(accountContext: AccountContext, tokenSlug: String?)
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?)
@@ -85,6 +87,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showAddToken() { }
     static func showAddWallet(network: ApiNetwork, showCreateWallet: Bool, showSwitchToOtherVersion: Bool) { }
     static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool) { }
+    static func showAgent() { }
     static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter) { }
     static func showAssetsAndActivity() { }
     static func showBuyWithCard(accountContext: AccountContext, chain: ApiChain?, push: Bool?) { }
@@ -105,6 +108,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showRenewDomain(accountSource: AccountSource, nftsToRenew: [String]) { }
     static func showRenameAccount(accountId: String) { }
     static func showSaveAddressDialog(accountContext: AccountContext, chain: ApiChain, address: String) { }
+    static func showSettings(section: AppSettingsSection?) { }
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues) { }
     static func showSell(accountContext: AccountContext, tokenSlug: String?) { }
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) { }

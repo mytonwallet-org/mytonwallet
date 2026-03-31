@@ -192,8 +192,7 @@ struct CrosschainToWalletView: View {
         
         guard let topVC = topViewController() else { return }
         let activityController = UIActivityViewController(activityItems: [qrImage], applicationActivities: nil)
-        activityController.popoverPresentationController?.sourceView = topVC.view
-        topVC.present(activityController, animated: true)
+        topVC.presentActivityViewController(activityController)
     }
 }
 

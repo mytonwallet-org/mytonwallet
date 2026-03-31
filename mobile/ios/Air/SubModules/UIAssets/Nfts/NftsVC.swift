@@ -1027,28 +1027,15 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
 
     public func reorderController(_ controller: ReorderableCollectionViewController, willDisplayContextMenu configuration: UIContextMenuConfiguration,
                                   animator: (any UIContextMenuInteractionAnimating)?) {
-        guard let window = view.window else { return }
-        let blurView = WBlurView()
-        blurView.translatesAutoresizingMaskIntoConstraints = false
-        blurView.frame = window.bounds
-        blurView.isUserInteractionEnabled = false
-        window.addSubview(blurView)
-        self.contextMenuExtraBlurView = blurView
-        blurView.alpha = 0
-        animator?.addAnimations {
-            blurView.alpha = 1
-        }
+        contextMenuExtraBlurView?.removeFromSuperview()
+        contextMenuExtraBlurView = ContextMenuBackdropBlur.show(in: view.window, animator: animator)
     }
 
     public func reorderController(_ controller: ReorderableCollectionViewController, willEndContextMenuInteraction configuration: UIContextMenuConfiguration,
                                   animator: (any UIContextMenuInteractionAnimating)?) {
-        animator?.addAnimations {
-            self.contextMenuExtraBlurView?.alpha = 0
-        }
-        animator?.addCompletion {
-            self.contextMenuExtraBlurView?.removeFromSuperview()
-            self.contextMenuExtraBlurView = nil
-        }
+        let blurView = contextMenuExtraBlurView
+        contextMenuExtraBlurView = nil
+        ContextMenuBackdropBlur.hide(blurView, animator: animator)
     }
 
     public func reorderController(_ controller: ReorderableCollectionViewController, adjustPreviewFrame previewFrame: CGRect) -> CGRect {

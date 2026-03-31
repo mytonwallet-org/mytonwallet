@@ -36,6 +36,7 @@ class RealAgentProcessor : AgentProcessor {
         userId: String,
         message: String,
         userAddresses: List<AgentUserAddress>,
+        savedAddresses: List<AgentUserAddress>,
         onEvent: (AgentStreamEvent) -> Unit,
         onDone: () -> Unit,
         onError: (Exception) -> Unit
@@ -43,7 +44,7 @@ class RealAgentProcessor : AgentProcessor {
         withContext(Dispatchers.IO) {
             var connection: HttpURLConnection? = null
             try {
-                val body = buildRequestBody(message, userAddresses)
+                val body = buildRequestBody(message, userAddresses, savedAddresses)
                 Log.d(TAG, "Request: $body")
 
                 val url = URL(ENDPOINT)
@@ -119,9 +120,25 @@ class RealAgentProcessor : AgentProcessor {
         }
     }
 
+    private fun buildAddressesArray(addresses: List<AgentUserAddress>): JSONArray {
+        val array = JSONArray()
+        for (wallet in addresses) {
+            array.put(JSONObject().apply {
+                put("name", wallet.name)
+                val addrsArray = JSONArray()
+                wallet.addresses.forEach { addrsArray.put(it) }
+                put("addresses", addrsArray)
+                wallet.accountType?.let { put("accountType", it) }
+                if (wallet.isActive) put("isActive", true)
+            })
+        }
+        return array
+    }
+
     private fun buildRequestBody(
         message: String,
-        userAddresses: List<AgentUserAddress>
+        userAddresses: List<AgentUserAddress>,
+        savedAddresses: List<AgentUserAddress>
     ): String {
         val context = JSONObject().apply {
             put("platform", PLATFORM)
@@ -129,16 +146,11 @@ class RealAgentProcessor : AgentProcessor {
             put("lang", LocaleController.activeLanguage.langCode)
             put("baseCurrency", WalletCore.baseCurrency.currencyCode)
 
-            val userAddressesArray = JSONArray()
-            for (wallet in userAddresses) {
-                userAddressesArray.put(JSONObject().apply {
-                    put("name", wallet.name)
-                    val addrsArray = JSONArray()
-                    wallet.addresses.forEach { addrsArray.put(it) }
-                    put("addresses", addrsArray)
-                })
-            }
+            val userAddressesArray = buildAddressesArray(userAddresses)
             if (userAddressesArray.length() > 0) put("userAddresses", userAddressesArray)
+
+            val savedAddressesArray = buildAddressesArray(savedAddresses)
+            if (savedAddressesArray.length() > 0) put("savedAddresses", savedAddressesArray)
 
             val accountId = AccountStore.activeAccountId
             if (accountId != null) {

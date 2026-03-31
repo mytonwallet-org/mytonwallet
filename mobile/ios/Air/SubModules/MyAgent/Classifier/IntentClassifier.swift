@@ -20,8 +20,12 @@ public struct IntentClassifier: Sendable {
     ///   - message: The user's natural language message.
     ///   - userAddresses: The user's wallet addresses for context.
     /// - Returns: A `ClassificationResult` with intents and detected language.
-    public func classify(message: String, userAddresses: [any AgentUserAddress] = []) async throws -> ClassificationResult {
-        let userContent = ClassificationPrompt.userMessage(message, addresses: userAddresses)
+    public func classify(
+        message: String,
+        userAddresses: [any AgentUserAddress] = [],
+        savedAddresses: [any AgentUserAddress] = []
+    ) async throws -> ClassificationResult {
+        let userContent = ClassificationPrompt.userMessage(message, addresses: userAddresses, savedAddresses: savedAddresses)
         let raw = try await llm.generate(systemPrompt: ClassificationPrompt.system, userMessage: userContent)
         #if DEBUG
         Self.logger.debug("[Classifier] Input: \(message, privacy: .public)")

@@ -4,7 +4,9 @@ import org.json.JSONObject
 
 data class AgentUserAddress(
     val name: String,
-    val addresses: List<String>  // e.g. ["ton:UQ...", "solana:addr", "tron:addr"]
+    val addresses: List<String>,  // e.g. ["ton:UQ...", "solana:addr", "tron:addr"]
+    val accountType: String? = null,  // "mnemonic", "hardware", "view"
+    val isActive: Boolean = false
 )
 
 sealed class AgentStreamEvent {
@@ -38,6 +40,7 @@ interface AgentProcessor {
         userId: String,
         message: String,
         userAddresses: List<AgentUserAddress>,
+        savedAddresses: List<AgentUserAddress>,
         onEvent: (AgentStreamEvent) -> Unit,
         onDone: () -> Unit,
         onError: (Exception) -> Unit

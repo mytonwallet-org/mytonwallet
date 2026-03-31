@@ -20,10 +20,12 @@ struct SwapSelectorsView: View {
                 tokenBalance: model.maxAmount,
                 sellingFocused: $model.sellingFocused,
                 buyingFocused: $model.buyingFocused,
+                buyingAmountInputDisabled: model.buyingAmountInputDisabled,
                 onUseAll: model.onUseAll,
                 onReverse: model.onReverse,
                 onSellingTokenPicker: model.onSellingTokenPicker,
-                onBuyingTokenPicker: model.onBuyingTokenPicker
+                onBuyingTokenPicker: model.onBuyingTokenPicker,
+                onBuyingAmountDisabledTap: model.onBuyingAmountDisabledTap
             )
         }
     }
@@ -41,11 +43,13 @@ fileprivate struct _SwapSelectorsView: View {
     
     @Binding var sellingFocused: Bool
     @Binding var buyingFocused: Bool
+    var buyingAmountInputDisabled: Bool
 
     var onUseAll: () -> ()
     var onReverse: () -> ()
     var onSellingTokenPicker: () -> ()
     var onBuyingTokenPicker: () -> ()
+    var onBuyingAmountDisabledTap: () -> ()
     
     private var insufficientFunds: Bool {
         if let sellingAmount, let tokenBalance {
@@ -93,13 +97,12 @@ fileprivate struct _SwapSelectorsView: View {
                 inBaseCurrency: false,
                 insufficientFunds: insufficientFunds,
                 triggerFocused: $sellingFocused,
-                onTokenPickerTapped: onSellingTokenPicker
+                onTokenPickerTapped: onSellingTokenPicker,
+                onInputTapped: {
+                    sellingFocused = true
+                }
             )
             .padding(8) // increase touch target
-            .contentShape(.rect)
-            .onTapGesture {
-                sellingFocused = true
-            }
             .padding(-8)
         }
     }
@@ -139,14 +142,18 @@ fileprivate struct _SwapSelectorsView: View {
                 inBaseCurrency: false,
                 insufficientFunds: false,
                 triggerFocused: $buyingFocused,
-                onTokenPickerTapped: onBuyingTokenPicker
+                onTokenPickerTapped: onBuyingTokenPicker,
+                isInputEnabled: !buyingAmountInputDisabled,
+                onInputTapped: {
+                    if buyingAmountInputDisabled {
+                        onBuyingAmountDisabledTap()
+                    } else {
+                        buyingFocused = true
+                    }
+                }
             )
             .padding(8)  // increase touch target
             .padding(.bottom, 10)
-            .contentShape(.rect)
-            .onTapGesture {
-                buyingFocused = true
-            }
             .padding(.bottom, -10)
             .padding(-8)
         }

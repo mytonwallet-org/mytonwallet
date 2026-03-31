@@ -53,8 +53,12 @@ public enum ClassificationPrompt {
     "how to stake X?" → {"lang": "en", "intents": [{"type": "stake", "token": "X"}]}
     """
 
-    /// Build the user message content with optional wallet addresses.
-    public static func userMessage(_ message: String, addresses: [any AgentUserAddress]) -> String {
+    /// Build the user message content with optional wallet addresses and saved addresses.
+    public static func userMessage(
+        _ message: String,
+        addresses: [any AgentUserAddress],
+        savedAddresses: [any AgentUserAddress] = []
+    ) -> String {
         var content = "User message: \(message)"
         if !addresses.isEmpty {
             content += "\n\nUser wallet addresses:\n"
@@ -63,6 +67,17 @@ public enum ClassificationPrompt {
                     let parts = addrStr.split(separator: ":", maxSplits: 1)
                     if parts.count == 2 {
                         content += "- \(wallet.name) (\(parts[0])): \(parts[1])\n"
+                    }
+                }
+            }
+        }
+        if !savedAddresses.isEmpty {
+            content += "\n\nSaved addresses:\n"
+            for saved in savedAddresses {
+                for addrStr in saved.addresses {
+                    let parts = addrStr.split(separator: ":", maxSplits: 1)
+                    if parts.count == 2 {
+                        content += "- \(saved.name) (\(parts[0])): \(parts[1])\n"
                     }
                 }
             }

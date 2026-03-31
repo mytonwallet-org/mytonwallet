@@ -49,11 +49,12 @@ public struct DeeplinkBuilder: Sendable {
         }
 
         let token = asset.symbol
+        let chain = asset.chainId.lowercased()
         var params: [(String, String)] = []
-        var link = "\(Self.baseURL)/transfer/\(toAddr)"
+        var link = "\(Self.baseURL)/send/\(chain):\(toAddr)"
 
-        if asset.slug != "toncoin" {
-            params.append(("jetton", asset.slug))
+        if asset.tokenAddress != nil {
+            params.append(("token", asset.slug))
         }
         if let amount = intent.amount {
             params.append(("amount", toSmallestUnits(amount, decimals: asset.decimals)))

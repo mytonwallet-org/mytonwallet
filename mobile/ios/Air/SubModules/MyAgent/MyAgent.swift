@@ -86,15 +86,21 @@ public struct MyAgent: Sendable {
     public func process(
         message: String,
         userAddresses: [any AgentUserAddress] = [],
+        savedAddresses: [any AgentUserAddress] = [],
         conversationId: String? = nil,
         lang: String = "en",
         baseCurrency: String = "USD"
     ) async throws -> (results: [IntentResult], lang: String) {
-        let classification = try await intentClassifier.classify(message: message, userAddresses: userAddresses)
+        let classification = try await intentClassifier.classify(
+            message: message,
+            userAddresses: userAddresses,
+            savedAddresses: savedAddresses
+        )
         return await processClassified(
             classification: classification,
             message: message,
             userAddresses: userAddresses,
+            savedAddresses: savedAddresses,
             conversationId: conversationId,
             lang: lang,
             baseCurrency: baseCurrency
@@ -107,6 +113,7 @@ public struct MyAgent: Sendable {
         classification: ClassificationResult,
         message: String,
         userAddresses: [any AgentUserAddress] = [],
+        savedAddresses: [any AgentUserAddress] = [],
         conversationId: String? = nil,
         lang: String = "en",
         baseCurrency: String = "USD"
@@ -114,7 +121,11 @@ public struct MyAgent: Sendable {
         let effectiveLang = classification.detectedLang.isEmpty ? lang : classification.detectedLang
 
         // Resolve named addresses to correct chain
-        let resolvedIntents = await addressResolver.resolve(intents: classification.intents, userAddresses: userAddresses)
+        let resolvedIntents = await addressResolver.resolve(
+            intents: classification.intents,
+            userAddresses: userAddresses,
+            savedAddresses: savedAddresses
+        )
 
         // Load history
         let history: [ChatMessage]
@@ -176,9 +187,10 @@ public struct MyAgent: Sendable {
     /// Useful when you want full control over how intents are handled.
     public func classify(
         message: String,
-        userAddresses: [any AgentUserAddress] = []
+        userAddresses: [any AgentUserAddress] = [],
+        savedAddresses: [any AgentUserAddress] = []
     ) async throws -> ClassificationResult {
-        try await intentClassifier.classify(message: message, userAddresses: userAddresses)
+        try await intentClassifier.classify(message: message, userAddresses: userAddresses, savedAddresses: savedAddresses)
     }
 
     /// Build a deep link for a single intent.

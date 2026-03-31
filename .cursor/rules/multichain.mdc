@@ -1,0 +1,180 @@
+---
+description: Multichain architecture rules (chain isolation, import boundaries, adding chains, unsupported features handling)
+globs:
+alwaysApply: false
+---
+# Multichain Architecture Guide
+
+## 1. Core Philosophy
+
+Keep 99% of the code chain-agnostic. Adding a new chain must be: add config, add SDK implementation, add assets — no mass refactors.
+
+Design goal:
+* Zero scattered `if (chain === 'ton')` or `'tron'` checks outside sanctioned places.
+* Use polymorphism through `ChainSdk` + `CHAIN_CONFIG` + generic types.
+* Shared flows live in generic code; differences live behind chain interfaces or configuration flags.
+
+## 2. Only Allowed Chain-Specific Declaration Points
+
+Unique per-chain data MUST exist only in these places (except transitional legacy):
+1. `ApiChain` union — `src/api/types/misc.ts` (type-level registration).
+2. `CHAIN_CONFIG` — `src/util/chain.ts` (feature flags, explorer, formatting, native token).
+3. SCSS per chain variables map `$byChain` — `src/styles/scssVariables.scss`.
+4. `ApiWalletByChain` mapping — `src/api/types/storage.ts`.
+5. `chains` registry (default export) — `src/api/chains/index.ts`.
+6. Font icon: `src/assets/font-icons/chain-<chain>.svg`.
+7. (Optional) Map the native token styles in `TOKEN_CUSTOM_STYLES` — `src/config.ts`.
+
+Note: Keep this list minimal. Do not introduce new declaration points unless it is impossible to express the data/behavior via the existing ones.
+
+## 3. SDK Chain Implementations
+
+Exception: The chain SDK code itself in `src/api/chains/<chain>/`.
+* Each directory exports one object complying with `ChainSdk<'chain'>`.
+* Only this layer is allowed to be chain-specific by nature.
+* Other products (multisend, push, giveaways) are currently single‑chain and MAY import chain code directly (allowed exception).
+* Legacy pre-refactor code may still do direct imports; DO NOT expand this pattern — refactor opportunistically.
+* As a rule of thumb, the methods must **return** expected errors (i.e. having a dedicated message in the UI) and **throw** unexpected errors.
+
+## 4. Universal Interface Requirement
+
+`src/api/chains/index.ts` exports `chains: { [K in ApiChain]: ChainSdk<K> }`.
+* All methods present for every chain (same property list).
+* Unsupported functionality: provide a stub that throws (see section 7 / notSupported pattern).
+* Goal: eliminate special-case imports of TON-types (see todo inside `types/chains.ts`).
+
+### 4.a ChainSdk Documentation Contract
+
+The file `src/api/types/chains.ts` (where `ChainSdk` is declared) is the **single source of truth** for how every chain-level method must behave. Requirements:
+* Every method MUST have a concise JSDoc comment describing: purpose, inputs, expected side effects (if any), return value semantics, error handling shape, ordering assumptions (e.g. sorted activity).
+* When adding a new method: first add it (with full JSDoc) to `ChainSdk`; only then implement per-chain versions (with stubs for unsupported chains).
+* When changing behavior of an existing method: update the interface comment in the same commit; reviewers should reject changes lacking doc updates.
+* Prefer documenting invariants (e.g. "activities must be pre-sorted descending by timestamp") rather than describing current implementation details of a single chain.
+* Keep comments short but normative; avoid duplicating logic that is already expressed by types unless clarifying intent.
+
+## 5. API Methods Interaction
+
+`src/api/methods/*` MUST:
+* Talk to chains ONLY through the `chains` object (or types from `../types/chains`).
+* Be chain-agnostic except for passing `chain` as a parameter.
+* Avoid direct imports from `src/api/chains/<chain>` (deprecated path) unless refactoring backlog not done yet.
+
+## 6. Import Layer Boundaries
+
+Allowed directions:
+* `methods` → `chains`, `common`
+* `chains` → `common`
+* Reverse imports are FORBIDDEN except for pure **types** (TS type-only imports are ok).
+* UI / global actions should call `callApi` methods; they should NOT reach into `chains/*` directly.
+
+Checklist when adding code:
+* Introducing a new util in `common` that chains rely on? OK.
+* Need something from a chain inside `common`? REJECT — invert dependency via injected function or config flag.
+
+## 7. Handling Chain-Specific or Not-Yet-Implemented Features
+
+Rule: If a new feature is implemented for only one chain, add stubs for others.
+* Pattern: `function notSupported(): never { throw new Error('Not supported in <ChainName>'); }` — see Tron example: `src/api/chains/tron/index.ts`.
+* DO NOT omit the method — interface parity is required.
+* Prefer forward-compatible naming even if unimplemented.
+
+## 8. Conditional Logic & Switches
+
+Avoid raw `switch (chain)` scattered across code.
+Preferred order of solutions:
+1. Use an existing `ChainConfig` flag.
+2. Add a new boolean/enum in `CHAIN_CONFIG` if missing.
+3. Introduce a new `ChainSdk` method (if it represents behavior, not metadata).
+4. As LAST RESORT (temporary): a localized `switch` with a TODO comment to migrate (include date + author).
+
+Bad patterns:
+* Inline branching inside UI for formatting address → Should use `getChainConfig(chain).addressRegex` or formatting util.
+* Duplicated per-chain constant sets → Should unify into `CHAIN_CONFIG`.
+
+## 9. Placeholders & Errors
+
+`notSupported` functions MUST:
+* Throw fast, no side effects.
+* Message format: `Not supported in <ChainName>`.
+* Be replaced once functionality is implemented; remove TODO if present.
+
+If a feature depends on external infra not yet ready, add a short comment: `// waiting backend support`.
+
+### 9.a UI Gating Principle (IMPORTANT)
+
+Core rule: The **UI must never allow the user to initiate an action that is unsupported by the selected chain**. The throwing stubs (`Not supported in <ChainName>`) are a safety net for programmer mistakes, not a flow control mechanism.
+
+Practical implications:
+* Do NOT catch and branch on the stub error string. Instead: never call the method if the feature is unsupported.
+* Availability is determined **before rendering interactive UI**, using `CHAIN_CONFIG` flags or the presence of optional config fields (e.g. `formatTransferUrl` for deposit link feature).
+* Example: If TRON lacks `formatTransferUrl`, TRON (and its tokens) must not appear in the Deposit Link screen's chain/token selector.
+* Example: If `isTransferCommentSupported` is false, hide / disable the comment input, rather than showing it and later failing.
+* Feature toggles belong in `CHAIN_CONFIG` (naming pattern: `isXSupported`, `canX`, `doesX`, avoid ad‑hoc booleans in components).
+
+UI filtering patterns:
+* Chain picker: `supportedChains.filter((c) => getChainConfig(c).formatTransferUrl)`.
+* Token lists: filter by the chain feature flag before building list data.
+* Action buttons: disable or hide based on config flag; prefer hide when the concept does not exist for that chain.
+
+Do NOT:
+* Rely on try/catch around API calls to detect unsupported status.
+* Introduce per-feature hard-coded `if (chain === 'ton')`; always pivot on a config flag / property.
+* Surface raw stub error strings to the user.
+
+Error handling guidance:
+* If a stub error still bubbles up, treat it as an unexpected internal misuse: log (dev) + show generic failure UI.
+
+## 10. Styling & Icons
+
+* Font icon naming: `chain-<chain>.svg` (lowercase). Used for generic chain pickers. The icons must have the same size and baseline when displayed near each other in the UI.
+* The native token icon references can be added to `TOKEN_FONT_ICONS` only if needed (optional).
+* SCSS `$byChain` map is the single source for theming overrides per chain. Do not duplicate chain colors elsewhere.
+
+## 11. Testing & Validation
+
+When touching multichain code:
+* Smoke: send transaction draft for each chain (where implemented) via API method.
+* Verify `checkTransactionDraft` returns consistent shape across chains.
+* Confirm unsupported methods throw (captured & surfaced as user-friendly error higher up if needed).
+* Activity polling: ensure both `setupActivePolling` and `setupInactivePolling` run without cross-import violations.
+
+## 12. Performance Considerations
+
+* Do not create per-chain polling loops outside `ChainSdk` implementations.
+* Ledger batching differences belong inside the chain module (see Tron comment about sequential balance loads).
+* Avoid per-chain debounce logic duplication; implement generic helper and call it from each chain if needed.
+
+## 13. Migration of Legacy Code
+
+Legacy code that directly references TON specifics (e.g., ton-only payload parsing) is allowed temporarily.
+Rules:
+* Do not extend with new logic; create a chain-agnostic abstraction instead.
+* New code MUST NOT copy legacy ton-only patterns.
+
+## 14. Chain Order in UI
+
+When you show a list of all chains, account chains, wallet addresses, domains, etc, use the chain order defined by `CHAIN_CONFIG` from `src/util/chain.ts`.
+For convenience use the `getSupportedChains` and `getAccountChains` functions from `src/util/chain.ts`.
+Don't rely on the keys order in `getGlobal().accounts.byId[accountId].byChain`, because it's arbitrary.
+
+## 15. Anti-Patterns (Must Avoid)
+
+| Anti-Pattern | Replacement |
+|--------------|-------------|
+| Direct import of `./ton/...` inside `methods` | Use `chains[chain]` polymorphism |
+| Multiple scattered regex definitions | Single source in `CHAIN_CONFIG` |
+| Hard-coded native token symbol checks | Use `getChainConfig(chain).nativeToken.symbol` |
+| Adding feature flag in multiple files | Add single property in `CHAIN_CONFIG` |
+| Missing stub method for a new feature | Provide throwing stub in each `ChainSdk` |
+
+## 16. PR Review Checklist
+
+Before approving multichain-related PR:
+- [ ] No new raw `if (chain === 'ton' | 'tron')` outside permitted zones.
+- [ ] New chain data only in allowed files.
+- [ ] `ChainSdk` method parity preserved.
+- [ ] Import directions respected (no reverse dependency).
+- [ ] Unsupported features have uniform stub.
+- [ ] Config flags used instead of repeated branching.
+- [ ] Legacy areas not expanded.
+- [ ] The information displayed in the UI doesn't depend on the `getGlobal().accounts.byId[accountId].byChain` key order.

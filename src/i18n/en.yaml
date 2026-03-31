@@ -251,9 +251,9 @@ Unexpected: Unexpected error
 You can save this address for quick access while sending.: You can save this address for quick access while sending.
 Stake Again: Stake Again
 Earned: Earned
-Select wallet to use on this dapp: Select wallet to use on this dapp
+Select wallet to use on this app: Select wallet to use on this app
 Connect: Connect
-Dapp Permissions: Dapp Permissions
+App Permissions: App Permissions
 $dapp_can_view_balance: "%dappname% will be able to view wallet address and balance."
 Payload: Payload
 $many_transactions:
@@ -269,11 +269,10 @@ Install our native app or browser extension.: Install our native app or browser 
 Scam: Scam
 Scam comment is hidden.: Scam comment is hidden.
 Display: Display
-Connected Dapps: Connected Dapps
-Disconnect All Dapps: Disconnect All Dapps
+Disconnect All Apps: Disconnect All Apps
 Disconnect: Disconnect
-Disconnect Dapp: Disconnect Dapp
-Disconnect Dapps: Disconnect Dapps
+Disconnect App: Disconnect App
+Disconnect Apps: Disconnect Apps
 Are you sure you want to disconnect?: Are you sure you want to disconnect %dappname%?
 Are you sure you want to disconnect all websites?: Are you sure you want to disconnect all websites?
 Logged in with %app_name%: Logged in with %app_name%
@@ -514,7 +513,7 @@ $dapp_liquid_staking_vote_payload: Voting "%vote%" for proposal %votingAddress%
 $dapp_single_nominator_change_validator_payload: Changing address of SingleNominator staking contract validator to %address%
 $dapp_single_nominator_withdraw_payload: Withdrawal of %amount% from SingleNominator staking contract
 $dapp_vesting_add_whitelist_payload: Adding %address% to vesting wallet whitelist
-Connecting dapps is not yet supported by Ledger.: Connecting dapps is not yet supported by Ledger.
+Connecting apps is not yet supported by Ledger.: Connecting apps is not yet supported by Ledger.
 Time synchronization issue. Please ensure your device's time settings are correct.: Time synchronization issue. Please ensure your device's time settings are correct.
 Data Copied: Data Copied
 URL Copied: URL Copied
@@ -885,7 +884,7 @@ Collectibles: Collectibles
 Bluetooth unavailable: Bluetooth unavailable
 $bluetooth_enable_guide: Turn on Bluetooth in the device settings and allow the app to access Bluetooth.
 Canceled by the user: Canceled by the user
-The proof for signing provided by the Dapp is too large: The proof for signing provided by the Dapp is too large
+The proof for signing provided by the app is too large: The proof for signing provided by the app is too large
 $domain_like_scam_warning: |
   The entered address is likely a **SCAM**. This is **NOT** an address of any exchange or your token wallet.
 
@@ -1035,11 +1034,11 @@ $transfer_inactive_contract_error: |
   If you definitely want to send to this address, then enter the address in the "UQ..." format.
 $transaction_not_found: Transfer not found.
 $could_not_determine_address: Could not determine wallet address from transfer
-WrongAddress: The dapp requested an action from another wallet.
-WrongNetwork: The dapp requested an action from another network.
+WrongAddress: The app requested an action from another wallet.
+WrongNetwork: The app requested an action from another network.
 Another transfer was sent from this wallet simultaneously. Please try again.: Another transfer was sent from this wallet simultaneously. Please try again.
 Confirm action with your password: Confirm action with your password
-$dapps-description: You can log in on dapps that support %app_name%. They can view wallet address, balance, and request actions.
+$dapps-description: You can log in on apps that support %app_name%. They can view wallet address, balance, and request actions.
 Please verify the action.: Please verify the action.
 $service_token_transfer_warning: You are about to transfer an important service token required to withdraw your deposit or complete service actions. Please ensure this is the action you intend to take.
 $ledger_outdated: This action is not supported by your version of the Ledger %chain% App. Please update it using Ledger Live.
@@ -1079,3 +1078,4 @@ AgentErrorConnectionFailed: "Error: Connection failed"
 Scroll To Bottom: Scroll To Bottom
 $agent_clear_chat_confirm: Are you sure you want to clear the chat history?
 $unknown_swap_token: Unknown token in swap link. Default tokens were used.
+$action_not_available_view_mode: This action is not available for View Wallets

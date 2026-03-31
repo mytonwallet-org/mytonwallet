@@ -22,6 +22,7 @@ import org.mytonwallet.app_air.walletcore.stores.StoredDeeplink
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import java.lang.ref.WeakReference
 import java.util.Date
 
@@ -175,6 +176,7 @@ class AgentVM(delegate: Delegate) :
         delegate.get()?.onMessageAdded(assistantMessage)
 
         val userAddresses = buildUserAddresses()
+        val savedAddresses = buildSavedAddresses()
         val userId = AccountStore.activeAccountId ?: "unknown"
         val messageId = assistantMessage.id
 
@@ -185,6 +187,7 @@ class AgentVM(delegate: Delegate) :
                 userId = userId,
                 message = userText,
                 userAddresses = userAddresses,
+                savedAddresses = savedAddresses,
                 onEvent = { event ->
                     when (event) {
                         is AgentStreamEvent.Metadata -> {
@@ -294,9 +297,57 @@ class AgentVM(delegate: Delegate) :
     }
 
     private fun buildUserAddresses(): List<AgentUserAddress> {
-        val account = AccountStore.accountById(AccountStore.activeAccountId) ?: return emptyList()
-        val addresses = account.byChain.map { (chain, chainData) -> "$chain:${chainData.address}" }
-        return listOf(AgentUserAddress(name = account.name, addresses = addresses))
+        val activeAccountId = AccountStore.activeAccountId ?: return emptyList()
+        val allAccounts = WalletCore.getAllAccounts()
+
+        // Take first 5 accounts in their natural order
+        val firstFive = allAccounts.take(5)
+        val activeInFirstFive = firstFive.any { it.accountId == activeAccountId }
+
+        val result = mutableListOf<AgentUserAddress>()
+
+        for (account in firstFive) {
+            val isActive = account.accountId == activeAccountId
+            val addresses =
+                account.byChain.map { (chain, chainData) -> "$chain:${chainData.address}" }
+            result.add(
+                AgentUserAddress(
+                    name = account.name,
+                    addresses = addresses,
+                    accountType = account.accountType.value,
+                    isActive = isActive
+                )
+            )
+        }
+
+        // If active account is not among the first 5, append it
+        if (!activeInFirstFive) {
+            val account = AccountStore.accountById(activeAccountId)
+            if (account != null) {
+                val addresses =
+                    account.byChain.map { (chain, chainData) -> "$chain:${chainData.address}" }
+                result.add(
+                    AgentUserAddress(
+                        name = account.name,
+                        addresses = addresses,
+                        accountType = account.accountType.value,
+                        isActive = true
+                    )
+                )
+            }
+        }
+
+        return result
+    }
+
+    private fun buildSavedAddresses(): List<AgentUserAddress> {
+        val savedAddresses = AddressStore.addressData?.savedAddresses ?: return emptyList()
+        return savedAddresses.take(10).map { saved ->
+            AgentUserAddress(
+                name = saved.name,
+                addresses = listOf("${saved.chain}:${saved.address}")
+            )
+        }
     }
 
     fun onDestroy() {

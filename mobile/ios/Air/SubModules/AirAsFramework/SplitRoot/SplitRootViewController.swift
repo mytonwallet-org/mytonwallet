@@ -135,6 +135,10 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         homeNavigationController.pushViewController(viewController, animated: true)
         return true
     }
+
+    func showAgent() {
+        select(tab: .agent)
+    }
     
     func showExplore() {
         select(tab: .explore)
@@ -150,6 +154,13 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
     func showImportWalletVersion() {
         select(tab: .settings, popToRoot: false)
         settingsNavigationController.pushViewController(WalletVersionsVC(), animated: true)
+    }
+
+    func showSettings(path: [UIViewController]) {
+        select(tab: .settings, popToRoot: false)
+        (settingsNavigationController as? LazySplitRootNavigationController)?.ensureRootViewControllerInstalled()
+        guard let rootViewController = settingsNavigationController.viewControllers.first else { return }
+        settingsNavigationController.setViewControllers([rootViewController] + path, animated: false)
     }
     
     func showTemporaryViewAccount(accountId: String) {
