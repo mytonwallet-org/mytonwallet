@@ -46,7 +46,7 @@ enum class MBridgeError(val errorName: String? = null, var customMessage: String
                 HARDWARE_BLIND_SIGNING_NOT_ENABLED ->
                     LocaleController.getString("\$hardware_blind_sign_not_enabled")
 
-                PROOF_TOO_LARGE -> LocaleController.getString("The proof for signing provided by the Dapp is too large")
+                PROOF_TOO_LARGE -> LocaleController.getString("The proof for signing provided by the app is too large")
                 CONNECTION_BROKEN -> LocaleController.getString("\$ledger_connection_broken")
 
                 WRONG_ADDRESS -> LocaleController.getString("WrongAddress")

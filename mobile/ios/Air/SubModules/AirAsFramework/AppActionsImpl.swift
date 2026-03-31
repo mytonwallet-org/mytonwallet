@@ -139,8 +139,7 @@ private class AppActionsImpl: AppActionsProtocol {
     static func shareUrl(_ url: URL) {
         guard let topVC = topViewController() else { return }
         let activityViewController = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        activityViewController.popoverPresentationController?.sourceView = topVC.view
-        topVC.present(activityViewController, animated: true)
+        topVC.presentActivityViewController(activityViewController)
     }
     
     static func showActivityDetails(accountId: String, activity: ApiActivity, context: ActivityDetailsContext) {
@@ -283,6 +282,10 @@ private class AppActionsImpl: AppActionsProtocol {
             showDeleteAccountAlert(accountToDelete: account, isCurrentAccount: AccountStore.accountId == account.id)
         }
     }
+
+    static func showAgent() {
+        rootContainerRouter.showAgent()
+    }
     
     static func showEarn(accountContext: AccountContext, tokenSlug: String?) {
         let earnVC = EarnRootVC(accountContext: accountContext, tokenSlug: tokenSlug)
@@ -391,6 +394,11 @@ private class AppActionsImpl: AppActionsProtocol {
     static func showSaveAddressDialog(accountContext: AccountContext, chain: ApiChain, address: String) {
         let alert = makeSaveAddressAlertController(accountContext: accountContext, chain: chain, address: address)
         topViewController()?.present(alert, animated: true)
+    }
+
+    static func showSettings(section: AppSettingsSection?) {
+        guard let path = settingsPath(for: section) else { return }
+        rootContainerRouter.showSettings(path: path)
     }
     
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues) {
@@ -503,6 +511,33 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func transitionToRootState(_ rootState: AppRootState, animationDuration: Double?) {
         RootStateCoordinator.shared.transition(to: rootState, animationDuration: animationDuration)
+    }
+
+    private static func settingsPath(for section: AppSettingsSection?) -> [UIViewController]? {
+        switch section {
+        case nil:
+            return []
+        case .appearance:
+            return [AppearanceSettingsVC()]
+        case .assets:
+            return [AssetsAndActivityVC()]
+        case .language:
+            return [LanguageVC()]
+        case .notifications:
+            return [NotificationsSettingsVC()]
+        case .dapps:
+            guard AccountStore.account?.isView != true else { return nil }
+            return [ConnectedAppsVC(isModal: false)]
+        case .walletVersion:
+            guard AccountStore.walletVersionsData?.versions.isEmpty == false else { return nil }
+            return [WalletVersionsVC()]
+        case .disclaimer:
+            return [UseResponsiblyVC()]
+        case .about:
+            return [AboutVC(showLegalSection: true)]
+        case .hiddenNfts:
+            return [AssetsAndActivityVC(), HiddenNftsVC()]
+        }
     }
 }
 

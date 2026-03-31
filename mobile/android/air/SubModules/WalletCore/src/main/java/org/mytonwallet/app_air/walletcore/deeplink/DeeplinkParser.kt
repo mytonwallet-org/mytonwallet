@@ -34,6 +34,19 @@ sealed class Deeplink {
         val hasUnsupportedParams: Boolean
     ) : Deeplink()
 
+    data class Send(
+        override val accountAddress: String?,
+        val chain: String,
+        val address: String,
+        val amount: String?,
+        val comment: String?,
+        val binary: String?,
+        val tokenSlug: String?,
+        val init: String?,
+        val expiry: Long?,
+        val hasUnsupportedParams: Boolean
+    ) : Deeplink()
+
     data class Swap(
         override val accountAddress: String?,
         val from: String?,
@@ -56,6 +69,10 @@ sealed class Deeplink {
     data class Explore(
         override val accountAddress: String?,
         val targetUri: Uri?
+    ) : Deeplink()
+
+    data class Agent(
+        override val accountAddress: String?
     ) : Deeplink()
 
     data class Url(
@@ -82,6 +99,7 @@ sealed class Deeplink {
     data class ExpiringDns(override val accountAddress: String?, val domainAddress: String) :
         Deeplink()
 
+    data class Settings(override val accountAddress: String?, val page: String?) : Deeplink()
     data class WalletConnect(override val accountAddress: String?, val requestUri: Uri) : Deeplink()
     data class SwitchToLegacy(override val accountAddress: String?) : Deeplink()
     data class View(
@@ -256,6 +274,7 @@ class DeeplinkParser {
                 }
 
                 "transfer" -> handleTonInvoice(uri)
+                "send" -> handleSend(uri)
                 "receive" -> Deeplink.Receive(accountAddress = null)
                 "buy-with-card" -> Deeplink.BuyWithCard(accountAddress = null)
                 "offramp" -> Deeplink.Offramp(
@@ -272,6 +291,15 @@ class DeeplinkParser {
                     accountAddress = null,
                     targetUri = uri.extractSubUri()
                 )
+
+                "agent" -> Deeplink.Agent(
+                    accountAddress = null,
+                )
+
+                "settings" -> {
+                    val page = uri.pathSegments.firstOrNull()?.lowercase()
+                    Deeplink.Settings(accountAddress = null, page = page)
+                }
 
                 "giveaway" -> {
                     val giveawayId = extractId(uri.toString(), "giveaway/([^/]+)")
@@ -354,16 +382,76 @@ class DeeplinkParser {
                 }
 
                 "nft" -> {
-                    val nftAddress = uri.pathSegments.firstOrNull()?.takeIf { it.isNotBlank() } ?: return null
+                    val nftAddress =
+                        uri.pathSegments.firstOrNull()?.takeIf { it.isNotBlank() } ?: return null
                     val network =
                         if (uri.getQueryParameter("testnet") == "true") MBlockchainNetwork.TESTNET else MBlockchainNetwork.MAINNET
-                    return Deeplink.Nft(accountAddress = null, network = network, nftAddress = nftAddress)
+                    return Deeplink.Nft(
+                        accountAddress = null,
+                        network = network,
+                        nftAddress = nftAddress
+                    )
                 }
 
                 else -> {
                     return null
                 }
             }
+        }
+
+        private fun handleSend(uri: Uri): Deeplink? {
+            // Format: mtw://send/{chain}:{address}?amount=...&token=...&text=...
+            val target = uri.pathSegments.firstOrNull() ?: return null
+            val colonIndex = target.indexOf(':')
+            if (colonIndex == -1) return null
+
+            val chain = target.substring(0, colonIndex)
+            val address = target.substring(colonIndex + 1)
+
+            if (!MBlockchain.supportedChainValues.contains(chain)) return null
+
+            val blockchain = MBlockchain.valueOf(chain)
+            if (!blockchain.isValidAddress(address) && !blockchain.isValidDNS(address)) return null
+
+            var amount: String? = null
+            var comment: String? = null
+            var binary: String? = null
+            var tokenSlug: String? = null
+            var init: String? = null
+            var expiry: Long? = null
+            var hasUnsupportedParams = false
+
+            uri.queryParameterNames.forEach { paramName ->
+                val value = uri.getQueryParameter(paramName)
+                if (!value.isNullOrEmpty()) {
+                    when (paramName) {
+                        "amount" -> amount = value
+                        "text" -> comment = value
+                        "bin" -> binary = value
+                        "token" -> tokenSlug = value
+                        "init", "stateInit" -> init = value
+                        "exp" -> try {
+                            expiry = value.toLong()
+                        } catch (_: NumberFormatException) {
+                        }
+
+                        else -> hasUnsupportedParams = true
+                    }
+                }
+            }
+
+            return Deeplink.Send(
+                accountAddress = null,
+                chain = chain,
+                address = address,
+                amount = amount,
+                comment = comment,
+                binary = binary,
+                tokenSlug = tokenSlug,
+                init = init,
+                expiry = expiry,
+                hasUnsupportedParams = hasUnsupportedParams
+            )
         }
 
         private fun extractId(pathname: String, pattern: String): String? {
@@ -419,7 +507,7 @@ fun parseWalletUrl(uri: Uri): ParsedWalletUrl? {
                     // Handle invalid amount format
                 }
 
-                "init" -> init = value
+                "init", "stateInit" -> init = value
                 "jetton" -> jetton = value
                 "text" -> comment = value
                 "token" -> token = value

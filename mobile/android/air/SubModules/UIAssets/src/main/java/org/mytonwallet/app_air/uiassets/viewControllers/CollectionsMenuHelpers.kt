@@ -316,6 +316,7 @@ object CollectionsMenuHelpers {
         view: View,
         navigationController: WNavigationController,
         shouldShowCollectionItem: Boolean = true,
+        roundRadius: Float,
         onReorderTapped: (() -> Unit)? = null,
         onSelectTapped: (() -> Unit)? = null
     ): INavigationPopup? {
@@ -346,7 +347,7 @@ object CollectionsMenuHelpers {
             xOffset = xOffset,
             yOffset = (-46).dp,
             positioning = WMenuPopup.Positioning.ALIGNED,
-            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = 16f.dp)
+            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = roundRadius)
         )
     }
 

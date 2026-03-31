@@ -288,7 +288,7 @@ private struct DisconnectAllCellContent: View {
             Image(systemName: "hand.raised")
                 .font(.system(size: 22))
                 .frame(width: 40)
-            Text(lang("Disconnect All Dapps"))
+            Text(lang("Disconnect All Apps"))
                 .font(.system(size: 17))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

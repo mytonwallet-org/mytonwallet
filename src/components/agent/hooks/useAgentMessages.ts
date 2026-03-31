@@ -4,7 +4,9 @@ import { getActions, getGlobal } from '../../../global';
 import type { AgentMessage } from '../../../global/types';
 import type { LangFn } from '../../../hooks/useLang';
 
-import { selectCurrentAccount, selectCurrentAccountTokens } from '../../../global/selectors';
+import {
+  selectCurrentAccountId, selectCurrentAccountState, selectCurrentAccountTokens, selectOrderedAccounts,
+} from '../../../global/selectors';
 import { buildRequestContext, createAgentStream } from '../../../util/agent/agentApi';
 import { clearAgentChat, loadAgentMessages, saveAgentMessages } from '../../../util/agent/agentStorage';
 
@@ -139,11 +141,14 @@ export default function useAgentMessages({ lang, agentMessageCount }: UseAgentMe
     setIsSending(true);
 
     const global = getGlobal();
-    const account = selectCurrentAccount(global);
+    const accountId = selectCurrentAccountId(global);
+    const orderedAccounts = selectOrderedAccounts(global);
+    const accountState = selectCurrentAccountState(global);
     const tokens = selectCurrentAccountTokens(global);
     const context = buildRequestContext(
-      account?.byChain,
-      account?.title,
+      orderedAccounts,
+      accountId!,
+      accountState?.savedAddresses,
       tokens,
       global.settings.theme,
       originalText ? { originalText } : undefined,

@@ -38,6 +38,12 @@
   :global(html.is-android-app.is-keyboard-open.is-agent-active) & {
     display: none;
   }
+
+  @include mixins.respond-below(xs) {
+    :global(html.with-menu-backdrop.is-agent-active) & {
+      background-color: var(--color-app-background) !important;
+    }
+  }
 }
 
 .button {

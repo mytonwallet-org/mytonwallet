@@ -1,0 +1,11 @@
+What's New in v4.8:
+
+· AI Agent · Chat in your language to send, receive, swap, stake, open Explore, and jump to tokens or NFTs. Ask about token prices, portfolio, and market signals.
+
+· Solana Gasless · Send USDC without SOL on your balance—fees can be covered in the token you send.
+
+· Cinematic Collectibles Experience · Pull down or tap an NFT for a cinematic full-screen view on native iOS app.
+
+· Customizable Assets · Long-press Assets to show your top 5, 10, or 30 tokens by value, plus counters for tokens and collectibles.
+
+· Upgraded Collectibles in Air · Bulk NFT actions, on-sale badges, and expiring TON DNS alerts on the home screen.

@@ -20,6 +20,7 @@ class MockAgentProcessor : AgentProcessor {
         userId: String,
         message: String,
         userAddresses: List<AgentUserAddress>,
+        savedAddresses: List<AgentUserAddress>,
         onEvent: (AgentStreamEvent) -> Unit,
         onDone: () -> Unit,
         onError: (Exception) -> Unit

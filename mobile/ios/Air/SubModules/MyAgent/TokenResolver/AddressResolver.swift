@@ -12,27 +12,35 @@ public struct AddressResolver: Sendable {
         self.tokenResolver = tokenResolver
     }
 
-    /// Resolve named addresses in an intent against the user's wallet addresses.
+    /// Resolve named addresses in an intent against the user's wallet addresses and saved addresses.
     ///
     /// Handles both `intent.to` (sendToken) and `intent.address` (receive).
-    /// If a field matches a user address name, it is replaced with the raw address.
+    /// If a field matches a user address or saved address name, it is replaced with the raw address.
     /// When the token's chain is known, the address on that chain is preferred.
     /// Otherwise falls back to the first name match.
-    public func resolve(intent: Intent, userAddresses: [any AgentUserAddress]) async -> Intent {
-        guard !userAddresses.isEmpty else { return intent }
+    public func resolve(
+        intent: Intent,
+        userAddresses: [any AgentUserAddress],
+        savedAddresses: [any AgentUserAddress] = []
+    ) async -> Intent {
+        guard !userAddresses.isEmpty || !savedAddresses.isEmpty else { return intent }
+
+        let combined = userAddresses + savedAddresses
 
         // Resolve the token's chain once (used for both fields)
         let tokenChain = await resolveTokenChain(intent.token)
 
         var result = intent
 
-        // Resolve `to` field (sendToken)
-        if let resolved = resolveField(result.to, userAddresses: userAddresses, tokenChain: tokenChain) {
+        // Resolve `to` field (sendToken) — check saved addresses first (more likely recipients),
+        // then user addresses
+        if let resolved = resolveField(result.to, userAddresses: savedAddresses, tokenChain: tokenChain)
+            ?? resolveField(result.to, userAddresses: userAddresses, tokenChain: tokenChain) {
             result = result.replacing(to: resolved)
         }
 
-        // Resolve `address` field (receive)
-        if let resolved = resolveField(result.address, userAddresses: userAddresses, tokenChain: tokenChain) {
+        // Resolve `address` field (receive) — user addresses first (own wallets for receiving)
+        if let resolved = resolveField(result.address, userAddresses: combined, tokenChain: tokenChain) {
             result = result.replacing(address: resolved)
         }
 
@@ -40,10 +48,14 @@ public struct AddressResolver: Sendable {
     }
 
     /// Resolve addresses in all intents from a classification result.
-    public func resolve(intents: [Intent], userAddresses: [any AgentUserAddress]) async -> [Intent] {
+    public func resolve(
+        intents: [Intent],
+        userAddresses: [any AgentUserAddress],
+        savedAddresses: [any AgentUserAddress] = []
+    ) async -> [Intent] {
         var resolved: [Intent] = []
         for intent in intents {
-            resolved.append(await resolve(intent: intent, userAddresses: userAddresses))
+            resolved.append(await resolve(intent: intent, userAddresses: userAddresses, savedAddresses: savedAddresses))
         }
         return resolved
     }

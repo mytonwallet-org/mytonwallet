@@ -205,8 +205,7 @@ class AgentMessageCell(context: Context) : WCell(
             val topRadius = 8f.dp
             val bottomRadius = if (isLast) 16f.dp else 8f.dp
 
-            val isTransfer = deeplink.url.startsWith("mtw://transfer")
-            val accentColor = if (isTransfer) WColor.Green.color else WColor.Tint.color
+            val accentColor = WColor.Tint.color
 
             val label = WLabel(context).apply {
                 setStyle(17f)

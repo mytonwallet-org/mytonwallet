@@ -1,10 +1,12 @@
-import type { ApiChain } from '../../api/types';
-import type { AccountChain, AgentHint, Theme, UserToken } from '../../global/types';
+import type { Account, AgentHint, SavedAddress, Theme, UserToken } from '../../global/types';
 
 import { AGENT_API_URL } from '../../config';
 import { logDebugError } from '../logs';
 import { DEFAULT_LANG_CODE } from '../windowEnvironment';
 import agentStore from './agentStore';
+
+const MAX_CONTEXT_USER_ADDRESSES = 5;
+const MAX_CONTEXT_SAVED_ADDRESSES = 10;
 
 export enum AgentError {
   ResponseFailed = 'AgentErrorResponseFailed',
@@ -134,24 +136,33 @@ export function createAgentStream(
 }
 
 export function buildRequestContext(
-  byChain?: Partial<Record<ApiChain, AccountChain>>,
-  accountName?: string,
+  accounts: Array<[string, Account]>,
+  currentAccountId: string,
+  savedAddresses?: SavedAddress[],
   tokens?: UserToken[],
   theme?: Theme,
   edit?: { originalText: string },
 ) {
-  const addresses = byChain
-    ? [{
-      name: accountName ?? '',
-      addresses: [...new Set(
-        Object.entries(byChain)
-          .flatMap(([chain, wallet]) => (wallet?.address ? [`${chain}:${wallet.address}`] : [])),
-      )],
-    }]
-    : undefined;
+  const topAccounts = accounts.slice(0, MAX_CONTEXT_USER_ADDRESSES);
+  const isCurrentInTop = topAccounts.some(([id]) => id === currentAccountId);
+
+  if (!isCurrentInTop) {
+    const currentAccount = accounts.find(([id]) => id === currentAccountId)!;
+    topAccounts.push(currentAccount);
+  }
 
   return {
-    addresses,
+    userAddresses: topAccounts.map(([id, account]) => ({
+      name: account.title ?? '',
+      addresses: Object.entries(account.byChain)
+        .flatMap(([chain, wallet]) => (wallet?.address ? [`${chain}:${wallet.address}`] : [])),
+      accountType: account.type,
+      ...(id === currentAccountId && { isActive: true }),
+    })),
+    savedAddresses: savedAddresses?.slice(0, MAX_CONTEXT_SAVED_ADDRESSES).map(({ name, address, chain }) => ({
+      name,
+      addresses: [`${chain}:${address}`],
+    })),
     walletTokens: tokens?.map(({ slug, symbol, name, decimals, priceUsd }) => (
       [slug, symbol, name, String(decimals), String(priceUsd)]
     )),

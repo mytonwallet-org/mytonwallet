@@ -7,6 +7,8 @@ import WalletContext
 import WalletCore
 
 private let log = Log("WalletTokens")
+private let contextMenuPreviewCornerRadius: CGFloat = 26
+private let contextMenuPreviewShadowInset = CGSize(width: 12, height: 10)
 
 public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserver, UICollectionViewDelegate, Sendable, WSegmentedControllerContent {
     @AccountContext private var account: MAccount
@@ -17,6 +19,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     private lazy var dataSource: CollectionViewDataSource = makeDataSource()
     private var currentHeight: CGFloat = WalletTokenCell.defaultHeight * 4
     private var pendingInteractiveSwitchAccountId: String?
+    private var contextMenuExtraBlurView: UIView?
 
     public var onHeightChanged: ((_ animated: Bool) -> Void)?
 
@@ -68,13 +71,8 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     private func setupViews() {
         view.backgroundColor = .clear
 
-        var configuration = UICollectionLayoutListConfiguration(appearance: .plain)
-        configuration.backgroundColor = .clear
-        configuration.showsSeparators = false
-        let layout = UICollectionViewCompositionalLayout.list(using: configuration)
-
         let collectionViewClass = layoutMode.isCompact ? _NoInsetsCollectionView.self : UICollectionView.self
-        collectionView = collectionViewClass.init(frame: .zero, collectionViewLayout: layout)
+        collectionView = collectionViewClass.init(frame: .zero, collectionViewLayout: makeLayout())
         collectionView.backgroundColor = .clear
         collectionView.delegate = self
         collectionView.delaysContentTouches = false
@@ -88,6 +86,43 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         }
 
         view.addStretchedToBounds(subview: collectionView)
+    }
+
+    private func makeLayout() -> UICollectionViewCompositionalLayout {
+        UICollectionViewCompositionalLayout { [weak self] sectionIndex, layoutEnvironment in
+            self?.makeSectionLayout(sectionIndex: sectionIndex, layoutEnvironment: layoutEnvironment)
+        }
+    }
+
+    private func makeSectionLayout(sectionIndex _: Int, layoutEnvironment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
+        var configuration = UICollectionLayoutListConfiguration(appearance: .plain)
+        configuration.backgroundColor = .clear
+        configuration.showsSeparators = true
+        configuration.separatorConfiguration.bottomSeparatorInsets.leading = 62
+        if !IOS_26_MODE_ENABLED {
+            configuration.separatorConfiguration.color = layoutMode.isCompact ? .air.separator : .air.separatorDarkBackground
+        }
+        configuration.itemSeparatorHandler = { [weak self] indexPath, separatorConfiguration in
+            guard let self else { return separatorConfiguration }
+            guard let section = self.section(at: indexPath.section) else { return separatorConfiguration }
+
+            var separatorConfiguration = separatorConfiguration
+            let itemsInSection = self.dataSource.snapshot().itemIdentifiers(inSection: section)
+            let isLastItemInSection = indexPath.item == itemsInSection.count - 1
+            if isLastItemInSection {
+                separatorConfiguration.bottomSeparatorVisibility = .hidden
+            }
+            return separatorConfiguration
+        }
+        return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
+    }
+
+    private func section(at index: Int) -> Section? {
+        let sections = dataSource.snapshot().sectionIdentifiers
+        guard sections.indices.contains(index) else {
+            return nil
+        }
+        return sections[index]
     }
 
     private func makeDataSource() -> CollectionViewDataSource {
@@ -157,7 +192,6 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         cell.underNavigationBarColorView.isVisible = showUnderNavbarPinningColor
 
         cell.configure(with: item.tokenBalance,
-                       isLast: item.isLast,
                        animated: item.animatedAmounts,
                        badgeContent: badgeContent,
                        isMultichain: account.isMultichain,
@@ -165,40 +199,27 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
                        highlightBackgroundWhenPinned: highlightBackgroundWhenPinned)
     }
 
-    private func applySnapshot(animatedAmounts: Bool, walletTokensVM: WalletTokensVM) {
+    private func applySnapshot(animatedAmounts: Bool, walletTokensViewState: WalletTokensViewState) {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
-        let accountId = account.id
-        let assetsAndActivityData = AssetsAndActivityDataStore.data(accountId: accountId) ?? .empty
 
         snapshot.appendSections([.main])
-        let items: [Item] = switch walletTokensVM {
-        case let .realTokens(tokensToShow, _):
-            tokensToShow.enumerated().map { index, token in
-                let isLast: Bool = index == tokensToShow.count - 1
-                let isPinned = switch assetsAndActivityData.isTokenPinned(slug: token.tokenSlug, isStaked: token.isStaking) {
-                case .pinned: true
-                case .notPinned: false
-                }
-                return .token(item: TokenBalanceItem(tokenBalance: token,
-                                                     accountId: accountId,
-                                                     isPinned: isPinned,
-                                                     animatedAmounts: animatedAmounts,
-                                                     isLast: isLast))
-            }
-
-        case .tokensPlaceholders(let count):
+        let items: [Item] = switch walletTokensViewState {
+        case .loaded(let rows, _):
+            rows.map { .token(item: $0) }
+        case .placeholders(let count):
             (0 ..< count).map(Item.placeholder)
         }
         snapshot.appendItems(items)
         snapshot.reconfigureItems(items)
 
-        switch walletTokensVM {
-        case let .realTokens(tokensToShow, allTokensCount):
-            if allTokensCount > tokensToShow.count {
+        switch walletTokensViewState {
+        case .loaded(let rows, let allTokensCount):
+            if allTokensCount > rows.count {
                 snapshot.appendSections([.seeAll])
                 snapshot.appendItems([.seeAll(tokensCount: allTokensCount)])
             }
-        case .tokensPlaceholders: break
+        case .placeholders:
+            break
         }
 
         currentHeight = snapshot.itemIdentifiers.reduce(into: CGFloat(0)) { totalHeight, item in
@@ -210,30 +231,62 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     // MARK: - Data Updates
 
     private func updateWalletTokens(animated: Bool) {
-        let walletTokensVM: WalletTokensVM
-        if let walletTokensData = $account.walletTokensData {
-            let assetsData = AssetsAndActivityDataStore.data(accountId: account.id) ?? .empty
-            let tokenBalances = walletTokensData.walletStaked + walletTokensData.walletTokens
-            let sorted = MTokenBalance.sortedForUI(tokenBalances: tokenBalances,
-                                                   assetsAndActivityData: assetsData,
-                                                   balances: $account.balances,
-                                                   defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: account.network))
-            let tokensToShow: [MTokenBalance] = if layoutMode.isCompact {
-                sorted.lazy
-                    .filter { ($0.tokenPrice ?? 0) > 0 }
-                    .prefix(layoutMode.visibleRowsLimit)
-                    .apply(Array.init)
-            } else {
-                sorted
-            }
+        let walletTokensViewState = makeWalletTokensViewState(animatedAmounts: animated)
+        applySnapshot(animatedAmounts: animated, walletTokensViewState: walletTokensViewState)
+        onHeightChanged?(animated)
+    }
 
-            walletTokensVM = .realTokens(tokensToShow: tokensToShow, allTokensCount: tokenBalances.count)
-        } else {
-            walletTokensVM = .tokensPlaceholders(count: 4)
+    private func makeWalletTokensViewState(animatedAmounts: Bool) -> WalletTokensViewState {
+        guard let walletTokensData = $account.walletTokensData else {
+            return .placeholders(count: 4)
         }
 
-        applySnapshot(animatedAmounts: animated, walletTokensVM: walletTokensVM)
-        onHeightChanged?(animated)
+        let assetsData = AssetsAndActivityDataStore.data(accountId: account.id) ?? .empty
+        let tokenBalances = makeTokenBalances(walletTokensData: walletTokensData)
+        let sortedTokens = MTokenBalance.sortedForUI(
+            tokenBalances: tokenBalances,
+            assetsAndActivityData: assetsData,
+            balances: $account.balances,
+            defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: account.network)
+        )
+        let visibleTokens = makeVisibleTokens(from: sortedTokens)
+        let rows = visibleTokens.map { tokenBalance in
+            TokenBalanceItem(
+                tokenBalance: tokenBalance,
+                accountId: account.id,
+                isPinned: isTokenPinned(tokenBalance, assetsAndActivityData: assetsData),
+                animatedAmounts: animatedAmounts
+            )
+        }
+
+        return .loaded(rows: rows, allTokensCount: sortedTokens.count)
+    }
+
+    private func makeTokenBalances(walletTokensData: MAccountWalletTokensData) -> [MTokenBalance] {
+        (walletTokensData.walletStaked + walletTokensData.walletTokens).map { tokenBalance in
+            MTokenBalance(
+                tokenSlug: tokenBalance.tokenSlug,
+                balance: tokenBalance.balance,
+                isStaking: tokenBalance.isStaking
+            )
+        }
+    }
+
+    private func makeVisibleTokens(from sortedTokens: [MTokenBalance]) -> [MTokenBalance] {
+        if layoutMode.isCompact {
+            return Array(sortedTokens.prefix(layoutMode.visibleRowsLimit))
+        } else {
+            return sortedTokens
+        }
+    }
+
+    private func isTokenPinned(_ tokenBalance: MTokenBalance, assetsAndActivityData: MAssetsAndActivityData) -> Bool {
+        switch assetsAndActivityData.isTokenPinned(slug: tokenBalance.tokenSlug, isStaked: tokenBalance.isStaking) {
+        case .pinned:
+            true
+        case .notPinned:
+            false
+        }
     }
 
     private func reloadStakeCells(animated _: Bool) { // Improvement: this should simply be an apply snapshot
@@ -242,15 +295,6 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
                 let badgeContent = getBadgeContent(accountContext: _account, slug: walletToken.tokenSlug, isStaking: walletToken.isStaking)
                 cell.configureBadge(badgeContent: badgeContent)
             }
-        }
-    }
-
-    private func reconfigureAllRows(animated: Bool) { // Improvement: this should simply be an apply snapshot
-        var snapshot = dataSource.snapshot()
-        snapshot.reconfigureItems(snapshot.itemIdentifiers(inSection: .main))
-
-        DispatchQueue.main.async { [dataSource] in
-            dataSource.apply(snapshot, animatingDifferences: animated)
         }
     }
 
@@ -281,7 +325,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
                 }
 
             case .tokensChanged:
-                reconfigureAllRows(animated: true)
+                updateWalletTokens(animated: true)
 
             case .assetsAndActivityDataUpdated:
                 updateWalletTokens(animated: true)
@@ -522,6 +566,51 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         }
     }
 
+    public func collectionView(
+        _ collectionView: UICollectionView,
+        previewForHighlightingContextMenuWithConfiguration configuration: UIContextMenuConfiguration
+    ) -> UITargetedPreview? {
+        guard collectionView === self.collectionView else {
+            return nil
+        }
+        return contextMenuPreview(for: configuration)
+    }
+
+    public func collectionView(
+        _ collectionView: UICollectionView,
+        previewForDismissingContextMenuWithConfiguration configuration: UIContextMenuConfiguration
+    ) -> UITargetedPreview? {
+        guard collectionView === self.collectionView else {
+            return nil
+        }
+        return contextMenuPreview(for: configuration)
+    }
+
+    public func collectionView(
+        _ collectionView: UICollectionView,
+        willDisplayContextMenu configuration: UIContextMenuConfiguration,
+        animator: (any UIContextMenuInteractionAnimating)?
+    ) {
+        guard collectionView === self.collectionView else {
+            return
+        }
+        contextMenuExtraBlurView?.removeFromSuperview()
+        contextMenuExtraBlurView = ContextMenuBackdropBlur.show(in: view.window, animator: animator)
+    }
+
+    public func collectionView(
+        _ collectionView: UICollectionView,
+        willEndContextMenuInteraction configuration: UIContextMenuConfiguration,
+        animator: (any UIContextMenuInteractionAnimating)?
+    ) {
+        guard collectionView === self.collectionView else {
+            return
+        }
+        let blurView = contextMenuExtraBlurView
+        contextMenuExtraBlurView = nil
+        ContextMenuBackdropBlur.hide(blurView, animator: animator)
+    }
+
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         onScroll?(scrollView.contentOffset.y + scrollView.contentInset.top)
     }
@@ -541,6 +630,41 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     public var onScrollEnd: (() -> Void)?
 
     public var scrollingView: UIScrollView? { collectionView }
+
+    private func contextMenuPreview(for configuration: UIContextMenuConfiguration) -> UITargetedPreview? {
+        guard let indexPath = configuration.identifier as? NSIndexPath,
+              let cell = collectionView.cellForItem(at: indexPath as IndexPath) else {
+            return nil
+        }
+
+        let previewView = cell.snapshotView(afterScreenUpdates: false) ?? UIView(frame: cell.bounds)
+        previewView.frame = cell.bounds
+
+        let parameters = UIPreviewParameters()
+        parameters.backgroundColor = .clear
+        parameters.visiblePath = UIBezierPath(
+            roundedRect: cell.bounds,
+            cornerRadius: contextMenuPreviewCornerRadius
+        )
+        let shadowRect = cell.bounds.insetBy(
+            dx: contextMenuPreviewShadowInset.width,
+            dy: contextMenuPreviewShadowInset.height
+        )
+        parameters.shadowPath = UIBezierPath(
+            roundedRect: shadowRect,
+            cornerRadius: max(0, contextMenuPreviewCornerRadius - contextMenuPreviewShadowInset.height)
+        )
+
+        let targetContainer: UIView
+        if let window = view.window {
+            targetContainer = window
+        } else {
+            targetContainer = collectionView
+        }
+        let targetCenter = targetContainer.convert(cell.bounds.center, from: cell)
+        let target = UIPreviewTarget(container: targetContainer, center: targetCenter)
+        return UITargetedPreview(view: previewView, parameters: parameters, target: target)
+    }
 }
 
 // MARK: - Actions
@@ -578,39 +702,48 @@ extension WalletTokensVC {
     struct TokenBalanceItem: Hashable {
         // payload invisible to datasource
         @HashableExcluded var tokenBalance: MTokenBalance
-        
-        // Token identity:
-        private let tokenID: TokenID
-        private let accountId: String // for reloading tokens with same slug / staking when account changed
-        
-        // For UI:
+
+        private let identity: Identity
         let animatedAmounts: Bool
-        let isLast: Bool
         let isPinned: Bool
-        
-        init(tokenBalance: MTokenBalance, accountId: String, isPinned: Bool, animatedAmounts: Bool, isLast: Bool) {
+
+        init(tokenBalance: MTokenBalance, accountId: String, isPinned: Bool, animatedAmounts: Bool) {
             self.tokenBalance = tokenBalance
-            self.accountId = accountId
-            tokenID = TokenID(slug: tokenBalance.tokenSlug, isStaking: tokenBalance.isStaking)
+            self.identity = Identity(
+                accountId: accountId,
+                tokenIdentity: Self.makeTokenIdentity(slug: tokenBalance.tokenSlug, isStaking: tokenBalance.isStaking),
+                isPinned: isPinned
+            )
             self.animatedAmounts = animatedAmounts
-            self.isLast = isLast
             self.isPinned = isPinned
         }
 
         static func == (lhs: Self, rhs: Self) -> Bool {
-            lhs.tokenID == rhs.tokenID && lhs.accountId == rhs.accountId && lhs.isPinned == rhs.isPinned
+            lhs.identity == rhs.identity
         }
 
         func hash(into hasher: inout Hasher) {
-            hasher.combine(tokenID)
-            hasher.combine(accountId)
-            hasher.combine(isPinned)
+            hasher.combine(identity)
+        }
+
+        private struct Identity: Hashable {
+            let accountId: String
+            let tokenIdentity: String
+            let isPinned: Bool
+        }
+
+        private static func makeTokenIdentity(slug: String, isStaking: Bool) -> String {
+            if isStaking {
+                return "staking-" + slug
+            } else {
+                return slug
+            }
         }
     }
     
-    private enum WalletTokensVM {
-        case realTokens(tokensToShow: [MTokenBalance], allTokensCount: Int)
-        case tokensPlaceholders(count: Int)
+    private enum WalletTokensViewState {
+        case loaded(rows: [TokenBalanceItem], allTokensCount: Int)
+        case placeholders(count: Int)
     }
     
     public enum LayoutMode {

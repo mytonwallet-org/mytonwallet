@@ -261,9 +261,9 @@ Earning: Стейкінг
 You can save this address for quick access while sending.: Ви можете зберегти цю адресу для швидкого доступу під час надсилання.
 Stake Again: Повторити депозит
 Earned: Зароблено
-Select wallet to use on this dapp: Виберіть гаманець для використання в цій програмі
+Select wallet to use on this app: Виберіть гаманець для використання в цій програмі
 Connect: Підключити
-Dapp Permissions: Дозволи для програми
+App Permissions: Дозволи для програми
 $dapp_can_view_balance: Для %dappname% буде доступна ваша адреса гаманця і баланс.
 Payload: Службові дані
 $many_transactions:
@@ -281,11 +281,10 @@ Scam: Скам
 Scam comment is hidden.: Коментар приховано.
 Display: Показати
 Nested Transaction: Вкладена транзакція
-Connected Dapps: Підключені додатки
-Disconnect All Dapps: Відключити всі додатки
+Disconnect All Apps: Відключити всі додатки
 Disconnect: Відключити
-Disconnect Dapp: Відключити додаток
-Disconnect Dapps: Відключити додатки
+Disconnect App: Відключити додаток
+Disconnect Apps: Відключити додатки
 Are you sure you want to disconnect?: Ви впевнені, що хочете відключити %dappname%?
 Are you sure you want to disconnect all websites?: Ви впевнені, що хочете відключити всі сайти?
 Logged in with %app_name%: Підключені за допомогою %app_name%
@@ -907,7 +906,7 @@ Collectibles: Колекції
 Bluetooth unavailable: Bluetooth недоступний
 $bluetooth_enable_guide: Увімкніть Bluetooth у налаштуваннях пристрою та дозвольте програмі доступ до Bluetooth.
 Canceled by the user: Скасовано користувачем
-The proof for signing provided by the Dapp is too large: Доказ для підпису, наданий програмою, занадто великий
+The proof for signing provided by the app is too large: Доказ для підпису, наданий програмою, занадто великий
 $domain_like_scam_warning: |
   Введена адреса, ймовірно, **ШАХРАЙСТВО**. Це **НЕ** адреса жодної біржі або вашого гаманця токенів.
 
@@ -1059,11 +1058,11 @@ $transfer_inactive_contract_error: |
   Якщо ви точно хочете надіслати на цю адресу, введіть адресу у форматі "UQ...".
 $transaction_not_found: Переказ не знайдено.
 $could_not_determine_address: Не вдалося визначити адресу гаманця з переказу
-WrongAddress: Децентралізований додаток (dapp) запитав дію з іншого гаманця.
-WrongNetwork: Децентралізований додаток (dapp) запитав дію з іншої мережі.
+WrongAddress: Додаток запитав дію з іншого гаманця.
+WrongNetwork: Додаток запитав дію з іншої мережі.
 Another transfer was sent from this wallet simultaneously. Please try again.: Одночасно з цього гаманця був відправлений інший переказ. Будь ласка, спробуйте ще раз.
 Confirm action with your password: Підтвердіть дію вашим паролем
-$dapps-description: Ви можете входити в децентралізовані додатки (dapps), які підтримують %app_name%. Вони можуть переглядати адресу гаманця, баланс і запитувати дії.
+$dapps-description: Ви можете входити в додатки, які підтримують %app_name%. Вони можуть переглядати адресу гаманця, баланс і запитувати дії.
 Please verify the action.: Будь ласка, перевірте дію.
 $service_token_transfer_warning: Ви збираєтеся перевести важливий сервісний токен, необхідний для виведення вашого депозиту або виконання сервісних дій. Будь ласка, переконайтеся, що це дія, яку ви маєте намір виконати.
 $ledger_outdated: Ця дія не підтримується вашою версією додатку Ledger %chain%. Будь ласка, оновіть його за допомогою Ledger Live.
@@ -1103,3 +1102,4 @@ AgentErrorConnectionFailed: "Помилка: З'єднання не вдалос
 Scroll To Bottom: Прокрутити донизу
 $agent_clear_chat_confirm: Ви впевнені, що хочете очистити історію чату?
 $unknown_swap_token: Невідомий токен у посиланні обміну. Використано токени за замовчуванням.
+$action_not_available_view_mode: Ця дія недоступна для гаманців у режимі перегляду

@@ -107,7 +107,7 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
     override fun setupViews() {
         super.setupViews()
 
-        setNavTitle(LocaleController.getString("Connected Dapps"))
+        setNavTitle(LocaleController.getString("Connected Apps"))
         setupNavBar(true)
 
         rvAdapter.setOnItemClickListener(object : ConnectedAppsAdapter.OnClickListener {

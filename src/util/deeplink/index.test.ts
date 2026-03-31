@@ -1212,3 +1212,150 @@ describe('getDeeplinkFromLocation', () => {
     expect(result).toBe(expected);
   });
 });
+
+describe('View-only mode deeplink blocking', () => {
+  let mockActions: Record<string, jest.Mock>;
+  let mockGlobal: GlobalState;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    mockActions = {
+      startSwap: jest.fn(),
+      showError: jest.fn(),
+      openOnRampWidgetModal: jest.fn(),
+      startStaking: jest.fn(),
+      startTransfer: jest.fn(),
+      setLandscapeActionsActiveTabIndex: jest.fn(),
+      closeSettings: jest.fn(),
+      openExplore: jest.fn(),
+      setActiveContentTab: jest.fn(),
+      openReceiveModal: jest.fn(),
+      openTemporaryViewAccount: jest.fn(),
+      showTokenActivity: jest.fn(),
+      addSavedAddress: jest.fn(),
+      switchToAgent: jest.fn(),
+      openLoadingOverlay: jest.fn(),
+      closeLoadingOverlay: jest.fn(),
+    };
+
+    mockGlobal = {
+      ...createMockGlobalState(),
+      accounts: {
+        byId: {
+          'test-account-id': {
+            title: 'View Account',
+            type: 'view',
+            byChain: {
+              ton: {
+                address: TEST_TON_ADDRESS,
+              },
+              tron: {
+                address: TEST_TRON_ADDRESS,
+              },
+            },
+          },
+        },
+      },
+    };
+
+    (getActions as jest.Mock).mockReturnValue(mockActions);
+    (getGlobal as jest.Mock).mockReturnValue(mockGlobal);
+  });
+
+  describe('processSelfDeeplink blocks signing commands', () => {
+    it.each([
+      { name: 'Swap', url: 'mtw://swap' },
+      { name: 'BuyWithCrypto', url: 'mtw://buy-with-crypto' },
+      { name: 'BuyWithCard', url: 'mtw://buy-with-card' },
+      { name: 'Stake', url: 'mtw://stake' },
+      { name: 'Transfer', url: `mtw://transfer/${TEST_TON_ADDRESS}?amount=1` },
+      { name: 'Offramp', url: 'mtw://offramp?depositWalletAddress=addr&baseCurrencyCode=ton' },
+      { name: 'Receive', url: 'mtw://receive' },
+    ])('should block $name in view-only mode', async ({ url }) => {
+      const result = await processSelfDeeplink(url);
+
+      expect(result).toBe(false);
+      expect(mockActions.showError).toHaveBeenCalledWith({
+        error: '$action_not_available_view_mode',
+      });
+    });
+
+    it('should not call startSwap in view-only mode', async () => {
+      await processSelfDeeplink('mtw://swap');
+      expect(mockActions.startSwap).not.toHaveBeenCalled();
+    });
+
+    it('should not call addSavedAddress for offramp in view-only mode', async () => {
+      await processSelfDeeplink('mtw://offramp?depositWalletAddress=addr&baseCurrencyCode=ton');
+      expect(mockActions.addSavedAddress).not.toHaveBeenCalled();
+      expect(mockActions.startTransfer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('processSelfDeeplink allows read-only commands', () => {
+    it.each([
+      { name: 'Agent', url: 'mtw://agent' },
+    ])('should allow $name in view-only mode', async ({ url }) => {
+      const result = await processSelfDeeplink(url);
+
+      expect(result).toBe(true);
+      expect(mockActions.showError).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('processDeeplink blocks transfer protocols', () => {
+    it('should block ton:// transfer in view-only mode', async () => {
+      const result = await processDeeplink(`ton://transfer/${TEST_TON_ADDRESS}?amount=1`);
+
+      expect(result).toBe(false);
+      expect(mockActions.showError).toHaveBeenCalledWith({
+        error: '$action_not_available_view_mode',
+      });
+      expect(mockActions.startTransfer).not.toHaveBeenCalled();
+    });
+
+    it('should block ton://transfer widget shortcut in view-only mode', async () => {
+      const result = await processDeeplink('ton://transfer');
+
+      expect(result).toBe(false);
+      expect(mockActions.showError).toHaveBeenCalledWith({
+        error: '$action_not_available_view_mode',
+      });
+      expect(mockActions.startTransfer).not.toHaveBeenCalled();
+    });
+
+    it('should block tron: transfer in view-only mode', async () => {
+      const result = await processDeeplink(`tron:${TEST_TRON_ADDRESS}?amount=77`);
+
+      expect(result).toBe(false);
+      expect(mockActions.showError).toHaveBeenCalledWith({
+        error: '$action_not_available_view_mode',
+      });
+    });
+
+    it('should block tether: transfer in view-only mode', async () => {
+      const result = await processDeeplink(`tether:${TEST_TRON_ADDRESS}?amount=10`);
+
+      expect(result).toBe(false);
+      expect(mockActions.showError).toHaveBeenCalledWith({
+        error: '$action_not_available_view_mode',
+      });
+    });
+  });
+
+  describe('processDeeplink blocks dapp connector protocols', () => {
+    it.each([
+      { name: 'TonConnect (tc://)', url: 'tc://some-dapp-request' },
+      { name: 'WalletConnect (wc:)', url: 'wc:some-session-request' },
+    ])('should block $name in view-only mode', async ({ url }) => {
+      const result = await processDeeplink(url);
+
+      expect(result).toBe(false);
+      expect(mockActions.showError).toHaveBeenCalledWith({
+        error: '$action_not_available_view_mode',
+      });
+      expect(mockActions.openLoadingOverlay).not.toHaveBeenCalled();
+    });
+  });
+});

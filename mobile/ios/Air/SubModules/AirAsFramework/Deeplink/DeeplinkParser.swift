@@ -91,6 +91,9 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
     }
     
     switch url.host {
+    case "agent":
+        return .agent
+
     case "classic":
         return .switchToClassic
         
@@ -128,6 +131,9 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
             return parseTonInvoiceUrl(url)
         }
 
+    case "send":
+        return parseSendUrl(url)
+
     case "buy-with-card":
         return .buyWithCard
         
@@ -136,6 +142,14 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
 
     case "stake":
         return .stake
+
+    case "settings":
+        let pathComponents = url.pathComponents.filter { $0 != "/" }
+        if let section = pathComponents.first?.nilIfEmpty {
+            guard let settingsSection = AppSettingsSection(rawValue: section) else { return nil }
+            return .settings(section: settingsSection)
+        }
+        return .settings(section: nil)
 
     case "giveaway":
         let pathname = url.absoluteString
@@ -226,6 +240,54 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
     default:
         return nil
     }
+}
+
+private func parseSendUrl(_ url: URL) -> Deeplink? {
+    let pathComponents = url.pathComponents.filter { $0 != "/" }
+    guard let target = pathComponents.first else { return nil }
+
+    // Format: {chain}:{address}
+    guard let colonIndex = target.firstIndex(of: ":") else { return nil }
+    let chainString = String(target[target.startIndex..<colonIndex])
+    let address = String(target[target.index(after: colonIndex)...])
+
+    guard let chain = ApiChain(rawValue: chainString), chain.isSupported else { return nil }
+    guard chain.isValidAddressOrDomain(address) else { return nil }
+
+    let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+    var amount: BigInt?
+    var comment: String?
+    var binaryPayload: String?
+    var tokenSlug: String?
+    var stateInit: String?
+
+    for item in queryItems {
+        guard let value = item.value, !value.isEmpty else { continue }
+        switch item.name {
+        case "amount":
+            amount = BigInt(value)
+        case "text":
+            comment = value
+        case "bin":
+            binaryPayload = value
+        case "token":
+            tokenSlug = value
+        case "init", "stateInit":
+            stateInit = value
+        default:
+            break
+        }
+    }
+
+    return .send(
+        chain: chain,
+        address: address,
+        amount: amount,
+        comment: comment,
+        binaryPayload: binaryPayload,
+        tokenSlug: tokenSlug,
+        stateInit: stateInit
+    )
 }
 
 extension Deeplink {

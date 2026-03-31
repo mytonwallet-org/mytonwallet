@@ -70,7 +70,7 @@ function SettingsDapps({
             isSimple
             onClick={handleDisconnectAll}
           >
-            {lang('Disconnect All Dapps')}
+            {lang('Disconnect All Apps')}
           </Button>
           <p className={styles.blockDescription}>{lang('$dapps-description', { app_name: APP_NAME })}</p>
         </div>
@@ -115,7 +115,7 @@ function SettingsDapps({
     <div className={styles.slide}>
       {isInsideModal ? (
         <ModalHeader
-          title={lang('Dapps')}
+          title={lang('Apps')}
           withNotch={isScrolled}
           onBackButtonClick={handleBackClick}
           className={styles.modalHeader}
@@ -126,7 +126,7 @@ function SettingsDapps({
             <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
             <span>{lang('Back')}</span>
           </Button>
-          <span className={styles.headerTitle}>{lang('Dapps')}</span>
+          <span className={styles.headerTitle}>{lang('Apps')}</span>
         </div>
       )}
       <div

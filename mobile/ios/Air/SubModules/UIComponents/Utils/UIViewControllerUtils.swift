@@ -111,6 +111,26 @@ public extension UIViewController {
         child.view.removeFromSuperview()
         child.removeFromParent()
     }
+
+    @MainActor func presentActivityViewController(
+        _ activityViewController: UIActivityViewController,
+        sourceView: UIView? = nil,
+        animated: Bool = true,
+        completion: (() -> Void)? = nil
+    ) {
+        if let popover = activityViewController.popoverPresentationController {
+            let popoverSourceView: UIView = sourceView ?? self.view
+            popover.sourceView = popoverSourceView
+            popover.sourceRect = CGRect(
+                x: popoverSourceView.bounds.midX,
+                y: popoverSourceView.bounds.midY,
+                width: 0,
+                height: 0
+            )
+            popover.permittedArrowDirections = []
+        }
+        present(activityViewController, animated: animated, completion: completion)
+    }
 }
 
 @MainActor public func topViewController() -> UIViewController? {

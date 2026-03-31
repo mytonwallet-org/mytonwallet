@@ -57,7 +57,7 @@ class ConnectedHeaderCell(context: Context) :
         typeface = WFont.Medium.typeface
         maxLines = 1
         text =
-            LocaleController.getString("Disconnect All Dapps")
+            LocaleController.getString("Disconnect All Apps")
     }
 
     val disconnectContainer = WView(context).apply {

@@ -150,6 +150,9 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
             defer { nextDeeplink = nil }
 
             switch deeplink {
+            case .agent:
+                AppActions.showAgent()
+
             case .invoice(address: let address, amount: let amount, comment: let comment, binaryPayload: let binaryPayload, token: let token, jetton: let jetton, stateInit: let stateInit):
                 AppActions.showSend(accountContext: accountContext, prefilledValues: SendPrefilledValues(
                     address: address,
@@ -185,6 +188,16 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
             case .switchToClassic:
                 WalletContextManager.delegate?.switchToCapacitor()
 
+            case .send(chain: _, address: let address, amount: let amount, comment: let comment, binaryPayload: let binaryPayload, tokenSlug: let tokenSlug, stateInit: let stateInit):
+                AppActions.showSend(accountContext: accountContext, prefilledValues: SendPrefilledValues(
+                    address: address,
+                    amount: amount,
+                    token: tokenSlug,
+                    commentOrMemo: comment,
+                    binaryPayload: binaryPayload,
+                    stateInit: stateInit,
+                ))
+
             case .transfer:
                 AppActions.showSend(accountContext: accountContext, prefilledValues: .init())
 
@@ -212,6 +225,9 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
 
             case .view(let addressOrDomainByChain):
                 AppActions.showTemporaryViewAccount(addressOrDomainByChain: addressOrDomainByChain)
+
+            case .settings(let section):
+                AppActions.showSettings(section: section)
             }
         } else {
             nextDeeplink = deeplink

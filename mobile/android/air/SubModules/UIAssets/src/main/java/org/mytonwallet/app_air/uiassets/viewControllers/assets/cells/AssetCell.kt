@@ -56,6 +56,8 @@ class AssetCell(
     companion object {
         const val DNS_EXPIRY_WARNING_DAYS = 30
         private val NFT_NUMBER_REGEX = Regex("""^(.*\S)\s*([#№][\d/]+)$""")
+        const val CORNER_RADIUS_COMPLETE = 16f
+        const val CORNER_RADIUS_THUMB = 8f
     }
 
     private val ripple = WRippleDrawable.create(16f.dp)
@@ -63,7 +65,11 @@ class AssetCell(
     var onTap: ((transaction: ApiNft) -> Unit)? = null
     var onLongPress: ((anchorView: WNftImageView, nft: ApiNft) -> Unit)? = null
 
-    private val imageCornerRadius = if (viewMode == AssetsVC.ViewMode.THUMB) 8f.dp else 16f.dp
+    private val imageCornerRadius = if (viewMode == AssetsVC.ViewMode.THUMB) {
+        CORNER_RADIUS_THUMB
+    } else {
+        CORNER_RADIUS_COMPLETE
+    }.dp
 
     private val imageView: WNftImageView by lazy {
         WNftImageView(context, 48.dp, 4.dp, imageCornerRadius)

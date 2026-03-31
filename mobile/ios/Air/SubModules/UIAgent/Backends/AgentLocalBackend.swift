@@ -106,11 +106,14 @@ final class AgentLocalBackend: AgentBackend {
 
     private func processMessage(_ text: String, typingIndicatorID: AgentItemID) async {
         guard context != nil else { return }
-        let userAddresses = AgentRequestContext.current(using: accountContext).userAddresses ?? []
+        let requestContext = AgentRequestContext.current(using: accountContext)
+        let userAddresses = requestContext.userAddresses ?? []
+        let savedAddresses = requestContext.savedAddresses ?? []
         do {
             let (results, _) = try await agent.process(
                 message: text,
                 userAddresses: userAddresses,
+                savedAddresses: savedAddresses,
                 conversationId: conversationID
             )
 

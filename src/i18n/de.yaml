@@ -258,9 +258,9 @@ Unexpected: Unerwarteter Fehler
 You can save this address for quick access while sending.: Sie können diese Adresse speichern, um schnellen Zugriff beim Senden zu haben.
 Stake Again: Erneut staken
 Earned: Verdient
-Select wallet to use on this dapp: Wählen Sie die Brieftasche aus, die Sie für diese Dapp verwenden möchten.
+Select wallet to use on this app: Wählen Sie die Brieftasche aus, die Sie für diese App verwenden möchten.
 Connect: Verbinden
-Dapp Permissions: Dapp-Berechtigungen
+App Permissions: App-Berechtigungen
 $dapp_can_view_balance: "%dappname% wird die Wallet adresse und den Kontostand anzeigen können."
 Payload: Nutzlast
 $many_transactions:
@@ -276,11 +276,10 @@ Install our native app or browser extension.: Installieren Sie unsere native App
 Scam: Betrug
 Scam comment is hidden.: Betrügerischer Kommentar ist versteckt.
 Display: Anzeigen
-Connected Dapps: Verbundene Dapps
-Disconnect All Dapps: Alle Dapps trennen
+Disconnect All Apps: Alle Apps trennen
 Disconnect: Trennen
-Disconnect Dapp: Dapp trennen
-Disconnect Dapps: Dapps trennen
+Disconnect App: App trennen
+Disconnect Apps: Apps trennen
 Are you sure you want to disconnect?: Sind Sie sicher, dass Sie %dappname% trennen möchten?
 Are you sure you want to disconnect all websites?: Sind Sie sicher, dass Sie alle Webseiten trennen möchten?
 Logged in with %app_name%: Mit %app_name% angemeldet
@@ -524,7 +523,7 @@ $dapp_liquid_staking_vote_payload: Abstimmung „%vote%“ für Vorschlag %votin
 $dapp_single_nominator_change_validator_payload: Adresse des SingleNominator-Staking-Vertragsvalidators in %address% ändern
 $dapp_single_nominator_withdraw_payload: Abhebung von %amount% vom SingleNominator-Staking-Vertrag
 $dapp_vesting_add_whitelist_payload: "%address% zur Vesting Wallet-Whitelist hinzufügen"
-Connecting dapps is not yet supported by Ledger.: Das Verbinden von Dapps wird von Ledger noch nicht unterstützt.
+Connecting apps is not yet supported by Ledger.: Das Verbinden von Apps wird von Ledger noch nicht unterstützt.
 Time synchronization issue. Please ensure your device's time settings are correct.: Problem mit der Zeitsynchronisierung. Bitte stellen Sie sicher, dass die Zeiteinstellungen Ihres Geräts korrekt sind.
 Data Copied: Daten wurden kopiert
 URL Copied: URL Copied
@@ -898,7 +897,7 @@ Collectibles: Sammlerstücke
 Bluetooth unavailable: Bluetooth nicht verfügbar
 $bluetooth_enable_guide: Aktivieren Sie Bluetooth in den Geräteeinstellungen und erlauben Sie der App den Zugriff auf Bluetooth.
 Canceled by the user: Vom Benutzer abgebrochen
-The proof for signing provided by the Dapp is too large: Der vom Dapp bereitgestellte Signaturnachweis ist zu groß
+The proof for signing provided by the app is too large: Der von der App bereitgestellte Signaturnachweis ist zu groß
 $domain_like_scam_warning: |
   Die eingegebene Adresse ist wahrscheinlich ein **BETRUG**. Dies ist **KEINE** Adresse einer Börse oder Ihres Token-Wallets.
 
@@ -1048,11 +1047,11 @@ $transfer_inactive_contract_error: |
   Wenn Sie definitiv an diese Adresse senden möchten, geben Sie die Adresse im Format "UQ..." ein.
 $transaction_not_found: Transfer nicht gefunden.
 $could_not_determine_address: Wallet-Adresse konnte nicht aus der Überweisung ermittelt werden
-WrongAddress: Die Dapp hat eine Aktion von einer anderen Wallet angefordert.
-WrongNetwork: Die Dapp hat eine Aktion von einem anderen Netzwerk angefordert.
+WrongAddress: Die App hat eine Aktion von einer anderen Wallet angefordert.
+WrongNetwork: Die App hat eine Aktion von einem anderen Netzwerk angefordert.
 Another transfer was sent from this wallet simultaneously. Please try again.: Von dieser Wallet wurde gleichzeitig eine weitere Überweisung gesendet. Bitte versuchen Sie es erneut.
 Confirm action with your password: Bestätigen Sie die Aktion mit Ihrem Passwort
-$dapps-description: Sie können sich bei Dapps anmelden, die %app_name% unterstützen. Sie können die Wallet-Adresse und den Kontostand einsehen und Aktionen anfordern.
+$dapps-description: Sie können sich bei Apps anmelden, die %app_name% unterstützen. Sie können die Wallet-Adresse und den Kontostand einsehen und Aktionen anfordern.
 Please verify the action.: Bitte überprüfen Sie die Aktion.
 $service_token_transfer_warning: Sie sind dabei, einen wichtigen Service-Token zu überweisen, der für die Abhebung Ihrer Einzahlung oder die Durchführung von Service-Aktionen erforderlich ist. Bitte stellen Sie sicher, dass dies die beabsichtigte Aktion ist.
 $ledger_outdated: Diese Aktion wird von Ihrer Version der Ledger %chain% App nicht unterstützt. Bitte aktualisieren Sie sie über Ledger Live.
@@ -1092,3 +1091,4 @@ AgentErrorConnectionFailed: "Fehler: Verbindung fehlgeschlagen"
 Scroll To Bottom: Nach unten scrollen
 $agent_clear_chat_confirm: Sind Sie sicher, dass Sie den Chatverlauf löschen möchten?
 $unknown_swap_token: Unbekannter Token im Swap-Link. Standard-Token wurden verwendet.
+$action_not_available_view_mode: Diese Aktion ist für View Wallets nicht verfügbar

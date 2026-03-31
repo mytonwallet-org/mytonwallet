@@ -156,7 +156,7 @@ async function checkTransactionDraftWithGasless({
 
   const gaslessExplainedFee: ExplainedTransferFee = {
     isGasless: true,
-    canTransferFullBalance: true,
+    canTransferFullBalance: false,
     realFee: {
       precision: 'exact',
       terms: {
@@ -548,6 +548,7 @@ function estimateDiesel(
     transaction,
     fee_token: feeToken,
     source_wallet: sourceWallet,
+    signer_key: SOLANA_GASLESS_PAYER_ADDRESS,
   });
 }
 

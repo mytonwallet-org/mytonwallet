@@ -66,6 +66,13 @@ import Perception
             buying: inputModel.buyingToken,
             accountChains: accountContext.account.supportedChains
         )
+        self.input.updateBuyingAmountInputDisabled(
+            contextModel.currentBuyAmountInputDisabled(
+                selling: inputModel.sellingToken,
+                buying: inputModel.buyingToken,
+                accountChains: accountContext.account.supportedChains
+            )
+        )
 
         self.input.delegate = self
         self.onchain.delegate = self
@@ -80,6 +87,13 @@ import Perception
 
     func updateSwapType(selling: TokenAmount, buying: TokenAmount) {
         swapType = contextModel.updateSwapType(selling: selling.token, buying: buying.token, accountChains: account.supportedChains)
+        input.updateBuyingAmountInputDisabled(
+            contextModel.currentBuyAmountInputDisabled(
+                selling: selling.token,
+                buying: buying.token,
+                accountChains: account.supportedChains
+            )
+        )
     }
 
     func swapDataChanged(changedFrom: SwapSide, selling: TokenAmount, buying: TokenAmount) async throws {
@@ -87,6 +101,8 @@ import Perception
         let context = try await contextModel.updateContext(selling: selling.token, buying: buying.token, accountChains: account.supportedChains)
         swapType = context.swapType
         isValidPair = context.isValidPair
+        input.updateBuyingAmountInputDisabled(context.isBuyAmountInputDisabled)
+        let effectiveChangedFrom: SwapSide = context.isBuyAmountInputDisabled && changedFrom == .buying ? .selling : changedFrom
         if !isValidPair {
             let config = buttonModel.configurationForEmptyAmounts(
                 isValidPair: isValidPair,
@@ -102,9 +118,9 @@ import Perception
         }
 
         if swapType == .onChain {
-            await onchain.updateEstimate(changedFrom: changedFrom, selling: selling, buying: buying)
+            await onchain.updateEstimate(changedFrom: effectiveChangedFrom, selling: selling, buying: buying)
         } else {
-            try await crosschain.updateEstimate(changedFrom: changedFrom, selling: selling, buying: buying, swapType: swapType)
+            try await crosschain.updateEstimate(changedFrom: effectiveChangedFrom, selling: selling, buying: buying, swapType: swapType)
         }
     }
 

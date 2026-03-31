@@ -357,7 +357,7 @@ class ExploreVC(context: Context) : WViewController(context),
             is ExploreCategoryTitleCell -> {
                 val title =
                     when (indexPath.section) {
-                        SECTION_CONNECTED -> "Connected Dapps"
+                        SECTION_CONNECTED -> "Connected Apps"
                         SECTION_TRENDING -> "Happening Now"
                         else -> "Popular Apps"
                     }

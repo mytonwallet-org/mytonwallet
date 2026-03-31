@@ -41,6 +41,7 @@ enum SwapSide {
     
     var sellingFocused: Bool = false
     var buyingFocused: Bool = false
+    var buyingAmountInputDisabled: Bool = false
     
     @PerceptionIgnored
     var onUseAll: () -> () = { }
@@ -50,6 +51,8 @@ enum SwapSide {
     var onSellingTokenPicker: () -> () = { }
     @PerceptionIgnored
     var onBuyingTokenPicker: () -> () = { }
+    @PerceptionIgnored
+    var onBuyingAmountDisabledTap: () -> () = { }
     
     @PerceptionIgnored
     weak var delegate: SwapInputModelDelegate? = nil
@@ -172,6 +175,13 @@ enum SwapSide {
             let nc = WNavigationController(rootViewController: swapTokenSelectionVC)
             topViewController()?.present(nc, animated: true)
         }
+
+        onBuyingAmountDisabledTap = { [weak self] in
+            guard let self else { return }
+            Haptics.play(.lightTap)
+            self.buyingFocused = false
+            AppActions.showToast(message: lang("$swap_reverse_prohibited"))
+        }
     }
     
     private func updateLocal(amount: BigInt?, token: ApiToken, side: SwapSide) {
@@ -249,6 +259,14 @@ enum SwapSide {
                 self.sellingAmount = amount
                 updateLocal(amount: amount, token: sellingToken, side: .selling)
             }
+        }
+    }
+
+    func updateBuyingAmountInputDisabled(_ isDisabled: Bool) {
+        buyingAmountInputDisabled = isDisabled
+        if isDisabled {
+            buyingFocused = false
+            lastEdited = .selling
         }
     }
     

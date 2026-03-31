@@ -428,7 +428,9 @@ open class WViewController: UIViewController {
         lbl.numberOfLines = 0
         toastView!.addSubview(lbl)
         view.addSubview(toastView!)
-        let bottomConstraint = toastView!.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12)
+        let bottomConstraint = toastView!.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -12)
+        let fallbackBottomConstraint = toastView!.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12)
+        fallbackBottomConstraint.priority = .defaultHigh
         NSLayoutConstraint.activate([
             lbl.topAnchor.constraint(equalTo: toastView!.topAnchor),
             lbl.leftAnchor.constraint(equalTo: animatedSticker?.rightAnchor ?? toastView!.leftAnchor, constant: animatedSticker?.rightAnchor == nil ? 12 : 8),
@@ -436,6 +438,7 @@ open class WViewController: UIViewController {
             lbl.bottomAnchor.constraint(equalTo: toastView!.bottomAnchor),
             lbl.heightAnchor.constraint(greaterThanOrEqualToConstant: 49),
             bottomConstraint,
+            fallbackBottomConstraint,
             toastView!.leftAnchor.constraint(equalTo: view.leftAnchor, constant: 12),
             toastView!.rightAnchor.constraint(equalTo: view.rightAnchor, constant: -12),
         ])

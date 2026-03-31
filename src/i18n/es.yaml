@@ -257,9 +257,9 @@ Unexpected: Error inesperado
 You can save this address for quick access while sending.: Puede guardar esta dirección como acceso rápido mientras envía.
 Stake Again: Apostar de nuevo
 Earned: Ganado
-Select wallet to use on this dapp: Seleccione la billetera para usar en esta dapp
+Select wallet to use on this app: Seleccione la billetera para usar en esta app
 Connect: Conectar
-Dapp Permissions: Permisos de la Dapp
+App Permissions: Permisos de la App
 $dapp_can_view_balance: "%dappname% podrá ver la dirección y el saldo del monedero."
 Payload: Carga útil
 $many_transactions:
@@ -276,13 +276,12 @@ Scam: Estafa
 Scam comment is hidden.: El comentario estafa está oculto.
 Display: Mostrar
 Nested Transaction: Transacción anidada
-Connected Dapps: Dapps conectadas
-Disconnect All Dapps: Desconectar todas las Dapps
+Disconnect All Apps: Desconectar todas las Apps
 Disconnect: Desconectar
-Disconnect Dapp: Desconectar Dapp
-Disconnect Dapps: Desconectar Dapps
+Disconnect App: Desconectar App
+Disconnect Apps: Desconectar Apps
 Are you sure you want to disconnect?: ¿Estás seguro de que quieres desconectar %dappname%?
-Are you sure you want to disconnect all websites?: ¿Estás seguro de que quieres desconectar todas las dapps?
+Are you sure you want to disconnect all websites?: ¿Estás seguro de que quieres desconectar todos los sitios web?
 Logged in with %app_name%: Conectado con %app_name%
 No active connections: No hay conexiones activas
 Other: Otros
@@ -522,7 +521,7 @@ $dapp_liquid_staking_vote_payload: Votando "%vote%" por la propuesta %votingAddr
 $dapp_single_nominator_change_validator_payload: Cambiar la dirección del validador de contratos de participación de SingleNominator a %address%
 $dapp_single_nominator_withdraw_payload: Retiro de %amount% del contrato de participación de SingleNominator
 $dapp_vesting_add_whitelist_payload: Agregar %address% a la lista blanca de billeteras con derechos de uso
-Connecting dapps is not yet supported by Ledger.: Ledger aún no admite la conexión de dapps.
+Connecting apps is not yet supported by Ledger.: Ledger aún no admite la conexión de apps.
 Time synchronization issue. Please ensure your device's time settings are correct.: Problema de sincronización horaria. Asegúrese de que la configuración de hora de su dispositivo sea correcta.
 Data Copied: Los datos fueron copiados
 URL Copied: URL Copied
@@ -896,7 +895,7 @@ Collectibles: Coleccionables
 Bluetooth unavailable: Bluetooth no disponible
 $bluetooth_enable_guide: Active Bluetooth en la configuración del dispositivo y permita que la aplicación acceda a Bluetooth.
 Canceled by the user: Cancelado por el usuario
-The proof for signing provided by the Dapp is too large: La prueba para firmar proporcionada por la Dapp es demasiado grande
+The proof for signing provided by the app is too large: La prueba para firmar proporcionada por la app es demasiado grande
 $domain_like_scam_warning: |
   La dirección ingresada probablemente sea una **ESTAFA**. Esta **NO** es una dirección de ningún exchange o de tu monedero de tokens.
 
@@ -1046,11 +1045,11 @@ $transfer_inactive_contract_error: |
   Si definitivamente quieres enviar a esta dirección, entonces ingresa la dirección en formato "UQ...".
 $transaction_not_found: Transferencia no encontrada.
 $could_not_determine_address: No se pudo determinar la dirección de la billetera a partir de la transferencia
-WrongAddress: La dapp solicitó una acción desde otra billetera.
-WrongNetwork: La dapp solicitó una acción desde otra red.
+WrongAddress: La app solicitó una acción desde otra billetera.
+WrongNetwork: La app solicitó una acción desde otra red.
 Another transfer was sent from this wallet simultaneously. Please try again.: Otra transferencia fue enviada desde esta billetera simultáneamente. Por favor, intenta de nuevo.
 Confirm action with your password: Confirma la acción con tu contraseña
-$dapps-description: Puedes iniciar sesión en dapps que soporten %app_name%. Pueden ver la dirección de la billetera, el saldo y solicitar acciones.
+$dapps-description: Puedes iniciar sesión en apps que soporten %app_name%. Pueden ver la dirección de la billetera, el saldo y solicitar acciones.
 Please verify the action.: Por favor, verifica la acción.
 $service_token_transfer_warning: Estás a punto de transferir un token de servicio importante necesario para retirar tu depósito o completar acciones de servicio. Por favor, asegúrate de que esta es la acción que deseas realizar.
 $ledger_outdated: Esta acción no es compatible con tu versión de la App Ledger %chain%. Por favor, actualízala usando Ledger Live.
@@ -1090,3 +1089,4 @@ AgentErrorConnectionFailed: "Error: Conexión fallida"
 Scroll To Bottom: Ir al final
 $agent_clear_chat_confirm: ¿Estás seguro de que quieres borrar el historial de chat?
 $unknown_swap_token: Token desconocido en el enlace de intercambio. Se utilizaron los tokens predeterminados.
+$action_not_available_view_mode: Esta acción no está disponible para billeteras de visualización

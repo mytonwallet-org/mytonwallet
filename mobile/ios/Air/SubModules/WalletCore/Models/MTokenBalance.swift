@@ -103,24 +103,14 @@ extension MTokenBalance {
                                                   importedTokenSlugs: assetsAndActivityData.importedSlugs,
                                                   balances: balances)
         if let sortedForNewWallet {
-            return sortedForNewWallet // early exit
+            return sortPinnedTokensFirst(tokens: sortedForNewWallet, assetsAndActivityData: assetsAndActivityData)
         } else {
-            var unpinnedTokens: [MTokenBalance] = []
-
-            let sortedPinnedTokens: [MTokenBalance]
-            do { // 1. Split into 2 groups
-                var _pinnedTokens: [(token: MTokenBalance, pinIndex: Int)] = []
-                tokenBalances.forEach { token in
-                    switch assetsAndActivityData.isTokenPinned(slug: token.tokenSlug, isStaked: token.isStaking) {
-                    case .pinned(let index): _pinnedTokens.append((token, index))
-                    case .notPinned: unpinnedTokens.append(token)
-                    }
-                }
-
-                // 2. Sort pinned tokens. Last pinned token is shown at the top of the list.
-                _pinnedTokens.sort(by: { $0.pinIndex > $1.pinIndex })
-                sortedPinnedTokens = _pinnedTokens.map { $0.token }
-            }
+            let partitionedTokens = partitionTokensByPinning(
+                tokens: tokenBalances,
+                assetsAndActivityData: assetsAndActivityData
+            )
+            let sortedPinnedTokens = partitionedTokens.pinned
+            var unpinnedTokens = partitionedTokens.unpinned
 
             // 3. Sort unpinned tokens
             sortUnpinned(tokens: &unpinnedTokens,
@@ -211,6 +201,33 @@ extension MTokenBalance {
                 return nameA < nameB
             }
         })
+    }
+
+    private static func sortPinnedTokensFirst(tokens: [MTokenBalance],
+                                              assetsAndActivityData: MAssetsAndActivityData) -> [MTokenBalance] {
+        let (pinnedTokens, unpinnedTokens) = partitionTokensByPinning(
+            tokens: tokens,
+            assetsAndActivityData: assetsAndActivityData
+        )
+        return pinnedTokens + unpinnedTokens
+    }
+
+    private static func partitionTokensByPinning(tokens: [MTokenBalance],
+                                                 assetsAndActivityData: MAssetsAndActivityData) -> (pinned: [MTokenBalance], unpinned: [MTokenBalance]) {
+        var pinnedTokens: [(token: MTokenBalance, pinIndex: Int)] = []
+        var unpinnedTokens: [MTokenBalance] = []
+
+        for token in tokens {
+            switch assetsAndActivityData.isTokenPinned(slug: token.tokenSlug, isStaked: token.isStaking) {
+            case .pinned(let index):
+                pinnedTokens.append((token, index))
+            case .notPinned:
+                unpinnedTokens.append(token)
+            }
+        }
+
+        pinnedTokens.sort(by: { $0.pinIndex > $1.pinIndex })
+        return (pinnedTokens.map(\.token), unpinnedTokens)
     }
 }
 

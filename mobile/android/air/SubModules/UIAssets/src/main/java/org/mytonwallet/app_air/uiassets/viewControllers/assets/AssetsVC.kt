@@ -94,7 +94,6 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
-import kotlin.time.Duration.Companion.days
 
 @SuppressLint("ViewConstructor")
 class AssetsVC(
@@ -1349,6 +1348,11 @@ class AssetsVC(
             view = anchorView,
             navigationController = navigationController,
             shouldShowCollectionItem = collectionMode == null,
+            roundRadius = if (viewMode == ViewMode.THUMB) {
+                AssetCell.CORNER_RADIUS_THUMB
+            } else {
+                AssetCell.CORNER_RADIUS_COMPLETE
+            }.dp,
             onReorderTapped = { requestReordering() },
             onSelectTapped = {
                 onSelectionRequested?.invoke(nft.address) ?: openSelectionMode(nft.address)

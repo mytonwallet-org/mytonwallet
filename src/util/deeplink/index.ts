@@ -24,12 +24,13 @@ import {
   selectCurrentAccount,
   selectCurrentAccountId,
   selectCurrentAccountNftByAddress,
+  selectIsCurrentAccountViewMode,
   selectIsHardwareAccount,
   selectTokenByMinterAddress,
 } from '../../global/selectors';
 import { callApi } from '../../api';
 import { switchToAir } from '../capacitor';
-import { getChainConfig, getSupportedChains } from '../chain';
+import { getChainConfig, getIsSupportedChain, getSupportedChains } from '../chain';
 import { fromDecimal } from '../decimals';
 import { isValidAddressOrDomain } from '../isValidAddress';
 import { omitUndefined } from '../iteratees';
@@ -61,6 +62,7 @@ export const enum DeeplinkCommand {
   Stake = 'stake',
   Giveaway = 'giveaway',
   Transfer = 'transfer',
+  Send = 'send',
   Explore = 'explore',
   Receive = 'receive',
   View = 'view',
@@ -68,12 +70,26 @@ export const enum DeeplinkCommand {
   Transaction = 'tx',
   Nft = 'nft',
   Portfolio = 'portfolio',
+  Agent = 'agent',
 }
 
 const EXPLORER_ALLOWED_COMMANDS = new Set([
   DeeplinkCommand.View,
   DeeplinkCommand.Transaction,
   DeeplinkCommand.Nft,
+]);
+
+const VIEW_MODE_ALLOWED_COMMANDS = new Set([
+  DeeplinkCommand.Air,
+  DeeplinkCommand.CheckinWithR,
+  DeeplinkCommand.Giveaway,
+  DeeplinkCommand.Explore,
+  DeeplinkCommand.View,
+  DeeplinkCommand.Token,
+  DeeplinkCommand.Transaction,
+  DeeplinkCommand.Nft,
+  DeeplinkCommand.Portfolio,
+  DeeplinkCommand.Agent,
 ]);
 
 const OPEN_IN_NATIVE_DELAY_MS = 2000;
@@ -209,6 +225,11 @@ async function processTransferDeeplink(
   const currentAccountId = selectCurrentAccountId(global);
   if (!currentAccountId) return false;
 
+  if (selectIsCurrentAccountViewMode(global)) {
+    actions.showError({ error: '$action_not_available_view_mode' });
+    return false;
+  }
+
   const startTransferParams = parse(global);
 
   if (!startTransferParams) {
@@ -233,6 +254,11 @@ async function processTransferDeeplink(
 }
 
 async function processTonDeeplink(url: string): Promise<boolean> {
+  if (selectIsCurrentAccountViewMode(getGlobal())) {
+    getActions().showError({ error: '$action_not_available_view_mode' });
+    return false;
+  }
+
   // Trying to open the transfer modal from a widget using a deeplink
   if (url === 'ton://transfer') {
     const actions = getActions();
@@ -252,6 +278,88 @@ async function processTronDeeplink(url: string): Promise<boolean> {
 
 async function processTronTetherDeeplink(url: string): Promise<boolean> {
   return processTransferDeeplink((global) => parseTronTetherDeeplink(url, global));
+}
+
+// Handles mtw://send/{chain}:{address}?amount=...&token=...&text=...
+async function processSendDeeplink(
+  pathname: string,
+  searchParams: URLSearchParams,
+): Promise<boolean> {
+  const pathParts = pathname.split('/').filter(Boolean);
+  // pathParts[0] = "send", pathParts[1] = "{chain}:{address}"
+  const target = pathParts[1];
+
+  if (!target) {
+    // mtw://send with no address — open empty transfer modal
+    getActions().startTransfer({ isPortrait: getIsPortrait() });
+    return true;
+  }
+
+  const colonIndex = target.indexOf(':');
+  if (colonIndex === -1) {
+    getActions().showError({ error: '$unsupported_deeplink_parameter' });
+    return false;
+  }
+
+  const chain = target.slice(0, colonIndex) as ApiChain;
+  const toAddress = target.slice(colonIndex + 1);
+
+  if (!getIsSupportedChain(chain)) {
+    getActions().showError({ error: '$unsupported_chain' });
+    return false;
+  }
+
+  return processTransferDeeplink((global) => parseSendDeeplink(chain, toAddress, searchParams, global));
+}
+
+function parseSendDeeplink(
+  chain: ApiChain,
+  toAddress: string,
+  searchParams: URLSearchParams,
+  global: GlobalState,
+) {
+  const { nativeToken } = getChainConfig(chain);
+  const verifiedAddress = isValidAddressOrDomain(toAddress, chain) ? toAddress : undefined;
+
+  const amount = searchParams.get('amount') ?? undefined;
+  const comment = searchParams.get('text') ?? undefined;
+  const binPayload = searchParams.get('bin') ?? undefined;
+  const tokenSlugParam = searchParams.get('token') ?? undefined;
+  const stateInit = searchParams.get('init') ?? searchParams.get('stateInit') ?? undefined;
+  const exp = searchParams.get('exp') ?? undefined;
+
+  const transferParams: Omit<NonNullable<ActionPayloads['startTransfer']>, 'isPortrait'> & { error?: string } = {
+    toAddress: verifiedAddress,
+    tokenSlug: nativeToken.slug,
+    amount: amount ? parseBigInt(amount) : undefined,
+    comment,
+    binPayload: binPayload ? replaceAllSpacesWithPlus(binPayload) : undefined,
+    stateInit: stateInit ? replaceAllSpacesWithPlus(stateInit) : undefined,
+  };
+
+  if (comment && binPayload) {
+    transferParams.error = '$transfer_text_and_bin_exclusive';
+  }
+
+  if (tokenSlugParam) {
+    const tokenInfo = global.tokenInfo.bySlug[tokenSlugParam];
+    if (!tokenInfo) {
+      transferParams.error = '$unknown_token_address';
+    } else {
+      const accountToken = selectAccountTokenBySlug(global, tokenSlugParam);
+      if (!accountToken) {
+        transferParams.error = '$dont_have_required_token';
+      } else {
+        transferParams.tokenSlug = tokenSlugParam;
+      }
+    }
+  }
+
+  if (exp && Math.floor(Date.now() / 1000) > Number(exp)) {
+    transferParams.error = '$transfer_link_expired';
+  }
+
+  return omitUndefined(transferParams);
 }
 
 /**
@@ -423,7 +531,7 @@ function rawParseTonDeeplink(value?: string) {
     return {
       hasUnsupportedParams,
       toAddress,
-      amount: amount ? BigInt(amount) : undefined,
+      amount: amount ? parseBigInt(amount) : undefined,
       comment,
       jettonAddress,
       nftAddress,
@@ -466,6 +574,11 @@ async function processDappConnectorDeeplink(
   isFromInAppBrowser = false,
 ): Promise<boolean> {
   if (!getDappProtocolForDeeplink(url)) {
+    return false;
+  }
+
+  if (selectIsCurrentAccountViewMode(getGlobal())) {
+    getActions().showError({ error: '$action_not_available_view_mode' });
     return false;
   }
 
@@ -517,6 +630,11 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
     // In explorer mode, only allow `View` and `Transaction` commands
     if (IS_EXPLORER && !EXPLORER_ALLOWED_COMMANDS.has(command as DeeplinkCommand)) {
       actions.showError({ error: 'This command is not supported in explorer mode' });
+      return false;
+    }
+
+    if (selectIsCurrentAccountViewMode(global) && !VIEW_MODE_ALLOWED_COMMANDS.has(command as DeeplinkCommand)) {
+      actions.showError({ error: '$action_not_available_view_mode' });
       return false;
     }
 
@@ -674,6 +792,10 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
         return await processTonDeeplink(convertSelfUrlToTonDeeplink(deeplink));
       }
 
+      case DeeplinkCommand.Send: {
+        return await processSendDeeplink(pathname, searchParams);
+      }
+
       case DeeplinkCommand.Explore: {
         actions.closeSettings();
         actions.openExplore();
@@ -816,6 +938,11 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
         return true;
       }
 
+      case DeeplinkCommand.Agent: {
+        actions.switchToAgent();
+        return true;
+      }
+
       case DeeplinkCommand.Portfolio: {
         void openUrl(PORTFOLIO_DAPP_URL);
         return true;
@@ -954,8 +1081,20 @@ export function parseDeeplinkTransferParams(url: string, global: GlobalState) {
     if (isSelfDeeplink(url)) {
       try {
         url = convertSelfDeeplinkToSelfUrl(url);
-        const { pathname } = new URL(url);
+        const { pathname, searchParams } = new URL(url);
         const command = pathname.split('/').find(Boolean);
+
+        if (command === DeeplinkCommand.Send) {
+          const pathParts = pathname.split('/').filter(Boolean);
+          const target = pathParts[1];
+          if (!target) return undefined;
+          const colonIndex = target.indexOf(':');
+          if (colonIndex === -1) return undefined;
+          const chain = target.slice(0, colonIndex) as ApiChain;
+          if (!getIsSupportedChain(chain)) return undefined;
+          const toAddress = target.slice(colonIndex + 1);
+          return parseSendDeeplink(chain, toAddress, searchParams, global);
+        }
 
         if (command === DeeplinkCommand.Transfer) {
           tonDeeplink = convertSelfUrlToTonDeeplink(url);
@@ -1016,4 +1155,12 @@ function replaceAllSpacesWithPlus(value: string) {
 
 function getDeeplinkSearchParam(url: URL, param: string) {
   return url.searchParams.get(param) ?? undefined;
+}
+
+function parseBigInt(value: string): bigint | undefined {
+  try {
+    return BigInt(value);
+  } catch {
+    return undefined;
+  }
 }
