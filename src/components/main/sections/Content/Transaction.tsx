@@ -19,8 +19,8 @@ import {
   FRACTION_DIGITS,
   NFT_MARKETPLACE_TITLES,
   SWAP_DEX_LABELS,
-  TONCOIN,
   TRANSACTION_ADDRESS_SHIFT,
+  UNKNOWN_TOKEN,
   WHOLE_PART_DELIMITER,
 } from '../../../../config';
 import {
@@ -284,7 +284,7 @@ function Transaction({
       >
         {formatCurrencyExtended(
           toDecimal(noSign ? bigintAbs(amount) : amount, token?.decimals ?? FRACTION_DIGITS),
-          token?.symbol || TONCOIN.symbol,
+          token?.symbol || UNKNOWN_TOKEN.symbol,
           noSign,
           undefined,
           !isIncoming,

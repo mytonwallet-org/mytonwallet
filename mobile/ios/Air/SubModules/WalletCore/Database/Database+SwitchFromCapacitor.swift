@@ -48,10 +48,14 @@ private func moveAccounts(global: GlobalStorage, db: any DatabaseWriter) async t
     
     var accounts: [MAccount] = []
     
-    struct _AccountWithoutId: Codable {
+    struct _RawAccountWithoutId: Codable {
         var title: String?
-        var type: AccountType
-        var byChain: [String: AccountChain]
+        var type: AccountType?
+        var isHardware: Bool?
+        var byChain: [String: AccountChain]?
+        var addressByChain: [String: String]?
+        var domainByChain: [String: String]?
+        var isMultisigByChain: [String: Bool]?
         var isTemporary: Bool?
     }
 
@@ -61,15 +65,32 @@ private func moveAccounts(global: GlobalStorage, db: any DatabaseWriter) async t
             log.fault("failed to decode account! global=\(global as Any, .public)")
             throw GlobalStorageError.localStorageIsInvalidJson(global)
         }
-        let _account = try JSONSerialization.decode(_AccountWithoutId.self, from: dict)
-        if _account.isTemporary == true {
+        let rawAccount = try JSONSerialization.decode(_RawAccountWithoutId.self, from: dict)
+        if rawAccount.isTemporary == true {
             continue
+        }
+        let byChain: [String: AccountChain]
+        if let rawByChain = rawAccount.byChain, !rawByChain.isEmpty {
+            byChain = rawByChain
+        } else {
+            byChain = rawAccount.addressByChain?.reduce(into: [String: AccountChain]()) { result, item in
+                let (chain, address) = item
+                result[chain] = AccountChain(
+                    address: address,
+                    domain: rawAccount.domainByChain?[chain],
+                    isMultisig: rawAccount.isMultisigByChain?[chain]
+                )
+            } ?? [:]
+        }
+        guard !byChain.isEmpty else {
+            log.fault("failed to decode account accountId=\(accountId, .public)")
+            throw GlobalStorageError.localStorageIsInvalidJson(dict)
         }
         let account = MAccount(
             id: accountId,
-            title: _account.title,
-            type: _account.type,
-            byChain: _account.byChain,
+            title: rawAccount.title,
+            type: rawAccount.type ?? (rawAccount.isHardware == true ? .hardware : .mnemonic),
+            byChain: byChain,
         )
         accounts.append(account)
     }

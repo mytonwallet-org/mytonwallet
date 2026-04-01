@@ -175,9 +175,6 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         composerView.translatesAutoresizingMaskIntoConstraints = false
         composerView.onDraftTextChanged = { [weak self] in
             guard let self else { return }
-            if self.composerView.draftText?.isEmpty != false {
-                self.editingMessageID = nil
-            }
             self.updateSendButtonState()
         }
         composerView.onBeginEditing = { [weak self] in
@@ -187,7 +184,11 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
             self.keepsBottomPinnedWhileKeyboardIsActive = isNearBottom
         }
         composerView.onEndEditing = { [weak self] in
-            self?.keepsBottomPinnedWhileKeyboardIsActive = false
+            guard let self else { return }
+            self.keepsBottomPinnedWhileKeyboardIsActive = false
+            if self.composerView.draftText?.isEmpty != false {
+                self.editingMessageID = nil
+            }
         }
         composerView.onSend = { [weak self] in
             self?.sendCurrentMessage()

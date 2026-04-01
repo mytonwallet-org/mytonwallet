@@ -395,7 +395,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 }
             }
 
-            WalletEvent.AccountNameChanged, WalletEvent.NftCardUpdated, is WalletEvent.ByChainUpdated -> {
+            is WalletEvent.AccountNameChanged, WalletEvent.NftCardUpdated, is WalletEvent.ByChainUpdated -> {
                 updateAccounts()
                 walletsViewControllers.forEach {
                     it.reloadData()

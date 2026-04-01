@@ -8,7 +8,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class WClickableSpan(
     private val url: String,
-    private val onClick: (String) -> Unit
+    private val color: Int? = null,
+    private val onClick: (String) -> Unit,
 ) : ClickableSpan() {
     override fun onClick(widget: View) {
         onClick(url)
@@ -16,7 +17,7 @@ class WClickableSpan(
 
     override fun updateDrawState(ds: TextPaint) {
         super.updateDrawState(ds)
-        ds.color = WColor.Tint.color
+        ds.color = color ?: WColor.Tint.color
         ds.isUnderlineText = false
     }
 }

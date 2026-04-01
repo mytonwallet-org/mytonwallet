@@ -51,8 +51,10 @@
 
 .walletInfo {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 0.125rem;
+
   margin-left: 0.75rem;
 }
 
@@ -67,18 +69,12 @@
 
 .walletBalanceLink {
   color: var(--push-text-primary);
+  text-decoration: none !important;
   transition: color 150ms;
 }
 
 .walletDisconnectLink {
   font-size: 0.875rem;
-  color: var(--push-text-secondary);
-  text-decoration: none !important;
-  transition: color 150ms;
-}
-
-.walletAddress {
-  font-size: 1rem;
   color: var(--push-text-secondary);
   text-decoration: none !important;
   transition: color 150ms;

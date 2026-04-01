@@ -39,7 +39,7 @@ class HomeVM(
 
         fun configureAccountViews(shouldLoadNewWallets: Boolean, skipSkeletonOnCache: Boolean)
         fun reloadTabs()
-        fun accountNameChanged(accountName: String, animated: Boolean)
+        fun accountRenamed(accountId: String, accountName: String)
         fun accountConfigChanged()
         fun seasonalThemeChanged()
         fun accountWillChange(fromHome: Boolean)
@@ -295,8 +295,8 @@ class HomeVM(
                 accountChanged(walletEvent.fromHome, walletEvent.isSavingTemporaryAccount)
             }
 
-            WalletEvent.AccountNameChanged -> {
-                delegate.get()?.accountNameChanged(showingAccount?.name ?: "", false)
+            is WalletEvent.AccountNameChanged -> {
+                delegate.get()?.accountRenamed(walletEvent.accountId, walletEvent.accountName)
                 dataUpdated()
             }
 

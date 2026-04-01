@@ -20,7 +20,8 @@ enum AgentMessageTextRenderer {
     static func makeAttributedText(
         _ text: String,
         textColor: UIColor,
-        rendersMarkdown: Bool
+        rendersMarkdown: Bool,
+        detectsLinks: Bool = true
     ) -> NSAttributedString {
         let normalizedText = normalizedMessageSource(text)
         let attributedText: NSMutableAttributedString
@@ -47,7 +48,9 @@ enum AgentMessageTextRenderer {
             let paragraphStyle = normalizedParagraphStyle(from: value as? NSParagraphStyle)
             attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
         }
-        applyDetectedLinks(to: attributedText)
+        if detectsLinks {
+            applyDetectedLinks(to: attributedText)
+        }
 
         return attributedText
     }

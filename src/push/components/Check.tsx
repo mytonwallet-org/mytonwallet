@@ -1,9 +1,9 @@
 import type { Wallet } from '@tonconnect/sdk';
 import React, { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../lib/teact/teact';
 
-import type { ApiCheck } from '../types';
+import type { ApiCheck, ApiJwtCheck } from '../types';
 
-import { PUSH_API_URL, PUSH_CHAIN, PUSH_SC_VERSIONS, PUSH_START_PARAM_DELIMITER } from '../config';
+import { PUSH_API_URL, PUSH_APP_URL, PUSH_CHAIN, PUSH_SC_VERSIONS, PUSH_START_PARAM_DELIMITER } from '../config';
 import { areDeepEqual } from '../../util/areDeepEqual';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
@@ -15,7 +15,7 @@ import {
   PARTICLE_PARAMS,
   setupParticles,
 } from '../../util/particles';
-import { getTelegramApp } from '../../util/telegram';
+import { getTelegramApp, isInsideTelegram } from '../../util/telegram';
 import { getExplorerAddressUrl, getExplorerTransactionUrl } from '../../util/url';
 import {
   fetchAccountBalance,
@@ -25,18 +25,21 @@ import {
   processCreateCheck,
   processToggleInvoice,
 } from '../util/check';
+import { prepareProveJwtArgs } from '../util/checkJwt';
 import { getWalletAddress } from '../util/tonConnect';
 
 import useFlag from '../../hooks/useFlag';
 import useInterval from '../../hooks/useInterval';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
+import { useStateRef } from '../../hooks/useStateRef';
 import useSyncEffect from '../../hooks/useSyncEffect';
 
 import AnimatedIconWithPreview from '../../components/ui/AnimatedIconWithPreview';
 import Transition from '../../components/ui/Transition';
 import Header from './Header';
 import ImageWithParticles from './ImageWithParticles';
+import Oidc from './Oidc';
 import UniversalButton from './UniversalButton';
 
 import commonStyles from './_common.module.scss';
@@ -56,9 +59,11 @@ interface OwnProps {
   setCheck: (check: ApiCheck | undefined) => void;
   isJustSentRequest: boolean;
   markJustSentRequest: NoneToVoidFunction;
+  isAddressConfirmed: boolean;
   onConnectClick: () => Promise<void>;
   onDisconnectClick: NoneToVoidFunction;
   onForwardClick: NoneToVoidFunction;
+  onConfirmAddressClick: NoneToVoidFunction;
 }
 
 const POLLING_INTERVAL = 3000;
@@ -73,9 +78,11 @@ function Check({
   setCheck,
   isJustSentRequest,
   markJustSentRequest,
+  isAddressConfirmed,
   onConnectClick,
   onDisconnectClick,
   onForwardClick,
+  onConfirmAddressClick,
 }: OwnProps) {
   const [nftPalette, setNftPalette] = useState<[number, number, number] | undefined>();
 
@@ -85,7 +92,8 @@ function Check({
 
   const { initDataUnsafe } = getTelegramApp() ?? {};
   const checkKey = useMemo(() => {
-    const [action, checkKey2] = initDataUnsafe?.start_param?.split(PUSH_START_PARAM_DELIMITER) ?? [];
+    const query = initDataUnsafe?.start_param ?? location.search.slice(1);
+    const [action, checkKey2] = query.split(PUSH_START_PARAM_DELIMITER);
 
     return action === 'check' ? checkKey2 : undefined;
   }, [initDataUnsafe]);
@@ -93,6 +101,7 @@ function Check({
   const [checkError, setCheckError] = useState<Error>();
   const [accountBalance, setAccountBalance] = useState<string>();
   const [isJustSentCancelRequest, markIsJustSentCancelRequest] = useFlag(false);
+  const [jwt, setJwt] = useState<string>();
 
   const checkSymbol = check?.type === 'coin' ? check.symbol : undefined;
   // TODO: change to check.nftInfo.imageUrl
@@ -114,8 +123,10 @@ function Check({
 
     try {
       const newCheck = await fetchCheck(checkKey);
+      if (newCheck && !areDeepEqual(check, newCheck)) {
+        setCheck(newCheck);
+      }
 
-      setCheck(areDeepEqual(check, newCheck) ? check : newCheck);
       setCheckError(undefined);
 
       if (wallet) {
@@ -151,7 +162,7 @@ function Check({
 
   const autoExit = useLastCallback(() => {
     // Channels are slow to update messages, so it's better to keep the mini-app open to show status updates
-    if (initDataUnsafe?.chat_type !== 'channel') {
+    if (isInsideTelegram() && initDataUnsafe?.chat_type !== 'channel') {
       exit();
     }
   });
@@ -164,6 +175,14 @@ function Check({
       ...PARTICLE_PARAMS,
     });
   }, [checkSymbol, nftPalette]);
+
+  const checkRef = useStateRef(check);
+  useEffect(() => {
+    const check = checkRef.current;
+    if (status === 'pending_receive' && check && 'targetHash3' in check) {
+      void prepareProveJwtArgs(check);
+    }
+  }, [status, checkRef]);
 
   const handleTokenClick = useLastCallback(() => {
     if (!checkSymbol && !nftPalette) return;
@@ -211,10 +230,15 @@ function Check({
   });
 
   const handleReceiveClick = useLastCallback(async () => {
+    if (!isAddressConfirmed) {
+      onConfirmAddressClick();
+      return;
+    }
+
     markLoading();
 
     try {
-      await processCashCheck(check!, markJustSentRequest, getWalletAddress(wallet!));
+      await processCashCheck(check!, markJustSentRequest, getWalletAddress(wallet!), false, jwt);
       autoExit();
     } catch (err: any) {
       alert(String(err));
@@ -227,12 +251,13 @@ function Check({
     markLoading();
 
     try {
-      const isV3 = PUSH_SC_VERSIONS.v3.includes(check!.contractAddress)
-        || PUSH_SC_VERSIONS.NFT === check!.contractAddress;
-      if (isV3) {
+      const canCancel = PUSH_SC_VERSIONS.v3.includes(check!.contractAddress)
+        || PUSH_SC_VERSIONS.NFT === check!.contractAddress
+        || PUSH_SC_VERSIONS.jwtV1 === check!.contractAddress;
+      if (canCancel) {
         await processCancelCheck(check!, markIsJustSentCancelRequest);
       } else {
-        await processCashCheck(check!, markIsJustSentCancelRequest, getWalletAddress(wallet!), true);
+        await processCashCheck(check!, markIsJustSentCancelRequest, getWalletAddress(wallet!), true, jwt);
       }
 
       autoExit();
@@ -245,6 +270,10 @@ function Check({
 
   const handleCloseClick = useLastCallback(() => {
     exit();
+  });
+
+  const handleOpenExternalUrl = useLastCallback(() => {
+    window.open(`${PUSH_APP_URL}?check=${checkKey}`, '_blank', 'noopener');
   });
 
   const action = isCurrentUserPayer ? 'sending' : 'receiving';
@@ -396,6 +425,8 @@ function Check({
   }
 
   function renderButtons(areButtonsActive: boolean) {
+    const isJwtCheck = check?.contractAddress === PUSH_SC_VERSIONS.jwtV1;
+
     let primaryText: string | undefined;
     let primaryOnClick: NoneToVoidFunction | undefined;
     let isPrimarySecondary = false;
@@ -423,8 +454,13 @@ function Check({
       primaryOnClick = handleSignClick;
       isPrimarySecondary = true;
     } else if (!isCurrentUserPayer && status === 'pending_receive' && !isJustSentRequest) {
-      primaryText = lang('Receive');
-      primaryOnClick = handleReceiveClick;
+      if (!isJwtCheck || jwt) {
+        primaryText = lang('Receive');
+        primaryOnClick = handleReceiveClick;
+      } else if (isJwtCheck && isInsideTelegram()) {
+        primaryText = lang('Receive');
+        primaryOnClick = handleOpenExternalUrl;
+      }
     } else if (!isCurrentUserPayer && status === 'receiving' && !isJustSentRequest) {
       primaryText = lang('Try Receiving Again');
       primaryOnClick = handleReceiveClick;
@@ -441,8 +477,10 @@ function Check({
       secondaryText = lang('Cancel Transfer');
       secondaryOnClick = handleCancelTransferClick;
     } else if (!isCurrentUserPayer && isActionAvailable) {
-      secondaryText = lang('Forward to Address');
-      secondaryOnClick = onForwardClick;
+      if (!isJwtCheck || jwt) {
+        secondaryText = lang('Forward to Address');
+        secondaryOnClick = onForwardClick;
+      }
     }
 
     return (
@@ -495,9 +533,15 @@ function Check({
     );
   }
 
+  const withOidc = check && wallet && check.contractAddress === PUSH_SC_VERSIONS.jwtV1
+    && !isCurrentUserPayer
+    && (status === 'pending_receive' && !isJustSentRequest)
+    && !isInsideTelegram();
+
   return (
     <div className={buildClassName(commonStyles.container, commonStyles.container_centered)}>
       <Header
+        accountAddress={wallet && getWalletAddress(wallet)}
         accountBalance={accountBalance}
         symbol={(check?.type === 'coin' && check.symbol) || 'TON'}
         walletUrl={walletUrl}
@@ -577,6 +621,14 @@ function Check({
             >
               {check?.comment}
             </div>
+
+            {withOidc && (
+              <Oidc
+                check={check as ApiJwtCheck}
+                walletAddress={getWalletAddress(wallet)}
+                onJwtReceived={setJwt}
+              />
+            )}
 
             <div className={commonStyles.footer}>
               {renderButtons(isActive && isMainActive)}

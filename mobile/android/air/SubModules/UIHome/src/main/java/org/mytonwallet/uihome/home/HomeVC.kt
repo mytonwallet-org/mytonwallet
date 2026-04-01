@@ -865,10 +865,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         if (!homeVM.isGeneralDataAvailable && headerView.isShowingSkeletons) {
             return
         }
-        headerView.updateBalance(
-            homeVM.showingAccount?.name ?: "",
-            !accountChangedFromOtherScreens
-        )
+        headerView.updateBalance(!accountChangedFromOtherScreens)
     }
 
     override fun reloadCard() {
@@ -915,33 +912,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             )
     }
 
-    override fun configureAccountViews(
-        shouldLoadNewWallets: Boolean,
-        skipSkeletonOnCache: Boolean
-    ) {
-        stickyHeaderView.updateActions()
-        accountConfigChanged()
-        val account = headerView.centerAccount ?: homeVM.showingAccount
-        actionsView.updateActions(account)
-        updateActionsAlpha()
-        configureActivityLists(shouldLoadNewWallets, skipSkeletonOnCache)
-        if (shouldLoadNewWallets) {
-            accountNameChanged(
-                (headerView.centerAccount ?: homeVM.showingAccount)?.name ?: "",
-                false
-            )
-            currentActivityListView.updateHeaderHeights()
-            moveActionsViewToCell()
-        }
-        loadStakingData()
-    }
-
-    // Nft tabs could be updated, should reload tabs
-    override fun reloadTabs() {
-        currentActivityListView.homeAssetsCell?.reloadTabs(resetSelection = false)
-    }
-
-    override fun accountNameChanged(accountName: String, animated: Boolean) {
+    private fun updateAccountName(accountName: String, animated: Boolean) {
         headerView.updateAccountName(accountName)
         if (stickyHeaderView.updateStatusView.state is UpdateStatusView.State.Updated) {
             stickyHeaderView.updateStatusView.setState(
@@ -957,6 +928,38 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         }
     }
 
+    override fun configureAccountViews(
+        shouldLoadNewWallets: Boolean,
+        skipSkeletonOnCache: Boolean
+    ) {
+        stickyHeaderView.updateActions()
+        accountConfigChanged()
+        val account = headerView.centerAccount ?: homeVM.showingAccount
+        actionsView.updateActions(account)
+        updateActionsAlpha()
+        configureActivityLists(shouldLoadNewWallets, skipSkeletonOnCache)
+        if (shouldLoadNewWallets) {
+            updateAccountName(
+                (headerView.centerAccount ?: homeVM.showingAccount)?.name ?: "",
+                false
+            )
+            currentActivityListView.updateHeaderHeights()
+            moveActionsViewToCell()
+        }
+        loadStakingData()
+    }
+
+    // Nft tabs could be updated, should reload tabs
+    override fun reloadTabs() {
+        currentActivityListView.homeAssetsCell?.reloadTabs(resetSelection = false)
+    }
+
+    override fun accountRenamed(accountId: String, accountName: String) {
+        headerView.accountRenamed(accountId, accountName)
+        if (headerView.centerAccount?.accountId == accountId)
+            updateAccountName(accountName, false)
+    }
+
     override fun accountConfigChanged() {
         headerView.updateMintIconVisibility()
     }
@@ -968,7 +971,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     override fun accountWillChange(fromHome: Boolean) {
         configureAccountViews(shouldLoadNewWallets = !fromHome, skipSkeletonOnCache = fromHome)
         if (fromHome) {
-            accountNameChanged(headerView.centerAccount?.name ?: "", true)
+            updateAccountName(headerView.centerAccount?.name ?: "", true)
         } else {
             // Account will change from another screen, invalidate swipeFadeInPercent
             swipeFadeInPercent = 1f

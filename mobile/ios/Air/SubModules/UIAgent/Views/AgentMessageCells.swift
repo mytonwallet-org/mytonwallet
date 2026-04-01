@@ -336,7 +336,8 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         let attributedText = AgentMessageTextRenderer.makeAttributedText(
             text,
             textColor: textColor,
-            rendersMarkdown: rendersMarkdown
+            rendersMarkdown: rendersMarkdown,
+            detectsLinks: allowsLinkInteraction
         )
         let hasInteractiveLinks = allowsLinkInteraction && attributedText.containsLinkAttribute
         messageTextView.isSelectable = hasInteractiveLinks

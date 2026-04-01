@@ -250,6 +250,8 @@ class AgentVC(context: Context) : WViewController(context),
         updateLayout()
     }
 
+    private var hasAppliedInitialLayout = false
+
     private fun updateLayout() {
         val ime = window?.imeInsets?.bottom ?: 0
         val nav = navigationController?.getSystemBars()?.bottom ?: 0
@@ -258,6 +260,12 @@ class AgentVC(context: Context) : WViewController(context),
         if (targetBottom != currentBottom) {
             val fromBottom = currentBottom
             currentBottom = targetBottom
+
+            if (!hasAppliedInitialLayout) {
+                hasAppliedInitialLayout = true
+                applyBottom(targetBottom)
+                return
+            }
 
             keyboardAnimator?.cancel()
             keyboardAnimator = ValueAnimator.ofInt(fromBottom, targetBottom).apply {

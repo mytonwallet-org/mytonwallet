@@ -5,7 +5,7 @@ import type { Account, SavedAddress } from '../global/types';
 
 import { getIsActivityWithHash, getTransactionAmountDisplayMode, parseTxId } from '../util/activities';
 import { getLocalAddressName } from '../util/getLocalAddressName';
-import { getNativeToken } from '../util/tokens';
+import { getChainBySlug, getNativeToken } from '../util/tokens';
 import { getExplorerTransactionUrl } from '../util/url';
 
 interface UseTransactionDetailsOptions {
@@ -43,8 +43,8 @@ export default function useTransactionDetails({
   } = transaction || {};
 
   const token = slug ? tokensBySlug?.[slug] : undefined;
-  const chain = token?.chain;
-  const nativeToken = token ? getNativeToken(token.chain) : undefined;
+  const chain = token?.chain ?? (slug ? getChainBySlug(slug) : undefined);
+  const nativeToken = chain ? getNativeToken(chain) : undefined;
   const address = isIncoming ? fromAddress : toAddress;
   const isActivityWithHash = Boolean(transaction && getIsActivityWithHash(transaction));
   const transactionHash = chain && id ? parseTxId(id).hash : undefined;

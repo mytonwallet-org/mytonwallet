@@ -14,19 +14,18 @@ import Transition from '../../components/ui/Transition';
 import styles from './Header.module.scss';
 
 const PLACEHOLDER = '···';
+const ADDRESS_LENGTH = 6;
 
 interface OwnProps {
   walletUrl?: string;
+  accountAddress?: string;
   accountBalance?: string;
-  connectedWalletFriendly?: string;
   onDisconnectClick: (e: any) => void;
   symbol?: TokenSymbol;
 }
 
-function Header({ walletUrl, accountBalance, connectedWalletFriendly, onDisconnectClick, symbol }: OwnProps) {
+function Header({ walletUrl, accountBalance, accountAddress, onDisconnectClick, symbol }: OwnProps) {
   const lang = useLang();
-
-  const isManageWalletHeader = typeof connectedWalletFriendly !== 'undefined';
 
   return (
     <div className={styles.header}>
@@ -38,6 +37,9 @@ function Header({ walletUrl, accountBalance, connectedWalletFriendly, onDisconne
           <Transition name="fade" activeKey={accountBalance ? 1 : 0} className={styles.walletBalance}>
             {accountBalance ? (
               <a href={walletUrl} target="_blank" rel="noreferrer" className={styles.walletBalanceLink}>
+                {accountAddress && (
+                  `${shortenAddress(accountAddress, 0, ADDRESS_LENGTH)} · `
+                )}
                 <AnimatedCounter text={formatCurrency(accountBalance, symbol ?? 'TON')} />
               </a>
             ) : (
@@ -50,13 +52,7 @@ function Header({ walletUrl, accountBalance, connectedWalletFriendly, onDisconne
         </div>
       </div>
 
-      {isManageWalletHeader ? (
-        <span className={styles.walletAddress}>
-          {shortenAddress(connectedWalletFriendly)}
-        </span>
-      ) : (
-        <a href="https://t.me/push?start=1" className={styles.helpButton}><i /></a>
-      )}
+      <a href="https://t.me/push?start=1" className={styles.helpButton}><i /></a>
     </div>
   );
 }

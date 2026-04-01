@@ -165,13 +165,14 @@ function TransactionModal({
   const startOfStakingCycle = stakingState?.start;
   const endOfStakingCycle = stakingState?.end;
 
-  const transactionHash = token?.chain && id ? parseTxId(id).hash : undefined;
-  const transactionUrl = token?.chain
+  const chain = token?.chain ?? (slug ? getChainBySlug(slug) : undefined);
+  const transactionHash = chain && id ? parseTxId(id).hash : undefined;
+  const transactionUrl = chain
     ? getExplorerTransactionUrl(
-      token.chain,
+      chain,
       transactionHash,
       isTestnet,
-      selectedExplorerIds?.[token.chain],
+      selectedExplorerIds?.[chain],
     )
     : undefined;
   const isActivityWithHash = renderedTransaction && getIsActivityWithHash(renderedTransaction);
@@ -272,10 +273,8 @@ function TransactionModal({
     selectToken({ slug: tokenSlug });
   });
 
-  const transactionChain = slug ? getChainBySlug(slug) : undefined;
-
   const handleShareClick = useLastCallback(() => {
-    const url = getViewTransactionUrl(transactionChain!, transactionHash!, isTestnet);
+    const url = getViewTransactionUrl(chain!, transactionHash!, isTestnet);
     void shareUrl(url);
   });
 
@@ -289,7 +288,7 @@ function TransactionModal({
                 transaction={renderedTransaction}
                 appTheme={appTheme}
                 isModalOpen={isModalOpen}
-                onShareClick={transactionChain && transactionHash ? handleShareClick : undefined}
+                onShareClick={chain && transactionHash ? handleShareClick : undefined}
                 onClose={handleClose}
               />
             )}

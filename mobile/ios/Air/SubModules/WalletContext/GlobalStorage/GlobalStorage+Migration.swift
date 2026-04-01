@@ -18,24 +18,41 @@ extension GlobalStorage {
     }
     
     public func migrate() async throws {
-        
-        if let v = self.stateVersion, v > STATE_VERSION {
-            log.fault("migration error: stateVersion=\(v) greater than STATE_VERSION=\(STATE_VERSION)")
-        }
-        
-        if let v = self.stateVersion, v >= STATE_VERSION {
-            return
-        }
-        
-        log.info("migration started")
-        
+        let initialStateVersion = self.stateVersion
+        let initialStateVersionDescription = initialStateVersion.map(String.init) ?? "nil"
+
         if self.stateVersion == nil {
             throw GlobalMigrationError.stateVersionIsNil
         }
-        
+
         if let v = self.stateVersion, v < 32 {
             throw GlobalMigrationError.stateVersionTooOld
         }
+
+        if let v = self.stateVersion, v > STATE_VERSION {
+            log.fault("migration error: stateVersion=\(v) greater than STATE_VERSION=\(STATE_VERSION)")
+            return
+        }
+
+        let didRepairKnownSchemaGaps = repairKnownSchemaGaps()
+
+        if didRepairKnownSchemaGaps {
+            log.info("migration recovery path triggered from stateVersion=\(initialStateVersionDescription, .public)")
+        }
+        
+        if let v = self.stateVersion, v >= STATE_VERSION {
+            if didRepairKnownSchemaGaps {
+                log.info("migration finishing after recovery path stateVersion=\(v, .public)")
+                try await syncronize()
+                log.info("migration completed")
+            }
+            return
+        }
+        
+        log.info(
+            "migration started from stateVersion=\(initialStateVersionDescription, .public) recoveryPathTriggered=\(didRepairKnownSchemaGaps, .public)"
+        )
+        log.info("migration started")
         
         if let v = self.stateVersion, v >= 32 && v <= 35 {
             _clearActivities()
@@ -79,9 +96,17 @@ extension GlobalStorage {
             self.stateVersion = 44
         }
 
-        if let v = self.stateVersion, v < 47 {
+        if let v = self.stateVersion, v < 45 {
             _clearActivities()
-            // accounts are migrated in switchStorageToCapacitor
+            self.stateVersion = 45
+        }
+
+        if let v = self.stateVersion, v == 45 {
+            _migrateAccountsToByChainIfNeeded()
+            self.stateVersion = 46
+        }
+
+        if let v = self.stateVersion, v == 46 {
             self.stateVersion = 47
         }
 
@@ -126,7 +151,14 @@ extension GlobalStorage {
         assert(self.stateVersion == STATE_VERSION)
         
         try await syncronize()
+        log.info(
+            "migration completed from stateVersion=\(initialStateVersionDescription, .public) to stateVersion=\(self.stateVersion ?? -1, .public) recoveryPathTriggered=\(didRepairKnownSchemaGaps, .public)"
+        )
         log.info("migration completed")
+    }
+
+    private func repairKnownSchemaGaps() -> Bool {
+        _migrateAccountsToByChainIfNeeded()
     }
     
     private func _clearActivities() {
@@ -139,5 +171,52 @@ extension GlobalStorage {
         update {
             $0["byAccountId"] = byAccountId
         }
+    }
+
+    @discardableResult
+    private func _migrateAccountsToByChainIfNeeded() -> Bool {
+        let cached = self["accounts.byId"] as? [String: [String: Any]] ?? [:]
+        guard !cached.isEmpty else { return false }
+
+        var accounts = cached
+        var migratedAccountIds: [String] = []
+
+        for (accountId, var account) in cached {
+            let existingByChain = account["byChain"] as? [String: Any]
+            guard existingByChain?.isEmpty != false else { continue }
+            guard let addressByChain = account["addressByChain"] as? [String: Any] else { continue }
+
+            let domainByChain = account["domainByChain"] as? [String: Any]
+            let isMultisigByChain = account["isMultisigByChain"] as? [String: Any]
+
+            let byChain = addressByChain.reduce(into: [String: [String: Any]]()) { result, item in
+                let (chain, rawAddress) = item
+                guard let address = rawAddress as? String else { return }
+                var chainData: [String: Any] = ["address": address]
+                if let domain = domainByChain?[chain] as? String, !domain.isEmpty {
+                    chainData["domain"] = domain
+                }
+                if isMultisigByChain?[chain] as? Bool == true {
+                    chainData["isMultisig"] = true
+                }
+                result[chain] = chainData
+            }
+            guard !byChain.isEmpty else { continue }
+
+            account["byChain"] = byChain
+            account["addressByChain"] = nil
+            account["domainByChain"] = nil
+            account["isMultisigByChain"] = nil
+            accounts[accountId] = account
+            migratedAccountIds.append(accountId)
+        }
+
+        guard !migratedAccountIds.isEmpty else { return false }
+
+        update {
+            $0["accounts.byId"] = accounts
+        }
+        log.info("migrated legacy accounts to byChain count=\(migratedAccountIds.count)")
+        return true
     }
 }

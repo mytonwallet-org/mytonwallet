@@ -41,6 +41,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
 @SuppressLint("ViewConstructor")
 class AgentMessageCell(context: Context) : WCell(
@@ -124,14 +125,16 @@ class AgentMessageCell(context: Context) : WCell(
         } else {
             messageLabel.visibility = VISIBLE
             typingIndicator.visibility = GONE
-            val codeColor = if (isOutgoing) Color.WHITE else WColor.SecondaryText.color
-            messageLabel.text = MarkdownParser.parse(message.text, codeColor, onOpenUrl)
+            val codeColor =
+                if (isOutgoing) WColor.TextOnTint.color.colorWithAlpha(204) else WColor.SecondaryText.color
+            val linkColor = if (isOutgoing) WColor.TextOnTint.color.colorWithAlpha(204) else null
+            messageLabel.text = MarkdownParser.parse(message.text, codeColor, linkColor, onOpenUrl)
         }
         val maxBubbleWidth = (recyclerWidth * 0.8f).toInt()
 
         if (isOutgoing) {
             bubbleContainer.background = AgentOutgoingBubbleDrawable()
-            messageLabel.setTextColor(Color.WHITE)
+            messageLabel.setTextColor(WColor.TextOnTint.color)
             messageLabel.setPaddingDpLocalized(14, 10, 20, 10)
             messageLabel.maxWidth = maxBubbleWidth - 34.dp
             deeplinkContainer.visibility = GONE

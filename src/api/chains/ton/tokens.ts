@@ -10,6 +10,7 @@ import {
   type ApiTokenWithPrice,
 } from '../../types';
 
+import { UNKNOWN_TOKEN } from '../../../config';
 import { getToncoinAmountForTransfer } from '../../../util/fee/getTonOperationFees';
 import { fetchJsonWithProxy, fixIpfsUrl } from '../../../util/fetch';
 import { logDebugError } from '../../../util/logs';
@@ -130,8 +131,8 @@ function getJettonMetadataFromMap(rawAddress: string, metadata: MetadataMap): Je
   }
 
   return {
-    name: tokenMetadata.name ?? rawAddress,
-    symbol: tokenMetadata.symbol ?? tokenMetadata.name ?? rawAddress,
+    name: tokenMetadata.name ?? UNKNOWN_TOKEN.symbol,
+    symbol: tokenMetadata.symbol ?? tokenMetadata.name ?? UNKNOWN_TOKEN.symbol,
     description: tokenMetadata.description,
     image: tokenMetadata.image,
     decimals: tokenMetadata.extra?.decimals ?? DEFAULT_DECIMALS,

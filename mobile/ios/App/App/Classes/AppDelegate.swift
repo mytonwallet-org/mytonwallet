@@ -186,14 +186,28 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProto
                 let contents = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: [])
                 return (contents ?? []).isEmpty
             }
-            if isEmpty(.documentsDirectory) && isEmpty(.cachesDirectory.appending(path: "WebKit", directoryHint: .isDirectory)) {
+            
+            let documentsIsEmpty = isEmpty(.documentsDirectory)
+            let cachesWebKitIsEmpty = isEmpty(.cachesDirectory.appending(path: "WebKit", directoryHint: .isDirectory))
+            let libraryWebKitIsEmpty = isEmpty(.libraryDirectory.appending(path: "WebKit", directoryHint: .isDirectory))
+            let keychainAccountsCount = KeychainHelper.getAccounts()?.count ?? 0
+            
+            if documentsIsEmpty
+                && cachesWebKitIsEmpty
+                && libraryWebKitIsEmpty
+                && keychainAccountsCount == 0 {
                 return true
             } else {
                 log.info("isDefinitelyNotAPreexistingInstall check returned false")
                 let documents = try FileManager.default.contentsOfDirectory(at: .documentsDirectory, includingPropertiesForKeys: [])
                 let caches = try FileManager.default.contentsOfDirectory(at: .cachesDirectory, includingPropertiesForKeys: [])
+                let library = try FileManager.default.contentsOfDirectory(at: .libraryDirectory, includingPropertiesForKeys: [])
+                log.info(
+                    "preexisting install evidence documentsIsEmpty=\(documentsIsEmpty, .public) cachesWebKitIsEmpty=\(cachesWebKitIsEmpty, .public) libraryWebKitIsEmpty=\(libraryWebKitIsEmpty, .public) keychainAccounts=\(keychainAccountsCount, .public)"
+                )
                 log.info("documents=\(documents, .public)")
                 log.info("caches=\(caches, .public)")
+                log.info("library=\(library, .public)")
             }
         } catch {
             log.error("failed to check if pre-existing install: \(error, .public)")

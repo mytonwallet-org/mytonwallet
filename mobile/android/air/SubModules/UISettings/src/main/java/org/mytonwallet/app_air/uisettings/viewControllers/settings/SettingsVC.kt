@@ -742,7 +742,7 @@ class SettingsVC(context: Context) : WViewController(context),
                 settingsVM.updateSettingsSection()
             }
 
-            WalletEvent.AccountNameChanged -> {
+            is WalletEvent.AccountNameChanged -> {
                 headerView.configure()
                 settingsVM.fillOtherAccounts(async = true, onComplete = {
                     reloadData()

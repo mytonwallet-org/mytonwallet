@@ -533,8 +533,9 @@ open class HomeHeaderView(
 
     private var prevBalance: Double? = null
 
-    fun updateBalance(accountName: String, animated: Boolean = true) {
-        val activeAccountId = cardView.account?.accountId ?: return
+    fun updateBalance(animated: Boolean = true) {
+        val activeAccount = cardView.account ?: return
+        val activeAccountId = activeAccount.accountId
 
         fun fetchBalances(): Pair<Double?, Double?> {
             val balance = BalanceStore.totalBalanceInBaseCurrency(activeAccountId)
@@ -555,7 +556,7 @@ open class HomeHeaderView(
             if (activeAccountId != cardView.account?.accountId)
                 return@launch
 
-            applyBalance(accountName, balance, balance24h, animated)
+            applyBalance(activeAccount.name, balance, balance24h, animated)
         }
     }
 
@@ -674,6 +675,10 @@ open class HomeHeaderView(
         } else {
             walletNameLabel.setTextIfChanged("")
         }
+    }
+
+    fun accountRenamed(accountId: String, accountName: String) {
+        cardViews.find { it.account?.accountId == accountId }?.account?.name = accountName
     }
 
     fun updateMintIconVisibility() {

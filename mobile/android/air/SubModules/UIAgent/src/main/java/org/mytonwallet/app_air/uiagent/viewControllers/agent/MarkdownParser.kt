@@ -14,7 +14,12 @@ object MarkdownParser {
 
     private val urlPattern: Regex = Patterns.WEB_URL.toRegex()
 
-    fun parse(text: String, codeColor: Int, onUrlClick: ((String) -> Unit)? = null): SpannableStringBuilder {
+    fun parse(
+        text: String,
+        codeColor: Int,
+        linkColor: Int?,
+        onUrlClick: ((String) -> Unit)? = null
+    ): SpannableStringBuilder {
         val result = SpannableStringBuilder()
         var i = 0
         val len = text.length
@@ -100,13 +105,17 @@ object MarkdownParser {
         }
 
         if (onUrlClick != null) {
-            applyUrlSpans(result, onUrlClick)
+            applyUrlSpans(result, linkColor, onUrlClick)
         }
 
         return result
     }
 
-    private fun applyUrlSpans(sb: SpannableStringBuilder, onClick: (String) -> Unit) {
+    private fun applyUrlSpans(
+        sb: SpannableStringBuilder,
+        linkColor: Int? = null,
+        onClick: (String) -> Unit
+    ) {
         val text = sb.toString()
         for (match in urlPattern.findAll(text)) {
             val matchStart = match.range.first
@@ -123,7 +132,7 @@ object MarkdownParser {
                 url = "https://$url"
             }
             sb.setSpan(
-                WClickableSpan(url, onClick),
+                WClickableSpan(url, linkColor, onClick),
                 matchStart, matchEnd,
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             )

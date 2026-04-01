@@ -57,7 +57,7 @@ sealed class WalletEvent {
 
     data class AccountRemoved(val accountId: String) : WalletEvent()
 
-    data object AccountNameChanged : WalletEvent()
+    data class AccountNameChanged(val accountId: String, val accountName: String) : WalletEvent()
     data object AccountsReordered : WalletEvent()
     data object AccountSavedAddressesChanged : WalletEvent()
     data object AddNewWalletCompletion : WalletEvent()

@@ -217,7 +217,7 @@ object AccountStore : IStore {
             activeAccount?.name = newWalletName
         }
         AirPushNotifications.accountNameChanged(account)
-        notifyEvent(WalletEvent.AccountNameChanged)
+        notifyEvent(WalletEvent.AccountNameChanged(account.accountId, newWalletName))
     }
 
     fun saveTemporaryAccount(account: MAccount) {
