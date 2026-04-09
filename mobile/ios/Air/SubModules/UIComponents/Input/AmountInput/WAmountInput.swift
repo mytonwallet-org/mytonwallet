@@ -50,14 +50,12 @@ public class WAmountInput: UITextField {
     }
 
     public var amountValueOrNil: BigInt? {
-        let formatter = NumberFormatter()
         let currentText = text ?? ""
-        var numberWithOutCommas = currentText.replacingOccurrences(of: formatter.groupingSeparator, with: "")
-        numberWithOutCommas = numberWithOutCommas.replacingOccurrences(of: " ", with: "")
-        guard !numberWithOutCommas.isEmpty else {
+        let normalizedText = normalizeAmountInput(currentText)
+        guard !normalizedText.isEmpty else {
             return nil
         }
-        return amountValue(numberWithOutCommas, digits: maximumFractionDigits)
+        return amountValue(normalizedText, digits: maximumFractionDigits)
     }
     
     @objc func changed() {
@@ -122,82 +120,47 @@ extension WAmountInput: UITextFieldDelegate {
     public func textField(_ textField: UITextField,
                           shouldChangeCharactersIn range: NSRange,
                           replacementString string: String) -> Bool {
-        let formatter = NumberFormatter()
-
-        let oldLength = textField.text?.count ?? 0
+        let currentText = textField.text ?? ""
+        let oldLength = currentText.count
         // Save cursor position
         let cursorPosition = textField.offset(from: textField.beginningOfDocument, to: textField.selectedTextRange!.start)
 
-        // support locales other than english
-        var convertedInput = string.normalizeArabicPersianNumeralStringToWestern()
-        if convertedInput == formatter.decimalSeparator {
-            convertedInput = "."
-        }
-        
-        // support insertion from pasteboard
-        convertedInput = convertedInput.replacingOccurrences(of: " ", with: "")
-        
-        let newString = (textField.text! as NSString).replacingCharacters(in: range, with: convertedInput)
-        /*if newString.components(separatedBy: ".")[0].count > maxLength {
+        let convertedInput = string.normalizeArabicPersianNumeralStringToWestern()
+        let allowedCharacters = CharacterSet(charactersIn: "0123456789., '\u{00A0}\u{202F}\u{2009}’")
+        let isAllowedInput = convertedInput.unicodeScalars.allSatisfy { allowedCharacters.contains($0) }
+        if !isAllowedInput {
+            changed()
             return false
-        }*/
+        }
+
+        let replacementContainsSeparator = convertedInput.contains { $0 == "." || $0 == "," }
+        let existingTextOutsideEditedRange = (currentText as NSString).replacingCharacters(in: range, with: "")
+        if replacementContainsSeparator && existingTextOutsideEditedRange.contains(".") {
+            changed()
+            return false
+        }
+
+        let rawNewString = (currentText as NSString).replacingCharacters(in: range, with: convertedInput)
+        let newString = normalizeAmountInput(rawNewString, preserveTrailingSeparator: true)
 
         // check if has max allowed digits after .
-        if !convertedInput.isEmpty && textField.text?.contains(".") == true {
-            let arr = newString.components(separatedBy: ".")
-            if arr.count > 1 {
-                let afterDecimalsCount = arr[1].count
-                if afterDecimalsCount > maximumFractionDigits {
-                    return false // can't have more digits after . !!
-                }
-            }
-        }
-        
-        if convertedInput == "." {
-            // do not allow . duplications
-            if textField.text?.contains(".") ?? false {
-                changed()
-                return false // already has .
-            }
-            // auto add 0 if user types .
-            if textField.text?.isEmpty ?? true {
-                textField.text = "0."
-                changed()
-                return false
+        let newParts = newString.components(separatedBy: ".")
+        if newParts.count > 1 {
+            let afterDecimalsCount = newParts[1].count
+            if afterDecimalsCount > maximumFractionDigits {
+                return false // can't have more digits after . !!
             }
         }
 
-        // allow trailing 0 after . and also removing them
-        if ((convertedInput == "0" || convertedInput == "") && (textField.text! as NSString).range(of: ".").location < range.location) {
-            if oldLength >= useSmallerFontAtLength - 1 {
-                reapplyFormatting()
+        if newString.isEmpty {
+            textField.text = newString
+        } else {
+            let parts = newString.components(separatedBy: ".")
+            if let num = BigInt(parts[0]) {
+                textField.text = formatBigIntText(num, tokenDecimals: 0, decimalsCount: 0)
             }
-            return true
-        }
-
-        // First check whether the replacement string's numeric...
-        let cs = NSCharacterSet(charactersIn: "0123456789.").inverted
-        let filtered = convertedInput.components(separatedBy: cs)
-        let component = filtered.joined(separator: "")
-        let isNumeric = convertedInput == component
-
-        // Then if the replacement string's numeric, or if it's
-        // a backspace, or if it's a decimal point and the text
-        // field doesn't already contain a decimal point,
-        // reformat the new complete number using
-        if isNumeric {
-            let numberWithoutSpacing = newString.replacingOccurrences(of: " ", with: "")
-            
-            if numberWithoutSpacing.isEmpty {
-                textField.text = numberWithoutSpacing
-            } else {
-                let parts = numberWithoutSpacing.components(separatedBy: ".")
-                if let num = BigInt(parts[0]) {
-                    textField.text = formatBigIntText(num, tokenDecimals: 0, decimalsCount: 0)
-                }
-                if parts.count > 1 {
-                    textField.text = "\(textField.text!).\(parts[1])"
-                }
+            if parts.count > 1 {
+                textField.text = "\(textField.text!).\(parts[1])"
             }
         }
 

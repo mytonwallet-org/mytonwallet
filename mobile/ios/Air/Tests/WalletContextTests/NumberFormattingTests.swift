@@ -48,6 +48,26 @@ struct WalletContextNumberFormattingTests {
         )
     }
 
+    struct AmountValueCase: Sendable {
+        let input: String
+        let decimals: Int
+        let expected: BigInt
+    }
+
+    static let amountValueCases: [AmountValueCase] = [
+        .init(input: "0.5", decimals: 9, expected: BigInt(500_000_000)),
+        .init(input: "0,5", decimals: 9, expected: BigInt(500_000_000)),
+        .init(input: "12 345.67", decimals: 2, expected: BigInt(1_234_567)),
+        .init(input: "12 345,67", decimals: 2, expected: BigInt(1_234_567)),
+        .init(input: "1,234.56", decimals: 2, expected: BigInt(123_456)),
+        .init(input: "1.234,56", decimals: 2, expected: BigInt(123_456)),
+    ]
+
+    @Test(arguments: Self.amountValueCases)
+    func `amountValue accepts mixed decimal separators and grouping formats`(testCase: AmountValueCase) {
+        #expect(amountValue(testCase.input, digits: testCase.decimals) == testCase.expected)
+    }
+
     @Test
     func `formatBigIntText uses grouping and trims trailing zeroes`() {
         let formatted = formatBigIntText(

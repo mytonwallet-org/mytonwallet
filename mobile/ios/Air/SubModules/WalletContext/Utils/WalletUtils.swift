@@ -283,10 +283,33 @@ public func stringForShortTimestamp(hours: Int32, minutes: Int32) -> String {
     }
 }
 
-public func amountValue(_ string: String, digits: Int) -> BigInt {
+public func normalizeAmountInput(_ string: String, preserveTrailingSeparator: Bool = false) -> String {
     let string = string
-        .replacingOccurrences(of: ",", with: ".")
+        .normalizeArabicPersianNumeralStringToWestern()
         .replacingOccurrences(of: " ", with: "")
+        .replacingOccurrences(of: "\u{00A0}", with: "")
+        .replacingOccurrences(of: "\u{202F}", with: "")
+        .replacingOccurrences(of: "\u{2009}", with: "")
+        .replacingOccurrences(of: "'", with: "")
+        .replacingOccurrences(of: "’", with: "")
+
+    guard let separatorIndex = string.lastIndex(where: { $0 == "." || $0 == "," }) else {
+        return String(string.filter(\.isWholeNumber))
+    }
+
+    let integralPart = String(string[..<separatorIndex].filter(\.isWholeNumber))
+    let fractionalPart = String(string[string.index(after: separatorIndex)...].filter(\.isWholeNumber))
+    let normalizedIntegralPart = integralPart.isEmpty ? "0" : integralPart
+
+    if fractionalPart.isEmpty {
+        return preserveTrailingSeparator ? normalizedIntegralPart + "." : normalizedIntegralPart
+    }
+
+    return normalizedIntegralPart + "." + fractionalPart
+}
+
+public func amountValue(_ string: String, digits: Int) -> BigInt {
+    let string = normalizeAmountInput(string)
     if let range = string.range(of: ".") {
         let integralPart = String(string[..<range.lowerBound])
         let fractionalPart = String(string[range.upperBound...])
