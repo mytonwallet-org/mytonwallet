@@ -178,7 +178,7 @@ final class TokenExpandableChartView: UIView {
                 return ""
             }
             let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(amount, TokenStore.baseCurrency)
-            return baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
+            return baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
         }, onHighlightChange: { [weak self] highlight in
             self?.lastHighlight = highlight
             self?.fillLabels()
@@ -381,7 +381,7 @@ final class TokenExpandableChartView: UIView {
         }
         if let lastHighlight {
             let priceAmount = BaseCurrencyAmount.fromDouble(lastHighlight.y, TokenStore.baseCurrency)
-            let priceString = priceAmount.formatted(.baseCurrencyHighPrecision, roundUp: true)
+            let priceString = priceAmount.formatted(.baseCurrencyHighPrecision, roundHalfUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
                 .foregroundColor: UIColor.label
@@ -399,7 +399,7 @@ final class TokenExpandableChartView: UIView {
             let firstPriceInChart = historyData?.first(where: { val in val[1] != 0 })?[1]
             let lastPrice: Double = historyData?.last(where: { val in val[1] != 0 })?[1] ?? tokenPrice
             let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(lastPrice, TokenStore.baseCurrency)
-            let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
+            let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
                 .foregroundColor: UIColor.label
@@ -426,7 +426,7 @@ final class TokenExpandableChartView: UIView {
                 percentChange = (lastPrice - firstPriceInChart) / firstPriceInChart
             }
             let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(lastPrice, TokenStore.baseCurrency)
-            let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
+            let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
                 .foregroundColor: UIColor.label

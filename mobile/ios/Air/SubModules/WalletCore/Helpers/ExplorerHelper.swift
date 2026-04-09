@@ -176,15 +176,27 @@ public final class ExplorerHelper {
     
     public static func websitesForToken(_ token: ApiToken) -> [Website] {
         var websites: [Website] = []
-        if let cmcSlug = token.cmcSlug {
-            websites += Website(title: "CoinMarketCap", address: URL(string: "https://coinmarketcap.com/currencies/\(cmcSlug)")!)
+        if let cmcSlug = token.cmcSlug?.nilIfEmpty,
+           let url = URL(string: "https://coinmarketcap.com/currencies/\(cmcSlug)") {
+            websites.append(Website(title: "CoinMarketCap", address: url))
         }
-        websites += [
-            Website(title: "CoinGecko", address: URL(string: "https://www.coingecko.com/coins/\(token.name.lowercased())")!),
-            Website(title: "GeckoTerminal", address: URL(string: "https://www.geckoterminal.com/?q=\(token.symbol.lowercased())")!),
-            Website(title: "DEX Screener", address: URL(string: "https://dexscreener.com/search?q=\(token.name.lowercased())")!),
-        ]
+        if let url = websiteSearchURL(base: "https://www.coingecko.com/en/search", queryItemName: "query", query: token.name.lowercased()) {
+            websites.append(Website(title: "CoinGecko", address: url))
+        }
+        if let url = websiteSearchURL(base: "https://www.geckoterminal.com/", queryItemName: "q", query: token.symbol.lowercased()) {
+            websites.append(Website(title: "GeckoTerminal", address: url))
+        }
+        if let url = websiteSearchURL(base: "https://dexscreener.com/search", queryItemName: "q", query: token.name.lowercased()) {
+            websites.append(Website(title: "DEX Screener", address: url))
+        }
         return websites
+    }
+
+    private static func websiteSearchURL(base: String, queryItemName: String, query: String) -> URL? {
+        guard let query = query.nilIfEmpty else { return nil }
+        guard var components = URLComponents(string: base) else { return nil }
+        components.queryItems = [URLQueryItem(name: queryItemName, value: query)]
+        return components.url
     }
 
     public static func convertExplorerUrl(_ url: URL, toExplorerId: String) -> URL? {

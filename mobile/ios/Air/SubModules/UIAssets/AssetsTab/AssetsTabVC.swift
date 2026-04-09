@@ -10,7 +10,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsViewControllerDelegate {
+public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
     public enum Tab: String {
         case tokens
         case nfts
@@ -20,7 +20,7 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsVi
 
     private var segmentedController: WSegmentedController!
     private let defaultTabIndex: Int
-    private var nftsVC: NftsVC!
+    private var nftsVCManager: NftsVCManager?
 
     public init(accountSource: AccountSource, defaultTabIndex: Int) {
         self.accountIdProvider = AccountIdProvider(source: accountSource)
@@ -46,7 +46,6 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsVi
     }
     
     func setupViews() {
-        
         if let sheet = self.sheetPresentationController {
             sheet.configureFullScreen(true)
             sheet.configureAllowsInteractiveDismiss(true)
@@ -54,13 +53,15 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsVi
                 sheet.prefersGrabberVisible = true
             }
         }
+        
         let tokensVC = WalletTokensVC(accountSource: accountIdProvider.source, mode: .expanded)
-        nftsVC = NftsVC(accountSource: accountIdProvider.source, mode: .embedded, filter: .none)
         addChild(tokensVC)
-        addChild(nftsVC)
         tokensVC.didMove(toParent: self)
+
+        nftsVCManager = NftsVCManager(tabsViewModel: WalletAssetsViewModel(accountSource:  accountIdProvider.source))
+        let nftsVC = NftsVC(accountSource: accountIdProvider.source, manager: nftsVCManager, layoutMode: .regular, filter: .none)
+        addChild(nftsVC)
         nftsVC.didMove(toParent: self)
-        nftsVC.delegate = self
 
         segmentedController = WSegmentedController(
             items: [
@@ -91,7 +92,7 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsVi
         segmentedController.separator.isHidden = true
         segmentedController.blurView.isHidden = true
         
-        updateNavigationAppearance()
+        updateState()
         configureNavigationItemWithTransparentBackground()
         addCustomNavigationBarBackground()
         
@@ -100,7 +101,11 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsVi
         navigationItem.titleView = segmentedControl
         segmentedControl.widthAnchor.constraint(equalToConstant: 200).isActive = true
         
-        updateTheme()
+        view.backgroundColor = .air.pickerBackground
+        
+        nftsVCManager?.editingNavigator.onStateChange = { [weak self] _, _ in
+            self?.updateState()
+        }
     }
 
     public override func viewWillAppear(_ animated: Bool) {
@@ -110,44 +115,41 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver, NftsVi
         }
     }
     
-    private func stopReordering(isCanceled: Bool) {
-        nftsVC.stopReordering(isCanceled: isCanceled)
+    private func updateState() {
         updateNavigationAppearance()
-        updateReorderingBehavior()
+        
+        guard let navigator = nftsVCManager?.editingNavigator else { return }
+        let state = navigator.state
+        if state.editingState == .selection {
+            navigator.installToolbar(into: view)
+        }
+        
+        navigationController?.allowBackSwipeToDismiss(state.editingState == nil)
+        navigationController?.isModalInPresentation = state.editingState != nil
     }
-    
-    private func updateReorderingBehavior(){
-        navigationController?.allowBackSwipeToDismiss(!nftsVC.isReordering)
-        navigationController?.isModalInPresentation = nftsVC.isReordering
-    }
-    
+            
     private func updateNavigationAppearance() {
-        if nftsVC.isReordering {
+        if let navigator = nftsVCManager?.editingNavigator, let editingState = navigator.state.editingState {
             segmentedController.segmentedControl?.isHidden = true
             segmentedController.scrollView.isScrollEnabled = false
-            let doneItem = UIBarButtonItem.doneButtonItem { [weak self] in self?.stopReordering(isCanceled: false) }
-            navigationItem.trailingItemGroups = [doneItem.asSingleItemGroup()]
-            navigationItem.leftBarButtonItem = .cancelTextButtonItem { [weak self] in self?.stopReordering(isCanceled: true)}
+            
+            navigationItem.rightBarButtonItem = navigator.commitEditingBarButtonItem
+            switch editingState {
+            case .reordering:
+                navigationItem.leftBarButtonItem = navigator.cancelEditingBarButtonItem
+            case .selection:
+                navigationItem.leftBarButtonItem = navigator.selectAllBarButtonItem
+            }
         } else {
             segmentedController.scrollView.isScrollEnabled = true
             segmentedController.segmentedControl?.isHidden = false
-            addCloseNavigationItemIfNeeded()
             navigationItem.leftBarButtonItem = nil
+            navigationItem.rightBarButtonItem = nil
+            addCloseNavigationItemIfNeeded()
         }
     }
     
-    private func updateTheme() {
-        view.backgroundColor = .air.pickerBackground
-    }
-
     public override func scrollToTop(animated: Bool) {
         segmentedController?.scrollToTop(animated: animated)
-    }
-
-    // MARK: - NftsViewControllerDelegate
-        
-    public func nftsViewControllerDidChangeReorderingState(_ vc: NftsVC) {
-        updateNavigationAppearance()
-        updateReorderingBehavior()
     }
 }

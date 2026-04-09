@@ -331,7 +331,7 @@ export default function useNftMenu({
         ...RENEW_ITEM,
         description: dnsExpireInDays < 0
           ? 'Expired'
-          : lang('$expires_in %days%', { days: lang('$in_days', dnsExpireInDays) }, undefined, 1),
+          : lang('$one_domain_expires %days%', { days: lang('$in_days', dnsExpireInDays) }),
       },
       getMarketplaceItem(nft.chain),
       getExplorerItem(nft.chain),

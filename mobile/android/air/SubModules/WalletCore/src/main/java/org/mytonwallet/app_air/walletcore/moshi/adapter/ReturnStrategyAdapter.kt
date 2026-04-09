@@ -28,6 +28,7 @@ class ReturnStrategyAdapter : JsonAdapter<ReturnStrategy>() {
         return when (val url = reader.nextString()) {
             "none" -> ReturnStrategy.None
             "back" -> ReturnStrategy.Back
+            "empty" -> ReturnStrategy.Empty
             else -> ReturnStrategy.Url(url)
         }
     }

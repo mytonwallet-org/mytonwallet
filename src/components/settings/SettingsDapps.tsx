@@ -25,15 +25,15 @@ import styles from './Settings.module.scss';
 interface OwnProps {
   isActive: boolean;
   dapps: StoredDappConnection[];
-  handleBackClick: () => void;
   isInsideModal?: boolean;
+  onBackClick: NoneToVoidFunction;
 }
 
 function SettingsDapps({
   isActive,
   dapps,
-  handleBackClick,
   isInsideModal,
+  onBackClick,
 }: OwnProps) {
   const lang = useLang();
 
@@ -42,7 +42,7 @@ function SettingsDapps({
 
   useHistoryBack({
     isActive,
-    onBack: handleBackClick,
+    onBack: onBackClick,
   });
 
   const {
@@ -117,12 +117,12 @@ function SettingsDapps({
         <ModalHeader
           title={lang('Apps')}
           withNotch={isScrolled}
-          onBackButtonClick={handleBackClick}
+          onBackButtonClick={onBackClick}
           className={styles.modalHeader}
         />
       ) : (
         <div className={buildClassName(styles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={handleBackClick} className={styles.headerBack}>
+          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
             <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
             <span>{lang('Back')}</span>
           </Button>

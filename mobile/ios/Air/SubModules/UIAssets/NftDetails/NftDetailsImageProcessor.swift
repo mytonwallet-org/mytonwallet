@@ -15,13 +15,13 @@ class NftDetailsImageProcessor {
             assertionFailure()
             return CIContext(options: [
                 .useSoftwareRenderer: false,
-                .cacheIntermediates: false,
+                .cacheIntermediates: true,
                 .workingColorSpace: colorSpace,
                 .outputColorSpace: colorSpace
             ])
         }
         return CIContext(mtlDevice: device, options: [
-            .cacheIntermediates: false,
+            .cacheIntermediates: true,
             .workingColorSpace: colorSpace,
             .outputColorSpace: colorSpace
         ])
@@ -63,7 +63,7 @@ class NftDetailsImageProcessor {
                 c.withAlphaComponent(0.6).cgColor,
                 c.withAlphaComponent(0.85).cgColor,
                 c.withAlphaComponent(0.98).cgColor,
-                UIColor.green.withAlphaComponent(1.0).cgColor
+                c.withAlphaComponent(1.0).cgColor
             ] as CFArray
             
             
@@ -237,23 +237,9 @@ class NftDetailsImageProcessor {
         }
         return cgImage
     }
-    
-    /// This is fot Lottie-animated Nfts: basically we return the same image (cropped to square, rescaled)
-    /// and calculate the base color + 1px bottom image band as a background pattern
-    private func loadSimplifiedImage(_ image: CIImage) throws (IntError) -> NftDetailsImage.Processed {
-        var result = NftDetailsImage.Processed()
 
-        let cgImage = try cgImageFromCIImage(image)
-        result.previewImage = UIImage(cgImage: cgImage, scale: deviceScale, orientation: .up)
-        
-        let baseColor = regionColor(image.cropped(to: image.extent.copyWith(height: 1)))
-        result.baseColor =  baseColor
-        
-        if baseColor != nil {
-            result.backgroundPattern = try backgroundPattern(cgImage: cgImage)
-        }
-        
-        return result
+    private func uiImageFromCIImage(_ ciImage: CIImage) throws (IntError) -> UIImage {
+        UIImage(cgImage: try cgImageFromCIImage(ciImage), scale: deviceScale, orientation: .up)
     }
     
     private func backgroundPattern(cgImage: CGImage) throws (IntError) -> CIImage {
@@ -271,38 +257,46 @@ class NftDetailsImageProcessor {
         let mirrorK = 3.0
         let targetHeight = layoutBottomBand + layoutMirroredBandHeight * mirrorK + layoutTopBandHeight
         
+        let perfName: StaticString = simplifiedProcessing ? "image_process_simple" : "image_process"
+        let perf = NftDetailsPerformance.beginMeasure(perfName)
+        defer { NftDetailsPerformance.endMeasure(perf) }
+
         var result = NftDetailsImage.Processed()
-        
         do {
             // Load image, crop to square, scale down if necessary
             var sourceImage = try ciImageFromUIImage(image)
             sourceImage = cropToSquare(sourceImage)
             sourceImage = try fitToWidth(sourceImage, maxWidth: targetWidth * deviceScale)
+            result.originalImage = try uiImageFromCIImage(sourceImage)
+            result.previewImage = result.originalImage
                                             
             let scaleK1 = sourceImage.extent.width / targetWidth
-            func calcScale1(_ v: CGFloat) -> CGFloat { (scaleK1 * v).rounded() }
+            func calcScale(_ v: CGFloat) -> CGFloat { (scaleK1 * v).rounded() }
             
-            // For siplified processing we should stop here: square from original image + base color is all we need
+            // For simplified processing we should stop here: square from original image + base color is all we need
             if simplifiedProcessing {
-                return try loadSimplifiedImage(sourceImage)
+                let baseColor = regionColor(sourceImage.cropped(to: sourceImage.extent.copyWith(height: 1)))
+                result.baseColor =  baseColor
+                if let baseColor {
+                    let extent = sourceImage.extent.copyWith(height: 1)
+                    result.backgroundPattern = solidColorImage(color: baseColor, extent: extent)
+                }
+                return result
             }
             
             // Compose the final image frame: full + mirrored middle band + bottom band of solid color
-            let bottomBand1 = calcScale1(layoutBottomBand)
-            var mirror = mirrorBottom(sourceImage, sourceBandHeight: calcScale1(layoutMirroredBandHeight), targetScale: mirrorK)
+            let bottomBand = calcScale(layoutBottomBand)
+            var mirror = mirrorBottom(sourceImage, sourceBandHeight: calcScale(layoutMirroredBandHeight), targetScale: mirrorK)
             
             // Get a base color.
             var e = sourceImage.extent
-            e.size.height = min(calcScale1(layoutMirroredBandHeight * 2), e.size.height)
+            e.size.height = min(calcScale(layoutMirroredBandHeight * 2), e.size.height)
             let croppedForColor = sourceImage.cropped(to: e)
             let baseColor = regionColor(croppedForColor)
             result.baseColor = baseColor
             
             // In case we failed to get a base color, we return immediately.
-            // The base color will be replaced with current default background on UI level
             guard let baseColor else {
-                let cgImage = try cgImageFromCIImage(sourceImage)
-                result.previewImage = UIImage(cgImage: cgImage, scale: deviceScale, orientation: .up)
                 return result
             }
             
@@ -323,11 +317,11 @@ class NftDetailsImageProcessor {
             
             // compose main image + mirrored one + solid color bottom band
             var composited =  compositeImage(mirror, background: translateImage(sourceImage, y: mirror.extent.height))
-            composited = addBottomBand(composited, bottomBand: bottomBand1, color: baseColor)
+            composited = addBottomBand(composited, bottomBand: bottomBand, color: baseColor)
             
             // Apply tinted blurred overlay to the bottom
             let blurRadius =  40.0 * composited.extent.width / (402.0 * deviceScale)
-            let h = mirror.extent.height + bottomBand1 + calcScale1(layoutTopBandHeight)
+            let h = mirror.extent.height + bottomBand + calcScale(layoutTopBandHeight)
             let gradientK = 195.0 / targetHeight
             let tintedBlurred = try blurBottomArea(composited, blurRadius: blurRadius, bottomHeight: h, gradientK: gradientK)
 

@@ -16,6 +16,10 @@ import WalletContext
 }
 
 public class TokenSelectionVC: WViewController {
+    public enum MyAssetsDisplayMode {
+        case `default`
+        case swap
+    }
     
     // MARK: - Diffable Data Source Types
     
@@ -23,17 +27,25 @@ public class TokenSelectionVC: WViewController {
         case myAssets
         case popular
         case allAssets
+
+        var title: String {
+            switch self {
+            case .myAssets:
+                lang("My")
+            case .popular:
+                lang("Popular")
+            case .allAssets:
+                lang("A ~ Z")
+            }
+        }
     }
     
     private enum Item: Hashable {
-        case header(Section)
         case walletToken(MTokenBalance)
         case apiToken(ApiToken, Section)
         
         static func == (lhs: Item, rhs: Item) -> Bool {
             switch (lhs, rhs) {
-            case (.header(let l), .header(let r)):
-                return l == r
             case (.walletToken(let l), .walletToken(let r)):
                 return l.tokenSlug == r.tokenSlug
             case (.apiToken(let lToken, let lSection), .apiToken(let rToken, let rSection)):
@@ -45,9 +57,6 @@ public class TokenSelectionVC: WViewController {
         
         func hash(into hasher: inout Hasher) {
             switch self {
-            case .header(let section):
-                hasher.combine("header")
-                hasher.combine(section)
             case .walletToken(let token):
                 hasher.combine("wallet")
                 hasher.combine(token.tokenSlug)
@@ -58,13 +67,23 @@ public class TokenSelectionVC: WViewController {
             }
         }
     }
+
+    private final class DataSource: UITableViewDiffableDataSource<Section, Item> {
+        override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+            let sectionIdentifiers = snapshot().sectionIdentifiers
+            guard section < sectionIdentifiers.count else { return nil }
+            return sectionIdentifiers[section].title
+        }
+    }
     
     // MARK: - Properties
     
     private weak var delegate: TokenSelectionVCDelegate?
     private var forceAvailable: String?
+    private let extraWalletTokenSlugs: [String]
     private var otherSymbolOrMinterAddress: String?
     private let showMyAssets: Bool
+    private let myAssetsDisplayMode: MyAssetsDisplayMode
     private let isModal: Bool
     private let onlySupportedChains: Bool
     private var availablePairs: [MPair]?
@@ -80,20 +99,24 @@ public class TokenSelectionVC: WViewController {
     
     private var tableView: UITableView!
     private var activityIndicatorView: WActivityIndicator!
-    private var dataSource: UITableViewDiffableDataSource<Section, Item>!
+    private var dataSource: DataSource!
     
     // MARK: - Init
     
     public init(forceAvailable: String? = nil,
+                extraWalletTokenSlugs: [String] = [],
                 otherSymbolOrMinterAddress: String? = nil,
                 showMyAssets: Bool = true,
+                myAssetsDisplayMode: MyAssetsDisplayMode = .default,
                 title: String,
                 delegate: TokenSelectionVCDelegate?,
                 isModal: Bool,
                 onlySupportedChains: Bool) {
         self.forceAvailable = forceAvailable
+        self.extraWalletTokenSlugs = extraWalletTokenSlugs
         self.otherSymbolOrMinterAddress = otherSymbolOrMinterAddress
         self.showMyAssets = showMyAssets
+        self.myAssetsDisplayMode = myAssetsDisplayMode
         self.delegate = delegate
         self.isModal = isModal
         self.onlySupportedChains = onlySupportedChains
@@ -179,11 +202,12 @@ public class TokenSelectionVC: WViewController {
         tableView.allowsSelection = false
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.register(TokenCell.self, forCellReuseIdentifier: "Token")
-        tableView.register(TokenHeaderCell.self, forCellReuseIdentifier: "TokenHeader")
         tableView.delegate = self
-        tableView.separatorStyle = .none
+        tableView.separatorStyle = .singleLine
+        tableView.separatorInset.left = 68
+        tableView.separatorInset.right = IOS_26_MODE_ENABLED ? 16 : 0
         tableView.keyboardDismissMode = .onDrag
-        tableView.rowHeight = 56
+        tableView.rowHeight = 60
         tableView.delaysContentTouches = false
         tableView.sectionHeaderTopPadding = 0
         
@@ -201,13 +225,12 @@ public class TokenSelectionVC: WViewController {
             activityIndicatorView.centerXAnchor.constraint(equalTo: tableView.centerXAnchor),
             activityIndicatorView.centerYAnchor.constraint(equalTo: tableView.centerYAnchor),
         ])
-        
-        bringNavigationBarToFront()
+
         updateTheme()
     }
     
     private func configureDataSource() {
-        dataSource = UITableViewDiffableDataSource<Section, Item>(tableView: tableView) { [weak self] tableView, indexPath, item in
+        dataSource = DataSource(tableView: tableView) { [weak self] tableView, indexPath, item in
             guard let self else { return UITableViewCell() }
             return self.cell(for: item, at: indexPath)
         }
@@ -215,18 +238,6 @@ public class TokenSelectionVC: WViewController {
     
     private func cell(for item: Item, at indexPath: IndexPath) -> UITableViewCell {
         switch item {
-        case .header(let section):
-            let cell = tableView.dequeueReusableCell(withIdentifier: "TokenHeader", for: indexPath) as! TokenHeaderCell
-            switch section {
-            case .myAssets:
-                cell.configure(title: lang("My"))
-            case .popular:
-                cell.configure(title: lang("Popular"))
-            case .allAssets:
-                cell.configure(title: lang("A ~ Z"))
-            }
-            return cell
-            
         case .walletToken(let token):
             let cell = tableView.dequeueReusableCell(withIdentifier: "Token", for: indexPath) as! TokenCell
             let isAvailable = isTokenAvailable(slug: token.tokenSlug)
@@ -241,7 +252,7 @@ public class TokenSelectionVC: WViewController {
             let cell = tableView.dequeueReusableCell(withIdentifier: "Token", for: indexPath) as! TokenCell
             let isAvailable = isTokenAvailable(slug: token.slug)
             let tokenSlug = token.slug
-            cell.configure(with: token, isAvailable: isAvailable) { [weak self] in
+            cell.configure(with: token, balance: $account.balances[token.slug] ?? 0, isAvailable: isAvailable) { [weak self] in
                 guard let self, isTokenAvailable(slug: token.slug) else { return }
                 AssetsAndActivityDataStore.update(accountId: account.id, update: { settings in
                     settings.saveImportedToken(slug: tokenSlug)
@@ -279,6 +290,11 @@ public class TokenSelectionVC: WViewController {
     
     private func updateWalletTokens() {
         walletTokens = showMyAssets ? $account.walletTokens ?? [] : []
+        guard showMyAssets else { return }
+        for slug in extraWalletTokenSlugs where walletTokens.contains(where: { $0.tokenSlug == slug }) == false {
+            guard TokenStore.getToken(slug: slug) != nil else { continue }
+            walletTokens.append(MTokenBalance(tokenSlug: slug, balance: 0, isStaking: false))
+        }
     }
     
     private func filterTokens() {
@@ -289,7 +305,24 @@ public class TokenSelectionVC: WViewController {
         
         showingWalletTokens = walletTokens.filter { token in
             guard let apiToken = TokenStore.tokens[token.tokenSlug] else { return false }
-            return shouldIncludeChain(apiToken.chain) && apiToken.matchesSearch(keyword)
+            guard shouldIncludeChain(apiToken.chain) && apiToken.matchesSearch(keyword) else { return false }
+            if myAssetsDisplayMode == .swap, (apiToken.price ?? 0) == 0 {
+                return false
+            }
+            return true
+        }
+        
+        if myAssetsDisplayMode == .swap {
+            showingWalletTokens.sort { lhs, rhs in
+                let lhsAmount = lhs.toBaseCurrency ?? 0
+                let rhsAmount = rhs.toBaseCurrency ?? 0
+                if lhsAmount != rhsAmount {
+                    return lhsAmount > rhsAmount
+                }
+                let lhsName = lhs.token?.name ?? lhs.tokenSlug
+                let rhsName = rhs.token?.name ?? rhs.tokenSlug
+                return lhsName.localizedCaseInsensitiveCompare(rhsName) == .orderedAscending
+            }
         }
 
         let sourceAssets: [ApiToken] = if onlySupportedChains {
@@ -319,19 +352,16 @@ public class TokenSelectionVC: WViewController {
         
         if !showingWalletTokens.isEmpty {
             snapshot.appendSections([.myAssets])
-            snapshot.appendItems([.header(.myAssets)], toSection: .myAssets)
             snapshot.appendItems(showingWalletTokens.map { .walletToken($0) }, toSection: .myAssets)
         }
         
         if !showingPopularTokens.isEmpty {
             snapshot.appendSections([.popular])
-            snapshot.appendItems([.header(.popular)], toSection: .popular)
             snapshot.appendItems(showingPopularTokens.map { .apiToken($0, .popular) }, toSection: .popular)
         }
         
         if !showingAllAssets.isEmpty {
             snapshot.appendSections([.allAssets])
-            snapshot.appendItems([.header(.allAssets)], toSection: .allAssets)
             snapshot.appendItems(showingAllAssets.map { .apiToken($0, .allAssets) }, toSection: .allAssets)
         }
         
@@ -350,7 +380,17 @@ extension TokenSelectionVC: UISearchResultsUpdating {
 
 // MARK: - UITableViewDelegate
 
-extension TokenSelectionVC: UITableViewDelegate {}
+extension TokenSelectionVC: UITableViewDelegate {
+    public func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
+        let spacer = UIView()
+        spacer.backgroundColor = .clear
+        return spacer
+    }
+    
+    public func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
+        12
+    }
+}
 
 // MARK: - WalletCoreData.EventsObserver
 

@@ -52,10 +52,10 @@ export const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 export const SOLANA_DEFAULT_DERIVATION_PATH = `m/44'/501'/0'/0'`; // default phantom
 
 export const SOLANA_DERIVATION_PATHS = {
-  bip44Change: `m/44'/501'/{index}'/0'`, // phantom
-  bip44: `m/44'/501'/{index}'`, // trust
-  bip44Deprecated: `m/501'/{index}'/0'/0'`,
-  default: `m/44'/501'`, // default
+  phantom: `m/44'/501'/{index}'/0'`,
+  trust: `m/44'/501'/{index}'`,
+  legacy: `m/501'/{index}'/0'/0'`,
+  default: `m/44'/501'`,
 };
 
 // TODO: switch to actual data fetching

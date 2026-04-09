@@ -3,12 +3,9 @@ import UIComponents
 
 protocol NftDetailsPagerDelegate: NftDetailsActionsDelegate {
     func pagerDidSelectModel(_ pager: NftDetailsPagerView, model: NftDetailsItemModel)
-    func pagerRequestSelectedCoverFlowItemFrame() -> CGRect
-    func pagerDidChangeExpansionState(_ pager: NftDetailsPagerView)
     func pagerDidScroll(_ pager: NftDetailsPagerView, withProgress progress: CGFloat,
                         fromModel: NftDetailsItemModel, toModel: NftDetailsItemModel?)
-    func pagerDidRequestFullScreenPreview(forModel model: NftDetailsItemModel, view: UIView)
-    func pagerWantsToSwipeBackTheFirstPage()
+    func pagerDidRequestFullScreenPreview()
 }
 
 final class NftDetailsPagerView: UIView {
@@ -33,8 +30,6 @@ final class NftDetailsPagerView: UIView {
         func expandedFrame() -> CGRect { .square(pageWidth) }
     }
     
-    let hideStaticPreview: Bool
-
     var layoutGeometry: LayoutGeometry {
         didSet {
             if layoutGeometry != oldValue {
@@ -55,7 +50,7 @@ final class NftDetailsPagerView: UIView {
     private var pageViewCache: [Int: PageViewCacheItem] = [:]
 
     private var heightConstraint: NSLayoutConstraint!
-    private var collectionView: UICollectionView!
+    private var collectionView: CollectionView!
     private var flowLayout: UICollectionViewFlowLayout!
     private var dataSource: UICollectionViewDiffableDataSource<_Section, Int>!
 
@@ -66,8 +61,7 @@ final class NftDetailsPagerView: UIView {
         currentIndex: Int,
         layoutGeometry: LayoutGeometry,
         delegate: NftDetailsPagerDelegate,
-        hideStaticPreview: Bool,
-        initiallyExpanded: Bool = false
+        initiallyExpanded: Bool
     ) {
         assert(layoutGeometry.pageWidth > 0)
 
@@ -75,7 +69,6 @@ final class NftDetailsPagerView: UIView {
         self.currentIndex = currentIndex
         self.layoutGeometry = layoutGeometry
         self.delegate = delegate
-        self.hideStaticPreview = hideStaticPreview
         self.isExpanded = initiallyExpanded
 
         super.init(frame: .fromSize(width: layoutGeometry.pageWidth, height: 1000))
@@ -106,18 +99,8 @@ final class NftDetailsPagerView: UIView {
         flowLayout.minimumInteritemSpacing = 0
         flowLayout.estimatedItemSize = CGSize(width: layoutGeometry.pageWidth, height: itemSize)
 
-        collectionView = UICollectionView(frame: bounds, collectionViewLayout: flowLayout)
-        collectionView.isPagingEnabled = true
-        collectionView.showsHorizontalScrollIndicator = false
-        collectionView.clipsToBounds = false
-        collectionView.backgroundColor = .clear
-        collectionView.bounces = false
+        collectionView = CollectionView(frame: bounds, collectionViewLayout: flowLayout)
         collectionView.delegate = self
-        if #available(iOS 26.0, *) {
-            collectionView.topEdgeEffect.isHidden = true
-            collectionView.bottomEdgeEffect.isHidden = true
-        }
-        collectionView.panGestureRecognizer.addTarget(self, action: #selector(handleDismissPan))
         
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(collectionView)
@@ -149,21 +132,7 @@ final class NftDetailsPagerView: UIView {
         scrollToIndex(currentIndex, animated: false)
         updateHeight()
     }
-    
-    @objc private func handleDismissPan(_ gestureRecognizer: UIPanGestureRecognizer) {
-        let translation = gestureRecognizer.translation(in: self)
-        let velocity = gestureRecognizer.velocity(in: self)
-        if gestureRecognizer.state == .ended {
-            if translation.x > 30 && abs(translation.y) < translation.x {
-                if velocity.x > 500 {
-                    if collectionView.contentOffset.x.isZero {
-                        delegate?.pagerWantsToSwipeBackTheFirstPage()
-                    }
-                }
-            }
-        }
-    }
-        
+
     private func getOrCreatePageView(for index: Int, layout: Bool = true) -> NftDetailsPageView {
         let idx = normalizeIndex(index)
         if let cached = pageViewCache[idx] {
@@ -201,11 +170,6 @@ final class NftDetailsPagerView: UIView {
         scrollToIndex(currentIndex, animated: animated)
         updateHeight()
         delegate?.pagerDidSelectModel(self, model: models[currentIndex])
-        
-        if isExpanded {
-            let page = getOrCreatePageView(for: currentIndex, layout: false)
-            page.playLottieIfPossible()
-        }
     }
 
     /// Scrolls to `index` exactly like a user swipe: `scrollProgress` drives the background on every frame and `pagerDidSelectModel`
@@ -248,15 +212,12 @@ final class NftDetailsPagerView: UIView {
     private let animationDuration: TimeInterval = 0.35
 
     private func collapse(scrollView: UIScrollView) {
-        guard !isAnimating, let delegate else { return }
+        guard !isAnimating else { return }
         isAnimating = true
         isExpanded = false
-        delegate.pagerDidChangeExpansionState(self)
 
         let centralPage = getOrCreatePageView(for: currentIndex)
-        var startFrame = delegate.pagerRequestSelectedCoverFlowItemFrame()
-        startFrame.origin.y -= scrollView.contentOffset.y
-        centralPage.collapse(previewEndFrame: startFrame)
+        centralPage.collapse()
         let newHeight = centralPage.getFullHeight()
 
         heightConstraint.constant = newHeight
@@ -268,19 +229,16 @@ final class NftDetailsPagerView: UIView {
             scrollView.layoutIfNeeded()
         } completion: { [weak self] _ in
             self?.isAnimating = false
-            centralPage.commitCollapsion()
         }
     }
 
     private func expand(extraScrollDownHeight: CGFloat, scrollView: UIScrollView) {
-        guard !isAnimating, let delegate else { return }
+        guard !isAnimating else { return }
         isAnimating = true
         isExpanded = true
-        delegate.pagerDidChangeExpansionState(self)
 
         let centralPage = getOrCreatePageView(for: currentIndex, layout: false)
-        let startFrame = delegate.pagerRequestSelectedCoverFlowItemFrame()
-        centralPage.expand(extraScrollDownHeight: extraScrollDownHeight, previewStartFrame: startFrame)
+        centralPage.expand(extraScrollDownHeight: extraScrollDownHeight)
         let newHeight = centralPage.getFullHeight()
 
         heightConstraint.constant = newHeight
@@ -292,7 +250,6 @@ final class NftDetailsPagerView: UIView {
             scrollView.layoutIfNeeded()
         } completion: { [weak self] _ in
             self?.isAnimating = false
-            centralPage.commitExpansion()
         }
     }
 
@@ -307,7 +264,12 @@ final class NftDetailsPagerView: UIView {
         pendingProgrammaticExpand = true
         parentScrollView.setContentOffset(.init(x: 0, y: scrollExpandThreshold - 5), animated: false)
     }
-    
+
+    private func simulateUserScrollToFullScreen(_ parentScrollView: UIScrollView) {
+        canBeDraggedToFullScreen = true
+        parentScrollView.setContentOffset(.init(x: 0, y: scrollExpandToFullScreenThreshold - 5), animated: false)
+    }
+
     func handleEndDecelerating() {
         canBeDraggedToFullScreen = true
     }
@@ -317,18 +279,20 @@ final class NftDetailsPagerView: UIView {
             canBeDraggedToFullScreen = true
         }
     }
-    
+        
     func handleVerticalScroll(_ parentScrollView: UIScrollView) {
         let offsetY = parentScrollView.contentOffset.y
         if isExpanded {
-            let centralPage = getOrCreatePageView(for: currentIndex)
-            centralPage.updateExpandedPreview(extraScrollDownHeight: -offsetY)
+            _ = getOrCreatePageView(for: currentIndex)
             if !isAnimating {
                 if offsetY > scrollCollapseThreshold {
                     collapse(scrollView: parentScrollView)
                 } else {
                     if offsetY < scrollExpandToFullScreenThreshold, canBeDraggedToFullScreen {
-                        centralPage.expandToFullScreenPreview()
+                        parentScrollView.panGestureRecognizer.isEnabled = false
+                        parentScrollView.panGestureRecognizer.isEnabled = true
+                        delegate?.pagerDidRequestFullScreenPreview()
+                        collapse(scrollView: parentScrollView)
                     }
                 }
             }
@@ -346,15 +310,6 @@ final class NftDetailsPagerView: UIView {
         var v: UIView? = superview
         while v != nil, !(v is UIScrollView) { v = v?.superview }
         return v as? UIScrollView
-    }
-    
-    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        guard point.y > collectionView.frame.maxY else {
-            return super.hitTest(point, with: event)
-        }
-
-        let pointAtBottomOfContent = CGPoint(x: collectionView.bounds.midX, y: collectionView.bounds.maxY - 1)
-        return collectionView.hitTest(pointAtBottomOfContent, with: event) ?? collectionView
     }
 }
 
@@ -399,20 +354,12 @@ extension NftDetailsPagerView: UICollectionViewDelegate {
 
         let fromModel = models[leftIndex]
         let toModel = leftIndex < rightIndex ? models[rightIndex] : nil
-        
-        // Hide previews for static (scrolled to exact page boundaries) states
-        let isHidden = hideStaticPreview && !frac.isZero
-        getOrCreatePageView(for: leftIndex, layout: false).setPreviewHidden(isHidden)
-        if toModel != nil {
-            getOrCreatePageView(for: rightIndex, layout: false).setPreviewHidden(isHidden)
-        }
-        
+                
         // Make sure that we schedule image loading for neighbours
         for i in normalizeIndex(leftIndex - 2)...normalizeIndex(rightIndex + 1) {
             models[i].requestImage()
         }
         
-        // We requested image loading for the center and for the right page. A special request to
         delegate?.pagerDidScroll(self, withProgress: frac, fromModel: fromModel, toModel: toModel)
     }
 
@@ -459,19 +406,195 @@ extension NftDetailsPagerView: UICollectionViewDelegate {
 }
 
 extension NftDetailsPagerView: NftDetailsPageViewDelegate {
-    func ntfDetailsOnConfigureToolbarButton(forModel model: NftDetailsItemModel, action: NftDetailsItemModel.Action) -> NftDetailsToolbarButtonConfig? {
-        delegate?.ntfDetailsOnConfigureToolbarButton(forModel: model, action: action)
+    func pageDidRequestFullScreenPreview() {
+        if let parentScrollView {
+            simulateUserScrollToFullScreen(parentScrollView)
+        }
     }
-
-    func nftDetailsOnRenewDomain(forModel model: NftDetailsItemModel) {
-        delegate?.nftDetailsOnRenewDomain(forModel: model)
+    
+    func ntfDetailsOnConfigureAction(forModel model: NftDetailsItemModel, action: NftDetailsItemModel.Action) -> NftDetailsActionConfig? {
+        delegate?.ntfDetailsOnConfigureAction(forModel: model, action: action)
     }
+}
 
-    func nftDetailsOnShowCollection(forModel model: NftDetailsItemModel) {
-        delegate?.nftDetailsOnShowCollection(forModel: model)
-    }
+extension NftDetailsPagerView {
+    
+    private final class CollectionView: UICollectionView, UIGestureRecognizerDelegate {
+        private var legacyFullWidthBackPan: UIPanGestureRecognizer?
+        private var legacyFullWidthBackPanStartX: CGFloat?
+        
+        override init(frame: CGRect, collectionViewLayout layout: UICollectionViewLayout) {
+            super.init(frame: frame, collectionViewLayout: layout)
 
-    func pageDidRequestFullScreenPreview(forModel model: NftDetailsItemModel, view: UIView) {
-        delegate?.pagerDidRequestFullScreenPreview(forModel: model, view: view)
+            assert(panGestureRecognizer.delegate === self, "Something changed in UIKit. It's not critical, but it's worth knowing ASAP")
+            if #available(iOS 26.0, *) {
+                //
+            } else {
+                let p = UIPanGestureRecognizer()
+                p.addTarget(self, action: #selector(handleFullWidthBackPan(_:)))
+                p.delegate = self
+                p.cancelsTouchesInView = false
+                addGestureRecognizer(p)
+                legacyFullWidthBackPan = p
+            }
+            
+            isPagingEnabled = true
+            showsHorizontalScrollIndicator = false
+            clipsToBounds = false
+            backgroundColor = .clear
+            bounces = false
+            if #available(iOS 26.0, *) {
+                topEdgeEffect.isHidden = true
+                bottomEdgeEffect.isHidden = true
+            }
+        }
+        
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+        
+        private func isAtFirstPageEdge() -> Bool {
+            let minOffsetX = -adjustedContentInset.left
+            return contentOffset.x <= minOffsetX + 1
+        }
+        
+        private func locationIsInLeadingEdgeStrip(_ x: CGFloat) -> Bool {
+            let leadingEdgeWidth: CGFloat = 28
+            switch effectiveUserInterfaceLayoutDirection {
+            case .rightToLeft:
+                return x >= bounds.width - leadingEdgeWidth
+            default:
+                return x <= leadingEdgeWidth
+            }
+        }
+        
+        private func isBackSwipe(translation: CGPoint, velocity: CGPoint) -> Bool {
+            let minTranslation: CGFloat = 56
+            let maxTranslation: CGFloat = 120
+            let minVelocity: CGFloat = 50
+            
+            guard abs(translation.y) < abs(translation.x) * 0.75 else { return false }
+            
+            switch effectiveUserInterfaceLayoutDirection {
+            case .rightToLeft:
+                guard translation.x < -minTranslation else { return false }
+                return velocity.x < -minVelocity || translation.x < -maxTranslation
+            default:
+                guard translation.x > minTranslation else { return false }
+                return velocity.x > minVelocity || translation.x > maxTranslation
+            }
+        }
+        
+        @objc private func handleFullWidthBackPan(_ gesture: UIPanGestureRecognizer) {
+            guard let nav = nearestValidNavigationController else { return }
+            
+            switch gesture.state {
+            case .began:
+                legacyFullWidthBackPanStartX = gesture.location(in: self).x
+            case .ended, .cancelled:
+                defer { legacyFullWidthBackPanStartX = nil }
+                guard isAtFirstPageEdge(), let startX = legacyFullWidthBackPanStartX, !locationIsInLeadingEdgeStrip(startX) else { return }
+                let t = gesture.translation(in: self)
+                let v = gesture.velocity(in: self)
+                guard isBackSwipe(translation: t, velocity: v) else { return }
+                nav.popViewController(animated: true)
+            default:
+                break
+            }
+        }
+        
+        private var nearestValidNavigationController: UINavigationController? {
+            var responder: UIResponder? = self
+            while let current = responder {
+                if let vc = current as? UIViewController {
+                    let nav = vc.navigationController
+                    if nav?.viewControllers.count ?? 0 > 1 {
+                        return nav
+                    }
+                    break
+                }
+                responder = current.next
+            }
+            return nil
+        }
+       
+        override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            
+            if gestureRecognizer === legacyFullWidthBackPan {
+                return nearestValidNavigationController != nil && isAtFirstPageEdge()
+            }
+            
+            // Allow swipe back from the left edge OR being at the first page
+            if gestureRecognizer === panGestureRecognizer {
+                let panLocationX = gestureRecognizer.location(in: superview).x - frame.minX
+                if locationIsInLeadingEdgeStrip(panLocationX) {
+                    return false
+                }
+                return true
+            }
+            
+            return true
+        }
+        
+        private func getInteractivePopRecognizers(_ nav: UINavigationController) -> [UIGestureRecognizer] {
+            var result = [UIGestureRecognizer]()
+            if let edge = nav.interactivePopGestureRecognizer {
+                result.append(edge)
+            }
+            if #available(iOS 26.0, *) {
+                if let content = nav.interactiveContentPopGestureRecognizer {
+                    result.append(content)
+                }
+            }
+            return result
+        }
+        
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard gestureRecognizer === panGestureRecognizer, isAtFirstPageEdge(), let nav = nearestValidNavigationController else { return false }
+            
+            if getInteractivePopRecognizers(nav).contains(otherGestureRecognizer) {
+                return otherGestureRecognizer.isEnabled
+            }
+            return false
+        }
+        
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            
+            // Allow swipe vertically in legacy OS (make sense at the very first page)
+            if gestureRecognizer == legacyFullWidthBackPan, otherGestureRecognizer.view is UIScrollView {
+                return true
+            }
+
+            guard let nav = nearestValidNavigationController, isAtFirstPageEdge() else { return false }
+            let interactiveRecognizers = getInteractivePopRecognizers(nav)
+            
+            func isPair(_ a: UIGestureRecognizer, _ b: UIGestureRecognizer) -> Bool {
+                (gestureRecognizer === a && otherGestureRecognizer === b) || (gestureRecognizer === b && otherGestureRecognizer === a)
+            }
+            
+            let panGR = panGestureRecognizer
+            
+            for gr in interactiveRecognizers {
+                if isPair(panGR, gr) {
+                    return gr.isEnabled
+                }
+            }
+            
+            if let full = legacyFullWidthBackPan {
+                if isPair(full, panGR) {
+                    return true
+                }
+                for gr in interactiveRecognizers {
+                    if isPair(full, gr) {
+                        return gr.isEnabled
+                    }
+                }
+            }
+            
+            return false
+        }
     }
 }

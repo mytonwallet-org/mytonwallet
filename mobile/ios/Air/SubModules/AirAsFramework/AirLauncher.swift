@@ -218,6 +218,7 @@ public class AirLauncher {
         } completion: { _ in
             Task {
                 Api.stop()
+                AgentStore.shared.resetConversation()
                 await WalletCoreData.clean()
                 AgentStore.shared.clean()
                 self.runtimeCoordinator?.reset()

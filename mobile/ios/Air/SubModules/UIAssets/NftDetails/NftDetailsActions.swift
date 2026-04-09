@@ -1,12 +1,11 @@
+import ContextMenuKit
 import UIComponents
 
-struct NftDetailsToolbarButtonConfig {
+struct NftDetailsActionConfig {
     var onTap: (() -> Void)?
-    var onMenuConfiguration: (() -> MenuConfig)?
+    var onMenuConfiguration: (() -> ContextMenuConfiguration)?
 }
 
 protocol NftDetailsActionsDelegate: AnyObject {
-    func nftDetailsOnShowCollection(forModel model: NftDetailsItemModel)
-    func nftDetailsOnRenewDomain(forModel model: NftDetailsItemModel)
-    func ntfDetailsOnConfigureToolbarButton(forModel model: NftDetailsItemModel, action: NftDetailsItemModel.Action) -> NftDetailsToolbarButtonConfig?
+    func ntfDetailsOnConfigureAction(forModel model: NftDetailsItemModel, action: NftDetailsItemModel.Action) -> NftDetailsActionConfig?
 }

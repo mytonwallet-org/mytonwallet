@@ -18,6 +18,7 @@ type OwnProps<T = void> = {
   isDestructive?: boolean;
   role?: string;
   isSelected?: boolean;
+  ignoreBaseClassName?: boolean;
 } & (T extends void ? {
   onClick?: OnClickHandler<void>;
   clickArg?: never;
@@ -36,6 +37,7 @@ function MenuItem<T>(props: OwnProps<T>) {
     isDestructive,
     role,
     isSelected,
+    ignoreBaseClassName,
   } = props;
 
   const handleClick = useLastCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -67,7 +69,7 @@ function MenuItem<T>(props: OwnProps<T>) {
   });
 
   const fullClassName = buildClassName(
-    styles.menuItem,
+    !ignoreBaseClassName && styles.menuItem,
     className,
     isDestructive && styles.destructive,
   );

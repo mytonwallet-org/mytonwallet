@@ -33,8 +33,59 @@ env:
   AGENT_API_URL: ${{ vars.AGENT_API_URL }}
 
 jobs:
+  detect-changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      android-only: ${{ steps.filter.outputs.android-only }}
+      ios-only: ${{ steps.filter.outputs.ios-only }}
+      electron-changed: ${{ steps.filter.outputs.electron-changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check changed paths
+        id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "android-only=false" >> "$GITHUB_OUTPUT"
+            echo "ios-only=false" >> "$GITHUB_OUTPUT"
+            echo "electron-changed=true" >> "$GITHUB_OUTPUT"
+            echo "Manual dispatch — building all platforms"
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+
+          # Check if ALL changes are exclusively in mobile/android/ or mobile/ios/
+          ANDROID_ONLY="true"
+          IOS_ONLY="true"
+          ELECTRON_CHANGED="false"
+          while IFS= read -r file; do
+            if [[ ! "$file" =~ ^mobile/android/ ]]; then
+              ANDROID_ONLY="false"
+            fi
+            if [[ ! "$file" =~ ^mobile/ios/ ]]; then
+              IOS_ONLY="false"
+            fi
+            if [[ "$file" =~ ^src/electron/ ]]; then
+              ELECTRON_CHANGED="true"
+            fi
+          done <<< "$CHANGED"
+
+          echo "android-only=$ANDROID_ONLY" >> "$GITHUB_OUTPUT"
+          echo "ios-only=$IOS_ONLY" >> "$GITHUB_OUTPUT"
+          echo "electron-changed=$ELECTRON_CHANGED" >> "$GITHUB_OUTPUT"
+          echo "Changed files:"
+          echo "$CHANGED"
+          echo "android-only=$ANDROID_ONLY, ios-only=$IOS_ONLY, electron-changed=$ELECTRON_CHANGED"
+
   electron-release:
     name: Build, package and publish Electron
+    needs: detect-changes
+    if: needs.detect-changes.outputs.electron-changed == 'true'
     runs-on: macos-15
     environment: production
     timeout-minutes: 30
@@ -211,6 +262,8 @@ jobs:
 
   extensions-package:
     name: Build and package extensions
+    needs: detect-changes
+    if: needs.detect-changes.outputs.android-only != 'true' && needs.detect-changes.outputs.ios-only != 'true'
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 10
@@ -395,10 +448,11 @@ jobs:
 
   android-release:
     name: Release Android app
+    needs: detect-changes
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 30
-    if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master' && needs.detect-changes.outputs.ios-only != 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -426,14 +480,11 @@ jobs:
           working-directory: mobile
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: "21"
           distribution: "temurin"
           cache: gradle
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Package and publish
         env:
@@ -482,10 +533,11 @@ jobs:
 
   ios-release:
     name: Release iOS app
+    needs: detect-changes
     runs-on: macos-26
     environment: production
     timeout-minutes: 30
-    if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master' && needs.detect-changes.outputs.android-only != 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

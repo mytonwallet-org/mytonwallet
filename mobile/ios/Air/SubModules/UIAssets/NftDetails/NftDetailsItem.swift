@@ -20,23 +20,40 @@ class NftDetailsItem: @unchecked Sendable {
     let id: String
     let name: String
     let description: String?
-    let thumbnailUrl: String?
-    let lottieUrl: String?
     let attributes: [Attribute]?
     let collection: Collection?
     let tonDomain: TonDomain?
 
-    init(id: String, name: String, description: String?, thumbnailUrl: String?,
-         lottieUrl: String?, attributes: [Attribute]?,
-         collection: Collection?, tonDomain: TonDomain?) {
+    private let thumbnailUrlString: String?
+    private let imageUrlString: String?
+    private let lottieUrlString: String?
+
+    var imageUrl: URL? {
+        guard let urlString = imageUrlString?.nilIfEmpty, let url = URL(string: urlString) else { return nil }
+        return url
+    }
+    
+    var coverflowImageUrl: URL? {
+        guard let urlString = thumbnailUrlString?.nilIfEmpty, let url = URL(string: urlString) else { return nil }
+        return url
+    }
+    
+    var lottieUrl: URL? {
+        guard let s = lottieUrlString?.nilIfEmpty, let url = URL(string: s) else { return nil }
+        return url
+    }
+
+    init(id: String, name: String, description: String?, thumbnailUrl: String?, imageUrl: String?,
+         lottieUrl: String?, attributes: [Attribute]?, collection: Collection?, tonDomain: TonDomain?) {
         self.id = id
         self.name = name
         self.description = description
-        self.thumbnailUrl = thumbnailUrl
+        self.thumbnailUrlString = thumbnailUrl
+        self.imageUrlString = imageUrl
+        self.lottieUrlString = lottieUrl
         self.attributes = attributes
         self.collection = collection
         self.tonDomain = tonDomain
-        self.lottieUrl = lottieUrl
     }
 }
 
@@ -46,37 +63,29 @@ extension NftDetailsItem.TonDomain {
             return lang("Expired")
         } else {
             let daysText = lang("$in_days", arg1: expirationDays)
-            return lang("$expires_in %days%", arg1: 1).replacingOccurrences(of: "1", with: daysText) // 1 is the number of domains, not days
+            return lang("$one_domain_expires %days%", arg1: daysText)
         }
     }
 }
 
 protocol NftDetailsItemModelDelegate: AnyObject {
     func modelDidRequestImage(_  model: NftDetailsItemModel)
-    func modelDidAddSubscription(_  model: NftDetailsItemModel, to event: NftDetailsItemModel.Event)
 }
 
-class NftDetailsItemModel: Identifiable, @unchecked Sendable, CustomStringConvertible {
+class NftDetailsItemModel: Identifiable, Equatable, @unchecked Sendable, CustomStringConvertible {
 
-    enum Action: CaseIterable { case wear, send, share, more }
+    enum Action: CaseIterable { case wear, send, share, more, showCollection, renewDomain }
 
     init(item: NftDetailsItem) {
         self.item = item
     }
 
     let item: NftDetailsItem
-
     var id: String { item.id }
-    
     var name: String { item.name }
     
-    var lottieUrl: URL? {
-        guard let s = item.lottieUrl?.nilIfEmpty, let url = URL(string: s) else { return nil }
-        return url
-    }
-    
     /// A flag to not use blurring and overlays for image processing: Lottie will spoil it all.
-    var simplifiedImageProcessing: Bool { lottieUrl != nil }
+    var simplifiedImageProcessing: Bool { item.lottieUrl != nil }
 
     var processedImageState: NftDetailsImage.ProcessedState = .idle
 
@@ -94,10 +103,10 @@ class NftDetailsItemModel: Identifiable, @unchecked Sendable, CustomStringConver
         delegate?.modelDidRequestImage(self)
     }
     
-    var description: String {
-        return "<Model '\(name)' \(processedImageState)>"
-    }
+    var description: String {  return "<Model '\(name)' \(processedImageState)>" }
 
+    static func == (lhs: NftDetailsItemModel, rhs: NftDetailsItemModel) -> Bool { lhs === rhs } // Reference equality only
+    
     // MARK: - Event Subscription
 
     enum Event: Hashable {
@@ -134,11 +143,6 @@ class NftDetailsItemModel: Identifiable, @unchecked Sendable, CustomStringConver
         return subscriptions.count
     }
 
-    func lastSubcriptionTokenForEvent(_ event: Event) -> Int? {
-        guard let subscriptions = observers[event] else { return nil }
-        return subscriptions.keys.max()
-    }
-    
     private var observers: [Event: [Int: () -> Void]] = [:]
     @MainActor private static var observerIdCounters: [Event: Int] = [:]
 
@@ -147,7 +151,6 @@ class NftDetailsItemModel: Identifiable, @unchecked Sendable, CustomStringConver
         let token = Self.observerIdCounters[event, default: 0] + 1
         Self.observerIdCounters[event] = token
         observers[event, default: [:]][token] = onChange
-        delegate?.modelDidAddSubscription(self, to: event)
         return token
     }
 
@@ -175,5 +178,12 @@ extension Array where Element == NftDetailsItemModel {
     
     func findIndexById(_ id: String) -> Int? {
         firstIndex(where: { $0.id == id })
+    }
+
+    /// Prepare a fast lookup dictionary `[id → index]`
+    func indexById() -> [String: Int] {
+        var map = [String: Int](minimumCapacity: count)
+        for (i, model) in enumerated() { map[model.id] = i }
+        return map
     }
 }

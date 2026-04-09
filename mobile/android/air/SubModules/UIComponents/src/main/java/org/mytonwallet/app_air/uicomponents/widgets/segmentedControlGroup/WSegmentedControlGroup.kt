@@ -16,6 +16,7 @@ import androidx.core.view.children
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
@@ -33,18 +34,15 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
     private var sliderRect = RectF()
     private var sliderPaint = Paint()
     private var sliderRadius = 0F
-    private var sliderColor: Int
     private var sliderShadowRect = RectF()
     private var sliderShadowPaintLeft = Paint()
     private var sliderShadowPaintRight = Paint()
 
     private var dividerPaint = Paint()
-    private var dividerColor: Int
     private var dividerStrokeWidth = 1f
     private var dividerMargin = 0
     private var inset: Float = 0F
 
-    private var shadowColor: Int
 
     private var animator: ValueAnimator? = null
     private var cancelledPosition: Float? = null
@@ -61,9 +59,6 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
         layoutDirection = LAYOUT_DIRECTION_LTR
 
         gravity = Gravity.CENTER_VERTICAL
-        sliderColor = WColor.Background.color
-        dividerColor = WColor.DIVIDER.color
-        shadowColor = WColor.GroupedBackground.color
         inset = 4f.dp
         dividerMargin = 9.dp
 
@@ -72,20 +67,16 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
         sliderRadius = 15f.dp
         sliderPaint.apply {
             flags = ANTI_ALIAS_FLAG
-            color = sliderColor
             style = Paint.Style.FILL
         }
         sliderShadowPaintLeft.apply {
-            setShadowLayer(sliderRadius, 1.5F * inset, 1.5F * inset, shadowColor)
             setLayerType(LAYER_TYPE_SOFTWARE, null)
         }
         sliderShadowPaintRight.apply {
-            setShadowLayer(sliderRadius, -1.5F * inset, 1.5F * inset, shadowColor)
             setLayerType(LAYER_TYPE_SOFTWARE, null)
         }
         dividerPaint.apply {
             flags = ANTI_ALIAS_FLAG
-            color = dividerColor
             style = Paint.Style.STROKE
             strokeWidth = dividerStrokeWidth
         }
@@ -323,9 +314,21 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
     }
 
     override fun updateTheme() {
-        sliderColor = WColor.Background.color
-        dividerColor = WColor.DIVIDER.color
-        shadowColor = WColor.GroupedBackground.color
+        setBackgroundColor(WColor.SecondaryBackground.color, 15f.dp)
+        sliderPaint.color = WColor.Background.color
+        dividerPaint.color = WColor.DIVIDER.color
+        sliderShadowPaintLeft.setShadowLayer(
+            sliderRadius,
+            1.5F * inset,
+            1.5F * inset,
+            WColor.GroupedBackground.color
+        )
+        sliderShadowPaintRight.setShadowLayer(
+            sliderRadius,
+            -1.5F * inset,
+            1.5F * inset,
+            WColor.GroupedBackground.color
+        )
         updateChildrenTheme(selectedButtonIndex)
         invalidate()
     }

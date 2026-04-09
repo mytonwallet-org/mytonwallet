@@ -289,9 +289,8 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
     }
     
     public var onScroll: ((CGFloat) -> Void)?
-    public var onScrollStart: (() -> Void)?
-    public var onScrollEnd: (() -> Void)?
     public var scrollingView: UIScrollView? { tableView }
+    public func calculateHeight(isHosted: Bool) -> CGFloat { 0 }
 }
 
 

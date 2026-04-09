@@ -19,6 +19,8 @@ $screen_recording_info: |
   你正在录制屏幕。
   此画面可能包含敏感或私密信息。
   请确保你了解即将分享的内容。
+Screen Recording: 屏幕录制
+Disable Screen Record Warning: 关闭屏幕录制警告
 I Understand, Proceed: 知道了，继续
 Waiting for Network: 正在等待网络
 Updating: 正在更新

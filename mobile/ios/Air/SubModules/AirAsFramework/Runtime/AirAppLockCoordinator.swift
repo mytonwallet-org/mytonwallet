@@ -47,6 +47,13 @@ final class AirAppLockCoordinator: NSObject {
         unlockViewController = nil
         pendingLaunchPresentationCompletions.removeAll()
 
+        if DebugBypassLockscreen.isEnabled {
+            resolveUnlockPresentationDecision(mark: "splash.afterUnlock.skipLock", result: "debugBypass")
+            isAppUnlocked = true
+            rootStateCoordinator.hideUnlockState()
+            return
+        }
+
         guard AuthSupport.accountsSupportAppLock else {
             resolveUnlockPresentationDecision(mark: "splash.afterUnlock.skipLock", result: "lockDisabled")
             isAppUnlocked = true
@@ -68,6 +75,10 @@ final class AirAppLockCoordinator: NSObject {
                 guard let self else { return }
                 self.didAuthorizeLaunchUnlock = true
                 self.completeLaunchUnlockIfPossible()
+            },
+            onSignOutRequested: { [weak self] in
+                guard let self else { return }
+                try await self.removeAllWalletsFromLockScreen()
             },
             successCompletionDelay: 0
         )
@@ -109,6 +120,15 @@ final class AirAppLockCoordinator: NSObject {
     }
 
     func lockApp(animated: Bool) {
+        if DebugBypassLockscreen.isEnabled {
+            unlockViewController?.dismiss(animated: false)
+            unlockViewController = nil
+            lockMode = nil
+            isAppUnlocked = true
+            rootStateCoordinator.hideUnlockState()
+            return
+        }
+
         guard AuthSupport.accountsSupportAppLock else { return }
         guard lockMode == nil else { return }
 
@@ -129,11 +149,16 @@ final class AirAppLockCoordinator: NSObject {
                 self.rootStateCoordinator.hideUnlockState()
                 self.isAppUnlocked = true
                 self.onUnlock?()
+            },
+            onSignOutRequested: { [weak self] in
+                guard let self else { return }
+                try await self.removeAllWalletsFromLockScreen()
             }
         )
         unlockVC.modalPresentationStyle = .overFullScreen
         unlockVC.modalTransitionStyle = .crossDissolve
         unlockVC.modalPresentationCapturesStatusBarAppearance = true
+        unlockVC.loadViewIfNeeded()
         unlockViewController = unlockVC
 
         present(unlockVC, animated: animated) {
@@ -155,6 +180,11 @@ final class AirAppLockCoordinator: NSObject {
         pendingLaunchPresentationCompletions.removeAll()
         isAppUnlocked = false
         rootStateCoordinator.hideUnlockState()
+    }
+
+    private func removeAllWalletsFromLockScreen() async throws {
+        try await AccountStore.resetAccounts()
+        reset()
     }
 
     private func completeLaunchUnlockIfPossible() {

@@ -67,6 +67,7 @@ export function setupActivePolling(
   onUpdate: OnApiUpdate,
   onUpdatingStatusChange: OnUpdatingStatusChange,
   newestActivityTimestamps: ApiActivityTimestamps,
+  shouldResetBalances?: boolean,
 ): NoneToVoidFunction {
   const balancePolling = setupBalancePolling(
     accountId,
@@ -435,7 +436,7 @@ function setupWalletVersionsPolling(accountId: string, onUpdate: OnApiUpdate) {
     async poll() {
       try {
         const { type: accountType, byChain: { ton: tonWallet } } = await fetchStoredAccount(accountId);
-        if (accountType === 'bip39' || !tonWallet) {
+        if (!tonWallet) {
           return 'stop';
         }
 

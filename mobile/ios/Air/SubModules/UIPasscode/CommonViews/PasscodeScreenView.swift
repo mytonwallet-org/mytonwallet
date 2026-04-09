@@ -15,12 +15,19 @@ private let passcodeLength = 4
 protocol PasscodeScreenViewDelegate: PasscodeInputViewDelegate {
     @MainActor func animateSuccess()
     func onAuthenticated(taskDone: Bool, passcode: String)
+    func signOutRequested()
+}
+
+extension PasscodeScreenViewDelegate {
+    func signOutRequested() {}
 }
 
 public class PasscodeScreenView: UIView {
     
     /// An external config used for `effectiveBiometryType` in the work context.
     private let biometricPassAllowed: Bool
+    private let canShowSignOutWhenEmpty: Bool
+    private var showsSignOutWhenEmpty: Bool
     private weak var delegate: PasscodeScreenViewDelegate? = nil
         
     init(
@@ -29,10 +36,14 @@ public class PasscodeScreenView: UIView {
         subtitle: String? = nil,
         compactLayout: Bool = false,
         biometricPassAllowed: Bool,
+        allowsSignOutWhenEmpty: Bool = false,
+        showsSignOutWhenEmpty: Bool = false,
         delegate: PasscodeScreenViewDelegate,
         matchHeaderColors: Bool = true
     ) {
             self.biometricPassAllowed = biometricPassAllowed
+            self.canShowSignOutWhenEmpty = allowsSignOutWhenEmpty
+            self.showsSignOutWhenEmpty = showsSignOutWhenEmpty
             self.delegate = delegate
             super.init(frame: .zero)
         setupViews(
@@ -85,6 +96,7 @@ public class PasscodeScreenView: UIView {
     internal var enterPasscodeLabel: WReplacableLabel!
     private var customHeader: UIView?
     private var isTryingBiometric = false
+    private weak var signOutPromptView: PasscodeSignOutPromptView?
     
     private func setupViews(title: String,
                             replacedTitle: String?,
@@ -321,6 +333,25 @@ public class PasscodeScreenView: UIView {
             }
             unlockView.addArrangedSubview(rowView)
         }
+
+        if canShowSignOutWhenEmpty {
+            let signOutPromptView = PasscodeSignOutPromptView(
+                promptTextColor: matchHeaderColors ? unlockScreenTintColor.withAlphaComponent(0.5) : .air.secondaryLabel,
+                onButtonPressed: { [weak self] in
+                    self?.delegate?.signOutRequested()
+                }
+            )
+            signOutPromptView.translatesAutoresizingMaskIntoConstraints = false
+            signOutPromptView.isHidden = !showsSignOutWhenEmpty
+            self.signOutPromptView = signOutPromptView
+            addSubview(signOutPromptView)
+            NSLayoutConstraint.activate([
+                signOutPromptView.centerXAnchor.constraint(equalTo: safeAreaLayoutGuide.centerXAnchor),
+                signOutPromptView.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -16),
+                signOutPromptView.leadingAnchor.constraint(greaterThanOrEqualTo: safeAreaLayoutGuide.leadingAnchor, constant: 16),
+                signOutPromptView.trailingAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            ])
+        }
     }
     
     public func fadeIn() {
@@ -373,6 +404,12 @@ public class PasscodeScreenView: UIView {
     }
     
     private let biometricButtonTag = 10
+
+    func setShowsSignOutWhenEmpty(_ value: Bool) {
+        guard canShowSignOutWhenEmpty else { return }
+        showsSignOutWhenEmpty = value
+        signOutPromptView?.isHidden = !value
+    }
     
     @objc func buttonPressed(button: UIButton) {
         switch button.tag {
@@ -419,7 +456,6 @@ public class PasscodeScreenView: UIView {
         }
         return handled
     }
-
     func tryBiometric() {
         guard effectiveBiometryType != nil else {
             return

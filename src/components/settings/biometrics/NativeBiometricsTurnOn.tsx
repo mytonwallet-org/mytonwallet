@@ -21,7 +21,7 @@ import styles from '../Settings.module.scss';
 interface OwnProps {
   isActive?: boolean;
   isInsideModal?: boolean;
-  handleBackClick: NoneToVoidFunction;
+  onBackClick: NoneToVoidFunction;
 }
 
 interface StateProps {
@@ -36,7 +36,7 @@ function NativeBiometricsTurnOn({
   isPinAccepted,
   error,
   isNativeBiometricsEnabled,
-  handleBackClick,
+  onBackClick,
 }: OwnProps & StateProps) {
   const { enableNativeBiometrics, clearNativeBiometricsError } = getActions();
 
@@ -52,7 +52,7 @@ function NativeBiometricsTurnOn({
 
   useHistoryBack({
     isActive,
-    onBack: handleBackClick,
+    onBack: onBackClick,
   });
 
   useEffect(() => {
@@ -63,9 +63,9 @@ function NativeBiometricsTurnOn({
 
   useEffectWithPrevDeps(([prevIsEnabled]) => {
     if (isNativeBiometricsEnabled && !prevIsEnabled) {
-      handleBackClick();
+      onBackClick();
     }
-  }, [isNativeBiometricsEnabled, handleBackClick]);
+  }, [isNativeBiometricsEnabled, onBackClick]);
 
   const handleSubmit = useLastCallback((password: string) => {
     enableNativeBiometrics({ password });
@@ -75,7 +75,7 @@ function NativeBiometricsTurnOn({
     <div className={styles.slide}>
       <div className={buildClassName(styles.content, styles.contentFullSize)}>
         <div className={styles.header}>
-          <Button isSimple isText onClick={handleBackClick} className={styles.headerBack}>
+          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
             <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
             <span>{lang('Back')}</span>
           </Button>

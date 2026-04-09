@@ -1,9 +1,10 @@
+import ContextMenuKit
 import UIKit
 import WalletContext
 import UIComponents
 
 protocol NftDetailsPageViewDelegate: NftDetailsActionsDelegate {
-    func pageDidRequestFullScreenPreview(forModel model: NftDetailsItemModel, view: UIView)
+    func pageDidRequestFullScreenPreview()
 }
 
 class NftDetailsPageView: UIView {
@@ -12,19 +13,12 @@ class NftDetailsPageView: UIView {
     private weak var delegate: NftDetailsPageViewDelegate?
 
     private let stackView = UIStackView()
-    
-    private let header = UIView()
     private var headerHeightConstraint: NSLayoutConstraint!
-    
-    private let preview: NftDetailsItemPreview
-    private var previewBottomConstraint: NSLayoutConstraint!
-    private var previewWidthConstraint: NSLayoutConstraint!
-    private var previewHeightConstraint: NSLayoutConstraint!
-    
     private var processedImageSubscription: NftDetailsItemModel.Subscription?
     private var cachedContentHeight: CGFloat?
     private var contentColor: NftDetailsContentPalette?
     private var isExpanded: Bool
+    private var toolbarMenuInteractions: [ContextMenuInteraction] = []
 
     struct LayoutGeometry: Equatable {
         let stackMargin: CGFloat = 16
@@ -37,23 +31,23 @@ class NftDetailsPageView: UIView {
     }
 
     private(set) var layoutGeometry: LayoutGeometry
-    
+
     init(model: NftDetailsItemModel, layoutGeometry: LayoutGeometry, isExpanded: Bool, delegate: NftDetailsPageViewDelegate) {
         self.model = model
         self.delegate = delegate
         self.layoutGeometry = layoutGeometry
         self.isExpanded = isExpanded
-        self.preview = NftDetailsItemPreview(model: model)
 
         super.init(frame: .fromSize(width: layoutGeometry.width, height: .greatestFiniteMagnitude))
 
         clipsToBounds = false
-
-        preview.translatesAutoresizingMaskIntoConstraints = false
-        header.addSubview(preview)
-        
-        header.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(header)
+                        
+        // Imitates expanded image tap: real or background render picture
+        do {
+            let p =  UITapGestureRecognizer(target: self, action: #selector(handleTapForExpandedPreview))
+            p.cancelsTouchesInView = false
+            addGestureRecognizer(p)
+        }
         
         stackView.axis = .vertical
         stackView.spacing = 12
@@ -64,25 +58,14 @@ class NftDetailsPageView: UIView {
         stackView.addArrangedSubview(UIView()) // spacer
         addSubview(stackView)
         
-        headerHeightConstraint = header.heightAnchor.constraint(equalToConstant: layoutGeometry.headerHeight(isExpanded: isExpanded))
-        previewHeightConstraint = preview.heightAnchor.constraint(equalToConstant: 100)
-        previewWidthConstraint = preview.widthAnchor.constraint(equalToConstant: 100)
-        previewBottomConstraint = preview.bottomAnchor.constraint(equalTo: header.bottomAnchor)
+        headerHeightConstraint = stackView.topAnchor.constraint(equalTo: topAnchor, constant: layoutGeometry.headerHeight(isExpanded: isExpanded))
         NSLayoutConstraint.activate([
-            preview.centerXAnchor.constraint(equalTo: header.centerXAnchor),
-            previewHeightConstraint,
-            previewWidthConstraint,
-            previewBottomConstraint,
-            
-            header.topAnchor.constraint(equalTo: topAnchor),
-            header.leadingAnchor.constraint(equalTo: leadingAnchor),
-            header.trailingAnchor.constraint(equalTo: trailingAnchor),
             headerHeightConstraint,
             
-            stackView.topAnchor.constraint(equalTo: header.bottomAnchor),
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: layoutGeometry.stackMargin),
             stackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -layoutGeometry.stackMargin),
             stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            
             widthAnchor.constraint(equalToConstant: layoutGeometry.width)
         ])
         
@@ -102,11 +85,9 @@ class NftDetailsPageView: UIView {
         // Collection
         do {
             let button = NftDetailsCollectionButton()
-            if let collection = item.collection {
+            if let collection = item.collection, let config = delegate.ntfDetailsOnConfigureAction(forModel: model, action: .showCollection) {
                 button.name = collection.name
-                button.onTap = { [weak self] in
-                    self?.delegate?.nftDetailsOnShowCollection(forModel: model)
-                }
+                button.onTap = config.onTap
             } else {
                 button.name = lang("Standalone NFT")
             }
@@ -117,35 +98,43 @@ class NftDetailsPageView: UIView {
         // Toolbar
         do {
             var buttons: [WScalableButton] = []
-            for action in NftDetailsItemModel.Action.allCases {
-                guard let config = delegate.ntfDetailsOnConfigureToolbarButton(forModel: model, action: action) else {
-                    continue
+            var menuInteractions: [ContextMenuInteraction] = []
+            
+            func add(_ action: NftDetailsItemModel.Action, _ title: String, _ imageName: String) {
+                if let config = delegate.ntfDetailsOnConfigureAction(forModel: model, action: action) {
+                    let button = WScalableButton(
+                        title: title,
+                        image: .airBundle(imageName),
+                        style: .thinGlass,
+                        onTap: config.onTap ?? {},
+                    )
+                    if let menuConfig = config.onMenuConfiguration {
+                        let interaction = ContextMenuInteraction(
+                            triggers: [.tap, .longPress],
+                            longPressDuration: 0.25,
+                            sourcePortal: ContextMenuSourcePortal(
+                                mask: .roundedAttachmentRect(
+                                    cornerRadius: WScalableButton.preferredCornerRadius,
+                                    cornerCurve: .continuous
+                                )
+                            )
+                        ) { _ in
+                            menuConfig()
+                        }
+                        interaction.attach(to: button)
+                        menuInteractions.append(interaction)
+                    }
+                    buttons.append(button)
                 }
-                
-                let title: String
-                let image: UIImage
-                switch action {
-                case .send:
-                    title = lang("Send")
-                    image = .airBundle("SendIconBold" )
-                case .wear:
-                    title = lang("Wear")
-                    image = .airBundle("WearIconBold" )
-                case .share:
-                    title = lang("Share")
-                    image = .airBundle("ShareIconBold" )
-                case .more:
-                    title = lang("More")
-                    image = .airBundle("MoreIconBold" )
-                }
-                
-                let button = WScalableButton(title: title, image: image, style: .thinGlass, onTap: config.onTap ?? { }, )
-                if let menuConfig = config.onMenuConfiguration {
-                    button.attachMenu(presentOnTap: true, makeConfig: menuConfig)
-                }
-                
-                buttons.append(button)
             }
+            
+            add(.wear, lang("Wear"), "WearIconBold" )
+            add(.send, lang("Send"), "SendIconBold" )
+            add(.share, lang("Share"), "ShareIconBold" )
+            add(.more, lang("More"), "MoreIconBold")
+            
+            toolbarMenuInteractions = menuInteractions
+            
             if !buttons.isEmpty {
                 let toolbar = ButtonsToolbar()
                 buttons.forEach { toolbar.addArrangedSubview($0) }
@@ -165,20 +154,18 @@ class NftDetailsPageView: UIView {
         
         // Domain
         if let tonDomain = item.tonDomain {
-            let tile = NftDetailsDomanTile()
+            let tile = NftDetailsDomainTile()
             tile.text = tonDomain.expirationText
-            if tonDomain.canRenew {
+            if tonDomain.canRenew, let config = delegate.ntfDetailsOnConfigureAction(forModel: model, action: .renewDomain) {
                 tile.showsRenewButton = true
-                tile.onRenewTap = { [weak self] in
-                    self?.delegate?.nftDetailsOnRenewDomain(forModel: model)
-                }
+                tile.onRenewTap = config.onTap
             } else {
                 tile.showsRenewButton = false
             }
             stackView.addArrangedSubview(tile)
             stackView.setCustomSpacing(20, after: tile)
         }
-        
+
         // Attributes
         if let attributes = item.attributes, !attributes.isEmpty {
             let grid = NftDetailsAttributesGrid(width: layoutGeometry.stackWidth, attributes: attributes)
@@ -193,21 +180,12 @@ class NftDetailsPageView: UIView {
             
             stackView.addArrangedSubview(grid)
         }
-        
-        if (isExpanded) {
-            updateExpandedPreview(extraScrollDownHeight: 0)
-        } else {
-            updateCollapsedPreview()
-        }
-        
-        header.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handlePreviewTap)))
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
         
-    
     override func didMoveToSuperview() {
         super.didMoveToSuperview()
         
@@ -219,13 +197,19 @@ class NftDetailsPageView: UIView {
                 }
             }
             updateContentColor()
-            preview.isSubscribed = true
         } else {
             processedImageSubscription = nil
-            preview.isSubscribed = false
         }
     }
 
+    @objc private func handleTapForExpandedPreview(_ gr: UITapGestureRecognizer) {
+        var rect = bounds
+        rect.size.height = rect.width
+        if isExpanded, rect.contains(gr.location(in: self)) {
+            delegate?.pageDidRequestFullScreenPreview()
+        }
+    }
+    
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
@@ -273,70 +257,16 @@ class NftDetailsPageView: UIView {
     private func updateHeaderHeight() {
         headerHeightConstraint.constant = layoutGeometry.headerHeight(isExpanded: isExpanded)
     }
-    
-    func setPreviewHidden(_ isHidden: Bool) {
-        preview.isHidden = isHidden
-    }
-    
-    func playLottieIfPossible() {
-        preview.playLottieIfPossible()
-    }
-    
-    func expandToFullScreenPreview() {
-        guard isExpanded else {
-            assertionFailure()
-            return
-        }
-        delegate?.pageDidRequestFullScreenPreview(forModel: model, view: preview)
-    }
-
-    func expand(extraScrollDownHeight: CGFloat, previewStartFrame: CGRect) {
+        
+    func expand(extraScrollDownHeight: CGFloat) {
         isExpanded = true
-        
-        // Set initial (small) preview frame, exactly at the same place where cover flow item is located
-        let startFrame = header.convert(previewStartFrame, from: nil)
-        previewBottomConstraint.constant = startFrame.maxY - header.frame.height
-        previewWidthConstraint.constant = startFrame.width
-        previewHeightConstraint.constant = startFrame.height
-
         layoutIfNeeded()
-        
-        // Setup destination constraint values. They will be driven by outer animation
         updateHeaderHeight()
-        updateExpandedPreview(extraScrollDownHeight: extraScrollDownHeight)
     }
     
-    func commitExpansion() {
-        preview.playLottieIfPossible()
-    }
-
-    func collapse(previewEndFrame: CGRect) {
+    func collapse() {
         isExpanded = false
-
-        let endFrame = header.convert(previewEndFrame, from: nil)
-        previewBottomConstraint.constant = endFrame.maxY - layoutGeometry.headerHeight(isExpanded: false)
-        previewWidthConstraint.constant = endFrame.width
-        previewHeightConstraint.constant = endFrame.height
         updateHeaderHeight()
-    }
-
-    func commitCollapsion() {
-        updateCollapsedPreview()
-    }
-    
-    func updateExpandedPreview(extraScrollDownHeight: CGFloat) {
-        assert(isExpanded)
-        
-        let size = layoutGeometry.headerHeight(isExpanded: true) + max(extraScrollDownHeight, 0)
-        previewHeightConstraint.constant = size
-        previewWidthConstraint.constant = size
-        previewBottomConstraint.constant = 0
-        
-        preview.alpha = 1.0
-    }
-    
-    private func updateCollapsedPreview() {
-        preview.alpha = 0.0
     }
 
     func updateWith(layoutGeometry: LayoutGeometry, isExpanded: Bool) {
@@ -346,11 +276,6 @@ class NftDetailsPageView: UIView {
             self.isExpanded = isExpanded
             
             updateHeaderHeight()
-            if (isExpanded) {
-                updateExpandedPreview(extraScrollDownHeight: 0)
-            } else {
-                updateCollapsedPreview()
-            }
         }
     }
     
@@ -358,7 +283,7 @@ class NftDetailsPageView: UIView {
         return getContentHeight() + layoutGeometry.headerHeight(isExpanded: isExpanded)
     }
 
-    func getContentHeight() -> CGFloat {
+    private func getContentHeight() -> CGFloat {
         if let cachedContentHeight {
             return cachedContentHeight
         }
@@ -371,9 +296,5 @@ class NftDetailsPageView: UIView {
         )
         cachedContentHeight = stackSize.height
         return stackSize.height
-    }
-
-    @objc private func handlePreviewTap() {
-        expandToFullScreenPreview()
     }
 }

@@ -160,7 +160,7 @@ const Auth = ({
             isActive={isActive}
             theme={theme}
             slideClassName={styles.aboutSlide}
-            handleBackClick={closeAbout}
+            onBackClick={closeAbout}
           />
         );
       case AuthState.safetyRules:

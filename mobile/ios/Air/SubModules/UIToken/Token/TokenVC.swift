@@ -156,10 +156,6 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
             bottomSeparatorView.isHidden = true
         }
 
-        if !isInModal {
-            addBottomBarBlur()
-        }
-
         view.backgroundColor = isInModal ? .air.sheetBackground : .air.groupedBackground
         navigationTitleView.textColor = UIColor.label
 

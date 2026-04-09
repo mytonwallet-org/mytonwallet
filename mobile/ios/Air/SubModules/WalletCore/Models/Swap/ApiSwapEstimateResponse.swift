@@ -36,20 +36,6 @@ public struct ApiSwapEstimateResponse: Equatable, Codable, Sendable {
     public var ourFeePercent: Double?
     public var dieselFee: MDouble?
     
-    public mutating func updateFromVariant(_ variant: ApiSwapEstimateVariant) {
-        self.toAmount = variant.toAmount
-        self.fromAmount = variant.fromAmount
-        self.toMinAmount = variant.toMinAmount
-        self.impact = variant.impact
-        self.dexLabel = variant.dexLabel
-        self.networkFee = variant.networkFee
-        self.realNetworkFee = variant.realNetworkFee
-        self.swapFee = variant.swapFee
-        self.swapFeePercent = variant.swapFeePercent
-        self.ourFee = variant.ourFee
-        self.dieselFee = variant.dieselFee
-    }
-    
     public static func ==(lhs: Self, rhs: Self) -> Bool {
         lhs.from == rhs.from &&
         lhs.to == rhs.to &&
@@ -76,4 +62,3 @@ public struct ApiSwapEstimateResponse: Equatable, Codable, Sendable {
         lhs.dieselFee == rhs.dieselFee
     }
 }
-

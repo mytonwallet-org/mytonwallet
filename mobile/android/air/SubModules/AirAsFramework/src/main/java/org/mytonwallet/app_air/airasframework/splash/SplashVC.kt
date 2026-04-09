@@ -20,6 +20,7 @@ import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
 import org.mytonwallet.app_air.uiassets.viewControllers.renew.RenewVC
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController.PresentationConfig
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -1156,9 +1157,7 @@ class SplashVC(context: Context) : WViewController(context),
     }
 
     private fun openExternalUri(uri: Uri) {
-        runCatching {
-            window?.startActivity(Intent(Intent.ACTION_VIEW, uri))
-        }
+        window?.startActivityCatching(Intent(Intent.ACTION_VIEW, uri))
     }
 
     private fun importTemporaryAccount(

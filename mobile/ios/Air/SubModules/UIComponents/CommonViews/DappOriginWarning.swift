@@ -3,6 +3,13 @@ import Foundation
 import SwiftUI
 import WalletContext
 
+@MainActor public func showDappOriginWarningTip() {
+    topWViewController()?.showTip(title: lang("Unverified Source"), kind: .warning) {
+        Text(langMd("$reopen_in_iab_explore", arg1: lang("Explore")))
+            .multilineTextAlignment(.center)
+    }
+}
+
 public struct DappOriginWarning: View {
     
     public init() {}
@@ -15,9 +22,7 @@ public struct DappOriginWarning: View {
             .padding(10)
             .contentShape(.rect)
             .onTapGesture {
-                topWViewController()?.showTip(title: lang("Unverified Source"), kind: .warning) {
-                    EmptyView()
-                }
+                showDappOriginWarningTip()
             }
             .padding(-10)
     }

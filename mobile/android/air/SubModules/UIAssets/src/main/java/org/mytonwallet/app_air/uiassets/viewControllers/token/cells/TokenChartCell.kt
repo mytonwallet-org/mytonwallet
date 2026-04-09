@@ -177,7 +177,6 @@ class TokenChartCell(
     }
 
     private val segmentedControlGroup = WSegmentedControlGroup(context).apply {
-        setBackgroundColor(WColor.SecondaryBackground.color, 15f.dp)
         MHistoryTimePeriod.allPeriods.map { period ->
             addView(
                 WLabel(context).apply {
@@ -344,6 +343,8 @@ class TokenChartCell(
         priceLabel.setTextColor(WColor.PrimaryText.color)
         roundDrawable.color = WColor.Tint.color
         updatePriceChangeLabelColor()
+        chartTimeLineView.updateTheme()
+        segmentedControlGroup.updateTheme()
     }
 
     private fun updatePriceChangeLabelColor() {

@@ -1,4 +1,5 @@
 
+import ContextMenuKit
 import SwiftUI
 import WalletCore
 import WalletContext
@@ -7,9 +8,6 @@ public struct TappableTransactionId: View {
     
     var chain: ApiChain
     var txId: String
-    
-    @State private var menuContext = MenuContext()
-    @State private var hover = false
     
     public init(chain: ApiChain, txId: String) {
         self.chain = chain
@@ -28,26 +26,39 @@ public struct TappableTransactionId: View {
                 .opacity(0.8)
                 .offset(y: 1)
         }
-        .menuSource(menuContext: menuContext)
-        .foregroundStyle(Color.air.primaryLabel)
-        .opacity(hover ? 0.8 : 1)
-        .task(id: txId) {
-            menuContext.onAppear = { hover = true }
-            menuContext.onDismiss = { hover = false }
-            menuContext.makeConfig = {
-                MenuConfig(menuItems: [
-                    .button(id: "0-copy", title: lang("Copy"), trailingIcon: .air("SendCopy")) {
-                        UIPasteboard.general.string = txId
-                        AppActions.showToast(animationName: "Copy", message: lang("Transaction ID Copied"))
-                        Haptics.play(.lightTap)
-                    },
-                    .button(id: "0-explorer", title: lang("Open in Explorer"), trailingIcon: .air("SendGlobe")) {
-                        let url = ExplorerHelper.txUrl(chain: chain, txHash: txId)
-                        AppActions.openInBrowser(url)
-                    },
-                ])
-            }
+        .contextMenuSource {
+            makeMenuConfiguration()
         }
+        .foregroundStyle(Color.air.primaryLabel)
+    }
+
+    private func makeMenuConfiguration() -> ContextMenuConfiguration {
+        ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: [
+                .action(
+                    ContextMenuAction(
+                        title: lang("Copy"),
+                        icon: .airBundle("SendCopy"),
+                        handler: {
+                            UIPasteboard.general.string = txId
+                            AppActions.showToast(animationName: "Copy", message: lang("Transaction ID Copied"))
+                            Haptics.play(.lightTap)
+                        }
+                    )
+                ),
+                .action(
+                    ContextMenuAction(
+                        title: lang("Open in Explorer"),
+                        icon: .airBundle("SendGlobe"),
+                        handler: {
+                            let url = ExplorerHelper.txUrl(chain: chain, txHash: txId)
+                            AppActions.openInBrowser(url)
+                        }
+                    )
+                ),
+            ]),
+            backdrop: .none
+        )
     }
 }
 
@@ -55,9 +66,6 @@ public struct TappableTransactionId: View {
 public struct ChangellyTransactionId: View {
     
     var id: String
-    
-    @State private var menuContext = MenuContext()
-    @State private var hover = false
     
     public init(id: String) {
         self.id = id
@@ -76,23 +84,39 @@ public struct ChangellyTransactionId: View {
                 .offset(y: 1)
         }
         .foregroundStyle(Color.air.primaryLabel)
-        .opacity(hover ? 0.8 : 1)
-        .menuSource(menuContext: menuContext)
-        .task {
-            menuContext.onAppear = { hover = true }
-            menuContext.onDismiss = { hover = false }
-            menuContext.makeConfig = {
-                MenuConfig(menuItems: [
-                    .button(id: "0-copy", title: lang("Copy"), trailingIcon: .air("SendCopy")) {
-                        UIPasteboard.general.string = id
-                        AppActions.showToast(animationName: "Copy", message: lang("Transaction ID Copied"))
-                        Haptics.play(.lightTap)
-                    },
-                    .button(id: "0-explorer", title: lang("Open in Explorer"), trailingIcon: .air("SendGlobe")) {
-                        AppActions.openInBrowser(URL(string: "https://changelly.com/track/\(id)")!)
-                    },
-                ])
-            }
+        .contextMenuSource {
+            makeMenuConfiguration()
         }
+    }
+
+    private func makeMenuConfiguration() -> ContextMenuConfiguration {
+        ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: [
+                .action(
+                    ContextMenuAction(
+                        title: lang("Copy"),
+                        icon: .airBundle("SendCopy"),
+                        handler: {
+                            UIPasteboard.general.string = id
+                            AppActions.showToast(animationName: "Copy", message: lang("Transaction ID Copied"))
+                            Haptics.play(.lightTap)
+                        }
+                    )
+                ),
+                .action(
+                    ContextMenuAction(
+                        title: lang("Open in Explorer"),
+                        icon: .airBundle("SendGlobe"),
+                        handler: {
+                            if let encodedId = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+                               let url = URL(string: "https://changelly.com/track/\(encodedId)") {
+                                AppActions.openInBrowser(url)
+                            }
+                        }
+                    )
+                ),
+            ]),
+            backdrop: .none
+        )
     }
 }

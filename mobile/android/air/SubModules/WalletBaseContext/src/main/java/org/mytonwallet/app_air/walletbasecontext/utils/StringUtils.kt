@@ -11,6 +11,7 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import androidx.core.net.toUri
 import org.mytonwallet.app_air.walletbasecontext.theme.WColorGradients
+import java.net.URLDecoder
 import java.text.BreakIterator
 import java.util.Locale
 import kotlin.math.max
@@ -206,6 +207,8 @@ val String.withLocalizedNumbers: String
         return string
     }*/
 
+fun String.takeIfNotBlank(): String? = takeIf { it.isNotBlank() }
+
 fun String.isNumeric(): Boolean {
     return this.matches(Regex("[0-9.]+"))
 }
@@ -292,6 +295,10 @@ fun String.toUriOrNull(): Uri? = try {
 } catch (_: Throwable) {
     null
 }
+
+fun String.decodeUrlOrNull(): String? = runCatching {
+    URLDecoder.decode(this, Charsets.UTF_8.name())
+}.getOrNull()
 
 fun SpannedString.replaceSpacesWithNbsp(): SpannedString {
     val sb = SpannableStringBuilder(this)

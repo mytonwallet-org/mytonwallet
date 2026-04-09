@@ -22,7 +22,7 @@ public struct UseAllButton: View {
             Button(action: onTap) {
                 let label = Text(lang("$max_balance", arg1: ""))
                     .foregroundColor(.air.secondaryLabel)
-                let balance = Text(amount: amount, format: .init(preset: .defaultAdaptive, roundUp: false))
+                let balance = Text(amount: amount, format: .init(preset: .defaultAdaptive, roundHalfUp: false))
                     .foregroundStyle(.tint)
                 
                 HStack(alignment: .center, spacing: 0) {

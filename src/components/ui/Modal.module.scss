@@ -488,6 +488,10 @@
   width: 100%;
   min-width: 9rem !important;
   max-width: 68vw !important;
+
+  @include mixins.respond-below(xs) {
+    min-width: 8rem !important;
+  }
 }
 
 .buttonHalfWidth {

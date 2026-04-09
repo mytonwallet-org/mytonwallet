@@ -36,6 +36,7 @@ import WalletContext
     static func showImportWalletVersion() -> ()
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String)
     static func showNftByAddress(_ nftAddress: String)
+    static func showPromotion(_ promotion: ApiPromotion)
     static func showReceive(accountContext: AccountContext, chain: ApiChain?, title: String?)
     static func showRenewDomain(accountSource: AccountSource, nftsToRenew: [String])
     static func showRenameAccount(accountId: String)
@@ -104,6 +105,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showImportWalletVersion() -> () { }
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) { }
     static func showNftByAddress(_ nftAddress: String) { }
+    static func showPromotion(_ promotion: ApiPromotion) { }
     static func showReceive(accountContext: AccountContext, chain: ApiChain?, title: String?) { }
     static func showRenewDomain(accountSource: AccountSource, nftsToRenew: [String]) { }
     static func showRenameAccount(accountId: String) { }

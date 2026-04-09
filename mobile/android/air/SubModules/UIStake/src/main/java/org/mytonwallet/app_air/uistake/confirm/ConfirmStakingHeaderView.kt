@@ -87,7 +87,8 @@ class ConfirmStakingHeaderView @JvmOverloads constructor(
         showPositiveSignForAmount: Boolean,
         messageString: String
     ) {
-        tokenIconView.set(Content.of(token, true))
+        val displayToken = TokenStore.getToken(token.unstakedSlug) ?: token
+        tokenIconView.set(Content.of(displayToken, true))
 
         val amount = amountInCrypto.toString(
             decimals = token.decimals,

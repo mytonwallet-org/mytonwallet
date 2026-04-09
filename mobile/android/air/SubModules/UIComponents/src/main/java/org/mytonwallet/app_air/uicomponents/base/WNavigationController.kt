@@ -14,6 +14,7 @@ import androidx.core.view.isGone
 import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
+import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
@@ -240,6 +241,7 @@ class WNavigationController(
         animated: Boolean = true,
         onCompletion: (() -> Unit)? = null
     ) {
+        PopupHelpers.dismissAllPopups()
         val hidingVC = viewControllers.last()
         hidingVC.apply {
             isEnabled = false

@@ -29,6 +29,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
     public var isTiny: Bool?
     public var customPayloadApiUrl: String?
     public var codeHash: String?
+    public var label: String?
     
     /* Means the token is fetched from the backend by default and already includes price
     and other details (`ApiTokenDetails`), so no separate requests are needed. */
@@ -37,7 +38,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
     public var priceUsd: Double?
     public var percentChange24h: Double?
 
-    public init(slug: String, name: String, symbol: String, decimals: Int, chain: ApiChain, tokenAddress: String? = nil, image: String? = nil, isPopular: Bool? = nil, keywords: [String]? = nil, cmcSlug: String? = nil, color: String? = nil, isGaslessEnabled: Bool? = nil, isStarsEnabled: Bool? = nil, isTiny: Bool? = nil, customPayloadApiUrl: String? = nil, codeHash: String? = nil, isFromBackend: Bool? = nil, priceUsd: Double? = nil, percentChange24h: Double? = nil) {
+    public init(slug: String, name: String, symbol: String, decimals: Int, chain: ApiChain, tokenAddress: String? = nil, image: String? = nil, isPopular: Bool? = nil, keywords: [String]? = nil, cmcSlug: String? = nil, color: String? = nil, isGaslessEnabled: Bool? = nil, isStarsEnabled: Bool? = nil, isTiny: Bool? = nil, customPayloadApiUrl: String? = nil, codeHash: String? = nil, label: String? = nil, isFromBackend: Bool? = nil, priceUsd: Double? = nil, percentChange24h: Double? = nil) {
         self.slug = slug
         self.name = name
         self.symbol = symbol
@@ -54,6 +55,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         self.isTiny = isTiny
         self.customPayloadApiUrl = customPayloadApiUrl
         self.codeHash = codeHash
+        self.label = label
         self.isFromBackend = isFromBackend
         self.priceUsd = priceUsd
         self.percentChange24h = percentChange24h
@@ -76,6 +78,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         case isTiny
         case customPayloadApiUrl
         case codeHash
+        case label
         case priceUsd
         case percentChange24h
         
@@ -105,6 +108,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         try container.encodeIfPresent(self.isTiny, forKey: .isTiny)
         try container.encodeIfPresent(self.customPayloadApiUrl, forKey: .customPayloadApiUrl)
         try container.encodeIfPresent(self.codeHash, forKey: .codeHash)
+        try container.encodeIfPresent(self.label, forKey: .label)
         try container.encodeIfPresent(self.priceUsd, forKey: .priceUsd)
         try container.encodeIfPresent(self.percentChange24h, forKey: .percentChange24h)
     }
@@ -140,6 +144,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         self.isTiny = try container.decodeIfPresent(Bool.self, forKey: .isTiny)
         self.customPayloadApiUrl = try container.decodeIfPresent(String.self, forKey: .customPayloadApiUrl)
         self.codeHash = try container.decodeIfPresent(String.self, forKey: .codeHash)
+        self.label = try container.decodeIfPresent(String.self, forKey: .label)
         
         var quote = try? container.decodeIfPresent(ApiTokenPrice.self, forKey: .quote)
         if quote == nil {
@@ -179,6 +184,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         self.isTiny = dict["isTiny"] as? Bool
         self.customPayloadApiUrl = dict["customPayloadApiUrl"] as? String
         self.codeHash = dict["codeHash"] as? String
+        self.label = dict["label"] as? String
         self.isFromBackend = dict["isFromBackend"] as? Bool
         self.priceUsd = dict["priceUsd"] as? Double
         self.percentChange24h = dict["percentChange24h"] as? Double
@@ -258,17 +264,17 @@ extension ApiToken {
     /// initial StubTokenSlugs
     /// These are shown when account is created and there are no transactions yet.
     /// The order is defined as for displaying in UI.
-    private static let DEFAULT_SLUGS: OrderedSet<String> = [TONCOIN_SLUG, TON_USDT_SLUG, TRX_SLUG, TRON_USDT_SLUG, SOLANA_SLUG, SOLANA_USDT_MAINNET_SLUG]
-    private static let DEFAULT_TESTNET_SLUGS: OrderedSet<String> = [TONCOIN_SLUG, TRX_SLUG, TRON_USDT_TESTNET_SLUG, SOLANA_SLUG]
-    
-    /// These are shown when account is created and there are no transactions yet.
     public static func defaultSlugs(forNetwork network: ApiNetwork) -> OrderedSet<String> {
-        switch network {
-        case .mainnet: DEFAULT_SLUGS
-        case .testnet: DEFAULT_TESTNET_SLUGS
-        }
+        OrderedSet(
+            ApiChain.allCases.flatMap { chain in
+                chain.defaultEnabledSlugs[network] ?? []
+            }
+        )
     }
 }
+
+private let TON_USDT_MAINNET_IMAGE = "https://imgproxy.mytonwallet.org/imgproxy/T3PB4s7oprNVaJkwqbGg54nexKE0zzKhcrPv8jcWYzU/rs:fill:200:200:1/g:no/aHR0cHM6Ly90ZXRoZXIudG8vaW1hZ2VzL2xvZ29DaXJjbGUucG5n.webp"
+private let SOLANA_USDC_MAINNET_IMAGE = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png"
 
 extension ApiToken {
     
@@ -312,7 +318,21 @@ extension ApiToken {
         name: "Tether USD",
         symbol: "USD₮",
         decimals: 6,
-        chain: .ton
+        chain: .ton,
+        image: TON_USDT_MAINNET_IMAGE,
+        label: "TON",
+        priceUsd: 1
+    )
+
+    public static let TON_USDT_TESTNET = ApiToken(
+        slug: TON_USDT_TESTNET_SLUG,
+        name: "Tether USD",
+        symbol: "USD₮",
+        decimals: 6,
+        chain: .ton,
+        tokenAddress: "kQD0GKBM8ZbryVk2aESmzfU6b9b_8era_IkvBSELujFZPsyy",
+        label: "TON",
+        priceUsd: 1
     )
 
     public static let TRON_USDT = ApiToken(
@@ -320,7 +340,18 @@ extension ApiToken {
         name: "Tether USD",
         symbol: "USDT",
         decimals: 6,
-        chain: .tron
+        chain: .tron,
+        label: "TRC-20"
+    )
+
+    public static let TRON_USDT_TESTNET = ApiToken(
+        slug: TRON_USDT_TESTNET_SLUG,
+        name: "Tether USD",
+        symbol: "USDT",
+        decimals: 6,
+        chain: .tron,
+        tokenAddress: "TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs",
+        label: "TRC-20"
     )
 
     public static let SOLANA_USDT_MAINNET = ApiToken(
@@ -329,7 +360,22 @@ extension ApiToken {
         symbol: "USDT",
         decimals: 6,
         chain: .solana,
-        tokenAddress: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+        tokenAddress: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+        image: TON_USDT_MAINNET_IMAGE,
+        label: "SOL",
+        priceUsd: 1
+    )
+
+    public static let SOLANA_USDC_MAINNET = ApiToken(
+        slug: SOLANA_USDC_MAINNET_SLUG,
+        name: "USD Coin",
+        symbol: "USDC",
+        decimals: 6,
+        chain: .solana,
+        tokenAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        image: SOLANA_USDC_MAINNET_IMAGE,
+        label: "SOL",
+        priceUsd: 1
     )
 
     public static let STAKED_TON = ApiToken(

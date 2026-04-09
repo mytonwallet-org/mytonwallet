@@ -105,6 +105,7 @@ object WGlobalStorage {
     private const val ORDERED_ACCOUNT_IDS = "settings.orderedAccountIds"
     private const val IS_SEASONAL_THEMING_DISABLED = "settings.isSeasonalThemingDisabled"
     private const val EXPLORER = "settings.selectedExplorerIds"
+    private const val IS_SCREEN_RECORD_WARNING_DISABLED = "settings.isScreenRecordWarningDisabled"
 
     fun save(accountId: String, accountName: String?, persist: Boolean = true) {
         // Save null names as empty string in the cache to return it without accessing storage
@@ -902,6 +903,10 @@ object WGlobalStorage {
         return globalStorageProvider.getDict("byAccountId.$accountId.config.cardsInfo")
     }
 
+    fun getActivePromotion(accountId: String): JSONObject? {
+        return globalStorageProvider.getDict("byAccountId.$accountId.config.activePromotion")
+    }
+
     fun isCardMinting(accountId: String): Boolean {
         return globalStorageProvider.getBool("byAccountId.$accountId.isCardMinting") == true
     }
@@ -934,6 +939,19 @@ object WGlobalStorage {
         return MWalletSettingsViewMode.fromValue(globalStorageProvider.getString("accountSelectorViewMode"))
     }
 
+    fun setWalletTabOrder(order: List<String>) {
+        globalStorageProvider.set(
+            "settings.walletTabOrder",
+            JSONArray(order),
+            IGlobalStorageProvider.PERSIST_NORMAL
+        )
+    }
+
+    fun getWalletTabOrder(): List<String>? {
+        val arr = globalStorageProvider.getArray("settings.walletTabOrder") ?: return null
+        return (0 until arr.length()).map { arr.getString(it) }
+    }
+
     fun getPreferredExplorer(chain: String): String? {
         return globalStorageProvider.getString("$EXPLORER.$chain")
     }
@@ -955,6 +973,18 @@ object WGlobalStorage {
             IS_SEASONAL_THEMING_DISABLED,
             disabled,
             IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    fun getIsScreenRecordWarningDisabled(): Boolean {
+        return globalStorageProvider.getBool(IS_SCREEN_RECORD_WARNING_DISABLED) == true
+    }
+
+    fun setIsScreenRecordWarningDisabled(disabled: Boolean) {
+        globalStorageProvider.set(
+            IS_SCREEN_RECORD_WARNING_DISABLED,
+            disabled,
+            IGlobalStorageProvider.PERSIST_NORMAL
         )
     }
 

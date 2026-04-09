@@ -414,7 +414,7 @@ class AssetCell(
     private fun expiryText(days: Int): String {
         if (days < 0) return LocaleController.getString("\$nft_expired")
         val daysStr = LocaleController.getPlural(days, "\$in_days")
-        return LocaleController.getPluralOrFormat("\$expires_in %days%", days, "")
+        return LocaleController.getString("\$one_domain_expires %days%")
             .replace("%days%", daysStr)
     }
 

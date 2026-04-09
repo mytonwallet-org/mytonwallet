@@ -13,7 +13,6 @@ enum SwapSide {
 
 @MainActor protocol SwapInputModelDelegate: AnyObject {
     func swapDataChanged(swapSide: SwapSide, selling: TokenAmount, buying: TokenAmount)
-    func maxAmountPressed(maxAmount: BigInt?)
 }
 
 @Perceptible
@@ -37,7 +36,14 @@ enum SwapSide {
         TokenAmount(buyingAmount ?? 0, buyingToken)
     }
 
+    var tokenBalance: BigInt?
     var maxAmount: BigInt?
+    var isEstimating = false
+    var inputSource: SwapSide = .selling
+    var staleAmountSide: SwapSide? {
+        guard isEstimating else { return nil }
+        return inputSource == .selling ? .buying : .selling
+    }
     
     var sellingFocused: Bool = false
     var buyingFocused: Bool = false
@@ -58,34 +64,26 @@ enum SwapSide {
     weak var delegate: SwapInputModelDelegate? = nil
 
     @PerceptionIgnored
-    private var lastEdited: SwapSide = .selling
-    @PerceptionIgnored
     private var currentSelector: SwapSide? = nil
-    struct LastEffectiveExchangeRate {
-        var sellingToken: ApiToken
-        var buyingToken: ApiToken
-        var exchangeRate: Double
-    }
-    @PerceptionIgnored
-    private var lastEffectiveExchangeRate: LastEffectiveExchangeRate? = nil
     @PerceptionIgnored
     private var suspendUpdates = false
     @PerceptionIgnored
     private var observeTokens: [ObserveToken] = []
     @PerceptionIgnored
+    private var swapType: SwapType = .onChain
+    @PerceptionIgnored
+    private var fullNetworkFee: MFee.FeeTerms?
+    @PerceptionIgnored
+    private var ourFeePercent: Double?
+    @PerceptionIgnored
+    private var backendMaxAmount: BigInt?
+    @PerceptionIgnored
     @AccountContext var account: MAccount
-    
-    private var localExchangeRate: Double? {
-        let selling = sellingToken.price ?? 0
-        let buying = buyingToken.price ?? 0
-        guard selling > 0, buying > 0 else { return nil }
-        return selling / buying
-    }
 
-    init(sellingTokenSlug: String, buyingTokenSlug: String, maxAmount: BigInt?, accountContext: AccountContext) {
+    init(sellingTokenSlug: String, buyingTokenSlug: String, tokenBalance: BigInt?, accountContext: AccountContext) {
         self._sellingToken = TokenProvider(tokenSlug: sellingTokenSlug)
         self._buyingToken = TokenProvider(tokenSlug: buyingTokenSlug)
-        self.maxAmount = maxAmount
+        self.tokenBalance = tokenBalance
         self._account = accountContext
         
         setupObservers()
@@ -98,7 +96,6 @@ enum SwapSide {
             let sellingAmount = self.sellingAmount
             let sellingToken = self.sellingToken
             Task {
-                self.lastEdited = .selling
                 self.updateLocal(amount: sellingAmount, token: sellingToken, side: .selling)
             }
         }
@@ -108,7 +105,6 @@ enum SwapSide {
             let buyingAmount = self.buyingAmount
             let buyingToken = self.buyingToken
             Task {
-                self.lastEdited = .buying
                 self.updateLocal(amount: buyingAmount, token: buyingToken, side: .buying)
             }
         }
@@ -117,7 +113,7 @@ enum SwapSide {
             guard let self else { return }
             let sellingToken = self.sellingToken
             let balance = $account.balances[sellingToken.slug]
-            self.updateMaxAmount(sellingToken, amount: balance)
+            self.updateTokenBalance(balance)
         }
     }
     
@@ -125,8 +121,11 @@ enum SwapSide {
         onUseAll = { [weak self] in
             guard let self else { return }
             isUsingMax = true
-            self.delegate?.maxAmountPressed(maxAmount: maxAmount)
-            sellingAmount = maxAmount
+            let amount = maxAmount ?? tokenBalance
+            sellingFocused = false
+            buyingFocused = false
+            sellingAmount = amount
+            updateLocal(amount: amount, token: sellingToken, side: .selling)
             topViewController()?.view.endEditing(true)
         }
         
@@ -134,14 +133,14 @@ enum SwapSide {
             guard let self else { return }
             suspendUpdates = true
             defer { suspendUpdates = false }
-            let lastEdited = self.lastEdited
+            isUsingMax = false
             let tmp = (sellingAmount ?? 0, buyingAmount ?? 0, sellingToken, buyingToken)
             (buyingAmount, sellingAmount, buyingToken, sellingToken) = tmp
-            self.lastEdited = lastEdited
+            clearBackendMaxAmount()
             if account.supports(chain: sellingToken.chain) {
-                self.updateMaxAmount(sellingToken, amount: $account.balances[sellingToken.slug] ?? 0)
+                self.updateTokenBalance($account.balances[sellingToken.slug] ?? 0)
             } else {
-                self.updateMaxAmount(nil, amount: nil)
+                self.updateTokenBalance(nil)
             }
             updateLocal(amount: sellingAmount ?? 0, token: sellingToken, side: .selling)
         }
@@ -152,6 +151,7 @@ enum SwapSide {
             let swapTokenSelectionVC = TokenSelectionVC(
                 forceAvailable: sellingToken.slug,
                 otherSymbolOrMinterAddress: nil,
+                myAssetsDisplayMode: .swap,
                 title: lang("You sell"),
                 delegate: self,
                 isModal: true,
@@ -166,7 +166,11 @@ enum SwapSide {
             self.currentSelector = .buying
             let swapTokenSelectionVC = TokenSelectionVC(
                 forceAvailable: buyingToken.slug,
+                extraWalletTokenSlugs: ApiChain.allCases
+                    .filter(\.isOnchainSwapSupported)
+                    .map(\.nativeToken.slug),
                 otherSymbolOrMinterAddress: nil,
+                myAssetsDisplayMode: .swap,
                 title: lang("You buy"),
                 delegate: self,
                 isModal: true,
@@ -185,50 +189,15 @@ enum SwapSide {
     }
     
     private func updateLocal(amount: BigInt?, token: ApiToken, side: SwapSide) {
-        suspendUpdates = true
-        defer { suspendUpdates = false }
+        inputSource = side
         switch side {
         case .selling:
-            if let amount {
-                if amount != maxAmount {
-                    self.isUsingMax = false
-                }
-                let selling = DecimalAmount(amount, token)
-                
-                var exchangeRate: Double?
-                if let lastEffectiveExchangeRate,
-                    lastEffectiveExchangeRate.sellingToken == token,
-                    lastEffectiveExchangeRate.buyingToken == buyingToken {
-                    
-                    exchangeRate = lastEffectiveExchangeRate.exchangeRate
-                } else if let localExchangeRate{
-                    exchangeRate = localExchangeRate
-                }
-                if let exchangeRate {
-                    let buying = selling.convertTo(buyingToken, exchangeRate: exchangeRate).roundedForSwap
-                    self.buyingAmount = buying.amount
-                }
+            if amount != maxAmount {
+                self.isUsingMax = false
             }
             updateRemote(amount: amount, token: token, side: .selling)
         case .buying:
             self.isUsingMax = false
-            if let amount {
-                let buying = DecimalAmount(amount, token)
-                
-                var exchangeRate: Double?
-                if let lastEffectiveExchangeRate,
-                    lastEffectiveExchangeRate.buyingToken == buyingToken,
-                    lastEffectiveExchangeRate.sellingToken == token {
-                    
-                    exchangeRate = 1 / lastEffectiveExchangeRate.exchangeRate
-                } else if let localExchangeRate {
-                    exchangeRate = 1 / localExchangeRate
-                }
-                if let exchangeRate {
-                    let selling = buying.convertTo(sellingToken, exchangeRate: exchangeRate).roundedForSwap
-                    self.sellingAmount = selling.amount
-                }
-            }
             updateRemote(amount: amount, token: token, side: .buying)
         }
     }
@@ -237,28 +206,53 @@ enum SwapSide {
         switch side {
         case .selling:
             delegate?.swapDataChanged(
-                swapSide: lastEdited,
+                swapSide: .selling,
                 selling: TokenAmount(amount ?? 0, token),
                 buying: buyingTokenAmount,
             )
         case .buying:
             delegate?.swapDataChanged(
-                swapSide: lastEdited,
+                swapSide: .buying,
                 selling: sellingTokenAmount,
                 buying: TokenAmount(amount ?? 0, token),
             )
         }
     }
     
-    func updateMaxAmount(_ token: ApiToken?, amount: BigInt?) {
-        let token = token ?? sellingToken
-        let balance = amount ?? $account.balances[token.slug]
-        self.maxAmount = balance.flatMap { max(0, $0) }
-        if (isUsingMax) {
-            if let amount, let sellingAmount, sellingAmount != amount {
-                self.sellingAmount = amount
-                updateLocal(amount: amount, token: sellingToken, side: .selling)
-            }
+    func updateTokenBalance(_ balance: BigInt?) {
+        tokenBalance = balance.flatMap { max(0, $0) }
+        recalculateMaxAmount()
+    }
+
+    func updateMaxAmountContext(swapType: SwapType, fullNetworkFee: MFee.FeeTerms?, ourFeePercent: Double?) {
+        self.swapType = swapType
+        self.fullNetworkFee = fullNetworkFee
+        self.ourFeePercent = ourFeePercent
+        recalculateMaxAmount()
+    }
+
+    func setBackendMaxAmount(_ amount: BigInt?) {
+        backendMaxAmount = amount
+        recalculateMaxAmount()
+    }
+
+    func clearBackendMaxAmount() {
+        backendMaxAmount = nil
+        recalculateMaxAmount()
+    }
+
+    private func recalculateMaxAmount() {
+        maxAmount = getMaxSwapAmount(.init(
+            swapType: swapType,
+            tokenBalance: tokenBalance,
+            tokenIn: sellingToken,
+            fullNetworkFee: fullNetworkFee,
+            ourFeePercent: ourFeePercent,
+            maxAmountFromBackend: backendMaxAmount
+        ))
+        if isUsingMax, let targetAmount = maxAmount ?? tokenBalance, sellingAmount != targetAmount {
+            sellingAmount = targetAmount
+            updateRemote(amount: targetAmount, token: sellingToken, side: .selling)
         }
     }
 
@@ -266,31 +260,56 @@ enum SwapSide {
         buyingAmountInputDisabled = isDisabled
         if isDisabled {
             buyingFocused = false
-            lastEdited = .selling
         }
     }
     
     struct Estimate {
+        var changedFrom: SwapSide
         var fromAmount: Double
         var toAmount: Double
-        var maxAmount: BigInt?
     }
     
+    func startEstimating(changedFrom: SwapSide) {
+        inputSource = changedFrom
+        isEstimating = true
+    }
+
+    func finishEstimating() {
+        isEstimating = false
+    }
+
     func updateWithEstimate(_ swapEstimate: Estimate) {
         suspendUpdates = true
         defer { suspendUpdates = false }
-        if lastEdited != .selling && !sellingFocused && swapEstimate.fromAmount > 0 { // if it's zero, keep local estimate
-            sellingAmount = DecimalAmount.fromDouble(swapEstimate.fromAmount, sellingToken).roundedForSwap.amount
+
+        switch swapEstimate.changedFrom {
+        case .selling:
+            if !buyingFocused {
+                buyingAmount = DecimalAmount.fromDouble(swapEstimate.toAmount, buyingToken).roundedForSwap.amount
+            }
+            if isUsingMax {
+                sellingAmount = DecimalAmount.fromDouble(swapEstimate.fromAmount, sellingToken).roundedForSwap.amount
+            }
+        case .buying:
+            if !sellingFocused {
+                sellingAmount = DecimalAmount.fromDouble(swapEstimate.fromAmount, sellingToken).roundedForSwap.amount
+            }
         }
-        if lastEdited != .buying && !buyingFocused && swapEstimate.toAmount > 0 {
-            buyingAmount = DecimalAmount.fromDouble(swapEstimate.toAmount, buyingToken).roundedForSwap.amount
-        }
-        if swapEstimate.toAmount > 0, swapEstimate.fromAmount > 0 {
-            let effectiveExchangeRate = swapEstimate.toAmount / swapEstimate.fromAmount
-            lastEffectiveExchangeRate = .init(sellingToken: sellingToken, buyingToken: buyingToken, exchangeRate: effectiveExchangeRate)
-        }
-        if let maxAmount = swapEstimate.maxAmount {
-            updateMaxAmount(nil, amount: maxAmount)
+    }
+
+    func clearEstimatedAmount(changedFrom: SwapSide) {
+        suspendUpdates = true
+        defer { suspendUpdates = false }
+
+        switch changedFrom {
+        case .selling:
+            if !buyingFocused {
+                buyingAmount = nil
+            }
+        case .buying:
+            if !sellingFocused {
+                sellingAmount = nil
+            }
         }
     }
 }
@@ -315,6 +334,7 @@ extension SwapInputModel: TokenSelectionVCDelegate {
                 onReverse()
                 return
             }
+            isUsingMax = false
             let newAmount: BigInt? = if sellingTokenAmount.amount > 0 {
                 sellingTokenAmount.switchKeepingDecimalValue(newType: newToken).amount
             } else {
@@ -322,8 +342,8 @@ extension SwapInputModel: TokenSelectionVCDelegate {
             }
             sellingAmount = newAmount
             sellingToken = newToken
-            lastEdited = .selling
-            maxAmount = $account.balances[newToken.slug]
+            clearBackendMaxAmount()
+            updateTokenBalance($account.balances[newToken.slug])
             updateLocal(amount: newAmount, token: sellingToken, side: .selling)
         } else {
             if newToken.slug == sellingToken.slug {
@@ -332,7 +352,7 @@ extension SwapInputModel: TokenSelectionVCDelegate {
             }
             buyingToken = newToken
             if buyingFocused { buyingFocused = false }
-            lastEdited = .selling
+            clearBackendMaxAmount()
             updateLocal(amount: sellingAmount, token: sellingToken, side: .selling)
         }
     }

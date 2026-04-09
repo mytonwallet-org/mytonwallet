@@ -58,11 +58,10 @@ public class ImportWalletVC: CreateWalletBaseVC {
     }
 
     func setupViews() {
-        addNavigationBar(
-            title: "",
-            closeIcon: AccountStore.accountsById.count > 0,
-            addBackButton: (navigationController?.viewControllers.count ?? 1) > 1 ? weakifyGoBack() : nil
-        )
+        navigationItem.title = nil
+        if AccountStore.accountsById.count > 0 {
+            addCloseNavigationItemIfNeeded()
+        }
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.delegate = self
@@ -73,7 +72,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
         view.addSubview(scrollView)
         NSLayoutConstraint.activate([
             // scrollView
-            scrollView.topAnchor.constraint(equalTo: navigationBarAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             scrollView.leftAnchor.constraint(equalTo: view.leftAnchor),
             scrollView.rightAnchor.constraint(equalTo: view.rightAnchor),
@@ -176,8 +175,6 @@ public class ImportWalletVC: CreateWalletBaseVC {
 
         
         view.bringSubviewToFront(bottomActionsView)
-        
-        bringNavigationBarToFront()
 
         textChanged()
         
@@ -240,6 +237,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
             bottomActionsView.primaryButton.showLoading = isLoading
             view.isUserInteractionEnabled = !isLoading
             navigationItem.hidesBackButton = isLoading
+            navigationItem.rightBarButtonItem?.isEnabled = !isLoading
             bottomActionsView.primaryButton.setTitle(
                 isLoading ? lang("Please wait...") : lang("Continue"),
                 for: .normal)
@@ -337,12 +335,9 @@ extension ImportWalletVC: WWordInputDelegate {
 
 extension ImportWalletVC: UIScrollViewDelegate {
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        updateNavigationBarProgressiveBlur(scrollView.contentOffset.y + scrollView.adjustedContentInset.top)
-        if scrollView.convert(headerView.frame.origin, to: navigationBar).y <= -80 + scrollView.adjustedContentInset.top {
-            navigationBar?.set(title: headerView.lblTitle.text, animated: true)
-        } else {
-            navigationBar?.set(title: nil, animated: true)
-        }
+        navigationItem.title = scrollView.contentOffset.y + scrollView.adjustedContentInset.top > 80
+            ? headerView.lblTitle.text
+            : nil
     }
 }
 

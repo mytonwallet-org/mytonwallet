@@ -109,6 +109,9 @@ public class EvaporateText extends HText {
 
     @Override
     protected void drawFrame(Canvas canvas) {
+        if (mHTextView.getLayout() == null) {
+            return;
+        }
 
         float startX = mHTextView.getLayout().getLineLeft(0);
         float startY = mHTextView.getBaseline();

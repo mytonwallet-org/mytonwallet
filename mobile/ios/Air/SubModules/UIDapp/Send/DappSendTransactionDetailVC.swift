@@ -40,17 +40,10 @@ class DappSendTransactionDetailVC: WViewController {
     }
     
     private func setupViews() {
-        
-        addNavigationBar(
-            title: lang("Transfer Details"),
-            closeIcon: true,
-            addBackButton: { [weak self] in self?.navigationController?.popViewController(animated: true) },
-        )
-        navigationBarProgressiveBlurDelta = 10
+        title = lang("Transfer Info")
+        addCloseNavigationItemIfNeeded()
         
         self.hostingController = addHostingController(makeView(), constraints: .fill)
-
-        bringNavigationBarToFront()
         
         updateTheme()
     }

@@ -29,6 +29,15 @@ public extension View {
             self
         }
     }
+
+    @ViewBuilder
+    func backportScrollEdgeEffectHidden(_ hidden: Bool = true, for edges: Edge.Set = .all) -> some View {
+        if #available(iOS 26.0, *) {
+            self.scrollEdgeEffectHidden(hidden, for: edges)
+        } else {
+            self
+        }
+    }
     
     @ViewBuilder
     func backportContentMargins(_ length: CGFloat) -> some View {

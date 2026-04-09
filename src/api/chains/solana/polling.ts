@@ -7,6 +7,7 @@ import type {
 } from '../../types';
 
 import { parseAccountId } from '../../../util/account';
+import { getChainConfig } from '../../../util/chain';
 import { focusAwareDelay } from '../../../util/focusAwareDelay';
 import { compact } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
@@ -42,6 +43,7 @@ export function setupActivePolling(
   onUpdate: OnApiUpdate,
   onUpdatingStatusChange: OnUpdatingStatusChange,
   newestActivityTimestamps: ApiActivityTimestamps,
+  shouldResetBalances?: boolean,
 ): NoneToVoidFunction {
   const { address } = account.byChain.solana;
 
@@ -67,6 +69,7 @@ export function setupActivePolling(
     activityPolling.update,
     onUpdate,
     onUpdatingStatusChange.bind(undefined, 'balance'),
+    shouldResetBalances,
   );
 
   return () => {
@@ -82,12 +85,24 @@ function setupBalancePolling(
   activityUpdate: NoneToVoidFunction,
   onUpdate: OnApiUpdate,
   onUpdatingStatusChange?: (isUpdating: boolean) => void,
+  shouldResetBalances?: boolean,
 ) {
   const { network } = parseAccountId(accountId);
 
   const checkIsWalletActive = async () => {
     return await getIsWalletActive(network, address);
   };
+
+  if (shouldResetBalances) {
+    onUpdate({
+      type: 'updateBalances',
+      accountId,
+      chain: 'solana',
+      balances: {
+        [getChainConfig('solana').nativeToken.slug]: 0n,
+      },
+    });
+  }
 
   const balanceStream = new BalanceStream(
     'solana',

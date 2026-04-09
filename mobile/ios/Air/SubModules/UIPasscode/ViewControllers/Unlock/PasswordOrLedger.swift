@@ -89,14 +89,29 @@ extension WViewController {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
             let vc = LedgerSignVC(
                 model: signModel,
-                title: lang("Confirm Sending"),
+                title: title,
                 headerView: headerView
             )
-            vc.onDone = { _ in
+            vc.onDone = { [weak vc] _ in
+                if vc?.canGoBack == true {
+                    vc?.navigationController?.popViewController(animated: true)
+                } else {
+                    vc?.dismiss(animated: true)
+                }
                 continuation.resume()
             }
-            vc.onCancel = { _ in
+            vc.onCancel = { [weak vc] _ in
+                if vc?.canGoBack == true {
+                    vc?.navigationController?.popViewController(animated: true)
+                } else {
+                    vc?.dismiss(animated: true)
+                }
                 continuation.resume(throwing: CancellationError())
+            }
+            if let navigationController = navigationController {
+                navigationController.pushViewController(vc, animated: true)
+            } else {
+                present(WNavigationController(rootViewController: vc), animated: true)
             }
         }
     }

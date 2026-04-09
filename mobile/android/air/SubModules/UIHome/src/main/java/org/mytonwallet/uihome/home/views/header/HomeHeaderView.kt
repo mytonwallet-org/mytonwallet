@@ -656,7 +656,7 @@ open class HomeHeaderView(
     private fun updateWalletNameMargin(balanceExpandProgress: Float) {
         val walletNameLayoutParams = walletNameLabel.layoutParams as? MarginLayoutParams ?: return
         val maxLabelMargin =
-            if (cardView.account?.accountType == MAccount.AccountType.MNEMONIC) 96.dp else 56.dp
+            if (cardView.account?.accountType == MAccount.AccountType.MNEMONIC) 104.dp else 56.dp
         val labelMargin = lerp(maxLabelMargin.toFloat(), 20f.dp, balanceExpandProgress).roundToInt()
         if (walletNameLayoutParams.marginStart == labelMargin)
             return
@@ -683,6 +683,10 @@ open class HomeHeaderView(
 
     fun updateMintIconVisibility() {
         cardView.updateMintIconVisibility()
+    }
+
+    fun updatePromotion() {
+        cardView.updatePromotion()
     }
 
     private fun showSkeletons() {

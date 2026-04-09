@@ -20,10 +20,10 @@ interface OwnProps {
   isInsideModal?: boolean;
   isMultichainAccount: boolean;
   hasMnemonicWallet?: boolean;
-  onBackClick: () => void;
-  onOpenSecretWordsSafetyRules: () => void;
-  onOpenPrivateKeySafetyRules: () => void;
-  openSettingsSlide: () => void;
+  onBackClick: NoneToVoidFunction;
+  onOpenSecretWordsSafetyRules: NoneToVoidFunction;
+  onOpenPrivateKeySafetyRules: NoneToVoidFunction;
+  onOpenSettingsSlide: NoneToVoidFunction;
 }
 
 function Backup({
@@ -34,7 +34,7 @@ function Backup({
   onBackClick,
   onOpenSecretWordsSafetyRules,
   onOpenPrivateKeySafetyRules,
-  openSettingsSlide,
+  onOpenSettingsSlide,
 }: OwnProps) {
   const lang = useLang();
   useHistoryBack({
@@ -51,14 +51,14 @@ function Backup({
     <div className={styles.slide}>
       {isInsideModal ? (
         <ModalHeader
-          onBackButtonClick={openSettingsSlide}
+          onBackButtonClick={onOpenSettingsSlide}
           className={styles.modalHeader}
           withNotch={isScrolled}
           title={lang('$back_up_security')}
         />
       ) : (
         <div className={styles.header}>
-          <Button isSimple isText onClick={openSettingsSlide} className={styles.headerBack}>
+          <Button isSimple isText onClick={onOpenSettingsSlide} className={styles.headerBack}>
             <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
             <span>{lang('Back')}</span>
           </Button>

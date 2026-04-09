@@ -77,6 +77,7 @@ public struct WColors: Sendable {
     public let browserOpaqueBar: UIColor = .airBundle("BrowserOpaqueBarColor")
     public let pickerBackground: UIColor = .airBundle("PickerBackgroundColor")
     public let blurBackground: UIColor = .airBundle("BlurBackgroundColor")
+    public let extraSheetDimming: UIColor = .airBundle("ExtraSheetDimmingColor")
     public let textPurple: UIColor = .airBundle("TextPurple")
     public let activityNftFill: UIColor = .airBundle("ActivityNftFill")
     
@@ -149,6 +150,7 @@ public extension Color {
         public let browserOpaqueBar: Color = .airBundle("BrowserOpaqueBarColor")
         public let pickerBackground: Color = .airBundle("PickerBackgroundColor")
         public let headerBackground: Color = .airBundle("HeaderBackgroundColor")
+        public let extraSheetDimming: Color = .airBundle("ExtraSheetDimmingColor")
         public var tint: Color { .accentColor }
     }
     

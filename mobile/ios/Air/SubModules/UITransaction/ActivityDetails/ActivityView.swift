@@ -327,7 +327,7 @@ struct ActivityView: View {
             } value: {
                 let exchangeAmount = TokenAmount.fromDouble(ex.price, ex.fromToken)
                 let exchangeRateString = exchangeAmount.formatted(.compact,
-                    roundUp: false,
+                    roundHalfUp: false,
                     precision: swap.status == .pending || swap.status == .pendingTrusted ? .approximate : .exact
                 )
                 Text("\(ex.toToken.symbol) ≈ \(exchangeRateString)")

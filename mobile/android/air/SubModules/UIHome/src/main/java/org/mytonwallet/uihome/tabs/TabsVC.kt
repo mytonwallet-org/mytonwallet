@@ -52,6 +52,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpside
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -74,10 +75,12 @@ import org.mytonwallet.app_air.uireceive.ReceiveBackgroundCache
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
+import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
@@ -99,6 +102,7 @@ import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.HomeVC
+import org.mytonwallet.uihome.home.promotion.PromotionVC
 import kotlin.math.roundToInt
 
 class TabsVC(context: Context) : WViewController(context), WThemedView, WProtectedView,
@@ -953,9 +957,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                     } else {
                         "https://get.mytonwallet.io/android-store"
                     }
-                    val intent = Intent(Intent.ACTION_VIEW)
-                    intent.setData(url.toUri())
-                    window?.startActivity(intent)
+                    window?.startActivityCatching(Intent(Intent.ACTION_VIEW, url.toUri()))
                 }
             }
 
@@ -1045,6 +1047,11 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         checkForMatchingUrl(searchKeyword)
     }
 
+    private fun canOpenExternally(url: String): Boolean {
+        val scheme = url.toUriOrNull()?.scheme?.lowercase() ?: return false
+        return scheme in setOf("geo", "mailto", "market", "tg")
+    }
+
     private fun openUrl(config: InAppBrowserConfig) {
         val browserVC =
             InAppBrowserVC(
@@ -1084,10 +1091,25 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             }
 
             is WalletEvent.OpenUrl -> {
-                val url = if (SubprojectHelpers.isSubproject(walletEvent.url))
-                    SubprojectHelpers.appendSubprojectContext(walletEvent.url)
-                else walletEvent.url
-                openUrl(InAppBrowserConfig(url, injectDappConnect = true))
+                val url = walletEvent.url
+                if (walletEvent.isExternal) {
+                    context.startActivityCatching(
+                        Intent(Intent.ACTION_VIEW, url.toUri())
+                    )
+                } else if (WalletContextManager.delegate?.handleDeeplink(url) != true) {
+                    if (canOpenExternally(url)) {
+                        context.startActivityCatching(
+                            Intent(Intent.ACTION_VIEW, url.toUri())
+                        )
+                    } else if (url.lowercase().startsWith("https://")) {
+                        val resolved = if (SubprojectHelpers.isSubproject(url))
+                            SubprojectHelpers.appendSubprojectContext(url)
+                        else url
+                        openUrl(InAppBrowserConfig(resolved, injectDappConnect = true))
+                    } else {
+                        Logger.w(Logger.LogTag.AIR_APPLICATION, "OpenUrl: unsupported link = $url")
+                    }
+                }
             }
 
             is WalletEvent.OpenUrlWithConfig -> {
@@ -1096,10 +1118,21 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                 }
             }
 
+            is WalletEvent.ShowPromotion -> {
+                val nav = WNavigationController(
+                    window!!, PresentationConfig(
+                        overFullScreen = false,
+                        isBottomSheet = true
+                    )
+                )
+                nav.setRoot(PromotionVC(context, walletEvent.promotion))
+                window?.present(nav)
+            }
+
             is WalletEvent.OpenActivity -> {
                 walletEvent.activity.let { activity ->
                     val nav = WNavigationController(
-                        window!!, WNavigationController.PresentationConfig(
+                        window!!, PresentationConfig(
                             overFullScreen = false,
                             isBottomSheet = true
                         )

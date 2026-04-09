@@ -104,6 +104,9 @@ public class ScaleText extends HText {
 
     @Override
     public void drawFrame(Canvas canvas) {
+        if (mHTextView.getLayout() == null) {
+            return;
+        }
         float startX = mHTextView.getLayout().getLineLeft(0);
         float startY = mHTextView.getBaseline();
         float offset = startX;

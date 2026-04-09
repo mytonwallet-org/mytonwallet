@@ -17,18 +17,18 @@ import styles from './Backup.module.scss';
 
 interface OwnProps {
   isActive?: boolean;
-  onBackClick: () => void;
-  onSubmit: () => void;
   isInsideModal?: boolean;
   backupType: 'key' | 'words';
+  onBackClick: NoneToVoidFunction;
+  onSubmit: NoneToVoidFunction;
 }
 
 function BackupSafetyRules({
   isActive,
-  onBackClick,
   isInsideModal,
-  onSubmit,
   backupType,
+  onBackClick,
+  onSubmit,
 }: OwnProps) {
   const lang = useLang();
 

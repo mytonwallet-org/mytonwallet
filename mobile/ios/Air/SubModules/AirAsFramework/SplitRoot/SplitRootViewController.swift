@@ -189,13 +189,13 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
     func showAssets(accountSource: AccountSource, selectedTab index: Int, collectionsFilter: NftCollectionFilter) {
         let nc = currentNavigationController
         if collectionsFilter != .none, (nc.visibleViewController is AssetsTabVC || nc.visibleViewController is NftDetailsVC) {
-            nc.pushViewController(NftsVC(accountSource: accountSource, mode: .fullScreenFiltered, filter: collectionsFilter), animated: true)
+            nc.pushViewController(NftsFullScreenVC(accountSource: accountSource, filter: collectionsFilter), animated: true)
             return
         }
         let assetsVC = AssetsTabVC(accountSource: accountSource, defaultTabIndex: index)
         nc.pushViewController(assetsVC, animated: true)
         if collectionsFilter != .none {
-            nc.pushViewController(NftsVC(accountSource: accountSource, mode: .fullScreenFiltered, filter: collectionsFilter), animated: false)
+            nc.pushViewController(NftsFullScreenVC(accountSource: accountSource, filter: collectionsFilter), animated: false)
         }
     }
     

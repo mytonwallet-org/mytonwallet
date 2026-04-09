@@ -29,6 +29,7 @@ final class HomeCard: UICollectionViewCell {
     let container = Container()
     
     var cardBackground: UIView!
+    var cardPromotion: UIView!
     var cardContentMaskingContainer: UIView!
     var cardContentMask: UIView!
     var cardContent: UIView!
@@ -77,6 +78,18 @@ final class HomeCard: UICollectionViewCell {
             cardBackground.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             cardBackground.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             cardBackground.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+        ])
+
+        cardPromotion = HostingView { [container] in
+            PromotionContainer(container: container)
+        }
+        cardPromotion.isUserInteractionEnabled = false
+        contentView.addSubview(cardPromotion)
+        NSLayoutConstraint.activate([
+            cardPromotion.topAnchor.constraint(equalTo: contentView.topAnchor),
+            cardPromotion.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            cardPromotion.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            cardPromotion.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
         ])
 
         cardContentMaskingContainer = UIView()
@@ -162,6 +175,7 @@ final class HomeCard: UICollectionViewCell {
         switch headerViewModel.state {
         case .expanded:
             self.cardBackground.transform = .identity
+            self.cardPromotion.transform = .identity
             self.cardContentMask.transform = .identity
             self.miniatureContent.transform = .identity
             self.cardContent.transform = .identity
@@ -173,6 +187,7 @@ final class HomeCard: UICollectionViewCell {
                 .translatedBy(x: 0, y: ofs)
                 .scaledBy(x: scale, y: scale)
             self.cardBackground.transform = t
+            self.cardPromotion.transform = t
             self.cardContentMask.transform = t
             self.miniatureContent.transform = t
             self.cardContent.transform = .identity
@@ -219,6 +234,19 @@ private struct BackgroundContainer: View {
         WithPerceptionTracking {
             if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
                 HomeCardBackground(headerViewModel: headerViewModel, accountContext: accountContext)
+            }
+        }
+    }
+}
+
+private struct PromotionContainer: View {
+    var container: Container
+
+    var body: some View {
+        WithPerceptionTracking {
+            if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
+                HomeCardPromotionVisual(accountContext: accountContext)
+                    .opacity(headerViewModel.isCardHidden ? 0 : 1)
             }
         }
     }

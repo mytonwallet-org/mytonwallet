@@ -5,7 +5,7 @@ import WalletCore
 import Dependencies
 import WalletContext
 
-public class SellVC: WViewController, UIScrollViewDelegate {
+public class SellVC: WViewController {
     private enum State {
         case idle
         case loadingMoonpayUrl
@@ -53,20 +53,7 @@ public class SellVC: WViewController, UIScrollViewDelegate {
     
     private func setupViews() {
         title = lang("Sell on Card")
-        
-        addNavigationBar(title: title, closeIcon: true)
-        if let navigationBar {
-            navigationBar.titleLabel?.isHidden = true
-            let titleLabel = UILabel()
-            titleLabel.text = lang("Sell on Card")
-            titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
-            titleLabel.translatesAutoresizingMaskIntoConstraints = false
-            navigationBar.addSubview(titleLabel)
-            NSLayoutConstraint.activate([
-                navigationBar.titleStackView.centerXAnchor.constraint(equalTo: titleLabel.centerXAnchor),
-                navigationBar.titleStackView.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            ])
-        }
+        addCloseNavigationItemIfNeeded()
         
 #if DEBUG
         if #available(iOS 16.4, *) {
@@ -75,8 +62,6 @@ public class SellVC: WViewController, UIScrollViewDelegate {
 #endif
         webView.isOpaque = false
         webView.translatesAutoresizingMaskIntoConstraints = false
-        webView.scrollView.contentInset.top = navigationBarHeight
-        webView.scrollView.delegate = self
         webView.navigationDelegate = self
         
         view.addSubview(webView)
@@ -89,8 +74,6 @@ public class SellVC: WViewController, UIScrollViewDelegate {
             activityIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             activityIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
-        
-        bringNavigationBarToFront()
     }
     
     private func updateState() {
@@ -206,10 +189,6 @@ public class SellVC: WViewController, UIScrollViewDelegate {
         
         state = .openingMoonpayUrl
         webView.load(URLRequest(url: url))
-    }
-    
-    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        updateNavigationBarProgressiveBlur(scrollView.contentOffset.y + scrollView.adjustedContentInset.top)
     }
     
 }

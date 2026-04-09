@@ -21,13 +21,10 @@ let DEFAULT_OUR_SWAP_FEE = 0.875
     
     @PerceptionIgnored
     var onSlippageChanged: (Double) -> () = { _ in }
-    @PerceptionIgnored
-    var onPreferredDexChanged: (ApiSwapDexLabel?) -> () = { _ in }
 
     var fromToken: ApiToken { inputModel.sellingToken }
     var toToken: ApiToken { inputModel.buyingToken }
     var swapEstimate: ApiSwapEstimateResponse? { onchainModel.swapEstimate }
-    var selectedDex: ApiSwapDexLabel? { onchainModel.dex }
     
     @PerceptionIgnored
     private var onchainModel: OnchainSwapModel
@@ -54,7 +51,7 @@ let DEFAULT_OUR_SWAP_FEE = 0.875
     }
     
     var displayEstimate: ApiSwapEstimateResponse? {
-        swapEstimate?.displayEstimate(selectedDex: selectedDex)
+        swapEstimate
     }
     var displayExchangeRate: SwapRate? {
         if let est = displayEstimate {
@@ -87,19 +84,6 @@ let DEFAULT_OUR_SWAP_FEE = 0.875
     }
 }
 
-extension ApiSwapEstimateResponse {
-    func displayEstimate(selectedDex: ApiSwapDexLabel?) -> ApiSwapEstimateResponse {
-        if let selectedDex, let other = other?.first(where: { $0.dexLabel == selectedDex }) {
-            var est = self
-            est.updateFromVariant(other)
-            return est
-        } else {
-            return self
-        }
-    }
-}
-
-
 struct SwapDetailsView: View {
 
     var inputModel: SwapInputModel
@@ -109,7 +93,6 @@ struct SwapDetailsView: View {
     var exchangeRate: SwapRate? { model.displayExchangeRate }
     var swapEstimate: ApiSwapEstimateResponse? { model.swapEstimate }
     var displayEstimate: ApiSwapEstimateResponse? { model.displayEstimate }
-    var hasAlternative: Bool { swapEstimate?.other?.nilIfEmpty != nil }
     
     @State private var slippageFocused: Bool = false
     
@@ -298,7 +281,8 @@ struct SwapDetailsView: View {
                     .foregroundStyle(Color.air.secondaryLabel)
                     .overlay(alignment: .trailingFirstTextBaseline) {
                         let feePercent = displayEstimate?.ourFeePercent ?? DEFAULT_OUR_SWAP_FEE
-                        InfoButton(title: lang("Aggregator Fee"), message: lang("$swap_aggregator_fee_tooltip", arg1: "\(feePercent)"))
+                        let formattedFeePercent = formatPercent(feePercent / 100, decimals: 5, showPlus: false)
+                        InfoButton(title: lang("Aggregator Fee"), message: lang("$swap_aggregator_fee_tooltip", arg1: formattedFeePercent))
                     }
             } value: {
                 if let ourFee = displayEstimate?.ourFee {

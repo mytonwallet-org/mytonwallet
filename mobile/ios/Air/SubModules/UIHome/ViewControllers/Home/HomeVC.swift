@@ -45,8 +45,6 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private lazy var scanItem: UIBarButtonItem = {
         UIBarButtonItem(title: lang("Scan"), image: .airBundle("HomeScan24"), target: self, action: #selector(scanPressed))
     }()
-    private lazy var cancelItem = UIBarButtonItem.cancelTextButtonItem {[weak self] in self?.cancelReorderingIfNeeded() }
-    private lazy var doneItem = UIBarButtonItem.doneButtonItem {[weak self] in self?.walletAssetsVC.stopReordering(isCanceled: false) }
 
     /// The header containing balance and other actions like send/receive/scan/settings and balance in other currencies.
     private(set) lazy var balanceHeaderView = BalanceHeaderView(headerViewModel: headerViewModel,
@@ -128,7 +126,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             topVC = parent
         }
         if topVC != self {
-            cancelReorderingIfNeeded()
+            walletAssetsVC.editingNavigator.cancelEditing()
         }
     }
     
@@ -243,8 +241,15 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         
         walletAssetsVC = WalletAssetsVC(accountSource: homeVM.$account.source)
         addChild(walletAssetsVC)
-        _ = walletAssetsVC.view
+        walletAssetsVC.loadViewIfNeeded()
         walletAssetsVC.didMove(toParent: self)
+        walletAssetsVC.editingNavigator.onStateChange = { [weak self] _, newState in
+            guard let self else { return }
+            if newState.editingState == .selection {
+                walletAssetsVC.editingNavigator.installToolbar(into: view)
+            }
+            updateNavigationItem()
+        }
         
         let spacing: CGFloat = IOS_26_MODE_ENABLED ? -124 : -100
         NSLayoutConstraint.activate([
@@ -253,8 +258,6 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         ])
         balanceHeaderView.updateStatusView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        addBottomBarBlur()
-        
         // fix gesture recognizer over BHV
         collectionView.superview?.addGestureRecognizer(collectionView.panGestureRecognizer)
 
@@ -592,11 +595,16 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     func updateNavigationItem() {
         var leadingItemGroups: [UIBarButtonItemGroup] = []
         var trailingItemGroups: [UIBarButtonItemGroup] = []
-
-        if walletAssetsVC.isReordering {
-            leadingItemGroups += cancelItem.asSingleItemGroup()
-            trailingItemGroups += doneItem.asSingleItemGroup()
-        } else {
+        
+        let navigator = walletAssetsVC.editingNavigator
+        switch navigator.state.editingState {
+        case .reordering:
+            leadingItemGroups += navigator.cancelEditingBarButtonItem.asSingleItemGroup()
+            trailingItemGroups += navigator.commitEditingBarButtonItem.asSingleItemGroup()
+        case .selection:
+            leadingItemGroups += navigator.selectAllBarButtonItem.asSingleItemGroup()
+            trailingItemGroups += navigator.commitEditingBarButtonItem.asSingleItemGroup()
+        case nil:
             if navigationController?.viewControllers.count == 1 {
                 leadingItemGroups += scanItem.asSingleItemGroup()
             }
@@ -609,11 +617,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
        navigationItem.leadingItemGroups = leadingItemGroups
        navigationItem.trailingItemGroups = trailingItemGroups
     }
-    
-    private func cancelReorderingIfNeeded() {
-        walletAssetsVC.stopReordering(isCanceled: true)
-    }
-        
+                
     // MARK: HomeVMDelegate
     func update(state: UpdateStatusView.State, animated: Bool) {
         DispatchQueue.main.async {

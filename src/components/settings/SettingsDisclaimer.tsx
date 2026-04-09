@@ -17,16 +17,16 @@ import styles from './Settings.module.scss';
 
 interface OwnProps {
   isActive: boolean;
-  handleBackClick: () => void;
   isInsideModal?: boolean;
+  onBackClick: NoneToVoidFunction;
 }
 
-function SettingsDisclaimer({ isActive, handleBackClick, isInsideModal }: OwnProps) {
+function SettingsDisclaimer({ isActive, isInsideModal, onBackClick }: OwnProps) {
   const lang = useLang();
 
   useHistoryBack({
     isActive,
-    onBack: handleBackClick,
+    onBack: onBackClick,
   });
 
   const {
@@ -40,11 +40,11 @@ function SettingsDisclaimer({ isActive, handleBackClick, isInsideModal }: OwnPro
         <ModalHeader
           title=""
           withNotch={isScrolled}
-          onBackButtonClick={handleBackClick}
+          onBackButtonClick={onBackClick}
         />
       ) : (
         <div className={buildClassName(styles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={handleBackClick} className={styles.headerBack}>
+          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
             <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
             <span>{lang('Back')}</span>
           </Button>

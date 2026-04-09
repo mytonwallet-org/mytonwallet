@@ -1,5 +1,5 @@
 {
-  "originHash" : "880e6f448a4ff36be362b0e99d0416d7dc979fcdd48bb94bffe71fa7319bc7ea",
+  "originHash" : "609453f416f8fb6e7fe02f25562a326d3ddc57ef5317979d63b5eb31e9bdf717",
   "pins" : [
     {
       "identity" : "colorthiefswift",
@@ -67,7 +67,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mytonwallet-org/swift-bigint",
       "state" : {
-        "revision" : "53c55ff37750f0eb0631fd7b11ddc60997127694"
+        "revision" : "0485115b4ef6bd789ea320a1269d89fb09d1e8e6"
       }
     },
     {

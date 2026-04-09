@@ -170,10 +170,12 @@ public class UnlockVC: WViewController {
     private var onDoneCallback: ((_ passcode: String) -> Void)? = nil
     private let cancellable: Bool
     private let onCancel: (() -> Void)?
+    private let onSignOutRequested: (@MainActor () async throws -> Void)?
     private let useBioOnPresent: Bool
     private let successCompletionDelay: TimeInterval
     private var viewStartedDismissing: Bool = false
     private var cancelOnDisappear = true
+    private var showsSignOutWhenEmpty = false
     
     public init(
         title: String = lang("Enter your Wallet Passcode"),
@@ -187,6 +189,7 @@ public class UnlockVC: WViewController {
         onDone: @escaping (_ passcode: String) -> Void,
         cancellable: Bool = false,
         onCancel: (() -> Void)? = nil,
+        onSignOutRequested: (@MainActor () async throws -> Void)? = nil,
         useBioOnPresent: Bool = false,
         successCompletionDelay: TimeInterval = 0.4
     ) {
@@ -201,6 +204,7 @@ public class UnlockVC: WViewController {
         self.onDoneCallback = onDone
         self.cancellable = cancellable
         self.onCancel = onCancel
+        self.onSignOutRequested = onSignOutRequested
         self.useBioOnPresent = useBioOnPresent
         self.successCompletionDelay = successCompletionDelay
         super.init(nibName: nil, bundle: nil)
@@ -238,7 +242,7 @@ public class UnlockVC: WViewController {
     }
 
     public override var hideNavigationBar: Bool {
-        return !IOS_26_MODE_ENABLED && customHeaderVC != nil
+        false
     }
     
     public override func viewIsAppearing(_ animated: Bool) {
@@ -247,6 +251,8 @@ public class UnlockVC: WViewController {
             if IOS_26_MODE_ENABLED {
                 additionalSafeAreaInsets.top = -navbarHeight
             }
+        } else {
+            additionalSafeAreaInsets.top = 0
         }
     }
 
@@ -266,28 +272,12 @@ public class UnlockVC: WViewController {
             addCloseNavigationItemIfNeeded()
         }
 
-        // init views
-        
-        if shouldShowEmptyNavigationBar {
-            addNavigationBar(
-                centerYOffset: 1,
-                title: nil,
-                closeIcon: false,
-                addBackButton: { [weak self] in
-                    self?.navigationController?.popViewController(animated: true)
-                }
-            )
-        } else if showNavBar {
-            addNavigationBar(
-                centerYOffset: 1,
-                title: unlockTitle,
-                closeIcon: true,
-                addBackButton: { [weak self] in
-                    self?.navigationController?.popViewController(animated: true)
-                }
-            )
-            navigationItem.hidesBackButton = true
+        if showNavBar {
+            navigationItem.title = shouldShowEmptyNavigationBar ? nil : unlockTitle
+            addCloseNavigationItemIfNeeded()
         }
+
+        showsSignOutWhenEmpty = onSignOutRequested != nil && AuthSupport.cooldownRemaining != nil
         
         passcodeScreenView = PasscodeScreenView(
             title: unlockTitle,
@@ -295,6 +285,8 @@ public class UnlockVC: WViewController {
             subtitle: subtitle,
             compactLayout: customHeader != nil,
             biometricPassAllowed: true,
+            allowsSignOutWhenEmpty: onSignOutRequested != nil,
+            showsSignOutWhenEmpty: showsSignOutWhenEmpty,
             delegate: self,
             matchHeaderColors: shouldBeThemedLikeHeader
         )
@@ -311,7 +303,7 @@ public class UnlockVC: WViewController {
             view.addSubview(customHeaderVC.view)
             customHeaderVC.view.translatesAutoresizingMaskIntoConstraints = false
             NSLayoutConstraint.activate([
-                customHeaderVC.view.topAnchor.constraint(equalTo: navigationBarAnchor),
+                customHeaderVC.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
                 customHeaderVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
                 customHeaderVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             ])
@@ -337,8 +329,6 @@ public class UnlockVC: WViewController {
             indicatorView.centerXAnchor.constraint(equalTo: passcodeScreenView.passcodeInputView.centerXAnchor),
             indicatorView.centerYAnchor.constraint(equalTo: passcodeScreenView.passcodeInputView.centerYAnchor),
         ])
-        
-        bringNavigationBarToFront()
     }
     
     public override func viewWillAppear(_ animated: Bool) {
@@ -359,7 +349,8 @@ public class UnlockVC: WViewController {
 
     // when this function is called, `UnlockVC` tries to use biometric
     public func tryBiometric() {
-        passcodeScreenView.tryBiometric()
+        loadViewIfNeeded()
+        passcodeScreenView?.tryBiometric()
     }
     
     public override func present(_ viewControllerToPresent: UIViewController, animated flag: Bool, completion: (() -> Void)? = nil) {
@@ -369,6 +360,7 @@ public class UnlockVC: WViewController {
 
 extension UnlockVC: PasscodeScreenViewDelegate {
     func passcodeChanged(passcode: String) {
+        passcodeScreenView.setShowsSignOutWhenEmpty(showsSignOutWhenEmpty)
     }
     
     func passcodeSelected(passcode: String) {
@@ -378,6 +370,8 @@ extension UnlockVC: PasscodeScreenViewDelegate {
             do {
                 success = try await AuthSupport.verifyPassword(password: passcode)
             } catch let error as AuthCooldownError {
+                self?.showsSignOutWhenEmpty = true
+                self?.passcodeScreenView.setShowsSignOutWhenEmpty(true)
                 self?.showCooldownAlert(error: error)
                 success = false
             } catch {
@@ -398,6 +392,34 @@ extension UnlockVC: PasscodeScreenViewDelegate {
                 Haptics.play(.error)
             }
         }
+    }
+
+    func signOutRequested() {
+        guard let onSignOutRequested else { return }
+        let text = lang("$logout_all_wallets_warning").replacingOccurrences(of: "**", with: "")
+        let alert = alert(
+            title: lang("Remove Wallets"),
+            text: text,
+            button: lang("Remove"),
+            buttonStyle: .destructive,
+            buttonPressed: { [weak self] in
+                guard let self else { return }
+                self.passcodeScreenView.isUserInteractionEnabled = false
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    do {
+                        try await onSignOutRequested()
+                    } catch {
+                        self.passcodeScreenView.isUserInteractionEnabled = true
+                        AppActions.showError(error: error)
+                    }
+                }
+            },
+            secondaryButton: lang("Cancel"),
+            secondaryButtonPressed: nil,
+            preferPrimary: true
+        )
+        super.present(alert, animated: true, completion: nil)
     }
     
     func showCooldownAlert(error: AuthCooldownError) {

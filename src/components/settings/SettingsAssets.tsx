@@ -36,7 +36,7 @@ import styles from './Settings.module.scss';
 interface OwnProps {
   isActive?: boolean;
   isInsideModal?: boolean;
-  onBack: NoneToVoidFunction;
+  onBackClick: NoneToVoidFunction;
 }
 
 interface StateProps {
@@ -71,7 +71,7 @@ function SettingsAssets({
   whitelistedNftAddresses,
   states,
   currencyRates,
-  onBack,
+  onBackClick,
 }: OwnProps & StateProps) {
   const {
     toggleTinyTransfersHidden,
@@ -94,7 +94,7 @@ function SettingsAssets({
     alwaysHiddenSlugs,
   });
 
-  useHistoryBack({ isActive, onBack });
+  useHistoryBack({ isActive, onBack: onBackClick });
 
   const {
     handleScroll: handleContentScroll,
@@ -154,12 +154,12 @@ function SettingsAssets({
         <ModalHeader
           title={lang('Assets & Activity')}
           withNotch={isScrolled}
-          onBackButtonClick={onBack}
+          onBackButtonClick={onBackClick}
           className={styles.modalHeader}
         />
       ) : (
         <div className={buildClassName(styles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={onBack} className={styles.headerBack}>
+          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
             <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
             <span>{lang('Back')}</span>
           </Button>

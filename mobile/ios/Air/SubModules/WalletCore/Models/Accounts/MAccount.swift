@@ -113,6 +113,45 @@ extension MAccount {
         }
         return nil
     }
+
+    public var currentTonWalletVersion: String? {
+        if AccountStore.accountId == id {
+            return AccountStore.walletVersionsData?.currentVersion.nilIfEmpty ?? version?.nilIfEmpty
+        }
+
+        return version?.nilIfEmpty
+    }
+
+    public func derivation(chain: ApiChain) -> ApiDerivation? {
+        guard
+            let accounts = KeychainHelper.getAccounts(),
+            let account = accounts[id],
+            let rawChain = account[chain.rawValue] as? [String: Any],
+            let rawDerivation = rawChain["derivation"] as? [String: Any],
+            let path = rawDerivation["path"] as? String,
+            let index = rawDerivation["index"] as? Int
+        else {
+            return nil
+        }
+
+        return ApiDerivation(
+            path: path,
+            index: index,
+            label: rawDerivation["label"] as? String
+        )
+    }
+
+    public func supportsSubwallets(on chain: ApiChain) -> Bool {
+        guard supports(chain: chain), let multiWalletSupport = chain.multiWalletSupport else {
+            return false
+        }
+
+        if chain == .ton && multiWalletSupport == .version {
+            return currentTonWalletVersion == ApiTonWalletVersion.W5.rawValue
+        }
+
+        return true
+    }
     
     public var orderedChains: [(ApiChain, AccountChain)] {
         ApiChain.allCases.compactMap { chain  in

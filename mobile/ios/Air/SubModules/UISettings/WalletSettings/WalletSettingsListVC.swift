@@ -71,9 +71,8 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
     }
     
     var onScroll: ((CGFloat) -> Void)?
-    var onScrollStart: (() -> Void)?
-    var onScrollEnd: (() -> Void)?
     var scrollingView: UIScrollView? { collectionView }
+    func calculateHeight(isHosted: Bool) -> CGFloat { 0 }
     
     func setupViews() {
         
@@ -88,7 +87,7 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
         collectionView.backgroundColor = .air.sheetBackground
         collectionView.alwaysBounceVertical = false
         collectionView.showsVerticalScrollIndicator = false
-        collectionView.contentInset = UIEdgeInsets(top: 114, left: 0, bottom: 80, right: 0)
+        collectionView.contentInset = UIEdgeInsets(top: 122, left: 0, bottom: 80, right: 0)
         collectionView.scrollIndicatorInsets = collectionView.contentInset
         collectionView.delaysContentTouches = false
         collectionView.dragDelegate = self
@@ -165,7 +164,7 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
 
         var listConfiguration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         listConfiguration.backgroundColor = .clear
-        listConfiguration.headerTopPadding = 8
+        listConfiguration.headerTopPadding = 14
 
         let emptyItem = NSCollectionLayoutItem(
             layoutSize: .init(.fractionalWidth(1), .fractionalHeight(1))

@@ -104,7 +104,6 @@ function AuthImportViewAccount({
 
         <AddressInput
           ref={inputRef}
-          label={lang('Address or Domain')}
           value={value}
           address=""
           addressName=""

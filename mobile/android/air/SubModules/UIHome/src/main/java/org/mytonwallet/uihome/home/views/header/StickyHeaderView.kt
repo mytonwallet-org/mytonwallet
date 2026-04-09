@@ -153,9 +153,9 @@ class StickyHeaderView(
         addView(lockButton, LayoutParams(40.dp, 40.dp).apply {
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
             if (LocaleController.isRTL)
-                leftMargin = 48.dp
+                leftMargin = 56.dp
             else
-                rightMargin = 48.dp
+                rightMargin = 56.dp
             topMargin = 1.dp
         })
         addView(eyeButton, LayoutParams(40.dp, 40.dp).apply {

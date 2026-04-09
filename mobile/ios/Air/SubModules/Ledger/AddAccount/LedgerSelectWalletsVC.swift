@@ -3,6 +3,7 @@ import UIComponents
 import WalletContext
 import UIKit
 import SwiftUI
+import Perception
 
 
 public final class LedgerSelectWalletsVC: WViewController {
@@ -25,35 +26,36 @@ public final class LedgerSelectWalletsVC: WViewController {
     }
     
     private func setupViews() {
-        
-        navigationItem.title = lang("Select Ledger Wallets")
-        addCloseNavigationItemIfNeeded()
-        if #available(iOS 26, *) {
-            navigationItem.subtitle = ""
+        navigationItem.titleView = HostingView {
+            LedgerSelectWalletsNavigationHeader(model: model)
         }
-        self.navigationBar?.subtitleLabel?.text = lang("%1$d Selected", arg1: model.selectedCount)
-        self.navigationBar?.subtitleLabel?.isHidden = !model.canContinue
-        
+        addCloseNavigationItemIfNeeded()
         self.hostingController = addHostingController(makeView(), constraints: .fill)
         
         updateTheme()
     }
     
     private func makeView() -> LedgerSelectWalletsView {
-        LedgerSelectWalletsView(
-            model: self.model,
-            onWalletsCountChange: { [weak self] count in
-                UIView.animate(withDuration: 0.3) {
-                    guard let self else { return }
-                    let hide = count == 0
-                    self.navigationBar?.subtitleLabel?.text = lang("$n_wallets_selected", arg1: self.model.selectedCount)
-                    self.navigationBar?.subtitleLabel?.isHidden = hide
-                }
-            }
-        )
+        LedgerSelectWalletsView(model: self.model)
     }
     
     private func updateTheme() {
         view.backgroundColor = .air.sheetBackground
+    }
+}
+
+private struct LedgerSelectWalletsNavigationHeader: View {
+    var model: LedgerAddAccountModel
+
+    var body: some View {
+        WithPerceptionTracking {
+            NavigationHeader {
+                Text(lang("Select Ledger Wallets"))
+            } subtitle: {
+                if model.canContinue {
+                    Text(lang("$n_wallets_selected", arg1: model.selectedCount))
+                }
+            }
+        }
     }
 }

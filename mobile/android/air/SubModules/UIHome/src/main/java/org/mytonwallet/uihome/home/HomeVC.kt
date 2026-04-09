@@ -962,6 +962,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     override fun accountConfigChanged() {
         headerView.updateMintIconVisibility()
+        headerView.updatePromotion()
     }
 
     override fun seasonalThemeChanged() {

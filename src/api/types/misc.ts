@@ -6,7 +6,7 @@ import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type { DappProtocolType } from '../dappProtocols';
 import type { ApiTransactionActivity } from './activities';
 import type { ApiParsedPayload } from './payload';
-import type { ApiSseOptions } from './storage';
+import type { ApiSseOptions, ApiWalletByChain } from './storage';
 import type { ApiUpdatingStatus } from './updates';
 
 export type ApiChain = 'ton' | 'tron' | 'solana';
@@ -392,3 +392,20 @@ export type ApiImportAddressByChain = Partial<Record<ApiChain, string>>;
 export type ApiNftMarketplace = 'fragment' | 'getgems';
 
 export type OnUpdatingStatusChange = (kind: ApiUpdatingStatus['kind'], isUpdating: boolean) => void;
+
+type ApiWalletVariantMetadata =
+  | { type: 'version'; version: ApiTonWalletVersion }
+  | { type: 'path'; path: string; label?: string };
+
+export type ApiWalletVariant<T extends ApiChain> = {
+  chain: T;
+  wallet: Omit<ApiWalletByChain[T], 'index'>;
+  balance: bigint;
+  metadata: ApiWalletVariantMetadata;
+};
+
+export interface ApiDerivation {
+  path: string;
+  index: number;
+  label?: string;
+}

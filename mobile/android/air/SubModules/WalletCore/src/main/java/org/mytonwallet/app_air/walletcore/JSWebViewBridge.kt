@@ -24,11 +24,14 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.utils.decodeUrlOrNull
+import org.mytonwallet.app_air.walletbasecontext.utils.takeIfNotBlank
 import org.mytonwallet.app_air.walletbasecontext.utils.toHashMapLong
 import org.mytonwallet.app_air.walletbasecontext.utils.toHashMapString
 import org.mytonwallet.app_air.walletbasecontext.utils.toJSONString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
+import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
@@ -47,43 +50,6 @@ import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.reflect.Type
 import java.math.BigInteger
-
-/*const val CONSOLE_OVERRIDE_SCRIPT = """
-    (function() {
-        const originalConsole = {
-            log: console.log,
-            error: console.error,
-            warn: console.warn,
-            info: console.info,
-            debug: console.debug
-        };
-
-        console.log = function(...args) {
-            androidApp.consoleLog('LOG', JSON.stringify(args));
-            originalConsole.log.apply(console, args);
-        };
-
-        console.error = function(...args) {
-            androidApp.consoleLog('ERROR', JSON.stringify(args));
-            originalConsole.error.apply(console, args);
-        };
-
-        console.warn = function(...args) {
-            androidApp.consoleLog('WARN', JSON.stringify(args));
-            originalConsole.warn.apply(console, args);
-        };
-
-        console.info = function(...args) {
-            androidApp.consoleLog('INFO', JSON.stringify(args));
-            originalConsole.info.apply(console, args);
-        };
-
-        console.debug = function(...args) {
-            androidApp.consoleLog('DEBUG', JSON.stringify(args));
-            originalConsole.debug.apply(console, args);
-        };
-    })();
-"""*/
 
 const val INIT_SCRIPT =
     "window.airBridge.initApi((data) => {androidApp.onUpdate(JSON.stringify(data))}, {isAndroidApp: true})"
@@ -134,7 +100,6 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             return
         injecting = true
 
-        //evaluateJavascript(CONSOLE_OVERRIDE_SCRIPT) {
         // Inject the init script
         evaluateJavascript(INIT_SCRIPT) { res ->
             if (res.equals("null")) {
@@ -147,7 +112,6 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 }, 500)
             }
         }
-        //}
     }
 
     private var callIdentifier: Int = 0
@@ -184,23 +148,10 @@ class JSWebViewBridge(context: Context) : WebView(context) {
     }
 
     class JsWebInterface(val bridge: JSWebViewBridge) {
-        /*@JavascriptInterface
-        fun consoleLog(level: String, args: String) {
-            try {
-                val tag = Logger.LogTag.JS_LOG
-                val message = "[$level] $args"
-
-                when (level) {
-                    "ERROR" -> Logger.e(tag, message)
-                    "WARN" -> Logger.w(tag, message)
-                    "INFO" -> Logger.i(tag, message)
-                    "DEBUG" -> Logger.d(tag, message)
-                    else -> Logger.i(tag, message)
-                }
-            } catch (e: Exception) {
-                Logger.e(Logger.LogTag.JS_LOG, "Error logging console message: ${e.message}")
-            }
-        }*/
+        @JavascriptInterface
+        fun logDebugError(tag: String, args: String) {
+            Logger.e(Logger.LogTag.JS_DEBUG_ERROR, "[$tag] $args")
+        }
 
         @JavascriptInterface
         fun callback(identifier: Int, success: Boolean, result: String) {
@@ -231,7 +182,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                             callback?.invoke(result, err)
                             return@post
                         }
-                    } catch (_: Error) {
+                    } catch (_: Exception) {
                     }
                     callback?.invoke(result, MBridgeError.UNKNOWN)
                 }
@@ -340,7 +291,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                             TokenStore.isLoadingSwapAssets = false
                             WalletCore.notifyEvent(WalletEvent.TokensChanged)
                         }
-                    } catch (_: Error) {
+                    } catch (_: Exception) {
                     }
                 }
 
@@ -419,7 +370,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     val stakingData = stakingAdapter.fromJson(updateString)
                     StakingStore.setStakingState(accountId, stakingData)
 
-                    Handler(Looper.getMainLooper()).post {
+                    ensureMainThread {
                         WalletCore.notifyEvent(WalletEvent.StakingDataUpdated)
                     }
                 }
@@ -439,7 +390,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                             }
                         }
                     val shouldAppend = collectionAddress.isNotEmpty() || isFullLoading == true
-                    Handler(Looper.getMainLooper()).post {
+                    ensureMainThread {
                         NftStore.checkCardNftOwnership(accountId)
                     }
                     val nftsJSONArray =
@@ -449,7 +400,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                         nfts.add(ApiNft.fromJson(nftsJSONArray.getJSONObject(index))!!)
                     }
                     if (collectionAddress.isNotEmpty()) {
-                        Handler(Looper.getMainLooper()).post {
+                        ensureMainThread {
                             WalletCore.notifyEvent(
                                 WalletEvent.CollectionNftsReceived(
                                     accountId,
@@ -463,7 +414,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     if (AccountStore.activeAccount?.accountId != accountId) {
                         return
                     }
-                    Handler(Looper.getMainLooper()).post {
+                    ensureMainThread {
                         NftStore.setNfts(
                             chain,
                             nfts,
@@ -479,10 +430,10 @@ class JSWebViewBridge(context: Context) : WebView(context) {
 
                 "nftReceived" -> {
                     val accountId = objectJSONObject.optString("accountId")
-                    Handler(Looper.getMainLooper()).post {
+                    ensureMainThread {
                         NftStore.checkCardNftOwnership(accountId)
                         if (AccountStore.activeAccount?.accountId != accountId) {
-                            return@post
+                            return@ensureMainThread
                         }
                         NftStore.add(
                             accountId,
@@ -493,10 +444,10 @@ class JSWebViewBridge(context: Context) : WebView(context) {
 
                 "nftSent" -> {
                     val accountId = objectJSONObject.optString("accountId")
-                    Handler(Looper.getMainLooper()).post {
+                    ensureMainThread {
                         NftStore.checkCardNftOwnership(accountId)
                         if (AccountStore.activeAccount?.accountId != accountId) {
-                            return@post
+                            return@ensureMainThread
                         }
                         NftStore.removeByAddress(
                             accountId,
@@ -516,7 +467,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                         )
                     val configMapString = configAdapter.fromJson(updateString)
                     ConfigStore.init(configMapString)
-                    Handler(Looper.getMainLooper()).post {
+                    ensureMainThread {
                         WalletCore.notifyEvent(WalletEvent.ConfigReceived)
                     }
                 }
@@ -524,7 +475,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 "updateAccountConfig" -> {
                     val accountId = objectJSONObject.optString("accountId")
                     val accountConfig = objectJSONObject.optJSONObject("accountConfig") ?: return
-                    Handler(Looper.getMainLooper()).post {
+                    ensureMainThread {
                         WGlobalStorage.setAccountConfig(accountId, accountConfig)
                         WalletCore.notifyEvent(WalletEvent.AccountConfigReceived)
                     }
@@ -539,7 +490,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                         objectJSONObject.optJSONObject("expirationByAddress")?.toHashMapLong()
                     val linkedAddresses =
                         objectJSONObject.optJSONObject("linkedAddressByAddress")?.toHashMapString()
-                    Handler(Looper.getMainLooper()).post {
+                    ensureMainThread {
                         NftStore.setExpirationByAddress(
                             accountId,
                             expirationByAddress
@@ -569,6 +520,15 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                         activeAccount.byChain = byChain.toMap()
                     }
                     AccountStore.updateAccountByChain(accountId, byChain)
+                }
+
+                "openUrl" -> {
+                    val rawUrl = objectJSONObject.optString("url").takeIfNotBlank() ?: return
+                    val url = rawUrl.decodeUrlOrNull() ?: return
+                    val isExternal = objectJSONObject.optBoolean("isExternal", false)
+                    ensureMainThread {
+                        WalletCore.notifyEvent(WalletEvent.OpenUrl(url, isExternal))
+                    }
                 }
 
                 else -> {}
@@ -682,7 +642,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
     private suspend fun callApiAsyncRaw(methodName: String, args: String, clazz: Type): String =
         suspendCancellableCoroutine { continuation ->
             continuation.invokeOnCancellation { }
-            Handler(Looper.getMainLooper()).post {
+            ensureMainThread {
                 callApi(methodName, args) { res, err ->
                     if (continuation.isActive) {
                         if (err != null) {

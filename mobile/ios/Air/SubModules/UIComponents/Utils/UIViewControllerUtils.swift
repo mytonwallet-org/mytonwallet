@@ -118,8 +118,23 @@ public extension UIViewController {
         animated: Bool = true,
         completion: (() -> Void)? = nil
     ) {
+        var presenter: UIViewController = self
+        while presenter is UIAlertController || presenter is UIActivityViewController {
+            guard let presentingViewController = presenter.presentingViewController else {
+                break
+            }
+            presenter = presentingViewController
+        }
+
         if let popover = activityViewController.popoverPresentationController {
-            let popoverSourceView: UIView = sourceView ?? self.view
+            let popoverSourceView: UIView
+            if let sourceView, sourceView.window != nil {
+                popoverSourceView = sourceView
+            } else if let presenterView = presenter.viewIfLoaded, presenterView.window != nil {
+                popoverSourceView = presenterView
+            } else {
+                popoverSourceView = presenter.view
+            }
             popover.sourceView = popoverSourceView
             popover.sourceRect = CGRect(
                 x: popoverSourceView.bounds.midX,
@@ -129,7 +144,7 @@ public extension UIViewController {
             )
             popover.permittedArrowDirections = []
         }
-        present(activityViewController, animated: animated, completion: completion)
+        presenter.present(activityViewController, animated: animated, completion: completion)
     }
 }
 

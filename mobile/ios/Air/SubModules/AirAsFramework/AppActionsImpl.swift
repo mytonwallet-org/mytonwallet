@@ -12,6 +12,7 @@ import UIAssets
 import UISettings
 import UIReceive
 import UIEarn
+import UIHome
 import UIToken
 import UIInAppBrowser
 import UniformTypeIdentifiers
@@ -157,7 +158,9 @@ private class AppActionsImpl: AppActionsProtocol {
             } else if let listVC = topWViewController() as? ActivityDetailsListVC {
                 listVC.navigationController?.pushViewController(vc, animated: true)
             } else {
-                topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+                let navigationController = WNavigationController(rootViewController: vc)
+                navigationController.isExtraSheetDimmingEnabled = true
+                topViewController()?.present(navigationController, animated: true)
             }
         }
     }
@@ -373,6 +376,19 @@ private class AppActionsImpl: AppActionsProtocol {
             }
         }
     }
+
+    static func showPromotion(_ promotion: ApiPromotion) {
+        guard promotion.modal != nil else { return }
+        let vc = PromotionVC(promotion: promotion)
+        let nc = WNavigationController(rootViewController: vc)
+        if let sheet = nc.sheetPresentationController {
+            sheet.prefersGrabberVisible = false
+            if #available(iOS 26.1, *) {
+                sheet.backgroundEffect = UIColorEffect(color: .air.sheetBackground)
+            }
+        }
+        topViewController()?.present(nc, animated: true)
+    }
     
     static func showReceive(accountContext: AccountContext, chain: ApiChain?, title: String?) {
         let receiveVC = ReceiveVC(accountContext: accountContext, chain: chain, title: title)
@@ -404,6 +420,10 @@ private class AppActionsImpl: AppActionsProtocol {
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues) {
         if accountContext.account.supportsSend != true {
             AppActions.showError(error: BridgeCallError.customMessage(lang("Read-only account"), nil))
+            return
+        }
+        if prefilledValues.nfts?.contains(where: \.isOnSale) == true {
+            AppActions.showToast(message: lang("For sale. Cannot be sent and burned"))
             return
         }
         topViewController()?.present(SendVC(accountContext: accountContext, prefilledValues: prefilledValues), animated: true)
@@ -528,7 +548,7 @@ private class AppActionsImpl: AppActionsProtocol {
         case .dapps:
             guard AccountStore.account?.isView != true else { return nil }
             return [ConnectedAppsVC(isModal: false)]
-        case .walletVersion:
+        case .walletVersions:
             guard AccountStore.walletVersionsData?.versions.isEmpty == false else { return nil }
             return [WalletVersionsVC()]
         case .disclaimer:

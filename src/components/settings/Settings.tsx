@@ -3,9 +3,9 @@ import { getActions, withGlobal } from '../../global';
 
 import type { ApiTonWalletVersion } from '../../api/chains/ton/types';
 import type { StoredDappConnection } from '../../api/dappProtocols/storage';
-import type { ApiWalletWithVersionInfo } from '../../api/types';
-import type { GlobalState, UserToken } from '../../global/types';
-import type { Wallet } from './SettingsWalletVersion';
+import type { ApiChain, ApiWalletWithVersionInfo } from '../../api/types';
+import type { AccountChain, GlobalState, UserToken } from '../../global/types';
+import type { Wallet } from './wallets/SettingsWalletVariants';
 import { SettingsState } from '../../global/types';
 
 import {
@@ -25,6 +25,7 @@ import {
 } from '../../config';
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
 import {
+  selectAccount,
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
@@ -34,6 +35,7 @@ import {
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
+import { getChainConfig } from '../../util/chain';
 import { toBig, toDecimal } from '../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
@@ -81,8 +83,9 @@ import SettingsLanguage from './SettingsLanguage';
 import SettingsPushNotifications from './SettingsPushNotifications';
 import SettingsSecurity from './SettingsSecurity';
 import SettingsTokenList from './SettingsTokenList';
-import SettingsWallets from './SettingsWallets';
-import SettingsWalletVersion from './SettingsWalletVersion';
+import SettingsWallets from './wallets/SettingsWallets';
+import SettingsWalletVariants from './wallets/SettingsWalletVariants';
+import SettingsWalletVersions from './wallets/SettingsWalletVersions';
 
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Settings.module.scss';
@@ -106,7 +109,7 @@ import supportImg from '../../assets/settings/settings_support.svg';
 import tipsImg from '../../assets/settings/settings_tips.svg';
 import tonLinksImg from '../../assets/settings/settings_ton-links.svg';
 import tonProxyImg from '../../assets/settings/settings_ton-proxy.svg';
-import walletVersionImg from '../../assets/settings/settings_wallet-version.svg';
+import tonWallets from '../../assets/settings/settings_ton-wallets.svg';
 
 type OwnProps = {
   isActive: boolean;
@@ -126,6 +129,8 @@ type StateProps = {
   arePushNotificationsAvailable?: boolean;
   isNftBuyingDisabled?: boolean;
   isViewMode: boolean;
+  isHardwareAccount: boolean;
+  accountChains?: Partial<Record<ApiChain, AccountChain>>;
 };
 
 const AMOUNT_OF_CLICKS_FOR_DEVELOPERS_MODE = 5;
@@ -155,6 +160,8 @@ function Settings({
   arePushNotificationsAvailable,
   isNftBuyingDisabled,
   isViewMode,
+  isHardwareAccount,
+  accountChains,
 }: OwnProps & StateProps) {
   const {
     setSettingsState,
@@ -209,6 +216,26 @@ function Settings({
         } satisfies Wallet;
       }) ?? [];
   }, [shortBaseSymbol, tonToken, versions, withAllWalletVersions]);
+
+  const currentWalletBalanceByChain = useMemo(() => {
+    if (!tokens || !accountChains) return undefined;
+    const result: Partial<Record<ApiChain, { totalBalance: string; tokens: string }>> = {};
+    for (const chain of Object.keys(accountChains) as ApiChain[]) {
+      const { nativeToken: nativeTokenConfig } = getChainConfig(chain);
+      const nativeToken = tokens.find((t) => t.slug === nativeTokenConfig.slug);
+
+      const nativeBalance = nativeToken
+        ? formatCurrency(toDecimal(nativeToken.amount, nativeToken.decimals), nativeToken.symbol)
+        : formatCurrency(0, nativeTokenConfig.symbol);
+      const totalFiat = nativeToken ? Number(nativeToken.totalValue) : 0;
+
+      result[chain] = {
+        tokens: nativeBalance,
+        totalBalance: formatCurrency(totalFiat, shortBaseSymbol),
+      };
+    }
+    return result;
+  }, [tokens, accountChains, shortBaseSymbol]);
 
   const { isScrolled, handleScroll: handleContentScroll } = useScrolledState();
 
@@ -289,7 +316,11 @@ function Settings({
   });
 
   const handleOpenWalletVersion = useLastCallback(() => {
-    setSettingsState({ state: SettingsState.WalletVersion });
+    setSettingsState({ state: SettingsState.WalletVariants });
+  });
+
+  const handleOpenWalletVersions = useLastCallback(() => {
+    setSettingsState({ state: SettingsState.WalletVersions });
   });
 
   const handleDeeplinkHookToggle = useLastCallback(() => {
@@ -511,12 +542,24 @@ function Settings({
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
             )}
-            {!!versions?.length && (
+            {/* TODO: Uncomment this after release */}
+            {/* {!isHardwareAccount && (
               <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleOpenWalletVersion}>
-                <img className={styles.menuIcon} src={walletVersionImg} alt={lang('Wallet Versions')} />
+                <img className={styles.menuIcon} src={walletVersionImg} alt={lang('Subwallets')} />
+                <div className={styles.itemContent}>
+                  <span className={styles.itemTitle}>{lang('Subwallets')}</span>
+                  <span className={styles.itemSubtitle}>{lang('Other addresses for this wallet')}</span>
+                </div>
+
+                <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
+              </div>
+            )} */}
+            {!isHardwareAccount && wallets.length > 0 && (
+              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleOpenWalletVersions}>
+                <img className={styles.menuIcon} src={tonWallets} alt={lang('Wallet Versions')} />
                 <div className={styles.itemContent}>
                   <span className={styles.itemTitle}>{lang('Wallet Versions')}</span>
-                  <span className={styles.itemSubtitle}>{lang('Your assets on other contracts')}</span>
+                  <span className={styles.itemSubtitle}>{lang('Your assets on other TON contracts')}</span>
                 </div>
 
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
@@ -699,8 +742,8 @@ function Settings({
         return (
           <SettingsPushNotifications
             isActive={isActive && isSlideActive}
-            handleBackClick={handleBackClick}
             isInsideModal={isInsideModal}
+            onBackClick={handleBackClick}
           />
         );
       case SettingsState.Appearance:
@@ -709,9 +752,9 @@ function Settings({
             isActive={isActive && isSlideActive}
             theme={theme}
             animationLevel={animationLevel}
-            handleBackClick={handleBackClick}
             isInsideModal={isInsideModal}
             isTrayIconEnabled={isTrayIconEnabled}
+            onBackClick={handleBackClick}
             onTrayIconEnabledToggle={handleTrayIconEnabledToggle}
           />
         );
@@ -720,16 +763,16 @@ function Settings({
           <SettingsAssets
             isActive={isActive && isSlideActive}
             isInsideModal={isInsideModal}
-            onBack={handleBackClick}
+            onBackClick={handleBackClick}
           />
         );
       case SettingsState.Security:
         return (
           <SettingsSecurity
             isActive={isActive && isSlideActive}
-            handleBackClick={handleBackClick}
             isInsideModal={isInsideModal}
             isAutoUpdateEnabled={isAutoUpdateEnabled}
+            onBackClick={handleBackClick}
             onAutoUpdateEnabledToggle={handleAutoUpdateEnabledToggle}
             onSettingsClose={handleCloseSettings}
           />
@@ -739,8 +782,8 @@ function Settings({
           <SettingsDapps
             isActive={isActive && isSlideActive}
             dapps={dapps}
-            handleBackClick={handleBackClick}
             isInsideModal={isInsideModal}
+            onBackClick={handleBackClick}
           />
         );
       case SettingsState.Language:
@@ -748,25 +791,25 @@ function Settings({
           <SettingsLanguage
             isActive={isActive && isSlideActive}
             langCode={langCode}
-            handleBackClick={handleBackClick}
             isInsideModal={isInsideModal}
+            onBackClick={handleBackClick}
           />
         );
       case SettingsState.About:
         return (
           <SettingsAbout
             isActive={isActive && isSlideActive}
-            handleBackClick={handleBackClick}
             isInsideModal={isInsideModal}
             theme={theme}
+            onBackClick={handleBackClick}
           />
         );
       case SettingsState.Disclaimer:
         return (
           <SettingsDisclaimer
             isActive={isActive && isSlideActive}
-            handleBackClick={handleBackClick}
             isInsideModal={isInsideModal}
+            onBackClick={handleBackClick}
           />
         );
       case SettingsState.NativeBiometricsTurnOn:
@@ -774,7 +817,7 @@ function Settings({
           <SettingsNativeBiometricsTurnOn
             isActive={isActive && isSlideActive}
             isInsideModal={isInsideModal}
-            handleBackClick={handleBackClick}
+            onBackClick={handleBackClick}
           />
         );
       case SettingsState.SelectTokenList:
@@ -782,17 +825,28 @@ function Settings({
           <SettingsTokenList
             isActive={isActive && isSlideActive}
             isInsideModal={isInsideModal}
-            handleBackClick={handleBackClickToAssets}
+            onBackClick={handleBackClickToAssets}
           />
         );
-      case SettingsState.WalletVersion:
+      case SettingsState.WalletVariants:
         return (
-          <SettingsWalletVersion
+          <SettingsWalletVariants
             isActive={isActive && isSlideActive}
-            currentVersion={currentVersion}
-            handleBackClick={handleBackClick}
             isInsideModal={isInsideModal}
+            currentVersion={currentVersion}
+            accountChains={accountChains}
+            currentWalletBalanceByChain={currentWalletBalanceByChain}
+            onBackClick={handleBackClick}
+          />
+        );
+      case SettingsState.WalletVersions:
+        return (
+          <SettingsWalletVersions
+            isActive={isActive && isSlideActive}
+            isInsideModal={isInsideModal}
+            currentVersion={currentVersion}
             wallets={wallets}
+            onBackClick={handleBackClick}
           />
         );
       case SettingsState.LedgerConnectHardware:
@@ -802,7 +856,7 @@ function Settings({
               isActive={isActive && isSlideActive}
               isStatic={!isInsideModal}
               className={styles.nestedTransition}
-              onBackButtonClick={handleBackClick}
+              onBackClick={handleBackClick}
               onConnected={handleLedgerConnected}
               onClose={handleBackOrCloseAction}
             />
@@ -814,7 +868,7 @@ function Settings({
             <LedgerSelectWallets
               isActive={isActive && isSlideActive}
               isStatic={!isInsideModal}
-              onBackButtonClick={handleBackClick}
+              onBackClick={handleBackClick}
               onClose={handleBackOrCloseAction}
             />
           </div>
@@ -823,8 +877,8 @@ function Settings({
         return (
           <SettingsHiddenNfts
             isActive={isActive && isSlideActive}
-            handleBackClick={handleBackClickToAssets}
             isInsideModal={isInsideModal}
+            onBackClick={handleBackClickToAssets}
           />
         );
     }
@@ -867,6 +921,8 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   const versions = versionsById?.[currentAccountId!];
   const { dapps = MEMO_EMPTY_ARRAY } = selectCurrentAccountState(global) || {};
 
+  const account = selectAccount(global, currentAccountId!);
+
   return {
     settings: global.settings,
     dapps,
@@ -880,5 +936,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     isNftBuyingDisabled,
     arePushNotificationsAvailable: global.pushNotifications.isAvailable,
     isViewMode: selectIsCurrentAccountViewMode(global),
+    isHardwareAccount: account?.type === 'hardware',
+    accountChains: account?.byChain,
   };
 })(Settings));

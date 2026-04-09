@@ -48,8 +48,6 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
 
     // MARK: - Misc
 
-    open override var hideNavigationBar: Bool { false }
-
     public func onSelect(transaction: ApiActivity) {
         guard let account = activityViewModel?.accountContext.account else { return }
         if case .swap(let swap) = transaction,
@@ -379,9 +377,6 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
 
         if !dataAvailable, !skeletonView.isAnimating, !isInitializingCache {
             view.bringSubviewToFront(skeletonView)
-            if let bottomBarBlurView {
-                view.bringSubviewToFront(bottomBarBlurView)
-            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 guard let self else { return }
                 let dataAvailable = activityViewModel?.idsByDate != nil

@@ -12,9 +12,7 @@ final class CrosschainFromWalletVC: WViewController, WalletCoreData.EventsObserv
     private var awaitingActivity = false
     private var accountId: String?
     
-    private var overviewVC: UIHostingController<SwapOverviewView>?
-    private var continueButton = WButton(style: .primary)
-    private var crosschainFromWalletView: CrosschainFromWalletView!
+    private var hostingController: UIHostingController<CrosschainFromWalletView>?
     
     init(
         sellingToken: TokenAmount,
@@ -46,61 +44,30 @@ final class CrosschainFromWalletVC: WViewController, WalletCoreData.EventsObserv
     
     private func setupViews() {
         navigationItem.hidesBackButton = true
-        navigationItem.title = lang("Swap")
-        addCloseNavigationItemIfNeeded()
-        
-        let scrollView = UIScrollView()
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(scrollView)
-        NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
-        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(containerPressed))
-        tapGestureRecognizer.cancelsTouchesInView = true
-        view.addGestureRecognizer(tapGestureRecognizer)
-
-        let headerVC = UIHostingController(
-            rootView: SwapOverviewView(
-                fromAmount: model.sellingToken,
-                toAmount: model.buyingToken
-            )
-        )
-        overviewVC = headerVC
-        addChild(headerVC)
-        scrollView.addSubview(headerVC.view)
-        headerVC.view.backgroundColor = .clear
-        headerVC.view.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            headerVC.view.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 28),
-            headerVC.view.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -32),
-            headerVC.view.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
-            headerVC.view.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16)
-        ])
-        headerVC.didMove(toParent: self)
-        
-        crosschainFromWalletView = CrosschainFromWalletView(
-            buyingToken: model.buyingToken.type,
-            onAddressChanged: { [weak self] address in
-                guard let self else { return }
-                model.addressInputString = address
-                continueButton.isEnabled = !address.isEmpty
+        navigationItem.titleView = HostingView {
+            NavigationHeader {
+                HStack(spacing: 4) {
+                    Text(model.sellingToken.type.symbol)
+                    Image(systemName: "chevron.forward")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(model.buyingToken.type.symbol)
+                }
             }
+        }
+        addCloseNavigationItemIfNeeded()
+
+        hostingController = addHostingController(
+            CrosschainFromWalletView(
+                model: model,
+                onClose: { [weak self] in
+                    self?.closePressed()
+                },
+                onContinue: { [weak self] in
+                    self?.continuePressed()
+                }
+            ),
+            constraints: .fill
         )
-        scrollView.addSubview(crosschainFromWalletView)
-        NSLayoutConstraint.activate([
-            crosschainFromWalletView.topAnchor.constraint(equalTo: headerVC.view.bottomAnchor, constant: 36),
-            crosschainFromWalletView.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -32),
-            crosschainFromWalletView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
-            crosschainFromWalletView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -74)
-        ])
-        
-        continueButton = addBottomButton(bottomConstraint: true)
-        continueButton.isEnabled = false
-        continueButton.configureTitle(sellingToken: model.sellingToken.type, buyingToken: model.buyingToken.type)
-        continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
         
         updateTheme()
     }
@@ -109,12 +76,17 @@ final class CrosschainFromWalletVC: WViewController, WalletCoreData.EventsObserv
         view.backgroundColor = .air.sheetBackground
     }
     
-    @objc private func containerPressed() {
-        view.endEditing(true)
+    private func closePressed() {
+        if navigationController?.viewControllers.count ?? 0 > 1 {
+            navigationController?.popViewController(animated: true)
+        } else {
+            dismiss(animated: true)
+        }
     }
     
     @objc private func continuePressed() {
         view.endEditing(true)
+        guard model.canContinue else { return }
         
         var failureError: BridgeCallError? = nil
         
@@ -133,7 +105,7 @@ final class CrosschainFromWalletVC: WViewController, WalletCoreData.EventsObserv
                 awaitingActivity = true
                 Task {
                     do {
-                        try await self.model.performSwap(toAddress: self.model.addressInputString, passcode: passcode)
+                        try await self.model.performSwap(passcode: passcode)
                     } catch {
                         failureError = error as? BridgeCallError
                     }

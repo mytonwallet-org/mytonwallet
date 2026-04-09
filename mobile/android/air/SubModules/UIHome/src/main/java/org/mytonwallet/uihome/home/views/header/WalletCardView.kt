@@ -248,7 +248,7 @@ class WalletCardView(
     }
 
     private val balanceChangeChevron = ContextCompat.getDrawable(
-        context, org.mytonwallet.app_air.icons.R.drawable.ic_arrow_right_16_24
+        context, R.drawable.ic_arrow_right_16_24
     )?.apply {
         mutate()
         setBounds(0, 0, intrinsicWidth, intrinsicHeight)
@@ -356,28 +356,46 @@ class WalletCardView(
         id = generateViewId()
     }
 
+    private val promoOverlayView = PromoCardOverlayView(context).apply {
+        id = generateViewId()
+        visibility = GONE
+    }
+
+    private val clippedContainer = WView(context).apply {
+        id = generateViewId()
+        clipChildren = true
+        clipToPadding = true
+    }
+
     private val contentView: WView by lazy {
         val v = WView(context).apply {
             clipChildren = false
             clipToPadding = false
         }
         val maxBottomContainerWidth = max(240.dp, window.windowView.width - (34 + 96).dp)
-        v.addView(img, LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        v.addView(shiningView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        v.addView(seasonalOverlayView, LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
-        v.addView(miniPlaceholders)
-        v.addView(balanceViewContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        balanceChangeBlurView?.let { balanceChangeBlurView ->
-            v.addView(balanceChangeBlurView, LayoutParams(MATCH_CONSTRAINT, 28.dp))
-            balanceChangeBlurView.setupWith(v)
-        }
-        v.addView(balanceChangeLabel, LayoutParams(WRAP_CONTENT, 28.dp))
-        v.addView(balanceSkeletonView, LayoutParams(134.dp, 56.dp))
-        v.addView(balanceChangeSkeletonView, LayoutParams(134.dp, 28.dp))
-        v.addView(bottomViewContainer, LayoutParams(maxBottomContainerWidth, WRAP_CONTENT))
-        v.addView(mintIcon, LayoutParams(40.dp, 40.dp))
 
-        v.setConstraints {
+        clippedContainer.addView(img, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        clippedContainer.addView(shiningView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        clippedContainer.addView(
+            seasonalOverlayView,
+            LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT)
+        )
+        clippedContainer.addView(miniPlaceholders)
+        clippedContainer.addView(balanceViewContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        balanceChangeBlurView?.let { balanceChangeBlurView ->
+            clippedContainer.addView(balanceChangeBlurView, LayoutParams(MATCH_CONSTRAINT, 28.dp))
+            balanceChangeBlurView.setupWith(clippedContainer)
+        }
+        clippedContainer.addView(balanceChangeLabel, LayoutParams(WRAP_CONTENT, 28.dp))
+        clippedContainer.addView(balanceSkeletonView, LayoutParams(134.dp, 56.dp))
+        clippedContainer.addView(balanceChangeSkeletonView, LayoutParams(134.dp, 28.dp))
+        clippedContainer.addView(
+            bottomViewContainer,
+            LayoutParams(maxBottomContainerWidth, WRAP_CONTENT)
+        )
+        clippedContainer.addView(mintIcon, LayoutParams(40.dp, 40.dp))
+
+        clippedContainer.setConstraints {
             allEdges(img)
             allEdges(seasonalOverlayView)
             toCenterX(miniPlaceholders)
@@ -398,20 +416,32 @@ class WalletCardView(
             toEnd(mintIcon, 4f)
         }
 
+        v.addView(clippedContainer, LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
+        promoOverlayView.clipChildren = false
+        v.addView(promoOverlayView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+
+        v.setConstraints {
+            allEdges(clippedContainer)
+            toTop(promoOverlayView)
+            toEnd(promoOverlayView)
+        }
+
         v.post {
-            val topOffset = (((parent as View).width - 32.dp) * RATIO - 40.dp).roundToInt()
-            v.setConstraints {
+            clippedContainer.setConstraints {
                 toBottom(mintIcon, 5f)
                 constrainMaxWidth(balanceViewContainer.id, (parent as View).width - 34.dp)
             }
         }
 
-        walletTypeView.setupBlurWith(v)
+        walletTypeView.setupBlurWith(clippedContainer)
         v
     }
 
     override fun setupViews() {
         super.setupViews()
+
+        clipChildren = false
+        clipToPadding = false
 
         addView(contentView)
 
@@ -684,7 +714,7 @@ class WalletCardView(
 
         if (cardNft == null) {
             img.set(Content(Content.Image.Res(org.mytonwallet.app_air.uicomponents.R.drawable.img_card)))
-            contentView.setConstraints {
+            clippedContainer.setConstraints {
                 allEdges(img)
             }
             shiningView.visibility = GONE
@@ -726,10 +756,13 @@ class WalletCardView(
             miniPlaceholders.fadeOut(AnimationConstants.INSTANT_ANIMATION)
             shiningView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
             seasonalOverlayView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
+            if (promoOverlayView.isVisible)
+                promoOverlayView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
         } else {
             miniPlaceholders.alpha = 0f
             shiningView.alpha = 1f
             seasonalOverlayView.alpha = 1f
+            promoOverlayView.alpha = if (promoOverlayView.isVisible) 1f else 0f
         }
         startSensorListening()
     }
@@ -745,10 +778,13 @@ class WalletCardView(
             miniPlaceholders.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
             shiningView.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION)
             seasonalOverlayView.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION)
+            if (promoOverlayView.isVisible)
+                promoOverlayView.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION)
         } else {
             miniPlaceholders.alpha = 1f
             shiningView.alpha = 0f
             seasonalOverlayView.alpha = 0f
+            promoOverlayView.alpha = 0f
         }
     }
 
@@ -757,7 +793,7 @@ class WalletCardView(
         if (this.currentRadius == radius)
             return
         this.currentRadius = radius
-        setBackgroundColor(Color.TRANSPARENT, radius, true)
+        clippedContainer.setBackgroundColor(Color.TRANSPARENT, radius, true)
         img.setBackgroundColor(Color.TRANSPARENT, radius, true)
         shiningView.radius = radius
     }
@@ -766,6 +802,10 @@ class WalletCardView(
         mintIcon.isGone =
             WGlobalStorage.getCardsInfo(account?.accountId ?: "") == null &&
                 !WGlobalStorage.isCardMinting(account?.accountId ?: "")
+    }
+
+    fun updatePromotion() {
+        promoOverlayView.updatePromotion(account?.accountId)
     }
 
     fun viewWillDisappear() {

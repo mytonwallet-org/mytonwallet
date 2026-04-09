@@ -7,14 +7,45 @@ public struct AddressTextField: UIViewRepresentable {
     
     @Binding var value: String
     @Binding var isFocused: Bool
+    var maximumNumberOfLines: Int
     var onNext: () -> ()
+    var onPaste: (() -> Void)?
     
     @State private var cooldown: Date = .distantPast
+
+    private static func normalizedAddressText(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
     
-    public init(value: Binding<String>, isFocused: Binding<Bool>, onNext: @escaping () -> Void) {
+    public init(
+        value: Binding<String>,
+        isFocused: Binding<Bool>,
+        maximumNumberOfLines: Int = 1,
+        onNext: @escaping () -> Void,
+        onPaste: (() -> Void)? = nil
+    ) {
         self._value = value
         self._isFocused = isFocused
+        self.maximumNumberOfLines = maximumNumberOfLines
         self.onNext = onNext
+        self.onPaste = onPaste
+    }
+    
+    final class PasteAwareTextView: UITextView {
+        var onPaste: (() -> Void)?
+        
+        override func paste(_ sender: Any?) {
+            super.paste(sender)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                let normalized = AddressTextField.normalizedAddressText(self.text)
+                if self.text != normalized {
+                    self.text = normalized
+                    self.delegate?.textViewDidChange?(self)
+                }
+                self.onPaste?()
+            }
+        }
     }
     
     public final class Coordinator: NSObject, UITextViewDelegate {
@@ -22,11 +53,13 @@ public struct AddressTextField: UIViewRepresentable {
         var onChange: (String) -> ()
         var onFocusChange: (Bool) -> ()
         var onNext: () -> ()
+        var onPaste: (() -> Void)?
         
-        init(onChange: @escaping (String) -> Void, onFocusChange: @escaping (Bool) -> Void, onNext: @escaping () -> Void) {
+        init(onChange: @escaping (String) -> Void, onFocusChange: @escaping (Bool) -> Void, onNext: @escaping () -> Void, onPaste: (() -> Void)?) {
             self.onChange = onChange
             self.onFocusChange = onFocusChange
             self.onNext = onNext
+            self.onPaste = onPaste
         }
         
         public func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
@@ -46,6 +79,11 @@ public struct AddressTextField: UIViewRepresentable {
         }
         
         public func textViewDidEndEditing(_ textView: UITextView) {
+            let normalized = AddressTextField.normalizedAddressText(textView.text)
+            if textView.text != normalized {
+                textView.text = normalized
+                onChange(normalized)
+            }
             onFocusChange(false)
         }
     }
@@ -61,12 +99,13 @@ public struct AddressTextField: UIViewRepresentable {
                     self.cooldown = .now
                 }
             },
-            onNext: onNext
+            onNext: onNext,
+            onPaste: onPaste
         )
     }
     
     public func makeUIView(context: Context) -> UITextView {
-        let view = UITextView()
+        let view = PasteAwareTextView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.isScrollEnabled = false
         view.backgroundColor = .clear
@@ -77,7 +116,7 @@ public struct AddressTextField: UIViewRepresentable {
         view.textContainerInset = .zero
         view.textContainer.lineBreakMode = .byCharWrapping
         view.textContainer.lineFragmentPadding = 0
-        view.textContainer.maximumNumberOfLines = 1
+        view.textContainer.maximumNumberOfLines = maximumNumberOfLines
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineBreakMode = .byCharWrapping
         view.typingAttributes = [
@@ -86,17 +125,21 @@ public struct AddressTextField: UIViewRepresentable {
             .foregroundColor: UIColor.label,
         ]
         view.dataDetectorTypes = []
-        view.returnKeyType = .next
+        view.returnKeyType = maximumNumberOfLines == 1 ? .next : .done
         if #available(iOS 18.0, *) {
             view.writingToolsBehavior = .none
         }
         view.delegate = context.coordinator
+        view.onPaste = context.coordinator.onPaste
         return view
     }
     
     public func updateUIView(_ view: UITextView, context: Context) {
         if value != view.text {
             view.text = value
+        }
+        if let view = view as? PasteAwareTextView {
+            view.onPaste = context.coordinator.onPaste
         }
         if isFocused && !view.isFirstResponder {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {

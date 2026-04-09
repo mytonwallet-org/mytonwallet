@@ -9,7 +9,6 @@ import Perception
 struct LedgerSelectWalletsView: View {
     
     var model: LedgerAddAccountModel
-    var onWalletsCountChange: (Int) -> ()
     
     @State private var angle: Angle = .zero
     @State private var continueLoading = false
@@ -62,9 +61,6 @@ struct LedgerSelectWalletsView: View {
                 .padding(.horizontal, 32)
                 .padding(.vertical, 32)
                 .environment(\.isLoading, continueLoading)
-            }
-            .onChange(of: model.selectedCount) { count in
-                onWalletsCountChange(count)
             }
         }
     }

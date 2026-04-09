@@ -13,6 +13,7 @@ import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
@@ -207,6 +208,26 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             }
         }
 
+    private val spacer3 = WBaseView(context)
+
+    private val screenRecordTitleLabel = HeaderCell(context).apply {
+        configure(
+            LocaleController.getString("Screen Recording"),
+            titleColor = WColor.Tint,
+            HeaderCell.TopRounding.NORMAL
+        )
+    }
+
+    private val disableScreenRecordWarningRow = SwitchCell(
+        context,
+        title = LocaleController.getString("Disable Screen Record Warning"),
+        isChecked = WGlobalStorage.getIsScreenRecordWarningDisabled(),
+        isLast = true,
+        onChange = { isChecked ->
+            WGlobalStorage.setIsScreenRecordWarningDisabled(isChecked)
+        }
+    )
+
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
         v.setPadding(
@@ -226,6 +247,9 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         v.addView(spacer2, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
         v.addView(appLockLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(autoLockRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
+        v.addView(spacer3, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+        v.addView(screenRecordTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(disableScreenRecordWarningRow)
         v.setConstraints {
             if (AccountStore.activeAccount?.isViewOnly != true) {
                 toTop(backupTitleLabel)
@@ -241,7 +265,13 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             topToBottom(spacer2, changePasscodeRow)
             topToBottom(appLockLabel, spacer2)
             topToBottom(autoLockRow, appLockLabel)
-            toBottomPx(autoLockRow, (navigationController?.getSystemBars()?.bottom ?: 0))
+            topToBottom(spacer3, autoLockRow)
+            topToBottom(screenRecordTitleLabel, spacer3)
+            topToBottom(disableScreenRecordWarningRow, screenRecordTitleLabel)
+            toBottomPx(
+                disableScreenRecordWarningRow,
+                (navigationController?.getSystemBars()?.bottom ?: 0)
+            )
         }
         v
     }
@@ -314,6 +344,11 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             0f,
         )
         autoLockRow.setBackgroundColor(WColor.Background.color)
+        screenRecordTitleLabel.setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.BLOCK_RADIUS.dp,
+            0f,
+        )
     }
 
     override fun onDestroy() {

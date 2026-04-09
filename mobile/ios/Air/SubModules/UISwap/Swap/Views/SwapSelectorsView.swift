@@ -17,7 +17,9 @@ struct SwapSelectorsView: View {
                 sellingToken: model.sellingToken,
                 buyingAmount: $model.buyingAmount,
                 buyingToken: model.buyingToken,
-                tokenBalance: model.maxAmount,
+                tokenBalance: model.tokenBalance,
+                maxAmount: model.maxAmount,
+                staleAmountSide: model.staleAmountSide,
                 sellingFocused: $model.sellingFocused,
                 buyingFocused: $model.buyingFocused,
                 buyingAmountInputDisabled: model.buyingAmountInputDisabled,
@@ -40,6 +42,8 @@ fileprivate struct _SwapSelectorsView: View {
     var buyingToken: ApiToken
     
     var tokenBalance: BigInt?
+    var maxAmount: BigInt?
+    var staleAmountSide: SwapSide?
     
     @Binding var sellingFocused: Bool
     @Binding var buyingFocused: Bool
@@ -51,9 +55,13 @@ fileprivate struct _SwapSelectorsView: View {
     var onBuyingTokenPicker: () -> ()
     var onBuyingAmountDisabledTap: () -> ()
     
+    private var availableSellingAmount: BigInt? {
+        maxAmount ?? tokenBalance
+    }
+
     private var insufficientFunds: Bool {
-        if let sellingAmount, let tokenBalance {
-            return sellingAmount > tokenBalance
+        if let sellingAmount, let availableSellingAmount {
+            return sellingAmount > availableSellingAmount
         }
         return false
     }
@@ -86,8 +94,8 @@ fileprivate struct _SwapSelectorsView: View {
                 Text(lang("You sell"))
                     .foregroundColor(Color.air.secondaryLabel)
                 Spacer()
-                if let tokenBalance {
-                    UseAllButton(amount: DecimalAmount(tokenBalance, sellingToken), onTap: onUseAll)
+                if let buttonAmount = availableSellingAmount {
+                    UseAllButton(amount: DecimalAmount(buttonAmount, sellingToken), onTap: onUseAll)
                 }
             }
             .font(.footnote)
@@ -96,6 +104,8 @@ fileprivate struct _SwapSelectorsView: View {
                 token: sellingToken,
                 inBaseCurrency: false,
                 insufficientFunds: insufficientFunds,
+                isLoading: staleAmountSide == .selling,
+                isValueStale: staleAmountSide == .selling,
                 triggerFocused: $sellingFocused,
                 onTokenPickerTapped: onSellingTokenPicker,
                 onInputTapped: {
@@ -141,6 +151,8 @@ fileprivate struct _SwapSelectorsView: View {
                 token: buyingToken,
                 inBaseCurrency: false,
                 insufficientFunds: false,
+                isLoading: staleAmountSide == .buying,
+                isValueStale: staleAmountSide == .buying,
                 triggerFocused: $buyingFocused,
                 onTokenPickerTapped: onBuyingTokenPicker,
                 isInputEnabled: !buyingAmountInputDisabled,

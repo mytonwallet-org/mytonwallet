@@ -1,9 +1,9 @@
 import UIKit
 import SwiftUI
+import Kingfisher
 import WalletContext
 import UIComponents
 
-private let itemSize: CGFloat = 144.0
 private let itemSpacing: CGFloat = 84.0
 private let rotationSensitivity: Double = 1.7
 private let rotationAngle: Double = Angle.degrees(-15).radians
@@ -13,6 +13,7 @@ private let offsetMultiplier2: Double = -50
 private let negativeHorizontalInset: CGFloat = -40
 
 protocol CoverFlowDelegate: AnyObject {
+    /// Happens at the end of deceleration. 
     func coverFlowDidSelectModel(_ model: NftDetailsItemModel)
     func coverFlowDidTapModel(_ model: NftDetailsItemModel, view: UIView, longTap: Bool)
     func onCoverFlowScrollProgress(_ progress: CGFloat, currentItemId: String)
@@ -33,10 +34,11 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     private var externalDrivenIndex: CGFloat?
     private weak var internalScrollView: UIScrollView?
 
-    private var orthogonalScrollDelegateProxy: CoverFlowOrthogonalScrollDelegateProxy?
     private var needsInitialScroll = true
+    private var orthogonalScrollDelegateProxy: CoverFlowOrthogonalScrollDelegateProxy?
     private var lastCollectionViewWidth: CGFloat = 0
     private func horizontalInset(containerWidth: CGFloat) -> CGFloat { (containerWidth - itemSpacing) / 2 }
+    private let itemSize: CGFloat
 
     private enum Section: Hashable {
         case main
@@ -48,7 +50,11 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
-    
+
+    private let thumbnailDownloader: ImageDownloader
+    private weak var colorCache: NftDetailsColorCache?
+    private var tileCornerRadius: CGFloat
+
     weak var delegate: CoverFlowDelegate?
     
     var isActive: Bool = true {
@@ -58,17 +64,23 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
             }
         }
     }
-
-    init(models: [NftDetailsItemModel]) {
+    
+    init(models: [NftDetailsItemModel], itemSize: CGFloat, thumbnailDownloader: ImageDownloader, colorCache: NftDetailsColorCache?, tileCornerRadius: CGFloat) {
         self.models = models
-        super.init(frame: .fromSize(width: 200, height: itemSize))
+        self.itemSize = itemSize
+        self.thumbnailDownloader = thumbnailDownloader
+        self.colorCache = colorCache
+        self.tileCornerRadius = tileCornerRadius
+        
+        super.init(frame: .fromSize(width: 400, height: itemSize))
+        
         setup()
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     private func setup() {
         let layout = UICollectionViewCompositionalLayout { [unowned self] _, env in
             let group = NSCollectionLayoutGroup.custom(layoutSize: .init(
@@ -134,7 +146,7 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
                 
                 // Skip selection changes while the pager is driving our position to prevent loop: pager -> coverFlow -> onSelect → pager.
                 // externalDrivenIndex being set means we are in pager-driven mode.
-                if self.userImpact == nil && !self.isExternalDriving && self.externalDrivenIndex == nil /* && !self.isTapScrollAnimating */ {
+                if self.userImpact == nil && !self.isExternalDriving && self.externalDrivenIndex == nil {
                     self.updateFocusedItem(idx: minDistanceIndex)
                 }
                 
@@ -166,7 +178,9 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
             let model = models.getById(itemId)
 
             cell.tile.delegate = self
-            cell.tile.configure(with: model)
+            cell.tile.thumbnailDownloader = self.thumbnailDownloader
+            cell.tile.colorCache = self.colorCache
+            cell.tile.configure(with: model, tileCornerRadius: self.tileCornerRadius)
         }
         
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
@@ -208,7 +222,7 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     private func updateInternalScrollView() {
         guard let sv = collectionView.subviews.compactMap({ $0 as? UIScrollView }).first else { return }
         internalScrollView = sv
-
+        
         if let existingProxy = sv.delegate as? CoverFlowOrthogonalScrollDelegateProxy {
             existingProxy.coverFlow = self
             orthogonalScrollDelegateProxy = existingProxy
@@ -305,13 +319,25 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
         scrollView.setContentOffset(offset, animated: animated)
     }
 
-    func selectModel(byId id: String, animated: Bool, forced: Bool) {
-        if selectedId != id || forced {
+    func selectModel(byId id: String) {
+        if selectedId != id {
             // End pager-driven mode before snapping/scrolling to the final position.
             externalDrivenIndex = nil
             selectedId = id
-            scrollTo(id, animated: animated)
+            scrollTo(id, animated: false)
         }
+    }
+
+    /// The tile for the currently focused item, if that cell is in the collection view’s visible window (`cellForItem` is non-nil).
+    private func currentActiveCoverFlowTile() -> NftDetailsItemCoverFlowTile? {
+        guard let selectedId,
+              let indexPath = dataSource.indexPath(for: .coverFlowItem(id: selectedId)),
+              let cell = collectionView.cellForItem(at: indexPath) as? _Cell else { return nil }
+        return cell.tile
+    }
+    
+    func setSelectedTileVisible(_ visible: Bool) {
+        currentActiveCoverFlowTile()?.alpha = visible ? 1 : 0
     }
 
     /// Drive the cover-flow position from an external source (e.g. pager drag). `progress` is in [0, 1]: 0 = on currentItem, 1 = fully on next item.
@@ -344,16 +370,10 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
             self?.isExternalDriving = false
         }
     }
-
-    func frameOfSelectedItem() -> CGRect {
-        var b = bounds
-        b.origin.x = (b.size.width - b.size.height) / 2
-        b.size.width = b.size.height
-        return convert(b, to: nil)
-    }
 }
 
 extension _CoverFlowView: NftDetailsItemCoverFlowTileDelegate {
+    
     func nftDetailsItemCoverFlowTile(_ tile: NftDetailsItemCoverFlowTile, didSelectModel model: NftDetailsItemModel, longTap: Bool) {
         if longTap {
             if selectedId == model.id {
@@ -396,6 +416,24 @@ final class _Cell: UICollectionViewCell  {
     override func prepareForReuse() {
         super.prepareForReuse()
         tile.prepareForCollectionViewReuse()
+    }
+}
+
+fileprivate extension _CoverFlowView {
+    func orthogonalScrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        scrollViewWillBeginDragging(scrollView)
+    }
+
+    func orthogonalScrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        scrollViewDidEndDragging(scrollView, willDecelerate: decelerate)
+    }
+
+    func orthogonalScrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        scrollViewDidEndDecelerating(scrollView)
+    }
+
+    func orthogonalScrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+        scrollViewDidEndScrollingAnimation(scrollView)
     }
 }
 
@@ -463,23 +501,5 @@ private final class CoverFlowOrthogonalScrollDelegateProxy: NSObject, UIScrollVi
 
     func scrollViewDidChangeAdjustedContentInset(_ scrollView: UIScrollView) {
         forwardTo?.scrollViewDidChangeAdjustedContentInset?(scrollView)
-    }
-}
-
-extension _CoverFlowView {
-    fileprivate func orthogonalScrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        scrollViewWillBeginDragging(scrollView)
-    }
-
-    fileprivate func orthogonalScrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        scrollViewDidEndDragging(scrollView, willDecelerate: decelerate)
-    }
-
-    fileprivate func orthogonalScrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-        scrollViewDidEndDecelerating(scrollView)
-    }
-
-    fileprivate func orthogonalScrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
-        scrollViewDidEndScrollingAnimation(scrollView)
     }
 }

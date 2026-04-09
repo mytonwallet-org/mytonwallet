@@ -6,15 +6,14 @@ import Perception
 private let log = Log("OnchainSwapModel")
 
 @MainActor protocol OnchainSwapModelDelegate: AnyObject {
-    func receivedOnchainEstimate(swapEstimate: ApiSwapEstimateResponse?, selectedDex: ApiSwapDexLabel?, lateInit: ApiSwapCexEstimateResponse.LateInitProperties?)
+    func receivedOnchainEstimate(changedFrom: SwapSide, swapEstimate: ApiSwapEstimateResponse?, lateInit: OnchainSwapLateInit?)
 }
 
 @Perceptible
 @MainActor final class OnchainSwapModel {
     private(set) var swapEstimate: ApiSwapEstimateResponse?
-    private(set) var lateInit: ApiSwapCexEstimateResponse.LateInitProperties?
+    private(set) var lateInit: OnchainSwapLateInit?
     private(set) var estimateErrorMessage: String?
-    private(set) var dex: ApiSwapDexLabel?
     private(set) var slippage: Double = 5.0
 
     @PerceptionIgnored
@@ -29,35 +28,36 @@ private let log = Log("OnchainSwapModel")
         self._account = accountContext
     }
 
-    func updateDexPreference(_ dex: ApiSwapDexLabel?) {
-        self.dex = dex
-        delegate?.receivedOnchainEstimate(swapEstimate: swapEstimate, selectedDex: dex, lateInit: lateInit)
-    }
-
     func updateSlippage(_ slippage: Double) {
         self.slippage = slippage
     }
 
     func updateEstimate(changedFrom: SwapSide, selling: TokenAmount, buying: TokenAmount) async {
-        let props = ApiSwapCexEstimateResponse.calculateLateInitProperties(
-            selling: selling,
-            swapType: .onChain,
-            balances: $account.balances,
-            networkFee: swapEstimate?.networkFee.value,
-            dieselFee: swapEstimate?.dieselFee?.value,
-            ourFeePercent: swapEstimate?.ourFeePercent
-        )
         do {
             let fromAddress = try account.getAddress(chain: selling.token.chain).orThrow()
-            let shouldTryDiesel = props.isEnoughNative == false
             let toncoinBalance = $account.balances["toncoin"].flatMap { MDouble.forBigInt($0, decimals: 9) }
             let walletVersion = account.version
             let isFromAmountMax = changedFrom == .selling && inputModel?.isUsingMax == true
+            let currentNetworkFee = swapEstimate?.networkFee.value
+            let shouldTryDiesel: Bool = if let currentNetworkFee,
+                                           let nativeBalance = $account.balances[selling.token.nativeTokenSlug],
+                                           let nativeToken = TokenStore.tokens[selling.token.nativeTokenSlug] {
+                nativeBalance < doubleToBigInt(currentNetworkFee, decimals: nativeToken.decimals)
+            } else {
+                false
+            }
+            let requestFromAmount: MDouble? = if isFromAmountMax {
+                $account.balances[selling.token.slug].flatMap { MDouble.forBigInt($0, decimals: selling.token.decimals) }
+            } else if changedFrom == .selling {
+                MDouble.forBigInt(selling.amount, decimals: selling.token.decimals)
+            } else {
+                nil
+            }
             let swapEstimateRequest = ApiSwapEstimateRequest(
                 from: selling.token.swapIdentifier,
                 to: buying.token.swapIdentifier,
                 slippage: slippage,
-                fromAmount: changedFrom == .selling ? MDouble.forBigInt(selling.amount, decimals: selling.token.decimals) : nil,
+                fromAmount: requestFromAmount,
                 toAmount: changedFrom == .buying ? MDouble.forBigInt(buying.amount, decimals: buying.token.decimals) : nil,
                 fromAddress: fromAddress,
                 shouldTryDiesel: shouldTryDiesel,
@@ -69,19 +69,22 @@ private let log = Log("OnchainSwapModel")
 
             let swapEstimate = try await Api.swapEstimate(accountId: account.id, request: swapEstimateRequest)
             try Task.checkCancellation()
-            let lateInit = ApiSwapCexEstimateResponse.calculateLateInitProperties(
-                selling: selling,
-                swapType: .onChain,
-                balances: $account.balances,
-                networkFee: swapEstimate.networkFee.value,
-                dieselFee: swapEstimate.dieselFee?.value,
-                ourFeePercent: swapEstimate.ourFeePercent
+            let resolvedSelling = TokenAmount(
+                swapEstimate.fromAmount.map {
+                    DecimalAmount.fromDouble($0.value, selling.token).roundedForSwap.amount
+                } ?? selling.amount,
+                selling.token
             )
-            updateEstimate(swapEstimate, lateInit: lateInit)
+            let lateInit = OnchainSwapLateInit.calculate(
+                selling: resolvedSelling,
+                balances: $account.balances,
+                networkFee: swapEstimate.networkFee.value
+            )
+            updateEstimate(changedFrom: changedFrom, swapEstimate, lateInit: lateInit)
         } catch {
             if !Task.isCancelled {
                 log.error("swapEstimate error \(error, .public)")
-                updateEstimate(nil, lateInit: nil, estimateErrorMessage: mapEstimateError(error))
+                updateEstimate(changedFrom: changedFrom, nil, lateInit: nil, estimateErrorMessage: mapEstimateError(error))
             }
         }
     }
@@ -132,7 +135,7 @@ private let log = Log("OnchainSwapModel")
             from: swapEstimate.from,
             to: swapEstimate.to,
             fromAddress: fromAddress,
-            dexLabel: dex ?? swapEstimate.dexLabel,
+            dexLabel: swapEstimate.dexLabel,
             fromAmount: swapEstimate.fromAmount ?? .zero,
             toAmount: swapEstimate.toAmount ?? .zero,
             toMinAmount: swapEstimate.toMinAmount,
@@ -151,11 +154,11 @@ private let log = Log("OnchainSwapModel")
         _ = try await Api.swapSubmit(accountId: account.id, password: passcode, transfers: transferData.transfers, historyItem: historyItem, isGasless: shouldTryDiesel)
     }
 
-    private func updateEstimate(_ swapEstimate: ApiSwapEstimateResponse?, lateInit: ApiSwapCexEstimateResponse.LateInitProperties?, estimateErrorMessage: String? = nil) {
+    private func updateEstimate(changedFrom: SwapSide, _ swapEstimate: ApiSwapEstimateResponse?, lateInit: OnchainSwapLateInit?, estimateErrorMessage: String? = nil) {
         self.swapEstimate = swapEstimate
         self.lateInit = lateInit
         self.estimateErrorMessage = estimateErrorMessage
-        delegate?.receivedOnchainEstimate(swapEstimate: swapEstimate, selectedDex: dex, lateInit: lateInit)
+        delegate?.receivedOnchainEstimate(changedFrom: changedFrom, swapEstimate: swapEstimate, lateInit: lateInit)
     }
 
     private func mapEstimateError(_ error: Error) -> String {

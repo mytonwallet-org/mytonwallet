@@ -3,7 +3,6 @@ import SwiftUI
 import UIComponents
 import WalletContext
 import WalletCore
-import Kingfisher
 
 
 struct TransactionActivityHeader: View {
@@ -64,8 +63,10 @@ struct TransactionActivityHeader: View {
                 .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 11, theme: .adaptive, cornerRadius: 10)
                 
                 TokenIconView(token: token, accessorySize: 12)
-                    .frame(height: 28)
-                    .offset(y: 3.5)
+                    .frame(width: 28, height: 28)
+                    .alignmentGuide(.firstTextBaseline) { dimensions in
+                        dimensions.height - 5
+                    }
             }
         }
         .buttonStyle(.plain)
@@ -80,7 +81,6 @@ struct TransactionActivityHeader: View {
         }
     }
 }
-
 
 struct SIconView<Content: View, Attachment: View>: View {
     
@@ -131,7 +131,6 @@ struct SIconView<Content: View, Attachment: View>: View {
     }
 }
 
-
 struct TokenIconView: View {
     
     var token: ApiToken
@@ -139,12 +138,18 @@ struct TokenIconView: View {
     
     var body: some View {
         SIconView(accessorySize: accessorySize) {
-            if let image = token.image?.nilIfEmpty, let url = URL(string: image) {
-                KFImage(url)
-                    .cacheOriginalImage()
-                    .resizable()
-                    .loadDiskFileSynchronously(false)
-            }
+            WUIIconViewToken(
+                token: token,
+                isWalletView: false,
+                showldShowChain: false,
+                size: 28,
+                chainSize: 0,
+                chainBorderWidth: 0,
+                chainBorderColor: .clear,
+                chainHorizontalOffset: 0,
+                chainVerticalOffset: 0
+            )
+            .frame(width: 28, height: 28)
         } attachment: {
             if !token.isNative {
                 Image.airBundle("chain_\(token.chain.rawValue)")

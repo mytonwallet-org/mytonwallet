@@ -38,8 +38,6 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
         setupViews()
     }
     
-    public override var hideNavigationBar: Bool { false }
-    
     private func setupViews() {
         
         navigationItem.title = lang("Choose Wallet")

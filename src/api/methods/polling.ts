@@ -229,6 +229,7 @@ export async function tryUpdateConfig() {
 export async function setActivePollingAccount(
   accountId: string | undefined,
   newestActivityTimestamps: ApiActivityTimestamps,
+  shouldResetBalances?: boolean,
 ) {
   stopActiveAccountPolling?.();
   stopActiveAccountPolling = undefined;
@@ -247,6 +248,7 @@ export async function setActivePollingAccount(
             onUpdate,
             setUpdatingStatus.bind(undefined, accountId, chain),
             pickChainTimestamps(newestActivityTimestamps, chain),
+            shouldResetBalances,
           );
         }
       }),

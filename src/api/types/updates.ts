@@ -21,6 +21,7 @@ import type {
   ApiCurrencyRates,
   ApiDappConnectionType,
   ApiDappTransfer,
+  ApiDerivation,
   ApiNft,
   ApiStakingState,
   ApiTokenWithPrice,
@@ -254,6 +255,7 @@ export type ApiUpdateAccount = {
   /** `false` means that the account has no domain; `undefined` means that the domain has not changed */
   domain?: string | false;
   isMultisig?: boolean;
+  derivation?: ApiDerivation;
 };
 
 export type ApiUpdateConfig = {

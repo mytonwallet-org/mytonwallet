@@ -77,7 +77,7 @@ extension WalletVersionCell {
             let value: String
             if let balance = MTokenBalance(tokenSlug: "toncoin", balance: version.balance, isStaking: false).toBaseCurrency {
                 let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(balance, TokenStore.baseCurrency)
-                value = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
+                value = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
             } else {
                 value = ""
             }

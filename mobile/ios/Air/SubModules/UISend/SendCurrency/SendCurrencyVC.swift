@@ -78,7 +78,7 @@ class SendCurrencyVC: WViewController {
 
         tableView = UITableView()
         tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.register(CurrencyCell.self, forCellReuseIdentifier: "Currency")
+        tableView.register(TokenCell.self, forCellReuseIdentifier: "Token")
         tableView.delegate = self
         tableView.allowsSelection = false
         tableView.sectionHeaderTopPadding = 0
@@ -87,7 +87,7 @@ class SendCurrencyVC: WViewController {
         tableView.separatorInset.left = 70
         tableView.separatorInset.right = IOS_26_MODE_ENABLED ? 16 : 0
         tableView.keyboardDismissMode = .onDrag
-        tableView.rowHeight = 56
+        tableView.rowHeight = 60
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(hideKeyboard))
         tapGesture.cancelsTouchesInView = false
         tableView.addGestureRecognizer(tapGesture)
@@ -101,13 +101,21 @@ class SendCurrencyVC: WViewController {
         
         dataSource = UITableViewDiffableDataSource<Section, Item>(tableView: tableView) { [weak self] tableView, indexPath, item in
             guard let self else { return UITableViewCell() }
-            let cell = tableView.dequeueReusableCell(withIdentifier: "Currency", for: indexPath) as! CurrencyCell
+            let cell = tableView.dequeueReusableCell(withIdentifier: "Token", for: indexPath) as! TokenCell
             guard let walletToken = self.walletTokensBySlug[item.tokenSlug] else {
-                cell.configure(with: .init(tokenSlug: item.tokenSlug, balance: 0, isStaking: false), token: self.tokenStore.tokens[item.tokenSlug], isMultichain: self.isMultichain, currentTokenSlug: self.currentTokenSlug) {
+                cell.configure(
+                    with: .init(tokenSlug: item.tokenSlug, balance: 0, isStaking: false),
+                    isAvailable: true,
+                    isCurrentSelection: item.tokenSlug == self.currentTokenSlug
+                ) {
                 }
                 return cell
             }
-            cell.configure(with: walletToken, token: self.tokenStore.tokens[item.tokenSlug], isMultichain: self.isMultichain, currentTokenSlug: self.currentTokenSlug) { [weak self] in
+            cell.configure(
+                with: walletToken,
+                isAvailable: true,
+                isCurrentSelection: item.tokenSlug == self.currentTokenSlug
+            ) { [weak self] in
                 guard let self else { return }
                 if let token = self.tokenStore.tokens[item.tokenSlug] {
                     self.searchController.isActive = false // to prevent ui animation glitch on push

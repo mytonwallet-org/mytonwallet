@@ -43,8 +43,6 @@ final class ExploreCategoryVC: WViewController {
 
     // MARK: - Overriden
 
-    override var hideNavigationBar: Bool { false }
-
     override func viewDidLoad() {
         super.viewDidLoad()
         initialSetup()
@@ -58,7 +56,6 @@ final class ExploreCategoryVC: WViewController {
     }
     
     override func updateMaxContentWidthIfNeeded() {} // superclass imp breaks layout, override with empty imp
-    override func updateBottomBarBlurConstraint() {} // superclass imp breaks layout, override with empty imp
     
     override func scrollToTop(animated: Bool) {
         collectionView.setContentOffset(.zero, animated: animated)

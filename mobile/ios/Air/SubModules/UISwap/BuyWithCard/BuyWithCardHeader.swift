@@ -7,6 +7,7 @@
 
 import WebKit
 import UIKit
+import ContextMenuKit
 import UIComponents
 import WalletCore
 import WalletContext
@@ -17,7 +18,6 @@ import Perception
 struct BuyWithCardHeader: View {
     
     var model: BuyWithCardModel
-    @State var menuContext = MenuContext()
     
     var body: some View {
         WithPerceptionTracking {
@@ -31,39 +31,35 @@ struct BuyWithCardHeader: View {
                     .frame(minWidth: 200)
                     .foregroundStyle(.secondary)
             }
-            .contentShape(.rect)
-            .menuSource(menuContext: menuContext)
-            .onChange(of: model.selectedCurrency, perform: configureMenu)
-            .onAppear { configureMenu(model.selectedCurrency) }
+            .contextMenuSource {
+                makeMenuConfiguration(selection: model.selectedCurrency)
+            }
         }
     }
     
-    func configureMenu(_ selection: MBaseCurrency) {
-        menuContext.makeConfig = {
-            let items: [MenuItem] = model.supportedCurrencies.map { currency in
-                MenuItem.customView(
-                    id: currency.rawValue,
-                    view: {
-                        AnyView(
-                            SelectableMenuItem(id: "0-" + currency.rawValue, action: {
-                                model.selectedCurrency = currency
-                            }) {
-                                HStack {
-                                    Text(lang(currency.name))
-                                        .fixedSize()
-                                    Spacer()
-                                    if selection == currency {
-                                        Text(Image(systemName: "checkmark"))
-                                    }
-                                }
-                            }
-                            .frame(height: 44)
-                        )
-                    },
-                    height: 44,
-                )
+    private func makeMenuConfiguration(selection: MBaseCurrency) -> ContextMenuConfiguration {
+        let items: [ContextMenuItem] = model.supportedCurrencies.map { currency in
+            let icon: ContextMenuIcon = if selection == currency {
+                .system("checkmark") ?? .placeholder
+            } else {
+                .placeholder
             }
-            return MenuConfig(menuItems: items)
+
+            return ContextMenuItem.action(
+                ContextMenuAction(
+                    title: lang(currency.name),
+                    icon: icon,
+                    handler: {
+                        model.selectedCurrency = currency
+                    }
+                )
+            )
         }
+
+        return ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: items),
+            backdrop: .none,
+            style: ContextMenuStyle(minWidth: 200.0)
+        )
     }
 }

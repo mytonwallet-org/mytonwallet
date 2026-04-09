@@ -36,6 +36,8 @@ final class AssetsAndActivityTokenCell: UITableViewCell {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = .systemFont(ofSize: 16)
+        lbl.numberOfLines = 1
+        lbl.lineBreakMode = .byTruncatingTail
         lbl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return lbl
     }()
@@ -44,6 +46,9 @@ final class AssetsAndActivityTokenCell: UITableViewCell {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = .systemFont(ofSize: 13)
+        lbl.numberOfLines = 1
+        lbl.lineBreakMode = .byTruncatingTail
+        lbl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return lbl
     }()
     
@@ -81,6 +86,7 @@ final class AssetsAndActivityTokenCell: UITableViewCell {
             titleLabel.trailingAnchor.constraint(equalTo: showTokenSwitch.leadingAnchor, constant: -12),
             
             symbolLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 12),
+            symbolLabel.trailingAnchor.constraint(equalTo: showTokenSwitch.leadingAnchor, constant: -12),
             symbolLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -8),
             
             showTokenSwitch.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),

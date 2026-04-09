@@ -147,7 +147,7 @@ public final class _TokenStore: Sendable {
     private func _merge(cached: ApiToken?, incoming: ApiToken) -> ApiToken {
         guard let cached else { return incoming }
         
-        let priceIsInvalid: Bool = (incoming.priceUsd == 0 && [TONCOIN_SLUG, TON_USDT_SLUG, TON_USDE_SLUG, MYCOIN_SLUG, TRX_SLUG, TRON_USDT_SLUG, SOLANA_SLUG, SOLANA_USDT_MAINNET_SLUG].contains(incoming.slug))
+        let priceIsInvalid: Bool = (incoming.priceUsd == 0 && Self.invalidPriceSlugs.contains(incoming.slug))
             || (incoming.slug == TONCOIN_SLUG && incoming.priceUsd == 1.95)
 
         let merged = ApiToken(
@@ -240,8 +240,23 @@ public final class _TokenStore: Sendable {
         STAKED_MYCOIN_SLUG: .STAKED_MYCOIN,
         TON_TSUSDE_SLUG: .TON_TSUSDE,
         TON_USDT_SLUG: .TON_USDT,
+        TON_USDT_TESTNET_SLUG: .TON_USDT_TESTNET,
         TRON_USDT_SLUG: .TRON_USDT,
+        TRON_USDT_TESTNET_SLUG: .TRON_USDT_TESTNET,
         SOLANA_USDT_MAINNET_SLUG: .SOLANA_USDT_MAINNET,
+        SOLANA_USDC_MAINNET_SLUG: .SOLANA_USDC_MAINNET,
+    ]
+
+    private static let invalidPriceSlugs: Set<String> = [
+        TONCOIN_SLUG,
+        TON_USDT_SLUG,
+        TON_USDE_SLUG,
+        MYCOIN_SLUG,
+        TRX_SLUG,
+        TRON_USDT_SLUG,
+        SOLANA_SLUG,
+        SOLANA_USDT_MAINNET_SLUG,
+        SOLANA_USDC_MAINNET_SLUG,
     ]
     
     

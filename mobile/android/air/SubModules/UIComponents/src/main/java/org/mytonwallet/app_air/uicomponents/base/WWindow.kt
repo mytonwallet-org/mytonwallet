@@ -386,6 +386,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             Logger.LogTag.SCREEN,
             "presentNav: rootVC=${navigationController.viewControllers.firstOrNull()?.TAG} navHash=${navigationController.hashCode()}"
         )
+        PopupHelpers.dismissAllPopups()
         // Overlay for previous views
         val overlayView: WBaseView?
         if (navigationController.presentationConfig.isBottomSheet) {
@@ -821,6 +822,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     private val screenRecordCallback = Consumer<Int> { state ->
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             val newState = state == WindowManager.SCREEN_RECORDING_STATE_VISIBLE
+                && !WGlobalStorage.getIsScreenRecordWarningDisabled()
             if (isScreenRecordInProgress != newState) {
                 isScreenRecordInProgress = newState
                 navigationControllers.forEach {

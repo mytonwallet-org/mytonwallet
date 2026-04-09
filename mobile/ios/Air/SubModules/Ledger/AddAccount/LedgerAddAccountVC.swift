@@ -25,25 +25,21 @@ public final class LedgerAddAccountVC: WViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
-    public override func loadView() {
-        super.loadView()
+    public override func viewDidLoad() {
+        super.viewDidLoad()
         setupViews()
     }
-    
+
     private func setupViews() {
-        
-        let cancelItem: WNavigationBarButton? = showBackButton ? nil : .init(text: lang("Cancel"), onPress: { [weak self] in self?.presentingViewController?.dismiss(animated: true) })
-        let backAction: (() -> ())? = showBackButton ? { [weak self] in self?.navigationController?.popViewController(animated: true) } : nil
-        addNavigationBar(
-            title: lang("Connect Ledger"),
-            leadingItem: cancelItem,
-            addBackButton: backAction
-        )
-        
+        title = lang("Connect Ledger")
+        if !showBackButton {
+            navigationItem.leftBarButtonItem = .cancelTextButtonItem { [weak self] in
+                self?.dismiss(animated: true)
+            }
+        }
+
         self.hostingController = addHostingController(makeView(), constraints: .fill)
-        
-        bringNavigationBarToFront()
-        
+
         updateTheme()
     }
     
@@ -65,6 +61,10 @@ public final class LedgerAddAccountVC: WViewController {
     }
     
     private func handleOnCancel() {
-        navigationController?.popViewController(animated: true)
+        if canGoBack {
+            navigationController?.popViewController(animated: true)
+        } else {
+            dismiss(animated: true)
+        }
     }
 }

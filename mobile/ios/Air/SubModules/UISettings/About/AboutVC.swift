@@ -30,15 +30,11 @@ public final class AboutVC: SettingsBaseVC {
     }
     
     private func setupViews() {
-        
-        addNavigationBar(
-            addBackButton: { topWViewController()?.navigationController?.popViewController(animated: true) }
-        )
+        title = nil
+        addCloseNavigationItemIfNeeded()
         
         hostingController = addHostingController(makeView(), constraints: .fill)
-        
-        bringNavigationBarToFront()
-        
+
         updateTheme()
     }
     

@@ -54,8 +54,6 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
         self.viewModel.onCancel = onCancel
     }
     
-    public override var hideNavigationBar: Bool { false }
-
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()

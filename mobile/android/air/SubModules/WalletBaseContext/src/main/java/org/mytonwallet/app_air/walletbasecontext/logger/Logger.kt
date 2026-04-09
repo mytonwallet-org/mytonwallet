@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.content.FileProvider
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,7 +28,7 @@ object Logger {
         HomeVM("Home"),
         //DEEPLINK("Deeplink"),
 
-        //JS_LOG("JSLog"),
+        JS_DEBUG_ERROR("JSErr"),
         JS_WEBVIEW_BRIDGE("JSBridge"),
         PASSCODE_CONFIRM("PassConf"),
         SCREEN("Screen"),
@@ -68,9 +69,17 @@ object Logger {
     private var logFile: File? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
+    private var crashlytics: FirebaseCrashlytics? = null
+
     fun initialize(context: Context) {
         val logsDir = File(context.filesDir, "logs").apply { mkdirs() }
         logFile = File(logsDir, "air-log.tsv")
+
+        crashlytics = try {
+            FirebaseCrashlytics.getInstance()
+        } catch (_: Exception) {
+            null
+        }
 
         val oldHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
@@ -88,6 +97,7 @@ object Logger {
     fun e(tag: LogTag, message: LogMessage) {
         Log.e(tag.tag, message.toString())
         log(tag, LogLevel.ERROR, message)
+        crashlytics?.log("E/${tag.tag}: $message")
     }
 
     fun e(tag: LogTag, message: String) {
@@ -97,6 +107,7 @@ object Logger {
     fun w(tag: LogTag, message: LogMessage) {
         Log.w(tag.tag, message.toString())
         log(tag, LogLevel.WARN, message)
+        crashlytics?.log("W/${tag.tag}: $message")
     }
 
     fun w(tag: LogTag, message: String) {

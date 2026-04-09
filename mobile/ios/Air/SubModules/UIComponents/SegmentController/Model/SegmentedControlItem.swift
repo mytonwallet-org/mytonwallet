@@ -1,4 +1,5 @@
 
+import ContextMenuKit
 import SwiftUI
 import UIKit
 import WalletContext
@@ -7,15 +8,22 @@ public struct SegmentedControlItem: Identifiable, Equatable, Hashable, Sendable 
     
     public var id: String
     var title: String
-    var menuContext: MenuContext?
+    var contextMenuProvider: SegmentedControlContextMenuProvider?
     var hidesMenuIcon: Bool
     var isDeletable: Bool
     var viewController: WSegmentedControllerContent
         
-    public init(id: String, title: String, menuContext: MenuContext? = nil, hidesMenuIcon: Bool = false, isDeletable: Bool = true, viewController: WSegmentedControllerContent) {
+    public init(
+        id: String,
+        title: String,
+        contextMenuProvider: SegmentedControlContextMenuProvider? = nil,
+        hidesMenuIcon: Bool = false,
+        isDeletable: Bool = true,
+        viewController: WSegmentedControllerContent
+    ) {
         self.id = id
         self.title = title
-        self.menuContext = menuContext
+        self.contextMenuProvider = contextMenuProvider
         self.hidesMenuIcon = hidesMenuIcon
         self.isDeletable = isDeletable
         self.viewController = viewController
@@ -32,6 +40,6 @@ public struct SegmentedControlItem: Identifiable, Equatable, Hashable, Sendable 
     }
     
     var shouldShowMenuIconWhenActive: Bool {
-        menuContext != nil && !hidesMenuIcon
+        contextMenuProvider != nil && !hidesMenuIcon
     }
 }

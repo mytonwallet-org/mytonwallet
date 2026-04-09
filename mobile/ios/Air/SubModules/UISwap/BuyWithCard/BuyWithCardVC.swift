@@ -14,7 +14,7 @@ import SwiftUI
 import Perception
 import SwiftNavigation
 
-public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
+public class BuyWithCardVC: WViewController {
     
     let model: BuyWithCardModel
     var observer: ObserveToken?
@@ -40,29 +40,13 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
     private let webView = WKWebView()
     private func setupViews() {
         title = lang("Buy with Card")
-        
-        addNavigationBar(
-            title: self.title,
-            closeIcon: true,
-            addBackButton: { [weak self] in self?.navigationController?.popViewController(animated: true) }
-        )
-        
-        if let navigationBar {
-            navigationBar.titleLabel?.isHidden = true
-            let header = HostingView(ignoreSafeArea: true, content: {
-                BuyWithCardHeader(model: model)
-            })
-            navigationBar.addSubview(header)
-            NSLayoutConstraint.activate([
-                navigationBar.titleStackView.centerXAnchor.constraint(equalTo: header.centerXAnchor),
-                navigationBar.titleStackView.centerYAnchor.constraint(equalTo: header.centerYAnchor),
-            ])
+        navigationItem.titleView = HostingView {
+            BuyWithCardHeader(model: model)
         }
+        addCloseNavigationItemIfNeeded()
         
         webView.isOpaque = false
         webView.translatesAutoresizingMaskIntoConstraints = false
-        webView.scrollView.contentInset.top = navigationBarHeight
-        webView.scrollView.delegate = self
         
         view.addSubview(webView)
         NSLayoutConstraint.activate([
@@ -71,8 +55,6 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
             webView.rightAnchor.constraint(equalTo: view.rightAnchor),
             webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-        
-        bringNavigationBarToFront()
     }
     
     private func loadOnramp(currency: MBaseCurrency) {
@@ -106,7 +88,4 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
         }
     }
     
-    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        updateNavigationBarProgressiveBlur(scrollView.contentOffset.y + scrollView.adjustedContentInset.top)
-    }
 }

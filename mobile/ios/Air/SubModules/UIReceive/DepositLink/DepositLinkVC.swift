@@ -40,7 +40,5 @@ final class DepositLinkVC: WViewController {
             constraints: .fill
         )
         self.hostingController = hostingController
-        
-        bringNavigationBarToFront()
     }
 }

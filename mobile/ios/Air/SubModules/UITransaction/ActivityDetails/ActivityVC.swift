@@ -37,7 +37,7 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
     private var decryptedComment: String? = nil
     private var activity: ApiActivity { viewModel.activity }
     private var detentChange: Date = .distantPast
-    private var scrollOffset: CGFloat = 0
+    private var lastDetailsFetchActivityId: String?
     
     public override func loadView() {
         super.loadView()
@@ -83,18 +83,7 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
     
     public override func viewDidLoad() {
         super.viewDidLoad()
-        let activity = self.activity
-        if activity.shouldLoadDetails == true {
-            Task { [weak self] in
-                guard let self else { return }
-                do {
-                    let accountId = self.viewModel.accountContext.accountId
-                    let tx = try await ActivityStore.fetchActivityDetails(accountId: accountId, activity: activity)
-                    self.viewModel.activity = tx
-                } catch {
-                }
-            }
-        }
+        fetchDetailsIfNeeded(for: activity)
     }
 
     private func updateTheme() {
@@ -188,8 +177,6 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
     }
     
     public func onScroll(_ y: CGFloat) {
-        self.scrollOffset = y
-        updateNavigationBarProgressiveBlur(y)
     }
     
     func onDetailsExpandedChanged() {
@@ -284,6 +271,34 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
         if let newActivity {
             withAnimation {
                 viewModel.activity = newActivity
+            }
+            fetchDetailsIfNeeded(for: newActivity)
+        }
+    }
+
+    private func fetchDetailsIfNeeded(for activity: ApiActivity) {
+        guard activity.shouldLoadDetails == true else {
+            if lastDetailsFetchActivityId == activity.id {
+                lastDetailsFetchActivityId = nil
+            }
+            return
+        }
+
+        let activityId = activity.id
+        guard lastDetailsFetchActivityId != activityId else { return }
+        lastDetailsFetchActivityId = activityId
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let accountId = self.viewModel.accountContext.accountId
+                let detailedActivity = try await ActivityStore.fetchActivityDetails(accountId: accountId, activity: activity)
+                guard self.viewModel.activity.id == activityId else { return }
+                self.viewModel.activity = detailedActivity
+            } catch {
+                if self.lastDetailsFetchActivityId == activityId {
+                    self.lastDetailsFetchActivityId = nil
+                }
             }
         }
     }

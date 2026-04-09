@@ -10,6 +10,7 @@ import UIBrowser
 import UIAgent
 import UISettings
 import UIComponents
+import ContextMenuKit
 import WalletCore
 import WalletContext
 import UIKit.UIGestureRecognizerSubclass
@@ -60,8 +61,9 @@ public class HomeTabBarController: UITabBarController {
 
     private(set) public var homeVC: HomeVC!
     
-    private var tabBarBorder: UIView?
     private var highlightView: UIImageView? { view.subviews.first(where: { $0 is UIImageView }) as? UIImageView }
+    private var settingsTabContextMenuInteraction: ContextMenuInteraction?
+    private var isSwitchAccountMenuPresented = false
 
     public init() {
         self.homeVC = HomeVC()
@@ -78,22 +80,8 @@ public class HomeTabBarController: UITabBarController {
         delegate = self
         NotificationCenter.default.addObserver(self, selector: #selector(handleThemeUpdated(_:)), name: .updateTheme, object: nil)
 
-        if IOS_26_MODE_ENABLED {
-        } else {
-            tabBar.layer.borderWidth = 0
-            tabBar.clipsToBounds = true
+        if !IOS_26_MODE_ENABLED {
             applyTabBarAppearance()
-            let tabBarBorder = UIView()
-            self.tabBarBorder = tabBarBorder
-            tabBarBorder.translatesAutoresizingMaskIntoConstraints = false
-            tabBarBorder.backgroundColor = .air.separator
-            tabBar.addSubview(tabBarBorder)
-            NSLayoutConstraint.activate([
-                tabBarBorder.leadingAnchor.constraint(equalTo: tabBar.leadingAnchor),
-                tabBarBorder.trailingAnchor.constraint(equalTo: tabBar.trailingAnchor),
-                tabBarBorder.topAnchor.constraint(equalTo: tabBar.topAnchor),
-                tabBarBorder.heightAnchor.constraint(equalToConstant: 0.33)
-            ])
         }
         
         WalletCoreData.add(eventObserver: self)
@@ -156,27 +144,10 @@ public class HomeTabBarController: UITabBarController {
     }
     
     private func updateTheme() {
-        tabBarBorder?.backgroundColor = .air.separator
         tabBar.tintColor = UIColor.tintColor
         tabBar.unselectedItemTintColor = .air.secondaryLabel
         applyTabBarAppearance()
         tabBar.setNeedsLayout()
-    }
-    
-    public override var selectedViewController: UIViewController? {
-        didSet {
-            tabChanged(to: selectedIndex)
-        }
-    }
-    
-    public override var selectedIndex: Int {
-        didSet {
-            tabChanged(to: selectedIndex)
-        }
-    }
-    
-    func tabChanged(to selectedIndex: Int) {
-        tabBarBorder?.isHidden = currentTab == .explore
     }
 
     public var currentTab: Tab {
@@ -237,7 +208,7 @@ public class HomeTabBarController: UITabBarController {
         guard !IOS_26_MODE_ENABLED else { return }
 
         let appearance = UITabBarAppearance()
-        appearance.configureWithTransparentBackground()
+        appearance.configureWithDefaultBackground()
         applyTabBarItemAppearance(appearance.stackedLayoutAppearance)
         applyTabBarItemAppearance(appearance.inlineLayoutAppearance)
         applyTabBarItemAppearance(appearance.compactInlineLayoutAppearance)
@@ -255,14 +226,21 @@ public class HomeTabBarController: UITabBarController {
     
     func addGestureRecognizer() {
         for (index, view) in tabViews().enumerated() {
-            if IOS_26_MODE_ENABLED {
+            let isSettingsTab = if let viewControllers, index < viewControllers.count {
+                isSettingsNavigationController(viewControllers[index])
             } else {
-                let highlightGesture = UILongPressGestureRecognizer()
-                highlightGesture.addTarget(self, action: #selector(onTouch))
-                highlightGesture.delegate = self
-                highlightGesture.minimumPressDuration = 0
-                highlightGesture.allowableMovement = 100
-                view.addGestureRecognizer(highlightGesture)
+                false
+            }
+            
+            if !IOS_26_MODE_ENABLED {
+                if !isSettingsTab {
+                    let highlightGesture = UILongPressGestureRecognizer()
+                    highlightGesture.addTarget(self, action: #selector(onTouch))
+                    highlightGesture.delegate = self
+                    highlightGesture.minimumPressDuration = 0
+                    highlightGesture.allowableMovement = 100
+                    view.addGestureRecognizer(highlightGesture)
+                }
                 
                 let tapGesture = UITapGestureRecognizer()
                 tapGesture.addTarget(self, action: #selector(onSelect))
@@ -270,21 +248,47 @@ public class HomeTabBarController: UITabBarController {
                 view.addGestureRecognizer(tapGesture)
             }
             
-            if let viewControllers, index < viewControllers.count, isSettingsNavigationController(viewControllers[index]) {
+            if isSettingsTab {
+                let interaction = ContextMenuInteraction(
+                    triggers: [.longPress],
+                    onWillPresent: { [weak self, weak view] in
+                        self?.isSwitchAccountMenuPresented = true
+                        if let view {
+                            self?.cancelTabSelectionInteraction(on: view)
+                        }
+                        self?.tabBar.isUserInteractionEnabled = false
+                    },
+                    onDidDismiss: { [weak self] in
+                        self?.isSwitchAccountMenuPresented = false
+                        self?.tabBar.isUserInteractionEnabled = true
+                    },
+                    configurationProvider: { _ in
+                        return SwitchAccountMenu.makeConfiguration()
+                    }
+                )
+                interaction.attach(to: view)
+                settingsTabContextMenuInteraction = interaction
+            }
+
+#if DEBUG
+            if tab(at: index) == .explore {
                 let gesture = UILongPressGestureRecognizer()
-                gesture.minimumPressDuration = 0.25
-                gesture.addTarget(self, action: #selector(onLongTap))
+                gesture.minimumPressDuration = 0.4
+                gesture.addTarget(self, action: #selector(onExploreLongTap))
                 gesture.delegate = self
                 view.addGestureRecognizer(gesture)
             }
+#endif
         }
     }
     
-    @objc func onLongTap(_ gesture: UIGestureRecognizer) {
+#if DEBUG
+    @objc private func onExploreLongTap(_ gesture: UIGestureRecognizer) {
         if gesture.state == .began {
-            showSwitchWallet(gesture: gesture)
+            (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.showDebugView()
         }
     }
+#endif
     
     @objc func onTouch(_ gesture: UIGestureRecognizer) {
         guard !UIAccessibility.buttonShapesEnabled else { return }
@@ -327,8 +331,7 @@ public class HomeTabBarController: UITabBarController {
     }
     
     @objc func onSelect(_ gesture: UIGestureRecognizer) {
-        if topViewController() is SwitchAccountVC {
-            // don't switch to settings in that case
+        if self.isSwitchAccountMenuPresented {
             return
         }
         let tabViews = self.tabViews()
@@ -352,14 +355,37 @@ public class HomeTabBarController: UITabBarController {
         }
     }
     
-    // MARK: Account switcher
+    private func cancelTabSelectionInteraction(on view: UIView) {
+        self.resetTabHighlight(on: view)
+        let wasViewInteractionEnabled = view.isUserInteractionEnabled
+        view.isUserInteractionEnabled = false
+        view.isUserInteractionEnabled = wasViewInteractionEnabled
+        self.cancelControlTracking(in: view)
+        for recognizer in view.gestureRecognizers ?? [] where recognizer is UITapGestureRecognizer {
+            recognizer.isEnabled = false
+            recognizer.isEnabled = true
+        }
+    }
 
-    private func showSwitchWallet(gesture: UIGestureRecognizer) {
-        Haptics.play(.drag)
-        let switchAccountVC = SwitchAccountVC(iconColor: currentTab == .settings ? UIColor.tintColor : .air.secondaryLabel)
-        switchAccountVC.modalPresentationStyle = .overFullScreen
-        switchAccountVC.startingGestureRecognizer = gesture
-        (topViewController() ?? self).present(switchAccountVC, animated: false)
+    private func cancelControlTracking(in view: UIView) {
+        if let control = view as? UIControl {
+            let wasEnabled = control.isEnabled
+            control.isHighlighted = false
+            control.isEnabled = false
+            control.isEnabled = wasEnabled
+        }
+        for subview in view.subviews {
+            self.cancelControlTracking(in: subview)
+        }
+    }
+
+    private func resetTabHighlight(on view: UIView) {
+        for snapshot in view.subviews where snapshot.tag == 1 {
+            snapshot.removeFromSuperview()
+        }
+        for subview in view.subviews {
+            subview.alpha = 1
+        }
     }
 
     private var settingsNavigationController: UINavigationController? {
@@ -399,13 +425,12 @@ extension HomeTabBarController: UIGestureRecognizerDelegate {
 extension HomeTabBarController: UITabBarControllerDelegate {
     
     public func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
-        if self.presentedViewController is SwitchAccountVC {
+        if self.isSwitchAccountMenuPresented {
             return false
         }
         if viewController === selectedViewController  {
             scrollToTop(tabVC: viewController)
         }
-        tabBarBorder?.isHidden = currentTab == .explore
         return true
     }
 }

@@ -33,15 +33,49 @@ public struct ApiDappTransfer: ApiTransferToSignProtocol, Equatable, Hashable, D
 }
 
 public extension ApiDappTransfer {            
-    func getToken(chain: ApiChain) -> ApiToken {
-        var slug: String?
+    var isNftTransferPayload: Bool {
+        if case .nftTransfer = payload {
+            return true
+        }
+
+        return false
+    }
+
+    var nftTransferPayload: ApiNftTransferPayload? {
+        if case .nftTransfer(let payload) = self.payload {
+            return payload
+        }
+
+        return nil
+    }
+
+    var transferPayloadToken: ApiToken? {
+        guard let slug = transferPayloadTokenSlug else { return nil }
+        return TokenStore.getToken(slug: slug)
+    }
+
+    func displayedAmounts(chain: ApiChain, includeNativeFee: Bool) -> [TokenAmount] {
+        var amounts: [TokenAmount] = []
+
         switch payload {
-        case .tokensTransfer(let p): slug = p.slug
-        case .tokensTransferNonStandard(let p): slug = p.slug
-        case .tokensBurn(let p): slug = p.slug
+        case .tokensTransfer(let p):
+            amounts.append(TokenAmount(p.amount, tokenForPayload(slug: p.slug, chain: chain)))
+        case .tokensTransferNonStandard(let p):
+            amounts.append(TokenAmount(p.amount, tokenForPayload(slug: p.slug, chain: chain)))
         default:
             break
         }
+
+        let nativeAmount = amount + (includeNativeFee ? networkFee : 0)
+        if nativeAmount != 0 || (!isNftTransferPayload && amounts.isEmpty) {
+            amounts.append(TokenAmount(nativeAmount, TokenStore.getNativeToken(chain: chain)))
+        }
+
+        return amounts
+    }
+
+    func getToken(chain: ApiChain) -> ApiToken {
+        let slug = payloadTokenSlug
         
         // For missed slug (for example, TON transfers go as .comment() with no slug records at all,
         // let's use native network tokens
@@ -50,12 +84,8 @@ public extension ApiDappTransfer {
         }
         
         // Get token for slug or fallback to one-time fake one
-        guard let slug, let token = TokenStore.getToken(slug: slug) else {
-            var fallbackToken = chain.nativeToken
-            fallbackToken.symbol = "[Unknown]"
-            return fallbackToken
-        }
-        return token
+        guard let slug else { return TokenStore.getNativeToken(chain: chain) }
+        return tokenForPayload(slug: slug, chain: chain)
     }
     
     var effectiveAmount: BigInt {
@@ -68,5 +98,36 @@ public extension ApiDappTransfer {
             break
         }
         return result
+    }
+
+    private var transferPayloadTokenSlug: String? {
+        switch payload {
+        case .tokensTransfer(let p): p.slug
+        case .tokensTransferNonStandard(let p): p.slug
+        default: nil
+        }
+    }
+
+    private var payloadTokenSlug: String? {
+        switch payload {
+        case .tokensTransfer(let p): p.slug
+        case .tokensTransferNonStandard(let p): p.slug
+        case .tokensBurn(let p): p.slug
+        default: nil
+        }
+    }
+
+    private func tokenForPayload(slug: String, chain: ApiChain) -> ApiToken {
+        if let token = TokenStore.getToken(slug: slug) {
+            return token
+        }
+
+        return .init(
+            slug: slug,
+            name: "[Unknown]",
+            symbol: "[Unknown]",
+            decimals: 9,
+            chain: chain
+        )
     }
 }

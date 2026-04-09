@@ -409,7 +409,7 @@ function AccountSelectorModal({
 
   const handleOpenSettingWalletVersion = useLastCallback(() => {
     handleCloseAccountSelectorForced();
-    openSettingsWithState({ state: SettingsState.WalletVersion });
+    openSettingsWithState({ state: SettingsState.WalletVariants });
   });
 
   function renderHeader(renderingState: AccountSelectorState) {
@@ -539,7 +539,7 @@ function AccountSelectorModal({
             <LedgerConnect
               isActive={isActive}
               onConnected={handleHardwareWalletConnected}
-              onBackButtonClick={handleBackFromAddAccount}
+              onBackClick={handleBackFromAddAccount}
               onClose={handleCloseAccountSelectorForced}
             />
           </div>
@@ -550,7 +550,7 @@ function AccountSelectorModal({
           <div className={buildClassName(modalStyles.transitionContentWrapper, styles.compensateSafeArea)}>
             <LedgerSelectWallets
               withCloseButton
-              onBackButtonClick={handleBackFromAddAccount}
+              onBackClick={handleBackFromAddAccount}
               onClose={handleCloseAccountSelectorForced}
             />
           </div>

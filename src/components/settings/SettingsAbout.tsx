@@ -39,17 +39,17 @@ interface OwnProps {
   isInsideModal?: boolean;
   slideClassName?: string;
   theme: Theme;
-  handleBackClick: NoneToVoidFunction;
+  onBackClick: NoneToVoidFunction;
 }
 
 function SettingsAbout({
-  isActive, isInsideModal, theme, slideClassName, handleBackClick,
+  isActive, isInsideModal, theme, slideClassName, onBackClick,
 }: OwnProps) {
   const lang = useLang();
 
   useHistoryBack({
     isActive,
-    onBack: handleBackClick,
+    onBack: onBackClick,
   });
 
   const {
@@ -68,7 +68,7 @@ function SettingsAbout({
         <ModalHeader
           title={lang('About %app_name%', { app_name: APP_NAME })}
           withNotch={isScrolled}
-          onBackButtonClick={handleBackClick}
+          onBackButtonClick={onBackClick}
           className={styles.modalHeader}
         />
       ) : (
@@ -76,7 +76,7 @@ function SettingsAbout({
           isActive={isActive}
           title={`${APP_NAME} ${APP_VERSION} ${APP_ENV_MARKER || ''}`}
           topTargetRef={headerRef}
-          onBackClick={handleBackClick}
+          onBackClick={onBackClick}
         />
       )}
       <div

@@ -11,6 +11,27 @@ struct TransactionAmountRow: View {
     var chain: ApiChain
     
     private var transferToken: ApiToken { transfer.getToken(chain: chain) }
+    private var displayedAmounts: [TokenAmount] { transfer.displayedAmounts(chain: chain, includeNativeFee: false) }
+    
+    private var totalBaseCurrencyAmount: BaseCurrencyAmount? {
+        let baseCurrency = TokenStore.baseCurrency
+        var total: BigInt = 0
+        var hasVisibleAmount = false
+
+        for amount in displayedAmounts {
+            guard let price = amount.type.price else { continue }
+            total += convertAmount(
+                amount.amount,
+                price: price,
+                tokenDecimals: amount.decimals,
+                baseCurrencyDecimals: baseCurrency.decimals
+            )
+            hasVisibleAmount = true
+        }
+
+        guard hasVisibleAmount else { return nil }
+        return BaseCurrencyAmount(total, baseCurrency)
+    }
     
     var body: some View {
         InsetCell(verticalPadding: 0) {
@@ -45,35 +66,19 @@ struct TransactionAmountRow: View {
     
     @ViewBuilder
     var text: some View {
-        let amount = TokenAmount(transfer.effectiveAmount, transferToken)
-        AmountText(
-            amount: amount,
-            format: .init(maxDecimals: 4),
-            integerFont: .systemFont(ofSize: 16, weight: .medium),
-            fractionFont: .systemFont(ofSize: 16, weight: .medium),
-            symbolFont: .systemFont(ofSize: 16, weight: .medium),
-            integerColor: UIColor.label,
-            fractionColor: UIColor.label,
-            symbolColor: .air.secondaryLabel,
-            forceSymbolColor: true,
+        Text(displayedAmounts
+            .map { $0.formatted(.defaultAdaptive, maxDecimals: 4) }
+            .joined(separator: " + ")
         )
+        .font(.system(size: 16, weight: .medium))
     }
     
     @ViewBuilder
     var subtitle: some View {
-        let token = TokenStore.getNativeToken(chain: chain)
-        let baseCurrency = TokenStore.baseCurrency
-        let amount = TokenAmount(transfer.amount, token).convertTo(baseCurrency, exchangeRate: token.price ?? 0)
-        AmountText(
-            amount: amount,
-            format: .init(maxDecimals: 4),
-            integerFont: .systemFont(ofSize: 14, weight: .regular),
-            fractionFont: .systemFont(ofSize: 14, weight: .regular),
-            symbolFont: .systemFont(ofSize: 14, weight: .regular),
-            integerColor: .air.secondaryLabel,
-            fractionColor: .air.secondaryLabel,
-            symbolColor: .air.secondaryLabel,
-            forceSymbolColor: true,
-        )
+        if let totalBaseCurrencyAmount {
+            Text(totalBaseCurrencyAmount.formatted(.baseCurrencyEquivalent))
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(Color.air.secondaryLabel)
+        }
     }
 }

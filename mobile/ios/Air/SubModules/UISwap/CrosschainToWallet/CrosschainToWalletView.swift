@@ -98,11 +98,14 @@ struct CrosschainToWalletView: View {
     }
     
     var header: some View {
-        HStack {
-            Text(lang("$swap_changelly_to_wallet_description1", arg1: sellingToken.symbol))
-            Spacer()
-            Text(remaining)
-        }
+        Text(
+            lang(
+                "$swap_changelly_to_wallet_description1",
+                arg1: DecimalAmount.fromDouble(amount, sellingToken).formatted(.none),
+                arg2: sellingToken.chain.config.title,
+                arg3: remaining
+            )
+        )
         .onReceive(timer) { _ in
             remaining = expireDate.remainingFromNow
         }

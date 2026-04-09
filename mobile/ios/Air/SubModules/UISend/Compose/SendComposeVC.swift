@@ -36,7 +36,7 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         setupViews()
         observe { [weak self] in
             guard let self else { return }
-            let (canContinue, insufficientFunds, draftStatus, isAddressLoading) = model.continueState
+            let (canContinue, hasInsufficientBalanceError, draftStatus, isAddressLoading) = model.continueState
             if draftStatus.status == .loading || isAddressLoading {
                 continueButton.showLoading = true
                 continueButton.isEnabled = false
@@ -44,10 +44,9 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
                 continueButton.showLoading = false
                 continueButton.isEnabled = canContinue
                 
-                let title: String = if draftStatus.status == .invalid,
-                                       draftStatus.transactionDraft?.resolvedAddress == model.addressOrDomain, !model.addressOrDomain.isEmpty {
+                let title: String = if draftStatus.status == .invalid, !model.addressOrDomain.isEmpty {
                     lang("Invalid address")
-                } else if insufficientFunds {
+                } else if hasInsufficientBalanceError {
                     lang("Insufficient Balance")
                 } else {
                     if model.draftData.transactionDraft?.diesel?.status == .notAuthorized {

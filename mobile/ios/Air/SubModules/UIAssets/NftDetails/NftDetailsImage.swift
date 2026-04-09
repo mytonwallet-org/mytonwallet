@@ -5,8 +5,13 @@ struct NftDetailsImage {
     static func errorPlaceholderImage() -> UIImage {
         UIImage.airBundle("NftError2")
     }
-    
+
+    static func noImagePlaceholderImage() -> UIImage {
+        UIImage.airBundle("NoNftImage2")
+    }
+
     struct Processed {
+        var originalImage: UIImage?
         var previewImage: UIImage?
         var backgroundPattern: CIImage?
         var baseColor: UIColor?
@@ -34,6 +39,11 @@ struct NftDetailsImage {
         
         var isLoading: Bool {
             if case .loading = self { return true }
+            return false
+        }
+
+        var isLoaded: Bool {
+            if case .loaded = self { return true }
             return false
         }
     }

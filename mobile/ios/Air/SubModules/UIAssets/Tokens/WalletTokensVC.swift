@@ -18,6 +18,9 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     private var collectionView: UICollectionView!
     private lazy var dataSource: CollectionViewDataSource = makeDataSource()
     private var currentHeight: CGFloat = WalletTokenCell.defaultHeight * 4
+    private var isShowingEmptyState = false
+    private var isWalletAssetsEmptyStateAnimationActive = false
+    private var walletAssetsEmptyStateAnimationSessionID = 0
     private var pendingInteractiveSwitchAccountId: String?
     private var contextMenuExtraBlurView: UIView?
 
@@ -27,18 +30,21 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         collectionView.visibleCells.compactMap { ($0 as? ActivitySkeletonCollectionCell)?.contentView }
     }
 
-    public var calculatedHeight: CGFloat {
-        currentHeight
-    }
-
-    public var hostedHeight: CGFloat {
-        switch layoutMode {
-        case .expanded:
-            return currentHeight
-        case .compact, .compactLarge:
-            let maxVisibleRowsHeight = CGFloat(layoutMode.visibleRowsLimit) * WalletTokenCell.defaultHeight
-            return max(currentHeight, maxVisibleRowsHeight + WalletSeeAllCell.defaultHeight)
+    public func calculateHeight(isHosted: Bool) -> CGFloat {
+        if isHosted {
+            switch layoutMode {
+            case .expanded:
+                return currentHeight
+            case .compact, .compactLarge:
+                if isShowingEmptyState {
+                    return currentHeight
+                }
+                let maxVisibleRowsHeight = CGFloat(layoutMode.visibleRowsLimit) * WalletTokenCell.defaultHeight
+                return max(currentHeight, maxVisibleRowsHeight + WalletSeeAllCell.defaultHeight)
+            }
         }
+        
+        return currentHeight
     }
 
     // MARK: - Init
@@ -129,6 +135,19 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         let placeholderRegistration = UICollectionView.CellRegistration<ActivitySkeletonCollectionCell, Int> { cell, _, _ in
             cell.configure()
         }
+        let emptyRegistration = UICollectionView.CellRegistration<WalletAssetsEmptyCell, Item> { [unowned self] cell, _, _ in
+            cell.configure(
+                animationName: "duck_no-data",
+                title: lang("No tokens yet"),
+                description: lang("$no_tokens_description"),
+                actionTitle: lang("Add Tokens"),
+                height: WalletAssetsEmptyCell.tokensHeight,
+                descriptionNumberOfLines: 4
+            ) { [weak self] in
+                self?.didTapAddTokens()
+            }
+            applyEmptyStateAnimation(to: cell)
+        }
         let seeAllRegistration = UICollectionView.CellRegistration<WalletSeeAllCell, Int> { [unowned self] cell, _, tokensCount in
             let visibleTokensMenu: UIMenu? = switch layoutMode {
             case .compact:
@@ -156,6 +175,8 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
                     collectionView.dequeueConfiguredReusableCell(using: tokenRegistration, for: indexPath, item: item)
                 case .placeholder(let placeholderID):
                     collectionView.dequeueConfiguredReusableCell(using: placeholderRegistration, for: indexPath, item: placeholderID)
+                case .empty:
+                    collectionView.dequeueConfiguredReusableCell(using: emptyRegistration, for: indexPath, item: item)
                 case .seeAll(let tokensCount):
                     collectionView.dequeueConfiguredReusableCell(using: seeAllRegistration, for: indexPath, item: tokensCount)
                 }
@@ -173,6 +194,8 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
                     collectionView.dequeueConfiguredReusableCell(using: tokenRegistration, for: indexPath, item: item)
                 case .placeholder(let placeholderID):
                     collectionView.dequeueConfiguredReusableCell(using: placeholderRegistration, for: indexPath, item: placeholderID)
+                case .empty:
+                    collectionView.dequeueConfiguredReusableCell(using: emptyRegistration, for: indexPath, item: item)
                 case .seeAll(let tokensCount):
                     collectionView.dequeueConfiguredReusableCell(using: seeAllRegistration, for: indexPath, item: tokensCount)
                 }
@@ -206,6 +229,8 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         let items: [Item] = switch walletTokensViewState {
         case .loaded(let rows, _):
             rows.map { .token(item: $0) }
+        case .empty:
+            [.empty]
         case .placeholders(let count):
             (0 ..< count).map(Item.placeholder)
         }
@@ -218,14 +243,23 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
                 snapshot.appendSections([.seeAll])
                 snapshot.appendItems([.seeAll(tokensCount: allTokensCount)])
             }
+        case .empty:
+            break
         case .placeholders:
             break
         }
 
+        switch walletTokensViewState {
+        case .empty:
+            isShowingEmptyState = true
+        case .loaded, .placeholders:
+            isShowingEmptyState = false
+        }
         currentHeight = snapshot.itemIdentifiers.reduce(into: CGFloat(0)) { totalHeight, item in
             totalHeight += item.defaultHeight
         }
         dataSource.apply(snapshot, animatingDifferences: animatedAmounts)
+        updateVisibleEmptyStateAnimations()
     }
 
     // MARK: - Data Updates
@@ -249,6 +283,9 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
             balances: $account.balances,
             defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: account.network)
         )
+        if sortedTokens.isEmpty {
+            return .empty
+        }
         let visibleTokens = makeVisibleTokens(from: sortedTokens)
         let rows = visibleTokens.map { tokenBalance in
             TokenBalanceItem(
@@ -529,6 +566,8 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         switch item {
         case .placeholder:
             return false
+        case .empty:
+            return false
         case .token, .seeAll:
             return true
         }
@@ -545,6 +584,8 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
             didSelectToken(item.tokenBalance)
         case .seeAll:
             didSelectSeeAll()
+        case .empty:
+            break
         case .placeholder:
             break
         }
@@ -558,6 +599,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
 
         return switch item {
         case .placeholder: nil
+        case .empty: nil
         case .seeAll: nil
         case .token(let item):
             UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: nil) { _ in
@@ -615,20 +657,9 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         onScroll?(scrollView.contentOffset.y + scrollView.contentInset.top)
     }
 
-    public func scrollViewWillBeginDragging(_: UIScrollView) {
-        onScrollStart?()
-    }
-
-    public func scrollViewDidEndDragging(_: UIScrollView, willDecelerate _: Bool) {
-        onScrollEnd?()
-    }
-
     // MARK: - WSegmentedControllerContent
 
     public var onScroll: ((CGFloat) -> Void)?
-    public var onScrollStart: (() -> Void)?
-    public var onScrollEnd: (() -> Void)?
-
     public var scrollingView: UIScrollView? { collectionView }
 
     private func contextMenuPreview(for configuration: UIContextMenuConfiguration) -> UITargetedPreview? {
@@ -670,10 +701,41 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
 // MARK: - Actions
 
 extension WalletTokensVC {
+    private func applyEmptyStateAnimation(to cell: WalletAssetsEmptyCell) {
+        cell.updateAnimationPlayback(
+            isPlaying: isWalletAssetsEmptyStateAnimationActive && isShowingEmptyState,
+            playbackSessionID: walletAssetsEmptyStateAnimationSessionID
+        )
+    }
+
+    private func updateVisibleEmptyStateAnimations() {
+        guard isViewLoaded, collectionView != nil else {
+            return
+        }
+        collectionView.layoutIfNeeded()
+        for case let cell as WalletAssetsEmptyCell in collectionView.visibleCells {
+            applyEmptyStateAnimation(to: cell)
+        }
+    }
+
+    func setWalletAssetsEmptyStateAnimationActive(_ isActive: Bool) {
+        isWalletAssetsEmptyStateAnimationActive = isActive
+        if isActive {
+            walletAssetsEmptyStateAnimationSessionID += 1
+        }
+        updateVisibleEmptyStateAnimations()
+    }
+
     private func didSelectSeeAll() {
         AppActions.showAssets(accountSource: $account.source, selectedTab: 0, collectionsFilter: .none)
     }
+
+    private func didTapAddTokens() {
+        AppActions.showAssetsAndActivity()
+    }
 }
+
+extension WalletTokensVC: WalletAssetsEmptyStateAnimationControlling { }
 
 // MARK: - Diffable Data Source Types
 
@@ -688,12 +750,14 @@ extension WalletTokensVC {
     private enum Item: Hashable {
         case token(item: TokenBalanceItem)
         case placeholder(Int)
+        case empty
         case seeAll(tokensCount: Int)
         
         var defaultHeight: CGFloat {
             switch self {
             case .token: WalletTokenCell.defaultHeight
             case .placeholder: ActivitySkeletonCollectionCell.defaultHeight
+            case .empty: WalletAssetsEmptyCell.tokensHeight
             case .seeAll: WalletSeeAllCell.defaultHeight
             }
         }
@@ -743,6 +807,7 @@ extension WalletTokensVC {
     
     private enum WalletTokensViewState {
         case loaded(rows: [TokenBalanceItem], allTokensCount: Int)
+        case empty
         case placeholders(count: Int)
     }
     

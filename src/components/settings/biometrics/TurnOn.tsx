@@ -28,9 +28,9 @@ interface OwnProps {
   isOpen: boolean;
   state: BiometricsState;
   error?: string;
-  onClose: NoneToVoidFunction;
   isLoading?: boolean;
   isInsideModal?: boolean;
+  onClose: NoneToVoidFunction;
 }
 
 const STICKER_SIZE = 180;

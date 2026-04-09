@@ -27,6 +27,8 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     private var selectedAccountId: String?
     private var currentLayoutMetrics: HomeCardLayoutMetrics = .screen
     private var pendingSelectionScroll = false
+    private var pendingSelectionAnimated = false
+    private var pendingSelectionRetryTask: Task<Void, Never>?
     
     private enum Section {
         case main
@@ -118,7 +120,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
             snapshot.appendSections([.main])
             snapshot.appendItems(accountIds.map(Item.account))
             dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in
-                self?.scrollToSelectedIfPossible(animated: false)
+                self?.scrollToSelectedIfPossible()
             }
             syncSelection(with: accountIds)
         }
@@ -179,7 +181,8 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
         guard selectedAccountId != accountId || pendingSelectionScroll else { return }
         selectedAccountId = accountId
         pendingSelectionScroll = true
-        scrollToSelectedIfPossible(animated: animated)
+        pendingSelectionAnimated = animated
+        scrollToSelectedIfPossible()
     }
     
     func makeLayout(for metrics: HomeCardLayoutMetrics) -> UICollectionViewCompositionalLayout {
@@ -224,8 +227,15 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
         }
         updateLayoutMetricsIfNeeded()
         if pendingSelectionScroll {
-            scrollToSelectedIfPossible(animated: false)
+            scrollToSelectedIfPossible()
         }
+    }
+
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil, selectedAccountId != nil else { return }
+        pendingSelectionScroll = true
+        scrollToSelectedIfPossible()
     }
     
     private func updateLayoutMetricsIfNeeded() {
@@ -236,7 +246,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
         collectionView.setCollectionViewLayout(makeLayout(for: newMetrics), animated: false)
         collectionView.reloadData()
         pendingSelectionScroll = true
-        scrollToSelectedIfPossible(animated: false)
+        scrollToSelectedIfPossible()
     }
     
     public override var intrinsicContentSize: CGSize {
@@ -265,24 +275,52 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
         selectionOverrideAccountId = accountId
         syncSelection(with: makeAccountIds())
         if animated {
-            scrollToSelectedIfPossible(animated: true)
+            pendingSelectionAnimated = true
+            scrollToSelectedIfPossible()
         }
     }
-    
+
     func scrollTo(accountId: String, animated: Bool) {
         selectedAccountId = accountId
         pendingSelectionScroll = true
-        scrollToSelectedIfPossible(animated: animated)
+        pendingSelectionAnimated = animated
+        scrollToSelectedIfPossible()
     }
-    
-    private func scrollToSelectedIfPossible(animated: Bool) {
+
+    private func scrollToSelectedIfPossible() {
         guard pendingSelectionScroll else { return }
+        guard window != nil else { return }
         guard bounds.width > 0, collectionView.bounds.width > 0 else { return }
-        guard !isUserScrolling else { return }
         guard let selectedAccountId else { return }
         guard let indexPath = dataSource.indexPath(for: .account(selectedAccountId)) else { return }
-        collectionView.scrollToItem(at: indexPath, at: .centeredHorizontally, animated: animated)
+        guard !isUserScrolling else {
+            schedulePendingSelectionRetryIfNeeded()
+            return
+        }
+        pendingSelectionRetryTask?.cancel()
+        pendingSelectionRetryTask = nil
+        collectionView.scrollToItem(at: indexPath, at: .centeredHorizontally, animated: pendingSelectionAnimated)
         pendingSelectionScroll = false
+        pendingSelectionAnimated = false
+    }
+
+    private func schedulePendingSelectionRetryIfNeeded() {
+        guard pendingSelectionRetryTask == nil else { return }
+        pendingSelectionRetryTask = Task { @MainActor [weak self] in
+            while let self {
+                try? await Task.sleep(for: .milliseconds(50))
+                guard !Task.isCancelled else { return }
+                guard self.pendingSelectionScroll else {
+                    self.pendingSelectionRetryTask = nil
+                    return
+                }
+                guard self.isUserScrolling else {
+                    self.pendingSelectionRetryTask = nil
+                    self.scrollToSelectedIfPossible()
+                    return
+                }
+            }
+        }
     }
     
     private var isUserScrolling: Bool {

@@ -40,6 +40,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.asImage
+import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
@@ -237,14 +238,6 @@ class InAppBrowserVC(
         }
     }
 
-    private fun canHandleExternalUrl(url: String): Boolean {
-        return url.startsWith("geo:") ||
-            url.startsWith(WebView.SCHEME_MAILTO) ||
-            url.startsWith("market:") ||
-            url.startsWith("intent:") ||
-            url.startsWith("tg:")
-    }
-
     val webView: WebView by lazy {
         val wv = WebView(context)
         wv.id = View.generateViewId()
@@ -288,6 +281,7 @@ class InAppBrowserVC(
                 super.onPageStarted(view, url, favicon)
             }
 
+            @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                 return shouldOverride(url)
             }
@@ -316,63 +310,69 @@ class InAppBrowserVC(
             }
 
             private fun shouldOverride(url: String): Boolean {
-                if (url.startsWith(WebView.SCHEME_TEL)) {
-                    try {
-                        val intent = Intent(Intent.ACTION_DIAL)
-                        intent.data = Uri.parse(url)
-                        window?.startActivity(intent)
-                        return true
-                    } catch (_: android.content.ActivityNotFoundException) {
-                    }
-                } else if (url.startsWith("geo:") || url.startsWith(WebView.SCHEME_MAILTO) ||
-                    url.startsWith("market:") || url.startsWith("intent:") || url.startsWith("tg:")
-                ) {
-                    try {
-                        val intent = Intent(Intent.ACTION_VIEW)
-                        intent.data = Uri.parse(url)
-                        window?.startActivity(intent)
-                        return true
-                    } catch (_: android.content.ActivityNotFoundException) {
-                    }
-                } else if (url.startsWith("sms:")) {
-                    try {
-                        val intent = Intent(Intent.ACTION_VIEW)
-                        var address: String? = null
-                        val parmIndex = url.indexOf('?')
+                val scheme = url.toUriOrNull()?.scheme?.lowercase() ?: return false
 
-                        address = if (parmIndex == -1) {
-                            url.substring(4)
-                        } else {
-                            url.substring(4, parmIndex).also {
-                                val uri = Uri.parse(url)
-                                val query = uri.query
-                                if (query != null && query.startsWith("body=")) {
-                                    intent.putExtra("sms_body", query.substring(5))
+                when (scheme) {
+                    "intent" -> return true
+
+                    "tel" -> {
+                        try {
+                            val intent = Intent(Intent.ACTION_DIAL)
+                            intent.data = url.toUri()
+                            window?.startActivity(intent)
+                            return true
+                        } catch (_: android.content.ActivityNotFoundException) {
+                        }
+                    }
+
+                    "geo", "mailto", "market", "tg" -> {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW)
+                            intent.data = url.toUri()
+                            window?.startActivity(intent)
+                            return true
+                        } catch (_: android.content.ActivityNotFoundException) {
+                        }
+                    }
+
+                    "sms" -> {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW)
+                            var address: String? = null
+                            val parmIndex = url.indexOf('?')
+
+                            address = if (parmIndex == -1) {
+                                url.substring(4)
+                            } else {
+                                url.substring(4, parmIndex).also {
+                                    val uri = url.toUriOrNull()
+                                    val query = uri?.query
+                                    if (query != null && query.startsWith("body=")) {
+                                        intent.putExtra("sms_body", query.substring(5))
+                                    }
                                 }
                             }
+
+                            intent.setDataAndType(
+                                "sms:$address".toUriOrNull(),
+                                "vnd.android-dir/mms-sms"
+                            )
+                            intent.putExtra("address", address)
+                            window?.startActivity(intent)
+                            return true
+                        } catch (_: android.content.ActivityNotFoundException) {
                         }
-
-                        intent.data = Uri.parse("sms:$address")
-                        intent.putExtra("address", address)
-                        intent.type = "vnd.android-dir/mms-sms"
-                        window?.startActivity(intent)
-                        return true
-                    } catch (_: android.content.ActivityNotFoundException) {
                     }
-                } else {
-                    val isValidDeeplink = WalletContextManager.delegate?.handleDeeplink(url)
-                    if (isValidDeeplink == true)
-                        return true
-                }
 
-                if (!url.startsWith("http://") &&
-                    !url.startsWith("https://") &&
-                    return canHandleExternalUrl(url)
-                ) {
-                    val intent = Intent(Intent.ACTION_VIEW)
-                    intent.setData(Uri.parse(url))
-                    window?.startActivity(intent)
-                    return false
+                    "http" -> return true
+
+                    "https" -> {}
+
+                    else -> {
+                        val isValidDeeplink = WalletContextManager.delegate?.handleDeeplink(url)
+                        if (isValidDeeplink == true)
+                            return true
+                    }
                 }
 
                 return false
@@ -384,12 +384,7 @@ class InAppBrowserVC(
                 val downloadUri = url.toUriOrNull() ?: return@setDownloadListener
                 if (downloadUri.scheme != configUri.scheme || downloadUri.host != configUri.host)
                     return@setDownloadListener
-                val intent = Intent(Intent.ACTION_VIEW)
-                intent.setData(downloadUri)
-                try {
-                    window?.startActivity(intent)
-                } catch (_: Exception) {
-                }
+                window?.startActivityCatching(Intent(Intent.ACTION_VIEW, downloadUri))
             }
         wv.setBackgroundColor(0)
         wv.setWebChromeClient(object : WebChromeClient() {
@@ -460,7 +455,7 @@ class InAppBrowserVC(
                 TonConnectInjectedInterface(
                     webView = webView,
                     accountId = AccountStore.activeAccountId!!,
-                    uri = Uri.parse(config.url)!!,
+                    uri = config.url.toUri(),
                     showError = { error ->
                         showAlert(
                             LocaleController.getString("Error"),
@@ -469,7 +464,7 @@ class InAppBrowserVC(
                     }
                 )
             } else null
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             null
         }
     }
@@ -510,6 +505,8 @@ class InAppBrowserVC(
 
     override fun navigate(url: String) {
         shouldClearHistoryOnLoad = true
+        topBar.setIconBitmap(null)
+        config.thumbnail = null
         webView.loadUrl(url)
     }
 
@@ -696,7 +693,8 @@ class InAppBrowserVC(
     private fun handlePermissionRequest(request: PermissionRequest) {
         val origin = normalizeOrigin(request.origin)
         val requestedOriginPermissions = getRequestedMediaOriginPermissions(request.resources)
-        val missingOriginPermissions = getMissingOriginPermissions(origin, requestedOriginPermissions)
+        val missingOriginPermissions =
+            getMissingOriginPermissions(origin, requestedOriginPermissions)
 
         if (missingOriginPermissions.isEmpty()) {
             requestMediaAndroidPermissions(request) { isGranted ->
@@ -764,21 +762,22 @@ class InAppBrowserVC(
         request: PermissionRequest,
         onResult: (Boolean) -> Unit
     ) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            onResult(true)
-            return
-        }
-
         val permissionsToRequest = LinkedHashSet<String>()
         request.resources.forEach { resource ->
             if (
                 resource == PermissionRequest.RESOURCE_VIDEO_CAPTURE
-                && checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(
+                    context,
+                    Manifest.permission.CAMERA
+                ) != PackageManager.PERMISSION_GRANTED
             ) {
                 permissionsToRequest.add(Manifest.permission.CAMERA)
             } else if (
                 resource == PermissionRequest.RESOURCE_AUDIO_CAPTURE
-                && checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(
+                    context,
+                    Manifest.permission.RECORD_AUDIO
+                ) != PackageManager.PERMISSION_GRANTED
             ) {
                 permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
             }
@@ -801,16 +800,19 @@ class InAppBrowserVC(
     }
 
     private fun requestGeolocationAndroidPermissions(onResult: (Boolean) -> Unit) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            onResult(true)
-            return
-        }
-
         val permissionsToRequest = LinkedHashSet<String>()
-        if (checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
-        if (checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
 
@@ -935,7 +937,7 @@ class InAppBrowserVC(
             return LocaleController.getString("\$web_permission_this_site")
         }
         return try {
-            Uri.parse(origin).host?.takeIf { it.isNotBlank() } ?: origin
+            origin.toUri().host?.takeIf { it.isNotBlank() } ?: origin
         } catch (_: Exception) {
             origin
         }
@@ -968,7 +970,7 @@ class InAppBrowserVC(
             return ""
         }
         return try {
-            normalizeOrigin(Uri.parse(origin))
+            normalizeOrigin(origin.toUri())
         } catch (_: Exception) {
             origin
         }
@@ -1047,7 +1049,7 @@ class InAppBrowserVC(
                     )
                 }
                 return Pair(true, uri)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 return Pair(false, null)
             }
         }

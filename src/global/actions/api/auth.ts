@@ -1,7 +1,7 @@
 import { NativeBiometric } from '@capgo/capacitor-native-biometric';
 
 import type { ApiNetwork } from '../../../api/types';
-import type { Account, GlobalState } from '../../types';
+import type { GlobalState } from '../../types';
 import { ApiAuthError, ApiCommonError } from '../../../api/types';
 import { AppState, AuthState, BiometricsState } from '../../types';
 
@@ -15,7 +15,7 @@ import {
   MNEMONIC_COUNT,
   TEMPORARY_ACCOUNT_NAME,
 } from '../../../config';
-import { generateAccountTitle, parseAccountId } from '../../../util/account';
+import { generateAccountTitle, generateNextSubwalletTitle, parseAccountId } from '../../../util/account';
 import authApi from '../../../util/authApi';
 import { verifyIdentity as verifyTelegramBiometricIdentity } from '../../../util/authApi/telegram';
 import webAuthn from '../../../util/authApi/webAuthn';
@@ -896,13 +896,12 @@ addActionHandler('importAccountByVersion', async (global, actions, { version, is
   }
 
   const { title: currentWalletTitle, type } = selectAccount(global, accountId)!;
-  const byChain: Account['byChain'] = { ton: { address: wallet.address } };
 
   global = createAccount({
     global,
     accountId: wallet.accountId,
     type,
-    byChain,
+    byChain: wallet.byChain,
     partial: { title: currentWalletTitle },
     titlePostfix: version,
   });
@@ -912,6 +911,90 @@ addActionHandler('importAccountByVersion', async (global, actions, { version, is
   await callApi('activateAccount', wallet.accountId);
 
   actions.tryAddNotificationAccount({ accountId: wallet.accountId });
+});
+
+addActionHandler('createSubWallet', async (global, actions, { chain, password }) => {
+  const accountId = selectCurrentAccountId(global)!;
+
+  const result = await callApi('createSubWallet', chain, accountId, password);
+
+  if (!result || 'error' in result) {
+    actions.showError({ error: result?.error ?? ApiCommonError.Unexpected });
+    return;
+  }
+
+  if (!result.isNew) {
+    actions.switchAccount({ accountId: result.accountId });
+    return;
+  }
+
+  const currentAccount = selectAccount(global, accountId)!;
+
+  if (currentAccount.title) {
+    global = getGlobal();
+
+    const baseTitle = currentAccount.title.replace(/\.\d+$/, '');
+    const accounts = selectNetworkAccounts(global) || {};
+    const title = generateNextSubwalletTitle(baseTitle, accounts);
+
+    global = createAccount({
+      global,
+      accountId: result.accountId,
+      byChain: result.byChain,
+      type: currentAccount.type,
+      partial: { title },
+    });
+
+    global = updateCurrentAccountId(global, result.accountId);
+    setGlobal(global);
+
+    void actions.tryAddNotificationAccount({ accountId: result.accountId });
+  }
+});
+
+addActionHandler('addSubWallet', async (global, actions, { chain, newWallet, isReplace }) => {
+  const accountId = selectCurrentAccountId(global)!;
+
+  const result = await callApi('addSubWallet', chain, accountId, newWallet, isReplace);
+
+  if (!result) {
+    actions.showError({ error: ApiCommonError.Unexpected });
+    return;
+  }
+
+  if (!result.isNew) {
+    actions.switchAccount({ accountId: result.accountId });
+    return;
+  }
+
+  const hasDerivation = newWallet.derivation !== undefined;
+
+  const currentAccount = selectAccount(global, accountId);
+
+  if (currentAccount?.title) {
+    global = getGlobal();
+
+    let title: string | undefined;
+
+    if (hasDerivation) {
+      const baseTitle = currentAccount.title.replace(/\.\d+$/, '');
+      const accounts = selectNetworkAccounts(global) || {};
+      title = generateNextSubwalletTitle(baseTitle, accounts);
+    }
+
+    global = createAccount({
+      global,
+      accountId: result.accountId,
+      byChain: result.byChain,
+      type: currentAccount.type,
+      partial: title ? { title } : undefined,
+    });
+
+    global = updateCurrentAccountId(global, result.accountId);
+    setGlobal(global);
+
+    void actions.tryAddNotificationAccount({ accountId: result.accountId });
+  }
 });
 
 addActionHandler('setIsAuthLoading', (global, actions, { isLoading }) => {

@@ -42,7 +42,14 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
         navigationItem.title = title
         addCloseNavigationItemIfNeeded()
         
-        hostingController = addHostingController(makeView(), constraints: .fillWithNavigationBar)
+        hostingController = addHostingController(makeView()) { [view] child in
+            NSLayoutConstraint.activate([
+                child.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                child.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                child.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+                child.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            ])
+        }
 
         configureSheetWithOpaqueBackground(color: .air.sheetBackground)
         view.backgroundColor = .air.sheetBackground

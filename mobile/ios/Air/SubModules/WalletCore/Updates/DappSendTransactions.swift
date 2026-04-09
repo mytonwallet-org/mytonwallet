@@ -1,6 +1,9 @@
 import Foundation
 import WalletContext
 
+private let wrappedTonSlug = "ton-eqcm3b12qk"
+private let unknownTokenSymbol = "[Unknown]"
+
 extension ApiUpdate {
     public struct DappSendTransactions: Equatable, Hashable, Decodable, Sendable {
         public var type = "dappSendTransactions"
@@ -83,40 +86,131 @@ extension ApiUpdate.DappSendTransactions {
         public var isDangerous: Bool
         public var isScam: Bool
         public var tokenTotals: [String: BigInt]
+        public var tokenOrder: [String]
         public var nftsCount = 0
+    }
+
+    public struct TokenDisplayInfo {
+        public var balance: BigInt
+        public var token: ApiToken
     }
     
     public var combinedInfo: CombinedInfo {
         var totals: [String: BigInt] = [:]
+        var tokenOrder: [String] = []
         var nftsCount = 0
         let nativeSlug = operationChain.nativeToken.slug
+
+        func addAmount(slug: String, amount: BigInt) {
+            if totals[slug] == nil {
+                tokenOrder.append(slug)
+            }
+            totals[slug, default: 0] += amount
+        }
+
         for transaction in transactions {
-            totals[nativeSlug, default: 0] += transaction.amount + transaction.networkFee
-            if operationChain == .ton {
-                if case .tokensTransfer(let parsed) = transaction.payload {
-                    totals[parsed.slug, default: 0] += parsed.amount
-                } else if case .nftTransfer(_) = transaction.payload {
-                    nftsCount += 1
-                }
+            addAmount(slug: nativeSlug, amount: transaction.amount + transaction.networkFee)
+
+            switch transaction.payload {
+            case .tokensTransfer(let parsed):
+                addAmount(slug: parsed.slug, amount: parsed.amount)
+            case .tokensTransferNonStandard(let parsed):
+                addAmount(slug: parsed.slug, amount: parsed.amount)
+            case .nftTransfer:
+                nftsCount += 1
+            default:
+                break
             }
         }
+
         return CombinedInfo(
             isDangerous: transactions.any(\.isDangerous),
             isScam: transactions.any(\.isScam),
             tokenTotals: totals,
+            tokenOrder: tokenOrder,
             nftsCount: nftsCount
         )
     }
-    
-    @MainActor public func hasSufficientBalance(accountContext: AccountContext) -> Bool {
-        let totals = combinedInfo.tokenTotals
+
+    @MainActor public func insufficientTokens(accountContext: AccountContext) -> String? {
         let balances = accountContext.balances
-        for (slug, amount) in totals {
-            let available = balances[slug] ?? 0
-            if amount > available {
-                return false
+        var insufficientTokens: [String] = []
+
+        for slug in combinedInfo.tokenOrder {
+            guard let requiredAmount = combinedInfo.tokenTotals[slug] else { continue }
+
+            let availableBalance = balances[balanceSlug(for: slug)] ?? 0
+
+            if availableBalance < requiredAmount {
+                insufficientTokens.append(insufficientSymbol(for: slug))
             }
         }
-        return true
+
+        return insufficientTokens.isEmpty ? nil : insufficientTokens.joined(separator: ", ")
+    }
+
+    @MainActor public func hasSufficientBalance(accountContext: AccountContext) -> Bool {
+        insufficientTokens(accountContext: accountContext) == nil
+    }
+
+    @MainActor public func tokenToDisplay(accountContext: AccountContext) -> TokenDisplayInfo {
+        let nativeToken = operationChain.nativeToken
+        let balances = accountContext.balances
+
+        if combinedInfo.tokenTotals.isEmpty {
+            return TokenDisplayInfo(
+                balance: balances[nativeToken.slug] ?? 0,
+                token: nativeToken
+            )
+        }
+
+        var insufficientTokens: [(usdValue: Double, balance: BigInt, token: ApiToken)] = []
+        var sufficientTokens: [(usdValue: Double, balance: BigInt, token: ApiToken)] = []
+
+        for slug in combinedInfo.tokenOrder {
+            guard let requiredAmount = combinedInfo.tokenTotals[slug],
+                  let token = displayToken(for: slug) else { continue }
+
+            let availableBalance = balances[slug] ?? 0
+            let priceUsd = token.priceUsd ?? 0
+
+            if availableBalance < requiredAmount {
+                let insufficientAmount = requiredAmount - availableBalance
+                let insufficientUsdValue = TokenAmount(insufficientAmount, token).doubleValue * priceUsd
+                insufficientTokens.append((insufficientUsdValue, availableBalance, token))
+            } else {
+                let transactionUsdValue = TokenAmount(requiredAmount, token).doubleValue * priceUsd
+                sufficientTokens.append((transactionUsdValue, availableBalance, token))
+            }
+        }
+
+        if let token = insufficientTokens.max(by: { $0.usdValue < $1.usdValue }) {
+            return TokenDisplayInfo(balance: token.balance, token: token.token)
+        }
+
+        if let token = sufficientTokens.max(by: { $0.usdValue < $1.usdValue }) {
+            return TokenDisplayInfo(balance: token.balance, token: token.token)
+        }
+
+        return TokenDisplayInfo(
+            balance: balances[nativeToken.slug] ?? 0,
+            token: nativeToken
+        )
+    }
+
+    @MainActor private func displayToken(for slug: String) -> ApiToken? {
+        TokenStore.getToken(slug: slug)
+    }
+
+    private func balanceSlug(for slug: String) -> String {
+        slug == wrappedTonSlug ? ApiChain.ton.nativeToken.slug : slug
+    }
+
+    @MainActor private func insufficientSymbol(for slug: String) -> String {
+        if slug == wrappedTonSlug {
+            return ApiChain.ton.nativeToken.symbol
+        }
+
+        return displayToken(for: slug)?.symbol ?? unknownTokenSymbol
     }
 }

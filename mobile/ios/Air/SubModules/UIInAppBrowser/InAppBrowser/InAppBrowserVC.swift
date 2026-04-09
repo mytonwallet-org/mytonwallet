@@ -5,18 +5,18 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-private let log = Log("InAppBrowserVC")
-
 @MainActor protocol InAppBrowserDelegate: AnyObject {
     func inAppBrowserTitleChanged(_ browserContainer: InAppBrowserVC)
 }
 
 final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
+    override var hideNavigationBar: Bool { true }
     
     weak var delegate: InAppBrowserDelegate?
     var onCloseRequested: (@MainActor () -> Void)?
 
     private var iconProvider = DappInfoProvider()
+    private lazy var navigationBar = makeNavigationBar()
     
     init() {
         super.init(nibName: nil, bundle: nil)
@@ -34,7 +34,24 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
     
     private func setupViews() {
         view.backgroundColor = .air.background
+        view.addSubview(navigationBar)
+        NSLayoutConstraint.activate([
+            navigationBar.topAnchor.constraint(equalTo: view.topAnchor),
+            navigationBar.leftAnchor.constraint(equalTo: view.leftAnchor),
+            navigationBar.rightAnchor.constraint(equalTo: view.rightAnchor),
+            navigationBar.titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: navigationBar.leadingAnchor, constant: 30),
+            navigationBar.titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: navigationBar.backButton.trailingAnchor, constant: 16),
+            navigationBar.titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: navigationBar.leadingButton.view.trailingAnchor, constant: 16),
+        ])
+        navigationBar.titleLabel.numberOfLines = 1
+        navigationBar.titleLabel.alpha = 0
+        navigationBar.titleLabel.transform = .identity.scaledBy(x: 0.4, y: 0.4)
+
+        updateNavigationBar()
         
+    }
+
+    private func makeNavigationBar() -> WNavigationBar {
         let closeButton = if IOS_26_MODE_ENABLED {
             WNavigationBarButton(icon: UIImage(systemName: "xmark"), onPress: { [weak self] in
                 self?.closeSheet()
@@ -44,32 +61,12 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
                 self?.closeSheet()
             })
         }
-        
+
         let image = IOS_26_MODE_ENABLED ? UIImage(systemName: "ellipsis") : UIImage(named: "More22", in: AirBundle, with: nil)
-        let moreButton = WNavigationBarButton(icon: image, tintColor: .tintColor, onPress: nil, menu: makeMenu(), showsMenuAsPrimaryAction: true)
-        
-        addNavigationBar(navHeight: 60, title: " ", subtitle: "", leadingItem: closeButton, trailingItem: moreButton, tintColor: nil, titleColor: nil, closeIcon: false, addBackButton: { [weak self] in
+        let moreButton = WNavigationBarButton(icon: image, tintColor: .tintColor, menu: makeMenu())
+        return WNavigationBar(leadingButton: closeButton, trailingButton: moreButton) { [weak self] in
             self?.goBack()
-        }, prefersHardEdge: true)
-        if let navigationBar {
-            navigationBar.setTitleMenu(makeTitleMenu(for: currentPage?.config.url))
-            navigationBar.showSeparator = true
-            if let title = navigationBar.titleLabel, let backButton = navigationBar.backButton, let leading = navigationBar.leadingItem?.view {
-                NSLayoutConstraint.activate([
-                    title.leadingAnchor.constraint(greaterThanOrEqualTo: navigationBar.leadingAnchor, constant: 30),
-                    title.leadingAnchor.constraint(greaterThanOrEqualTo: backButton.trailingAnchor, constant: 16),
-                    title.leadingAnchor.constraint(greaterThanOrEqualTo: leading.trailingAnchor, constant: 16),
-                    
-                ])
-                title.numberOfLines = 1
-                title.alpha = 0
-                title.transform = .identity.scaledBy(x: 0.4, y: 0.4)
-            }
         }
-        
-        bringNavigationBarToFront()
-        updateNavigationBar()
-        
     }
     
     private var pages: [InAppBrowserPageVC] {
@@ -108,7 +105,7 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
             pageVC.view.rightAnchor.constraint(equalTo: view.rightAnchor),
             pageVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-        bringNavigationBarToFront()
+        view.bringSubviewToFront(navigationBar)
         pageVC.didMove(toParent: self)
         updateNavigationBar()
     }
@@ -120,51 +117,49 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
     }
     
     func updateNavigationBar(delayTitleChangeToNil: Bool = true) {
-        if let navigationBar, let page = currentPage {
-            navigationBar.setTitleMenu(makeTitleMenu(for: page.config.url))
-            let pageTitle: String? = page.webView?.title?.nilIfEmpty ?? page.config.title
-            let explorerTitle = explorerTitleText(for: page.config.url)
-            let title = explorerTitle ?? pageTitle
-            displayTitleText = title
-            let titleIsNil = title?.nilIfEmpty == nil
+        guard let page = currentPage else { return }
+        navigationBar.setTitleMenu(makeTitleMenu(for: page.config.url))
+        let pageTitle: String? = page.webView?.title?.nilIfEmpty ?? page.config.title
+        let explorerTitle = explorerTitleText(for: page.config.url)
+        let title = explorerTitle ?? pageTitle
+        displayTitleText = title
+        let titleIsNil = title?.nilIfEmpty == nil
+        
+        UIView.animate(withDuration: 0.15) { [self] in
             
-            UIView.animate(withDuration: 0.15) { [self] in
-                
-                if titleIsNil && delayTitleChangeToNil {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-                        self?.updateNavigationBar(delayTitleChangeToNil: false)
-                    }
-                } else {
-                    applyTitle(navigationBar: navigationBar, title: title, explorerTitle: explorerTitle)
-                    navigationBar.titleLabel?.isHidden = titleIsNil
-                    navigationBar.titleLabel?.alpha = titleIsNil ? 0 : 1
-                    navigationBar.titleLabel?.transform = titleIsNil ? .identity.scaledBy(x: 0.4, y: 0.4) : .identity
+            if titleIsNil && delayTitleChangeToNil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                    self?.updateNavigationBar(delayTitleChangeToNil: false)
                 }
-                
-                let host = page.config.url.host(percentEncoded: false)
-                let subtitle: String? = page.config.url.isSubproject ? nil : host
-                let subtitleIsNil = subtitle?.nilIfEmpty == nil
-                navigationBar.subtitleLabel?.text = subtitle
-                navigationBar.subtitleLabel?.isHidden = subtitleIsNil
-                navigationBar.subtitleLabel?.alpha = subtitleIsNil ? 0 : 1
-                
-                let canGoBack = page.webView?.canGoBack == true
-                if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-                    navigationBar.backButton?.isHidden = true
-                    (navigationBar.leadingItem?.view as? WButton)?.setImage(
-                        UIImage(systemName: canGoBack ? "chevron.left" : "xmark"),
-                        for: .normal
-                    )
-                    navigationBar.leadingItem?.onPress = canGoBack ? navigationBar.onBackPressed : { [weak self] in
-                        self?.closeSheet()
-                    }
-                } else {
-                    navigationBar.backButton?.isHidden = !canGoBack
-                    navigationBar.leadingItem?.view.isHidden = canGoBack
-                }
-                
-                delegate?.inAppBrowserTitleChanged(self)
+            } else {
+                applyTitle(navigationBar: navigationBar, title: title, explorerTitle: explorerTitle)
+                navigationBar.titleLabel.isHidden = titleIsNil
+                navigationBar.titleLabel.alpha = titleIsNil ? 0 : 1
+                navigationBar.titleLabel.transform = titleIsNil ? .identity.scaledBy(x: 0.4, y: 0.4) : .identity
             }
+            
+            let host = page.config.url.host(percentEncoded: false)
+            let subtitle: String? = page.config.url.isSubproject ? nil : host
+            let subtitleIsNil = subtitle?.nilIfEmpty == nil
+            navigationBar.subtitleLabel.text = subtitle
+            navigationBar.subtitleLabel.isHidden = subtitleIsNil
+            navigationBar.subtitleLabel.alpha = subtitleIsNil ? 0 : 1
+            
+            let canGoBack = page.webView?.canGoBack == true
+            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                navigationBar.backButton.isHidden = true
+                navigationBar.leadingButton.setImage(UIImage(systemName: canGoBack ? "chevron.left" : "xmark"))
+                navigationBar.leadingButton.onPress = canGoBack ? { [weak self] in
+                    self?.goBack()
+                } : { [weak self] in
+                    self?.closeSheet()
+                }
+            } else {
+                navigationBar.backButton.isHidden = !canGoBack
+                navigationBar.leadingButton.view.isHidden = canGoBack
+            }
+            
+            delegate?.inAppBrowserTitleChanged(self)
         }
     }
     
@@ -226,7 +221,7 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
     }
 
     private func applyTitle(navigationBar: WNavigationBar, title: String?, explorerTitle: String?) {
-        guard let titleLabel = navigationBar.titleLabel else { return }
+        let titleLabel = navigationBar.titleLabel
         if let explorerTitle {
             titleLabel.attributedText = makeExplorerTitleText(explorerTitle, label: titleLabel)
         } else {

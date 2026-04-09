@@ -47,6 +47,8 @@ let sharedSwiftSettings: [SwiftSetting] =
         ),
     ]
 
+let contextMenuKitDependency: Target.Dependency = .product(name: "ContextMenuKit", package: "ContextMenuKit")
+
 func airLibrary(_ name: String, type: Product.Library.LibraryType? = nil) -> Product {
     .library(name: name, type: type, targets: [name])
 }
@@ -54,13 +56,25 @@ func airLibrary(_ name: String, type: Product.Library.LibraryType? = nil) -> Pro
 func airTarget(
     _ name: String,
     dependencies: [Target.Dependency] = [],
-    path: String? = nil,
     swiftSettings: [SwiftSetting]? = nil,
 ) -> Target {
     .target(
         name: name,
         dependencies: dependencies,
-        path: path ?? "SubModules/\(name)",
+        path: "SubModules/\(name)",
+        swiftSettings: swiftSettings ?? sharedSwiftSettings
+    )
+}
+
+func airTestTarget(
+    _ name: String,
+    dependencies: [Target.Dependency] = [],
+    swiftSettings: [SwiftSetting]? = nil,
+) -> Target {
+    .testTarget(
+        name: name,
+        dependencies: dependencies,
+        path: "Tests/\(name)",
         swiftSettings: swiftSettings ?? sharedSwiftSettings
     )
 }
@@ -101,6 +115,7 @@ let package = Package(
         airLibrary("YUVConversion"),
     ],
     dependencies: [
+        .package(path: "../Packages/ContextMenuKit"),
         .package(
             url: "https://github.com/airbnb/lottie-spm.git",
             exact: "4.5.2"
@@ -123,7 +138,7 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/mytonwallet-org/swift-bigint",
-            revision: "53c55ff37750f0eb0631fd7b11ddc60997127694"
+            revision: "0485115b4ef6bd789ea320a1269d89fb09d1e8e6"
         ),
         .package(
             url: "https://github.com/onevcat/Kingfisher",
@@ -253,6 +268,7 @@ let package = Package(
         airTarget(
             "UIComponents",
             dependencies: [
+                contextMenuKitDependency,
                 "WalletContext",
                 "WalletCore",
                 .product(name: "Dependencies", package: "swift-dependencies"),
@@ -344,6 +360,7 @@ let package = Package(
         airTarget(
             "UISend",
             dependencies: [
+                contextMenuKitDependency,
                 "UIComponents",
                 "WalletCore",
                 "WalletContext",
@@ -358,6 +375,7 @@ let package = Package(
         airTarget(
             "UISwap",
             dependencies: [
+                contextMenuKitDependency,
                 "WalletCore",
                 "WalletContext",
                 "UIPasscode",
@@ -370,6 +388,7 @@ let package = Package(
         airTarget(
             "UIReceive",
             dependencies: [
+                contextMenuKitDependency,
                 "UIComponents",
                 "WalletContext",
                 "WalletCore",
@@ -393,6 +412,7 @@ let package = Package(
         airTarget(
             "UIAssets",
             dependencies: [
+                contextMenuKitDependency,
                 "WalletCore",
                 "WalletContext",
                 .product(name: "Perception", package: "swift-perception"),
@@ -484,6 +504,7 @@ let package = Package(
         airTarget(
             "UIHome",
             dependencies: [
+                contextMenuKitDependency,
                 "UIComponents",
                 "UIActivityList",
                 "UIAgent",
@@ -543,6 +564,19 @@ let package = Package(
                 "UIPasscode",
                 "UIDapp",
                 "UICreateWallet",
+            ]
+        ),
+        airTestTarget(
+            "WalletContextTests",
+            dependencies: [
+                "WalletContext",
+            ]
+        ),
+        airTestTarget(
+            "WalletCoreTests",
+            dependencies: [
+                "WalletCore",
+                "WalletContext",
             ]
         ),
     ],

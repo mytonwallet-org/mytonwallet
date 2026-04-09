@@ -33,6 +33,8 @@ open class RecoveryPhraseVC: SettingsBaseVC {
     public var headerView: HeaderView!
     
     func setupViews() {
+        navigationItem.title = nil
+
         // parent scrollView
         scrollView = UIScrollView()
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -47,17 +49,6 @@ open class RecoveryPhraseVC: SettingsBaseVC {
             // contentLayout
             scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: view.widthAnchor),
         ])
-
-        addNavigationBar(
-            title: "",
-            addBackButton: { [weak self] in
-                guard let self else {return}
-                navigationController?.popViewController(animated: true)
-            })
-
-        scrollView.contentInset.top = navigationBarHeight
-        scrollView.verticalScrollIndicatorInsets.top = navigationBarHeight
-        scrollView.contentOffset.y = -navigationBarHeight
 
         // header
         headerView = HeaderView(animationName: "Recovery Phrase",
@@ -118,15 +109,9 @@ open class RecoveryPhraseVC: SettingsBaseVC {
 
 extension RecoveryPhraseVC: UIScrollViewDelegate {
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        navigationBar?.showSeparator = scrollView.contentOffset.y + scrollView.contentInset.top + view.safeAreaInsets.top > 0
-        guard let headerView else {
-            return
-        }
-        if scrollView.convert(headerView.frame.origin, to: navigationBar).y <= -123 + scrollView.contentInset.top {
-            navigationBar?.set(title: lang("Your Recovery Phrase"), animated: true)
-        } else {
-            navigationBar?.set(title: nil, animated: true)
-        }
+        navigationItem.title = scrollView.contentOffset.y + scrollView.adjustedContentInset.top > 123
+            ? lang("Your Recovery Phrase")
+            : nil
     }
 }
 

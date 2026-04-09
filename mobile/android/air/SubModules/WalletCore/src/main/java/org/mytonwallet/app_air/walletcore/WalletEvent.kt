@@ -4,6 +4,7 @@ import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
+import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 
 sealed class WalletEvent {
@@ -72,7 +73,8 @@ sealed class WalletEvent {
     data object NetworkDisconnected : WalletEvent()
 
     data class OpenUrl(
-        val url: String
+        val url: String,
+        val isExternal: Boolean = false
     ) : WalletEvent()
 
     data class OpenUrlWithConfig(
@@ -98,6 +100,8 @@ sealed class WalletEvent {
         val apdu: String,
         val onResponse: (response: String?) -> Unit
     ) : WalletEvent()
+
+    data class ShowPromotion(val promotion: ApiPromotion) : WalletEvent()
 
     data object ConfigReceived : WalletEvent()
     data object AccountConfigReceived : WalletEvent()

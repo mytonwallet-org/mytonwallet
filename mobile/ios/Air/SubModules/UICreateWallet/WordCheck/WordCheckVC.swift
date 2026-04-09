@@ -35,11 +35,8 @@ class WordCheckVC: CreateWalletBaseVC {
     }
     
     func setupViews() {
-        
         hostingController = addHostingController(makeView(), constraints: .fill)
-        
-        bringNavigationBarToFront()
-        
+
         updateTheme()
     }
     

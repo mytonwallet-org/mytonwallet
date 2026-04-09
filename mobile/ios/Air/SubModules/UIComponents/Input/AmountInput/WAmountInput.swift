@@ -18,14 +18,15 @@ public class WAmountInput: UITextField {
     public var integerFont: UIFont? = nil
     public var fractionFont: UIFont? = nil
     public var error = false
+    public var isMuted = false
     
-    private let onChange: (BigInt) -> Void
+    private let onChange: (BigInt?) -> Void
     private let onFocusChange: (_ isFocused: Bool) -> ()
     
     private let useSmallerFontAtLength = 15
     private let useEvenSmallerFontAtLength = 18
     
-    public init(maximumFractionDigits: Int, onChange: @escaping (BigInt) -> Void, onFocusChange: @escaping (_ isFocused: Bool) -> () = { _ in }) {
+    public init(maximumFractionDigits: Int, onChange: @escaping (BigInt?) -> Void, onFocusChange: @escaping (_ isFocused: Bool) -> () = { _ in }) {
         self.maximumFractionDigits = maximumFractionDigits
         self.onChange = onChange
         self.onFocusChange = onFocusChange
@@ -48,15 +49,19 @@ public class WAmountInput: UITextField {
         fatalError("init(coder:) has not been implemented")
     }
 
-    public var amountInt64: BigInt {
+    public var amountValueOrNil: BigInt? {
         let formatter = NumberFormatter()
-        var numberWithOutCommas = text!.replacingOccurrences(of: formatter.groupingSeparator, with: "")
-        numberWithOutCommas = text!.replacingOccurrences(of: " ", with: "")
+        let currentText = text ?? ""
+        var numberWithOutCommas = currentText.replacingOccurrences(of: formatter.groupingSeparator, with: "")
+        numberWithOutCommas = numberWithOutCommas.replacingOccurrences(of: " ", with: "")
+        guard !numberWithOutCommas.isEmpty else {
+            return nil
+        }
         return amountValue(numberWithOutCommas, digits: maximumFractionDigits)
     }
     
     @objc func changed() {
-        onChange(self.amountInt64)
+        onChange(self.amountValueOrNil)
     }
     
     public func reapplyFormatting() {
@@ -94,7 +99,7 @@ public class WAmountInput: UITextField {
                 at.addAttribute(.font, value: integerFont as Any, range: NSRange(location: 0, length: text.count))
             }
             
-            at.addAttribute(.foregroundColor, value: error ? .air.error : UIColor.label, range: NSRange(location: 0, length: text.count))
+            at.addAttribute(.foregroundColor, value: error ? .air.error : isMuted ? .air.secondaryLabel : UIColor.label, range: NSRange(location: 0, length: text.count))
             
             self.attributedText = at
         }
@@ -243,10 +248,11 @@ public struct WUIAmountInput: UIViewRepresentable {
     public let fractionFont: UIFont?
     public let alignment: NSTextAlignment?
     public var error: Bool
+    public var muted: Bool
     
     @State private var cooldown: Date = .distantPast
     
-    public init(amount: Binding<BigInt?>, maximumFractionDigits: Int, font: UIFont? = nil, fractionFont: UIFont? = nil, alignment: NSTextAlignment? = nil, isFocused: Binding<Bool>, error: Bool) {
+    public init(amount: Binding<BigInt?>, maximumFractionDigits: Int, font: UIFont? = nil, fractionFont: UIFont? = nil, alignment: NSTextAlignment? = nil, isFocused: Binding<Bool>, error: Bool, muted: Bool = false) {
         self._amount = amount
         self.maximumFractionDigits = maximumFractionDigits
         self.font = font
@@ -254,6 +260,7 @@ public struct WUIAmountInput: UIViewRepresentable {
         self.alignment = alignment
         self._isFocused = isFocused
         self.error = error
+        self.muted = muted
     }
     
     public final class Coordinator {
@@ -296,15 +303,25 @@ public struct WUIAmountInput: UIViewRepresentable {
     
     public func updateUIView(_ view: WAmountInput, context: Context) {
         view.maximumFractionDigits = maximumFractionDigits
-        if (amount ?? 0) != view.amountInt64 {
-            let s = formatBigIntText(amount ?? 0,
-                                     currency: nil,
-                                     negativeSign: false,
-                                     tokenDecimals: maximumFractionDigits,
-                                     decimalsCount: maximumFractionDigits,
-                                     forceCurrencyToRight: false,
-                                     roundUp: false)
-            _ = view.textField(view, shouldChangeCharactersIn: NSRange(location: 0, length: view.text?.count ?? 0), replacementString: s)
+        view.error = error
+        view.isMuted = muted
+        view.placeholder = "0"
+        if amount != view.amountValueOrNil {
+            if let amount {
+                let s = formatBigIntText(amount,
+                                         currency: nil,
+                                         negativeSign: false,
+                                         tokenDecimals: maximumFractionDigits,
+                                         decimalsCount: maximumFractionDigits,
+                                         forceCurrencyToRight: false,
+                                         roundHalfUp: false)
+                view.text = s
+                view.reapplyFormatting()
+            } else {
+                view.text = nil
+                view.reapplyFormatting()
+            }
+        } else {
             view.reapplyFormatting()
         }
         if view.canBecomeFirstResponder && context.coordinator.forceFirstResponder {
@@ -328,10 +345,6 @@ public struct WUIAmountInput: UIViewRepresentable {
                     isFocused = true
                 }
             }
-        }
-        if error != view.error {
-            view.error = error
-            view.reapplyFormatting()
         }
     }
     

@@ -5,7 +5,7 @@ import type { ApiChain, ApiNetwork } from '../../api/types';
 import type { ActionPayloads, GlobalState } from '../../global/types';
 import type { OpenUrlOptions } from '../openUrl';
 import { DappProtocolType } from '../../api/dappProtocols/types';
-import { ActiveTab, ContentTab } from '../../global/types';
+import { ActiveTab, ContentTab, SettingsState } from '../../global/types';
 
 import {
   DEFAULT_SWAP_AMOUNT,
@@ -71,6 +71,7 @@ export const enum DeeplinkCommand {
   Nft = 'nft',
   Portfolio = 'portfolio',
   Agent = 'agent',
+  Settings = 'settings',
 }
 
 const EXPLORER_ALLOWED_COMMANDS = new Set([
@@ -78,6 +79,18 @@ const EXPLORER_ALLOWED_COMMANDS = new Set([
   DeeplinkCommand.Transaction,
   DeeplinkCommand.Nft,
 ]);
+
+const SETTINGS_SECTION_MAP: Record<string, SettingsState> = {
+  appearance: SettingsState.Appearance,
+  assets: SettingsState.Assets,
+  language: SettingsState.Language,
+  notifications: SettingsState.PushNotifications,
+  dapps: SettingsState.Dapps,
+  'wallet-versions': SettingsState.WalletVersions,
+  disclaimer: SettingsState.Disclaimer,
+  about: SettingsState.About,
+  'hidden-nfts': SettingsState.HiddenNfts,
+};
 
 const VIEW_MODE_ALLOWED_COMMANDS = new Set([
   DeeplinkCommand.Air,
@@ -940,6 +953,36 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
 
       case DeeplinkCommand.Agent: {
         actions.switchToAgent();
+        return true;
+      }
+
+      case DeeplinkCommand.Settings: {
+        const currentAccountId = selectCurrentAccountId(global);
+        if (!currentAccountId) return false;
+
+        const section = pathname.split('/').filter(Boolean)[1];
+
+        if (!section) {
+          actions.openSettings();
+          return true;
+        }
+
+        const settingsState = SETTINGS_SECTION_MAP[section];
+        if (settingsState === undefined) return false;
+
+        const isViewMode = selectIsCurrentAccountViewMode(global);
+
+        if (settingsState === SettingsState.Dapps && isViewMode) {
+          return false;
+        }
+
+        if (settingsState === SettingsState.WalletVersions) {
+          if (selectIsHardwareAccount(global)) return false;
+          const versions = global.walletVersions?.byId?.[currentAccountId];
+          if (!versions?.length) return false;
+        }
+
+        actions.openSettingsWithState({ state: settingsState });
         return true;
       }
 

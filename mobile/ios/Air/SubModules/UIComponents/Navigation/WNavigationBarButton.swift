@@ -2,50 +2,51 @@ import UIKit
 import WalletContext
 
 @MainActor
-public class WNavigationBarButton {
+public final class WNavigationBarButton {
 
-    public let view: UIView
+    public let view: WButton
     public var onPress: (() -> Void)?
 
-    public init(text: String? = nil, icon: UIImage? = nil, tintColor: UIColor? = nil, onPress: (() -> Void)? = nil, menu: UIMenu? = nil, showsMenuAsPrimaryAction: Bool = false) {
-        let btn = {
-            let btn = WButton(style: .clearBackground)
-            btn.setImage(icon, for: .normal)
-            btn.setTitle(text, for: .normal)
-            btn.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
-            if let tintColor {
-                btn.tintColor = tintColor
-            }
-            if icon != nil, text != nil {
-                btn.configuration?.imagePadding = 8
-            }
-            btn.translatesAutoresizingMaskIntoConstraints = false
-            return btn
-        }()
-        if let menu {
-            btn.menu = menu
-            btn.showsMenuAsPrimaryAction = showsMenuAsPrimaryAction
-        }
+    public init(text: String, onPress: @escaping () -> Void) {
+        let btn = Self.makeButton(text: text, icon: nil, tintColor: nil)
         self.view = btn
         self.onPress = onPress
-
-        if !showsMenuAsPrimaryAction {
-            btn.addTarget(self, action: #selector(itemPressed), for: .touchUpInside)
-        }
+        btn.addTarget(self, action: #selector(itemPressed), for: .touchUpInside)
     }
 
-    public init(view: UIView, onPress: (() -> Void)? = nil) {
-        self.view = view
+    public init(icon: UIImage?, tintColor: UIColor? = nil, onPress: @escaping () -> Void) {
+        let btn = Self.makeButton(text: nil, icon: icon, tintColor: tintColor)
+        self.view = btn
         self.onPress = onPress
-        view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(itemPressed)))
+        btn.addTarget(self, action: #selector(itemPressed), for: .touchUpInside)
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+    public init(icon: UIImage?, tintColor: UIColor? = nil, menu: UIMenu) {
+        let btn = Self.makeButton(text: nil, icon: icon, tintColor: tintColor)
+        btn.menu = menu
+        btn.showsMenuAsPrimaryAction = true
+        self.view = btn
+        self.onPress = nil
+    }
+
+    public func setImage(_ image: UIImage?) {
+        view.setImage(image, for: .normal)
     }
 
     @objc private func itemPressed() {
         onPress?()
+    }
+
+    private static func makeButton(text: String?, icon: UIImage?, tintColor: UIColor?) -> WButton {
+        let btn = WButton(style: .clearBackground)
+        btn.setImage(icon, for: .normal)
+        btn.setTitle(text, for: .normal)
+        btn.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+        if let tintColor {
+            btn.tintColor = tintColor
+        }
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        return btn
     }
 }
 
@@ -109,4 +110,3 @@ extension UIBarButtonItem {
         }
     }
 }
-

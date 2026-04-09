@@ -54,6 +54,10 @@ final class AddressInputModel {
     var addressInfos: [ApiChain: ApiGetAddressInfoResult]?
     
     private var inputObserver: ObserveToken?
+
+    private var normalizedTextFieldInput: String {
+        textFieldInput.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
     
     init(account: AccountContext, token: TokenProvider) {
         self._account = account
@@ -87,19 +91,26 @@ final class AddressInputModel {
     }
     
     private func resolveAddress() {
+        let input = normalizedTextFieldInput
         resolveAddressTask?.cancel()
+        guard !input.isEmpty else {
+            addressInfos = nil
+            isAddressLoading = false
+            return
+        }
         resolveAddressTask = Task {
             do {
-                
-                let compatibleChains = account.supportedChains.filter { $0.isValidAddressOrDomain(textFieldInput) }
+                let compatibleChains = account.supportedChains.filter { $0.isValidAddressOrDomain(input) }
                 if compatibleChains.isEmpty {
                     addressInfos = nil
+                    isAddressLoading = false
+                    return
                 }
                 isAddressLoading = true
                 try await Task.sleep(for: debounceAddressResolution)
                 var infos: [ApiChain: ApiGetAddressInfoResult] = [:]
                 for chain in compatibleChains {
-                    infos[chain] = try await Api.getAddressInfo(chain: chain, network: account.network, address: textFieldInput)
+                    infos[chain] = try await Api.getAddressInfo(chain: chain, network: account.network, address: input)
                     try Task.checkCancellation()
                 }
                 self.addressInfos = infos
@@ -127,7 +138,7 @@ final class AddressInputModel {
         case .myAccount(let account), .savedAccount(let account, _):
             return account.getAddress(chain: chain) ?? textFieldInput
         case .constant(let raw):
-            return raw
+            return raw.trimmingCharacters(in: .whitespacesAndNewlines)
         }
     }
     

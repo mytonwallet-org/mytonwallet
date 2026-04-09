@@ -40,11 +40,11 @@ import systemThemeImg from '../../assets/theme/theme_system.png';
 interface OwnProps {
   isActive?: boolean;
   theme: Theme;
-  handleBackClick: () => void;
   animationLevel: AnimationLevel;
   isInsideModal?: boolean;
   isTrayIconEnabled: boolean;
-  onTrayIconEnabledToggle: VoidFunction;
+  onBackClick: NoneToVoidFunction;
+  onTrayIconEnabledToggle: NoneToVoidFunction;
 }
 
 interface StateProps {
@@ -79,7 +79,7 @@ function SettingsAppearance({
   isNftBuyingDisabled,
   isSeasonalThemingDisabled,
   onTrayIconEnabledToggle,
-  handleBackClick,
+  onBackClick,
 }: OwnProps & StateProps) {
   const {
     setTheme,
@@ -93,7 +93,7 @@ function SettingsAppearance({
 
   useHistoryBack({
     isActive,
-    onBack: handleBackClick,
+    onBack: onBackClick,
   });
 
   const {
@@ -188,12 +188,12 @@ function SettingsAppearance({
         <ModalHeader
           title={lang('Appearance')}
           withNotch={isScrolled}
-          onBackButtonClick={handleBackClick}
+          onBackButtonClick={onBackClick}
           className={styles.modalHeader}
         />
       ) : (
         <div className={buildClassName(styles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={handleBackClick} className={styles.headerBack}>
+          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
             <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
             <span>{lang('Back')}</span>
           </Button>
@@ -260,7 +260,7 @@ function SettingsAppearance({
             />
           </div>
           {IS_ELECTRON && IS_WINDOWS && (
-            <div className={buildClassName(styles.item, styles.item_small)} onClick={onTrayIconEnabledToggle}>
+            <div className={buildClassName(styles.item, styles.item_small)} onClick={() => onTrayIconEnabledToggle()}>
               {lang('Display Tray Icon')}
 
               <Switcher

@@ -55,7 +55,7 @@ export const INPUT_CLEAR_BUTTON_ID = 'input-clear-button';
 
 interface OwnProps {
   ref?: ElementRef<HTMLInputElement | HTMLTextAreaElement>;
-  label: string;
+  label?: string;
   value: string;
   chain?: ApiChain;
   isStatic?: boolean;

@@ -2,6 +2,7 @@ import type { AccountIdParsed, ApiNetwork } from '../api/types';
 import type { Account, AccountType } from '../global/types';
 
 import { APP_NAME } from '../config';
+import { escapeStringRegexp } from './regex';
 import { shortenAddress } from './shortenAddress';
 
 export function parseAccountId(accountId: string): AccountIdParsed {
@@ -72,4 +73,18 @@ export function generateAccountTitle(params: {
   const postfix = titlePostfix ? ` ${titlePostfix}` : '';
 
   return `${networkPrefix}${config.prefix} ${config.count}${postfix}`;
+}
+
+export function generateNextSubwalletTitle(baseTitle: string, accounts: Record<string, Account>) {
+  // Match existing "{baseTitle}.{number}" accounts to find the next available number
+  const pattern = new RegExp(`^${escapeStringRegexp(baseTitle)}\\.(\\d+)$`);
+
+  const existingNums = Object.values(accounts)
+    .map((acc) => acc.title?.match(pattern))
+    .filter(Boolean)
+    .map((m) => Number(m[1]));
+
+  const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
+
+  return `${baseTitle}.${nextNum}`;
 }

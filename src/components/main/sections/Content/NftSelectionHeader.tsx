@@ -79,9 +79,9 @@ function NftSelectionHeader({
         value: 'renew',
         description: dnsExpireInDays && dnsExpireInDays < 0
           ? (tonDnsMultiSelected ? '$expired_many' : 'Expired')
-          : lang('$expires_in %days%', {
+          : lang(tonDnsMultiSelected ? '$multiple_domains_expire %days%' : '$one_domain_expires %days%', {
             days: lang('$in_days', dnsExpireInDays),
-          }, undefined, selectedNfts?.length ?? 1) as string,
+          }) as string,
       } satisfies DropdownItem<MenuHandler>,
       !IS_CORE_WALLET && {
         name: 'Hide',
@@ -97,7 +97,7 @@ function NftSelectionHeader({
         withDelimiter: true,
       },
     ]);
-  }, [areAllSelectedRenewableDns, dnsExpireInDays, isViewMode, lang, selectedNfts?.length, tonDnsMultiSelected]);
+  }, [areAllSelectedRenewableDns, dnsExpireInDays, isViewMode, lang, tonDnsMultiSelected]);
 
   const handleSendClick = useLastCallback(() => {
     const nfts = selectedNfts!.map((nft) => byAddress![nft.address]) ?? [];

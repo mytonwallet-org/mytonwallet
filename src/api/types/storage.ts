@@ -1,11 +1,13 @@
 import type { ApiTonWalletVersion } from '../chains/ton/types';
-import type { ApiChain, ApiLedgerDriver } from './misc';
+import type { ApiChain, ApiDerivation, ApiLedgerDriver } from './misc';
 
 type ApiBaseWallet = {
   address: string;
   /** Misses in view wallets. Though, it is presented in TON view wallets that are initialized wallet contracts. */
   publicKey?: string;
   index: number;
+  // Omitted in TON-only seed with no derivation logic and in View-accounts
+  derivation?: ApiDerivation;
 };
 
 export type ApiTonWallet = ApiBaseWallet & {

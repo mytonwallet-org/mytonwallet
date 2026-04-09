@@ -17,13 +17,13 @@ import styles from './Settings.module.scss';
 interface OwnProps {
   isActive?: boolean;
   isInsideModal?: boolean;
-  handleBackClick: NoneToVoidFunction;
+  onBackClick: NoneToVoidFunction;
 }
 
 function SettingsTokenList({
   isActive,
   isInsideModal,
-  handleBackClick,
+  onBackClick,
 }: OwnProps) {
   const { addToken } = getActions();
 
@@ -35,7 +35,7 @@ function SettingsTokenList({
 
   useHistoryBack({
     isActive,
-    onBack: handleBackClick,
+    onBack: onBackClick,
   });
 
   function renderHeader() {
@@ -45,7 +45,7 @@ function SettingsTokenList({
           isSimple
           isText
           className={buildClassName(styles.headerBack, isInsideModal && styles.isInsideModal)}
-          onClick={handleBackClick}
+          onClick={onBackClick}
         >
           <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
           <span>{lang('Back')}</span>
@@ -63,8 +63,8 @@ function SettingsTokenList({
         shouldHideNotSupportedTokens
         header={renderHeader()}
         onTokenSelect={handleTokenSelect}
-        onBack={handleBackClick}
-        onClose={handleBackClick}
+        onBack={onBackClick}
+        onClose={onBackClick}
       />
     </div>
   );

@@ -86,24 +86,9 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
     private func setupViews() {
 
         title = lang("Add Stake")
-        addNavigationBar(
-            topOffset: 1,
-            title: title,
-            closeIcon: true,
-            addBackButton: { [weak self] in
-                self?.view.endEditing(true)
-                self?.navigationController?.popViewController(animated: true)
-            }
-        )
 
         let hostingController = addHostingController(
-            AddStakeView(
-                model: model,
-                navigationBarInset: navigationBarHeight,
-                onScrollPositionChange: { [weak self] y in
-                    self?.navigationBar?.showSeparator = y < 0
-                }
-            ),
+            AddStakeView(model: model),
             constraints: .fill
         )
         hostingController.view.backgroundColor = .air.sheetBackground
@@ -119,8 +104,6 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
             fakeTextField.writingToolsBehavior = .none
         }
         view.addSubview(fakeTextField)
-
-        bringNavigationBarToFront()
         amountChanged(amount: nil)
     }
 

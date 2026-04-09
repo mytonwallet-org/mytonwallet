@@ -118,6 +118,20 @@ public final class _NftStore: Sendable {
         _removeAccountNftIfNoLongerAvailable(accountId: accountId)
         WalletCoreData.notify(event: .nftsChanged(accountId: accountId))
     }
+
+    private func markNftAsOnSale(accountId: String, nftId: String) {
+        let didChange = _nfts.withLock {
+            guard var displayNft = $0[accountId]?[nftId], displayNft.nft.isOnSale == false else {
+                return false
+            }
+            displayNft.nft.isOnSale = true
+            $0[accountId]?[nftId] = displayNft
+            return true
+        }
+        guard didChange else { return }
+        saveToCache()
+        WalletCoreData.notify(event: .nftsChanged(accountId: accountId))
+    }
     
     // MARK: - Storage
     
@@ -441,9 +455,7 @@ extension _NftStore: WalletCoreData.EventsObserver {
                 await self.received(accountId: update.accountId, newNfts: [], removedNftIds: [update.nftAddress])
             }
         case .nftPutUpForSale(let update):
-            // might want to add a badge here?
-            _ = update
-            break
+            markNftAsOnSale(accountId: update.accountId, nftId: update.nftAddress)
         default:
             break
         }

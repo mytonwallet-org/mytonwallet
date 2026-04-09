@@ -95,7 +95,7 @@ public struct FeeDetailsView: View {
     var explaination: some View {
         VStack(alignment: .leading, spacing: 12) {
             let precision = fee.fullFee?.precision
-            Text(showExcess ? "**\(Text(amount: fullAmount, format: .init(maxDecimals: precision == .exact ? nil : 4, roundUp: true, precision: precision)))** need to be immediately debited from your wallet to pay the fee. Part of this will be returned in TON to you as excess within a few minutes." : "**\(Text(amount: fullAmount, format: .init()))** will be immediately debited from your wallet to pay the fee.")
+            Text(showExcess ? "**\(Text(amount: fullAmount, format: .init(maxDecimals: precision == .exact ? nil : 4, roundHalfUp: true, precision: precision)))** need to be immediately debited from your wallet to pay the fee. Part of this will be returned in TON to you as excess within a few minutes." : "**\(Text(amount: fullAmount, format: .init()))** will be immediately debited from your wallet to pay the fee.")
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
             

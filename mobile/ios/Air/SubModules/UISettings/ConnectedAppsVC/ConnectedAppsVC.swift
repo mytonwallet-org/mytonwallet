@@ -50,13 +50,7 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
     
     private func setupViews() {
         title = lang("Connected Sites")
-        
-        addNavigationBar(
-            title: title,
-            closeIcon: isModal,
-            addBackButton: isModal ? nil : { [weak self] in self?.navigationController?.popViewController(animated: true) }
-        )
-        
+        addCloseNavigationItemIfNeeded()        
         var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         configuration.headerMode = .supplementary
         configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
@@ -69,7 +63,6 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.delegate = self
         collectionView.delaysContentTouches = false
-        collectionView.contentInset.top = navigationBarHeight
         view.addSubview(collectionView)
         NSLayoutConstraint.activate([
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -81,8 +74,7 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
         if let gestureRecognizer = collectionView.gestureRecognizers?.first(where: { $0.description.starts(with: "<_UISwipeActionPanGestureRecognizer") }) {
             (navigationController as? WNavigationController)?.fullWidthBackGestureRecognizerRequireToFail(gestureRecognizer)
         }
-        
-        bringNavigationBarToFront()
+
         updateTheme()
     }
     
@@ -253,10 +245,6 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
                 self.showAlert(error: error)
             }
         }
-    }
-    
-    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        updateNavigationBarProgressiveBlur(scrollView.contentOffset.y + scrollView.adjustedContentInset.top)
     }
     
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {

@@ -83,11 +83,11 @@ const CHANGE_PASSWORD_PAUSE_MS = 1500;
 
 interface OwnProps {
   isActive: boolean;
-  handleBackClick: NoneToVoidFunction;
   isInsideModal?: boolean;
   isAutoUpdateEnabled: boolean;
-  onAutoUpdateEnabledToggle: VoidFunction;
-  onSettingsClose: VoidFunction;
+  onBackClick: NoneToVoidFunction;
+  onAutoUpdateEnabledToggle: NoneToVoidFunction;
+  onSettingsClose: NoneToVoidFunction;
 }
 
 interface StateProps {
@@ -108,7 +108,6 @@ const INITIAL_CHANGE_PASSWORD_SLIDE = getDoesUsePinPad() ? SLIDES.createNewPin :
 
 function SettingsSecurity({
   isActive,
-  handleBackClick: navigateBackToSettings,
   isInsideModal,
   isBiometricAuthEnabled,
   isNativeBiometricAuthEnabled,
@@ -120,6 +119,7 @@ function SettingsSecurity({
   isAllowSuspiciousActions,
   isAutoUpdateEnabled,
   currentAccountId,
+  onBackClick: navigateBackToSettings,
   onSettingsClose,
   onAutoUpdateEnabledToggle,
   isLoading,
@@ -782,13 +782,13 @@ function SettingsSecurity({
         return (
           <Backup
             isActive={isActive && isSlideActive}
-            isMultichainAccount={isMultichainAccount}
-            openSettingsSlide={openSettingsSlide}
             isInsideModal={isInsideModal}
-            onOpenPrivateKeySafetyRules={handleOpenPrivateKeySafetyRules}
-            onOpenSecretWordsSafetyRules={handleOpenSecretWordsSafetyRules}
-            onBackClick={handleBackToSettingsClick}
+            isMultichainAccount={isMultichainAccount}
             hasMnemonicWallet={hasMnemonicWallet}
+            onBackClick={handleBackToSettingsClick}
+            onOpenSecretWordsSafetyRules={handleOpenSecretWordsSafetyRules}
+            onOpenPrivateKeySafetyRules={handleOpenPrivateKeySafetyRules}
+            onOpenSettingsSlide={openSettingsSlide}
           />
         );
       case SLIDES.safetyRules:

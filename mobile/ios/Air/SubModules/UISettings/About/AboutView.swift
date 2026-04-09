@@ -16,9 +16,8 @@ struct AboutView: View {
     var showLegalSection: Bool
     
     var body: some View {
-        InsetList {
+        InsetList(topPadding: 0) {
             header
-                .padding(.top, 42)
             longDescription
             resources
                 .padding(.bottom, showLegalSection ? 0 : 32)

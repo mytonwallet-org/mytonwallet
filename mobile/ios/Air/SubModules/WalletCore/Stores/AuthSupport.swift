@@ -6,6 +6,7 @@ import Kingfisher
 
 public protocol AuthSupportProtocol {
     static var accountsSupportAppLock: Bool { get }
+    static var cooldownRemaining: TimeInterval? { get }
     static func verifyPassword(password: String) async throws -> Bool
 }
 
@@ -19,6 +20,11 @@ private final class AuthSupportImpl: AuthSupportProtocol {
     
     static var accountsSupportAppLock: Bool {
         AccountStore.accountsById.values.any { $0.type.isStoredEncrypted }
+    }
+
+    static var cooldownRemaining: TimeInterval? {
+        let waitFor = cooldownForNumberOfFailedAttempts(failedLoginAttempts) - Date.now.timeIntervalSince(lastFailedAttempt)
+        return waitFor > 0 ? waitFor : nil
     }
 
     static var failedLoginAttempts: Int {
@@ -49,8 +55,7 @@ private final class AuthSupportImpl: AuthSupportProtocol {
     
     static func verifyPassword(password: String) async throws -> Bool {
         do {
-            let waitFor = cooldownForNumberOfFailedAttempts(failedLoginAttempts) - Date.now.timeIntervalSince(lastFailedAttempt)
-            if waitFor > 0 {
+            if let waitFor = cooldownRemaining {
                 throw AuthCooldownError(waitFor: waitFor)
             }
             if failedLoginAttempts >= 5 {

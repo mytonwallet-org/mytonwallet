@@ -27,6 +27,8 @@ paletteKtx = "1.0.0"
 webkit = "1.14.0"
 blurview = "version-2.0.6"
 timber = "5.0.1"
+firebaseCrashlyticsGradle = "3.0.6"
+firebaseCrashlytics = "20.0.4"
 firebaseMessaging = "25.0.0" # Sync with capacitor app
 workRuntimeKtx = "2.10.5"
 browser = "1.8.0"
@@ -67,6 +69,8 @@ moshi-codegen = { group = "com.squareup.moshi", name = "moshi-kotlin-codegen", v
 androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", version.ref = "paletteKtx" }
 androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
+firebase-crashlytics-gradle = { group = "com.google.firebase", name = "firebase-crashlytics-gradle", version.ref = "firebaseCrashlyticsGradle" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics", version.ref = "firebaseCrashlytics" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging", version.ref = "firebaseMessaging" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntimeKtx" }
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }

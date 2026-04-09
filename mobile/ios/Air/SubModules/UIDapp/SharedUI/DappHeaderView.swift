@@ -10,6 +10,8 @@ struct DappHeaderView: View {
     
     var dapp: ApiDapp
     var accountContext: AccountContext
+    var customTokenBalance: BigInt? = nil
+    var customToken: ApiToken? = nil
     
     var showWarning: Bool { dapp.isUrlEnsured != true }
     
@@ -36,7 +38,11 @@ struct DappHeaderView: View {
             Text(accountContext.account.displayName)
                 .font(.system(size: 16, weight: .medium))
                 .frame(minHeight: 22)
-            if let balance = accountContext.balance {
+            if let customToken, let customTokenBalance {
+                Text(TokenAmount(customTokenBalance, customToken).formatted(.defaultAdaptive))
+                    .font(.system(size: 14, weight: .regular))
+                    .opacity(0.75)
+            } else if let balance = accountContext.balance {
                 Text(balance.formatted(.baseCurrencyEquivalent))
                     .font(.system(size: 14, weight: .regular))
                     .opacity(0.75)
@@ -101,9 +107,7 @@ struct DappHeaderView: View {
                 .imageScale(.small)
                 .contentShape(.rect)
                 .onTapGesture {
-                    topWViewController()?.showTip(title: lang("Unverified Source"), kind: .warning) {
-                        EmptyView()
-                    }
+                    showDappOriginWarningTip()
                 }
         } else {
             Text("\(dapp)")

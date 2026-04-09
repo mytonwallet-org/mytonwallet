@@ -9,7 +9,7 @@ protocol NftMultiSelectToolbarDelegate: AnyObject {
 }
 
 class NftMultiSelectToolbar: UIView {
-    static let height: CGFloat = 70
+    private static let height: CGFloat = 70
     
     let burnButton = WButton(style: .thickCapsule)
     let hideButton = WButton(style: .thickCapsule)
@@ -63,4 +63,3 @@ class NftMultiSelectToolbar: UIView {
         delegate?.multiSelectToolbarDidDelectSendAction()
     }
 }
-

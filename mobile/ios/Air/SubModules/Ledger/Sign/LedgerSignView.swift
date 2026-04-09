@@ -34,7 +34,6 @@ struct LedgerSignView<HeaderView: View>: View {
                     }
                 }
             }
-            .navigationBarInset(60)
         }
     }
     

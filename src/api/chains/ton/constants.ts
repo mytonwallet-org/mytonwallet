@@ -10,7 +10,8 @@ import {
 } from '../../../config';
 import { JettonStakingGas } from './contracts/JettonStaking/imports/constants';
 
-export const TON_BIP39_PATH = 'm/44\'/607\'/0\'';
+export const TON_BIP39_PATH = `m/44'/607'/{index}'`;
+export const TON_DEFAULT_DERIVATION_PATH = `m/44'/607'/0'`;
 
 export const NETWORK_CONFIG = {
   mainnet: {

@@ -85,13 +85,9 @@ public class AssetsAndActivityVC: WViewController {
     private let queue = DispatchQueue(label: "org.mytonwallet.app.assetsAndActivity_vc_background")
     private let processorQueue = DispatchQueue(label: "org.mytonwallet.app.assetsAndActivity_vc_background_processor")
 
-    public override func loadView() {
-        super.loadView()
-        setupViews()
-    }
-
     public override func viewDidLoad() {
         super.viewDidLoad()
+        setupViews()
         WalletCoreData.add(eventObserver: self)
     }
     
@@ -141,7 +137,7 @@ public class AssetsAndActivityVC: WViewController {
 
     private func setupViews() {
         title = lang("Assets & Activity")
-
+        addCloseNavigationItemIfNeeded()
         let tableViewBackgroundView = UIView()
         tableViewBackgroundView.backgroundColor = .clear
         tableView.backgroundView = tableViewBackgroundView
@@ -157,18 +153,6 @@ public class AssetsAndActivityVC: WViewController {
         tableView.delaysContentTouches = false
 
         view.addStretchedToBounds(subview: tableView, insets: UIEdgeInsets(top: 0, left: 0, bottom: 4, right: 0))
-
-        addNavigationBar(navHeight: isModal ? 56 : 40,
-                         topOffset: isModal ? 0 : -5,
-                         title: title,
-                         closeIcon: isModal,
-                         addBackButton: isModal ? nil : { [weak self] in
-                             guard let self else { return }
-                             navigationController?.popViewController(animated: true)
-                         })
-        tableView.contentInset.top = navigationBarHeight
-        tableView.verticalScrollIndicatorInsets.top = navigationBarHeight
-        tableView.contentOffset = .init(x: 0, y: -navigationBarHeight)
 
         applySnapshot(makeSnapshot(), animated: false)
 
@@ -380,10 +364,6 @@ extension AssetsAndActivityVC: UITableViewDelegate {
             }
         }
         tableView.deselectRow(at: indexPath, animated: true)
-    }
-
-    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        navigationBar?.showSeparator = scrollView.contentOffset.y + scrollView.contentInset.top + view.safeAreaInsets.top > 0
     }
 
     public func tableView(_: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {

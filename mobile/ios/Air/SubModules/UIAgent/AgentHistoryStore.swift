@@ -7,6 +7,7 @@ private let log = Log("AgentHistoryStore")
 
 private enum AgentHistorySystemStyleKind {
     static let dateTime = "date_time"
+    static let accountChange = "account_change"
 }
 
 private struct AgentHistoryMessageRecord: Codable, FetchableRecord, PersistableRecord {
@@ -49,6 +50,10 @@ private struct AgentHistoryMessageRecord: Codable, FetchableRecord, PersistableR
             self.systemStyleKind = AgentHistorySystemStyleKind.dateTime
             self.systemStyleDate = date
             self.systemStyleTime = time
+        case .accountChange:
+            self.systemStyleKind = AgentHistorySystemStyleKind.accountChange
+            self.systemStyleDate = nil
+            self.systemStyleTime = nil
         case nil:
             self.systemStyleKind = nil
             self.systemStyleDate = nil
@@ -76,6 +81,8 @@ private struct AgentHistoryMessageRecord: Codable, FetchableRecord, PersistableR
             case AgentHistorySystemStyleKind.dateTime:
                 guard let systemStyleDate, let systemStyleTime else { return nil }
                 return .dateTime(date: systemStyleDate, time: systemStyleTime)
+            case AgentHistorySystemStyleKind.accountChange:
+                return .accountChange
             default:
                 return nil
             }

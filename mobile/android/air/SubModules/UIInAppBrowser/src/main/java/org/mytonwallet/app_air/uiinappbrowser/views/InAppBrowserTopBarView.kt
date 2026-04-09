@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.extensions.resize
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
@@ -60,6 +61,8 @@ class InAppBrowserTopBarView(
     private val minimizeStarted: () -> Unit,
     private val maximizeFinished: () -> Unit,
 ) : WView(viewController.context), WThemedView {
+
+    val canBeMinimized = tabBarController != null
 
     private val moreButtonRipple = WRippleDrawable.create(20f.dp)
     private val minimizeButtonRipple = WRippleDrawable.create(20f.dp)
@@ -110,7 +113,12 @@ class InAppBrowserTopBarView(
             val width = 7.dp * arrowScale
             val height = 14.dp * arrowScale
             val yOffset = (if (isTitle) 1f else 0.5f).dp.roundToInt()
-            drawable.setBounds(5.dp, yOffset, width.roundToInt() + 5.dp, height.roundToInt() + yOffset)
+            drawable.setBounds(
+                5.dp,
+                yOffset,
+                width.roundToInt() + 5.dp,
+                height.roundToInt() + yOffset
+            )
             val imageSpan = VerticalImageSpan(drawable)
             ss.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
@@ -211,7 +219,7 @@ class InAppBrowserTopBarView(
             addView(subtitleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(backButton, ViewGroup.LayoutParams(40.dp, 40.dp))
         addView(moreButton, LayoutParams(40.dp, 40.dp))
-        if (tabBarController != null) {
+        if (canBeMinimized) {
             addView(minimizeButton, LayoutParams(40.dp, 40.dp))
         }
         moreButton.setOnClickListener {
@@ -226,7 +234,7 @@ class InAppBrowserTopBarView(
             setHorizontalBias(titleLabel.id, 0f)
             constrainedWidth(titleLabel.id, true)
             startToEnd(titleLabel, backButton, 8f)
-            endToStart(titleLabel, if (tabBarController != null) minimizeButton else moreButton, 8f)
+            endToStart(titleLabel, if (canBeMinimized) minimizeButton else moreButton, 8f)
             if (options.isNullOrEmpty()) {
                 toTopPx(titleLabel, viewController.navigationController?.getSystemBars()?.top ?: 0)
                 toBottom(titleLabel)
@@ -247,7 +255,7 @@ class InAppBrowserTopBarView(
             toTopPx(moreButton, viewController.navigationController?.getSystemBars()?.top ?: 0)
             toBottom(moreButton)
             toEnd(moreButton, 16f)
-            if (tabBarController != null) {
+            if (canBeMinimized) {
                 endToStart(minimizeButton, moreButton, 4f)
                 toTopPx(
                     minimizeButton,
@@ -301,7 +309,8 @@ class InAppBrowserTopBarView(
         minimizeButton.setImageDrawable(minimizeDrawable)
         minimizeButton.background = minimizeButtonRipple
         minimizeButtonRipple.backgroundColor = Color.TRANSPARENT
-        minimizeButtonRipple.rippleColor = WColor.BackgroundRipple.colorForTheme(shouldRenderAsDarkMode)
+        minimizeButtonRipple.rippleColor =
+            WColor.BackgroundRipple.colorForTheme(shouldRenderAsDarkMode)
         if (!options.isNullOrEmpty()) {
             if (optionsOnTitle) {
                 titleLabel.text =
@@ -313,7 +322,8 @@ class InAppBrowserTopBarView(
         }
         backButton.background = backButtonRipple
         backButtonRipple.backgroundColor = Color.TRANSPARENT
-        backButtonRipple.rippleColor = WColor.SecondaryBackground.colorForTheme(shouldRenderAsDarkMode)
+        backButtonRipple.rippleColor =
+            WColor.SecondaryBackground.colorForTheme(shouldRenderAsDarkMode)
     }
 
     fun blendColors(color1: Int, color2: Int, ratio: Float): Int {
@@ -335,6 +345,12 @@ class InAppBrowserTopBarView(
             titleLabel.pivotY = titleLabel.height / 2f
             backDrawable.setRotation(1f, true)
             titleLabel.animateTextColor(WColor.PrimaryText.color)
+            val hasOptions = !options.isNullOrEmpty()
+            val iconOffsetY = if (hasOptions) {
+                val titleCenterY = titleLabel.top + titleLabel.height / 2f
+                val iconCenterY = iconView.top + iconView.height / 2f
+                titleCenterY - iconCenterY
+            } else 0f
             tabBarController?.minimize(viewController.navigationController!!, onProgress = {
                 val heightDiff = (viewController.navigationController?.getSystemBars()?.top ?: 0)
                 val parent = parent as ViewGroup
@@ -362,13 +378,21 @@ class InAppBrowserTopBarView(
                 minimizeButton.drawable.setTint(drawableColor)
                 titleLabel.translationX = 36f.dp * it
                 iconView.alpha = it
+                if (hasOptions) {
+                    subtitleLabel.alpha = 1 - it
+                    iconView.translationY = iconOffsetY * it
+                    backButton.translationY = iconOffsetY * it
+                    minimizeButton.translationY = iconOffsetY * it
+                }
                 if (it == 1f) {
                     isMinimized = true
                     isMinimizing = false
+                    titleLabel.isClickable = false
                 }
             }, onMaximizeProgress = {
                 if (it == 0f) {
                     updateBackButton(true)
+                    titleLabel.isClickable = true
                 }
                 val heightDiff = (viewController.navigationController?.getSystemBars()?.top ?: 0)
                 val parent = parent as ViewGroup
@@ -404,6 +428,12 @@ class InAppBrowserTopBarView(
                 minimizeButton.drawable.setTint(drawableColor)
                 titleLabel.translationX = 36f.dp * (1 - it)
                 iconView.alpha = 1 - it
+                if (hasOptions) {
+                    subtitleLabel.alpha = it
+                    iconView.translationY = iconOffsetY * (1 - it)
+                    backButton.translationY = iconOffsetY * (1 - it)
+                    minimizeButton.translationY = iconOffsetY * (1 - it)
+                }
                 if (it == 1f) {
                     isMinimized = false
                     isMinimizing = false
@@ -457,9 +487,9 @@ class InAppBrowserTopBarView(
                     null,
                     LocaleController.getString("Open in Browser")
                 ) {
-                    val intent = Intent(Intent.ACTION_VIEW)
-                    intent.setData(activeUrl.toUri())
-                    viewController.window?.startActivity(intent)
+                    viewController.window?.startActivityCatching(
+                        Intent(Intent.ACTION_VIEW, activeUrl.toUri())
+                    )
                 },
                 WMenuPopup.Item(
                     null,
@@ -516,13 +546,13 @@ class InAppBrowserTopBarView(
     }
 
     fun setIconUrl(url: String) {
-        if (tabBarController == null)
+        if (!canBeMinimized)
             return
         iconView.set(Content.ofUrl(url))
     }
 
     fun setIconBitmap(bitmap: Bitmap?) {
-        if (tabBarController == null)
+        if (!canBeMinimized)
             return
         iconView.setImageBitmap(bitmap)
     }

@@ -68,7 +68,7 @@ fun ViewPager2.setupSpringFling(onScrollingToTarget: (targetIndex: Int) -> Int) 
     }
 }
 
-fun ViewPager2.springToItem(targetPosition: Int, velocityX: Float = 0f) {
+fun ViewPager2.springToItem(targetPosition: Int, velocityX: Float = 0f, onCompletion: (() -> Unit)? = null) {
     val recyclerView = getChildAt(0) as RecyclerView
     val itemCount = recyclerView.adapter?.itemCount ?: return
 
@@ -92,6 +92,7 @@ fun ViewPager2.springToItem(targetPosition: Int, velocityX: Float = 0f) {
 
     springAnim.addEndListener { _, _, _, _ ->
         this.setCurrentItem(clampedPosition, false)
+        onCompletion?.invoke()
     }
 
     springAnim.start()

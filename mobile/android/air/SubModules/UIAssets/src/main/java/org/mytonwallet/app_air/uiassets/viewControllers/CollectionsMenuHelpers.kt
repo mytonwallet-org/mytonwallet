@@ -580,7 +580,7 @@ object CollectionsMenuHelpers {
                             org.mytonwallet.app_air.icons.R.drawable.ic_world_30,
                             WColor.PrimaryLightText
                         ),
-                        title = LocaleController.getString("Open In..."),
+                        title = LocaleController.getString("Open in..."),
                         subItems = openInItems
                     )
                 )

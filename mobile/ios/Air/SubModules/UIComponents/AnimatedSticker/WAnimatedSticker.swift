@@ -79,6 +79,23 @@ public class WAnimatedSticker: UIView {
         animatedSticker?.playbackMode = .toggle(on)
         animatedSticker?.play()
     }
+
+    public func pause() {
+        animatedSticker?.isPlaying = false
+        animatedSticker?.pause()
+    }
+
+    public func showFirstFrame() {
+        pause()
+        animatedSticker?.seekTo(.start)
+    }
+
+    public func playOnceFromStart() {
+        pause()
+        animatedSticker?.playbackMode = .once
+        animatedSticker?.seekTo(.start)
+        _ = animatedSticker?.playIfNeeded()
+    }
     
     public func playOnce() {
         _ = animatedSticker?.playIfNeeded()

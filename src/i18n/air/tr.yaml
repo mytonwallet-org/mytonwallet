@@ -19,6 +19,8 @@ $screen_recording_info: |
   Şu anda ekranınızı kaydediyorsunuz.
   Bu ekran hassas veya gizli bilgiler içerebilir.
   Paylaşılacak içeriğin farkında olduğunuzdan emin olun.
+Screen Recording: Ekran kaydı
+Disable Screen Record Warning: Ekran kaydı uyarısını devre dışı bırak
 I Understand, Proceed: Anladım, devam et
 Waiting for Network: Ağ bekleniyor
 Updating: Güncelleniyor

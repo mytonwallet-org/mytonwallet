@@ -16,6 +16,7 @@ import type {
   ApiNetwork,
   ApiNft,
   ApiToken,
+  ApiWalletVariant,
   OnUpdatingStatusChange,
 } from './misc';
 import type { ApiAccountWithChain, ApiWalletByChain } from './storage';
@@ -76,6 +77,24 @@ export interface ChainSdk<T extends ApiChain> {
     accountIndices: number[],
   ): Promise<{ wallet: ApiWalletByChain[T]; balance: bigint }[] | { error: ApiAnyDisplayError }>;
 
+  getWalletVariants(
+    network: ApiNetwork,
+    account: ApiAccountWithChain<T>,
+    page: number,
+    isTestnetSubwalletId?: boolean,
+    mnemonic?: string[],
+  ): Promise<ApiWalletVariant<T>[] | { error: ApiAnyDisplayError }>;
+
+  /**
+   * Creates a new subwallet for the given account based on its current derivation
+   * (e.g. by incrementing the index in the derivation path).
+   */
+  createSubWalletFromDerivation: (
+    network: ApiNetwork,
+    account: ApiAccountWithChain<T>,
+    mnemonic: string[],
+  ) => MaybePromise<ApiWalletByChain[T] | { error: ApiAnyDisplayError }>;
+
   //
   // Realtime updates
   //
@@ -97,6 +116,7 @@ export interface ChainSdk<T extends ApiChain> {
     onUpdate: OnApiUpdate,
     onUpdatingStatusChange: OnUpdatingStatusChange,
     newestActivityTimestamps: ApiActivityTimestamps,
+    shouldResetBalances?: boolean,
   ): NoneToVoidFunction;
 
   /**

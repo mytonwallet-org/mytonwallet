@@ -325,7 +325,11 @@ class WButton(context: Context) : View(context), WThemedView {
 
         val textColor = fromToArgb(
             when (type) {
-                is Type.Primary, Type.Destructive -> WColor.TextOnTint.color
+                is Type.Primary, Type.Destructive -> fromToArgb(
+                    alphaColor(0.65f, WColor.TextOnTint.color),
+                    WColor.TextOnTint.color,
+                    isEnabledAnimator.floatValue
+                )
                 is Type.Secondary -> tintColor
             }, errorTextColor, isErrorAnimator.floatValue
         )

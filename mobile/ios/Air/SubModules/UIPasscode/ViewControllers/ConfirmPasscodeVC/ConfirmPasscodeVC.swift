@@ -102,9 +102,6 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
             passcodeScreenView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         passcodeScreenView.enterPasscodeLabel.label.text = lang("Enter your code again")
-        
-        
-        bringNavigationBarToFront()
     }
 
     public override func viewDidAppear(_ animated: Bool) {

@@ -70,7 +70,7 @@ platform :android do
     update_version_and_build_number
 
     gradle(
-      task: "clean assemble",
+      task: "assemble",
       build_type: "Release",
       properties: {
         "android.injected.signing.store.file" => $keystore_path,

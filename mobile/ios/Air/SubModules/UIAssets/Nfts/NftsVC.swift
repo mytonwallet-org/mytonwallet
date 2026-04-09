@@ -11,24 +11,12 @@ import UIComponents
 import WalletCore
 import WalletContext
 import OrderedCollections
-import Kingfisher
 
 private let log = Log("NftsVC")
 
 @MainActor
-public protocol NftsViewControllerDelegate: AnyObject {
-    func nftsViewControllerDidChangeHeightAnimated(_ animated: Bool)
-    func nftsViewControllerRequestReordering(_ vc: NftsVC) // this is only for compact modes
-    func nftsViewControllerDidChangeReorderingState(_ vc: NftsVC)
-}
-
-extension NftsViewControllerDelegate {
-    public func nftsViewControllerRequestReordering(_ vc: NftsVC) { }
-    public func nftsViewControllerDidChangeHeightAnimated(_ animated: Bool) { }
-}
-
-@MainActor
 public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIAdaptivePresentationControllerDelegate {
+    
     private enum Section {
         case renewalWarning
         case main
@@ -36,8 +24,8 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         case actions
     }
     
-    private enum Action {
-        case showAll
+    private enum Action: Hashable {
+        case showAll(title: String, count: Int)
     }
     
     private enum Row: Hashable {
@@ -51,36 +39,6 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         @MainActor static var ignoredAddresses = Set<String>()
     }
     
-    public enum Mode {
-        /// External reordering management (`WalletAssetsVC`), no self.walletAssetsViewModel is used
-        case compact
-        case compactLarge
-        /// Fullscreen, own reordering management, navigation item (back + favorites), filter != .none
-        case fullScreenFiltered
-        /// a child of other controller (`AssetsTabVC`), own reordering management, filter == .none
-        case embedded
-
-        var layoutMode: LayoutMode {
-            switch self {
-            case .compact:
-                .compact
-            case .compactLarge:
-                .compactLarge
-            case .fullScreenFiltered, .embedded:
-                .regular
-            }
-        }
-
-        var reorderingMode: ReorderingMode {
-            switch self {
-            case .compact, .compactLarge:
-                .externalDelegate
-            case .fullScreenFiltered, .embedded:
-                .internalViewModel
-            }
-        }
-    }
-
     public enum LayoutMode {
         /// Compact 2x3-like layout used inside wallet card sections.
         case compact
@@ -91,76 +49,51 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
 
         var isCompact: Bool { self != .regular }
     }
-
-    public enum ReorderingMode {
-        /// Parent controller coordinates reordering state and lifecycle.
-        case externalDelegate
-        /// NftsVC manages reordering through its own WalletAssetsViewModel.
-        case internalViewModel
-    }
     
-    @AccountContext var account: MAccount
-    
-    private let walletAssetsViewModel: WalletAssetsViewModel // for modes .fullScreenFiltered, .embedded.
-    
+    @AccountContext internal var account: MAccount
+        
     public var onScroll: ((CGFloat) -> Void)?
-    public var onScrollStart: (() -> Void)?
-    public var onScrollEnd: (() -> Void)?
-    
-    var isReordering: Bool { reorderController.isReordering }
-    public weak var delegate: (any NftsViewControllerDelegate)?
-    
+        
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Row>?
     private var reorderController: ReorderableCollectionViewController!
     
-    private let filter: NftCollectionFilter
-    private let mode: Mode
-    private let layoutMode: LayoutMode
-    private let reorderingMode: ReorderingMode
+    internal let filter: NftCollectionFilter
     
+    private let layoutMode: LayoutMode
+    private let canOpenCollection: Bool
+    private weak var manager: NftsVCManager?
+
     private var layoutChangeID: LayoutGeometry.LayoutChangeID?
     private let layoutGeometry: LayoutGeometry
+    private var isWalletAssetsEmptyStateAnimationActive = false
+    private var walletAssetsEmptyStateAnimationSessionID = 0
     private var pendingInteractiveSwitchAccountId: String?
     
     private var contextMenuExtraBlurView: UIView?
-    private var navigationBarStarItem: WNavigationBarButton?
     
-    private var inSelectionMode: Bool { selectedIds != nil }
+    var inSelectionMode: Bool { selectedIds != nil }
     private var selectedIds: Set<String>?
     private var selectionToolbar: NftMultiSelectToolbar?
     private var selectionToolbarBottomConstraint: NSLayoutConstraint?
-
-    public init(accountSource: AccountSource, mode: Mode, filter: NftCollectionFilter) {
+        
+    public init(accountSource: AccountSource, manager: NftsVCManager?, layoutMode: LayoutMode, canOpenCollection: Bool = true, filter: NftCollectionFilter) {
         self._account = AccountContext(source: accountSource)
         self.filter = filter
+        self.layoutMode = layoutMode
+        self.manager = manager
+        self.layoutGeometry = LayoutGeometry(layoutMode: layoutMode)
+        self.canOpenCollection = canOpenCollection
 
-        self.mode = mode
-        self.layoutMode = mode.layoutMode
-        self.reorderingMode = mode.reorderingMode
-        switch mode {
-        case .fullScreenFiltered:
-            assert(filter != .none)
-        case .embedded:
-            assert(filter == .none)
-        case .compact, .compactLarge:
-            break
-        }
-        
-        self.walletAssetsViewModel = WalletAssetsViewModel(accountSource: accountSource)
-        self.layoutGeometry = LayoutGeometry(layoutMode: mode.layoutMode)
         super.init(nibName: nil, bundle: nil)
+        
+        manager?.addController(self)
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
-    public override func loadView() {
-        super.loadView()
-        setupViews()
-    }
-
+            
     private func resolveTonDomain(for nft: ApiNft) -> NftDetailsItem.TonDomain? {
         guard let expirationDays = $account.domains.expirationWarningDays(for: nft) else {
             return nil
@@ -173,8 +106,8 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        setupViews()
         WalletCoreData.add(eventObserver: self)
-        walletAssetsViewModel.delegate = self
     }
 
     public override func viewDidLayoutSubviews() {
@@ -183,9 +116,9 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     }
     
     private var displayNfts: OrderedDictionary<String, DisplayNft>?
-    private var allShownNftsCount: Int = 0
     private var domainRenewalWarning: NftRenewDomainWarningContent?
-    
+    private(set) internal var allShownNftsCount: Int = 0
+
     private func setupViews() {
         title = filter.displayTitle
         let compactMode = layoutMode.isCompact
@@ -228,10 +161,19 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             }
             reorderController.updateCell(cell, indexPath: indexPath)
         }
-        let placeholderCellRegistration = UICollectionView.CellRegistration<CollectiblesEmptyView, String> {  cell, indexPath, itemIdentifier in
-        }
-        let compactPlaceholderCellRegistration = UICollectionView.CellRegistration<WalletCollectiblesEmptyView, String> {  cell, indexPath, itemIdentifier in
-            cell.config()
+        let placeholderCellRegistration = UICollectionView.CellRegistration<WalletAssetsEmptyCell, String> { [weak self] cell, _, _ in
+            let shouldShowMarketplace = !ConfigStore.shared.shouldRestrictBuyNfts
+            cell.configure(
+                animationName: "animation_happy",
+                title: lang("No NFTs yet"),
+                description: shouldShowMarketplace ? lang("$nft_explore_offer") : nil,
+                actionTitle: shouldShowMarketplace ? lang("Open %nft_marketplace%", arg1: NFT_MARKETPLACE_TITLE) : nil,
+                height: WalletAssetsEmptyCell.collectiblesHeight,
+                descriptionNumberOfLines: 3
+            ) { [weak self] in
+                self?.didTapOpenNftMarketplace()
+            }
+            self?.applyEmptyStateAnimation(to: cell)
         }
         let renewalWarningCellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, NftRenewDomainWarningContent> { [weak self] cell, indexPath, itemIdentifier in
             guard let self else { return }
@@ -250,15 +192,13 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             .margins(.all, 0)
             cell.backgroundColor = .clear
         }
-        let actionCellRegistration = UICollectionView.CellRegistration<ActionCell, Action> { [filter] cell, indexPath, itemIdentifier in
-            cell.highlightBackgroundColor = .air.highlight
+        let actionCellRegistration = UICollectionView.CellRegistration<WalletSeeAllCell, Action> { cell, _, itemIdentifier in
             switch itemIdentifier {
-            case .showAll:
-                if filter == .none {
-                    cell.configure(with: lang("Show All Collectibles"))
-                } else {
-                    cell.configure(with: lang("Show All %1$@", arg1: filter.displayTitle))
-                }
+            case .showAll(let title, let count):
+                cell.configureCollectibles(title: title, collectiblesCount: count)
+            }
+            cell.configurationUpdateHandler = { seeAllCell, state in
+                seeAllCell.isHighlighted = state.isHighlighted
             }
         }
         
@@ -271,11 +211,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             case .action(let actionId):
                 collectionView.dequeueConfiguredReusableCell(using: actionCellRegistration, for: indexPath, item: actionId)
             case .placeholder:
-                if compactMode {
-                    collectionView.dequeueConfiguredReusableCell(using: compactPlaceholderCellRegistration, for: indexPath, item: "")
-                } else {
-                    collectionView.dequeueConfiguredReusableCell(using: placeholderCellRegistration, for: indexPath, item: "")
-                }
+                collectionView.dequeueConfiguredReusableCell(using: placeholderCellRegistration, for: indexPath, item: "")
             }
         }
         self.dataSource = dataSource
@@ -289,50 +225,6 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         }
         
         updateTheme()
-    }
-                    
-    private func updateNavigationItem() {
-        guard mode == .fullScreenFiltered else { return }
-                
-        var leadingItemGroups: [UIBarButtonItemGroup] = []
-        var trailingItemGroups: [UIBarButtonItemGroup] = []
-        
-        if reorderController.isReordering {
-            let doneItem = UIBarButtonItem.doneButtonItem { [weak self] in self?.walletAssetsViewModel.stopReordering(isCanceled: false) }
-            let cancelItem = UIBarButtonItem.cancelTextButtonItem { [weak self] in self?.walletAssetsViewModel.stopReordering(isCanceled: true) }
-            leadingItemGroups += cancelItem.asSingleItemGroup()
-            trailingItemGroups += doneItem.asSingleItemGroup()
-        } else
-        if inSelectionMode {
-            let doneItem = UIBarButtonItem.doneButtonItem { [weak self] in self?.exitSelectionMode() }
-            let selectAlltem = UIBarButtonItem.textButtonItem(text: lang("Select All")) { [weak self] in self?.toggleSelectAllNfts() }
-            leadingItemGroups += selectAlltem.asSingleItemGroup()
-            trailingItemGroups += doneItem.asSingleItemGroup()
-        } else
-        {
-            var items: [UIBarButtonItem] = []
-            
-            let isFavorited = walletAssetsViewModel.isFavorited(filter: filter)
-            items += UIBarButtonItem(image: UIImage(systemName: isFavorited ? "pin.slash" : "pin"),
-                                     primaryAction: UIAction { [weak self] _ in self?.onFavorite() })
-            
-            var showMenu = allShownNftsCount > 0
-            if !showMenu {
-                if case .collection(let collection) = filter, collection.chain == .ton {
-                    showMenu = true
-                }
-            }
-            if showMenu {
-                items += UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: makeCollectionMenu())
-            }
-            
-            if !items.isEmpty {
-                trailingItemGroups +=  UIBarButtonItemGroup(barButtonItems: items, representativeItem: nil)
-            }
-        }
-        
-        navigationItem.leadingItemGroups = leadingItemGroups
-        navigationItem.trailingItemGroups = trailingItemGroups
     }
     
     private func applyLayoutIfNeeded() {
@@ -437,20 +329,18 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             self.displayNfts = nil
             self.allShownNftsCount = 0
         }
-        
+
         applySnapshot(makeSnapshot(), animated: animated)
+        updateVisibleEmptyStateAnimations()
         applyLayoutIfNeeded()
-        updateNavigationItem()
-        if allShownNftsCount == 0 {
-            exitSelectionMode()
-        } else {
-            if inSelectionMode, let selectedIds {
-                let allIds = Set(displayNfts?.keys ?? [])
-                let newSelection = selectedIds.filter { allIds.contains($0)}
-                self.selectedIds = newSelection
-                updateSelectionControls()
-            }
+        
+        if inSelectionMode, let selectedIds {
+            let allIds = Set(displayNfts?.keys ?? [])
+            let newSelection = selectedIds.filter { allIds.contains($0)}
+            self.selectedIds = newSelection
         }
+                
+        notifyStateChange()
     }
     
     private func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Row> {
@@ -471,7 +361,10 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             }
             if layoutMode.isCompact && layoutGeometry.shouldShowShowAllAction(itemCount: allShownNftsCount) {
                 snapshot.appendSections([.actions])
-                snapshot.appendItems([Row.action(.showAll)], toSection: .actions)
+                let title = filter == .none
+                    ? lang("Show All Collectibles")
+                    : lang("Show All %1$@", arg1: filter.displayTitle)
+                snapshot.appendItems([Row.action(.showAll(title: title, count: allShownNftsCount))], toSection: .actions)
             }
         }
         return snapshot
@@ -480,7 +373,6 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     private func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animated: Bool) {
         guard let dataSource else { return }
         dataSource.apply(snapshot, animatingDifferences: animated)
-        delegate?.nftsViewControllerDidChangeHeightAnimated(animated)
     }
 
     private func persistNftOrder(from snapshot: NSDiffableDataSourceSnapshot<Section, Row>) {
@@ -491,11 +383,35 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         NftStore.reorderNfts(accountId: account.id, orderedIdsHint: orderedIds)
     }
     
-    public var calculatedHeight: CGFloat {
+    public func calculateHeight(isHosted: Bool) -> CGFloat {
         loadViewIfNeeded()
+    
         let displayedItemCount = displayNfts?.count ?? 0
         let isPlaceholderShown = displayNfts?.isEmpty == true
         let isActionShown = layoutMode.isCompact && layoutGeometry.shouldShowShowAllAction(itemCount: allShownNftsCount)
+
+        if isHosted {
+            guard layoutMode.isCompact else {
+                return max(collectionView.bounds.height, view.bounds.height, 1)
+            }
+            if isPlaceholderShown {
+                return layoutGeometry.calculateHeight(
+                    itemCount: displayedItemCount,
+                    isPlaceholderShown: isPlaceholderShown,
+                    isActionShown: isActionShown,
+                    isRenewalWarningShown: domainRenewalWarning != nil,
+                    collectionView: collectionView
+                )
+            }
+            return layoutGeometry.calculateHeight(
+                itemCount: layoutGeometry.compactMaxVisibleItemCount,
+                isPlaceholderShown: false,
+                isActionShown: true,
+                isRenewalWarningShown: domainRenewalWarning != nil,
+                collectionView: collectionView
+            )
+        }
+
         return layoutGeometry.calculateHeight(
             itemCount: displayedItemCount,
             isPlaceholderShown: isPlaceholderShown,
@@ -504,44 +420,38 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             collectionView: collectionView
         )
     }
-
-    public var hostedHeight: CGFloat {
-        loadViewIfNeeded()
-        guard layoutMode.isCompact else {
-            return max(collectionView.bounds.height, view.bounds.height, 1)
-        }
-        return layoutGeometry.calculateHeight(
-            itemCount: layoutGeometry.compactMaxVisibleItemCount,
-            isPlaceholderShown: false,
-            isActionShown: true,
-            isRenewalWarningShown: domainRenewalWarning != nil,
-            collectionView: collectionView
-        )
-    }
-
     public func switchAccountTo(accountId: String, animated: Bool) {
         pendingInteractiveSwitchAccountId = accountId
         $account.accountId = accountId
         updateNfts(animated: animated)
     }
     
-    private func exitSelectionMode() {
-        guard inSelectionMode else { return }
-        selectedIds = nil
+    private func notifyStateChange() {
+        manager?.notifyStateChange()
+    }
+        
+    private func startSelectionInternally(preselected: Set<String>? = nil) {
+        guard !inSelectionMode else { return }
+        selectedIds = preselected ?? []
         collectionView.reloadData()
-        updateNavigationItem()
-        updateSelectionControls()
+        manager?.startSelection(in: self)
     }
 
-    private func enterSelectionMode() {
+    internal func startSelection() {
         guard !inSelectionMode else { return }
         selectedIds = []
         collectionView.reloadData()
-        updateNavigationItem()
-        updateSelectionControls()
+        notifyStateChange()
     }
 
-    private func toggleSelectAllNfts() {
+    internal func stopSelection() {
+        guard inSelectionMode else { return }
+        selectedIds = nil
+        collectionView.reloadData()
+        notifyStateChange()
+    }
+
+    internal func toggleSelectAllNfts() {
         guard let allIds = displayNfts?.keys, let selectedIds else {
             assertionFailure()
             return
@@ -552,7 +462,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             self.selectedIds = Set(allIds)
         }
         collectionView.reloadData()
-        updateSelectionControls()
+        notifyStateChange()
     }
 
     private func toggleSelection(nftId: String) {
@@ -573,158 +483,33 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             dataSource.apply(snapshot, animatingDifferences: true)
         }
         
-        updateSelectionControls()
+        notifyStateChange()
     }
     
-    private func updateSelectionControls() {
-        let shouldShowToolbar = inSelectionMode
-        let hiddenOffset = view.safeAreaInsets.bottom + 10.0 + NftMultiSelectToolbar.height
-        let visibleOffset: CGFloat = view.safeAreaInsets.bottom == 0 ? -20.0 : 0.0
-
-        if shouldShowToolbar {
-            if selectionToolbar == nil {
-                let toolbar = NftMultiSelectToolbar()
-                toolbar.translatesAutoresizingMaskIntoConstraints = false
-                self.view.insertSubview(toolbar, aboveSubview: collectionView)
-                self.selectionToolbarBottomConstraint = toolbar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: hiddenOffset)
-                NSLayoutConstraint.activate([
-                    selectionToolbarBottomConstraint!,
-                    toolbar.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: layoutGeometry.selectionToolbarMargin),
-                    toolbar.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -layoutGeometry.selectionToolbarMargin),
-                ])
-                toolbar.delegate = self
-                selectionToolbar = toolbar
-                view.layoutIfNeeded()
-            }
-            
-            if selectionToolbarBottomConstraint?.constant != visibleOffset {
-                selectionToolbarBottomConstraint?.constant = visibleOffset
-                UIView.animate(withDuration: 0.35, delay: 0, options: [.curveEaseOut]) { [weak self] in
-                    self?.view.layoutIfNeeded()
-                }
-            }
-
-            let hasSelection = (selectedIds?.count ?? 0) > 0
-
-            if account.supportsSend {
-                selectionToolbar?.sendButton.isEnabled = hasSelection
-                selectionToolbar?.sendButton.isHidden = false
-            } else {
-                selectionToolbar?.sendButton.isHidden = true
-            }
-
-            if account.supportsBurn {
-                selectionToolbar?.burnButton.isEnabled = hasSelection
-                selectionToolbar?.burnButton.isHidden = false
-            } else {
-                selectionToolbar?.burnButton.isHidden = true
-            }
-
-            selectionToolbar?.hideButton.isEnabled = hasSelection
-            
-        } else {
-            if let selectionToolbarBottomConstraint {
-                selectionToolbarBottomConstraint.constant = hiddenOffset
-                UIView.animate(withDuration: 0.35, delay: 0, options: [.curveEaseInOut]) { [weak self] in
-                    self?.view.layoutIfNeeded()
-                }
-            }
-        }
-    }
-    
-    private func onFavorite() {
-        if filter != .none {
-            Task {
-                do {
-                    let newIsFavorited = !self.walletAssetsViewModel.isFavorited(filter: filter)
-                    try await self.walletAssetsViewModel.setIsFavorited(filter: filter, isFavorited: newIsFavorited)
-                    
-                    if newIsFavorited {
-                        Haptics.play(.success)
-                    } else {
-                        Haptics.play(.lightTap)
-                    }
-                    
-                    updateNavigationItem()
-                } catch {
-                    log.error("failed to favorite collection: \(filter, .public) \(self.account.id, .public)")
-                }
-            }
-        }
-    }
-        
-    /// This is called internally - using menu or from the controller's system drag. See also `startReordering`
     private func startReorderingInternally() {
-        switch reorderingMode {
-        case .internalViewModel:
-            walletAssetsViewModel.startOrdering()
-        case .externalDelegate:
-            guard let delegate else {
-                assertionFailure("An assigned delegate is assumed for external reordering mode")
-                return
-            }
-            delegate.nftsViewControllerRequestReordering(self)
-        }
-        delegate?.nftsViewControllerDidChangeReorderingState(self)
+        manager?.startReordering()
     }
     
-    /// This is called outside. Not for all modes
-    public func startReordering() {
+    internal func startReordering() {
         guard !reorderController.isReordering else { return }
-        switch (reorderingMode, mode) {
-        case (.externalDelegate, _):
-            reorderController.isReordering = true
-        case (.internalViewModel, .embedded):
-            walletAssetsViewModel.startOrdering() 
-        case (.internalViewModel, .fullScreenFiltered):
-            assertionFailure("No external reordering management is assumed for this mode")
-        case (.internalViewModel, .compact), (.internalViewModel, .compactLarge):
-            assertionFailure("Unexpected mode/reorderingMode combination")
-        }
+        reorderController.isReordering = true
+        notifyStateChange()
     }
     
-    /// This is called outside. Not for all modes
-    public func stopReordering(isCanceled: Bool) {
-        guard reorderController.isReordering else { return }
-        switch (reorderingMode, mode) {
-        case (.externalDelegate, _):
-            reorderController.isReordering = false
-        case (.internalViewModel, .fullScreenFiltered):
-            assertionFailure("No external reordering management is assumed for this mode")
-        case (.internalViewModel, .embedded):
-            walletAssetsViewModel.stopReordering(isCanceled: isCanceled)
-        case (.internalViewModel, .compact), (.internalViewModel, .compactLarge):
-            assertionFailure("Unexpected mode/reorderingMode combination")
-        }
-    }
-}
-
-// These are internal (self.walletAssetsViewModel) notifications
-extension NftsVC: WalletAssetsViewModelDelegate {
-    private func updateUIForReordering(_ isReordering: Bool) {
-        reorderController.isReordering = isReordering
-        updateNavigationItem()
-        
-        navigationController?.allowBackSwipeToDismiss(!isReordering)
-        navigationController?.isModalInPresentation = isReordering
-    }
-
-    public func walletAssetModelDidStartReordering() {
-        updateUIForReordering(true)
-    }
-        
-    public func walletAssetModelDidStopReordering(isCanceled: Bool) {
-        updateUIForReordering(false)
+    internal func stopReordering(isCanceled: Bool) {
+        guard isViewLoaded, let reorderController, reorderController.isReordering else { return }
+        reorderController.isReordering = false
+        notifyStateChange()
     }
     
-    public func walletAssetModelDidChangeDisplayTabs() {
-        updateNavigationItem()
+    private func canStartDragOrOpenMenu() -> Bool {
+        !inSelectionMode && manager?.state.editingState == nil
     }
 }
 
 extension NftsVC: ReorderableCollectionViewControllerDelegate {
     public func reorderController(_ controller: ReorderableCollectionViewController, canStartSystemDragForItemAt indexPath: IndexPath) -> Bool {
-        return !inSelectionMode
+        return canStartDragOrOpenMenu()
     }
     
     public func reorderController(_ controller: ReorderableCollectionViewController, canMoveItemAt indexPath: IndexPath) -> Bool {
@@ -788,36 +573,21 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                 }
             }
         case .action(let actionId):
-            if actionId == .showAll {
+            if case .showAll = actionId {
                 AppActions.showAssets(accountSource: $account.source, selectedTab: 1, collectionsFilter: filter)
             }
         case .placeholder:
-            if layoutMode.isCompact {
-                guard let url = URL(string: NFT_MARKETPLACE_URL) else {
-                    assertionFailure()
-                    break
-                }
-                AppActions.openInBrowser(url)
-            }
+            break
         }
     }
     
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         onScroll?(scrollView.contentOffset.y + scrollView.contentInset.top)
-        updateNavigationBarProgressiveBlur(scrollView.contentOffset.y + scrollView.adjustedContentInset.top)
     }
-    
-    public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        onScrollStart?()
-    }
-
-    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        onScrollEnd?()
-    }
-        
+            
     public func reorderController(_ controller: ReorderableCollectionViewController, contextMenuConfigurationForItemAt indexPath: IndexPath,
                                   point: CGPoint) -> UIContextMenuConfiguration? {
-        guard !inSelectionMode else { return nil }
+        guard canStartDragOrOpenMenu() else { return nil }
         guard let row = dataSource?.itemIdentifier(for: indexPath) else { return nil }
         guard case .nft(let nftId) = row, let nft = displayNfts?[nftId]?.nft else { return nil }
         
@@ -825,49 +595,6 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
             return self.makeNftCellMenu(nft: nft)
         }
         return menu
-    }
-    
-    private func makeCollectionMenu() -> UIMenu {
-
-        let openInSection: UIMenu
-        do {
-            var items: [UIMenuElement] = []
-
-            if case .collection(let collection) = filter {
-                if collection.chain == .ton {
-                    if let url = ExplorerHelper.getgemsNftCollectionUrl(collectionAddress: collection.address) {
-                        items += UIAction(title: "Getgems", image: .airBundle("MenuGetgems26")) { _ in AppActions.openInBrowser(url) }
-                    }
-                    if let url = ExplorerHelper.tonscanNftCollectionUrl(collectionAddress: collection.address) {
-                        items += UIAction(
-                            title: ExplorerHelper.selectedExplorerName(for: collection.chain),
-                            image: .airBundle(ExplorerHelper.selectedExplorerMenuIconName(for: collection.chain))
-                        ) { _ in AppActions.openInBrowser(url) }
-                    }
-                }
-            }
-            
-            openInSection = UIMenu(title: "", options: .displayInline, children: items)
-        }
-        
-        let otherSection: UIMenu
-        do {
-            var items: [UIMenuElement] = []
-            if allShownNftsCount > 1 {
-                items += UIAction(title: lang("Reorder"), image: .airBundle("MenuReorder26")) { [weak self] _ in
-                    self?.startReorderingInternally()
-                }
-            }
-            if allShownNftsCount > 0 {
-                items += UIAction(title: lang("Select"), image: .airBundle("MenuSelect26")) { [weak self] _ in
-                    self?.enterSelectionMode()
-                }
-            }
-            otherSection = UIMenu(title: "", options: .displayInline, children: items)
-        }
-                            
-        let sections = [openInSection, otherSection].filter { !$0.children.isEmpty }
-        return UIMenu(title: "", children: sections)
     }
     
     private func makeNftCellMenu(nft: ApiNft) -> UIMenu {
@@ -919,30 +646,33 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
         do {
             var items: [UIMenuElement] = []
             if account.supportsSend {
-                items += UIAction(title: lang("Send"), image: .airBundle("MenuSend26")) { _ in
-                    AppActions.showSend(accountContext: self.$account, prefilledValues: .init(mode: .sendNft, nfts: [nft]))
+                if nft.isOnSale {
+                    items += UIAction(title: lang("Cannot be sent"), image: .airBundle("MenuSend26"), attributes: .disabled) { _ in
+                    }
+                } else {
+                    items += UIAction(title: lang("Send"), image: .airBundle("MenuSend26")) { _ in
+                        AppActions.showSend(accountContext: self.$account, prefilledValues: .init(mode: .sendNft, nfts: [nft]))
+                    }
                 }
             }
-            if account.type == .mnemonic, nft.isTonDns {
+            if account.type == .mnemonic, nft.isTonDns, !nft.isOnSale {
                 if domains.expirationByAddress[nft.address] != nil {
                     items += UIAction(title: lang("Renew"), image: .airBundle("MenuRenew26")) { _ in
                         AppActions.showRenewDomain(accountSource: .accountId(accountId), nftsToRenew: [nft.address])
                     }
                 }
-                if !nft.isOnSale {
-                    let linkedAddress = domains.linkedAddressByAddress[nft.address]?.nilIfEmpty
-                    let title = linkedAddress == nil
-                        ? lang("Link to Wallet")
-                        : lang("Change Linked Wallet")
-                    items += UIAction(title: title, image: .airBundle("MenuLinkToWallet26")) { _ in
-                        AppActions.showLinkDomain(accountSource: .accountId(accountId), nftAddress: nft.address)
-                    }
+                let linkedAddress = domains.linkedAddressByAddress[nft.address]?.nilIfEmpty
+                let title = linkedAddress == nil
+                    ? lang("Link to Wallet")
+                    : lang("Change Linked Wallet")
+                items += UIAction(title: title, image: .airBundle("MenuLinkToWallet26")) { _ in
+                    AppActions.showLinkDomain(accountSource: .accountId(accountId), nftAddress: nft.address)
                 }
             }
             items += UIAction(title: lang("Hide"), image: .airBundle("MenuHide26")) { _ in
                 NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
             }
-            if account.supportsBurn {
+            if account.supportsBurn, !nft.isOnSale {
                 items += UIAction(title: lang("Burn"), image: .airBundle("MenuBurn26"), attributes: .destructive) { _ in
                     AppActions.showSend(accountContext: self.$account, prefilledValues: .init(mode: .burnNft, nfts: [nft]))
                 }
@@ -980,16 +710,12 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
         let otherSection: UIMenu
         do {
             var items: [UIMenuElement] = []
-            if let collection = nft.collection {
-                if mode == .fullScreenFiltered {
-                    // we are already in the collection view, there is nowhere to go
-                } else {
-                    let collectionAction = UIAction(title: lang("Collection"), image: .airBundle("MenuCollection26")) { [weak self] _ in
-                        guard let self else { return }
-                        AppActions.showAssets(accountSource: self.$account.source, selectedTab: 1, collectionsFilter: .collection(collection))
-                    }
-                    items.append(collectionAction)
+            if let collection = nft.collection, canOpenCollection {
+                let collectionAction = UIAction(title: lang("Collection"), image: .airBundle("MenuCollection26")) { [weak self] _ in
+                    guard let self else { return }
+                    AppActions.showAssets(accountSource: self.$account.source, selectedTab: 1, collectionsFilter: .collection(collection))
                 }
+                items.append(collectionAction)
             }
             items += UIAction(title: lang("Share"), image: .airBundle("MenuShare26")) { _ in
                 AppActions.shareUrl(ExplorerHelper.nftUrl(nft))
@@ -1008,11 +734,11 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                     self?.startReorderingInternally()
                 }
             }
-            if mode == .fullScreenFiltered {
-                items += UIAction(title: lang("Select"), image: .airBundle("MenuSelect26")) { [weak self] _ in
-                    self?.enterSelectionMode()
-                }
+            
+            items += UIAction(title: lang("Select"), image: .airBundle("MenuSelect26")) { [weak self] _ in
+                self?.startSelectionInternally(preselected: [nft.id])
             }
+            
             organizeSection = UIMenu(title: "", options: .displayInline, children: items)
         }
                     
@@ -1041,9 +767,9 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
     public func reorderController(_ controller: ReorderableCollectionViewController, adjustPreviewFrame previewFrame: CGRect) -> CGRect {
         var result = previewFrame
         
-        // In compact mode, the tiles are sandboxed within their own section.
+        // In compact modes, the tiles are sandboxed within their own section.
         switch layoutMode {
-        case .compact:
+        case .compact, .compactLarge:
             let insets = layoutGeometry.calcCompactModeNftInsets(
                 itemCount: displayNfts?.count ?? 0,
                 isRenewalWarningShown: domainRenewalWarning != nil,
@@ -1051,7 +777,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
             )
             let bounds = collectionView.bounds.inset(by: insets)
             result = result.clamped(to: bounds)
-        case .compactLarge, .regular:
+        case .regular:
             break
         }
         
@@ -1087,6 +813,43 @@ extension NftsVC: WalletCoreData.EventsObserver {
 }
 
 extension NftsVC {
+    private var isShowingEmptyState: Bool {
+        displayNfts?.isEmpty == true
+    }
+
+    private func applyEmptyStateAnimation(to cell: WalletAssetsEmptyCell) {
+        cell.updateAnimationPlayback(
+            isPlaying: isWalletAssetsEmptyStateAnimationActive && isShowingEmptyState,
+            playbackSessionID: walletAssetsEmptyStateAnimationSessionID
+        )
+    }
+
+    private func updateVisibleEmptyStateAnimations() {
+        guard isViewLoaded, collectionView != nil else {
+            return
+        }
+        collectionView.layoutIfNeeded()
+        for case let cell as WalletAssetsEmptyCell in collectionView.visibleCells {
+            applyEmptyStateAnimation(to: cell)
+        }
+    }
+
+    func setWalletAssetsEmptyStateAnimationActive(_ isActive: Bool) {
+        isWalletAssetsEmptyStateAnimationActive = isActive
+        if isActive {
+            walletAssetsEmptyStateAnimationSessionID += 1
+        }
+        updateVisibleEmptyStateAnimations()
+    }
+
+    private func didTapOpenNftMarketplace() {
+        guard let url = URL(string: NFT_MARKETPLACE_URL) else {
+            assertionFailure()
+            return
+        }
+        AppActions.openInBrowser(url)
+    }
+
     private var shouldShowRenewalWarning: Bool {
         guard !account.isView else {
             return false
@@ -1143,7 +906,44 @@ extension NftsVC {
         DomainRenewalWarningSessionState.ignoredAddresses.formUnion(renewalWarning.addresses)
         updateNfts()
     }
+    
+    internal func collectMultiSelectedNfts() -> [ApiNft]? {
+        guard inSelectionMode, let selectedIds, let displayNfts else {
+            assertionFailure()
+            return nil
+        }
+        let result = displayNfts.keys.compactMap { id in
+            selectedIds.contains(id) ? displayNfts[id]?.nft : nil
+        }
+        
+        return result.isEmpty ? nil : result
+    }
+    
+    internal func canSendOrBurnItems(nfts: [ApiNft]) -> Bool {
+        guard !nfts.isEmpty else {
+            assertionFailure()
+            return false
+        }
+        
+        // Single chain only
+        let chains = Set(nfts.map(\.chain))
+        if chains.count > 1 {
+            AppActions.showToast(message: lang("$nft_batch_different_chains"))
+            return false
+        }
+        
+        // No onSale
+        let hasOnSale = nfts.contains(where: \.isOnSale)
+        if hasOnSale {
+            AppActions.showToast(message: lang("$nft_batch_on_sale"))
+            return false
+        }
+        
+        return true
+    }
 }
+
+extension NftsVC: WalletAssetsEmptyStateAnimationControlling { }
 
 @MainActor
 private class LayoutGeometry {
@@ -1224,8 +1024,7 @@ private class LayoutGeometry {
     /// Height of whole collection view in compact mode
     func calculateHeight(itemCount: Int, isPlaceholderShown: Bool, isActionShown: Bool, isRenewalWarningShown: Bool, collectionView: UICollectionView) -> CGFloat {
         guard layoutMode.isCompact else {
-            assertionFailure("For compact mode only")
-            return 0
+            return 0 // we do not care about non-compact height variations
         }
         
         var result: CGFloat = 0
@@ -1289,7 +1088,7 @@ private class LayoutGeometry {
         case .regular:
             topInset = 8
         }
-        return (height: 44, contentInsets: .init(top: topInset, leading: 0, bottom: 0, trailing: 0))
+        return (height: WalletSeeAllCell.defaultHeight, contentInsets: .init(top: topInset, leading: 0, bottom: 0, trailing: 0))
     }
     
     func calcCompactModeNftInsets(itemCount: Int, isRenewalWarningShown: Bool, collectionView: UICollectionView) -> UIEdgeInsets {
@@ -1311,27 +1110,42 @@ private class LayoutGeometry {
     }
     
     func calcPlaceholderItemGeometry(collectionView: UICollectionView, isRenewalWarningShown: Bool) -> (height: CGFloat, contentInsets: NSDirectionalEdgeInsets) {
-        // in compact mode we use a single nft item height (which is the same as width)
-        if layoutMode.isCompact {
-            let (cellSize, contentInsets) = calcNftItemGeometry(
-                itemCount: 1,
-                collectionView: collectionView,
-                isRenewalWarningShown: isRenewalWarningShown
+        switch layoutMode {
+        case .compact:
+            return (
+                height: WalletAssetsEmptyCell.collectiblesHeight,
+                contentInsets: .init(
+                    top: isRenewalWarningShown ? 0 : compactModeTopInset,
+                    leading: horizontalMargins,
+                    bottom: compactModeBottomInset,
+                    trailing: horizontalMargins
+                )
             )
-            return (height: cellSize.height, contentInsets: contentInsets)
+        case .compactLarge:
+            let containerWidth = max(CGFloat(1), getContainerWidth(collectionView: collectionView))
+            let compactContainerWidth = min(containerWidth, compactLargeReferenceContainerWidth)
+            let outerInset = max(CGFloat(0), floor((containerWidth - compactContainerWidth) / 2))
+            let sideInset = outerInset + compactLargeHorizontalPadding
+            return (
+                height: WalletAssetsEmptyCell.collectiblesHeight,
+                contentInsets: .init(
+                    top: isRenewalWarningShown ? 0 : compactLargeTopPadding,
+                    leading: sideInset,
+                    bottom: compactLargeBottomPadding,
+                    trailing: sideInset
+                )
+            )
+        case .regular:
+            return (
+                height: WalletAssetsEmptyCell.collectiblesHeight,
+                contentInsets: .init(
+                    top: isRenewalWarningShown ? 0 : 10,
+                    leading: horizontalMargins,
+                    bottom: 0,
+                    trailing: horizontalMargins
+                )
+            )
         }
-        
-        // In non-compact mode we take whole viewport height (full-screen Lottie animation with a duck)
-        let viewportHeight = collectionView.bounds.height - collectionView.adjustedContentInset.vertical
-        return (
-            height: viewportHeight,
-            contentInsets: .init(
-                top: isRenewalWarningShown ? 0 : 10,
-                leading: horizontalMargins,
-                bottom: 0,
-                trailing: horizontalMargins
-            )
-        )
     }
     
     private func getContainerWidth(collectionView: UICollectionView) -> CGFloat {
@@ -1404,50 +1218,6 @@ private class LayoutGeometry {
             return 2
         }
         return compactLargeMaxColumnCount
-    }
-}
-
-extension NftsVC: NftMultiSelectToolbarDelegate {
-    
-    private func collectMultiSelectedNfts() -> [ApiNft]? {
-        guard inSelectionMode, let selectedIds, !selectedIds.isEmpty, let displayNfts else {
-            assertionFailure()
-            return nil
-        }
-        let result = displayNfts.keys.compactMap { id in
-            selectedIds.contains(id) ? displayNfts[id]?.nft : nil
-        }
-        guard !result.isEmpty else {
-            assertionFailure()
-            return nil
-        }
-        return result
-    }
-    
-    func multiSelectToolbarDidDelectHideAction() {
-        guard let nfts = collectMultiSelectedNfts() else {
-            assertionFailure()
-            return
-        }
-        NftStore.setHiddenByUser(accountId: account.id, nftIds: nfts.map { $0.id }, isHidden: true)
-    }
-    
-    func multiSelectToolbarDidDelectBurnAction() {
-        guard let nfts = collectMultiSelectedNfts() else {
-            assertionFailure()
-            return
-        }
-        AppActions.showSend(accountContext: self.$account, prefilledValues: .init(mode: .burnNft, nfts: nfts))
-        exitSelectionMode()
-    }
-    
-    func multiSelectToolbarDidDelectSendAction() {
-        guard let nfts = collectMultiSelectedNfts() else {
-            assertionFailure()
-            return
-        }
-        AppActions.showSend(accountContext: self.$account, prefilledValues: .init(mode: .sendNft, nfts: nfts))
-        exitSelectionMode()
     }
 }
 

@@ -5,22 +5,13 @@ import Metal
 import MetalKit
 import SwiftUI
 
-struct NftDetailsBackground { }
-
-extension NftDetailsBackground {
-    
-    enum Transition {
-        case swipe
-        case swipe2
-        case dissolve
-        
-        var shouldBakeInImageIntoBackground: Bool { self != .swipe }
-    }
-
+struct NftDetailsBackground {
     final class View: UIView, MTKViewDelegate {
-        let transition = Transition.swipe2
-        
-        private var currentModel = Model.empty
+        private var currentModel = Model(
+            pageState: .staticPage(PageModel(background: nil, image: nil, tag: "idle")),
+            isExpanded: false,
+            shouldShowPreview: false
+        )
         private var metalView: MTKView?
         private var ciContext: CIContext?
         private var commandQueue: MTLCommandQueue?
@@ -29,8 +20,6 @@ extension NftDetailsBackground {
         private var lastPreparedImage: CIImage?
         private var lastLayoutSizeForPrepare: CGSize = .init(width: -1, height: -1)
         
-        var isExpanded = false
-
         init() {
             super.init(frame: .zero)
             setup()
@@ -48,7 +37,7 @@ extension NftDetailsBackground {
             
             commandQueue = device.makeCommandQueue()
             ciContext = CIContext(mtlDevice: device, options: [
-                .cacheIntermediates: false,
+                .cacheIntermediates: true,
                 .workingColorSpace: colorSpace,
                 .outputColorSpace: colorSpace
             ])
@@ -56,6 +45,7 @@ extension NftDetailsBackground {
             let mtkView = MTKView(frame: bounds, device: device)
             mtkView.translatesAutoresizingMaskIntoConstraints = false
             mtkView.delegate = self
+            mtkView.preferredFramesPerSecond = UIScreen.main.maximumFramesPerSecond
             mtkView.isPaused = true
             mtkView.enableSetNeedsDisplay = true
             mtkView.framebufferOnly = false
@@ -88,10 +78,12 @@ extension NftDetailsBackground {
         }
                 
         func setModel(_ model: Model) {
-            if currentModel != model {
-                currentModel = model
-                render()
-            }
+            let perf = NftDetailsPerformance.beginMeasure("bg_setModel")
+            defer { NftDetailsPerformance.endMeasure(perf) }
+
+            guard currentModel != model else { return }
+            currentModel = model
+            render()
         }
 
         override func layoutSubviews() {
@@ -134,55 +126,47 @@ extension NftDetailsBackground {
         }
        
         private func prepareBackgroundForRender(at extent: CGRect) -> CIImage? {
-            let leftPage = currentModel.leftPage
-            
-            // Static: no transition, no image here, just draw backround pattern
-            guard let rightPage = currentModel.rightPage else {
-                assert(currentModel.sideProgress == 0)
-                return  prepareSideImage(background: leftPage.background, image: nil, at: extent)
-            }
-            
-            // Transition
-            let progress = currentModel.sideProgress
-            assert(progress > 0 && progress < 1)
-            var effectiveTransition = transition
-            if !isExpanded {
-                effectiveTransition = .dissolve
-            }
-            let bakeInImage = transition.shouldBakeInImageIntoBackground && isExpanded
-            let leftSideImage = prepareSideImage(background: leftPage.background, image: bakeInImage ? leftPage.image: nil, at: extent)
-            let rightSideImage = prepareSideImage(background: rightPage.background, image: bakeInImage ? rightPage.image : nil, at: extent)
-            switch effectiveTransition {
-            case .swipe:
-                let outputImage = leftSideImage.composited(over: translateImage(rightSideImage, x: extent.width))
-                let b = extent.copyWith(x: extent.width * progress)
-                let cropped = outputImage.cropped(to: b)
-                return translateImage(cropped, x: -b.origin.x)
+            let shouldShowPreview = currentModel.shouldShowPreview
+            switch currentModel.pageState {
+            case let .staticPage(page):
+                return  prepareSideImage(background: page.background, image: shouldShowPreview ? page.image : nil, at: extent)
+                
+            case let .transition(leftPage, rightPage, progress):
+                assert(progress > 0 && progress < 1)
+                var effectiveTransition = currentModel.transitionType
+                if !currentModel.isExpanded {
+                    effectiveTransition = .dissolve
+                }
+                let leftSideImage = prepareSideImage(background: leftPage.background, image: shouldShowPreview ? leftPage.image: nil, at: extent)
+                let rightSideImage = prepareSideImage(background: rightPage.background, image: shouldShowPreview ? rightPage.image : nil, at: extent)
+                switch effectiveTransition {
+                case .dissolve:
+                    let filter = CIFilter.dissolveTransition()
+                    filter.targetImage = rightSideImage
+                    filter.inputImage = leftSideImage
+                    filter.time = Float(progress)
+                    return filter.outputImage
 
-            case .dissolve:
-                let filter = CIFilter.dissolveTransition()
-                filter.targetImage = rightSideImage
-                filter.inputImage = leftSideImage
-                filter.time = Float(progress)
-                return filter.outputImage
-
-            case .swipe2:
-                let filter = CIFilter.swipeTransition()
-                filter.targetImage = rightSideImage
-                filter.inputImage = leftSideImage
-                filter.angle = -.pi
-                filter.time = Float(progress)
-                filter.width = Float(extent.width * 3)
-                filter.opacity = 0
-                filter.extent = extent
-                return filter.outputImage
+                case .swipe2:
+                    let filter = CIFilter.swipeTransition()
+                    filter.targetImage = rightSideImage
+                    filter.inputImage = leftSideImage
+                    filter.angle = -.pi
+                    filter.time = Float(progress)
+                    filter.width = Float(extent.width * 3)
+                    filter.opacity = 0
+                    filter.extent = extent
+                    return filter.outputImage
+                }
             }
         }
         
         private func render() {
             let extent = CGRect.fromSize(width: bounds.width * deviceScale, height: bounds.height * deviceScale)
             guard extent.width > 0, extent.height > 0 else { return }
-            
+
+            let perfPrepare = NftDetailsPerformance.beginMeasure("bg_prepareForRender")
+            defer { NftDetailsPerformance.endMeasure(perfPrepare) }
             lastPreparedImage = prepareBackgroundForRender(at: extent)
             metalView?.setNeedsDisplay()
         }
@@ -213,20 +197,27 @@ extension NftDetailsBackground {
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) { }
         
         func draw(in view: MTKView) {
+            let perf = NftDetailsPerformance.beginMeasure("bg_mtkDraw")
+            defer { NftDetailsPerformance.endMeasure(perf) }
+
             guard let drawable = view.currentDrawable else { return }
             let destBounds = CGRect.fromSize(width: CGFloat(drawable.texture.width), height: CGFloat(drawable.texture.height))
             guard destBounds.width > 0, destBounds.height > 0, let queue = commandQueue, let context = ciContext else { return }
             guard let commandBuffer = queue.makeCommandBuffer() else { return }
-                        
+
+            NftDetailsPerformance.markMtkBackgroundDraw()
+            
             let imageToRender = lastPreparedImage ?? makeSolidFallback(extent: destBounds)
             context.render(imageToRender, to: drawable.texture, commandBuffer: commandBuffer, bounds: destBounds, colorSpace: colorSpace)
             commandBuffer.present(drawable)
             commandBuffer.commit()
         }
     }
-}
-
-extension NftDetailsBackground {
+    
+    enum TransitionType {
+        case swipe2
+        case dissolve
+    }
     
     struct PageModel: CustomStringConvertible, Equatable {
         let background: CIImage?
@@ -234,54 +225,17 @@ extension NftDetailsBackground {
         let tag: String
         var description: String { "<'\(tag)' BG: \(background == nil ? "-" : "✓") FG: \(image == nil ? "-" : "✓")>" }
     }
-    
+
+    typealias PageState = NftDetailsPageTransitionState<PageModel>
+
     struct Model: CustomStringConvertible, Equatable {
-        let leftPage: PageModel
-        let rightPage: PageModel?
-        let sideProgress: CGFloat // if not 0 then the right must present (!= nil)
+        let pageState: PageState
+        let isExpanded: Bool
+        let shouldShowPreview: Bool
+        let transitionType = TransitionType.swipe2
         
         var description: String {
-            guard let rightPage else { return "STATIC \(leftPage)" }
-            return "TRANSITION: \(leftPage) => \(rightPage) at \(sideProgress)"
-        }
-                
-        static let empty = Model(
-            leftPage: PageModel(background: nil, image: nil, tag: "idle"),
-            rightPage: nil,
-            sideProgress: 0,
-        )
-        
-        init(leftPage: PageModel, rightPage: PageModel?, sideProgress: CGFloat) {
-            
-            // normalize the data. We either have a static left side at progress 0 or
-            // have a transition left => right at 0..1 (both ends exclusive)
-            var effectiveProgress = sideProgress
-            var effectiveRight = rightPage
-            var effectiveLeft = leftPage
-            
-            if effectiveProgress < 0 {
-                effectiveProgress = 0
-            }
-            if effectiveProgress == 0 {
-                effectiveRight = nil
-            }
-            if effectiveProgress > 0 {
-                if let rightPage {
-                    if effectiveProgress >= 1 {
-                        effectiveLeft = rightPage
-                        effectiveProgress = 0
-                    }
-                } else {
-                    effectiveProgress = 0
-                }
-            }
-            
-            assert(effectiveProgress >= 0 && effectiveProgress < 1)
-            assert(effectiveRight == nil || effectiveProgress > 0 )
-            
-            self.leftPage = effectiveLeft
-            self.rightPage = effectiveRight
-            self.sideProgress = effectiveProgress
+            return "<\(pageState), expanded: \(isExpanded), showPreview: \(shouldShowPreview)>"
         }
     }
 }

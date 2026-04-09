@@ -84,9 +84,26 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             }
     }
 
-    private val tabs =
+    private val defaultTabs =
         listOf(WalletCategory.ALL, WalletCategory.MY, WalletCategory.LEDGER, WalletCategory.VIEW)
+    private val tabs: List<WalletCategory> = run {
+        val savedOrder = WGlobalStorage.getWalletTabOrder()
+        if (savedOrder != null) {
+            val mapped = savedOrder.mapNotNull { value ->
+                WalletCategory.entries.find { it.value == value }
+            }
+            if (mapped.size == defaultTabs.size) mapped else defaultTabs
+        } else {
+            defaultTabs
+        }
+    }
     private var isReordering = false
+
+    private val selectedCategory: WalletCategory
+        get() {
+            val id = segmentedController.items.getOrNull(selectedTabIndex)?.identifier
+            return WalletCategory.entries.find { it.value == id } ?: WalletCategory.ALL
+        }
 
     var allAccounts = WalletCore.getAllAccounts()
 
@@ -140,7 +157,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                     updateRemoveWalletButton()
                 }
                 onToggleReorderTapped = {
-                    toggleReorder(true)
+                    toggleReorder(reorder = true, switchToAll = true)
                 }
                 onSwitchAccountInProgress = {
                     WalletCore.unregisterObserver(this@WalletsTabsVC)
@@ -167,9 +184,17 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                     segmentedController.targetIndex == nearestIndex
                 )
                     onTabChanged(nearestIndex)
+            },
+            onItemsReordered = { saveTabOrder() },
+            onReorderingStarted = {
+                if (!isReordering) toggleReorder(true)
+            },
+            onForceEndReorderingRequested = {
+                if (isReordering) toggleReorder(false)
             }
         ).apply {
             z = 2f
+            setDragAllowed(true)
         }
     }
 
@@ -192,12 +217,15 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             id = generateViewId()
             clickableError = true
             setOnClickListener {
-                if (isReordering) {
+                if (isReordering && !isListReordering) {
+                    toggleReorder(false)
+                }
+                if (isListReordering) {
                     val checkedAccounts =
                         walletsViewControllers[tabs.indexOf(WalletCategory.ALL)].checkedAccounts
                     AccountDialogHelpers.presentSignOut(window!!, checkedAccounts.toList())
                 } else {
-                    val walletCategory = tabs[selectedTabIndex]
+                    val walletCategory = selectedCategory
                     val vc = when (walletCategory) {
                         WalletCategory.MY, WalletCategory.ALL -> {
                             WalletContextManager.delegate?.getAddAccountVC(MBlockchainNetwork.MAINNET)
@@ -412,6 +440,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             return
         }
         selectedTabIndex = newIndex
+        if (isReordering) return
         updateAddNewWalletButton()
         updateTitleBar()
     }
@@ -419,13 +448,15 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
     private val titleText: String?
         get() {
             val tabAccounts =
-                walletsViewControllers.getOrNull(selectedTabIndex)?.accounts ?: allAccounts
+                (segmentedController.items.getOrNull(selectedTabIndex)?.viewController as? WalletsVC)?.accounts
+                    ?: allAccounts
             return LocaleController.getPlural(tabAccounts.size, "\$wallets_amount")
         }
     private val subtitleText: String?
         get() {
             val tabAccounts =
-                walletsViewControllers.getOrNull(selectedTabIndex)?.accounts ?: allAccounts
+                (segmentedController.items.getOrNull(selectedTabIndex)?.viewController as? WalletsVC)?.accounts
+                    ?: allAccounts
             val baseCurrency = WalletCore.baseCurrency
             val amount = tabAccounts.sumOf {
                 BalanceStore.totalBalanceInBaseCurrency(it.accountId) ?: 0.0
@@ -544,7 +575,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                         title = LocaleController.getString("Reorder Tabs"),
                     ),
                     onTap = {
-                        toggleReorder(true)
+                        toggleReorder(reorder = true, switchToAll = true)
                     }
                 )
             ),
@@ -564,22 +595,50 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         }
     }
 
-    private fun toggleReorder(reorder: Boolean) {
+    private var isListReordering = false
+
+    private fun toggleReorder(reorder: Boolean, switchToAll: Boolean = false) {
         isReordering = reorder
-        val index = tabs.indexOf(WalletCategory.ALL)
-        val changingTab = selectedTabIndex != index
+        val allVC = walletsViewControllers[tabs.indexOf(WalletCategory.ALL)]
+        val wasListReordering = isListReordering
         if (reorder) {
-            walletsViewControllers[index].viewMode = MWalletSettingsViewMode.LIST
-            if (changingTab) {
-                segmentedController.onIndexChanged(index, true)
+            if (switchToAll && selectedCategory != WalletCategory.ALL) {
+                val allSegmentIndex = segmentedController.items.indexOfFirst {
+                    it.identifier == WalletCategory.ALL.value
+                }
+                if (allSegmentIndex >= 0) {
+                    segmentedController.onIndexChanged(
+                        allSegmentIndex,
+                        true,
+                        onCompletion = {
+                            segmentedController.post {
+                                segmentedController.startSorting()
+                            }
+                        })
+                    selectedTabIndex = allSegmentIndex
+                    updateTitleBar()
+                }
+            } else {
+                segmentedController.startSorting()
             }
-            segmentedController.lockTab()
+            if (selectedCategory == WalletCategory.ALL) {
+                isListReordering = true
+                allVC.viewMode = MWalletSettingsViewMode.LIST
+            }
         } else {
-            segmentedController.unlockTab()
-            updateAccounts(listOf(WalletCategory.ALL))
+            segmentedController.endSorting()
+            saveTabOrder()
+            if (isListReordering) {
+                isListReordering = false
+                updateAccounts(listOf(WalletCategory.ALL))
+            }
         }
         view.post {
-            walletsViewControllers[index].toggleReorder(reorder, !changingTab)
+            if (reorder && isListReordering) {
+                allVC.toggleReorder(reordering = true, animated = true)
+            } else if (!reorder) {
+                allVC.toggleReorder(reordering = false, animated = true)
+            }
             listButton.setImageDrawable(
                 ContextCompat.getDrawable(
                     context, if (isReordering)
@@ -592,14 +651,21 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 if (isReordering) WColor.Tint else WColor.SecondaryText,
                 WColor.BackgroundRipple
             )
-            updateAddNewWalletButton()
+            if (isListReordering || !reorder) {
+                updateAddNewWalletButton(animated = !reorder && wasListReordering)
+            }
         }
+    }
+
+    private fun saveTabOrder() {
+        val order = segmentedController.items.mapNotNull { it.identifier }
+        WGlobalStorage.setWalletTabOrder(order)
     }
 
     private fun updateAddNewWalletButton(animated: Boolean = true) {
         val text = LocaleController.getString(
             if (isReordering) "Remove Wallet" else {
-                when (tabs[selectedTabIndex]) {
+                when (selectedCategory) {
                     WalletCategory.MY, WalletCategory.ALL -> {
                         "Add Wallet"
                     }

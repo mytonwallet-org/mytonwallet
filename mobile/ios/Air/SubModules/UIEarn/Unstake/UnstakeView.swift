@@ -9,30 +9,17 @@ import Perception
 struct UnstakeView: View {
     
     var model: UnstakeModel
-    var navigationBarInset: CGFloat
-    var onScrollPositionChange: (CGFloat) -> ()
-    
-    @Namespace private var ns
     
     var body: some View {
         WithPerceptionTracking {
             @Perception.Bindable var model = model
             InsetList {
                 AmountSection(model: model)
-                    .background {
-                        GeometryReader { geom in
-                            Color.clear.onChange(of: geom.frame(in: .named(ns)).origin.y) { y in
-                                onScrollPositionChange(y + 2)
-                            }
-                        }
-                    }
 
                 UnstakeInfoSection(model: model)
                     .padding(.top, -8)
             }
             .padding(.top, -8)
-            .coordinateSpace(name: ns)
-            .navigationBarInset(navigationBarInset)
             .contentShape(.rect)
             .onTapGesture {
                 model.onBackgroundTapped()

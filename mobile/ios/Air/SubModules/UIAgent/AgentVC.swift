@@ -8,7 +8,8 @@ private let log = Log("AgentVC")
 private enum AgentVCLayout {
     static let screenBackgroundColor = UIColor.air.background
     static let maxContentWidth: CGFloat = 580
-    static let sectionInsets = NSDirectionalEdgeInsets(top: 16, leading: 0, bottom: 16, trailing: 0)
+    static let sectionInsets = NSDirectionalEdgeInsets(top: 16, leading: 0, bottom: 0, trailing: 0)
+    static let bottomMessageSpacing: CGFloat = 16
     static let interGroupSpacing: CGFloat = 6
     static let hintsSpacingToMessages: CGFloat = 17
     static let hintsSpacingToComposer: CGFloat = 26
@@ -28,6 +29,8 @@ private struct AgentBottomLayoutState {
     let contentInset: UIEdgeInsets
     let verticalScrollIndicatorInsets: UIEdgeInsets
     let contentOffset: CGPoint
+    let contentHeight: CGFloat
+    let visibleHeight: CGFloat
 }
 
 private final class AgentPassthroughContainerView: UIView {
@@ -65,6 +68,7 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     private lazy var scrollToBottomButtonBottomToHintsConstraint = scrollToBottomButton.bottomAnchor.constraint(equalTo: hintsContainerView.topAnchor, constant: -16)
 
     private var hasPerformedInitialScroll = false
+    private var hasCompletedInitialBottomAlignment = false
     private var lastKnownNearBottom = true
     private var keepsBottomPinnedWhileKeyboardIsActive = false
     private var shouldScrollToBottomAfterNextLayout = false
@@ -92,6 +96,10 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         fatalError("init(coder:) has not been implemented")
     }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     public override func viewDidLoad() {
         super.viewDidLoad()
         navigationItem.largeTitleDisplayMode = .never
@@ -107,13 +115,16 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
 
     public override func viewIsAppearing(_ animated: Bool) {
         super.viewIsAppearing(animated)
+        model.setActive(true)
+        model.checkAccountChanged(animated: false)
         guard !hasPerformedInitialScroll else { return }
         hasPerformedInitialScroll = true
-        UIView.performWithoutAnimation {
-            view.layoutIfNeeded()
-            updateBottomPinnedInsets()
-            scrollToBottom(animated: false)
-        }
+        requestBottomAlignmentAfterNextLayout()
+    }
+
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        model.setActive(false)
     }
 
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -126,12 +137,18 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         if shouldScrollToBottomAfterNextLayout {
+            guard canResolveBottomLayoutState else { return }
             let animation = pendingBottomAlignmentAnimation
             shouldScrollToBottomAfterNextLayout = false
             pendingBottomAlignmentAnimation = nil
             performPendingBottomAlignment(animation: animation)
-        } else {
-            updateBottomPinnedInsets()
+        } else if canResolveBottomLayoutState {
+            if hasCompletedInitialBottomAlignment && lastKnownNearBottom {
+                let state = makeBottomLayoutState()
+                applyBottomLayoutState(state, alignLastItem: true)
+            } else {
+                updateBottomPinnedInsets()
+            }
         }
         lastKnownNearBottom = isNearBottom()
         updateScrollToBottomButtonVisibility(animated: false)
@@ -316,10 +333,23 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     }
 
     private func setupObservers() {
+        WalletCoreData.add(eventObserver: self)
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleKeyboardWillChangeFrame(_:)),
             name: UIResponder.keyboardWillChangeFrameNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSignificantTimeChange),
+            name: UIApplication.significantTimeChangeNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleCurrentLocaleDidChange),
+            name: NSLocale.currentLocaleDidChangeNotification,
             object: nil
         )
     }
@@ -375,8 +405,13 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         snapshot.appendSections([.main])
         snapshot.appendItems(model.itemIDs, toSection: .main)
         dataSource.apply(snapshot, animatingDifferences: animated) { [weak self] in
-            self?.collectionView.collectionViewLayout.invalidateLayout()
-            self?.scrollToBottom(animated: animated)
+            guard let self else { return }
+            self.collectionView.collectionViewLayout.invalidateLayout()
+            if self.hasCompletedInitialBottomAlignment {
+                self.scrollToBottom(animated: animated)
+            } else {
+                self.requestBottomAlignmentAfterNextLayout()
+            }
         }
     }
 
@@ -387,6 +422,14 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
 
     private func scrollToBottom(animated: Bool) {
         performBottomAlignment(animation: animated ? Self.timelineBottomAlignmentAnimation : nil)
+    }
+
+    private var canResolveBottomLayoutState: Bool {
+        view.window != nil
+            && collectionView.bounds.width > 0
+            && collectionView.bounds.height > 0
+            && composerView.inputBackgroundFrame.width > 0
+            && composerView.inputBackgroundFrame.height > 0
     }
 
     private func isNearBottom() -> Bool {
@@ -526,6 +569,11 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         return cell.contextMenuPreview()
     }
 
+    private var lastItemIndexPath: IndexPath? {
+        guard let lastItemID = dataSource.snapshot().itemIdentifiers.last else { return nil }
+        return dataSource.indexPath(for: lastItemID)
+    }
+
     private func itemID(from configuration: UIContextMenuConfiguration) -> AgentItemID? {
         guard let identifier = configuration.identifier as? NSUUID else { return nil }
         return UUID(uuidString: identifier.uuidString)
@@ -565,6 +613,14 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         requestBottomAlignmentAfterNextLayout(animation: animation)
     }
 
+    @objc private func handleSignificantTimeChange() {
+        model.refreshDerivedSystemMessages(animated: false)
+    }
+
+    @objc private func handleCurrentLocaleDidChange() {
+        model.refreshDerivedSystemMessages(animated: false)
+    }
+
     @objc private func scrollToBottomButtonPressed() {
         scrollToBottom(animated: true)
     }
@@ -583,7 +639,13 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
     }
 
     private func performPendingBottomAlignment(animation: AgentBottomAlignmentAnimation?) {
-        performBottomAlignment(animation: animation ?? Self.timelineBottomAlignmentAnimation)
+        let resolvedAnimation: AgentBottomAlignmentAnimation?
+        if hasCompletedInitialBottomAlignment {
+            resolvedAnimation = animation ?? Self.timelineBottomAlignmentAnimation
+        } else {
+            resolvedAnimation = animation
+        }
+        performBottomAlignment(animation: resolvedAnimation)
     }
 
     private func keyboardBottomAlignmentAnimation(for notification: Notification) -> AgentBottomAlignmentAnimation? {
@@ -662,7 +724,7 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         let baselineBottomInset = collectionView.adjustedContentInset.bottom - currentContentInset.bottom
         let composerInputFrame = collectionView.convert(composerView.inputBackgroundFrame, from: composerView)
         let overlayTop = coveredBottomOverlayTop(using: composerInputFrame)
-        let totalCoveredBottomInset = max(0, collectionView.bounds.maxY - overlayTop)
+        let totalCoveredBottomInset = max(0, collectionView.bounds.maxY - overlayTop) + AgentVCLayout.bottomMessageSpacing
         let additionalBottomInset = max(0, totalCoveredBottomInset - baselineBottomInset)
         let availableHeight = collectionView.bounds.height - baselineTopInset - baselineBottomInset - additionalBottomInset
         let contentHeight = collectionView.collectionViewLayout.collectionViewContentSize.height
@@ -688,7 +750,9 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
             contentOffset: CGPoint(
                 x: collectionView.contentOffset.x,
                 y: maxOffsetFromTop - adjustedTopInset
-            )
+            ),
+            contentHeight: contentHeight,
+            visibleHeight: visibleHeight
         )
     }
 
@@ -705,21 +769,29 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         collectionView.verticalScrollIndicatorInsets.bottom = state.verticalScrollIndicatorInsets.bottom
     }
 
-    private func applyBottomLayoutState(_ state: AgentBottomLayoutState) {
+    private func applyBottomLayoutState(_ state: AgentBottomLayoutState, alignLastItem: Bool = false) {
         applyInsets(from: state)
-        collectionView.contentOffset = state.contentOffset
+        guard alignLastItem,
+              state.contentHeight > state.visibleHeight + 1,
+              let indexPath = lastItemIndexPath else {
+            collectionView.contentOffset = state.contentOffset
+            return
+        }
+        collectionView.scrollToItem(at: indexPath, at: .bottom, animated: false)
     }
 
     private func performBottomAlignment(animation: AgentBottomAlignmentAnimation?) {
+        guard canResolveBottomLayoutState else { return }
         collectionView.layoutIfNeeded()
         let state = makeBottomLayoutState()
+        hasCompletedInitialBottomAlignment = true
         lastKnownNearBottom = true
         if composerView.isTextInputActive {
             keepsBottomPinnedWhileKeyboardIsActive = true
         }
 
         guard let animation else {
-            applyBottomLayoutState(state)
+            applyBottomLayoutState(state, alignLastItem: true)
             updateScrollToBottomButtonVisibility(animated: false)
             return
         }
@@ -739,6 +811,17 @@ public final class AgentVC: WViewController, UICollectionViewDelegate, UIGesture
         return min(composerFrame.minY, hintsFrame.minY)
     }
 
+}
+
+extension AgentVC: WalletCoreData.EventsObserver {
+    public func walletCore(event: WalletCoreData.Event) {
+        switch event {
+        case .accountChanged(_, _):
+            model.handleAccountChangedEvent()
+        default:
+            break
+        }
+    }
 }
 
 extension AgentVC: AgentModelDelegate {
@@ -761,11 +844,16 @@ extension AgentVC: AgentModelDelegate {
             snapshot.reloadItems(idsToReload)
         }
         dataSource.apply(snapshot, animatingDifferences: animated) { [weak self] in
-            self?.collectionView.collectionViewLayout.invalidateLayout()
+            guard let self else { return }
+            self.collectionView.collectionViewLayout.invalidateLayout()
             if scrollToBottom {
-                self?.scrollToBottom(animated: true)
-            } else {
-                self?.updateBottomPinnedInsets()
+                if self.hasCompletedInitialBottomAlignment {
+                    self.scrollToBottom(animated: true)
+                } else {
+                    self.requestBottomAlignmentAfterNextLayout()
+                }
+            } else if self.canResolveBottomLayoutState {
+                self.updateBottomPinnedInsets()
             }
         }
     }

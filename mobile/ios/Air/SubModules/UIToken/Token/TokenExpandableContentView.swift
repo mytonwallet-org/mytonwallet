@@ -269,7 +269,7 @@ private struct TokenHeaderBalanceView: View {
             let fadeDecimals = integerPart(balance, tokenDecimals: token.decimals) >= 10
             AmountText(
                 amount: amount,
-                format: .init(maxDecimals: decimalsCount, showMinus: false, roundUp: false, precision: .exact),
+                format: .init(maxDecimals: decimalsCount, showMinus: false, roundHalfUp: false, precision: .exact),
                 integerFont: .compactRounded(ofSize: 40, weight: .bold),
                 fractionFont: .compactRounded(ofSize: 33, weight: .bold),
                 symbolFont: .compactRounded(ofSize: 35, weight: .bold),
@@ -290,7 +290,7 @@ private struct TokenHeaderBalanceView: View {
     @ViewBuilder
     private var equivalentView: some View {
         if let baseCurrencyAmount = model.baseCurrencyAmount {
-            Text(baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true))
+            Text(baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true))
                 .font(.system(size: 17))
                 .foregroundStyle(Color.air.secondaryLabel)
                 .lineLimit(1)

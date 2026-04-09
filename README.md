@@ -1,34 +1,75 @@
-# MyTonWallet · [mytonwallet.io](https://mytonwallet.io)
+# **MyTonWallet** · [mytonwallet.io](https://mytonwallet.io)
 
-**The most feature-rich wallet for the [TON Network](https://ton.org)** – available as a native mobile app (iOS & Android), desktop app (Electron), web app, browser extension, and Telegram Mini App. Supports jettons, NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.
+**All you need to enjoy crypto.** A safe, self-custodial **multichain wallet** for [**TON**](https://ton.org), [**TRON**](https://trondao.org/), and [**Solana**](https://solana.com/) — native mobile (iOS & Android), desktop, web, and **Telegram Mini App**. One account, any device.
 
-<img src="https://user-images.githubusercontent.com/102837730/193835310-1436afcd-ed78-4656-92c3-9c8f4beacacf.png" width="600" />
+<img src="https://mytonwallet.io/img/og-image.png" width="600" alt="MyTonWallet — All You Need to Enjoy Crypto" />
 
-The wallet is **self-custodial and safe**. The developers **do not** have access to funds, browser history or any other information. We focus on **speed**, **size** and **attention to detail**. We try to avoid using third-party libraries to ensure maximum reliability and safety, and also to lower the bundle size.
+You keep full control: we **do not** have access to your funds, keys, or data. **MyTonWallet** is built for **speed** and **reliability**, with a minimal dependency footprint for maximum safety.
 
-## Table of contents
+---
 
-- [Architecture](#architecture)
-- [Requirements](#requirements)
-- [Local Setup](#local-setup)
-- [Dev Mode](#dev-mode)
-- [Linux](#linux-desktop-troubleshooting)
-- [Electron](./docs/electron.md)
-- [Verifying GPG Signatures](./docs/gpg-check.md)
-- [Support Us](#support-us)
+## Why **MyTonWallet**?
 
-## Architecture
+**🌐 One wallet for everything**  
+Keep TON, TRON, and Solana in one place. You can send, receive, and swap across chains without jumping between different apps.
 
-MyTonWallet is built on two pillars that share a single TypeScript SDK (`src/api/`) for all blockchain logic (TON, TRON, Solana):
+**📱 Use it wherever you are**  
+**MyTonWallet** works as a native mobile app, desktop app, web app, Telegram Mini App, and browser extension for all major browsers, so your wallet is always within reach.
 
-| Pillar | UI | Platforms | Code |
-|--------|----|-----------|------|
-| **Air** | Native (UIKit + SwiftUI / Kotlin) | iOS, Android | `mobile/ios/Air/`, `mobile/android/air/` |
-| **Classic** | Teact (TypeScript) | Web, Electron, Browser Extension, Telegram Mini App | `src/` |
+**⚡ Instant transfers**  
+Transfers and swaps feel almost instant across supported chains, so you can send crypto and other assets in less than a second in typical conditions.
 
-On **Air** platforms the UI is fully native while the SDK runs headlessly in an invisible WebView — delivering a first-class mobile experience with platform-native performance and feel. On **Classic** platforms the SDK and UI run together in a single web context.
+**🤖 Built-in smart Agent**  
+Talk to Agent in natural language to send assets, swap, stake, open Explore, and jump to token pages. It is non-custodial by design: you always review and confirm every action.
 
-For detailed architecture docs — including the SDK layer, chain SDKs, bridge protocol, state management, and build system — see **[docs/technical/summary.md](./docs/technical/summary.md)**.
+**🪙 Gasless transfers**  
+Send supported tokens on TON and Solana without holding native gas tokens, with fees covered from the transferred token where available.
+
+**💳 Easy on-ramp and off-ramp**  
+Buy crypto with a bank card and withdraw back to card where supported, via providers like MoonPay.
+
+**🔄 Smart swaps**  
+Swap inside the app with an aggregator that finds efficient routes across TON, TRON, and Solana.
+
+**📊 Portfolio tracking**  
+Follow your portfolio and net worth over time in the base fiat currency you choose.
+
+**💰 High-yield staking**  
+Stake TON and other supported assets, including options like USDe, directly in the wallet.
+
+**🛡️ Industry-leading security**  
+**MyTonWallet** uses advanced security practices audited by CertiK. We also run a [bug bounty on CertiK SkyShield](https://skyshield.certik.com/bounties/mytonwallet) with **$100K** in reserved funds and rewards of up to **$5,000**. The program has been live since **March 23, 2024**, and no vulnerabilities have been found to date.
+
+**🧰 Hundreds of handy features**  
+Connect Ledger hardware wallets, hide balances, personalize interface, send multiple transfers at once, view other wallets, use AI plugins for OpenClaw, ChatGPT, and Claude, and much more.
+
+**⭐ Trusted by millions**  
+**MyTonWallet** has a **4.8** rating on [Trustpilot](https://www.trustpilot.com/), strong App Store and Google Play rankings, and **9M+ users** worldwide.
+
+---
+
+## 🔗 Links
+
+- 📲 **Get the app**: [get.mytonwallet.io](https://get.mytonwallet.io/)
+- 📚 **Help Center**: [help.mytonwallet.io](https://help.mytonwallet.io)
+- 🛟 **24/7 Support**: [t.me/mysupport](https://t.me/mysupport)
+- 💬 **Telegram**: [t.me/mytonwalleten](https://t.me/mytonwalleten)
+- 🐦 **X (Twitter)**: [x.com/mytonwallet_io](https://x.com/mytonwallet_io)
+- 📰 **Blog & updates**: [mytonwallet.io](https://mytonwallet.io)
+
+---
+
+## 🛠️ For developers
+
+### 📑 Table of contents
+
+- ⚙️ [Requirements](#requirements)
+- 🧩 [Local Setup](#local-setup)
+- 🚀 [Dev Mode](#dev-mode)
+- 🐧 [Linux](#linux-desktop-troubleshooting)
+- 🖥️ [Electron](https://github.com/mytonwallet-org/mytonwallet/blob/master/docs/electron.md)
+- 🔐 [Verifying GPG Signatures](https://github.com/mytonwallet-org/mytonwallet/blob/master/docs/gpg-check.md)
+- ❤️ [Support Us](#support-us)
 
 ## Requirements
 

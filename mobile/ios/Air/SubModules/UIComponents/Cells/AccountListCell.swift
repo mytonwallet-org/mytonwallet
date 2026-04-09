@@ -112,7 +112,7 @@ private struct ListBalanceView: View {
     var body: some View {
         WithPerceptionTracking {
             if let balance = viewModel.balance {
-                Text(balance.formatted(.baseCurrencyEquivalent, roundUp: true))
+                Text(balance.formatted(.baseCurrencyEquivalent, roundHalfUp: true))
                     .lineLimit(1)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .font(.system(size: 16, weight: .regular))

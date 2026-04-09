@@ -55,9 +55,11 @@ public class WScalableButton: UIControl {
     private var titleLabelBottomConstraint: NSLayoutConstraint!
     private var titleLabelCenterYConstraint: NSLayoutConstraint!
     private var isCompact: Bool = false
-    private let baseCornerRadius: CGFloat = 24
-    
     public static let preferredHeight: CGFloat = 66
+    public static let preferredCornerRadius: CGFloat = 24
+
+    private let baseCornerRadius: CGFloat = WScalableButton.preferredCornerRadius
+    private var suppressNextTap: Bool = false
 
     private let imageView: UIImageView = {
         let view = UIImageView()
@@ -211,8 +213,34 @@ public class WScalableButton: UIControl {
     }
 
     @objc private func didTap() {
-        guard !consumeMenuShownTapIfNeeded() else { return }
+        guard !consumeSuppressedTapIfNeeded() else { return }
         onTap?()
+    }
+
+    @discardableResult
+    public func consumeSuppressedTapIfNeeded() -> Bool {
+        let suppressNextTap = self.suppressNextTap
+        self.suppressNextTap = false
+        return suppressNextTap
+    }
+
+    public func cancelCurrentInteractionAndSuppressNextTap() {
+        suppressNextTap = true
+        cancelTracking(with: nil)
+        isHighlighted = false
+        switch style {
+        case .standard:
+            if #available(iOS 26, iOSApplicationExtension 26, *),
+               let effectView = self.containerView as? UIVisualEffectView {
+                effectView.effect = UIBlurEffect(style: .systemUltraThinMaterial)
+                let effect = UIGlassEffect(style: .regular)
+                effect.isInteractive = true
+                effect.tintColor = UIColor.air.folderFill
+                effectView.effect = effect
+            }
+        case .thinGlass:
+            transform = .identity
+        }
     }
 
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -225,46 +253,6 @@ public class WScalableButton: UIControl {
                 imageView.tintColor = .tintColor
             }
         }
-    }
-    
-    public func attachMenu(presentOnTap: Bool = false, makeConfig: @escaping () -> MenuConfig) {
-        let menuContext = MenuContext()
-        menuContext.makeConfig = makeConfig
-        menuContext.presentOnTap = presentOnTap
-        menuContext.onGetSourceViewLayout = { [weak self]  in
-            guard let self, window != nil, !bounds.isEmpty else { return nil }
-            let baseFrame = convert(bounds, to: nil)
-            return MenuSourceViewLayout(
-                frame: baseFrame,
-                portalMaskFrame: baseFrame.insetBy(dx: -100, dy: -100) // a space for shadow
-            )
-        }
-        
-        menuContext.onAppear = { [weak self] in
-            guard let self else { return }
-            
-            // Reset current interaction session transformations
-            switch style {
-            case .standard:
-                if #available(iOS 26, iOSApplicationExtension 26, *), let effectView = self.containerView as? UIVisualEffectView {
-                    effectView.effect = UIBlurEffect(style: .systemUltraThinMaterial)
-                    let effect = UIGlassEffect(style: .regular)
-                    effect.isInteractive = true
-                    effect.tintColor = UIColor.air.folderFill
-                    effectView.effect = effect
-                }
-            case .thinGlass:
-                self.transform = .identity // cancel highlighting
-            }
-        }
-
-        menuContext.onDismiss = { [weak self] in
-            guard let self else { return }
-            
-            self.consumeMenuShownTapIfNeeded()
-        }
-
-        super.attachMenu(menuContext: menuContext)
     }
     
     public override func layoutSubviews() {

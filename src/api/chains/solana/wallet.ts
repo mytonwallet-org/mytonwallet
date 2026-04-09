@@ -11,7 +11,7 @@ import { getKnownAddressInfo } from '../../common/addresses';
 import { callBackendGet } from '../../common/backend';
 import { buildTokenSlug, updateTokens } from '../../common/tokens';
 import { isValidAddress } from './address';
-import { NETWORK_CONFIG, SOLANA_PROGRAM_IDS } from './constants';
+import { NETWORK_CONFIG, SOLANA_DERIVATION_PATHS, SOLANA_PROGRAM_IDS } from './constants';
 
 export async function getWalletBalance(network: ApiNetwork, address: string) {
   const client = getSolanaClient(network);
@@ -191,4 +191,29 @@ export async function getIsWalletActive(network: ApiNetwork, address: string) {
   );
 
   return isWalletActive.result;
+}
+
+export function extractIndexFromPath(path: string) {
+  for (const template of Object.values(SOLANA_DERIVATION_PATHS)) {
+    if (!template.includes('{index}')) {
+      if (path === template) {
+        return 0;
+      }
+
+      continue;
+    }
+
+    const escaped = template.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = `^${escaped.replace('\\{index\\}', '(\\d+)')}$`;
+    const match = path.match(new RegExp(pattern));
+
+    if (match) {
+      const index = Number(match[1]);
+      if (!Number.isNaN(index)) {
+        return index;
+      }
+    }
+  }
+
+  return 0;
 }

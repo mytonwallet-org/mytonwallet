@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import ContextMenuKit
 import UIComponents
 import WalletContext
 import WalletCore
@@ -90,7 +91,6 @@ struct DepositLinkView: View {
 struct TappableDepositLink: View {
     
     var depostitLink: String
-    @State private var menuContext = MenuContext()
     
     var body: some View {
         let link = Text(depostitLink.map { "\($0)\u{200B}" }.joined() )
@@ -101,20 +101,42 @@ struct TappableDepositLink: View {
         Text("\(link) \(more)")
             .lineLimit(nil)
             .multilineTextAlignment(.leading)
-            .menuSource(menuContext: menuContext)
-            .task(id: depostitLink) {
-                menuContext.makeConfig = {
-                    var items: [MenuItem] = []
-                    items += .button(id: "0-copy", title: lang("Copy"), trailingIcon: .air("SendCopy")) {
+            .contextMenuSource {
+                makeMenuConfiguration()
+            }
+    }
+
+    private func makeMenuConfiguration() -> ContextMenuConfiguration {
+        var items: [ContextMenuItem] = []
+        items.append(
+            .action(
+                ContextMenuAction(
+                    title: lang("Copy"),
+                    icon: .airBundle("SendCopy"),
+                    handler: {
                         AppActions.copyString(depostitLink, toastMessage: "Link copied")
                     }
-                    if let url = URL(string: depostitLink) {
-                        items += .button(id: "0-share", title: lang("Share"), trailingIcon: .system("square.and.arrow.up")) {
+                )
+            )
+        )
+        if let url = URL(string: depostitLink) {
+            items.append(
+                .action(
+                    ContextMenuAction(
+                        title: lang("Share"),
+                        icon: .system("square.and.arrow.up"),
+                        handler: {
                             AppActions.shareUrl(url)
                         }
-                    }
-                    return MenuConfig(menuItems: items)
-                }
-            }
+                    )
+                )
+            )
+        }
+
+        return ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: items),
+            backdrop: .none,
+            style: ContextMenuStyle(minWidth: 180.0)
+        )
     }
 }

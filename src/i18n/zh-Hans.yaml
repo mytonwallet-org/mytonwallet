@@ -63,6 +63,7 @@ Settings: 设置
 About %app_name%: 关于 %app_name%
 Exit: 离开
 Remove Wallet: 离开
+Remove Wallets: 移除所有钱包
 Something went wrong.: 什么地方出错了···
 Something went wrong: 什么地方出错了···
 Logo: Logo
@@ -94,6 +95,7 @@ Warning!: 警告！
 $logout_without_backup_warning: 您尚未备份钱包！如果您注销，您将永远丧失您的代币和 NFT ！
 $logout_accounts_without_backup_warning: 您还没有备份此账户 %links%。 如果您注销，您将永远丧失您的代币和 NFT ！
 $logout_warning: 这将从应用中移除当前钱包。请确保已备份您的**密语**。
+$logout_all_wallets_warning: 这将从应用中移除所有钱包。请确保已备份您所有的**密语**。
 $logout_view_mode_warning: 这将从应用中移除当前钱包。
 Create Deposit Link: 创建存款链接
 $receive_invoice_description: 您可以指定付款金额和收款地址来节省付款方的一些时间。
@@ -855,10 +857,8 @@ Copy Link: 复制链接
 Check eligibility for max APY: 检查最大 APY 资格
 Check eligibility: 检查资格
 $expired_many: 已过期
-$expires_in %days%:
-  zeroValue: 将于%days%到期
-  oneValue: 将于%days%到期
-  otherValue: 将于%days%到期
+$one_domain_expires %days%: 将于%days%到期
+$multiple_domains_expire %days%: 将于%days%到期
 Message: 消息
 Binary Data: 二进制数据
 The binary data content is unclear. Sign it only if you trust the service.: 二进制数据内容不明确。请仅在信任该服务的情况下签署。
@@ -1072,6 +1072,16 @@ Confirm operation with your passcode: 使用您的密码确认操作
 Confirm action with your passcode: 用密码确认操作
 No Image: 无图片
 Different blockchain. Cannot be selected: 不同的区块链。无法选择
+Subwallets: 子钱包
+Other addresses for this wallet: 此钱包的其他地址
+Current Wallet: 当前钱包
+Add Subwallet: 添加子钱包
+Replace in this wallet: 在此钱包中替换
+Create Subwallet: 创建子钱包
+You have tokens on other subwallets. You can switch to them here.: 您在其他子钱包中有代币。您可以在此处切换到它们。
+Subwallet Created: 子钱包已创建
+Subwallet Added: 子钱包已添加
+Subwallet Switched: 子钱包已切换
 Top 5: Top 5
 Top 10: Top 10
 Top 30: Top 30
@@ -1085,3 +1095,11 @@ Scroll To Bottom: 滚动到底部
 $agent_clear_chat_confirm: 您确定要清空聊天记录吗？
 $unknown_swap_token: 交换链接中的代币未知。已使用默认代币。
 $action_not_available_view_mode: 此操作不适用于查看钱包
+Scanning for subwallets...: 正在扫描子钱包...
+This process may take up to a minute. Please wait.: 此过程可能需要一分钟。请稍候。
+Your assets on other TON contracts: 您在其他 TON 合约上的资产
+No existing subwallets found: 未找到现有子钱包
+You can create a new subwallet if you need another address on the same recovery phrase.: 如果您需要同一恢复短语上的另一个地址，可以创建新的子钱包。
+You have tokens on other subwallets. Each subwallet has its own address.: 您在其他子钱包中有代币。每个子钱包都有自己的地址。
+$chain_Subwallets: '%chain% 子钱包'
+Scanning...: 正在扫描...

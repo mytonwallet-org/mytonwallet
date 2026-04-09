@@ -215,12 +215,6 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
     }
 
     private func recomputeAccount(accountId: String) {
-        log.info("recomputeAccount: \(accountId, .public)")
-        let start = Date()
-        defer {
-            log.info("recomputeAccount: \(accountId, .public) finished in \(Date().timeIntervalSince(start))")
-        }
-
         let nextData = computeAccountData(accountId: accountId)
         let context = byAccountId.for(accountId: accountId)
         let walletTokensChanged = context.walletTokensData != nextData.walletTokensData
@@ -253,7 +247,10 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
         var totalBalanceUsdByChain: [ApiChain: Double] = [:]
 
         for token in walletTokens {
-            if token.tokenSlug == TON_USDE_SLUG {
+            if token.tokenSlug == STAKED_TON_SLUG
+                || token.tokenSlug == STAKED_MYCOIN_SLUG
+                || token.tokenSlug == TON_TSUSDE_SLUG
+            {
                 continue
             }
             if let value = token.toBaseCurrency, let yesterday = token.toBaseCurrency24h {

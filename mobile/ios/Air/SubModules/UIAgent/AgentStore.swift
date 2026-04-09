@@ -43,6 +43,11 @@ public final class AgentStore {
         historyStore.clean()
     }
 
+    public func resetConversation() {
+        connectHistoryIfNeeded()
+        historyStore.save(messages: [])
+    }
+
     func persistedTimelineItems() -> [AgentTimelineItem] {
         connectHistoryIfNeeded()
         return historyStore.loadMessages().map(AgentTimelineItem.message)

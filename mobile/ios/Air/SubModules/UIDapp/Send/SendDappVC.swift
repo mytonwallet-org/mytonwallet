@@ -50,6 +50,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         self.request = request
         self.onConfirm = onConfirm
         self.onCancel = onCancel
+        navigationItem.title = makeNavigationTitle()
         withAnimation {
             self.hostingController?.rootView = makeView()
         }
@@ -77,6 +78,17 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         btn.addTarget(self, action: #selector(onSend), for: .touchUpInside)
         return btn
     }()
+
+    private lazy var errorLabel = {
+        let lbl = UILabel()
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        lbl.font = .systemFont(ofSize: 14, weight: .regular)
+        lbl.textAlignment = .center
+        lbl.textColor = .air.error
+        lbl.numberOfLines = 2
+        lbl.isHidden = true
+        return lbl
+    }()
     
     private lazy var contentView = {
         var constraints = [NSLayoutConstraint]()
@@ -84,16 +96,21 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
         
+        v.addSubview(errorLabel)
         v.addSubview(cancelButton)
         v.addSubview(sendButton)
         constraints.append(contentsOf: [
             sendButton.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -16),
+            sendButton.topAnchor.constraint(greaterThanOrEqualTo: errorLabel.bottomAnchor, constant: 12),
             sendButton.leadingAnchor.constraint(equalTo: cancelButton.trailingAnchor, constant: 12),
             sendButton.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -16),
             cancelButton.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 16),
             cancelButton.topAnchor.constraint(equalTo: sendButton.topAnchor),
             cancelButton.bottomAnchor.constraint(equalTo: sendButton.bottomAnchor),
             cancelButton.widthAnchor.constraint(equalTo: sendButton.widthAnchor),
+            errorLabel.topAnchor.constraint(greaterThanOrEqualTo: v.topAnchor, constant: 16),
+            errorLabel.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 16),
+            errorLabel.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -16),
         ])
         
         NSLayoutConstraint.activate(constraints)
@@ -102,16 +119,14 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     }()
     
     private func setupViews() {
-        
-        let count = request?.transactions.count ?? 1
-        navigationItem.title = lang("Confirm Actions", arg1: count)
+        navigationItem.title = makeNavigationTitle()
         addCloseNavigationItemIfNeeded()
 
         hostingController = addHostingController(makeView(), constraints: .fill)
         
         view.addSubview(contentView)
         NSLayoutConstraint.activate([
-            contentView.heightAnchor.constraint(equalToConstant: 120),
+            contentView.heightAnchor.constraint(equalToConstant: 136),
             contentView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor).withPriority(.init(500)),
             contentView.leftAnchor.constraint(equalTo: view.leftAnchor),
             contentView.rightAnchor.constraint(equalTo: view.rightAnchor)
@@ -134,8 +149,16 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     }
 
     private func updateSendButtonState(animated: Bool = false) {
+        let insufficientTokens: String? = if let request {
+            request.insufficientTokens(accountContext: $account)
+        } else {
+            nil
+        }
+        errorLabel.text = insufficientTokens.map { lang("Not Enough %symbol%", arg1: $0) }
+        errorLabel.isHidden = insufficientTokens == nil
+
         let isEnabled = if let request {
-            !request.combinedInfo.isScam && request.hasSufficientBalance(accountContext: $account)
+            !request.combinedInfo.isScam && insufficientTokens == nil
         } else {
             false
         }
@@ -179,6 +202,22 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     
     private func updateTheme() {
         view.backgroundColor = .air.sheetBackground
+    }
+
+    private func makeNavigationTitle() -> String {
+        guard let request else {
+            return lang("Confirm Action")
+        }
+
+        if request.transactions.count == 1, request.transactions.first?.isNftTransferPayload == true {
+            return lang("Send NFT")
+        }
+
+        if request.transactions.count > 1 {
+            return lang("$classic_confirm_actions")
+        }
+
+        return lang("Confirm Action")
     }
     
     @objc func onSend() {
@@ -230,7 +269,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
                 self.presentingViewController?.dismiss(animated: true)
             })
         }
-        present(vc, animated: true)
+        present(WNavigationController(rootViewController: vc), animated: true)
     }
     
     func _onConfirm(_ password: String?) {

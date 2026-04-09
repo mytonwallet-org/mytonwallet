@@ -175,3 +175,12 @@ No native networking libraries — all API calls go through the WebView bridge.
 - **App lock**: triggered on background, configurable timeout
 - **Clipboard**: 180s expiry, local-only isolation
 - **Deep links**: strict scheme validation, TonConnect/WalletConnect require user approval
+
+---
+
+## Debugging
+
+- **Debug-only lockscreen bypass**: native app lock can be bypassed in debug builds for startup and background relock testing
+- **Launch environment**: set `BYPASS_LOCKSCREEN=1` in the app's launch environment and relaunch
+- **Persisted toggle**: enable "Bypass lockscreen" in `DebugView`; it is stored in `UserDefaults.standard` under `debug_bypassLockscreen`
+- **Production safety**: the bypass is compiled out of non-debug builds, so it has no effect in release/TestFlight

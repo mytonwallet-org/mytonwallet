@@ -65,6 +65,7 @@ Settings: Ustawienia
 About %app_name%: O %app_name%
 Exit: Wyjście
 Remove Wallet: Usuń portfel
+Remove Wallets: Usuń portfele
 Something went wrong.: Coś poszło nie tak.
 Something went wrong: Coś poszło nie tak
 Logo: Logo
@@ -96,6 +97,7 @@ Warning!: Ostrzeżenie!
 $logout_without_backup_warning: Nie utworzono kopii zapasowej tego portfela. Jeśli usuniesz go teraz, stracisz dostęp do swoich tokenów i NFT.
 $logout_accounts_without_backup_warning: Nie utworzono kopii zapasowej %links%. Kontynuowanie spowoduje utratę dostępu do tokenów i NFT.
 $logout_warning: Spowoduje to usunięcie bieżącego portfela z aplikacji. Upewnij się, że masz kopię zapasową swoich **tajnych słów**.
+$logout_all_wallets_warning: Spowoduje to usunięcie wszystkich portfeli z aplikacji. Upewnij się, że masz kopie zapasowe wszystkich swoich **tajnych słów**.
 $logout_view_mode_warning: Spowoduje to usunięcie bieżącego portfela z aplikacji.
 Create Deposit Link: Utwórz łącze do wpłaty
 $receive_invoice_description: |
@@ -872,11 +874,8 @@ Copy Link: Kopiuj link
 Check eligibility for max APY: Sprawdź dostępność maks. APY
 Check eligibility: Sprawdź dostępność
 $expired_many: Wygasły
-$expires_in %days%:
-  zeroValue: Wygasa %days%
-  oneValue: Wygasa %days%
-  fewValue: Wygasają %days%
-  manyValue: Wygasają %days%
+$one_domain_expires %days%: Wygasa %days%
+$multiple_domains_expire %days%: Wygasają %days%
 Message: Wiadomość
 Binary Data: Dane binarne
 The binary data content is unclear. Sign it only if you trust the service.: Treść danych binarnych jest niejasna. Podpisz tylko jeśli ufasz tej usłudze.
@@ -1091,6 +1090,16 @@ Enabling biometric confirmation will reset the passcode.: Włączenie potwierdze
 Confirm action with your passcode: Potwierdź działanie swoim kodem dostępu
 No Image: Brak obrazu
 Different blockchain. Cannot be selected: Inny blockchain. Nie można wybrać
+Subwallets: Subportfele
+Other addresses for this wallet: Inne adresy dla tego portfela
+Current Wallet: Obecny portfel
+Add Subwallet: Dodaj subportfel
+Replace in this wallet: Zastąp w tym portfelu
+Create Subwallet: Utwórz subportfel
+You have tokens on other subwallets. You can switch to them here.: Masz tokeny na innych subportfelach. Możesz się tu na nie przełączyć.
+Subwallet Created: Subportfel utworzony
+Subwallet Added: Subportfel dodany
+Subwallet Switched: Subportfel przełączony
 Top 5: Top 5
 Top 10: Top 10
 Top 30: Top 30
@@ -1104,3 +1113,11 @@ Scroll To Bottom: Przewiń na dół
 $agent_clear_chat_confirm: Czy na pewno chcesz wyczyścić historię czatu?
 $unknown_swap_token: Nieznany token w linku wymiany. Użyto domyślnych tokenów.
 $action_not_available_view_mode: Ta akcja jest niedostępna dla portfeli podglądu
+Scanning for subwallets...: Wyszukiwanie subportfeli...
+This process may take up to a minute. Please wait.: Ten proces może potrwać do minuty. Proszę czekać.
+Your assets on other TON contracts: Twoje aktywa na innych kontraktach TON
+No existing subwallets found: Nie znaleziono istniejących subportfeli
+You can create a new subwallet if you need another address on the same recovery phrase.: Możesz utworzyć nowy subportfel, jeśli potrzebujesz innego adresu na tej samej frazie odzyskiwania.
+You have tokens on other subwallets. Each subwallet has its own address.: Masz tokeny na innych subportfelach. Każdy subportfel ma swój własny adres.
+$chain_Subwallets: 'Subportfele %chain%'
+Scanning...: Skanowanie...

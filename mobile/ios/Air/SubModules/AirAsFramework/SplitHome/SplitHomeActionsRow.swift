@@ -3,6 +3,7 @@ import UIKit
 import WalletCore
 import WalletContext
 import SwiftNavigation
+import UIAssets
 
 @MainActor
 final class SplitHomeActionsSectionCell: UICollectionViewCell {
@@ -114,14 +115,6 @@ final class SplitHomeAssetsSectionCell: UICollectionViewCell {
     override func layoutSubviews() {
         super.layoutSubviews()
         configureIfNeeded()
-    }
-
-    var isAssetsReordering: Bool {
-        assetsRowView.isReordering
-    }
-
-    func stopAssetsReordering(isCanceled: Bool) {
-        assetsRowView.stopReordering(isCanceled: isCanceled)
     }
 
     private var configuredAccountSource: AccountSource?

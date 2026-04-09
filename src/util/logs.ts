@@ -1,4 +1,4 @@
-import { DEBUG, DEBUG_API } from '../config';
+import { DEBUG, DEBUG_API, IS_AIR_APP, IS_ANDROID } from '../config';
 import { AssertionError } from './assert';
 
 export interface Log {
@@ -44,6 +44,9 @@ export function logDebugError(message: string, ...args: any[]) {
   if (DEBUG) {
     // eslint-disable-next-line no-console
     console.error(`[DEBUG][${message}]`, ...args);
+  }
+  if (IS_AIR_APP && IS_ANDROID) {
+    (window as any).androidApp?.logDebugError(message, JSON.stringify(args, errorReplacer));
   }
 }
 

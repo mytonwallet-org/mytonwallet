@@ -9,13 +9,14 @@ import SwiftNavigation
 struct RecipientAddressSection: View {
     
     var model: AddressInputModel
+    var onPasteAction: (() -> Bool)? = nil
     
     var body: some View {
         @Perception.Bindable var model = model
         WithPerceptionTracking {
             InsetSection {
                 InsetCell {
-                    Cell(model: model)
+                    Cell(model: model, onPasteAction: onPasteAction)
                 }
                 .contentShape(.rect)
                 .onTapGesture {
@@ -39,6 +40,7 @@ struct RecipientAddressSection: View {
 private struct Cell: View {
     
     var model: AddressInputModel
+    var onPasteAction: (() -> Bool)?
     
     var body: some View {
         WithPerceptionTracking {
@@ -47,7 +49,8 @@ private struct Cell: View {
                 AddressTextField(
                     value: $model.textFieldInput,
                     isFocused: $model.isFocused,
-                    onNext: onSubmit
+                    onNext: onSubmit,
+                    onPaste: onFieldPaste
                 )
                 .offset(y: 1)
                 .background(alignment: .leading) {
@@ -90,10 +93,16 @@ private struct Cell: View {
         model.isFocused = false
     }
     
+    func onFieldPaste() {
+        _ = onPasteAction?()
+    }
+    
     func onPaste() {
-        if let pastedAddress = UIPasteboard.general.string, !pastedAddress.isEmpty {
+        if let pastedAddress = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines), !pastedAddress.isEmpty {
             model.textFieldInput = pastedAddress
-            endEditing()
+            if onPasteAction?() != true {
+                endEditing()
+            }
         } else {
             AppActions.showToast(message: lang("Clipboard empty"))
         }

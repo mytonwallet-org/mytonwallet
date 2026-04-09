@@ -30,7 +30,6 @@ struct LedgerAddAccountView: View {
                     }
                 }
             }
-            .navigationBarInset(60)
         }
     }
     

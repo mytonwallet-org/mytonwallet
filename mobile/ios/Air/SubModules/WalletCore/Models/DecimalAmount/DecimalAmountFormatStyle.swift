@@ -11,16 +11,16 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
     public var maxDecimals: Int?
     public var showPlus: Bool
     public var showMinus: Bool
-    public var roundUp: Bool
+    public var roundHalfUp: Bool
     public var precision: MFee.FeePrecision?
     public var showSymbol: Bool
     
-    public init(preset: AdaptivePreset<Kind>? = nil, maxDecimals: Int? = nil, showPlus: Bool = false, showMinus: Bool = true, roundUp: Bool = true, precision: MFee.FeePrecision? = nil, showSymbol: Bool = true) {
+    public init(preset: AdaptivePreset<Kind>? = nil, maxDecimals: Int? = nil, showPlus: Bool = false, showMinus: Bool = true, roundHalfUp: Bool = true, precision: MFee.FeePrecision? = nil, showSymbol: Bool = true) {
         self.adaptivePreset = preset
         self.maxDecimals = maxDecimals
         self.showPlus = showPlus
         self.showMinus = showMinus
-        self.roundUp = roundUp
+        self.roundHalfUp = roundHalfUp
         self.precision = precision
         self.showSymbol = showSymbol
     }
@@ -36,15 +36,15 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
             tokenDecimals: value.decimals,
             decimalsCount: maxDecimals,
             forceCurrencyToRight: value.forceCurrencyToRight,
-            roundUp: roundUp,
+            roundHalfUp: roundHalfUp,
             isShortened: adaptivePreset == .baseCurrencyEquivalentShortened
         )
     }
 }
 
 extension DecimalAmount {
-    public func formatted(_ preset: AdaptivePreset<Backing>?, maxDecimals: Int? = nil, showPlus: Bool = false, showMinus: Bool = true, roundUp: Bool = true, precision: MFee.FeePrecision? = nil) -> String {
-        DecimalAmountFormatStyle(preset: preset, maxDecimals: maxDecimals, showPlus: showPlus, showMinus: showMinus, roundUp: roundUp, precision: precision).format(self)
+    public func formatted(_ preset: AdaptivePreset<Backing>?, maxDecimals: Int? = nil, showPlus: Bool = false, showMinus: Bool = true, roundHalfUp: Bool = true, precision: MFee.FeePrecision? = nil) -> String {
+        DecimalAmountFormatStyle(preset: preset, maxDecimals: maxDecimals, showPlus: showPlus, showMinus: showMinus, roundHalfUp: roundHalfUp, precision: precision).format(self)
     }
 }
 

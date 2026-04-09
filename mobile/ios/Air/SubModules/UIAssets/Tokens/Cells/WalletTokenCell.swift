@@ -16,6 +16,10 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     private static let pinIconSideLength: CGFloat = 12
     private static let pinIconSpacing: CGFloat = 4
     private static let tokenImageToTextSpacing: CGFloat = 12
+    private static let badgeLeadingSpacing: CGFloat = 4
+    private static let badgeTrailingSpacing: CGFloat = 8
+    private static let badgeFadeWidth: CGFloat = 18
+    private static let badgeFadeHiddenInset: CGFloat = 1
 
     private let medium16Font = UIFont.systemFont(ofSize: 16, weight: .medium)
     private let regular16Font = UIFont.systemFont(ofSize: 16, weight: .regular)
@@ -31,7 +35,13 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     public override var safeAreaInsets: UIEdgeInsets { isUIAssets ? super.safeAreaInsets : .zero }
 
     private let mainView: UIView = UIView()
+    private let tokenNameClipView: UIView = configured(object: UIView()) {
+        $0.translatesAutoresizingMaskIntoConstraints = false
+        $0.clipsToBounds = true
+    }
     private var tokenLabelLeadingConstraint: NSLayoutConstraint!
+    private var tokenNameClipTrailingConstraint: NSLayoutConstraint!
+    private var tokenNameWidthConstraint: NSLayoutConstraint!
     // left icon view
     private var iconView: IconView!
     // pin icon view
@@ -51,12 +61,22 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     
     // address label to show short presentation of the address
     private let tokenNameLabel: UILabel = UILabel()
+    private let tokenNameFadeMask = CAGradientLayer()
     private var tokenPriceLabel: UILabel!
     private var amountContainer: WSensitiveData<UILabel> = .init(cols: 12, rows: 2, cellSize: 9, cornerRadius: 5, theme: .adaptive, alignment: .trailing)
     private var amountLabel: WAmountLabel!
     private var amount2Container: WSensitiveData<UILabel> = .init(cols: 9, rows: 2, cellSize: 7, cornerRadius: 4, theme: .adaptive, alignment: .trailing)
     private var baseCurrencyAmountLabel: WAmountLabel!
     private let badge = BadgeView()
+    private var badgeInlineLeadingConstraint: NSLayoutConstraint!
+    private var badgeOverlayTrailingConstraint: NSLayoutConstraint!
+
+    private enum BadgeLayoutMode {
+        case inline
+        case overlay
+    }
+
+    private var badgeLayoutMode: BadgeLayoutMode = .inline
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -90,14 +110,22 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         iconView.setChainSize(14, borderWidth: 1.333, borderColor: .air.background, horizontalOffset: 3, verticalOffset: 1)
 
         // tokenName
-        mainView.addSubview(tokenNameLabel)
+        mainView.addSubview(tokenNameClipView)
         tokenNameLabel.translatesAutoresizingMaskIntoConstraints = false
-        tokenLabelLeadingConstraint = tokenNameLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor,
-                                                                              constant: Self.tokenImageToTextSpacing)
+        tokenLabelLeadingConstraint = tokenNameClipView.leadingAnchor.constraint(equalTo: iconView.trailingAnchor,
+                                                                                 constant: Self.tokenImageToTextSpacing)
         NSLayoutConstraint.activate([
             tokenLabelLeadingConstraint,
-            tokenNameLabel.topAnchor.constraint(equalTo: mainView.topAnchor, constant: 1.667),
+            tokenNameClipView.topAnchor.constraint(equalTo: mainView.topAnchor, constant: 1.667),
         ])
+        tokenNameClipView.addSubview(tokenNameLabel)
+        NSLayoutConstraint.activate([
+            tokenNameLabel.leadingAnchor.constraint(equalTo: tokenNameClipView.leadingAnchor),
+            tokenNameLabel.topAnchor.constraint(equalTo: tokenNameClipView.topAnchor),
+            tokenNameLabel.bottomAnchor.constraint(equalTo: tokenNameClipView.bottomAnchor),
+        ])
+        tokenNameWidthConstraint = tokenNameLabel.widthAnchor.constraint(equalToConstant: 0)
+        tokenNameWidthConstraint.isActive = true
         tokenNameLabel.font = medium16Font
         tokenNameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         tokenNameLabel.lineBreakMode = .byTruncatingTail
@@ -108,7 +136,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
             pinIconView.widthAnchor.constraint(equalToConstant: Self.pinIconSideLength),
             pinIconView.heightAnchor.constraint(equalToConstant: Self.pinIconSideLength),
             pinIconView.centerYAnchor.constraint(equalTo: tokenNameLabel.centerYAnchor),
-            tokenNameLabel.leadingAnchor.constraint(equalTo: pinIconView.trailingAnchor, constant: Self.pinIconSpacing),
+            tokenNameClipView.leadingAnchor.constraint(equalTo: pinIconView.trailingAnchor, constant: Self.pinIconSpacing),
         ])
         pinIconView.isHidden = true
 
@@ -126,26 +154,31 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         mainView.addSubview(tokenPriceLabel)
         NSLayoutConstraint.activate([
             tokenPriceLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: Self.tokenImageToTextSpacing),
-            tokenPriceLabel.topAnchor.constraint(equalTo: tokenNameLabel.bottomAnchor, constant: 1),
+            tokenPriceLabel.topAnchor.constraint(equalTo: tokenNameClipView.bottomAnchor, constant: 1),
         ])
         tokenPriceLabel.font = regular14Font
 
         amountLabel = WAmountLabel(showNegativeSign: false)
         amountLabel.font = regular16Font
         amountLabel.translatesAutoresizingMaskIntoConstraints = false
+        amountLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         amountContainer.addContent(amountLabel)
         mainView.addSubview(amountContainer)
+        amountContainer.setContentCompressionResistancePriority(.required, for: .horizontal)
+        tokenNameClipTrailingConstraint = tokenNameClipView.trailingAnchor.constraint(equalTo: amountLabel.leadingAnchor)
         NSLayoutConstraint.activate([
             amountLabel.trailingAnchor.constraint(equalTo: mainView.trailingAnchor),
             amountLabel.firstBaselineAnchor.constraint(equalTo: tokenNameLabel.firstBaselineAnchor),
-            amountLabel.leadingAnchor.constraint(greaterThanOrEqualTo: tokenNameLabel.trailingAnchor, constant: 6).withPriority(.defaultHigh),
+            tokenNameClipTrailingConstraint,
         ])
 
         baseCurrencyAmountLabel = WAmountLabel(showNegativeSign: true)
         baseCurrencyAmountLabel.font = regular14Font
         baseCurrencyAmountLabel.translatesAutoresizingMaskIntoConstraints = false
+        baseCurrencyAmountLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         amount2Container.addContent(baseCurrencyAmountLabel)
         mainView.addSubview(amount2Container)
+        amount2Container.setContentCompressionResistancePriority(.required, for: .horizontal)
         NSLayoutConstraint.activate([
             baseCurrencyAmountLabel.trailingAnchor.constraint(equalTo: amountLabel.trailingAnchor),
             baseCurrencyAmountLabel.firstBaselineAnchor.constraint(equalTo: tokenPriceLabel.firstBaselineAnchor),
@@ -157,12 +190,15 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         // apy
         badge.translatesAutoresizingMaskIntoConstraints = false
         mainView.addSubview(badge)
+        badgeInlineLeadingConstraint = badge.leadingAnchor.constraint(equalTo: tokenNameLabel.trailingAnchor, constant: Self.badgeLeadingSpacing)
+        badgeOverlayTrailingConstraint = badge.trailingAnchor.constraint(equalTo: tokenNameClipView.trailingAnchor, constant: -Self.badgeTrailingSpacing)
         NSLayoutConstraint.activate([
             badge.centerYAnchor.constraint(equalTo: tokenNameLabel.centerYAnchor, constant: -0.333),
-            badge.leadingAnchor.constraint(equalTo: tokenNameLabel.trailingAnchor, constant: 4),
-            badge.trailingAnchor.constraint(lessThanOrEqualTo: amountLabel.leadingAnchor, constant: -4),
+            badgeInlineLeadingConstraint,
+            badge.trailingAnchor.constraint(lessThanOrEqualTo: amountLabel.leadingAnchor, constant: -Self.badgeTrailingSpacing),
         ])
         badge.alpha = 0
+        badge.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         contentView.backgroundColor = .clear
 
@@ -215,6 +251,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         } else {
             walletToken.tokenSlug
         }
+        tokenNameWidthConstraint.constant = ceil(tokenNameLabel.intrinsicContentSize.width)
 
         // apy
         configureBadge(badgeContent: badgeContent)
@@ -223,7 +260,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         if let price = token?.price {
             let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(price, TokenStore.baseCurrency)
             let attr = NSMutableAttributedString(
-                string: baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true),
+                string: baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true),
                 attributes: [
                     .font: regular14Font,
                     .foregroundColor: UIColor.air.secondaryLabel,
@@ -243,7 +280,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         let amountText: String?
         if let token {
             let amount = TokenAmount(walletToken.balance, token)
-            amountText = amount.formatted(.defaultAdaptive, roundUp: false)
+            amountText = amount.formatted(.defaultAdaptive, roundHalfUp: false)
         } else {
             amountText = nil
         }
@@ -252,7 +289,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         let baseCurrencyText: String?
         if let amount {
             let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(amount, TokenStore.baseCurrency)
-            baseCurrencyText = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
+            baseCurrencyText = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
         } else {
             baseCurrencyText = " "
         }
@@ -266,6 +303,11 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         let fiatAmountCols = 5 + (amountCols % 6)
         amountContainer.setCols(amountCols)
         amount2Container.setCols(fiatAmountCols)
+        mainView.layoutIfNeeded()
+        if updateBadgeLayoutModeIfNeeded() {
+            mainView.layoutIfNeeded()
+        }
+        updateTokenNameFadeMask()
         prevToken = token?.slug
     }
 
@@ -286,6 +328,73 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
             badge.configureHidden()
             badge.alpha = 0
         }
+        applyBadgeLayoutMode(.inline)
+        setNeedsLayout()
+    }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        if updateBadgeLayoutModeIfNeeded() {
+            mainView.layoutIfNeeded()
+        }
+        updateTokenNameFadeMask()
+    }
+
+    @discardableResult
+    private func updateBadgeLayoutModeIfNeeded() -> Bool {
+        guard badge.alpha > 0, !badge.isHidden else {
+            return applyBadgeLayoutMode(.inline)
+        }
+
+        badge.layoutIfNeeded()
+
+        let badgeWidth = ceil(badge.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width)
+        let amountLeading = amountLabel.frame.minX > 0
+            ? amountLabel.frame.minX
+            : mainView.bounds.width - ceil(amountLabel.intrinsicContentSize.width)
+        let inlineTitleWidth = amountLeading - tokenNameClipView.frame.minX - badgeWidth - Self.badgeLeadingSpacing - Self.badgeTrailingSpacing
+        guard inlineTitleWidth > 0 else { return applyBadgeLayoutMode(.overlay) }
+
+        let titleRequiredWidth = ceil(tokenNameLabel.intrinsicContentSize.width)
+        let nextMode: BadgeLayoutMode = titleRequiredWidth > inlineTitleWidth ? .overlay : .inline
+
+        return applyBadgeLayoutMode(nextMode)
+    }
+
+    private func updateTokenNameFadeMask() {
+        guard badgeLayoutMode == .overlay, badge.alpha > 0, !badge.isHidden else {
+            tokenNameClipView.layer.mask = nil
+            return
+        }
+
+        let overlapStartX = badge.frame.minX - tokenNameClipView.frame.minX
+        let clipWidth = tokenNameClipView.bounds.width
+        guard clipWidth > 0, overlapStartX < clipWidth else {
+            tokenNameClipView.layer.mask = nil
+            return
+        }
+
+        let fadeEndX = max(0, overlapStartX - Self.badgeFadeHiddenInset)
+        let fadeStartX = max(0, fadeEndX - Self.badgeFadeWidth)
+        let fadeStartLocation = max(0, min(1, fadeStartX / clipWidth))
+        let fadeEndLocation = max(0, min(1, fadeEndX / clipWidth))
+
+        tokenNameFadeMask.frame = tokenNameClipView.bounds
+        tokenNameFadeMask.startPoint = CGPoint(x: 0, y: 0.5)
+        tokenNameFadeMask.endPoint = CGPoint(x: 1, y: 0.5)
+        tokenNameFadeMask.colors = [
+            UIColor.black.cgColor,
+            UIColor.black.cgColor,
+            UIColor.clear.cgColor,
+            UIColor.clear.cgColor,
+        ]
+        tokenNameFadeMask.locations = [
+            0,
+            NSNumber(value: fadeStartLocation),
+            NSNumber(value: fadeEndLocation),
+            1,
+        ]
+        tokenNameClipView.layer.mask = tokenNameFadeMask
     }
 
     private func setAmountText(_ text: String?, animated: Bool, label: UILabel) {
@@ -300,6 +409,20 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         ) {
             label.text = text
         }
+    }
+
+    @discardableResult
+    private func applyBadgeLayoutMode(_ nextMode: BadgeLayoutMode) -> Bool {
+        guard nextMode != badgeLayoutMode else {
+            tokenNameClipView.layer.mask = nextMode == .overlay ? tokenNameFadeMask : nil
+            return false
+        }
+
+        badgeLayoutMode = nextMode
+        badgeInlineLeadingConstraint.isActive = nextMode == .inline
+        badgeOverlayTrailingConstraint.isActive = nextMode == .overlay
+        tokenNameClipView.layer.mask = nextMode == .overlay ? tokenNameFadeMask : nil
+        return true
     }
 
 }

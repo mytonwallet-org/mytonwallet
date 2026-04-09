@@ -48,7 +48,7 @@ interface OwnProps {
   isStatic?: boolean;
   className?: string;
   onConnected: NoneToVoidFunction;
-  onBackButtonClick?: NoneToVoidFunction;
+  onBackClick?: NoneToVoidFunction;
   onCancel?: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
 }
@@ -81,7 +81,7 @@ function LedgerConnect({
   currentTheme,
   className,
   onConnected,
-  onBackButtonClick,
+  onBackClick,
   onCancel,
   onClose,
 }: OwnProps & StateProps) {
@@ -99,7 +99,7 @@ function LedgerConnect({
   const isWaitingForRemoteTab = state === HardwareConnectState.WaitingForRemoteTab;
   const title = isConnected ? lang('Ledger Connected!') : lang('Connect Ledger');
   const shouldCloseOnCancel = !onCancel;
-  const noCancelButton = Boolean(onBackButtonClick);
+  const noCancelButton = Boolean(onBackClick);
 
   const renderingAvailableTransports = useMemo(() => {
     return (availableTransports || []).map((transport) => ({
@@ -256,7 +256,7 @@ function LedgerConnect({
         {!isStatic ? (
           <ModalHeader
             title={title}
-            onBackButtonClick={onBackButtonClick}
+            onBackButtonClick={onBackClick}
             onClose={handleClose}
           />
         ) : (

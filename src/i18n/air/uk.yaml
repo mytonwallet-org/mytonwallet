@@ -19,6 +19,8 @@ $screen_recording_info: |
   Ви зараз записуєте екран.
   На ньому може бути конфіденційна інформація.
   Переконайтеся, що ви розумієте, що буде оприлюднено.
+Screen Recording: Запис екрана
+Disable Screen Record Warning: Вимкнути попередження про запис екрана
 I Understand, Proceed: Розумію, продовжити
 Waiting for Network: Очікування мережі
 Updating: Оновлення

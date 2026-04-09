@@ -22,15 +22,14 @@ final class NftDetailsLottieViewer: UIView {
         }
     }
     
-    private var url: URL?
+    private(set) var url: URL?
     private let animationView: LottieAnimationView
     private var loadTask: Task<Void, Never>?
-    private let tagString: String
+    private var loadGeneration: UInt64 = 0
 
-    init(cornerRadius: CGFloat, frame: CGRect, tag: String) {
-        tagString = tag
+    init(cornerRadius: CGFloat, frame: CGRect) {
         animationView = LottieAnimationView(frame: .fromSize(frame.size))
-
+        
         super.init(frame: frame)
         isUserInteractionEnabled = false
         clipsToBounds = true
@@ -101,7 +100,7 @@ final class NftDetailsLottieViewer: UIView {
         animationView.stop()
         animationView.currentProgress = 0
         isHidden = true
-        alpha = 1
+        loadGeneration &+= 1
     }
 
     private func applyUrl() {
@@ -109,35 +108,36 @@ final class NftDetailsLottieViewer: UIView {
         loadTask = nil
         animationView.stop()
         animationView.animation = nil
+        loadGeneration &+= 1
 
         guard let url else {
             isHidden = true
-            alpha = 1
             return
         }
 
         isHidden = true
-        alpha = 1
+        let epoch = loadGeneration
 
         loadTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 let cache = DefaultAnimationCache.sharedCache
                 guard let animation = await LottieAnimation.loadedFrom(url: url, animationCache: cache) else {
+                    guard epoch == self.loadGeneration else { return }
                     self.isHidden = true
-                    self.alpha = 1
                     return
                 }
                 try Task.checkCancellation()
+                guard epoch == self.loadGeneration else { return }
                 guard self.url == url else { return }
 
                 self.animationView.animation = animation
                 self.animationView.currentProgress = 0
-                self.beginPlaybackAfterPreparation(expectedUrl: url)
+                self.beginPlaybackAfterPreparation(expectedUrl: url, playbackEpoch: epoch)
             } catch is CancellationError {
             } catch {
+                guard epoch == self.loadGeneration else { return }
                 self.isHidden = true
-                self.alpha = 1
             }
         }
     }
@@ -145,49 +145,47 @@ final class NftDetailsLottieViewer: UIView {
     private func restartPreparedPlaybackIfPossible() {
         guard let currentUrl = url, animationView.animation != nil else { return }
         guard !animationView.isAnimationPlaying else { return }
+        
         animationView.stop()
         animationView.currentProgress = 0
-        beginPlaybackAfterPreparation(expectedUrl: currentUrl)
+        beginPlaybackAfterPreparation(expectedUrl: currentUrl, playbackEpoch: loadGeneration)
     }
 
-    /// Called only after `animation` is assigned and progress reset; starts delegate-driven fades, then `play`.
-    private func beginPlaybackAfterPreparation(expectedUrl: URL?) {
+    private func beginPlaybackAfterPreparation(expectedUrl: URL?, playbackEpoch: UInt64) {
+        guard playbackEpoch == loadGeneration else { return }
         guard animationView.animation != nil else { return }
         if let expectedUrl, self.url != expectedUrl { return }
 
-        animationView.currentProgress = 0
-
         if let delegate = playbackTransitionDelegate {
             isHidden = true
-            alpha = 1
             delegate.nftDetailsLottieViewer(self, requestFadeOutUnderlay: { [weak self] in
                 guard let self else { return }
+                guard playbackEpoch == self.loadGeneration else { return }
                 guard self.animationView.animation != nil else { return }
                 if let expectedUrl, self.url != expectedUrl { return }
 
                 self.isHidden = false
-                self.alpha = 1
                 self.animationView.play { [weak self] _ in
                     guard let self else { return }
+                    guard playbackEpoch == self.loadGeneration else { return }
                     self.animationView.stop()
                     self.animationView.currentProgress = 0
                     if let delegate = self.playbackTransitionDelegate {
                         delegate.nftDetailsLottieViewer(self, requestFadeInUnderlay: {})
                     } else {
                         self.isHidden = true
-                        self.alpha = 1
                     }
                 }
             })
         } else {
+            guard playbackEpoch == loadGeneration else { return }
             isHidden = false
-            alpha = 1
             animationView.play { [weak self] _ in
                 guard let self else { return }
+                guard playbackEpoch == self.loadGeneration else { return }
                 self.animationView.stop()
                 self.animationView.currentProgress = 0
                 self.isHidden = true
-                self.alpha = 1
             }
         }
     }
@@ -195,7 +193,7 @@ final class NftDetailsLottieViewer: UIView {
 
 extension NftDetailsLottieViewer {
     /// Before playback: hide underlay and show viewer instantly, then `continuePlayback`.
-    static func runDefaultFadeOutUnderlay(viewer: NftDetailsLottieViewer, imageView: UIImageView, continuePlayback: @escaping () -> Void) {
+    static func runDefaultFadeOutUnderlay(viewer: NftDetailsLottieViewer, imageView: UIView, continuePlayback: @escaping () -> Void) {
         viewer.isHidden = false
         viewer.alpha = 1
         imageView.alpha = 0
@@ -203,7 +201,7 @@ extension NftDetailsLottieViewer {
     }
 
     /// After playback: hide viewer and show underlay instantly.
-    static func runDefaultFadeInUnderlay(viewer: NftDetailsLottieViewer, imageView: UIImageView, finished: @escaping () -> Void) {
+    static func runDefaultFadeInUnderlay(viewer: NftDetailsLottieViewer, imageView: UIView, finished: @escaping () -> Void) {
         viewer.alpha = 0
         imageView.alpha = 1
         viewer.isHidden = true

@@ -13,7 +13,7 @@ import styles from './Settings.module.scss';
 interface OwnProps {
   children: TeactNode;
   isOpen?: boolean;
-  onClose: () => void;
+  onClose: NoneToVoidFunction;
 }
 
 interface StateProps {

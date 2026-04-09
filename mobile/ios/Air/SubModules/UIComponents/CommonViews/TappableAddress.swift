@@ -1,3 +1,4 @@
+import ContextMenuKit
 import SwiftUI
 import WalletCore
 import WalletContext
@@ -79,12 +80,12 @@ public struct AddressViewModel: Sendable {
 public struct TappableAddress: View {
     let account: AccountContext
     let model: AddressViewModel
+    let extraTouchPadding: CGFloat
     
-    @State private var menuContext = MenuContext()
-    
-    public init(account: AccountContext, model: AddressViewModel) {
+    public init(account: AccountContext, model: AddressViewModel, extraTouchPadding: CGFloat = 8) {
         self.account = account
         self.model = model
+        self.extraTouchPadding = extraTouchPadding
     }
         
     public var body: some View {
@@ -111,15 +112,13 @@ public struct TappableAddress: View {
                         .offset(y: 1)
                 }
             }
-            .menuSource(isEnabled: isMenuEnabled, menuContext: menuContext)
-            .task(id: isMenuEnabled) {
-                if isMenuEnabled {
-                    menuContext.makeConfig = {
-                        let currentModel = self.model.withLocalName(account: account)
-                        return makeTappableAddressMenu(accountContext: account, addressModel: currentModel)()
-                    }
-                }
+            .padding(extraTouchPadding)
+            .contentShape(.rect)
+            .contextMenuSource(isEnabled: isMenuEnabled) {
+                let currentModel = self.model.withLocalName(account: account)
+                return makeTappableAddressMenu(accountContext: account, addressModel: currentModel)()
             }
+            .padding(-extraTouchPadding)
         }
     }
 }
@@ -129,8 +128,6 @@ public struct TappableAddressFull: View {
     var accountContext: AccountContext
     let model: AddressViewModel
     let compactAddressWithName: Bool
-    
-    @State private var menuContext = MenuContext()
     
     let openInBrowser: (URL) -> () = { url in
         AppActions.openInBrowser(url)
@@ -186,14 +183,9 @@ public struct TappableAddressFull: View {
             }
             .lineLimit(nil)
             .multilineTextAlignment(.leading)
-            .menuSource(menuContext: menuContext)
-            .task(id: isMenuEnabled) {
-                if isMenuEnabled {
-                    menuContext.makeConfig = {
-                        let currentModel = self.model.withLocalName(account: accountContext)
-                        return makeTappableAddressMenu(accountContext: accountContext, addressModel: currentModel)()
-                    }
-                }
+            .contextMenuSource(isEnabled: isMenuEnabled) {
+                let currentModel = self.model.withLocalName(account: accountContext)
+                return makeTappableAddressMenu(accountContext: accountContext, addressModel: currentModel)()
             }
         }
     }

@@ -89,6 +89,7 @@ public struct WalletCoreData {
         case newLocalActivity(ApiUpdate.NewLocalActivities)
         case initialActivities(ApiUpdate.InitialActivities)
         case updateAccount(ApiUpdate.UpdateAccount)
+        case updateAccountConfig(ApiUpdate.UpdateAccountConfig)
         case updateAccountDomainData(ApiUpdate.UpdateAccountDomainData)
         case updateBalances(ApiUpdate.UpdateBalances)
         case updateCurrencyRates(ApiUpdate.UpdateCurrencyRates)
@@ -200,6 +201,8 @@ public struct WalletCoreData {
         StartupTrace.mark("walletCoreData.accountStore.ready", details: "accounts=\(accountIds.count)")
         await AccountSettingsStore.liveValue.use(db: db)
         StartupTrace.mark("walletCoreData.accountSettings.ready")
+        await AccountConfigStore.liveValue.use()
+        StartupTrace.mark("walletCoreData.accountConfig.ready")
         didSucceed = true
     }
 
@@ -264,6 +267,7 @@ public struct WalletCoreData {
         SettingsStore.liveValue.clean()
         SavedAddressesStore.liveValue.clean()
         AccountSettingsStore.liveValue.clean()
+        AccountConfigStore.liveValue.clean()
         DomainsStore.liveValue.clean()
         AccountStore.clean()
         ConfigStore.shared.clean()

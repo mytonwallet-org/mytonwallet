@@ -26,6 +26,10 @@ struct DebugView: View {
     @AppStorage("debug_glassOpacity") var glassOpacity: Double = 1
     @AppStorage("debug_gradientIsHidden") var gradientIsHidden: Bool = true
     @AppStorage("debug_displayLogOverlay") private var displayLogOverlayEnabled = false
+#if DEBUG
+    @AppStorage(DebugBypassLockscreen.userDefaultsKey) private var bypassLockscreen = false
+    @AppStorage(DebugPromotionPreset.userDefaultsKey) private var showAirPromotionPreset = false
+#endif
     @State private var isLimitedOverride: Bool? = ConfigStore.shared.isLimitedOverride
     @State private var seasonalThemeOverride: ApiUpdate.UpdateConfig.SeasonalTheme? = ConfigStore.shared.seasonalThemeOverride
 
@@ -153,6 +157,29 @@ struct DebugView: View {
                 }
                 .onChange(of: displayLogOverlayEnabled) { isEnabled in
                     setDisplayLogOverlayEnabled(isEnabled)
+                }
+
+                Section {
+                    Toggle("Bypass lockscreen", isOn: $bypassLockscreen)
+                } footer: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Debug builds only. Persists via `\(DebugBypassLockscreen.userDefaultsKey)`.")
+                        Text("You can also enable it at launch with `\(DebugBypassLockscreen.environmentVariable)=1`.")
+                        if DebugBypassLockscreen.isEnabledFromEnvironment {
+                            Text("The current launch environment is already bypassing the lockscreen.")
+                        }
+                    }
+                }
+
+                Section {
+                    Toggle("Show Air promotion preset", isOn: $showAirPromotionPreset)
+                } footer: {
+                    Text("Overrides the current account promotion config with the built-in 2026 Air campaign sample.")
+                }
+                .onChange(of: showAirPromotionPreset) { _ in
+                    Task { @MainActor in
+                        AccountConfigStore.liveValue.refreshDebugOverrides()
+                    }
                 }
 
                 Section {

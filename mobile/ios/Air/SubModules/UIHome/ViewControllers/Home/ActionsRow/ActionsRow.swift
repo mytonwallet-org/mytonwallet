@@ -1,5 +1,6 @@
 
 import UIKit
+import ContextMenuKit
 import UIComponents
 import WalletCore
 import WalletContext
@@ -100,6 +101,7 @@ final class ActionsView: ButtonsToolbar {
     var sendButton: UIView!
     var swapButton: UIView!
     var earnButton: UIView!
+    private var sendMenuInteraction: ContextMenuInteraction?
     
     init() {
         super.init(frame: .zero)
@@ -132,21 +134,30 @@ final class ActionsView: ButtonsToolbar {
                 AppActions.showSend(accountContext: accountContext, prefilledValues: .init())
             }
         )
-        sendButton.attachMenu(makeConfig: { [weak self] in
-            guard let accountContext = self?.accountContext else { return MenuConfig(menuItems: []) }
-            var menuItems: [MenuItem] = [
-                .button(id: "0-send", title: lang("Send"), trailingIcon: .air("MenuSend26")) {
-                    AppActions.showSend(accountContext: accountContext, prefilledValues: .init())
-                },
-                .button(id: "0-multisend", title: lang("Multisend"), trailingIcon: .air("MenuMultisend26")) { AppActions.showMultisend() },
-            ]
-            if !ConfigStore.shared.shouldRestrictSell {
-                menuItems += .button(id: "0-sell", title: lang("Sell"), trailingIcon: .air("MenuSell26")) {
-                    AppActions.showSell(accountContext: accountContext, tokenSlug: nil)
-                }
+        let sendMenuInteraction = ContextMenuInteraction(
+            triggers: [.longPress],
+            longPressDuration: 0.25,
+            sourcePortal: ContextMenuSourcePortal(
+                mask: .roundedAttachmentRect(
+                    cornerRadius: WScalableButton.preferredCornerRadius,
+                    cornerCurve: .continuous
+                ),
+                showsBackdropCutout: true
+            ),
+            onWillPresent: {
+                sendButton.cancelCurrentInteractionAndSuppressNextTap()
+            },
+            onDidDismiss: {
+                sendButton.consumeSuppressedTapIfNeeded()
             }
-            return MenuConfig(menuItems: menuItems)
-        })
+        ) { [weak self] _ in
+            self?.makeSendMenuConfiguration() ?? ContextMenuConfiguration(
+                rootPage: ContextMenuPage(items: []),
+                backdrop: .defaultBlurred()
+            )
+        }
+        sendMenuInteraction.attach(to: sendButton)
+        self.sendMenuInteraction = sendMenuInteraction
         addArrangedSubview(sendButton)
         self.sendButton = sendButton
         
@@ -169,5 +180,55 @@ final class ActionsView: ButtonsToolbar {
             }
         )
         addArrangedSubview(earnButton)
+    }
+
+    private func makeSendMenuConfiguration() -> ContextMenuConfiguration {
+        guard let accountContext else {
+            return ContextMenuConfiguration(
+                rootPage: ContextMenuPage(items: []),
+                backdrop: .defaultBlurred()
+            )
+        }
+
+        var items: [ContextMenuItem] = [
+            .action(
+                ContextMenuAction(
+                    title: lang("Send"),
+                    icon: .airBundle("MenuSend26"),
+                    handler: {
+                        AppActions.showSend(accountContext: accountContext, prefilledValues: .init())
+                    }
+                )
+            ),
+            .action(
+                ContextMenuAction(
+                    title: lang("Multisend"),
+                    icon: .airBundle("MenuMultisend26"),
+                    handler: {
+                        AppActions.showMultisend()
+                    }
+                )
+            ),
+        ]
+
+        if !ConfigStore.shared.shouldRestrictSell {
+            items.append(
+                .action(
+                    ContextMenuAction(
+                        title: lang("Sell"),
+                        icon: .airBundle("MenuSell26"),
+                        handler: {
+                            AppActions.showSell(accountContext: accountContext, tokenSlug: nil)
+                        }
+                    )
+                )
+            )
+        }
+
+        return ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: items),
+            backdrop: .defaultBlurred(),
+            style: ContextMenuStyle(minWidth: 180.0, maxWidth: 280.0)
+        )
     }
 }

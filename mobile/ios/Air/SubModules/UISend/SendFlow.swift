@@ -89,19 +89,24 @@ struct TokenSendFlow: SendFlow {
         let draft = try await Api.checkTransactionDraft(chain: chain, options: options)
         try handleDraftError(draft)
         
-        if draft.error == .domainNotResolved {
+        if draft.error == .walletNotInitialized {
+            throw BridgeCallError.message(.walletNotInitialized, nil)
+        }
+
+        if let error = draft.error, [
+            .domainNotResolved,
+            .invalidAddress,
+            .invalidAddressFormat,
+            .invalidToAddress,
+        ].contains(error) {
             return SendFlowDraftResult(
                 draftData: DraftData(
                     status: .invalid,
-                    transactionDraft: nil
+                    transactionDraft: draft
                 ),
-                explainedFee: nil,
+                explainedFee: draft.explainedFee,
                 requiresMemo: false
             )
-        }
-        
-        if draft.error == .walletNotInitialized {
-            throw BridgeCallError.message(.walletNotInitialized, nil)
         }
         
         let explainedFee = draft.explainedFee

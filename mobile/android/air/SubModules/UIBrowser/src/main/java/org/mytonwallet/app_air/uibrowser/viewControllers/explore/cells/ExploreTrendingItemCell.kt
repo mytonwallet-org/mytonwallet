@@ -36,7 +36,7 @@ class ExploreTrendingItemCell(
         context,
         LayoutParams(
             if (site.extendedIcon.isNotBlank()) cellWidth * 2 else cellWidth,
-            cellWidth + 12.dp
+            if (site.extendedIcon.isNotBlank()) cellWidth + 14.dp else cellWidth + 6.dp
         )
     ),
     WThemedView {
@@ -140,7 +140,6 @@ class ExploreTrendingItemCell(
         addView(bottomView, ViewGroup.LayoutParams(MATCH_PARENT, 80.dp))
 
         setConstraints {
-            allEdges(imageViewContainer)
             toCenterX(bottomView)
             toBottom(bottomView)
         }

@@ -12,57 +12,57 @@ public struct TotalAmountRow: View {
     var amountInBaseCurrency: BaseCurrencyAmount {
         let baseCurrency = TokenStore.baseCurrency
         var total: BigInt = 0
-        for (tokenSlug, amount) in info.tokenTotals {
-            if let token = TokenStore.tokens[tokenSlug] {
+        for tokenSlug in info.tokenOrder {
+            guard let amount = info.tokenTotals[tokenSlug] else { continue }
+            if let token = TokenStore.getToken(slug: tokenSlug) {
                 total += convertAmount(amount, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrency.decimals)
             }
         }
         return BaseCurrencyAmount(total, baseCurrency)
     }
     
-    var tokenAmounts: [TokenAmount] {
-        var amounts: [TokenAmount] = []
-        for (tokenSlug, amount) in info.tokenTotals {
-            if let token = TokenStore.tokens[tokenSlug] {
-                amounts.append(TokenAmount(amount, token))
+    var amountTerms: [String] {
+        var terms: [String] = []
+
+        if info.nftsCount > 0 {
+            let nftLabel = info.nftsCount == 1 ? "1 NFT" : "\(info.nftsCount) NFTs"
+            terms.append(nftLabel)
+        }
+
+        for tokenSlug in info.tokenOrder {
+            guard let amount = info.tokenTotals[tokenSlug] else { continue }
+            if let token = TokenStore.getToken(slug: tokenSlug) {
+                terms.append(TokenAmount(amount, token).formatted(.defaultAdaptive))
+            } else {
+                terms.append(AnyDecimalAmount(amount, decimals: 9, symbol: "[Unknown]", forceCurrencyToRight: true).formatted(.defaultAdaptive))
             }
         }
-        return amounts
+
+        return terms
+    }
+
+    var summaryText: String {
+        let amounts = amountTerms.joined(separator: " + ")
+
+        if info.tokenTotals.isEmpty {
+            return amounts
+        }
+
+        let baseCurrencyEquivalent = amountInBaseCurrency.formatted(.baseCurrencyEquivalent)
+        if amounts.isEmpty {
+            return baseCurrencyEquivalent
+        }
+
+        return "\(amounts) (\(baseCurrencyEquivalent))"
     }
     
     public var body: some View {
         InsetCell {
-            text
+            Text(summaryText)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(Color.air.primaryLabel)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 3)
-        }
-    }
-    
-    @ViewBuilder
-    var text: some View {
-        let bc = Text(
-            amountInBaseCurrency.formatAttributed(
-                format: .init(preset: .baseCurrencyEquivalent),
-                integerFont: .systemFont(ofSize: 24, weight: .semibold),
-                fractionFont: .systemFont(ofSize: 20, weight: .semibold),
-                symbolFont: .systemFont(ofSize: 20, weight: .semibold),
-                integerColor: UIColor.label,
-                fractionColor: UIColor.label,
-                symbolColor: .air.secondaryLabel,
-                forceSymbolColor: true,
-            )
-        )
-        if !tokenAmounts.isEmpty {
-            let _tokens = tokenAmounts
-                .map { tokenAmount in
-                    tokenAmount.formatted(.defaultAdaptive)
-                }
-                .joined(separator: " + ")
-            let tokens = Text(_tokens)
-            Text("\(bc) (\(tokens))")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(.air.secondaryLabel)
-        } else {
-            bc
         }
     }
 }

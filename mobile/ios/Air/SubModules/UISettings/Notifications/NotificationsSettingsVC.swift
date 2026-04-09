@@ -18,9 +18,7 @@ public final class NotificationsSettingsVC: SettingsBaseVC {
         navigationItem.title = lang("Notifications & Sounds")
         
         hostingController = addHostingController(makeView(), constraints: .fill)
-        
-        bringNavigationBarToFront()
-        
+
         updateTheme()
     }
     

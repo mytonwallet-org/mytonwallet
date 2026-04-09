@@ -4,10 +4,12 @@ import { DappProtocolType } from '../../dappProtocols/types';
 import { fetchActivityDetails, fetchActivitySlice } from './activities';
 import { normalizeAddress } from './address';
 import {
+  createSubWalletFromDerivation,
   fetchPrivateKeyString,
   getWalletFromAddress,
   getWalletFromBip39Mnemonic,
   getWalletFromPrivateKey,
+  getWalletVariants,
 } from './auth';
 import { signDappData, signDappTransfers } from './dapp';
 import { parseTransactionForPreview } from './emulation';
@@ -42,6 +44,8 @@ const solanaSdk: ChainSdk<'solana'> = {
   getWalletFromPrivateKey,
   getWalletFromAddress,
   getWalletsFromLedgerAndLoadBalance: notSupported,
+  getWalletVariants,
+  createSubWalletFromDerivation,
   setupActivePolling,
   setupInactivePolling,
   fetchToken: notSupported,

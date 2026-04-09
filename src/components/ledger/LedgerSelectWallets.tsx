@@ -31,7 +31,7 @@ type OwnProps = {
   isActive?: boolean;
   isStatic?: boolean;
   withCloseButton?: boolean;
-  onBackButtonClick?: NoneToVoidFunction;
+  onBackClick?: NoneToVoidFunction;
   onCancel?: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
 };
@@ -54,7 +54,7 @@ function LedgerSelectWallets({
   accounts,
   isLoading,
   withCloseButton,
-  onBackButtonClick,
+  onBackClick,
   onCancel,
   onClose,
 }: OwnProps & StateProps) {
@@ -72,7 +72,7 @@ function LedgerSelectWallets({
   );
   const [selectedAccountIndices, setSelectedAccountIndices] = useState<number[]>([]);
   const shouldCloseOnCancel = !onCancel;
-  const shouldUseVerticalButtons = Boolean(onBackButtonClick);
+  const shouldUseVerticalButtons = Boolean(onBackClick);
 
   useHistoryBack({
     isActive,
@@ -198,8 +198,8 @@ function LedgerSelectWallets({
       {!isStatic ? (
         <ModalHeader
           title={title}
-          onBackButtonClick={onBackButtonClick}
-          onClose={!onBackButtonClick || withCloseButton ? onClose : undefined}
+          onBackButtonClick={onBackClick}
+          onClose={!onBackClick || withCloseButton ? onClose : undefined}
         />
       ) : (
         <div className={settingsStyles.header}>

@@ -11,12 +11,12 @@ import WalletContext
 
 final class WalletAssetsView: WTouchPassView {
     let walletTokensVC: WalletTokensVC
-    let walletCollectiblesView: NftsVC
+    private let walletCollectiblesView: WSegmentedControllerContent
 
     var onScrollingOffsetChanged: ((CGFloat) -> Void)?
     var scrollProgress: CGFloat = 0
 
-    init(walletTokensVC: WalletTokensVC, walletCollectiblesView: NftsVC) {
+    init(walletTokensVC: WalletTokensVC, walletCollectiblesView: WSegmentedControllerContent) {
         self.walletTokensVC = walletTokensVC
         self.walletCollectiblesView = walletCollectiblesView
         super.init(frame: .zero)

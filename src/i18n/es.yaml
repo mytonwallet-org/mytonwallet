@@ -63,6 +63,7 @@ Settings: Configuración
 About %app_name%: Acerca de %app_name%
 Exit: Salir
 Remove Wallet: Salir
+Remove Wallets: Eliminar billeteras
 Something went wrong.: Oops! Algo salió mal.
 Something went wrong: Oops! Algo salió mal
 Logo: Logotipo
@@ -94,6 +95,7 @@ Warning!: ¡Advertencia!
 $logout_without_backup_warning: No ha realizado copia de seguridad de este monedero. Si cierra sesión, perderá el acceso a sus activos.
 $logout_accounts_without_backup_warning: No ha realizado copia de seguridad de %links%. Si cierra sesión, perderá el acceso a sus activos.
 $logout_warning: Esto desconectará el monedero de esta aplicación. Podrá restaurar su monedero usando la frase semilla...
+$logout_all_wallets_warning: Esto eliminará todas las billeteras de la aplicación. Asegúrese de haber respaldado todas sus **frases secretas**.
 $logout_view_mode_warning: Esto desconectará el monedero de esta aplicación.
 Create Deposit Link: Crear enlace de depósito
 $receive_invoice_description: |
@@ -861,10 +863,8 @@ Copy Link: Copiar enlace
 Check eligibility for max APY: Verificar elegibilidad para APY máx.
 Check eligibility: Verificar elegibilidad
 $expired_many: Expirados
-$expires_in %days%:
-  zeroValue: Expira %days%
-  oneValue: Expira %days%
-  otherValue: Expiran %days%
+$one_domain_expires %days%: Expira %days%
+$multiple_domains_expire %days%: Expiran %days%
 Message: Mensaje
 Binary Data: Datos binarios
 The binary data content is unclear. Sign it only if you trust the service.: El contenido de los datos binarios no está claro. Fírmelo solo si confía en el servicio.
@@ -1077,6 +1077,16 @@ Enabling biometric confirmation will reset the passcode.: Habilitar la confirmac
 Confirm action with your passcode: Confirma la acción con tu contraseña
 No Image: Sin imagen
 Different blockchain. Cannot be selected: Blockchain diferente. No se puede seleccionar
+Subwallets: Subcarteras
+Other addresses for this wallet: Otras direcciones para esta billetera
+Current Wallet: Billetera actual
+Add Subwallet: Agregar subcartera
+Replace in this wallet: Reemplazar en esta billetera
+Create Subwallet: Crear subcartera
+You have tokens on other subwallets. You can switch to them here.: Tienes tokens en otras subcarteras. Puedes cambiar a ellas aquí.
+Subwallet Created: Subcartera creada
+Subwallet Added: Subcartera agregada
+Subwallet Switched: Subcartera cambiada
 Top 5: Top 5
 Top 10: Top 10
 Top 30: Top 30
@@ -1090,3 +1100,11 @@ Scroll To Bottom: Ir al final
 $agent_clear_chat_confirm: ¿Estás seguro de que quieres borrar el historial de chat?
 $unknown_swap_token: Token desconocido en el enlace de intercambio. Se utilizaron los tokens predeterminados.
 $action_not_available_view_mode: Esta acción no está disponible para billeteras de visualización
+Scanning for subwallets...: Buscando subcarteras...
+This process may take up to a minute. Please wait.: Este proceso puede tardar hasta un minuto. Por favor, espere.
+Your assets on other TON contracts: Sus activos en otros contratos TON
+No existing subwallets found: No se encontraron subcarteras existentes
+You can create a new subwallet if you need another address on the same recovery phrase.: Puede crear una nueva subcartera si necesita otra dirección con la misma frase de recuperación.
+You have tokens on other subwallets. Each subwallet has its own address.: Tienes tokens en otras subcarteras. Cada subcartera tiene su propia dirección.
+$chain_Subwallets: Subcarteras de %chain%
+Scanning...: Escaneando...

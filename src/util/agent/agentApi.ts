@@ -124,6 +124,7 @@ export function createAgentStream(
       callbacks.onComplete(accumulated);
     } catch (err) {
       if (abortController.signal.aborted) return;
+      logDebugError('[createAgentStream] Connection Failed', err);
       callbacks.onError(AgentError.ConnectionFailed);
     }
   })();

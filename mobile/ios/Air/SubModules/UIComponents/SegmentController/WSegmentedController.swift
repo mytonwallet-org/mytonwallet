@@ -12,20 +12,11 @@ import WalletContext
 @MainActor
 public protocol WSegmentedControllerContent: UIViewController {
     var onScroll: ((_ y: CGFloat) -> Void)? { get set }
-    var onScrollStart: (() -> Void)? { get set }
-    var onScrollEnd: (() -> Void)? { get set }
     var view: UIView! { get }
     var title: String? { get set }
     var scrollingView: UIScrollView? { get }
     func scrollToTop(animated: Bool)
-    var calculatedHeight: CGFloat { get }
-    var hostedHeight: CGFloat { get }
-}
-
-public extension WSegmentedControllerContent {
-    // FIXME: - default implementation is ambiguous
-    var calculatedHeight: CGFloat { 0 }
-    var hostedHeight: CGFloat { calculatedHeight }
+    func calculateHeight(isHosted: Bool) -> CGFloat
 }
 
 extension WSegmentedControllerContent {

@@ -165,6 +165,7 @@
 .actionButton {
   cursor: pointer;
 
+  overflow: hidden;
   display: block;
 
   width: 100%;
@@ -172,19 +173,20 @@
   border: none;
   border-radius: 0.625rem;
 
-  &:last-child {
-    border-bottom-right-radius: var(--border-radius-default);
-    border-bottom-left-radius: var(--border-radius-default);
-  }
-
   font-size: 0.9375rem;
   font-weight: 500;
   line-height: 1.25rem;
   color: var(--color-accent);
   text-align: center;
   text-decoration: none !important;
+  word-break: break-all;
 
   background: var(--color-accent-10o);
+
+  &:last-child {
+    border-bottom-right-radius: var(--border-radius-default);
+    border-bottom-left-radius: var(--border-radius-default);
+  }
 
   &:hover {
     opacity: 0.85;

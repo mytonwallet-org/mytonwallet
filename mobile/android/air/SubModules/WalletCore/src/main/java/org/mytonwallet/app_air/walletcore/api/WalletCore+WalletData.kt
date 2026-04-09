@@ -33,7 +33,7 @@ fun WalletCore.fetchPriceHistory(
                     withContext(Dispatchers.Main) {
                         callback(parsedList, null)
                     }
-                } catch (_: Error) {
+                } catch (_: Exception) {
                     withContext(Dispatchers.Main) {
                         callback(null, null)
                     }

@@ -73,10 +73,10 @@ enum AgentMessageTextRenderer {
                 }
 
                 if let headingText = headingText(from: trimmedLine) {
-                    return "**\(headingText)**"
+                    return escapingMarkdownTildes(in: "**\(headingText)**")
                 }
 
-                return line
+                return escapingMarkdownTildes(in: line)
             }
             .joined(separator: "\n")
     }
@@ -159,5 +159,27 @@ enum AgentMessageTextRenderer {
         guard remainder.first == " " else { return nil }
 
         return remainder.trimmingCharacters(in: .whitespaces)
+    }
+
+    private static func escapingMarkdownTildes(in text: String) -> String {
+        var escapedText = ""
+        escapedText.reserveCapacity(text.count)
+        var consecutiveBackslashes = 0
+
+        for character in text {
+            if character == "~" {
+                if consecutiveBackslashes.isMultiple(of: 2) {
+                    escapedText.append("\\")
+                }
+                escapedText.append(character)
+                consecutiveBackslashes = 0
+                continue
+            }
+
+            escapedText.append(character)
+            consecutiveBackslashes = character == "\\" ? consecutiveBackslashes + 1 : 0
+        }
+
+        return escapedText
     }
 }

@@ -114,7 +114,9 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
             if chain.isOnrampSupported {
                 buyCryptoItems.append(.buyWithCard)
             }
-            buyCryptoItems.append(.buyWithCrypto)
+            if !account.isHardware {
+                buyCryptoItems.append(.buyWithCrypto)
+            }
             if chain.formatTransferUrl != nil {
                 buyCryptoItems.append(.depositLink)
             }
@@ -163,9 +165,9 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
     // MARK: - WSegmentedControllerContent
 
     public var onScroll: ((CGFloat) -> Void)?
-    public var onScrollStart: (() -> Void)?
-    public var onScrollEnd: (() -> Void)?
     public var scrollingView: UIScrollView? { collectionView }
+    public func calculateHeight(isHosted: Bool) -> CGFloat { 0 }
+
 }
 
 private extension ApiChain {

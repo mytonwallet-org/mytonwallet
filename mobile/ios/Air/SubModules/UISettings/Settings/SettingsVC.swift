@@ -62,7 +62,6 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         settingsHeaderView = SettingsHeaderView()
         
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            addNavigationBar()
             // set title to get blurred background
             navigationItem.attributedTitle = AttributedString(lang("Settings"), attributes: AttributeContainer([.foregroundColor: UIColor.clear]))
             navigationItem.leftItemsSupplementBackButton = true
@@ -171,8 +170,6 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             settingsHeaderView.rightAnchor.constraint(equalTo: view.rightAnchor)
         ])
                 
-        addBottomBarBlur()
-        
         collectionView.reloadData()
     }
         
@@ -205,6 +202,12 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             navigationController?.pushViewController(AppearanceSettingsVC(), animated: true)
         case .assetsAndActivity:
             navigationController?.pushViewController(AssetsAndActivityVC(), animated: true)
+        case .subwallets:
+            Task { @MainActor in
+                if let password = await UnlockVC.presentAuthAsync(on: self) {
+                    self.navigationController?.pushViewController(SubwalletsVC(password: password), animated: true)
+                }
+            }
         case .connectedApps:
             navigationController?.pushViewController(ConnectedAppsVC(isModal: false), animated: true)
         case .language:
@@ -312,7 +315,15 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             snapshot.appendItems([.security])
         }
         snapshot.appendItems([.assetsAndActivity])
-        if let count = AccountStore.walletVersionsData?.versions.count, count > 0 {
+        #if DEBUG
+        if currentAccountSupportsSubwallets() {
+            snapshot.appendItems([.subwallets])
+        }
+        #endif
+        if let account = AccountStore.account,
+           !account.isHardware,
+           let count = AccountStore.walletVersionsData?.versions.count,
+           count > 0 {
             snapshot.appendItems([.walletVersions])
         }
         if let count = DappsStore.dappsCount, count > 0 {
@@ -354,6 +365,14 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         default:
             return nil
         }
+    }
+
+    private func currentAccountSupportsSubwallets() -> Bool {
+        guard let account = AccountStore.account, account.type == .mnemonic else {
+            return false
+        }
+
+        return account.orderedChains.contains { chain, _ in account.supportsSubwallets(on: chain) }
     }
 
     // MARK: - Collection view delegate
@@ -478,7 +497,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     }
 }
 
- extension SettingsVC: @MainActor SettingsHeaderViewDelegate {
+extension SettingsVC: @MainActor SettingsHeaderViewDelegate {
     func settingsHeaderViewDidTapQRCodeButton() {
         showReceiveWithQR()
     }

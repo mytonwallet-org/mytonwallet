@@ -34,7 +34,7 @@ import {
 } from './addresses';
 import { hexToBytes } from './utils';
 
-const actualStateVersion = 21;
+const actualStateVersion = 22;
 
 export function buildLocalTransaction(
   params: ApiLocalTransactionParams,
@@ -423,6 +423,13 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, 
     await migrations.migration20.start();
 
     version = 21;
+    await storage.setItem('stateVersion', version);
+  }
+
+  if (version === 21) {
+    await migrations.migration21.start();
+
+    version = 22;
     await storage.setItem('stateVersion', version);
   }
 }

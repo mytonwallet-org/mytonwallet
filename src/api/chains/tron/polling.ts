@@ -31,6 +31,7 @@ export function setupActivePolling(
   onUpdate: OnApiUpdate,
   onUpdatingStatusChange: OnUpdatingStatusChange,
   newestActivityTimestamps: ApiActivityTimestamps,
+  shouldResetBalances?: boolean,
 ): NoneToVoidFunction {
   const { address } = account.byChain.tron;
 

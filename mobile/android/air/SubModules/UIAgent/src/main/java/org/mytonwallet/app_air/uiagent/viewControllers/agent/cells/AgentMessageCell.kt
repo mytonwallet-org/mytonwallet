@@ -4,8 +4,6 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
-import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
@@ -27,6 +25,8 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentOutgoing
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.TypingIndicatorView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
@@ -38,8 +38,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
@@ -217,7 +215,7 @@ class AgentMessageCell(context: Context) : WCell(
                 gravity = Gravity.CENTER
                 setPadding(16.dp, 10.dp, 16.dp, 10.dp)
                 setMaxWidth(labelMaxWidth)
-                isSingleLine = true
+                isSingleLine = false
 
                 val bgColor = (accentColor and 0x00FFFFFF) or 0x1A000000
                 background = WRippleDrawable.create(
@@ -229,32 +227,13 @@ class AgentMessageCell(context: Context) : WCell(
                 isClickable = true
 
                 setOnClickListener {
-                    val url = deeplink.url
-                    val isValidDeeplink = WalletContextManager.delegate?.handleDeeplink(url) == true
-                    if (!isValidDeeplink) {
-                        if (canOpenExternally(url)) {
-                            val intent = Intent(Intent.ACTION_VIEW, url.toUriOrNull())
-                            context.startActivity(intent)
-                        } else if (url.startsWith("http://") ||
-                            url.startsWith("https://")
-                        ) {
-                            onOpenUrl?.invoke(url)
-                        }
-                    }
+                    WalletCore.notifyEvent(WalletEvent.OpenUrl(deeplink.url))
                 }
             }
             val lp = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             lp.topMargin = 1.dp
             deeplinkContainer.addView(label, lp)
         }
-    }
-
-    private fun canOpenExternally(url: String): Boolean {
-        return url.startsWith("geo:") ||
-            url.startsWith("mailto:") ||
-            url.startsWith("market:") ||
-            url.startsWith("intent:") ||
-            url.startsWith("tg:")
     }
 
     private fun showCopyMenu() {

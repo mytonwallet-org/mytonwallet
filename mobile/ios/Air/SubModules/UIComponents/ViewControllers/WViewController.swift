@@ -10,41 +10,16 @@ import UIKit
 import WalletCore
 import WalletContext
 
-private let log = Log("WViewController")
-
-
 open class WViewController: UIViewController {
-
-    open var navigationBar: WNavigationBar? = nil
-    open var customNavigationBarBackground: UIView? = nil
     
     open var bottomButton: WButton? = nil
     open var bottomButtonConstraint: NSLayoutConstraint? = nil
-    
-    public var bottomBarBlurView: WBlurView?
-    private var bottomBarBlurConstraint: NSLayoutConstraint?
-    
-    open var navigationBarAnchor: NSLayoutYAxisAnchor {
-        if let navigationBar {
-            navigationBar.bottomAnchor
-        } else {
-            view.safeAreaLayoutGuide.topAnchor
-        }
-    }
-    
-    open var navigationBarHeight: CGFloat {
-        if let navigationBar {
-            navigationBar.navHeight
-        } else {
-            0
-        }
-    }
     
     open var navigationBarProgressiveBlurMinY: CGFloat = 0
     open var navigationBarProgressiveBlurDelta: CGFloat = 16
 
     open var hideNavigationBar: Bool {
-        navigationBar != nil
+        false
     }
 
     open var hideBottomBar: Bool {
@@ -111,35 +86,6 @@ open class WViewController: UIViewController {
     
     // MARK: - Navigation bar
     
-    public func addNavigationBar(navHeight: CGFloat? = nil, topOffset: CGFloat = 0, centerYOffset: CGFloat = 0, title: String? = nil, subtitle: String? = nil, leadingItem: WNavigationBarButton? = nil, trailingItem: WNavigationBarButton? = nil, tintColor: UIColor? = nil, titleColor: UIColor? = nil, closeIcon: Bool = false, addBackButton: (() -> Void)? = nil, prefersHardEdge: Bool = false) {
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *), !prefersHardEdge {
-            if let title {
-                self.title = title
-            }
-            if let subtitle {
-                self.navigationItem.subtitle = subtitle
-            }
-            if closeIcon {
-                navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { _ in topViewController()?.dismiss(animated: true) })
-            }
-            if let leadingItem {
-                // TODO: only cancel button is supported
-                navigationItem.leftBarButtonItem = UIBarButtonItem(systemItem: .cancel, primaryAction: UIAction { _ in leadingItem.onPress?() })
-            }
-        } else {
-            let navHeight = navHeight ?? (isPresentationModal ? 60 : 44)
-            let navigationBar = WNavigationBar(navHeight: navHeight, topOffset: topOffset, centerYOffset: centerYOffset, title: title, subtitle: subtitle, leadingItem: leadingItem, trailingItem: trailingItem, tintColor: tintColor, titleColor: titleColor, closeIcon: closeIcon, addBackButton: addBackButton)
-            self.navigationBar = navigationBar
-            navigationBar.translatesAutoresizingMaskIntoConstraints = false
-            view.addSubview(navigationBar)
-            NSLayoutConstraint.activate([
-                navigationBar.topAnchor.constraint(equalTo: view.topAnchor),
-                navigationBar.leftAnchor.constraint(equalTo: view.leftAnchor),
-                navigationBar.rightAnchor.constraint(equalTo: view.rightAnchor)
-            ])
-        }
-    }
-    
     public var isPresentationModal: Bool {
         if let navigationController, navigationController.presentingViewController?.presentedViewController === navigationController {
             return true
@@ -163,16 +109,6 @@ open class WViewController: UIViewController {
         navigationItem.scrollEdgeAppearance = appearance
     }
     
-    public func bringNavigationBarToFront() {
-        if let navigationBar {
-            view.bringSubviewToFront(navigationBar)
-        }
-    }
-    
-    public func updateSeparator(_ y: CGFloat) {
-        navigationBar?.showSeparator = y > navigationBarProgressiveBlurMinY
-    }
-    
     public func calculateNavigationBarProgressiveBlurProgress(_ y: CGFloat) -> CGFloat {
         let minY = navigationBarProgressiveBlurMinY
         let delta = navigationBarProgressiveBlurDelta
@@ -182,18 +118,6 @@ open class WViewController: UIViewController {
         let _p = (y - minY) / delta
         let p = min(1, max(0, _p))
         return p
-    }
-    
-    public func updateNavigationBarProgressiveBlur(_ y: CGFloat) {
-        let progress = calculateNavigationBarProgressiveBlurProgress(y)
-        navigationBar?.blurView.alpha = progress
-        navigationBar?.separatorView.alpha = progress
-    }
-    
-    public func weakifyUpdateProgressiveBlur() -> (_ y: CGFloat) -> () {
-        return { [weak self] y in
-            self?.updateNavigationBarProgressiveBlur(y)
-        }
     }
         
     public var canGoBack: Bool {
@@ -205,17 +129,6 @@ open class WViewController: UIViewController {
     
     open func goBack() {
         navigationController?.popViewController(animated: true)
-    }
-    
-    public func weakifyGoBack() -> () -> () {
-        return { [weak self] in self?.goBack() }
-    }
-    
-    public func weakifyGoBackIfAvailable() -> (() -> ())? {
-        if canGoBack {
-            return { [weak self] in self?.goBack() }
-        }
-        return nil
     }
     
     public func addCustomNavigationBarBackground(constant: CGFloat = 6) {
@@ -230,7 +143,6 @@ open class WViewController: UIViewController {
             customBackground.topAnchor.constraint(equalTo: view.topAnchor),
             customBackground.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: constant),
         ])
-        self.customNavigationBarBackground = customBackground
     }
     
     // MARK: - Hosting controller
@@ -250,7 +162,6 @@ open class WViewController: UIViewController {
     
     public enum ConstraintsConfig {
         case fill
-        case fillWithNavigationBar
         
         @MainActor public var constraints: (_ parent: WViewController, _ child: UIView) -> () {
             switch self {
@@ -260,15 +171,6 @@ open class WViewController: UIViewController {
                         child.leadingAnchor.constraint(equalTo: parent.view.leadingAnchor),
                         child.trailingAnchor.constraint(equalTo: parent.view.trailingAnchor),
                         child.topAnchor.constraint(equalTo: parent.view.topAnchor),
-                        child.bottomAnchor.constraint(equalTo: parent.view.bottomAnchor),
-                    ])
-                }
-            case .fillWithNavigationBar:
-                return { parent, child in
-                    NSLayoutConstraint.activate([
-                        child.leadingAnchor.constraint(equalTo: parent.view.leadingAnchor),
-                        child.trailingAnchor.constraint(equalTo: parent.view.trailingAnchor),
-                        child.topAnchor.constraint(equalTo: parent.navigationBarAnchor),
                         child.bottomAnchor.constraint(equalTo: parent.view.bottomAnchor),
                     ])
                 }
@@ -311,44 +213,9 @@ open class WViewController: UIViewController {
         return button
     }
 
-    // MARK: - Bottom bar blur
-    
-    public func addBottomBarBlur() {
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-        } else {
-            let tabBarBlurView = WBlurView()
-            self.bottomBarBlurView = tabBarBlurView
-            tabBarBlurView.translatesAutoresizingMaskIntoConstraints = false
-            self.view.addSubview(tabBarBlurView)
-            let constraint = tabBarBlurView.heightAnchor.constraint(equalToConstant: view.safeAreaInsets.bottom)
-            self.bottomBarBlurConstraint = constraint
-            NSLayoutConstraint.activate([
-                tabBarBlurView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                tabBarBlurView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                constraint,
-                tabBarBlurView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            ])
-        }
-    }
-    
     open override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         updateMaxContentWidthIfNeeded()
-        updateBottomBarBlurConstraint()
-    }
-    
-    open func updateBottomBarBlurConstraint() {
-        let newHeight = view.safeAreaInsets.bottom
-        if let bottomBarBlurConstraint, view.safeAreaInsets.bottom > 30 {
-            if bottomBarBlurConstraint.constant > 0, newHeight > bottomBarBlurConstraint.constant {
-                UIView.animate(withDuration: 0.3) { [self] in
-                    bottomBarBlurConstraint.constant = view.safeAreaInsets.bottom
-                    view.layoutIfNeeded()
-                }
-            } else {
-                bottomBarBlurConstraint.constant = view.safeAreaInsets.bottom
-            }
-        }
     }
     
     open func updateMaxContentWidthIfNeeded() {
@@ -439,8 +306,8 @@ open class WViewController: UIViewController {
             lbl.heightAnchor.constraint(greaterThanOrEqualToConstant: 49),
             bottomConstraint,
             fallbackBottomConstraint,
-            toastView!.leftAnchor.constraint(equalTo: view.leftAnchor, constant: 12),
-            toastView!.rightAnchor.constraint(equalTo: view.rightAnchor, constant: -12),
+            toastView!.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor, constant: 12),
+            toastView!.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor, constant: -12),
         ])
         toastView?.alpha = 0
         view.layoutIfNeeded()

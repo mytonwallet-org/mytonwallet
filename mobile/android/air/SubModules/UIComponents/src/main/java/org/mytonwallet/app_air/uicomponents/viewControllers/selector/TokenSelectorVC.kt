@@ -31,6 +31,7 @@ import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import java.math.BigInteger
@@ -43,6 +44,7 @@ class TokenSelectorVC(
     private val assets: List<IApiToken>,
     private val showMyAssets: Boolean,
     private val showChain: Boolean,
+    private val showBalance: Boolean = true,
 ) : WViewController(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource,
     WalletCore.EventObserver {
     override val TAG = "TokenSelector"
@@ -231,6 +233,7 @@ class TokenSelectorVC(
                         token,
                         showChain = showChain,
                         isLast = isLastOverall,
+                        showBalance = showBalance,
                     )
                 }
             }
@@ -252,6 +255,7 @@ class TokenSelectorVC(
 
 
     private fun buildTokenItems() {
+        val activeAccount = AccountStore.activeAccount
         val balances = AccountStore.assetsAndActivityData.getAllTokens(ignorePriorities = true)
         val rawSearch = query.orEmpty()
         val search = rawSearch.trim().lowercase().takeIf { it.isNotEmpty() }
@@ -300,21 +304,24 @@ class TokenSelectorVC(
         // Popular tokens section
         val popularAssets = assets.filter { it.isPopular == true }
         val popularTokens = mutableListOf<MTokenBalance>()
+        val accountBalances = BalanceStore.getBalances(activeAccount?.accountId)
         for (asset in popularAssets) {
             if (!used.add(asset.slug)) continue
-            val tokenBalance = createTokenBalance(asset) ?: continue
+            val balance = accountBalances?.get(asset.slug)
+            val tokenBalance = createTokenBalance(asset, balance) ?: continue
             popularTokens.add(tokenBalance)
         }
         // Additional tokens when searching (added to Popular section)
         if (rawSearch.isNotEmpty()) {
             for (asset in assets) {
                 if (!used.add(asset.slug)) continue
-                val tokenBalance = createTokenBalance(asset) ?: continue
+                val balance = accountBalances?.get(asset.slug)
+                val tokenBalance = createTokenBalance(asset, balance) ?: continue
                 popularTokens.add(tokenBalance)
             }
         }
 
-        val trustedUsdtTokens = getTrustedUsdtTokens(AccountStore.activeAccount?.network)
+        val trustedUsdtTokens = getTrustedUsdtTokens(activeAccount?.network)
         // Sort tokens: web-like search ranking, fallback to predefined popular order
         val sortedPopularTokens = sortPopularTokens(
             search = search,

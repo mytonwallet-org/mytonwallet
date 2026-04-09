@@ -81,9 +81,7 @@ final class PlainWebView: WViewController {
         if #available(iOS 26, *) {
             webView.scrollView.topEdgeEffect.style = .hard
         }
-        
-        bringNavigationBarToFront()
-        
+
         updateTheme()
         
         webView.load(URLRequest(url: url))

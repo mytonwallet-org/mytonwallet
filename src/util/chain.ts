@@ -68,6 +68,8 @@ export interface ChainConfig {
   canTransferFullNativeBalance: boolean;
   /** Whether Ledger support is implemented for this chain */
   isLedgerSupported: boolean;
+  /** Whether the chain supports multiWallet (e.g. Solana derivations or TON versions) */
+  multiWalletSupport?: 'version' | 'path';
   /** Regular expression for wallet and contract addresses in the chain */
   addressRegex: RegExp;
   /** The same regular expression but matching any prefix of a valid address */
@@ -137,6 +139,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isEncryptedCommentSupported: true,
     canTransferFullNativeBalance: true,
     isLedgerSupported: true,
+    multiWalletSupport: 'version',
     isNftSupported: true,
     addressRegex: /^([-\w_]{48}|0:[\da-h]{64})$/i,
     addressPrefixRegex: /^([-\w_]{1,48}|0:[\da-h]{0,64})$/i,
@@ -273,6 +276,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
     isLedgerSupported: false,
+    multiWalletSupport: 'path',
     isNftSupported: true,
     addressRegex: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/,
     addressPrefixRegex: /^[1-9A-HJ-NP-Za-km-z]{0,44}$/,

@@ -1,17 +1,17 @@
 import Foundation
+import ContextMenuKit
 import SwiftUI
 import UIComponents
 import WalletCore
 import WalletContext
 import Dependencies
 
-struct AddressesMenuContentRow: Identifiable {
+struct AddressesMenuContentRow {
     var chain: ApiChain
     var accountChain: AccountChain
-    var id: String { "0-" + chain.nativeToken.slug }
 }
 
-nonisolated func makeAddressesMenuConfig(accountId: String) -> () -> MenuConfig {
+@MainActor func makeAddressesMenuConfig(accountId: String) -> () -> ContextMenuConfiguration {
     return {
         @Dependency(\.accountStore) var accountStore
         let account = accountStore.get(accountId: accountId)
@@ -20,38 +20,46 @@ nonisolated func makeAddressesMenuConfig(accountId: String) -> () -> MenuConfig 
             .map { (chain, info) in
                 AddressesMenuContentRow(chain: chain, accountChain: info)
             }
-        var items: [MenuItem] = rows.map { row in
-                .customView(
-                    id: row.id,
-                    view: {
-                        AnyView(
-                            AddressRowView(row: row)
-                        )
-                    },
-                    height: 60
-                )
-        }
-        items += .wideSeparator()
-        items += .button(
-            id: "0-share-link",
-            title: lang("Share Wallet Link"),
-            trailingIcon: .air("MenuShare28"),
-            action: {
-                MainActor.assumeIsolated {
-                    UIPasteboard.general.url = account.shareLink
-                    AppActions.shareUrl(account.shareLink)
+
+        var items: [ContextMenuItem] = rows.map { row in
+            .custom(
+                .swiftUI(
+                    sizing: .fixed(height: 60.0)
+                ) { context in
+                    AddressRowView(row: row, context: context)
                 }
-            },
+            )
+        }
+
+        items.append(.separator)
+        items.append(
+            .action(
+                ContextMenuAction(
+                    title: lang("Share Wallet Link"),
+                    icon: .airBundle("MenuShare28"),
+                    handler: {
+                        UIPasteboard.general.url = account.shareLink
+                        AppActions.shareUrl(account.shareLink)
+                    }
+                )
+            )
         )
-        return MenuConfig(menuItems: items)
+
+        return ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: items),
+            backdrop: .none,
+            style: ContextMenuStyle(
+                minWidth: 280.0,
+                maxWidth: 280.0,
+                sourceSpacing: 0.0
+            )
+        )
     }
 }
 
-fileprivate struct AddressRowView: View {
-    
+@MainActor fileprivate struct AddressRowView: View {
     var row: AddressesMenuContentRow
-    
-    @Environment(MenuContext.self) var menuContext
+    var context: ContextMenuCustomRowContext
     
     var body: some View {
         HStack(spacing: 10) {
@@ -117,7 +125,7 @@ fileprivate struct AddressRowView: View {
             UIPasteboard.general.string = domain
             AppActions.showToast(animationName: "Copy", message: lang("%chain% Domain Copied", arg1: row.chain.title))
             Haptics.play(.lightTap)
-            menuContext.dismiss()
+            context.dismiss()
         } else {
             onCopySecondary()
         }
@@ -127,12 +135,12 @@ fileprivate struct AddressRowView: View {
         UIPasteboard.general.string = row.accountChain.address
         AppActions.showToast(animationName: "Copy", message: lang("%chain% Address Copied", arg1: row.chain.title))
         Haptics.play(.lightTap)
-        menuContext.dismiss()
+        context.dismiss()
     }
     
     func onOpenExplorer() {
         let url = ExplorerHelper.addressUrl(chain: row.chain, address: row.accountChain.address)
         AppActions.openInBrowser(url)
-        menuContext.dismiss()
+        context.dismiss()
     }
 }

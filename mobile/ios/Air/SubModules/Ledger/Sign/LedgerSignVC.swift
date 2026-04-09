@@ -18,7 +18,7 @@ public final class LedgerSignVC<HeaderView: View>: WViewController {
         self.model = model
         self.headerView = headerView
         super.init(nibName: nil, bundle: nil)
-        self.title = title
+        self.title = title ?? lang("Confirm with Ledger")
         model.onDone = { [weak self] in self?.handleOnDone() }
         model.onCancel = { [weak self] in self?.handleOnCancel() }
     }
@@ -27,22 +27,20 @@ public final class LedgerSignVC<HeaderView: View>: WViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
-    public override func loadView() {
-        super.loadView()
+    public override func viewDidLoad() {
+        super.viewDidLoad()
         setupViews()
     }
-    
+
     private func setupViews() {
-        addNavigationBar(
-            title: title ?? "Confirm with Ledger",
-            closeIcon: true,
-            addBackButton: { [weak self] in self?.navigationController?.popViewController(animated: true) }
-        )
-        
+        if isPresentationModal {
+            navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in
+                self?.handleOnCancel()
+            })
+        }
+
         self.hostingController = addHostingController(makeView(), constraints: .fill)
-        
-        bringNavigationBarToFront()
-        
+
         updateTheme()
     }
     
@@ -66,8 +64,10 @@ public final class LedgerSignVC<HeaderView: View>: WViewController {
     private func handleOnCancel() {
         if let onCancel = self.onCancel {
             onCancel(self)
-        } else {
+        } else if canGoBack {
             navigationController?.popViewController(animated: true)
+        } else {
+            dismiss(animated: true)
         }
     }
 }

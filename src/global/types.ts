@@ -16,6 +16,7 @@ import type {
   ApiCurrencyRates,
   ApiDappPermissions,
   ApiDappTransfer,
+  ApiDerivation,
   ApiEmulationResult,
   ApiFetchEstimateDieselResult,
   ApiHistoryList,
@@ -45,6 +46,7 @@ import type {
   ApiUpdateDappSignData,
   ApiUpdateWalletVersions,
   ApiVestingInfo,
+  ApiWalletByChain,
   ApiWalletWithVersionInfo,
 } from '../api/types';
 import type { AUTOLOCK_OPTIONS_LIST } from '../config';
@@ -336,7 +338,8 @@ export enum SettingsState {
   Disclaimer,
   NativeBiometricsTurnOn,
   SelectTokenList,
-  WalletVersion,
+  WalletVariants, // Wallet Derivations
+  WalletVersions, // TON Versions
   LedgerConnectHardware,
   LedgerSelectWallets,
   HiddenNfts,
@@ -416,6 +419,7 @@ export interface AccountChain {
   address: string;
   domain?: string;
   isMultisig?: true;
+  derivation?: ApiDerivation;
 }
 
 export interface Account {
@@ -904,6 +908,7 @@ export type GlobalState = {
   isReceiveModalOpen?: boolean;
   isVestingModalOpen?: boolean;
   isIncorrectTimeNotificationReceived?: boolean;
+  isDerivationsSynced?: boolean;
   currentBrowserOptions?: {
     url: string;
     title?: string;
@@ -1023,6 +1028,8 @@ export interface ActionPayloads {
   resetApiSettings: { areAllDisabled?: boolean } | undefined;
   checkAppVersion: undefined;
   importAccountByVersion: { version: ApiTonWalletVersion; isTestnetSubwalletId?: boolean };
+  addSubWallet: { chain: ApiChain; newWallet: Omit<ApiWalletByChain[ApiChain], 'index'>; isReplace: boolean };
+  createSubWallet: { chain: ApiChain; password: string };
   importViewAccount: { addressByChain: ApiImportAddressByChain };
   openTemporaryViewAccount: { addressByChain: Partial<Record<ApiChain, string>> };
   saveTemporaryAccount: undefined;

@@ -58,7 +58,7 @@ public class WalletVersionsVC: SettingsBaseVC, UICollectionViewDelegate {
         title = lang("TON Wallet Versions")
         walletVersionsData = AccountStore.walletVersionsData
         view.backgroundColor = isModal ? .air.sheetBackground : .air.groupedBackground
-
+        addCloseNavigationItemIfNeeded()
         var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         configuration.backgroundColor = .clear
         configuration.headerMode = .supplementary
@@ -77,18 +77,6 @@ public class WalletVersionsVC: SettingsBaseVC, UICollectionViewDelegate {
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-
-        addNavigationBar(
-            navHeight: 40,
-            topOffset: -5,
-            title: title,
-            addBackButton: { [weak self] in
-                self?.navigationController?.popViewController(animated: true)
-            }
-        )
-        collectionView.contentInset.top = navigationBarHeight
-        collectionView.verticalScrollIndicatorInsets.top = navigationBarHeight
-        collectionView.contentOffset.y = -navigationBarHeight
     }
 
     private func configureDataSource() {
@@ -181,16 +169,13 @@ public class WalletVersionsVC: SettingsBaseVC, UICollectionViewDelegate {
             Task { @MainActor in
                 do {
                     _ = try await AccountStore.importNewWalletVersion(accountId: accountId, version: apiVersion)
-                    navigationController?.popViewController(animated: false)
+                    AppActions.showHome(popToRoot: true)
+                    popToRootAfterDelay()
                 } catch {
                     showAlert(error: error)
                 }
             }
         }
-    }
-
-    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        navigationBar?.showSeparator = scrollView.contentOffset.y + scrollView.contentInset.top + view.safeAreaInsets.top > 0
     }
 
     public override func viewWillLayoutSubviews() {

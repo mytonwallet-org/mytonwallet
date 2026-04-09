@@ -131,9 +131,9 @@ function NftCollectionHeader({
         value: 'renew',
         description: dnsExpireInDays && dnsExpireInDays < 0
           ? (collectionNfts.length > 1 ? '$expired_many' : 'Expired')
-          : lang('$expires_in %days%', {
+          : lang(collectionNfts.length > 1 ? '$multiple_domains_expire %days%' : '$one_domain_expires %days%', {
             days: lang('$in_days', dnsExpireInDays),
-          }, undefined, collectionNfts.length) as string,
+          }) as string,
       } satisfies DropdownItem<MenuHandler>,
       !IS_CORE_WALLET && {
         name: 'Hide All',

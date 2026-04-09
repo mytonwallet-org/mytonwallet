@@ -20,8 +20,8 @@ interface OwnProps {
   enteredPassword?: string;
   isBackupSlideActive?: boolean;
   isInsideModal?: boolean;
-  onBackClick: () => void;
-  onSubmit: () => void;
+  onBackClick: NoneToVoidFunction;
+  onSubmit: NoneToVoidFunction;
 }
 
 function BackupPrivateKey({

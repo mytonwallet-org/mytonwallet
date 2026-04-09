@@ -76,6 +76,7 @@ export default function createConfig(
       new EnvironmentPlugin({
         APP_ENV: 'production',
         APP_VERSION: appVersion,
+        PLATFORM_ENV: '',
         IS_CAPACITOR: '1',
         IS_AIR_APP: '1',
         IS_ANDROID_DIRECT: '0',

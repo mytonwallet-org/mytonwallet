@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicomponents.extensions
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 
 fun Context.getTextFromClipboard(): String? {
     try {
@@ -12,7 +13,11 @@ fun Context.getTextFromClipboard(): String? {
         } else {
             null
         }
-    } catch (t: Throwable) {
+    } catch (_: Throwable) {
         return null
     }
+}
+
+fun Context.startActivityCatching(intent: Intent) {
+    runCatching { startActivity(intent) }
 }

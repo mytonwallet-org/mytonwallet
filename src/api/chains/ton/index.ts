@@ -4,11 +4,13 @@ import { DappProtocolType } from '../../dappProtocols/types';
 import { decryptComment, fetchActivityDetails, fetchActivitySlice } from './activities';
 import { normalizeAddress } from './address';
 import {
+  createSubWalletFromDerivation,
   fetchPrivateKeyString,
   getWalletFromAddress,
   getWalletFromBip39Mnemonic,
   getWalletFromPrivateKey,
   getWalletsFromLedgerAndLoadBalance,
+  getWalletVariants,
 } from './auth';
 import { signConnectionProof, signDappData, signDappTransfers } from './dapp';
 import {
@@ -40,6 +42,8 @@ const tonSdk: ChainSdk<'ton'> = {
   getWalletFromPrivateKey,
   getWalletFromAddress,
   getWalletsFromLedgerAndLoadBalance,
+  getWalletVariants,
+  createSubWalletFromDerivation,
   setupActivePolling,
   setupInactivePolling,
   fetchToken,

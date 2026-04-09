@@ -32,6 +32,8 @@ public final class AccountContext: Sendable {
     @Dependency(\.savedAddresses) private var savedAddressesStore
     @PerceptionIgnored
     @Dependency(\.domains) private var domainsStore
+    @PerceptionIgnored
+    @Dependency(\.accountConfig) private var accountConfigStore
     
     private let accountIdProvider: AccountIdProvider
     @PerceptionIgnored
@@ -132,6 +134,12 @@ public final class AccountContext: Sendable {
     }
     public var domains: Domains {
         domainsStore.for(accountId: accountId)
+    }
+    public var config: AccountConfig {
+        accountConfigStore.for(accountId: accountId)
+    }
+    public var activePromotion: ApiPromotion? {
+        config.activePromotion
     }
     public func getLocalName(chain: ApiChain, address: String) -> String? {
         getMyAccountName(chain: chain, address: address) ?? getSavedAddressName(chain: chain, saveKey: address)

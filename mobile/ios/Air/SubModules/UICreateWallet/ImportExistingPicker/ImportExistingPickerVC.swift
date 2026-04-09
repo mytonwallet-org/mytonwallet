@@ -22,14 +22,10 @@ public final class ImportExistingPickerVC: CreateWalletBaseVC {
     
     public override func viewDidLoad() {
         super.viewDidLoad()
+        title = lang("Import Wallet")
+        addCloseNavigationItemIfNeeded()
         
-        addNavigationBar(
-            navHeight: navHeight,
-            title: lang("Import Wallet"),
-            closeIcon: true,
-        )
-        
-        hostingController = addHostingController(makeView(), constraints: .fillWithNavigationBar)
+        hostingController = addHostingController(makeView(), constraints: .fill)
         
         updateTheme()
     }

@@ -21,8 +21,8 @@ import styles from './Settings.module.scss';
 
 interface OwnProps {
   isActive?: boolean;
-  handleBackClick: NoneToVoidFunction;
   isInsideModal?: boolean;
+  onBackClick: NoneToVoidFunction;
 }
 
 interface StateProps {
@@ -34,18 +34,18 @@ interface StateProps {
 
 function SettingsHiddenNfts({
   isActive,
-  handleBackClick,
   isInsideModal,
   blacklistedNftAddresses,
   whitelistedNftAddresses,
   orderedAddresses,
   byAddress,
+  onBackClick,
 }: OwnProps & StateProps) {
   const lang = useLang();
 
   useHistoryBack({
     isActive,
-    onBack: handleBackClick,
+    onBack: onBackClick,
   });
 
   const {
@@ -125,12 +125,12 @@ function SettingsHiddenNfts({
         <ModalHeader
           title={lang('Hidden NFTs')}
           withNotch={isScrolled}
-          onBackButtonClick={handleBackClick}
+          onBackButtonClick={onBackClick}
           className={styles.modalHeader}
         />
       ) : (
         <div className={buildClassName(styles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={handleBackClick} className={styles.headerBack}>
+          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
             <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
             <span>{lang('Back')}</span>
           </Button>

@@ -97,9 +97,6 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
             passcodeScreenView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 //        passcodeScreenView.enterPasscodeLabel.label.text = "aa"
-        
-        
-        bringNavigationBarToFront()
     }
 
     public override func viewDidAppear(_ animated: Bool) {

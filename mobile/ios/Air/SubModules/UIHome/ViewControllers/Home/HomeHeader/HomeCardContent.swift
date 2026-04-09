@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import ContextMenuKit
 import UIComponents
 import WalletCore
 import WalletContext
@@ -43,6 +44,12 @@ struct HomeCardContent: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .top) {
                 SeasonalOverlay(seasonalTheme: headerViewModel.seasonalTheme)
+            }
+            .overlay(alignment: .topTrailing) {
+                HomeCardPromotionHitArea(
+                    promotion: accountContext.activePromotion,
+                    cardSize: CGSize(width: layout.itemWidth, height: layout.itemHeight)
+                )
             }
             .opacity(headerViewModel.isCardHidden ? 0 : 1)
         }
@@ -106,8 +113,6 @@ private struct _BalanceViewContent: View, Equatable {
     var cardWidth: CGFloat
     var minimumHomeCardFontScale: CGFloat
     
-    @State private var menuContext = MenuContext()
-
     var body: some View {
         MtwCardBalanceView(balance: balance, isNumericTranstionEnabled: isCurrent, style: .homeCard(cardWidth: cardWidth, minimumScale: minimumHomeCardFontScale), secondaryOpacity: nft?.metadata?.mtwCardType?.isPremium == true ? 1 : 0.75)
             .padding(40)
@@ -115,12 +120,7 @@ private struct _BalanceViewContent: View, Equatable {
                 MtwCardBalanceGradient(nft: nft)
             }
             .padding(-40)
-            .menuSource(isEnabled: true, menuContext: menuContext)
-            .task(id: accountId) {
-                    menuContext.minWidth = 250
-                    menuContext.verticalOffset = -8
-                    menuContext.makeConfig = makeBaseCurrencyMenuConfig(accountId: accountId)
-            }
+            .contextMenuSource(configuration: makeBaseCurrencyMenuConfig(accountId: accountId))
             .backportGeometryGroup()
     }
     
@@ -264,8 +264,6 @@ private struct _AddressLineContent: View {
     var addressLine: MAccount.AddressLine
     var nft: ApiNft?
     
-    @State private var menuContext = MenuContext()
-    
     var body: some View {
         HStack(spacing: 8) {
             if isTemporary {
@@ -275,12 +273,10 @@ private struct _AddressLineContent: View {
             MtwCardAddressLine(addressLine: addressLine, style: .homeCard, gradient: MtwCardCenteredGradient(nft: nft))
                 .padding(.vertical, 8)
                 .padding(.trailing, 8)
-                .menuSource(isEnabled: true, isHoldAndDragGestureEnabled: false, menuContext: menuContext)
-                .task(id: accountId) {
-                    menuContext.verticalOffset = -8
-                    menuContext.minWidth = 280
-                    menuContext.makeConfig = makeAddressesMenuConfig(accountId: accountId)
-                }
+                .contextMenuSource(
+                    triggers: [.tap],
+                    configuration: makeAddressesMenuConfig(accountId: accountId)
+                )
                 .padding(.trailing, -8)
                 .backportGeometryGroup()
         }

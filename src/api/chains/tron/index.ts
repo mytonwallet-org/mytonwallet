@@ -30,6 +30,8 @@ const tronSdk: ChainSdk<'tron'> = {
   // Ledger is relatively slow. So, to parallelize and speed up the loading, each balance should be loaded as soon as
   // the corresponding wallet is loaded from Ledger.
   getWalletsFromLedgerAndLoadBalance: notSupported,
+  getWalletVariants: notSupported,
+  createSubWalletFromDerivation: notSupported,
   setupActivePolling,
   setupInactivePolling,
   fetchToken: notSupported,

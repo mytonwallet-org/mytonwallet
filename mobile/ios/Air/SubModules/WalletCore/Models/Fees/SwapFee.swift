@@ -31,6 +31,31 @@ public struct ExplainSwapFeeInput {
     }
 }
 
+public struct MaxSwapAmountInput {
+    public var swapType: SwapType
+    public var tokenBalance: BigInt?
+    public var tokenIn: ApiToken?
+    public var fullNetworkFee: MFee.FeeTerms?
+    public var ourFeePercent: Double?
+    public var maxAmountFromBackend: BigInt?
+
+    public init(
+        swapType: SwapType,
+        tokenBalance: BigInt? = nil,
+        tokenIn: ApiToken? = nil,
+        fullNetworkFee: MFee.FeeTerms? = nil,
+        ourFeePercent: Double? = nil,
+        maxAmountFromBackend: BigInt? = nil
+    ) {
+        self.swapType = swapType
+        self.tokenBalance = tokenBalance
+        self.tokenIn = tokenIn
+        self.fullNetworkFee = fullNetworkFee
+        self.ourFeePercent = ourFeePercent
+        self.maxAmountFromBackend = maxAmountFromBackend
+    }
+}
+
 public struct SwapFeeDetails: Equatable, Hashable, Codable, Sendable {
     public var precision: MFee.FeePrecision
     public var terms: MFee.FeeTerms
@@ -129,6 +154,36 @@ public func explainSwapFee(_ input: ExplainSwapFeeInput) -> ExplainedSwapFee {
         isExact: isExact,
         shouldShowOurFee: shouldShowOurFee
     )
+}
+
+public func getMaxSwapAmount(_ input: MaxSwapAmountInput) -> BigInt? {
+    if let maxAmountFromBackend = input.maxAmountFromBackend {
+        return maxAmountFromBackend
+    }
+
+    guard input.swapType != .crosschainToWallet, let tokenBalance = input.tokenBalance else {
+        return nil
+    }
+
+    var maxAmount = tokenBalance
+
+    if let fullNetworkFee = input.fullNetworkFee {
+        guard let tokenIn = input.tokenIn else {
+            return nil
+        }
+
+        maxAmount -= fullNetworkFee.token ?? .zero
+
+        if tokenIn.isNative {
+            maxAmount -= fullNetworkFee.native ?? .zero
+        }
+    }
+
+    let ourFeePercent = input.ourFeePercent ?? (input.swapType == .onChain ? DEFAULT_OUR_SWAP_FEE : 0)
+    let feeDivider = doubleToBigInt(1 + (ourFeePercent / 100), decimals: 9)
+    maxAmount = (maxAmount * BigInt(1_000_000_000)) / feeDivider
+
+    return max(.zero, maxAmount)
 }
 
 private func explainGasfullSwapFee(

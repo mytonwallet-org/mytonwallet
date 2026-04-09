@@ -38,5 +38,7 @@ extension Date {
 }
 
 public func formatTimeInterval(_ s: TimeInterval) -> String {
-    Duration.UnitsFormatStyle(allowedUnits: [.minutes, .seconds], width: .wide).format(.seconds(s))
+    Duration.UnitsFormatStyle(allowedUnits: [.minutes, .seconds], width: .wide)
+        .locale(LocalizationSupport.shared.locale)
+        .format(.seconds(s))
 }

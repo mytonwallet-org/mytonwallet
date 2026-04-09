@@ -31,8 +31,8 @@ interface OwnProps {
   isOpen: boolean;
   isTestnet?: boolean;
   isCopyStorageEnabled?: boolean;
-  onShowAllWalletVersions: () => void;
-  onClose: () => void;
+  onShowAllWalletVersions: NoneToVoidFunction;
+  onClose: NoneToVoidFunction;
 }
 
 interface StateProps {

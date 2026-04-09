@@ -93,22 +93,16 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     
     @objc func continuePressed() {
         view.endEditing(true)
-        
-        if swapModel.swapType != .onChain,
-           account.supports(chain: swapModel.input.sellingToken.chain),
-           account.supports(chain: swapModel.input.buyingToken.chain) {
+
+        switch swapModel.swapType {
+        case .onChain:
+            warnIfNeededAndContinueInChain()
+        case .crosschainFromWallet:
+            continueChainFromTon()
+        case .crosschainToWallet:
+            continueChainToTon()
+        case .crosschainInsideWallet:
             continueCrosschainImmediate()
-        } else {
-            switch swapModel.swapType {
-            case .onChain:
-                warnIfNeededAndContinueInChain()
-            case .crosschainFromWallet:
-                continueChainFromTon()
-            case .crosschainToWallet:
-                continueChainToTon()
-            case .crosschainInsideWallet:
-                continueCrosschainImmediate()
-            }
         }
     }
     
@@ -156,27 +150,12 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     }
     
     private func continueChainToTon() {
-        
-        guard let swapEstimate = swapModel.crosschain.cexEstimate else { return }
-        
-        if swapEstimate.isDiesel == true {
-            if swapEstimate.dieselStatus == .notAuthorized {
-                authorizeDiesel()
-            }
-            return
-        }
+        guard swapModel.crosschain.cexEstimate != nil else { return }
         startSwapFlow(presentCrosschain: true)
     }
     
     private func continueCrosschainImmediate() {
-        guard let swapEstimate = swapModel.crosschain.cexEstimate else { return }
-        
-        if swapEstimate.isDiesel == true {
-            if swapEstimate.dieselStatus == .notAuthorized {
-                authorizeDiesel()
-            }
-            return
-        }
+        guard swapModel.crosschain.cexEstimate != nil else { return }
         startSwapFlow(presentCrosschain: false)
     }
 

@@ -60,7 +60,7 @@ function LedgerModal({
           <LedgerConnect
             isActive={isActive}
             onConnected={handleConnected}
-            onBackButtonClick={onClose}
+            onBackClick={onClose}
             onClose={onClose}
           />
         );
@@ -68,7 +68,7 @@ function LedgerModal({
         return (
           <LedgerSelectWallets
             isActive={isActive}
-            onBackButtonClick={onClose}
+            onBackClick={onClose}
             onClose={onClose}
           />
         );

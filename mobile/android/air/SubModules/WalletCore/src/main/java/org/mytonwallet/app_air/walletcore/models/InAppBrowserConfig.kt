@@ -5,7 +5,7 @@ import java.lang.ref.WeakReference
 data class InAppBrowserConfig(
     val url: String,
     val title: String? = null,
-    val thumbnail: String? = null,
+    var thumbnail: String? = null,
     val injectDappConnect: Boolean,
     val forceCloseOnBack: Boolean = false,
     val injectDarkModeStyles: Boolean = false,

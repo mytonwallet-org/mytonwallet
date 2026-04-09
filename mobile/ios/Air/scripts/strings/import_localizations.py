@@ -22,6 +22,15 @@ PLURAL_KEYS = {
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 
+PLACEHOLDER_TYPE_OVERRIDES = {
+    "$domains_expire": {
+        "days": "@",
+    },
+    "push_domain_expires_in_days": {
+        "days": "lld",
+    },
+}
+
 
 def resolve_relative_to_script(path: str) -> Path:
     path_obj = Path(path)
@@ -82,12 +91,8 @@ def replace_named_placeholders(key: str, text: str, mapping: dict | None, type_s
             mapping[name] = len(mapping) + 1
         index = mapping[name]
 
-        # Hotfixes for specific type specifications
         applied_type_spec = str(type_spec)
-        if 'expires_in' in key:
-            applied_type_spec = "lld"
-        elif '$domains_expire' in key and name == 'days':
-            applied_type_spec = "@"
+        applied_type_spec = PLACEHOLDER_TYPE_OVERRIDES.get(key, {}).get(name, applied_type_spec)
         return f"%{index}${applied_type_spec}"
     replaced = re.sub(r"%([a-zA-Z0-9_]+)%", repl, text)
     return replaced, mapping

@@ -19,6 +19,7 @@ struct SettingsItem: Equatable, Identifiable {
         case notifications
         case appearance
         case assetsAndActivity
+        case subwallets
         case connectedApps
         case language
         case security
@@ -108,6 +109,15 @@ extension SettingsItem.Identifier {
                 id: .assetsAndActivity,
                 icon: UIImage.airBundle("AssetsAndActivityIcon"),
                 title: lang("Assets & Activity"),
+                hasPrimaryColor: false,
+                hasChild: true,
+                isDangerous: false
+            )
+        case .subwallets:
+            return SettingsItem(
+                id: .subwallets,
+                icon: UIImage.airBundle("SubwalletsIcon"),
+                title: lang("Subwallets"),
                 hasPrimaryColor: false,
                 hasChild: true,
                 isDangerous: false

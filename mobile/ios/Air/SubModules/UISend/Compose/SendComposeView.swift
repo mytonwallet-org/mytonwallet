@@ -1,8 +1,5 @@
-
-
-import Foundation
 import SwiftUI
-import UIKit
+import ContextMenuKit
 import UIComponents
 import WalletCore
 import WalletContext
@@ -19,11 +16,12 @@ public struct SendComposeView: View {
     public var body: some View {
         WithPerceptionTracking {
             @Perception.Bindable var model = model
+            let bottomSpacerHeight: CGFloat = model.addressInput.isFocused ? 0 : 200
             InsetList {
                 if model.mode.isNftRelated {
                     NftSection(model: self.model)
                 }
-                RecipientAddressSection(model: model.addressInput)
+                RecipientAddressSection(model: model.addressInput, onPasteAction: onAddressPaste)
                 if !model.addressInput.isFocused {
                     Group {
                         if model.shouldShowDomainScamWarning {
@@ -46,19 +44,18 @@ public struct SendComposeView: View {
                             )
                             .padding(.horizontal, 16)
                         }
-                        CommentOrMemoSection(model: self.model, commentIsEnrypted: $model.isMessageEncrypted, commentOrMemo: $model.comment)
+                        CommentOrMemoSection(model: self.model, commentIsEncrypted: $model.isMessageEncrypted, commentOrMemo: $model.comment)
                     }
                     .transition(.opacity.combined(with: .offset(y: 20)))
                 }
             }
             .scrollIndicators(.hidden)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                Color.clear.frame(height: 60)
+                Color.clear
+                    .frame(height: bottomSpacerHeight)
+                    .allowsHitTesting(false)
             }
             .animation(.default, value: model.addressInput.isFocused)
-            .safeAreaInset(edge: .bottom) {
-                Color.clear.frame(height: 140)
-            }
             .contentShape(.rect)
             .onTapGesture {
                 endEditing()
@@ -69,6 +66,18 @@ public struct SendComposeView: View {
     func onAddressSubmit() {
         amountFocused = true
     }
+    
+    func onAddressPaste() -> Bool {
+        guard !model.mode.isNftRelated, model.amount == nil, model.amountInBaseCurrency == nil else {
+            return false
+        }
+        
+        model.addressInput.isFocused = false
+        DispatchQueue.main.async {
+            amountFocused = true
+        }
+        return true
+    }
 }
 
 // MARK: -
@@ -76,8 +85,6 @@ public struct SendComposeView: View {
 struct SendComposeTitleView: View {
     var onSellTapped: () -> Void
     var onMultisendTapped: () -> Void
-
-    @State private var menuContext = MenuContext()
 
     private let titleFont = Font.system(size: 14, weight: .medium)
 
@@ -97,8 +104,9 @@ struct SendComposeTitleView: View {
             .padding(.vertical, 4)
             .background(Color.air.secondaryLabel.opacity(0.12))
             .clipShape(Capsule())
-            .menuSource(menuContext: menuContext)
-            .onAppear { configureMenu() }
+            .contextMenuSource {
+                makeTitleMenuConfiguration()
+            }
             
             if showSell {
                 Button(action: onSellTapped) {
@@ -110,14 +118,22 @@ struct SendComposeTitleView: View {
         }
     }
     
-    private func configureMenu() {
-        menuContext.makeConfig = {
-            MenuConfig(menuItems: [
-                MenuItem.button(id: "0-multisend", title: lang("Multisend"), trailingIcon: .air("MenuMultisend26")) {
-                    onMultisendTapped()
-                }
-            ])
-        }
+    private func makeTitleMenuConfiguration() -> ContextMenuConfiguration {
+        ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: [
+                .action(
+                    ContextMenuAction(
+                        title: lang("Multisend"),
+                        icon: .airBundle("MenuMultisend26"),
+                        handler: {
+                            onMultisendTapped()
+                        }
+                    )
+                )
+            ]),
+            backdrop: .none,
+            style: ContextMenuStyle(minWidth: 180.0)
+        )
     }
 }
 
@@ -180,7 +196,7 @@ private struct CommentOrMemoSection: View {
     
     let model: SendModel
 
-    @Binding var commentIsEnrypted: Bool
+    @Binding var commentIsEncrypted: Bool
     @Binding var commentOrMemo: String
 
     @FocusState private var isFocused: Bool
@@ -212,43 +228,56 @@ private struct CommentOrMemoSection: View {
                 isFocused = true
             }
         } header: {
+            let commentTitle = lang("Comment or Memo")
+            let encryptedTitle = lang("Encrypted Message")
+            
             if model.isEncryptedMessageAvailable {
-                Menu {
-                    Button(action: {
-                        commentIsEnrypted = false
-                    }) {
-                        Text(lang("Comment or Memo"))
-                            .textCase(nil)
+                let chevron = Text(Image(systemName: "chevron.down"))
+                                   .font(.system(size: 11, weight: .semibold))
+                                   .baselineOffset(1)
+                
+                Text("\(commentIsEncrypted ? encryptedTitle : commentTitle) \(chevron)")
+                    .contextMenuSource {
+                        makeCommentMenuConfiguration(commentTitle: commentTitle, encryptedTitle: encryptedTitle)
                     }
-                    
-                    Button(action: {
-                        commentIsEnrypted = true
-                    }) {
-                        Text(lang("Encrypted Message"))
-                            .textCase(nil)
-                    }
-                    
-                } label: {
-                    HStack(spacing: 2) {
-                        Text(commentIsEnrypted == false ? lang("Comment or Memo") : lang("Encrypted Message"))
-                        Image(systemName: "chevron.down")
-                            .imageScale(.small)
-                            .scaleEffect(0.8)
-                            .offset(y: 1.333)
-                    }
-                    .padding(.trailing, 16)
-                    .contentShape(.rect)
-                    .foregroundStyle(.secondary)
-                    .tint(.primary)
-                    .padding(.vertical, 2)
-                }
-                .padding(.vertical, -2)
             } else {
-                Text(lang("Comment or Memo"))
+                Text(commentTitle)
             }
         } footer: {}
     }
-    
+
+    private func makeCommentMenuConfiguration(
+        commentTitle: String,
+        encryptedTitle: String
+    ) -> ContextMenuConfiguration {
+        let items: [ContextMenuItem] = [
+            .action(
+                ContextMenuAction(
+                    title: commentTitle,
+                    icon: commentIsEncrypted ? .placeholder : (.system("checkmark") ?? .placeholder),
+                    handler: {
+                        commentIsEncrypted = false
+                    }
+                )
+            ),
+            .action(
+                ContextMenuAction(
+                    title: encryptedTitle,
+                    icon: commentIsEncrypted ? (.system("checkmark") ?? .placeholder) : .placeholder,
+                    handler: {
+                        commentIsEncrypted = true
+                    }
+                )
+            ),
+        ]
+
+        return ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: items),
+            backdrop: .none,
+            style: ContextMenuStyle(minWidth: 180.0, maxWidth: 300.0)
+        )
+    }
+        
     @ViewBuilder
     var binaryPayloadSection: some View {
         if let binaryPayload = model.binaryPayload {

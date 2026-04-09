@@ -253,7 +253,8 @@ class PriceWidgetConfigurationVC(
                 LocaleController.getString("Select Token"),
                 TokenStore.tokens.values.toList(),
                 showMyAssets = false,
-                showChain = false
+                showChain = false,
+                showBalance = false
             ).apply {
                 setOnAssetSelectListener { asset ->
                     selectedToken = TokenStore.getToken(asset.slug)

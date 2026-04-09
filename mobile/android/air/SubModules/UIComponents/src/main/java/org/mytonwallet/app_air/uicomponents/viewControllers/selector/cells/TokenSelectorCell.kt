@@ -5,6 +5,8 @@ import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.widget.LinearLayout
+import androidx.core.view.marginBottom
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.TokenTagHelper
@@ -23,6 +25,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
@@ -67,6 +70,19 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
         }
     }
 
+    private val rightContainer: LinearLayout by lazy {
+        LinearLayout(context).apply {
+            id = generateViewId()
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.END
+            addView(topRightLabel, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                topMargin = (-2.5f).dp.roundToInt()
+                bottomMargin = 1.dp
+            })
+            addView(bottomRightLabel, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        }
+    }
+
     var onTap: ((tokenBalance: MTokenBalance) -> Unit)? = null
 
     init {
@@ -76,29 +92,26 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
         addView(iconView, LayoutParams(46.dp, 46.dp))
         addView(topLeftLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(tagHelper.tagLabel, LayoutParams(WRAP_CONTENT, 16.dp))
-        addView(topRightLabel)
         addView(bottomLeftLabel)
-        addView(bottomRightLabel)
+        addView(rightContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         setConstraints {
             toTop(iconView, 8f)
             toBottom(iconView, 8f)
             toStart(iconView, 12f)
-            toTop(topLeftLabel, 11f)
+            toTop(topLeftLabel, 8f)
             toStart(topLeftLabel, 68f)
             startToEnd(tagHelper.tagLabel, topLeftLabel, 3f)
             centerYToCenterY(tagHelper.tagLabel, topLeftLabel)
-            endToStart(tagHelper.tagLabel, topRightLabel, 4f)
-            toTop(topRightLabel, 11f)
-            toEnd(topRightLabel, 16f)
+            endToStart(tagHelper.tagLabel, rightContainer, 4f)
+            toCenterY(rightContainer)
+            toEnd(rightContainer, 16f)
             constrainedWidth(topLeftLabel.id, true)
             setHorizontalBias(topLeftLabel.id, 0f)
             setHorizontalBias(tagHelper.tagLabel.id, 0f)
-            toBottom(bottomLeftLabel, 12f)
+            toBottom(bottomLeftLabel, 11f)
             toStart(bottomLeftLabel, 68f)
-            endToStart(bottomLeftLabel, bottomRightLabel, 4f)
+            endToStart(bottomLeftLabel, rightContainer, 4f)
             setHorizontalBias(bottomLeftLabel.id, 0f)
-            toBottom(bottomRightLabel, 12f)
-            toEnd(bottomRightLabel, 16f)
         }
         setOnClickListener {
             tokenBalance?.let {
@@ -133,14 +146,11 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
         showChain: Boolean,
         isLast: Boolean,
         accountId: String? = null,
+        showBalance: Boolean = true,
     ) {
         this.tokenBalance = tokenBalance
         this.isLast = isLast
         updateTheme()
-
-        val amountCols = 4 + abs(tokenBalance.token.hashCode() % 8)
-        topRightLabel.setMaskCols(amountCols)
-        topRightLabel.updateProtectedView(false)
 
         val token = TokenStore.getToken(tokenBalance.token)
 
@@ -148,31 +158,50 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
 
         topLeftLabel.text = token?.name ?: ""
 
-        topRightLabel.contentView.setAmount(
-            tokenBalance.amountValue,
-            token?.decimals ?: 9,
-            token?.symbol ?: "",
-            token?.decimals ?: 9,
-            smartDecimals = true,
-            forceCurrencyToRight = true
-        )
+        if (showBalance) {
+            topRightLabel.visibility = VISIBLE
+
+            val amountCols = 4 + abs(tokenBalance.token.hashCode() % 8)
+            topRightLabel.setMaskCols(amountCols)
+            topRightLabel.updateProtectedView(false)
+
+            topRightLabel.contentView.setAmount(
+                tokenBalance.amountValue,
+                token?.decimals ?: 9,
+                token?.symbol ?: "",
+                token?.decimals ?: 9,
+                smartDecimals = true,
+                forceCurrencyToRight = true
+            )
+
+            bottomRightLabel.text = tokenBalance.toBaseCurrency?.toString(
+                token?.decimals ?: 9,
+                WalletCore.baseCurrency.sign,
+                WalletCore.baseCurrency.decimalsCount,
+                smartDecimals = true
+            ) ?: ""
+        } else {
+            topRightLabel.visibility = GONE
+
+            val priceText = when (val tokenPrice = token?.price) {
+                null -> ""
+                0.0 -> LocaleController.getString("No Price")
+                else -> tokenPrice.toString(
+                    token.decimals,
+                    WalletCore.baseCurrency.sign,
+                    WalletCore.baseCurrency.decimalsCount,
+                    smartDecimals = true
+                )
+            }
+            bottomRightLabel.text = priceText
+            if (bottomRightLabel.textSize != topRightLabel.contentView.textSize)
+                bottomRightLabel.textSize = 16f
+        }
 
         bottomLeftLabel.text = token?.mBlockchain?.displayName
             ?: token?.chain?.replaceFirstChar {
                 if (it.isLowerCase()) it.titlecase() else it.toString()
             } ?: ""
-
-        val tokenPrice = token?.price
-        bottomRightLabel.text = when {
-            tokenPrice == null -> ""
-            tokenPrice == 0.0 -> LocaleController.getString("No Price")
-            else -> tokenPrice.toString(
-                token.decimals,
-                WalletCore.baseCurrency.sign,
-                WalletCore.baseCurrency.decimalsCount,
-                smartDecimals = true
-            )
-        }
 
         tagHelper.configure(this, topLeftLabel, topRightLabel, accountId, token, tokenBalance)
     }

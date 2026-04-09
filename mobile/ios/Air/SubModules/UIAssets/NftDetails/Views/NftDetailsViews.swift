@@ -194,9 +194,9 @@ final class NftDetailsDescriptionTile: UIView, NftDetailsContentColorConsumer {
     }
 }
 
-// MARK: - NftDetailsDomanTile
+// MARK: - NftDetailsDomainTile
 
-final class NftDetailsDomanTile: UIView, NftDetailsContentColorConsumer {
+final class NftDetailsDomainTile: UIView, NftDetailsContentColorConsumer {
     private let backgroundView = ThinGlassView()
     private let stackView = UIStackView()
     private let textLabel = UILabel()
@@ -262,6 +262,7 @@ final class NftDetailsDomanTile: UIView, NftDetailsContentColorConsumer {
     func applyContentColorPalette(_ palette: NftDetailsContentPalette) -> Bool {
         textLabel.textColor = palette.baseColor
         renewButton.setTitleColor(palette.baseColor, for: .normal)
+        renewButton.setTitleColor(palette.baseColor.withAlphaComponent(0.5), for: .highlighted)
         backgroundView.fillColor = palette.subtleBackgroundColor
         backgroundView.edgeColor = palette.edgeColor
         return false

@@ -63,6 +63,7 @@ Settings: Einstellungen
 About %app_name%: Über %app_name%
 Exit: Beenden
 Remove Wallet: Wallet entfernen
+Remove Wallets: Wallets entfernen
 Something went wrong.: Etwas ist schiefgegangen.
 Something went wrong: Etwas ist schiefgegangen
 Logo: Logo
@@ -94,6 +95,7 @@ Warning!: Achtung!
 $logout_without_backup_warning: Sie haben diese Wallet nicht gesichert. Wenn Sie sie jetzt entfernen, verlieren Sie den Zugriff auf Ihre Token und NFTs.
 $logout_accounts_without_backup_warning: Sie haben %links% nicht gesichert. Wenn Sie fortfahren, verlieren Sie den Zugriff auf Ihre Token und NFTs.
 $logout_warning: Dies wird das aktuelle Wallet aus der App entfernen. Stellen Sie sicher, dass Sie Ihre **Geheimwörter** gesichert haben.
+$logout_all_wallets_warning: Dies wird alle Wallets aus der App entfernen. Stellen Sie sicher, dass Sie all Ihre **Geheimwörter** gesichert haben.
 $logout_view_mode_warning: Dies wird das aktuelle Wallet aus der App entfernen.
 Create Deposit Link: Einzahlungslink erstellen
 $receive_invoice_description: |
@@ -863,10 +865,8 @@ Copy Link: Link kopieren
 Check eligibility for max APY: Verfügbarkeit für max. APY prüfen
 Check eligibility: Verfügbarkeit prüfen
 $expired_many: Abgelaufen
-$expires_in %days%:
-  zeroValue: Läuft %days% ab
-  oneValue: Läuft %days% ab
-  otherValue: Laufen %days% ab
+$one_domain_expires %days%: Läuft %days% ab
+$multiple_domains_expire %days%: Laufen %days% ab
 Message: Nachricht
 Binary Data: Binärdaten
 The binary data content is unclear. Sign it only if you trust the service.: Der Inhalt der Binärdaten ist unklar. Signieren Sie nur, wenn Sie dem Dienst vertrauen.
@@ -1079,6 +1079,16 @@ Enabling biometric confirmation will reset the passcode.: Die Aktivierung der bi
 Confirm action with your passcode: Bestätigen Sie die Aktion mit Ihrem Passcode
 No Image: Kein Bild
 Different blockchain. Cannot be selected: Andere Blockchain. Kann nicht ausgewählt werden
+Subwallets: Unterwallets
+Other addresses for this wallet: Andere Adressen für dieses Wallet
+Current Wallet: Aktuelles Wallet
+Add Subwallet: Unterwallet hinzufügen
+Replace in this wallet: In diesem Wallet ersetzen
+Create Subwallet: Unterwallet erstellen
+You have tokens on other subwallets. You can switch to them here.: Sie haben Token auf anderen Unterwallets. Sie können hier zu ihnen wechseln.
+Subwallet Created: Unterwallet erstellt
+Subwallet Added: Unterwallet hinzugefügt
+Subwallet Switched: Unterwallet gewechselt
 Top 5: Top 5
 Top 10: Top 10
 Top 30: Top 30
@@ -1092,3 +1102,11 @@ Scroll To Bottom: Nach unten scrollen
 $agent_clear_chat_confirm: Sind Sie sicher, dass Sie den Chatverlauf löschen möchten?
 $unknown_swap_token: Unbekannter Token im Swap-Link. Standard-Token wurden verwendet.
 $action_not_available_view_mode: Diese Aktion ist für View Wallets nicht verfügbar
+Scanning for subwallets...: Suche nach Unterwallets...
+This process may take up to a minute. Please wait.: Dieser Vorgang kann bis zu einer Minute dauern. Bitte warten Sie.
+Your assets on other TON contracts: Ihre Vermögenswerte auf anderen TON-Verträgen
+No existing subwallets found: Keine vorhandenen Unterwallets gefunden
+You can create a new subwallet if you need another address on the same recovery phrase.: Sie können ein neues Unterwallet erstellen, wenn Sie eine andere Adresse mit derselben Wiederherstellungsphrase benötigen.
+You have tokens on other subwallets. Each subwallet has its own address.: Sie haben Token auf anderen Unterwallets. Jedes Unterwallet hat seine eigene Adresse.
+$chain_Subwallets: "%chain% Unterwallets"
+Scanning...: Scannen...

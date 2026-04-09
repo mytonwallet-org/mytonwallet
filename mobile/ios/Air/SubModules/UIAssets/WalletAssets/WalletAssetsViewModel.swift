@@ -8,8 +8,6 @@ private let log = Log("WalletAssetsViewModel")
 
 @MainActor public protocol WalletAssetsViewModelDelegate: AnyObject {
     func walletAssetModelDidChangeDisplayTabs()
-    func walletAssetModelDidStartReordering()
-    func walletAssetModelDidStopReordering(isCanceled: Bool)
 }
 
 public enum DisplayAssetTab: Hashable, Sendable {
@@ -74,15 +72,12 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         // make backup for possible cancellation
         nftsOrderingSnapshot = nftStore.getOrderingSnapshot(accountId: accountId)
         tabsOrderingSnapshot = displayTabs
-        
-        delegate?.walletAssetModelDidStartReordering()
     }
     
     public func stopReordering(isCanceled: Bool, restoreTabsOnCancel: Bool = false) {
         guard isReordering else { return }
 
         _isReordering = false
-        delegate?.walletAssetModelDidStopReordering(isCanceled: isCanceled)
         
         // restore orders on cancellation
         if isCanceled {

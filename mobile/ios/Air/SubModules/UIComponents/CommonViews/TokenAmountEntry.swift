@@ -162,16 +162,22 @@ public struct TokenAmountEntry: View {
     public var token: ApiToken?
     public var inBaseCurrency: Bool
     public var insufficientFunds: Bool
+    public var isLoading: Bool
+    public var isValueStale: Bool
     @Binding public var triggerFocused: Bool
     public var onTokenPickerTapped: (() -> ())?
     public var isInputEnabled: Bool
     public var onInputTapped: (() -> ())?
+    
+    @State private var indicatorAngle = Angle.zero
     
     public init(
         amount: Binding<BigInt?>,
         token: ApiToken?,
         inBaseCurrency: Bool,
         insufficientFunds: Bool,
+        isLoading: Bool = false,
+        isValueStale: Bool = false,
         triggerFocused: Binding<Bool>,
         onTokenPickerTapped: (() -> ())?,
         isInputEnabled: Bool = true,
@@ -181,6 +187,8 @@ public struct TokenAmountEntry: View {
         self.token = token
         self.inBaseCurrency = inBaseCurrency
         self.insufficientFunds = insufficientFunds
+        self.isLoading = isLoading
+        self.isValueStale = isValueStale
         self._triggerFocused = triggerFocused
         self.onTokenPickerTapped = onTokenPickerTapped
         self.isInputEnabled = isInputEnabled
@@ -202,6 +210,7 @@ public struct TokenAmountEntry: View {
                 textField
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .opacity(isValueStale ? 0.55 : 1)
             .contentShape(.rect)
             .onTapGesture {
                 if let onInputTapped {
@@ -210,8 +219,14 @@ public struct TokenAmountEntry: View {
                     triggerFocused = true
                 }
             }
+            if isLoading {
+                loadingIndicator
+                    .padding(.trailing, 6)
+                    .transition(.scale.combined(with: .opacity))
+            }
             tokenPicker
         }
+        .animation(.default, value: isLoading)
         .onChange(of: isInputEnabled) { isEnabled in
             if !isEnabled {
                 triggerFocused = false
@@ -224,7 +239,7 @@ public struct TokenAmountEntry: View {
         if inBaseCurrency {
             let sign = TokenStore.baseCurrency.sign
             Text(verbatim: sign)
-                .foregroundStyle(Color((amount ?? 0) == 0 ? UIColor.placeholderText : insufficientFunds ? .air.error : UIColor.label))
+                .foregroundStyle(Color((amount ?? 0) == 0 ? UIColor.placeholderText : insufficientFunds ? .air.error : isValueStale ? .air.secondaryLabel : UIColor.label))
                 .font(.system(size: 24, weight: .medium))
         }
     }
@@ -238,7 +253,8 @@ public struct TokenAmountEntry: View {
                 font: .systemFont(ofSize: 24, weight: .semibold),
                 fractionFont: .systemFont(ofSize: 20, weight: .semibold),
                 isFocused: $triggerFocused,
-                error: insufficientFunds
+                error: insufficientFunds,
+                muted: isValueStale
             )
             .id(inBaseCurrency)
             .allowsHitTesting(isInputEnabled)
@@ -257,5 +273,17 @@ public struct TokenAmountEntry: View {
         )
         .offset(x: 8)
         .padding(.vertical, -1)
+    }
+
+    var loadingIndicator: some View {
+        Image.airBundle("ActivityIndicator")
+            .renderingMode(.template)
+            .foregroundStyle(Color.air.secondaryLabel)
+            .rotationEffect(indicatorAngle)
+            .onAppear {
+                withAnimation(.linear(duration: 0.625).repeatForever(autoreverses: false)) {
+                    indicatorAngle += .radians(2 * .pi)
+                }
+            }
     }
 }

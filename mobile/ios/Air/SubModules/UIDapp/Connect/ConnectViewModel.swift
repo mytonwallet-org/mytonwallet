@@ -114,6 +114,6 @@ import Dependencies
                 topViewController()?.dismiss(animated: true)
             })
         }
-        topViewController()?.present(vc, animated: true)
+        topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
     }
 }

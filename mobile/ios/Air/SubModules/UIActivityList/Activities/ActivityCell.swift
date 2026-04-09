@@ -502,7 +502,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
                         preset: .defaultAdaptive,
                         showPlus: displayMode == .noSign ? false : true,
                         showMinus: displayMode == .noSign ? false : true,
-                        roundUp: false
+                        roundHalfUp: false
                     ),
                     integerFont: UIFont.systemFont(ofSize: 16),
                     fractionFont: UIFont.systemFont(ofSize: 16),
@@ -593,7 +593,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
                     format: .init(
                         preset: .compact,
                         showMinus: false,
-                        roundUp: false
+                        roundHalfUp: false
                     ),
                     integerFont: UIFont.systemFont(ofSize: 14),
                     fractionFont: UIFont.systemFont(ofSize: 14),
@@ -625,7 +625,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
                 let exchangeRateString = exchangeAmount.formatAttributed(
                     format: .init(
                         preset: .compact,
-                        roundUp: true
+                        roundHalfUp: true
                     ),
                     integerFont: .systemFont(ofSize: 14, weight: .semibold),
                     fractionFont: .systemFont(ofSize: 10, weight: .semibold),

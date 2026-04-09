@@ -1,16 +1,51 @@
 import UIKit
-import Kingfisher
 import WalletContext
 import UIComponents
 
-final class NftDetailsFullscreenOverlayView: UIView {
+protocol NftDetailsFullScreenOverlayContent: UIView {
+    var centerYConstraint: NSLayoutConstraint? { get set }
+    var centerXConstraint: NSLayoutConstraint? { get set }
+}
 
-    var onDismiss: (() -> Void)?
+extension NftDetailsFullScreenOverlayContent {
+    private func removeCenterConstraints() {
+        var oldConstraints: [NSLayoutConstraint] = []
+        if let oldCenterXConstraint = centerXConstraint {
+            oldConstraints.append(oldCenterXConstraint)
+        }
+        if let oldCenterYConstraint = centerYConstraint {
+            oldConstraints.append(oldCenterYConstraint)
+        }
+        NSLayoutConstraint.deactivate(oldConstraints)
+        
+        self.centerXConstraint = nil
+        self.centerYConstraint = nil
+    }
+    
+    func addToParent(_ parent: UIView, bindToTop: Bool, yConstant: CGFloat) {
+        removeCenterConstraints()
+        
+        parent.addSubview(self)
+        
+        centerXConstraint = centerXAnchor.constraint(equalTo: parent.centerXAnchor, constant: 0)
+        if bindToTop {
+            centerYConstraint = centerYAnchor.constraint(equalTo: parent.topAnchor, constant: yConstant )
+        } else {
+            centerYConstraint = centerYAnchor.constraint(equalTo: parent.centerYAnchor, constant: yConstant )
+        }
+        NSLayoutConstraint.activate([centerXConstraint!, centerYConstraint!])
+    }
+}
+
+
+class NftDetailsFullScreenOverlay: UIView {
+    
+    private let doubleTapZoomScale: CGFloat = 3.0
 
     private let scrollView: UIScrollView = {
         let sv = UIScrollView()
         sv.minimumZoomScale = 1.0
-        sv.maximumZoomScale = 3.0
+        sv.maximumZoomScale = 4.0
         sv.showsVerticalScrollIndicator = false
         sv.showsHorizontalScrollIndicator = false
         sv.bouncesZoom = true
@@ -19,52 +54,24 @@ final class NftDetailsFullscreenOverlayView: UIView {
         sv.contentInsetAdjustmentBehavior = .never
         return sv
     }()
-
-    private let contentContainerView: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
-    }()
-
-    private let imageView: UIImageView = {
-        let iv = UIImageView()
-        iv.contentMode = .scaleAspectFit
-        iv.translatesAutoresizingMaskIntoConstraints = false
-        return iv
-    }()
-
-    private let spinner: UIActivityIndicatorView = {
-        let s = UIActivityIndicatorView(style: .large)
-        s.color = .white
-        s.hidesWhenStopped = true
-        return s
-    }()
-
-    private weak var flyingTransitionSourceView: UIView?
-
-    private var isDismissing = false
-    private var isAppearing = false
-    private var currentModel: NftDetailsItemModel?
-    private var containerWidthConstraint: NSLayoutConstraint!
-    private var containerHeightConstraint: NSLayoutConstraint!
     
-    /// Dismiss via upward pan. `UISwipeGestureRecognizer` loses to `UIScrollView`’s pan (and bounce); this pan runs simultaneously.
-    private lazy var dismissPanGesture: UIPanGestureRecognizer = {
-        let p = UIPanGestureRecognizer(target: self, action: #selector(handleDismissPan(_:)))
-        p.delegate = self
-        p.cancelsTouchesInView = false
-        return p
-    }()
+    private let contentContainerView = UIView()
+    private var contentContainerWidthConstraint: NSLayoutConstraint!
+    private var contentContainerHeightConstraint: NSLayoutConstraint!
+    private weak var content: NftDetailsFullScreenOverlayContent?
+    private var dismissPanGesture: UIPanGestureRecognizer?
+    private var onDismiss: ((DismissWay) -> Void)?
 
-    init(models: [NftDetailsItemModel], currentIndex: Int) {
-        super.init(frame: .zero)
-        backgroundColor = .black
+    private enum State {
+        case idle, presenting, normal, dismissing
+    }
+    
+    private var state = State.idle
+    
 
-        setupScrollView()
-        setupGestures()
-
-        let model = models[currentIndex]
-        configure(with: model)
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setup()
     }
 
     required init?(coder: NSCoder) {
@@ -73,34 +80,30 @@ final class NftDetailsFullscreenOverlayView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        
         updateContainerSize()
         centerContent()
     }
 
     private func updateContainerSize() {
         guard bounds.width > 0, bounds.height > 0 else { return }
-
-        let image = imageView.image
-        let imageSize = image?.size ?? CGSize(width: bounds.width, height: bounds.width)
-        let aspectRatio = imageSize.width > 0 ? imageSize.height / imageSize.width : 1
-
-        let availableWidth = bounds.width
-        let availableHeight = bounds.height
-
-        let fittedWidth: CGFloat
-        let fittedHeight: CGFloat
-
-        if availableWidth * aspectRatio <= availableHeight {
-            fittedWidth = availableWidth
-            fittedHeight = availableWidth * aspectRatio
+                                                
+        // Content is always square (matches NFT image aspect ratio expectations)
+        let fittedSize = bounds.width
+        contentContainerWidthConstraint.constant = fittedSize
+        contentContainerHeightConstraint.constant = fittedSize
+        scrollView.contentSize = CGSize(width: fittedSize, height: fittedSize)
+    }
+    
+    private func updateBackground() {
+        if scrollView.zoomScale == 1.0 {
+            let start = CGFloat(0)
+            let end = CGFloat(100)
+            let offset = max(start, min(end, abs(scrollView.contentOffset.y + scrollView.adjustedContentInset.top)))
+            backgroundColor = UIColor.black.withAlphaComponent(1 - (offset - start) / (end - start))
         } else {
-            fittedHeight = availableHeight
-            fittedWidth = availableHeight / aspectRatio
+            backgroundColor = UIColor.black
         }
-
-        containerWidthConstraint.constant = fittedWidth
-        containerHeightConstraint.constant = fittedHeight
-        scrollView.contentSize = CGSize(width: fittedWidth, height: fittedHeight)
     }
 
     private func centerContent() {
@@ -112,21 +115,16 @@ final class NftDetailsFullscreenOverlayView: UIView {
         scrollView.contentInset = UIEdgeInsets(top: vInset, left: hInset, bottom: vInset, right: hInset)
     }
 
-    private func setupScrollView() {
+    private func setup() {
         scrollView.delegate = self
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(scrollView)
 
+        contentContainerView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(contentContainerView)
 
-        contentContainerView.addSubview(imageView)
-
-        spinner.translatesAutoresizingMaskIntoConstraints = false
-        imageView.addSubview(spinner)
-        
-        containerWidthConstraint = contentContainerView.widthAnchor.constraint(equalToConstant: 300)
-        containerHeightConstraint = contentContainerView.heightAnchor.constraint(equalToConstant: 300)
-
+        contentContainerWidthConstraint = contentContainerView.widthAnchor.constraint(equalToConstant: bounds.width)
+        contentContainerHeightConstraint = contentContainerView.heightAnchor.constraint(equalToConstant: bounds.width)
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -135,71 +133,83 @@ final class NftDetailsFullscreenOverlayView: UIView {
 
             contentContainerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             contentContainerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
-            containerWidthConstraint,
-            containerHeightConstraint,
-
-            imageView.topAnchor.constraint(equalTo: contentContainerView.topAnchor),
-            imageView.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
-            imageView.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
-            imageView.bottomAnchor.constraint(equalTo: contentContainerView.bottomAnchor),
-            
-            spinner.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
-            spinner.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
+            contentContainerWidthConstraint,
+            contentContainerHeightConstraint,
         ])
-    }
 
-    private func setupGestures() {
-        // Single tap on background dismisses when at base zoom.
-        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-        addGestureRecognizer(tap)
-
-        // Double-tap on content toggles zoom: resets to 1× if zoomed, zooms in if at 1×.
+        // Double-tap on content toggles zoom: resets to 1× if zoomed, zooms in if at 1
         let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
         doubleTap.numberOfTapsRequired = 2
         scrollView.addGestureRecognizer(doubleTap)
 
+        // Single tap on background dismisses when at base zoom.
         // Single tap must wait for double-tap to fail so they don't conflict.
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        addGestureRecognizer(tap)
         tap.require(toFail: doubleTap)
 
+        
+        let dismissPanGesture = UIPanGestureRecognizer(target: self, action: #selector(handleDismissPan(_:)))
+        dismissPanGesture.delegate = self
+        dismissPanGesture.cancelsTouchesInView = false
         scrollView.addGestureRecognizer(dismissPanGesture)
+        self.dismissPanGesture = dismissPanGesture
     }
-
-    private func configure(with model: NftDetailsItemModel) {
-        currentModel = model
-
-        imageView.kf.cancelDownloadTask()
-        imageView.image = nil
-
-        if let urlString = model.item.thumbnailUrl?.nilIfEmpty, let url = URL(string: urlString) {
-            spinner.startAnimating()
-            imageView.kf.setImage(
-                with: .network(url),
-                placeholder: nil,
-                options: [.alsoPrefetchToMemory, .cacheOriginalImage],
-                completionHandler: { [weak self] result in
-                    guard let self, self.currentModel === model else { return }
-                    DispatchQueue.main.async {
-                        self.spinner.stopAnimating()
-                        switch result {
-                        case .success:
-                            break
-                        case .failure:
-                            self.imageView.image = NftDetailsImage.errorPlaceholderImage()
-                        }
-                        self.setNeedsLayout()
-                    }
-                }
-            )
-        } else {
-            spinner.stopAnimating()
-            imageView.image = NftDetailsImage.errorPlaceholderImage()
-            setNeedsLayout()
+    
+    func presentWithFlyingTransition(from content: NftDetailsFullScreenOverlayContent, in parentView: UIView,
+                                     onPrepare: () -> Void, onDismiss: @escaping (DismissWay) -> Void) {
+        guard state == .idle, superview == nil else {
+            assertionFailure()
+            return
         }
+
+        self.onDismiss = onDismiss
+        self.content = content
+        state = .presenting
+        backgroundColor = .clear
+
+        translatesAutoresizingMaskIntoConstraints = false
+        parentView.addSubview(self)
+        NSLayoutConstraint.activate([
+            topAnchor.constraint(equalTo: parentView.topAnchor),
+            leadingAnchor.constraint(equalTo: parentView.leadingAnchor),
+            trailingAnchor.constraint(equalTo: parentView.trailingAnchor),
+            bottomAnchor.constraint(equalTo: parentView.bottomAnchor),
+        ])
+        parentView.layoutIfNeeded()
+                        
+        let startFrame = content.convert(content.bounds, to: contentContainerView).applying(content.transform.inverted())
+        let endFrame = contentContainerView.bounds
+        content.addToParent(contentContainerView, bindToTop: false, yConstant: startFrame.midY - endFrame.midY)
+        layoutIfNeeded()
+        
+        Haptics.play(.transition)
+
+        UIView.animate(withDuration: 0.35) {
+            content.transform = .identity
+            self.backgroundColor = .black
+        }
+
+        onPrepare()
+        content.centerYConstraint?.constant = 0
+        UIView.animate(
+            withDuration: 0.48,
+            delay: 0,
+            usingSpringWithDamping: 0.7,
+            initialSpringVelocity: 0.45,
+            options: [.beginFromCurrentState, .curveEaseInOut],
+            animations: {
+                self.layoutIfNeeded()
+            },
+            completion: { _ in
+                self.state = .normal
+            }
+        )
     }
 
     @objc private func handleTap(_ gr: UITapGestureRecognizer) {
         if scrollView.zoomScale == 1.0 {
-            dismiss()
+            dismiss(.singleTap)
         }
     }
 
@@ -208,7 +218,7 @@ final class NftDetailsFullscreenOverlayView: UIView {
             scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
         } else {
             let point = gr.location(in: contentContainerView)
-            let zoomRect = zoomRect(for: scrollView.maximumZoomScale / 2, centeredAt: point)
+            let zoomRect = zoomRect(for: doubleTapZoomScale, centeredAt: point)
             scrollView.zoom(to: zoomRect, animated: true)
         }
     }
@@ -232,206 +242,41 @@ final class NftDetailsFullscreenOverlayView: UIView {
         let translation = gr.translation(in: scrollView)
         let verticalDominant = abs(velocity.y) >= abs(velocity.x) * 0.85
         let flickUp = velocity.y < -420
+        let flickDown = velocity.y > 420
         let draggedUp = translation.y < -56 && velocity.y < -80
-        guard verticalDominant, flickUp || draggedUp else { return }
+        guard verticalDominant, flickUp || draggedUp || flickDown else { return }
 
-        dismiss()
+        dismiss(flickDown ? .throwDown : (flickUp ? .throwUp : .normal))
+    }
+    
+    enum DismissWay {
+        case normal, throwUp, throwDown, singleTap
     }
 
-    func presentWithFadeIn(in parent: UIView) {
-        isAppearing = true
+    @discardableResult
+    func dismiss(_ way: DismissWay = .normal) -> Bool {
+        guard state == .normal, let content else { return false }
+        state = .dismissing
         
-        translatesAutoresizingMaskIntoConstraints = false
-        parent.addSubview(self)
-        NSLayoutConstraint.activate([
-            topAnchor.constraint(equalTo: parent.topAnchor),
-            leadingAnchor.constraint(equalTo: parent.leadingAnchor),
-            trailingAnchor.constraint(equalTo: parent.trailingAnchor),
-            bottomAnchor.constraint(equalTo: parent.bottomAnchor),
-        ])
-
-        alpha = 0
         Haptics.play(.transition)
-        UIView.animate(withDuration: 0.25) {
-            self.alpha = 1
-            self.isAppearing = false
-        }
-    }
-
-    func presentWithFlyingTransition(from sourceView: UIView, in containerView: UIView) {
-        self.isAppearing = true
-
-        translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(self)
-        NSLayoutConstraint.activate([
-            topAnchor.constraint(equalTo: containerView.topAnchor),
-            leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
-        ])
-
-        alpha = 0
-        scrollView.alpha = 0
-        containerView.layoutIfNeeded()
+        
+        let currentCenter = contentContainerView.convert(contentContainerView.bounds.center, to: self)
+        content.addToParent(self, bindToTop: true, yConstant: currentCenter.y)
+        
         layoutIfNeeded()
-
-        let startFrame = convert(sourceView.bounds, from: sourceView)
-        let snapshotImage = self.snapshotImage(from: sourceView)
-
-        guard let snapshotImage, startFrame.width > 0.5, startFrame.height > 0.5, bounds.width > 0.5, bounds.height > 0.5 else {
-            flyingTransitionSourceView = nil
-            scrollView.alpha = 1
-            alpha = 0
-            UIView.animate(withDuration: 0.25) {
-                self.alpha = 1
-            }
-            return
-        }
-
-        flyingTransitionSourceView = sourceView
-        let endFrame = aspectFitContentFrame(contentSize: snapshotImage.size, in: bounds)
-
-        let flying = UIImageView(image: snapshotImage)
-        flying.contentMode = .scaleAspectFit
-        flying.clipsToBounds = true
-        flying.frame = startFrame
-        addSubview(flying)
-
-        Haptics.play(.transition)
         
-        UIView.animate(withDuration: 0.35) {
-            self.alpha = 1
-        }
-
-        UIView.animate(
-            withDuration: 0.58,
-            delay: 0,
-            usingSpringWithDamping: 0.72,
-            initialSpringVelocity: 0.45,
-            options: [.allowUserInteraction, .beginFromCurrentState],
-            animations: {
-                flying.frame = endFrame
-            },
-            completion: { _ in
-                self.setNeedsLayout()
-                self.layoutIfNeeded()
-                self.scrollView.alpha = 1
-                UIView.animate(
-                    withDuration: 0.25, delay: 0, animations: {
-                        flying.alpha = 0.0
-                    }, completion: { _ in
-                       flying.removeFromSuperview()
-                       self.isAppearing = false
-                   }
-                )
-            }
-        )
-    }
-
-    private func snapshotImage(from view: UIView) -> UIImage? {
-        let b = view.bounds
-        guard b.width > 0.5, b.height > 0.5 else { return nil }
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = view.window?.screen.scale ?? UIScreen.main.scale
-        format.opaque = false
-        let renderer = UIGraphicsImageRenderer(bounds: b, format: format)
-        return renderer.image { _ in
-            _ = view.drawHierarchy(in: b, afterScreenUpdates: true)
-        }
-    }
-
-    private func aspectFitContentFrame(contentSize: CGSize, in bounds: CGRect) -> CGRect {
-        let availableWidth = bounds.width
-        let availableHeight = bounds.height
-        guard availableWidth > 0, availableHeight > 0 else { return .zero }
-
-        let aspectRatio = contentSize.width > 0 ? contentSize.height / contentSize.width : 1
-
-        let fittedWidth: CGFloat
-        let fittedHeight: CGFloat
-
-        if availableWidth * aspectRatio <= availableHeight {
-            fittedWidth = availableWidth
-            fittedHeight = availableWidth * aspectRatio
-        } else {
-            fittedHeight = availableHeight
-            fittedWidth = availableHeight / aspectRatio
-        }
-
-        let x = (availableWidth - fittedWidth) / 2
-        let y = (availableHeight - fittedHeight) / 2
-        return CGRect(x: x, y: y, width: fittedWidth, height: fittedHeight)
-    }
-
-    func dismiss() {
-        guard !isDismissing, !isAppearing else { return }
-        imageView.kf.cancelDownloadTask()
-
-        if scrollView.zoomScale == scrollView.minimumZoomScale,
-           let source = flyingTransitionSourceView,
-           source.window != nil,
-           source.superview != nil,
-           dismissWithFlyingTransition(to: source) {
-           return
-        }
-
-        dismissWithFadeOnly()
-    }
-
-    private func dismissWithFadeOnly() {
-        isDismissing = true
-        Haptics.play(.transition)
-        
-        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut]) {
-            self.alpha = 0
-        } completion: { _ in
-            self.removeFromSuperview()
-            self.onDismiss?()
-        }
-    }
-
-    private func dismissWithFlyingTransition(to sourceView: UIView) -> Bool {
-        layoutIfNeeded()
-
-        guard let snapshot = snapshotImage(from: contentContainerView) else { return false }
-
-        let targetFrame = convert(sourceView.bounds, from: sourceView)
-        guard targetFrame.width > 0.5, targetFrame.height > 0.5 else { return false }
-
-        let startFrame = contentContainerView.convert(contentContainerView.bounds, to: self)
-        guard startFrame.width > 0.5, startFrame.height > 0.5 else { return false }
-
-        isDismissing = true
-        scrollView.alpha = 0
-        spinner.alpha = 0
-        alpha = 1
-
-        let flying = UIImageView(image: snapshot)
-        flying.contentMode = .scaleAspectFit
-        flying.clipsToBounds = true
-        flying.frame = startFrame
-        addSubview(flying)
-
-        Haptics.play(.transition)
-
-        UIView.animate(withDuration: 0.15, delay: 0, options: [.curveEaseOut]) {
-            self.alpha = 0
-            flying.frame = targetFrame
-        } completion: { _ in
-            self.removeFromSuperview()
-            self.onDismiss?()
-        }
+        onDismiss?(way)
         return true
     }
 }
 
-extension NftDetailsFullscreenOverlayView: UIGestureRecognizerDelegate {
+extension NftDetailsFullScreenOverlay: UIGestureRecognizerDelegate {
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         gestureRecognizer === dismissPanGesture && otherGestureRecognizer === scrollView.panGestureRecognizer
     }
 }
 
-extension NftDetailsFullscreenOverlayView: UIScrollViewDelegate {
+extension NftDetailsFullScreenOverlay: UIScrollViewDelegate {
     func viewForZooming(in scrollView: UIScrollView) -> UIView? {
         contentContainerView
     }
@@ -439,5 +284,10 @@ extension NftDetailsFullscreenOverlayView: UIScrollViewDelegate {
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
         centerContent()
     }
+    
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        if state == .normal {
+            updateBackground()
+        }
+    }
 }
-

@@ -7,7 +7,7 @@ import {
 } from '../../../util/windowEnvironment';
 import { callApi, initApi } from '../../../api';
 import { removeTemporaryAccount } from '../../helpers/auth';
-import { addActionHandler, getGlobal } from '../../index';
+import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { selectNewestActivityTimestamps } from '../../selectors';
 
 addActionHandler('initApi', async (global, actions) => {
@@ -30,6 +30,22 @@ addActionHandler('initApi', async (global, actions) => {
     await removeTemporaryAccount(global.currentTemporaryViewAccountId);
   }
   global = getGlobal();
+
+  if (!global.isDerivationsSynced) {
+    // Migration to add derivations to the client
+    const isDerivationsMigrationNeeded = Object.values(global.accounts?.byId ?? {})
+      .filter((e) => Object.values(e.byChain).length > 1)
+      .some((account) => Object.entries(account.byChain)
+        .some(([chain, acc]) => chain !== 'tron' && !acc?.derivation));
+
+    if (isDerivationsMigrationNeeded) {
+      await callApi('loadAccountsDerivations');
+      global = getGlobal();
+    }
+
+    global = { ...global, isDerivationsSynced: true };
+    setGlobal(global);
+  }
 
   const { currentAccountId } = global;
 

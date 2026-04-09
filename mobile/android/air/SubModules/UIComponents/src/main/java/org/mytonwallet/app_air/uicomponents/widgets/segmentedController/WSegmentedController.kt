@@ -586,12 +586,18 @@ class WSegmentedController(
     }
 
     override fun onIndexChanged(to: Int, animated: Boolean) {
+        onIndexChanged(to, animated, null)
+    }
+
+    fun onIndexChanged(to: Int, animated: Boolean, onCompletion: (() -> Unit)?) {
         isAnimatingChangeTab = true
         targetIndex = to
-        if (animated)
-            viewPager.springToItem(to, 0f)
-        else
+        if (animated) {
+            viewPager.springToItem(to, 0f, onCompletion)
+        } else {
             viewPager.setCurrentItem(to, false)
+            onCompletion?.invoke()
+        }
     }
 
     override fun onItemMoved(from: Int, to: Int) {

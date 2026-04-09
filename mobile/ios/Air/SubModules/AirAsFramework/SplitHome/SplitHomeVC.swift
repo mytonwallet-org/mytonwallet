@@ -1,6 +1,7 @@
 import UIKit
 import UIActivityList
 import UIComponents
+import UIAssets
 import WalletCore
 import WalletContext
 
@@ -16,7 +17,6 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
     private let actionsCustomSectionID = "actions"
     private let assetsCustomSectionID = "assets"
     private weak var splitHomeAssetsSectionCell: SplitHomeAssetsSectionCell?
-    private var isAssetsReordering = false
     private var actionsCustomSectionCellRegistration: UICollectionView.CellRegistration<SplitHomeActionsSectionCell, Row>!
     private var actionsCustomSectionDescriptor: CustomSectionDescriptor!
     private var assetsCustomSectionCellRegistration: UICollectionView.CellRegistration<SplitHomeAssetsSectionCell, Row>!
@@ -38,15 +38,7 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
         let image = UIImage.airBundle(isHidden ? "HomeUnhide24" : "HomeHide24")
         return UIBarButtonItem(title: lang("Hide"), image: image, target: self, action: #selector(hidePressed))
     }()
-    
-    private lazy var cancelItem = UIBarButtonItem.cancelTextButtonItem { [weak self] in
-        self?.stopReordering(isCanceled: true)
-    }
-    
-    private lazy var doneItem = UIBarButtonItem.doneButtonItem { [weak self] in
-        self?.stopReordering(isCanceled: false)
-    }
-    
+        
     init(accountSource: AccountSource = .current) {
         self._account = AccountContext(source: accountSource)
         super.init(nibName: nil, bundle: nil)
@@ -95,13 +87,16 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
             topVC = parent
         }
         if topVC != self {
-            stopReordering(isCanceled: true)
+            editingNavigator?.cancelEditing()
         }
+    }
+    
+    private func cancelEditing() {
+        editingNavigator?.cancelEditing()
     }
     
     private func configureAssetsCustomSection(cell: SplitHomeAssetsSectionCell) {
         splitHomeAssetsSectionCell = cell
-        isAssetsReordering = cell.isAssetsReordering
         updateNavigationItem()
     }
     
@@ -143,7 +138,7 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
         switch event {
         case .accountChanged(_, _):
             guard $account.source == .current else { return }
-            stopReordering(isCanceled: true)
+            cancelEditing()
             switchAccountTask?.cancel()
             switchAccountTask = Task { [weak self] in
                 guard let self else { return }
@@ -157,7 +152,7 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
             }
         case .accountsReset:
             guard $account.source == .current else { return }
-            stopReordering(isCanceled: true)
+            cancelEditing()
             calledReady = false
         case .balanceChanged(let accountId):
             if accountId == resolvedAccountId, activityViewModel == nil {
@@ -226,26 +221,25 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
         AppActions.setSensitiveDataIsHidden(!isHidden)
     }
     
-    private func stopReordering(isCanceled: Bool) {
-        splitHomeAssetsSectionCell?.stopAssetsReordering(isCanceled: isCanceled)
-        if splitHomeAssetsSectionCell == nil, isAssetsReordering {
-            isAssetsReordering = false
-            updateNavigationItem()
-        }
-    }
-    
-    private var isReorderingNfts: Bool {
-        isAssetsReordering
-    }
-    
     private func updateNavigationItem() {
         var leadingItemGroups: [UIBarButtonItemGroup] = []
         var trailingItemGroups: [UIBarButtonItemGroup] = []
         
-        if isReorderingNfts {
-            leadingItemGroups += cancelItem.asSingleItemGroup()
-            trailingItemGroups += doneItem.asSingleItemGroup()
-        } else {
+        let editingState = editingNavigator?.state.editingState
+        let isEditing: Bool
+        switch editingState {
+        case .reordering:
+            leadingItemGroups += editingNavigator!.cancelEditingBarButtonItem.asSingleItemGroup()
+            trailingItemGroups += editingNavigator!.commitEditingBarButtonItem.asSingleItemGroup()
+            isEditing = true
+
+        case .selection:
+            leadingItemGroups += editingNavigator!.selectAllBarButtonItem.asSingleItemGroup()
+            trailingItemGroups += editingNavigator!.commitEditingBarButtonItem.asSingleItemGroup()
+            isEditing = true
+
+        case nil:
+            isEditing = false
             if AuthSupport.accountsSupportAppLock {
                 trailingItemGroups += lockItem.asSingleItemGroup()
             }
@@ -254,13 +248,23 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
         
         navigationItem.leadingItemGroups = leadingItemGroups
         navigationItem.trailingItemGroups = trailingItemGroups
-        navigationController?.allowBackSwipeToDismiss(!isReorderingNfts)
-        navigationController?.isModalInPresentation = isReorderingNfts
+        
+        navigationController?.allowBackSwipeToDismiss(!isEditing)
+        navigationController?.isModalInPresentation = isEditing
     }
     
-    func splitHomeAssetsRowViewDidChangeReorderingState(_ view: SplitHomeAssetsRowView) {
-        isAssetsReordering = view.isReordering
-        updateNavigationItem()
+    var editingNavigator: NftsEditingNavigator? {
+        didSet {
+            if editingNavigator !== oldValue {
+                editingNavigator?.onStateChange = { [weak self] _, newState in
+                    guard let self else { return }
+                    if newState.editingState == .selection {
+                        self.editingNavigator?.installToolbar(into: view)
+                    }
+                    self.updateNavigationItem()
+                }
+            }
+        }
     }
     
     private func removeSelfFromStack() {

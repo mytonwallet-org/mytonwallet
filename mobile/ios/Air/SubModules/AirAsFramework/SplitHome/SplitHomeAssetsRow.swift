@@ -6,11 +6,11 @@ import WalletContext
 
 @MainActor
 protocol SplitHomeAssetsRowViewDelegate: AnyObject {
-    func splitHomeAssetsRowViewDidChangeReorderingState(_ view: SplitHomeAssetsRowView)
+    var editingNavigator: NftsEditingNavigator? { get set }
 }
 
 @MainActor
-final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAssetsViewModelDelegate, NftsViewControllerDelegate {
+final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAssetsViewModelDelegate {
     static let itemSize = CGSize(width: 368, height: 424)
     static let rowHeight: CGFloat = 424
     static let itemSpacing: CGFloat = 16
@@ -59,10 +59,9 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAsse
     private var tabViewControllers: [DisplayAssetTab: (UIViewController & WSegmentedControllerContent)] = [:]
     private var tokensVC: WalletTokensVC?
     private var nftsVC: NftsVC?
-    weak var delegate: (any SplitHomeAssetsRowViewDelegate)?
-    private var _isReordering = false
+    private var nftsVCManager: NftsVCManager?
     
-    var isReordering: Bool { _isReordering }
+    weak var delegate: (any SplitHomeAssetsRowViewDelegate)?
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -86,25 +85,31 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAsse
         
         if self.accountSource != accountSource || tabsViewModel == nil {
             self.accountSource = accountSource
-            _isReordering = false
             tabsViewModel?.delegate = nil
             removeAllTabViewControllers()
             let tabsViewModel = WalletAssetsViewModel(accountSource: accountSource)
             tabsViewModel.delegate = self
             self.tabsViewModel = tabsViewModel
+            nftsVCManager = NftsVCManager(tabsViewModel: tabsViewModel)
+            delegate?.editingNavigator = nftsVCManager?.editingNavigator
             displayTabsChanged()
         } else {
             tabsViewModel?.delegate = self
             applySnapshot()
         }
-        delegate?.splitHomeAssetsRowViewDidChangeReorderingState(self)
     }
     
-    func stopReordering(isCanceled: Bool) {
-        tabsViewModel?.stopReordering(isCanceled: isCanceled)
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        
+        if window == nil {
+            delegate?.editingNavigator = nil
+        } else {
+            delegate?.editingNavigator = nftsVCManager?.editingNavigator
+        }
     }
     
-    func displayTabsChanged() {
+    private func displayTabsChanged() {
         displayTabs = tabsViewModel?.displayTabs ?? []
         removeMissingTabViewControllers()
         applySnapshot()
@@ -153,22 +158,14 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAsse
             }
         case .nfts:
             if let nftsVC {
-                nftsVC.delegate = self
                 viewController = nftsVC
             } else {
-                let vc = NftsVC(accountSource: accountSource, mode: .compactLarge, filter: .none)
-                vc.delegate = self
+                let vc = NftsVC(accountSource: accountSource, manager: nftsVCManager, layoutMode: .compactLarge, filter: .none)
                 nftsVC = vc
                 viewController = vc
             }
         case .nftCollectionFilter(let filter):
-            let vc = NftsVC(accountSource: accountSource, mode: .compactLarge, filter: filter)
-            vc.delegate = self
-            viewController = vc
-        }
-        
-        if let nftsViewController = viewController as? NftsVC, _isReordering {
-            nftsViewController.startReordering()
+            viewController = NftsVC(accountSource: accountSource, manager: nftsVCManager, layoutMode: .compactLarge, filter: filter)
         }
         
         if viewController.parent == nil {
@@ -204,48 +201,9 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAsse
         nftsVC = nil
         displayTabs = []
     }
-    
-    private func forEachNftsVC(_ body: (NftsVC) -> Void) {
-        var processedIds = Set<ObjectIdentifier>()
         
-        if let nftsVC {
-            processedIds.insert(ObjectIdentifier(nftsVC))
-            body(nftsVC)
-        }
-        
-        for viewController in tabViewControllers.values {
-            guard let nftsVC = viewController as? NftsVC else { continue }
-            let id = ObjectIdentifier(nftsVC)
-            guard processedIds.insert(id).inserted else { continue }
-            body(nftsVC)
-        }
-    }
-    
     func walletAssetModelDidChangeDisplayTabs() {
         displayTabsChanged()
-    }
-    
-    func walletAssetModelDidStartReordering() {
-        _isReordering = true
-        forEachNftsVC {
-            $0.startReordering()
-        }
-        delegate?.splitHomeAssetsRowViewDidChangeReorderingState(self)
-    }
-    
-    func walletAssetModelDidStopReordering(isCanceled: Bool) {
-        _isReordering = false
-        forEachNftsVC {
-            $0.stopReordering(isCanceled: isCanceled)
-        }
-        delegate?.splitHomeAssetsRowViewDidChangeReorderingState(self)
-    }
-    
-    func nftsViewControllerDidChangeReorderingState(_ vc: NftsVC) {
-    }
-    
-    func nftsViewControllerRequestReordering(_ vc: NftsVC) {
-        tabsViewModel?.startOrdering()
     }
 }
 

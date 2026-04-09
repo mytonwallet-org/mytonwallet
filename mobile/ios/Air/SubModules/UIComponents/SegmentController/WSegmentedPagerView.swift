@@ -1,3 +1,4 @@
+import ContextMenuKit
 import SwiftUI
 import UIKit
 import WalletContext
@@ -46,6 +47,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
     private var pendingProgrammaticTransition: ProgrammaticTransition?
 
     public var onScrollProgressChanged: ((CGFloat) -> Void)?
+    public var onWillStartTransition: (() -> Void)?
     public var onDidStartDragging: (() -> Void)?
     public var onDidEndScrolling: (() -> Void)?
 
@@ -83,7 +85,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
 
     private func updateScrollLayout() {
         let viewportSize = scrollView.bounds.size
-        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+        guard viewportSize.width > 0 else { return }
 
         scrollView.contentSize = CGSize(width: viewportSize.width * CGFloat(max(items.count, 1)), height: viewportSize.height)
 
@@ -130,6 +132,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
         guard items.indices.contains(index) else { return }
         guard scrollView.bounds.width > 0 else {
             selectIndex(index)
+            onDidEndScrolling?()
             return
         }
         guard index != currentIndex else {
@@ -137,6 +140,8 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
             onDidEndScrolling?()
             return
         }
+
+        onWillStartTransition?()
 
         stopProgrammaticScrollIfNeeded()
         settleInteractiveScrollIfNeeded()
@@ -440,7 +445,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
             x: 0,
             y: 0,
             width: width,
-            height: max(1, viewController.hostedHeight)
+            height: max(1, viewController.calculateHeight(isHosted: true))
         )
         if hostedView.frame != targetFrame {
             hostedView.frame = targetFrame
@@ -633,20 +638,22 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
 public struct WSegmentedPagerItem: Equatable {
     public let id: String
     public let title: String
-    public let menuContext: MenuContext?
+    public let contextMenuProvider: SegmentedControlContextMenuProvider?
     public let hidesMenuIcon: Bool
     public let isDeletable: Bool
     public let viewController: any WSegmentedControllerContent
 
-    public init(id: String,
-                title: String,
-                menuContext: MenuContext? = nil,
-                hidesMenuIcon: Bool = false,
-                isDeletable: Bool = true,
-                viewController: any WSegmentedControllerContent) {
+    public init(
+        id: String,
+        title: String,
+        contextMenuProvider: SegmentedControlContextMenuProvider? = nil,
+        hidesMenuIcon: Bool = false,
+        isDeletable: Bool = true,
+        viewController: any WSegmentedControllerContent
+    ) {
         self.id = id
         self.title = title
-        self.menuContext = menuContext
+        self.contextMenuProvider = contextMenuProvider
         self.hidesMenuIcon = hidesMenuIcon
         self.isDeletable = isDeletable
         self.viewController = viewController
@@ -656,7 +663,7 @@ public struct WSegmentedPagerItem: Equatable {
         SegmentedControlItem(
             id: id,
             title: title,
-            menuContext: menuContext,
+            contextMenuProvider: contextMenuProvider,
             hidesMenuIcon: hidesMenuIcon,
             isDeletable: isDeletable,
             viewController: viewController
@@ -666,7 +673,7 @@ public struct WSegmentedPagerItem: Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.id == rhs.id
             && lhs.title == rhs.title
-            && lhs.menuContext === rhs.menuContext
+            && lhs.contextMenuProvider === rhs.contextMenuProvider
             && lhs.hidesMenuIcon == rhs.hidesMenuIcon
             && lhs.isDeletable == rhs.isDeletable
             && ObjectIdentifier(lhs.viewController as AnyObject) == ObjectIdentifier(rhs.viewController as AnyObject)

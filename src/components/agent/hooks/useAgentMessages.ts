@@ -9,6 +9,7 @@ import {
 } from '../../../global/selectors';
 import { buildRequestContext, createAgentStream } from '../../../util/agent/agentApi';
 import { clearAgentChat, loadAgentMessages, saveAgentMessages } from '../../../util/agent/agentStorage';
+import { logDebugError } from '../../../util/logs';
 
 import useLastCallback from '../../../hooks/useLastCallback';
 import useSyncEffect from '../../../hooks/useSyncEffect';
@@ -231,6 +232,8 @@ export default function useAgentMessages({ lang, agentMessageCount }: UseAgentMe
             return finalMessages;
           });
           finalize(finalMessages);
+
+          logDebugError('[useAgentMessages] Agent Streaming: ', { error });
         },
       });
 

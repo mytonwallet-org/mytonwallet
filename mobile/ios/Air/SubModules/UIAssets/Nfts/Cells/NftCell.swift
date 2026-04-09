@@ -11,7 +11,11 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
     }
         
     override var isHighlighted: Bool {
-        didSet { updateHighlight() }
+        didSet {
+            if isHighlighted != oldValue {
+                updateHighlight()
+            }
+        }
     }
     
     let imageContainerView = UIView()
@@ -138,28 +142,59 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
         super.layoutSubviews()
         wiggle.layoutDidChange()
     }
-    
+
     private func configureSelection(isSelected: Bool?) {
+        // Note that configure() could be called during collection reload/apply; nested UIView.animate is 0-duration there.
+        // So we use deferred animation
+        
+        // remove icon is not in select mode
         guard let isSelected else {
-            selectionIcon?.removeFromSuperview()
-            selectionIcon = nil
+            if let icon = selectionIcon {
+                self.selectionIcon = nil
+                DispatchQueue.main.async {
+                    UIView.animate(withDuration: 0.25, animations: {
+                        icon.alpha = 0
+                    }) { _ in
+                        icon.removeFromSuperview()
+                    }
+                }
+            }
+            return
+        }
+
+        func updateSelectionIconImage(_ icon: UIImageView) {
+            icon.image = .airBundleOptional(isSelected ? "SelectedItem" : "UnselectedItem")
+        }
+
+        // add new icon in select mode
+        guard let selectionIcon else {
+            let newIcon = UIImageView()
+            newIcon.translatesAutoresizingMaskIntoConstraints = false
+            imageContainerView.addSubview(newIcon)
+            NSLayoutConstraint.activate([
+                newIcon.trailingAnchor.constraint(equalTo: imageContainerView.trailingAnchor, constant: -6),
+                newIcon.topAnchor.constraint(equalTo: imageContainerView.topAnchor, constant: 6),
+                newIcon.widthAnchor.constraint(equalToConstant: 28),
+                newIcon.heightAnchor.constraint(equalToConstant: 28),
+            ])
+            self.selectionIcon = newIcon
+            newIcon.alpha = 0.0
+            updateSelectionIconImage(newIcon)
+            DispatchQueue.main.async {
+                UIView.animate(withDuration: 0.25) {
+                    newIcon.alpha = 1.0
+                }
+            }
             return
         }
         
-        if selectionIcon == nil {
-            let selectionIcon = UIImageView()
-            selectionIcon.translatesAutoresizingMaskIntoConstraints = false
-            imageContainerView.addSubview(selectionIcon)
-            NSLayoutConstraint.activate([
-                selectionIcon.trailingAnchor.constraint(equalTo: imageContainerView.trailingAnchor, constant: -6),
-                selectionIcon.topAnchor.constraint(equalTo: imageContainerView.topAnchor, constant: 6),
-                selectionIcon.widthAnchor.constraint(equalToConstant: 28),
-                selectionIcon.heightAnchor.constraint(equalToConstant: 28),
-            ])
-            self.selectionIcon = selectionIcon
+        // update existing
+        DispatchQueue.main.async {
+            guard selectionIcon.superview != nil else { return }
+            UIView.transition(with: selectionIcon, duration: 0.25, options: .transitionCrossDissolve) {
+                updateSelectionIconImage(selectionIcon)
+            }
         }
-        
-        selectionIcon?.image = .airBundleOptional(isSelected ? "SelectedItem" : "UnselectedItem")
     }
 
     func configure(nft: ApiNft?, compactMode: Bool, isMultichain: Bool, domainExpirationText: String?, isSelected: Bool?) {
@@ -211,6 +246,9 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
     }
 
     private func updateHighlight() {
+        // Only for multiselect mode for now. All other states assumes long-tap-to-context-menu invocation (i.e. concurrent transforming)
+        guard selectionIcon != nil else { return }
+        
         let transform: CGAffineTransform = isHighlighted ? CGAffineTransform(scaleX: 0.95, y: 0.95): .identity
         UIView.animate( withDuration: 0.25, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) { [weak self ] in
             self?.imageContainerView.transform = transform

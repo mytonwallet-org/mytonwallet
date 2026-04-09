@@ -169,10 +169,10 @@ private func presentAssetsModally(accountSource: AccountSource, selectedTab inde
     let assetsVC = AssetsTabVC(accountSource: accountSource, defaultTabIndex: index)
     let topVC = topViewController()
     if collectionsFilter != .none, let nc = topVC as? WNavigationController, (nc.visibleViewController is AssetsTabVC || nc.visibleViewController is NftDetailsVC) {
-        nc.pushViewController(NftsVC(accountSource: accountSource, mode: .fullScreenFiltered, filter: collectionsFilter), animated: true)
+        nc.pushViewController(NftsFullScreenVC(accountSource: accountSource, filter: collectionsFilter), animated: true)
     } else if collectionsFilter != .none {
         let nc = WNavigationController(rootViewController: assetsVC)
-        nc.pushViewController(NftsVC(accountSource: accountSource, mode: .fullScreenFiltered, filter: collectionsFilter), animated: false)
+        nc.pushViewController(NftsFullScreenVC(accountSource: accountSource, filter: collectionsFilter), animated: false)
         topVC?.present(nc, animated: true)
         assetsVC.view.layoutIfNeeded()
     } else {

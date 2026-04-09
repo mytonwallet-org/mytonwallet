@@ -1,132 +1,216 @@
-
+import ContextMenuKit
+import Dependencies
 import SwiftUI
 import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-import Dependencies
 
-@MainActor func configureCollectiblesMenu(accountSource: AccountSource, menuContext: MenuContext, onReorder: @escaping () -> ()) {
-    menuContext.makeConfig = {
-        var items: [MenuItem] = []
-        
+private let walletAssetsMenuStyle = ContextMenuStyle(minWidth: 180.0, maxWidth: 280.0)
+
+@MainActor
+func makeCollectiblesMenuConfig(
+    accountSource: AccountSource,
+    onReorder: @escaping () -> Void
+) -> () -> ContextMenuConfiguration {
+    return {
         @Dependency(\.accountStore) var accountStore
-        
+
         let accountId = accountStore.resolveAccountId(source: accountSource)
         let collections = NftStore.getCollections(accountId: accountId)
         let gifts = collections.telegramGiftsCollections
         let notGifts = collections.notTelegramGiftsCollections
         let hasHidden = NftStore.getAccountHasHiddenNfts(accountId: accountId)
-        
+
+        var items: [ContextMenuItem] = []
+
         if !gifts.isEmpty {
-            items += .button(
-                id: "0-gifts",
-                title: lang("Telegram Gifts"),
-                trailingIcon: .system("chevron.right"),
-                action: {
-                    menuContext.switchTo(submenuId: "1")
-                },
-                dismissOnSelect: false,
-            )
-            items += .wideSeparator()
-        }
-        
-        if !notGifts.isEmpty {
-            items += notGifts.enumerated().map { (idx, collection) in
-                    .button(
-                        id: "0-" + collection.id,
-                        title: collection.name,
-                        action: {
-                            AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: .collection(collection))
-                        },
-                        reportWidth: idx < 8
+            items.append(
+                .submenu(
+                    ContextMenuSubmenu(
+                        title: lang("Telegram Gifts"),
+                        makePage: {
+                            var giftItems: [ContextMenuItem] = [
+                                .back(
+                                    ContextMenuBackAction(
+                                        title: lang("Back"),
+                                        icon: .airBundle("MenuBack")
+                                    )
+                                ),
+                                .separator,
+                                .action(
+                                    ContextMenuAction(
+                                        title: lang("All Telegram Gifts"),
+                                        icon: .airBundle("MenuGift"),
+                                        handler: {
+                                            AppActions.showAssets(
+                                                accountSource: accountSource,
+                                                selectedTab: 1,
+                                                collectionsFilter: .telegramGifts
+                                            )
+                                        }
+                                    )
+                                )
+                            ]
+
+                            giftItems.append(
+                                contentsOf: gifts.map { collection in
+                                    .action(
+                                        ContextMenuAction(
+                                            title: collection.name,
+                                            handler: {
+                                                AppActions.showAssets(
+                                                    accountSource: accountSource,
+                                                    selectedTab: 1,
+                                                    collectionsFilter: .collection(collection)
+                                                )
+                                            }
+                                        )
+                                    )
+                                }
+                            )
+
+                            return ContextMenuPage(items: giftItems)
+                        }
                     )
-            }
-            items += .wideSeparator()
+                )
+            )
+            items.append(.separator)
         }
-        
+
+        if !notGifts.isEmpty {
+            items.append(
+                contentsOf: notGifts.map { collection in
+                    .action(
+                        ContextMenuAction(
+                            title: collection.name,
+                            handler: {
+                                AppActions.showAssets(
+                                    accountSource: accountSource,
+                                    selectedTab: 1,
+                                    collectionsFilter: .collection(collection)
+                                )
+                            }
+                        )
+                    )
+                }
+            )
+            items.append(.separator)
+        }
+
         if hasHidden {
-            items += .button(id: "0-hidden", title: lang("Hidden NFTs"), trailingIcon: .air("MenuHidden26")) {
-                AppActions.showHiddenNfts(accountSource: accountSource)
-            }
-            items += .wideSeparator()
+            items.append(
+                .action(
+                    ContextMenuAction(
+                        title: lang("Hidden NFTs"),
+                        icon: .airBundle("MenuHidden26"),
+                        handler: {
+                            AppActions.showHiddenNfts(accountSource: accountSource)
+                        }
+                    )
+                )
+            )
+            items.append(.separator)
         }
-        
-        items += .button(id: "0-reorder", title: lang("Reorder"), trailingIcon: .air("MenuReorder26")) {
-            onReorder()
-        }
-        
-        return MenuConfig(menuItems: items)
-    }
-    menuContext.makeSubmenuConfig = {
-        var items: [MenuItem] = []
-        
-        @Dependency(\.accountStore) var accountStore
-        
-        let accountId = accountStore.resolveAccountId(source: accountSource)
-        let collections = NftStore.getCollections(accountId: accountId)
-        let gifts = collections.telegramGiftsCollections
-        guard !gifts.isEmpty else { return nil }
-        
-        items += .button(
-            id: "1-back",
-            title: lang("Back"),
-            leadingIcon: .air("MenuBack"),
-            action: {
-                menuContext.switchTo(submenuId: "0")
-            },
-            dismissOnSelect: false,
+
+        items.append(
+            .action(
+                ContextMenuAction(
+                    title: lang("Reorder"),
+                    icon: .airBundle("MenuReorder26"),
+                    handler: onReorder
+                )
+            )
         )
-        items += .wideSeparator()
-        
-        items += .button(id: "1-all-gifts", title: lang("All Telegram Gifts"), trailingIcon: .air("MenuGift")) {
-            AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: .telegramGifts)
-        }
-        
-        items += gifts.map { collection in
-            .button(id: "1-" + collection.id, title: collection.name) {
-                AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: .collection(collection))
-            }
-        }
-        
-        return MenuConfig(submenuId: "1", menuItems: items)
+
+        return ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: items),
+            style: walletAssetsMenuStyle
+        )
     }
 }
 
-@MainActor func configureNftCollectionMenu(menuContext: MenuContext, onReorder: @escaping () -> (), onHide: (() -> ())?) {
-    menuContext.makeConfig = {
-        var items: [MenuItem] = []
+@MainActor
+func makeNftCollectionMenuConfig(
+    onReorder: @escaping () -> Void,
+    onHide: (() -> Void)?
+) -> () -> ContextMenuConfiguration {
+    return {
+        var items: [ContextMenuItem] = []
+
         if let onHide {
-            items += .button(id: "0-hide", title: lang("Hide tab"), trailingIcon: .system("pin.slash")) {
-                onHide()
-            }
-        }
-        items += .button(id: "0-reorder", title: lang("Reorder"), trailingIcon: .air("MenuReorder26")) {
-            onReorder()
-        }
-        return MenuConfig(menuItems: items)
-    }
-}
-
-@MainActor func configureTokensMenu(menuContext: MenuContext, onReorder: @escaping () -> ()) {
-    menuContext.makeConfig = {
-        var items: [MenuItem] = []
-        let currentLimit = AppStorageHelper.homeWalletVisibleTokensLimit
-        items += HomeWalletVisibleTokensLimit.allCases.map { limit in
-            MenuItem.button(
-                id: "0-limit-\(limit.rawValue)",
-                title: limit.title,
-                trailingIcon: currentLimit == limit ? .system("checkmark") : nil,
-                action: { AppStorageHelper.homeWalletVisibleTokensLimit = limit }
+            items.append(
+                .action(
+                    ContextMenuAction(
+                        title: lang("Hide tab"),
+                        icon: .system("pin.slash"),
+                        handler: onHide
+                    )
+                )
             )
         }
-        items += .wideSeparator()
-        items += .button(id: "0-add", title: lang("Add Token"), trailingIcon: .system("plus")) {
-            AppActions.showAddToken()
+
+        items.append(
+            .action(
+                ContextMenuAction(
+                    title: lang("Reorder"),
+                    icon: .airBundle("MenuReorder26"),
+                    handler: onReorder
+                )
+            )
+        )
+
+        return ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: items),
+            style: walletAssetsMenuStyle
+        )
+    }
+}
+
+@MainActor
+func makeTokensMenuConfig(onReorder: @escaping () -> Void) -> () -> ContextMenuConfiguration {
+    return {
+        let currentLimit = AppStorageHelper.homeWalletVisibleTokensLimit
+
+        var items: [ContextMenuItem] = HomeWalletVisibleTokensLimit.allCases.map { limit in
+            let icon: ContextMenuIcon? = currentLimit == limit ? (.system("checkmark") ?? .placeholder) : .placeholder
+
+            return .action(
+                ContextMenuAction(
+                    title: limit.title,
+                    icon: icon,
+                    handler: {
+                        AppStorageHelper.homeWalletVisibleTokensLimit = limit
+                    }
+                )
+            )
         }
-        items += .button(id: "0-reorder", title: lang("Reorder"), trailingIcon: .air("MenuReorder26")) {
-            onReorder()
-        }
-        return MenuConfig(menuItems: items)
+
+        items.append(.separator)
+        items.append(
+            .action(
+                ContextMenuAction(
+                    title: lang("Add Token"),
+                    icon: .system("plus"),
+                    handler: {
+                        AppActions.showAddToken()
+                    }
+                )
+            )
+        )
+        items.append(
+            .action(
+                ContextMenuAction(
+                    title: lang("Reorder"),
+                    icon: .airBundle("MenuReorder26"),
+                    handler: onReorder
+                )
+            )
+        )
+
+        return ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: items),
+            style: walletAssetsMenuStyle
+        )
     }
 }

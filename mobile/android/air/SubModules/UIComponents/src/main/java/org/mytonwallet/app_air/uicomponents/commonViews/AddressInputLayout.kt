@@ -394,10 +394,7 @@ class AddressInputLayout(
         EditTextTint.applyColor(textField, WColor.Tint.color)
         overlayLabel.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
         updateOverlayText()
-        closeButton.apply {
-            setBackgroundColor(WColor.SecondaryBackground.color, 10f.dp)
-            updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
-        }
+        closeButton.updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
     }
 
     fun insetsUpdated() {

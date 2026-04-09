@@ -14,11 +14,13 @@ public let SOLANA_CHAIN = "solana"
 
 public let TONCOIN_SLUG = "toncoin"
 public let TON_USDT_SLUG = "ton-eqcxe6mutq"
+public let TON_USDT_TESTNET_SLUG = "ton-kqd0gkbm8z"
 public let TRX_SLUG = "trx"
 public let TRON_USDT_SLUG = "tron-tr7nhqjekq"
 public let TRON_USDT_TESTNET_SLUG = "tron-tg3xxyexbk"
 public let SOLANA_SLUG = "sol"
 public let SOLANA_USDT_MAINNET_SLUG = "solana-es9vmfrzac"
+public let SOLANA_USDC_MAINNET_SLUG = "solana-epjfwdd5au"
 public let MYCOIN_SLUG = "ton-eqcfvnlrbn"
 public let STAKED_TON_SLUG = "ton-eqcqc6ehrj"
 public let STAKED_MYCOIN_SLUG = "ton-eqcbzvsfwq"
@@ -174,7 +176,7 @@ public func formatBigIntText(_ value: BigInt,
                             tokenDecimals: Int,
                             decimalsCount: Int? = nil,
                             forceCurrencyToRight: Bool = false,
-                            roundUp: Bool = true,
+                            roundHalfUp: Bool = true,
                             isShortened: Bool = false) -> String {
     
     // Try shorten first. Note that rounding must not be applied here, this is a truncation process.
@@ -193,7 +195,7 @@ public func formatBigIntText(_ value: BigInt,
     }
     
     var result = shortenedResult ?? insertGroupingSeparator(
-        in: formatClassicBigIntText(value, tokenDecimals: tokenDecimals, decimalsCount: decimalsCount, roundUp: roundUp)
+        in: formatClassicBigIntText(value, tokenDecimals: tokenDecimals, decimalsCount: decimalsCount, roundHalfUp: roundHalfUp)
     )
 
     if let currency, currency.count > 0 {
@@ -212,9 +214,9 @@ public func formatBigIntText(_ value: BigInt,
     return result
 }
 
-private func formatClassicBigIntText(_ value: BigInt, tokenDecimals: Int, decimalsCount: Int?, roundUp: Bool) -> String {
+private func formatClassicBigIntText(_ value: BigInt, tokenDecimals: Int, decimalsCount: Int?, roundHalfUp: Bool) -> String {
     let rounded: BigInt = if let decimalsCount {
-        value.rounded(digitsToRound: tokenDecimals - decimalsCount, roundHalfUp: roundUp)
+        value.rounded(digitsToRound: tokenDecimals - decimalsCount, roundHalfUp: roundHalfUp)
     } else {
         value
     }

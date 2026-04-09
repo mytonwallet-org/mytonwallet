@@ -42,9 +42,13 @@ struct SwapButtonConfiguration {
         return SwapButtonConfiguration(title: .swap(sellingToken, buyingToken), isEnabled: false, showLoading: false)
     }
 
-    func configurationForOnchain(isValidPair: Bool, swapEstimate: ApiSwapEstimateResponse?, lateInit: ApiSwapCexEstimateResponse.LateInitProperties?, swapError: String?, shouldShowContinue: Bool, sellingToken: ApiToken, buyingToken: ApiToken) -> SwapButtonConfiguration? {
+    func configurationForOnchain(isValidPair: Bool, swapEstimate: ApiSwapEstimateResponse?, lateInit: OnchainSwapLateInit?, swapError: String?, shouldShowContinue: Bool, isEstimating: Bool, sellingToken: ApiToken, buyingToken: ApiToken) -> SwapButtonConfiguration? {
         if !isValidPair {
             return SwapButtonConfiguration(title: .invalidPair, isEnabled: false, showLoading: false)
+        }
+        if isEstimating {
+            let title: SwapButtonTitle = shouldShowContinue ? .continue : .swap(sellingToken, buyingToken)
+            return SwapButtonConfiguration(title: title, isEnabled: false, showLoading: true)
         }
         if let swapError {
             return SwapButtonConfiguration(title: .error(swapError), isEnabled: false, showLoading: false)
@@ -61,18 +65,19 @@ struct SwapButtonConfiguration {
         return SwapButtonConfiguration(title: .swap(sellingToken, buyingToken), isEnabled: true, showLoading: false)
     }
 
-    func configurationForCrosschain(isValidPair: Bool, swapEstimate: ApiSwapCexEstimateResponse?, swapError: String?, shouldShowContinue: Bool, sellingToken: ApiToken, buyingToken: ApiToken) -> SwapButtonConfiguration? {
+    func configurationForCrosschain(isValidPair: Bool, swapEstimate: ApiSwapCexEstimateResponse?, swapError: String?, shouldShowContinue: Bool, isEstimating: Bool, sellingToken: ApiToken, buyingToken: ApiToken) -> SwapButtonConfiguration? {
         if !isValidPair {
             return SwapButtonConfiguration(title: .invalidPair, isEnabled: false, showLoading: false)
         }
-        guard let swapEstimate else {
-            return nil
+        if isEstimating {
+            let title: SwapButtonTitle = shouldShowContinue ? .continue : .swap(sellingToken, buyingToken)
+            return SwapButtonConfiguration(title: title, isEnabled: false, showLoading: true)
         }
         if let swapError {
             return SwapButtonConfiguration(title: .error(swapError), isEnabled: false, showLoading: false)
         }
-        if swapEstimate.isDiesel == true, swapEstimate.dieselStatus == .notAuthorized {
-            return SwapButtonConfiguration(title: .authorizeDiesel(sellingToken), isEnabled: true, showLoading: false)
+        guard swapEstimate != nil else {
+            return nil
         }
         if shouldShowContinue {
             return SwapButtonConfiguration(title: .continue, isEnabled: true, showLoading: false)

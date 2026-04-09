@@ -7,6 +7,10 @@ import WalletContext
  Mirrors `ChainConfig` from `src/util/chain.ts`.
  */
 public struct ChainConfig: Sendable {
+    public enum MultiWalletSupport: Sendable {
+        case version
+        case path
+    }
 
     public struct ExplorerLink: Sendable {
         public var url: String
@@ -62,6 +66,8 @@ public struct ChainConfig: Sendable {
     public var canTransferFullNativeBalance: Bool
     /// Whether Ledger support is implemented for this chain
     public var isLedgerSupported: Bool
+    /// Whether the chain supports multi-wallet navigation in settings
+    public var multiWalletSupport: MultiWalletSupport?
     /// Regular expression for wallet and contract addresses in the chain
     public var addressRegex: RegexPattern
     /// The same regular expression but matching any prefix of a valid address
@@ -108,6 +114,7 @@ private let TRON_USDT_TESTNET_SLUG = "tron-tg3xxyexbk"
 private let TRON_USDT_TESTNET_ADDRESS = "TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs"
 
 private let SOLANA_USDT_MAINNET_ADDRESS = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+private let SOLANA_USDC_MAINNET_ADDRESS = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 
 private let MYCOIN_MAINNET_ADDRESS = "EQCFVNlRb-NHHDQfv3Q9xvDXBLJlay855_xREsq5ZDX6KN-w"
 private let MYCOIN_MAINNET_IMAGE = "https://imgproxy.mytonwallet.org/imgproxy/Qy038wCBKISofJ0hYMlj6COWma330cx3Ju1ZSPM2LRU/rs:fill:200:200:1/g:no/aHR0cHM6Ly9teXRvbndhbGxldC5pby9sb2dvLTI1Ni1ibHVlLnBuZw.webp"
@@ -128,6 +135,7 @@ private extension ApiToken {
             chain: .ton,
             tokenAddress: "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
             image: TON_USDT_MAINNET_IMAGE,
+            label: "TON",
             isFromBackend: true,
             priceUsd: 1
         )
@@ -141,7 +149,9 @@ private extension ApiToken {
             decimals: 6,
             chain: .ton,
             tokenAddress: TON_USDT_TESTNET_ADDRESS,
-            image: nil
+            image: nil,
+            label: "TON",
+            priceUsd: 1
         )
     }
     
@@ -152,7 +162,8 @@ private extension ApiToken {
             symbol: "USDT",
             decimals: 6,
             chain: .tron,
-            tokenAddress: TRON_USDT_MAINNET_ADDRESS
+            tokenAddress: TRON_USDT_MAINNET_ADDRESS,
+            label: "TRC-20"
         )
     }
     
@@ -163,7 +174,8 @@ private extension ApiToken {
             symbol: "USDT",
             decimals: 6,
             chain: .tron,
-            tokenAddress: TRON_USDT_TESTNET_ADDRESS
+            tokenAddress: TRON_USDT_TESTNET_ADDRESS,
+            label: "TRC-20"
         )
     }
 
@@ -186,7 +198,25 @@ private extension ApiToken {
             decimals: 6,
             chain: .solana,
             tokenAddress: SOLANA_USDT_MAINNET_ADDRESS,
-            image: TON_USDT_MAINNET_IMAGE
+            image: TON_USDT_MAINNET_IMAGE,
+            label: "SOL",
+            isFromBackend: true,
+            priceUsd: 1
+        )
+    }
+
+    static var solanaUsdcMainnet: ApiToken {
+        ApiToken(
+            slug: SOLANA_USDC_MAINNET_SLUG,
+            name: "USD Coin",
+            symbol: "USDC",
+            decimals: 6,
+            chain: .solana,
+            tokenAddress: SOLANA_USDC_MAINNET_ADDRESS,
+            image: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png",
+            label: "SOL",
+            isFromBackend: true,
+            priceUsd: 1
         )
     }
     
@@ -224,6 +254,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         isEncryptedCommentSupported: true,
         canTransferFullNativeBalance: true,
         isLedgerSupported: true,
+        multiWalletSupport: .version,
         addressRegex: .init(pattern: #"^([-\w_]{48}|0:[\da-h]{64})$"#, isCaseInsensitive: true),
         addressPrefixRegex: .init(pattern: #"^([-\w_]{1,48}|0:[\da-h]{0,64})$"#, isCaseInsensitive: true),
         nativeToken: .TONCOIN,
@@ -294,6 +325,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         isEncryptedCommentSupported: false,
         canTransferFullNativeBalance: false,
         isLedgerSupported: false,
+        multiWalletSupport: nil,
         addressRegex: .init(pattern: #"^T[1-9A-HJ-NP-Za-km-z]{33}$"#),
         addressPrefixRegex: .init(pattern: #"^T[1-9A-HJ-NP-Za-km-z]{0,33}$"#),
         nativeToken: .TRX,
@@ -308,8 +340,8 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
             .testnet: TRON_USDT_TESTNET_SLUG,
         ],
         defaultEnabledSlugs: [
-            .mainnet: [TRX_SLUG, TRON_USDT_SLUG],
-            .testnet: [TRX_SLUG, TRON_USDT_TESTNET_SLUG],
+            .mainnet: [TRON_USDT_SLUG],
+            .testnet: [TRON_USDT_TESTNET_SLUG],
         ],
         crosschainSwapSlugs: [TRX_SLUG, TRON_USDT_SLUG],
         tokenInfo: [
@@ -338,6 +370,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         isEncryptedCommentSupported: false,
         canTransferFullNativeBalance: false,
         isLedgerSupported: false,
+        multiWalletSupport: .path,
         addressRegex: .init(pattern: #"^[1-9A-HJ-NP-Za-km-z]{32,44}$"#),
         addressPrefixRegex: .init(pattern: #"^[1-9A-HJ-NP-Za-km-z]{0,44}$"#),
         nativeToken: .solana,
@@ -351,13 +384,14 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
             .mainnet: SOLANA_USDT_MAINNET_SLUG,
         ],
         defaultEnabledSlugs: [
-            .mainnet: [SOLANA_SLUG, SOLANA_USDT_MAINNET_SLUG],
+            .mainnet: [SOLANA_SLUG, SOLANA_USDT_MAINNET_SLUG, SOLANA_USDC_MAINNET_SLUG],
             .testnet: [SOLANA_SLUG],
         ],
         crosschainSwapSlugs: [SOLANA_SLUG, SOLANA_USDT_MAINNET_SLUG],
         tokenInfo: [
             .solana,
             .solanaUsdtMainnet,
+            .solanaUsdcMainnet,
         ],
         explorer: .init(
             name: "Solscan",
@@ -391,6 +425,7 @@ private func makeOtherChainConfig(for chain: ApiChain) -> ChainConfig {
         isEncryptedCommentSupported: false,
         canTransferFullNativeBalance: false,
         isLedgerSupported: false,
+        multiWalletSupport: nil,
         addressRegex: .init(pattern: #"^$"#),
         addressPrefixRegex: .init(pattern: #"^$"#),
         nativeToken: nativeToken,

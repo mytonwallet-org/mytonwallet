@@ -313,6 +313,10 @@ public final class SendModel: Sendable {
         }
         return false
     }
+    
+    var hasInsufficientBalanceError: Bool {
+        insufficientFunds || (mode.isNftRelated && draftData.transactionDraft?.error == .insufficientBalance)
+    }
 
     var isAddressCompatibleWithToken: Bool {
         if addressOrDomain.isEmpty { return true } // do not validate before user inputs address
@@ -325,9 +329,10 @@ public final class SendModel: Sendable {
     }
 
     var canContinue: Bool {
+        draftData.status == .valid &&
         !addressOrDomain.isEmpty &&
         isAddressCompatibleWithToken &&
-        !insufficientFunds &&
+        !hasInsufficientBalanceError &&
         resolvedAddress != nil &&
         !(isCommentRequired && comment.isEmpty) &&
         (amount ?? 0 > 0 || nfts.count > 0) &&
@@ -423,8 +428,8 @@ public final class SendModel: Sendable {
     
     // MARK: - View controller callbacks
     
-    var continueState: (canContinue: Bool, insufficientFunds: Bool, draftData: DraftData, isAddressLoading: Bool) {
-        return (canContinue, insufficientFunds, draftData, addressInput.isAddressLoading)
+    var continueState: (canContinue: Bool, hasInsufficientBalanceError: Bool, draftData: DraftData, isAddressLoading: Bool) {
+        return (canContinue, hasInsufficientBalanceError, draftData, addressInput.isAddressLoading)
     }
 
     // MARK: - View callbacks

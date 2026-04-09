@@ -63,6 +63,7 @@ Settings: Ayarlar
 About %app_name%: "%app_name% Hakkında"
 Exit: Çıkış
 Remove Wallet: Cüzdanı kaldırın
+Remove Wallets: Cüzdanları kaldırın
 Something went wrong.: Bir şeyler ters gitti.
 Something went wrong: Bir şeyler ters gitti
 Logo: Logo
@@ -94,6 +95,7 @@ Warning!: Uyarı!
 $logout_without_backup_warning: Bu cüzdanı yedeklemediniz. Cüzdanı kaldırırsanız tokenlarınıza ve NFT'lerinize erişiminizi kaybedersiniz.
 $logout_accounts_without_backup_warning: "%links% için yedekleme yapmadınız. Devam ederseniz tokenlarınıza ve NFT'lerinize erişiminizi kaybedersiniz."
 $logout_warning: Bu, mevcut cüzdanı uygulamadan kaldıracaktır. **Gizli kelimelerinizi** yedeklediğinizden emin olun.
+$logout_all_wallets_warning: Bu, uygulamadaki tüm cüzdanları kaldıracaktır. Tüm **gizli kelimelerinizin** yedeğini aldığınızdan emin olun.
 $logout_view_mode_warning: Bu, mevcut cüzdanı uygulamadan kaldıracaktır.
 Create Deposit Link: Para Yatırma Bağlantısı Oluşturun
 $receive_invoice_description: |
@@ -859,10 +861,8 @@ Copy Link: Bağlantıyı kopyala
 Check eligibility for max APY: Maks. APY için uygunluğu kontrol et
 Check eligibility: Uygunluğu kontrol et
 $expired_many: Süresi Doldu
-$expires_in %days%:
-  zeroValue: "%days% sona eriyor"
-  oneValue: "%days% sona eriyor"
-  otherValue: "%days% sona erecekler"
+$one_domain_expires %days%: "%days% sona eriyor"
+$multiple_domains_expire %days%: "%days% sona erecekler"
 Message: Mesaj
 Binary Data: İkili Veri
 The binary data content is unclear. Sign it only if you trust the service.: İkili veri içeriği belirsiz. Yalnızca servise güveniyorsanız imzalayın.
@@ -1075,6 +1075,16 @@ Enabling biometric confirmation will reset the passcode.: Biyometrik doğrulama 
 Confirm action with your passcode: ยืนยันการดำเนินการด้วยรหัสผ่านของคุณ
 No Image: Resim Yok
 Different blockchain. Cannot be selected: Farklı blockchain. Seçilemez
+Subwallets: Alt cüzdanlar
+Other addresses for this wallet: Bu cüzdan için diğer adresler
+Current Wallet: Mevcut Cüzdan
+Add Subwallet: Alt cüzdan ekle
+Replace in this wallet: Bu cüzdanda değiştir
+Create Subwallet: Alt cüzdan oluştur
+You have tokens on other subwallets. You can switch to them here.: Diğer alt cüzdanlarda tokenlarınız var. Buradan onlara geçiş yapabilirsiniz.
+Subwallet Created: Alt cüzdan oluşturuldu
+Subwallet Added: Alt cüzdan eklendi
+Subwallet Switched: Alt cüzdan değiştirildi
 Top 5: Top 5
 Top 10: Top 10
 Top 30: Top 30
@@ -1088,3 +1098,11 @@ Scroll To Bottom: Alta kaydır
 $agent_clear_chat_confirm: Sohbet geçmişini temizlemek istediğinizden emin misiniz?
 $unknown_swap_token: Swap bağlantısında bilinmeyen token. Varsayılan tokenlar kullanıldı.
 $action_not_available_view_mode: Bu işlem Görüntüleme Cüzdanları için kullanılamaz
+Scanning for subwallets...: Alt cüzdanlar aranıyor...
+This process may take up to a minute. Please wait.: Bu işlem bir dakikaya kadar sürebilir. Lütfen bekleyin.
+Your assets on other TON contracts: Diğer TON sözleşmelerindeki varlıklarınız
+No existing subwallets found: Mevcut alt cüzdan bulunamadı
+You can create a new subwallet if you need another address on the same recovery phrase.: Aynı kurtarma ifadesinde başka bir adrese ihtiyacınız varsa yeni bir alt cüzdan oluşturabilirsiniz.
+You have tokens on other subwallets. Each subwallet has its own address.: Diğer alt cüzdanlarda tokenlarınız var. Her alt cüzdanın kendine ait bir adresi vardır.
+$chain_Subwallets: '%chain% alt cüzdanlar'
+Scanning...: Taranıyor...

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import WalletContext
 
 public struct NavigationBarBackground: View {
     
@@ -47,7 +48,7 @@ private func _makeGradientImage(width: CGFloat = 100, height: CGFloat = 100) -> 
     return CIContext().createCGImage(ciGradientFilter.outputImage!, from: CGRect(x: 0, y: 0, width: width, height: height))!
 }
 
-
+#if DEBUG
 #Preview {
     ZStack {
         HStack(spacing: 0) {
@@ -58,3 +59,4 @@ private func _makeGradientImage(width: CGFloat = 100, height: CGFloat = 100) -> 
             .frame(height: 100)
     }
 }
+#endif

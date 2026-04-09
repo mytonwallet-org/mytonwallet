@@ -6,7 +6,7 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
 import java.math.BigInteger
-import java.net.URLDecoder
+import org.mytonwallet.app_air.walletbasecontext.utils.decodeUrlOrNull
 
 @JsonClass(generateAdapter = true)
 data class DeviceInfo(
@@ -108,12 +108,7 @@ sealed class ReturnStrategy {
             if (url.isBlank()) {
                 return@lazy null
             }
-            val decodedUrl = try {
-                URLDecoder.decode(url, Charsets.UTF_8.name())
-            } catch (_: Throwable) {
-                url
-            }
-            decodedUrl.toUriOrNull() ?: url.toUriOrNull()
+            url.decodeUrlOrNull()?.toUriOrNull() ?: url.toUriOrNull()
         }
     }
 }

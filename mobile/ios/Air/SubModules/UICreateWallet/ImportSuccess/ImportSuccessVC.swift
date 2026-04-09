@@ -21,6 +21,8 @@ public class ImportSuccessVC: CreateWalletBaseVC {
     
     var introModel: IntroModel
     private let successKind: SuccessKind
+
+    public override var hideNavigationBar: Bool { true }
     
     public init(_ successKind: SuccessKind, introModel: IntroModel) {
         self.introModel = introModel
@@ -40,14 +42,7 @@ public class ImportSuccessVC: CreateWalletBaseVC {
     private var hostingController: UIHostingController<ImportSuccessView>!
     
     func setupViews() {
-        
-        addNavigationBar(
-            closeIcon: false,
-        )
-        
         hostingController = addHostingController(makeView(), constraints: .fill)
-        
-        bringNavigationBarToFront()
     }
     
     private func makeView() -> ImportSuccessView {

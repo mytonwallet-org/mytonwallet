@@ -81,24 +81,9 @@ public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
     private func setupViews() {
         
         title = lang("Unstake")
-        addNavigationBar(
-            topOffset: 1,
-            title: title,
-            closeIcon: true,
-            addBackButton: { [weak self] in
-                self?.view.endEditing(true)
-                self?.navigationController?.popViewController(animated: true)
-            }
-        )
 
         let hostingController = addHostingController(
-            UnstakeView(
-                model: model,
-                navigationBarInset: navigationBarHeight,
-                onScrollPositionChange: { [weak self] y in
-                    self?.navigationBar?.showSeparator = y < 0
-                }
-            ),
+            UnstakeView(model: model),
             constraints: { [self] v in
                 NSLayoutConstraint.activate([
                     v.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -121,8 +106,6 @@ public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
             fakeTextField.writingToolsBehavior = .none
         }
         view.addSubview(fakeTextField)
-        
-        bringNavigationBarToFront()
 
         amountChanged(amount: nil)
     }

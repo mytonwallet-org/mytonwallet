@@ -20,6 +20,14 @@ class SlowedPanGestureRecognizer: UIPanGestureRecognizer {
 open class WNavigationController: UINavigationController {
     
     private let log = Log("WNavigationController")
+    private let sheetDimmingController = SheetDimmingController()
+    
+    public var isExtraSheetDimmingEnabled: Bool = false {
+        didSet {
+            guard !isExtraSheetDimmingEnabled else { return }
+            sheetDimmingController.removeDimmingView()
+        }
+    }
     
     open override func viewDidLoad() {
         super.viewDidLoad()
@@ -27,6 +35,24 @@ open class WNavigationController: UINavigationController {
         if !IOS_26_MODE_ENABLED {
             setupFullWidthBackGesture()
         }
+    }
+    
+    open override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        guard isExtraSheetDimmingEnabled else { return }
+        sheetDimmingController.viewWillAppear(in: self, animated: animated)
+    }
+    
+    open override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard isExtraSheetDimmingEnabled else { return }
+        sheetDimmingController.viewDidLayoutSubviews(in: self)
+    }
+    
+    open override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        guard isExtraSheetDimmingEnabled else { return }
+        sheetDimmingController.viewWillDisappear(in: self, animated: animated)
     }
 
     fileprivate lazy var fullWidthBackGestureRecognizer = SlowedPanGestureRecognizer()

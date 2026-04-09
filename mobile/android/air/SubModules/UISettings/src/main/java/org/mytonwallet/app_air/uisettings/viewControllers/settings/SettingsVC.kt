@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.helpers.AccountDialogHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -590,9 +591,7 @@ class SettingsVC(context: Context) : WViewController(context),
     }
 
     private fun openExternalUrl(url: String) {
-        val intent = Intent(Intent.ACTION_VIEW)
-        intent.setData(url.toUri())
-        window?.startActivity(intent)
+        window?.startActivityCatching(Intent(Intent.ACTION_VIEW, url.toUri()))
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {

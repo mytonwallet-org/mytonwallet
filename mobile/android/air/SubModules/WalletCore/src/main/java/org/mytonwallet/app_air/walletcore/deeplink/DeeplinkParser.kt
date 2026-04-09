@@ -3,13 +3,13 @@ package org.mytonwallet.app_air.walletcore.deeplink
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import org.mytonwallet.app_air.walletbasecontext.utils.decodeUrlOrNull
 import org.mytonwallet.app_air.walletcontext.helpers.AddressHelpers
 import org.mytonwallet.app_air.walletcontext.helpers.DNSHelpers
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
-import java.net.URLDecoder
 
 sealed class Deeplink {
     abstract val accountAddress: String?
@@ -255,10 +255,10 @@ class DeeplinkParser {
                     var amountIn: Double? = null
 
                     uri.query?.let { query ->
-                        val components = URLDecoder.decode(query, "UTF-8").split("&").mapNotNull {
+                        val components = query.decodeUrlOrNull()?.split("&")?.mapNotNull {
                             it.split("=")
                                 .let { parts -> if (parts.size == 2) parts[0] to parts[1] else null }
-                        }.toMap()
+                        }?.toMap() ?: emptyMap()
 
                         components["amountIn"]?.toDoubleOrNull()?.let { amountIn = it }
                         components["in"]?.let { from = it }

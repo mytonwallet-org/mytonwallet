@@ -444,7 +444,8 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             }
 
             HeaderActionsView.Identifier.EARN -> {
-                val hasActiveStaking = AccountStore.stakingData?.hasActiveStaking(token.slug) == true
+                val hasActiveStaking =
+                    AccountStore.stakingData?.hasActiveStaking(token.slug) == true
                 val navVC = WNavigationController(window!!)
                 if (hasActiveStaking) {
                     navVC.setRoot(EarnRootVC(context, token.slug))
@@ -799,6 +800,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         recyclerView.setBackgroundColor(WColor.SecondaryBackground.color)
         updateSkeletonState()
         headerView.updateTheme()
+        actionsView?.updateTheme()
         rvAdapter.reloadData()
     }
 

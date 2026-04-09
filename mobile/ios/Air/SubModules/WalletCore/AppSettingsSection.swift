@@ -4,7 +4,7 @@ public enum AppSettingsSection: String, Sendable {
     case language
     case notifications
     case dapps
-    case walletVersion = "wallet-version"
+    case walletVersions = "wallet-versions"
     case disclaimer
     case about
     case hiddenNfts = "hidden-nfts"

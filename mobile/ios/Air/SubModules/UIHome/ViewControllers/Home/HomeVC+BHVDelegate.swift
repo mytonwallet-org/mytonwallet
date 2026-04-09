@@ -31,10 +31,6 @@ extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
         view.setNeedsLayout()
     }
     
-    public func walletAssetDidChangeReorderingState() {
-        updateNavigationItem()
-    }
-
     public func expandHeader() {
         isExpandingProgrammatically = true
         UIView.animate(withDuration: 0.2) { [weak self] in

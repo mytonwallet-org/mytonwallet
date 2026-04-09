@@ -179,6 +179,7 @@ export function waitLogin() {
 export function getAccountChains(account: ApiAccountAny): Partial<Record<ApiChain, AccountChain>> {
   return mapValues(account.byChain, (wallet) => ({
     address: wallet.address,
+    derivation: wallet.derivation,
   }));
 }
 

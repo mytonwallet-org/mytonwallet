@@ -8,34 +8,37 @@ protocol NftDetailsItemCoverFlowTileDelegate: AnyObject {
 }
 
 class NftDetailsItemCoverFlowTile: UIView {
-    private var currentModel: NftDetailsItemModel?
-    private var selectionSubscription: NftDetailsItemModel.Subscription?
+    private var model: NftDetailsItemModel?
     private var lottieViewer: NftDetailsLottieViewer?
+    private var selectionSubscription: NftDetailsItemModel.Subscription?
+    private var cornerRadius: CGFloat = -1
+    private var retryCount = 0
+    private var retryWorkItem: DispatchWorkItem?
+    private let maxRetryCount = 20
 
     private let imageView: UIImageView = {
         let iv = UIImageView()
         iv.contentMode = .scaleAspectFill
         iv.backgroundColor = .air.groupedItem
         iv.clipsToBounds = true
-        iv.layer.cornerRadius = 12
         iv.layer.masksToBounds = true
         return iv
     }()
 
     private let spinner: UIActivityIndicatorView = {
         let s = UIActivityIndicatorView(style: .medium)
-        s.translatesAutoresizingMaskIntoConstraints = false
         s.hidesWhenStopped = true
         s.color = .secondaryLabel
         return s
     }()
     
     weak var delegate: NftDetailsItemCoverFlowTileDelegate?
-   
+    weak var thumbnailDownloader: ImageDownloader?
+    weak var colorCache: NftDetailsColorCache?
+
     init() {
         super.init(frame: .square(100))
-        
-        layer.cornerRadius = 12
+
         layer.masksToBounds = false
         layer.shadowColor = UIColor.black.cgColor
         layer.shadowOffset = CGSize(width: 0, height: 2)
@@ -44,6 +47,8 @@ class NftDetailsItemCoverFlowTile: UIView {
 
         imageView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(imageView)
+        
+        spinner.translatesAutoresizingMaskIntoConstraints = false
         addSubview(spinner)
 
         NSLayoutConstraint.activate([
@@ -68,101 +73,144 @@ class NftDetailsItemCoverFlowTile: UIView {
     }
     
     @objc private func handleTap() {
-        guard let currentModel else { return }
-        delegate?.nftDetailsItemCoverFlowTile(self, didSelectModel: currentModel, longTap: false)
+        guard let model else { return }
+        delegate?.nftDetailsItemCoverFlowTile(self, didSelectModel: model, longTap: false)
     }
 
     @objc private func handleLongTap() {
-        guard let currentModel else { return }
-        delegate?.nftDetailsItemCoverFlowTile(self, didSelectModel: currentModel, longTap: true)
+        guard let model else { return }
+        delegate?.nftDetailsItemCoverFlowTile(self, didSelectModel: model, longTap: true)
     }
 
     func prepareForCollectionViewReuse() {
-        cancelActiveThumbnailTask()
+        cancelRetry()
+        spinner.stopAnimating()
+        spinner.color = .secondaryLabel
+        imageView.image = nil
+        imageView.backgroundColor = .air.groupedItem
+    }
+    
+    private func cancelRetry() {
+        retryWorkItem?.cancel()
+        retryWorkItem = nil
     }
 
-    override func willMove(toWindow newWindow: UIWindow?) {
-        super.willMove(toWindow: newWindow)
-        
-        if newWindow == nil {
-            cancelActiveThumbnailTask()
-        } else {
-            if let model = currentModel {
-                startOrResumeThumbnailLoad(for: model)
-            }
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil, let model = model {
+            startOrResumeThumbnailLoad(for: model)
         }
     }
 
-    private func cancelActiveThumbnailTask() {
-        imageView.kf.cancelDownloadTask()
-        spinner.stopAnimating()
-    }
-
-    private func isThumbnailLoadCancellation(_ error: Error) -> Bool {
-        (error as? KingfisherError)?.isTaskCancelled == true
-    }
-
     private func startOrResumeThumbnailLoad(for model: NftDetailsItemModel) {
-        guard currentModel === model else { return }
+        guard self.model === model else { return }
+        cancelRetry()
 
-        if let urlString = model.item.thumbnailUrl?.nilIfEmpty, let url = URL(string: urlString) {
-            guard window != nil else {
-                imageView.backgroundColor = .systemGray4
-                return
-            }
+        if let url = model.item.coverflowImageUrl {
             spinner.startAnimating()
+            
+            var options: KingfisherOptionsInfo = [
+                .targetCache(.default),
+                .originalCache(.default),
+                .alsoPrefetchToMemory,
+                .cacheOriginalImage,
+                .transition(.fade(0.22)),
+            ]
+            if let d = thumbnailDownloader {
+                options.append(.downloader(d))
+            }
+            
             imageView.kf.setImage(
                 with: .network(url),
                 placeholder: nil,
-                options: [.alsoPrefetchToMemory, .cacheOriginalImage],
+                options: options,
                 completionHandler: { [weak self] result in
-                    guard let self, self.currentModel === model else { return }
+                    guard let self, self.model === model else { return }
                     DispatchQueue.main.async {
                         switch result {
                         case .success:
                             self.spinner.stopAnimating()
                             self.imageView.backgroundColor = nil
                         case let .failure(error):
-                            // for cancellation it is better to keep show the spinner rather than error image
-                            if !self.isThumbnailLoadCancellation(error) {
-                                self.spinner.stopAnimating()
-                                self.imageView.image = NftDetailsImage.errorPlaceholderImage()
-                                self.imageView.backgroundColor = nil
+                            if error.isTaskCancelled || error.isNotCurrentTask {
+                               return // let's ignore this, still show loading
                             }
+                            self.scheduleRetry(for: model)
                         }
                     }
                 }
             )
         } else {
             spinner.stopAnimating()
-            imageView.image = NftDetailsImage.errorPlaceholderImage()
+            imageView.image = NftDetailsImage.noImagePlaceholderImage()
             imageView.backgroundColor = nil
         }
     }
+    
+    private func scheduleRetry(for model: NftDetailsItemModel) {
+        guard self.model === model, imageView.image == nil else { return }
+        guard retryCount < maxRetryCount else {
+            updateAsfFailedDownload()
+            return
+        }
+        retryCount += 1
+        let delay = min(Double(retryCount) * 2.0, 15.0)
+        let item = DispatchWorkItem { [weak self] in
+            guard let self, self.model === model, self.imageView.image == nil else { return }
+            self.startOrResumeThumbnailLoad(for: model)
+        }
+        retryWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+    }
 
-    func configure(with model: NftDetailsItemModel) {
-        let modelChanged = model !== currentModel
-        if modelChanged {
+    private func updateAsfFailedDownload() {
+        spinner.stopAnimating()
+        imageView.image = NftDetailsImage.errorPlaceholderImage()
+        imageView.backgroundColor = nil
+    }
+
+    private func applySpinnerStyle(for backgroundColor: UIColor?) {
+        guard let color = backgroundColor else {
+            spinner.color = .secondaryLabel
+            return
+        }
+        spinner.color = color.isLightColor
+            ? UIColor(white: 0.15, alpha: 0.7)  
+            : UIColor(white: 1.0,  alpha: 0.8)
+    }
+
+    func configure(with model: NftDetailsItemModel, tileCornerRadius: CGFloat) {
+        if tileCornerRadius != cornerRadius {
+            assert(cornerRadius < 0, "Set it only once: \(cornerRadius)")
+            cornerRadius = tileCornerRadius
+            layer.cornerRadius = tileCornerRadius
+            imageView.layer.cornerRadius = tileCornerRadius
+        }
+
+        if self.model !== model {
+            cancelRetry()
+            retryCount = 0
             removeLottieViewer()
-            cancelActiveThumbnailTask()
 
-            currentModel = model
+            self.model = model
             imageView.alpha = 1
             imageView.image = nil
-            imageView.backgroundColor = .systemGray4
+
+            let cachedColor = colorCache?.color(forKey: model.id)
+            imageView.backgroundColor = cachedColor ?? .air.groupedItem
+            applySpinnerStyle(for: cachedColor)
 
             applySelectionDrivenLottie(for: model)
             selectionSubscription = .init(model: model, event: .selectionStatusChanged, tag: "CoverFlowTile") { [weak self] in
-                guard let self, self.currentModel === model else { return }
+                guard let self, self.model === model else { return }
                 DispatchQueue.main.async {
                     self.applySelectionDrivenLottie(for: model)
                 }
             }
-
             setNeedsLayout()
         }
-
-        if currentModel === model {
+        
+        if window != nil {
             startOrResumeThumbnailLoad(for: model)
         }
     }
@@ -175,10 +223,10 @@ class NftDetailsItemCoverFlowTile: UIView {
     }
 
     private func applySelectionDrivenLottie(for model: NftDetailsItemModel) {
-        guard currentModel === model else { return }
-        if model.isSelected, let url = model.lottieUrl, delegate?.nftDetailsItemCoverFlowTileGetActiveState(self) == true {
+        guard self.model === model else { return }
+        if model.isSelected, let url = model.item.lottieUrl, delegate?.nftDetailsItemCoverFlowTileGetActiveState(self) == true {
             if lottieViewer == nil {
-                let viewer = NftDetailsLottieViewer(cornerRadius: 12, frame: imageView.frame, tag: "TILE(\(model.name))")
+                let viewer = NftDetailsLottieViewer(cornerRadius: cornerRadius, frame: imageView.frame)
                 viewer.playbackTransitionDelegate = self
                 viewer.embedAbove(imageView)
                 lottieViewer = viewer

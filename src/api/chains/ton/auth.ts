@@ -2,9 +2,16 @@ import * as tonWebMnemonic from 'tonweb-mnemonic';
 import * as bip39 from 'bip39';
 import nacl from 'tweetnacl';
 
-import type { ApiAccountWithMnemonic, ApiAnyDisplayError, ApiNetwork, ApiTonWallet } from '../../types';
 import type { ApiTonWalletVersion } from './types';
-import type { TonWallet } from './util/tonCore';
+import {
+  type ApiAccountWithChain,
+  type ApiAccountWithMnemonic,
+  type ApiAnyDisplayError,
+  ApiCommonError,
+  type ApiNetwork,
+  type ApiTonWallet,
+  type ApiWalletVariant,
+} from '../../types';
 
 import { DEFAULT_WALLET_VERSION } from '../../../config';
 import * as HDKey from '../../../lib/ed25519-hd-key';
@@ -19,6 +26,10 @@ import { resolveAddress } from './address';
 import { TON_BIP39_PATH } from './constants';
 import { getWalletInfos } from './toncenter';
 import { buildWallet, getWalletInfo, pickBestWallet, publicKeyToAddress } from './wallet';
+
+const MULTIWALLET_BY_PATH_DEFAULT_COUNT = 2;
+const SETTINGS_MULTIWALLET_BY_PATH_COUNT = 4;
+const MAX_NON_EMPTY_WALLETS_TO_SCAN = 20;
 
 export function generateMnemonic() {
   return tonWebMnemonic.generateMnemonic();
@@ -61,7 +72,21 @@ export async function fetchKeyPair(accountId: string, password: string, account?
     if (isMnemonicPrivateKey(mnemonic)) {
       return privateKeyHexToKeyPair(mnemonic[0]);
     } else if (account.type === 'bip39') {
-      return bip39MnemonicToKeyPair(mnemonic);
+      const derivation = account.byChain.ton?.derivation;
+
+      if (!derivation) {
+        throw new Error(`No TON derivation found for account ${accountId}`);
+      }
+
+      const seed = bip39.mnemonicToSeedSync(mnemonic.join(' '));
+
+      const keypair = getWalletVariantByIndex(seed.toString('hex'), derivation.index);
+
+      if (!keypair) {
+        throw new Error(`No TON keypair found for derivation ${derivation.index} on account ${accountId}`);
+      }
+
+      return keypair;
     } else {
       return await tonWebMnemonic.mnemonicToKeyPair(mnemonic);
     }
@@ -86,45 +111,45 @@ export async function rawSign(accountId: string, password: string, dataHex: stri
 export function getWalletFromBip39Mnemonic(
   network: ApiNetwork,
   mnemonic: string[],
-  version?: ApiTonWalletVersion,
 ): Promise<ApiTonWallet> {
-  const { publicKey } = bip39MnemonicToKeyPair(mnemonic);
-  return getWalletFromKeys(network, publicKey, version);
+  const variants = bip39MnemonicToKeyPairs(mnemonic);
+
+  return getWalletFromKeys(
+    network,
+    variants,
+  );
 }
 
 export async function getWalletFromMnemonic(
   network: ApiNetwork,
   mnemonic: string[],
-  version?: ApiTonWalletVersion,
 ): Promise<ApiTonWallet & { lastTxId?: string }> {
   const { publicKey } = await tonWebMnemonic.mnemonicToKeyPair(mnemonic);
-  return getWalletFromKeys(network, publicKey, version);
+  return getWalletFromKeys(
+    network,
+    [{ publicKey }],
+  );
 }
 
-export function getWalletFromPrivateKey(
+export async function getWalletFromPrivateKey(
   network: ApiNetwork,
   privateKey: string,
-  version?: ApiTonWalletVersion,
 ): Promise<ApiTonWallet> {
   const { publicKey } = privateKeyHexToKeyPair(privateKey);
-  return getWalletFromKeys(network, publicKey, version);
+  return getWalletFromKeys(
+    network,
+    [{ publicKey }],
+  );
 }
 
 async function getWalletFromKeys(
   network: ApiNetwork,
-  publicKey: Uint8Array,
-  version?: ApiTonWalletVersion,
-): Promise<ApiTonWallet & { lastTxId?: string }> {
-  let wallet: TonWallet;
-  let lastTxId: string | undefined;
-  if (version) {
-    wallet = buildWallet(publicKey, version, network === 'testnet');
-  } else {
-    ({ wallet, version, lastTxId } = await pickBestWallet(network, publicKey));
-  }
+  variants: { publicKey: Uint8Array; derivation?: { path: string; index: number } }[],
+): Promise<(ApiTonWallet & { lastTxId?: string })> {
+  const { wallet, version, lastTxId, derivation } = await pickBestWallet(network, variants);
 
   const address = toBase64Address(wallet.address, false, network);
-  const publicKeyHex = bytesToHex(publicKey);
+  const publicKeyHex = bytesToHex(wallet.publicKey);
 
   return {
     publicKey: publicKeyHex,
@@ -132,13 +157,46 @@ async function getWalletFromKeys(
     version,
     index: 0,
     lastTxId,
+    derivation,
   };
 }
 
-function bip39MnemonicToKeyPair(mnemonic: string[]) {
+export function getWalletVariantsByPath(
+  seed: string,
+  count: number = MULTIWALLET_BY_PATH_DEFAULT_COUNT,
+  offset: number = 0,
+) {
+  const keypairs: { publicKey: Uint8Array; secretKey: Uint8Array; path: string; index: number }[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const index = offset + i;
+    const path = TON_BIP39_PATH.replace('{index}', index.toString());
+    const { key: privateKey } = HDKey.derivePath(path, seed);
+    const keypair = nacl.sign.keyPair.fromSeed(privateKey);
+
+    keypairs.push({ ...keypair, path: TON_BIP39_PATH, index });
+  };
+
+  return keypairs;
+}
+
+function getWalletVariantByIndex(seed: string, index: number, pathTemplate: string = TON_BIP39_PATH) {
+  const path = pathTemplate.replace('{index}', index.toString());
+  const { key: privateKey } = HDKey.derivePath(path, seed);
+  const keypair = nacl.sign.keyPair.fromSeed(privateKey);
+
+  return { ...keypair, path: pathTemplate, index };
+}
+
+function bip39MnemonicToKeyPairs(mnemonic: string[]) {
   const hexSeed = bip39.mnemonicToSeedSync(mnemonic.join(' '));
-  const { key: privateKey } = HDKey.derivePath(TON_BIP39_PATH, hexSeed.toString('hex'));
-  return nacl.sign.keyPair.fromSeed(privateKey);
+
+  const variants = getWalletVariantsByPath(hexSeed.toString('hex'));
+  return variants.map((e) => ({
+    publicKey: e.publicKey,
+    secretKey: e.secretKey,
+    derivation: { path: e.path, index: e.index },
+  }));
 }
 
 export function getOtherVersionWallet(
@@ -159,9 +217,11 @@ export function getOtherVersionWallet(
     publicKey: wallet.publicKey,
     version: otherVersion,
     index: wallet.index,
+    derivation: wallet.derivation,
   };
 }
 
+// Used for View-account flow
 export async function getWalletFromAddress(
   network: ApiNetwork,
   addressOrDomain: string,
@@ -210,4 +270,127 @@ export async function getWalletsFromLedgerAndLoadBalance(
     wallet,
     balance: walletInfos[wallet.address].balance,
   }));
+}
+
+export async function getWalletVariants(
+  network: ApiNetwork,
+  account: ApiAccountWithChain<'ton'>,
+  page: number,
+  isTestnetSubwalletId?: boolean,
+  mnemonic?: string[],
+): Promise<ApiWalletVariant<'ton'>[] | { error: ApiAnyDisplayError }> {
+  if (!mnemonic) {
+    return { error: ApiCommonError.Unexpected };
+  }
+
+  const seed = bip39.mnemonicToSeedSync(mnemonic.join(' '));
+
+  const offset = page * SETTINGS_MULTIWALLET_BY_PATH_COUNT;
+
+  const subwallets = getWalletVariantsByPath(seed.toString('hex'), SETTINGS_MULTIWALLET_BY_PATH_COUNT, offset);
+
+  const infos = await getWalletInfos(
+    network,
+    subwallets.map((e) => toBase64Address(buildWallet(e.publicKey, 'W5').address, false, network)));
+
+  return Object.entries(infos).map(([address, info]) => {
+    const currentVariant = subwallets.find((e) =>
+      toBase64Address(buildWallet(e.publicKey, 'W5').address, false, network) === address)!;
+
+    return {
+      chain: 'ton',
+      wallet: {
+        address,
+        index: account.byChain.ton.index,
+        version: 'W5',
+        isTestnetSubwalletId,
+        isInitialized: info.isInitialized,
+        publicKey: bytesToHex(currentVariant.publicKey),
+        derivation: { path: currentVariant.path, index: currentVariant.index },
+      },
+      balance: info.balance,
+      metadata: {
+        type: 'path',
+        path: currentVariant.path.replace('{index}', currentVariant.index.toString()),
+      },
+    };
+  });
+}
+
+export async function createSubWalletFromDerivation(
+  network: ApiNetwork,
+  account: ApiAccountWithChain<'ton'>,
+  mnemonic: string[],
+): Promise<ApiTonWallet | { error: ApiAnyDisplayError }> {
+  const current = account.byChain.ton;
+  if (!current) {
+    return { error: ApiCommonError.Unexpected };
+  }
+
+  const { derivation, version } = current;
+  if (!derivation || version !== 'W5') {
+    return { error: ApiCommonError.Unexpected };
+  }
+
+  const pathTemplate = derivation.path ?? TON_BIP39_PATH;
+  const startIndex = derivation.index ?? 0;
+
+  const seed = bip39.mnemonicToSeedSync(mnemonic.join(' '));
+  const seedHex = seed.toString('hex');
+
+  let offset = startIndex + 1;
+  let scannedNonEmptyWallets = 0;
+
+  let emptySubwallet: {
+    path: string;
+    index: number;
+    publicKey: Uint8Array;
+    secretKey: Uint8Array;
+  } | undefined;
+
+  while (emptySubwallet === undefined) {
+    const keypairs = Array.from({ length: SETTINGS_MULTIWALLET_BY_PATH_COUNT }, (_, indexInBatch) =>
+      getWalletVariantByIndex(seedHex, offset + indexInBatch, pathTemplate));
+
+    const addresses = keypairs.map((keypair) =>
+      toBase64Address(buildWallet(keypair.publicKey, 'W5').address, false, network));
+
+    const infos = await getWalletInfos(network, addresses);
+
+    for (const [i, keypair] of keypairs.entries()) {
+      const address = addresses[i];
+      const info = infos[address];
+
+      if (!info || info.balance === 0n) {
+        emptySubwallet = keypair;
+        break;
+      }
+
+      scannedNonEmptyWallets += 1;
+      if (scannedNonEmptyWallets >= MAX_NON_EMPTY_WALLETS_TO_SCAN) {
+        break;
+      }
+    }
+
+    if (scannedNonEmptyWallets >= MAX_NON_EMPTY_WALLETS_TO_SCAN) {
+      break;
+    }
+
+    offset += SETTINGS_MULTIWALLET_BY_PATH_COUNT;
+  }
+
+  if (emptySubwallet === undefined) {
+    return { error: ApiCommonError.Unexpected };
+  }
+
+  const wallet = buildWallet(emptySubwallet.publicKey, 'W5');
+  const address = toBase64Address(wallet.address, false, network);
+
+  return {
+    address,
+    publicKey: bytesToHex(emptySubwallet.publicKey),
+    version: 'W5',
+    index: current.index,
+    derivation: { path: pathTemplate, index: emptySubwallet.index },
+  };
 }

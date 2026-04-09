@@ -23,15 +23,15 @@ import checkmarkImg from '../../assets/settings/settings_checkmark.svg';
 interface OwnProps {
   isActive?: boolean;
   langCode: LangCode;
-  handleBackClick: () => void;
   isInsideModal?: boolean;
+  onBackClick: NoneToVoidFunction;
 }
 
 function SettingsLanguage({
   isActive,
   langCode,
-  handleBackClick,
   isInsideModal,
+  onBackClick,
 }: OwnProps) {
   const {
     changeLanguage,
@@ -40,7 +40,7 @@ function SettingsLanguage({
 
   useHistoryBack({
     isActive,
-    onBack: handleBackClick,
+    onBack: onBackClick,
   });
 
   const handleLanguageChange = useLastCallback((newLangCode: LangCode) => {
@@ -74,7 +74,7 @@ function SettingsLanguage({
       {isInsideModal ? (
         <ModalHeader
           title={lang('Language')}
-          onBackButtonClick={handleBackClick}
+          onBackButtonClick={onBackClick}
           className={buildClassName(styles.modalHeader, styles.languageHeader)}
         />
       ) : (
@@ -86,7 +86,7 @@ function SettingsLanguage({
           )
         }
         >
-          <Button isSimple isText onClick={handleBackClick} className={styles.headerBack}>
+          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
             <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
             <span>{lang('Back')}</span>
           </Button>

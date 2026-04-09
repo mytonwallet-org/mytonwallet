@@ -1,15 +1,15 @@
 import { beginCell, Cell, storeStateInit } from '@ton/core';
 import type { WalletContractV5R1 } from '@ton/ton';
 
-import type {
-  ApiAnyDisplayError,
-  ApiNetwork,
-  ApiTonWallet,
-  ApiWalletInfo,
-  ApiWalletWithVersionInfo,
-} from '../../types';
 import type { ApiTonWalletVersion, ContractInfo } from './types';
 import type { TonWallet } from './util/tonCore';
+import {
+  type ApiAnyDisplayError,
+  type ApiNetwork,
+  type ApiTonWallet,
+  type ApiWalletInfo,
+  type ApiWalletWithVersionInfo,
+} from '../../types';
 
 import { DEFAULT_WALLET_VERSION, TONCOIN } from '../../../config';
 import { parseAccountId } from '../../../util/account';
@@ -20,7 +20,13 @@ import {
 } from './util/tonCore';
 import { fetchStoredWallet } from '../../common/accounts';
 import { base64ToBytes, hexToBytes, sha256 } from '../../common/utils';
-import { ALL_WALLET_VERSIONS, ContractType, KnownContracts, NETWORK_CONFIG, WORKCHAIN } from './constants';
+import {
+  ALL_WALLET_VERSIONS,
+  ContractType,
+  KnownContracts,
+  NETWORK_CONFIG,
+  WORKCHAIN,
+} from './constants';
 import { loadTokenBalances } from './tokens';
 import { fetchJettonWallets } from './tokens';
 import { getWalletInfos } from './toncenter';
@@ -139,12 +145,18 @@ export async function getWalletSeqno(network: ApiNetwork, walletOrAddress: TonWa
   return seqno || 0;
 }
 
-export async function pickBestWallet(network: ApiNetwork, publicKey: Uint8Array): Promise<{
+type BestWalletVersion = {
   wallet: TonWallet;
   version: ApiTonWalletVersion;
   balance: bigint;
   lastTxId?: string;
-}> {
+  withJettonBalances?: boolean;
+};
+
+export async function pickBestWalletVersion(
+  network: ApiNetwork,
+  publicKey: Uint8Array,
+): Promise<BestWalletVersion> {
   const allWallets = await getWalletVersionInfos(network, publicKey);
   const defaultWallets = allWallets.filter(({ version }) => version === DEFAULT_WALLET_VERSION);
   const defaultWallet = defaultWallets.find(
@@ -173,10 +185,57 @@ export async function pickBestWallet(network: ApiNetwork, publicKey: Uint8Array)
   const v4Wallet = allWallets.find(({ version }) => version === 'v4R2')!;
   const { jettonWallets: v4JettonBalances = [] } = await fetchJettonWallets(network, v4Wallet.address, 1);
   if (v4JettonBalances.length > 0) {
-    return v4Wallet;
+    return { ...v4Wallet, withJettonBalances: true };
   }
 
   return defaultWallet;
+}
+
+export async function pickBestWallet(
+  network: ApiNetwork,
+  variants: { publicKey: Uint8Array; derivation?: { path: string; index: number } }[],
+): Promise<BestWalletVersion & { derivation?: { path: string; index: number } }> {
+  const bestWalletsByKey: (
+    BestWalletVersion & { derivation?: { path: string; index: number } }
+  )[] = await Promise.all(variants.map(async ({ publicKey, derivation }) => {
+    const { wallet, version, balance, lastTxId, withJettonBalances } = await pickBestWalletVersion(network, publicKey);
+
+    return {
+      wallet,
+      version,
+      balance,
+      lastTxId,
+      withJettonBalances,
+      derivation,
+    };
+  }));
+
+  // Handle TON-only wallet or privateKey import
+  if (bestWalletsByKey.length === 1 && !bestWalletsByKey[0].derivation) {
+    return bestWalletsByKey[0];
+  }
+
+  const withBiggestBalance = bestWalletsByKey.reduce<BestWalletVersion | undefined>((best, current) => {
+    return current.balance > (best?.balance ?? 0n) ? current : best;
+  }, undefined);
+
+  if (withBiggestBalance) {
+    return withBiggestBalance;
+  }
+
+  const withLastTx = findLast(bestWalletsByKey, ({ lastTxId }) => !!lastTxId);
+  if (withLastTx) {
+    return withLastTx;
+  }
+
+  const withJettonBalances = findLast(bestWalletsByKey, ({ withJettonBalances }) => !!withJettonBalances);
+  if (withJettonBalances) {
+    return withJettonBalances;
+  }
+
+  return bestWalletsByKey
+    .find(({ derivation }) => derivation?.index === 0)
+    || bestWalletsByKey[0];
 }
 
 export async function getWalletVersionInfos(
