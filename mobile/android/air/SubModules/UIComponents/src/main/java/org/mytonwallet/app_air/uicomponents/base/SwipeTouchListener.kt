@@ -148,18 +148,20 @@ class SwipeTouchListener
                 behindView.get()?.viewController?.get()?.viewWillAppear()
                 mDownX = event.x
                 darkView.get()?.let {
-                    viewController.get()?.navigationController?.addView(
-                        it, 0,
-                        ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-                    )
+                    if (it.parent == null)
+                        viewController.get()?.navigationController?.addView(
+                            it, 0,
+                            ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+                        )
                     it.visibility = VISIBLE
                 }
                 mViewParent.get()?.requestDisallowInterceptTouchEvent(true)
                 behindView.get()?.let {
-                    viewController.get()?.navigationController?.addView(
-                        it, 0,
-                        ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-                    )
+                    if (it.parent == null)
+                        viewController.get()?.navigationController?.addView(
+                            it, 0,
+                            ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+                        )
                     it.visibility = VISIBLE
                     it.alpha = 1f
                     (it.parent as? View)?.setBackgroundColor(WColor.SecondaryBackground.color)

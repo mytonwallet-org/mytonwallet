@@ -6,6 +6,8 @@ import UIKit
 import WalletCore
 import WalletContext
 
+private let PROMOTION_ACTION_BUTTON_HORIZONTAL_PADDING: CGFloat = 30
+
 public final class PromotionVC: WViewController {
     private let promotion: ApiPromotion
     private var hostingController: UIHostingController<PromotionView>?
@@ -145,7 +147,7 @@ private struct PromotionView: View {
                     onAction(url)
                 }
                 .buttonStyle(.airPrimary)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, PROMOTION_ACTION_BUTTON_HORIZONTAL_PADDING)
                 .padding(.top, 16)
                 .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
                     actionButtonHeight = height

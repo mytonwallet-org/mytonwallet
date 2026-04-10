@@ -201,6 +201,19 @@ func makeTokensMenuConfig(onReorder: @escaping () -> Void) -> () -> ContextMenuC
         items.append(
             .action(
                 ContextMenuAction(
+                    title: lang("Manage Assets"),
+                    icon: .airBundle("MenuManageAssets26"),
+                    handler: {
+                        AppActions.showAssetsAndActivity()
+                    }
+                )
+            )
+        )
+        
+        items.append(.separator)
+        items.append(
+            .action(
+                ContextMenuAction(
                     title: lang("Reorder"),
                     icon: .airBundle("MenuReorder26"),
                     handler: onReorder

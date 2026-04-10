@@ -413,8 +413,8 @@ class ImportWalletVC(
     }
 
     override fun showError(error: MBridgeError?) {
-        if (navigationController?.viewControllers?.last() != this) {
-            navigationController?.viewControllers?.last()?.showError(error)
+        if (navigationController?.viewControllers?.lastOrNull() != this) {
+            navigationController?.viewControllers?.lastOrNull()?.showError(error)
             return
         }
         showAlert(

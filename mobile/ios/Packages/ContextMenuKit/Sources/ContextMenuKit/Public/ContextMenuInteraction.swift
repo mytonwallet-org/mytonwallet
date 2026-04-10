@@ -104,7 +104,7 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         guard self.presentedOverlayView == nil else {
             return
         }
-        self.presentMenu()
+        self.presentMenu(triggeredByLongPress: false)
     }
 
     @objc private func handleLongPress(_ recognizer: UILongPressGestureRecognizer) {
@@ -116,7 +116,7 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         switch recognizer.state {
         case .began:
             if self.presentedOverlayView == nil {
-                self.presentMenu()
+                self.presentMenu(triggeredByLongPress: true)
             }
         case .changed:
             self.presentedOverlayView?.beginExternalSelection(at: pointInWindow)
@@ -130,9 +130,12 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         }
     }
 
-    private func presentMenu() {
+    private func presentMenu(triggeredByLongPress: Bool) {
         guard let sourceView else {
             return
+        }
+        if triggeredByLongPress {
+            ContextMenuHaptics.playLongPressActivation()
         }
         let configuration = self.configurationProvider(sourceView)
         let presentationReference = self.resolvePresentationReference(for: sourceView)

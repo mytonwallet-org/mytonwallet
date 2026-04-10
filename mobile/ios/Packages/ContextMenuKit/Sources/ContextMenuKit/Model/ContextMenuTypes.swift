@@ -144,6 +144,7 @@ public struct ContextMenuStyle: Sendable {
     public var maximumHeightRatio: CGFloat
     public var verticalPlacementBehavior: ContextMenuVerticalPlacementBehavior
     public var sourceSpacing: CGFloat
+    public var animationSourceSpacing: CGFloat?
     public var panelCornerRadius: CGFloat
     public var panelInset: CGFloat
     public var listVerticalPadding: CGFloat
@@ -163,6 +164,7 @@ public struct ContextMenuStyle: Sendable {
         maximumHeightRatio: CGFloat = 0.62,
         verticalPlacementBehavior: ContextMenuVerticalPlacementBehavior = .sourceAttached,
         sourceSpacing: CGFloat = 8.0,
+        animationSourceSpacing: CGFloat? = nil,
         panelCornerRadius: CGFloat = 30.0,
         panelInset: CGFloat = 32.0,
         listVerticalPadding: CGFloat = 10.0,
@@ -181,6 +183,7 @@ public struct ContextMenuStyle: Sendable {
         self.maximumHeightRatio = maximumHeightRatio
         self.verticalPlacementBehavior = verticalPlacementBehavior
         self.sourceSpacing = sourceSpacing
+        self.animationSourceSpacing = animationSourceSpacing
         self.panelCornerRadius = panelCornerRadius
         self.panelInset = panelInset
         self.listVerticalPadding = listVerticalPadding

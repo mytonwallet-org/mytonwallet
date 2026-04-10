@@ -219,10 +219,10 @@ class PasscodeConfirmVC(
     override fun signOutPressed() {
         super.signOutPressed()
         showAlert(
-            LocaleController.getString("Sign Out"),
+            LocaleController.getString("Remove Wallet"),
             LocaleController.getString("\$logout_warning")
                 .toProcessedSpannableStringBuilder(),
-            LocaleController.getString("Sign Out"),
+            LocaleController.getString("Remove"),
             buttonPressed = {
                 view.lockView()
                 WalletCore.resetAccounts { ok, err ->

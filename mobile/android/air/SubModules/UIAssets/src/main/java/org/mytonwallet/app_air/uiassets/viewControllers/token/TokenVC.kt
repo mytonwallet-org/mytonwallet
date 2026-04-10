@@ -424,8 +424,9 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     private fun onClick(identifier: HeaderActionsView.Identifier) {
         when (identifier) {
             HeaderActionsView.Identifier.RECEIVE -> {
+                val receiveVC = ReceiveVC.createIfAvailable(context, MBlockchain.valueOf(token.chain)) ?: return
                 val navVC = WNavigationController(window!!)
-                navVC.setRoot(ReceiveVC(context, MBlockchain.valueOf(token.chain)))
+                navVC.setRoot(receiveVC)
                 window?.present(navVC)
             }
 

@@ -1,11 +1,14 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.drawable.ColorDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
 import android.view.ViewConfiguration
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import kotlin.math.abs
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -13,6 +16,7 @@ import me.everything.android.ui.overscroll.OverScrollBounceEffectDecoratorBase
 import me.everything.android.ui.overscroll.VerticalOverScrollBounceEffectDecorator
 import me.everything.android.ui.overscroll.adapters.RecyclerViewOverScrollDecorAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import java.lang.ref.WeakReference
 
 @SuppressLint("ViewConstructor")
@@ -183,5 +187,34 @@ open class WRecyclerView(context: Context) : RecyclerView(context) {
 
     fun scrollToOverScroll(value: Int) {
         verticalOverScrollBounceEffectDecorator?.scrollTo(value)
+    }
+
+    private var backgroundAnimator: ValueAnimator? = null
+
+    override fun setBackgroundColor(color: Int) {
+        backgroundAnimator?.cancel()
+        backgroundAnimator = null
+        super.setBackgroundColor(color)
+    }
+
+    fun animateBackgroundColor(toColor: Int, duration: Long = AnimationConstants.QUICK_ANIMATION) {
+        val fromColor = (background as? ColorDrawable)?.color ?: toColor
+        if (fromColor == toColor) return
+        backgroundAnimator?.cancel()
+        backgroundAnimator = null
+        if (!WGlobalStorage.getAreAnimationsActive()) {
+            setBackgroundColor(toColor)
+            return
+        }
+        backgroundAnimator = ValueAnimator.ofArgb(fromColor, toColor).apply {
+            this.duration = duration
+            addUpdateListener { super.setBackgroundColor(it.animatedValue as Int) }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    backgroundAnimator = null
+                }
+            })
+            start()
+        }
     }
 }

@@ -147,12 +147,10 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         let nftCellRegistration = UICollectionView.CellRegistration<NftCell, String> { [weak self] cell, indexPath, nftId in
             guard let self else { return }
             let displayNft = displayNfts?[nftId] ?? NftStore.getAccountNfts(accountId: self.account.id)?[nftId]
-            let isMultichain = self.account.isMultichain
             let tonDomain = displayNft.flatMap { self.resolveTonDomain(for: $0.nft) }
             cell.configure(
                 nft: displayNft?.nft,
                 compactMode: compactMode,
-                isMultichain: isMultichain,
                 domainExpirationText: tonDomain?.expirationText,
                 isSelected: selectedIds?.contains(nftId)
             )

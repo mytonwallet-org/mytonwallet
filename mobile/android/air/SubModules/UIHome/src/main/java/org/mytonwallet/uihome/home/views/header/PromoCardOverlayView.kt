@@ -2,6 +2,7 @@ package org.mytonwallet.uihome.home.views.header
 
 import android.content.Context
 import android.view.Gravity
+import androidx.core.view.doOnPreDraw
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -92,7 +93,9 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        currentPromotion?.cardOverlay?.mascotIcon?.let { updateMascotLayout(it, w, h) }
+        currentPromotion?.cardOverlay?.mascotIcon?.let { mascotIcon ->
+            doOnPreDraw { updateMascotLayout(mascotIcon, w, h) }
+        }
     }
 
     private fun updateMascot(mascotIcon: ApiPromotion.CardOverlay.MascotIcon?) {

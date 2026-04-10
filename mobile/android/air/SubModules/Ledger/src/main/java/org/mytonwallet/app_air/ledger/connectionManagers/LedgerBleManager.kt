@@ -49,9 +49,13 @@ object LedgerBleManager : ILedgerConnectionManager {
     }
 
     override fun stopConnection() {
-        bleManager?.stopScanning()
-        if (bleManager?.isConnected == true)
-            bleManager?.disconnect()
+        try {
+            bleManager?.stopScanning()
+            if (bleManager?.isConnected == true)
+                bleManager?.disconnect()
+        } catch (_: IllegalStateException) {
+            // BT adapter was turned off; ignore and reset local state.
+        }
         devices = emptyList()
         triedDevices = mutableListOf()
         selectedDevice = null

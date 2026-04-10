@@ -5,7 +5,10 @@ import org.mytonwallet.app_air.airasframework.AirAsFrameworkApplication
 
 class MTWAirApplication : Application() {
     override fun onCreate() {
-        System.loadLibrary("native-utils")
+        try {
+            System.loadLibrary("native-utils")
+        } catch (_: Throwable) {
+        }
 
         super.onCreate()
 

@@ -124,7 +124,7 @@ class TransactionVC(
     context: Context,
     private val showingAccountId: String,
     tx: MApiTransaction,
-    isInBottomSheet: Boolean = true
+    private val isInBottomSheet: Boolean = true
 ) : WViewController(context),
     WalletCore.EventObserver {
     override val TAG = "Transaction"
@@ -476,14 +476,14 @@ class TransactionVC(
 
     private fun generateActions(): List<HeaderActionsView.Item> {
         return listOfNotNull(
-            HeaderActionsView.Item(
+            if (isInBottomSheet) HeaderActionsView.Item(
                 HeaderActionsView.Identifier.DETAILS,
                 ContextCompat.getDrawable(
                     context,
                     R.drawable.ic_act_details_outline
                 )!!,
                 LocaleController.getString("Details")
-            ),
+            ) else null,
             if (shouldShowRepeatAction()) HeaderActionsView.Item(
                 HeaderActionsView.Identifier.REPEAT,
                 ContextCompat.getDrawable(

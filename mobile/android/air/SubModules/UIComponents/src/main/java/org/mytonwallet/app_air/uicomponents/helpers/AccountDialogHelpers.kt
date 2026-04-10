@@ -75,10 +75,10 @@ class AccountDialogHelpers {
         fun presentSignOut(window: WWindow, account: MAccount) {
             val vc = window.topViewController ?: return
             vc.showAlert(
-                LocaleController.getString("Sign Out"),
+                LocaleController.getString("Remove Wallet"),
                 LocaleController.getString("\$logout_warning")
                     .toProcessedSpannableStringBuilder(),
-                LocaleController.getString("Sign Out"),
+                LocaleController.getString("Remove"),
                 {
                     signout(window, account, notifyAccountChange = true)
                 },
@@ -91,10 +91,10 @@ class AccountDialogHelpers {
         fun presentSignOut(window: WWindow, accounts: List<MAccount>) {
             val vc = window.topViewController ?: return
             vc.showAlert(
-                LocaleController.getString("Sign Out"),
+                LocaleController.getString("Remove Wallet"),
                 LocaleController.getString("\$logout_warning")
                     .toProcessedSpannableStringBuilder(),
-                LocaleController.getString("Sign Out"),
+                LocaleController.getString("Remove"),
                 {
                     val accountsToRemove =
                         (accounts.filter { it.accountId != AccountStore.activeAccountId } +

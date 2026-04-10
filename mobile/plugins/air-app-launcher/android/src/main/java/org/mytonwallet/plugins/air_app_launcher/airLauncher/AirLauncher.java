@@ -65,6 +65,10 @@ public class AirLauncher {
 
   public AirLauncher(Activity currentActivity) {
     this.applicationContext = currentActivity.getApplicationContext();
+    try {
+      System.loadLibrary("native-utils");
+    } catch (Throwable ignored) {
+    }
     initGlobalStorageProvider(currentActivity);
   }
 

@@ -492,15 +492,21 @@ class LedgerConnectVC(
         }
     }
 
+    private var bluetoothReceiverRegistered = false
     private fun initBluetooth() {
         val bluetoothManager =
             window!!.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothAdapter = bluetoothManager.adapter
 
-        window!!.registerReceiver(
-            bluetoothStateReceiver,
-            IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
-        )
+        if (!bluetoothReceiverRegistered) {
+            ContextCompat.registerReceiver(
+                window!!,
+                bluetoothStateReceiver,
+                IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+            bluetoothReceiverRegistered = true
+        }
     }
 
     private var tryAgainButtonToOpenSettings: Boolean? = null
@@ -976,9 +982,13 @@ class LedgerConnectVC(
     var shouldDestroyLedgerManager = true
     override fun onDestroy() {
         super.onDestroy()
-        window!!.unregisterReceiver(
-            bluetoothStateReceiver,
-        )
+        if (bluetoothReceiverRegistered) {
+            try {
+                window!!.unregisterReceiver(bluetoothStateReceiver)
+            } catch (_: IllegalArgumentException) {
+            }
+            bluetoothReceiverRegistered = false
+        }
         if (shouldDestroyLedgerManager)
             LedgerManager.stopConnection()
         WalletCore.unregisterObserver(this)

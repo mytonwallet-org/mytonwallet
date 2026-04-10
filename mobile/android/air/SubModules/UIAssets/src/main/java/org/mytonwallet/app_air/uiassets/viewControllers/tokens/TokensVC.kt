@@ -36,6 +36,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.SelectiveItemAnimator
+import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorHelper
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.frameAsPath
@@ -90,7 +91,7 @@ class TokensVC(
 
     private var isShowingAccountMultichain = WGlobalStorage.isMultichain(showingAccountId)
     private var _showingAccount: MAccount? = null
-    private fun fetchAccount(accountId: String): MAccount {
+    private fun fetchAccount(accountId: String): MAccount? {
         _showingAccount?.let {
             if (it.accountId == accountId)
                 return it
@@ -100,7 +101,7 @@ class TokensVC(
             activeAccount
         else
             AccountStore.accountById(accountId)
-        return _showingAccount!!
+        return _showingAccount
     }
 
     enum class Mode {
@@ -303,7 +304,7 @@ class TokensVC(
     private fun dataUpdated(forceUpdate: Boolean) {
         scope.launch {
             val accountId = showingAccountId
-            val showingAccount = fetchAccount(accountId)
+            val showingAccount = fetchAccount(accountId) ?: return@launch
             val isSingleWalletActive = MScreenMode.SingleWallet(accountId).isScreenActive
 
             if (!forceUpdate && !isSingleWalletActive) {
@@ -556,7 +557,8 @@ class TokensVC(
         if (mode != Mode.HOME) {
             return
         }
-        val safeLimit = if (HOME_ASSETS_TOP_LIMITS.contains(limit)) limit else HOME_ASSETS_TOP_LIMITS.first()
+        val safeLimit =
+            if (HOME_ASSETS_TOP_LIMITS.contains(limit)) limit else HOME_ASSETS_TOP_LIMITS.first()
         if (safeLimit == currentHomeAssetsLimit) {
             return
         }
@@ -597,6 +599,19 @@ class TokensVC(
         if (items.isNotEmpty()) {
             items[items.lastIndex].hasSeparator = true
         }
+        items.add(
+            WMenuPopup.Item(
+                WMenuPopup.Item.Config.Item(
+                    icon = WMenuPopup.Item.Config.Icon(
+                        R.drawable.ic_plus_30,
+                        WColor.PrimaryLightText
+                    ),
+                    title = LocaleController.getString("Add Token")
+                )
+            ) {
+                openAddToken()
+            }
+        )
         items.add(
             WMenuPopup.Item(
                 WMenuPopup.Item.Config.Item(
@@ -781,8 +796,10 @@ class TokensVC(
 
     private fun openAdd(token: MToken) {
         val window = this.window ?: return
+        val receiveVC =
+            ReceiveVC.createIfAvailable(context, MBlockchain.valueOf(token.chain)) ?: return
         val navVC = WNavigationController(window).apply {
-            setRoot(ReceiveVC(context, MBlockchain.valueOf(token.chain)))
+            setRoot(receiveVC)
         }
         window.present(navVC)
     }
@@ -834,6 +851,20 @@ class TokensVC(
         val window = this.window ?: return
         val navVC = WNavigationController(window).apply {
             setRoot(AssetsAndActivitiesVC(context))
+        }
+        window.present(navVC)
+    }
+
+    private fun openAddToken() {
+        val window = this.window ?: return
+        val account = fetchAccount(showingAccountId) ?: return
+        val navVC = WNavigationController(window).apply {
+            setRoot(
+                TokenSelectorHelper.buildAddTokenSelector(
+                    context = context,
+                    account = account
+                )
+            )
         }
         window.present(navVC)
     }

@@ -855,8 +855,9 @@ class SplashVC(context: Context) : WViewController(context),
             }
 
             is Deeplink.Receive -> {
+                val receiveVC = ReceiveVC.createIfAvailable(context, MBlockchain.ton, false) ?: return
                 val navVC = WNavigationController(window!!)
-                navVC.setRoot(ReceiveVC(context, MBlockchain.ton, false))
+                navVC.setRoot(receiveVC)
                 window?.present(navVC)
             }
 
@@ -869,8 +870,9 @@ class SplashVC(context: Context) : WViewController(context),
                     nextDeeplink = null
                     return
                 }
+                val receiveVC = ReceiveVC.createIfAvailable(context, MBlockchain.ton, true) ?: return
                 val navVC = WNavigationController(window!!)
-                navVC.setRoot(ReceiveVC(context, MBlockchain.ton, true))
+                navVC.setRoot(receiveVC)
                 window?.present(navVC)
             }
 

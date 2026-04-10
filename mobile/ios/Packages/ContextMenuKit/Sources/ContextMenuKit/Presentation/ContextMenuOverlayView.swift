@@ -12,6 +12,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
     private struct PanelPlacement {
         let panelSize: CGSize
         let panelOrigin: CGPoint
+        let verticalDirection: VerticalDirection
     }
 
     private let configuration: ContextMenuConfiguration
@@ -30,6 +31,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
     private var initialExternalSelectionPoint: CGPoint?
     private var didMoveFromInitialExternalSelectionPoint = false
     private var frozenNavigationFrame: CGRect?
+    private var currentPanelPlacement: PanelPlacement?
     private lazy var customRowContext = ContextMenuCustomRowContext(dismissHandler: { [weak self] in
         self?.dismissMenu()
     })
@@ -208,8 +210,10 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         )
 
         self.navigationView.frame = navigationFrame
-        self.frozenNavigationFrame = navigationFrame
         self.navigationView.applyPanelLayout(panelSize: placement.panelSize)
+        self.currentPanelPlacement = placement
+        self.updateNavigationAnchor(for: placement)
+        self.frozenNavigationFrame = self.navigationView.frame
     }
 
     private func panelPlacement(in safeFrame: CGRect) -> PanelPlacement {
@@ -223,8 +227,8 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
                 height: max(120.0, safeFrame.height * self.configuration.style.maximumHeightRatio)
             )
             let panelSize = self.navigationView.preferredPanelSize(constrainedTo: maxPanelSize)
-            let panelOrigin = self.panelOriginScreenBalanced(for: panelSize, safeFrame: safeFrame, sourceRect: sourceRect)
-            return PanelPlacement(panelSize: panelSize, panelOrigin: panelOrigin)
+            let (panelOrigin, verticalDirection) = self.panelOriginScreenBalanced(for: panelSize, safeFrame: safeFrame, sourceRect: sourceRect)
+            return PanelPlacement(panelSize: panelSize, panelOrigin: panelOrigin, verticalDirection: verticalDirection)
         case .sourceAttached:
             let idealPanelSize = self.navigationView.preferredPanelSize(
                 constrainedTo: CGSize(width: maxPanelWidth, height: max(1.0, safeFrame.height))
@@ -244,11 +248,11 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
                 safeFrame: safeFrame,
                 sourceRect: sourceRect
             )
-            return PanelPlacement(panelSize: panelSize, panelOrigin: panelOrigin)
+            return PanelPlacement(panelSize: panelSize, panelOrigin: panelOrigin, verticalDirection: direction)
         }
     }
 
-    private func panelOriginScreenBalanced(for panelSize: CGSize, safeFrame: CGRect, sourceRect: CGRect) -> CGPoint {
+    private func panelOriginScreenBalanced(for panelSize: CGSize, safeFrame: CGRect, sourceRect: CGRect) -> (CGPoint, VerticalDirection) {
         let availableAbove = sourceRect.minY - safeFrame.minY - self.configuration.style.sourceSpacing
         let availableBelow = safeFrame.maxY - sourceRect.maxY - self.configuration.style.sourceSpacing
 
@@ -260,7 +264,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         } else {
             y = max(safeFrame.minY, sourceRect.minY - self.configuration.style.sourceSpacing - panelSize.height)
         }
-        return CGPoint(x: x, y: y)
+        return (CGPoint(x: x, y: y), wantsBelow ? .below : .above)
     }
 
     private func panelOriginSourceAttached(
@@ -310,12 +314,66 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate {
         }
     }
 
-    private func menuPositionDelta() -> CGPoint {
-        let sourceRect = self.convert(self.sourceRectInWindow, from: nil)
+    private func updateNavigationAnchor(for placement: PanelPlacement) {
         let navigationFrame = self.navigationView.frame
+        guard !navigationFrame.isEmpty else {
+            return
+        }
+
+        let sourceRect = self.convert(self.sourceRectInWindow, from: nil)
+        let panelFrame = CGRect(origin: placement.panelOrigin, size: placement.panelSize)
+        let visibleAnchorX = min(max(sourceRect.midX, panelFrame.minX), panelFrame.maxX)
+        let visibleAnchorY: CGFloat
+        switch placement.verticalDirection {
+        case .below:
+            visibleAnchorY = panelFrame.minY
+        case .above:
+            visibleAnchorY = panelFrame.maxY
+        }
+        let anchorPoint = CGPoint(
+            x: min(max((visibleAnchorX - navigationFrame.minX) / navigationFrame.width, 0.0), 1.0),
+            y: min(max((visibleAnchorY - navigationFrame.minY) / navigationFrame.height, 0.0), 1.0)
+        )
+
+        guard self.navigationView.layer.anchorPoint != anchorPoint else {
+            return
+        }
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        self.navigationView.layer.anchorPoint = anchorPoint
+        self.navigationView.frame = navigationFrame
+        CATransaction.commit()
+    }
+
+    private func menuPositionDelta() -> CGPoint {
+        guard let placement = self.currentPanelPlacement else {
+            let sourceRect = self.convert(self.sourceRectInWindow, from: nil)
+            let navigationFrame = self.navigationView.frame
+            return CGPoint(
+                x: sourceRect.midX - navigationFrame.midX,
+                y: sourceRect.midY - navigationFrame.midY
+            )
+        }
+
+        let sourceRect = self.convert(self.sourceRectInWindow, from: nil)
+        let panelFrame = CGRect(origin: placement.panelOrigin, size: placement.panelSize)
+        let animationSourceSpacing = self.configuration.style.animationSourceSpacing ?? self.configuration.style.sourceSpacing
+        let sourcePoint = CGPoint(
+            x: min(max(sourceRect.midX, panelFrame.minX), panelFrame.maxX),
+            y: placement.verticalDirection == .below
+                ? sourceRect.maxY + animationSourceSpacing
+                : sourceRect.minY - animationSourceSpacing
+        )
+        let navigationFrame = self.navigationView.frame
+        let anchorPoint = self.navigationView.layer.anchorPoint
+        let navigationAnchorPosition = CGPoint(
+            x: navigationFrame.minX + navigationFrame.width * anchorPoint.x,
+            y: navigationFrame.minY + navigationFrame.height * anchorPoint.y
+        )
         return CGPoint(
-            x: sourceRect.midX - navigationFrame.midX,
-            y: sourceRect.midY - navigationFrame.midY
+            x: sourcePoint.x - navigationAnchorPosition.x,
+            y: sourcePoint.y - navigationAnchorPosition.y
         )
     }
 

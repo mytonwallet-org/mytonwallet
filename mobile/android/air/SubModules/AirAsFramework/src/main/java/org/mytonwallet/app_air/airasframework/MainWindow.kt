@@ -21,6 +21,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 
 class MainWindow : WWindow() {
+    private var isBridgeUser = false
     private val splashVC by lazy {
         val vc = SplashVC(this)
         WalletContextManager.setDelegate(vc)
@@ -44,6 +45,7 @@ class MainWindow : WWindow() {
         AirAsFrameworkApplication.initTheme(applicationContext)
 
         WalletCore.incBridgeUsers()
+        isBridgeUser = true
         restartBridge(forcedRecreation = false)
 
         AutoLockHelper.start(WGlobalStorage.getAppLock().period)
@@ -114,7 +116,10 @@ class MainWindow : WWindow() {
 
     override fun onDestroy() {
         super.onDestroy()
-        destroyBridge()
+        if (isBridgeUser) {
+            isBridgeUser = false
+            destroyBridge()
+        }
     }
 
     private fun checkPushNotifications() {

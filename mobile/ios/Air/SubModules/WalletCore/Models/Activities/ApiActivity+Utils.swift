@@ -93,14 +93,14 @@ public extension ApiActivity {
 }
 
 public func activityAccessoryStatus(for activity: ApiActivity) -> ActivityAccessoryStatus? {
-    if activity.isLocal {
-        return .pendingTrusted
-    }
     switch activity {
     case .transaction(let tx):
         switch tx.status {
         case .pending:
-            return tx.isIncoming ? .pending : .pendingTrusted
+            if activity.isLocal || !tx.isIncoming {
+                return .pendingTrusted
+            }
+            return .pending
         case .pendingTrusted:
             return .pendingTrusted
         case .failed:
@@ -115,19 +115,19 @@ public func activityAccessoryStatus(for activity: ApiActivity) -> ActivityAccess
                 return .hold
             case .expired, .overdue:
                 return .expired
-            case .failed:
+            case .failed, .refunded:
                 return .failed
             default:
                 break
             }
         }
         switch swap.status {
-        case .pending, .pendingTrusted:
-            return .pendingTrusted
         case .failed:
             return .failed
         case .expired:
             return .expired
+        case .pending, .pendingTrusted:
+            return .pendingTrusted
         case .completed, .confirmed:
             return nil
         }

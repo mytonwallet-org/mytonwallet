@@ -290,10 +290,18 @@ class EarnHeaderView(
     }
 
     private fun formatWithdrawText(stakingState: StakingState): String {
-        val key = if (stakingState is StakingState.Ethena) {
-            "\$unstaking_when_receive_with_amount_ethena"
-        } else {
-            "\$unstaking_when_receive_with_amount"
+        val key = when (stakingState) {
+            is StakingState.Ethena -> {
+                "\$unstaking_when_receive_with_amount_ethena"
+            }
+
+            is StakingState.Nominators -> {
+                "\$unstaking_when_receive"
+            }
+
+            else -> {
+                "\$unstaking_when_receive_with_amount"
+            }
         }
         return LocaleController.getStringWithKeyValues(
             key,

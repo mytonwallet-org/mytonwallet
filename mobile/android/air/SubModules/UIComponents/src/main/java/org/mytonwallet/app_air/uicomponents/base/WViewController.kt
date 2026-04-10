@@ -690,7 +690,8 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     }
 
     fun toggleModalState() {
-        val behavior = (view.layoutParams as LayoutParams).behavior as BottomSheetBehavior<*>
+        val behavior = (view.layoutParams as? LayoutParams)?.behavior
+            as? BottomSheetBehavior<*> ?: return
 
         if (behavior.state == BottomSheetBehavior.STATE_HALF_EXPANDED) {
             behavior.state = BottomSheetBehavior.STATE_EXPANDED

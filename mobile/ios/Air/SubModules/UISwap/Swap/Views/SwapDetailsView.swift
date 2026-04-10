@@ -130,13 +130,13 @@ struct SwapDetailsView: View {
             InsetCell {
                 HStack {
                     Text(lang("Swap Details"))
-                        .textCase(.uppercase)
+                        .textCase(IOS_26_MODE_ENABLED ? nil : .uppercase)
                     Spacer()
                     Image.airBundle("RightArrowIcon")
                         .renderingMode(.template)
                         .rotationEffect(model.isExpanded ? .radians(-0.5 * .pi) : .radians(0.5 * .pi))
                 }
-                .font13()
+                .font(IOS_26_MODE_ENABLED ? .system(size: 17, weight: .semibold) : .system(size: 13))
                 .tint(.air.secondaryLabel)
                 .foregroundStyle(Color.air.secondaryLabel)
             }

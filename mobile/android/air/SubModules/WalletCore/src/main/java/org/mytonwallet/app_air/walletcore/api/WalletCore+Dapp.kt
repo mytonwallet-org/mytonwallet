@@ -46,7 +46,7 @@ fun WalletCore.loadExploreSites(
                     withContext(Dispatchers.Main) {
                         callback(categories.toTypedArray(), exploreSites.toTypedArray(), null)
                     }
-                } catch (e: Error) {
+                } catch (_: Throwable) {
                     withContext(Dispatchers.Main) {
                         callback(null, null, null)
                     }
@@ -63,7 +63,7 @@ fun WalletCore.requestDAppList(accountId: String? = null) {
             val apps = call(ApiMethod.DApp.GetDapps(accountId))
             DappsStore.setDapps(accountId, apps)
             notifyEvent(WalletEvent.DappsCountUpdated)
-        } catch (_: JSWebViewBridge.ApiError) {
+        } catch (_: Throwable) {
         }
     }
 }

@@ -179,7 +179,7 @@ public final class TokenCell: UITableViewCell {
     
     private func configure(token: ApiToken?, balance: BigInt, isAvailable: Bool, isStaking: Bool, fallbackName: String, isCurrentSelection: Bool, onSelect: @escaping () -> Void) {
         self.onSelect = onSelect
-        iconView.config(with: token, isStaking: isStaking, isWalletView: false, shouldShowChain: AccountStore.account?.isMultichain == true || token?.chain != .ton)
+        iconView.config(with: token, isStaking: isStaking, isWalletView: false, shouldShowChain: true)
         titleLabel.text = if let token {
             MTokenBalance.displayName(apiToken: token, isStaking: isStaking)
         } else {

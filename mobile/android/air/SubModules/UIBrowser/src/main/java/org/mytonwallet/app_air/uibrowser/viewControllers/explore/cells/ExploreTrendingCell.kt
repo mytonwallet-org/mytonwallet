@@ -150,8 +150,14 @@ class ExploreTrendingCell(
     private fun resumeAutoScrollAfterDelay() {
         if (!isAutoScrollEnabled) return
         handler.removeCallbacks(autoScrollRunnable)
-        syncIndexFromScroll()
+        snapToClosest()
         handler.postDelayed(autoScrollRunnable, MANUAL_SCROLL_PAUSE)
+    }
+
+    private fun snapToClosest() {
+        syncIndexFromScroll()
+        val child = container.getChildAt(currentIndex) ?: return
+        animateScrollTo(child.left.toFloat())
     }
 
     private fun syncIndexFromScroll() {

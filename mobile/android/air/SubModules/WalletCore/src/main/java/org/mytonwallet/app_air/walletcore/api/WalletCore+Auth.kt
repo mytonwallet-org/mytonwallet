@@ -117,11 +117,7 @@ fun WalletCore.importNewWalletVersion(
             callback(
                 MAccount(
                     accountId,
-                    mapOf(
-                        "ton" to MAccount.AccountChain(
-                            address = accountObj.getString("address")
-                        )
-                    ),
+                    MAccount.parseByChain(accountObj.optJSONObject("byChain")),
                     name = "$prevName $version",
                     accountType = prevAccount.accountType,
                     importedAt = System.currentTimeMillis(),

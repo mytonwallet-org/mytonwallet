@@ -9,7 +9,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorVC
+import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorHelper
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -26,9 +26,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 @SuppressLint("ViewConstructor")
 class AssetsAndActivitiesHeaderCell(
@@ -170,45 +168,13 @@ class AssetsAndActivitiesHeaderCell(
             toStart(addIcon, 20f)
         }
         v.setOnClickListener {
-            val activeAccount = AccountStore.activeAccount
+            val activeAccount = AccountStore.activeAccount ?: return@setOnClickListener
             navigationController.push(
-                TokenSelectorVC(
-                    context,
-                    LocaleController.getString("Add Token"),
-                    TokenStore.swapAssets2?.filter {
-                        val chain = it.chain
-                        chain != null &&
-                            MBlockchain.supportedChainValues.contains(chain) &&
-                            (activeAccount == null || activeAccount.isChainSupported(chain))
-                    } ?: emptyList(),
-                    showMyAssets = false,
-                    showChain = activeAccount?.isMultichain == true,
-                ).apply {
-                    setOnAssetSelectListener { asset ->
-                        val assetsAndActivityData = AccountStore.assetsAndActivityData
-                        assetsAndActivityData.deletedTokens =
-                            ArrayList(assetsAndActivityData.deletedTokens.filter {
-                                it != asset.slug
-                            })
-                        if (assetsAndActivityData.getAllTokens(shouldSort = false)
-                                .firstOrNull {
-                                    it.token == asset.slug
-                                } == null
-                        ) {
-                            assetsAndActivityData.addedTokens.add(asset.slug)
-                        }
-                        if (!assetsAndActivityData.visibleTokens.any { visibleToken ->
-                                visibleToken == asset.slug
-                            }) {
-                            assetsAndActivityData.visibleTokens.add(asset.slug)
-                        }
-                        AccountStore.updateAssetsAndActivityData(
-                            assetsAndActivityData,
-                            notify = true,
-                            saveToStorage = true
-                        )
-                    }
-                })
+                TokenSelectorHelper.buildAddTokenSelector(
+                    context = context,
+                    account = activeAccount
+                )
+            )
         }
         v
     }

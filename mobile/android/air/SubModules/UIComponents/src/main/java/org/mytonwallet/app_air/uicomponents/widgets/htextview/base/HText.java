@@ -115,6 +115,7 @@ public abstract class HText implements IHText {
 
     @Override
     public void animateText(CharSequence text, boolean animated) {
+        if (text == null) text = "";
         mHTextView.setText(text);
         mOldText = mText;
         mText = text;

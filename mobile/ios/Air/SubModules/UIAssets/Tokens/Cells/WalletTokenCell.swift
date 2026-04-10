@@ -221,7 +221,6 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     public func configure(with walletToken: MTokenBalance,
                           animated: Bool = true,
                           badgeContent: BadgeContent?,
-                          isMultichain: Bool,
                           isPinned: Bool,
                           highlightBackgroundWhenPinned: Bool) {
         let previousTokenSlug = self.walletToken?.tokenSlug
@@ -235,7 +234,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         // configure icon view
         if tokenChanged || tokenImage != token?.image?.nilIfEmpty {
             tokenImage = token?.image?.nilIfEmpty
-            iconView.config(with: token, isStaking: walletToken.isStaking, isWalletView: true, shouldShowChain: isMultichain)
+            iconView.config(with: token, isStaking: walletToken.isStaking, isWalletView: true, shouldShowChain: true)
         }
         
         // pin icon

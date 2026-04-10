@@ -45,14 +45,14 @@ final class ContextMenuSwiftUISourceBridge: ObservableObject {
         guard self.isEnabled else {
             return
         }
-        self.presentMenuIfNeeded()
+        self.presentMenuIfNeeded(triggeredByLongPress: false)
     }
 
     func handleLongPressBegan(at point: CGPoint) {
         guard self.isEnabled else {
             return
         }
-        self.presentMenuIfNeeded()
+        self.presentMenuIfNeeded(triggeredByLongPress: true)
         self.presentedOverlayView?.updateExternalSelection(at: point)
     }
 
@@ -60,7 +60,7 @@ final class ContextMenuSwiftUISourceBridge: ObservableObject {
         guard self.isEnabled else {
             return
         }
-        self.presentMenuIfNeeded()
+        self.presentMenuIfNeeded(triggeredByLongPress: true)
         if !self.isExternalSelectionActive {
             self.presentedOverlayView?.beginExternalSelection(at: point)
             self.isExternalSelectionActive = true
@@ -84,9 +84,9 @@ final class ContextMenuSwiftUISourceBridge: ObservableObject {
 
         switch value {
         case .first(true):
-            self.presentMenuIfNeeded()
+            self.presentMenuIfNeeded(triggeredByLongPress: true)
         case let .second(true, drag?):
-            self.presentMenuIfNeeded()
+            self.presentMenuIfNeeded(triggeredByLongPress: true)
             guard drag.translation != .zero else {
                 return
             }
@@ -117,9 +117,12 @@ final class ContextMenuSwiftUISourceBridge: ObservableObject {
         self.isExternalSelectionActive = false
     }
 
-    private func presentMenuIfNeeded() {
+    private func presentMenuIfNeeded(triggeredByLongPress: Bool = false) {
         guard self.presentedOverlayView == nil, let anchorView, let configuration else {
             return
+        }
+        if triggeredByLongPress {
+            ContextMenuHaptics.playLongPressActivation()
         }
 
         let presentationReference = self.makePresentationReference(for: anchorView)

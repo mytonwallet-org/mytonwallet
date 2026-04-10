@@ -415,19 +415,17 @@ public class ActivityCell: WHighlightCollectionViewCell {
                 if !attr.string.isEmpty {
                     attr.append(NSAttributedString(string: " · "))
                 }
-                if transaction.isIncoming {
-                    attr.append(NSAttributedString(string: lang("$transaction_from", arg1: "")))
-                } else {
-                    attr.append(NSAttributedString(string: lang("$transaction_to", arg1: "")))
-                }
-                if options.isMultichain, let chain = getChainBySlug(activity.slug) {
-                    let image = NSTextAttachment(image: .airBundle("ActivityAddress-\(chain)"))
-                    image.bounds = .init(x: 0, y: -1.5, width: 13, height: 13)
-                    attr.append(NSAttributedString(attachment: image))
-                }
-                attr.append(NSAttributedString(string: options.address, attributes: [
+                
+                var address = NSAttributedString(string: options.address, attributes: [
                     .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
-                ]))
+                ])
+                
+                if let chain = getChainBySlug(activity.slug) {
+                    address = ChainIcon(chain, style: .s14).prepended(to: address)
+                }
+                
+                attr.append(attributedLang(transaction.isIncoming  ? "$transaction_from" : "$transaction_to", arg1: address))
+                
             } else if activity.shouldShowTransactionAnnualYield, let stakingState = options.stakingState {
                 if !attr.string.isEmpty {
                     attr.append(NSAttributedString(string: " · "))

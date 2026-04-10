@@ -159,13 +159,12 @@ class SettingsVC(context: Context) : WViewController(context),
         val btn = WImageButton(context)
         btn.setPadding(8.dp)
         btn.setOnClickListener {
+            val receiveVC = ReceiveVC.createIfAvailable(
+                context,
+                AccountStore.activeAccount?.firstChain ?: MBlockchain.ton
+            ) ?: return@setOnClickListener
             val navVC = WNavigationController(window!!)
-            navVC.setRoot(
-                ReceiveVC(
-                    context,
-                    AccountStore.activeAccount?.firstChain ?: MBlockchain.ton
-                )
-            )
+            navVC.setRoot(receiveVC)
             window?.present(navVC)
         }
         btn
@@ -187,7 +186,7 @@ class SettingsVC(context: Context) : WViewController(context),
                     },
                     WMenuPopup.Item(
                         org.mytonwallet.app_air.icons.R.drawable.ic_exit,
-                        LocaleController.getString("Sign Out")
+                        LocaleController.getString("Remove Wallet")
                     ) {
                         window?.let { window ->
                             AccountStore.activeAccount?.let { account ->

@@ -13,7 +13,6 @@ public class MTWApplication extends Application implements StatusBarPluginDelega
   @Override
   public void onCreate() {
     super.onCreate();
-    System.loadLibrary("native-utils");
     AirLauncher.scheduleWidgetUpdates(getApplicationContext());
   }
 

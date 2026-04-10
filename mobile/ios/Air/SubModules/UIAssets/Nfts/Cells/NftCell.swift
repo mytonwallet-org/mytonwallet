@@ -66,7 +66,6 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.numberOfLines = 1
 
-        subtitleLabel.font = .systemFont(ofSize: 12)
         subtitleLabel.textColor = .air.secondaryLabel
         subtitleLabel.lineBreakMode = .byTruncatingTail
         subtitleLabel.numberOfLines = 1
@@ -197,7 +196,7 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
         }
     }
 
-    func configure(nft: ApiNft?, compactMode: Bool, isMultichain: Bool, domainExpirationText: String?, isSelected: Bool?) {
+    func configure(nft: ApiNft?, compactMode: Bool, domainExpirationText: String?, isSelected: Bool?) {
         let cornerRadius = NftCell.getCornerRadius(compactMode: compactMode)
         let forSaleTagStyle: NftForSaleTagView.Style = compactMode ? .compact : .regular
         imageContainerView.layer.cornerRadius = cornerRadius
@@ -220,17 +219,9 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
             let resolvedNft = nft ?? ApiNft.ERROR
             titleLabel.text = resolvedNft.name?.nilIfEmpty ?? formatStartEndAddress(resolvedNft.address, prefix: 4, suffix: 4)
             let subtitle = resolvedNft.collectionName?.nilIfEmpty ?? lang("Standalone NFT")
-            let attr = NSMutableAttributedString()
-            if isMultichain {
-                let image = NSTextAttachment(image: .airBundle("ActivityAddress-\(resolvedNft.chain.rawValue)"))
-                image.bounds = .init(x: 0, y: -1.5, width: 13, height: 13)
-                attr.append(NSAttributedString(attachment: image))
-            }
-            attr.append(NSAttributedString(string: subtitle, attributes: [
-                .font: subtitleLabel.font ?? .systemFont(ofSize: 12),
-                .foregroundColor: UIColor.air.secondaryLabel
-            ]))
-            subtitleLabel.attributedText = attr
+            let subtitleAttr = NSAttributedString(string: subtitle, attributes: [.font: UIFont.systemFont(ofSize: 12)])
+            subtitleLabel.textColor = .air.secondaryLabel
+            subtitleLabel.attributedText =  ChainIcon(resolvedNft.chain, style: .s12).prepended(to: subtitleAttr)
         }
     }
 

@@ -86,6 +86,7 @@ enum SwitchAccountMenu {
                 maxWidth: switchAccountMenuWidth,
                 maximumHeightRatio: 1.0,
                 sourceSpacing: -32,
+                animationSourceSpacing: 8,
                 screenInsets: .init(top: 0, left: 16, bottom: 0, right: 16)
             )
         )

@@ -28,6 +28,18 @@ public func langMd(_ keyAndDefault: String, arg1: any CVarArg) -> LocalizedStrin
     LocalizedStringKey(String(format: lang(keyAndDefault), arg1))
 }
 
+public func attributedLang(_ keyAndDefault: String, attributes: [NSAttributedString.Key : Any]? = nil, arg1: NSAttributedString) -> NSAttributedString {
+    let uniquePlaceholder = "_9879&^(8980-09-09-423jdhfshfqqweqwe" // a phrase that never happens in real life
+    let s = lang(keyAndDefault, arg1: uniquePlaceholder)
+    guard let range = s.range(of: uniquePlaceholder) else {
+        return NSAttributedString(string: s, attributes: attributes)
+    }
+    let result = NSMutableAttributedString(string: String(s[..<range.lowerBound]), attributes: attributes)
+    result.append(arg1)
+    result.append(NSAttributedString(string: String(s[range.upperBound...]), attributes: attributes))
+    return result
+}
+
 public enum EnumerationJoiner {
     case and
     case or

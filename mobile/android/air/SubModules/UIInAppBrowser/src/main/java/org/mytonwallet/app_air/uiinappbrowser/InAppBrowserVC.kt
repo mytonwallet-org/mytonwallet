@@ -245,21 +245,24 @@ class InAppBrowserVC(
         wv.settings.domStorageEnabled = true
         wv.settings.setSupportMultipleWindows(true)
         wv.setDownloadListener { url, userAgent, contentDisposition, mimetype, _ ->
-            val request = DownloadManager.Request(url.toUri()).apply {
-                setMimeType(mimetype)
-                addRequestHeader("User-Agent", userAgent)
+            try {
+                val request = DownloadManager.Request(url.toUri()).apply {
+                    setMimeType(mimetype)
+                    addRequestHeader("User-Agent", userAgent)
 
-                val cookie = CookieManager.getInstance().getCookie(url)
-                if (!cookie.isNullOrEmpty()) addRequestHeader("Cookie", cookie)
+                    val cookie = CookieManager.getInstance().getCookie(url)
+                    if (!cookie.isNullOrEmpty()) addRequestHeader("Cookie", cookie)
 
-                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
 
-                val filename = URLUtil.guessFileName(url, contentDisposition, mimetype)
-                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
+                    val filename = URLUtil.guessFileName(url, contentDisposition, mimetype)
+                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
+                }
+
+                val dm = webView.context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                dm.enqueue(request)
+            } catch (_: Throwable) {
             }
-
-            val dm = webView.context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            dm.enqueue(request)
         }
         wv.setWebViewClient(object : WebViewClient() {
             override fun shouldOverrideUrlLoading(

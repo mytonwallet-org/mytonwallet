@@ -114,6 +114,9 @@ class TokenSelectorVC(
 
         setNavTitle(titleToShow)
         setupNavBar(true)
+        if (navigationController?.viewControllers?.size == 1) {
+            navigationBar?.addCloseButton()
+        }
 
         searchEditText.isSearchIconFixed = true
         searchEditText.hint = LocaleController.getString("Search...")

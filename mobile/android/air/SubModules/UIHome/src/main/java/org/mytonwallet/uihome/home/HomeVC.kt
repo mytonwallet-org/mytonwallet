@@ -321,13 +321,12 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
 
             HeaderActionsView.Identifier.RECEIVE -> {
+                val receiveVC = ReceiveVC.createIfAvailable(
+                    context,
+                    homeVM.showingAccount?.firstChain ?: MBlockchain.ton
+                ) ?: return
                 val navVC = WNavigationController(window!!)
-                navVC.setRoot(
-                    ReceiveVC(
-                        context,
-                        homeVM.showingAccount?.firstChain ?: MBlockchain.ton
-                    )
-                )
+                navVC.setRoot(receiveVC)
                 window?.present(navVC)
             }
 

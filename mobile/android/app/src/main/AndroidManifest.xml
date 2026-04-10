@@ -173,6 +173,10 @@
       android:launchMode="singleTop"
       android:theme="@style/Theme.MyTonWalletAir" />
 
+    <activity
+      android:name="com.google.mlkit.vision.codescanner.internal.GmsBarcodeScanningDelegateActivity"
+      tools:node="remove" />
+
     <service android:name="com.ledger.live.ble.service.BleService" />
     <service
       android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"

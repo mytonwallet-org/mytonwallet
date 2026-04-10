@@ -104,7 +104,9 @@ public struct TappableAddress: View {
                 )
             )
             HStack(alignment: .firstTextBaseline, spacing: 3) {
-                addr
+                ChainIcon(model.chain, style: .s16, color: .air.secondaryLabel)
+                    .prepended(to: addr)
+                
                 if isMenuEnabled {
                     Image.airBundle("ArrowUpDownSmall")
                         .foregroundColor(.air.secondaryLabel)
@@ -151,24 +153,14 @@ public struct TappableAddressFull: View {
         
         return Text(formatAddressAttributed(address, startEnd: false))
     }
-
-    /// Returns an icon + space when image exists, or empty Text when not found.
-    private func chainIconText(chain: ApiChain) -> Text {
-        guard let image = UIImage.airBundleOptional("inline_chain_\(chain.rawValue)") else { return Text("") }
-        let resized = image.resizedToFit(size: CGSize(width: 16, height: 16)).withRenderingMode(.alwaysTemplate)
-        return Text(Image(uiImage: resized))
-            .foregroundColor(.air.secondaryLabel)
-            .baselineOffset(-2)
-            + Text(" ")
-    }
     
     public var body: some View {
         WithPerceptionTracking {
             let model = self.model.withLocalName(account: accountContext)
             let isMenuEnabled = model.addressToCopy != nil
             
-            let text = text(forModel: model)
-            let chainIcon = chainIconText(chain: model.chain)
+            let iconedAddressText = ChainIcon(model.chain, style: .s16, color: .air.secondaryLabel)
+                .prepended(to: text(forModel: model))
             
             Group {
                 if isMenuEnabled {
@@ -176,9 +168,9 @@ public struct TappableAddressFull: View {
                         .foregroundColor(.air.secondaryLabel.opacity(0.8))
                         .baselineOffset(-1)
                     
-                    Text("\(chainIcon)\(text) \(more)")
+                    Text("\(iconedAddressText) \(more)")
                 } else {
-                    Text("\(chainIcon)\(text)")
+                    iconedAddressText
                 }
             }
             .lineLimit(nil)

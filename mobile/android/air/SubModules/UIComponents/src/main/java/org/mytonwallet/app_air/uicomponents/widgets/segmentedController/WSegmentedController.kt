@@ -279,7 +279,7 @@ class WSegmentedController(
     override fun updateTheme() {
         closeButton.updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
         if (isFullScreen)
-            clearSegmentedControl.paintColor = WColor.Background.color
+            clearSegmentedControl.paintColor = WColor.ThumbBackground.color
         if (isTransparent)
             updateThemeTransparent()
         else {
@@ -356,11 +356,12 @@ class WSegmentedController(
             }
         } else {
             onUpdated?.invoke()
-            val currentSelectionIdentifier = this.items[viewPager.currentItem].identifier
+            val currentSelectionIdentifier =
+                this.items.getOrNull(viewPager.currentItem)?.identifier
             this.items = items
-            val newIndex = if (keepSelection) items.indexOfFirst {
-                it.identifier == currentSelectionIdentifier
-            } else -1
+            val newIndex = if (keepSelection && currentSelectionIdentifier != null)
+                items.indexOfFirst { it.identifier == currentSelectionIdentifier }
+            else -1
             applyItems(selectedItem = max(0, newIndex))
             vpAdapter.reloadData()
             if (newIndex >= 0) {

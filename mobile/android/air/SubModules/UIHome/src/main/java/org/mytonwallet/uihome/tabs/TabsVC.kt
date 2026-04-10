@@ -1035,7 +1035,11 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
             searchEditText.setText(spannable)
-            searchEditText.setSelection(keyword.length, txt.length)
+            val length = searchEditText.length()
+            searchEditText.setSelection(
+                keyword.length.coerceAtMost(length),
+                txt.length.coerceAtMost(length)
+            )
             searchView.post {
                 searchView.scrollTo(0, 0)
             }

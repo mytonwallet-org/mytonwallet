@@ -181,7 +181,10 @@ class WalletsVC(
                 for (i in 0 until recyclerView.childCount) {
                     val child = recyclerView.getChildAt(i)
                     val viewHolder = recyclerView.getChildViewHolder(child)
-                    (viewHolder.itemView as WalletCardRowCell).toggleReordering(isReordering, true)
+                    (viewHolder.itemView as? WalletCardRowCell)?.toggleReordering(
+                        isReordering,
+                        true
+                    )
                 }
                 Handler(Looper.getMainLooper()).postDelayed({
                     rvAdapter.reloadData()
@@ -357,7 +360,9 @@ class WalletsVC(
 
     override fun updateTheme() {
         super.updateTheme()
-        recyclerView.setBackgroundColor(WColor.Background.color)
+        recyclerView.setBackgroundColor(
+            if (accounts.isEmpty()) WColor.SecondaryBackground.color else WColor.Background.color
+        )
     }
 
     override fun scrollToTop() {
@@ -431,6 +436,7 @@ class WalletsVC(
     private fun updateEmptyView() {
         emptyView?.animate()?.cancel()
         if (accounts.isEmpty()) {
+            recyclerView.animateBackgroundColor(WColor.SecondaryBackground.color)
             emptyView?.isGone = false
             if (emptyView == null) {
                 emptyView =
@@ -472,6 +478,7 @@ class WalletsVC(
             }
         } else {
             if ((emptyView?.alpha ?: 0f) > 0f) {
+                recyclerView.animateBackgroundColor(WColor.Background.color)
                 emptyView?.fadeOut {
                     emptyView?.isGone = true
                 }
@@ -623,6 +630,7 @@ class WalletsVC(
             yOffset = if (isGridMode) 1 else (-20).dp,
             positioning = WMenuPopup.Positioning.BELOW,
             centerHorizontally = true,
+            windowBackgroundStyle = WMenuPopup.BackgroundStyle.Transparent,
             onWillDismiss = {
                 cell.isShowingPopup = false
                 highlightOverlayView?.let { highlightOverlayView ->

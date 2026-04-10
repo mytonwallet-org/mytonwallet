@@ -54,7 +54,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class ReceiveVC(
+class ReceiveVC private constructor(
     context: Context,
     private val defaultChain: MBlockchain = MBlockchain.ton,
     private var openBuyWithCardInstantly: Boolean = false,
@@ -71,6 +71,16 @@ class ReceiveVC(
 
     companion object {
         const val OPTION_ROW_HEIGHT = 50
+
+        fun createIfAvailable(
+            context: Context,
+            defaultChain: MBlockchain = MBlockchain.ton,
+            openBuyWithCardInstantly: Boolean = false,
+        ): ReceiveVC? {
+            val addressByChain = AccountStore.activeAccount?.addressByChain ?: return null
+            if (MBlockchain.supportedChains.none { addressByChain.containsKey(it.name) }) return null
+            return ReceiveVC(context, defaultChain, openBuyWithCardInstantly)
+        }
     }
 
     private val receiveViewModel by lazy { ViewModelProvider(this)[ReceiveViewModel::class.java] }

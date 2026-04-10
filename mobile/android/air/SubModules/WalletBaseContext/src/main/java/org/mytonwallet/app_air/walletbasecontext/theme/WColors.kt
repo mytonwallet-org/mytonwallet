@@ -21,6 +21,7 @@ enum class WColor {
     SecondaryBackground,
     TrinaryBackground,
     GroupedBackground,
+    ThumbBackground,
     BadgeBackground,
     AttributesBackground,
     PopupSeparator,

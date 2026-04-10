@@ -21,7 +21,7 @@ std::vector<std::pair<float, float>> gatherPositions(std::vector<std::pair<float
 thread_local static float *pixelCache = nullptr;
 thread_local static int pixelCacheSize = 0;
 
-JNIEXPORT void Java_org_mytonwallet_n_utils_NativeUtilities_generateGradient(JNIEnv *env, jclass clazz, jobject bitmap, jboolean unpin, jint phase, jfloat progress, jint width, jint height, jint stride, jintArray colors) {
+JNIEXPORT void Java_org_mytonwallet_n_utils_NativeUtilities_generateGradientNative(JNIEnv *env, jclass clazz, jobject bitmap, jboolean unpin, jint phase, jfloat progress, jint width, jint height, jint stride, jintArray colors) {
     if (!bitmap) {
         return;
     }

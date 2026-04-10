@@ -206,7 +206,6 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     }
 
     private func configureTokenCell(_ cell: WalletTokenCell, indexPath: IndexPath, item: TokenBalanceItem) {
-        let account = self.account
         let token = item.tokenBalance
         let badgeContent = getBadgeContent(accountContext: _account, slug: token.tokenSlug, isStaking: token.isStaking)
 
@@ -217,7 +216,6 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         cell.configure(with: item.tokenBalance,
                        animated: item.animatedAmounts,
                        badgeContent: badgeContent,
-                       isMultichain: account.isMultichain,
                        isPinned: item.isPinned,
                        highlightBackgroundWhenPinned: highlightBackgroundWhenPinned)
     }
@@ -539,10 +537,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
             })
         }
         
-        let settingsImage = UIImage.airBundle("MenuSettings")
-            .withTintColor(.air.background, renderingMode: .alwaysTemplate)
-        
-        secondaryActions.append(UIAction(title: lang("Manage Tokens"), image: settingsImage) { _ in
+        secondaryActions.append(UIAction(title: lang("Manage Assets"), image: .airBundle("MenuManageAssets26")) { _ in
             AppActions.showAssetsAndActivity()
         })
 

@@ -138,6 +138,7 @@ For source-attached menus, `ContextMenuStyle` now defaults to:
 
 - `verticalPlacementBehavior = .sourceAttached`
 - `screenInsets.bottom = 0`
+- animation anchor spacing follows `sourceSpacing` by default
 
 If you need the previous Telegram-inspired screen-balanced placement, override:
 
@@ -145,6 +146,8 @@ If you need the previous Telegram-inspired screen-balanced placement, override:
 var style = ContextMenuStyle()
 style.verticalPlacementBehavior = .screenBalanced
 ```
+
+If a menu overlaps its source using a negative `sourceSpacing`, but you still want the animation to originate from a positive offset relative to the source, set `animationSourceSpacing` explicitly.
 
 For aligned rows with a leading placeholder or a custom bundle-backed image, use `icon`:
 

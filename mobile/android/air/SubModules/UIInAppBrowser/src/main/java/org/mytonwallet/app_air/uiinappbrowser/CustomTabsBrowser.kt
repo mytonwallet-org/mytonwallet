@@ -31,6 +31,15 @@ object CustomTabsBrowser {
         if (context !is Activity) {
             intent.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        intent.launchUrl(context, uri)
+        try {
+            intent.launchUrl(context, uri)
+        } catch (_: SecurityException) {
+            val fallback = Intent(Intent.ACTION_VIEW, uri)
+            fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            try {
+                context.startActivity(fallback)
+            } catch (_: Exception) {
+            }
+        }
     }
 }

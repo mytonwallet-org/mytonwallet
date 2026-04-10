@@ -337,7 +337,12 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         }
         val builder = SpannableStringBuilder()
         val rateBigInt =
-            (swap.fromAmount.absoluteValue / swap.toAmount).toBigInteger(fromToken.decimals)!!
+            (swap.fromAmount.absoluteValue / swap.toAmount).toBigInteger(fromToken.decimals)
+        if (rateBigInt == null) {
+            bottomRightLabel.contentView.text = ""
+            bottomRightLabel.setMaskCols(0)
+            return
+        }
         val rate = rateBigInt.toString(
             fromToken.decimals,
             fromToken.symbol,
