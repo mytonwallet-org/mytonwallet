@@ -2,13 +2,14 @@ package org.mytonwallet.app_air.uiassets.viewControllers.assets
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.mytonwallet.app_air.uiassets.viewControllers.assets.cells.AssetCell
+import org.mytonwallet.app_air.uiassets.models.ExpiringDomainsData
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
@@ -25,6 +26,11 @@ class AssetsVM(
     var showingAccountId: String,
     delegate: Delegate
 ) : WalletCore.EventObserver {
+
+    private companion object {
+        const val NFT_DOMAIN_BADGE_DAYS_THRESHOLD = 30
+        const val EXPIRING_DOMAINS_DAYS_THRESHOLD = 14
+    }
 
     enum class InteractionMode { NORMAL, DRAG, SELECTION }
 
@@ -43,6 +49,8 @@ class AssetsVM(
     internal var nfts: MutableList<ApiNft>? = null
     var assetRows: List<AssetRow> = emptyList()
         private set
+    var expiringDomainsData: ExpiringDomainsData? = null
+        private set
     var interactionMode: InteractionMode = InteractionMode.NORMAL
         private set
     var cachedNftsToSave: MutableList<ApiNft>? = null
@@ -52,6 +60,8 @@ class AssetsVM(
         private set
     private val selectedAssets: MutableSet<String> = LinkedHashSet()
     private var animationsPaused: Boolean? = null
+    private var expiringDomains: List<ApiNft> = emptyList()
+    private var expiringDomainsRefreshJob: Job? = null
 
     val hasLoadedNfts: Boolean
         get() = nfts != null
@@ -72,6 +82,10 @@ class AssetsVM(
         nfts = null
         isViewOnlyAccount = AccountStore.accountById(accountId)?.isViewOnly == true
         assetRows = emptyList()
+        expiringDomains = emptyList()
+        expiringDomainsData = null
+        expiringDomainsRefreshJob?.cancel()
+        expiringDomainsRefreshJob = null
         interactionMode = InteractionMode.NORMAL
         selectedAssets.clear()
         cachedNftsToSave = null
@@ -177,6 +191,7 @@ class AssetsVM(
 
         filterSelectedAssets()
         rebuildAssetRows()
+        refreshExpiringDomainsData()
 
         return oldNfts != nfts
     }
@@ -190,7 +205,7 @@ class AssetsVM(
         val expirationByAddress = NftStore.nftData?.expirationByAddress
         val nowMs = System.currentTimeMillis()
         val dayMs = 1.days.inWholeMilliseconds
-        val expiryThresholdMs = nowMs + AssetCell.DNS_EXPIRY_WARNING_DAYS * dayMs
+        val expiryThresholdMs = nowMs + NFT_DOMAIN_BADGE_DAYS_THRESHOLD * dayMs
         assetRows = visibleNfts.map { nft ->
             val expMs = expirationByAddress?.get(nft.address)
             val daysUntilExpiration = if (expMs != null && expMs <= expiryThresholdMs) {
@@ -206,9 +221,52 @@ class AssetsVM(
         }
     }
 
+    private fun rebuildExpiringDomainsData(expirationByAddress: Map<String, Long>?) {
+        if (isViewOnlyAccount || expirationByAddress == null) {
+            expiringDomains = emptyList()
+            expiringDomainsData = null
+            return
+        }
+
+        val ignoredAddresses = NftStore.getIgnoredExpiringAddresses(showingAccountId)
+        val nowMs = System.currentTimeMillis()
+        val dayMs = 1.days.inWholeMilliseconds
+        val thresholdMs = nowMs +
+            EXPIRING_DOMAINS_DAYS_THRESHOLD.days.inWholeMilliseconds
+
+        expiringDomains = nfts.orEmpty().filter { nft ->
+            val expMs = expirationByAddress[nft.address] ?: return@filter false
+            expMs <= thresholdMs && nft.address !in ignoredAddresses
+        }
+
+        expiringDomainsData = expiringDomains.takeIf { it.isNotEmpty() }?.let { domains ->
+            ExpiringDomainsData(
+                domainNfts = domains.take(3),
+                count = domains.size,
+                minDays = domains
+                    .mapNotNull { nft -> expirationByAddress[nft.address] }
+                    .minOfOrNull { expMs -> ceil((expMs - nowMs).toDouble() / dayMs).toInt() } ?: 0
+            )
+        }
+    }
+
+    private fun refreshExpiringDomainsData() {
+        rebuildExpiringDomainsData(NftStore.nftData?.expirationByAddress)
+    }
+
     private fun filterSelectedAssets() {
         val availableAddresses = nfts.orEmpty().mapTo(hashSetOf()) { it.address }
         selectedAssets.retainAll(availableAddresses)
+    }
+
+    private fun refreshExpiringDomainsWarningAsync() {
+        expiringDomainsRefreshJob?.cancel()
+        expiringDomainsRefreshJob = scope.launch {
+            refreshExpiringDomainsData()
+            withContext(Dispatchers.Main) {
+                delegate.get()?.checkExpiringDomainsWarning(animated = true)
+            }
+        }
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
@@ -220,13 +278,12 @@ class AssetsVM(
             }
 
             WalletEvent.NftDomainDataUpdated -> {
-                rebuildAssetRows()
-                delegate.get()?.checkExpiringDomainsWarning(animated = true)
+                refreshExpiringDomainsWarningAsync()
             }
 
             is WalletEvent.NftDomainExpirationDismissed -> {
                 if (walletEvent.accountId == showingAccountId) {
-                    delegate.get()?.checkExpiringDomainsWarning(animated = true)
+                    refreshExpiringDomainsWarningAsync()
                 }
             }
 
@@ -356,5 +413,13 @@ class AssetsVM(
 
     fun getAllNfts(): MutableList<ApiNft>? {
         return nfts
+    }
+
+    fun firstExpiringDomain(): ApiNft? {
+        return expiringDomains.firstOrNull()
+    }
+
+    fun ignoredExpiringDomainAddresses(): List<String> {
+        return expiringDomains.map { it.address }
     }
 }

@@ -86,7 +86,7 @@ class MAccount(
         accountId,
         parseByChain(globalJSON.optJSONObject("byChain")),
         globalJSON.optString("title"),
-        AccountType.fromValue(globalJSON.optString("type"))!!,
+        AccountType.fromValue(globalJSON.optString("type")) ?: AccountType.MNEMONIC,
         globalJSON.optLong("importedAt"),
         globalJSON.optBoolean("isTemporary"),
     )

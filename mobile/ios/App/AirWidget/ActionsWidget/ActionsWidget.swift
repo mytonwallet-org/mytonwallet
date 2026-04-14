@@ -107,6 +107,7 @@ struct ActionButtonStyle: ButtonStyle {
     var rotationIndex: Int
 
     @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.showsWidgetContainerBackground) private var showsWidgetContainerBackground
 
     var isFullColor: Bool { renderingMode == .fullColor }
 
@@ -156,7 +157,9 @@ struct ActionButtonStyle: ButtonStyle {
         }
 
         if #available(iOS 26.0, *) {
-            return AnyShape(ConcentricRectangle(corners: .concentric(minimum: 12)))
+            if showsWidgetContainerBackground {
+                return AnyShape(ConcentricRectangle(corners: .concentric(minimum: 12)))
+            }
         }
 
         return AnyShape(RoundedRectangle(cornerRadius: 16))

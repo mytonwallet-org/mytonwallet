@@ -8,6 +8,7 @@ import android.text.style.ClickableSpan
 import android.view.Gravity
 import android.view.View
 import androidx.core.content.ContextCompat
+import androidx.core.text.inSpans
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -29,6 +30,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.DappWarningPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.FakeLoading
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.TonConnectItem
@@ -49,8 +51,8 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.helpers.DappFeeHelpers
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
 import org.mytonwallet.app_air.walletcore.moshi.ApiParsedPayload
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
@@ -248,7 +250,7 @@ class TonConnectRequestSendViewModel private constructor(
     val eventsFlow = _eventsFlow.asSharedFlow()
 
     private fun buildUiItems(tokens: Tokens): List<BaseListItem> {
-        val uiItems = mutableListOf(
+        val uiItems = mutableListOf<BaseListItem>(
             TonConnectItem.SendRequestHeader(update, {
                 val warningText = DappWarningPopupHelpers.reopenInIabWarningText {
                     WalletCore.call(
@@ -273,30 +275,29 @@ class TonConnectRequestSendViewModel private constructor(
                         allowLinkInText = true
                     )
                 )
-            }),
-            Item.Gap
+            })
         )
+
+        if (update is ApiUpdate.ApiUpdateDappSendTransactions && update.isDangerous) {
+            uiItems.add(Item.Gap())
+            uiItems.add(
+                Item.Alert(
+                    LocaleController.getString("\$hardware_payload_warning")
+                        .toProcessedSpannableStringBuilder()
+                )
+            )
+        }
+
+        uiItems.add(Item.Gap())
 
         when (update) {
             is ApiUpdate.ApiUpdateDappSendTransactions -> {
                 if (update.shouldHideTransfers != true) {
-                    if (update.transactions.size == 1) {
-                        uiItems.addAll(
-                            buildUiItemsSingleTransaction(
-                                update.operationChain,
-                                update.transactions[0],
-                                tokens,
-                                0,
-                                false
-                            )
-                        )
-                    } else {
-                        uiItems.addAll(buildUiItemsListTransactions(update, tokens))
-                    }
+                    uiItems.addAll(buildUiItemsListTransactions(update, tokens))
 
                     uiItems.addAll(
                         listOf(
-                            Item.Gap
+                            Item.Gap()
                         )
                     )
                 }
@@ -305,13 +306,13 @@ class TonConnectRequestSendViewModel private constructor(
                     val isMultichain = WGlobalStorage.isMultichain(update.accountId)
                     val previewTitle = SpannableStringBuilder()
                     previewTitle.append(LocaleController.getString("Preview"))
-                    previewTitle.append("\u00A0")
+                    previewTitle.append(" ", WSpacingSpan(6.dp), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     ContextCompat.getDrawable(
                         ApplicationContextHolder.applicationContext,
-                        org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning
+                        org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning_14
                     )?.let { drawable ->
-                        val width = 14.dp
-                        val height = 26.dp
+                        val width = 12.dp
+                        val height = 12.dp
                         drawable.setBounds(0, 0, width, height)
                         val imageSpan = VerticalImageSpan(drawable)
                         val start = previewTitle.length
@@ -336,7 +337,8 @@ class TonConnectRequestSendViewModel private constructor(
                         )
                     }
 
-                    val tonToken = TokenStore.getToken(MBlockchain.valueOf(update.operationChain).nativeSlug)
+                    val tonToken =
+                        TokenStore.getToken(MBlockchain.valueOf(update.operationChain).nativeSlug)
                     var feeValue: CharSequence? = null
                     tonToken?.let {
                         val realFee = update.emulation?.realFee
@@ -361,8 +363,7 @@ class TonConnectRequestSendViewModel private constructor(
                     }
                     uiItems.add(
                         Item.ListTitleValue(
-                            previewTitle,
-                            feeValue?.toProcessedSpannableStringBuilder()
+                            previewTitle, feeValue?.toProcessedSpannableStringBuilder()
                         )
                     )
 
@@ -411,7 +412,7 @@ class TonConnectRequestSendViewModel private constructor(
                                     "Binary Data",
                                     LocaleController.getString("Data Copied")
                                 ),
-                                Item.Gap,
+                                Item.Gap(),
                                 Item.Alert(LocaleController.getString("The binary data content is unclear. Sign it only if you trust the service."))
                             )
                         )
@@ -431,7 +432,7 @@ class TonConnectRequestSendViewModel private constructor(
                                     "Cell Schema",
                                     LocaleController.getString("Data Copied")
                                 ),
-                                Item.Gap,
+                                Item.Gap(),
                                 Item.ListTitle(
                                     LocaleController.getString(
                                         "Cell Data"
@@ -443,7 +444,7 @@ class TonConnectRequestSendViewModel private constructor(
                                     "Cell Data",
                                     LocaleController.getString("Data Copied")
                                 ),
-                                Item.Gap,
+                                Item.Gap(),
                                 Item.Alert(LocaleController.getString("The binary data content is unclear. Sign it only if you trust the service."))
                             )
                         )
@@ -552,7 +553,6 @@ class TonConnectRequestSendViewModel private constructor(
             transaction: ApiDappTransfer,
             token: Token,
             baseCurrency: MBaseCurrency,
-            includeNetworkFee: Boolean,
         ): SpannableStringBuilder? {
             if (token.isUnknown)
                 return null
@@ -576,7 +576,7 @@ class TonConnectRequestSendViewModel private constructor(
                 if (transaction.payload?.payloadIsToken == true)
                     BigInteger.ZERO
                 else
-                    (transaction.amount + if (includeNetworkFee) transaction.networkFee else BigInteger.ZERO)
+                    transaction.amount
             val feeAmountInBaseCurrency =
                 CoinUtils.toBigDecimal(feeAmount, nativeToken.decimals) *
                     BigDecimal.valueOf(nativeToken.price ?: 0.0)
@@ -614,7 +614,7 @@ class TonConnectRequestSendViewModel private constructor(
             }
         }
 
-        private fun formatTokenDetails(
+        private fun formatTokenAmounts(
             totalPerToken: Map<String, BigInteger>,
             tokens: Tokens
         ): String {
@@ -637,30 +637,14 @@ class TonConnectRequestSendViewModel private constructor(
                 }
             }.joinToString(" + ")
 
-            return if (tokenDetails.isNotEmpty()) " ($tokenDetails)" else ""
+            return tokenDetails
         }
 
         private fun formatCurrencyAmount(
-            currencySign: String,
             amount: String,
             details: String
         ): SpannableStringBuilder {
             return SpannableStringBuilder().apply {
-                val signStart = length
-                append(currencySign)
-                setSpan(
-                    WForegroundColorSpan(WColor.SecondaryText),
-                    signStart,
-                    length,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                setSpan(
-                    AbsoluteSizeSpan(16, true),
-                    signStart,
-                    length,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-
                 val decimalIndex = amount.indexOf('.')
 
                 if (decimalIndex != -1) {
@@ -756,29 +740,23 @@ class TonConnectRequestSendViewModel private constructor(
                     )
                 }
 
-                /*if (fee > BigInteger.ZERO) {
-                    subtitle.append(" (")
-                    subtitle.append(
-                        DappFeeHelpers.Companion.calculateDappTransferFee(
-                            transaction.networkFee,
-                            BigInteger.ZERO
-                        ),
-                    )
-                    subtitle.append(')')
-                }*/
-
                 uiItems.add(
                     Item.IconDualLine(
                         image = tokenIcon,
-                        title = formatTransactionAmountString(update.operationChain, transaction, tokens, true),
+                        title = formatTransactionAmountString(
+                            update.operationChain,
+                            transaction,
+                            tokens,
+                            true
+                        ),
                         subtitle = formatAddressSubtitle(transaction),
                         clickable = Item.Clickable.Items(
                             buildUiItemsSingleTransaction(
+                                update.accountId,
                                 update.operationChain,
                                 transaction,
                                 tokens,
-                                a,
-                                true
+                                a
                             )
                         ),
                     )
@@ -796,43 +774,46 @@ class TonConnectRequestSendViewModel private constructor(
                         roundUp = false
                     )
                 } ?: "")
-            val detailed = formatTokenDetails(totalPerToken, tokens)
+            val tokenAmountText = formatTokenAmounts(totalPerToken, tokens)
+            val priceDetails = if (totalCurrencyFmt.isNotEmpty()) {
+                " (${tokens.currency.sign}${totalCurrencyFmt})"
+            } else {
+                ""
+            }
 
-            uiItems.addAll(
-                0,
-                listOf(
-                    Item.ListTitle(
-                        LocaleController.getFormattedString(
-                            "Total Amount",
-                            listOf(tokens.currency.currencySymbol)
+            if (update.transactions.size > 1) {
+                uiItems.addAll(
+                    0,
+                    listOf(
+                        Item.ListTitle(
+                            LocaleController.getFormattedString(
+                                "Total Amount", listOf(tokens.currency.currencySymbol)
+                            ),
+                            topRounding = HeaderCell.TopRounding.NORMAL
                         ),
-                        topRounding = HeaderCell.TopRounding.NORMAL
-                    ),
-                    TonConnectItem.CurrencyAmount(
-                        formatCurrencyAmount(
-                            tokens.currency.sign,
-                            totalCurrencyFmt.toString(),
-                            detailed
-                        )
-                    ),
-                    Item.Gap,
+                        TonConnectItem.CurrencyAmount(
+                            formatCurrencyAmount(tokenAmountText, priceDetails)
+                        ),
+                        Item.Gap(),
+                    )
                 )
-            )
+            }
 
             return uiItems
         }
 
         private fun buildUiItemsSingleTransaction(
+            accountId: String,
             chain: String,
             transaction: ApiDappTransfer,
             tokens: Tokens,
-            index: Int,
-            isDetailView: Boolean
+            index: Int
         ): List<BaseListItem> {
             val token = tokens.list[index]
             val uiItems = mutableListOf<BaseListItem>()
             val tokenIcon = token.icon
-            val nativeToken = TokenStore.getToken(token.token?.mBlockchain?.nativeSlug ?: TONCOIN_SLUG)
+            val nativeToken =
+                TokenStore.getToken(token.token?.mBlockchain?.nativeSlug ?: TONCOIN_SLUG)
 
             val payload = transaction.payload
             val receivingAddress = when (payload) {
@@ -849,13 +830,12 @@ class TonConnectRequestSendViewModel private constructor(
                         LocaleController.getString("Receiving Address"),
                         topRounding = HeaderCell.TopRounding.NORMAL
                     ),
-                    Item.CopyableText(
-                        receivingAddress,
-                        "Address",
-                        LocaleController.getString("%chain% Address Copied")
-                            .replace("%chain%", try { MBlockchain.valueOf(chain).displayName } catch (_: Throwable) { chain })
+                    TonConnectItem.Address(
+                        accountId = accountId,
+                        chain = chain,
+                        address = receivingAddress
                     ),
-                    Item.Gap
+                    Item.Gap()
                 )
             )
 
@@ -894,64 +874,58 @@ class TonConnectRequestSendViewModel private constructor(
                                 chain,
                                 transaction,
                                 tokens,
-                                !isDetailView && transaction.payload?.payloadIsToken != true
+                                false
                             ),
                             subtitle = formatTransactionAmountInBaseCurrencyString(
                                 transaction,
                                 token,
-                                tokens.currency,
-                                !isDetailView && transaction.payload?.payloadIsToken != true
+                                tokens.currency
                             ),
                             image = tokenIcon,
                         ),
                     )
                 )
-                if (isDetailView) {
-                    uiItems.addAll(
-                        listOf(
-                            Item.Gap,
-                            Item.ListTitle(
-                                LocaleController.getString("Fee"),
-                                topRounding = HeaderCell.TopRounding.NORMAL
+                uiItems.addAll(
+                    listOf(
+                        Item.Gap(),
+                        Item.ListTitle(
+                            LocaleController.getString("Fee"),
+                            topRounding = HeaderCell.TopRounding.NORMAL
+                        ),
+                        Item.IconDualLine(
+                            title = nativeToken?.let {
+                                CoinUtils.setSpanToSymbolPart(
+                                    SpannableStringBuilder(
+                                        transaction.networkFee.toAmountString(
+                                            nativeToken
+                                        )
+                                    ),
+                                    WForegroundColorSpan(WColor.SecondaryText)
+                                )
+                            },
+                            subtitle = SpannableStringBuilder(
+                                CoinUtils.fromDecimal(
+                                    CoinUtils.toBigDecimal(transaction.networkFee, 9) *
+                                        BigDecimal.valueOf(nativeToken?.price ?: 0.0), 9
+                                )?.toString(
+                                    currency = tokens.currency.sign,
+                                    decimals = 9,
+                                    currencyDecimals = transaction.networkFee.smartDecimalsCount(9),
+                                    showPositiveSign = false,
+                                    roundUp = false
+                                )
                             ),
-                            Item.IconDualLine(
-                                title = nativeToken?.let {
-                                    CoinUtils.setSpanToSymbolPart(
-                                        SpannableStringBuilder(
-                                            transaction.networkFee.toAmountString(
-                                                nativeToken
-                                            )
-                                        ),
-                                        WForegroundColorSpan(WColor.SecondaryText)
-                                    )
-                                },
-                                subtitle = SpannableStringBuilder(
-                                    CoinUtils.fromDecimal(
-                                        CoinUtils.toBigDecimal(transaction.networkFee, 9) *
-                                            BigDecimal.valueOf(nativeToken?.price ?: 0.0),
-                                        9
-                                    )?.toString(
-                                        currency = tokens.currency.sign,
-                                        decimals = 9,
-                                        currencyDecimals = transaction.networkFee.smartDecimalsCount(
-                                            9
-                                        ),
-                                        showPositiveSign = false,
-                                        roundUp = false
-                                    )
-                                ),
-                                image = null,
-                            ),
-                        )
+                            image = null,
+                        ),
                     )
-                }
+                )
             }
 
             val comment = payload?.payloadComment
             comment?.let { text ->
                 uiItems.addAll(
                     listOf(
-                        Item.Gap,
+                        Item.Gap(),
                         Item.ListTitle(
                             LocaleController.getString("Comment"),
                             topRounding = HeaderCell.TopRounding.NORMAL
@@ -969,7 +943,7 @@ class TonConnectRequestSendViewModel private constructor(
                 transaction.rawPayload?.let { base64 ->
                     uiItems.addAll(
                         listOf(
-                            Item.Gap,
+                            Item.Gap(),
                             Item.ListTitle(
                                 LocaleController.getString("Payload"),
                                 topRounding = HeaderCell.TopRounding.NORMAL
@@ -983,7 +957,7 @@ class TonConnectRequestSendViewModel private constructor(
             if (transaction.isDangerous) {
                 uiItems.addAll(
                     listOf(
-                        Item.Gap,
+                        Item.Gap(24.dp),
                         Item.Alert(
                             LocaleController.getString("\$hardware_payload_warning")
                                 .toProcessedSpannableStringBuilder()

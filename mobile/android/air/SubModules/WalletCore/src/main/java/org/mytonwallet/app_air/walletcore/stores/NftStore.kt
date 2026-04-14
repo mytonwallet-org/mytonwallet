@@ -391,11 +391,15 @@ object NftStore : IStore {
         cacheExecutor.execute {
             nftData.accountId.let { accountId ->
                 nftData.cachedNfts?.let { cachedNfts ->
-                    val arr = JSONArray()
-                    for (it in cachedNfts) {
-                        arr.put(it.toDictionary())
+                    val jsonString = buildString {
+                        append("[")
+                        cachedNfts.forEachIndexed { index, nft ->
+                            append(nft.toDictionary().toString())
+                            if (index != cachedNfts.lastIndex) append(",")
+                        }
+                        append("]")
                     }
-                    WCacheStorage.setNfts(accountId, arr.toString())
+                    WCacheStorage.setNfts(accountId, jsonString)
                     val collections = getCollectionsFromNfts(cachedNfts)
                     writeCollectionsToCache(accountId, collections)
                     val hasHiddenNft = cachedNfts.hasHiddenNfts()

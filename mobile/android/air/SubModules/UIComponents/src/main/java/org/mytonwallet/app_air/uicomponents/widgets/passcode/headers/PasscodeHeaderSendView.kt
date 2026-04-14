@@ -41,6 +41,7 @@ class PasscodeHeaderSendView(
         textAlignment = TEXT_ALIGNMENT_CENTER
         typeface = WFont.NunitoExtraBold.typeface
         setTextColor(WColor.PrimaryText)
+        includeFontPadding = false
     }
 
     private val sendingTextView = WLabel(context).apply {
@@ -48,6 +49,7 @@ class PasscodeHeaderSendView(
         typeface = WFont.Regular.typeface
         setTextColor(WColor.PrimaryText)
         setPaddingDp(8, 2, 8, 2)
+        includeFontPadding = false
     }
 
     init {

@@ -695,7 +695,8 @@ class SettingsVC(context: Context) : WViewController(context),
                     item,
                     settingsVM.subtitleFor(item),
                     false,
-                    itemIndex == section.children.size - 1
+                    itemIndex == section.children.size - 1,
+                    true
                 ) {
                     itemSelected(item)
                 }

@@ -97,19 +97,23 @@ object TokenStore : IStore {
     }
 
     fun updateSwapCache() {
-        val arr = JSONArray()
-        for (it in swapAssets ?: emptyList()) {
-            arr.put(it.toDictionary())
-        }
-        WCacheStorage.setSwapAssets(arr.toString())
+        WCacheStorage.setSwapAssets(tokensToJsonString(swapAssets ?: emptyList()))
     }
 
     fun updateTokensCache() {
-        val arr = JSONArray()
-        for (it in tokens.keys) {
-            arr.put(tokens[it]?.toDictionary())
+        WCacheStorage.setTokens(tokensToJsonString(tokens.values))
+    }
+
+    private fun tokensToJsonString(items: Iterable<MToken>): String {
+        val sb = StringBuilder("[")
+        var first = true
+        for (token in items) {
+            if (!first) sb.append(',')
+            sb.append(token.toDictionary().toString())
+            first = false
         }
-        WCacheStorage.setTokens(arr.toString())
+        sb.append(']')
+        return sb.toString()
     }
 
     fun updateCurrencyRates(update: ApiUpdate.ApiUpdateCurrencyRates) {

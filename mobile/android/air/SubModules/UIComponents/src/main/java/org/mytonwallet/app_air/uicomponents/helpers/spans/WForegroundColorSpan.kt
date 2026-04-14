@@ -12,6 +12,10 @@ class WForegroundColorSpan() : CharacterStyle(), UpdateAppearance {
         this.wColor = wColor
     }
 
+    constructor(color: Int) : this() {
+        this.color = color
+    }
+
     var wColor: WColor? = null
     var color: Int = Color.GREEN
 

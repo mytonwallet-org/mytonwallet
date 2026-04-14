@@ -1,88 +1,122 @@
 package org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.holder
 
 import android.content.Context
-import android.text.SpannableStringBuilder
-import android.text.Spanned
 import android.text.TextUtils
 import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
 import android.text.style.ForegroundColorSpan
 import android.util.TypedValue
-import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.LinearLayout
+import android.widget.ImageView
+import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.ContextCompat
-import org.mytonwallet.app_air.uicomponents.widgets.WLabel
-import androidx.core.view.isGone
+import androidx.core.text.buildSpannedString
+import androidx.core.text.inSpans
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
-import org.mytonwallet.app_air.uicomponents.extensions.withGradient
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.helpers.typeface
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
-import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
-import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.setRoundedOutline
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.TonConnectItem
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
-import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
+import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import org.mytonwallet.app_air.walletcore.toAmountString
 
-class CellHeaderSendRequest(context: Context) : LinearLayout(context), WThemedView {
+class CellHeaderSendRequest(context: Context) : WView(context) {
     var onShowUnverifiedSourceWarning: (() -> Unit)? = null
 
-    private val imageView = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(20f.dp)
+    private val backgroundImageView = AppCompatImageView(context).apply {
+        id = generateViewId()
+        scaleType = ImageView.ScaleType.CENTER_CROP
+        setImageResource(org.mytonwallet.app_air.uicomponents.R.drawable.img_banner_bg)
+        setRoundedOutline(24f.dp)
     }
 
-    private val titleTextView = WLabel(context).apply {
-        setStyle(17f, WFont.Medium)
-        setLineHeight(TypedValue.COMPLEX_UNIT_SP, 26f)
+    private val imageView = WCustomImageView(context).apply {
+        defaultRounding = Content.Rounding.Radius(12f.dp)
+    }
+
+    private val walletNameLabel = WLabel(context).apply {
+        setStyle(16f, WFont.Medium)
+        setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
+        setTextColor(WColor.TextOnTint)
+        isSingleLine = true
         ellipsize = TextUtils.TruncateAt.END
-        gravity = Gravity.CENTER
-        movementMethod = LinkMovementMethod.getInstance()
-        highlightColor = android.graphics.Color.TRANSPARENT
         useCustomEmoji = true
     }
 
-    private val dangerousView by lazy {
-        WAlertLabel(
-            context,
-            LocaleController.getString("\$hardware_payload_warning")
-                .toProcessedSpannableStringBuilder(),
-            WColor.Orange.color
-        )
+    private val walletBalanceLabel = WLabel(context).apply {
+        setStyle(13f, WFont.Regular)
+        setLineHeight(TypedValue.COMPLEX_UNIT_SP, 19f)
+        setTextColor(WColor.SecondaryTextOnTint)
+        isSingleLine = true
+        ellipsize = TextUtils.TruncateAt.END
+        useCustomEmoji = true
+    }
+
+    private val dappNameLabel = WLabel(context).apply {
+        setStyle(16f, WFont.Medium)
+        setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
+        setTextColor(WColor.TextOnTint)
+        isSingleLine = true
+        ellipsize = TextUtils.TruncateAt.END
+        useCustomEmoji = true
+    }
+
+    private val dappAddressLabel = WLabel(context).apply {
+        setStyle(13f, WFont.Regular)
+        setLineHeight(TypedValue.COMPLEX_UNIT_SP, 19f)
+        setTextColor(WColor.SecondaryTextOnTint)
+        setLinkTextColor(WColor.SecondaryTextOnTint.color)
+        isSingleLine = true
+        ellipsize = TextUtils.TruncateAt.END
+        useCustomEmoji = true
+        movementMethod = LinkMovementMethod.getInstance()
+        highlightColor = android.graphics.Color.TRANSPARENT
     }
 
     init {
-        setPaddingDp(20, 14, 20, 12)
-        orientation = VERTICAL
+        layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, 72.dp)
+        addView(backgroundImageView, LayoutParams(0, 0))
+        addView(imageView, LayoutParams(48.dp, 48.dp))
+        addView(walletNameLabel, LayoutParams(0, WRAP_CONTENT))
+        addView(walletBalanceLabel, LayoutParams(0, WRAP_CONTENT))
+        addView(dappNameLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(dappAddressLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
 
-        addView(imageView, LayoutParams(80.dp, 80.dp).apply { gravity = Gravity.CENTER })
-        addView(
-            titleTextView,
-            LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = 17.dp })
-        addView(
-            dangerousView,
-            LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                topMargin = 14.dp
-                leftMargin = 12.dp
-                rightMargin = 12.dp
-            }
-        )
-        updateTheme()
+        setConstraints {
+            allEdges(backgroundImageView)
+            toEnd(imageView, 12f)
+            toCenterY(imageView)
+            toStart(walletNameLabel, 16f)
+            toTop(walletNameLabel, 16f)
+            toStart(walletBalanceLabel, 16f)
+            toBottom(walletBalanceLabel, 15f)
+            toTop(dappNameLabel, 16f)
+            endToStart(dappNameLabel, imageView, 12f)
+            toBottom(dappAddressLabel, 15f)
+            endToStart(dappAddressLabel, imageView, 12f)
+            endToStart(walletNameLabel, dappNameLabel, 4f)
+            endToStart(walletBalanceLabel, dappAddressLabel, 4f)
+        }
     }
 
     var update: ApiUpdate.ApiUpdateDappSignRequest? = null
+
     fun configure(
         update: ApiUpdate.ApiUpdateDappSignRequest,
         onShowUnverifiedSourceWarning: () -> Unit
@@ -94,74 +128,70 @@ class CellHeaderSendRequest(context: Context) : LinearLayout(context), WThemedVi
         } ?: run {
             imageView.clear()
         }
-        updateTitleLabel()
-        dangerousView.isGone = !update.isDangerous
+        updateContent()
+
     }
 
-    override fun updateTheme() {
-        titleTextView.setTextColor(WColor.PrimaryText.color)
-    }
-
-    private fun updateTitleLabel() {
+    private fun updateContent() {
         val update = update ?: return
         val account = MAccount(update.accountId, WGlobalStorage.getAccount(update.accountId)!!)
+        walletNameLabel.text = account.name
+        walletBalanceLabel.text = formatWalletBalance(update.accountId)
+        dappNameLabel.text = update.dapp.name ?: ""
+        dappAddressLabel.text = buildDappAddressLabel(update)
+    }
 
-        val builder = SpannableStringBuilder()
-        builder.append(account.name)
-        builder.append(" ")
+    private fun formatWalletBalance(accountId: String): String {
+        val operationChain = when (val update = update) {
+            is ApiUpdate.ApiUpdateDappSendTransactions -> update.operationChain
+            is ApiUpdate.ApiUpdateDappSignData -> update.operationChain
+            else -> null
+        } ?: return ""
 
-        ContextCompat.getDrawable(
-            context,
-            org.mytonwallet.app_air.walletcontext.R.drawable.ic_relate_right
-        )?.withGradient(listOf(WColor.PrimaryText.color, WColor.Tint.color).toIntArray())
-            ?.let { drawable ->
-                val width = 6.dp
-                val height = 9.dp
-                drawable.setBounds(0, 2, width, height)
-                val imageSpan = VerticalImageSpan(drawable, LocaleController.isRTL)
-                builder.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        val nativeSlug = MBlockchain.valueOfOrNull(operationChain)?.nativeSlug ?: return ""
+        val nativeToken = TokenStore.getToken(nativeSlug) ?: return ""
+        val balance = BalanceStore.getBalances(accountId)?.get(nativeSlug) ?: return ""
+
+        return balance.toAmountString(nativeToken)
+    }
+
+    private fun buildDappAddressLabel(update: ApiUpdate.ApiUpdateDappSignRequest): CharSequence {
+        return buildSpannedString {
+            inSpans(ForegroundColorSpan(WColor.SecondaryTextOnTint.color)) {
+                append(update.dapp.host ?: "")
             }
 
-        builder.append(" ")
-        builder.append(
-            update.dapp.host,
-            ForegroundColorSpan(WColor.Tint.color),
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        if (update.dapp.isUrlEnsured != true) {
-            builder.append("\u00A0")
-            ContextCompat.getDrawable(
-                ApplicationContextHolder.applicationContext,
-                org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning
-            )?.let { drawable ->
-                val width = 14.dp
-                val height = 26.dp
-                drawable.setBounds(0, 0, width, height)
-                val imageSpan = VerticalImageSpan(drawable)
-                val start = builder.length
-                builder.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            if (update.dapp.isUrlEnsured != true) {
+                ContextCompat.getDrawable(
+                    ApplicationContextHolder.applicationContext,
+                    org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning_14
+                )?.let { drawable ->
+                    val width = 14.dp
+                    val height = 14.dp
+                    drawable.setBounds(0, 0, width, height)
 
-                val clickableSpan = object : ClickableSpan() {
-                    override fun onClick(widget: android.view.View) {
-                        onShowUnverifiedSourceWarning?.invoke()
-                    }
+                    inSpans(WSpacingSpan(4.dp)) { append(" ") }
+                    inSpans(
+                        VerticalImageSpan(
+                            drawable,
+                            verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
+                        ),
+                        object : ClickableSpan() {
+                            override fun onClick(widget: android.view.View) {
+                                onShowUnverifiedSourceWarning?.invoke()
+                            }
+                        }
+                    ) { append(" ") }
                 }
-                builder.setSpan(
-                    clickableSpan,
-                    start,
-                    builder.length,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
             }
         }
-        titleTextView.text = builder
     }
 
     class Holder(parent: ViewGroup) : BaseListHolder<TonConnectItem.SendRequestHeader>(
         CellHeaderSendRequest(parent.context).apply {
             layoutParams = ViewGroup.LayoutParams(
                 MATCH_PARENT,
-                WRAP_CONTENT
+                72.dp
             )
         }) {
         private val view: CellHeaderSendRequest = itemView as CellHeaderSendRequest

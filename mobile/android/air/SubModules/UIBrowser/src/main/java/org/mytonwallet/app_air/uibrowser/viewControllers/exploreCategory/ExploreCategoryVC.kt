@@ -120,7 +120,10 @@ class ExploreCategoryVC(context: Context, val category: MExploreCategory) :
         ) {
             val intent = Intent(Intent.ACTION_VIEW)
             intent.setData(Uri.parse(app.url))
-            window!!.startActivity(intent)
+            try {
+                window!!.startActivity(intent)
+            } catch (_: Exception) {
+            }
             return
         }
         val inAppBrowserVC = InAppBrowserVC(

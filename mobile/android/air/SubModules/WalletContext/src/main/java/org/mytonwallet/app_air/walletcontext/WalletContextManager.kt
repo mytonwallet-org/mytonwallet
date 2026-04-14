@@ -52,8 +52,18 @@ object WalletContextManager {
     var delegate: WalletContextManagerDelegate? = null
         private set
 
+    private var pendingSwitchToLegacy = false
+
+    fun scheduleSwitchToLegacy() {
+        delegate?.switchToLegacy() ?: run { pendingSwitchToLegacy = true }
+    }
+
     fun setDelegate(delegate: WalletContextManagerDelegate?) {
         this.delegate = delegate
+        if (delegate != null && pendingSwitchToLegacy) {
+            pendingSwitchToLegacy = false
+            delegate.switchToLegacy()
+        }
     }
 
     val packageId = if (DEBUG_MODE) "org.mytonwallet.app.debug" else "org.mytonwallet.app"

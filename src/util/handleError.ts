@@ -10,8 +10,10 @@ const shouldShowAlert = (APP_ENV === 'development' || APP_ENV === 'staging')
 
 const throttledAlert = throttle((message) => window.alert(message), 10 * SECOND);
 
-self.addEventListener('error', handleErrorEvent);
-self.addEventListener('unhandledrejection', handleErrorEvent);
+if (typeof self !== 'undefined' && typeof self.addEventListener === 'function') {
+  self.addEventListener('error', handleErrorEvent);
+  self.addEventListener('unhandledrejection', handleErrorEvent);
+}
 
 function handleErrorEvent(e: ErrorEvent | PromiseRejectionEvent) {
   // https://stackoverflow.com/questions/49384120/resizeobserver-loop-limit-exceeded

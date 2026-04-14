@@ -28,7 +28,8 @@ import java.lang.ref.WeakReference
 @SuppressLint("ViewConstructor")
 class WalletSelectionVC(
     context: Context,
-    private val dappHost: String
+    private val dappHost: String,
+    private val requiresProof: Boolean
 ) : WViewController(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource {
     override val TAG = "WalletSelection"
 
@@ -156,6 +157,7 @@ class WalletSelectionVC(
                 val accountIndex = indexPath.row - 1 // -1 because row 0 is header
                 if (accountIndex >= 0 && accountIndex < accounts.size) {
                     val account = accounts[accountIndex]
+                    val isSelectable = isWalletSelectable(account)
                     val isFirst = false // Never round the top because there's always a header above
                     val isLast = indexPath.row == accounts.size
 
@@ -171,6 +173,7 @@ class WalletSelectionVC(
                         subtitle = null,
                         isFirst = isFirst,
                         isLast = isLast,
+                        isEnabled = isSelectable,
                         onTap = {
                             onWalletSelectListener?.invoke(account)
                             pop()
@@ -201,6 +204,11 @@ class WalletSelectionVC(
     private fun loadAccounts() {
         accounts = WalletCore.getAllAccounts()
         rvAdapter.reloadData()
+    }
+
+    private fun isWalletSelectable(account: MAccount): Boolean {
+        val hasTonWallet = account.tonAddress != null
+        return hasTonWallet && (!requiresProof || !account.isViewOnly)
     }
 
     override fun scrollToTop() {

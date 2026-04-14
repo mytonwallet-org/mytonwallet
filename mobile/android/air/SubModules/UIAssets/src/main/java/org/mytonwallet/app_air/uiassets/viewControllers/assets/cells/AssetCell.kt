@@ -54,7 +54,6 @@ class AssetCell(
     WThemedView {
 
     companion object {
-        const val DNS_EXPIRY_WARNING_DAYS = 30
         private val NFT_NUMBER_REGEX = Regex("""^(.*\S)\s*([#№][\d/]+)$""")
         const val CORNER_RADIUS_COMPLETE = 16f
         const val CORNER_RADIUS_THUMB = 8f

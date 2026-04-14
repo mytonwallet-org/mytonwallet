@@ -36,7 +36,14 @@ class WalletCreationVM(delegate: Delegate) {
         WalletCore.importWallet(network, words, passcode, true) { account, error ->
             if (account == null || error != null) {
                 if (retriesLeft > 0) {
-                    finalizeAccount(window, network, words, passcode, biometricsActivated, retriesLeft - 1)
+                    finalizeAccount(
+                        window,
+                        network,
+                        words,
+                        passcode,
+                        biometricsActivated,
+                        retriesLeft - 1
+                    )
                 } else {
                     delegate.get()?.showError(error)
                 }
@@ -68,11 +75,12 @@ class WalletCreationVM(delegate: Delegate) {
                 AirPushNotifications.subscribe(account, ignoreIfLimitReached = true)
                 if (biometricsActivated != null) {
                     if (biometricsActivated) {
-                        WSecureStorage.setBiometricPasscode(window, passcode)
+                        val activated = WSecureStorage.setBiometricPasscode(window, passcode)
+                        WGlobalStorage.setIsBiometricActivated(activated)
                     } else {
                         WSecureStorage.deleteBiometricPasscode(window)
+                        WGlobalStorage.setIsBiometricActivated(false)
                     }
-                    WGlobalStorage.setIsBiometricActivated(biometricsActivated)
                 }
                 WalletCore.activateAccount(account.accountId, notifySDK = false) { res, err ->
                     if (res == null || err != null) {

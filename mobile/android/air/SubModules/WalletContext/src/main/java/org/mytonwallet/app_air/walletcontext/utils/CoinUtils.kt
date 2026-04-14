@@ -49,7 +49,11 @@ object CoinUtils {
         if (value == null || decimals == null) {
             return value;
         }
-        return toDecimalString(BigInteger(value), decimals)
+        return try {
+            toDecimalString(BigInteger(value), decimals)
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     fun toBigDecimal(value: BigInteger, decimals: Int): BigDecimal {

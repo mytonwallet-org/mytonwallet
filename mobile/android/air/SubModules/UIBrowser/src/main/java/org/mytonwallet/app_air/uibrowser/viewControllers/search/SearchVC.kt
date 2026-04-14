@@ -329,7 +329,10 @@ class SearchVC(context: Context) : WViewController(context),
                     ) {
                         val intent = Intent(Intent.ACTION_VIEW)
                         intent.setData(app.url?.toUri())
-                        window!!.startActivity(intent)
+                        try {
+                            window!!.startActivity(intent)
+                        } catch (_: Exception) {
+                        }
                         return@SearchDappCell
                     }
                     openInAppBrowser(

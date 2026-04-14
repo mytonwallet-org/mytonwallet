@@ -599,11 +599,6 @@ class SplashVC(context: Context) : WViewController(context),
     private fun handleInstantDeeplinks(deeplink: Deeplink): Boolean {
         when (deeplink) {
             is Deeplink.TonConnect2 -> {
-                if (deeplink.isConnectRequest &&
-                    AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW
-                ) {
-                    return false // Will show a dialog after unlock!
-                }
                 val uri = try {
                     encodeUriParams(deeplink.requestUri).toString()
                 } catch (_: Throwable) {

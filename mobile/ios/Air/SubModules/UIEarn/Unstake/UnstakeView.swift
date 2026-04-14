@@ -94,7 +94,7 @@ fileprivate struct UnstakeInfoSection: View {
                         receivingBadge
                     }
                 }
-                if case .liquid(let liquid) = model.stakingState {
+                if case .liquid(let liquid) = model.stakingState, liquid.instantAvailable > 0 {
                     let amnt = TokenAmount(liquid.instantAvailable, TokenStore.tokens[TONCOIN_SLUG]!)
                     InsetCell {
                         HStack {

@@ -57,6 +57,14 @@ jobs:
             exit 0
           fi
 
+          if [ -n "$PUBLISH_REPO" ]; then
+            echo "android-only=false" >> "$GITHUB_OUTPUT"
+            echo "ios-only=false" >> "$GITHUB_OUTPUT"
+            echo "electron-changed=true" >> "$GITHUB_OUTPUT"
+            echo "Production release — building all platforms"
+            exit 0
+          fi
+
           CHANGED=$(git diff --name-only HEAD~1 HEAD)
 
           # Check if ALL changes are exclusively in mobile/android/ or mobile/ios/

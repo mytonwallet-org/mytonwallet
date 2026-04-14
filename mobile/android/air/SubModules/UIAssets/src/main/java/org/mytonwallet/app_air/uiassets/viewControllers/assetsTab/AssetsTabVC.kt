@@ -2,16 +2,26 @@ package org.mytonwallet.app_air.uiassets.viewControllers.assetsTab
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.view.ViewGroup
+import androidx.core.view.isGone
+import me.vkryl.android.animatorx.BoolAnimator
+import org.mytonwallet.app_air.uiassets.models.ExpiringDomainsData
 import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.title
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.TokensVC
+import org.mytonwallet.app_air.uiassets.viewControllers.views.WDomainExpirationBannerView
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
+import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
+import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedControllerItem
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -22,6 +32,8 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import java.util.concurrent.Executors
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class AssetsTabVC(
@@ -37,6 +49,13 @@ class AssetsTabVC(
     companion object {
         const val TAB_COINS = "app:coins"
         const val TAB_COLLECTIBLES = "app:collectibles"
+        private const val BANNER_ALPHA_VISIBLE_RANGE = 0.5f
+        private const val BANNER_COLLAPSE_TRANSLATION_DP = 18
+        private const val BANNER_COLLAPSE_MIN_SCALE = 0.8f
+        private const val BANNER_EXPANDED_TOP_OFFSET_DP = 8
+        private const val EXPANDED_BANNER_TOP_MARGIN_DP = 8
+        private const val EXPANDED_BANNER_BOTTOM_MARGIN_DP = 3
+
         fun identifierForVC(viewController: WViewController): String? {
             return when (viewController) {
                 is TokensVC -> {
@@ -56,6 +75,52 @@ class AssetsTabVC(
     private val backgroundExecutor = Executors.newSingleThreadExecutor()
     private var selectionAssetsVC: AssetsVC? = null
     private var reorderingAssetsVC: AssetsVC? = null
+    private var collectiblesExpiringDomainsData: ExpiringDomainsData? = null
+    private var isShowingCollectiblesExpiringDomainsBanner = false
+    private val expiringDomainsBannerView: WDomainExpirationBannerView by lazy {
+        WDomainExpirationBannerView(context).apply {
+            isGone = true
+        }
+    }
+    private val expiringDomainsBannerContainerView: WView by lazy {
+        WView(context).apply {
+            clipChildren = false
+            clipToPadding = false
+            addView(
+                expiringDomainsBannerView,
+                ViewGroup.LayoutParams(0, WDomainExpirationBannerView.HEIGHT_DP.dp)
+            )
+            setConstraints {
+                toTop(expiringDomainsBannerView, EXPANDED_BANNER_TOP_MARGIN_DP.toFloat())
+                toCenterX(
+                    expiringDomainsBannerView,
+                    ViewConstants.HORIZONTAL_PADDINGS.toFloat()
+                )
+            }
+        }
+    }
+    private val expiringDomainsBannerExpandedHeight: Int by lazy {
+        (WDomainExpirationBannerView.HEIGHT_DP +
+            EXPANDED_BANNER_TOP_MARGIN_DP +
+            EXPANDED_BANNER_BOTTOM_MARGIN_DP).dp
+    }
+
+    private val collectiblesExpiringDomainsBannerAnimator = BoolAnimator(
+        duration = AnimationConstants.VERY_QUICK_ANIMATION,
+        interpolator = CubicBezierInterpolator.EASE_BOTH,
+        onAnimationsFinished = { finalState, _ ->
+            if (finalState == BoolAnimator.State.FALSE) {
+                isShowingCollectiblesExpiringDomainsBanner = false
+                if (collectiblesExpiringDomainsData == null) {
+                    expiringDomainsBannerView.onTap = null
+                    expiringDomainsBannerView.onClose = null
+                }
+            }
+            applyCollectiblesExpiringDomainsBanner()
+        }
+    ) { _, _, _, _ ->
+        applyCollectiblesExpiringDomainsBanner()
+    }
 
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = true
@@ -83,12 +148,32 @@ class AssetsTabVC(
                 updateBlurViews(recyclerView)
             }
         )
+        vc.completeModeExpiringDomainsBannerHeight = expiringDomainsBannerExpandedHeight
         bindSelection(vc)
     }
 
     private fun bindSelection(vc: AssetsVC) = vc.apply {
         onSelectionRequested = { nftAddressToSelect ->
             openSelectionMode(vc, nftAddressToSelect)
+        }
+        if (vc.identifier == TAB_COLLECTIBLES) {
+            onExpiringDomainsDataChanged = { expiringDomainsData ->
+                collectiblesExpiringDomainsData = expiringDomainsData
+                if (expiringDomainsData != null) {
+                    configureCollectiblesExpiringDomainsBanner(expiringDomainsData)
+                }
+                val shouldShow = collectiblesExpiringDomainsData != null
+                if (shouldShow != isShowingCollectiblesExpiringDomainsBanner) {
+                    if (shouldShow) {
+                        isShowingCollectiblesExpiringDomainsBanner = true
+                    }
+                    collectiblesExpiringDomainsBannerAnimator.changeValue(
+                        shouldShow,
+                        animated = true
+                    )
+                }
+                applyCollectiblesExpiringDomainsBanner()
+            }
         }
         onSelectionChanged = { selectedCount, animationMode, isInSelectionMode ->
             if (selectionAssetsVC === vc && isInSelectionMode) {
@@ -378,15 +463,80 @@ class AssetsTabVC(
             defaultSelectedIndex.coerceAtLeast(0),
             onOffsetChange = { _, _ ->
                 bottomReversedCornerView?.resumeBlurring()
-            }
+                applyCollectiblesExpiringDomainsBanner()
+            },
+            onSelectedIndexChanged = {
+                applyCollectiblesExpiringDomainsBanner()
+            },
         )
         sc
+    }
+
+    private fun collectiblesTabProgress(currentOffset: Float = segmentedController.currentOffset): Float {
+        val collectiblesIndex =
+            segmentedController.items.indexOfFirst { it.identifier == TAB_COLLECTIBLES }
+        if (collectiblesIndex < 0) {
+            return 0f
+        }
+        return (1f - abs(currentOffset - collectiblesIndex)).coerceIn(0f, 1f)
+    }
+
+    private fun bannerAlphaProgress(progress: Float): Float {
+        val threshold = 1f - BANNER_ALPHA_VISIBLE_RANGE
+        return ((progress - threshold) / BANNER_ALPHA_VISIBLE_RANGE).coerceIn(0f, 1f)
+    }
+
+    private fun configureCollectiblesExpiringDomainsBanner(expiringDomainsData: ExpiringDomainsData) {
+        expiringDomainsBannerView.configure(
+            iconNfts = expiringDomainsData.domainNfts,
+            count = expiringDomainsData.count,
+            minDays = expiringDomainsData.minDays
+        )
+        expiringDomainsBannerView.onTap = { collectiblesVC.openRenewForExpiringDomains() }
+        expiringDomainsBannerView.onClose = { collectiblesVC.dismissExpiringDomainsBanner() }
+    }
+
+    private fun hideCollectiblesExpiringDomainsBanner() {
+        expiringDomainsBannerView.alpha = 0f
+        expiringDomainsBannerView.isGone = true
+        segmentedController.setUnderTabsHeight(0)
+    }
+
+    private fun updateCollectiblesExpiringDomainsBannerViewProperties() {
+        val tabProgress = collectiblesTabProgress()
+        val showProgress = collectiblesExpiringDomainsBannerAnimator.floatValue
+        val alphaProgress = bannerAlphaProgress(tabProgress)
+        val showAlphaProgress = bannerAlphaProgress(showProgress)
+        val combinedProgress = showProgress * tabProgress
+        val displayProgress = showAlphaProgress * alphaProgress
+        if (combinedProgress <= 0f) {
+            hideCollectiblesExpiringDomainsBanner()
+            return
+        }
+
+        expiringDomainsBannerView.alpha = displayProgress
+        val collapseProgress = 1f - displayProgress
+        expiringDomainsBannerView.translationY =
+            -BANNER_EXPANDED_TOP_OFFSET_DP.dp -
+                BANNER_COLLAPSE_TRANSLATION_DP.dp * collapseProgress
+        val scale = BANNER_COLLAPSE_MIN_SCALE + (1f - BANNER_COLLAPSE_MIN_SCALE) * displayProgress
+        expiringDomainsBannerView.scaleX = scale
+        expiringDomainsBannerView.scaleY = scale
+        expiringDomainsBannerView.isGone = displayProgress <= 0f
+        segmentedController.setUnderTabsHeight(
+            (expiringDomainsBannerExpandedHeight * combinedProgress).roundToInt()
+        )
+    }
+
+    private fun applyCollectiblesExpiringDomainsBanner() {
+        updateCollectiblesExpiringDomainsBannerViewProperties()
     }
 
     override fun setupViews() {
         super.setupViews()
 
         segmentedController.addCloseButton()
+        segmentedController.setUnderTabsView(expiringDomainsBannerContainerView)
         view.addView(segmentedController)
 
         view.setConstraints {
@@ -397,6 +547,7 @@ class AssetsTabVC(
         updateCollectiblesClick()
         updateTheme()
         applyInitialSelectionSnapshot()
+        applyCollectiblesExpiringDomainsBanner()
     }
 
     private fun applyInitialSelectionSnapshot() {
@@ -446,6 +597,9 @@ class AssetsTabVC(
 
     override fun updateTheme() {
         view.setBackgroundColor(WColor.SecondaryBackground.color)
+        if (!expiringDomainsBannerView.isGone) {
+            expiringDomainsBannerView.updateTheme()
+        }
     }
 
     override fun scrollToTop() {
@@ -464,6 +618,7 @@ class AssetsTabVC(
     override fun onDestroy() {
         super.onDestroy()
         backgroundExecutor.shutdown()
+        collectiblesExpiringDomainsData = null
         segmentedController.onDestroy()
     }
 
@@ -471,6 +626,7 @@ class AssetsTabVC(
         when (walletEvent) {
             WalletEvent.HomeNftCollectionsUpdated -> {
                 segmentedController.updateItems(segmentItems, keepSelection = true)
+                applyCollectiblesExpiringDomainsBanner()
             }
 
             else -> {}

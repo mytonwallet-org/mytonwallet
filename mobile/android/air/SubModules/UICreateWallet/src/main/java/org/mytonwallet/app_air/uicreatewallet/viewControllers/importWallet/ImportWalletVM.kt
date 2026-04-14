@@ -99,11 +99,12 @@ class ImportWalletVM(delegate: Delegate) {
             AirPushNotifications.subscribe(importedAccount, ignoreIfLimitReached = true)
             if (biometricsActivated != null) {
                 if (biometricsActivated) {
-                    WSecureStorage.setBiometricPasscode(window, passcode)
+                    val activated = WSecureStorage.setBiometricPasscode(window, passcode)
+                    WGlobalStorage.setIsBiometricActivated(activated)
                 } else {
                     WSecureStorage.deleteBiometricPasscode(window)
+                    WGlobalStorage.setIsBiometricActivated(false)
                 }
-                WGlobalStorage.setIsBiometricActivated(biometricsActivated)
             }
             delegate.get()?.finalizedImport(importedAccountId)
         }

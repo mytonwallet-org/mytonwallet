@@ -17,6 +17,7 @@ enum class WColor {
     Tint,
     TintRipple,
     TextOnTint,
+    SecondaryTextOnTint,
     Separator,
     SecondaryBackground,
     TrinaryBackground,

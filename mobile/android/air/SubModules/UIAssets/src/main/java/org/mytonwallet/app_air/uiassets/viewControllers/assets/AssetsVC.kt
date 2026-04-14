@@ -17,7 +17,6 @@ import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.core.content.ContextCompat
-import androidx.core.view.doOnPreDraw
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
@@ -28,14 +27,15 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import me.vkryl.android.animatorx.BoolAnimator
+import org.mytonwallet.app_air.uiassets.models.ExpiringDomainsData
 import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.CollectionMode.SingleCollection
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.CollectionMode.TelegramGifts
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.cells.AssetCell
-import org.mytonwallet.app_air.uiassets.viewControllers.assets.cells.DomainExpirationBannerCell
 import org.mytonwallet.app_air.uiassets.viewControllers.assetsTab.AssetsTabVC
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
 import org.mytonwallet.app_air.uiassets.viewControllers.renew.RenewVC
+import org.mytonwallet.app_air.uiassets.viewControllers.views.WDomainExpirationBannerView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.ISortableView
@@ -173,10 +173,15 @@ class AssetsVC(
     }
 
     companion object {
-        const val EXPIRE_WARNING_SECTION = 0
-        const val NFTS_SECTION = 1
+        const val NFTS_SECTION = 0
         val ASSET_CELL = WCell.Type(1)
-        val EXPIRATION_BANNER_CELL = WCell.Type(2)
+        private const val BANNER_ALPHA_VISIBLE_RANGE = 0.5f
+        private const val BANNER_COLLAPSE_TRANSLATION_DP = 20
+        private const val BANNER_COLLAPSE_MIN_SCALE = 0.8f
+        private const val THUMB_BANNER_TOP_MARGIN_DP = 6
+        private const val THUMB_BANNER_BOTTOM_MARGIN_DP = 11
+        private const val THUMB_RECYCLER_HORIZONTAL_PADDING_DP = 12
+        private const val THUMB_GRID_MAX_COLUMNS = 3
     }
 
     override val shouldDisplayBottomBar = isShowingSingleCollection
@@ -214,7 +219,12 @@ class AssetsVC(
 
     var currentHeight: Int? = null
     private var emptyDataViewHeight = 0
-    private val bannerHeight: Int get() = DomainExpirationBannerCell.CELL_HEIGHT_DP.dp
+    var completeModeExpiringDomainsBannerHeight = WDomainExpirationBannerView.HEIGHT_DP.dp
+    private val thumbBannerContainerHeight: Int by lazy {
+        (WDomainExpirationBannerView.HEIGHT_DP +
+            THUMB_BANNER_TOP_MARGIN_DP +
+            THUMB_BANNER_BOTTOM_MARGIN_DP).dp
+    }
 
     private val finalHeight: Int
         get() {
@@ -222,17 +232,18 @@ class AssetsVC(
                 getEmptyThumbHeight().takeIf { it > 0 } ?: 192.dp
             } else {
                 val rows = if (assetsVM.nftsCount > 3) 2 else 1
-                val nftGridHeight = rows * (recyclerView.width - 32.dp) / 3 +
+                val nftGridHeight = rows * thumbGridItemWidth() +
                     4.dp +
                     (if (thereAreMoreToShow) 64 else 8).dp
-                nftGridHeight + (if (shouldShowWarningBanner == true) bannerHeight else 0)
+                nftGridHeight +
+                    (if (shouldShowWarningBanner) thumbBannerContainerHeight else 0)
             }
         }
 
     private val rvAdapter =
         WRecyclerViewAdapter(
             WeakReference(this),
-            arrayOf(ASSET_CELL, EXPIRATION_BANNER_CELL)
+            arrayOf(ASSET_CELL)
         ).apply {
             setHasStableIds(true)
         }
@@ -263,39 +274,185 @@ class AssetsVC(
         }
 
     private var lastTouchY = 0f
-    private val topCellsCount: Int
-        get() = if (shouldShowWarningBanner == true || warningBannerAnimator.floatValue > 0f) 1 else 0
 
     // Expiring domains warning
-    private var cachedExpiringDomains: List<ApiNft>? = null
-    private val shouldShowWarningBanner: Boolean?
-        get() = cachedExpiringDomains?.isNotEmpty()
+    private val shouldShowWarningBanner: Boolean
+        get() = assetsVM.expiringDomainsData != null
     private var isShowingWarningBanner = false
-    private var warningBannerCell: WCell? = null
+    private val thumbWarningBannerView: WDomainExpirationBannerView by lazy {
+        WDomainExpirationBannerView(context).apply {
+            isGone = true
+        }
+    }
     private val warningBannerAnimator = BoolAnimator(
         duration = AnimationConstants.VERY_QUICK_ANIMATION,
         interpolator = CubicBezierInterpolator.EASE_BOTH,
         onAnimationsFinished = { finalState, _ ->
             if (isShowingWarningBanner && finalState == BoolAnimator.State.FALSE) {
                 isShowingWarningBanner = false
-                nftViewTranslationY = 0f
-                rvAdapter.reloadData()
+                if (viewMode == ViewMode.THUMB) {
+                    updateThumbWarningBannerLayout()
+                    bannerAnimationUpdate(0f)
+                } else {
+                    bannerAnimationUpdate(0f)
+                }
             }
         }
     ) { _, floatValue, _, _ ->
         bannerAnimationUpdate(floatValue)
     }
     private var bannerViewAlpha = 0f
-    private var nftViewTranslationY = 0f
+    private var completeModeBannerInset = 0
+
+    private fun bannerVisualProgress(floatValue: Float): Float {
+        val threshold = 1f - BANNER_ALPHA_VISIBLE_RANGE
+        return ((floatValue - threshold) / BANNER_ALPHA_VISIBLE_RANGE).coerceIn(0f, 1f)
+    }
 
     private fun bannerAnimationUpdate(floatValue: Float) {
-        bannerViewAlpha = (floatValue - 0.5f).coerceAtLeast(0f) * 2
-        nftViewTranslationY = if (isShowingWarningBanner) -bannerHeight * (1 - floatValue) else 0f
-        warningBannerCell?.also { banner ->
-            banner.alpha = bannerViewAlpha
+        bannerViewAlpha = bannerVisualProgress(floatValue)
+        if (viewMode == ViewMode.THUMB) {
+            thumbWarningBannerView.alpha = bannerViewAlpha
+            val collapseProgress = 1f - bannerViewAlpha
+            thumbWarningBannerView.translationY =
+                -BANNER_COLLAPSE_TRANSLATION_DP.dp * collapseProgress
+            val scale = BANNER_COLLAPSE_MIN_SCALE +
+                (1f - BANNER_COLLAPSE_MIN_SCALE) * bannerViewAlpha
+            thumbWarningBannerView.scaleX = scale
+            thumbWarningBannerView.scaleY = scale
+            updateThumbWarningBannerLayout(floatValue)
+        } else {
+            updateCompleteModeBannerLayout(floatValue)
         }
-        updateItemsTranslationY()
         updateShowAllTranslationY()
+    }
+
+    private fun thumbGridItemWidth(): Int {
+        return (recyclerView.width - 32.dp) / THUMB_GRID_MAX_COLUMNS
+    }
+
+    private fun thumbRecyclerHorizontalPadding(): Int {
+        val itemCount = assetsVM.nftsCount
+        if (itemCount !in 1 until THUMB_GRID_MAX_COLUMNS || recyclerView.width == 0) {
+            return THUMB_RECYCLER_HORIZONTAL_PADDING_DP.dp
+        }
+
+        val centeredPadding = (recyclerView.width - thumbGridItemWidth() * itemCount) / 2
+        return max(THUMB_RECYCLER_HORIZONTAL_PADDING_DP.dp, centeredPadding)
+    }
+
+    private fun updateThumbWarningBannerLayout(floatValue: Float = warningBannerAnimator.floatValue) {
+        if (viewMode != ViewMode.THUMB) {
+            return
+        }
+        val collapsedTopInset = 4.dp
+        val expandedTopInset = thumbBannerContainerHeight
+        val topInset = collapsedTopInset +
+            ((expandedTopInset - collapsedTopInset) * floatValue).roundToInt()
+        val horizontalPadding = thumbRecyclerHorizontalPadding()
+        thumbWarningBannerView.isGone = !isShowingWarningBanner
+        recyclerView.setPadding(horizontalPadding, topInset, horizontalPadding, 4.dp)
+    }
+
+    private fun completeModeTopInset(): Int {
+        return (navigationController?.getSystemBars()?.top ?: 0) +
+            WNavigationBar.DEFAULT_HEIGHT.dp
+    }
+
+    private fun updateCompleteModeBannerLayout(floatValue: Float = warningBannerAnimator.floatValue) {
+        if (viewMode != ViewMode.COMPLETE) {
+            return
+        }
+
+        val previousPaddingTop = recyclerView.paddingTop
+        val firstVisiblePosition = layoutManager.findFirstVisibleItemPosition()
+        val firstVisibleViewTop = layoutManager.findViewByPosition(firstVisiblePosition)?.top
+        val wasAtTopBeforeInsetChange =
+            firstVisiblePosition == 0 &&
+                (firstVisibleViewTop == null || abs(firstVisibleViewTop - previousPaddingTop) <= 2.dp)
+
+        val topInset = completeModeTopInset()
+        val bottomInset = navigationController?.getSystemBars()?.bottom ?: 0
+        val bannerInset = (completeModeExpiringDomainsBannerHeight * floatValue).roundToInt()
+        val bannerInsetDelta = bannerInset - completeModeBannerInset
+        completeModeBannerInset = bannerInset
+
+        recyclerView.setPadding(
+            recyclerView.paddingLeft,
+            topInset + bannerInset,
+            recyclerView.paddingRight,
+            bottomInset
+        )
+
+        if (bannerInsetDelta > 0 && wasAtTopBeforeInsetChange) {
+            layoutManager.scrollToPositionWithOffset(0, recyclerView.paddingTop)
+        }
+    }
+
+    private fun configureWarningBannerView(view: WDomainExpirationBannerView) {
+        val content = assetsVM.expiringDomainsData ?: return
+        view.configure(
+            iconNfts = content.domainNfts,
+            count = content.count,
+            minDays = content.minDays
+        )
+        view.onTap = { openRenewForExpiringDomains() }
+        view.onClose = { dismissExpiringDomainsBanner() }
+        view.alpha = bannerViewAlpha
+    }
+
+    private fun updateExpiringDomainsBadge() {
+        val badgeCount = assetsVM.expiringDomainsData?.count?.takeIf { it > 0 }
+        segmentedController?.setBadge(identifier, badgeCount?.toString())
+    }
+
+    private fun updateThumbExpiringDomainsWarning(
+        shouldShowBanner: Boolean,
+        animated: Boolean
+    ): Boolean {
+        val bannerStateChanged = isShowingWarningBanner != shouldShowBanner
+        if (!bannerStateChanged) {
+            val syncValue = if (shouldShowBanner && !animated) {
+                1f
+            } else {
+                warningBannerAnimator.floatValue
+            }
+            bannerAnimationUpdate(if (shouldShowBanner) syncValue else 0f)
+            return false
+        }
+
+        if (!isShowingWarningBanner) {
+            isShowingWarningBanner = true
+            updateThumbWarningBannerLayout()
+            if (animated) {
+                bannerAnimationUpdate(0f)
+            }
+        }
+
+        warningBannerAnimator.changeValue(shouldShowBanner, animated = animated)
+        updateShowAllPosition()
+        if (animated) {
+            updateShowAllTranslationY()
+        }
+        return true
+    }
+
+    private fun updateCompleteExpiringDomainsWarning(
+        shouldShowBanner: Boolean,
+        animated: Boolean
+    ): Boolean {
+        val bannerStateChanged = isShowingWarningBanner != shouldShowBanner
+        if (!bannerStateChanged) {
+            bannerAnimationUpdate(warningBannerAnimator.floatValue)
+            return false
+        }
+
+        if (!isShowingWarningBanner) {
+            isShowingWarningBanner = true
+        }
+        bannerAnimationUpdate(warningBannerAnimator.floatValue)
+        warningBannerAnimator.changeValue(shouldShowBanner, animated = animated)
+        return true
     }
 
     private val itemAnimator: SelectiveItemAnimator = SelectiveItemAnimator().apply {
@@ -327,18 +484,12 @@ class AssetsVC(
                 val fromPosition = viewHolder.adapterPosition
                 val toPosition = target.adapterPosition
 
-                if (fromPosition < topCellsCount || toPosition < topCellsCount) return false
-                val offset = if (isShowingWarningBanner) 1 else 0
-
-                val adjustedFrom = fromPosition - offset
-                val adjustedTo = toPosition - offset
-
                 if (viewMode == ViewMode.THUMB) {
                     val maxPosition = min(6, assetsVM.nftsCount) - 1
-                    if (adjustedTo > maxPosition) return false
+                    if (toPosition > maxPosition) return false
                 }
 
-                assetsVM.moveItem(adjustedFrom, adjustedTo, shouldSave = saveOnDrag)
+                assetsVM.moveItem(fromPosition, toPosition, shouldSave = saveOnDrag)
                 displayedAssetRows = assetsVM.assetRows
                 rvAdapter.notifyItemMoved(fromPosition, toPosition)
 
@@ -402,7 +553,6 @@ class AssetsVC(
                 recyclerView: RecyclerView,
                 viewHolder: RecyclerView.ViewHolder
             ): Int {
-                if (viewHolder.adapterPosition < topCellsCount) return 0
                 return if (allowReordering && assetsVM.interactionMode == AssetsVM.InteractionMode.DRAG) {
                     val dragFlags = ItemTouchHelper.UP or ItemTouchHelper.DOWN or
                         ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
@@ -470,8 +620,7 @@ class AssetsVC(
                     if (assetsVM.interactionMode == AssetsVM.InteractionMode.DRAG) {
                         val child = rv.findChildViewUnder(e.x, e.y)
                         val viewHolder = child?.let { rv.getChildViewHolder(it) }
-                        val isBanner = (viewHolder?.adapterPosition ?: 0) < topCellsCount
-                        if (viewHolder != null && !isBanner) {
+                        if (viewHolder != null) {
                             if (viewMode == ViewMode.THUMB) {
                                 itemTouchHelper.startDrag(viewHolder)
                                 startedDrag = true
@@ -537,7 +686,12 @@ class AssetsVC(
         rv.clipChildren = false
         when (viewMode) {
             ViewMode.THUMB -> {
-                rv.setPadding(12.dp, 4.dp, 12.dp, 4.dp)
+                rv.setPadding(
+                    THUMB_RECYCLER_HORIZONTAL_PADDING_DP.dp,
+                    4.dp,
+                    THUMB_RECYCLER_HORIZONTAL_PADDING_DP.dp,
+                    4.dp
+                )
                 rv.addItemDecoration(
                     SpacesItemDecoration(
                         0,
@@ -798,6 +952,7 @@ class AssetsVC(
     var onShowAllTapped: (() -> Unit)? = null
     var onSelectionRequested: ((nftAddressToSelect: String?) -> Unit)? = null
     var onAutoClose: (() -> Unit)? = null
+    var onExpiringDomainsDataChanged: ((ExpiringDomainsData?) -> Unit)? = null
     var onSelectionChanged: ((selectedCount: Int, animationMode: TitleAnimationMode?, isInSelectionMode: Boolean) -> Unit)? =
         null
 
@@ -823,6 +978,10 @@ class AssetsVC(
         }
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         if (viewMode == ViewMode.THUMB) {
+            view.addView(
+                thumbWarningBannerView,
+                LayoutParams(0, WDomainExpirationBannerView.HEIGHT_DP.dp)
+            )
             view.addView(showAllView, LayoutParams(MATCH_PARENT, 56.dp))
         }
         underSegmentedControlReversedCornerView?.let { underSegmentedControlReversedCornerView ->
@@ -838,6 +997,8 @@ class AssetsVC(
         }
         view.setConstraints {
             if (viewMode == ViewMode.THUMB) {
+                toTop(thumbWarningBannerView, THUMB_BANNER_TOP_MARGIN_DP.toFloat())
+                toCenterX(thumbWarningBannerView, 16f)
                 toCenterX(showAllView)
             }
             if (isShowingSingleCollection)
@@ -847,12 +1008,6 @@ class AssetsVC(
                 )
             underSegmentedControlReversedCornerView?.let {
                 toTop(it)
-            }
-        }
-
-        layoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
-            override fun getSpanSize(position: Int): Int {
-                return if (position < topCellsCount) layoutManager.spanCount else 1
             }
         }
 
@@ -1117,7 +1272,13 @@ class AssetsVC(
             return
         emptyDataView.isGone = true
         isShowingEmptyView = false
+        isShowingWarningBanner = false
+        completeModeBannerInset = 0
         displayedAssetRows = emptyList()
+        if (viewMode == ViewMode.THUMB) {
+            updateThumbWarningBannerLayout()
+            bannerAnimationUpdate(0f)
+        }
         rvAdapter.reloadData()
         assetsVM.configure(accountId)
         currentHeight = finalHeight
@@ -1134,6 +1295,7 @@ class AssetsVC(
 
         if (viewMode == ViewMode.THUMB) {
             view.background = null
+            thumbWarningBannerView.updateTheme()
         } else {
             view.setBackgroundColor(WColor.SecondaryBackground.color)
             recyclerView.setBackgroundColor(WColor.Background.color)
@@ -1192,19 +1354,14 @@ class AssetsVC(
         }
     }
 
-    private fun updateItemsTranslationY() {
-        for (i in 0 until recyclerView.childCount) {
-            val child = recyclerView.getChildAt(i) ?: continue
-            if (recyclerView.getChildAdapterPosition(child) != 0) {
-                child.translationY = nftViewTranslationY
-            }
-        }
-    }
-
     private fun updateShowAllTranslationY() {
         if (viewMode == ViewMode.THUMB) {
             val offset =
-                if (shouldShowWarningBanner == true) -bannerHeight * (1f - warningBannerAnimator.floatValue) else bannerHeight * warningBannerAnimator.floatValue
+                if (shouldShowWarningBanner) {
+                    -thumbBannerContainerHeight * (1f - warningBannerAnimator.floatValue)
+                } else {
+                    thumbBannerContainerHeight * warningBannerAnimator.floatValue
+                }
             showAllView.translationY = offset
         }
     }
@@ -1218,30 +1375,8 @@ class AssetsVC(
         return emptyDataViewHeight
     }
 
-    private fun refreshExpiringDomains() {
-        val expirationByAddress = NftStore.nftData?.expirationByAddress
-        if (assetsVM.isViewOnlyAccount || expirationByAddress == null) {
-            cachedExpiringDomains = emptyList()
-            return
-        }
-        val thresholdMs = System.currentTimeMillis() +
-            DomainExpirationBannerCell.DAYS_THRESHOLD * 24L * 60 * 60 * 1000
-        cachedExpiringDomains = (assetsVM.nfts ?: emptyList()).filter { nft ->
-            val expMs = expirationByAddress[nft.address] ?: return@filter false
-            expMs <= thresholdMs && nft.address !in NftStore.getIgnoredExpiringAddresses(assetsVM.showingAccountId)
-        }
-    }
-
-    private fun minDaysUntilExpiration(): Int {
-        val ignoredAddresses = NftStore.getIgnoredExpiringAddresses(assetsVM.showingAccountId)
-        return assetsVM.assetRows
-            .filter { row -> row.nft.address !in ignoredAddresses }
-            .mapNotNull { it.daysUntilExpiration }
-            .minOrNull() ?: 0
-    }
-
-    private fun openRenewForExpiringDomains() {
-        val nft = cachedExpiringDomains?.firstOrNull() ?: return
+    fun openRenewForExpiringDomains() {
+        val nft = assetsVM.firstExpiringDomain() ?: return
         val activeWindow = injectedWindow ?: window ?: return
         val navVC = WNavigationController(
             activeWindow, PresentationConfig(
@@ -1251,6 +1386,13 @@ class AssetsVC(
         )
         navVC.setRoot(RenewVC(context, nft))
         activeWindow.present(navVC)
+    }
+
+    fun dismissExpiringDomainsBanner() {
+        NftStore.addIgnoredExpiringAddresses(
+            assetsVM.showingAccountId,
+            assetsVM.ignoredExpiringDomainAddresses()
+        )
     }
 
     private fun openGetgems() {
@@ -1273,13 +1415,7 @@ class AssetsVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
         if (viewMode == ViewMode.COMPLETE) {
-            recyclerView.setPadding(
-                0,
-                (navigationController?.getSystemBars()?.top ?: 0) +
-                    WNavigationBar.DEFAULT_HEIGHT.dp,
-                0,
-                navigationController?.getSystemBars()?.bottom ?: 0
-            )
+            updateCompleteModeBannerLayout()
         }
         updateShowAllPosition()
     }
@@ -1372,12 +1508,11 @@ class AssetsVC(
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 2
+        return 1
     }
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
         return when (section) {
-            EXPIRE_WARNING_SECTION -> if (isShowingWarningBanner) 1 else 0
             NFTS_SECTION -> displayedAssetRows.size
             else -> throw IllegalStateException()
         }
@@ -1388,18 +1523,12 @@ class AssetsVC(
         indexPath: IndexPath
     ): WCell.Type {
         return when (indexPath.section) {
-            EXPIRE_WARNING_SECTION -> EXPIRATION_BANNER_CELL
             NFTS_SECTION -> ASSET_CELL
             else -> throw IllegalStateException()
         }
     }
 
     override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        if (cellType == EXPIRATION_BANNER_CELL) {
-            if (warningBannerCell == null)
-                warningBannerCell = DomainExpirationBannerCell(context)
-            return warningBannerCell!!
-        }
         return AssetCell(context, viewMode).apply {
             onTap = { nft ->
                 onNftTap(nft)
@@ -1412,7 +1541,6 @@ class AssetsVC(
 
     override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
         return when (indexPath.section) {
-            EXPIRE_WARNING_SECTION -> null
             NFTS_SECTION -> displayedAssetRows[indexPath.row].nft.address
             else -> throw IllegalStateException()
         }
@@ -1424,23 +1552,6 @@ class AssetsVC(
         indexPath: IndexPath
     ) {
         when (indexPath.section) {
-            EXPIRE_WARNING_SECTION -> {
-                val cell = cellHolder.cell as DomainExpirationBannerCell
-                cell.configure(
-                    iconNfts = cachedExpiringDomains?.take(3) ?: emptyList(),
-                    count = cachedExpiringDomains?.size ?: 0,
-                    minDays = minDaysUntilExpiration()
-                )
-                cell.onTap = { openRenewForExpiringDomains() }
-                cell.onClose = {
-                    onReorderingRequested?.invoke()
-                    NftStore.addIgnoredExpiringAddresses(
-                        assetsVM.showingAccountId,
-                        cachedExpiringDomains?.map { it.address } ?: emptyList())
-                }
-                cell.alpha = bannerViewAlpha
-            }
-
             NFTS_SECTION -> {
                 val cell = cellHolder.cell as AssetCell
                 val row = displayedAssetRows[indexPath.row]
@@ -1451,7 +1562,6 @@ class AssetsVC(
                     isSelected = row.isSelected,
                     daysUntilExpiration = row.daysUntilExpiration
                 )
-                cell.translationY = nftViewTranslationY
             }
 
             else -> throw IllegalStateException()
@@ -1525,38 +1635,27 @@ class AssetsVC(
 
     override fun checkExpiringDomainsWarning(animated: Boolean): Boolean {
         syncAssetRows()
-        if (viewMode == ViewMode.COMPLETE)
-            return false
 
-        val wasBannerShown = shouldShowWarningBanner
-        refreshExpiringDomains()
-        val badgeCount = cachedExpiringDomains?.size?.takeIf { it > 0 }
-        segmentedController?.setBadge(identifier, badgeCount?.toString())
+        val shouldShowBanner = shouldShowWarningBanner
+        updateExpiringDomainsBadge()
 
-        val holder = recyclerView.findViewHolderForAdapterPosition(0)
-        (holder?.itemView as? DomainExpirationBannerCell)?.configure(
-            iconNfts = cachedExpiringDomains?.take(3) ?: emptyList(),
-            count = cachedExpiringDomains?.size ?: 0,
-            minDays = minDaysUntilExpiration()
-        )
+        return when (viewMode) {
+            ViewMode.THUMB -> {
+                configureWarningBannerView(thumbWarningBannerView)
+                updateThumbExpiringDomainsWarning(
+                    shouldShowBanner = shouldShowBanner,
+                    animated = animated
+                )
+            }
 
-        val bannerStateChanged = wasBannerShown != shouldShowWarningBanner
-        if (!bannerStateChanged)
-            return false
-
-        if (!isShowingWarningBanner) {
-            isShowingWarningBanner = true
-            rvAdapter.reloadData()
-            if (animated)
-                recyclerView.doOnPreDraw {
-                    bannerAnimationUpdate(warningBannerAnimator.floatValue)
-                }
+            ViewMode.COMPLETE -> {
+                onExpiringDomainsDataChanged?.invoke(assetsVM.expiringDomainsData)
+                updateCompleteExpiringDomainsWarning(
+                    shouldShowBanner = shouldShowBanner,
+                    animated = animated
+                )
+            }
         }
-        warningBannerAnimator.changeValue(shouldShowWarningBanner ?: false, animated = animated)
-        updateShowAllPosition()
-        if (animated)
-            updateShowAllTranslationY()
-        return true
     }
 
     private var prevShowAllViewToTop = 0
@@ -1627,21 +1726,8 @@ class AssetsVC(
     }
 
     private fun updateRecyclerViewPaddingForCentering() {
-        val itemCount = assetsVM.nftsCount
-
-        if (itemCount in 1..2) {
-            val itemWidth = (recyclerView.width - 32.dp) / 3
-            val totalItemsWidth = itemCount * itemWidth
-            val availableWidth = recyclerView.width - 24.dp
-            val horizontalPadding = if (totalItemsWidth < availableWidth) {
-                (availableWidth - totalItemsWidth) / 2 + 12.dp
-            } else {
-                12.dp
-            }
-
-            recyclerView.setPadding(horizontalPadding, 4.dp, horizontalPadding, 4.dp)
-        } else if (viewMode == ViewMode.THUMB) {
-            recyclerView.setPadding(12.dp, 4.dp, 12.dp, 4.dp)
+        if (viewMode == ViewMode.THUMB) {
+            updateThumbWarningBannerLayout()
         }
     }
 

@@ -8,14 +8,13 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
-import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.helpers.typeface
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class ListTitleValueCell(context: Context) : FrameLayout(context), WThemedView {
 
@@ -23,7 +22,8 @@ class ListTitleValueCell(context: Context) : FrameLayout(context), WThemedView {
         isSingleLine = true
         maxLines = 1
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-        setStyle(16f, WFont.Medium)
+        setStyle(14f, WFont.DemiBold)
+        setTextColor(WColor.Tint)
         movementMethod = LinkMovementMethod.getInstance()
         highlightColor = Color.TRANSPARENT
         useCustomEmoji = true
@@ -33,25 +33,20 @@ class ListTitleValueCell(context: Context) : FrameLayout(context), WThemedView {
         isSingleLine = true
         maxLines = 1
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-        setStyle(16f)
+        setStyle(14f, WFont.Regular)
+        setTextColor(WColor.SecondaryText)
         useCustomEmoji = true
     }
 
-    var textColor: WColor? = null
-    var valueTextColor: WColor? = null
-
     init {
-        setPaddingDp(20f, 16f, 20f, 8f)
-        layoutParams = ViewGroup.LayoutParams(
-            LayoutParams.MATCH_PARENT,
-            LayoutParams.WRAP_CONTENT
-        )
+        setPaddingDp(20f, 17f, 20f, 0f)
+        layoutParams = ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT, 40.dp)
         addView(
             titleView, LayoutParams(
                 LayoutParams.WRAP_CONTENT,
                 LayoutParams.WRAP_CONTENT
             ).apply {
-                gravity = Gravity.LEFT or Gravity.CENTER_VERTICAL
+                gravity = Gravity.LEFT
             }
         )
         addView(
@@ -59,7 +54,7 @@ class ListTitleValueCell(context: Context) : FrameLayout(context), WThemedView {
                 LayoutParams.WRAP_CONTENT,
                 LayoutParams.WRAP_CONTENT
             ).apply {
-                gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
+                gravity = Gravity.RIGHT
             }
         )
         updateTheme()
@@ -74,8 +69,8 @@ class ListTitleValueCell(context: Context) : FrameLayout(context), WThemedView {
     }
 
     override fun updateTheme() {
-        titleView.setTextColor(textColor?.color ?: WColor.PrimaryText.color)
-        valueView.setTextColor(valueTextColor?.color ?: WColor.SecondaryText.color)
+        titleView.updateTheme()
+        valueView.updateTheme()
     }
 
     class Holder(parent: ViewGroup) :

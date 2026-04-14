@@ -74,66 +74,64 @@ object ImageUtils {
             if (!Fresco.hasBeenInitialized()) {
                 Fresco.initialize(context.applicationContext)
             }
-        } catch (_: Exception) {
-            onBitmapReady(null)
-            return
-        }
 
-        val imageRequest = ImageRequestBuilder
-            .newBuilderWithSource(url.toUri())
-            .setResizeOptions(
-                com.facebook.imagepipeline.common.ResizeOptions(width, height)
-            )
-            .build()
+            val imageRequest = ImageRequestBuilder
+                .newBuilderWithSource(url.toUri())
+                .setResizeOptions(
+                    com.facebook.imagepipeline.common.ResizeOptions(width, height)
+                )
+                .build()
 
-        val imagePipeline = Fresco.getImagePipeline()
-        val dataSource = imagePipeline.fetchDecodedImage(imageRequest, context)
+            val imagePipeline = Fresco.getImagePipeline()
+            val dataSource = imagePipeline.fetchDecodedImage(imageRequest, context)
 
-        dataSource.subscribe(object : DataSubscriber<CloseableReference<CloseableImage>> {
-            override fun onNewResult(dataSource: DataSource<CloseableReference<CloseableImage>>) {
-                if (!dataSource.isFinished) {
-                    return
-                }
+            dataSource.subscribe(object : DataSubscriber<CloseableReference<CloseableImage>> {
+                override fun onNewResult(dataSource: DataSource<CloseableReference<CloseableImage>>) {
+                    if (!dataSource.isFinished) {
+                        return
+                    }
 
-                val result = dataSource.result
-                if (result != null) {
-                    try {
-                        val closeableImage = result.get()
-                        if (closeableImage is CloseableBitmap) {
-                            val bitmap = closeableImage.underlyingBitmap
-                            if (bitmap != null && !bitmap.isRecycled) {
-                                val bitmapCopy = bitmap.copy(bitmap.config!!, false)
-                                val finalBitmap = if (isCircular) {
-                                    getCircularBitmap(bitmapCopy)
+                    val result = dataSource.result
+                    if (result != null) {
+                        result.use { result ->
+                            val closeableImage = result.get()
+                            if (closeableImage is CloseableBitmap) {
+                                val bitmap = closeableImage.underlyingBitmap
+                                if (bitmap != null && !bitmap.isRecycled) {
+                                    val bitmapCopy = bitmap.copy(bitmap.config!!, false)
+                                    val finalBitmap = if (isCircular) {
+                                        getCircularBitmap(bitmapCopy)
+                                    } else {
+                                        bitmapCopy
+                                    }
+                                    onBitmapReady(finalBitmap)
                                 } else {
-                                    bitmapCopy
+                                    onBitmapReady(null)
                                 }
-                                onBitmapReady(finalBitmap)
                             } else {
                                 onBitmapReady(null)
                             }
-                        } else {
-                            onBitmapReady(null)
                         }
-                    } finally {
-                        result.close()
+                    } else {
+                        onBitmapReady(null)
                     }
-                } else {
+                }
+
+                override fun onFailure(dataSource: DataSource<CloseableReference<CloseableImage>>) {
                     onBitmapReady(null)
                 }
-            }
 
-            override fun onFailure(dataSource: DataSource<CloseableReference<CloseableImage>>) {
-                onBitmapReady(null)
-            }
+                override fun onCancellation(dataSource: DataSource<CloseableReference<CloseableImage>>) {
+                    onBitmapReady(null)
+                }
 
-            override fun onCancellation(dataSource: DataSource<CloseableReference<CloseableImage>>) {
-                onBitmapReady(null)
-            }
-
-            override fun onProgressUpdate(dataSource: DataSource<CloseableReference<CloseableImage>>) {
-            }
-        }, CallerThreadExecutor.getInstance())
+                override fun onProgressUpdate(dataSource: DataSource<CloseableReference<CloseableImage>>) {
+                }
+            }, CallerThreadExecutor.getInstance())
+        } catch (_: Throwable) {
+            onBitmapReady(null)
+            return
+        }
     }
 
 }

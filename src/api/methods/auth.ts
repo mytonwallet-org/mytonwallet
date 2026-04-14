@@ -49,7 +49,7 @@ import {
   getMnemonic,
   validateBip39Mnemonic,
 } from '../common/mnemonic';
-import { tokenRepository } from '../db';
+import { tokenCacheStore } from '../db/tokenCacheStore';
 import { getEnvironment } from '../environment';
 import { handleServerError } from '../errors';
 import { storage } from '../storages';
@@ -263,7 +263,7 @@ export async function resetAccounts() {
     deactivateAllAccounts(),
     storage.removeItem('accounts'),
     getEnvironment().isDappSupported && removeAllDapps(),
-    tokenRepository.clear(),
+    tokenCacheStore.clear(),
   ]);
 }
 

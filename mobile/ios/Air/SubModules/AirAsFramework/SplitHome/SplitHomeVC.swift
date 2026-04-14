@@ -26,18 +26,19 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
     override var headerPlaceholderHeight: CGFloat { 0 }
     override var customSections: [CustomSectionDescriptor] { [actionsCustomSectionDescriptor, assetsCustomSectionDescriptor] }
     
-    private lazy var lockItem: UIBarButtonItem = UIBarButtonItem(
+    private lazy var lockNavigationItem = WNavigationBarIconGroup.Item(
         title: lang("Lock"),
-        image: .airBundle("HomeLock24"),
-        target: self,
-        action: #selector(lockPressed)
-    )
-    
-    private lazy var hideItem: UIBarButtonItem = {
-        let isHidden = AppStorageHelper.isSensitiveDataHidden
-        let image = UIImage.airBundle(isHidden ? "HomeUnhide24" : "HomeHide24")
-        return UIBarButtonItem(title: lang("Hide"), image: image, target: self, action: #selector(hidePressed))
-    }()
+        image: .airBundle("HomeLock")
+    ) { [weak self] in
+        self?.lockPressed()
+    }
+
+    private lazy var hideNavigationItem = WNavigationBarIconGroup.Item(
+        title: lang("Hide"),
+        image: .airBundle(AppStorageHelper.isSensitiveDataHidden ? "HomeUnhide" : "HomeHide")
+    ) { [weak self] in
+        self?.hidePressed()
+    }
         
     init(accountSource: AccountSource = .current) {
         self._account = AccountContext(source: accountSource)
@@ -169,7 +170,8 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
     
     func updateSensitiveData() {
         let isHidden = AppStorageHelper.isSensitiveDataHidden
-        hideItem.image = .airBundle(isHidden ? "HomeUnhide24" : "HomeHide24")
+        let image = UIImage.airBundle(isHidden ? "HomeUnhide" : "HomeHide")
+        hideNavigationItem.setImage(image)
     }
     
     private func setupViews() {
@@ -240,10 +242,12 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
 
         case nil:
             isEditing = false
-            if AuthSupport.accountsSupportAppLock {
-                trailingItemGroups += lockItem.asSingleItemGroup()
+            let trailingItems = AuthSupport.accountsSupportAppLock
+                ? [lockNavigationItem, hideNavigationItem]
+                : [hideNavigationItem]
+            if let trailingItem = WNavigationBarIconGroup(items: trailingItems).barButtonItem {
+                trailingItemGroups += trailingItem.asSingleItemGroup()
             }
-            trailingItemGroups += hideItem.asSingleItemGroup()
         }
         
         navigationItem.leadingItemGroups = leadingItemGroups
@@ -252,7 +256,7 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
         navigationController?.allowBackSwipeToDismiss(!isEditing)
         navigationController?.isModalInPresentation = isEditing
     }
-    
+
     var editingNavigator: NftsEditingNavigator? {
         didSet {
             if editingNavigator !== oldValue {

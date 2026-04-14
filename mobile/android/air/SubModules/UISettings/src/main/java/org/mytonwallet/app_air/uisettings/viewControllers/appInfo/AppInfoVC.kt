@@ -123,6 +123,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
                 subtitle = null,
                 isFirst = false,
                 isLast = false,
+                isEnabled = true,
                 onTap = {
                     openLink("https://t.me/MyTonWalletTips")
                 }
@@ -142,6 +143,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
                 subtitle = null,
                 isFirst = false,
                 isLast = false,
+                isEnabled = true,
                 onTap = {
                     openLink("https://mytonwallet.io/en/blog")
                 }
@@ -161,6 +163,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
                 subtitle = null,
                 isFirst = false,
                 isLast = true,
+                isEnabled = true,
                 onTap = {
                     openLink("https://help.mytonwallet.io")
                 }

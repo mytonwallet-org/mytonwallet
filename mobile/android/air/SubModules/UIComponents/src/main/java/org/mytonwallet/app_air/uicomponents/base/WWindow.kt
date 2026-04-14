@@ -711,9 +711,9 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                         it.visibility = View.GONE
                         windowView.removeView(it)
                         if (!it.presentationConfig.overFullScreen) {
-                            navigationControllerOverlays[i].let {
-                                it?.visibility = View.GONE
-                                windowView.removeView(it)
+                            navigationControllerOverlays[i]?.let { overlay ->
+                                overlay.visibility = View.GONE
+                                windowView.removeView(overlay)
                             }
                             removePrevNav(i - 1)
                         }
@@ -734,9 +734,9 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                     it.visibility = View.VISIBLE
                     it.viewWillAppear()
                     if (!it.presentationConfig.overFullScreen) {
-                        navigationControllerOverlays[i].let {
-                            windowView.addView(it, 0)
-                            it?.visibility = View.VISIBLE
+                        navigationControllerOverlays[i]?.let { overlay ->
+                            windowView.addView(overlay, 0)
+                            overlay.visibility = View.VISIBLE
                         }
                         presentPrevScreen(i - 1)
                     }

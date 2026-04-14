@@ -11,7 +11,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.constraintlayout.widget.ConstraintSet
@@ -35,6 +34,7 @@ import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
 import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.passcode.headers.PasscodeHeaderSendView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -425,11 +425,6 @@ class SendConfirmVC(
         primaryTextColored.forEach {
             it.setTextColor(WColor.PrimaryText.color)
         }
-
-        gap1.showSeparator = false
-        gap2.showSeparator = false
-        gap1.invalidate()
-        gap2.invalidate()
 
         val destination = config.request.input.destination
         val resolved = resolvedAddress(destination)

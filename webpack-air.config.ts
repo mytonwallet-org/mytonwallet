@@ -19,6 +19,10 @@ export default function createConfig(
   return {
     mode,
 
+    ignoreWarnings: [
+      { module: /nodeStorage\.ts$/, message: /Critical dependency/ },
+    ],
+
     optimization: {
       usedExports: true,
       minimize: APP_ENV === 'production',

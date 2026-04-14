@@ -8,13 +8,11 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
-import android.text.Layout
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.ClickableSpan
-import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -25,8 +23,6 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
-import androidx.core.text.buildSpannedString
-import androidx.core.text.inSpans
 import androidx.core.view.isGone
 import androidx.core.widget.NestedScrollView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -35,6 +31,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
+import org.mytonwallet.app_air.uicomponents.commonViews.WAddressActionView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.IncomingCommentDrawable
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.OutgoingCommentDrawable
@@ -44,16 +41,13 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
-import org.mytonwallet.app_air.uicomponents.extensions.setSizeBounds
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
-import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers.Companion.presentMenu
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -79,31 +73,24 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.WORD_JOIN
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
-import org.mytonwallet.app_air.walletbasecontext.utils.replaceSpacesWithNbsp
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
-import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcontext.utils.lerpColor
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
-import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
-import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
@@ -111,6 +98,9 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction.Swap
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -538,9 +528,7 @@ class TransactionVC(
 
     private var transactionAddressHeader: HeaderCell? = null
     private var transactionAddress: WView? = null
-    private var addressLabel: WLabel? = null
-    private var addressSpans: List<WTypefaceSpan> = emptyList()
-    private var addressPopupDisplayProgress: Float = 0f
+    private var transactionAddressView: WAddressActionView? = null
 
     private var detailsRowViews = ArrayList<KeyValueRowView>()
     private val feeRow: KeyValueRowView? by lazy {
@@ -806,56 +794,34 @@ class TransactionVC(
             transactionAddressHeader = this
         }
 
-        //noinspection WrongConstant
-        val addressLabel = WLabel(context).apply {
-            setStyle(16f, WFont.Regular)
-            setTextColor(WColor.SecondaryText)
-            setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-            letterSpacing = -0.015f
-            breakStrategy = Layout.BREAK_STRATEGY_SIMPLE
-            hyphenationFrequency = Layout.HYPHENATION_FREQUENCY_NONE
-            setPaddingDp(8, 4, 8, 4)
-            foreground = WRippleDrawable.create(12f.dp).apply {
-                rippleColor = WColor.SubtitleText.color.colorWithAlpha(25)
+        val addressView = WAddressActionView(context).apply {
+            onTap = { view, _ ->
+                transactionAddress?.let { onAddressClicked(it, view, transaction) }
             }
-            setOnClickListener {
-                transactionAddress?.let { onAddressClicked(it, transaction) }
-            }
-            setOnLongClickListener {
-                val blockchain = TokenStore.getToken(transaction.slug)?.mBlockchain
-                    ?: return@setOnLongClickListener false
-                val address = if (transaction.isIncoming) {
-                    transaction.fromAddress
-                } else {
-                    transaction.toAddress
-                } ?: return@setOnLongClickListener false
-                AddressPopupHelpers.copyAddress(context, address, blockchain)
-                true
-            }
-            addressLabel = this
         }
+        transactionAddressView = addressView
 
         WView(context).apply {
             addView(addressDetailsLabel)
             addView(
-                addressLabel, ConstraintLayout.LayoutParams(
+                addressView, ConstraintLayout.LayoutParams(
                     MATCH_CONSTRAINT, WRAP_CONTENT
                 )
             )
             setConstraints {
                 toTop(addressDetailsLabel)
                 toStart(addressDetailsLabel)
-                toStart(addressLabel, 12f)
-                toEnd(addressLabel, 12f)
-                topToBottom(addressLabel, addressDetailsLabel, 4f)
-                toBottom(addressLabel, 12f)
+                toStart(addressView, 12f)
+                toEnd(addressView, 12f)
+                topToBottom(addressView, addressDetailsLabel, 4f)
+                toBottom(addressView, 12f)
             }
             transactionAddress = this
         }
     }
 
     private fun displayTransactionAddress(transaction: MApiTransaction.Transaction) {
-        val addressLabel = this.addressLabel ?: return
+        val addressView = this.transactionAddressView ?: return
         val headerText = if (transaction.isIncoming) {
             LocaleController.getString("Sender")
         } else {
@@ -869,71 +835,16 @@ class TransactionVC(
 
         val peerAddress = transaction.peerAddress
         val addressName = transaction.addressName()
-        val chainIconDrawable = TokenStore.getToken(transaction.getTxSlug())?.chain?.let { chain ->
-            MBlockchain.valueOf(chain).symbolIconPadded?.let { symbol ->
-                ContextCompat.getDrawable(context, symbol)?.mutate()
-            }
-        }
-
-        val addressText = buildSpannedString {
-            if (chainIconDrawable != null) {
-                with(chainIconDrawable) {
-                    setTint(WColor.SecondaryText.color)
-                    setSizeBounds(16.dp, 16.dp)
-                }
-                inSpans(
-                    VerticalImageSpan(
-                        chainIconDrawable,
-                        endPadding = 2.dp,
-                        verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
-                    )
-                ) { append(" ") }
-                append(WORD_JOIN)
-            }
-            if (addressName != null) {
-                inSpans(WTypefaceSpan(WFont.Medium, WColor.PrimaryText)) {
-                    append(addressName)
-                }
-                append(" · ")
-                append(peerAddress.formatStartEndAddress(6, 6)).styleDots()
-            } else {
-                val first = peerAddress.take(6)
-                val last = peerAddress.takeLast(6)
-                val middle = peerAddress.substring(6, peerAddress.length - 6)
-                val colorSpans = mutableListOf<WTypefaceSpan>()
-                inSpans(WTypefaceSpan(WFont.Medium, WColor.PrimaryText).also {
-                    colorSpans.add(it)
-                }) {
-                    append(first)
-                }
-                append(middle)
-                inSpans(WTypefaceSpan(WFont.Medium, WColor.PrimaryText).also {
-                    colorSpans.add(it)
-                }) {
-                    append(last)
-                }
-                addressSpans = colorSpans
-            }
-            val expandDrawable = ContextCompat.getDrawable(
-                context, org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
-            )?.mutate()?.apply {
-                setTint(WColor.SecondaryText.color)
-                alpha = 204
-                setSizeBounds(7.dp, 14.dp)
-            }
-            if (expandDrawable != null) {
-                append(WORD_JOIN)
-                inSpans(
-                    VerticalImageSpan(
-                        expandDrawable,
-                        startPadding = 4.5f.dp.roundToInt(),
-                        verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
-                    )
-                ) { append(" ") }
-            }
-        }
-
-        addressLabel.text = addressText.replaceSpacesWithNbsp()
+        val chain = TokenStore.getToken(transaction.getTxSlug())?.chain
+            ?: TokenStore.getToken(transaction.slug)?.chain
+            ?: ""
+        addressView.configure(
+            WAddressActionView.Data(
+                address = peerAddress,
+                chain = chain,
+                addressName = addressName
+            )
+        )
         if (!WGlobalStorage.getAreAnimationsActive()) {
             return
         }
@@ -948,7 +859,8 @@ class TransactionVC(
     }
 
     private fun onAddressClicked(
-        view: View,
+        anchorView: View,
+        view: WAddressActionView,
         transaction: MApiTransaction.Transaction
     ) {
         val account = AccountStore.activeAccount ?: return
@@ -958,7 +870,7 @@ class TransactionVC(
         val windowBackgroundStyle = if (transactionAddress == null) {
             BackgroundStyle.Transparent
         } else {
-            BackgroundStyle.Cutout.fromView(view, roundRadius = ViewConstants.BLOCK_RADIUS.dp)
+            BackgroundStyle.Cutout.fromView(anchorView, roundRadius = ViewConstants.BLOCK_RADIUS.dp)
         }
 
         val blockchain = TokenStore.getToken(transaction.slug)?.mBlockchain ?: return
@@ -977,8 +889,7 @@ class TransactionVC(
             showTemporaryViewOption = true,
             windowBackgroundStyle = windowBackgroundStyle
         ) { displayProgress ->
-            addressPopupDisplayProgress = displayProgress
-            updateAddressSpans()
+            view.setAccentFadeProgress(displayProgress)
         }
     }
 
@@ -1019,7 +930,6 @@ class TransactionVC(
 
         updateBackground()
         reloadCommentView()
-        updateAddressSpans()
         updateTransactionAddressBackgroundColor()
         // headerView corners are updated in updateBackground()
         transactionDetails.setBackgroundColor(
@@ -1042,6 +952,7 @@ class TransactionVC(
             }
         }
         transactionAddressHeader?.updateTheme()
+        transactionAddressView?.updateTheme()
         transactionDetailsLabel.setTextColor(WColor.Tint.color)
         transactionIdRow?.setValue(transactionIdValue)
         changellyIdRow?.setValue(changellyIdValue)
@@ -1074,23 +985,7 @@ class TransactionVC(
         }
     }
 
-    private fun updateAddressSpans() {
-        val addressLabel = this.addressLabel ?: return
-        if (addressSpans.isEmpty()) {
-            return
-        }
-        val dismissAddressHighlightColor = WColor.PrimaryText.color
-        val presentAddressHighlightColor = WColor.SecondaryText.color
-        val addressHighlightColor = lerpColor(
-            dismissAddressHighlightColor,
-            presentAddressHighlightColor,
-            WInterpolator.emphasized.getInterpolation(addressPopupDisplayProgress)
-        )
-        addressSpans.forEach { it.foregroundColor = addressHighlightColor }
-        addressLabel.invalidate()
-    }
-
-    override fun getModalHalfExpandedHeight(): Int? {
+    override fun getModalHalfExpandedHeight(): Int {
         return innerContentView.top + actionsView.bottom + 36.dp
     }
 

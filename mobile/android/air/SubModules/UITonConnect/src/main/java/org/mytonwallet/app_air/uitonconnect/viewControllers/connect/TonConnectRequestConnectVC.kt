@@ -328,8 +328,9 @@ class TonConnectRequestConnectVC(
     }
 
     private fun updateButtonState() {
-        buttonView.isEnabled = update != null
-        buttonView.alpha = if (update != null) 1.0f else 0.5f
+        val isEnabled = isSelectedWalletConnectable()
+        buttonView.isEnabled = isEnabled
+        buttonView.alpha = if (isEnabled) 1.0f else 0.5f
     }
 
     private fun updateHeaderView() {
@@ -357,6 +358,7 @@ class TonConnectRequestConnectVC(
             subtitle = null,
             isFirst = false,
             isLast = true,
+            isEnabled = true,
             onTap = {
                 openWalletSelection()
             }
@@ -365,18 +367,31 @@ class TonConnectRequestConnectVC(
 
     private fun openWalletSelection() {
         val dappHost = update?.dapp?.host ?: ""
-        val walletSelectionVC = WalletSelectionVC(context, dappHost)
+        val walletSelectionVC = WalletSelectionVC(
+            context = context,
+            dappHost = dappHost,
+            requiresProof = update?.proof != null
+        )
 
         walletSelectionVC.setOnWalletSelectListener { selectedAccount ->
             update?.let { currentUpdate ->
                 update = currentUpdate.copy(accountId = selectedAccount.accountId)
             }
             updateAccountView()
+            updateButtonState()
         }
 
         // Open as regular modal (not bottom sheet) so push works inside it
         val navVC = WNavigationController(window!!)
         navVC.setRoot(walletSelectionVC)
         window!!.present(navVC)
+    }
+
+    private fun isSelectedWalletConnectable(): Boolean {
+        val update = update ?: return false
+        val account = AccountStore.accountById(update.accountId) ?: return false
+        val hasTonWallet = account.tonAddress != null
+        val requiresProof = update.proof != null
+        return hasTonWallet && (!requiresProof || !account.isViewOnly)
     }
 }

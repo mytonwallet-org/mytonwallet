@@ -13,6 +13,9 @@ import Perception
 
 public let HISTORY_LIMIT = 100
 private let log = Log("EarnVM")
+private let STAKING_HISTORY_RETRY_DELAY_WHEN_VISIBLE: TimeInterval = 2
+private let STAKING_HISTORY_RETRY_DELAY_WHEN_HIDDEN: TimeInterval = 20
+private let MAX_EMPTY_STAKING_HISTORY_RETRIES = 3
 
 
 @MainActor
@@ -56,6 +59,8 @@ public final class EarnVM: WalletCoreData.EventsObserver {
     private var isLoadedAllHistoryItems = false
     @PerceptionIgnored
     private var lastLoadedPage = 0
+    @PerceptionIgnored
+    private var emptyStakingHistoryRetryCount = 0
     // set current last staking item timestamp to paginate
     @PerceptionIgnored
     var lastStakingItem: Int64? = nil
@@ -96,6 +101,7 @@ public final class EarnVM: WalletCoreData.EventsObserver {
                 isLoadingStakingHistoryPage = nil
                 isLoadedAllHistoryItems = false
                 lastLoadedPage = 0
+                emptyStakingHistoryRetryCount = 0
                 lastStakingItem = nil
                 historyItems = nil
                 shownListOnce = false
@@ -142,6 +148,35 @@ public final class EarnVM: WalletCoreData.EventsObserver {
         fetchUnstakeTokenActivities()
         loadStakingHistory(page: 1)
     }
+
+    private func scheduleStakingHistoryRetry(page: Int, accountId: String) {
+        let retryDelay = delegate != nil
+            ? STAKING_HISTORY_RETRY_DELAY_WHEN_VISIBLE
+            : STAKING_HISTORY_RETRY_DELAY_WHEN_HIDDEN
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + retryDelay) { [weak self] in
+            guard let self, self.currentAccountId == accountId else { return }
+            self.loadStakingHistory(page: page)
+        }
+    }
+
+    private func shouldRetryEmptyTonStakingHistory(
+        accountId: String,
+        page: Int,
+        newHistoryItems: [MStakingHistoryItem]
+    ) -> Bool {
+        guard page == 1,
+              tokenSlug == TONCOIN_SLUG,
+              newHistoryItems.isEmpty,
+              currentAccountId == accountId,
+              emptyStakingHistoryRetryCount < MAX_EMPTY_STAKING_HISTORY_RETRIES,
+              historyItems?.contains(where: { $0.type == .profit }) != true,
+              ($account.stakingData?.totalProfit ?? 0) > 0 else {
+            return false
+        }
+
+        return true
+    }
     
     func loadStakingHistory(page: Int) {
         let accountId = currentAccountId
@@ -155,12 +190,31 @@ public final class EarnVM: WalletCoreData.EventsObserver {
                 let items = try await Api.getStakingHistory(accountId: accountId) //, limit: HISTORY_LIMIT, offset: offset)
                 isLoadingStakingHistoryPage = nil
                 let historyItems = items.map(MStakingHistoryItem.init(stakingHistory:))
+                guard accountId == self.currentAccountId else {
+                    return
+                }
+
                 if tokenSlug == TONCOIN_SLUG {
                     if historyItems.count > 0 {
+                        emptyStakingHistoryRetryCount = 0
                         lastStakingItem = historyItems.last!.timestamp
+                        isLoadedAllHistoryItems = true
+                    } else if shouldRetryEmptyTonStakingHistory(
+                        accountId: accountId,
+                        page: page,
+                        newHistoryItems: historyItems
+                    ) {
+                        emptyStakingHistoryRetryCount += 1
+                        lastLoadedPage = page
+                        isLoadedAllHistoryItems = false
+                        log.info("retrying empty staking profit history accountId=\(accountId, .public) attempt=\(emptyStakingHistoryRetryCount)")
+                        await merger(newHistoryItems: historyItems)
+                        scheduleStakingHistoryRetry(page: page, accountId: accountId)
+                        return
+                    } else {
+                        emptyStakingHistoryRetryCount = 0
+                        isLoadedAllHistoryItems = true
                     }
-                    //isLoadedAllHistoryItems = historyItems.isEmpty
-                    isLoadedAllHistoryItems = true
                     lastLoadedPage = page
                     await merger(newHistoryItems: historyItems)
                     /*if !historyItems.isEmpty {
@@ -173,8 +227,14 @@ public final class EarnVM: WalletCoreData.EventsObserver {
                 }
             } catch {
                 isLoadingStakingHistoryPage = nil
+                guard accountId == self.currentAccountId else {
+                    return
+                }
+
+                log.error("loadStakingHistory failed accountId=\(accountId, .public) page=\(page, .public) error=\(error, .public)")
+
                 if page == 1 {
-                    loadStakingHistory(page: 1)
+                    scheduleStakingHistoryRetry(page: 1, accountId: accountId)
                 }
             }
         }

@@ -5,12 +5,13 @@ import { type AllMethods, recognizeDappMethod } from '../../types/methods';
 import { getProtocolManager } from '../../dappProtocols';
 import * as methods from '../../methods';
 import init from '../../methods/init';
+import { nodeApiRuntime } from '../../runtime';
 
 let initPromise: Promise<void> | undefined;
 
 export function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs | (() => ApiInitArgs)) {
   const args = typeof initArgs === 'function' ? initArgs() : initArgs;
-  initPromise = init(onUpdate, args);
+  initPromise = init(onUpdate, args, nodeApiRuntime);
 }
 
 export async function callApi<T extends keyof AllMethods>(

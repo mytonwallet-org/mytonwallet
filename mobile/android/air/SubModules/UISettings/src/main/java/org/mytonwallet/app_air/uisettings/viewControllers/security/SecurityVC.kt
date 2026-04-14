@@ -111,11 +111,16 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         val switchView = WSwitch(context)
         switchView.isChecked = WGlobalStorage.isBiometricActivated()
         switchView.setOnCheckedChangeListener { _, isChecked ->
-            WGlobalStorage.setIsBiometricActivated(isChecked)
+            if (WGlobalStorage.isBiometricActivated() == isChecked)
+                return@setOnCheckedChangeListener
             if (isChecked) {
-                WSecureStorage.setBiometricPasscode(window!!, currentPasscode)
+                val activated = WSecureStorage.setBiometricPasscode(window!!, currentPasscode)
+                WGlobalStorage.setIsBiometricActivated(activated)
+                if (!activated)
+                    switchView.isChecked = false
             } else {
                 WSecureStorage.deleteBiometricPasscode(window!!)
+                WGlobalStorage.setIsBiometricActivated(false)
             }
         }
         switchView
@@ -403,8 +408,11 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
                 ) { _, err ->
                     if (err != null)
                         return@call
-                    if (WGlobalStorage.isBiometricActivated())
-                        WSecureStorage.setBiometricPasscode(window!!, newPasscode)
+                    if (WGlobalStorage.isBiometricActivated()) {
+                        val activated = WSecureStorage.setBiometricPasscode(window!!, newPasscode)
+                        if (!activated)
+                            WGlobalStorage.setIsBiometricActivated(false)
+                    }
                     currentPasscode = newPasscode
                     navigationController?.removePrevViewControllers(2)
                     navigationController?.pop(true)

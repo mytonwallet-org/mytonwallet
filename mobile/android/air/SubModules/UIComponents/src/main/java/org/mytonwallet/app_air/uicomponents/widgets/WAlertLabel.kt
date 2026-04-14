@@ -35,6 +35,7 @@ open class WAlertLabel(
 
     init {
         setStyle(14f, WFont.Medium)
+        setLineHeight(20f)
         text = textContents
         if (coloredText) {
             setTextColor(alertColor)

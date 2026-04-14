@@ -1223,6 +1223,10 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         onProgress: (progress: Float) -> Unit,
         onMaximizeProgress: (progress: Float) -> Unit
     ) {
+        if (window?.navigationControllers?.lastOrNull() != nav) {
+            onMaximizeProgress(1f)
+            return
+        }
         if (minimizedNav != null)
             dismissMinimized(false)
         this.onMaximizeProgress = onMaximizeProgress

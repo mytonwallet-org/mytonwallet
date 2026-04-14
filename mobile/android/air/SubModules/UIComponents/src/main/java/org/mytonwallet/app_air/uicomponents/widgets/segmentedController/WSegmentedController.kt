@@ -6,6 +6,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.content.ContextCompat
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
@@ -54,6 +55,7 @@ class WSegmentedController(
     private val navTopPadding: Int = 0,
     val navHeight: Int = WNavigationBar.DEFAULT_HEIGHT.dp,
     private var onOffsetChange: ((position: Int, currentOffset: Float) -> Unit)? = null,
+    private var onSelectedIndexChanged: ((Int) -> Unit)? = null,
     // Lets parent know the view items are reordered
     private var onItemsReordered: (() -> Unit)? = null,
     // Lets parent know the view asked to go to reordering mode
@@ -81,6 +83,7 @@ class WSegmentedController(
 
     private var isAnimatingChangeTab = false
     private var lastFullyVisible: Int = 0
+    private var lastNotifiedSelectedIndex: Int? = null
     private var isUserInteracting = false
     private var lastTargetIndex = 0
     var targetIndex: Int? = null
@@ -108,6 +111,7 @@ class WSegmentedController(
                     (items.getOrNull(lastFullyVisible)?.viewController as? WSegmentedControllerItemVC)?.onPartiallyVisible()
                     lastFullyVisible = position
                     (items.getOrNull(lastFullyVisible)?.viewController as? WSegmentedControllerItemVC)?.onFullyVisible()
+                    notifySelectedIndexChanged(position)
                 } else {
                     (items.getOrNull(lastFullyVisible)?.viewController as? WSegmentedControllerItemVC)?.onPartiallyVisible()
                 }
@@ -181,6 +185,20 @@ class WSegmentedController(
     }
 
     private val clearSegmentedControl = WClearSegmentedControl(context)
+    private var underTabsView: View? = null
+    private var underTabsHeight = 0
+    private val blurSourceContainerView: WView by lazy {
+        WView(context).apply {
+            clipChildren = false
+            clipToPadding = false
+        }
+    }
+    private val underTabsContainerView: WView by lazy {
+        WView(context).apply {
+            clipChildren = false
+            clipToPadding = false
+        }
+    }
     private val actionBar: WActionBar by lazy {
         WActionBar(context).apply {
             isInvisible = true
@@ -204,7 +222,7 @@ class WSegmentedController(
         ReversedCornerView(
             context,
             ReversedCornerView.Config(
-                blurRootView = parent as ViewGroup,
+                blurRootView = blurSourceContainerView,
             )
         )
     }
@@ -227,33 +245,68 @@ class WSegmentedController(
         v
     }
 
+    private fun baseHeaderHeight(): Int {
+        return navHeight +
+            (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else (-3).dp)
+    }
+
+    private fun updateUnderTabsLayout() {
+        underTabsContainerView.layoutParams?.let { layoutParams ->
+            layoutParams.height = underTabsHeight
+            underTabsContainerView.layoutParams = layoutParams
+        }
+        if (!isFullScreen && viewPager.parent === blurSourceContainerView) {
+            blurSourceContainerView.setConstraints {
+                toTopPx(viewPager, baseHeaderHeight() + underTabsHeight)
+            }
+        }
+    }
+
+    private fun notifySelectedIndexChanged(index: Int) {
+        if (lastNotifiedSelectedIndex == index) {
+            return
+        }
+        lastNotifiedSelectedIndex = index
+        onSelectedIndexChanged?.invoke(index)
+    }
+
     override fun setupViews() {
         super.setupViews()
 
+        clipChildren = false
+        clipToPadding = false
         applyItems()
 
-        val topHeaderHeight =
-            navHeight + (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else (-3).dp)
-        addView(viewPager, ViewGroup.LayoutParams(MATCH_PARENT, 0))
+        if (!isTransparent) {
+            blurSourceContainerView.setBackgroundColor(WColor.Background.color)
+        }
+        addView(blurSourceContainerView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        blurSourceContainerView.addView(viewPager, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         if (isFullScreen && !isTransparent)
             addView(reversedCornerView, LayoutParams(MATCH_PARENT, 0))
-        addView(contentView, ViewGroup.LayoutParams(MATCH_PARENT, topHeaderHeight))
+        addView(contentView, ViewGroup.LayoutParams(MATCH_PARENT, baseHeaderHeight()))
+        addView(underTabsContainerView, ViewGroup.LayoutParams(MATCH_PARENT, underTabsHeight))
         setConstraints {
+            allEdges(blurSourceContainerView)
             toTop(contentView)
+            toTopPx(underTabsContainerView, baseHeaderHeight())
+            toCenterX(underTabsContainerView)
+            if (isFullScreen && !isTransparent) {
+                toTop(reversedCornerView)
+                bottomToBottom(reversedCornerView, underTabsContainerView, -ViewConstants.TOOLBAR_RADIUS)
+            }
+        }
+        blurSourceContainerView.setConstraints {
             if (isFullScreen) {
                 toTop(viewPager)
             } else {
-                toTopPx(viewPager, topHeaderHeight)
+                toTopPx(viewPager, baseHeaderHeight() + underTabsHeight)
             }
             toCenterX(
                 viewPager,
                 if (applySideGutters) ViewConstants.HORIZONTAL_PADDINGS.toFloat() else 0f
             )
             toBottom(viewPager)
-            if (isFullScreen && !isTransparent) {
-                toTop(reversedCornerView)
-                bottomToBottom(reversedCornerView, contentView, -ViewConstants.TOOLBAR_RADIUS)
-            }
         }
 
         viewPager.setupSpringFling(onScrollingToTarget = { targetIndex ->
@@ -283,15 +336,19 @@ class WSegmentedController(
         if (isTransparent)
             updateThemeTransparent()
         else {
-            if (isFullScreen)
+            if (isFullScreen) {
+                blurSourceContainerView.setBackgroundColor(WColor.SecondaryBackground.color)
                 reversedCornerView.setBlurOverlayColor(WColor.SecondaryBackground.color)
-            else
+            } else {
+                blurSourceContainerView.setBackgroundColor(WColor.Background.color)
                 contentView.setBackgroundColor(WColor.Background.color)
+            }
         }
         clearSegmentedControl.apply {
             updateTheme()
             if (isTransparent) updateThemeTransparent()
         }
+        (underTabsView as? WThemedView)?.updateTheme()
     }
 
     override fun updateProtectedView() {}
@@ -411,6 +468,38 @@ class WSegmentedController(
             force = true,
             isAnimatingToPosition = isAnimatingChangeTab
         )
+        notifySelectedIndexChanged(index)
+    }
+
+    fun setUnderTabsView(view: View?) {
+        if (underTabsView === view) {
+            return
+        }
+
+        underTabsView?.let { current ->
+            if (current.parent === underTabsContainerView) {
+                underTabsContainerView.removeView(current)
+            }
+        }
+
+        underTabsView = view
+
+        if (view != null) {
+            underTabsContainerView.addView(view, ViewGroup.LayoutParams(0, WRAP_CONTENT))
+            underTabsContainerView.setConstraints {
+                toTop(view)
+                toCenterX(view)
+            }
+            (view as? WThemedView)?.updateTheme()
+        }
+    }
+
+    fun setUnderTabsHeight(height: Int) {
+        if (underTabsHeight == height) {
+            return
+        }
+        underTabsHeight = height
+        updateUnderTabsLayout()
     }
 
     fun addCloseButton(

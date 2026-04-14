@@ -800,7 +800,10 @@ public class BottomSheetBehavior<V extends View> extends CoordinatorLayout.Behav
             return true;
         }
         if (event.getActionIndex() >= 0 && shouldHandleDraggingWithHelper()) {
-            viewDragHelper.processTouchEvent(event);
+            try {
+                viewDragHelper.processTouchEvent(event);
+            } catch (IllegalArgumentException ignored) {
+            }
         }
         // Record the velocity
         if (action == MotionEvent.ACTION_DOWN) {

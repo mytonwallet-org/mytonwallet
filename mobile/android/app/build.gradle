@@ -37,6 +37,11 @@ android {
   buildTypes {
     debug {
       applicationIdSuffix = ".debug"
+      versionNameSuffix(".debug")
+
+      firebaseCrashlytics {
+        mappingFileUploadEnabled false
+      }
     }
     release {
       minifyEnabled true

@@ -161,14 +161,14 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
         setOnClickListener {}
     }
 
-    fun presentOn(viewController: WViewController) {
+    fun presentOn(viewController: WViewController): Boolean {
         if (isPresented)
             throw Exception("WDialog can't be presented more than once")
+        val parentView = viewController.navigationController?.parent as? WView ?: return false
         isPresented = true
         viewController.setActiveDialog(this)
         PopupHelpers.popupShown(this)
         parentViewController = WeakReference(viewController)
-        val parentView = viewController.navigationController?.parent as WView
         parentView.hideKeyboard()
         parentView.addView(
             overlayView,
@@ -225,6 +225,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
                 start()
             }
         }
+        return true
     }
 
     val keyboardTop: Int

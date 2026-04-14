@@ -68,10 +68,19 @@ class TonConnectRequestSendVC(
     private val skeletonView = SkeletonView(context)
     private var isShowingSkeleton = false
 
-    private val headerImageSkeletonView = WBaseView(context).apply {
+    private val headerIconSkeletonView = WBaseView(context).apply {
         visibility = View.GONE
     }
-    private val headerTitleSkeletonView = WBaseView(context).apply {
+    private val walletNameSkeletonView = WBaseView(context).apply {
+        visibility = View.GONE
+    }
+    private val walletBalanceSkeletonView = WBaseView(context).apply {
+        visibility = View.GONE
+    }
+    private val dappNameSkeletonView = WBaseView(context).apply {
+        visibility = View.GONE
+    }
+    private val dappAddressSkeletonView = WBaseView(context).apply {
         visibility = View.GONE
     }
     private val headerSkeletonContainer = WView(context).apply {
@@ -136,33 +145,50 @@ class TonConnectRequestSendVC(
         recyclerView.setPadding(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             (navigationController?.getSystemBars()?.top ?: 0) +
-                WNavigationBar.Companion.DEFAULT_HEIGHT.dp,
+                WNavigationBar.DEFAULT_HEIGHT.dp,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0
         )
 
         view.addView(
             recyclerView, ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
+                MATCH_PARENT, MATCH_PARENT
             )
         )
         view.addView(
             headerSkeletonContainer, ViewGroup.LayoutParams(
                 0,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
+                72.dp,
             )
         )
         headerSkeletonContainer.addView(
-            headerImageSkeletonView, ViewGroup.LayoutParams(
-                80.dp,
-                80.dp
+            headerIconSkeletonView, ViewGroup.LayoutParams(
+                48.dp,
+                48.dp
             )
         )
         headerSkeletonContainer.addView(
-            headerTitleSkeletonView, ViewGroup.LayoutParams(
-                220.dp,
-                26.dp
+            walletNameSkeletonView, ViewGroup.LayoutParams(
+                88.dp,
+                20.dp
+            )
+        )
+        headerSkeletonContainer.addView(
+            walletBalanceSkeletonView, ViewGroup.LayoutParams(
+                72.dp,
+                15.dp
+            )
+        )
+        headerSkeletonContainer.addView(
+            dappNameSkeletonView, ViewGroup.LayoutParams(
+                84.dp,
+                20.dp
+            )
+        )
+        headerSkeletonContainer.addView(
+            dappAddressSkeletonView, ViewGroup.LayoutParams(
+                96.dp,
+                15.dp
             )
         )
         view.addView(skeletonView, ViewGroup.LayoutParams(0, 0))
@@ -195,12 +221,18 @@ class TonConnectRequestSendVC(
         }
 
         headerSkeletonContainer.setConstraints {
-            toCenterX(headerImageSkeletonView)
-            toTop(headerImageSkeletonView, 14f)
+            toEnd(headerIconSkeletonView, 12f)
+            toCenterY(headerIconSkeletonView)
 
-            topToBottom(headerTitleSkeletonView, headerImageSkeletonView, 17f)
-            toCenterX(headerTitleSkeletonView)
-            toBottom(headerTitleSkeletonView, 12f)
+            toStart(walletNameSkeletonView, 16f)
+            toTop(walletNameSkeletonView, 14.5f)
+            toStart(walletBalanceSkeletonView, 16f)
+            toBottom(walletBalanceSkeletonView, 14.5f)
+
+            toTop(dappNameSkeletonView, 14.5f)
+            endToStart(dappNameSkeletonView, headerIconSkeletonView, 12f)
+            toBottom(dappAddressSkeletonView, 14.5f)
+            endToStart(dappAddressSkeletonView, headerIconSkeletonView, 12f)
 
             edgeToEdge(skeletonView, headerSkeletonContainer)
         }
@@ -280,14 +312,32 @@ class TonConnectRequestSendVC(
         confirmButtonView.isEnabled = false
 
         headerSkeletonContainer.visibility = View.VISIBLE
-        headerImageSkeletonView.visibility = View.VISIBLE
-        headerTitleSkeletonView.visibility = View.VISIBLE
+        headerIconSkeletonView.visibility = View.VISIBLE
+        walletNameSkeletonView.visibility = View.VISIBLE
+        walletBalanceSkeletonView.visibility = View.VISIBLE
+        dappNameSkeletonView.visibility = View.VISIBLE
+        dappAddressSkeletonView.visibility = View.VISIBLE
 
-        headerImageSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 20f.dp)
-        headerTitleSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
+        headerIconSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
+        walletNameSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
+        walletBalanceSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 8f.dp)
+        dappNameSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
+        dappAddressSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 8f.dp)
 
-        val skeletonViews = listOf(headerImageSkeletonView, headerTitleSkeletonView)
-        val radiusMap = hashMapOf(0 to 20f, 1 to 12f)
+        val skeletonViews = listOf(
+            headerIconSkeletonView,
+            walletNameSkeletonView,
+            walletBalanceSkeletonView,
+            dappNameSkeletonView,
+            dappAddressSkeletonView
+        )
+        val radiusMap = hashMapOf(
+            0 to 12f,
+            1 to 12f,
+            2 to 8f,
+            3 to 12f,
+            4 to 8f
+        )
         skeletonView.doOnLayout {
             skeletonView.applyMask(skeletonViews, radiusMap)
             skeletonView.startAnimating()
@@ -300,11 +350,20 @@ class TonConnectRequestSendVC(
 
         skeletonView.stopAnimating()
 
-        headerImageSkeletonView.fadeOut(onCompletion = {
-            headerImageSkeletonView.visibility = View.GONE
+        headerIconSkeletonView.fadeOut(onCompletion = {
+            headerIconSkeletonView.visibility = View.GONE
         })
-        headerTitleSkeletonView.fadeOut(onCompletion = {
-            headerTitleSkeletonView.visibility = View.GONE
+        walletNameSkeletonView.fadeOut(onCompletion = {
+            walletNameSkeletonView.visibility = View.GONE
+        })
+        walletBalanceSkeletonView.fadeOut(onCompletion = {
+            walletBalanceSkeletonView.visibility = View.GONE
+        })
+        dappNameSkeletonView.fadeOut(onCompletion = {
+            dappNameSkeletonView.visibility = View.GONE
+        })
+        dappAddressSkeletonView.fadeOut(onCompletion = {
+            dappAddressSkeletonView.visibility = View.GONE
         })
         headerSkeletonContainer.fadeOut(onCompletion = {
             headerSkeletonContainer.visibility = View.GONE
@@ -363,8 +422,11 @@ class TonConnectRequestSendVC(
                 ViewConstants.TOOLBAR_RADIUS.dp,
                 ViewConstants.BLOCK_RADIUS.dp
             )
-            headerImageSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 20f.dp)
-            headerTitleSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
+            headerIconSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
+            walletNameSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
+            walletBalanceSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 8f.dp)
+            dappNameSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 12f.dp)
+            dappAddressSkeletonView.setBackgroundColor(WColor.SecondaryBackground.color, 8f.dp)
         }
     }
 
@@ -460,8 +522,11 @@ class TonConnectRequestSendVC(
 
     override fun getChildViewMap(): HashMap<View, Float> {
         return hashMapOf(
-            headerImageSkeletonView to 20f,
-            headerTitleSkeletonView to 12f
+            headerIconSkeletonView to 12f,
+            walletNameSkeletonView to 12f,
+            walletBalanceSkeletonView to 8f,
+            dappNameSkeletonView to 12f,
+            dappAddressSkeletonView to 8f
         )
     }
 }

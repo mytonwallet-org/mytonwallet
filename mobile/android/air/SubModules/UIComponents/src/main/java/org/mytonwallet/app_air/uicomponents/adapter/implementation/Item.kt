@@ -4,6 +4,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListItem
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell.TopRounding
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
@@ -81,7 +82,9 @@ open class Item(
         val text: CharSequence,
     ) : Item(Type.ALERT.value)
 
-    data object Gap : Item(Type.GAP.value)
+    data class Gap(
+        val height: Int = 12.dp
+    ) : Item(Type.GAP.value)
 
     interface IClickable {
         val clickable: Clickable?

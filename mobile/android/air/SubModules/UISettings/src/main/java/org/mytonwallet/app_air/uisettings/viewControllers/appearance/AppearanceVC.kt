@@ -58,6 +58,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             subtitle = null,
             isFirst = false,
             isLast = true,
+            isEnabled = true,
             onTap = {
                 WalletCore.switchingToLegacy()
                 WalletContextManager.delegate?.switchToLegacy()

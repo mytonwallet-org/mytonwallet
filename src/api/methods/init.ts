@@ -8,15 +8,23 @@ import { initClientId } from '../common/other';
 import { getProtocolManager, initProtocolManager } from '../dappProtocols';
 import { setEnvironment } from '../environment';
 import { addHooks } from '../hooks';
+import { type ApiRuntimeProfile, browserApiRuntime } from '../runtime';
 import { storage } from '../storages';
 import { destroyPolling } from './polling';
 import * as methods from '.';
 
-export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
+export default async function init(
+  onUpdate: OnApiUpdate,
+  args: ApiInitArgs,
+  runtime: ApiRuntimeProfile = browserApiRuntime,
+) {
   connectUpdater(onUpdate);
 
   const environment = setEnvironment(args);
-  initWindowConnector();
+
+  if (runtime.shouldInstallWindowBridge) {
+    initWindowConnector();
+  }
 
   await initClientId();
   await tryMigrateStorage(onUpdate, ton, args.accountIds);
@@ -31,18 +39,20 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
   methods.initSwap(onUpdate);
   methods.initNfts(onUpdate);
 
-  await initProtocolManager(onUpdate, environment);
+  if (runtime.shouldInitDappRuntime) {
+    await initProtocolManager(onUpdate, environment);
 
-  if (environment.isDappSupported) {
-    methods.initDapps(onUpdate);
+    if (environment.isDappSupported) {
+      methods.initDapps(onUpdate);
+    }
+
+    const protocolManager = getProtocolManager();
+
+    addHooks({
+      onDappDisconnected: protocolManager.closeRemoteConnection.bind(protocolManager),
+      onDappsChanged: protocolManager.resetupRemoteConnection.bind(protocolManager),
+    });
   }
-
-  const protocolManager = getProtocolManager();
-
-  addHooks({
-    onDappDisconnected: protocolManager.closeRemoteConnection.bind(protocolManager),
-    onDappsChanged: protocolManager.resetupRemoteConnection.bind(protocolManager),
-  });
 
   if (args.langCode) {
     void storage.setItem('langCode', args.langCode);

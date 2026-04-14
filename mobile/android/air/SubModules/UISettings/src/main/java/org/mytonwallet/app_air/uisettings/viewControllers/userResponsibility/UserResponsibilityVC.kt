@@ -79,6 +79,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
             subtitle = null,
             isFirst = true,
             isLast = false,
+            isEnabled = true,
             onTap = {
                 openLink("https://mytonwallet.io/terms-of-use", title)
             }
@@ -98,6 +99,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
             subtitle = null,
             isFirst = false,
             isLast = true,
+            isEnabled = true,
             onTap = {
                 openLink("https://mytonwallet.io/privacy-policy", title)
             }

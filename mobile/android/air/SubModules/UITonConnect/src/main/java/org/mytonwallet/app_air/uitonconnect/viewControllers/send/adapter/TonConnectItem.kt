@@ -9,6 +9,7 @@ sealed class TonConnectItem(
 ) : BaseListItem(type.value, key) {
     enum class Type {
         AMOUNT,
+        ADDRESS,
         SEND_HEADER;
 
         val value: Int
@@ -18,6 +19,13 @@ sealed class TonConnectItem(
     data class CurrencyAmount(
         val text: CharSequence
     ) : TonConnectItem(Type.AMOUNT, text.toString())
+
+    data class Address(
+        val accountId: String,
+        val chain: String,
+        val address: String,
+        val addressName: String? = null,
+    ) : TonConnectItem(Type.ADDRESS, "${accountId}_${chain}_$address")
 
     data class SendRequestHeader(
         val update: ApiUpdate.ApiUpdateDappSignRequest,

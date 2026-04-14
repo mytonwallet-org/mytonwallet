@@ -17,10 +17,12 @@ import androidx.biometric.BiometricManager;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.Key;
+import java.security.ProviderException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.spec.GCMParameterSpec;
@@ -137,7 +139,7 @@ public class NativeBiometric {
                 );
                 editor.apply();
                 return true;
-            } catch (GeneralSecurityException | IOException e) {
+            } catch (GeneralSecurityException | IOException | ProviderException e) {
                 e.printStackTrace();
                 return false;
             }

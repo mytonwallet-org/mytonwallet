@@ -1,4 +1,4 @@
-package org.mytonwallet.app_air.uiassets.viewControllers.assets.cells
+package org.mytonwallet.app_air.uiassets.viewControllers.views
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -7,7 +7,6 @@ import android.graphics.drawable.GradientDrawable
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatImageButton
-import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.isInvisible
@@ -15,12 +14,11 @@ import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.resize
-import org.mytonwallet.app_air.uicomponents.extensions.setConstraints
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.image.WNftImageView
-import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -31,19 +29,15 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class DomainExpirationBannerCell(context: Context) :
-    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+class WDomainExpirationBannerView(context: Context) :
+    WView(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
 
     companion object {
-        const val DAYS_THRESHOLD = 14
         private const val IMAGE_SIZE = 28
         private const val IMAGE_OFFSET = 20
         private const val IMAGE_CORNER_RADIUS = 4.5f
         private const val BORDER_WIDTH = 1f
-        private const val MARGIN_H = 4
-        private const val MARGIN_BOTTOM = 11
-
-        const val CELL_HEIGHT_DP = 44 + MARGIN_H + MARGIN_BOTTOM
+        const val HEIGHT_DP = 50
     }
 
     var onTap: (() -> Unit)? = null
@@ -89,7 +83,7 @@ class DomainExpirationBannerCell(context: Context) :
     init {
         clipChildren = false
 
-        addView(card, LayoutParams(0, 44.dp))
+        addView(card, LayoutParams(0, HEIGHT_DP.dp))
         addView(img3, LayoutParams(IMAGE_SIZE.dp, IMAGE_SIZE.dp))
         addView(img2, LayoutParams(IMAGE_SIZE.dp, IMAGE_SIZE.dp))
         addView(img1, LayoutParams(IMAGE_SIZE.dp, IMAGE_SIZE.dp))
@@ -101,10 +95,10 @@ class DomainExpirationBannerCell(context: Context) :
         }
 
         setConstraints {
-            toStart(card, MARGIN_H.toFloat())
-            toEnd(card, MARGIN_H.toFloat())
-            toTop(card, MARGIN_H.toFloat())
-            toBottom(card, MARGIN_BOTTOM.toFloat())
+            toStart(card)
+            toEnd(card)
+            toTop(card)
+            toBottom(card)
 
             topToTop(img1, card, 8f)
             bottomToBottom(img1, card, 8f)

@@ -421,7 +421,8 @@ class ExploreVC(context: Context) : WViewController(context),
         val newIgnoreSideGuttering = exploreVM.showingTrendingSites.size > 1
         if (ignoreSideGuttering != newIgnoreSideGuttering) {
             ignoreSideGuttering = newIgnoreSideGuttering
-            val padding = if (newIgnoreSideGuttering) 0f else ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
+            val padding =
+                if (newIgnoreSideGuttering) 0f else ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
             topReversedCornerView?.setHorizontalPadding(padding)
         }
         rvAdapter.reloadData()
@@ -466,7 +467,10 @@ class ExploreVC(context: Context) : WViewController(context),
             if (it.sse != null) {
                 val intent = Intent(Intent.ACTION_VIEW)
                 intent.setData(url.toUri())
-                window?.startActivity(intent)
+                try {
+                    window?.startActivity(intent)
+                } catch (_: Exception) {
+                }
                 return
             }
             val inAppBrowserVC = InAppBrowserVC(
@@ -517,9 +521,12 @@ class ExploreVC(context: Context) : WViewController(context),
     private fun openTargetUri(app: MExploreSite, uri: Uri) {
         val window = this.window ?: return
         if (app.isExternal || (uri.scheme != "http" && uri.scheme != "https") || app.isTelegram) {
-            window.startActivity(Intent(Intent.ACTION_VIEW).apply {
-                setData(uri)
-            })
+            try {
+                window.startActivity(Intent(Intent.ACTION_VIEW).apply {
+                    setData(uri)
+                })
+            } catch (_: Exception) {
+            }
             return
         }
         val inAppBrowserVC = InAppBrowserVC(

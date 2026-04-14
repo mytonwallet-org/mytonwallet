@@ -8,6 +8,8 @@ import com.airbnb.lottie.LottieDrawable
 import com.airbnb.lottie.RenderMode
 
 class WAnimationView(context: Context) : LottieAnimationView(context) {
+    private var pendingOnStart: (() -> Unit)? = null
+
     init {
         id = generateViewId()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
@@ -16,23 +18,27 @@ class WAnimationView(context: Context) : LottieAnimationView(context) {
         }
         scaleType = ScaleType.CENTER_CROP
 
-        setFailureListener { throwable ->
+        setFailureListener { _ ->
+            pendingOnStart?.invoke()
+            pendingOnStart = null
             visibility = GONE
         }
     }
 
-    fun play(animation: Int, repeat: Boolean = true, onStart: () -> Unit) {
+    fun play(animation: Int, repeat: Boolean = true, onStart: (() -> Unit)?) {
         try {
             setAnimatorListener(onStart)
             if (repeat) repeatCount = LottieDrawable.INFINITE
             setAnimation(animation)
             playAnimation()
         } catch (_: Exception) {
+            setAnimatorListener(null)
+            onStart?.invoke()
             visibility = GONE
         }
     }
 
-    fun playFromUrl(url: String, repeat: Boolean = true, play: Boolean, onStart: () -> Unit) {
+    fun playFromUrl(url: String, repeat: Boolean = true, play: Boolean, onStart: (() -> Unit)?) {
         try {
             setAnimatorListener(onStart)
             if (repeat) repeatCount = LottieDrawable.INFINITE
@@ -40,13 +46,20 @@ class WAnimationView(context: Context) : LottieAnimationView(context) {
             if (play)
                 playAnimation()
         } catch (_: Exception) {
+            setAnimatorListener(null)
+            onStart?.invoke()
             visibility = GONE
         }
     }
 
-    private fun setAnimatorListener(onStart: () -> Unit) {
+    private fun setAnimatorListener(onStart: (() -> Unit)?) {
+        pendingOnStart = onStart
+        removeAllAnimatorListeners()
+        if (onStart == null)
+            return
         addAnimatorListener(object : Animator.AnimatorListener {
             override fun onAnimationStart(animation: Animator) {
+                setAnimatorListener(null)
                 onStart()
             }
 

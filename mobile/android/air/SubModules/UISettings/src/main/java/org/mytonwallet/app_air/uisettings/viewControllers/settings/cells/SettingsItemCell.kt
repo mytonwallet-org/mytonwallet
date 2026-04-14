@@ -28,6 +28,7 @@ interface ISettingsItemCell {
         subtitle: String?,
         isFirst: Boolean,
         isLast: Boolean,
+        isEnabled: Boolean,
         onTap: () -> Unit
     )
 }
@@ -141,6 +142,7 @@ class SettingsItemCell(
         subtitle: String?,
         isFirst: Boolean,
         isLast: Boolean,
+        isEnabled: Boolean,
         onTap: () -> Unit
     ) {
         this.isFirst = isFirst
@@ -164,9 +166,11 @@ class SettingsItemCell(
         layoutParams.height =
             cellHeightForItem(baseContentHeight, !subtitle.isNullOrEmpty(), isLast)
 
-        setOnClickListener {
-            onTap()
-        }
+        setContentAlpha(if (isEnabled) 1f else 0.4f)
+        this.isEnabled = isEnabled
+        isClickable = isEnabled
+
+        setOnClickListener { onTap() }
 
         updateTheme()
     }
@@ -184,5 +188,11 @@ class SettingsItemCell(
         )
         titleLabel.setTextColor(WColor.PrimaryText.color)
         valueLabel.setTextColor(WColor.SecondaryText.color)
+    }
+
+    private fun setContentAlpha(alpha: Float) {
+        iconView.alpha = alpha
+        titleView.alpha = alpha
+        valueLabel.alpha = alpha
     }
 }

@@ -71,6 +71,7 @@ public struct WColors: Sendable {
     public let separatorDarkBackground: UIColor = .airBundle("AirSeparatorDarkBackgroundColor")
     
     public let headerBackground: UIColor = .airBundle("HeaderBackgroundColor")
+    public let homeNavigationForeground: UIColor = .airBundle("HomeNavigationForegroundColor")
     public let highlight: UIColor = .airBundle("HighlightColor")
     public let altHighlight: UIColor = .airBundle("AltHighlightColor")
     
@@ -150,6 +151,7 @@ public extension Color {
         public let browserOpaqueBar: Color = .airBundle("BrowserOpaqueBarColor")
         public let pickerBackground: Color = .airBundle("PickerBackgroundColor")
         public let headerBackground: Color = .airBundle("HeaderBackgroundColor")
+        public let homeNavigationForeground: Color = .airBundle("HomeNavigationForegroundColor")
         public let extraSheetDimming: Color = .airBundle("ExtraSheetDimmingColor")
         public var tint: Color { .accentColor }
     }

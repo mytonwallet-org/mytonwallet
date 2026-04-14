@@ -274,7 +274,7 @@ class AddressPopupHelpers {
                     )
                 )
             )
-            dialog.presentOn(viewController)
+            if (!dialog.presentOn(viewController)) return
             dialog.setActionButtonEnabled(false)
             val textWatcher = input.addTextChangedListener(onTextChanged = { text, _, _, _ ->
                 dialog.setActionButtonEnabled(text?.trim()?.isNotEmpty() == true)

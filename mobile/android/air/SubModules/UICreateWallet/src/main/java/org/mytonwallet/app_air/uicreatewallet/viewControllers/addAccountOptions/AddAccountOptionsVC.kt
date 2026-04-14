@@ -62,6 +62,7 @@ class AddAccountOptionsVC(context: Context, val network: MBlockchainNetwork, val
                 subtitle = null,
                 isFirst = true,
                 isLast = true,
+                isEnabled = true,
                 onTap = {
                     view.lockView()
                     WalletCore.doOnBridgeReady {
@@ -115,6 +116,7 @@ class AddAccountOptionsVC(context: Context, val network: MBlockchainNetwork, val
             subtitle = null,
             isFirst = true,
             isLast = false,
+            isEnabled = true,
             onTap = {
                 if (!WGlobalStorage.isPasscodeSet()) {
                     handlePush(
@@ -162,6 +164,7 @@ class AddAccountOptionsVC(context: Context, val network: MBlockchainNetwork, val
             subtitle = null,
             isFirst = false,
             isLast = true,
+            isEnabled = true,
             onTap = {
                 handlePush(LedgerConnectVC(context, LedgerConnectVC.Mode.AddAccount(network)))
             }
@@ -180,6 +183,7 @@ class AddAccountOptionsVC(context: Context, val network: MBlockchainNetwork, val
             subtitle = null,
             isFirst = true,
             isLast = true,
+            isEnabled = true,
             onTap = {
                 push(ImportViewWalletVC(context, network, isOnIntro))
             }

@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.fresco)
     implementation(libs.lottie)
+    implementation(project("$airSubModulePath:Icons"))
     implementation(project("$airSubModulePath:UIComponents"))
     implementation(project("$airSubModulePath:UIPasscode"))
     implementation(project("$airSubModulePath:UISettings"))

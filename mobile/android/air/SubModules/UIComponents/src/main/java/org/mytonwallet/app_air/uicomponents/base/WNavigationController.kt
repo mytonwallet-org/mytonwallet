@@ -553,7 +553,7 @@ class WNavigationController(
             if (tabBarController?.switchToFirstTab() == true)
                 return false
             if (window.dismissLastNav()) {
-                viewControllers.last().viewWillDisappear()
+                viewControllers.lastOrNull()?.viewWillDisappear()
                 return false
             }
             return true

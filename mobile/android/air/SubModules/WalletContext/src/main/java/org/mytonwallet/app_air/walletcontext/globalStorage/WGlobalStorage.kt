@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcontext.globalStorage
 
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
@@ -21,6 +22,7 @@ object WGlobalStorage {
         }
 
     private lateinit var globalStorageProvider: IGlobalStorageProvider
+
     private val cachedAccountNames = mutableMapOf<String, String>()
     private val cachedAccountTonAddresses = mutableMapOf<String, String>()
 
@@ -1008,8 +1010,91 @@ object WGlobalStorage {
             return
         }
 
-        if (currentState < 32)
-            throw Exception() // Not supported!
+        // State <13, cannot migrate
+        if (currentState < 13) {
+            Logger.e(
+                Logger.LogTag.AIR_APPLICATION,
+                "Global storage state $currentState < 13, not supported. Switching to legacy."
+            )
+            decDoNotSynchronize()
+            WalletContextManager.scheduleSwitchToLegacy()
+            return
+        }
+
+        // States 13→14: set areTokensWithNoCostHidden from legacy flags
+        if (currentState < 14) {
+            val areTokensWithNoPriceHidden =
+                globalStorageProvider.getBool("settings.areTokensWithNoPriceHidden") ?: false
+            val areTokensWithNoBalanceHidden =
+                globalStorageProvider.getBool("settings.areTokensWithNoBalanceHidden") ?: false
+            globalStorageProvider.set(
+                HIDE_NO_COST_TOKENS,
+                areTokensWithNoPriceHidden || areTokensWithNoBalanceHidden,
+                IGlobalStorageProvider.PERSIST_NO
+            )
+        }
+
+        // State 24→25: account.address → account.addressByChain = { ton: address }
+        if (currentState < 25) {
+            for (accountId in accountIds(network = null)) {
+                val account = getAccount(accountId) ?: continue
+                val address = account.optString("address").takeIf { it.isNotEmpty() } ?: continue
+                account.put("addressByChain", JSONObject().apply { put("ton", address) })
+                account.remove("address")
+                saveAccount(accountId, account)
+            }
+        }
+
+        // State 25→26: savedAddresses {address: name} map → [{name, address, chain:'ton'}] array
+        if (currentState < 26) {
+            for (accountId in accountIds(network = null)) {
+                val savedKey = "byAccountId.$accountId.savedAddresses"
+                val savedObj = globalStorageProvider.getDict(savedKey) ?: continue
+                val migrated = JSONArray()
+                savedObj.keys().forEach { address ->
+                    val name = savedObj.optString(address)
+                    migrated.put(JSONObject().apply {
+                        put("name", name)
+                        put("address", address)
+                        put("chain", "ton")
+                    })
+                }
+                globalStorageProvider.set(savedKey, migrated, IGlobalStorageProvider.PERSIST_NO)
+            }
+        }
+
+        // States 26→29: delete settings.dapps;
+        // migrate exceptionSlugs → alwaysShownSlugs / alwaysHiddenSlugs
+        if (currentState < 29) {
+            globalStorageProvider.remove("settings.dapps", IGlobalStorageProvider.PERSIST_NO)
+            val areNoCostHidden = globalStorageProvider.getBool(HIDE_NO_COST_TOKENS) ?: false
+            for (accountId in accountIds(network = null)) {
+                val exceptionSlugsKey = "$ASSETS_AND_ACTIVITY.$accountId.exceptionSlugs"
+                val exceptionSlugs = globalStorageProvider.getArray(exceptionSlugsKey) ?: continue
+                val targetKey = if (areNoCostHidden)
+                    "$ASSETS_AND_ACTIVITY.$accountId.alwaysShownSlugs"
+                else
+                    "$ASSETS_AND_ACTIVITY.$accountId.alwaysHiddenSlugs"
+                globalStorageProvider.set(
+                    targetKey,
+                    exceptionSlugs,
+                    IGlobalStorageProvider.PERSIST_NO
+                )
+                globalStorageProvider.remove(exceptionSlugsKey, IGlobalStorageProvider.PERSIST_NO)
+            }
+        }
+
+        // States 29→32: set isAppLockEnabled if autolockValue is set
+        if (currentState < 32) {
+            val autolockValue = globalStorageProvider.getString("settings.autolockValue")
+            if (autolockValue != null && autolockValue != "never") {
+                globalStorageProvider.set(
+                    "settings.isAppLockEnabled",
+                    true,
+                    IGlobalStorageProvider.PERSIST_NO
+                )
+            }
+        }
 
         if (currentState < 36) {
             clearActivities()

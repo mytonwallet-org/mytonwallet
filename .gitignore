@@ -33,4 +33,6 @@ mobile/ios/Air/scripts/strings/.venv
 mobile/ios/App/App/Resources/Localizable.xcstrings
 mobile/ios/App/AirWidget/Localizable.xcstrings
 mobile/plugins/native-enclave/android/build/
+AGENTS.md
 .agent/tasks
+.codex/agents

@@ -5,8 +5,15 @@ import capacitorStorage from './capacitorStorage';
 import extensionStorage from './extension';
 import idb from './idb';
 import localStorage from './localStorage';
+import { nodeStorage } from './nodeStorage';
 
-export const storage = IS_EXTENSION ? extensionStorage : IS_CAPACITOR ? capacitorStorage : idb;
+export const storage = IS_EXTENSION
+  ? extensionStorage
+  : IS_CAPACITOR
+    ? capacitorStorage
+    : nodeStorage
+      ? nodeStorage
+      : idb;
 
 export default {
   [StorageType.IndexedDb]: idb,

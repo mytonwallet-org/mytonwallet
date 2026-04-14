@@ -9,7 +9,7 @@ import {
 import { getTokenInfo } from '../../util/chain';
 import Deferred from '../../util/Deferred';
 import { buildCollectionByKey, omitUndefined } from '../../util/iteratees';
-import { tokenRepository } from '../db';
+import { tokenCacheStore } from '../db/tokenCacheStore';
 
 export const tokensPreload = new Deferred();
 const tokensCache: {
@@ -20,7 +20,7 @@ const tokensCache: {
 
 export async function loadTokensCache() {
   try {
-    const tokens = await tokenRepository.all();
+    const tokens = await tokenCacheStore.getAll();
     await updateTokens(tokens);
   } finally {
     tokensPreload.resolve();
@@ -60,7 +60,7 @@ export async function updateTokens(
     }
   }
 
-  await tokenRepository.bulkPut(tokensForDb);
+  await tokenCacheStore.bulkPut(tokensForDb);
 
   if (shouldSendUpdate && sendUpdate) {
     sendUpdate();

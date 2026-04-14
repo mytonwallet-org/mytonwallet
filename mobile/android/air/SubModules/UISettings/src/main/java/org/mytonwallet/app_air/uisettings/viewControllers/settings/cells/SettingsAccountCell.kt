@@ -156,6 +156,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         subtitle: String?,
         isFirst: Boolean,
         isLast: Boolean,
+        isEnabled: Boolean,
         onTap: () -> Unit
     ) {
         val account = item.account!!
@@ -173,9 +174,6 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         this.account = account
         this.isFirst = isFirst
         this.isLast = isLast
-        setOnClickListener {
-            onTap()
-        }
 
         iconView.config(account)
         cardThumbnail.configure(account)
@@ -194,9 +192,11 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
                 layoutParams.height = it
         }
 
-        setOnClickListener {
-            onTap()
-        }
+        setContentAlpha(if (isEnabled) 1f else 0.4f)
+        this.isEnabled = isEnabled
+        isClickable = isEnabled
+
+        setOnClickListener { onTap() }
 
         updateAddressLabel()
         updateTheme()
@@ -230,6 +230,14 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         titleLabel.setTextColor(WColor.PrimaryText.color)
         addressLabel.setTextColor(WColor.SecondaryText.color)
         valueLabel.contentView.setTextColor(WColor.SecondaryText.color)
+    }
+
+    private fun setContentAlpha(alpha: Float) {
+        iconView.alpha = alpha
+        titleLabel.alpha = alpha
+        cardThumbnail.alpha = alpha
+        addressLabel.alpha = alpha
+        trailingContainerView.alpha = alpha
     }
 
     private fun updateAddressLabel() {

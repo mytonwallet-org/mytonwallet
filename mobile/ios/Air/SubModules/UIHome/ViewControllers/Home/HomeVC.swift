@@ -36,15 +36,24 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private let headerContainer: HomeHeaderContainer = HomeHeaderContainer()
     
     // navbar buttons
-    private lazy var lockItem: UIBarButtonItem = UIBarButtonItem(title: lang("Lock"), image: .airBundle("HomeLock24"), target: self, action: #selector(lockPressed))
-    private lazy var hideItem: UIBarButtonItem = {
-        let isHidden = AppStorageHelper.isSensitiveDataHidden
-        let image = UIImage.airBundle(isHidden ? "HomeUnhide24" : "HomeHide24")
-        return UIBarButtonItem(title: lang("Hide"), image: image, target: self, action: #selector(hidePressed))
-    }()
-    private lazy var scanItem: UIBarButtonItem = {
-        UIBarButtonItem(title: lang("Scan"), image: .airBundle("HomeScan24"), target: self, action: #selector(scanPressed))
-    }()
+    private lazy var lockNavigationItem = WNavigationBarIconGroup.Item(
+        title: lang("Lock"),
+        image: .airBundle("HomeLock")
+    ) { [weak self] in
+        self?.lockPressed()
+    }
+    private lazy var hideNavigationItem = WNavigationBarIconGroup.Item(
+        title: lang("Hide"),
+        image: .airBundle(AppStorageHelper.isSensitiveDataHidden ? "HomeUnhide" : "HomeHide")
+    ) { [weak self] in
+        self?.hidePressed()
+    }
+    private lazy var scanNavigationItem = WNavigationBarIconGroup.Item(
+        title: lang("Scan"),
+        image: .airBundle("HomeScan")
+    ) { [weak self] in
+        self?.scanPressed()
+    }
 
     /// The header containing balance and other actions like send/receive/scan/settings and balance in other currencies.
     private(set) lazy var balanceHeaderView = BalanceHeaderView(headerViewModel: headerViewModel,
@@ -527,7 +536,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     
     public func updateSensitiveData() {
         let isHidden = AppStorageHelper.isSensitiveDataHidden
-        hideItem.image = .airBundle(isHidden ? "HomeUnhide24" : "HomeHide24")
+        let image = UIImage.airBundle(isHidden ? "HomeUnhide" : "HomeHide")
+        hideNavigationItem.setImage(image)
         scrollViewDidScroll(collectionView)
     }
 
@@ -606,18 +616,22 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             trailingItemGroups += navigator.commitEditingBarButtonItem.asSingleItemGroup()
         case nil:
             if navigationController?.viewControllers.count == 1 {
-                leadingItemGroups += scanItem.asSingleItemGroup()
+                if let leadingItem = WNavigationBarIconGroup(items: [scanNavigationItem]).barButtonItem {
+                    leadingItemGroups += leadingItem.asSingleItemGroup()
+                }
             }
-            if AuthSupport.accountsSupportAppLock {
-                trailingItemGroups += lockItem.asSingleItemGroup()
+            let trailingItems = AuthSupport.accountsSupportAppLock
+                ? [lockNavigationItem, hideNavigationItem]
+                : [hideNavigationItem]
+            if let trailingItem = WNavigationBarIconGroup(items: trailingItems).barButtonItem {
+                trailingItemGroups += trailingItem.asSingleItemGroup()
             }
-            trailingItemGroups += hideItem.asSingleItemGroup()
         }
         
        navigationItem.leadingItemGroups = leadingItemGroups
        navigationItem.trailingItemGroups = trailingItemGroups
     }
-                
+
     // MARK: HomeVMDelegate
     func update(state: UpdateStatusView.State, animated: Bool) {
         DispatchQueue.main.async {
