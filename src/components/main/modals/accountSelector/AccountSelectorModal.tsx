@@ -9,8 +9,6 @@ import { SettingsState } from '../../../../global/types';
 import {
   selectCurrentAccountId,
   selectIsPasswordPresent,
-  selectMultipleAccountsStakingStatesSlow,
-  selectMultipleAccountsTokensSlow,
   selectNetworkAccounts,
   selectOrderedAccounts,
 } from '../../../../global/selectors';
@@ -28,8 +26,9 @@ import useEffectOnce from '../../../../hooks/useEffectOnce';
 import useFlag from '../../../../hooks/useFlag';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
+import { useMultipleAccountsBalances } from '../../../../hooks/useMultipleAccountsBalances';
 import useScrolledState from '../../../../hooks/useScrolledState';
-import { useAccountsBalances } from './hooks/useAccountsBalances';
+import useSyncEffect from '../../../../hooks/useSyncEffect';
 import { useFilteredAccounts } from './hooks/useFilteredAccounts';
 import { useSortableAccounts } from './hooks/useSortableAccounts';
 
@@ -119,38 +118,11 @@ function AccountSelectorModal({
   const lang = useLang();
   const contentRef = useRef<HTMLDivElement>();
 
-  const allAccountsTokens = useMemo(() => {
-    if (!byAccountId || !tokenInfo || !settingsByAccountId || !baseCurrency || !currencyRates) return undefined;
-
-    return selectMultipleAccountsTokensSlow(
-      networkAccounts,
-      byAccountId,
-      tokenInfo,
-      settingsByAccountId,
-      areTokensWithNoCostHidden,
-      baseCurrency,
-      currencyRates,
-    );
-  }, [
-    networkAccounts,
-    byAccountId,
-    tokenInfo,
-    settingsByAccountId,
-    areTokensWithNoCostHidden,
-    baseCurrency,
-    currencyRates,
-  ]);
-
-  const allAccountsStakingStates = useMemo(() => {
-    if (!byAccountId || !stakingDefault) return undefined;
-
-    return selectMultipleAccountsStakingStatesSlow(networkAccounts, byAccountId, stakingDefault);
-  }, [networkAccounts, byAccountId, stakingDefault]);
-
   const initialRenderingKey = viewModeInitial === 'list'
     ? AccountSelectorState.List
     : AccountSelectorState.Cards;
   const [renderingKey, setRenderingKey] = useState<AccountSelectorState>(initialRenderingKey);
+  const skipAnimationToKeyRef = useRef<AccountSelectorState | undefined>();
   const [renameAccountId, setRenameAccountId] = useState<string | undefined>();
   const [isLogOutModalOpen, openLogOutModal, closeLogOutModal] = useFlag(false);
   const [logOutAccountId, setLogOutAccountId] = useState<string | undefined>();
@@ -162,13 +134,17 @@ function AccountSelectorModal({
   const currentTabIndex = useMemo(() => getCurrentTabIndex(tabs, activeTab), [activeTab, tabs]);
   const selectedTab = tabs[currentTabIndex]?.id ?? DEFAULT_TAB;
   const filteredAccounts = useFilteredAccounts(orderedAccounts, selectedTab);
-  const { balancesByAccountId, totalBalance } = useAccountsBalances(
+  const { balancesByAccountId, totalBalance } = useMultipleAccountsBalances({
     filteredAccounts,
-    allAccountsTokens,
-    allAccountsStakingStates,
+    sourceAccounts: networkAccounts,
+    byAccountId,
+    tokenInfo,
+    settingsByAccountId,
+    areTokensWithNoCostHidden,
     baseCurrency,
     currencyRates,
-  );
+    stakingDefault,
+  });
   const { sortState, handleDrag, handleDragEnd } = useSortableAccounts(filteredAccounts);
 
   const {
@@ -188,6 +164,27 @@ function AccountSelectorModal({
     return enableSwipeToClose;
   }, [isOpen]);
 
+  useSyncEffect(() => {
+    if (!isOpen || forceAddingTonOnlyAccount || initialAuthState === undefined) {
+      skipAnimationToKeyRef.current = undefined;
+      return;
+    }
+
+    const state = initialAuthState;
+    let targetKey: AccountSelectorState;
+    if (state === AccountSelectorState.AddAccountConnectHardware && IS_LEDGER_SUPPORTED && !isTestnet) {
+      targetKey = AccountSelectorState.AddAccountConnectHardware;
+    } else if (state === AccountSelectorState.AddAccountViewMode
+      || state === AccountSelectorState.AddAccountInitial) {
+      targetKey = state;
+    } else {
+      targetKey = initialRenderingKey;
+    }
+
+    skipAnimationToKeyRef.current = targetKey;
+    setRenderingKey(targetKey);
+  }, [isOpen, forceAddingTonOnlyAccount, initialAuthState, initialRenderingKey, isTestnet]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -196,19 +193,10 @@ function AccountSelectorModal({
       return;
     }
 
-    if (initialAuthState !== undefined) {
-      const state = initialAuthState;
-      if (state === AccountSelectorState.AddAccountConnectHardware && IS_LEDGER_SUPPORTED && !isTestnet) {
-        handleImportHardwareWalletClick();
-      } else if (state === AccountSelectorState.AddAccountViewMode) {
-        setRenderingKey(AccountSelectorState.AddAccountViewMode);
-      } else if (state === AccountSelectorState.AddAccountInitial) {
-        setRenderingKey(AccountSelectorState.AddAccountInitial);
-      } else {
-        setRenderingKey(initialRenderingKey);
-      }
+    if (initialAuthState === AccountSelectorState.AddAccountConnectHardware && IS_LEDGER_SUPPORTED && !isTestnet) {
+      handleImportHardwareWalletClick();
     }
-  }, [isOpen, forceAddingTonOnlyAccount, initialAuthState, initialRenderingKey, isTestnet]);
+  }, [isOpen, forceAddingTonOnlyAccount, initialAuthState, isTestnet]);
 
   useEffect(() => {
     if (!IS_TOUCH_ENV || !isOpen) return;
@@ -576,6 +564,14 @@ function AccountSelectorModal({
     }
   }
 
+  // When opened with `initialAuthState`, Transition sees a key change (old → target) and animates.
+  // We pass `name="none"` to make this switch instant, then clear the flag once `renderingKey`
+  // catches up to the target so that subsequent navigations animate normally.
+  const shouldSkipTransition = skipAnimationToKeyRef.current !== undefined;
+  if (skipAnimationToKeyRef.current === renderingKey) {
+    skipAnimationToKeyRef.current = undefined;
+  }
+
   return (
     <>
       <Modal
@@ -588,7 +584,7 @@ function AccountSelectorModal({
       >
         <Transition
           ref={contentRef}
-          name="semiFade"
+          name={shouldSkipTransition ? 'none' : 'semiFade'}
           className={buildClassName(
             modalStyles.transition,
             styles.rootTransition,

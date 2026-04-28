@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uistake.util.getTonStakingFees
+import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
@@ -27,6 +28,7 @@ import org.mytonwallet.app_air.walletcore.api.submitStake
 import org.mytonwallet.app_air.walletcore.api.submitUnstake
 import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.moshi.Liquid
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -82,8 +84,22 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
         get() {
             return AccountStore.stakingData?.stakingState(tokenSlug)
         }
+
+    private fun liquidState(): StakingState.Liquid? = stakingState as? StakingState.Liquid
+
+    private fun commonTvl(): Double? {
+        liquidState()?.tvl?.let { raw ->
+            val token = TokenStore.getToken(TONCOIN_SLUG) ?: return@let
+            return raw.doubleAbsRepresentation(token.decimals)
+        }
+        return null
+    }
+
+    private fun commonTotalStakers(): Long? = liquidState()?.totalStakers?.toLong()
+
     var currentToken = TokenStore.getToken(if (mode == Mode.STAKE) tokenSlug else stakedTokenSlug)!!
-    private val stakedTokenSlug: String get() = tokenSlugToStakingSlug(tokenSlug) ?: throw Exception()
+    private val stakedTokenSlug: String
+        get() = tokenSlugToStakingSlug(tokenSlug) ?: throw Exception()
     private val tonOperationFees = getTonStakingFees(stakingState?.stakingType).run {
         if (mode == Mode.UNSTAKE) this["unstake"] else this["stake"]
     }
@@ -164,7 +180,9 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
             _viewState.tryEmit(
                 viewStateValue().emptyInput().copy(
                     maxAmountString = createMaxString(),
-                    estimatedEarning = createEstimatedEarningString(amountInCrypto)
+                    estimatedEarning = createEstimatedEarningString(amountInCrypto),
+                    tvl = commonTvl(),
+                    totalStakers = commonTotalStakers(),
                 )
             )
             return
@@ -187,7 +205,9 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                 isInputTextRed = !isBalanceSufficient || !isMoreThanMinRequired || isInsuffcientFeeAmount,
                 estimatedEarning = createEstimatedEarningString(amountInCrypto),
                 currentApy = apy.value.toString(),
-                maxAmountString = createMaxString()
+                maxAmountString = createMaxString(),
+                tvl = commonTvl(),
+                totalStakers = commonTotalStakers(),
             )
         )
 
@@ -450,7 +470,9 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                         showPositiveSign = false,
                         roundUp = true
                     ),
-                    maxAmountString = createMaxString()
+                    maxAmountString = createMaxString(),
+                    tvl = commonTvl(),
+                    totalStakers = commonTotalStakers(),
                 )
             )
         }

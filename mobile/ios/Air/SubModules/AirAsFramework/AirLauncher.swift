@@ -22,8 +22,7 @@ private let log = Log("AirLauncher")
 public class AirLauncher {
     
     private static var canSwitchToCapacitor: Bool {
-        // shouldn't be force unwrapped because app delegate is different in previews or widgets
-        (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.canSwitchToCapacitor ?? true
+        isCapacitorAvailable
     }
     
     public static var isOnTheAir: Bool {
@@ -191,6 +190,11 @@ public class AirLauncher {
     
     public static func switchToCapacitor() async {
         log.info("switchToCapacitor")
+        guard canSwitchToCapacitor else {
+            log.info("switchToCapacitor ignored: capacitor unavailable")
+            return
+        }
+
         do {
             try await AccountStore.removeAllTemporaryAccounts()
         } catch {

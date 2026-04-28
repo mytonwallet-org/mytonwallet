@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization
 
 import android.animation.ValueAnimator
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.util.TypedValue
 import android.view.Gravity
@@ -30,6 +31,7 @@ import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palet
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.views.availableCards.WalletCustomizationAvailableCardsView
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.views.cards.WalletCustomizationCardCell
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.views.cards.WalletCustomizationCardsView
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.DEFAULT_TINT_DARK
 import org.mytonwallet.app_air.walletbasecontext.theme.DEFAULT_TINT_LIGHT
@@ -235,11 +237,12 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
 
     private val getMoreCardsButton by lazy {
         WLabel(context).apply {
-            setStyle(16f)
+            setStyle(adaptiveFontSize())
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
             setPadding(20.dp, 0, 20.dp, 0)
             setOnClickListener {
-                WalletCore.notifyEvent(WalletEvent.OpenUrl("https://cards.mytonwallet.io"))
+                val url = context.getString(BaseR.string.app_cards_url)
+                if (url.isNotEmpty()) WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
             }
         }
     }

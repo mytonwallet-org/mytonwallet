@@ -1,8 +1,17 @@
-import type { ApiActivityTimestamps, ApiChain, OnApiUpdate } from '../types';
+import type { ApiActivityTimestamps, OnApiUpdate } from '../types';
 
 import { IS_EXTENSION } from '../../config';
+import { getOrderedAccountChains } from '../../util/chain';
 import { SOLANA_DERIVATION_PATHS } from '../chains/solana/constants';
-import { fetchStoredAccounts, getCurrentAccountId, loginResolve } from '../common/accounts';
+import { TRON_BIP39_PATH } from '../chains/tron/constants';
+import {
+  fetchStoredAccount,
+  fetchStoredAccounts,
+  getAccountChains,
+  getCurrentAccountId,
+  loginResolve,
+  updateStoredWallet,
+} from '../common/accounts';
 import { sendUpdateTokens } from '../common/tokens';
 import { callHook } from '../hooks';
 import { storage } from '../storages';
@@ -39,24 +48,47 @@ export async function activateAccount(
 export async function loadAccountsDerivations() {
   const accounts = await fetchStoredAccounts();
   for (const [accountId, account] of Object.entries(accounts)) {
-    for (const [chain, wallet] of Object.entries(account.byChain)) {
-      if (wallet?.derivation) {
-        const derivationLabel = Object.entries(SOLANA_DERIVATION_PATHS)
-          .find(([_, path]) => path === wallet.derivation?.path)?.[0];
+    let byChain = account.byChain;
 
-        onUpdate({
-          type: 'updateAccount',
-          accountId,
-          chain: chain as ApiChain,
-          derivation: {
-            path: wallet.derivation.path,
-            index: wallet.derivation.index,
-            label: wallet.derivation.label || derivationLabel,
-          },
-        });
-      }
+    if (account.type === 'bip39' && account.byChain.tron?.address && !account.byChain.tron.derivation) {
+      await updateStoredWallet(accountId, 'tron', {
+        derivation: { path: TRON_BIP39_PATH, index: 0 },
+      });
+
+      byChain = {
+        ...account.byChain,
+        tron: { ...account.byChain.tron, derivation: { path: TRON_BIP39_PATH, index: 0 } },
+      };
+    }
+
+    // `getOrderedAccountChains` filters out stored keys that are no longer in CHAIN_CONFIG,
+    // so they don't propagate into global state via `updateAccount`.
+    for (const chain of getOrderedAccountChains(byChain)) {
+      const wallet = byChain[chain];
+      if (!wallet?.derivation) continue;
+
+      const derivationLabel = Object.entries(SOLANA_DERIVATION_PATHS)
+        .find(([_, path]) => path === wallet.derivation?.path)?.[0];
+
+      onUpdate({
+        type: 'updateAccount',
+        accountId,
+        chain,
+        derivation: {
+          path: wallet.derivation.path,
+          index: wallet.derivation.index,
+          label: wallet.derivation.label || derivationLabel,
+        },
+      });
     }
   }
+}
+
+export async function fetchStoredAccountSummary(accountId: string) {
+  const account = await fetchStoredAccount(accountId);
+  return {
+    byChain: getAccountChains(account),
+  };
 }
 
 export async function deactivateAllAccounts() {

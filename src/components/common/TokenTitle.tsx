@@ -21,7 +21,7 @@ function TokenTitle({
     <div className={buildClassName(styles.tokenTitle, isDisabled && styles.disabled)}>
       {isPinned && <i className={buildClassName(styles.pinIcon, 'icon-pin')} aria-hidden />}
       <div className={styles.labelContainer}>
-        <span>{tokenName}</span>
+        <span className={styles.tokenName}>{tokenName}</span>
         {tokenLabel && (
           <span className={buildClassName(styles.label, styles.chainLabel)}>{tokenLabel}</span>
         )}

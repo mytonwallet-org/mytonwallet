@@ -1,7 +1,13 @@
 import type { ApiChain, ApiToken, ApiTokenWithPrice } from '../api/types';
 import type { UserToken } from '../global/types';
 
-import { PRICELESS_TOKEN_HASHES, PRIORITY_TOKEN_SLUGS, STAKED_TOKEN_SLUGS } from '../config';
+import {
+  PRICELESS_TOKEN_HASHES,
+  PRIORITY_TOKENS,
+  STAKED_TOKEN_SLUGS,
+  STAKED_TON_SLUG,
+  STAKING_SLUG_PREFIX,
+} from '../config';
 import { findChainConfig, getChainConfig, getSupportedChains } from './chain';
 import { pick } from './iteratees';
 
@@ -11,6 +17,15 @@ const chainByNativeSlug = Object.fromEntries(
 
 export function getIsNativeToken(slug?: string) {
   return slug ? slug in chainByNativeSlug : false;
+}
+
+export function getIsNativeStakedToken(slug?: string) {
+  if (!slug) return false;
+  if (slug === STAKED_TON_SLUG) return true;
+  if (slug.startsWith(STAKING_SLUG_PREFIX)) {
+    return getIsNativeToken(slug.slice(STAKING_SLUG_PREFIX.length));
+  }
+  return false;
 }
 
 export function getNativeToken(chain: ApiChain): ApiToken {
@@ -55,9 +70,11 @@ export function sortTokens(tokens: UserToken[], pinnedSlugs: string[]) {
     if (indexA !== -1) return -1;
     if (indexB !== -1) return 1;
 
+    const priorityTokenSlugs = PRIORITY_TOKENS.map((token) => token.slug);
+
     // Both unpinned - priority tokens go first
-    const priorityA = PRIORITY_TOKEN_SLUGS.indexOf(tokenA.slug);
-    const priorityB = PRIORITY_TOKEN_SLUGS.indexOf(tokenB.slug);
+    const priorityA = priorityTokenSlugs.indexOf(tokenA.slug);
+    const priorityB = priorityTokenSlugs.indexOf(tokenB.slug);
 
     if (priorityA !== -1 && priorityB !== -1 && tokenA.totalValue === tokenB.totalValue) {
       return priorityA - priorityB;

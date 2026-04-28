@@ -1,6 +1,7 @@
 import React, {
-  memo, useEffect, useMemo, useRef,
+  memo, useEffect, useLayoutEffect, useMemo, useRef,
 } from '../../lib/teact/teact';
+import { removeExtraClass, toggleExtraClass } from '../../lib/teact/teact-dom';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiSite, ApiSiteCategory } from '../../api/types';
@@ -28,7 +29,6 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 import usePrevious2 from '../../hooks/usePrevious2';
-import useScrolledState from '../../hooks/useScrolledState';
 import { useStateRef } from '../../hooks/useStateRef';
 
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
@@ -44,7 +44,6 @@ import styles from './Explore.module.scss';
 
 interface OwnProps {
   isActive?: boolean;
-  onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
 interface StateProps {
@@ -69,7 +68,6 @@ function Explore({
   featuredTitle,
   shouldRestrict,
   currentSiteCategoryId,
-  onScroll,
 }: OwnProps & StateProps) {
   const {
     loadExploreSites,
@@ -98,15 +96,17 @@ function Explore({
     onBack: handleBack,
   });
 
+  useLayoutEffect(() => {
+    toggleExtraClass(document.documentElement, 'is-explore-active', isActive);
+
+    return () => {
+      removeExtraClass(document.documentElement, 'is-explore-active');
+    };
+  }, [isActive]);
+
   const { renderingKey } = useModalTransitionKeys(currentSiteCategoryId || 0, !!isActive);
   const prevSiteCategoryIdRef = useStateRef(usePrevious2(renderingKey));
   const { disableSwipeToClose, enableSwipeToClose } = useTelegramMiniAppSwipeToClose(isActive);
-
-  // On desktop should be used external scroll detection via `onScroll` prop
-  const {
-    handleScroll: handleContentScroll,
-    isScrolled,
-  } = useScrolledState();
 
   useEffect(
     () => (renderingKey ? captureEscKeyListener(closeSiteCategory) : undefined),
@@ -178,28 +178,29 @@ function Explore({
     switch (currentKey) {
       case SLIDES.main:
         return (
-          <div
-            className={buildClassName(styles.slide, 'custom-scroll')}
-            onScroll={isPortrait ? handleContentScroll : onScroll}
-          >
-            <ExploreSearch
-              shouldShowNotch={isScrolled}
-              sites={filteredSites}
-            />
-            <DappFeed />
+          <div className={styles.slideWrapper}>
+            <div
+              className={buildClassName(styles.slide, 'custom-scroll')}
+            >
+              {!isPortrait && (
+                <ExploreSearch sites={filteredSites} />
+              )}
+              <DappFeed />
 
-            {Boolean(featuredSites.length) && renderFeatured()}
+              {Boolean(featuredSites.length) && renderFeatured()}
 
-            {Boolean(filteredCategories?.length) && (
-              <>
-                <h2 className={styles.sectionHeader}>{lang('Popular Apps')}</h2>
-                <div className={buildClassName(styles.list, isLandscape && styles.landscapeList)}>
-                  {filteredCategories.map((category) => (
-                    <Category key={category.id} category={category} sites={allSites[category.id]} />
-                  ))}
-                </div>
-              </>
-            )}
+              {Boolean(filteredCategories?.length) && (
+                <>
+                  <h2 className={styles.sectionHeader}>{lang('Popular Apps')}</h2>
+                  <div className={buildClassName(styles.list, isLandscape && styles.landscapeList)}>
+                    {filteredCategories.map((category) => (
+                      <Category key={category.id} category={category} sites={allSites[category.id]} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {isPortrait && <ExploreSearch sites={filteredSites} />}
           </div>
         );
 

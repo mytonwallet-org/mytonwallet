@@ -191,6 +191,7 @@ public struct MtwCardBalanceView: View, Equatable {
                     .opacity(secondaryOpacity == 1 ? 0.75 : 0.5)
                     .offset(y: -1)
                     .padding(.vertical, -8)
+                    .accessibilityHidden(true)
             }
         }
         .backportGeometryGroup()

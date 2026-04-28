@@ -109,6 +109,11 @@ public class SellVC: WViewController {
             showDisplayErrorThenDismiss(lang("$missing_offramp_deposit_address"))
             return
         }
+
+        guard chain.isOfframpSupported else {
+            showDisplayErrorThenDismiss(lang("Selling is not supported for this token."))
+            return
+        }
         
         guard let token = TokenStore.getToken(slug: tokenSlug) else {
             showDisplayErrorThenDismiss(lang("Token not found"))

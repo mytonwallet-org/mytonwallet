@@ -15,7 +15,6 @@ import type {
   GlobalState,
 } from '../../types';
 import {
-  ActiveTab,
   SwapErrorType,
   SwapInputSource,
   SwapState,
@@ -62,8 +61,6 @@ import {
   selectCurrentToncoinBalance,
   selectSwapType,
 } from '../../selectors';
-
-import { getIsPortrait } from '../../../hooks/useDeviceScreen';
 
 const pairsCache: Record<string, { timestamp: number }> = {};
 
@@ -169,9 +166,8 @@ function processNativeMaxSwap(global: GlobalState) {
 
 addActionHandler('startSwap', (global, actions, payload) => {
   const { state } = payload ?? {};
-  const isPortrait = getIsPortrait();
 
-  const requiredState = state || (isPortrait ? SwapState.Initial : SwapState.None);
+  const requiredState = state || SwapState.Initial;
 
   global = updateCurrentSwap(global, {
     ...payload,
@@ -180,10 +176,6 @@ addActionHandler('startSwap', (global, actions, payload) => {
     inputSource: SwapInputSource.In,
   });
   setGlobal(global);
-
-  if (!isPortrait) {
-    actions.setLandscapeActionsActiveTabIndex({ index: ActiveTab.Swap });
-  }
 });
 
 addActionHandler('setDefaultSwapParams', (global, actions, payload) => {
@@ -245,15 +237,12 @@ addActionHandler('submitSwap', async (global, actions, { password }) => {
     return;
   }
 
-  setGlobal(updateCurrentSwap(getGlobal(), { shouldResetOnClose: undefined }));
-
   const swapBuildRequest = buildSwapBuildRequest(global);
   const buildResult = await callApi(
     'swapBuildTransfer', selectCurrentAccountId(global)!, password, swapBuildRequest,
   );
 
   if (!handleTransferResult(buildResult, updateCurrentSwap)) {
-    setGlobal(updateCurrentSwap(getGlobal(), { shouldResetOnClose: true }));
     return;
   }
 
@@ -278,7 +267,6 @@ addActionHandler('submitSwap', async (global, actions, { password }) => {
     amountIn: undefined,
     amountOut: undefined,
     state: SwapState.Complete,
-    shouldResetOnClose: true,
   }));
 
   const result = await callApi(
@@ -292,7 +280,6 @@ addActionHandler('submitSwap', async (global, actions, { password }) => {
 
   if (isErrorTransferResult(result)) {
     reportErrorTransferResult(result, updateCurrentSwap);
-    setGlobal(updateCurrentSwap(getGlobal(), { shouldResetOnClose: true }));
     return;
   }
 
@@ -309,7 +296,6 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
   }
 
   global = getGlobal();
-  setGlobal(updateCurrentSwap(global, { shouldResetOnClose: undefined }));
 
   const currentAccountId = selectCurrentAccountId(global)!;
   const account = selectCurrentAccount(global);
@@ -341,7 +327,6 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
   const swapItem = await callApi('swapCexCreateTransaction', currentAccountId, password, swapTransactionRequest);
 
   if (!handleTransferResult(swapItem, updateCurrentSwap)) {
-    setGlobal(updateCurrentSwap(getGlobal(), { shouldResetOnClose: true }));
     return;
   }
 
@@ -352,7 +337,6 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
     payinAddress: swapItem.swap.cex!.payinAddress,
     payoutAddress: swapItem.swap.cex!.payoutAddress,
     payinExtraId: swapItem.swap.cex!.payinExtraId,
-    shouldResetOnClose: true,
   });
   setGlobal(global);
 
@@ -372,7 +356,6 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
 
     if (isErrorTransferResult(transferResult)) {
       reportErrorTransferResult(transferResult, updateCurrentSwap);
-      setGlobal(updateCurrentSwap(getGlobal(), { shouldResetOnClose: true }));
       return;
     }
   }

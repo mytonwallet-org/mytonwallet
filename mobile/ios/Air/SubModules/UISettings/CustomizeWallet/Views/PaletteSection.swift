@@ -94,7 +94,6 @@ final class PaletteSettingsViewModel {
 struct PaletteSection: View {
     
     let viewModel: PaletteSettingsViewModel
-    @State private var angle: Angle = .zero
     @State private var containerWidth = 0.0
     
     var body: some View {
@@ -121,14 +120,7 @@ struct PaletteSection: View {
             }
             .overlay {
                 if viewModel.isLoading {
-                    Image.airBundle("ActivityIndicator")
-                        .renderingMode(.template)
-                        .rotationEffect(angle)
-                        .onAppear {
-                            withAnimation(.linear(duration: 0.625).repeatForever(autoreverses: false)) {
-                                angle += .radians(2 * .pi)
-                            }
-                        }
+                    WUIActivityIndicator()
                         .transition(.scale.combined(with: .opacity))
                         .foregroundStyle(Color.accentColor)
                 }

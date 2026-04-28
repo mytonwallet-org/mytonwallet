@@ -9,7 +9,6 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
-import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -25,6 +24,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 
 @SuppressLint("ViewConstructor")
 class WNavigationBar(
@@ -94,11 +94,7 @@ class WNavigationBar(
                 navigationController.onBackPressed()
             }
             visibility = if (navigationController.isBackAllowed()) VISIBLE else GONE
-            val arrowDrawable =
-                ContextCompat.getDrawable(
-                    context,
-                    R.drawable.ic_nav_back
-                )
+            val arrowDrawable = context.getDrawableCompat(R.drawable.ic_nav_back)
             setImageDrawable(arrowDrawable)
             updateColors(currentTint ?: WColor.SecondaryText, WColor.BackgroundRipple)
         }
@@ -106,11 +102,7 @@ class WNavigationBar(
 
     private val closeButton: WImageButton by lazy {
         WImageButton(context).apply {
-            val closeDrawable =
-                ContextCompat.getDrawable(
-                    context,
-                    R.drawable.ic_close
-                )
+            val closeDrawable = context.getDrawableCompat(R.drawable.ic_close)
             setImageDrawable(closeDrawable)
             updateColors(currentTint ?: WColor.SecondaryText, WColor.BackgroundRipple)
             setPadding(8.dp)

@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uistake.staking
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.view.View
@@ -88,7 +89,7 @@ class StakingVC(
         ellipsize = TextUtils.TruncateAt.END
         text = LocaleController.getString("Details")
 
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setPadding(20.dp, 16.dp, 20.dp, 7.dp)
     }
     private val stakingDetailView by lazy {
@@ -330,6 +331,8 @@ class StakingVC(
             StakingViewModel.Mode.STAKE -> {
                 stakingDetailView.setEarning(viewState.estimatedEarning)
                 stakingDetailView.setApy(viewState.currentApy)
+                stakingDetailView.setTvl(viewState.tvl)
+                stakingDetailView.setTotalStakers(viewState.totalStakers)
             }
 
             StakingViewModel.Mode.UNSTAKE -> {
@@ -414,14 +417,20 @@ class StakingVC(
     private fun handleViewModelEvent(event: StakingViewModel.VmToVcEvents) {
         when (event) {
             is StakingViewModel.VmToVcEvents.SubmitSuccess -> {
-                Logger.d(Logger.LogTag.STAKING, "handleViewModelEvent: SubmitSuccess activityId=${event.activityId}")
+                Logger.d(
+                    Logger.LogTag.STAKING,
+                    "handleViewModelEvent: SubmitSuccess activityId=${event.activityId}"
+                )
                 MBlockchain.ton.idToTxHash(event.activityId)?.let {
                     onDone(it)
                 }
             }
 
             is StakingViewModel.VmToVcEvents.SubmitFailure -> {
-                Logger.d(Logger.LogTag.STAKING, "handleViewModelEvent: SubmitFailure error=${event.error?.parsed}")
+                Logger.d(
+                    Logger.LogTag.STAKING,
+                    "handleViewModelEvent: SubmitFailure error=${event.error?.parsed}"
+                )
                 pop()
                 showError(event.error?.parsed)
             }
@@ -432,7 +441,10 @@ class StakingVC(
 
     private fun pushConfirmView() {
         val mode = if (stakingViewModel.isStake()) "stake" else "unstake"
-        Logger.d(Logger.LogTag.STAKING, "pushConfirmView: mode=$mode tokenSlug=${stakingViewModel.tokenSlug}")
+        Logger.d(
+            Logger.LogTag.STAKING,
+            "pushConfirmView: mode=$mode tokenSlug=${stakingViewModel.tokenSlug}"
+        )
         view.hideKeyboard()
         val passcodeConfirmVC = PasscodeConfirmVC(
             context = context,
@@ -449,7 +461,7 @@ class StakingVC(
 
     private fun showWhySafeAlert() {
         showAlert(
-            title = LocaleController.getString("Why is staking safe?"),
+            title = LocaleController.getString("Why this is safe"),
             text = StakingMessageHelpers.whyStakingIsSafeDescription(stakingViewModel.tokenSlug)
                 ?: return,
             button = LocaleController.getString("OK"),
@@ -517,7 +529,10 @@ class StakingVC(
 
     private fun confirmHardware() {
         val mode = if (stakingViewModel.isStake()) "stake" else "unstake"
-        Logger.d(Logger.LogTag.STAKING, "confirmHardware: mode=$mode tokenSlug=${stakingViewModel.tokenSlug}")
+        Logger.d(
+            Logger.LogTag.STAKING,
+            "confirmHardware: mode=$mode tokenSlug=${stakingViewModel.tokenSlug}"
+        )
         view.lockView()
         val account = AccountStore.activeAccount!!
         val ledgerConnectVC = LedgerConnectVC(

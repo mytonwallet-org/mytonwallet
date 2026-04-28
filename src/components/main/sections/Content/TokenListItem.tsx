@@ -12,6 +12,7 @@ interface OwnProps {
   topOffset: number;
   withAnimation: boolean;
   shouldFadeInPlace?: boolean;
+  isWidget?: boolean;
   children?: TeactNode;
 }
 
@@ -19,15 +20,16 @@ function TokenListItem({
   topOffset,
   withAnimation,
   shouldFadeInPlace,
+  isWidget,
   children,
 }: OwnProps) {
   const { ref: animationRef } = useListItemAnimation(styles, withAnimation, topOffset, shouldFadeInPlace);
 
   return (
     <div
-      ref={animationRef}
-      style={`top: ${topOffset}rem`}
-      className={buildClassName('token-list-item', styles.listItem)}
+      ref={isWidget ? undefined : animationRef}
+      style={isWidget ? undefined : `top: ${topOffset}rem`}
+      className={buildClassName('token-list-item', isWidget ? styles.listItemCompact : styles.listItem)}
     >
       {children}
     </div>

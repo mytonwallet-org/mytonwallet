@@ -155,11 +155,11 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
         view.setConstraints {
             topToBottom(noItemView, navigationBar!!)
             toCenterX(noItemView)
-            toBottomPx(noItemView, (navigationController?.getSystemBars()?.bottom ?: 0))
+            toBottomPx(noItemView, (navigationController?.bottomInset ?: 0))
 
             toTop(recyclerView)
             toCenterX(recyclerView)
-            toBottomPx(recyclerView, (navigationController?.getSystemBars()?.bottom ?: 0))
+            toBottomPx(recyclerView, (navigationController?.bottomInset ?: 0))
         }
 
         updateTheme()

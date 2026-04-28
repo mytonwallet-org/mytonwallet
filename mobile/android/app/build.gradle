@@ -11,7 +11,6 @@ android {
   namespace = "org.mytonwallet.app"
   compileSdk = rootProject.ext.compileSdkVersion
   defaultConfig {
-    applicationId "org.mytonwallet.app"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
     versionCode 1
@@ -34,10 +33,39 @@ android {
     }
   }
 
+  flavorDimensions "brand", "env"
+  productFlavors {
+    mytonwallet {
+      dimension "brand"
+      applicationId "org.mytonwallet.app"
+      getIsDefault().set(true)
+    }
+    gram {
+      dimension "brand"
+      applicationId "io.gramwallet.app"
+    }
+    prod {
+      dimension "env"
+    }
+    beta {
+      dimension "env"
+      applicationIdSuffix ".beta"
+      versionNameSuffix ".beta"
+    }
+  }
+
+  variantFilter { variant ->
+    def flavors = variant.flavors*.name
+    def buildType = variant.buildType.name
+    if (flavors.contains("beta") && buildType == "debug") {
+      variant.ignore = true
+    }
+  }
+
   buildTypes {
     debug {
       applicationIdSuffix = ".debug"
-      versionNameSuffix(".debug")
+      versionNameSuffix = ".debug"
 
       firebaseCrashlytics {
         mappingFileUploadEnabled false
@@ -62,7 +90,10 @@ dependencies {
   implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
   implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
   implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+  implementation "androidx.webkit:webkit:$androidxWebkitVersion"
   implementation project(':capacitor-android')
+  // FilesystemPlugin uses Dispatchers.Main during teardown and needs the Android dispatcher at runtime.
+  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinxCoroutinesVersion"
   testImplementation "junit:junit:$junitVersion"
   androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
   androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
@@ -73,12 +104,3 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
-
-try {
-  def servicesJSON = file('google-services.json')
-  if (servicesJSON.text) {
-    apply plugin: 'com.google.gms.google-services'
-  }
-} catch (Exception e) {
-  logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
-}

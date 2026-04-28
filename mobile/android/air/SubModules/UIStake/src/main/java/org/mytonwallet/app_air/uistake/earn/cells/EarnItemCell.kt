@@ -1,15 +1,18 @@
 package org.mytonwallet.app_air.uistake.earn.cells
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import androidx.constraintlayout.widget.ConstraintSet
+import androidx.dynamicanimation.animation.FloatValueHolder
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -17,62 +20,53 @@ import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.Sensi
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uistake.earn.models.EarnItem
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.DateUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import kotlin.math.abs
+import androidx.core.view.isVisible
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import kotlin.math.roundToInt
 
-class EarnItemCell(context: Context) : WCell(context), WThemedView {
+class EarnItemCell(context: Context) : WCell(context, LayoutParams(LayoutParams.MATCH_PARENT, 0)),
+    WThemedView {
 
-    private var isFirst = false
+    private var item: EarnItem? = null
     private var isLast = false
+    var onTap: ((item: EarnItem?) -> Unit)? = null
 
-    private val historyTitleLabel: WLabel by lazy {
-        val wLabel = WLabel(context)
-        wLabel.setStyle(14f, WFont.DemiBold)
-        wLabel.visibility = GONE
-        wLabel.text = LocaleController.getString("History")
-        wLabel
-    }
+    private var pendingInsertRunnable: Runnable? = null
 
-    private val totalEarnedLabel: WSensitiveDataContainer<WLabel> by lazy {
-        val wLabel = WLabel(context)
-        wLabel.setStyle(14f, WFont.Regular)
-        WSensitiveDataContainer(
-            wLabel,
-            WSensitiveDataContainer.MaskConfig(
-                12,
-                3,
-                gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
-            )
-        ).apply {
-            visibility = GONE
-        }
+    companion object {
+        const val ITEM_HEIGHT = 60f
     }
 
     private val iconView: IconView by lazy {
-        val iv = IconView(context)
+        val iv = IconView(context, ApplicationContextHolder.adaptiveIconSize.dp)
         iv
     }
 
     private val groupIcon: IconView by lazy {
-        val iv = IconView(context)
+        val iv = IconView(context, ApplicationContextHolder.adaptiveIconSize.dp)
         iv.visibility = GONE
         iv
     }
 
     private val groupIconShadow1: IconView by lazy {
-        val iv = IconView(context, viewSize = 44.dp)
+        val iv = IconView(context, viewSize = (ApplicationContextHolder.adaptiveIconSize - 4).dp)
         iv.alpha = 0.6f
         iv.visibility = GONE
         iv
     }
 
     private val groupIconShadow2: IconView by lazy {
-        val iv = IconView(context, viewSize = 40.dp)
+        val iv = IconView(context, viewSize = (ApplicationContextHolder.adaptiveIconSize - 8).dp)
         iv.alpha = 0.3f
         iv.visibility = GONE
         iv
@@ -80,7 +74,7 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.Medium)
+            setStyle(adaptiveFontSize(), WFont.DemiBold)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
@@ -90,7 +84,7 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
 
     private val itemDateLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(14f, WFont.Regular)
+            setStyle(13f, WFont.Regular)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
@@ -100,7 +94,7 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
 
     private val amountLabel: WSensitiveDataContainer<WLabel> by lazy {
         val label = WLabel(context)
-        label.setStyle(16f, WFont.Regular)
+        label.setStyle(adaptiveFontSize(), WFont.Regular)
         WSensitiveDataContainer(
             label,
             WSensitiveDataContainer.MaskConfig(0, 2, Gravity.RIGHT or Gravity.CENTER_VERTICAL)
@@ -109,25 +103,70 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
 
     private val fiatValueLabel: WSensitiveDataContainer<WLabel> by lazy {
         val label = WLabel(context)
-        label.setStyle(14f, WFont.Regular)
+        label.setStyle(13f, WFont.Regular)
         WSensitiveDataContainer(
             label,
             WSensitiveDataContainer.MaskConfig(0, 2, Gravity.RIGHT or Gravity.CENTER_VERTICAL)
         )
     }
 
-    init {
-        super.setupViews()
+    private var heightSpringAnimation: SpringAnimation? = null
 
-        layoutParams.height = WRAP_CONTENT
+    private fun cancelContentAnimations() {
+        titleLabel.animate().cancel()
+        itemDateLabel.animate().cancel()
+        amountLabel.animate().cancel()
+        fiatValueLabel.animate().cancel()
+        iconView.animate().cancel()
+        groupIcon.animate().cancel()
+        groupIconShadow1.animate().cancel()
+        groupIconShadow2.animate().cancel()
+    }
 
-        addView(historyTitleLabel)
-        addView(totalEarnedLabel)
+    private fun setContentAlpha(alpha: Float) {
+        iconView.alpha = alpha
+        groupIcon.alpha = alpha
+        groupIconShadow1.alpha = alpha * 0.6f
+        groupIconShadow2.alpha = alpha * 0.3f
+        titleLabel.alpha = alpha
+        itemDateLabel.alpha = alpha
+        amountLabel.alpha = alpha
+        fiatValueLabel.alpha = alpha
+    }
 
-        addView(iconView, LayoutParams(48.dp, 48.dp))
-        addView(groupIconShadow2, LayoutParams(40.dp, 40.dp))
-        addView(groupIconShadow1, LayoutParams(44.dp, 44.dp))
-        addView(groupIcon, LayoutParams(48.dp, 48.dp))
+    private fun startInsertAnimation() {
+        val targetHeight = ITEM_HEIGHT.dp
+        heightSpringAnimation = SpringAnimation(FloatValueHolder()).apply {
+            setStartValue(0f)
+            spring = SpringForce(targetHeight).apply {
+                stiffness = 500f
+                dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
+            }
+            addUpdateListener { _, value, _ ->
+                layoutParams.height = value.toInt()
+                requestLayout()
+                val fraction =
+                    ((value - 0.8f * targetHeight) / (0.2f * targetHeight)).coerceIn(0f, 1f)
+                setContentAlpha(fraction)
+            }
+            addEndListener { _, _, _, _ ->
+                layoutParams.height = ITEM_HEIGHT.dp.roundToInt()
+                setContentAlpha(1f)
+                heightSpringAnimation = null
+            }
+            start()
+        }
+    }
+
+    // Setup items is postponed to allow the view appear with 0 height (during unmerge animations) instantly with no overheads
+    fun firstAppearanceSetup() {
+        val iconSize = (ApplicationContextHolder.adaptiveIconSize + 2).dp
+        val shadow1Size = (ApplicationContextHolder.adaptiveIconSize - 4).dp
+        val shadow2Size = (ApplicationContextHolder.adaptiveIconSize - 8).dp
+        addView(iconView, LayoutParams(iconSize, iconSize))
+        addView(groupIconShadow2, LayoutParams(shadow2Size, shadow2Size))
+        addView(groupIconShadow1, LayoutParams(shadow1Size, shadow1Size))
+        addView(groupIcon, LayoutParams(iconSize, iconSize))
         addView(titleLabel)
         addView(itemDateLabel)
         addView(amountLabel)
@@ -136,15 +175,7 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
         addRippleEffect(WColor.SecondaryBackground.color)
 
         setConstraints {
-            toTop(historyTitleLabel, 16f)
-            toStart(historyTitleLabel, 20f)
-
-            centerYToCenterY(totalEarnedLabel, historyTitleLabel)
-            toEnd(totalEarnedLabel, 16f)
-
-            topToBottom(iconView, historyTitleLabel, 18f)
-            setGoneMargin(iconView.id, ConstraintSet.TOP, 8.dp)
-            toBottom(iconView, 8f)
+            toTop(iconView, ApplicationContextHolder.adaptiveIconTopMargin)
             toStart(iconView, 12f)
 
             edgeToEdge(groupIcon, iconView)
@@ -155,39 +186,47 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
 
             setHorizontalBias(titleLabel.id, 0f)
             constrainedWidth(titleLabel.id, true)
-            topToTop(titleLabel, iconView)
-            startToEnd(titleLabel, iconView, 12f)
-            bottomToTop(titleLabel, itemDateLabel)
-            endToStart(titleLabel, amountLabel, 8f)
+            toStart(titleLabel, ApplicationContextHolder.adaptiveContentStart)
+            toTop(titleLabel, 9f)
+            endToStart(titleLabel, amountLabel, 4f)
 
-            topToBottom(itemDateLabel, titleLabel, -1f)
             startToStart(itemDateLabel, titleLabel)
             endToStart(itemDateLabel, fiatValueLabel, 4f)
             constrainedWidth(itemDateLabel.id, true)
             setHorizontalBias(itemDateLabel.id, 0f)
-            toBottom(itemDateLabel, 9f)
+            toBottom(itemDateLabel, 10f)
 
-            topToTop(amountLabel, iconView)
+            toTop(amountLabel, 9f)
             toEnd(amountLabel, 16f)
-            bottomToTop(amountLabel, fiatValueLabel)
 
-            topToBottom(fiatValueLabel, amountLabel)
             endToEnd(fiatValueLabel, amountLabel)
-            toBottom(fiatValueLabel, 9f)
+            toBottom(fiatValueLabel, 10f)
         }
 
-        updateTheme()
+        setOnClickListener {
+            onTap?.invoke(item)
+        }
     }
 
+    private var _isDarkThemeApplied: Boolean? = null
+    private var isLastChanged = true
     override fun updateTheme() {
+        val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
+        if (!darkModeChanged && !isLastChanged)
+            return
+        _isDarkThemeApplied = ThemeManager.isDark
+
         setBackgroundColor(
             WColor.Background.color,
-            if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f.dp,
+            0f,
             if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f.dp
         )
-
-        historyTitleLabel.setTextColor(WColor.PrimaryText.color)
-        totalEarnedLabel.contentView.setTextColor(WColor.SecondaryText.color)
+        if (item is EarnItem.ProfitGroup)
+            addRippleEffect(
+                WColor.SecondaryBackground.color,
+                0f,
+                if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
+            )
 
         titleLabel.setTextColor(WColor.PrimaryText.color)
         itemDateLabel.setTextColor(WColor.SecondaryText.color)
@@ -196,19 +235,95 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
         fiatValueLabel.contentView.setTextColor(WColor.SecondaryText.color)
     }
 
-    // TODO:: Header should be a separate cell!
+    @SuppressLint("SetTextI18n")
+    private fun configureReplacedAfterUnmerge(item: EarnItem, tokenSymbol: String) {
+        val duration = AnimationConstants.VERY_QUICK_ANIMATION
+        if (groupIconShadow1.isVisible) {
+            groupIcon.fadeOut(duration)
+            groupIconShadow1.fadeOut(duration) {
+                groupIconShadow1.alpha = 0.6f
+                if (this.item !== item) return@fadeOut
+                groupIconShadow1.visibility = GONE
+            }
+            groupIconShadow2.fadeOut(duration) {
+                groupIconShadow2.alpha = 0.3f
+                if (this.item !== item) return@fadeOut
+                groupIconShadow2.visibility = GONE
+            }
+        }
+
+        titleLabel.fadeOut(duration)
+        itemDateLabel.fadeOut(duration)
+        amountLabel.fadeOut(duration)
+        fiatValueLabel.fadeOut(duration) {
+            if (this.item !== item) return@fadeOut
+            titleLabel.setTextIfChanged(item.getTitle())
+            if (item is EarnItem.Profit || item is EarnItem.ProfitGroup || item is EarnItem.Unstaked) {
+                amountLabel.contentView.text = "+$signSpace${item.formattedAmount} $tokenSymbol"
+                amountLabel.contentView.setTextColor(WColor.Green.color)
+                amountLabel.maskView.skin = SensitiveDataMaskView.Skin.GREEN
+            } else {
+                amountLabel.contentView.text = "${item.formattedAmount} $tokenSymbol"
+                amountLabel.contentView.setTextColor(WColor.PrimaryText.color)
+                amountLabel.maskView.skin = null
+            }
+            fiatValueLabel.contentView.text = item.amountInBaseCurrency
+            itemDateLabel.text = DateUtils.formatDateAndTimeDotSeparated(item.timestamp)
+            groupIconShadow1.visibility = GONE
+            groupIconShadow2.visibility = GONE
+            iconView.alpha = 0f
+            iconView.visibility = VISIBLE
+
+            val amountCols = 4 + abs(item.timestamp.hashCode() % 8)
+            amountLabel.setMaskCols(amountCols)
+            fiatValueLabel.setMaskCols(5 + (amountCols % 6))
+            amountLabel.isSensitiveData = true
+            fiatValueLabel.isSensitiveData = true
+
+            groupIcon.fadeIn()
+            titleLabel.fadeIn(duration)
+            itemDateLabel.fadeIn(duration)
+            amountLabel.fadeIn(duration)
+            fiatValueLabel.fadeIn(duration)
+            iconView.fadeIn(duration)
+        }
+    }
+
     @SuppressLint("SetTextI18n")
     fun configure(
         item: EarnItem,
         tokenSymbol: String,
-        totalProfitFormatted: String?,
-        isFirst: Boolean,
         isLast: Boolean,
-        onTap: () -> Unit
+        isAdded: Boolean = false,
+        isReplaced: Boolean = false,
+        animationDelay: Long = 0L,
     ) {
-        this.isFirst = isFirst
+        if (this.item == null)
+            firstAppearanceSetup()
+
+        isLastChanged = this.isLast != isLast
         this.isLast = isLast
-        updateTheme()
+        val itemChanged = this.item?.isSame(item) != true || this.item?.isChanged(item) == true
+        this.item = item
+
+        val replaceAnimation = isReplaced && WGlobalStorage.getAreAnimationsActive()
+        if (!replaceAnimation)
+            updateTheme()
+
+        if (!itemChanged && !isLastChanged)
+            return
+
+        animate().cancel()
+        cancelContentAnimations()
+        heightSpringAnimation?.cancel()
+        heightSpringAnimation = null
+        pendingInsertRunnable?.let { removeCallbacks(it) }
+        pendingInsertRunnable = null
+
+        if (replaceAnimation) {
+            configureReplacedAfterUnmerge(item, tokenSymbol)
+            return
+        }
 
         titleLabel.setTextIfChanged(item.getTitle())
         if (item is EarnItem.Profit || item is EarnItem.ProfitGroup || item is EarnItem.Unstaked) {
@@ -246,30 +361,25 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
             itemDateLabel.text = DateUtils.formatDateAndTimeDotSeparated(item.timestamp)
         }
 
-        if (isFirst) {
-            totalProfitFormatted?.let {
-                totalEarnedLabel.contentView.text =
-                    "${LocaleController.getString("Earned")}: $totalProfitFormatted"
-            } ?: run {
-                totalEarnedLabel.contentView.text = null
-            }
-            historyTitleLabel.visibility = VISIBLE
-            totalEarnedLabel.visibility = VISIBLE
-        } else {
-            historyTitleLabel.visibility = GONE
-            totalEarnedLabel.visibility = GONE
-        }
-
-        setOnClickListener {
-            onTap()
-        }
-
         val amountCols = 4 + abs(item.timestamp.hashCode() % 8)
         amountLabel.setMaskCols(amountCols)
         val fiatAmountCols = 5 + (amountCols % 6)
         fiatValueLabel.setMaskCols(fiatAmountCols)
         amountLabel.isSensitiveData = true
         fiatValueLabel.isSensitiveData = true
+
+        if (isAdded && WGlobalStorage.getAreAnimationsActive()) {
+            alpha = 1f
+            layoutParams.height = 0
+            setContentAlpha(0f)
+            requestLayout()
+            pendingInsertRunnable = Runnable { startInsertAnimation() }
+            postDelayed(pendingInsertRunnable, animationDelay)
+        } else {
+            alpha = 1f
+            layoutParams.height = ITEM_HEIGHT.dp.roundToInt()
+            setContentAlpha(1f)
+        }
     }
 
 }

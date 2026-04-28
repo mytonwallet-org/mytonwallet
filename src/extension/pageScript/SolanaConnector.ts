@@ -16,9 +16,9 @@ import type { Connector } from '../../util/PostMessageConnector';
 
 import { APP_NAME } from '../../config';
 import { base58FromUint8Array, base64FromBuffer, uint8ArrayFromBase58 } from '../../util/casting';
+import { INJECTED_ICON } from '../../util/injectedConnector/injectedIcon';
 import {
   registerSolanaInjectedWallet,
-  solanaConnectorIcon,
 } from '../../util/injectedConnector/solanaConnector';
 
 class SolanaConnect implements SolanaStandardWallet {
@@ -33,7 +33,7 @@ class SolanaConnect implements SolanaStandardWallet {
   version = '1.0.0';
   name = APP_NAME;
 
-  icon = `data:image/svg+xml,${encodeURIComponent(solanaConnectorIcon)}`;
+  icon = `data:image/svg+xml,${encodeURIComponent(INJECTED_ICON)}`;
   chains = [
     'solana:mainnet',
     'solana:devnet',

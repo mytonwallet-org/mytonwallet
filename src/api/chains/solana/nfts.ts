@@ -31,8 +31,6 @@ import { NETWORK_CONFIG } from './constants';
 import { buildTransaction, estimateTransactionFee, FALLBACK_FEE, sendSignedTransaction } from './transfer';
 import { getIsWalletActive, getWalletBalance } from './wallet';
 
-const walletStatuses = new Map<string, 'active' | 'inactive'>();
-
 export async function getAccountNfts(accountId: string, options?: {
   collectionAddress?: string;
   offset?: number;
@@ -64,17 +62,15 @@ export async function streamAllAccountNfts(accountId: string, options: {
   signal?: AbortSignal;
   onBatch: (nfts: ApiNft[]) => void;
   ignorePreCheck?: boolean;
+  onPreCheckResult?: (isActive: boolean) => void;
 }): Promise<void> {
   const { network } = parseAccountId(accountId);
   const { address } = await fetchStoredWallet(accountId, 'solana');
 
   if (!options.ignorePreCheck) {
-    if (!walletStatuses.has(address)) {
-      const isActive = await getIsWalletActive(network, address);
-      walletStatuses.set(address, isActive ? 'active' : 'inactive');
-    }
-
-    if (walletStatuses.get(address) === 'inactive') {
+    const isActive = await getIsWalletActive(network, address);
+    options.onPreCheckResult?.(isActive);
+    if (!isActive) {
       logDebug('streamAllAccountNfts: wallet is inactive, skip polling', address);
       return;
     }

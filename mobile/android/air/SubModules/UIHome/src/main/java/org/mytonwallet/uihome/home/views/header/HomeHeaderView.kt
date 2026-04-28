@@ -1,6 +1,7 @@
 package org.mytonwallet.uihome.home.views.header
 
 import android.animation.ValueAnimator
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.graphics.Canvas
 import android.os.Handler
@@ -181,7 +182,7 @@ open class HomeHeaderView(
     }
 
     private val walletNameLabel = WLabel(context).apply {
-        setStyle(16f, WFont.DemiBold)
+        setStyle(adaptiveFontSize(), WFont.DemiBold)
         setSingleLine()
         isHorizontalFadingEdgeEnabled = true
         ellipsize = TextUtils.TruncateAt.MARQUEE
@@ -866,7 +867,7 @@ open class HomeHeaderView(
 
         walletNameLabel.x = (width - walletNameLabel.width) / 2f
         walletNameLabel.y =
-            balanceLabel.y + balanceLabel.height - 10.dp + (10f * balanceExpandProgress).dp
+            balanceLabel.y + balanceLabel.height - 12.dp + (12f * balanceExpandProgress).dp
         updateWalletNameMargin(balanceExpandProgress)
 
         if (isUpdateStatusHidden) {

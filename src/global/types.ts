@@ -1,9 +1,9 @@
-import type { SignDataPayload } from '@tonconnect/protocol';
 import type { TeactNode } from '../lib/teact/teact';
 
 import type { ApiTonWalletVersion } from '../api/chains/ton/types';
 import type { TonConnectProof } from '../api/dappProtocols/adapters';
 import type { StoredDappConnection } from '../api/dappProtocols/storage';
+import type { UnifiedSignDataPayload } from '../api/dappProtocols/types';
 import type {
   ApiAccountConfig,
   ApiActivity,
@@ -19,6 +19,7 @@ import type {
   ApiDerivation,
   ApiEmulationResult,
   ApiFetchEstimateDieselResult,
+  ApiGroupedWalletVariant,
   ApiHistoryList,
   ApiImportAddressByChain,
   ApiLedgerDriver,
@@ -46,7 +47,6 @@ import type {
   ApiUpdateDappSignData,
   ApiUpdateWalletVersions,
   ApiVestingInfo,
-  ApiWalletByChain,
   ApiWalletWithVersionInfo,
 } from '../api/types';
 import type { AUTOLOCK_OPTIONS_LIST } from '../config';
@@ -354,19 +354,14 @@ export enum MintCardState {
   Done,
 }
 
-export enum ActiveTab {
-  Receive,
-  Transfer,
-  Swap,
-  Stake,
-}
-
 export enum ContentTab {
+  Overview,
   Assets,
   Activity,
   Agent,
   Explore,
   Nft,
+  Settings,
 }
 
 export enum MediaType {
@@ -473,6 +468,12 @@ export interface AccountState {
      * The initial activities should be considered loaded if `idsMain` is not undefined.
      */
     areInitialActivitiesLoaded?: Partial<Record<ApiChain, boolean>>;
+    /**
+     * Per-chain main-feed ids. Populated on initial load and grown by `addPastActivities` so the
+     * pagination boundary can be recomputed when any chain advances.
+     */
+    mainActivityIdsByChain?: Partial<Record<ApiChain, string[]>>;
+    mainHistoryHasMoreByChain?: Partial<Record<ApiChain, boolean>>;
   };
   nfts?: {
     byAddress?: Record<string, ApiNft>;
@@ -509,7 +510,7 @@ export interface AccountState {
   tokenNetWorthHistory?: Record<string, PriceHistoryPeriods>;
   savedAddresses?: SavedAddress[];
   activeContentTab?: ContentTab;
-  landscapeActionsActiveTabIndex?: ActiveTab;
+  activityReturnContentTab?: ContentTab;
   activitiesUpdateStartedAt?: number;
   balanceUpdateStartedAt?: number;
 
@@ -558,6 +559,9 @@ export interface AccountSettings {
   accentColorNft?: ApiNft;
   accentColorIndex?: number;
   isAllowSuspiciousActions?: boolean;
+  walletTokensLimit?: number;
+  areAssetsHidden?: boolean;
+  areCollectiblesHidden?: boolean;
 }
 
 export interface SavedAddress {
@@ -683,7 +687,6 @@ export type GlobalState = {
     activityId?: string;
     error?: string;
     errorType?: SwapErrorType;
-    shouldResetOnClose?: boolean;
     isLoading?: boolean;
     /**
      * When is `true`, does several things: shows the estimating indicator in the UI, blocks the form submission, and
@@ -758,7 +761,7 @@ export type GlobalState = {
     isLoading?: boolean;
     dapp?: StoredDappConnection;
     operationChain?: ApiChain;
-    payloadToSign?: SignDataPayload;
+    payloadToSign?: UnifiedSignDataPayload;
     error?: string;
   };
 
@@ -1028,8 +1031,8 @@ export interface ActionPayloads {
   resetApiSettings: { areAllDisabled?: boolean } | undefined;
   checkAppVersion: undefined;
   importAccountByVersion: { version: ApiTonWalletVersion; isTestnetSubwalletId?: boolean };
-  addSubWallet: { chain: ApiChain; newWallet: Omit<ApiWalletByChain[ApiChain], 'index'>; isReplace: boolean };
-  createSubWallet: { chain: ApiChain; password: string };
+  addSubWallet: { group: ApiGroupedWalletVariant };
+  createSubWallet: { password: string };
   importViewAccount: { addressByChain: ApiImportAddressByChain };
   openTemporaryViewAccount: { addressByChain: Partial<Record<ApiChain, string>> };
   saveTemporaryAccount: undefined;
@@ -1049,7 +1052,6 @@ export interface ActionPayloads {
   setTransferComment: { comment?: string };
   setTransferShouldEncrypt: { shouldEncrypt?: boolean };
   startTransfer: {
-    isPortrait?: boolean;
     tokenSlug?: string;
     amount?: bigint;
     toAddress?: string;
@@ -1117,10 +1119,10 @@ export interface ActionPayloads {
   fetchTransferDieselState: { tokenSlug: string };
   setIsAuthLoading: { isLoading: true | undefined };
 
-  fetchPastActivities: { slug?: string; shouldLoadWithBudget?: boolean };
+  fetchPastActivities: { accountId?: string; slug?: string; shouldLoadWithBudget?: boolean };
   showActivityInfo: { id: string };
   showAnyAccountTx: { txId: string; accountId: string; network: ApiNetwork; chain: ApiChain };
-  showTokenActivity: { slug: string };
+  showTokenActivity: { slug: string; returnTab?: ContentTab };
   closeActivityInfo: { id: string };
   fetchActivityDetails: { id: string };
 
@@ -1185,7 +1187,6 @@ export interface ActionPayloads {
   } | undefined;
   closeAddAccountModal: undefined;
 
-  setLandscapeActionsActiveTabIndex: { index: ActiveTab };
   setActiveContentTab: { tab: ContentTab };
 
   // BottomBar actions
@@ -1244,6 +1245,9 @@ export interface ActionPayloads {
   pinToken: { slug: string };
   unpinToken: { slug: string };
   toggleTokenVisibility: { slug: string; shouldShow: boolean };
+  setWalletTokensLimit: { limit: number };
+  setAreAssetsHidden: { isHidden: boolean };
+  setAreCollectiblesHidden: { isHidden: boolean };
   addToken: { token: UserToken };
   deleteToken: { slug: string };
   importToken: { chain: ApiChain; address: string };

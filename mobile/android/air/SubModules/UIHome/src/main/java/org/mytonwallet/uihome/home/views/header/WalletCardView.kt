@@ -16,7 +16,6 @@ import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
 import androidx.core.view.isGone
@@ -25,6 +24,7 @@ import androidx.core.view.isVisible
 import com.facebook.fresco.ui.common.OnFadeListener
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.extensions.setOnLongHoldListener
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.WalletTypeView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
@@ -39,6 +39,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.NftGradientHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.TiltSensorManager
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WLetterSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.textOffset
@@ -64,12 +65,16 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.SensitiveDataMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uiportfolio.PortfolioVC
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletbasecontext.utils.trimAddress
@@ -201,8 +206,8 @@ class WalletCardView(
         }
     }
     private lateinit var balanceViewMaskWrapper: WGradientMaskView
-    private val arrowDownDrawable = ContextCompat.getDrawable(
-        context, R.drawable.ic_arrows_14
+    private val arrowDownDrawable = context.getDrawableCompat(
+        R.drawable.ic_arrows_14
     )
     private var arrowImageView = AppCompatImageView(context).apply {
         setImageDrawable(arrowDownDrawable)
@@ -247,8 +252,8 @@ class WalletCardView(
         }
     }
 
-    private val balanceChangeChevron = ContextCompat.getDrawable(
-        context, R.drawable.ic_arrow_right_16_24
+    private val balanceChangeChevron = context.getDrawableCompat(
+        R.drawable.ic_arrow_right_16_24
     )?.apply {
         mutate()
         setBounds(0, 0, intrinsicWidth, intrinsicHeight)
@@ -257,7 +262,7 @@ class WalletCardView(
     private val balanceChangeLabel: WSensitiveDataContainer<WLabel> by lazy {
         val lbl = WLabel(context)
         lbl.setPadding(8.dp, 3.dp, 8.dp, 3.dp)
-        lbl.setStyle(16f, WFont.NunitoSemiBold)
+        lbl.setStyle(adaptiveFontSize(), WFont.NunitoSemiBold)
         lbl.compoundDrawablePadding = 0
         lbl.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, balanceChangeChevron, null)
         lbl.foreground = WRippleDrawable.create(14f.dp).apply {
@@ -265,7 +270,18 @@ class WalletCardView(
         }
         lbl.setOnClickListener {
             if (mode == HomeHeaderView.Mode.Collapsed) return@setOnClickListener
-            WalletCore.notifyEvent(WalletEvent.OpenUrl("https://portfolio.mytonwallet.io"))
+            val url = context.getString(BaseR.string.app_portfolio_url)
+            if (url.isNotEmpty()) WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
+        }
+        // keep limited visibility for now
+        lbl.setOnLongHoldListener(10_000L) {
+            if (mode == HomeHeaderView.Mode.Collapsed) return@setOnLongHoldListener
+            val tabNav = window.navigationControllers.last().tabBarController?.navigationController
+            if (tabNav != null) {
+                tabNav.push(PortfolioVC(context))
+            } else {
+                window.navigationControllers.last().push(PortfolioVC(context))
+            }
         }
         WSensitiveDataContainer(
             lbl,
@@ -290,7 +306,7 @@ class WalletCardView(
 
     private val addressLabel: WMultichainAddressLabel by lazy {
         WMultichainAddressLabel(context).apply {
-            setStyle(16f, WFont.Medium)
+            setStyle(adaptiveFontSize(), WFont.Medium)
             setPadding(5.dp, 1.5f.dp.roundToInt(), 5.dp, 2.dp)
             containerWidth = cardFullWidth
             background = WRippleDrawable.create(20f.dp).apply {
@@ -722,8 +738,7 @@ class WalletCardView(
         }
         shiningView.visibility = VISIBLE
         img.hierarchy.setPlaceholderImage(
-            ContextCompat.getDrawable(
-                context,
+            context.getDrawableCompat(
                 org.mytonwallet.app_air.uicomponents.R.drawable.img_card
             )
         )
@@ -850,10 +865,9 @@ class WalletCardView(
         updateAddressLabel()
         miniPlaceholders.setColor(primaryColor)
         mintIcon.setImageDrawable(
-            ContextCompat.getDrawable(
-                context,
+            context.requireDrawableCompat(
                 org.mytonwallet.app_air.walletcontext.R.drawable.ic_mint
-            )!!.apply {
+            ).apply {
                 setTint(secondaryColor.colorWithAlpha(191))
             }
         )
@@ -1016,10 +1030,7 @@ class WalletCardView(
 
         lateinit var popup: IPopup
         val menuWidth = 276.dp
-        val copyDrawable = ContextCompat.getDrawable(
-            context,
-            R.drawable.ic_copy
-        )?.apply {
+        val copyDrawable = context.getDrawableCompat(R.drawable.ic_copy)?.apply {
             mutate()
             setTint(WColor.SecondaryText.color)
             val width = 16.dp
@@ -1101,7 +1112,7 @@ class WalletCardView(
 
                             override val isTinted = true
                             override fun updateTheme() {
-                                val drw = ContextCompat.getDrawable(context, R.drawable.ic_world)
+                                val drw = context.getDrawableCompat(R.drawable.ic_world)
                                 drw?.setTint(WColor.Tint.color)
                                 setImageDrawable(drw)
                                 addRippleEffect(WColor.SecondaryBackground.color)

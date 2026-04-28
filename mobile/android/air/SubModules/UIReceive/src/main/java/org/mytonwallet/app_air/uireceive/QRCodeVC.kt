@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uireceive
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -13,7 +14,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
@@ -29,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.helpers.AddressHelpers
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -38,6 +39,7 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 class QRCodeVC(
     context: Context,
     val chain: MBlockchain,
+    private val onQrLoaded: (() -> Unit)?
 ) : WViewController(context) {
     override val TAG = "QRCode"
 
@@ -49,6 +51,8 @@ class QRCodeVC(
     override var title: String?
         get() = chain.displayName
         set(_) {}
+
+    private val isViewOnlyAccount = AccountStore.activeAccount?.isViewOnly == true
 
     val walletAddress: String
         get() = AccountStore.activeAccount?.addressByChain?.get(chain.name) ?: ""
@@ -68,7 +72,7 @@ class QRCodeVC(
             qrContent,
             qrCodeSize,
             qrCodeSize,
-            chain.icon,
+            chain.qrIcon,
             56.dp,
             chain.qrGradientColors?.let {
                 LinearGradient(
@@ -82,6 +86,7 @@ class QRCodeVC(
             setPadding(1, 1, 1, 1)
             generate {
                 view.fadeIn()
+                onQrLoaded?.invoke()
             }
         }
         v
@@ -100,7 +105,7 @@ class QRCodeVC(
         id = View.generateViewId()
 
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 22f)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         gravity = Gravity.LEFT
         typeface = WFont.Regular.typeface
         layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
@@ -115,7 +120,9 @@ class QRCodeVC(
 
     private val titleLabel = HeaderCell(context, startMargin = 24f).apply {
         configure(
-            title = LocaleController.getString("Your %blockchain% Address")
+            title = LocaleController.getString(
+                if (isViewOnlyAccount) "%blockchain% Address" else "My %blockchain% Address"
+            )
                 .replace("%blockchain%", title.toString()),
             titleColor = WColor.Tint,
             topRounding = HeaderCell.TopRounding.NORMAL
@@ -210,7 +217,7 @@ class QRCodeVC(
 
         val ornamentRes = chain.receiveOrnamentImage
         if (ornamentRes != null) {
-            ornamentView.setImageDrawable(ContextCompat.getDrawable(context, ornamentRes))
+            ornamentView.setImageDrawable(context.getDrawableCompat(ornamentRes))
             ornamentView.scaleType = ImageView.ScaleType.CENTER_INSIDE
             ornamentView.visibility = View.VISIBLE
         } else {

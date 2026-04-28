@@ -1,42 +1,74 @@
 @use "../../../../styles/mixins";
 
 .root {
+  --pill-width: 5rem;
+
+  pointer-events: none;
+
   position: fixed;
-  z-index: 2;
+  z-index: var(--z-bottom-bar);
+  right: 0;
   bottom: 0;
   left: 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+
+  height: var(--bottombar-height);
+  padding: 0 1rem;
+
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.9) 66.65%);
+
+  &.hidden {
+    transform: translateY(100%);
+  }
+
+  :global(html.theme-dark) & {
+    background: linear-gradient(180deg, rgba(28, 28, 30, 0) 0%, rgba(28, 28, 30, 0.9) calc(66.65% + var(--safe-area-bottom)));
+  }
+
+  :global(html.is-android-app.is-keyboard-open:where(.is-agent-active, .is-explore-active)) & {
+    display: none;
+  }
+
+  :global(html.with-menu-backdrop) & {
+    background: none !important;
+  }
+
+  :global(html:where([lang="ru"], [lang="tr"], [lang="th"], [lang="pl"])) & {
+    --pill-width: 5.625rem;
+  }
+
+  :global(html:where([lang="es"], [lang="de"], [lang="uk"])) & {
+    --pill-width: 6.25rem;
+  }
+
+  @include mixins.transition(transform 200ms);
+}
+
+.capsule {
+  pointer-events: auto;
+
+  position: relative;
 
   display: grid;
   grid-auto-columns: minmax(0, 1fr);
   grid-auto-flow: column;
 
   width: 100%;
-  padding-bottom: max(0.25rem, var(--safe-area-bottom));
+  max-width: calc(var(--pill-width) * var(--tab-count, 4));
+  margin: auto auto max(0.75rem, var(--safe-area-bottom));
+  padding: 0.25rem;
+  border-radius: 5rem;
 
   background-color: var(--color-app-background);
-  box-shadow: inset 0 0.025rem 0 0 var(--color-separator);
+  box-shadow: var(--shadow-glass-capsule);
 
-  @include mixins.transition(transform 200ms);
-
-  @supports (backdrop-filter: saturate(180%) blur(20px)) {
-    background-color: var(--color-background-tab-bar);
-    backdrop-filter: saturate(180%) blur(20px);
-  }
-
-  &.withAgent {
-    box-shadow: none;
-  }
-
-  &.hidden {
-    pointer-events: none;
-    transform: translateY(100%);
-  }
-
-  @include mixins.backdropPatch();
-
-  // In the Android app, the virtual keyboard can shift the page so that the bottom bar overlaps the input of the agent
-  :global(html.is-android-app.is-keyboard-open.is-agent-active) & {
-    display: none;
+  @supports (backdrop-filter: blur(16px)) {
+    background-color: var(--color-background-lock);
+    backdrop-filter: blur(var(--blur-glass-capsule));
   }
 
   @include mixins.respond-below(xs) {
@@ -44,34 +76,69 @@
       background-color: var(--color-app-background) !important;
     }
   }
+
+  @include mixins.backdropPatch();
+
+  &::after {
+    border-radius: 5rem;
+  }
+}
+
+.pill {
+  --pill-bg: rgba(44, 146, 240, 0.08);
+
+  pointer-events: none;
+
+  position: absolute;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  left: 0.25rem;
+  transform: translateX(calc(var(--active-index, 0) * 100%));
+
+  width: calc((100% - 0.5rem) / var(--tab-count, 4));
+  border-radius: 5rem;
+
+  background-color: var(--pill-bg);
+
+  @include mixins.transition(transform 350ms cubic-bezier(0.32, 0.72, 0, 1));
+
+  :global(html.theme-dark) & {
+    --pill-bg: rgba(70, 156, 236, 0.08);
+  }
 }
 
 .button {
   position: relative;
+  z-index: 1;
 
   display: flex;
   flex-direction: column;
-  gap: 0.1875rem;
   align-items: center;
   justify-content: center;
 
-  height: 3.125rem;
+  height: 3rem;
 
-  color: var(--color-gray-2);
+  color: var(--color-black);
   text-align: center;
+
+  background: transparent;
 }
 
 .active {
   color: var(--color-accent);
+
+  .label {
+    font-weight: 700;
+  }
 }
 
 .icon {
-  font-size: 2rem;
-  line-height: 2rem;
+  margin-top: -0.375rem;
 }
 
 .label {
-  font-size: 0.625rem;
+  margin-top: -0.25rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1;
 }

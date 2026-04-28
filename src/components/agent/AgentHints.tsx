@@ -34,11 +34,12 @@ function AgentHints({ isOpen, hints, onHintClick }: OwnProps) {
   return (
     <div ref={ref} className={buildClassName(styles.wrapper)}>
       <div ref={containerRef} className={styles.panel}>
-        {hints!.map((hint) => (
+        {hints!.map((hint, index) => (
           <button
             key={hint.id}
             type="button"
             className={styles.hint}
+            style={`--hint-index: ${index}`}
             onClick={() => onHintClick(hint.prompt)}
           >
             <span className={styles.inner}>

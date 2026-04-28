@@ -1,0 +1,41 @@
+.root {
+  display: grid;
+  grid-template-columns: 1fr max-content 1fr;
+  flex-shrink: 0;
+  align-items: center;
+
+  height: 3rem;
+  padding-right: var(--scrollbar-width);
+  border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+
+  background: var(--color-background-first);
+}
+
+.backButton {
+  cursor: var(--custom-cursor, pointer);
+
+  display: flex;
+  align-items: center;
+
+  height: 3rem;
+  padding: 0.125rem 0.5rem 0;
+
+  font-size: 0.9375rem;
+  color: var(--color-accent);
+}
+
+.backIcon {
+  font-size: 1.5rem;
+}
+
+.title {
+  overflow: hidden;
+
+  margin: 0;
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-black);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

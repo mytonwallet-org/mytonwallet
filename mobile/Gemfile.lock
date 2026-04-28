@@ -122,6 +122,10 @@ GEM
       xcodeproj (>= 1.13.0, < 2.0.0)
       xcpretty (~> 0.4.1)
       xcpretty-travis-formatter (>= 0.0.3, < 2.0.0)
+    fastlane-plugin-firebase_app_distribution (1.0.0)
+      fastlane (>= 2.232.0)
+      google-apis-firebaseappdistribution_v1 (>= 0.9.0)
+      google-apis-firebaseappdistribution_v1alpha (>= 0.12.0)
     fastlane-plugin-versioning_android (0.1.1)
     fastlane-sirp (1.0.0)
       sysrandom (~> 1.0)
@@ -136,6 +140,10 @@ GEM
       mutex_m
       representable (~> 3.0)
       retriable (>= 2.0, < 4.a)
+    google-apis-firebaseappdistribution_v1 (0.18.0)
+      google-apis-core (>= 0.15.0, < 2.a)
+    google-apis-firebaseappdistribution_v1alpha (0.26.0)
+      google-apis-core (>= 0.15.0, < 2.a)
     google-apis-iamcredentials_v1 (0.26.0)
       google-apis-core (>= 0.15.0, < 2.a)
     google-apis-playcustomapp_v1 (0.17.0)
@@ -236,6 +244,7 @@ PLATFORMS
 
 DEPENDENCIES
   fastlane (>= 2.223.1)
+  fastlane-plugin-firebase_app_distribution
   fastlane-plugin-versioning_android
 
 CHECKSUMS
@@ -280,11 +289,14 @@ CHECKSUMS
   faraday_middleware (1.2.1) sha256=d45b78c8ee864c4783fbc276f845243d4a7918a67301c052647bacabec0529e9
   fastimage (2.4.0) sha256=5fce375e27d3bdbb46c18dbca6ba9af29d3304801ae1eb995771c4796c5ac7e8
   fastlane (2.232.1) sha256=5b768d7a515332bea357ec836425e389b931a8cce64a6c31bcdd67353df8c25a
+  fastlane-plugin-firebase_app_distribution (1.0.0) sha256=321f554d16194ea465c71202274c75609cf986f147fc7203901d44a1a6df736f
   fastlane-plugin-versioning_android (0.1.1) sha256=92cb9388dea0af4df8bf24091356239558cc39657bc791a4d8717308411b742a
   fastlane-sirp (1.0.0) sha256=66478f25bcd039ec02ccf65625373fca29646fa73d655eb533c915f106c5e641
   gh_inspector (1.1.3) sha256=04cca7171b87164e053aa43147971d3b7f500fcb58177698886b48a9fc4a1939
   google-apis-androidpublisher_v3 (0.96.0) sha256=9e27b03295fdd2c4a67b5e4d11f891492c89f73beff4a3f9323419165a56d01c
   google-apis-core (0.18.0) sha256=96b057816feeeab448139ed5b5c78eab7fc2a9d8958f0fbc8217dedffad054ee
+  google-apis-firebaseappdistribution_v1 (0.18.0) sha256=5b3407a2c789c52a971a83a48ed70b360f5d5020ef6436ce7c459666f9705d02
+  google-apis-firebaseappdistribution_v1alpha (0.26.0) sha256=6f495025debbf745ad09e158b509f3c728b35e1193c30fb7ed7bc348c373c9b6
   google-apis-iamcredentials_v1 (0.26.0) sha256=3ff70a10a1d6cddf2554e95b7c5df2c26afdeaeb64100048a355194da19e48a3
   google-apis-playcustomapp_v1 (0.17.0) sha256=d5bc90b705f3f862bab4998086449b0abe704ee1685a84821daa90ca7fa95a78
   google-apis-storage_v1 (0.60.0) sha256=ad2511b7128344248c2a16adb56ad4b1b48f37d53925455b7b77acccfe75367a

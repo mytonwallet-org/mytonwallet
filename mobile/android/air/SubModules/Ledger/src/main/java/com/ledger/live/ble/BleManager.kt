@@ -193,6 +193,10 @@ class BleManager internal constructor(
         disconnect()
         stopScanning()
 
+        if (!isPermissionGranted()) {
+            return false
+        }
+
         isScanning = true
 
         val filters = mutableListOf<ScanFilter>()
@@ -228,7 +232,18 @@ class BleManager internal constructor(
                 .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
 
         val scanSettings = builder.build()
-        bluetoothScanner?.startScan(filters, scanSettings, scanCallback)
+        val scanner = bluetoothScanner ?: run {
+            Timber.w("BLE startScan skipped: scanner unavailable")
+            isScanning = false
+            return false
+        }
+        try {
+            scanner.startScan(filters, scanSettings, scanCallback)
+        } catch (e: SecurityException) {
+            Timber.w(e, "BLE startScan failed: missing permission")
+            isScanning = false
+            return false
+        }
 
         //Expose scanned device list every second
         if (pollingJob == null) {
@@ -253,7 +268,11 @@ class BleManager internal constructor(
         Timber.d("Stop Scanning")
         pollingJob?.cancel()
         pollingJob = null
-        bluetoothScanner?.stopScan(scanCallback)
+        try {
+            bluetoothScanner?.stopScan(scanCallback)
+        } catch (_: SecurityException) {
+            // Permission revoked; nothing to stop on our side.
+        }
         isScanning = false
         _bleState.tryEmit(BleState.Idle)
     }

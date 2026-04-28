@@ -26,8 +26,12 @@ function useHorizontalScroll({
         const content = contentSelector ? container!.querySelector(contentSelector) : container;
         if (!content) return;
 
+        const { scrollLeft, scrollWidth, clientWidth } = content;
+        const isAtEnd = e.deltaY > 0 && scrollLeft + clientWidth >= scrollWidth;
+        const isAtStart = e.deltaY < 0 && scrollLeft <= 0;
+
         content.scrollLeft += e.deltaY / 4;
-        if (shouldPreventDefault) e.preventDefault();
+        if (shouldPreventDefault && !isAtEnd && !isAtStart) e.preventDefault();
       }
     }
 

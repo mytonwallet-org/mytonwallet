@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.adapter.implementation.holders
 
 import android.util.TypedValue
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
@@ -30,7 +31,7 @@ class ListTextCellHolder(parent: ViewGroup) :
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
         copyTextView.setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-        copyTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        copyTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         copyTextView.includeFontPadding = false
 
         container.addView(copyTextView)

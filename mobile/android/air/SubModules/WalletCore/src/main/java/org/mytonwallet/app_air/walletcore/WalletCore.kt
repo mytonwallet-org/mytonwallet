@@ -18,6 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setDefaultAccentColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
@@ -63,6 +64,21 @@ const val TRON_USDT_TESTNET_SLUG = "tron-tg3xxyexbk"
 const val SOLANA_SLUG = "sol"
 const val SOLANA_USDT_SLUG = "solana-es9vmfrzac"
 const val SOLANA_USDC_SLUG = "solana-epjfwdd5au"
+const val ETH_SLUG = "eth"
+const val ETH_USDT_MAINNET_SLUG = "ethereum-0xdac17f95"
+const val ETH_USDC_MAINNET_SLUG = "ethereum-0xa0b86991"
+const val BASE_SLUG = "base"
+const val BASE_USDT_MAINNET_SLUG = "base-0xfde4c96c"
+const val BASE_USDC_MAINNET_SLUG = "base-0x833589fc"
+const val BNB_SLUG = "bnb"
+const val BSC_USDT_MAINNET_SLUG = "bnb-0x55d39832"
+const val POLYGON_SLUG = "pol"
+const val ARBITRUM_SLUG = "arb"
+const val MONAD_SLUG = "mon"
+const val AVALANCHE_SLUG = "ava"
+const val AVALANCHE_USDT_MAINNET_SLUG = "avalanche-0x9702230a"
+const val HYPERLIQUID_SLUG = "hyperliquid"
+const val HYPERLIQUID_USDC_MAINNET_SLUG = "hyperliquid-0xb88339cb"
 const val VIRTUAL_STAKING_SLUG_PREFIX = "staking-"
 const val TON_DNS_COLLECTION = "EQC3dNlesgVD8YbAazcauIrXBPfiVhMMr5YYk2in0Mtsz0Bz"
 const val MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"
@@ -109,7 +125,7 @@ val PRICELESS_TOKEN_HASHES = setOf(
     "ddf80de336d580ab3c11d194f189c362e2ca1225cae224ea921deeaba7eca818", // tsUSDe EQDQ5UUyPHrLcQJlPAczd_fjxn8SLrlNQwolBznxCdSlfQwr
 )
 
-val DEFAULT_SHOWN_TOKENS = mapOf(
+val ALL_DEFAULT_TOKENS = mapOf(
     MBlockchainNetwork.MAINNET to setOf(
         TONCOIN_SLUG,
         TON_USDT_SLUG,
@@ -118,6 +134,13 @@ val DEFAULT_SHOWN_TOKENS = mapOf(
         SOLANA_SLUG,
         SOLANA_USDT_SLUG,
         SOLANA_USDC_SLUG,
+        ETH_SLUG,
+        ETH_USDT_MAINNET_SLUG,
+        BASE_SLUG,
+        BASE_USDT_MAINNET_SLUG,
+        BASE_USDC_MAINNET_SLUG,
+        BNB_SLUG,
+        HYPERLIQUID_SLUG,
     ),
     MBlockchainNetwork.TESTNET to setOf(
         TONCOIN_SLUG,
@@ -125,8 +148,49 @@ val DEFAULT_SHOWN_TOKENS = mapOf(
         TRON_SLUG,
         TRON_USDT_TESTNET_SLUG,
         SOLANA_SLUG,
+        ETH_SLUG,
+        ETH_USDT_MAINNET_SLUG,
+        BASE_SLUG,
+        BASE_USDT_MAINNET_SLUG,
+        BASE_USDC_MAINNET_SLUG,
+        BNB_SLUG,
+        HYPERLIQUID_SLUG,
     ),
 )
+
+private val MYTONWALLET_DEFAULT_SHOWN_TOKENS = mapOf(
+    MBlockchainNetwork.MAINNET to setOf(
+        ETH_SLUG,
+        SOLANA_SLUG,
+        TONCOIN_SLUG,
+        TRON_SLUG,
+        BNB_SLUG,
+        HYPERLIQUID_SLUG,
+    ),
+    MBlockchainNetwork.TESTNET to setOf(
+        ETH_SLUG,
+        SOLANA_SLUG,
+        TONCOIN_SLUG,
+        TRON_SLUG,
+        BNB_SLUG,
+        HYPERLIQUID_SLUG,
+    ),
+)
+
+private val GRAM_DEFAULT_SHOWN_TOKENS = mapOf(
+    MBlockchainNetwork.MAINNET to setOf(
+        TONCOIN_SLUG,
+        TON_USDT_SLUG,
+    ),
+    MBlockchainNetwork.TESTNET to setOf(
+        TONCOIN_SLUG,
+        TON_USDT_TESTNET_SLUG,
+    ),
+)
+
+val DEFAULT_SHOWN_TOKENS: Map<MBlockchainNetwork, Set<String>>
+    get() = if (ApplicationContextHolder.isGramApp) GRAM_DEFAULT_SHOWN_TOKENS
+    else MYTONWALLET_DEFAULT_SHOWN_TOKENS
 
 val TRUSTED_USDT_TOKENS = mapOf(
     MBlockchainNetwork.MAINNET to setOf(
@@ -134,10 +198,23 @@ val TRUSTED_USDT_TOKENS = mapOf(
         TRON_USDT_SLUG,
         SOLANA_USDT_SLUG,
         SOLANA_USDC_SLUG,
+        ETH_USDT_MAINNET_SLUG,
+        ETH_USDC_MAINNET_SLUG,
+        BASE_USDT_MAINNET_SLUG,
+        BASE_USDC_MAINNET_SLUG,
+        BSC_USDT_MAINNET_SLUG,
+        AVALANCHE_USDT_MAINNET_SLUG,
+        HYPERLIQUID_USDC_MAINNET_SLUG,
     ),
     MBlockchainNetwork.TESTNET to setOf(
         TON_USDT_TESTNET_SLUG,
         TRON_USDT_TESTNET_SLUG,
+        ETH_USDT_MAINNET_SLUG,
+        BASE_USDT_MAINNET_SLUG,
+        BASE_USDC_MAINNET_SLUG,
+        BSC_USDT_MAINNET_SLUG,
+        AVALANCHE_USDT_MAINNET_SLUG,
+        HYPERLIQUID_USDC_MAINNET_SLUG,
     ),
 )
 

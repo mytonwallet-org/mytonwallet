@@ -31,6 +31,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMe
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -38,6 +39,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
@@ -51,7 +53,7 @@ class AgentMessageCell(context: Context) : WCell(
     }
     private val bubbleContainer = WFrameLayout(context)
     private val messageLabel = WLabel(context).apply {
-        setStyle(17f)
+        setStyle(adaptiveFontSize())
         isSingleLine = false
         maxLines = Int.MAX_VALUE
         ellipsize = null

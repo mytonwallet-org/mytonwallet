@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Typeface
 import androidx.core.content.res.ResourcesCompat
 import org.mytonwallet.app_air.walletbasecontext.R
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 enum class WFont {
@@ -44,6 +45,23 @@ val FontFamily.textOffset: Int
     get() {
         return 0
     }
+
+/** Per-font visual size adjustment in sp. Roboto reads larger than Mi Sans at the same size. */
+val FontFamily.sizeOffset: Float
+    get() = when (this) {
+        FontFamily.ROBOTO -> 0f
+        FontFamily.MISANS -> -0.5f
+    }
+
+/**
+ * Resolves a font size for the active font and screen size.
+ * Regular screens: [base] + font-family offset. Small screens: [base] - 1 + font-family offset.
+ * With base=16: Roboto 16/15, Mi Sans 15.5/14.5.
+ */
+fun adaptiveFontSize(base: Float = 16f): Float {
+    val screenAdjusted = if (ApplicationContextHolder.isSmallScreen) base - 1f else base
+    return screenAdjusted + FontManager.activeFont.sizeOffset
+}
 
 object FontManager {
     lateinit var regular: Typeface

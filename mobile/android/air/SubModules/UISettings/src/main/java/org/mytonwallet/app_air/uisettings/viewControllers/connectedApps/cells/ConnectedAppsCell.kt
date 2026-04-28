@@ -1,14 +1,13 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.connectedApps.cells
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatTextView
-import org.mytonwallet.app_air.uicomponents.widgets.WLabel
-import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.customview.widget.ViewDragHelper
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -20,8 +19,8 @@ import org.mytonwallet.app_air.uicomponents.helpers.swipeRevealLayout.SwipeRevea
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
-import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -29,6 +28,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 
 class ConnectedAppsCell(context: Context) :
@@ -61,7 +61,7 @@ class ConnectedAppsCell(context: Context) :
     }
 
     private val titleLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         includeFontPadding = false
         ellipsize = TextUtils.TruncateAt.END
@@ -98,7 +98,7 @@ class ConnectedAppsCell(context: Context) :
 
     private val disconnectLabel = AppCompatTextView(context).apply {
         id = generateViewId()
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         includeFontPadding = false
         ellipsize = TextUtils.TruncateAt.END
@@ -256,8 +256,7 @@ class ConnectedAppsCell(context: Context) :
         subtitleLabel.gravity = Gravity.CENTER_VERTICAL
 
         if (exploreSite.isUrlEnsured != true) {
-            val warningIcon = ContextCompat.getDrawable(
-                context,
+            val warningIcon = context.getDrawableCompat(
                 org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning
             )
             warningIcon?.let { drawable ->

@@ -323,7 +323,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             HeaderActionsView.Identifier.RECEIVE -> {
                 val receiveVC = ReceiveVC.createIfAvailable(
                     context,
-                    homeVM.showingAccount?.firstChain ?: MBlockchain.ton
+                    homeVM.showingAccount?.firstChain
                 ) ?: return
                 val navVC = WNavigationController(window!!)
                 navVC.setRoot(receiveVC)
@@ -637,7 +637,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     private val pausedBlurViews: Boolean
         get() {
-            return !topBlurReversedCornerView.isPlaying ||
+            return !topBlurReversedCornerView.isPlaying &&
                 (bottomReversedCornerView?.let { !it.isPlaying }
                     ?: navigationController?.tabBarController?.pausedBlurViews
                     ?: false)
@@ -801,7 +801,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     override fun onTransactionTap(accountId: String, transaction: MApiTransaction) {
         window?.let { window ->
             val isWaitingToPaySwap = (transaction is MApiTransaction.Swap) &&
-                transaction.status == ApiSwapStatus.PENDING &&
+                transaction.status.isPending &&
                 transaction.swapType == SwapType.CROSS_CHAIN_TO_WALLET &&
                 transaction.cex?.status?.uiStatus == MApiTransaction.UIStatus.PENDING
 

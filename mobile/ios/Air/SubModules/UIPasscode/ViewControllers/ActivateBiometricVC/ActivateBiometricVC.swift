@@ -15,9 +15,9 @@ public class ActivateBiometricVC: WViewController {
 
     private let viewModel: ActivateBiometricViewModel
 
-    private var onCompletion: (Bool) -> Void
+    private var onCompletion: @MainActor (Bool) async throws -> Void
         
-    public init(biometryType: BiometryType, onCompletion: @escaping (Bool) -> Void) {
+    public init(biometryType: BiometryType, onCompletion: @escaping @MainActor (Bool) async throws -> Void) {
         self.viewModel = ActivateBiometricViewModel(biometryType: biometryType)
         self.onCompletion = onCompletion
         super.init(nibName: nil, bundle: nil)
@@ -77,7 +77,16 @@ public class ActivateBiometricVC: WViewController {
     
     private func finalizeFlow(biometricActivated: Bool) {
         view.isUserInteractionEnabled = false
-        onCompletion(biometricActivated)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await onCompletion(biometricActivated)
+            } catch {
+                view.isUserInteractionEnabled = true
+                viewModel.state = .idle
+                showAlert(error: error)
+            }
+        }
     }
 }
 

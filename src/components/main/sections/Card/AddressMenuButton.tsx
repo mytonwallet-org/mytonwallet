@@ -29,6 +29,8 @@ interface OwnProps {
 
 const MULTICHAIN_DOMAIN_LENGTH = 10;
 const MULTICHAIN_ADDRESS_LENGTH = 6;
+const MAX_RENDERED_CHAINS = 3;
+const ADDRESS_CHAINS_COUNT = 2;
 
 function AddressMenuButton({
   chains,
@@ -67,10 +69,12 @@ function AddressMenuButton({
     if (!isMultiChain || !byChain) return undefined;
 
     const nodes: TeactNode[] = [];
-    const chainsLength = chains.length;
+    const renderedChains = chains.slice(0, MAX_RENDERED_CHAINS);
+    const chainsLength = renderedChains.length;
 
-    chains.forEach((chainItem, index) => {
+    renderedChains.forEach((chainItem, index) => {
       const { domain: chainDomain, address: chainAddress } = byChain.get(chainItem)!;
+      const shouldRenderAddress = index < ADDRESS_CHAINS_COUNT;
       const title = chainDomain
         ? shortenDomain(chainDomain, MULTICHAIN_DOMAIN_LENGTH)
         : shortenAddress(chainAddress, 0, MULTICHAIN_ADDRESS_LENGTH)!;
@@ -79,15 +83,18 @@ function AddressMenuButton({
         <span
           key={`${chainItem}-item`}
           className={styles.multichainItem}
+          style={![0, 1].includes(index)
+            ? `margin-left: -${(index === 2 ? 0 : 24)}px`
+            : undefined}
           data-chain={chainItem}
           data-address={chainAddress}
           data-domain={chainDomain}
         >
           <img src={getChainNetworkIcon(chainItem)} alt="" className={styles.chainIcon} />
-          {[0, 1].includes(index) && (
+          {shouldRenderAddress && (
             <span className={styles.multichainAddress}>
               {title}
-              {index < chainsLength - 1 && ','}
+              {index < chainsLength - 1 && index < ADDRESS_CHAINS_COUNT - 1 && ','}
             </span>
           )}
         </span>,

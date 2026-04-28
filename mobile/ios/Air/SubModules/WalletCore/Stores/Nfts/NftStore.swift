@@ -20,6 +20,9 @@ public var NftStore: _NftStore { .shared }
 public final class _NftStore: Sendable {
 
     public static let shared = _NftStore()
+
+    @PerceptionIgnored
+    private let updatesQueue = DispatchQueue(label: "org.mytonwallet.app.nft-store-updates", qos: .userInitiated)
     
     private init() {
     }
@@ -74,11 +77,15 @@ public final class _NftStore: Sendable {
         removedNftIds: [String],
         mergeMode: NftsMergeMode = .prepend,
         preferExistingOnConflict: Bool = false,
-        streamPruneContext: StreamPruneContext? = nil
-    ) async {
+        streamPruneContext: StreamPruneContext? = nil,
+        shouldValidateAccountNftAvailability: Bool = false
+    ) {
         var nfts = self.nfts[accountId, default: [:]]
         for removedNftId in removedNftIds {
             nfts.removeValue(forKey: removedNftId)
+            nfts.removeAll { _, displayNft in
+                displayNft.nft.address == removedNftId
+            }
         }
         let orderedIncomingNfts = mergeMode == .prepend ? Array(newNfts.reversed()) : newNfts
         for nft in orderedIncomingNfts {
@@ -115,17 +122,22 @@ public final class _NftStore: Sendable {
         _moveHiddenToEnd(accountId: accountId)
         _checkNftsOrder(accountId: accountId)
         saveToCache()
-        _removeAccountNftIfNoLongerAvailable(accountId: accountId)
+        if shouldValidateAccountNftAvailability {
+            _removeAccountNftIfNoLongerAvailable(accountId: accountId)
+        }
         WalletCoreData.notify(event: .nftsChanged(accountId: accountId))
     }
 
     private func markNftAsOnSale(accountId: String, nftId: String) {
         let didChange = _nfts.withLock {
-            guard var displayNft = $0[accountId]?[nftId], displayNft.nft.isOnSale == false else {
+            let key = $0[accountId]?[nftId] != nil
+                ? nftId
+                : $0[accountId]?.first(where: { _, displayNft in displayNft.nft.address == nftId })?.key
+            guard let key, var displayNft = $0[accountId]?[key], displayNft.nft.isOnSale == false else {
                 return false
             }
             displayNft.nft.isOnSale = true
-            $0[accountId]?[nftId] = displayNft
+            $0[accountId]?[key] = displayNft
             return true
         }
         guard didChange else { return }
@@ -142,6 +154,7 @@ public final class _NftStore: Sendable {
                 let nfts = try JSONDecoder()
                     .decode([String: OrderedDictionary<String, DisplayNft>].self, from: data)
                     .filter { accountIds.contains($0.key) }
+                    .mapValues(Self.normalizeNftKeys)
                 self._nfts.withLock { $0 = nfts }
             } catch {
                 log.error("failed to load cache: \(error, .public)")
@@ -160,6 +173,14 @@ public final class _NftStore: Sendable {
                 log.error("failed to save to cache: \(error, .public)")
             }
         }
+    }
+
+    private static func normalizeNftKeys(_ nfts: OrderedDictionary<String, DisplayNft>) -> OrderedDictionary<String, DisplayNft> {
+        var result: OrderedDictionary<String, DisplayNft> = [:]
+        for displayNft in nfts.values {
+            result[displayNft.nft.id] = displayNft
+        }
+        return result
     }
     
     public func clean() {
@@ -425,37 +446,47 @@ public final class _NftStore: Sendable {
 
 
 extension _NftStore: WalletCoreData.EventsObserver {
-    public func walletCore(event: WalletCoreData.Event) {
+    nonisolated public func walletCore(event: WalletCoreData.Event) {
+        updatesQueue.async { [weak self] in
+            self?.handleEvent(event)
+        }
+    }
+
+    private func handleEvent(_ event: WalletCoreData.Event) {
         switch event {
         case .accountDeleted(let accountId):
             _nfts.withLock { $0[accountId] = nil }
-            
+
         case .updateNfts(let update):
-            Task {
-                let shouldAppend = update.collectionAddress != nil || update.isFullLoading == true
-                let streamPruneContext = update.streamedAddresses.map {
-                    StreamPruneContext(chain: update.chain, addresses: Set($0))
-                }
-                let incomingNfts = streamPruneContext == nil ? update.nfts : []
-                await self.received(
-                    accountId: update.accountId,
-                    newNfts: incomingNfts,
-                    removedNftIds: [],
-                    mergeMode: shouldAppend ? .append : .prepend,
-                    preferExistingOnConflict: shouldAppend,
-                    streamPruneContext: streamPruneContext
-                )
+            let shouldAppend = update.collectionAddress != nil || update.isFullLoading == true
+            let streamPruneContext = update.streamedAddresses.map {
+                StreamPruneContext(chain: update.chain, addresses: Set($0))
             }
+            let incomingNfts = streamPruneContext == nil ? update.nfts : []
+            self.received(
+                accountId: update.accountId,
+                newNfts: incomingNfts,
+                removedNftIds: [],
+                mergeMode: shouldAppend ? .append : .prepend,
+                preferExistingOnConflict: shouldAppend,
+                streamPruneContext: streamPruneContext,
+                shouldValidateAccountNftAvailability: streamPruneContext != nil
+            )
+
         case .nftReceived(let update):
-            Task {
-                await self.received(accountId: update.accountId, newNfts: [update.nft], removedNftIds: [])
-            }
+            self.received(accountId: update.accountId, newNfts: [update.nft], removedNftIds: [])
+
         case .nftSent(let update):
-            Task {
-                await self.received(accountId: update.accountId, newNfts: [], removedNftIds: [update.nftAddress])
-            }
+            self.received(
+                accountId: update.accountId,
+                newNfts: [],
+                removedNftIds: [ApiNft.id(chain: update.chain, address: update.nftAddress)],
+                shouldValidateAccountNftAvailability: true
+            )
+
         case .nftPutUpForSale(let update):
             markNftAsOnSale(accountId: update.accountId, nftId: update.nftAddress)
+
         default:
             break
         }
@@ -482,7 +513,7 @@ public struct DisplayNft: Equatable, Hashable, Codable, Identifiable, Sendable {
     public var isHiddenByUser: Bool
     public var isUnhiddenByUser: Bool = false
     
-    public var id: String { nft.address }
+    public var id: String { nft.id }
     
     public var shouldHide: Bool {
         if isUnhiddenByUser {

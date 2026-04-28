@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.connectedApps.cells
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -38,7 +39,7 @@ class ConnectedHeaderCell(context: Context) :
     }
 
     private val titleLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         includeFontPadding = false
         ellipsize = TextUtils.TruncateAt.END
@@ -50,7 +51,7 @@ class ConnectedHeaderCell(context: Context) :
 
     private val subtitleLabel = AppCompatTextView(context).apply {
         id = generateViewId()
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         includeFontPadding = false
         ellipsize = TextUtils.TruncateAt.END

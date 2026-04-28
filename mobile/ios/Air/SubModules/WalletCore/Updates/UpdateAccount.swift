@@ -13,6 +13,7 @@ import Foundation
 ///** `false` means that the account has no domain; `undefined` means that the domain has not changed */
 //domain?: string | false;
 //isMultisig?: boolean;
+//derivation?: ApiDerivation;
 
 extension ApiUpdate {
     
@@ -23,6 +24,7 @@ extension ApiUpdate {
         public var address: String?
         public var domain: Domain
         public var isMultisig: Bool?
+        public var derivation: ApiDerivation?
 
         public enum Domain: Equatable, Hashable, Decodable, Sendable {
             case unchanged
@@ -48,6 +50,7 @@ extension ApiUpdate {
             case address
             case domain
             case isMultisig
+            case derivation
         }
 
         public init(from decoder: Decoder) throws {
@@ -58,6 +61,7 @@ extension ApiUpdate {
             self.address = try container.decodeIfPresent(String.self, forKey: .address)
             self.domain = try container.decodeIfPresent(Domain.self, forKey: .domain) ?? .unchanged
             self.isMultisig = try container.decodeIfPresent(Bool.self, forKey: .isMultisig)
+            self.derivation = try container.decodeIfPresent(ApiDerivation.self, forKey: .derivation)
         }
     }
 }

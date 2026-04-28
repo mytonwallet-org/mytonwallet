@@ -93,9 +93,12 @@ Address removed from saved: Address removed from saved
 Warning!: Warning!
 $logout_without_backup_warning: You have not backed up this wallet. If you remove it now, you will lose access to your tokens and NFTs.
 $logout_accounts_without_backup_warning: You have not backed up %links%. If you proceed, you will lose access to your tokens and NFTs.
-$logout_warning: This will remove the current wallet from the app. Make sure you have your **secret words** backed up.
-$logout_all_wallets_warning: This will remove all wallets from the app. Make sure you have all your **secret words** backed up.
-$logout_view_mode_warning: This will remove the current wallet from the app.
+$logout_current_wallet_warning: This will remove the current wallet from the app.
+$logout_selected_wallet_warning: This will remove the selected wallet from the app.
+$logout_selected_wallets_warning: This will remove the selected wallets from the app.
+$logout_all_wallets_warning: This will remove all wallets from the app.
+$secret_words_backup_reminder: Make sure you have your **secret words** backed up.
+$all_secret_words_backup_reminder: Make sure you have all your **secret words** backed up.
 Create Deposit Link: Create Deposit Link
 $receive_invoice_description: |
   You can specify the amount and purpose of
@@ -143,7 +146,6 @@ Switch Account: Switch Account
 Copy wallet address: Copy wallet address
 View address on %explorer_name%: View address on %explorer_name%
 You have just created a new wallet: You have just created a new wallet
-You can now transfer your tokens from another wallet or exchange.: You can now transfer your tokens from another wallet or exchange.
 Assets: Assets
 Activity: Activity
 NFT: NFT
@@ -163,6 +165,7 @@ $fee_value: Fee %fee%
 $fee_value_with_colon: "Fee: %fee%"
 Pay fee with %stars_symbol%: Pay fee with %stars_symbol%
 Loading...: Loading...
+No price data: No price data
 Recipient Address: Recipient Address
 Wallet address or domain: Wallet address or domain
 Incorrect address: Incorrect address
@@ -197,18 +200,23 @@ Focus on asset value rather than current balance: Focus on asset value rather th
 $logout_confirm: Remove **all** wallets
 $tiny_transfers_help: "Hide transfers worth less than $%value%. Keep in mind: small amounts are often sent by spammers and scammers."
 Today: Today
+Total: Total
+Zoom Out: Zoom Out
 Yesterday: Yesterday
 Now: Now
-$receive_description: Scan this QR or share your address to top up your wallet balance.
+$receive_description: Scan this QR or share the address to top up wallet balance.
 Wrong password, please try again.: Wrong password, please try again.
 Appearance: Appearance
 Light: Light
 Dark: Dark
 System: System
 $stake_asset: Stake %symbol%
+Add Stake: Add Stake
 Earn from your tokens while holding them: Earn from your tokens while holding them
+Current APY: Current APY
+Est. Yearly Earnings: Est. Yearly Earnings
+Staking Details: Staking Details
 Why this is safe: Why this is safe
-Why is staking safe?: Why is staking safe?
 $safe_staking_description1: Staking is **fully decentralized** and operated by the **official TON Liquid Staking** smart contracts.
 $safe_staking_description2: The deposited stake will be used for the %chain% network validation as part of its **proof-of-stake** essence.
 $safe_staking_description3: You can withdraw your stake at **any time** and it will be deposited back to your account within **two days**.
@@ -222,6 +230,8 @@ View: View
 Stake More: Stake More
 Staking: Staking
 Currently Staked: Currently Staked
+Total Staked: Total Staked
+Total Stakers: Total Stakers
 Unstake: Unstake
 Earning History: Earning History
 $total: "Total: %value%"
@@ -238,6 +248,7 @@ Est. %annual_yield%: Est. %annual_yield%
 Staked: Staked
 $stake_action: Stake
 Unstaked: Unstaked
+Not staked: Not staked
 Unstaking: Unstaking
 $unstake_action: Unstake
 The network fee has slightly changed, try sending again.: The network fee has slightly changed, try sending again.
@@ -280,6 +291,23 @@ Are you sure you want to disconnect all websites?: Are you sure you want to disc
 Logged in with %app_name%: Logged in with %app_name%
 No active connections: No active connections
 Other: Other
+Portfolio: Portfolio
+Total Balance: Total Balance
+No data: No data
+Total Value: Total Value
+Tracked asset value over time.: Tracked asset value over time.
+Portfolio Share: Portfolio Share
+Current allocation across tracked assets.: Current allocation across tracked assets.
+Deep history analysis will be available in upcoming updates.: Deep history analysis will be available in upcoming updates.
+By Chain: By Chain
+No chain balances: No chain balances
+Native: Native
+Stablecoins: Stablecoins
+Altcoins: Altcoins
+Asset Mix: Asset Mix
+No asset balances: No asset balances
+No staked assets: No staked assets
+"Asset %1$@": "Asset %1$@"
 Assets & Activity: Assets & Activity
 Token Settings: Token Settings
 Add Token: Add Token
@@ -432,8 +460,8 @@ Bitcoin: Bitcoin
 $max_balance: "Max: %balance%"
 $unstake_information_instantly: You will get your deposit instantly
 Select Token: Select Token
-MY: MY
-POPULAR: POPULAR
+MY: My
+POPULAR: Popular
 Not Found: Not Found
 Wallet is ready!: Wallet is ready!
 Wallet is imported!: Wallet is imported!
@@ -478,9 +506,11 @@ Fund: Fund
 Buy with Card: Buy with Card
 Buy with Crypto: Buy with Crypto
 Cannot load widget: Cannot load widget
+Error: Error
 Explore: Explore
 No partners yet: No partners yet
 Clear: Clear
+Unavailable: Unavailable
 $unstake_up_to_information: Instantly – up to %value%
 $all_balance: "All: %balance%"
 $unstaking_not_enough_balance: You need to have %value% on your main balance to proceed with unstaking.
@@ -524,6 +554,7 @@ Contract Initialization Data Copied: Contract Initialization Data Copied
 Open NFT Collection: Open NFT Collection
 Previous: Previous
 Next: Next
+Updating: Updating
 Insufficient %token% for fee.%fee%: Insufficient %token% for fee.%fee%
 Send NFT: Send NFT
 Send Collectible: Send Collectible
@@ -547,9 +578,17 @@ Unstake More: Unstake More
 Are you sure you want to burn this NFT? It will be lost forever.: |
   Are you sure you want to burn this NFT?
   It will be lost forever.
-$multi_burn_nft_warning: You are going to burn %amount% NFTs.
+$multi_burn_nft_warning: |
+  You are going to burn %amount% NFTs. The process may take ~%duration%. Please do not close the app or switch wallets until it's finished.
+
+  These NFTs will be lost forever.
+$duration_minutes:
+  zeroValue: "%1$d minutes"
+  oneValue: "%1$d minute"
+  otherValue: "%1$d minutes"
 $multi_send_nft_warning: The process may take ~%duration% minute(s). Please do not close the app and do not switch accounts until it is finished.
 Burn NFT: Burn NFT
+Burn Collectibles: Burn Collectibles
 Burn: Burn
 Private Key: Private Key
 "%amount% NFTs": "%amount% NFTs"
@@ -567,6 +606,11 @@ Transaction ID Copied: Transaction ID Copied
 $swap_changelly_support: "If there are any problems, please contact %livechat% or %email% and provide **Transaction ID**:"
 Changelly Live Chat: Changelly Live Chat
 Your %blockchain% Address: Your %blockchain% Address
+My %blockchain% Address: My %blockchain% Address
+"%blockchain% Address": "%blockchain% Address"
+$view_only_wallet_receive_warning: |
+  **View mode: this is NOT your wallet**
+  Verify carefully before sending funds.
 Vesting: Vesting
 Vesting Balance: Vesting Balance
 Ready to Unfreeze: Ready to Unfreeze
@@ -632,8 +676,6 @@ Untitled: Untitled
 Multichain: Multichain
 $swap_too_small_amount: Too small amount
 Not enough %symbol%: Not enough %symbol%
-You have just created a new multichain wallet: You have just created a new multichain wallet
-Now you can transfer tokens from your %chains% wallets.: Now you can transfer tokens from your %chains% wallets.
 Enter Secret Words: Enter Secret Words
 Turn this off so you can manually download updates and verify signatures.: Turn this off so you can manually download updates and verify signatures.
 InvalidMnemonic: Your mnemonic words are invalid
@@ -863,6 +905,9 @@ The binary data content is unclear. Sign it only if you trust the service.: The 
 Cell Schema: Cell Schema
 Cell Data: Cell Data
 Sign Data: Sign Data
+EIP-712 typed data: EIP-712 typed data
+Domain: Domain
+Primary type: Primary type
 Please confirm signature on your Ledger: Please confirm signature on your Ledger
 Utilities: Utilities
 Games: Games
@@ -925,16 +970,16 @@ $wallet_done_description: You can now securely store, receive, and send coins an
 Security Warning: Security Warning
 Go back to Words: Go back to Words
 I’m sure. Continue: I’m sure. Continue
-$copy_mnemonic_warning: Storing words in a digital environment, including the **clipboard**, is not safe. Make sure you have your recovery phrase securely saved.
-$screenshot_mnemonic_warning: Storing words in a digital environment, including the **screenshot**, is not safe. Make sure you have your recovery phrase securely saved.
-Other apps will be able to read your recovery phrase!: Other apps will be able to read your recovery phrase!
+$copy_mnemonic_warning: Storing words in a digital environment, including the **clipboard**, is not safe. Make sure you have your secret words securely saved.
+$screenshot_mnemonic_warning: Storing words in a digital environment, including the **screenshot**, is not safe. Make sure you have your secret words securely saved.
+Other apps will be able to read your secret words!: Other apps will be able to read your secret words!
 I’m sure. Copy anyway: I’m sure. Copy anyway
 $auth_biometric_info: You can connect your biometric data for **more convenience.**
 Open wallet without checking: Open wallet without checking
-Make sure you have your recovery phrase securely saved.: Make sure you have your recovery phrase securely saved.
+Make sure you have your secret words securely saved.: Make sure you have your secret words securely saved.
 Without it, you won't be able to access your wallet.: Without it, you won't be able to access your wallet.
 $ledger_connection_broken: The Ledger connection has broken. Please reconnect and try again.
-$ledger_wrong_device: The current account is set up with another Ledger recovery phrase or passphrase, or stored on another Ledger device
+$ledger_wrong_device: The current account is set up with different Ledger secret words or passphrase, or stored on another Ledger device
 Show More: Show More
 Search app or enter address: Search app or enter address
 Connected Apps: Connected Apps
@@ -963,6 +1008,7 @@ Add Ledger Wallet: Add Ledger Wallet
 Add View Wallet: Add View Wallet
 No Ledger wallets yet: No Ledger wallets yet
 No view wallets yet: No view wallets yet
+View wallets can receive assets, but you cannot use them to send or sign transactions.: View wallets can receive assets, but you cannot use them to send or sign transactions.
 Add the first one to track balances and activity for any address.: Add the first one to track balances and activity for any address.
 Customize Wallet: Customize Wallet
 "Select the card stored in this wallet:": "Select the card stored in this wallet:"
@@ -1073,7 +1119,6 @@ Subwallets: Subwallets
 Other addresses for this wallet: Other addresses for this wallet
 Current Wallet: Current Wallet
 Add Subwallet: Add Subwallet
-Replace in this wallet: Replace in this wallet
 Create Subwallet: Create Subwallet
 You have tokens on other subwallets. You can switch to them here.: You have tokens on other subwallets. You can switch to them here.
 Subwallet Created: Subwallet Created
@@ -1092,11 +1137,25 @@ Scroll To Bottom: Scroll To Bottom
 $agent_clear_chat_confirm: Are you sure you want to clear the chat history?
 $unknown_swap_token: Unknown token in swap link. Default tokens were used.
 $action_not_available_view_mode: This action is not available for View Wallets
+Deposit: Deposit
+Trade: Trade
+Show All Assets: Show All Assets
+Show All Collectibles: Show All Collectibles
+Show All %collection_name%: Show All %collection_name%
 Scanning for subwallets...: Scanning for subwallets...
 This process may take up to a minute. Please wait.: This process may take up to a minute. Please wait.
 Your assets on other TON contracts: Your assets on other TON contracts
 No existing subwallets found: No existing subwallets found
-You can create a new subwallet if you need another address on the same recovery phrase.: You can create a new subwallet if you need another address on the same recovery phrase.
+You can create a new subwallet if you need another address on the same secret words.: You can create a new subwallet if you need another address on the same secret words.
 You have tokens on other subwallets. Each subwallet has its own address.: You have tokens on other subwallets. Each subwallet has its own address.
-$chain_Subwallets: "%chain% Subwallets"
 Scanning...: Scanning...
+No collectibles yet: No collectibles yet
+Hide Tab: Hide Tab
+Show Collectibles: Show Collectibles
+Show Assets: Show Assets
+Top %amount%: Top %amount%
+No subwallets yet.: No subwallets yet.
+$subwallets_found:
+  oneValue: "Found: %1$d"
+  otherValue: "Found: %1$d"
+Send, receive, and trade tokens and collectibles.: Send, receive, and trade tokens and collectibles.

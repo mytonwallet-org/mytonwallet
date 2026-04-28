@@ -68,7 +68,14 @@ export async function fetchActivitySlice({
 
     if (tokenSlug !== TONCOIN.slug) {
       await tokensPreload.promise;
-      tokenWalletAddress = await resolveTokenWalletAddress(network, address, getTokenBySlug(tokenSlug)!.tokenAddress!);
+      const token = getTokenBySlug(tokenSlug);
+      if (!token?.tokenAddress) {
+        // Returning [] would make upstream `addPastActivities` set
+        // `isHistoryEndReachedBySlug[tokenSlug]=true` and stop polling this slug.
+        // Throwing makes `callApi` return undefined - the next cycle retries.
+        throw new Error(`fetchActivitySlice: token ${tokenSlug} not in cache`);
+      }
+      tokenWalletAddress = await resolveTokenWalletAddress(network, address, token.tokenAddress);
     }
 
     activities = await fetchActions({

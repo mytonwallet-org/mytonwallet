@@ -35,6 +35,12 @@ fun JSONObject.toHashMapString(): HashMap<String, String> {
     return map
 }
 
+fun JSONObject.optIntOrNull(name: String): Int? =
+    if (has(name) && !isNull(name)) optInt(name) else null
+
+fun JSONObject.optDoubleOrNull(name: String): Double? =
+    if (has(name) && !isNull(name)) optDouble(name) else null
+
 fun JSONObject.toHashMapStringNested(prefix: String = ""): HashMap<String, String> {
     val map = HashMap<String, String>()
 

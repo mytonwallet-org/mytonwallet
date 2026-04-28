@@ -6,7 +6,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
@@ -17,7 +16,7 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
 
 fun WalletCore.loadExploreSites(
-    callback: (Array<MExploreCategory>?, sites: Array<MExploreSite>?, MBridgeError?) -> Unit
+    callback: (List<MExploreCategory>?, sites: List<MExploreSite>?, MBridgeError?) -> Unit
 ) {
     bridge?.callApi(
         "loadExploreSites",
@@ -44,7 +43,7 @@ fun WalletCore.loadExploreSites(
                         categories.add(exploreCategory)
                     }
                     withContext(Dispatchers.Main) {
-                        callback(categories.toTypedArray(), exploreSites.toTypedArray(), null)
+                        callback(categories, exploreSites, null)
                     }
                 } catch (_: Throwable) {
                     withContext(Dispatchers.Main) {

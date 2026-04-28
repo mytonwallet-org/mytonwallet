@@ -1,6 +1,6 @@
 import type { FallbackPollingOptions } from '../../../common/polling/fallbackPollingScheduler';
 import type { Period } from '../../../common/polling/utils';
-import type { ActivitiesUpdate, WalletWatcher } from '../../../common/websocket/abstractWsClient';
+import type { DefaultActivitiesUpdate, WalletWatcher } from '../../../common/websocket/abstractWsClient';
 import type { ApiActivity, ApiNetwork } from '../../../types';
 
 import { mergeSortedActivities, sortActivities } from '../../../../util/activities/order';
@@ -83,7 +83,7 @@ export class ActivityStream {
     this.#newestConfirmedActivityTimestamp = newestConfirmedActivityTimestamp;
 
     this.#walletWatcher = getToncenterSocket(network).watchWallets(
-      [{ address }],
+      [{ address, chain: 'ton' }],
       {
         onConnect: this.#handleSocketConnect,
         onDisconnect: this.#handleSocketDisconnect,
@@ -134,7 +134,7 @@ export class ActivityStream {
     this.#fallbackPollingScheduler.onSocketDisconnect();
   };
 
-  #handleSocketNewActivities = (updates: ActivitiesUpdate[]) => {
+  #handleSocketNewActivities = (updates: DefaultActivitiesUpdate[]) => {
     if (this.#isDestroyed) return;
     this.#fallbackPollingScheduler.onSocketMessage();
 
@@ -208,7 +208,7 @@ export class ActivityStream {
   #handleNewActivities(
     finalizedActivities: ApiActivity[],
     allPendingActivities?: ApiActivity[],
-    pendingUpdates?: ActivitiesUpdate[],
+    pendingUpdates?: DefaultActivitiesUpdate[],
   ) {
     // If nothing new, do nothing
     if (!finalizedActivities.length && !(allPendingActivities || pendingUpdates?.length)) {
@@ -240,8 +240,8 @@ async function loadPendingActivities(network: ApiNetwork, address: string) {
  *   - finality='pending'/'confirmed'/'signed' (can be updated or invalidated)
  *   - finality='finalized' with empty activities (invalidations that need to clear pending list)
  */
-function splitSocketUpdates(updates: ActivitiesUpdate[]) {
-  const pendingUpdates: ActivitiesUpdate[] = [];
+function splitSocketUpdates(updates: DefaultActivitiesUpdate[]) {
+  const pendingUpdates: DefaultActivitiesUpdate[] = [];
   const finalizedActivities: ApiActivity[] = [];
 
   for (const update of updates) {
@@ -274,7 +274,7 @@ function managePendingActivities() {
   function update(
     finalizedActivities: ApiActivity[],
     allPendingActivities?: readonly ApiActivity[],
-    pendingUpdates?: ActivitiesUpdate[],
+    pendingUpdates?: DefaultActivitiesUpdate[],
   ) {
     // All finalizedActivities have status='completed'/'failed' (set by resolveActivityStatus when finality='finalized'),
     // so we add all their hashes to finishedHashes to filter them out from pending list.
@@ -325,7 +325,7 @@ function managePendingActivities() {
 
 function mergePendingActivities(
   currentPendingActivities: readonly ApiActivity[], // Must be sorted by timestamp descending
-  socketUpdates: ActivitiesUpdate[],
+  socketUpdates: DefaultActivitiesUpdate[],
 ) {
   if (!socketUpdates.length) {
     return currentPendingActivities;

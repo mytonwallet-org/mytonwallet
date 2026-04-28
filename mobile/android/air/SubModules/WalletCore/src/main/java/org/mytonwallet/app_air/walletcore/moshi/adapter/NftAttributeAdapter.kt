@@ -15,12 +15,8 @@ class NftAttributeAdapter {
                 var value: String? = null
                 while (reader.hasNext()) {
                     when (reader.nextName()) {
-                        "trait_type" -> traitType =
-                            if (reader.peek() == JsonReader.Token.NULL) reader.nextNull() else reader.nextString()
-
-                        "value" -> value =
-                            if (reader.peek() == JsonReader.Token.NULL) reader.nextNull() else reader.nextString()
-
+                        "trait_type" -> traitType = readStringCoerced(reader)
+                        "value" -> value = readStringCoerced(reader)
                         else -> reader.skipValue()
                     }
                 }
@@ -43,5 +39,18 @@ class NftAttributeAdapter {
     @ToJson
     fun toJson(attribute: ApiNftMetadata.Attribute): Map<String, String?> {
         return mapOf("trait_type" to attribute.traitType, "value" to attribute.value)
+    }
+
+    private fun readStringCoerced(reader: JsonReader): String? {
+        return when (reader.peek()) {
+            JsonReader.Token.NULL -> reader.nextNull()
+            JsonReader.Token.STRING -> reader.nextString()
+            JsonReader.Token.BOOLEAN -> reader.nextBoolean().toString()
+            JsonReader.Token.NUMBER -> reader.nextString()
+            else -> {
+                reader.skipValue()
+                null
+            }
+        }
     }
 }

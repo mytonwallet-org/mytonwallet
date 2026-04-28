@@ -19,6 +19,7 @@ type OwnProps<T extends string> = {
   title?: string | TeactNode;
   className?: string;
   withNotch?: boolean;
+  titleClassName?: string;
   closeClassName?: string;
   menuItems?: DropdownItem<T>[];
   onClose?: NoneToVoidFunction;
@@ -28,7 +29,16 @@ type OwnProps<T extends string> = {
 };
 
 function ModalHeader<T extends string>({
-  title, className, withNotch, closeClassName, menuItems, onClose, onBackButtonClick, onShareClick, onMenuItemClick,
+  title,
+  className,
+  withNotch,
+  titleClassName,
+  closeClassName,
+  menuItems,
+  onClose,
+  onBackButtonClick,
+  onShareClick,
+  onMenuItemClick,
 }: OwnProps<T>) {
   const lang = useLang();
 
@@ -87,6 +97,7 @@ function ModalHeader<T extends string>({
           modalStyles.title,
           typeof title === 'string' && modalStyles.singleTitle,
           !onBackButtonClick && modalStyles.titleFullWidth,
+          titleClassName,
         )}
         >
           {title}

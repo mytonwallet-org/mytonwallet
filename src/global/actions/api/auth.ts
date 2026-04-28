@@ -1,6 +1,6 @@
 import { NativeBiometric } from '@capgo/capacitor-native-biometric';
 
-import type { ApiNetwork } from '../../../api/types';
+import type { ApiChain, ApiNetwork } from '../../../api/types';
 import type { GlobalState } from '../../types';
 import { ApiAuthError, ApiCommonError } from '../../../api/types';
 import { AppState, AuthState, BiometricsState } from '../../types';
@@ -913,10 +913,14 @@ addActionHandler('importAccountByVersion', async (global, actions, { version, is
   actions.tryAddNotificationAccount({ accountId: wallet.accountId });
 });
 
-addActionHandler('createSubWallet', async (global, actions, { chain, password }) => {
+addActionHandler('createSubWallet', async (global, actions, { password }) => {
   const accountId = selectCurrentAccountId(global)!;
 
-  const result = await callApi('createSubWallet', chain, accountId, password);
+  const result = await callApi('createSubWallet', accountId, password);
+
+  global = getGlobal();
+  global = clearIsPinAccepted(global);
+  setGlobal(global);
 
   if (!result || 'error' in result) {
     actions.showError({ error: result?.error ?? ApiCommonError.Unexpected });
@@ -952,42 +956,56 @@ addActionHandler('createSubWallet', async (global, actions, { chain, password })
   }
 });
 
-addActionHandler('addSubWallet', async (global, actions, { chain, newWallet, isReplace }) => {
+addActionHandler('addSubWallet', async (global, actions, { group }) => {
   const accountId = selectCurrentAccountId(global)!;
 
-  const result = await callApi('addSubWallet', chain, accountId, newWallet, isReplace);
+  const partialByChain = Object.fromEntries(
+    (Object.keys(group.byChain) as ApiChain[]).map((chain) => {
+      const entry = group.byChain[chain]!;
+      return [chain, entry.wallet];
+    }),
+  );
+
+  const result = await callApi('addSubWallet', accountId, partialByChain);
+
+  global = getGlobal();
+  global = clearIsPinAccepted(global);
+  setGlobal(global);
 
   if (!result) {
     actions.showError({ error: ApiCommonError.Unexpected });
     return;
   }
 
-  if (!result.isNew) {
-    actions.switchAccount({ accountId: result.accountId });
+  if ('error' in result) {
+    actions.showError({ error: result.error });
     return;
   }
 
-  const hasDerivation = newWallet.derivation !== undefined;
+  if (!result.isNew) {
+    actions.switchAccount({ accountId: result.accountId });
+    actions.showToast({
+      message: getTranslation('Subwallet Switched'),
+      icon: 'icon-subwallet-change',
+    });
+    return;
+  }
 
   const currentAccount = selectAccount(global, accountId);
 
   if (currentAccount?.title) {
     global = getGlobal();
 
-    let title: string | undefined;
-
-    if (hasDerivation) {
-      const baseTitle = currentAccount.title.replace(/\.\d+$/, '');
-      const accounts = selectNetworkAccounts(global) || {};
-      title = generateNextSubwalletTitle(baseTitle, accounts);
-    }
+    const baseTitle = currentAccount.title.replace(/\.\d+$/, '');
+    const accounts = selectNetworkAccounts(global) || {};
+    const title = generateNextSubwalletTitle(baseTitle, accounts);
 
     global = createAccount({
       global,
       accountId: result.accountId,
       byChain: result.byChain,
       type: currentAccount.type,
-      partial: title ? { title } : undefined,
+      partial: { title },
     });
 
     global = updateCurrentAccountId(global, result.accountId);
@@ -995,6 +1013,11 @@ addActionHandler('addSubWallet', async (global, actions, { chain, newWallet, isR
 
     void actions.tryAddNotificationAccount({ accountId: result.accountId });
   }
+
+  actions.showToast({
+    message: getTranslation('Subwallet Added'),
+    icon: 'icon-subwallet-add',
+  });
 });
 
 addActionHandler('setIsAuthLoading', (global, actions, { isLoading }) => {

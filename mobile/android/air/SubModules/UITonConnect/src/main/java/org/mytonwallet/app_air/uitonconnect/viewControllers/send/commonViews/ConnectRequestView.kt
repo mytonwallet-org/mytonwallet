@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uitonconnect.viewControllers.send.commonViews
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
@@ -59,7 +60,7 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
 
     private val linkTextView = AppCompatTextView(context).apply {
         id = generateViewId()
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 22f)
         ellipsize = TextUtils.TruncateAt.END
         gravity = Gravity.CENTER
@@ -73,7 +74,7 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
 
     private val infoTextView = AppCompatTextView(context).apply {
         id = generateViewId()
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 20f)
         ellipsize = TextUtils.TruncateAt.END
         gravity = Gravity.CENTER

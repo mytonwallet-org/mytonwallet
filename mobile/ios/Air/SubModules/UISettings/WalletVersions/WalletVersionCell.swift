@@ -15,6 +15,7 @@ struct WalletVersionCell: View {
     var value: String?
     var isCurrent: Bool
     var showArrow: Bool
+    var isLoading: Bool = false
 
     var body: some View {
         HStack {
@@ -35,6 +36,9 @@ struct WalletVersionCell: View {
             if isCurrent {
                 Image.airBundle("AirCheckmark")
                     .foregroundStyle(.tint)
+            } else if isLoading {
+                WUIActivityIndicator()
+                    .foregroundStyle(Color.air.secondaryLabel)
             } else if showArrow {
                 Image("RightArrowIcon", bundle: AirBundle)
                     .renderingMode(.template)
@@ -57,7 +61,8 @@ extension WalletVersionCell {
                         subtitle: formatStartEndAddress(account?.getAddress(chain: .ton) ?? ""),
                         value: nil,
                         isCurrent: true,
-                        showArrow: false
+                        showArrow: false,
+                        isLoading: false
                     )
                 }
                 .background {
@@ -70,7 +75,8 @@ extension WalletVersionCell {
     }
 
     static func makeOtherVersionRegistration(
-        versions: [MWalletVersionsData.Version]
+        versions: [MWalletVersionsData.Version],
+        isLoading: @escaping (String) -> Bool
     ) -> UICollectionView.CellRegistration<UICollectionViewListCell, String> {
         UICollectionView.CellRegistration<UICollectionViewListCell, String> { cell, _, versionId in
             guard let version = versions.first(where: { $0.version == versionId }) else { return }
@@ -88,7 +94,8 @@ extension WalletVersionCell {
                         subtitle: formatStartEndAddress(version.address),
                         value: value,
                         isCurrent: false,
-                        showArrow: true
+                        showArrow: true,
+                        isLoading: isLoading(versionId)
                     )
                 }
                 .background {

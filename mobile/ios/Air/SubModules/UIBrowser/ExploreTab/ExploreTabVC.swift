@@ -8,8 +8,14 @@ public class ExploreTabVC: WViewController {
     private let exploreVC = ExploreVC()
     private let searchView = ExploreSearch()
 
-    private static let deeplinkSchemes: Set<String> = ["ton", "tc", "mytonwallet-tc", "wc", "mtw"]
-    private static let deeplinkUniversalHosts: Set<String> = ["connect.mytonwallet.org", "walletconnect.com", "go.mytonwallet.org", "my.tt"]
+    private static let deeplinkSchemes: Set<String> = ["ton", "tc", TONCONNECT_PROTOCOL_SCHEME, "wc", SELF_PROTOCOL_SCHEME]
+    private static var deeplinkUniversalHosts: Set<String> {
+        var hosts = SELF_UNIVERSAL_URL_HOSTS.union(["walletconnect.com"])
+        if let tonConnectUniversalHost = URL(string: TONCONNECT_UNIVERSAL_URL)?.host?.lowercased() {
+            hosts.insert(tonConnectUniversalHost)
+        }
+        return hosts
+    }
     
     public override func viewDidLoad() {
         super.viewDidLoad()

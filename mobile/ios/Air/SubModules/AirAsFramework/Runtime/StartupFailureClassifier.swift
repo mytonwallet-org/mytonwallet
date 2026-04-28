@@ -32,13 +32,13 @@ enum StartupFailureClassifier {
         case .storageWriteFailed:
             message = "Couldn't save wallet data safely during startup. No automatic recovery action was taken. If this keeps happening, please export logs and contact support."
         case .legacyDataCorruption:
-            message = "Stored wallet data looks damaged, so MyTonWallet couldn't continue safely. If this keeps happening, please export logs and contact support."
+            message = "Stored wallet data looks damaged, so \(APP_NAME) couldn't continue safely. If this keeps happening, please export logs and contact support."
         case .databaseFailure:
-            message = "MyTonWallet couldn't open its local wallet database safely. If this keeps happening, please export logs and contact support."
+            message = "\(APP_NAME) couldn't open its local wallet database safely. If this keeps happening, please export logs and contact support."
         case .bridgeFailure:
-            message = "MyTonWallet couldn't finish wallet startup safely. If this keeps happening, please export logs and contact support."
+            message = "\(APP_NAME) couldn't finish wallet startup safely. If this keeps happening, please export logs and contact support."
         case .unknown:
-            message = "MyTonWallet couldn't start safely. If this keeps happening, please export logs and contact support."
+            message = "\(APP_NAME) couldn't start safely. If this keeps happening, please export logs and contact support."
         }
 
         return StartupFailure(

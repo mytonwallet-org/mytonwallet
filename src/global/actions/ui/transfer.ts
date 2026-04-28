@@ -1,4 +1,4 @@
-import { ActiveTab, TransferState } from '../../types';
+import { TransferState } from '../../types';
 
 import { getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import { fromDecimal, toDecimal } from '../../../util/decimals';
@@ -8,7 +8,7 @@ import { resetHardware, setCurrentTransferAddress, updateCurrentTransfer } from 
 import { selectIsHardwareAccount } from '../../selectors';
 
 addActionHandler('startTransfer', (global, actions, payload) => {
-  const { isPortrait, isOfframp, ...rest } = payload ?? {};
+  const { isOfframp, ...rest } = payload ?? {};
 
   const nftTokenSlug = Symbol('nft');
   const previousFeeTokenSlug = global.currentTransfer.nfts?.length ? nftTokenSlug : global.currentTransfer.tokenSlug;
@@ -16,16 +16,12 @@ addActionHandler('startTransfer', (global, actions, payload) => {
   const shouldClearFee = nextFeeTokenSlug && nextFeeTokenSlug !== previousFeeTokenSlug;
 
   setGlobal(updateCurrentTransfer(global, {
-    state: isPortrait ? TransferState.Initial : TransferState.None,
+    state: TransferState.Initial,
     error: undefined,
     ...(shouldClearFee ? { explainedFee: undefined, diesel: undefined } : {}),
     ...rest,
     isOfframp,
   }));
-
-  if (!isPortrait) {
-    actions.setLandscapeActionsActiveTabIndex({ index: ActiveTab.Transfer });
-  }
 
   // For offramp mode, automatically submit to calculate fee and go to Confirm screen
   if (isOfframp && payload?.tokenSlug && payload?.amount && payload?.toAddress) {

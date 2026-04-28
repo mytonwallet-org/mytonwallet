@@ -18,7 +18,6 @@ import buildClassName from '../../util/buildClassName';
 import { formatCurrencyExtended } from '../../util/formatNumber';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 
-import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
@@ -59,7 +58,6 @@ function SwapModal({
     payinAddress,
     payoutAddress,
     payinExtraId,
-    shouldResetOnClose,
   },
   swapType,
   swapTokens,
@@ -78,7 +76,6 @@ function SwapModal({
     setSwapTokenOut,
   } = getActions();
   const lang = useLang();
-  const { isPortrait } = useDeviceScreen();
 
   const isOpen = state !== SwapState.None;
   const { renderingKey, nextKey, updateNextKey } = useModalTransitionKeys(state, isOpen);
@@ -137,17 +134,17 @@ function SwapModal({
       if (swapType === SwapType.CrosschainFromWallet) {
         setSwapScreen({ state: SwapState.Blockchain });
       } else {
-        setSwapScreen({ state: isPortrait ? SwapState.Initial : SwapState.None });
+        setSwapScreen({ state: SwapState.Initial });
       }
       return;
     }
 
     if (state === SwapState.SelectTokenTo || state === SwapState.SelectTokenFrom) {
-      setSwapScreen({ state: isPortrait ? SwapState.Initial : SwapState.None });
+      setSwapScreen({ state: SwapState.Initial });
     }
 
     if (state === SwapState.Blockchain) {
-      setSwapScreen({ state: isPortrait ? SwapState.Initial : SwapState.None });
+      setSwapScreen({ state: SwapState.Initial });
     }
   });
 
@@ -159,7 +156,7 @@ function SwapModal({
   });
 
   const handleModalClose = useLastCallback(() => {
-    cancelSwap({ shouldReset: isPortrait || shouldResetOnClose });
+    cancelSwap({ shouldReset: true });
     updateNextKey();
   });
 

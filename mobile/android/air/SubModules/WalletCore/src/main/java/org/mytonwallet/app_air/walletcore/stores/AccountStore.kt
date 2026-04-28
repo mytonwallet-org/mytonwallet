@@ -16,6 +16,8 @@ import org.mytonwallet.app_air.walletcore.api.removeAccount
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MultiWalletSupport
 import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.MUpdateStaking
@@ -73,6 +75,16 @@ object AccountStore : IStore {
             return null
         }
 
+    fun chainSupportsSubWallets(chain: MBlockchain): Boolean {
+        if (activeAccount?.byChain?.containsKey(chain.name) != true) return false
+        val multiWalletSupport = chain.multiWalletSupport ?: return false
+        return if (chain == MBlockchain.ton && multiWalletSupport == MultiWalletSupport.VERSION) {
+            walletVersionsData?.currentVersion == "W5"
+        } else {
+            true
+        }
+    }
+
     fun accountIdByAddress(tonAddress: String?): String? {
         if (tonAddress == null)
             return null
@@ -128,6 +140,14 @@ object AccountStore : IStore {
             val existing = byChain[chain]
             if (existing != null && existing.isMultisig != newIsMultisig) {
                 byChain[chain] = existing.copy(isMultisig = newIsMultisig)
+                didChange = true
+            }
+        }
+
+        update.derivation?.let { newDerivation ->
+            val existing = byChain[chain]
+            if (existing != null && existing.derivation != newDerivation) {
+                byChain[chain] = existing.copy(derivation = newDerivation)
                 didChange = true
             }
         }

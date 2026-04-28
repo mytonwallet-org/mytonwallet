@@ -9,6 +9,10 @@ import UIKit
 import WalletContext
 import WalletCore
 
+public protocol WBackSwipeControlling: AnyObject {
+    func shouldAllowBackSwipe(at point: CGPoint) -> Bool
+}
+
 class SlowedPanGestureRecognizer: UIPanGestureRecognizer {
     override func velocity(in view: UIView?) -> CGPoint {
         let originalVelocity = super.velocity(in: view)
@@ -100,7 +104,18 @@ extension WNavigationController: UINavigationControllerDelegate {
 extension WNavigationController: UIGestureRecognizerDelegate {
     public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         let isThereStackedViewControllers = viewControllers.count > 1
-        return isThereStackedViewControllers && presentedViewController == nil
+        guard isThereStackedViewControllers, presentedViewController == nil else {
+            return false
+        }
+
+        if let controller = topViewController,
+           let backSwipeController = controller as? WBackSwipeControlling
+        {
+            let point = gestureRecognizer.location(in: controller.view)
+            return backSwipeController.shouldAllowBackSwipe(at: point)
+        }
+
+        return true
     }
     
     public func fullWidthBackGestureRecognizerRequireToFail(_ otherGestureRecognizer: UIGestureRecognizer) {

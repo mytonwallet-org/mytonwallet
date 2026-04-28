@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -13,6 +14,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.NftAccentColors
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -83,10 +85,11 @@ class AppearancePaletteView(
 
     private val unlockButton = WLabel(context).apply {
         setPaddingDp(20, 16, 20, 16)
-        setStyle(16f)
+        setStyle(adaptiveFontSize())
         text = LocaleController.getString("Unlock New Palettes")
         setOnClickListener {
-            WalletCore.notifyEvent(WalletEvent.OpenUrl("https://cards.mytonwallet.io"))
+            val url = context.getString(BaseR.string.app_cards_url)
+            if (url.isNotEmpty()) WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
         }
     }
 

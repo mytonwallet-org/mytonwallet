@@ -9,6 +9,8 @@ import type {
 import { DEBUG } from '../../config';
 import { getActivityChains, parseTxId } from '../../util/activities';
 import { areActivitiesSortedAndUnique, mergeSortedActivitiesToMaxTime } from '../../util/activities/order';
+import { getChainConfig, getOrderedAccountChains } from '../../util/chain';
+import { unique } from '../../util/iteratees';
 import { logDebug, logDebugError } from '../../util/logs';
 import { getChainBySlug } from '../../util/tokens';
 import chains from '../chains';
@@ -47,7 +49,7 @@ function fetchTokenActivitySlice(
   toTimestamp?: number,
 ): Promise<ActivitySliceResult> {
   const chain = getChainBySlug(tokenSlug);
-  return fetchAndCheckActivitySlice(chain, { accountId, tokenSlug, toTimestamp, limit });
+  return fetchAndCheckActivitySlice(chain, { accountId, tokenSlug, toTimestamp, limit }, false);
 }
 
 async function fetchAllActivitySlice(
@@ -56,15 +58,39 @@ async function fetchAllActivitySlice(
   toTimestamp?: number,
 ): Promise<ActivitySliceResult> {
   const account = await fetchStoredAccount(accountId);
-  const accountChains = Object.keys(account.byChain) as (keyof typeof account.byChain)[];
+  // `getOrderedAccountChains` drops stored keys absent from CHAIN_CONFIG; without it a stale
+  // chain crashes `getChainConfig(...).chainStandard` and silently aborts the whole slice.
+  const accountChains = getOrderedAccountChains(account.byChain);
 
-  const results = await Promise.all(
+  const deduplicatedChains = unique(accountChains.map((chain) => getChainConfig(chain).chainStandard || chain));
+
+  // `Promise.allSettled` so a single chain failure (transient API error, unknown token, stale account)
+  // does not erase the whole batch. Failed chains contribute an empty slice; the rest stay visible.
+  const settled = await Promise.allSettled(
     // The `fetchActivitySlice` method of all chains must return sorted activities
-    accountChains.map((chain) => fetchAndCheckActivitySlice(chain, { accountId, toTimestamp, limit })),
+    deduplicatedChains.map((chain) =>
+      fetchAndCheckActivitySlice(chain, { accountId, toTimestamp, limit }, true),
+    ),
   );
 
+  let firstRejection: Error | undefined;
+  const results: ActivitySliceResult[] = settled.map((settledResult, index) => {
+    if (settledResult.status === 'fulfilled') {
+      return settledResult.value;
+    }
+    logDebugError(`fetchAllActivitySlice ${deduplicatedChains[index]}`, settledResult.reason);
+    firstRejection ??= settledResult.reason;
+    return { activities: [], hasMore: false };
+  });
+
+  // If every chain came back empty and at least one failed, we cannot tell "real end of history"
+  // from "transient outage". Surface the failure so `fetchPastActivities` returns `undefined` and
+  // the UI retries on the next scroll instead of marking the history as ended.
+  if (firstRejection && results.every((r) => !r.activities.length)) {
+    throw firstRejection;
+  }
+
   const activities = mergeSortedActivitiesToMaxTime(...results.map((r) => r.activities));
-  // If any chain indicates there might be more, we should fetch more
   const hasMore = results.some((r) => r.hasMore);
 
   return { activities, hasMore };
@@ -111,8 +137,19 @@ export async function fetchTransactionById(
 async function fetchAndCheckActivitySlice(
   chain: ApiChain,
   options: ApiFetchActivitySliceOptions,
+  isCrossChain: boolean,
 ): Promise<ActivitySliceResult> {
-  const activities = await chains[chain].fetchActivitySlice(options);
+  const chainStandard = getChainConfig(chain).chainStandard;
+
+  let activities: ApiActivity[] = [];
+
+  if (isCrossChain && chainStandard && !options.tokenSlug) {
+    activities = await chains[chain].fetchCrossChainActivitySlice(options);
+  } else {
+    activities = await chains[chain].fetchActivitySlice(options);
+  }
+
+  // const activities = await chains[chain].fetchActivitySlice(options);
 
   // Sorting is important for `mergeSortedActivities`, so it's checked in the debug mode
   if (DEBUG && !areActivitiesSortedAndUnique(activities)) {

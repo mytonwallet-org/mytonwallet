@@ -19,6 +19,10 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNotificationAddress
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransfersResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
+import org.mytonwallet.app_air.walletcore.moshi.ApiAddSubWalletResult
+import org.mytonwallet.app_air.walletcore.moshi.ApiCreateSubWalletResult
+import org.mytonwallet.app_air.walletcore.moshi.ApiGroupedWalletVariant
+import org.mytonwallet.app_air.walletcore.moshi.ApiSubWallet
 import org.mytonwallet.app_air.walletcore.moshi.MApiGetAddressInfoResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckNftDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckStakeDraftResult
@@ -331,6 +335,51 @@ sealed class ApiMethod<T> {
             override val arguments: String = ArgumentsBuilder()
                 .string(oldPasscode)
                 .string(newPasscode)
+                .build()
+        }
+
+        class GetWalletVariants(
+            accountId: String,
+            page: Int,
+            mnemonic: Array<String>
+        ) : ApiMethod<Array<ApiGroupedWalletVariant>>() {
+            override val name: String = "getWalletVariants"
+            override val type: Type = Array<ApiGroupedWalletVariant>::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .number(page)
+                .jsArray(mnemonic.toList(), String::class.java)
+                .build()
+        }
+
+        class CreateSubWallet(
+            accountId: String,
+            password: String
+        ) : ApiMethod<ApiCreateSubWalletResult>() {
+            override val name: String = "createSubWallet"
+            override val type: Type = ApiCreateSubWalletResult::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(password)
+                .build()
+        }
+
+        class AddSubWallet(
+            accountId: String,
+            byChain: Map<String, ApiSubWallet>
+        ) : ApiMethod<ApiAddSubWalletResult>() {
+            override val name: String = "addSubWallet"
+            override val type: Type = ApiAddSubWalletResult::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .jsObject(
+                    byChain,
+                    Types.newParameterizedType(
+                        Map::class.java,
+                        String::class.java,
+                        ApiSubWallet::class.java
+                    )
+                )
                 .build()
         }
     }
@@ -809,7 +858,10 @@ sealed class ApiMethod<T> {
                 .string(chain.name)
                 .string(accountId)
                 .string(passcode)
-                .jsObject(nfts.map { it.toDictionary() }.toTypedArray(), Array<JSONObject>::class.java)
+                .jsObject(
+                    nfts.map { it.toDictionary() }.toTypedArray(),
+                    Array<JSONObject>::class.java
+                )
                 .string(address)
                 .string(comment)
                 .bigInt(fee)

@@ -10,18 +10,16 @@ import useLang from '../../hooks/useLang';
 import useScrolledState from '../../hooks/useScrolledState';
 
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
-import Button from '../ui/Button';
-import ModalHeader from '../ui/ModalHeader';
+import SettingsHeader from './SettingsHeader';
 
 import styles from './Settings.module.scss';
 
 interface OwnProps {
   isActive: boolean;
-  isInsideModal?: boolean;
   onBackClick: NoneToVoidFunction;
 }
 
-function SettingsDisclaimer({ isActive, isInsideModal, onBackClick }: OwnProps) {
+function SettingsDisclaimer({ isActive, onBackClick }: OwnProps) {
   const lang = useLang();
 
   useHistoryBack({
@@ -29,34 +27,14 @@ function SettingsDisclaimer({ isActive, isInsideModal, onBackClick }: OwnProps) 
     onBack: onBackClick,
   });
 
-  const {
-    handleScroll: handleContentScroll,
-    isScrolled,
-  } = useScrolledState();
+  const { isScrolled, handleScroll } = useScrolledState();
 
   return (
     <div className={styles.slide}>
-      {isInsideModal ? (
-        <ModalHeader
-          title=""
-          withNotch={isScrolled}
-          onBackButtonClick={onBackClick}
-        />
-      ) : (
-        <div className={buildClassName(styles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
-            <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-            <span>{lang('Back')}</span>
-          </Button>
-        </div>
-      )}
+      <SettingsHeader isScrolled={isScrolled} onBackClick={onBackClick} />
+
       <div
-        className={buildClassName(
-          styles.content,
-          isInsideModal && 'custom-scroll',
-          !isInsideModal && styles.content_noScroll,
-        )}
-        onScroll={isInsideModal ? handleContentScroll : undefined}
+        className={buildClassName(styles.content, styles.content_noScroll)}
       >
         <div className={styles.stickerAndTitle}>
           <AnimatedIconWithPreview
@@ -69,7 +47,7 @@ function SettingsDisclaimer({ isActive, isInsideModal, onBackClick }: OwnProps) 
           />
           <div className={styles.sideTitle}>{lang('Use Responsibly')}</div>
         </div>
-        <div className={buildClassName(styles.blockAbout, !isInsideModal && 'custom-scroll')}>
+        <div className={buildClassName(styles.blockAbout, 'custom-scroll')} onScroll={handleScroll}>
           <p className={styles.text}>{renderText(lang('$auth_responsibly_description1', { app_name: APP_NAME }))}</p>
           <p className={styles.text}>{renderText(lang('$auth_responsibly_description2'))}</p>
           <p className={styles.text}>{renderText(lang('$auth_responsibly_description3', { app_name: APP_NAME }))}</p>

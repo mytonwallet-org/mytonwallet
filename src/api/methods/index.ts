@@ -26,6 +26,7 @@ export {
 } from './dapps';
 export * from './swap';
 export * from './other';
+export * from './portfolio';
 export * from './prices';
 export * from './preload';
 export * from './notifications';

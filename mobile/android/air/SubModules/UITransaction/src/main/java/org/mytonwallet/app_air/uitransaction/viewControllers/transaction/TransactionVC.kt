@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uitransaction.viewControllers.transaction
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -22,7 +23,6 @@ import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.constraintlayout.widget.ConstraintSet
-import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.core.widget.NestedScrollView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -76,6 +76,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
@@ -253,7 +255,7 @@ class TransactionVC(
 
     private val commentLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl.setTextColor(Color.WHITE)
         lbl.useCustomEmoji = true
         lbl
@@ -468,27 +470,18 @@ class TransactionVC(
         return listOfNotNull(
             if (isInBottomSheet) HeaderActionsView.Item(
                 HeaderActionsView.Identifier.DETAILS,
-                ContextCompat.getDrawable(
-                    context,
-                    R.drawable.ic_act_details_outline
-                )!!,
+                context.requireDrawableCompat(R.drawable.ic_act_details_outline),
                 LocaleController.getString("Details")
             ) else null,
             if (shouldShowRepeatAction()) HeaderActionsView.Item(
                 HeaderActionsView.Identifier.REPEAT,
-                ContextCompat.getDrawable(
-                    context,
-                    R.drawable.ic_act_repeat_outline
-                )!!,
+                context.requireDrawableCompat(R.drawable.ic_act_repeat_outline),
                 LocaleController.getString("Repeat")
             ) else null,
             if (!transaction.getTxHash().isNullOrEmpty())
                 HeaderActionsView.Item(
                     HeaderActionsView.Identifier.SHARE,
-                    ContextCompat.getDrawable(
-                        context,
-                        R.drawable.ic_act_share_outline
-                    )!!,
+                    context.requireDrawableCompat(R.drawable.ic_act_share_outline),
                     LocaleController.getString("Share")
                 ) else null
         )
@@ -564,7 +557,7 @@ class TransactionVC(
                             false
                         ).apply {
                             setValueView(WLabel(context).apply {
-                                setStyle(16f)
+                                setStyle(adaptiveFontSize())
                                 setTextColor(WColor.Tint)
                                 isTinted = true
                                 setOnClickListener {
@@ -642,7 +635,7 @@ class TransactionVC(
                             fromToken?.decimals ?: 9,
                             smartDecimals = false,
                             showPositiveSign = false
-                        )!!,
+                        ) ?: "",
                         mode = KeyValueRowView.Mode.SECONDARY,
                         isLast = false
                     ).apply { visibility = View.GONE }
@@ -658,7 +651,7 @@ class TransactionVC(
                             toToken?.decimals ?: 9,
                             smartDecimals = false,
                             showPositiveSign = false
-                        )!!,
+                        ) ?: "",
                         mode = KeyValueRowView.Mode.SECONDARY,
                         isLast = false
                     ).apply { visibility = View.GONE }
@@ -677,7 +670,7 @@ class TransactionVC(
                             fromToken?.decimals ?: 9,
                             smartDecimals = false,
                             showPositiveSign = false
-                        )!!,
+                        ) ?: "",
                         KeyValueRowView.Mode.SECONDARY,
                         !shouldShowFeeRow && !shouldShowViewInExplorer
                     )
@@ -1149,10 +1142,11 @@ class TransactionVC(
             }
 
             is MApiTransaction.Swap -> {
-                val isNative = transaction.fromToken?.isBlockchainNative == true
+                val fromToken = transaction.fromToken ?: return null
+                val isNative = fromToken.isBlockchainNative == true
                 val feeTerms = MFeeTerms(
                     token = if (!isNative && transaction.ourFee != null && transaction.ourFee!!.isFinite()) transaction.ourFee!!.toBigInteger(
-                        transaction.fromToken!!.decimals
+                        fromToken.decimals
                     ) else BigInteger.ZERO,
                     native = (
                         (transaction.networkFee?.absoluteValue ?: 0.0) +
@@ -1165,7 +1159,7 @@ class TransactionVC(
                     feeTerms,
                     nativeSum = null
                 ).toString(
-                    transaction.fromToken!!,
+                    fromToken,
                     appendNonNative = true
                 )
             }
@@ -1175,11 +1169,10 @@ class TransactionVC(
     private val transactionIdValue: CharSequence
         get() {
             val spannedString = SpannableStringBuilder(
-                transaction.getTxHash()?.formatStartEndAddress(6, 6)
+                transaction.getTxHash()?.formatStartEndAddress(6, 6) ?: ""
             )
             spannedString.styleDots()
-            ContextCompat.getDrawable(
-                context,
+            context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
             )?.let { drawable ->
                 drawable.mutate()
@@ -1261,11 +1254,10 @@ class TransactionVC(
 
     private val changellyIdValue: CharSequence
         get() {
-            val changellyId = (transaction as? MApiTransaction.Swap)?.cex?.transactionId
-            val spannedString = SpannableStringBuilder(changellyId)
+            val changellyId = (transaction as? Swap)?.cex?.transactionId
+            val spannedString = SpannableStringBuilder(changellyId ?: "")
             spannedString.styleDots()
-            ContextCompat.getDrawable(
-                context,
+            context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
             )?.let { drawable ->
                 drawable.mutate()

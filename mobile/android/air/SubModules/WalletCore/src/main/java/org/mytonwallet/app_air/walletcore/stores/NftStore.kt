@@ -178,7 +178,6 @@ object NftStore : IStore {
 
             currentData ?: return@execute
             currentData.cachedNfts = allNfts?.toMutableList()
-            writeToCache()
 
             if (notifyObservers) {
                 WalletCore.notifyEvent(if (isReorder) WalletEvent.NftsReordered else WalletEvent.NftsUpdated)
@@ -206,6 +205,7 @@ object NftStore : IStore {
                     WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
                 }
             }
+            writeToCache()
         }
     }
 
@@ -353,8 +353,8 @@ object NftStore : IStore {
                 else
                     nftData?.cachedNfts?.add(0, nft)
             }
-            writeToCache()
             WalletCore.notifyEvent(WalletEvent.ReceivedNewNFT)
+            writeToCache()
         }
     }
 
@@ -364,8 +364,8 @@ object NftStore : IStore {
                 return@execute
             nftData?.cachedNfts =
                 nftData?.cachedNfts?.filter { it.address != nftAddress }?.toMutableList()
-            writeToCache()
             WalletCore.notifyEvent(WalletEvent.NftsUpdated)
+            writeToCache()
         }
     }
 
@@ -388,24 +388,22 @@ object NftStore : IStore {
 
     private fun writeToCache() {
         val nftData = nftData ?: return
-        cacheExecutor.execute {
-            nftData.accountId.let { accountId ->
-                nftData.cachedNfts?.let { cachedNfts ->
-                    val jsonString = buildString {
-                        append("[")
-                        cachedNfts.forEachIndexed { index, nft ->
-                            append(nft.toDictionary().toString())
-                            if (index != cachedNfts.lastIndex) append(",")
-                        }
-                        append("]")
+        nftData.accountId.let { accountId ->
+            nftData.cachedNfts?.let { cachedNfts ->
+                val jsonString = buildString {
+                    append("[")
+                    cachedNfts.forEachIndexed { index, nft ->
+                        append(nft.toDictionary().toString())
+                        if (index != cachedNfts.lastIndex) append(",")
                     }
-                    WCacheStorage.setNfts(accountId, jsonString)
-                    val collections = getCollectionsFromNfts(cachedNfts)
-                    writeCollectionsToCache(accountId, collections)
-                    val hasHiddenNft = cachedNfts.hasHiddenNfts()
-                    WCacheStorage.setHasHiddenNft(accountId, hasHiddenNft)
-                    cachedHasHiddenNfts[accountId] = hasHiddenNft
+                    append("]")
                 }
+                WCacheStorage.setNfts(accountId, jsonString)
+                val collections = getCollectionsFromNfts(cachedNfts)
+                writeCollectionsToCache(accountId, collections)
+                val hasHiddenNft = cachedNfts.hasHiddenNfts()
+                WCacheStorage.setHasHiddenNft(accountId, hasHiddenNft)
+                cachedHasHiddenNfts[accountId] = hasHiddenNft
             }
         }
     }

@@ -108,6 +108,30 @@
   --color-activity-red-text: #E64F4F;
   --color-activity-red-text-2: #CD9595;
   --color-activity-red-background: #F9EFF0;
+  --color-activity-yellow-text: #DCAC00;
+  --color-activity-yellow-background: #F2EDD8;
+  --color-activity-aquamarine-text: #97FCE4;
+  --color-activity-aquamarine-background: #E5F9F6;
+
+  --color-default-accent-bg: #2C92F014;
+  --color-chain-ethereum: #7D84BB;
+  --color-chain-ethereum-bg: #7D84BB14;
+  --color-chain-solana: #9767FA;
+  --color-chain-solana-bg: #9767FA14;
+  --color-chain-bnb: #D3A000;
+  --color-chain-bnb-bg: #D3A00014;
+  --color-chain-hyperliquid: #28AA99;
+  --color-chain-hyperliquid-bg: #28AA9914;
+  --color-chain-base: #3F7FFF;
+  --color-chain-base-bg: #3F7FFF14;
+  --color-chain-arbitrum: #0897E7;
+  --color-chain-arbitrum-bg: #0897E714;
+  --color-chain-monad: #7C64FF;
+  --color-chain-monad-bg: #7C64FF14;
+  --color-chain-polygon: #A05DFF;
+  --color-chain-polygon-bg: #A05DFF14;
+  --color-chain-avalanche: #FF4F5E;
+  --color-chain-avalanche-bg: #FF4F5E14;
 
   --color-transaction-amount-text: #007FBE;
   --color-transaction-amount-bg: #D6E7F0;
@@ -175,9 +199,13 @@
 
   --color-gradient-main-blue2-green: linear-gradient(81.88deg, #2C92F0 19.42%, #1EC160 71.55%);
   --color-gradient-main-gray2-green: linear-gradient(90deg, #8B8F96 25%, #10B853 75%);
+  --color-gradient-main-purple-green: linear-gradient(90deg, #5E6BDE 0%, #10B853 100%);
   --color-gradient-activity-gray-green-bg: linear-gradient(135deg, #EAFBF1 13.89%, #EDF1F6 86.11%);
 
   --default-shadow: 0 0 1.5625rem 0 #00000026;
+  --shadow-glass-capsule: 0 0 0.25rem rgba(0, 0, 0, 0.08), 0 0.25rem 1rem rgba(0, 0, 0, 0.08);
+
+  --filter-blur-bar: saturate(180%) blur(20px);
 
   --spinner-green-data: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEwLjggMjIuNEM2IDIxLjkgMi4xIDE4IDEuNiAxMy4yLjkgNy4xIDUuNCAxLjkgMTEuMyAxLjVjLjQgMCAuNy0uMy43LS43IDAtLjQtLjQtLjgtLjgtLjhDNC44LjQtLjIgNS45IDAgMTIuNS4yIDE4LjYgNS40IDIzLjggMTEuNSAyNGM2LjYuMiAxMi00LjggMTIuNC0xMS4yIDAtLjQtLjMtLjgtLjgtLjgtLjQgMC0uNy4zLS43LjctLjMgNS45LTUuNSAxMC40LTExLjYgOS43eiIgZmlsbD0iIzJDRDM2RiIvPjwvc3ZnPg==);
 
@@ -188,13 +216,14 @@
   --border-radius-tiny: 0.5rem;
   --border-radius-small: 0.625rem;
   --border-radius-normal: 0.75rem;
-  --border-radius-buttons: 0.75rem;
-  --border-radius-default: 1rem;
+  --border-radius-buttons: 1.5rem;
+  --border-radius-medium: 1rem;
   --border-radius-content: 1.25rem;
-  --border-radius-card: 1.25rem;
-  --border-radius-big: 1.5rem;
+  --border-radius-card: 1.5rem;
+  --border-radius-default: 1.5rem;
 
-  --blur-app-locked: 4rem;
+  --blur-app-locked: 64px;
+  --blur-glass-capsule: 16px;
 
   --scrollbar-width: 0;
   --safe-area-bottom-value: var(--safe-area-bottom);
@@ -207,6 +236,7 @@
 
   --z-below: -1;
   --z-container: 1;
+  --z-bottom-bar: 2;
   --z-card: 10;
   --z-sticky-card: 10;
   --z-suggestions: 11;
@@ -338,6 +368,12 @@
     --color-activity-red-text: #FF7A7A;
     --color-activity-red-text-2: #A97B7B;
     --color-activity-red-background: #3C2020;
+    --color-activity-yellow-text: #D4B74F;
+    --color-activity-yellow-background: #2F2E2A;
+    --color-activity-aquamarine-text: #4FC2A8;
+    --color-activity-aquamarine-background: #163623;
+
+    --color-default-accent-bg: #469CEC14;
 
     --color-transaction-amount-text: #58AFFF;
     --color-transaction-amount-bg: #0D1E2D;

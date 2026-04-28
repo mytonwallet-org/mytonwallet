@@ -9,7 +9,6 @@ import android.text.style.ForegroundColorSpan
 import android.util.Size
 import android.view.GestureDetector
 import android.view.MotionEvent
-import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
 import org.mytonwallet.app_air.icons.R
@@ -25,6 +24,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.TrimResult
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.trimAddressToResult
 import org.mytonwallet.app_air.walletbasecontext.utils.trimDomainToResult
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -55,14 +55,15 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
 
     private var longPressHandled = false
 
-    private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-        override fun onLongPress(e: MotionEvent) {
-            val callback = onLongPressChain ?: return
-            val data = findChainAtPosition(e.x, e.y) ?: return
-            longPressHandled = true
-            callback(data.chainName, data.original, data.isDomain)
-        }
-    })
+    private val gestureDetector =
+        GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onLongPress(e: MotionEvent) {
+                val callback = onLongPressChain ?: return
+                val data = findChainAtPosition(e.x, e.y) ?: return
+                longPressHandled = true
+                callback(data.chainName, data.original, data.isDomain)
+            }
+        })
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
         if (onLongPressChain != null && event != null) {
@@ -97,7 +98,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
 
     private fun loadDrawable(resId: Int): Drawable? {
         return drawableCache[resId] ?: let {
-            ContextCompat.getDrawable(context, resId)?.mutate()?.let { drawable ->
+            context.getDrawableCompat(resId)?.mutate()?.let { drawable ->
                 drawableCache[resId] = drawable
                 drawable
             }
@@ -305,8 +306,9 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 style.singleChainStyle
             }
 
-            // Display chains
-            displayDataList.forEachIndexed { index, data ->
+            // Display chains (cap at first 3)
+            val visibleChains = displayDataList.take(3)
+            visibleChains.forEachIndexed { index, data ->
                 val chainStart = length
                 if (chainStyle.displayChainIcon) {
                     val drawableRes = style.chainIconResMap[data.chainName]
@@ -337,7 +339,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                     }
                 }
                 // Apply letter spacing style for '···'
-                if (index < 2) {
+                if (index < style.maxVisibleAddresses) {
                     val toDisplay = buildSpannedString {
                         if (data.isDomain && chainStyle.domainLetterSpacing != null) {
                             inSpans(WLetterSpacingSpan(chainStyle.domainLetterSpacing)) {
@@ -363,7 +365,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 newChainRanges.add(data.chainName to (chainStart until length))
 
                 // Define delimiter: symbols of specific width
-                if (index < displayDataList.size - 1) {
+                if (index < visibleChains.size - 1) {
                     if (style.delimiter.isNotEmpty()) {
                         append(style.delimiter)
                     }
@@ -481,6 +483,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
     data class Style(
         val singleChainStyle: ChainStyle,
         val multipleChainStyle: ChainStyle,
+        val maxVisibleAddresses: Int,
         val chainIconSize: Int,
         val prefixIconSize: Int,
         val prefixIconMargin: Int,
@@ -526,6 +529,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 domainKeepCount = 10,
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN
             ),
+            maxVisibleAddresses = 2,
             chainIconSize = 16.dp,
             prefixIconSize = 16.dp,
             prefixIconMargin = 0.dp,
@@ -578,6 +582,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 domainKeepCount = 5,
                 domainTrimRule = DomainTrimRule.SYMMETRIC
             ),
+            maxVisibleAddresses = 1,
             chainIconSize = 9.dp,
             prefixIconSize = 12.dp,
             prefixIconMargin = 4.dp,
@@ -620,6 +625,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN,
                 domainLetterSpacing = -0.002f
             ),
+            maxVisibleAddresses = 2,
             chainIconSize = 10.dp,
             prefixIconSize = 12.dp,
             prefixIconMargin = 4.dp,
@@ -660,6 +666,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN,
                 domainLetterSpacing = -0.002f
             ),
+            maxVisibleAddresses = 2,
             chainIconSize = 12.dp,
             prefixIconSize = 16.dp,
             prefixIconMargin = 5.dp,

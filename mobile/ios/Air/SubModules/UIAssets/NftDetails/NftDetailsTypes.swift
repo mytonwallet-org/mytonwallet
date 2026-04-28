@@ -56,4 +56,16 @@ enum NftDetailsPageTransitionState<Page: Equatable>: Equatable, CustomStringConv
         }
         return false
     }
+    
+    var isTransitioning: Bool {
+        if case .transition = self {
+            return true
+        }
+        return false
+    }
 }
+
+extension Notification.Name {
+    static let nftDetailsStopLottieAnimations = Notification.Name("nftDetailsStopLottieAnimations")
+}
+

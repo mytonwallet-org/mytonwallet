@@ -4,19 +4,17 @@ import SwiftUI
 import UIComponents
 import WalletCore
 import WalletContext
-import Dependencies
 
 struct AddressesMenuContentRow {
     var chain: ApiChain
     var accountChain: AccountChain
 }
 
-@MainActor func makeAddressesMenuConfig(accountId: String) -> () -> ContextMenuConfiguration {
+@MainActor func makeAddressesMenuConfig(accountContext: AccountContext) -> () -> ContextMenuConfiguration {
     return {
-        @Dependency(\.accountStore) var accountStore
-        let account = accountStore.get(accountId: accountId)
+        let account = accountContext.account
         
-        let rows: [AddressesMenuContentRow] = account.orderedChains
+        let rows: [AddressesMenuContentRow] = accountContext.orderedChains
             .map { (chain, info) in
                 AddressesMenuContentRow(chain: chain, accountChain: info)
             }
@@ -63,10 +61,11 @@ struct AddressesMenuContentRow {
     
     var body: some View {
         HStack(spacing: 10) {
-            if let token = TokenStore.tokens[row.chain.nativeToken.slug] {
-                WUIIconViewToken(token: token, isWalletView: false, showldShowChain: false, size: 28, chainSize: 0, chainBorderWidth: 0, chainBorderColor: .clear, chainHorizontalOffset: 0, chainVerticalOffset: 0)
-                    .frame(width: 28, height: 28)
-            }
+            Image(uiImage: row.chain.image)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 28, height: 28)
+
             Button(action: onCopy) {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {

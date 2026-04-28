@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uireceive
 
 import android.content.ClipData
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -20,21 +21,17 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ScrollView
 import android.widget.Toast
-import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
-import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.TokenAmountInputView
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
-import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorVC
+import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
@@ -45,6 +42,7 @@ import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.helpers.AddressHelpers
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
@@ -75,13 +73,17 @@ class InvoiceVC(context: Context) : WViewController(context) {
 
     private val title2 = HeaderCell(context).apply {
         id = View.generateViewId()
-        configure(LocaleController.getString("Comment"), titleColor = WColor.Tint, topRounding = HeaderCell.TopRounding.NORMAL)
+        configure(
+            LocaleController.getString("Comment"),
+            titleColor = WColor.Tint,
+            topRounding = HeaderCell.TopRounding.NORMAL
+        )
     }
 
     private val commentInputView by lazy {
         WEditText(context, multilinePaste = false).apply {
             hint = LocaleController.getString("Optional")
-            setStyle(16f)
+            setStyle(adaptiveFontSize())
             layoutParams =
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             setPaddingDp(20, 8, 20, 20)
@@ -333,8 +335,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
         )
         val txt = "$shareLink "
         val ss = SpannableStringBuilder(txt)
-        ContextCompat.getDrawable(
-            context,
+        context.getDrawableCompat(
             org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
         )?.let { drawable ->
             drawable.mutate()

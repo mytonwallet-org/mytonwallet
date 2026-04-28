@@ -20,6 +20,11 @@
       --header-padding-top: 2.3125rem;
     }
   }
+
+  @include mixins.respond-above(xs) {
+    border-radius: var(--border-radius-default);
+    background-color: var(--color-background-first);
+  }
 }
 
 .messages {
@@ -35,12 +40,24 @@
 
   background-color: var(--color-background-first);
 
+  @include mixins.respond-below(xs) {
+    padding-bottom: 4.25rem; // Input height + margin top and bottom
+
+    :global(html.with-bottombar:not(.is-keyboard-open)) & {
+      padding-bottom: calc(4.25rem + var(--bottombar-height));
+    }
+  }
+
   &.hidden {
     visibility: hidden;
   }
 
   :global(html.theme-dark) & {
     background-color: var(--color-background-window);
+  }
+
+  @include mixins.respond-above(xs) {
+    padding-bottom: 5.25rem;
   }
 
   &:global(.hints-shown) {

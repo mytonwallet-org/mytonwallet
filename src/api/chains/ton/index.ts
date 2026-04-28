@@ -4,13 +4,11 @@ import { DappProtocolType } from '../../dappProtocols/types';
 import { decryptComment, fetchActivityDetails, fetchActivitySlice } from './activities';
 import { normalizeAddress } from './address';
 import {
-  createSubWalletFromDerivation,
   fetchPrivateKeyString,
   getWalletFromAddress,
   getWalletFromBip39Mnemonic,
   getWalletFromPrivateKey,
   getWalletsFromLedgerAndLoadBalance,
-  getWalletVariants,
 } from './auth';
 import { signConnectionProof, signDappData, signDappTransfers } from './dapp';
 import {
@@ -31,9 +29,14 @@ import {
   submitGasfullTransfer,
   submitGaslessTransfer,
 } from './transfer';
-import { verifyLedgerWalletAddress } from './wallet';
+import { getWalletBalance, verifyLedgerWalletAddress } from './wallet';
+
+function notSupported(): never {
+  throw new Error('Not supported in Ton');
+}
 
 const tonSdk: ChainSdk<'ton'> = {
+  fetchCrossChainActivitySlice: notSupported,
   fetchActivitySlice,
   fetchActivityDetails,
   decryptComment,
@@ -42,8 +45,6 @@ const tonSdk: ChainSdk<'ton'> = {
   getWalletFromPrivateKey,
   getWalletFromAddress,
   getWalletsFromLedgerAndLoadBalance,
-  getWalletVariants,
-  createSubWalletFromDerivation,
   setupActivePolling,
   setupInactivePolling,
   fetchToken,
@@ -53,6 +54,7 @@ const tonSdk: ChainSdk<'ton'> = {
   submitGasfullTransfer,
   submitGaslessTransfer,
   getAddressInfo: checkToAddress,
+  getWalletBalance,
   verifyLedgerWalletAddress,
   fetchPrivateKeyString,
   getIsLedgerAppOpen,

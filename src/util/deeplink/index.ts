@@ -5,7 +5,7 @@ import type { ApiChain, ApiNetwork } from '../../api/types';
 import type { ActionPayloads, GlobalState } from '../../global/types';
 import type { OpenUrlOptions } from '../openUrl';
 import { DappProtocolType } from '../../api/dappProtocols/types';
-import { ActiveTab, ContentTab, SettingsState } from '../../global/types';
+import { ContentTab, SettingsState } from '../../global/types';
 
 import {
   DEFAULT_SWAP_AMOUNT,
@@ -30,7 +30,13 @@ import {
 } from '../../global/selectors';
 import { callApi } from '../../api';
 import { switchToAir } from '../capacitor';
-import { getChainConfig, getIsSupportedChain, getSupportedChains } from '../chain';
+import {
+  getChainConfig,
+  getEvmChains,
+  getIsSupportedChain,
+  getSupportedChains,
+  VIEW_ACCOUNT_EVM_PARAM,
+} from '../chain';
 import { fromDecimal } from '../decimals';
 import { isValidAddressOrDomain } from '../isValidAddress';
 import { omitUndefined } from '../iteratees';
@@ -49,8 +55,6 @@ import {
   TONCONNECT_UNIVERSAL_URL,
   WALLETCONNECT_PROTOCOL,
 } from './constants';
-
-import { getIsLandscape, getIsPortrait } from '../../hooks/useDeviceScreen';
 
 export const enum DeeplinkCommand {
   Air = 'air',
@@ -229,7 +233,7 @@ export function isTronDeeplink(url: string) {
 // Generic handler for transfer deeplinks
 async function processTransferDeeplink(
   parse: (global: GlobalState) =>
-    (Omit<NonNullable<ActionPayloads['startTransfer']>, 'isPortrait'> & { error?: string }) | undefined,
+    (NonNullable<ActionPayloads['startTransfer']> & { error?: string }) | undefined,
 ): Promise<boolean> {
   await waitRender();
 
@@ -255,13 +259,8 @@ async function processTransferDeeplink(
   }
 
   actions.startTransfer({
-    isPortrait: getIsPortrait(),
     ...startTransferParams,
   });
-
-  if (getIsLandscape()) {
-    actions.setLandscapeActionsActiveTabIndex({ index: ActiveTab.Transfer });
-  }
 
   return true;
 }
@@ -274,10 +273,7 @@ async function processTonDeeplink(url: string): Promise<boolean> {
 
   // Trying to open the transfer modal from a widget using a deeplink
   if (url === 'ton://transfer') {
-    const actions = getActions();
-    actions.startTransfer({
-      isPortrait: getIsPortrait(),
-    });
+    getActions().startTransfer();
 
     return true;
   }
@@ -304,7 +300,7 @@ async function processSendDeeplink(
 
   if (!target) {
     // mtw://send with no address — open empty transfer modal
-    getActions().startTransfer({ isPortrait: getIsPortrait() });
+    getActions().startTransfer();
     return true;
   }
 
@@ -341,7 +337,7 @@ function parseSendDeeplink(
   const stateInit = searchParams.get('init') ?? searchParams.get('stateInit') ?? undefined;
   const exp = searchParams.get('exp') ?? undefined;
 
-  const transferParams: Omit<NonNullable<ActionPayloads['startTransfer']>, 'isPortrait'> & { error?: string } = {
+  const transferParams: NonNullable<ActionPayloads['startTransfer']> & { error?: string } = {
     toAddress: verifiedAddress,
     tokenSlug: nativeToken.slug,
     amount: amount ? parseBigInt(amount) : undefined,
@@ -404,7 +400,7 @@ export function parseTonDeeplink(url: string, global: GlobalState) {
 
   const verifiedAddress = isValidAddressOrDomain(toAddress, 'ton') ? toAddress : undefined;
 
-  const transferParams: Omit<NonNullable<ActionPayloads['startTransfer']>, 'isPortrait'> & { error?: string } = {
+  const transferParams: NonNullable<ActionPayloads['startTransfer']> & { error?: string } = {
     toAddress: verifiedAddress,
     tokenSlug: TONCOIN.slug,
     amount,
@@ -469,7 +465,7 @@ function parseTronDeeplink(
   const verifiedAddress = isValidAddressOrDomain(toAddress, 'tron') ? toAddress : undefined;
   const tokenSlug = getTokenSlug(global);
 
-  const transferParams: Omit<NonNullable<ActionPayloads['startTransfer']>, 'isPortrait'> & { error?: string } = {
+  const transferParams: NonNullable<ActionPayloads['startTransfer']> & { error?: string } = {
     toAddress: verifiedAddress,
     tokenSlug,
     amount: amount ? fromDecimal(amount, decimals) : undefined,
@@ -710,9 +706,9 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
         } else {
           const { nativeToken, buySwap: defaultBuySwap } = getChainConfig('ton');
           actions.startSwap({
-            tokenInSlug: searchParams.get('in') || defaultBuySwap.tokenInSlug,
+            tokenInSlug: searchParams.get('in') || defaultBuySwap!.tokenInSlug,
             tokenOutSlug: searchParams.get('out') || nativeToken.slug,
-            amountIn: toNumberOrEmptyString(searchParams.get('amount')) || defaultBuySwap.amountIn,
+            amountIn: toNumberOrEmptyString(searchParams.get('amount')) || defaultBuySwap!.amountIn,
           });
         }
         return true;
@@ -776,7 +772,6 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
         });
 
         actions.startTransfer({
-          isPortrait: getIsPortrait(),
           tokenSlug: mapping.tokenSlug,
           toAddress: depositWalletAddress,
           comment: depositWalletAddressTag ?? undefined,
@@ -784,10 +779,6 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
           isTransferReadonly: true,
           isOfframp: true,
         });
-
-        if (getIsLandscape()) {
-          actions.setLandscapeActionsActiveTabIndex({ index: ActiveTab.Transfer });
-        }
 
         return true;
       }
@@ -836,17 +827,14 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
       }
 
       case DeeplinkCommand.Receive: {
-        if (getIsLandscape()) {
-          actions.setLandscapeActionsActiveTabIndex({ index: ActiveTab.Receive });
-        } else {
-          actions.openReceiveModal();
-        }
+        actions.openReceiveModal();
         return true;
       }
 
       case DeeplinkCommand.View: {
         const addressByChain: Partial<Record<ApiChain, string>> = {};
         const chains = getSupportedChains();
+        const evmAddress = searchParams.get(VIEW_ACCOUNT_EVM_PARAM);
 
         chains.forEach((chain) => {
           const address = searchParams.get(chain);
@@ -854,6 +842,12 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
             addressByChain[chain] = address;
           }
         });
+
+        if (evmAddress && isValidAddressOrDomain(evmAddress, 'ethereum')) {
+          getEvmChains().forEach((chain) => {
+            addressByChain[chain] ??= evmAddress;
+          });
+        }
 
         if (!Object.keys(addressByChain).length) {
           actions.showError({ error: '$no_valid_view_addresses' });

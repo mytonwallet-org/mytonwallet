@@ -1,11 +1,14 @@
 import { ContentTab } from '../../types';
 
 import { unique } from '../../../util/iteratees';
-import { addActionHandler } from '../../index';
-import { updateCurrentAccountSettings, updateSettings } from '../../reducers';
+import { addActionHandler, setGlobal } from '../../index';
+import { updateCurrentAccountSettings, updateCurrentAccountState, updateSettings } from '../../reducers';
 import { selectCurrentAccountSettings } from '../../selectors';
 
-addActionHandler('showTokenActivity', (global, actions, { slug }) => {
+addActionHandler('showTokenActivity', (global, actions, { slug, returnTab }) => {
+  if (returnTab !== undefined) {
+    setGlobal(updateCurrentAccountState(global, { activityReturnContentTab: returnTab }));
+  }
   actions.selectToken({ slug }, { forceOnHeavyAnimation: true });
   actions.setActiveContentTab({ tab: ContentTab.Activity });
 });
@@ -60,6 +63,22 @@ addActionHandler('toggleTokenVisibility', (global, actions, { slug, shouldShow }
     ...accountSettings,
     alwaysHiddenSlugs: Array.from(alwaysHiddenSlugsSet),
     alwaysShownSlugs: Array.from(alwaysShownSlugsSet),
+  });
+});
+
+addActionHandler('setWalletTokensLimit', (global, actions, { limit }) => {
+  return updateCurrentAccountSettings(global, { walletTokensLimit: limit });
+});
+
+addActionHandler('setAreAssetsHidden', (global, actions, { isHidden }) => {
+  return updateCurrentAccountSettings(global, {
+    areAssetsHidden: isHidden ? true : undefined,
+  });
+});
+
+addActionHandler('setAreCollectiblesHidden', (global, actions, { isHidden }) => {
+  return updateCurrentAccountSettings(global, {
+    areCollectiblesHidden: isHidden ? true : undefined,
   });
 });
 

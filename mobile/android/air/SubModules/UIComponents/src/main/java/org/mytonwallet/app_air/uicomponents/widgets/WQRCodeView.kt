@@ -12,13 +12,13 @@ import android.graphics.drawable.Drawable
 import android.os.Handler
 import android.os.Looper
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.google.zxing.qrcode.encoder.ByteMatrix
 import com.google.zxing.qrcode.encoder.Encoder
 import com.google.zxing.qrcode.encoder.QRCode
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import java.util.EnumMap
 import java.util.concurrent.Executors
 import kotlin.math.max
@@ -58,8 +58,8 @@ class WQRCodeView(
             val code: QRCode = Encoder.encode(qrCode, ErrorCorrectionLevel.H, encodingHints)
             val bitmap: Bitmap = renderQRImage(
                 code, qWidth, qHeight, try {
-                    ContextCompat.getDrawable(context, logoRes)
-                } catch (t: Throwable) {
+                    context.getDrawableCompat(logoRes)
+                } catch (_: Throwable) {
                     null
                 }, logoSize
             )
@@ -80,8 +80,8 @@ class WQRCodeView(
         val code: QRCode = Encoder.encode(qrCode, ErrorCorrectionLevel.H, encodingHints)
         val bitmap: Bitmap = renderQRImage(
             code, qWidth, qHeight, try {
-                ContextCompat.getDrawable(context, logoRes)
-            } catch (t: Throwable) {
+                context.getDrawableCompat(logoRes)
+            } catch (_: Throwable) {
                 null
             }, logoSize, quietZone = 0
         )

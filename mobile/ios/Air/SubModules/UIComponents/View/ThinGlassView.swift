@@ -18,7 +18,6 @@ public  class ThinGlassView: UIView {
         
         layer.addSublayer(fillLayer)
         layer.addSublayer(edgeLayer)
-        layer.masksToBounds = false
     }
     
     required public init?(coder: NSCoder) {
@@ -67,5 +66,27 @@ public  class ThinGlassView: UIView {
         shape.fillColor = nil
         shape.strokeColor = edgeColor.cgColor // only alpha value is used here (works as a multiplier for gradient above)
         edgeLayer.mask = shape
+    }
+}
+
+public struct ThinGlass: UIViewRepresentable {
+    public var cornerRadius: CGFloat
+    public var fillColor: UIColor?
+    public var edgeColor: UIColor?
+
+    public init(cornerRadius: CGFloat = 26, fillColor: UIColor? = nil, edgeColor: UIColor? = nil) {
+        self.cornerRadius = cornerRadius
+        self.fillColor = fillColor
+        self.edgeColor = edgeColor
+    }
+
+    public func makeUIView(context: Context) -> ThinGlassView {
+        ThinGlassView()
+    }
+
+    public func updateUIView(_ uiView: ThinGlassView, context: Context) {
+        uiView.cornerRadius = cornerRadius
+        uiView.fillColor = fillColor
+        uiView.edgeColor = edgeColor
     }
 }

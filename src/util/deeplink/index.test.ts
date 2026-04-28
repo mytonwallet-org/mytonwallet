@@ -1,7 +1,7 @@
 import { getActions, getGlobal } from '../../global';
 
 import type { GlobalState } from '../../global/types';
-import { ActiveTab, ContentTab } from '../../global/types';
+import { ContentTab } from '../../global/types';
 
 import {
   DEFAULT_SWAP_AMOUNT,
@@ -16,11 +16,9 @@ import {
 } from '../../config';
 import { INITIAL_STATE } from '../../global/initialState';
 import { callApi } from '../../api';
-import { getChainConfig } from '../chain';
+import { getChainConfig, getEvmChains } from '../chain';
 import { openUrl } from '../openUrl';
 import { getDeeplinkFromLocation, parseTonDeeplink, processDeeplink, processSelfDeeplink } from './index';
-
-import { getIsLandscape } from '../../hooks/useDeviceScreen';
 
 // Mock modules
 jest.mock('../../global', () => ({
@@ -46,14 +44,11 @@ jest.mock('../renderPromise', () => ({
   waitRender: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('../../hooks/useDeviceScreen', () => ({
-  getIsLandscape: jest.fn().mockReturnValue(false),
-  getIsPortrait: jest.fn().mockReturnValue(true),
-}));
-
 // Test constants
 const TEST_TON_ADDRESS = 'EQAIsixsrb93f9kDyplo_bK5OdgW5r0WCcIJZdGOUG1B282S';
 const TEST_TRON_ADDRESS = 'TBvwz11CKdgBymTtF7Q6UfhGWQyEqNrodT';
+const TEST_EVM_ADDRESS = '0x9429C8Af1089efD542b313156Af2DFA35c7e0a81';
+const TEST_BASE_ADDRESS = '0x0000000000000000000000000000000000000001';
 const TEST_DNS_NAME = 'testmytonwallet.ton';
 const TEST_BIN_PAYLOAD = 'te6ccgEBAQEANwAAaV0r640BleSq4Ql3m5OrdlSApYTNRMdDGUFXwTpwZ1oe1G8cPlS_Zym8CwoAdO4mWSned-Fg';
 const TEST_STATE_INIT = 'te6ccgEBAgEACwACATQBAQAI_____w\\=\\=';
@@ -293,7 +288,6 @@ describe('processSelfDeeplink', () => {
       openOnRampWidgetModal: jest.fn(),
       startStaking: jest.fn(),
       startTransfer: jest.fn(),
-      setLandscapeActionsActiveTabIndex: jest.fn(),
       closeSettings: jest.fn(),
       openExplore: jest.fn(),
       setActiveContentTab: jest.fn(),
@@ -457,9 +451,9 @@ describe('processSelfDeeplink', () => {
 
       expect(result).toBe(true);
       expect(mockActions.startSwap).toHaveBeenCalledWith({
-        tokenInSlug: defaultBuySwap.tokenInSlug,
+        tokenInSlug: defaultBuySwap!.tokenInSlug,
         tokenOutSlug: nativeToken.slug,
-        amountIn: defaultBuySwap.amountIn,
+        amountIn: defaultBuySwap!.amountIn,
       });
     });
 
@@ -572,22 +566,11 @@ describe('processSelfDeeplink', () => {
   });
 
   describe('Receive command', () => {
-    it('should open receive modal in portrait mode', async () => {
+    it('should open receive modal', async () => {
       const result = await processSelfDeeplink('mtw://receive');
 
       expect(result).toBe(true);
       expect(mockActions.openReceiveModal).toHaveBeenCalled();
-      expect(mockActions.setLandscapeActionsActiveTabIndex).not.toHaveBeenCalled();
-    });
-
-    it('should set landscape tab in landscape mode', async () => {
-      (getIsLandscape as jest.Mock).mockReturnValue(true);
-
-      const result = await processSelfDeeplink('https://my.tt/receive');
-
-      expect(result).toBe(true);
-      expect(mockActions.setLandscapeActionsActiveTabIndex).toHaveBeenCalledWith({ index: ActiveTab.Receive });
-      expect(mockActions.openReceiveModal).not.toHaveBeenCalled();
     });
   });
 
@@ -647,6 +630,28 @@ describe('processSelfDeeplink', () => {
       expect(callArg.addressByChain.tron).toBeDefined();
     });
 
+    it('should open temporary view account with evm address expanded to all EVM chains', async () => {
+      const result = await processSelfDeeplink(`https://my.tt/view/?evm=${TEST_EVM_ADDRESS}&ton=${TEST_TON_ADDRESS}`);
+
+      expect(result).toBe(true);
+      expect(mockActions.openTemporaryViewAccount).toHaveBeenCalled();
+      const callArg = mockActions.openTemporaryViewAccount.mock.calls[0][0];
+      expect(callArg.addressByChain.ton).toBe(TEST_TON_ADDRESS);
+      getEvmChains().forEach((chain) => {
+        expect(callArg.addressByChain[chain]).toBe(TEST_EVM_ADDRESS);
+      });
+    });
+
+    it('should prefer explicit EVM chain address over generic evm address', async () => {
+      const result = await processSelfDeeplink(`https://my.tt/view/?evm=${TEST_EVM_ADDRESS}&base=${TEST_BASE_ADDRESS}`);
+
+      expect(result).toBe(true);
+      expect(mockActions.openTemporaryViewAccount).toHaveBeenCalled();
+      const callArg = mockActions.openTemporaryViewAccount.mock.calls[0][0];
+      expect(callArg.addressByChain.ethereum).toBe(TEST_EVM_ADDRESS);
+      expect(callArg.addressByChain.base).toBe(TEST_BASE_ADDRESS);
+    });
+
     it('should show error when no valid addresses provided', async () => {
       const result = await processSelfDeeplink('mtw://view/');
 
@@ -688,7 +693,6 @@ describe('processSelfDeeplink', () => {
           toAddress: TEST_TON_ADDRESS,
           tokenSlug: TONCOIN.slug,
           amount: 1n,
-          isPortrait: true,
         }),
       );
     });
@@ -789,7 +793,6 @@ describe('processDeeplink TRON deeplinks', () => {
       openExplore: jest.fn(),
       setActiveContentTab: jest.fn(),
       openTemporaryViewAccount: jest.fn(),
-      setLandscapeActionsActiveTabIndex: jest.fn(),
       startTransfer: jest.fn(),
     };
 
@@ -1226,7 +1229,6 @@ describe('View-only mode deeplink blocking', () => {
       openOnRampWidgetModal: jest.fn(),
       startStaking: jest.fn(),
       startTransfer: jest.fn(),
-      setLandscapeActionsActiveTabIndex: jest.fn(),
       closeSettings: jest.fn(),
       openExplore: jest.fn(),
       setActiveContentTab: jest.fn(),

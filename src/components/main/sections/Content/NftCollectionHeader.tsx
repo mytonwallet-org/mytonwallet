@@ -27,7 +27,6 @@ import {
   getMarketplaceNftCollectionUrl,
 } from '../../../../util/url';
 
-import { getIsPortrait } from '../../../../hooks/useDeviceScreen';
 import useHistoryBack from '../../../../hooks/useHistoryBack';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
@@ -172,7 +171,6 @@ function NftCollectionHeader({
       case 'sendAll': {
         startTransfer({
           nfts: collectionNfts.filter(({ isOnSale }) => !isOnSale),
-          isPortrait: getIsPortrait(),
         });
 
         break;

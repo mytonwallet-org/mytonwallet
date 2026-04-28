@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.assets.cells
 
 import android.animation.ObjectAnimator
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
@@ -12,7 +13,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.LinearInterpolator
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
 import androidx.core.view.isGone
@@ -24,6 +24,7 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setSizeBounds
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -42,8 +43,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
+import org.mytonwallet.app_air.walletcontext.utils.solidColorWithAlpha
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 
 @SuppressLint("ViewConstructor")
@@ -82,6 +85,16 @@ class AssetCell(
         }
     }
 
+    private val saleInfoView: WLabel = WLabel(context).apply {
+        gravity = Gravity.CENTER
+        setTextColor(WColor.White)
+        setStyle(12f, WFont.SemiBold)
+        setBackgroundColor(WColor.Black.color.solidColorWithAlpha(102), imageCornerRadius)
+        setPaddingDp(16f)
+        isGone = true
+        text = LocaleController.getString("For sale. Cannot be sent and burned")
+    }
+
     private val expiryInfoView = WLabel(context).apply {
         id = generateViewId()
         gravity = Gravity.CENTER
@@ -105,7 +118,7 @@ class AssetCell(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.DemiBold)
+            setStyle(adaptiveFontSize(), WFont.DemiBold)
             setLineHeight(24f)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
@@ -146,6 +159,7 @@ class AssetCell(
 
         addView(animationView, LayoutParams(0, 0))
         addView(expiryInfoView, LayoutParams(0, 24.dp))
+        addView(saleInfoView, LayoutParams(0, 0))
         addView(saleBadgeView, LayoutParams(28.dp, 30.dp))
         val checkboxSize = if (viewMode == AssetsVC.ViewMode.COMPLETE) 22.dp else 20.dp
         addView(checkboxImageView, LayoutParams(checkboxSize, checkboxSize))
@@ -157,6 +171,7 @@ class AssetCell(
             toCenterX(imageView)
             setDimensionRatio(imageView.id, "1:1")
             edgeToEdge(animationView, imageView)
+            edgeToEdge(saleInfoView, imageView)
             toTop(checkboxImageView, 10f)
             toEnd(checkboxImageView, 10f)
             if (viewMode == AssetsVC.ViewMode.COMPLETE) {
@@ -256,7 +271,7 @@ class AssetCell(
     private fun subtitleChainIconDrawable(nft: ApiNft): Drawable? {
         val chain = nft.chain ?: return null
         val iconRes = chain.symbolIconPadded ?: chain.symbolIcon ?: return null
-        return ContextCompat.getDrawable(context, iconRes)?.mutate()?.apply {
+        return context.getDrawableCompat(iconRes)?.mutate()?.apply {
             setTint(WColor.SecondaryText.color)
             setSizeBounds(12.dp, 12.dp)
         }
@@ -266,17 +281,21 @@ class AssetCell(
     private var interactionMode: AssetsVM.InteractionMode = AssetsVM.InteractionMode.NORMAL
     private var animationsPaused = false
     private var daysUntilExpiration: Int? = null
+    private var isReadOnly = false
+
     fun configure(
         nft: ApiNft,
         interactionMode: AssetsVM.InteractionMode,
         animationsPaused: Boolean,
         isSelected: Boolean,
-        daysUntilExpiration: Int? = null
+        isReadOnly: Boolean = false,
+        daysUntilExpiration: Int? = null,
     ) {
         if (this.nft == nft &&
             this.interactionMode == interactionMode &&
             this.animationsPaused == animationsPaused &&
             this.isSelected == isSelected &&
+            this.isReadOnly == isReadOnly &&
             this.daysUntilExpiration == daysUntilExpiration
         ) {
             updateTheme()
@@ -293,18 +312,30 @@ class AssetCell(
         this.animationsPaused = animationsPaused
         this.isSelected = isSelected
         this.daysUntilExpiration = daysUntilExpiration
+        this.isReadOnly = isReadOnly
+        this.isClickable = !isReadOnly
+        this.isLongClickable = !isReadOnly
+        background = if (isReadOnly) null else ripple
         imageView.setNftImage(nft.thumbnail)
         val isInSelectionMode = interactionMode == AssetsVM.InteractionMode.SELECTION
         val shouldShowSaleBadge = nft.isOnSale && !isInSelectionMode
+        val shouldShowSaleInfo = nft.isOnSale && isInSelectionMode
         if (onSaleChanged || selectionModeChanged) {
             if (shouldShowSaleBadge) {
                 showSaleBadge()
             } else {
                 hideSaleBadge()
             }
+            if (shouldShowSaleInfo) {
+                showSaleInfo()
+            } else {
+                hideSaleInfo()
+            }
         } else {
             saleBadgeView.isVisible = shouldShowSaleBadge
             saleBadgeView.alpha = if (shouldShowSaleBadge) 1f else 0f
+            saleInfoView.isVisible = shouldShowSaleInfo
+            saleInfoView.alpha = if (shouldShowSaleInfo) 1f else 0f
         }
         val shouldShowExpiryInfo = daysUntilExpiration != null
         if (expiryChanged) {
@@ -346,6 +377,7 @@ class AssetCell(
             }
         } else {
             checkboxImageView.isVisible = isInSelectionMode
+            checkboxImageView.alpha = if (isInSelectionMode) 1f else 0f
         }
         checkboxDrawable.setChecked(this.isSelected, selectedChanged)
         updateTheme()
@@ -401,8 +433,26 @@ class AssetCell(
         }
     }
 
+    private fun showSaleInfo() {
+        with(saleInfoView) {
+            animate().cancel()
+            isVisible = true
+            alpha = 0f
+            fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
+        }
+    }
+
     private fun hideSaleBadge() {
         with(saleBadgeView) {
+            animate().cancel()
+            fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
+                isGone = true
+            }
+        }
+    }
+
+    private fun hideSaleInfo() {
+        with(saleInfoView) {
             animate().cancel()
             fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
                 isGone = true

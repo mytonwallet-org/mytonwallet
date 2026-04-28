@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.assetsAndActivities.cells
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -38,7 +39,7 @@ class AssetsAndActivitiesHeaderCell(
 
     private val baseCurrencyLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl.text =
             LocaleController.getString("Base Currency")
         lbl
@@ -46,7 +47,7 @@ class AssetsAndActivitiesHeaderCell(
 
     private val currentBaseCurrencyLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl
     }
 
@@ -68,7 +69,7 @@ class AssetsAndActivitiesHeaderCell(
 
     private val hideTinyTransfersLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl.text =
             LocaleController.getString("Hide Tiny Transfers")
         lbl
@@ -102,7 +103,7 @@ class AssetsAndActivitiesHeaderCell(
 
     private val hideTokensWithNoCostLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl.text =
             LocaleController.getString("Hide Tokens With No Cost")
         lbl
@@ -143,7 +144,7 @@ class AssetsAndActivitiesHeaderCell(
 
     private val addIcon: WImageView by lazy {
         val iv = WImageView(context)
-        iv.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.ic_plus)?.apply {
+        iv.setImageDrawable(context.getDrawableCompat(R.drawable.ic_plus)?.apply {
             setTint(WColor.Tint.color)
         })
         iv

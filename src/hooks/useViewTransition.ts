@@ -58,7 +58,7 @@ export function hasActiveViewTransition(): boolean {
  * .container::view-transition-old(list) {
  *   contain: paint;
  *   overflow: clip;
- *   border-radius: var(--border-radius-default);
+ *   border-radius: var(--border-radius-medium);
  * }
  * ```
  *

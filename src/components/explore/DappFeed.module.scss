@@ -87,13 +87,17 @@
 .dappPill {
   padding: 0;
   white-space: nowrap;
-  background-color: var(--color-gray-button-background-light);
+  background-color: var(--color-background-second);
 
   & > .dappName {
     padding: 0 0.5rem;
     font-size: 0.875rem;
     font-weight: 700;
     line-height: 1;
+  }
+
+  :global(html.theme-dark) & {
+    background-color: var(--color-background-first);
   }
 }
 
@@ -196,5 +200,9 @@
 
   color: var(--color-gray-2);
 
-  background-color: var(--color-gray-button-background-light);
+  background-color: var(--color-background-second);
+
+  :global(html.theme-dark) & {
+    background-color: var(--color-background-first);
+  }
 }

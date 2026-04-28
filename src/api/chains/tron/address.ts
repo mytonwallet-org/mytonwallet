@@ -2,7 +2,7 @@ import type { ApiNetwork } from '../../types';
 
 import { getTronClient } from './util/tronweb';
 
-export function normalizeAddress(network: ApiNetwork, address: string) {
+export function normalizeAddress(address: string, network?: ApiNetwork) {
   return address;
 }
 

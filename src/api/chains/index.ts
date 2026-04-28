@@ -1,6 +1,7 @@
 import type { ApiChain } from '../types';
 import type { ChainSdk } from '../types/chains';
 
+import EVMSdk from './evm';
 import solana from './solana';
 import ton from './ton';
 import tron from './tron';
@@ -16,6 +17,14 @@ export const chains: { [K in ApiChain]: ChainSdk<K> } = {
   ton,
   tron,
   solana,
+  ethereum: new EVMSdk('ethereum'),
+  base: new EVMSdk('base'),
+  bnb: new EVMSdk('bnb'),
+  // polygon: new EVMSdk('polygon'),
+  arbitrum: new EVMSdk('arbitrum'),
+  // monad: new EVMSdk('monad'),
+  // avalanche: new EVMSdk('avalanche'),
+  hyperliquid: new EVMSdk('hyperliquid'),
 };
 
 export default chains;

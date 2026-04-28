@@ -29,6 +29,7 @@ struct UseResponsiblyView: View {
                 .frame(width: 96, height: 96)
             Text(lang("Use Responsibly"))
                 .font(.system(size: 28, weight: .semibold))
+                .accessibilityAddTraits(.isHeader)
         }
         .environment(\.openURL, OpenURLAction { url in
             UIApplication.shared.open(url)
@@ -68,11 +69,11 @@ struct UseResponsiblyView: View {
     }
     
     func onTerms() {
-        open("https://mytonwallet.io/terms-of-use")
+        open(APP_TERMS_OF_USE_URL)
     }
     
     func onPrivacyPolicy() {
-        open("https://mytonwallet.io/privacy-policy")
+        open(APP_PRIVACY_POLICY_URL)
     }
     
     func open(_ string: String) {

@@ -12,6 +12,8 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.Parcelable
+import android.util.SparseArray
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -82,6 +84,16 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     // Window view is the host for all our navigation controllers and fragments
     val windowView: WView by lazy {
         object : WView(this, LayoutParams(MATCH_PARENT, MATCH_PARENT)) {
+            override fun dispatchSaveInstanceState(container: SparseArray<Parcelable>) {
+                // Our navigation stack is rebuilt manually in onCreate, so restoring descendant
+                // state by transient runtime IDs can bind saved state to the wrong view class.
+                dispatchFreezeSelfOnly(container)
+            }
+
+            override fun dispatchRestoreInstanceState(container: SparseArray<Parcelable>) {
+                dispatchThawSelfOnly(container)
+            }
+
             override fun onViewAdded(view: View?) {
                 super.onViewAdded(view)
                 bringChildToFront(popupHost)

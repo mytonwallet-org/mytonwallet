@@ -19,7 +19,6 @@ import { formatCurrency } from '../../util/formatNumber';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { shortenAddress } from '../../util/shortenAddress';
 
-import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
@@ -74,7 +73,6 @@ function TransferModal({
   } = getActions();
 
   const lang = useLang();
-  const { isPortrait } = useDeviceScreen();
   const isOpen = state !== TransferState.None;
 
   const selectedToken = useMemo(() => tokens?.find((token) => token.slug === tokenSlug), [tokenSlug, tokens]);
@@ -112,12 +110,7 @@ function TransferModal({
     showActivityInfo({ id: txId! });
   });
 
-  const handleModalClose = useLastCallback(() => {
-    cancelTransfer({ shouldReset: isPortrait });
-    updateNextKey();
-  });
-
-  const handleModalCloseWithReset = useLastCallback(() => {
+  const handleClose = useLastCallback(() => {
     cancelTransfer({ shouldReset: true });
   });
 
@@ -137,8 +130,8 @@ function TransferModal({
             isActive={isActive}
             token={selectedToken}
             savedAddresses={savedAddresses}
-            onBack={isPortrait ? handleBackClick : handleModalClose}
-            onClose={handleModalCloseWithReset}
+            onBack={handleBackClick}
+            onClose={handleClose}
           />
         );
       case TransferState.Password:
@@ -149,7 +142,7 @@ function TransferModal({
             isBurning={isBurning}
             error={error}
             onSubmit={handleTransferSubmit}
-            onCancel={handleModalCloseWithReset}
+            onCancel={handleClose}
             isGaslessWithStars={diesel?.status === 'stars-fee'}
           >
             <TransactionBanner
@@ -170,7 +163,7 @@ function TransferModal({
           <LedgerConnect
             isActive={isActive}
             onConnected={handleLedgerConnect}
-            onClose={handleModalCloseWithReset}
+            onClose={handleClose}
           />
         );
       case TransferState.ConfirmHardware:
@@ -178,7 +171,7 @@ function TransferModal({
           <LedgerConfirmOperation
             text={lang('Please confirm transfer on your Ledger')}
             error={error}
-            onClose={handleModalCloseWithReset}
+            onClose={handleClose}
             onTryAgain={handleLedgerConnect}
           />
         );
@@ -194,7 +187,7 @@ function TransferModal({
             toAddress={renderedToAddress}
             comment={comment}
             onInfoClick={handleTransactionInfoClick}
-            onClose={handleModalCloseWithReset}
+            onClose={handleClose}
             decimals={decimals}
           />
         ) : (
@@ -202,7 +195,7 @@ function TransferModal({
             nfts={nfts!}
             sentNftsCount={sentNftsCount}
             toAddress={renderedToAddress}
-            onClose={handleModalCloseWithReset}
+            onClose={handleClose}
           />
         );
     }
@@ -213,8 +206,8 @@ function TransferModal({
       isOpen={isOpen && !isMediaViewerOpen}
       noBackdropClose
       dialogClassName={styles.modalDialog}
-      onClose={handleModalCloseWithReset}
-      onCloseAnimationEnd={handleModalClose}
+      onClose={handleClose}
+      onCloseAnimationEnd={updateNextKey}
     >
       <Transition
         name={resolveSlideTransitionName()}

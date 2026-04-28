@@ -1,20 +1,23 @@
-import React, { memo, useLayoutEffect, useMemo, useRef, useState } from '../../../lib/teact/teact';
-import { getActions } from '../../../global';
+import type { TeactNode } from '../../../lib/teact/teact';
+import React, { memo, useEffect, useLayoutEffect, useMemo, useState } from '../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../global';
 
 import type { ApiTonWalletVersion } from '../../../api/chains/ton/types';
-import type { ApiChain, ApiWalletByChain, ApiWalletVariant } from '../../../api/types';
-import type { Account } from '../../../global/types';
-import type { TabWithProperties } from '../../ui/TabList';
+import type { ApiBaseCurrency, ApiGroupedWalletVariant } from '../../../api/types';
+import type { Account, AccountChain, UserToken } from '../../../global/types';
 
 import { IS_CAPACITOR } from '../../../config';
+import { selectCurrentAccountId, selectCurrentAccountTokens } from '../../../global/selectors';
 import { getHasInMemoryPassword, getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import buildClassName from '../../../util/buildClassName';
-import { getChainConfig, getChainTitle, getSupportedChains } from '../../../util/chain';
+import { getChainConfig, getOrderedAccountChains } from '../../../util/chain';
+import { toBig, toDecimal } from '../../../util/decimals';
+import { formatAccountAddresses } from '../../../util/formatAccountAddress';
+import { formatCurrency, getShortCurrencySymbol } from '../../../util/formatNumber';
 import { vibrateOnSuccess } from '../../../util/haptics';
-import { swapKeysAndValues } from '../../../util/iteratees';
 import resolveSlideTransitionName from '../../../util/resolveSlideTransitionName';
-import { shortenAddress } from '../../../util/shortenAddress';
+import { pause } from '../../../util/schedulers';
 import { callApi } from '../../../api';
 
 import useHistoryBack from '../../../hooks/useHistoryBack';
@@ -23,14 +26,12 @@ import useLastCallback from '../../../hooks/useLastCallback';
 import useScrolledState from '../../../hooks/useScrolledState';
 
 import Button from '../../ui/Button';
-import ModalHeader from '../../ui/ModalHeader';
+import MenuItem from '../../ui/MenuItem';
 import PasswordForm from '../../ui/PasswordForm';
-import TabList from '../../ui/TabList';
+import Spinner from '../../ui/Spinner';
 import Transition from '../../ui/Transition';
-import AddSubwalletModal from './AddSubwalletModal';
-import SettingsWalletDerivations from './SettingsWalletDerivations';
+import SettingsHeader from '../SettingsHeader';
 
-import modalStyles from '../../ui/Modal.module.scss';
 import styles from '../Settings.module.scss';
 
 export interface Wallet {
@@ -41,66 +42,42 @@ export interface Wallet {
   isTestnetSubwalletId?: boolean;
 }
 
-export type ChainWalletBalance = {
-  totalBalance: string;
-  tokens: string;
-};
-
 interface OwnProps {
   isActive?: boolean;
-  isInsideModal?: boolean;
-  currentVersion?: ApiTonWalletVersion;
   accountChains?: Account['byChain'];
-  currentWalletBalanceByChain?: Partial<Record<ApiChain, ChainWalletBalance>>;
   onBackClick: NoneToVoidFunction;
 }
+
+interface StateProps {
+  accountId: string;
+  tokens?: UserToken[];
+  baseCurrency: ApiBaseCurrency;
+}
+
+type SubwalletGroup = {
+  title: string;
+  label?: string;
+  addressContent?: TeactNode;
+  nativeAmounts: string;
+  totalBalance: string;
+};
+
+const SEARCH_PAUSE = 5_000;
+const MAX_EMPTY_RESULTS_IN_ROW = 5;
 
 const enum SLIDES {
   password,
   walletVariants,
 }
 
-const variantTabIdByChain = Object.fromEntries(
-  getSupportedChains()
-    .filter((chain) => getChainConfig(chain).multiWalletSupport)
-    .map((chain, index) => [chain, index]),
-) as Record<ApiChain, number>;
-
-const chainByVariantTabId = swapKeysAndValues(variantTabIdByChain);
-
-function getVariantChainTabs(
-  accountChains: Partial<Record<ApiChain, unknown>>,
-  currentTonVersion?: ApiTonWalletVersion,
-) {
-  const result: TabWithProperties[] = [];
-
-  for (const chain of getSupportedChains()) {
-    if (
-      !(chain in accountChains)
-      || !getChainConfig(chain).multiWalletSupport
-      || (chain === 'ton' && currentTonVersion !== 'W5')
-    ) {
-      continue;
-    }
-
-    result.push({
-      id: variantTabIdByChain[chain],
-      title: getChainTitle(chain),
-      className: buildClassName(styles.variantTab, styles[chain]),
-    });
-  }
-
-  return result;
-}
-
 function SettingsWalletVariants({
   isActive,
-  isInsideModal,
-  currentVersion,
   accountChains,
-  currentWalletBalanceByChain,
   onBackClick,
-}: OwnProps) {
+  accountId,
+  tokens,
+  baseCurrency,
+}: OwnProps & StateProps) {
   const {
     closeSettings,
     addSubWallet,
@@ -109,30 +86,23 @@ function SettingsWalletVariants({
     showToast,
   } = getActions();
   const lang = useLang();
-  const transitionRef = useRef<HTMLDivElement>();
 
   const [currentSlide, setCurrentSlide] = useState<SLIDES>(
     getHasInMemoryPassword() ? SLIDES.walletVariants : SLIDES.password,
   );
-  const [activeChain, setActiveChain] = useState<ApiChain>('ton');
 
   const [password, setPassword] = useState<string>();
   const [passwordError, setPasswordError] = useState<string>();
-  const [selectedDerivationWallet, setSelectedDerivationWallet] = useState<{
-    chain: ApiChain;
-    newWallet: Omit<ApiWalletByChain[ApiChain], 'index'>;
-  }>();
-
-  const derivationsCacheRef = useRef<Partial<Record<ApiChain, ApiWalletVariant<ApiChain>[]>>>({});
-
-  const handleDerivationsLoaded = useLastCallback((chain: ApiChain, results: ApiWalletVariant<ApiChain>[]) => {
-    derivationsCacheRef.current[chain] = results;
-  });
+  const [groups, setGroups] = useState<ApiGroupedWalletVariant[]>([]);
+  const [derivationsError, setDerivationsError] = useState<string>();
+  const [isLoadingDerivations, setIsLoadingDerivations] = useState(true);
 
   const cleanup = useLastCallback(() => {
     setPassword(undefined);
     setPasswordError(undefined);
-    derivationsCacheRef.current = {};
+    setGroups([]);
+    setDerivationsError(undefined);
+    setIsLoadingDerivations(true);
   });
 
   const handleBackToSettingsClick = useLastCallback(() => {
@@ -167,6 +137,77 @@ function SettingsWalletVariants({
     } else if (!isActive) cleanup();
   }, [password, isActive]);
 
+  useEffect(() => {
+    if (!isActive || !password) return undefined;
+
+    const currentAccountId = accountId;
+    const currentPassword = password;
+    let isCancelled = false;
+
+    setDerivationsError(undefined);
+    setGroups([]);
+    setIsLoadingDerivations(true);
+
+    const runSearch = async () => {
+      const mnemonicResult = await callApi('fetchMnemonic', currentAccountId, currentPassword);
+
+      if (!mnemonicResult) {
+        setDerivationsError('Unexpected error');
+        return;
+      }
+
+      let page = 0;
+      let emptyResultCounter = 0;
+      const knownIndices = new Set<number>();
+
+      try {
+        while (!isCancelled) {
+          const derivationsResult = await callApi(
+            'getWalletVariants',
+            currentAccountId,
+            page,
+            mnemonicResult,
+          );
+
+          if (!derivationsResult || 'error' in derivationsResult) {
+            if (!isCancelled) {
+              setDerivationsError(derivationsResult?.error ?? 'Unexpected error');
+            }
+            break;
+          }
+
+          if (isCancelled) break;
+
+          const newItems = derivationsResult.filter((item) => !knownIndices.has(item.index));
+          const hasPositiveBalance = derivationsResult.some((item) =>
+            Object.values(item.byChain).some((e) => e && e.balance > 0n));
+
+          if (newItems.length > 0) {
+            newItems.forEach((item) => knownIndices.add(item.index));
+            setGroups((prev) => prev.concat(newItems));
+          }
+
+          emptyResultCounter = hasPositiveBalance ? 0 : emptyResultCounter + 1;
+          page += 1;
+
+          if (isCancelled || emptyResultCounter >= MAX_EMPTY_RESULTS_IN_ROW) break;
+
+          await pause(SEARCH_PAUSE);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingDerivations(false);
+        }
+      }
+    };
+
+    void runSearch();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [accountId, isActive, password]);
+
   const handlePasswordSubmit = useLastCallback(async (enteredPassword: string) => {
     const result = await callApi('verifyPassword', enteredPassword);
 
@@ -189,122 +230,200 @@ function SettingsWalletVariants({
     setPasswordError(undefined);
   });
 
-  const tabs = useMemo(() => getVariantChainTabs(accountChains ?? {}, currentVersion), [accountChains, currentVersion]);
-  const activeTab = variantTabIdByChain[activeChain] ?? 0;
+  const displayChains = useMemo(
+    () => getOrderedAccountChains(accountChains ?? {}),
+    [accountChains],
+  );
 
-  useLayoutEffect(() => {
-    if (tabs.length > 0) {
-      setActiveChain((current) => {
-        if (tabs.some((tab) => tab.id === variantTabIdByChain[current])) {
-          return current;
-        }
+  function renderSubwalletGroupContent(group: SubwalletGroup) {
+    return (
+      <>
+        <div className={styles.walletVersionInfo}>
+          <div className={styles.walletVariantLabelContainer}>
+            <span className={styles.walletVersionTitle}>{group.title}</span>
+            {group.label && (
+              <span className={styles.walletVariantLabel}>{group.label}</span>
+            )}
+          </div>
+          {Boolean(group.addressContent) && (
+            <span className={styles.walletVersionAddress}>{group.addressContent}</span>
+          )}
+        </div>
+        <div className={styles.walletVersionInfoRight}>
+          <span className={styles.walletVersionTokens}>≥&thinsp;{group.totalBalance}</span>
+          <span className={styles.walletVersionAmount} title={group.nativeAmounts}>{group.nativeAmounts}</span>
+        </div>
+      </>
+    );
+  }
 
-        return chainByVariantTabId[tabs[0].id] ?? current;
-      });
+  function buildSubwalletGroup(group: ApiGroupedWalletVariant): SubwalletGroup {
+    const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
+    const nativeParts: string[] = [];
+    let fiatAccum = toBig(0);
+    const walletsByChain: Account['byChain'] = {};
+    const orderedChains = getOrderedAccountChains(group.byChain);
+
+    for (const chain of orderedChains) {
+      const entry = group.byChain[chain];
+
+      if (!entry) continue;
+
+      const accountChain: AccountChain = { address: entry.wallet.address };
+      if (entry.wallet.derivation) accountChain.derivation = entry.wallet.derivation;
+      walletsByChain[chain] = accountChain;
+
+      const nativeToken = tokens?.find(({ slug }) => slug === getChainConfig(chain).nativeToken?.slug);
+
+      nativeParts.push(formatCurrency(toDecimal(entry.balance, nativeToken?.decimals), nativeToken?.symbol ?? ''));
+
+      fiatAccum = fiatAccum.add(
+        toBig(entry.balance, nativeToken?.decimals).mul(nativeToken?.price ?? 0),
+      );
     }
-  }, [tabs]);
 
-  const handleSwitchTab = useLastCallback((tabId: number) => {
-    const newChain = chainByVariantTabId[tabId];
-    if (newChain) {
-      setActiveChain(newChain);
+    let label: string | undefined;
+    for (const chain of orderedChains) {
+      const derivation = group.byChain[chain]?.wallet.derivation;
+      if (derivation) {
+        label = derivation.label;
+        break;
+      }
     }
-  });
+
+    return {
+      title: `#${group.index + 1}`,
+      label,
+      addressContent: formatAccountAddresses(walletsByChain, 'small'),
+      nativeAmounts: nativeParts.join(', '),
+      totalBalance: formatCurrency(fiatAccum, shortBaseSymbol),
+    };
+  }
+
+  const currentSubwalletRowModel = useMemo((): SubwalletGroup => {
+    const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
+
+    let rowIndex = 0;
+    let label: string | undefined;
+    for (const chain of displayChains) {
+      const derivation = accountChains?.[chain]?.derivation;
+      if (typeof derivation?.index === 'number') {
+        rowIndex = derivation.index;
+        label = derivation.label;
+        break;
+      }
+    }
+
+    const nativeParts: string[] = [];
+    let fiatAccum = toBig(0);
+
+    for (const chain of displayChains) {
+      const nativeToken = tokens?.find(({ slug }) => slug === getChainConfig(chain).nativeToken?.slug);
+      if (nativeToken) {
+        nativeParts.push(
+          formatCurrency(toDecimal(nativeToken.amount, nativeToken.decimals), nativeToken.symbol),
+        );
+        fiatAccum = fiatAccum.add(
+          toBig(nativeToken.amount, nativeToken.decimals).mul(nativeToken.price ?? 0),
+        );
+      }
+    }
+
+    return {
+      title: `#${rowIndex + 1}`,
+      label,
+      addressContent: accountChains && formatAccountAddresses(accountChains, 'small'),
+      nativeAmounts: nativeParts.join(', '),
+      totalBalance: formatCurrency(fiatAccum, shortBaseSymbol),
+    };
+  }, [displayChains, accountChains, tokens, baseCurrency]);
 
   const handleCreateSubwallet = useLastCallback(() => {
     if (!password) return;
 
-    createSubWallet({ chain: activeChain, password });
+    createSubWallet({ password });
     closeSettings();
     showToast({ message: lang('Subwallet Created'), icon: 'icon-subwallet-add' });
   });
 
-  const handleDerivationWalletClick = useLastCallback((
-    chain: ApiChain,
-    newWallet: Omit<ApiWalletByChain[ApiChain], 'index'>,
+  const handleGroupClick = useLastCallback((
+    _e: React.SyntheticEvent<HTMLDivElement | HTMLAnchorElement>,
+    group: ApiGroupedWalletVariant,
   ) => {
-    setSelectedDerivationWallet({ chain, newWallet });
+    addSubWallet({ group });
+    closeSettings();
   });
 
-  const handleCloseAddSubwallet = useLastCallback(() => {
-    setSelectedDerivationWallet(undefined);
-  });
+  const hasWallets = groups.length > 0;
 
-  const handleConfirmAddSubwallet = useLastCallback((shouldReplace: boolean) => {
-    if (selectedDerivationWallet) {
-      addSubWallet({
-        chain: selectedDerivationWallet.chain,
-        newWallet: selectedDerivationWallet.newWallet,
-        isReplace: shouldReplace,
-      });
-      closeSettings();
-      showToast({
-        message: lang(shouldReplace ? 'Subwallet Switched' : 'Subwallet Added'),
-        icon: shouldReplace ? 'icon-subwallet-change' : 'icon-subwallet-add',
-      });
-    }
-    setSelectedDerivationWallet(undefined);
-  });
-
-  const chainTabsElement = useMemo(() => (
-    <TabList
-      tabs={tabs}
-      activeTab={activeTab}
-      className={styles.variantTabs}
-      overlayClassName={buildClassName(styles.variantTabsOverlay, activeChain && styles[activeChain])}
-      onSwitchTab={handleSwitchTab}
-    />
-  ), [tabs, activeTab, activeChain, handleSwitchTab]);
-
-  function renderChainContent(isSlideActive: boolean, _isFrom: boolean, currentKey: number) {
-    const chain = chainByVariantTabId[currentKey];
-    if (!chain) return undefined;
-
-    const chainWallet = accountChains?.[chain];
-    const address = chainWallet?.address ?? '';
-    const title = chain === 'ton' ? (currentVersion ?? 'W5')
-      : chainWallet?.derivation?.index
-        ? `#${chainWallet?.derivation?.index + 1}`
-        : '#1';
-
-    const label = chainWallet?.derivation?.label;
-
-    const chainBalance = currentWalletBalanceByChain?.[chain];
-
+  function renderCurrentWalletBlock() {
     return (
       <>
         <p className={buildClassName(styles.blockTitle, styles.blockTitle_small)}>{lang('Current Wallet')}</p>
         <div className={styles.settingsBlock}>
-          <div className={buildClassName(styles.item, styles.item_wallet_no_arrow, styles.item_nonInteractive)}>
-            <div className={styles.walletVersionInfo}>
-              <div className={styles.walletVariantLabelContainer}>
-                <span className={styles.walletVersionTitle}>{title}</span>
-                {label && (
-                  <span className={styles.walletVariantLabel}>{label}</span>
-                )}
-              </div>
-              <span className={styles.walletVersionAddress}>{shortenAddress(address) ?? ''}</span>
-            </div>
-            {chainBalance && (
-              <div className={styles.walletVersionInfoRight}>
-                <span className={styles.walletVersionTokens}>{chainBalance.tokens}</span>
-                <span className={styles.walletVersionAmount}>
-                  ≈&thinsp;{chainBalance.totalBalance}
-                </span>
-              </div>
-            )}
+          <div
+            className={buildClassName(styles.item, styles.item_wallet_no_arrow, styles.item_nonInteractive)}
+          >
+            {renderSubwalletGroupContent(currentSubwalletRowModel)}
           </div>
         </div>
+      </>
+    );
+  }
 
-        <SettingsWalletDerivations
-          isActive={isSlideActive && isActive}
-          chain={chain}
-          password={password}
-          cachedDerivations={derivationsCacheRef.current[chain]}
-          onBack={handleBackToSettingsClick}
-          onWalletClick={handleDerivationWalletClick}
-          onDerivationsLoaded={handleDerivationsLoaded}
-        />
+  function renderSubwalletList() {
+    return (
+      <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
+        {groups.map((group) => {
+          const rowModel = buildSubwalletGroup(group);
+
+          return (
+            <MenuItem<ApiGroupedWalletVariant>
+              key={group.index}
+              ignoreBaseClassName
+              className={buildClassName(styles.item, styles.item_wallet_no_arrow)}
+              onClick={handleGroupClick}
+              clickArg={group}
+            >
+              {renderSubwalletGroupContent(rowModel)}
+            </MenuItem>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function renderSubwalletsSection() {
+    if (derivationsError) {
+      return (
+        <div className={styles.emptyList}>
+          <span className={styles.emptyListTitle}>{lang(derivationsError)}</span>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className={styles.blockTitleRow}>
+          <p className={buildClassName(styles.blockTitle, styles.blockTitle_small)}>{lang('Subwallets')}</p>
+          {isLoadingDerivations ? (
+            <span className={styles.scanningLabel}>
+              <Spinner className={styles.scanningSpinner} />
+              {lang('Scanning...')}
+            </span>
+          ) : hasWallets && (
+            <span className={styles.scanningLabel}>
+              {lang('$subwallets_found', groups.length, 'i')}
+            </span>
+          )}
+        </div>
+        {hasWallets
+          ? renderSubwalletList()
+          : !isLoadingDerivations && (
+            <div className={styles.emptySubwallets}>
+              {lang('No subwallets yet.')}
+            </div>
+          )}
       </>
     );
   }
@@ -312,41 +431,29 @@ function SettingsWalletVariants({
   function renderUnifiedContent() {
     return (
       <div className={styles.slide}>
-        <div className={buildClassName(
-          isInsideModal ? modalStyles.header : styles.header,
-          'with-notch-on-scroll',
-          isScrolled && 'is-scrolled',
-          isInsideModal && styles.modalHeader,
-        )}
-        >
-          <Button
-            isSimple
-            isText
-            onClick={handleBackToSettingsClick}
-            className={isInsideModal ? modalStyles.header_back : styles.headerBack}
-          >
-            <i
-              className={buildClassName(
-                isInsideModal ? modalStyles.header_backIcon : styles.iconChevron,
-                'icon-chevron-left',
-              )}
-              aria-hidden
-            />
-          </Button>
-          <div className={isInsideModal ? modalStyles.title : styles.headerTitle}>
-            {tabs.length > 1 ? chainTabsElement : lang('$chain_Subwallets', { chain: tabs[0]?.title })}
-          </div>
-        </div>
+        <SettingsHeader
+          title={lang('Subwallets')}
+          isScrolled={isScrolled}
+          onBackClick={handleBackToSettingsClick}
+        />
 
         <div className={styles.contentWrapper}>
-          <Transition
-            activeKey={activeTab}
-            name={resolveSlideTransitionName()}
-            slideClassName={buildClassName(styles.content, styles.contentWallets, 'custom-scroll')}
+          <div
+            className={buildClassName(styles.content, styles.contentWallets, 'custom-scroll')}
             onScroll={handleScroll}
           >
-            {renderChainContent}
-          </Transition>
+            <div className={styles.blockDescription}>
+              {lang('Use subwallets to get additional addresses without creating new secret words.')}
+            </div>
+
+            {renderCurrentWalletBlock()}
+
+            <div className={buildClassName(styles.blockDescription, styles.noTopMargin)}>
+              {lang('If you have previously created subwallets, they will appear in the list below.')}
+            </div>
+
+            {renderSubwalletsSection()}
+          </div>
 
           <div className={buildClassName(
             styles.createSubwalletContainer,
@@ -363,12 +470,6 @@ function SettingsWalletVariants({
             </Button>
           </div>
         </div>
-
-        <AddSubwalletModal
-          isOpen={!!selectedDerivationWallet}
-          onClose={handleCloseAddSubwallet}
-          onAdd={handleConfirmAddSubwallet}
-        />
       </div>
     );
   }
@@ -378,26 +479,14 @@ function SettingsWalletVariants({
       case SLIDES.password:
         return (
           <div className={styles.slide}>
-            {isInsideModal ? (
-              <ModalHeader
-                title={lang('Confirm Password')}
-                onBackButtonClick={handleBackToSettingsClick}
-                className={styles.modalHeader}
-              />
-            ) : (
-              <div className={styles.header}>
-                <Button isSimple isText onClick={handleBackToSettingsClick} className={styles.headerBack}>
-                  <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-                  <span>{lang('Back')}</span>
-                </Button>
-                <span className={styles.headerTitle}>{lang('Enter Password')}</span>
-              </div>
-            )}
+            <SettingsHeader
+              title={lang('Confirm Password')}
+              onBackClick={handleBackToSettingsClick}
+            />
             <PasswordForm
               isActive={isSlideActive && !!isActive}
               error={passwordError}
-              containerClassName={IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormContentInModal}
-              forceBiometricsInMain={!isInsideModal}
+              containerClassName={IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormWithHeaderOffset}
               placeholder={lang('Enter your current password')}
               submitLabel={lang('Continue')}
               noAutoConfirm
@@ -415,11 +504,9 @@ function SettingsWalletVariants({
 
   return (
     <Transition
-      ref={transitionRef}
       name={resolveSlideTransitionName()}
-      className={buildClassName(isInsideModal ? modalStyles.transition : styles.transitionContainer, 'custom-scroll')}
+      className={buildClassName(styles.transitionContainer, 'custom-scroll')}
       activeKey={currentSlide}
-      slideClassName={buildClassName(isInsideModal && modalStyles.transitionSlide)}
       withSwipeControl
     >
       {renderContent}
@@ -427,4 +514,11 @@ function SettingsWalletVariants({
   );
 }
 
-export default memo(SettingsWalletVariants);
+export default memo(withGlobal<OwnProps>((global): StateProps => {
+  const currentAccountId = selectCurrentAccountId(global)!;
+  return {
+    accountId: currentAccountId,
+    tokens: selectCurrentAccountTokens(global),
+    baseCurrency: global.settings.baseCurrency,
+  };
+})(SettingsWalletVariants));

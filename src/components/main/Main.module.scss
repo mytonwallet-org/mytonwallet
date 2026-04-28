@@ -5,6 +5,7 @@
 @use "../../styles/scssVariables" as v;
 
 $scrollOffset: 0.1875rem;
+$landscapeSidebarWidth: 21.375rem;
 
 .portraitContainer {
   display: flex;
@@ -50,14 +51,12 @@ $scrollOffset: 0.1875rem;
   --app-padding-top: 1rem;
 
   display: grid;
-  grid-template-columns: 22.3125rem 1fr;
+  grid-template-columns: $landscapeSidebarWidth 1fr;
 
-  /* 948px + 1rem padding on both sides */
-  max-width: 61.25rem;
   height: 100%;
   max-height: calc(var(--vh, 1vh) * 100);
   margin: auto;
-  padding: 0 1rem;
+  padding: 0 0 0 max(0rem, calc((100vw - #{$landscapeSidebarWidth} - #{v.$landscapeMainContentMaxWidth}) / 2));
 
   :global(html.is-electron) & {
     --app-padding-top: 0;
@@ -82,14 +81,9 @@ $scrollOffset: 0.1875rem;
     margin-right: #{$scrollOffset};
     padding-top: var(--app-padding-top);
     padding-right: calc(0.75rem - var(--scrollbar-width) - #{$scrollOffset});
-    // Due to the presence of `.LandscapeActions__contentFooter`, which is 1rem high, we increase the indentation at the bottom by its size
-    padding-bottom: calc(max(var(--safe-area-bottom), 1rem) + 1rem);
-  }
-
-  .main {
-    padding-top: var(--app-padding-top);
     padding-bottom: max(var(--safe-area-bottom), 1rem);
   }
+
 }
 
 .main,

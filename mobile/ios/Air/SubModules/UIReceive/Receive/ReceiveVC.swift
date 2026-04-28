@@ -12,15 +12,16 @@ import WalletContext
 import WalletCore
 import Perception
 
-let headerHeight: CGFloat = 340
+let headerHeight: CGFloat = 360
 
-public class ReceiveVC: WViewController, WSegmentedController.Delegate {
+public class ReceiveVC: WViewController {
     
     private let selectedChain: ApiChain?
     private let customTitle: String?
     
     private var segmentedController: WSegmentedController!
     private var hostingController: UIHostingController<ReceiveHeaderView>!
+    private var previousNavigationBarStyle: UIUserInterfaceStyle = .unspecified
     
     @AccountContext private var account: MAccount
 
@@ -40,9 +41,9 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
         setupViews()
     }
     
-    func setupViews() {
-        view.backgroundColor = .air.sheetBackground
-      
+    private func setupViews() {
+        let isMultichain = account.isMultichain
+        
         segmentedController = WSegmentedController(
             items: makeChainItems(),
             defaultItemId: selectedChain?.rawValue,
@@ -50,9 +51,9 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
             goUnderNavBar: true,
             animationSpeed: .slow,
             primaryTextColor: .white,
-            secondaryTextColor: .white.withAlphaComponent(0.75),
-            capsuleFillColor: .white.withAlphaComponent(0.15),
-            delegate: self
+            secondaryTextColor: .white,
+            capsuleFillColor: .white.withAlphaComponent(0.16),
+            style: .colorHeader
         )
         
         segmentedController.translatesAutoresizingMaskIntoConstraints = false
@@ -66,8 +67,8 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
         segmentedController.backgroundColor = .clear
         segmentedController.blurView.isHidden = true
         segmentedController.separator.isHidden = true
-        segmentedController.segmentedControl.isHidden = !account.isMultichain
-        segmentedController.scrollView.isScrollEnabled = account.isMultichain
+        segmentedController.segmentedControl.isHidden = !isMultichain
+        segmentedController.scrollView.isScrollEnabled = isMultichain
 
         self.hostingController = addHostingController(makeHeader()) { hv in
             NSLayoutConstraint.activate([
@@ -83,6 +84,7 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
         view.bringSubviewToFront(segmentedController)
         
         configureNavigationItemWithTransparentBackground()
+        setNavigationControlsAppearance()
         
         if #available(iOS 26, *) {
             addCloseNavigationItemIfNeeded()
@@ -94,11 +96,8 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
             item.tintColor = .white.withAlphaComponent(0.75)
             navigationItem.rightBarButtonItem = item
         }
-        if account.isMultichain {
-            let segmentedControl = segmentedController.segmentedControl!
-            segmentedControl.removeFromSuperview()
-            navigationItem.titleView = segmentedControl
-            segmentedControl.widthAnchor.constraint(equalToConstant: 200).isActive = true
+        if isMultichain {
+            segmentedController.segmentedControl?.embed(in: navigationItem)
         } else {
             segmentedController.segmentedControl.removeFromSuperview()
             navigationItem.titleView = HostingView {
@@ -112,8 +111,38 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
         updateTheme()
     }
     
-    func makeChainItems() -> [SegmentedControlItem] {
-        account.orderedChains.map { (chain, _) in
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        previousNavigationBarStyle = navigationController?.navigationBar.overrideUserInterfaceStyle ?? .unspecified
+        navigationController?.navigationBar.overrideUserInterfaceStyle = .dark
+    }
+    
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.navigationBar.overrideUserInterfaceStyle = .unspecified
+        navigationController?.navigationBar.overrideUserInterfaceStyle = previousNavigationBarStyle
+    }
+    
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        keepUserInterfaceStyleForChildPages()
+    }
+    
+    /// Overrides user interface style to dark to turn off whitish tint for navigation controls (segmented tabs + close button)
+    private func setNavigationControlsAppearance() {
+        segmentedController.overrideUserInterfaceStyle = .dark
+        keepUserInterfaceStyleForChildPages()
+    }
+    
+    /// Restores system-wide user interface style overridden in `setNavigationControlsAppearance `
+    private func keepUserInterfaceStyleForChildPages() {
+        segmentedController.model.items.forEach {
+             $0.viewController.overrideUserInterfaceStyle = traitCollection.userInterfaceStyle
+        }
+    }
+
+    private func makeChainItems() -> [SegmentedControlItem] {
+        _account.orderedChains.map { (chain, _) in
             SegmentedControlItem(
                 id: chain.rawValue,
                 title: chain.title,
@@ -129,16 +158,8 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
     public override func scrollToTop(animated: Bool) {
         segmentedController?.scrollToTop(animated: animated)
     }
-    
-    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        updateTheme()
-    }
-    
-    public func segmentedController(scrollOffsetChangedTo progress: CGFloat) {
-    }
-    
-    func makeHeader() -> ReceiveHeaderView {
+            
+    private func makeHeader() -> ReceiveHeaderView {
         ReceiveHeaderView(viewModel: segmentedController.model, accountContext: _account)
     }
 }

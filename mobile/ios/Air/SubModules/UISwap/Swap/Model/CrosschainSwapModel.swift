@@ -56,6 +56,13 @@ import Perception
                     swapEstimate.networkFee = feeData.networkFee
                     swapEstimate.realNetworkFee = feeData.realNetworkFee
                 }
+                try Task.checkCancellation()
+                adjustNativeMaxAmountIfNeeded(
+                    &swapEstimate,
+                    selling: selling,
+                    changedFrom: changedFrom,
+                    swapType: swapType
+                )
             }
             let resolvedSelling = TokenAmount(
                 DecimalAmount.fromDouble(swapEstimate.fromAmount.value, selling.token).roundedForSwap.amount,
@@ -216,6 +223,37 @@ import Perception
         let networkFee = draft.fullNativeFee.flatMap { MDouble.forBigInt($0, decimals: decimals) }
         let realNetworkFee = draft.realNativeFee.flatMap { MDouble.forBigInt($0, decimals: decimals) }
         return (networkFee, realNetworkFee)
+    }
+
+    private func adjustNativeMaxAmountIfNeeded(
+        _ swapEstimate: inout ApiSwapCexEstimateResponse,
+        selling: TokenAmount,
+        changedFrom: SwapSide,
+        swapType: SwapType
+    ) {
+        guard
+            changedFrom == .selling,
+            inputModel?.isUsingMax == true,
+            selling.token.isNative,
+            let networkFee = swapEstimate.networkFee,
+            let tokenBalance = $account.balances[selling.token.slug],
+            let maxAmount = getMaxSwapAmount(.init(
+                swapType: swapType,
+                tokenBalance: tokenBalance,
+                tokenIn: selling.token,
+                fullNetworkFee: .init(
+                    token: nil,
+                    native: doubleToBigInt(networkFee.value, decimals: selling.token.decimals),
+                    stars: nil
+                ),
+                ourFeePercent: 0,
+                maxAmountFromBackend: nil
+            ))
+        else {
+            return
+        }
+
+        swapEstimate.fromAmount = MDouble.forBigInt(maxAmount, decimals: selling.token.decimals) ?? swapEstimate.fromAmount
     }
 
     private func mapEstimateError(_ error: Error) -> String {

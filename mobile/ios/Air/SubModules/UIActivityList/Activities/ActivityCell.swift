@@ -421,7 +421,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
                 ])
                 
                 if let chain = getChainBySlug(activity.slug) {
-                    address = ChainIcon(chain, style: .s14).prepended(to: address)
+                    address = ChainIcon(chain, style: .s14).prepended(to: address, separator: .hairline)
                 }
                 
                 attr.append(attributedLang(transaction.isIncoming  ? "$transaction_from" : "$transaction_to", arg1: address))

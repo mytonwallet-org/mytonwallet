@@ -26,10 +26,11 @@ public struct ApiNft: Equatable, Hashable, Codable, Sendable {
     public var compression: ApiNftCompression?
     
     public static func == (lhs: ApiNft, rhs: ApiNft) -> Bool {
-        lhs.address == rhs.address
+        lhs.chain == rhs.chain && lhs.address == rhs.address
     }
     
     public func hash(into hasher: inout Hasher) {
+        hasher.combine(chain)
         hasher.combine(address)
     }
 }
@@ -59,7 +60,11 @@ extension ApiNft {
 }
 
 extension ApiNft: Identifiable {
-    public var id: String { address }
+    public var id: String { Self.id(chain: chain, address: address) }
+
+    public static func id(chain: ApiChain, address: String) -> String {
+        chain == .ton ? address : "\(chain.rawValue):\(address)"
+    }
 }
 
 extension ApiNft {
@@ -81,6 +86,8 @@ public struct ApiNftMetadata: Equatable, Hashable, Codable, Sendable {
 // Generated based on TypeScript definition. Do not edit manually.
 public enum ApiNftInterface: String, Equatable, Hashable, Codable, Sendable, CaseIterable {
     case `default` = "default"
+    case erc721 = "ERC721"
+    case erc1155 = "ERC1155"
     case compressed = "compressed"
     case mplCore = "mplCore"
 }

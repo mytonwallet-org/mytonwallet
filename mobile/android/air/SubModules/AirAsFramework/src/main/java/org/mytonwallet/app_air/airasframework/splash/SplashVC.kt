@@ -324,8 +324,8 @@ class SplashVC(context: Context) : WViewController(context),
         return AddAccountOptionsVC(context, network = network, isOnIntro = false)
     }
 
-    override fun getWalletAddedVC(isNew: Boolean): Any {
-        return WalletAddedVC(context, isNew)
+    override fun getWalletAddedVC(isNew: Boolean, importedAccountsCount: Int): Any {
+        return WalletAddedVC(context, isNew, importedAccountsCount)
     }
 
     override fun getWordCheckVC(
@@ -850,7 +850,20 @@ class SplashVC(context: Context) : WViewController(context),
             }
 
             is Deeplink.Receive -> {
-                val receiveVC = ReceiveVC.createIfAvailable(context, MBlockchain.ton, false) ?: return
+                if (!account.supportsReceiveScreen) {
+                    window?.topViewController?.showAlert(
+                        LocaleController.getString("Error"),
+                        LocaleController.getString("Action is not possible on a view-only wallet.")
+                    )
+                    nextDeeplink = null
+                    return
+                }
+                val receiveVC =
+                    ReceiveVC.createIfAvailable(
+                        context,
+                        AccountStore.activeAccount?.firstChain,
+                        false
+                    ) ?: return
                 val navVC = WNavigationController(window!!)
                 navVC.setRoot(receiveVC)
                 window?.present(navVC)
@@ -865,7 +878,8 @@ class SplashVC(context: Context) : WViewController(context),
                     nextDeeplink = null
                     return
                 }
-                val receiveVC = ReceiveVC.createIfAvailable(context, MBlockchain.ton, true) ?: return
+                val receiveVC =
+                    ReceiveVC.createIfAvailable(context, MBlockchain.ton, true) ?: return
                 val navVC = WNavigationController(window!!)
                 navVC.setRoot(receiveVC)
                 window?.present(navVC)
@@ -896,6 +910,15 @@ class SplashVC(context: Context) : WViewController(context),
                     showAlertOverTopVC(
                         LocaleController.getString("Error"),
                         LocaleController.getString("\$unsupported_deeplink_parameter")
+                    )
+                    nextDeeplink = null
+                    return
+                }
+
+                if (TokenStore.getToken(tokenSlug)?.mBlockchain?.isOfframpSupported != true) {
+                    showAlertOverTopVC(
+                        LocaleController.getString("Error"),
+                        LocaleController.getString("Selling is not supported for this token.")
                     )
                     nextDeeplink = null
                     return

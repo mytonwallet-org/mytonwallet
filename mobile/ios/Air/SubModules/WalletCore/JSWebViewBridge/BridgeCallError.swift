@@ -17,9 +17,9 @@ public enum BridgeCallError: Error, @unchecked Sendable { // todo: remove Any as
         }
     }
     
-    static func tryToParseDataAsErrorAndThrow(data: Any?) throws {
-        if let data, let errorValue = try? JSONSerialization.decode(ApiReturnError.self, from: data) {
-            throw BridgeCallError.apiReturnedError(error: errorValue.error, data: data)
+    static func tryToParseStringAsErrorAndThrow(dataString: String?) throws {
+        if let dataString, let errorValue = try? JSONDecoder().decode(ApiReturnError.self, fromString: dataString) {
+            throw BridgeCallError.apiReturnedError(error: errorValue.error, data: dataString)
         }
     }
 }

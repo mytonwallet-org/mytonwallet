@@ -7,6 +7,7 @@
 
 import SwiftUI
 import WalletContext
+import WalletCore
 import UIComponents
 import Flow
 import Perception
@@ -61,8 +62,7 @@ struct WordCheckView: View {
                             try? await Task.sleep(for: .seconds(0.5))
                             model.interactionDisabled = false
                             if model.allCorrect {
-                                isLoading = true
-                                introModel.onCheckPassed()
+                                completeWalletCreation()
                             } else {
                                 withAnimation(.smooth(duration: 0.2)) {
                                     model.hideAll = true
@@ -79,11 +79,34 @@ struct WordCheckView: View {
             }
         }
     }
+
+    func completeWalletCreation() {
+        let completesHere = introModel.hasExistingPassword
+        isLoading = completesHere
+        model.interactionDisabled = completesHere
+        Task { @MainActor in
+            do {
+                let execution = try await introModel.onCheckPassed()
+                switch execution {
+                case .completed:
+                    break
+                case .deferredToPasscode:
+                    isLoading = false
+                    model.interactionDisabled = false
+                }
+            } catch {
+                isLoading = false
+                model.interactionDisabled = false
+                AppActions.showError(error: error)
+            }
+        }
+    }
     
     var title: some View {
         Text(langMd("Let's Check"))
             .multilineTextAlignment(.center)
             .font(.system(size: 32, weight: .semibold))
+            .accessibilityAddTraits(.isHeader)
     }
     
     @ViewBuilder
@@ -105,10 +128,12 @@ struct WordCheckView: View {
                 GridRow {
                     Text("\(test.id + 1).")
                         .foregroundColor(.air.secondaryLabel)
+                        .accessibilityHidden(true)
                     HFlow(spacing: 8) {
                         ForEach(test.words, id: \.self) { word in
                             let state: Item.State = test.selection != word ? .none : !model.revealCorrect ? .selected : word == test.correctWord.word ? .correct : .wrong
                             Item(
+                                questionNumber: test.id + 1,
                                 word: word,
                                 state: state,
                                 onTap: { test.selection = word }
@@ -142,6 +167,7 @@ private struct Item: View {
         case none, selected, correct, wrong
     }
     
+    var questionNumber: Int
     var word: String
     var state: State
     var onTap: () -> ()
@@ -195,5 +221,15 @@ private struct Item: View {
             }
             .highlightScale(isTouching, scale: 0.95, isEnabled: true)
             .touchGesture($isTouching)
+            .accessibilityElement()
+            .accessibilityRemoveTraits(.isStaticText)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAddTraits(state != .none ? .isSelected : [])
+            .accessibilityLabel(Text(verbatim: "\(questionNumber). \(word)"))
+            .accessibilityAction {
+                withAnimation(.spring) {
+                    onTap()
+                }
+            }
     }
 }

@@ -8,7 +8,7 @@
 import WalletCore
 import WalletContext
 
-enum WalletFilter: String {
+enum WalletFilter: String, CaseIterable {
     case all
     case my
     case ledger
@@ -37,6 +37,15 @@ extension WalletFilter {
             lang("Add Ledger Wallet")
         case .view:
             lang("Add View Wallet")
+        }
+    }
+    
+    var title: String {
+        switch self {
+        case .all: lang("All")
+        case .my: lang("My")
+        case .ledger: lang("Ledger")
+        case .view: lang("$view_accounts")
         }
     }
     

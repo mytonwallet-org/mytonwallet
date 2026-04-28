@@ -35,6 +35,7 @@ export class NftStream {
   #abortController?: AbortController;
   #isDestroyed = false;
   #ignoreNextPollPreCheck = false;
+  #walletStatus: 'active' | 'inactive' | undefined = undefined;
 
   constructor(
     network: ApiNetwork,
@@ -47,7 +48,7 @@ export class NftStream {
     this.#address = address;
 
     this.#walletWatcher = getHeliusSocket(network).watchWallets(
-      [{ address }],
+      [{ address, chain: 'solana' }],
       {
         onConnect: this.#handleSocketConnect,
         onDisconnect: this.#handleSocketDisconnect,
@@ -88,6 +89,7 @@ export class NftStream {
   #handleSocketChangeNfts = async (params: { signature: string }) => {
     if (this.#isDestroyed) return;
     this.#fallbackPollingScheduler.onSocketMessage();
+    this.#markWalletActive();
 
     const parsedTx = await parseSolTx(this.#network, params.signature);
 
@@ -139,7 +141,7 @@ export class NftStream {
 
   #poll = async () => {
     const streamedAddresses = new Set<string>();
-    const ignorePreCheck = this.#ignoreNextPollPreCheck;
+    const ignorePreCheck = this.#ignoreNextPollPreCheck || this.#walletStatus === 'active';
     this.#ignoreNextPollPreCheck = false;
 
     try {
@@ -150,6 +152,7 @@ export class NftStream {
       await streamAllAccountNfts(this.#accountId, {
         signal: this.#abortController.signal,
         ignorePreCheck,
+        onPreCheckResult: this.#handlePreCheckResult,
         onBatch: (batchNfts) => {
           const hasNewNfts = batchNfts.some((nft) => !this.#persistedNftAddresses.has(nft.address));
           batchNfts.forEach((nft) => streamedAddresses.add(nft.address));
@@ -175,4 +178,14 @@ export class NftStream {
       }
     }
   };
+
+  #handlePreCheckResult = (isActive: boolean) => {
+    if (!isActive && this.#walletStatus === 'active') return;
+
+    this.#walletStatus = isActive ? 'active' : 'inactive';
+  };
+
+  #markWalletActive() {
+    this.#walletStatus = 'active';
+  }
 }

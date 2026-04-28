@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.them
 import android.annotation.SuppressLint
 import android.content.Context
 import android.widget.ImageView
-import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -13,13 +12,14 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.R
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 @SuppressLint("ViewConstructor")
 class AppearanceAppThemeItemView(
@@ -48,7 +48,7 @@ class AppearanceAppThemeItemView(
                 throw Error()
             }
         }
-        imageView.setImageDrawable(ContextCompat.getDrawable(context, image))
+        imageView.setImageDrawable(context.getDrawableCompat(image))
         imageView.scaleType = ImageView.ScaleType.FIT_XY
         imageView
     }

@@ -4,7 +4,7 @@ import { getActions, withGlobal } from '../../global';
 import type { ApiTonWalletVersion } from '../../api/chains/ton/types';
 import type { StoredDappConnection } from '../../api/dappProtocols/storage';
 import type { ApiChain, ApiWalletWithVersionInfo } from '../../api/types';
-import type { AccountChain, GlobalState, UserToken } from '../../global/types';
+import type { AccountChain, AccountType, GlobalState, UserToken } from '../../global/types';
 import type { Wallet } from './wallets/SettingsWalletVariants';
 import { SettingsState } from '../../global/types';
 
@@ -35,7 +35,6 @@ import {
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
-import { getChainConfig } from '../../util/chain';
 import { toBig, toDecimal } from '../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
@@ -59,7 +58,6 @@ import useHideBottomBar from '../../hooks/useHideBottomBar';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
-import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 import usePrevious2 from '../../hooks/usePrevious2';
 import useScrolledState from '../../hooks/useScrolledState';
 import { useStateRef } from '../../hooks/useStateRef';
@@ -72,6 +70,7 @@ import Transition from '../ui/Transition';
 import Biometrics from './biometrics/Biometrics';
 import SettingsNativeBiometricsTurnOn from './biometrics/NativeBiometricsTurnOn';
 import SettingsAbout from './SettingsAbout';
+import SettingsAccountHeader from './SettingsAccountHeader';
 import SettingsAppearance from './SettingsAppearance';
 import SettingsAssets from './SettingsAssets';
 import SettingsDapps from './SettingsDapps';
@@ -87,7 +86,6 @@ import SettingsWallets from './wallets/SettingsWallets';
 import SettingsWalletVariants from './wallets/SettingsWalletVariants';
 import SettingsWalletVersions from './wallets/SettingsWalletVersions';
 
-import modalStyles from '../ui/Modal.module.scss';
 import styles from './Settings.module.scss';
 
 import aboutImg from '../../assets/settings/settings_about.svg';
@@ -110,10 +108,10 @@ import tipsImg from '../../assets/settings/settings_tips.svg';
 import tonLinksImg from '../../assets/settings/settings_ton-links.svg';
 import tonProxyImg from '../../assets/settings/settings_ton-proxy.svg';
 import tonWallets from '../../assets/settings/settings_ton-wallets.svg';
+import walletVersionImg from '../../assets/settings/settings_wallet-version.svg';
 
 type OwnProps = {
   isActive: boolean;
-  isInsideModal?: boolean;
 };
 
 type StateProps = {
@@ -129,7 +127,8 @@ type StateProps = {
   arePushNotificationsAvailable?: boolean;
   isNftBuyingDisabled?: boolean;
   isViewMode: boolean;
-  isHardwareAccount: boolean;
+  accountType?: AccountType;
+  isMultichain: boolean;
   accountChains?: Partial<Record<ApiChain, AccountChain>>;
 };
 
@@ -138,7 +137,7 @@ const SUPPORT_ACCOUNTS_COUNT_DEFAULT = 1;
 
 function Settings({
   settings: {
-    state,
+    state: renderingKey,
     theme,
     animationLevel,
     isTestnet,
@@ -151,7 +150,6 @@ function Settings({
   isActive,
   isOpen = false,
   tokens,
-  isInsideModal,
   isPasswordPresent,
   currentVersion,
   versions,
@@ -160,7 +158,8 @@ function Settings({
   arePushNotificationsAvailable,
   isNftBuyingDisabled,
   isViewMode,
-  isHardwareAccount,
+  accountType,
+  isMultichain,
   accountChains,
 }: OwnProps & StateProps) {
   const {
@@ -177,7 +176,6 @@ function Settings({
 
   const transitionRef = useRef<HTMLDivElement>();
   const currentWalletRef = useRef<HTMLDivElement>();
-  const { renderingKey } = useModalTransitionKeys(state, isOpen);
   const { disableSwipeToClose, enableSwipeToClose } = useTelegramMiniAppSwipeToClose(isOpen);
   const [clicksAmount, setClicksAmount] = useState<number>(isTestnet ? AMOUNT_OF_CLICKS_FOR_DEVELOPERS_MODE : 0);
   const prevRenderingKeyRef = useStateRef(usePrevious2(renderingKey));
@@ -186,8 +184,9 @@ function Settings({
   const [withAllWalletVersions, markWithAllWalletVersions] = useFlag();
 
   const [isLogOutModalOpened, openLogOutModal, closeLogOutModal] = useFlag();
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
   const isInitialScreen = renderingKey === SettingsState.Initial;
+
+  const { isScrolled, handleScroll: handleContentScroll } = useScrolledState();
 
   const activeLang = useMemo(() => LANG_LIST.find((l) => l.langCode === langCode), [langCode]);
 
@@ -217,28 +216,6 @@ function Settings({
       }) ?? [];
   }, [shortBaseSymbol, tonToken, versions, withAllWalletVersions]);
 
-  const currentWalletBalanceByChain = useMemo(() => {
-    if (!tokens || !accountChains) return undefined;
-    const result: Partial<Record<ApiChain, { totalBalance: string; tokens: string }>> = {};
-    for (const chain of Object.keys(accountChains) as ApiChain[]) {
-      const { nativeToken: nativeTokenConfig } = getChainConfig(chain);
-      const nativeToken = tokens.find((t) => t.slug === nativeTokenConfig.slug);
-
-      const nativeBalance = nativeToken
-        ? formatCurrency(toDecimal(nativeToken.amount, nativeToken.decimals), nativeToken.symbol)
-        : formatCurrency(0, nativeTokenConfig.symbol);
-      const totalFiat = nativeToken ? Number(nativeToken.totalValue) : 0;
-
-      result[chain] = {
-        tokens: nativeBalance,
-        totalBalance: formatCurrency(totalFiat, shortBaseSymbol),
-      };
-    }
-    return result;
-  }, [tokens, accountChains, shortBaseSymbol]);
-
-  const { isScrolled, handleScroll: handleContentScroll } = useScrolledState();
-
   const handleSlideAnimationStop = useLastCallback(() => {
     if (prevRenderingKeyRef.current === SettingsState.NativeBiometricsTurnOn) {
       clearIsPinAccepted();
@@ -253,7 +230,6 @@ function Settings({
   useHistoryBack({
     isActive: isActive && isInitialScreen,
     onBack: handleCloseSettings,
-    shouldIgnoreForTelegram: isInsideModal,
   });
 
   useHideBottomBar(isOpen && !isInitialScreen);
@@ -300,7 +276,7 @@ function Settings({
   }
 
   const handleBackClick = useLastCallback(() => {
-    switch (renderingKey as SettingsState) {
+    switch (renderingKey) {
       case SettingsState.HiddenNfts:
       case SettingsState.SelectTokenList:
         setSettingsState({ state: SettingsState.Assets });
@@ -369,11 +345,13 @@ function Settings({
 
   const handleBackOrCloseAction = useLastCallback(() => {
     if (isInitialScreen) {
-      if (isInsideModal) handleCloseSettings();
+      handleCloseSettings();
     } else {
       handleBackClick();
     }
   });
+
+  useEffect(() => isActive ? captureEscKeyListener(handleBackOrCloseAction) : undefined, [isActive]);
 
   const handleCloseLogOutModal = useLastCallback((shouldCloseSettings: boolean) => {
     closeLogOutModal();
@@ -395,11 +373,6 @@ function Settings({
     handlCloseDeveloperModal();
     handleOpenWalletVersion();
   });
-
-  useEffect(
-    () => captureEscKeyListener(isInsideModal ? handleBackOrCloseAction : handleBackClick),
-    [isInsideModal],
-  );
 
   useEffect(() => {
     if (!IS_TOUCH_ENV) {
@@ -438,19 +411,26 @@ function Settings({
   function renderSettings() {
     return (
       <div className={styles.slide}>
-        <SettingsHeader
-          isInsideModal={isInsideModal}
-          isViewMode={isViewMode}
-          isActive={isActive}
-          isScrolled={isScrolled}
-          currentWalletRef={currentWalletRef}
-          onCloseSettings={handleCloseSettings}
-          onRemoveClick={openLogOutModal}
-        />
+        {IS_CAPACITOR && (
+          <SettingsAccountHeader
+            isViewMode={isViewMode}
+            isActive={isActive}
+            currentWalletRef={currentWalletRef}
+            onRemoveClick={openLogOutModal}
+          />
+        )}
+        {isPortrait && !IS_CAPACITOR && (
+          <SettingsHeader title={lang('Settings')} className={styles.mobileHeader} isScrolled={isScrolled} />
+        )}
 
         <div
-          className={buildClassName(styles.content, 'custom-scroll', styles.contentWithWallet)}
-          onScroll={handleContentScroll}
+          className={buildClassName(
+            styles.content,
+            styles.content_main,
+            'custom-scroll',
+            !IS_CAPACITOR && !isPortrait && styles.content_noHeader,
+          )}
+          onScroll={isPortrait && !IS_CAPACITOR ? handleContentScroll : undefined}
         >
           {isPortrait && IS_CAPACITOR && (
             <SettingsWallets
@@ -542,8 +522,7 @@ function Settings({
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
             )}
-            {/* TODO: Uncomment this after release */}
-            {/* {!isHardwareAccount && (
+            {accountType === 'mnemonic' && isMultichain && (
               <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleOpenWalletVersion}>
                 <img className={styles.menuIcon} src={walletVersionImg} alt={lang('Subwallets')} />
                 <div className={styles.itemContent}>
@@ -553,8 +532,8 @@ function Settings({
 
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
-            )} */}
-            {!isHardwareAccount && wallets.length > 0 && (
+            )}
+            {accountType === 'mnemonic' && wallets.length > 0 && (
               <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleOpenWalletVersions}>
                 <img className={styles.menuIcon} src={tonWallets} alt={lang('Wallet Versions')} />
                 <div className={styles.itemContent}>
@@ -734,7 +713,7 @@ function Settings({
     );
   }
 
-  function renderContent(isSlideActive: boolean, isFrom: boolean, currentKey: SettingsState) {
+  function renderContent(isSlideActive: boolean, _isFrom: boolean, currentKey: SettingsState) {
     switch (currentKey) {
       case SettingsState.Initial:
         return renderSettings();
@@ -742,7 +721,6 @@ function Settings({
         return (
           <SettingsPushNotifications
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
             onBackClick={handleBackClick}
           />
         );
@@ -752,7 +730,6 @@ function Settings({
             isActive={isActive && isSlideActive}
             theme={theme}
             animationLevel={animationLevel}
-            isInsideModal={isInsideModal}
             isTrayIconEnabled={isTrayIconEnabled}
             onBackClick={handleBackClick}
             onTrayIconEnabledToggle={handleTrayIconEnabledToggle}
@@ -762,7 +739,6 @@ function Settings({
         return (
           <SettingsAssets
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
             onBackClick={handleBackClick}
           />
         );
@@ -770,7 +746,6 @@ function Settings({
         return (
           <SettingsSecurity
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
             isAutoUpdateEnabled={isAutoUpdateEnabled}
             onBackClick={handleBackClick}
             onAutoUpdateEnabledToggle={handleAutoUpdateEnabledToggle}
@@ -782,7 +757,6 @@ function Settings({
           <SettingsDapps
             isActive={isActive && isSlideActive}
             dapps={dapps}
-            isInsideModal={isInsideModal}
             onBackClick={handleBackClick}
           />
         );
@@ -791,7 +765,6 @@ function Settings({
           <SettingsLanguage
             isActive={isActive && isSlideActive}
             langCode={langCode}
-            isInsideModal={isInsideModal}
             onBackClick={handleBackClick}
           />
         );
@@ -799,7 +772,6 @@ function Settings({
         return (
           <SettingsAbout
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
             theme={theme}
             onBackClick={handleBackClick}
           />
@@ -808,7 +780,6 @@ function Settings({
         return (
           <SettingsDisclaimer
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
             onBackClick={handleBackClick}
           />
         );
@@ -816,7 +787,6 @@ function Settings({
         return (
           <SettingsNativeBiometricsTurnOn
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
             onBackClick={handleBackClick}
           />
         );
@@ -824,7 +794,6 @@ function Settings({
         return (
           <SettingsTokenList
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
             onBackClick={handleBackClickToAssets}
           />
         );
@@ -832,10 +801,7 @@ function Settings({
         return (
           <SettingsWalletVariants
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
-            currentVersion={currentVersion}
             accountChains={accountChains}
-            currentWalletBalanceByChain={currentWalletBalanceByChain}
             onBackClick={handleBackClick}
           />
         );
@@ -843,7 +809,6 @@ function Settings({
         return (
           <SettingsWalletVersions
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
             currentVersion={currentVersion}
             wallets={wallets}
             onBackClick={handleBackClick}
@@ -854,7 +819,7 @@ function Settings({
           <div className={styles.slide}>
             <LedgerConnect
               isActive={isActive && isSlideActive}
-              isStatic={!isInsideModal}
+              isStatic
               className={styles.nestedTransition}
               onBackClick={handleBackClick}
               onConnected={handleLedgerConnected}
@@ -867,7 +832,7 @@ function Settings({
           <div className={styles.slide}>
             <LedgerSelectWallets
               isActive={isActive && isSlideActive}
-              isStatic={!isInsideModal}
+              isStatic
               onBackClick={handleBackClick}
               onClose={handleBackOrCloseAction}
             />
@@ -877,7 +842,6 @@ function Settings({
         return (
           <SettingsHiddenNfts
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
             onBackClick={handleBackClickToAssets}
           />
         );
@@ -889,9 +853,8 @@ function Settings({
       <Transition
         ref={transitionRef}
         name={resolveSlideTransitionName()}
-        className={buildClassName(isInsideModal ? modalStyles.transition : styles.transitionContainer, 'custom-scroll')}
+        className={buildClassName(styles.transitionContainer, 'custom-scroll')}
         activeKey={renderingKey}
-        slideClassName={buildClassName(isInsideModal && modalStyles.transitionSlide)}
         withSwipeControl
         onStop={getDoesUsePinPad() ? handleSlideAnimationStop : undefined}
       >
@@ -907,7 +870,7 @@ function Settings({
         />
       )}
       <LogOutModal isOpen={isLogOutModalOpened} onClose={handleCloseLogOutModal} />
-      {IS_BIOMETRIC_AUTH_SUPPORTED && <Biometrics isInsideModal={isInsideModal} />}
+      {IS_BIOMETRIC_AUTH_SUPPORTED && <Biometrics />}
     </div>
   );
 }
@@ -936,7 +899,8 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     isNftBuyingDisabled,
     arePushNotificationsAvailable: global.pushNotifications.isAvailable,
     isViewMode: selectIsCurrentAccountViewMode(global),
-    isHardwareAccount: account?.type === 'hardware',
+    accountType: account?.type,
+    isMultichain: Object.keys(account?.byChain ?? {}).length > 1,
     accountChains: account?.byChain,
   };
 })(Settings));

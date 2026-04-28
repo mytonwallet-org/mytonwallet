@@ -4,12 +4,10 @@ import { DappProtocolType } from '../../dappProtocols/types';
 import { fetchActivityDetails, fetchActivitySlice } from './activities';
 import { normalizeAddress } from './address';
 import {
-  createSubWalletFromDerivation,
   fetchPrivateKeyString,
   getWalletFromAddress,
   getWalletFromBip39Mnemonic,
   getWalletFromPrivateKey,
-  getWalletVariants,
 } from './auth';
 import { signDappData, signDappTransfers } from './dapp';
 import { parseTransactionForPreview } from './emulation';
@@ -29,13 +27,14 @@ import {
   submitGasfullTransfer,
   submitGaslessTransfer,
 } from './transfer';
-import { getAddressInfo } from './wallet';
+import { getAddressInfo, getWalletBalance } from './wallet';
 
 function notSupported(): never {
   throw new Error('Not supported in Solana');
 }
 
 const solanaSdk: ChainSdk<'solana'> = {
+  fetchCrossChainActivitySlice: notSupported,
   fetchActivitySlice,
   fetchActivityDetails,
   decryptComment: notSupported,
@@ -44,8 +43,6 @@ const solanaSdk: ChainSdk<'solana'> = {
   getWalletFromPrivateKey,
   getWalletFromAddress,
   getWalletsFromLedgerAndLoadBalance: notSupported,
-  getWalletVariants,
-  createSubWalletFromDerivation,
   setupActivePolling,
   setupInactivePolling,
   fetchToken: notSupported,
@@ -55,6 +52,7 @@ const solanaSdk: ChainSdk<'solana'> = {
   submitGasfullTransfer,
   submitGaslessTransfer,
   getAddressInfo,
+  getWalletBalance,
   verifyLedgerWalletAddress: notSupported,
   fetchPrivateKeyString,
   getIsLedgerAppOpen: notSupported,

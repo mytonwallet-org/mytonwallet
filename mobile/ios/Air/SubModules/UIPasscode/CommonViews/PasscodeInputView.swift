@@ -37,9 +37,10 @@ class PasscodeInputView: UIStackView {
     var circles = [UIView]()
     var currentPasscode = String() {
         didSet {
-            textUpdated()
+            textUpdated(previousPasscode: oldValue)
         }
     }
+    private var accessibilityTitle: String?
     static let defaultPasscodeLength = 4
     var maxPasscodeLength = 6
     var passcodeLength = PasscodeInputView.defaultPasscodeLength
@@ -85,6 +86,7 @@ class PasscodeInputView: UIStackView {
         }
         
         updateTheme()
+        updateAccessibility()
     }
 
     func setCirclesCount(to num: Int) {
@@ -106,9 +108,10 @@ class PasscodeInputView: UIStackView {
                 circles[i].removeFromSuperview()
             }
         }
+        updateAccessibility()
     }
     
-    func textUpdated() {
+    func textUpdated(previousPasscode: String) {
         delegate?.passcodeChanged(passcode: currentPasscode)
 
         // update circle colors
@@ -122,6 +125,10 @@ class PasscodeInputView: UIStackView {
         }
         if currentPasscode.count == passcodeLength {
             delegate?.passcodeSelected(passcode: currentPasscode)
+        }
+        updateAccessibility()
+        if UIAccessibility.isVoiceOverRunning, previousPasscode.count != currentPasscode.count, let accessibilityValue {
+            UIAccessibility.post(notification: .announcement, argument: accessibilityValue)
         }
     }
     
@@ -202,6 +209,18 @@ class PasscodeInputView: UIStackView {
         for circle in circles {
             circle.layer.borderColor = borderColor.resolvedColor(with: AppStorageHelper.activeNightMode.traitCollection).cgColor
         }
+    }
+
+    func setAccessibilityTitle(_ title: String?) {
+        accessibilityTitle = title
+        updateAccessibility()
+    }
+
+    private func updateAccessibility() {
+        isAccessibilityElement = true
+        accessibilityTraits = [.updatesFrequently]
+        accessibilityLabel = accessibilityTitle
+        accessibilityValue = currentPasscode.isEmpty ? nil : String(repeating: "\u{2022}", count: currentPasscode.count)
     }
 
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {

@@ -11,6 +11,14 @@ import UIKit
 public let TON_CHAIN = "ton"
 public let TRON_CHAIN = "tron"
 public let SOLANA_CHAIN = "solana"
+public let ETHEREUM_CHAIN = "ethereum"
+public let BASE_CHAIN = "base"
+public let BNB_CHAIN = "bnb"
+public let POLYGON_CHAIN = "polygon"
+public let ARBITRUM_CHAIN = "arbitrum"
+public let MONAD_CHAIN = "monad"
+public let AVALANCHE_CHAIN = "avalanche"
+public let HYPERLIQUID_CHAIN = "hyperliquid"
 
 public let TONCOIN_SLUG = "toncoin"
 public let TON_USDT_SLUG = "ton-eqcxe6mutq"
@@ -21,6 +29,21 @@ public let TRON_USDT_TESTNET_SLUG = "tron-tg3xxyexbk"
 public let SOLANA_SLUG = "sol"
 public let SOLANA_USDT_MAINNET_SLUG = "solana-es9vmfrzac"
 public let SOLANA_USDC_MAINNET_SLUG = "solana-epjfwdd5au"
+public let ETH_SLUG = "eth"
+public let ETH_USDT_MAINNET_SLUG = "ethereum-0xdac17f95"
+public let ETH_USDC_MAINNET_SLUG = "ethereum-0xa0b86991"
+public let BASE_SLUG = "base"
+public let BASE_USDT_MAINNET_SLUG = "base-0xfde4c96c"
+public let BASE_USDC_MAINNET_SLUG = "base-0x833589fc"
+public let BNB_SLUG = "bnb"
+public let BSC_USDT_MAINNET_SLUG = "bnb-0x55d39832"
+//public let POLYGON_SLUG = "pol"
+public let ARBITRUM_SLUG = "arb"
+//public let MONAD_SLUG = "mon"
+//public let AVALANCHE_SLUG = "ava"
+public let AVALANCHE_USDT_MAINNET_SLUG = "avalanche-0x9702230a"
+public let HYPERLIQUID_SLUG = "hyperliquid"
+public let HYPERLIQUID_USDC_MAINNET_SLUG = "hyperliquid-0xb88339cb"
 public let MYCOIN_SLUG = "ton-eqcfvnlrbn"
 public let STAKED_TON_SLUG = "ton-eqcqc6ehrj"
 public let STAKED_MYCOIN_SLUG = "ton-eqcbzvsfwq"
@@ -46,7 +69,7 @@ public let walletTextLimit: Int = 120
 
 public let supportedTonConnectVersion = 2
 
-public let appName = "MyTonWallet"
+public var appName: String { APP_NAME }
 public let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
 
 public func formatStartEndAddress(_ address: String, prefix: Int = 6, suffix: Int = 6, separator: String = "···") -> String {
@@ -309,7 +332,10 @@ public func normalizeAmountInput(_ string: String, preserveTrailingSeparator: Bo
 }
 
 public func amountValue(_ string: String, digits: Int) -> BigInt {
-    let string = normalizeAmountInput(string)
+    normalizedAmountValue(normalizeAmountInput(string), digits: digits)
+}
+
+public func normalizedAmountValue(_ string: String, digits: Int) -> BigInt {
     if let range = string.range(of: ".") {
         let integralPart = String(string[..<range.lowerBound])
         let fractionalPart = String(string[range.upperBound...])
@@ -347,7 +373,7 @@ private func isValidWalletAddress(_ address: String) -> Bool {
 }
 
 public func parseTonTransferUrl(_ url: URL) -> TonTransferUrl? {
-    guard (url.scheme == "ton" || url.scheme == "mtw") && url.host == "transfer" else {
+    guard (url.scheme == "ton" || url.scheme == SELF_PROTOCOL_SCHEME) && url.host == "transfer" else {
         return nil
     }
     let updatedUrl = URL(string: url.absoluteString.replacingOccurrences(of: "+", with: "%20"), relativeTo: nil) ?? url
@@ -406,7 +432,7 @@ public func tokenDecimals(for amount: BigInt, tokenDecimals: Int, minimumSignifi
 }
 
 public func doubleToBigInt(_ doubleValue: Double, decimals: Int) -> BigInt {
-    return amountValue(String(format: "%.20f", doubleValue), digits: decimals)
+    return normalizedAmountValue(String(format: "%.20f", doubleValue), digits: decimals)
 }
 
 public func bigIntToDouble(amount: BigInt, decimals: Int) -> Double {

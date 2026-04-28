@@ -15,6 +15,7 @@ import Dependencies
 import Perception
 
 private let log = Log("AccountStore")
+private let _popularWalletVersionTitles: Set<String> = ["v3R1", "v3R2", "v4R2", "W5"]
 
 public var AccountStore: _AccountStore { _AccountStore.shared }
 
@@ -307,18 +308,29 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
 
     // MARK: - Account management
 
-    public func importMnemonic(network: ApiNetwork, words: [String], passcode: String, version: ApiTonWalletVersion?) async throws -> MAccount {
-        let result = try await Api.importMnemonic(networks: [network], mnemonic: words, password: passcode, version: version).first.orThrow()
-        let account = MAccount(
-            id: result.accountId,
-            title: _defaultTitle(),
-            type: .mnemonic,
-            byChain: result.byChain,
-        )
-        try await _storeAccount(account: account)
-        _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
-        await subscribeNotificationsIfAvailable(account: account)
-        return account
+    public func importMnemonic(network: ApiNetwork, words: [String], passcode: String, version: ApiTonWalletVersion?) async throws -> [MAccount] {
+        let results = try await Api.importMnemonic(networks: [network], mnemonic: words, password: passcode, version: version)
+        var accountsById = self.accountsById
+        let accounts = try results.map { result in
+            let account = MAccount(
+                id: result.accountId,
+                title: _defaultTitle(accountsById: accountsById),
+                type: .mnemonic,
+                byChain: result.byChain,
+            )
+            accountsById[account.id] = account
+            return account
+        }.nilIfEmpty.orThrow()
+
+        let nextOrderedAccountIds = _orderedAccountIds(appending: accounts.map(\.id))
+        try await _storeAccounts(accounts: accounts, orderedAccountIds: nextOrderedAccountIds)
+        self.accountsById = accountsById
+        self.orderedAccountIds = nextOrderedAccountIds
+
+        let primaryAccount = accounts[0]
+        _ = try await self.activateAccount(accountId: primaryAccount.id, isNew: true)
+        await subscribeNotificationsIfAvailable(account: primaryAccount)
+        return accounts
     }
     
     public func importPrivateKey(network: ApiNetwork, privateKey: String, passcode: String) async throws -> MAccount {
@@ -357,37 +369,49 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         let result = try await Api.importNewWalletVersion(accountId: accountId, version: version)
 
         if result.isNew {
-            
-            var title = originalAccount.title?.nilIfEmpty ?? _defaultTitle()
-            title += " \(version.rawValue)"
-            
-            let account = try MAccount(
+            let account = MAccount(
                 id: result.accountId,
-                title: title,
+                title: walletVersionTitle(originalTitle: originalAccount.title, version: version),
                 type: originalAccount.type,
-                byChain: [
-                    ApiChain.ton.rawValue: AccountChain(
-                        address: result.address.orThrow("Address missing for new wallet version"),
-                    ),
-                ],
+                byChain: try result.byChain.orThrow("Missing chain data for new wallet version"),
             )
-            
             try await _storeAccount(account: account)
             _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
             await subscribeNotificationsIfAvailable(account: account)
             return account
             
         } else {
+            if accountsById[result.accountId] == nil {
+                let summary = try await Api.fetchStoredAccountSummary(accountId: result.accountId)
+                let recoveredAccount = MAccount(
+                    id: result.accountId,
+                    title: walletVersionTitle(originalTitle: originalAccount.title, version: version),
+                    type: originalAccount.type,
+                    byChain: summary.byChain
+                )
+                try await _storeAccount(account: recoveredAccount)
+                await subscribeNotificationsIfAvailable(account: recoveredAccount)
+            }
             let account = try await self.activateAccount(accountId: result.accountId)
             return account
         }
     }
 
+    public struct SubWalletActivationResult: Sendable {
+        public let account: MAccount
+        public let isNew: Bool
+
+        public init(account: MAccount, isNew: Bool) {
+            self.account = account
+            self.isNew = isNew
+        }
+    }
+
     @discardableResult
-    public func createSubWallet(chain: ApiChain, password: String) async throws -> MAccount {
+    public func createSubWallet(password: String) async throws -> MAccount {
         let currentAccountId = try self.accountId.orThrow("Can't find current account id")
         let originalAccount = try accountsById[currentAccountId].orThrow("Can't find the original account")
-        let result = try await Api.createSubWallet(chain: chain, accountId: currentAccountId, password: password)
+        let result = try await Api.createSubWallet(accountId: currentAccountId, password: password)
 
         if result.isNew {
             let byChain = try result.byChain.orThrow("Missing subwallet account data")
@@ -395,7 +419,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
                 accountId: result.accountId,
                 originalAccount: originalAccount,
                 byChain: byChain,
-                hasDerivation: result.derivation != nil
+                shouldNumberTitle: true
             )
         }
 
@@ -403,38 +427,30 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     }
 
     @discardableResult
-    public func addSubWallet(chain: ApiChain, newWallet: ApiSubWallet, isReplace: Bool) async throws -> MAccount {
+    public func addSubWallet(group: ApiGroupedWalletVariant) async throws -> SubWalletActivationResult {
         let currentAccountId = try self.accountId.orThrow("Can't find current account id")
         let originalAccount = try accountsById[currentAccountId].orThrow("Can't find the original account")
-        let result = try await Api.addSubWallet(chain: chain, accountId: currentAccountId, newWallet: newWallet, isReplace: isReplace)
+        let byChain = group.byChain.mapValues(\.wallet)
+        let result = try await Api.addSubWallet(accountId: currentAccountId, byChain: byChain)
 
         if result.isNew {
             let byChain = try result.byChain.orThrow("Missing subwallet account data")
-            return try await _storeAndActivateSubwalletAccount(
+            let account = try await _storeAndActivateSubwalletAccount(
                 accountId: result.accountId,
                 originalAccount: originalAccount,
                 byChain: byChain,
-                hasDerivation: newWallet.derivation != nil
+                shouldNumberTitle: true
             )
+            return SubWalletActivationResult(account: account, isNew: true)
         }
 
         if result.accountId != currentAccountId {
-            return try await activateAccount(accountId: result.accountId)
+            let account = try await activateAccount(accountId: result.accountId)
+            return SubWalletActivationResult(account: account, isNew: false)
         }
 
-        if var account = accountsById[currentAccountId] {
-            let chainKey = chain.rawValue
-            if account.byChain[chainKey] == nil {
-                account.byChain[chainKey] = AccountChain(address: newWallet.address)
-            } else {
-                account.byChain[chainKey]?.address = newWallet.address
-            }
-            accountsById[account.id] = account
-            try await _storeAccount(account: account)
-        }
-
-        refreshEnabledNotificationSubscriptions()
-        return try accountsById[currentAccountId].orThrow("Can't find updated account")
+        let account = try accountsById[currentAccountId].orThrow("Can't find current account")
+        return SubWalletActivationResult(account: account, isNew: false)
     }
 
     public func importViewWallet(network: ApiNetwork, addressByChain: [String: String]) async throws -> MAccount {
@@ -455,64 +471,43 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         return account
     }
 
+    private func walletVersionTitle(originalTitle: String?, version: ApiTonWalletVersion) -> String {
+        let title = originalTitle?.nilIfEmpty ?? _defaultTitle()
+        let parts = title.split(whereSeparator: \.isWhitespace)
+        let filteredTitle = parts
+            .filter { !_popularWalletVersionTitles.contains(String($0)) }
+            .map(String.init)
+            .joined(separator: " ")
+
+        return "\(filteredTitle.nilIfEmpty ?? title) \(version.rawValue)"
+    }
+
     private func _defaultTitle() -> String {
-        let totalCount = AccountStore.accountsById.count
+        _defaultTitle(accountsById: accountsById)
+    }
+
+    private func _defaultTitle(accountsById: [String: MAccount]) -> String {
+        let totalCount = accountsById.count
         if totalCount == 0 {
             return APP_NAME
         }
-        let mnemonicCount = AccountStore.accountsById.values.filter { $0.type == .mnemonic }.count
+        let mnemonicCount = accountsById.values.filter { $0.type == .mnemonic }.count
         return "\(lang("My Wallet")) \(mnemonicCount + 1)"
     }
 
     private func _baseSubwalletTitle(from title: String) -> String {
-        let suffixDigits = title.reversed().prefix { $0.isNumber }
-        guard !suffixDigits.isEmpty else {
-            return title
-        }
-
-        let suffixLength = suffixDigits.count
-        guard let dotIndex = title.index(
-            title.endIndex,
-            offsetBy: -(suffixLength + 1),
-            limitedBy: title.startIndex
-        ), title[dotIndex] == "."
-        else {
-            return title
-        }
-
-        return String(title[..<dotIndex])
+        SubwalletTitleNaming.baseTitle(from: title)
     }
 
     private func _nextSubwalletTitle(baseTitle: String, network: ApiNetwork) -> String {
-        let pattern = "^" + NSRegularExpression.escapedPattern(for: baseTitle) + "\\.(\\d+)$"
-        let regex = try? NSRegularExpression(pattern: pattern)
-
-        let maxIndex = accountsById.values
+        let existingTitles = accountsById.values
             .filter { $0.network == network }
-            .compactMap { account -> Int? in
-                guard let regex,
-                      let title = account.title?.nilIfEmpty
-                else {
-                    return nil
-                }
-
-                let range = NSRange(title.startIndex..<title.endIndex, in: title)
-                guard let match = regex.firstMatch(in: title, range: range),
-                      match.numberOfRanges > 1,
-                      let numberRange = Range(match.range(at: 1), in: title)
-                else {
-                    return nil
-                }
-
-                return Int(title[numberRange])
-            }
-            .max() ?? 0
-
-        return "\(baseTitle).\(maxIndex + 1)"
+            .compactMap { $0.title?.nilIfEmpty }
+        return SubwalletTitleNaming.nextTitle(baseTitle: baseTitle, existingTitles: existingTitles)
     }
 
-    private func _subwalletAccountTitle(originalAccount: MAccount, hasDerivation: Bool) -> String? {
-        guard hasDerivation else {
+    private func _subwalletAccountTitle(originalAccount: MAccount, shouldNumberTitle: Bool) -> String? {
+        guard shouldNumberTitle else {
             return originalAccount.title
         }
 
@@ -527,11 +522,11 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         accountId: String,
         originalAccount: MAccount,
         byChain: [String: AccountChain],
-        hasDerivation: Bool
+        shouldNumberTitle: Bool
     ) async throws -> MAccount {
         let account = MAccount(
             id: accountId,
-            title: _subwalletAccountTitle(originalAccount: originalAccount, hasDerivation: hasDerivation),
+            title: _subwalletAccountTitle(originalAccount: originalAccount, shouldNumberTitle: shouldNumberTitle),
             type: originalAccount.type,
             byChain: byChain
         )
@@ -545,14 +540,24 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     }
 
     private func _appendOrderedAccountIdIfNeeded(_ accountId: String) {
-        guard !orderedAccountIds.contains(accountId) else {
+        _appendOrderedAccountIdsIfNeeded([accountId])
+    }
+
+    private func _appendOrderedAccountIdsIfNeeded(_ accountIds: [String]) {
+        let orderedAccountIds = _orderedAccountIds(appending: accountIds)
+        guard orderedAccountIds != self.orderedAccountIds else {
             return
         }
-
-        var orderedAccountIds = self.orderedAccountIds
-        orderedAccountIds.append(accountId)
         self.orderedAccountIds = orderedAccountIds
         saveOrderedAccountIds()
+    }
+
+    private func _orderedAccountIds(appending accountIds: [String]) -> OrderedSet<String> {
+        var orderedAccountIds = self.orderedAccountIds
+        for accountId in accountIds where !orderedAccountIds.contains(accountId) {
+            orderedAccountIds.append(accountId)
+        }
+        return orderedAccountIds
     }
 
     private func _activateStoredAccountLocally(account: MAccount, isNew: Bool) async throws {
@@ -568,6 +573,15 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     private func _storeAccount(account: MAccount) async throws {
         try await db.write { db in
             try account.upsert(db)
+        }
+    }
+
+    private func _storeAccounts(accounts: [MAccount], orderedAccountIds: OrderedSet<String>) async throws {
+        try await db.write { db in
+            for account in accounts {
+                try account.upsert(db)
+            }
+            try MOrderedAccountIds(orderedAccountIds: Array(orderedAccountIds)).upsert(db)
         }
     }
 
@@ -660,10 +674,16 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     public func resetAccounts() async throws {
         log.info("resetAccounts")
         try await Api.resetAccounts()
-        self.accountId = nil
-        self.accountsById = [:]
+        accountId = nil
+        accountsById = [:]
+        orderedAccountIds = []
+        walletVersionsData = nil
+        updatingActivities = false
+        updatingBalance = false
         try await db.write { db in
             _ = try MAccount.deleteAll(db)
+            try db.execute(sql: "UPDATE common SET current_account_id = NULL")
+            try MOrderedAccountIds(orderedAccountIds: []).upsert(db)
         }
 
         let migrationGlobalStorage = GlobalStorage()
@@ -676,11 +696,8 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         await ActivityStore.clean()
         await BalanceDataStore.clean()
         NftStore.clean()
-        AccountStore.clean()
-        DispatchQueue.main.async {
-            Api.shared?.webViewBridge.recreateWebView()
-        }
         KeychainHelper.deleteAllWallets()
+        Api.shared?.webViewBridge.recreateWebView()
         WalletCoreData.notify(event: .accountsReset)
     }
 
@@ -704,10 +721,20 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     
     // MARK: - Reordering accounts
     
-    public func reorderAccounts(changes: CollectionDifference<String>) {
+    public func reorderAccounts(newOrder: OrderedSet<String>) {
         withMutation(keyPath: \._orderedAccountIds) {
             _orderedAccountIds.withLock {
-                $0 = $0.applying(changes)!
+                
+                let oldItems = $0
+                let newItems = newOrder.union(oldItems)
+                
+                guard newItems.count == oldItems.count else {
+                    log.fault("Unable to reorder accounts, updated count (\(newOrder.count)) != old one (\(oldItems.count))")
+                    assertionFailure()
+                    return
+                }
+                
+                $0 = newItems
             }
         }
         saveOrderedAccountIds()
@@ -794,8 +821,15 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
                 didChange = true
             }
         }
+        if let derivation = update.derivation {
+            if account.byChain[chain]?.derivation != derivation {
+                account.byChain[chain]?.derivation = derivation
+                didChange = true
+            }
+        }
 
         if didChange {
+            accountsById[update.accountId] = account
             try? await _storeAccount(account: account)
         }
     }

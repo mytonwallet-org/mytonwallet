@@ -9,6 +9,8 @@ import UIPasscode
 import Ledger
 
 private let log = Log("SendConfirmVC")
+private let nftBatchSize = 4
+private let burnChunkDurationSeconds = 30
 
 class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
 
@@ -24,7 +26,7 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         case .newLocalActivity(let update):
             if let activity = update.activities.first {
                 Haptics.play(.success)
-                AppActions.showActivityDetails(accountId: model.account.id, activity: activity, context: model.mode.isNftRelated ? .sendNftConfirmation : .sendConfirmation)
+                AppActions.showActivityDetails(accountId: model.account.id, activity: activity, context: activityDetailsContext)
             }
         default:
             break
@@ -43,6 +45,17 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
     private var goBackButton: WButton?
     private var continueButton = WButton(style: .primary)
     private var continueBottomConstraint: NSLayoutConstraint!
+
+    private var activityDetailsContext: ActivityDetailsContext {
+        switch model.mode {
+        case .sendNft:
+            .sendNftConfirmation
+        case .burnNft:
+            .burnNftConfirmation
+        case .regular, .sellToMoonpay:
+            .sendConfirmation
+        }
+    }
     
     private func setupViews() {        
         var continueTitle: String
@@ -55,7 +68,7 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         case .burnNft:
             continueButton = WButton(style: .destructive)
             continueTitle = lang("Confirm")
-            title = lang("Burn")
+            title = model.nfts.count > 1 ? lang("Burn Collectibles") : lang("Burn NFT")
         case .regular:
             title = lang("Is it all ok?")
             continueTitle = lang("Confirm")
@@ -101,19 +114,38 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         // The very special warning tile for nft burning, sticked to the bottom of the screen.
         // It was hard to achieve this in SwiftUI so do it here
         if model.mode == .burnNft {
+            let burnNftWarningTile = BurnNftWarningTile(text: burnNftWarningText)
             burnNftWarningTile.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(burnNftWarningTile)
             
             NSLayoutConstraint.activate([
-                burnNftWarningTile.bottomAnchor.constraint(equalTo: continueButton.topAnchor, constant:  -32),
+                burnNftWarningTile.bottomAnchor.constraint(equalTo: continueButton.topAnchor, constant: -32),
                 burnNftWarningTile.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             ])
         }
         
         view.backgroundColor = .air.sheetBackground
     }
-    
-    lazy var burnNftWarningTile = BurnNftWarningTile()
+
+    private var burnNftWarningText: String {
+        if model.nfts.count > 1 {
+            return lang(
+                "$multi_burn_nft_warning",
+                arg1: String(model.nfts.count),
+                arg2: burnDurationText
+            )
+        }
+
+        return lang("Are you sure you want to burn this NFT? It will be lost forever.")
+    }
+
+    private var burnDurationText: String {
+        let chunkCount = (model.nfts.count + nftBatchSize - 1) / nftBatchSize
+        let durationSeconds = chunkCount * burnChunkDurationSeconds
+        let durationMinutes = (durationSeconds + 59) / 60
+
+        return lang("$duration_minutes", arg1: durationMinutes)
+    }
     
     @objc func continuePressed() {
         let account = model.account

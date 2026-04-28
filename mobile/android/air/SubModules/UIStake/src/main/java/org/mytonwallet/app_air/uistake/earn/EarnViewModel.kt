@@ -50,6 +50,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
     val viewState = _viewState.asSharedFlow()
     private var historyItems: MutableList<EarnItem>? = null
     private val historyItemsMutex = Mutex()
+    private val expandedGroupIds = mutableSetOf<String>()
     var apy: Float? = null
     var amountToClaim: BigInteger? = null
     var token: MToken? = null
@@ -134,7 +135,9 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
             forceCurrencyToRight = true,
             roundUp = false
         )
-        val stakingBalanceIsLarge = stakingBalanceValue?.doubleAbsRepresentation(token!!.decimals)?.let { it >= 10 } ?: false
+        val stakingBalanceIsLarge =
+            stakingBalanceValue?.doubleAbsRepresentation(token!!.decimals)?.let { it >= 10 }
+                ?: false
 
         val totalProfitAmount = when {
             tokenSlug == TONCOIN_SLUG -> updateStaking.totalProfit
@@ -545,7 +548,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
 
         val consecutiveProfitList = mutableListOf<EarnItem.Profit>()
         var isFirstAdded = false
-        rawList.forEachIndexed { index, earnItem ->
+        rawList.forEachIndexed { _, earnItem ->
             when (earnItem) {
                 is EarnItem.Profit -> {
                     if (!isFirstAdded) {
@@ -576,11 +579,16 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
             result.add(consecutiveProfitList.first())
         } else if (consecutiveProfitList.size > 1) {
             val lastItem = consecutiveProfitList.last()
+            val groupId = "${lastItem.timestamp}|${lastItem.profit}"
+            if (groupId in expandedGroupIds) {
+                result.addAll(consecutiveProfitList)
+                return
+            }
             val totalAmount = consecutiveProfitList.sumOf {
                 CoinUtils.fromDecimal(it.profit, 9) ?: BigInteger.ZERO
             }
             val newProfitGroup = EarnItem.ProfitGroup(
-                id = "${lastItem.timestamp}|${lastItem.profit}",
+                id = groupId,
                 timestamp = lastItem.timestamp,
                 amount = totalAmount,
                 formattedAmount = totalAmount.toString(
@@ -597,6 +605,38 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
                 itemTitle = LocaleController.getString("Earned") + " ×${consecutiveProfitList.size}"
             ).apply { updateAmountInBaseCurrency() }
             result.add(newProfitGroup)
+        }
+    }
+
+    fun clearExpandedGroups() {
+        viewModelScope.launch {
+            historyItemsMutex.withLock {
+                if (expandedGroupIds.isEmpty()) return@withLock
+                expandedGroupIds.clear()
+                val items = historyItems ?: return@withLock
+                _viewState.tryEmit(
+                    viewStateValue().updateHistoryItems(
+                        newHistoryItems = groupConsecutiveProfitItems(items),
+                        replace = true
+                    )
+                )
+            }
+        }
+    }
+
+    fun unmergeGroup(groupId: String) {
+        viewModelScope.launch {
+            historyItemsMutex.withLock {
+                if (expandedGroupIds.contains(groupId)) return@withLock
+                expandedGroupIds.add(groupId)
+                val items = historyItems ?: return@withLock
+                _viewState.tryEmit(
+                    viewStateValue().updateHistoryItems(
+                        newHistoryItems = groupConsecutiveProfitItems(items),
+                        replace = true
+                    )
+                )
+            }
         }
     }
 

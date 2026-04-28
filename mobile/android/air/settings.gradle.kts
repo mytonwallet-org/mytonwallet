@@ -31,6 +31,7 @@ val subModules = listOf(
     "UISettings",
     "UIPasscode",
     "UIHome",
+    "UIPortfolio",
     "UIAssets",
     "UIBrowser",
     "UITransaction",

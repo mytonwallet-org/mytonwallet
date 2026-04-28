@@ -83,7 +83,7 @@ public final class ExplorerHelper {
     public static func explorerNftUrl(_ nft: ApiNft, explorerId: String? = nil) -> URL {
         let chain = nft.chain
         let network = AccountStore.activeNetwork
-        let explorers = getAvailableExplorers(chain)
+        let explorers = availableExplorers(for: chain)
         let explorerById: ExplorerConfig? = if let explorerId {
             explorers.first(where: { $0.id == explorerId })
         } else {
@@ -99,6 +99,31 @@ public final class ExplorerHelper {
             return URL(string: str)!
         }
         return addressUrl(chain: chain, address: nft.address)
+    }
+
+    public static func marketplaceNftWebsite(_ nft: ApiNft, marketplaceId: String? = nil) -> Website? {
+        let chain = nft.chain
+        let network = AccountStore.activeNetwork
+        let marketplaces = availableMarketplaces(for: chain)
+        let marketplace = if let marketplaceId {
+            marketplaces.first(where: { $0.id == marketplaceId })
+        } else {
+            marketplaces.first
+        }
+        guard let marketplace,
+              let baseUrl = marketplace.baseUrl[network],
+              !baseUrl.url.isEmpty else {
+            return nil
+        }
+        let str = marketplace.nft
+            .replacing("{base}", with: baseUrl.url)
+            .replacing("{chain}", with: chain.rawValue)
+            .replacing("{address}", with: nft.address)
+            + (baseUrl.param ?? "")
+        guard let url = URL(string: str) else {
+            return nil
+        }
+        return Website(title: marketplace.name, address: url)
     }
     
     public static func getgemsNftCollectionUrl(collectionAddress: String) -> URL? {
@@ -138,6 +163,23 @@ public final class ExplorerHelper {
             return URL(string: str)!
         }
         return addressUrl(chain: nft.chain, address: collectionAddress)
+    }
+
+    public static func nftCollectionUrl(_ collection: NftCollection) -> URL? {
+        if collection.chain == .ton {
+            return getgemsNftCollectionUrl(collectionAddress: collection.address)
+        }
+        let network = AccountStore.activeNetwork
+        if let explorer = selectedExplorerConfig(for: collection.chain),
+           let baseUrl = explorer.baseUrl[network],
+           let nftCollectionPath = explorer.nftCollection {
+            let str = nftCollectionPath
+                .replacing("{base}", with: baseUrl.url)
+                .replacing("{address}", with: collection.address)
+                + (baseUrl.param ?? "")
+            return URL(string: str)
+        }
+        return addressUrl(chain: collection.chain, address: collection.address)
     }
     
     public static func tonDnsManagementUrl(_ nft: ApiNft) -> URL? {
@@ -206,7 +248,7 @@ public final class ExplorerHelper {
         if explorerInfo.explorerId == toExplorerId {
             return url
         }
-        let explorers = getAvailableExplorers(explorerInfo.chain)
+        let explorers = availableExplorers(for: explorerInfo.chain)
         guard let fromExplorer = explorers.first(where: { $0.id == explorerInfo.explorerId }),
               let toExplorer = explorers.first(where: { $0.id == toExplorerId }) else {
             return nil
@@ -249,95 +291,26 @@ public final class ExplorerHelper {
     }
 
     public static func selectedExplorerMenuIconName(for chain: ApiChain) -> String {
-        if selectedExplorerId(for: chain) == "tonviewer" {
-            return "MenuTonviewer26"
-        }
-        return "MenuTonscan26"
+        explorerMenuIconNames[selectedExplorerId(for: chain)] ?? "SendGlobe"
     }
 
-    private struct ExplorerConfig {
-        let id: String
-        let name: String
-        let baseUrl: [ApiNetwork: ChainConfig.ExplorerLink]
-        let address: String
-        let token: String
-        let transaction: String
-        let nft: String?
-        let nftCollection: String?
-        let doConvertHashFromBase64: Bool
-    }
+    private typealias ExplorerConfig = ChainConfig.Explorer
 
-    private static let explorerConfigsByChain: [ApiChain: [ExplorerConfig]] = [
-        .ton: [
-            ExplorerConfig(
-                id: "tonscan",
-                name: "Tonscan",
-                baseUrl: [
-                    .mainnet: .init(url: "https://tonscan.org/"),
-                    .testnet: .init(url: "https://testnet.tonscan.org/"),
-                ],
-                address: "{base}address/{address}",
-                token: "{base}jetton/{address}",
-                transaction: "{base}tx/{hash}",
-                nft: "{base}nft/{address}",
-                nftCollection: "{base}collection/{address}",
-                doConvertHashFromBase64: true
-            ),
-            ExplorerConfig(
-                id: "tonviewer",
-                name: "Tonviewer",
-                baseUrl: [
-                    .mainnet: .init(url: "https://tonviewer.com/"),
-                    .testnet: .init(url: "https://testnet.tonviewer.com/"),
-                ],
-                address: "{base}{address}?address",
-                token: "{base}{address}?jetton",
-                transaction: "{base}transaction/{hash}",
-                nft: "{base}{address}?nft",
-                nftCollection: "{base}{address}?collection",
-                doConvertHashFromBase64: true
-            ),
-        ],
-        .tron: [
-            ExplorerConfig(
-                id: "tronscan",
-                name: "Tronscan",
-                baseUrl: [
-                    .mainnet: .init(url: "https://tronscan.org/#/"),
-                    .testnet: .init(url: "https://shasta.tronscan.org/#/"),
-                ],
-                address: "{base}address/{address}",
-                token: "{base}token20/{address}",
-                transaction: "{base}transaction/{hash}",
-                nft: nil,
-                nftCollection: nil,
-                doConvertHashFromBase64: false
-            ),
-        ],
-        .solana: [
-            ExplorerConfig(
-                id: "solscan",
-                name: "Solscan",
-                baseUrl: [
-                    .mainnet: .init(url: "https://solscan.io/"),
-                    .testnet: .init(url: "https://solscan.io/", param: "?cluster=devnet"),
-                ],
-                address: "{base}account/{address}",
-                token: "{base}token/{address}",
-                transaction: "{base}tx/{hash}",
-                nft: "{base}token/{address}",
-                nftCollection: "{base}token/{address}",
-                doConvertHashFromBase64: false
-            ),
-        ],
+    private static let explorerMenuIconNames = [
+        "tonscan": "MenuTonscan26",
+        "tonviewer": "MenuTonviewer26",
     ]
 
-    private static func getAvailableExplorers(_ chain: ApiChain) -> [ExplorerConfig] {
-        explorerConfigsByChain[chain] ?? []
+    private static func availableExplorers(for chain: ApiChain) -> [ExplorerConfig] {
+        getAvailableExplorers(chain: chain)
+    }
+
+    private static func availableMarketplaces(for chain: ApiChain) -> [ChainConfig.Marketplace] {
+        getAvailableMarketplaces(chain: chain)
     }
 
     private static func selectedExplorerConfig(for chain: ApiChain) -> ExplorerConfig? {
-        let explorers = getAvailableExplorers(chain)
+        let explorers = availableExplorers(for: chain)
         if let stored = AppStorageHelper.selectedExplorerId(for: chain),
            let explorer = explorers.first(where: { $0.id == stored }) {
             return explorer
@@ -352,17 +325,17 @@ public final class ExplorerHelper {
         if chain == .ton {
             return "tonscan"
         }
-        return getAvailableExplorers(chain).first?.id ?? "tonscan"
+        return availableExplorers(for: chain).first?.id ?? "tonscan"
     }
 
     private static func getExplorerByUrl(_ url: URL) -> (chain: ApiChain, explorerId: String)? {
         guard let host = url.host?.lowercased() else { return nil }
         for chain in ApiChain.allCases {
-            for explorer in getAvailableExplorers(chain) {
+            for explorer in availableExplorers(for: chain) {
                 let mainnetHost = hostname(from: explorer.baseUrl[.mainnet]?.url ?? "")
                 let testnetHost = hostname(from: explorer.baseUrl[.testnet]?.url ?? "")
-                if host == mainnetHost || host == testnetHost {
-                    return (chain, explorer.id)
+                if let explorerId = explorer.id, host == mainnetHost || host == testnetHost {
+                    return (chain, explorerId)
                 }
             }
         }

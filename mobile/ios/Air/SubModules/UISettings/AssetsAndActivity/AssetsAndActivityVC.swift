@@ -129,7 +129,7 @@ public class AssetsAndActivityVC: WViewController {
         
         MTokenBalance.sortForUI(apiTokens: &apiTokens,
                                 balances: balances,
-                                defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: account.network),
+                                defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: account.network, account: account),
                                 importedTokenSlugs: assetsAndActivityData.importedSlugs)
         let dict = OrderedDictionary<TokenID, ApiToken>(uniqueKeysWithValues: apiTokens)
         return dict

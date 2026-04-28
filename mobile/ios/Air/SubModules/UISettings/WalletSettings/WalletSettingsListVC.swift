@@ -14,7 +14,7 @@ import Dependencies
 import Perception
 import OrderedCollections
 
-final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, UICollectionViewDelegate, UICollectionViewDropDelegate, UICollectionViewDragDelegate {
+final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, ReorderableCollectionViewControllerDelegate {
     
     var viewModel: WalletSettingsViewModel
     var filter: WalletFilter
@@ -25,13 +25,16 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
     
     private(set) var collectionView: UICollectionView?
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>?
+    private var reorderController: ReorderableCollectionViewController!
+    private var contextMenuExtraBlurView: UIView?
     
-    enum Section: Hashable {
+    private enum Section: Hashable {
         case grid
         case list
         case empty
     }
-    enum Item: Hashable {
+    
+    private enum Item: Hashable {
         case grid(String)
         case list(String)
         case empty
@@ -66,7 +69,7 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
         }
         observe { [weak self] in
             guard let self else { return }
-            collectionView?.isEditing = viewModel.isReordering
+            reorderController.isReordering = viewModel.isReordering
         }
     }
     
@@ -82,17 +85,14 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         self.collectionView = collectionView
         
-        collectionView.delegate = self
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.backgroundColor = .air.sheetBackground
         collectionView.alwaysBounceVertical = false
         collectionView.showsVerticalScrollIndicator = false
         collectionView.contentInset = UIEdgeInsets(top: 122, left: 0, bottom: 80, right: 0)
         collectionView.scrollIndicatorInsets = collectionView.contentInset
+        collectionView.contentInsetAdjustmentBehavior = .never
         collectionView.delaysContentTouches = false
-        collectionView.dragDelegate = self
-        collectionView.dropDelegate = self
-        
         if #available(iOS 26, iOSApplicationExtension 26, *) {
             collectionView.topEdgeEffect.isHidden = true
         }
@@ -104,22 +104,25 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
-        
+
+        reorderController = ReorderableCollectionViewController(collectionView: collectionView)
+        reorderController.scrollDirection = .vertical
+        reorderController.delegate = self
+
         dataSource = makeDataSource(collectionView: collectionView)
-        
     }
     
-    func makeDataSource(collectionView: UICollectionView) -> UICollectionViewDiffableDataSource<Section, Item> {
-        let gridCellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { cell, _, walletId in
-            let accountContext = AccountContext(accountId: walletId)
-            cell.configurationUpdateHandler = { cell, _ in
-                cell.contentConfiguration = UIHostingConfiguration {
-                    WalletSettingsGridCell(accountContext: accountContext)
-                }
-                .margins(.all, 0)
-            }
+    private func makeDataSource(collectionView: UICollectionView) -> UICollectionViewDiffableDataSource<Section, Item> {
+        let gridCellRegistration = UICollectionView.CellRegistration<WalletSettingsGridCell, String> { [weak self] cell, indexPath, accountId in
+            guard let self else { return }
+            cell.configure(with: AccountContext(accountId: accountId))
+            reorderController.updateCell(cell, indexPath: indexPath)
         }
-        let listCellRegistration = AccountListCell.makeRegistration()
+        let listCellRegistration = UICollectionView.CellRegistration<WalletSettingsListCell, String> { [weak self] cell, indexPath, accountId in
+            guard let self else { return }
+            cell.configure(with: AccountContext(accountId: accountId))
+            reorderController.updateCell(cell, indexPath: indexPath)
+        }
         let emptyCellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Void> { [filter, viewModel] cell, _, _ in
             cell.configurationUpdateHandler = { cell, _ in
                 cell.contentConfiguration = UIHostingConfiguration {
@@ -140,32 +143,19 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
                 return collectionView.dequeueConfiguredReusableCell(using: emptyCellRegistration, for: indexPath, item: ())
             }
         }
-        dataSource.reorderingHandlers.canReorderItem = { [weak self] item in
-            guard let self else { return false }
-            if viewModel.isReordering, case .list = item {
-                return true
-            }
-            return false
-        }
-        dataSource.reorderingHandlers.willReorder = { _ in
-        }
-        dataSource.reorderingHandlers.didReorder = { [weak self] transaction in
-            guard let self else { return }
-            let diff = transaction.difference.toString()
-            accountStore.reorderAccounts(changes: diff)
-        }
+        
         return dataSource
     }
     
     private func makeLayout() -> UICollectionViewCompositionalLayout {
         let gridMaximumCardWidth: CGFloat = 150
-        let gridSpacing: CGFloat = 8
+        let gridSpacing: CGFloat = 6
         let gridSectionInsets = NSDirectionalEdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12)
-
+        
         var listConfiguration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         listConfiguration.backgroundColor = .clear
         listConfiguration.headerTopPadding = 14
-
+        
         let emptyItem = NSCollectionLayoutItem(
             layoutSize: .init(.fractionalWidth(1), .fractionalHeight(1))
         )
@@ -174,14 +164,14 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
             subitems: [emptyItem]
         )
         let emptySection = NSCollectionLayoutSection(group: emptyGroup)
-
+        
         return UICollectionViewCompositionalLayout { [weak self] idx, env in
             switch self?.dataSource?.sectionIdentifier(for: idx) {
             case .grid:
                 let containerWidth = env.container.effectiveContentSize.width
                 let usableWidth = max(0, containerWidth - gridSectionInsets.leading - gridSectionInsets.trailing)
                 let columnCount = max(3, Int(ceil((usableWidth + gridSpacing) / (gridMaximumCardWidth + gridSpacing))))
-
+                
                 let gridItem = NSCollectionLayoutItem(
                     layoutSize: .init(.fractionalWidth(1.0 / CGFloat(columnCount)), .estimated(110))
                 )
@@ -190,7 +180,7 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
                     subitems: [gridItem]
                 )
                 gridGroup.interItemSpacing = .fixed(gridSpacing)
-
+                
                 let gridSection = NSCollectionLayoutSection(group: gridGroup)
                 gridSection.contentInsets = gridSectionInsets
                 gridSection.interGroupSpacing = 4
@@ -204,18 +194,19 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
             }
         }
     }
-
-    func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Item> {
+    
+    private func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Item> {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         var accountIds = self.orderedAccountIds
         if let accountType = filter.accountType {
             accountIds = accountIds.filter { accountsById[$0]?.type == accountType }
         }
+        
         if accountIds.isEmpty {
             snapshot.appendSections([.empty])
             snapshot.appendItems([.empty])
         } else {
-            switch viewModel.effectiveLayout {
+            switch viewModel.preferredLayout {
             case .grid:
                 snapshot.appendSections([.grid])
                 snapshot.appendItems(accountIds.map(Item.grid))
@@ -227,116 +218,142 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, U
         return snapshot
     }
     
-    func applySnapshot(animated: Bool) {
+    private func applySnapshot(animated: Bool) {
         let snapshot = makeSnapshot()
         dataSource?.apply(snapshot, animatingDifferences: animated)
     }
     
-    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        if let accountId = dataSource?.itemIdentifier(for: indexPath)?.accountId {
-            if accountId != accountStore.currentAccountId {
-                Task {
-                    _ = try await accountStore.activateAccount(accountId: accountId)
-                    topViewController()?.dismiss(animated: true)
-                    AppActions.showHome(popToRoot: true)
-                }
-            } else {
-                topViewController()?.dismiss(animated: true)
-            }
-        }
-    }
-    
     // MARK: Context menu
     
-    func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint) -> UIContextMenuConfiguration? {
-        if let indexPath = indexPaths.first, let accountId = dataSource?.itemIdentifier(for: indexPath)?.accountId, !viewModel.isReordering {
-            return UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: nil) { _ in
-                let reorder = UIAction(
-                    title: lang("Reorder"),
-                    image: UIImage(systemName: "chevron.up.chevron.down"),
-                    handler: { [weak self] _ in
-                        self?.viewModel.startEditing()
-                    }
-                )
-                let rename = UIAction(
-                    title: lang("Rename"),
-                    image: UIImage(systemName: "pencil.line"),
-                    handler: { _ in
-                        AppActions.showRenameAccount(accountId: accountId)
-                    }
-                )
-                let customize = UIAction(
-                    title: lang("Customize"),
-                    image: UIImage(systemName: "wand.and.stars.inverse"),
-                    handler: { _ in
-                        AppActions.showCustomizeWallet(accountId: accountId)
-                    }
-                )
-                let section = UIMenu(options: .displayInline, children: [reorder, rename, customize])
-                let delete = UIAction(
-                    title: lang("Remove"),
-                    image: UIImage(systemName: "trash"),
-                    attributes: .destructive,
-                    handler: { _ in
-                        AppActions.showDeleteAccount(accountId: accountId)
-                    }
-                )
-                let menu = UIMenu(children: [section, delete])
-                return menu
+    private func makeMenu(accountId: String, canReorder: Bool) -> UIMenu {
+        var mainSectionItems: [UIMenuElement] = []
+        
+        if canReorder {
+            let reorder = UIAction(
+                title: lang("Reorder"),
+                image: .airBundle("MenuReorder26"),
+                handler: { [weak self] _ in
+                    self?.viewModel.startEditing()
+                }
+            )
+            mainSectionItems += reorder
+        }
+        
+        mainSectionItems += UIAction(
+            title: lang("Rename"),
+            image: UIImage(systemName: "pencil.line"),
+            handler: { _ in
+                AppActions.showRenameAccount(accountId: accountId)
             }
+        )
+        
+        mainSectionItems += UIAction(
+            title: lang("Customize"),
+            image: UIImage(systemName: "wand.and.stars.inverse"),
+            handler: { _ in
+                AppActions.showCustomizeWallet(accountId: accountId)
+            }
+        )
+        let mainSection = UIMenu(options: .displayInline, children: mainSectionItems)
+        
+        let delete = UIAction(
+            title: lang("Remove"),
+            image: UIImage(systemName: "trash"),
+            attributes: .destructive,
+            handler: { _ in
+                AppActions.showDeleteAccount(accountId: accountId)
+            }
+        )
+        return UIMenu(children: [mainSection, delete])
+    }
+        
+    private func isReorderablePath(_ indexPath: IndexPath) -> Bool {
+        guard let dataSource, [.grid, .list].contains(dataSource.sectionIdentifier(for: indexPath.section)) else {
+            return false
         }
-        return nil
+        return true
     }
     
-    // MARK: Drag and drop
+    // MARK: - ReorderableCollectionViewControllerDelegate
     
-    func collectionView(_ collectionView: UICollectionView, itemsForBeginning session: any UIDragSession, at indexPath: IndexPath) -> [UIDragItem] {
-        guard filter == .all, viewModel.isReordering else { return [] }
-        return makeDragItems(collectionView: collectionView, indexPath: indexPath)
+    func reorderController(_ controller: ReorderableCollectionViewController, canStartSystemDragForItemAt indexPath: IndexPath) -> Bool {
+        return isReorderablePath(indexPath) && filter == .all
     }
     
-    private func makeDragItems(collectionView: UICollectionView, indexPath: IndexPath) -> [UIDragItem] {
-        guard let dataSource, case .list = dataSource.itemIdentifier(for: indexPath) else { return [] }
-        let dragItem = UIDragItem(itemProvider: NSItemProvider())
-        return  [dragItem]
+    func reorderController(_ controller: ReorderableCollectionViewController, canMoveItemAt indexPath: IndexPath) -> Bool {
+        return isReorderablePath(indexPath)
     }
     
-    public func collectionView(_ collectionView: UICollectionView, dragPreviewParametersForItemAt indexPath: IndexPath) -> UIDragPreviewParameters? {
-        guard let dataSource, let cell = collectionView.cellForItem(at: indexPath), case .list = dataSource.itemIdentifier(for: indexPath) else { return nil }
-        let parameters = UIDragPreviewParameters()
-        parameters.visiblePath = UIBezierPath(roundedRect: cell.bounds, cornerRadius: 26)
-        return parameters
-    }
-    
-    public func collectionView(_ collectionView: UICollectionView, dropSessionDidUpdate session: any UIDropSession, withDestinationIndexPath destinationIndexPath: IndexPath?) -> UICollectionViewDropProposal {
-        if let dataSource, let destinationIndexPath, case .list = dataSource.itemIdentifier(for: destinationIndexPath) {
-            return .init(operation: .move, intent: .insertAtDestinationIndexPath)
-        } else {
-            return .init(operation: .cancel)
+    func reorderController(_ controller: ReorderableCollectionViewController, moveItemAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) -> Bool {
+        guard isReorderablePath(sourceIndexPath), isReorderablePath(destinationIndexPath),
+              sourceIndexPath.section == destinationIndexPath.section else {
+            return false
         }
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, performDropWith coordinator: any UICollectionViewDropCoordinator) {
-        // required for drop delegate
-    }
-}
+        
+        var reordered = orderedAccountIds
+        let moved = reordered.remove(at: sourceIndexPath.item)
+        reordered.insert(moved, at: destinationIndexPath.item)
+     
+        accountStore.reorderAccounts(newOrder: reordered)
+        
+        // This is called in observe as well but to avoid SwiftUI glitching it is necessary to call it at this point
+        applySnapshot(animated: true)
 
-private extension CollectionDifference<WalletSettingsListVC.Item> {
-    func toString() -> CollectionDifference<String> {
-        var changes: [CollectionDifference<String>.Change] = []
-        for rowChange in self {
-            switch rowChange {
-            case .remove(offset: let offset, element: let element, associatedWith: let associatedWith):
-                if let accountId = element.accountId {
-                    changes.append(.remove(offset: offset, element: accountId, associatedWith: associatedWith))
-                }
-            case .insert(offset: let offset, element: let element, associatedWith: let associatedWith):
-                if let accountId = element.accountId {
-                    changes.append(.insert(offset: offset, element: accountId, associatedWith: associatedWith))
-                }
-            }
+        return true
+    }
+    
+    func reorderController(_ controller: ReorderableCollectionViewController, didChangeReorderingStateByExternalActor externalActor: Bool) {
+        if !externalActor {
+            viewModel.startEditing()
         }
-        return CollectionDifference<String>(changes)!
+    }
+    
+    func reorderController(_ controller: ReorderableCollectionViewController, didSelectItemAt indexPath: IndexPath) {
+        guard let accountId = dataSource?.itemIdentifier(for: indexPath)?.accountId else { return }
+        if accountId != accountStore.currentAccountId {
+            Task {
+                _ = try await accountStore.activateAccount(accountId: accountId)
+                topViewController()?.dismiss(animated: true)
+                AppActions.showHome(popToRoot: true)
+            }
+        } else {
+            topViewController()?.dismiss(animated: true)
+        }
+    }
+    
+    func reorderController(_ controller: ReorderableCollectionViewController, contextMenuConfigurationForItemAt indexPath: IndexPath,
+                                  point: CGPoint) -> UIContextMenuConfiguration? {
+        guard let accountId = dataSource?.itemIdentifier(for: indexPath)?.accountId, !viewModel.isReordering else {
+            return nil
+        }
+        
+        return UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: nil) { _ in
+            return self.makeMenu(accountId: accountId, canReorder: self.orderedAccountIds.count > 1)
+        }
+    }
+    
+    public func reorderController(_ controller: ReorderableCollectionViewController, willDisplayContextMenu configuration: UIContextMenuConfiguration,
+                                  animator: (any UIContextMenuInteractionAnimating)?) {
+        contextMenuExtraBlurView?.removeFromSuperview()
+        contextMenuExtraBlurView = ContextMenuBackdropBlur.show(in: view.window, animator: animator)
+    }
+
+    public func reorderController(_ controller: ReorderableCollectionViewController, willEndContextMenuInteraction configuration: UIContextMenuConfiguration,
+                                  animator: (any UIContextMenuInteractionAnimating)?) {
+        let blurView = contextMenuExtraBlurView
+        contextMenuExtraBlurView = nil
+        ContextMenuBackdropBlur.hide(blurView, animator: animator)
+    }
+    
+    func reorderController(_ controller: ReorderableCollectionViewController, adjustPreviewFrame previewFrame: CGRect) -> CGRect {
+        let cv = controller.collectionView
+        let visibleBounds = cv.bounds.inset(by: cv.adjustedContentInset)
+        return previewFrame.clamped(to: visibleBounds)
+    }
+    
+    public func reorderController(_ controller: ReorderableCollectionViewController, previewForCell cell: UICollectionViewCell) -> ReorderableCollectionViewController.CellPreview? {
+        guard let cell = cell as? WalletSettingsListCell else { return nil }
+        return .init(view: cell.contentView, cornerRadius: 26)
     }
 }
 

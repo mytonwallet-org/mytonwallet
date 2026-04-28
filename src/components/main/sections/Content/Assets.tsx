@@ -40,10 +40,9 @@ import usePrevious2 from '../../../../hooks/usePrevious2';
 import useTokensWithStaking from '../../../../hooks/useTokensWithStaking';
 import useVesting from '../../../../hooks/useVesting';
 
-import AnimatedIconWithPreview from '../../../ui/AnimatedIconWithPreview';
-import Button from '../../../ui/Button';
 import InfiniteScroll from '../../../ui/InfiniteScroll';
 import Spinner from '../../../ui/Spinner';
+import EmptyListPlaceholder from './EmptyListPlaceholder';
 import Token from './Token';
 import TokenListItem from './TokenListItem';
 
@@ -52,6 +51,8 @@ import styles from './Assets.module.scss';
 type OwnProps = {
   isActive?: boolean;
   isSeparatePanel?: boolean;
+  isWidget?: boolean;
+  compactLimit?: number;
   onTokenClick: (slug: string) => void;
   onStakedTokenClick: (stakingId?: string) => void;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
@@ -79,6 +80,8 @@ interface StateProps {
 
 const TOKEN_HEIGHT_REM = 4;
 
+export const COMPACT_LIMIT_DEFAULT = 6;
+
 function Assets({
   isActive,
   tokens,
@@ -86,9 +89,9 @@ function Assets({
   vesting,
   isInvestorViewEnabled,
   isSeparatePanel,
+  isWidget,
+  compactLimit = COMPACT_LIMIT_DEFAULT,
   currentTokenSlug,
-  onTokenClick,
-  onStakedTokenClick,
   baseCurrency,
   mycoin,
   isSensitiveDataHidden,
@@ -101,6 +104,8 @@ function Assets({
   pinnedSlugs = MEMO_EMPTY_ARRAY,
   alwaysHiddenSlugs = MEMO_EMPTY_ARRAY,
   currencyRates,
+  onTokenClick,
+  onStakedTokenClick,
   onScroll,
 }: OwnProps & StateProps) {
   const lang = useLang();
@@ -175,10 +180,9 @@ function Assets({
   const shouldUseAnimations = Boolean(isActive && allTokensWithStaked);
 
   const currentContainerHeight = useMemo(() => {
-    if (!viewportSlugs?.length || viewportIndex < 0) return undefined;
-
-    return (viewportIndex + viewportSlugs.length) * TOKEN_HEIGHT_REM;
-  }, [viewportIndex, viewportSlugs?.length]);
+    const totalItemsCount = (tokenSlugs?.length ?? 0) + (shouldRenderVestingToken ? 1 : 0);
+    return totalItemsCount > 0 ? totalItemsCount * TOKEN_HEIGHT_REM : undefined;
+  }, [tokenSlugs?.length, shouldRenderVestingToken]);
 
   const handleOpenTokenSettings = useLastCallback(() => {
     openSettingsWithState({ state: SettingsState.Assets });
@@ -262,6 +266,53 @@ function Assets({
     );
   }
 
+  function renderCompactToken(token: UserToken) {
+    const { stakingId, isStaking, slug, amount, decimals } = token;
+    const stakingState = stakingId ? stakingStateById[stakingId] : undefined;
+
+    const baseTokenState = !isStaking && !stakedTokenSlugs.has(slug)
+      ? stateByTokenSlug[slug]
+      : undefined;
+
+    const { annualYield, yieldType } = stakingState || baseTokenState || {};
+    const stakingStatus = stakingState ? getStakingStateStatus(stakingState) : undefined;
+    const isStakingAvailable = Boolean(baseTokenState && !isStakingDisabled);
+    const isSwapAvailable = Boolean(swapTokensBySlug[slug]);
+    const isPinned = pinnedSlugsSet.has(slug);
+    const amountDecimal = isStaking ? toDecimal(amount, decimals) : undefined;
+
+    return (
+      <TokenListItem
+        key={slug}
+        topOffset={0}
+        withAnimation={false}
+        isWidget
+      >
+        <Token
+          token={token}
+          stakingStatus={stakingStatus}
+          stakingState={stakingState}
+          annualYield={annualYield}
+          yieldType={yieldType}
+          amount={amountDecimal}
+          isInvestorView={isInvestorViewEnabled}
+          isActive={token.slug === currentTokenSlug}
+          baseCurrency={baseCurrency}
+          withChainIcon={isMultichainAccount}
+          appTheme={appTheme}
+          isSensitiveDataHidden={isSensitiveDataHidden}
+          withContextMenu
+          tokenClassName={buildClassName(isWidget && styles.tokenInWidget)}
+          isViewMode={isViewMode}
+          isStakingAvailable={isStakingAvailable}
+          isSwapDisabled={isSwapDisabled || !isSwapAvailable}
+          isPinned={isPinned}
+          onClick={handleTokenClick}
+        />
+      </TokenListItem>
+    );
+  }
+
   function renderToken(token: UserToken, indexInViewport: number) {
     const topOffset = (viewportIndex + indexInViewport) * TOKEN_HEIGHT_REM;
 
@@ -316,30 +367,40 @@ function Assets({
 
   const isEmpty = !shouldRenderVestingToken && !tokenSlugs?.length;
 
+  if (isWidget) {
+    if (isEmpty) {
+      return (
+        <EmptyListPlaceholder
+          title={lang('No tokens yet')}
+          description={lang('$no_tokens_description')}
+          actionText={lang('Add Tokens')}
+          onActionClick={handleOpenTokenSettings}
+        />
+      );
+    }
+
+    const compactTokens = allTokensWithStaked
+      ?.filter(({ isDisabled }) => !isDisabled)
+      .slice(0, compactLimit) ?? [];
+
+    return (
+      <div className={styles.compactWrapper}>
+        {compactTokens.map((token) => renderCompactToken(token))}
+      </div>
+    );
+  }
+
   if (isEmpty) {
     return (
-      <div className={styles.noTokens}>
-        <AnimatedIconWithPreview
-          tgsUrl={ANIMATED_STICKERS_PATHS.noData}
-          previewUrl={ANIMATED_STICKERS_PATHS.noDataPreview}
-          size={ANIMATED_STICKER_SMALL_SIZE_PX}
-          nonInteractive
-          noLoop={false}
-          className={styles.sticker}
-        />
-        <div className={styles.noTokensText}>
-          <span className={styles.noTokensHeader}>{lang('No tokens yet')}</span>
-          <span className={styles.noTokensDescription}>{lang('$no_tokens_description')}</span>
-          <Button
-            onClick={handleOpenTokenSettings}
-            isPrimary
-            isSmall
-            className={styles.openSettingsButton}
-          >
-            {lang('Add Tokens')}
-          </Button>
-        </div>
-      </div>
+      <EmptyListPlaceholder
+        stickerTgsUrl={ANIMATED_STICKERS_PATHS.noData}
+        stickerPreviewUrl={ANIMATED_STICKERS_PATHS.noDataPreview}
+        stickerSize={ANIMATED_STICKER_SMALL_SIZE_PX}
+        title={lang('No tokens yet')}
+        description={lang('$no_tokens_description')}
+        actionText={lang('Add Tokens')}
+        onActionClick={handleOpenTokenSettings}
+      />
     );
   }
 

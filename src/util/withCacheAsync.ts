@@ -34,6 +34,6 @@ export default function withCacheAsync<T extends AnyAsyncFunction>(
 
 function buildCacheKey(args: any[]) {
   return args.reduce((cacheKey, arg) => {
-    return `${cacheKey}_${typeof arg === 'object' ? JSON.stringify(args) : arg}`;
+    return `${cacheKey}_${typeof arg === 'object' ? JSON.stringify(arg) : arg}`;
   }, '');
 }

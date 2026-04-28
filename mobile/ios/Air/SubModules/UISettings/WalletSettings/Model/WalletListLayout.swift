@@ -7,7 +7,7 @@
 
 import WalletContext
 
-enum WalletListLayout {
+enum WalletListLayout: String {
     case grid
     case list
     

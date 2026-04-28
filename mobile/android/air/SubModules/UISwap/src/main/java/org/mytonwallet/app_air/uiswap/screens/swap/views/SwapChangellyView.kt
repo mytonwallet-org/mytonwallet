@@ -1,13 +1,13 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.views
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.method.LinkMovementMethod
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.widget.LinearLayout
 import android.widget.LinearLayout.VERTICAL
 import androidx.appcompat.widget.AppCompatTextView
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -17,9 +17,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.ExpandableFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uiinappbrowser.span.InAppBrowserUrlSpan
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcontext.helpers.SpanHelpers
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletcontext.helpers.SpanHelpers
 
 class SwapChangellyView @JvmOverloads constructor(
     context: Context,
@@ -34,7 +35,7 @@ class SwapChangellyView @JvmOverloads constructor(
     }
     private val titleTextView = AppCompatTextView(context).apply {
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         typeface = WFont.Medium.typeface
 
     }
@@ -43,8 +44,7 @@ class SwapChangellyView @JvmOverloads constructor(
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
         typeface = WFont.Regular.typeface
     }
-    private val titleLogoDrawable =
-        ContextCompat.getDrawable(context, R.drawable.ic_changelly_logo_20)
+    private val titleLogoDrawable = context.getDrawableCompat(R.drawable.ic_changelly_logo_20)
 
     init {
         titleTextView.text = LocaleController.getSpannableStringWithKeyValues(

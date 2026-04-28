@@ -21,6 +21,7 @@ def subModules = [
   "UISettings",
   "UIPasscode",
   "UIHome",
+  "UIPortfolio",
   "UIAssets",
   "UIBrowser",
   "UITransaction",

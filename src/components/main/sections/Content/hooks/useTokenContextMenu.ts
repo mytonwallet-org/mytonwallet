@@ -4,7 +4,7 @@ import { getActions } from '../../../../../global';
 import type { ApiStakingState } from '../../../../../api/types';
 import type { UserToken } from '../../../../../global/types';
 import type { DropdownItem } from '../../../../ui/Dropdown';
-import { ActiveTab, SettingsState } from '../../../../../global/types';
+import { SettingsState } from '../../../../../global/types';
 
 import {
   DEFAULT_SWAP_FIRST_TOKEN_SLUG,
@@ -40,8 +40,6 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
     openSettingsWithState,
     pinToken,
     unpinToken,
-    setLandscapeActionsActiveTabIndex,
-    setReceiveActiveTab,
     startUnstaking,
     startStakingClaim,
   } = getActions();
@@ -138,17 +136,11 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
 
     switch (value) {
       case 'add':
-        if (isPortrait) {
-          openReceiveModal({ chain: token.chain });
-        } else {
-          setReceiveActiveTab({ chain: token.chain });
-          setLandscapeActionsActiveTabIndex({ index: ActiveTab.Receive });
-        }
+        openReceiveModal({ chain: token.chain });
         break;
 
       case 'send':
         startTransfer({
-          isPortrait,
           tokenSlug: token.slug,
         });
         break;

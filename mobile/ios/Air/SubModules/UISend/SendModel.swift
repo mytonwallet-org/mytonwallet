@@ -290,6 +290,14 @@ public final class SendModel: Sendable {
     var isCommentRequired: Bool {
         draftData.transactionDraft?.isMemoRequired ?? false
     }
+
+    var activeChain: ApiChain {
+        nfts.first?.chain ?? token.chain
+    }
+
+    var isTransferPayloadAvailable: Bool {
+        activeChain.isTransferPayloadSupported || isCommentRequired
+    }
     
     var isEncryptedMessageAvailable: Bool {
         !isCommentRequired && token.chain.isEncryptedCommentSupported && !mode.isNftRelated && account.isHardware != true
@@ -417,6 +425,9 @@ public final class SendModel: Sendable {
     }
 
     var commentPayload: AnyTransferPayload? {
+        guard isTransferPayloadAvailable else {
+            return nil
+        }
         if let binaryPayload = self.binaryPayload?.nilIfEmpty {
             return .base64(data: binaryPayload)
         } else if let _comment = self.comment.nilIfEmpty {

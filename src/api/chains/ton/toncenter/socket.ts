@@ -1,5 +1,7 @@
 import type {
-  ActivitiesUpdate,
+  DefaultActivitiesUpdate,
+  DefaultNftUpdateArgument,
+  DefaultWatchedWallet,
   NewActivitiesCallback,
   WalletWatcherInternal,
 } from '../../../common/websocket/abstractWsClient';
@@ -41,7 +43,13 @@ const PONG_TIMEOUT = 5 * SEC;
 /**
  * Connects to Toncenter to passively listen to updates.
  */
-class ToncenterSocket extends AbstractWebsocketClient<ClientSocketMessage, ServerSocketMessage> {
+class ToncenterSocket extends AbstractWebsocketClient<
+  ClientSocketMessage,
+  ServerSocketMessage,
+  DefaultWatchedWallet,
+  DefaultActivitiesUpdate,
+  DefaultNftUpdateArgument
+> {
   #network: ApiNetwork;
 
   /** See #rememberAddressesOfNormalizedHash */
@@ -378,7 +386,7 @@ export const getToncenterSocket = withCache((network: ApiNetwork) => {
 /**
  * Returns true if the activities update is final, i.e. no other updates are expected for the corresponding message hash.
  */
-export function isActivityUpdateFinal(update: ActivitiesUpdate) {
+export function isActivityUpdateFinal(update: DefaultActivitiesUpdate) {
   return update.finality === 'finalized' || !update.activities.length;
 }
 

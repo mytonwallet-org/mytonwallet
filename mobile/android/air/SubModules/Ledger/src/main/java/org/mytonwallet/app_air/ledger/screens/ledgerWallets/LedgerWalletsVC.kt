@@ -67,8 +67,6 @@ class LedgerWalletsVC(
             return@mapNotNull null
     }
 
-    override val shouldDisplayBottomBar = true
-
     companion object {
         val WALLET_CELL = WCell.Type(1)
         val LOAD_MORE_CELL = WCell.Type(2)
@@ -107,11 +105,6 @@ class LedgerWalletsVC(
         val layoutManager = LinearLayoutManagerAccurateOffset(context)
         layoutManager.isSmoothScrollbarEnabled = true
         rv.setLayoutManager(layoutManager)
-        rv.addItemDecoration(
-            LastItemPaddingDecoration(
-                navigationController?.getSystemBars()?.bottom ?: 0
-            )
-        )
         rv.setItemAnimator(null)
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -210,10 +203,13 @@ class LedgerWalletsVC(
         LedgerManager.stopConnection()
     }
 
-    override fun finalizedWallets() {
+    override fun finalizedWallets(importedAccountsCount: Int) {
         if (prevAccountsCount == 0) {
             push(
-                WalletContextManager.delegate?.getWalletAddedVC(false) as WViewController
+                WalletContextManager.delegate?.getWalletAddedVC(
+                    false,
+                    importedAccountsCount
+                ) as WViewController
             ) {
                 navigationController?.removePrevViewControllers()
             }

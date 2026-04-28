@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.SpannableStringBuilder
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
@@ -39,7 +40,7 @@ class LedgerWalletCell(
 
     private val topLeftLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f, WFont.Medium)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl
     }
 
@@ -58,7 +59,7 @@ class LedgerWalletCell(
 
     private val rightLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f, WFont.Medium)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl
     }
 

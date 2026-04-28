@@ -1,8 +1,8 @@
 package org.mytonwallet.app_air.uibrowser.viewControllers.exploreCategory.cells
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
-import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
@@ -11,7 +11,6 @@ import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -24,10 +23,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
 
@@ -78,7 +77,7 @@ class ExploreCategorySiteCell(
     }
 
     private val openButton = WLabel(context).apply {
-        setStyle(16f, WFont.SemiBold)
+        setStyle(adaptiveFontSize(), WFont.SemiBold)
         text = LocaleController.getString("Open")
         gravity = Gravity.CENTER
         setTextColor(WColor.Tint)
@@ -194,8 +193,7 @@ class ExploreCategorySiteCell(
         openButton.addRippleEffect(WColor.BackgroundRipple.color, 16f.dp)
 
         if (site?.isTelegram == true) {
-            val telegramIcon = ContextCompat.getDrawable(
-                context,
+            val telegramIcon = context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_telegram
             )
             telegramIcon?.let { drawable ->

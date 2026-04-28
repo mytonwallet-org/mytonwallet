@@ -6,9 +6,9 @@ $nftCardItemHeight: 4.6875rem;
 $nftCardItemWidth: 6.875rem;
 
 .cardWrapper {
-  cursor: var(--custom-cursor, pointer);;
+  cursor: var(--custom-cursor, pointer);
   position: relative;
-  border-radius: 0.625rem;
+  border-radius: var(--border-radius-normal);
 
   @include mixins.transition('transform 0.15s, outline 0.15s ease-in-out');
 
@@ -35,7 +35,7 @@ $nftCardItemWidth: 6.875rem;
   aspect-ratio: calc($nftCardItemWidth / 1rem) / calc($nftCardItemHeight / 1rem);
   width: 100%;
   height: 100%;
-  border-radius: 0.625rem;
+  border-radius: var(--border-radius-normal);
 
   background-image: url("../../assets/cards/card.jpg"), linear-gradient(125deg, #{v.$defaultCardGradient});
   background-clip: border-box, padding-box, padding-box;
@@ -122,11 +122,11 @@ $nftCardItemWidth: 6.875rem;
 }
 
 .customCardManager > img, .customCardManager::before {
-  border-radius: 0.625rem !important;
+  border-radius: var(--border-radius-normal) !important;
 }
 
 .customCardShadow {
-  border-radius: 0.625rem 0 0 0.625rem !important;
+  border-radius: var(--border-radius-normal) 0 0 var(--border-radius-normal) !important;
 }
 
 .bar {

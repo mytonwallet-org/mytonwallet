@@ -1,4 +1,3 @@
-import type { TeactNode } from '../../lib/teact/teact';
 import React, {
   memo,
   useCallback,
@@ -66,7 +65,8 @@ interface OwnProps {
   shouldHideNotSupportedTokens?: boolean;
   isSwapOut?: boolean;
   selectedChain?: ApiChain | ApiChain[];
-  header?: TeactNode;
+  noHeader?: boolean;
+  searchClassName?: string;
   onClose: NoneToVoidFunction;
   onBack: NoneToVoidFunction;
   onTokenSelect: (token: TokenType) => void;
@@ -103,7 +103,8 @@ function TokenSelector({
   userTokens: userTokensProp = EMPTY_ARRAY,
   swapTokens = EMPTY_ARRAY,
   popularTokens: popularTokensProp = EMPTY_ARRAY,
-  header,
+  noHeader,
+  searchClassName,
   shouldFilter,
   shouldUseSwapTokens,
   baseCurrency,
@@ -321,32 +322,34 @@ function TokenSelector({
 
   function renderSearch() {
     return (
-      <div className={styles.tokenSelectInputWrapper}>
-        <i className={buildClassName(styles.tokenSelectSearchIcon, 'icon-search')} aria-hidden />
-        <input
-          ref={searchInputRef}
-          name="token-search-modal"
-          className={styles.tokenSelectInput}
-          onChange={(e) => setSearchValue(e.target.value)}
-          placeholder={lang('Name or Address...')}
-          value={searchValue}
-        />
-        <Transition
-          name="fade"
-          activeKey={isResetButtonVisible ? 0 : 1}
-          className={styles.tokenSelectSearchResetWrapper}
-        >
-          {isResetButtonVisible && (
-            <button
-              type="button"
-              className={styles.tokenSelectSearchReset}
-              aria-label={lang('Clear')}
-              onClick={resetSearch}
-            >
-              <i className={buildClassName(styles.tokenSelectSearchResetIcon, 'icon-close')} aria-hidden />
-            </button>
-          )}
-        </Transition>
+      <div className={styles.tokenSelectSearchWrapper}>
+        <div className={buildClassName(styles.tokenSelectInputWrapper, searchClassName)}>
+          <i className={buildClassName(styles.tokenSelectSearchIcon, 'icon-search')} aria-hidden />
+          <input
+            ref={searchInputRef}
+            name="token-search-modal"
+            className={styles.tokenSelectInput}
+            onChange={(e) => setSearchValue(e.target.value)}
+            placeholder={lang('Name or Address...')}
+            value={searchValue}
+          />
+          <Transition
+            name="fade"
+            activeKey={isResetButtonVisible ? 0 : 1}
+            className={styles.tokenSelectSearchResetWrapper}
+          >
+            {isResetButtonVisible && (
+              <button
+                type="button"
+                className={styles.tokenSelectSearchReset}
+                aria-label={lang('Clear')}
+                onClick={resetSearch}
+              >
+                <i className={buildClassName(styles.tokenSelectSearchResetIcon, 'icon-close')} aria-hidden />
+              </button>
+            )}
+          </Transition>
+        </div>
       </div>
     );
   }
@@ -486,20 +489,20 @@ function TokenSelector({
 
   return (
     <>
-      {header || (
+      {!noHeader && (
         <ModalHeader
           title={lang('Select Token')}
           onBackButtonClick={onBack}
           onClose={onClose}
         />
       )}
-      {renderSearch()}
 
       <div
         ref={scrollContainerRef}
         className={buildClassName(styles.tokenSelectContent, 'custom-scroll')}
         onScroll={handleContentScroll}
       >
+        {renderSearch()}
         <Transition name="fade" activeKey={renderingKey}>
           {renderContent}
         </Transition>

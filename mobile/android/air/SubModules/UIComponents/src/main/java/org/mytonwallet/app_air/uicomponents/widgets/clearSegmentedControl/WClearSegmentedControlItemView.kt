@@ -14,7 +14,6 @@ import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.animation.doOnCancel
-import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -22,6 +21,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -30,7 +30,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.clearSegmentedControl.WClear
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import java.lang.Float.max
 import kotlin.math.roundToInt
@@ -43,8 +43,8 @@ open class WClearSegmentedControlItemView(context: Context) :
     internal val trailingImageView: AppCompatImageView
     internal val badgeView: FrameLayout
     private val badgeLabel: WLabel
-    private val arrowDrawable = ContextCompat.getDrawable(context, R.drawable.ic_arrows_14)
-    private val removeDrawable = ContextCompat.getDrawable(context, R.drawable.ic_collection_remove)
+    private val arrowDrawable = context.getDrawableCompat(R.drawable.ic_arrows_14)
+    private val removeDrawable = context.getDrawableCompat(R.drawable.ic_collection_remove)
     private var shakeAnimator: ObjectAnimator? = null
 
     // Trailing image animator
@@ -72,7 +72,7 @@ open class WClearSegmentedControlItemView(context: Context) :
                 LayoutParams.WRAP_CONTENT,
                 LayoutParams.WRAP_CONTENT
             ).apply {
-                setStyle(ApplicationContextHolder.adaptiveFontSize, WFont.Medium)
+                setStyle(adaptiveFontSize(), WFont.Medium)
                 setPadding(16.dp, 5.dp, 16.dp, 5.dp)
                 setSingleLine()
             }
@@ -179,7 +179,10 @@ open class WClearSegmentedControlItemView(context: Context) :
     fun setBadge(text: String?) {
         if (badgeLabel.text == text)
             return
-        badgeLabel.text = text
+
+        if (!text.isNullOrEmpty()) {
+            badgeLabel.text = text
+        }
 
         val targetWidth = if (!text.isNullOrEmpty()) {
             measureBadgeWidth()
@@ -216,6 +219,7 @@ open class WClearSegmentedControlItemView(context: Context) :
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     if (willBeHidden) {
+                        badgeLabel.text = text
                         badgeView.visibility = GONE
                         badgeView.alpha = 0f
                     } else {

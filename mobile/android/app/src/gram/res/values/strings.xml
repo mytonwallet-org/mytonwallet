@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="app_name" translatable="false">Gram</string>
+  <string name="app_locale_name_key" translatable="false">Gram Wallet</string>
+  <string name="package_name" translatable="false">io.gramwallet.app</string>
+  <string name="ton_url_scheme" translatable="false">ton</string>
+  <string name="tc_url_scheme" translatable="false">tc</string>
+  <string name="app_tc_url_scheme" translatable="false">gramwallet-tc</string>
+  <string name="app_url_scheme" translatable="false">gramwallet</string>
+  <string name="wc_url_scheme" translatable="false">wc</string>
+  <string name="app_website_url" translatable="false">https://gramwallet.io</string>
+  <string name="app_blog_url" translatable="false">https://gramwallet.io/en/blog</string>
+  <string name="app_terms_of_use_url" translatable="false">https://gramwallet.io/terms-of-use</string>
+  <string name="app_privacy_policy_url" translatable="false">https://gramwallet.io/privacy-policy</string>
+  <string name="app_install_url" translatable="false">https://gramwallet.io/android-store</string>
+  <string name="bot_username" translatable="false">GramWalletBot</string>
+  <string name="app_cards_url" translatable="false"></string>
+  <string name="app_help_url" translatable="false"></string>
+  <string name="app_help_scam_url_en" translatable="false"></string>
+  <string name="app_help_scam_url_ru" translatable="false"></string>
+  <string name="app_support_telegram_url" translatable="false"></string>
+  <string name="app_tips_telegram_username_en" translatable="false"></string>
+  <string name="app_tips_telegram_username_ru" translatable="false"></string>
+  <string name="app_desktop_install_url" translatable="false"></string>
+  <string name="app_multisend_url" translatable="false"></string>
+  <string name="app_portfolio_url" translatable="false">https://portfolio.mytonwallet.io</string>
+  <string name="app_giveaway_url" translatable="false"></string>
+  <string name="app_direct_apk_release_url" translatable="false"></string>
+  <string name="app_direct_apk_version_url_template" translatable="false"></string>
+</resources>

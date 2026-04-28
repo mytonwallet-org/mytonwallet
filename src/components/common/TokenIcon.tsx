@@ -5,7 +5,7 @@ import type { UserSwapToken, UserToken } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
 import getChainNetworkIcon from '../../util/swap/getChainNetworkIcon';
-import { getIsNativeToken } from '../../util/tokens';
+import { getIsNativeStakedToken, getIsNativeToken } from '../../util/tokens';
 
 import useFlag from '../../hooks/useFlag';
 
@@ -23,14 +23,15 @@ interface OwnProps {
 function TokenIcon({
   token, size, withChainIcon, className, iconClassName, children,
 }: OwnProps) {
-  const { symbol, image, chain } = token;
+  const { symbol, image, chain, slug } = token;
   const [isLoadingError, markLoadingError] = useFlag(false);
-  const isNativeToken = getIsNativeToken(token.slug);
+  const isNativeToken = getIsNativeToken(slug);
+  const isNativeTokenStaking = getIsNativeStakedToken(slug);
 
   function renderDefaultIcon() {
     return (
       <div className={buildClassName(styles.icon, size && styles[size], iconClassName, styles.fallbackIcon)}>
-        {token.symbol.slice(0, 1)}
+        {symbol.slice(0, 1)}
       </div>
     );
   }
@@ -48,7 +49,7 @@ function TokenIcon({
           />
         ) : renderDefaultIcon()
       }
-      {withChainIcon && !isNativeToken && chain && (
+      {withChainIcon && !isNativeToken && !isNativeTokenStaking && chain && (
         <img
           src={getChainNetworkIcon(chain)}
           alt=""

@@ -8,8 +8,7 @@ import useLang from '../../../hooks/useLang';
 import useScrolledState from '../../../hooks/useScrolledState';
 
 import PrivateKeyContent from '../../common/backup/PrivateKeyContent';
-import Button from '../../ui/Button';
-import ModalHeader from '../../ui/ModalHeader';
+import SettingsHeader from '../SettingsHeader';
 
 import settingsStyles from '../Settings.module.scss';
 import styles from './Backup.module.scss';
@@ -19,7 +18,6 @@ interface OwnProps {
   currentAccountId: string;
   enteredPassword?: string;
   isBackupSlideActive?: boolean;
-  isInsideModal?: boolean;
   onBackClick: NoneToVoidFunction;
   onSubmit: NoneToVoidFunction;
 }
@@ -29,7 +27,6 @@ function BackupPrivateKey({
   currentAccountId,
   enteredPassword,
   isBackupSlideActive,
-  isInsideModal,
   onBackClick,
   onSubmit,
 }: OwnProps) {
@@ -63,22 +60,7 @@ function BackupPrivateKey({
 
   return (
     <div className={settingsStyles.slide}>
-      {isInsideModal ? (
-        <ModalHeader
-          title={lang('Private Key')}
-          withNotch={isScrolled}
-          onBackButtonClick={onBackClick}
-          className={settingsStyles.modalHeader}
-        />
-      ) : (
-        <div className={buildClassName(settingsStyles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={onBackClick} className={settingsStyles.headerBack}>
-            <i className={buildClassName(settingsStyles.iconChevron, 'icon-chevron-left')} aria-hidden />
-            <span>{lang('Back')}</span>
-          </Button>
-          <span className={settingsStyles.headerTitle}>{lang('Private Key')}</span>
-        </div>
-      )}
+      <SettingsHeader title={lang('Private Key')} isScrolled={isScrolled} onBackClick={onBackClick} />
       <div
         className={buildClassName(settingsStyles.content, styles.content)}
         onScroll={handleContentScroll}

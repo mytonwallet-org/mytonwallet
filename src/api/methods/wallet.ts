@@ -59,6 +59,7 @@ export async function checkWorkerStorageIntegrity(): Promise<boolean> {
 
 export async function verifyPassword(password: string): Promise<boolean> {
   let isValidPassword = false;
+
   try {
     const [accountId, account] = (await getAccountWithMnemonic()) ?? [];
     if (!accountId || !account) {

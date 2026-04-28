@@ -48,6 +48,11 @@ $iconGapSize: 1rem;
     line-height: 1rem;
     color: var(--color-gray-2);
   }
+
+  @include mixins.respond-above(xs) {
+    font-size: 1rem;
+    line-height: 1.25rem;
+  }
 }
 
 .accountTitleInteractive {
@@ -78,11 +83,13 @@ $iconGapSize: 1rem;
   font-size: 0.5rem;
   line-height: 1rem;
   vertical-align: 0;
+
+  @include mixins.respond-above(xs) {
+    top: 0.125rem;
+  }
 }
 
 .balance {
-  --border-radius-value: 0.25rem;
-
   font-size: 1rem;
   font-weight: 800;
   color: var(--color-black);

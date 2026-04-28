@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.widgets.autoComplete
 
 import android.animation.Animator
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
@@ -66,7 +67,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.Medium)
+            setStyle(adaptiveFontSize(), WFont.Medium)
             setTextColor(WColor.PrimaryText)
             setHighlightColor(WColor.Tint)
             setSingleLine()
@@ -91,7 +92,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
 
     private val valueLabel: WSensitiveDataContainer<WLabel> by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f, WFont.Regular)
+        lbl.setStyle(adaptiveFontSize(), WFont.Regular)
         lbl.gravity = Gravity.LEFT
         lbl.layoutDirection = LAYOUT_DIRECTION_LTR
         WSensitiveDataContainer(

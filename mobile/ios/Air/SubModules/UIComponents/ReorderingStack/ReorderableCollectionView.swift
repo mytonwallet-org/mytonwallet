@@ -76,12 +76,12 @@ public final class ReorderableCollectionViewController: NSObject {
     public struct CellPreview {
         public var view: UIView
         public var cornerRadius: CGFloat
-        public var makeSnapshot: Bool?
+        public var copyView: Bool?
         
-        public init(view: UIView, cornerRadius: CGFloat = 0, makeSnapshot: Bool? = nil) {
+        public init(view: UIView, cornerRadius: CGFloat = 0, copyView: Bool? = nil) {
             self.view = view
             self.cornerRadius = cornerRadius
-            self.makeSnapshot = makeSnapshot
+            self.copyView = copyView
         }
     }
     
@@ -279,9 +279,9 @@ public final class ReorderableCollectionViewController: NSObject {
         var view = cell.contentView
         var cornerRadius: CGFloat = 0
         var centerOffset = CGSize.zero
-        var makeSnapshot = false
+        var copyView = false
         if let cellPreview = delegate?.reorderController(self, previewForCell: cell) {
-            var ms = cellPreview.makeSnapshot
+            var ms = cellPreview.copyView
             let customView = cellPreview.view
             if customView.isDescendant(of: view) {
                 let cvCenter = customView.convert(customView.bounds.center, to: view)
@@ -293,19 +293,19 @@ public final class ReorderableCollectionViewController: NSObject {
             view = customView
             cornerRadius = cellPreview.cornerRadius
             if let ms {
-                makeSnapshot = ms
+                copyView = ms
             }
         }
-        if (mode == .requiredFastSnapshot) {
-            makeSnapshot = true
+        if mode == .requiredFastSnapshot || mode == .renderToImage {
+            copyView = true
         }
 
         // Note that view frame will always be calculated relative to the cell
         let vBounds = view.bounds
         let vFrame = CGRect(origin: (cBounds.center + centerOffset) - CGSize(width: vBounds.midX, height: vBounds.midY), size: vBounds.size)
 
-        // No snapshot: return the view as is
-        if !makeSnapshot {
+        // No snapshot: return the view as it is
+        if !copyView {
             view.frame = vFrame
             return .init(view: view, centerOffset: centerOffset, cornerRadius: cornerRadius)
         }
@@ -322,7 +322,7 @@ public final class ReorderableCollectionViewController: NSObject {
             fallthrough
         case .renderToImage:
             let format = UIGraphicsImageRendererFormat()
-            format.scale = view.contentScaleFactor
+            format.scale = view.window?.screen.scale ?? 1.0
             let image = UIGraphicsImageRenderer(bounds: vBounds, format: format).image { _ in
                 view.drawHierarchy(in: vBounds, afterScreenUpdates: false)
             }
@@ -388,7 +388,7 @@ public final class ReorderableCollectionViewController: NSObject {
         }
         
         centerOffset = location - cell.frame.center
-        reorderThrottle.start(location)
+        reorderThrottle.start(location - centerOffset)
 
         dropTargetCell = cell
         dropTargetCell?.isHidden = true
@@ -430,7 +430,7 @@ public final class ReorderableCollectionViewController: NSObject {
                         
             // Auto-scroll handing.
             if wasScrollingEnabled {
-                let visibleBounds = collectionView.bounds
+                let visibleBounds = collectionView.bounds.inset(by: collectionView.adjustedContentInset)
                 if effectiveScrollDirection == .horizontal {
                     if previewFrame.minX < visibleBounds.minX + autoScrollEdgeInset {
                         autoScrollDirection = .towardStart
@@ -493,21 +493,25 @@ public final class ReorderableCollectionViewController: NSObject {
     private func handleAutoScroll() {
         guard let autoScrollDirection else { return }
 
+        let contentInsets = collectionView.adjustedContentInset
         let offset = collectionView.contentOffset
         var newOffset = offset
         let delta = autoScrollSpeed * autoScrollDirection.rawValue
+        let visibleBounds = collectionView.bounds
 
         if effectiveScrollDirection == .horizontal {
             newOffset.x += delta
-            let maxOffsetX = max(0, collectionView.contentSize.width - collectionView.bounds.width)
-            newOffset.x = max(0, min(maxOffsetX, newOffset.x))
+            let minOffsetX = -contentInsets.left
+            let maxOffsetX = max(minOffsetX, collectionView.contentSize.width - (visibleBounds.width - contentInsets.right))
+            newOffset.x = max(minOffsetX, min(maxOffsetX, newOffset.x))
             if newOffset != offset {
                 lastDragLocationInCollection.x += newOffset.x - offset.x
             }
         } else {
             newOffset.y += delta
-            let maxOffsetY = max(0, collectionView.contentSize.height - collectionView.bounds.height)
-            newOffset.y = max(0, min(maxOffsetY, newOffset.y))
+            let minOffsetY = -contentInsets.top
+            let maxOffsetY = max(minOffsetY, collectionView.contentSize.height - (visibleBounds.height - contentInsets.bottom))
+            newOffset.y = max(minOffsetY, min(maxOffsetY, newOffset.y))
             if newOffset != offset {
                 lastDragLocationInCollection.y += newOffset.y - offset.y
             }
@@ -684,6 +688,10 @@ extension ReorderableCollectionViewController: UICollectionViewDelegate {
 
     public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
         delegate?.scrollViewDidEndDragging?(scrollView, willDecelerate: decelerate)
+    }
+    
+    public func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        updateCell(cell, indexPath: indexPath)
     }
     
     public func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemsAt

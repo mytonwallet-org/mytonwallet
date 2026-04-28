@@ -13,6 +13,7 @@
 .checkboxBlock {
   pointer-events: none;
 
+  width: 100%;
   margin-bottom: 1rem;
   padding: 1rem;
   border-radius: var(--border-radius-default);
@@ -94,7 +95,7 @@
 
   margin: 1.25rem auto;
   padding: 0.5rem 0.75rem;
-  border-radius: var(--border-radius-buttons);
+  border-radius: var(--border-radius-normal);
 
   font-size: 1.0625rem;
   font-weight: 600;

@@ -8,10 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		0A5CBED435F033B692B7658D /* Pods_MyTonWallet_NoExtensions.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4AE01800DB9A698BF927A656 /* Pods_MyTonWallet_NoExtensions.framework */; };
+		210369CA9C0F830790249E00 /* MyTonWalletApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5D2CECB4EB00ACE1B9 /* MyTonWalletApp.swift */; };
 		271019AD2CBE75EC00972D1A /* AppSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271019AC2CBE75EA00972D1A /* AppSwitcher.swift */; };
 		27F19F5E2CECB4EB00ACE1B9 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5C2CECB4EB00ACE1B9 /* main.swift */; };
 		27F19F5F2CECB4EB00ACE1B9 /* MyTonWalletApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5D2CECB4EB00ACE1B9 /* MyTonWalletApp.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		38A2C0CE9AE3C9C63F6990F1 /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ADCD192D3D7DF600198370 /* DebugView.swift */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
@@ -75,8 +77,59 @@
 		59A4C2E92F4D1001009A1B2C /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
 		59A4C2EA2F4D1001009A1B2C /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
 		59B6E9A22F7B0001001A2B3C /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59B6E9A12F7B0001001A2B3C /* Localizable.xcstrings */; };
+		59C000012F81000100ABCD01 /* GramWalletWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 59C000292F81000100ABCD01 /* GramWalletWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		59C000032F81000100ABCD01 /* AppSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271019AC2CBE75EA00972D1A /* AppSwitcher.swift */; };
+		59C000042F81000100ABCD01 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E2E5572E15210500B90FFD /* SceneDelegate.swift */; };
+		59C000052F81000100ABCD01 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5C2CECB4EB00ACE1B9 /* main.swift */; };
+		59C000062F81000100ABCD01 /* MyTonWalletApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5D2CECB4EB00ACE1B9 /* MyTonWalletApp.swift */; };
+		59C000072F81000100ABCD01 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
+		59C000082F81000100ABCD01 /* HomeScreenQuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 581C041B2F7131F50021E2E3 /* HomeScreenQuickAction.swift */; };
+		59C000092F81000100ABCD01 /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ADCD192D3D7DF600198370 /* DebugView.swift */; };
+		59C0000A2F81000100ABCD01 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
+		59C0000C2F81000100ABCD01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
+		59C0000F2F81000100ABCD01 /* GramWalletIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 59C000272F81000100ABCD01 /* GramWalletIcon.icon */; };
+		59C000112F81000100ABCD01 /* GramWallet GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 59C0003E2F81000100ABCD01 /* GramWallet GoogleService-Info.plist */; };
+		59C000122F81000100ABCD01 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
+		59C000132F81000100ABCD01 /* AirAsFramework in Frameworks */ = {isa = PBXBuildFile; productRef = 59C0003D2F81000100ABCD01 /* AirAsFramework */; };
+		59C000152F81000100ABCD01 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 582009AB2E820A850010E2B5 /* SwiftUI.framework */; };
+		59C000162F81000100ABCD01 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 582009A92E820A840010E2B5 /* WidgetKit.framework */; };
+		59C000172F81000100ABCD01 /* ActionsWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 588AD2212E83D44600588415 /* ActionsWidget.swift */; };
+		59C000182F81000100ABCD01 /* AirWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 582009F32E822DDD0010E2B5 /* AirWidgetBundle.swift */; };
+		59C000192F81000100ABCD01 /* ChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5890CBA82E858CE100110FDF /* ChartView.swift */; };
+		59C0001A2F81000100ABCD01 /* TokenWithChartWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5890CBA92E858CE100110FDF /* TokenWithChartWidget.swift */; };
+		59C0001B2F81000100ABCD01 /* TokenWithChartWidgetConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5890CBAA2E858CE100110FDF /* TokenWithChartWidgetConfiguration.swift */; };
+		59C0001C2F81000100ABCD01 /* ActionsStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B1A72F2E87036900880BB1 /* ActionsStyle.swift */; };
+		59C0001D2F81000100ABCD01 /* TokenWithChartWidgetTimelineEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5890CBAB2E858CE100110FDF /* TokenWithChartWidgetTimelineEntry.swift */; };
+		59C0001E2F81000100ABCD01 /* TokenWithChartWidgetTimelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5890CBAC2E858CE100110FDF /* TokenWithChartWidgetTimelineProvider.swift */; };
+		59C0001F2F81000100ABCD01 /* ChartStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B1A72D2E87030400880BB1 /* ChartStyle.swift */; };
+		59C000202F81000100ABCD01 /* ActionsWidgetConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 588AD2252E83D4EE00588415 /* ActionsWidgetConfiguration.swift */; };
+		59C000212F81000100ABCD01 /* ActionsWidgetTimelineEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 588AD2232E83D48F00588415 /* ActionsWidgetTimelineEntry.swift */; };
+		59C000222F81000100ABCD01 /* ActionsWidgetTimelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 588AD2272E83D5C800588415 /* ActionsWidgetTimelineProvider.swift */; };
+		59C000232F81000100ABCD01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 582009F42E822DDD0010E2B5 /* Assets.xcassets */; };
+		59C000242F81000100ABCD01 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59B6E9A12F7B0001001A2B3C /* Localizable.xcstrings */; };
+		59C0009B2F81000100ABCD01 /* GramWalletAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59C0009A2F81000100ABCD01 /* GramWalletAssets.xcassets */; };
+		5A31C303501E34B6ECF0848B /* AirAsFramework in Frameworks */ = {isa = PBXBuildFile; productRef = 753F88850EDD2EDED1236C11 /* AirAsFramework */; };
+		5AE429864DBD1B9726792ABC /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
+		64B5317D60F6C186CD8F8DFA /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 585CF17A2E6E1CE100A5804F /* AppIcon.icon */; };
+		65C5B0BAE3D9A00A06DDBF32 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E2E5572E15210500B90FFD /* SceneDelegate.swift */; };
+		67EFEAD7CE812E8CF3664678 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = F9BE5EF7B8C92B9D9B26DF89 /* FirebaseMessaging */; };
+		71335BE0CB67B3D704148F53 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
+		71798E4B19FC45A9B531DC7F /* Pods_MyTonWallet_Preview.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33AFA1C24DA894DF2CD8A681 /* Pods_MyTonWallet_Preview.framework */; };
+		74CBF4B1480ADEF6F8B6CE71 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
+		8109CE061EF3B5CFFD3BA3EB /* AppSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271019AC2CBE75EA00972D1A /* AppSwitcher.swift */; };
+		9E9978E0E44E9563AD9DFC22 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
+		A2F6C8F58E74FF70AA316904 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 25561833DFEA1EB541CE6CFA /* FirebaseCore */; };
+		A8F86EF3D77B48377D3E0039 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */; };
+		A95570473A46014B40615A92 /* HomeScreenQuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 581C041B2F7131F50021E2E3 /* HomeScreenQuickAction.swift */; };
+		BBBE0A7A3FE5AE7B3AEF04AE /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5C2CECB4EB00ACE1B9 /* main.swift */; };
+		BD5A63F91656AD082EEBA1CB /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
+		C4D16308205C59A627997B13 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2F4105E6D6E2A708EB52003A /* FirebaseCore */; };
 		CEE7F3F02CE1FBCE009D2B34 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */; };
+		D730E78D88D7FB7CD2D30F77 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		DEC5F7D0F4B76E59868A6B79 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 238EDAED8A39AE9B0BC5976B /* FirebaseMessaging */; };
 		F0B41E894369BE4E4690BA34 /* Pods_MyTonWallet.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9600AA328195207D1968E709 /* Pods_MyTonWallet.framework */; };
+		F2B6B127F72E043011F488C4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
+		F4EC0D4A6C88C0984080302D /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -87,9 +140,26 @@
 			remoteGlobalIDString = 582009C62E820AD20010E2B5;
 			remoteInfo = AirWidgetExtension;
 		};
+		59C000362F81000100ABCD01 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 59C000342F81000100ABCD01;
+			remoteInfo = GramWalletWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		25E81DF6D17BC7C934A315E4 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		279105522C89BC3B0075D4B5 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -131,13 +201,32 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		59C0002E2F81000100ABCD01 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59C0002F2F81000100ABCD01 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				59C000012F81000100ABCD01 /* GramWalletWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		271019AC2CBE75EA00972D1A /* AppSwitcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSwitcher.swift; sourceTree = "<group>"; };
 		272B3CF32D2AD4930024658E /* BigInt.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = BigInt.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		2737515B2D15D996006D07D1 /* FirebaseMessaging.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = FirebaseMessaging.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		273751602D15DB1E006D07D1 /* FirebaseCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = FirebaseCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		278476092CC0648700524105 /* Capacitor.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Capacitor.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		27B24C372C89CA4C00AACB5B /* Kingfisher.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Kingfisher.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		27CBE7962CAEECD000FB0398 /* SwiftKeychainWrapper.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = SwiftKeychainWrapper.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -146,14 +235,18 @@
 		27F19F5D2CECB4EB00ACE1B9 /* MyTonWalletApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyTonWalletApp.swift; sourceTree = "<group>"; };
 		2C1F7C413C12813CB27D7176 /* Pods-MyTonWallet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MyTonWallet.debug.xcconfig"; path = "Target Support Files/Pods-MyTonWallet/Pods-MyTonWallet.debug.xcconfig"; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
+		33AFA1C24DA894DF2CD8A681 /* Pods_MyTonWallet_Preview.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MyTonWallet_Preview.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		46B5FC650931B3990E86CF4E /* Pods-MyTonWallet_NoExtensions.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MyTonWallet_NoExtensions.debug.xcconfig"; path = "Target Support Files/Pods-MyTonWallet_NoExtensions/Pods-MyTonWallet_NoExtensions.debug.xcconfig"; sourceTree = "<group>"; };
+		47944749FD2D0A00CA7F241E /* MyTonWallet_Preview.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyTonWallet_Preview.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4AE01800DB9A698BF927A656 /* Pods_MyTonWallet_NoExtensions.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MyTonWallet_NoExtensions.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		4DD1FC7780B6103A92335F3B /* Pods-MyTonWallet_Preview.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MyTonWallet_Preview.debug.xcconfig"; path = "Target Support Files/Pods-MyTonWallet_Preview/Pods-MyTonWallet_Preview.debug.xcconfig"; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* MyTonWallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyTonWallet.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		579622823A5A8EDC7EE38C44 /* MyTonWallet_Preview.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = MyTonWallet_Preview.entitlements; sourceTree = "<group>"; };
 		581C041B2F7131F50021E2E3 /* HomeScreenQuickAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenQuickAction.swift; sourceTree = "<group>"; };
 		582009A92E820A840010E2B5 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		582009AB2E820A850010E2B5 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -210,17 +303,57 @@
 		58F632312EB8CE9C00A90B79 /* MyTonWallet_AirOnly.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MyTonWallet_AirOnly.entitlements; sourceTree = "<group>"; };
 		59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		59B6E9A12F7B0001001A2B3C /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		59C000252F81000100ABCD01 /* GramWallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GramWallet.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		59C000262F81000100ABCD01 /* GramWallet-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GramWallet-Info.plist"; sourceTree = "<group>"; };
+		59C000272F81000100ABCD01 /* GramWalletIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = GramWalletIcon.icon; sourceTree = "<group>"; };
+		59C000282F81000100ABCD01 /* GramWallet.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GramWallet.entitlements; sourceTree = "<group>"; };
+		59C000292F81000100ABCD01 /* GramWalletWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GramWalletWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		59C0002A2F81000100ABCD01 /* GramWalletWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GramWalletWidgetExtension.entitlements; sourceTree = "<group>"; };
+		59C0003E2F81000100ABCD01 /* GramWallet GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GramWallet GoogleService-Info.plist"; path = "GramWallet/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		59C0009A2F81000100ABCD01 /* GramWalletAssets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = GramWalletAssets.xcassets; path = GramWallet/GramWalletAssets.xcassets; sourceTree = "<group>"; };
 		6AEDE5416E3673C42B24A76F /* Pods-MyTonWallet_NoExtensions.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MyTonWallet_NoExtensions.release.xcconfig"; path = "Target Support Files/Pods-MyTonWallet_NoExtensions/Pods-MyTonWallet_NoExtensions.release.xcconfig"; sourceTree = "<group>"; };
 		9600AA328195207D1968E709 /* Pods_MyTonWallet.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MyTonWallet.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C43B7F6B489AF6799EA86915 /* Pods-MyTonWallet.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MyTonWallet.release.xcconfig"; path = "Target Support Files/Pods-MyTonWallet/Pods-MyTonWallet.release.xcconfig"; sourceTree = "<group>"; };
+		CAC3D6138B5E7B5AF24B8370 /* MyTonWallet_Preview-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "MyTonWallet_Preview-Info.plist"; sourceTree = "<group>"; };
+		CD581E3E625146A6E0CABE39 /* Pods-MyTonWallet_Preview.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MyTonWallet_Preview.release.xcconfig"; path = "Target Support Files/Pods-MyTonWallet_Preview/Pods-MyTonWallet_Preview.release.xcconfig"; sourceTree = "<group>"; };
 		CE138AE22AC7209B00BE5802 /* MyTonWallet.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MyTonWallet.entitlements; sourceTree = "<group>"; };
 		CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		588AC1662E82428700588415 /* TokenWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = TokenWidget; sourceTree = "<group>"; };
-		588AC1892E82EC7400588415 /* Models */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Models; sourceTree = "<group>"; };
-		588AD21B2E83CE6500588415 /* SharedUI */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = SharedUI; sourceTree = "<group>"; };
+		588AC1662E82428700588415 /* TokenWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = TokenWidget;
+			sourceTree = "<group>";
+		};
+		588AC1892E82EC7400588415 /* Models */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		588AD21B2E83CE6500588415 /* SharedUI */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = SharedUI;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -256,6 +389,36 @@
 			buildActionMask = 2147483647;
 			files = (
 				5864B2E92F6C049D0083626C /* AirAsFramework in Frameworks */,
+				A2F6C8F58E74FF70AA316904 /* FirebaseCore in Frameworks */,
+				DEC5F7D0F4B76E59868A6B79 /* FirebaseMessaging in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59C0002C2F81000100ABCD01 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59C000132F81000100ABCD01 /* AirAsFramework in Frameworks */,
+				C4D16308205C59A627997B13 /* FirebaseCore in Frameworks */,
+				67EFEAD7CE812E8CF3664678 /* FirebaseMessaging in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59C000312F81000100ABCD01 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59C000152F81000100ABCD01 /* SwiftUI.framework in Frameworks */,
+				59C000162F81000100ABCD01 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DAB051B80AFAD29AE0FE9976 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5A31C303501E34B6ECF0848B /* AirAsFramework in Frameworks */,
+				71798E4B19FC45A9B531DC7F /* Pods_MyTonWallet_Preview.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -269,6 +432,9 @@
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				585CF17A2E6E1CE100A5804F /* AppIcon.icon */,
+				59C000272F81000100ABCD01 /* GramWalletIcon.icon */,
+				59C0003E2F81000100ABCD01 /* GramWallet GoogleService-Info.plist */,
+				59C0009A2F81000100ABCD01 /* GramWalletAssets.xcassets */,
 				59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */,
 			);
 			path = Resources;
@@ -293,8 +459,6 @@
 			children = (
 				58200A162E8239B50010E2B5 /* Widgets.framework */,
 				272B3CF32D2AD4930024658E /* BigInt.framework */,
-				273751602D15DB1E006D07D1 /* FirebaseCore.framework */,
-				2737515B2D15D996006D07D1 /* FirebaseMessaging.framework */,
 				278476092CC0648700524105 /* Capacitor.framework */,
 				27CBE7C82CAF044A00FB0398 /* SwiftKeychainWrapperLib.framework */,
 				27CBE7962CAEECD000FB0398 /* SwiftKeychainWrapper.framework */,
@@ -303,6 +467,7 @@
 				582009AB2E820A850010E2B5 /* SwiftUI.framework */,
 				4AE01800DB9A698BF927A656 /* Pods_MyTonWallet_NoExtensions.framework */,
 				9600AA328195207D1968E709 /* Pods_MyTonWallet.framework */,
+				33AFA1C24DA894DF2CD8A681 /* Pods_MyTonWallet_Preview.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -327,6 +492,9 @@
 				582009C72E820AD20010E2B5 /* AirWidgetExtension.appex */,
 				58F631D32EB8CD8D00A90B79 /* MyTonWallet_NoExtensions.app */,
 				58F6322E2EB8CDFA00A90B79 /* MyTonWallet_AirOnly.app */,
+				59C000252F81000100ABCD01 /* GramWallet.app */,
+				59C000292F81000100ABCD01 /* GramWalletWidgetExtension.appex */,
+				47944749FD2D0A00CA7F241E /* MyTonWallet_Preview.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -340,9 +508,11 @@
 				504EC3131FED79650016851F /* Info.plist */,
 				58F631D42EB8CD8D00A90B79 /* MyTonWallet_AirOnly-Info.plist */,
 				58F6322F2EB8CDFA00A90B79 /* MyTonWallet_NoExtensions-Info.plist */,
+				59C000262F81000100ABCD01 /* GramWallet-Info.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
 				CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */,
+				CAC3D6138B5E7B5AF24B8370 /* MyTonWallet_Preview-Info.plist */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -395,6 +565,9 @@
 				CE138AE22AC7209B00BE5802 /* MyTonWallet.entitlements */,
 				58F632302EB8CE8000A90B79 /* MyTonWallet_NoExtensions.entitlements */,
 				58F632312EB8CE9C00A90B79 /* MyTonWallet_AirOnly.entitlements */,
+				59C000282F81000100ABCD01 /* GramWallet.entitlements */,
+				59C0002A2F81000100ABCD01 /* GramWalletWidgetExtension.entitlements */,
+				579622823A5A8EDC7EE38C44 /* MyTonWallet_Preview.entitlements */,
 			);
 			path = Entitlements;
 			sourceTree = "<group>";
@@ -406,6 +579,8 @@
 				C43B7F6B489AF6799EA86915 /* Pods-MyTonWallet.release.xcconfig */,
 				46B5FC650931B3990E86CF4E /* Pods-MyTonWallet_NoExtensions.debug.xcconfig */,
 				6AEDE5416E3673C42B24A76F /* Pods-MyTonWallet_NoExtensions.release.xcconfig */,
+				CD581E3E625146A6E0CABE39 /* Pods-MyTonWallet_Preview.release.xcconfig */,
+				4DD1FC7780B6103A92335F3B /* Pods-MyTonWallet_Preview.debug.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -501,9 +676,82 @@
 			name = MyTonWallet_AirOnly;
 			packageProductDependencies = (
 				5864B2E82F6C049D0083626C /* AirAsFramework */,
+				25561833DFEA1EB541CE6CFA /* FirebaseCore */,
+				238EDAED8A39AE9B0BC5976B /* FirebaseMessaging */,
 			);
 			productName = App;
 			productReference = 58F6322E2EB8CDFA00A90B79 /* MyTonWallet_AirOnly.app */;
+			productType = "com.apple.product-type.application";
+		};
+		59C000332F81000100ABCD01 /* GramWallet */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 59C0003B2F81000100ABCD01 /* Build configuration list for PBXNativeTarget "GramWallet" */;
+			buildPhases = (
+				59C0002B2F81000100ABCD01 /* Sources */,
+				59C0002C2F81000100ABCD01 /* Frameworks */,
+				59C0002D2F81000100ABCD01 /* Resources */,
+				59C0002E2F81000100ABCD01 /* Embed Frameworks */,
+				59C0002F2F81000100ABCD01 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				59C000352F81000100ABCD01 /* PBXTargetDependency */,
+			);
+			name = GramWallet;
+			packageProductDependencies = (
+				59C0003D2F81000100ABCD01 /* AirAsFramework */,
+				2F4105E6D6E2A708EB52003A /* FirebaseCore */,
+				F9BE5EF7B8C92B9D9B26DF89 /* FirebaseMessaging */,
+			);
+			productName = App;
+			productReference = 59C000252F81000100ABCD01 /* GramWallet.app */;
+			productType = "com.apple.product-type.application";
+		};
+		59C000342F81000100ABCD01 /* GramWalletWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 59C0003C2F81000100ABCD01 /* Build configuration list for PBXNativeTarget "GramWalletWidgetExtension" */;
+			buildPhases = (
+				59C000302F81000100ABCD01 /* Sources */,
+				59C000312F81000100ABCD01 /* Frameworks */,
+				59C000322F81000100ABCD01 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				588AC1662E82428700588415 /* TokenWidget */,
+				588AC1892E82EC7400588415 /* Models */,
+				588AD21B2E83CE6500588415 /* SharedUI */,
+			);
+			name = GramWalletWidgetExtension;
+			productName = GramWalletWidgetExtension;
+			productReference = 59C000292F81000100ABCD01 /* GramWalletWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		7388E62D305CB72073B797EA /* MyTonWallet_Preview */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E7E6A44CCDF5260ACDE65F97 /* Build configuration list for PBXNativeTarget "MyTonWallet_Preview" */;
+			buildPhases = (
+				B9715A5C90CC18C1263D9091 /* [CP] Check Pods Manifest.lock */,
+				4A9ADD0EA4262D6167811F4D /* Sources */,
+				DAB051B80AFAD29AE0FE9976 /* Frameworks */,
+				14BCC992DD052C192B99C53D /* Resources */,
+				25E81DF6D17BC7C934A315E4 /* Embed Frameworks */,
+				B1E8FD3183CC02C46D5B48EE /* [CP] Embed Pods Frameworks */,
+				967D35CE69829376F2332A05 /* [CP] Copy Pods Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MyTonWallet_Preview;
+			packageProductDependencies = (
+				753F88850EDD2EDED1236C11 /* AirAsFramework */,
+			);
+			productName = MyTonWallet_Preview;
+			productReference = 47944749FD2D0A00CA7F241E /* MyTonWallet_Preview.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -522,6 +770,12 @@
 					};
 					582009C62E820AD20010E2B5 = {
 						CreatedOnToolsVersion = 26.0;
+					};
+					59C000332F81000100ABCD01 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					59C000342F81000100ABCD01 = {
+						CreatedOnToolsVersion = 26.3;
 					};
 				};
 			};
@@ -545,6 +799,9 @@
 				fa,
 			);
 			mainGroup = 504EC2FB1FED79650016851F;
+			packageReferences = (
+				2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -553,11 +810,30 @@
 				58F6317A2EB8CD8D00A90B79 /* MyTonWallet_NoExtensions */,
 				58F631D52EB8CDFA00A90B79 /* MyTonWallet_AirOnly */,
 				582009C62E820AD20010E2B5 /* AirWidgetExtension */,
+				59C000332F81000100ABCD01 /* GramWallet */,
+				59C000342F81000100ABCD01 /* GramWalletWidgetExtension */,
+				7388E62D305CB72073B797EA /* MyTonWallet_Preview */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		14BCC992DD052C192B99C53D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BD5A63F91656AD082EEBA1CB /* LaunchScreen.storyboard in Resources */,
+				F4EC0D4A6C88C0984080302D /* public in Resources */,
+				F2B6B127F72E043011F488C4 /* Assets.xcassets in Resources */,
+				5AE429864DBD1B9726792ABC /* capacitor.config.json in Resources */,
+				9E9978E0E44E9563AD9DFC22 /* Main.storyboard in Resources */,
+				64B5317D60F6C186CD8F8DFA /* AppIcon.icon in Resources */,
+				D730E78D88D7FB7CD2D30F77 /* config.xml in Resources */,
+				A8F86EF3D77B48377D3E0039 /* GoogleService-Info.plist in Resources */,
+				71335BE0CB67B3D704148F53 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3021FED79650016851F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -615,6 +891,28 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		59C0002D2F81000100ABCD01 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59C0000A2F81000100ABCD01 /* LaunchScreen.storyboard in Resources */,
+				59C0000C2F81000100ABCD01 /* Assets.xcassets in Resources */,
+				59C0000F2F81000100ABCD01 /* GramWalletIcon.icon in Resources */,
+				59C000112F81000100ABCD01 /* GramWallet GoogleService-Info.plist in Resources */,
+				59C0009B2F81000100ABCD01 /* GramWalletAssets.xcassets in Resources */,
+				59C000122F81000100ABCD01 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59C000322F81000100ABCD01 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59C000232F81000100ABCD01 /* Assets.xcassets in Resources */,
+				59C000242F81000100ABCD01 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -626,12 +924,8 @@
 			);
 			inputFileListPaths = (
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -668,16 +962,66 @@
 			);
 			inputFileListPaths = (
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MyTonWallet_NoExtensions/Pods-MyTonWallet_NoExtensions-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		967D35CE69829376F2332A05 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MyTonWallet_Preview/Pods-MyTonWallet_Preview-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B1E8FD3183CC02C46D5B48EE /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MyTonWallet_Preview/Pods-MyTonWallet_Preview-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B9715A5C90CC18C1263D9091 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-MyTonWallet_Preview-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
 		D9FA27FD0BDF4FB3BFA5DE07 /* [CP] Embed Pods Frameworks */ = {
@@ -688,12 +1032,8 @@
 			);
 			inputFileListPaths = (
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -708,12 +1048,8 @@
 			);
 			inputFileListPaths = (
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -745,6 +1081,20 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		4A9ADD0EA4262D6167811F4D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8109CE061EF3B5CFFD3BA3EB /* AppSwitcher.swift in Sources */,
+				65C5B0BAE3D9A00A06DDBF32 /* SceneDelegate.swift in Sources */,
+				BBBE0A7A3FE5AE7B3AEF04AE /* main.swift in Sources */,
+				210369CA9C0F830790249E00 /* MyTonWalletApp.swift in Sources */,
+				74CBF4B1480ADEF6F8B6CE71 /* AppDelegate.swift in Sources */,
+				A95570473A46014B40615A92 /* HomeScreenQuickAction.swift in Sources */,
+				38A2C0CE9AE3C9C63F6990F1 /* DebugView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3001FED79650016851F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -806,6 +1156,39 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		59C0002B2F81000100ABCD01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59C000032F81000100ABCD01 /* AppSwitcher.swift in Sources */,
+				59C000042F81000100ABCD01 /* SceneDelegate.swift in Sources */,
+				59C000052F81000100ABCD01 /* main.swift in Sources */,
+				59C000062F81000100ABCD01 /* MyTonWalletApp.swift in Sources */,
+				59C000072F81000100ABCD01 /* AppDelegate.swift in Sources */,
+				59C000082F81000100ABCD01 /* HomeScreenQuickAction.swift in Sources */,
+				59C000092F81000100ABCD01 /* DebugView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59C000302F81000100ABCD01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59C000172F81000100ABCD01 /* ActionsWidget.swift in Sources */,
+				59C000182F81000100ABCD01 /* AirWidgetBundle.swift in Sources */,
+				59C000192F81000100ABCD01 /* ChartView.swift in Sources */,
+				59C0001A2F81000100ABCD01 /* TokenWithChartWidget.swift in Sources */,
+				59C0001B2F81000100ABCD01 /* TokenWithChartWidgetConfiguration.swift in Sources */,
+				59C0001C2F81000100ABCD01 /* ActionsStyle.swift in Sources */,
+				59C0001D2F81000100ABCD01 /* TokenWithChartWidgetTimelineEntry.swift in Sources */,
+				59C0001E2F81000100ABCD01 /* TokenWithChartWidgetTimelineProvider.swift in Sources */,
+				59C0001F2F81000100ABCD01 /* ChartStyle.swift in Sources */,
+				59C000202F81000100ABCD01 /* ActionsWidgetConfiguration.swift in Sources */,
+				59C000212F81000100ABCD01 /* ActionsWidgetTimelineEntry.swift in Sources */,
+				59C000222F81000100ABCD01 /* ActionsWidgetTimelineProvider.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -813,6 +1196,11 @@
 			isa = PBXTargetDependency;
 			target = 582009C62E820AD20010E2B5 /* AirWidgetExtension */;
 			targetProxy = 582009D42E820AD40010E2B5 /* PBXContainerItemProxy */;
+		};
+		59C000352F81000100ABCD01 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 59C000342F81000100ABCD01 /* GramWalletWidgetExtension */;
+			targetProxy = 59C000362F81000100ABCD01 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -858,6 +1246,34 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		194F61494DCC08445F401170 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CD581E3E625146A6E0CABE39 /* Pods-MyTonWallet_Preview.release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet_Preview.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				INFOPLIST_FILE = "App/MyTonWallet_Preview-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 4.8.6;
+				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app.preview;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -981,7 +1397,7 @@
 				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 942;
+				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -990,7 +1406,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 4.7.0;
+				MARKETING_VERSION = 4.8.6;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1010,7 +1426,7 @@
 				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 942;
+				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1019,7 +1435,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 4.7.0;
+				MARKETING_VERSION = 4.8.6;
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1040,7 +1456,7 @@
 				CODE_SIGN_ENTITLEMENTS = Entitlements/AirWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 942;
+				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -1057,7 +1473,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 4.7.0;
+				MARKETING_VERSION = 4.8.6;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app.AirWidget;
@@ -1084,7 +1500,7 @@
 				CODE_SIGN_ENTITLEMENTS = Entitlements/AirWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 942;
+				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -1100,7 +1516,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 4.7.0;
+				MARKETING_VERSION = 4.8.6;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app.AirWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1123,7 +1539,7 @@
 				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet_NoExtensions.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 942;
+				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = "App/MyTonWallet_NoExtensions-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1132,7 +1548,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 4.7.0;
+				MARKETING_VERSION = 4.8.6;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1152,7 +1568,7 @@
 				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet_NoExtensions.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 942;
+				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = "App/MyTonWallet_NoExtensions-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1161,7 +1577,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 4.7.0;
+				MARKETING_VERSION = 4.8.6;
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1179,7 +1595,7 @@
 				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet_AirOnly.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 942;
+				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = "App/MyTonWallet_AirOnly-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1188,7 +1604,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 4.7.0;
+				MARKETING_VERSION = 4.8.6;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1207,7 +1623,7 @@
 				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet_AirOnly.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 942;
+				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = "App/MyTonWallet_AirOnly-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1216,7 +1632,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 4.7.0;
+				MARKETING_VERSION = 4.8.6;
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1225,6 +1641,176 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
+		};
+		59C000372F81000100ABCD01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = GramWalletIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/GramWallet.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				INFOPLIST_FILE = "App/GramWallet-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 4.8.6;
+				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"GRAM_WALLET\" \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
+				PRODUCT_BUNDLE_IDENTIFIER = io.gramwallet.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG GRAM_WALLET";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		59C000382F81000100ABCD01 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = GramWalletIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/GramWallet.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				INFOPLIST_FILE = "App/GramWallet-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 4.8.6;
+				PRODUCT_BUNDLE_IDENTIFIER = io.gramwallet.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = GRAM_WALLET;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		59C000392F81000100ABCD01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/GramWalletWidgetExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AirWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Gram Wallet Widget";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 4.8.6;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = io.gramwallet.app.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG GRAM_WALLET $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		59C0003A2F81000100ABCD01 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/GramWalletWidgetExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AirWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Gram Wallet Widget";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 4.8.6;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = io.gramwallet.app.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "GRAM_WALLET $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		668B2FFA2D78180C90FDD761 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4DD1FC7780B6103A92335F3B /* Pods-MyTonWallet_Preview.debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet_Preview.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				INFOPLIST_FILE = "App/MyTonWallet_Preview-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 4.8.6;
+				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
+				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app.preview;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
 		};
 /* End XCBuildConfiguration section */
 
@@ -1274,9 +1860,62 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		59C0003B2F81000100ABCD01 /* Build configuration list for PBXNativeTarget "GramWallet" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				59C000372F81000100ABCD01 /* Debug */,
+				59C000382F81000100ABCD01 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		59C0003C2F81000100ABCD01 /* Build configuration list for PBXNativeTarget "GramWalletWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				59C000392F81000100ABCD01 /* Debug */,
+				59C0003A2F81000100ABCD01 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E7E6A44CCDF5260ACDE65F97 /* Build configuration list for PBXNativeTarget "MyTonWallet_Preview" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				194F61494DCC08445F401170 /* Release */,
+				668B2FFA2D78180C90FDD761 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.9.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
+		238EDAED8A39AE9B0BC5976B /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+		25561833DFEA1EB541CE6CFA /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		2F4105E6D6E2A708EB52003A /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
 		5864B2E82F6C049D0083626C /* AirAsFramework */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AirAsFramework;
@@ -1288,6 +1927,19 @@
 		5864B2EC2F6C04B00083626C /* AirAsFramework */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AirAsFramework;
+		};
+		59C0003D2F81000100ABCD01 /* AirAsFramework */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AirAsFramework;
+		};
+		753F88850EDD2EDED1236C11 /* AirAsFramework */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AirAsFramework;
+		};
+		F9BE5EF7B8C92B9D9B26DF89 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

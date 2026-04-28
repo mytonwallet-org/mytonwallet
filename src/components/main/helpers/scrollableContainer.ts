@@ -24,5 +24,6 @@ function getScrollableContainerSelector(isPortrait?: boolean) {
 }
 
 export function getScrollContainerClosestSelector(isActive?: boolean, isPortrait?: boolean) {
-  return !isActive || !isPortrait ? undefined : '.app-slide-content';
+  if (!isActive) return undefined;
+  return isPortrait ? '.app-slide-content' : '.custom-scroll';
 }

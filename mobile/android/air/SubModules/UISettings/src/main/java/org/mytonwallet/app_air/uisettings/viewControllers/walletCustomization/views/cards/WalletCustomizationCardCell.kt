@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.views.cards
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -12,7 +13,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -28,6 +28,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.Sensi
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
@@ -95,7 +96,7 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
 
     private val addressLabel: WMultichainAddressLabel by lazy {
         WMultichainAddressLabel(context).apply {
-            setStyle(16f, WFont.Medium)
+            setStyle(adaptiveFontSize(), WFont.Medium)
             setPaddingDpLocalized(3, 0, 1, 1)
             gravity = Gravity.CENTER
             containerWidth = cellWidth
@@ -158,8 +159,7 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
             return
         }
         imageView.hierarchy.setPlaceholderImage(
-            ContextCompat.getDrawable(
-                context,
+            context.getDrawableCompat(
                 org.mytonwallet.app_air.uicomponents.R.drawable.img_card
             )
         )

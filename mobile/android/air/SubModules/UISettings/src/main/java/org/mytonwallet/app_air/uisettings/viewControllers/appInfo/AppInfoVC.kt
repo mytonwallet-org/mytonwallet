@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.appInfo
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.View
 import android.view.ViewGroup
@@ -8,11 +9,11 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -20,6 +21,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
+import org.mytonwallet.app_air.uicomponents.widgets.WSpeedingDiamondView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
@@ -35,6 +37,8 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import java.lang.ref.WeakReference
@@ -46,27 +50,43 @@ class AppInfoVC(context: Context) : WViewController(context) {
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = navigationController?.tabBarController == null
 
+    private val isGramApp = ApplicationContextHolder.isGramApp
+
+    private val particleParams: ParticleConfig? = if (isGramApp) ParticleConfig(
+        particleCount = 35,
+        centerShift = floatArrayOf(0f, -28f),
+        distanceLimit = 0.45f,
+        colorPair = ParticleConfig.Companion.PARTICLE_COLORS.PURPLE_GRADIENT,
+        useStarShape = true
+    ) else null
+
     var particlesCleaner: (() -> Unit)? = null
     val tonParticlesView = ParticleView(context).apply {
         id = View.generateViewId()
         isGone = true
     }
 
+    val diamondAnimationView: WSpeedingDiamondView? = if (isGramApp) {
+        WSpeedingDiamondView(view.context).apply {
+            id = View.generateViewId()
+            bindParticleHost(tonParticlesView, centerShift = floatArrayOf(0f, -28f))
+        }
+    } else null
+
     val logoImageView = AppCompatImageView(view.context).apply {
         id = View.generateViewId()
-        setImageDrawable(
-            ContextCompat.getDrawable(
-                view.context,
-                R.drawable.img_logo
-            )
-        )
-        setOnClickListener {
-            pulseView(0.98f, AnimationConstants.VERY_VERY_QUICK_ANIMATION)
-            tonParticlesView.addParticleSystem(
-                ParticleConfig.particleBurstParams(
-                    ParticleConfig.Companion.PARTICLE_COLORS.TON
+        if (isGramApp) {
+            isGone = true
+        } else {
+            setImageDrawable(view.context.getDrawableCompat(R.drawable.img_logo))
+            setOnClickListener {
+                pulseView(0.98f, AnimationConstants.VERY_VERY_QUICK_ANIMATION)
+                tonParticlesView.addParticleSystem(
+                    ParticleConfig.particleBurstParams(
+                        ParticleConfig.Companion.PARTICLE_COLORS.TON
+                    )
                 )
-            )
+            }
         }
     }
 
@@ -76,24 +96,25 @@ class AppInfoVC(context: Context) : WViewController(context) {
         val versionName = packageInfo.versionName ?: ""
         val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo).toString()
         text = LocaleController.getFormattedString(
-            "MyTonWallet Air v%1$@ (%2$@)",
+            "${context.getString(BaseR.string.app_locale_name_key)} v%1$@ (%2$@)",
             listOf(versionName, versionCode)
         )
     }
 
     private val subtitleLabel = WLabel(context).apply {
         setStyle(14f)
-        text = "mytonwallet.io"
+        val websiteUrl = context.getString(BaseR.string.app_website_url)
+        text = websiteUrl.removePrefix("https://")
         setPadding(16.dp, 0, 16.dp, 0)
         setOnClickListener {
-            openLink("https://mytonwallet.io")
+            openLink(websiteUrl)
         }
     }
 
     @SuppressLint("SetTextI18n")
     private val descriptionLabel = WLabel(context).apply {
         setPaddingDp(24, 16, 24, 16)
-        setStyle(16f)
+        setStyle(adaptiveFontSize())
         text = (
             LocaleController.getString("\$about_description1") +
                 "\n\n" +
@@ -125,7 +146,8 @@ class AppInfoVC(context: Context) : WViewController(context) {
                 isLast = false,
                 isEnabled = true,
                 onTap = {
-                    openLink("https://t.me/MyTonWalletTips")
+                    val username = context.getString(BaseR.string.app_tips_telegram_username_en)
+                    if (username.isNotEmpty()) openLink("https://t.me/$username")
                 }
             )
         }
@@ -145,7 +167,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
                 isLast = false,
                 isEnabled = true,
                 onTap = {
-                    openLink("https://mytonwallet.io/en/blog")
+                    openLink(context.getString(BaseR.string.app_blog_url))
                 }
             )
         }
@@ -165,10 +187,14 @@ class AppInfoVC(context: Context) : WViewController(context) {
                 isLast = true,
                 isEnabled = true,
                 onTap = {
-                    openLink("https://help.mytonwallet.io")
+                    val url = context.getString(BaseR.string.app_help_url)
+                    if (url.isNotEmpty()) openLink(url)
                 }
             )
         }
+
+    private val showWatchVideosRow: Boolean
+        get() = context.getString(BaseR.string.app_tips_telegram_username_en).isNotEmpty()
 
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
@@ -176,11 +202,17 @@ class AppInfoVC(context: Context) : WViewController(context) {
         v.setPaddingDp(ViewConstants.HORIZONTAL_PADDINGS, 0, ViewConstants.HORIZONTAL_PADDINGS, 0)
         v.addView(tonParticlesView, FrameLayout.LayoutParams(0, WRAP_CONTENT))
         v.addView(logoImageView, FrameLayout.LayoutParams(96.dp, 96.dp))
+        diamondAnimationView?.let { dv ->
+            v.addView(dv, FrameLayout.LayoutParams(96.dp, 96.dp))
+            dv.start()
+        }
         v.addView(titleLabel, ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(subtitleLabel, ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(descriptionLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(resourcesLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        v.addView(watchVideosRow, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        if (showWatchVideosRow) {
+            v.addView(watchVideosRow, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
         v.addView(readBlogRow, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(helpRow, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.setConstraints {
@@ -188,18 +220,28 @@ class AppInfoVC(context: Context) : WViewController(context) {
             toCenterX(tonParticlesView)
             toTop(logoImageView, 66f)
             toCenterX(logoImageView)
-            topToBottom(titleLabel, logoImageView, 17f)
+            diamondAnimationView?.let {
+                toTop(it, 66f)
+                toCenterX(it)
+                topToBottom(titleLabel, it, 17f)
+            } ?: run {
+                topToBottom(titleLabel, logoImageView, 17f)
+            }
             toCenterX(titleLabel)
             topToBottom(subtitleLabel, titleLabel, 4f)
             toCenterX(subtitleLabel)
             topToBottom(descriptionLabel, subtitleLabel, 25f)
             topToBottom(resourcesLabel, descriptionLabel, 16f)
-            topToBottom(watchVideosRow, resourcesLabel)
-            topToBottom(readBlogRow, watchVideosRow)
+            if (showWatchVideosRow) {
+                topToBottom(watchVideosRow, resourcesLabel)
+                topToBottom(readBlogRow, watchVideosRow)
+            } else {
+                topToBottom(readBlogRow, resourcesLabel)
+            }
             topToBottom(helpRow, readBlogRow)
             toBottomPx(
                 helpRow,
-                    navigationController?.getSystemBars()?.bottom ?: 0
+                navigationController?.bottomInset ?: 0
             )
         }
         v
@@ -239,7 +281,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
             toBottomPx(
                 helpRow,
                 max(
-                    (navigationController?.getSystemBars()?.bottom ?: 0),
+                    (navigationController?.bottomInset ?: 0),
                     (window?.imeInsets?.bottom ?: 0)
                 )
             )
@@ -269,13 +311,20 @@ class AppInfoVC(context: Context) : WViewController(context) {
     override fun viewDidAppear() {
         super.viewDidAppear()
 
+        if (particleParams != null && particlesCleaner == null) {
+            particlesCleaner = tonParticlesView.addParticleSystem(particleParams)
+        }
         tonParticlesView.isGone = false
-        tonParticlesView.fadeIn()
+        tonParticlesView.fadeIn(AnimationConstants.VERY_VERY_QUICK_ANIMATION)
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
-        tonParticlesView.fadeOut()
+        tonParticlesView.fadeOut(AnimationConstants.VERY_VERY_QUICK_ANIMATION) {
+            particlesCleaner?.invoke()
+            particlesCleaner = null
+            tonParticlesView.isGone = true
+        }
     }
 
     override fun onDestroy() {

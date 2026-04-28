@@ -25,7 +25,7 @@ object PopupHelpers {
     }
 
     fun dismissAllPopups() {
-        popups.forEach {
+        popups.toList().forEach {
             it.get()?.dismiss()
         }
     }

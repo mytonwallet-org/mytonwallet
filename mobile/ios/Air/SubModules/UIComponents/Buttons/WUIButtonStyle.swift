@@ -22,7 +22,6 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.isLoading) private var isLoading
     @State private var isTouching: Bool = false
-    @State private var angle: Angle = .zero
     @State private var isShowingLoadingIndicator = false
     
     var textColor: UIColor {
@@ -88,12 +87,6 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
             } else {
                 loadingIndicator
-                    .rotationEffect(angle)
-                    .onAppear {
-                        withAnimation(.linear(duration: 0.625).repeatForever(autoreverses: false)) {
-                            angle += .radians(2 * .pi)
-                        }
-                    }
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
         }
@@ -105,8 +98,7 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
     }
     
     var loadingIndicator: some View {
-        Image.airBundle("ActivityIndicator")
-            .renderingMode(.template)
+        WUIActivityIndicator()
     }
 }
 

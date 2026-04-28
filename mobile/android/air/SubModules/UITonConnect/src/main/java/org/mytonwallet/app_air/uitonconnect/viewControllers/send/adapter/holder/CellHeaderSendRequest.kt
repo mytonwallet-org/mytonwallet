@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.holder
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
@@ -11,7 +12,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
@@ -27,6 +27,7 @@ import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.TonConn
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -51,7 +52,7 @@ class CellHeaderSendRequest(context: Context) : WView(context) {
     }
 
     private val walletNameLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         setTextColor(WColor.TextOnTint)
         isSingleLine = true
@@ -69,7 +70,7 @@ class CellHeaderSendRequest(context: Context) : WView(context) {
     }
 
     private val dappNameLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         setTextColor(WColor.TextOnTint)
         isSingleLine = true
@@ -162,8 +163,7 @@ class CellHeaderSendRequest(context: Context) : WView(context) {
             }
 
             if (update.dapp.isUrlEnsured != true) {
-                ContextCompat.getDrawable(
-                    ApplicationContextHolder.applicationContext,
+                ApplicationContextHolder.applicationContext.getDrawableCompat(
                     org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning_14
                 )?.let { drawable ->
                     val width = 14.dp

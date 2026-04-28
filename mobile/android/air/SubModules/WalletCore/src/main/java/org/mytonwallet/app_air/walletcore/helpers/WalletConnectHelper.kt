@@ -1,7 +1,18 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
+import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
+
 object WalletConnectHelper {
+
+    private val appName: String
+        get() = ApplicationContextHolder.applicationContext.getString(BaseR.string.app_locale_name_key)
+
+    private fun jsonString(value: String): String = JSONObject.quote(value)
+
     fun inject(): String {
+        val appNameJson = jsonString(appName)
         return """
         (function() {
             if (window.__mtwSolanaConnectorInstalled) return;
@@ -96,7 +107,7 @@ object WalletConnectHelper {
                     this.listeners = new Set();
                     this.accounts = [];
                     this.version = '1.0.0';
-                    this.name = 'MyTonWallet';
+                    this.name = $appNameJson;
                     this.icon = '';
                     this.chains = ['solana:mainnet', 'solana:devnet', 'solana:testnet'];
                     this.features = {

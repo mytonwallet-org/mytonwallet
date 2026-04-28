@@ -1,8 +1,6 @@
-import React, { memo, useMemo, useRef } from '../../lib/teact/teact';
+import React, { memo, useMemo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { LangFn } from '../../hooks/useLang';
-import type { Layout } from '../../hooks/useMenuPosition';
 import type { DropdownItem } from '../ui/Dropdown';
 import type { TabWithProperties } from '../ui/TabList';
 
@@ -13,21 +11,15 @@ import { vibrate } from '../../util/haptics';
 import { compact } from '../../util/iteratees';
 import { getTranslation } from '../../util/langProvider';
 import { openUrl } from '../../util/openUrl';
+import { getChainBySlug } from '../../util/tokens';
 import { getHostnameFromUrl } from '../../util/url';
 
-import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
-import Button from '../ui/Button';
-import DropdownMenu from '../ui/DropdownMenu';
 import TabList from '../ui/TabList';
 
 import styles from './SentTabs.module.scss';
-
-interface OwnProps {
-  isInsideModal?: boolean;
-}
 
 interface StateProps {
   isOffRampAllowed?: boolean;
@@ -38,7 +30,7 @@ const enum TabContent {
   Sell,
 }
 
-function SentTabs({ isInsideModal, isOffRampAllowed }: OwnProps & StateProps) {
+function SentTabs({ isOffRampAllowed }: StateProps) {
   const { openOffRampWidgetModal, cancelTransfer } = getActions();
   const lang = useLang();
 
@@ -83,16 +75,8 @@ function SentTabs({ isInsideModal, isOffRampAllowed }: OwnProps & StateProps) {
     ]);
   }, [isOffRampAllowed, lang, multisendMenuItem, handleMultisendOpen]);
 
-  if (!isOffRampAllowed && !isInsideModal) {
-    return undefined;
-  }
-
-  if (!isOffRampAllowed) {
-    return <DropdownButton lang={lang} onMultisendClick={handleMultisendOpen} />;
-  }
-
   return (
-    <div className={buildClassName(styles.root, isInsideModal && styles.rootInsideModal)}>
+    <div className={styles.root}>
       <TabList
         tabs={tabs}
         activeTab={TabContent.Send}
@@ -104,53 +88,10 @@ function SentTabs({ isInsideModal, isOffRampAllowed }: OwnProps & StateProps) {
   );
 }
 
-function DropdownButton({ lang, onMultisendClick }: { lang: LangFn; onMultisendClick: NoneToVoidFunction }) {
-  const [isMenuOpen, openMenu, closeMenu] = useFlag(false);
-  const contentRef = useRef<HTMLButtonElement>();
-  const menuRef = useRef<HTMLDivElement>();
-
-  const menuItems: DropdownItem[] = useMemo(() => [{
-    name: lang('Multisend'),
-    value: 'multisend',
-    fontIcon: 'menu-multisend',
-  }], [lang]);
-
-  const getTriggerElement = useLastCallback(() => contentRef.current);
-  const getRootElement = useLastCallback(() => document.body);
-  const getMenuElement = useLastCallback(() => menuRef.current);
-  const getLayout = useLastCallback((): Layout => ({
-    doNotCoverTrigger: true,
-    topShiftY: 5,
-    preferredPositionX: 'right',
-    isCenteredHorizontally: true,
-  }));
-
-  return (
-    <div className={styles.headerWrapper}>
-      <Button ref={contentRef} isText className={styles.headerButton} onClick={openMenu}>
-        {lang('Send')}
-        <i className="icon-caret-down" aria-hidden />
-      </Button>
-      <DropdownMenu
-        isOpen={isMenuOpen}
-        ref={menuRef}
-        menuPositionX="left"
-        items={menuItems}
-        shouldTranslateOptions
-        bubbleClassName={styles.menu}
-        getTriggerElement={getTriggerElement}
-        getRootElement={getRootElement}
-        getMenuElement={getMenuElement}
-        getLayout={getLayout}
-        onClose={closeMenu}
-        onSelect={onMultisendClick}
-      />
-    </div>
-  );
-}
-
 export default memo(withGlobal((global): StateProps => {
+  const chain = getChainBySlug(global.currentTransfer.tokenSlug);
+
   return {
-    isOffRampAllowed: selectIsOffRampAllowed(global),
+    isOffRampAllowed: selectIsOffRampAllowed(global, chain),
   };
 })(SentTabs));

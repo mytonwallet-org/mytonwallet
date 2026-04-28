@@ -24,18 +24,16 @@ import useLastCallback from '../../hooks/useLastCallback';
 import useScrolledState from '../../hooks/useScrolledState';
 import useTokensWithStaking from '../../hooks/useTokensWithStaking';
 
-import Button from '../ui/Button';
 import Dropdown, { type DropdownItem } from '../ui/Dropdown';
 import IconWithTooltip from '../ui/IconWithTooltip';
-import ModalHeader from '../ui/ModalHeader';
 import Switcher from '../ui/Switcher';
+import SettingsHeader from './SettingsHeader';
 import SettingsTokens from './SettingsTokens';
 
 import styles from './Settings.module.scss';
 
 interface OwnProps {
   isActive?: boolean;
-  isInsideModal?: boolean;
   onBackClick: NoneToVoidFunction;
 }
 
@@ -57,7 +55,6 @@ interface StateProps {
 
 function SettingsAssets({
   isActive,
-  isInsideModal,
   isInvestorViewEnabled,
   isSensitiveDataHidden,
   areTinyTransfersHidden,
@@ -150,22 +147,8 @@ function SettingsAssets({
 
   return (
     <div className={styles.slide}>
-      {isInsideModal ? (
-        <ModalHeader
-          title={lang('Assets & Activity')}
-          withNotch={isScrolled}
-          onBackButtonClick={onBackClick}
-          className={styles.modalHeader}
-        />
-      ) : (
-        <div className={buildClassName(styles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
-            <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-            <span>{lang('Back')}</span>
-          </Button>
-          <span className={styles.headerTitle}>{lang('Assets & Activity')}</span>
-        </div>
-      )}
+      <SettingsHeader title={lang('Assets & Activity')} isScrolled={isScrolled} onBackClick={onBackClick} />
+
       <div
         className={buildClassName(styles.content, 'custom-scroll')}
         onScroll={handleContentScroll}

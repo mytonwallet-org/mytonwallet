@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.commonViews.cells
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
@@ -26,7 +27,7 @@ class SwitchCell(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f)
+            setStyle(adaptiveFontSize())
             text = title
         }
     }

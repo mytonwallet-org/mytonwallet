@@ -21,7 +21,6 @@ import {
   getViewNftUrl,
 } from '../../../util/url';
 
-import { getIsPortrait } from '../../../hooks/useDeviceScreen';
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 
@@ -176,7 +175,6 @@ export default function useNftMenu({
     switch (value) {
       case 'send': {
         startTransfer({
-          isPortrait: getIsPortrait(),
           nfts: [nft!],
         });
         closeOverlays();

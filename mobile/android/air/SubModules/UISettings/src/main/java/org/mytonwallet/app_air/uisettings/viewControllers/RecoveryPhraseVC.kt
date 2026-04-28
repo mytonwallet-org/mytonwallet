@@ -109,7 +109,7 @@ open class RecoveryPhraseVC(
                 append("\n\n")
             }
             val redWarningStart = length
-            append(LocaleController.getString("Other apps will be able to read your recovery phrase!"))
+            append(LocaleController.getString("Other apps will be able to read your secret words!"))
             setSpan(
                 WTypefaceSpan(WFont.SemiBold.typeface, WColor.Red.color),
                 redWarningStart,

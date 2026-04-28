@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+import androidx.core.graphics.toColorInt
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -21,6 +22,7 @@ import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import kotlin.math.max
@@ -74,10 +76,29 @@ class EarnRootVC(context: Context, private val tokenSlug: String = TONCOIN_SLUG)
         } else null
 
     private val segmentView: WSegmentedController by lazy {
-        val viewControllers = mutableListOf(WSegmentedControllerItem(tonVC, null)).apply {
-            if (mycoinVC != null) add(WSegmentedControllerItem(mycoinVC, null))
-            if (usdeVC != null) add(WSegmentedControllerItem(usdeVC, null))
-        }
+        val viewControllers =
+            mutableListOf(
+                WSegmentedControllerItem(
+                    tonVC,
+                    null,
+                    "#0098EB".toColorInt()
+                )
+            ).apply {
+                if (mycoinVC != null) add(
+                    WSegmentedControllerItem(
+                        mycoinVC,
+                        null,
+                        "#4C84D7".toColorInt()
+                    )
+                )
+                if (usdeVC != null) add(
+                    WSegmentedControllerItem(
+                        usdeVC,
+                        null,
+                        "#606060".toColorInt()
+                    )
+                )
+            }
         val segmentedController = WSegmentedController(
             navigationController!!,
             viewControllers,
@@ -87,7 +108,8 @@ class EarnRootVC(context: Context, private val tokenSlug: String = TONCOIN_SLUG)
                     viewControllers.indexOfFirst { (it.viewController as EarnVC).tokenSlug == tokenSlug }
                 ),
             applySideGutters = false,
-            forceCenterTabs = true
+            forceCenterTabs = true,
+            pilledTabs = true
         )
         segmentedController.addCloseButton()
         segmentedController

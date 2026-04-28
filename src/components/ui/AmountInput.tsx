@@ -28,6 +28,8 @@ export type AmountInputToken = TokenWithId & Pick<ApiTokenWithPrice, 'decimals'>
 interface OwnProps extends AmountInputStateOutput {
   /** Expressed in `token` regardless of `isBaseCurrency` */
   ref?: RefObject<HTMLInputElement | undefined>;
+  containerClassName?: string;
+  inputWrapperClassName?: string;
   maxAmount?: bigint;
   token: AmountInputToken | undefined;
   allTokens?: AmountInputToken[];
@@ -45,6 +47,8 @@ interface OwnProps extends AmountInputStateOutput {
 
 function AmountInput({
   ref,
+  containerClassName,
+  inputWrapperClassName,
   isBaseCurrency,
   inputValue,
   alternativeValue,
@@ -119,6 +123,7 @@ function AmountInput({
         labelText={labelText ?? lang('Amount')}
         decimals={isBaseCurrency ? CURRENCIES[baseCurrency].decimals : token?.decimals}
         className={styles.input}
+        inputClassName={inputWrapperClassName}
         isStatic={isStatic}
         prefix={prefix}
         suffix={suffix}
@@ -176,7 +181,7 @@ function AmountInput({
       activeKey={transitionKey}
       name="semiFade"
       shouldCleanup
-      className={styles.container}
+      className={buildClassName(styles.container, containerClassName)}
       slideClassName={styles.container__slide}
     >
       {renderBalance()}

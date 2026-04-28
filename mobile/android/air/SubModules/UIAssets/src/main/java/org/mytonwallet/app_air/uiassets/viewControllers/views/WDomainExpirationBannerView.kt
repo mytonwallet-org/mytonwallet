@@ -7,7 +7,6 @@ import android.graphics.drawable.GradientDrawable
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatImageButton
-import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.isInvisible
 import org.mytonwallet.app_air.uicomponents.R
@@ -23,6 +22,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
@@ -64,8 +64,7 @@ class WDomainExpirationBannerView(context: Context) :
         setStyle(14f)
         setLineHeight(18f)
         setTextColor(WColor.White)
-        val arrow = ContextCompat.getDrawable(
-            context,
+        val arrow = context.getDrawableCompat(
             org.mytonwallet.app_air.icons.R.drawable.ic_arrow_right_16_24
         )?.mutate()?.resize(context, 12.dp, 18.dp, WColor.White.color)
         setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, arrow, null)
@@ -74,7 +73,7 @@ class WDomainExpirationBannerView(context: Context) :
 
     private val closeButton = AppCompatImageButton(context).apply {
         id = generateViewId()
-        setImageDrawable(ContextCompat.getDrawable(context, R.drawable.ic_close_30))
+        setImageDrawable(context.getDrawableCompat(R.drawable.ic_close_30))
         imageTintList = ColorStateList.valueOf(0x99FFFFFF.toInt())
         background = null
         setOnClickListener { onClose?.invoke() }

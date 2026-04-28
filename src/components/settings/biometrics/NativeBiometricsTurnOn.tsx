@@ -13,8 +13,8 @@ import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 
 import AnimatedIconWithPreview from '../../ui/AnimatedIconWithPreview';
-import Button from '../../ui/Button';
 import PinPad from '../../ui/PinPad';
+import SettingsHeader from '../SettingsHeader';
 
 import styles from '../Settings.module.scss';
 
@@ -32,7 +32,6 @@ interface StateProps {
 
 function NativeBiometricsTurnOn({
   isActive,
-  isInsideModal,
   isPinAccepted,
   error,
   isNativeBiometricsEnabled,
@@ -74,24 +73,17 @@ function NativeBiometricsTurnOn({
   return (
     <div className={styles.slide}>
       <div className={buildClassName(styles.content, styles.contentFullSize)}>
-        <div className={styles.header}>
-          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
-            <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-            <span>{lang('Back')}</span>
-          </Button>
-        </div>
+        <SettingsHeader onBackClick={onBackClick} />
 
         <div className={styles.pinPadHeader}>
-          {!isInsideModal && (
-            <AnimatedIconWithPreview
-              play={isActive}
-              tgsUrl={ANIMATED_STICKERS_PATHS.guard}
-              previewUrl={ANIMATED_STICKERS_PATHS.guardPreview}
-              noLoop={false}
-              nonInteractive
-              className={styles.stickerNativeBiometric}
-            />
-          )}
+          <AnimatedIconWithPreview
+            play={isActive}
+            tgsUrl={ANIMATED_STICKERS_PATHS.guard}
+            previewUrl={ANIMATED_STICKERS_PATHS.guardPreview}
+            noLoop={false}
+            nonInteractive
+            className={styles.stickerNativeBiometric}
+          />
 
           {!isSmallHeight && <div className={styles.pinPadTitle}>{lang('Confirm Passcode')}</div>}
         </div>

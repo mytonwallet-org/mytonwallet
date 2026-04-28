@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicreatewallet.viewControllers.wordCheck
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -90,7 +91,7 @@ class WordCheckVC(
     }
 
     private val wordsDoNotMatchLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         text = LocaleController.getString("Words don’t match, please try again.")
         gravity = Gravity.CENTER
         setTextColor(WColor.Red)
@@ -275,9 +276,9 @@ class WordCheckVC(
         }, 1000)
     }
 
-    override fun finalizedCreation(createdAccount: MAccount) {
-        if (WGlobalStorage.accountIds().size < 2) {
-            push(WalletAddedVC(context, true), {
+    override fun finalizedCreation(createdAccount: MAccount, importedAccountsCount: Int) {
+        if (WGlobalStorage.accountIds().size <= importedAccountsCount) {
+            push(WalletAddedVC(context, true, importedAccountsCount), {
                 navigationController?.removePrevViewControllers()
             })
         } else {

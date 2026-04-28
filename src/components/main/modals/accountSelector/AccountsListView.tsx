@@ -1,8 +1,8 @@
 import React, { memo, useEffect, useRef } from '../../../../lib/teact/teact';
 
 import type { Account, AccountSettings } from '../../../../global/types';
+import type { AccountBalance } from '../../../../hooks/useAccountsBalances';
 import type { AccountTab } from './constants';
-import type { AccountBalance } from './hooks/useAccountsBalances';
 
 import { IS_CORE_WALLET } from '../../../../config';
 import buildClassName from '../../../../util/buildClassName';

@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Canvas
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
@@ -65,7 +66,7 @@ open class SwapSearchEditText @JvmOverloads constructor(
 
         floatingHintGravity = Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL
 
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         }

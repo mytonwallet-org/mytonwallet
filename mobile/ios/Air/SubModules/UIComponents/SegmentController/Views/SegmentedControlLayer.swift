@@ -17,8 +17,10 @@ struct SegmentedControlLayer: View {
     var ns: Namespace.ID
     
     var body: some View {
+        let scrollRevealPadding: CGFloat = 16
+        
         WithPerceptionTracking {
-            HStack(spacing: SegmentedControlConstants.spacing) {
+            HStack(spacing: model.constants.spacing - 2 * scrollRevealPadding) {
                 ForEach(model.items) { item in
                     SegmentedControlItemView(
                         model: model,
@@ -31,21 +33,25 @@ struct SegmentedControlLayer: View {
                     .background(alignment: .leading) {
                         BackgroundItemView(model: model, item: item)
                     }
+                    .padding(.horizontal, scrollRevealPadding)
+                    .id(item.id)
                 }
             }
+            .padding(.horizontal, -scrollRevealPadding)
         }
     }
 }
 
-struct BackgroundItemView: View {
+private struct BackgroundItemView: View {
     
     let model: SegmentedControlModel
     var item: SegmentedControlItem
     
     var body: some View {
         Text(item.title)
-            .padding(.horizontal, SegmentedControlConstants.innerPadding)
+            .padding(.horizontal, model.constants.innerPadding)
             .foregroundStyle(Color(model.secondaryColor))
+            .accessibilityHidden(true)
             .onGeometryChange(
                 for: CGSize.self,
                 of: { $0.size },

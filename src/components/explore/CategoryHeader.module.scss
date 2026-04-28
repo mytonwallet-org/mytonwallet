@@ -37,7 +37,7 @@
     &:global(.is-scrolled) {
       @supports (backdrop-filter: saturate(180%) blur(20px)) {
         background-color: var(--color-background-tab-bar);
-        backdrop-filter: saturate(180%) blur(20px);
+        backdrop-filter: var(--filter-blur-bar);
       }
     }
 

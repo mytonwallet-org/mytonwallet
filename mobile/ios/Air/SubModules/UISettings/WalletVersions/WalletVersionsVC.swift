@@ -37,6 +37,7 @@ public class WalletVersionsVC: SettingsBaseVC, UICollectionViewDelegate {
     private var collectionView: UICollectionView!
     private var walletVersionsData: MWalletVersionsData?
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
+    private var importingVersionId: String?
 
     public init(isModal: Bool = false) {
         self.isModal = isModal
@@ -108,7 +109,10 @@ public class WalletVersionsVC: SettingsBaseVC, UICollectionViewDelegate {
         )
 
         let otherVersionRegistration = WalletVersionCell.makeOtherVersionRegistration(
-            versions: walletVersionsData?.versions ?? []
+            versions: walletVersionsData?.versions ?? [],
+            isLoading: { [weak self] versionId in
+                self?.importingVersionId == versionId
+            }
         )
 
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
@@ -142,6 +146,9 @@ public class WalletVersionsVC: SettingsBaseVC, UICollectionViewDelegate {
             snapshot.appendSections([.otherVersions])
             snapshot.appendItems(versions.map { .otherVersion($0.version) }, toSection: .otherVersions)
         }
+        if dataSource.snapshot().sectionIdentifiers.contains(.otherVersions) {
+            snapshot.reloadSections([.otherVersions])
+        }
 
         dataSource.apply(snapshot, animatingDifferences: false)
     }
@@ -163,15 +170,22 @@ public class WalletVersionsVC: SettingsBaseVC, UICollectionViewDelegate {
         case .currentWallet:
             navigationController?.popViewController(animated: true)
         case .otherVersion(let versionId):
+            guard importingVersionId == nil else { return }
             guard let version = walletVersionsData?.versions.first(where: { $0.version == versionId }),
                   let accountId = AccountStore.accountId,
                   let apiVersion = ApiTonWalletVersion(rawValue: version.version) else { return }
             Task { @MainActor in
                 do {
+                    importingVersionId = versionId
+                    collectionView.isUserInteractionEnabled = false
+                    applySnapshot()
                     _ = try await AccountStore.importNewWalletVersion(accountId: accountId, version: apiVersion)
                     AppActions.showHome(popToRoot: true)
                     popToRootAfterDelay()
                 } catch {
+                    importingVersionId = nil
+                    collectionView.isUserInteractionEnabled = true
+                    applySnapshot()
                     showAlert(error: error)
                 }
             }

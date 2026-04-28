@@ -37,6 +37,20 @@ const multiChainDomainAccount: Account['byChain'] = {
     address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
   },
 };
+const fourChainAccount: Account['byChain'] = {
+  ton: {
+    address: 'UQA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q7R8S9T0U1V2',
+  },
+  tron: {
+    address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+  },
+  solana: {
+    address: 'So1aNAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  },
+  ethereum: {
+    address: '0xEthereumAddrXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+  },
+};
 const shortSingleChainTonAccount: Account['byChain'] = {
   ton: {
     address: 'SHORT',
@@ -227,6 +241,17 @@ describe('formatAccountAddresses', () => {
         const text = getTextContent(result);
         expect(text).toContain('w···.ton');
         expect(text).not.toContain('Lj6t');
+      });
+
+      test('account with 4 chains shows only first 3', () => {
+        const result = formatAccountAddresses(fourChainAccount, 'small');
+
+        const icons = findElementsByTag(result, 'i');
+        expect(icons).toHaveLength(3);
+        expect(icons[0].props.className).toBe('icon-chain-ton');
+        expect(icons[1].props.className).toBe('icon-chain-tron');
+        expect(icons[2].props.className).toBe('icon-chain-solana');
+        expect(icons.some((icon) => icon.props.className === 'icon-chain-ethereum')).toBe(false);
       });
     });
 

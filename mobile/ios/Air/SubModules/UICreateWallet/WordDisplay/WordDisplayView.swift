@@ -21,6 +21,8 @@ struct WordDisplayView: View {
     @State private var showCopyWarning = false
     @State private var showScreenshotWarning = false
     @State private var showContinueWithoutCheckingWarning = false
+    @State private var isCheckingWords = false
+    @State private var isOpeningWallet = false
 
     var body: some View {
         ScrollView {
@@ -83,7 +85,7 @@ struct WordDisplayView: View {
                 },
                 message: {
                     let normal = Text(langMd("$screenshot_mnemonic_warning"))
-                    let red = Text(lang("Other apps will be able to read your recovery phrase!")).foregroundColor(.red)
+                    let red = Text(lang("Other apps will be able to read your secret words!")).foregroundColor(.red)
                     Text("\(normal)\n\n\(red)")
                 }
             )
@@ -106,7 +108,7 @@ struct WordDisplayView: View {
             },
             message: {
                 let normal = Text(langMd("$copy_mnemonic_warning"))
-                let red = Text(lang("Other apps will be able to read your recovery phrase!")).foregroundColor(.red)
+                let red = Text(lang("Other apps will be able to read your secret words!")).foregroundColor(.red)
                 Text("\(normal)\n\n\(red)")
                 
             }
@@ -118,6 +120,7 @@ struct WordDisplayView: View {
             Text(lang("Let's Check"))
         }
         .buttonStyle(.airPrimary)
+        .environment(\.isLoading, isCheckingWords)
     }
     
     var openWithoutChecking: some View {
@@ -125,6 +128,7 @@ struct WordDisplayView: View {
             Text(lang("Open wallet without checking"))
         }
         .buttonStyle(.airClearBackground)
+        .environment(\.isLoading, isOpeningWallet)
         .alert(
             Text(lang("Security Warning")),
             isPresented: $showContinueWithoutCheckingWarning,
@@ -133,7 +137,7 @@ struct WordDisplayView: View {
                 Button(lang("Continue"), role: .destructive) { onOpenWithoutCheckingConfirm() }
             },
             message: {
-                let normal = Text(langMd("Make sure you have your recovery phrase securely saved."))
+                let normal = Text(langMd("Make sure you have your secret words securely saved."))
                 let red = Text(lang("Without it, you won't be able to access your wallet.")).foregroundColor(.red)
                 Text("\(normal)\n\n\(red)")
                 
@@ -154,7 +158,16 @@ struct WordDisplayView: View {
     }
     
     func onLetsCheck() {
-        introModel.onLetsCheck()
+        guard !isCheckingWords, !isOpeningWallet else { return }
+        isCheckingWords = true
+        Task { @MainActor in
+            do {
+                try await introModel.onLetsCheck()
+            } catch {
+                AppActions.showError(error: error)
+            }
+            isCheckingWords = false
+        }
     }
 
     func onOpenWithoutChecking() {
@@ -162,7 +175,22 @@ struct WordDisplayView: View {
     }
     
     func onOpenWithoutCheckingConfirm() {
-        introModel.onOpenWithoutChecking()
+        guard !isCheckingWords, !isOpeningWallet else { return }
+        isOpeningWallet = introModel.hasExistingPassword
+        Task { @MainActor in
+            do {
+                let execution = try await introModel.onOpenWithoutChecking()
+                switch execution {
+                case .completed:
+                    break
+                case .deferredToPasscode:
+                    isOpeningWallet = false
+                }
+            } catch {
+                isOpeningWallet = false
+                AppActions.showError(error: error)
+            }
+        }
     }
 }
 
@@ -175,26 +203,44 @@ struct WordListView: View {
     var halfCount: Int { count / 2 }
     
     var body: some View {
-        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 8, verticalSpacing: 6) {
+        Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 6) {
             ForEach(0..<halfCount, id: \.self) { i in
                 GridRow {
-                    Text("\(i + 1).")
-                        .gridColumnAlignment(.trailing)
-                        .foregroundStyle(Color.air.secondaryLabel)
-                    Text(verbatim: words[i])
-                        .font(.system(size: 17, weight: .medium))
-                        .fixedSize()
-                        .frame(width: 100, alignment: .leading)
-                    Text("\(i + 1 + halfCount).")
-                        .gridColumnAlignment(.trailing)
-                        .foregroundStyle(Color.air.secondaryLabel)
-                    Text(verbatim: words[i + halfCount])
-                        .font(.system(size: 17, weight: .medium))
-                        .fixedSize()
-                        .frame(width: 60, alignment: .leading)
-                    
+                    WordListEntryView(
+                        index: i + 1,
+                        word: words[i],
+                        wordWidth: 100
+                    )
+                    WordListEntryView(
+                        index: i + 1 + halfCount,
+                        word: words[i + halfCount],
+                        wordWidth: 60
+                    )
                 }
             }
         }
+    }
+}
+
+private struct WordListEntryView: View {
+
+    let index: Int
+    let word: String
+    let wordWidth: CGFloat
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\(index).")
+                .foregroundStyle(Color.air.secondaryLabel)
+                .frame(minWidth: index >= 10 ? 22 : 14, alignment: .trailing)
+                .accessibilityHidden(true)
+            Text(verbatim: word)
+                .font(.system(size: 17, weight: .medium))
+                .fixedSize()
+                .frame(width: wordWidth, alignment: .leading)
+                .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: "\(index). \(word)"))
     }
 }

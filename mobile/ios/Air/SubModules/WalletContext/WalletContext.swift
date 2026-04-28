@@ -47,6 +47,10 @@ public class WalletContextManager {
     @MainActor public static weak var delegate: WalletContextDelegate? = nil
 }
 
+@MainActor public var isCapacitorAvailable: Bool {
+    (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.canSwitchToCapacitor ?? true
+}
+
 #if SWIFT_PACKAGE
 public let AirBundle = Bundle.module
 #else

@@ -14,7 +14,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -31,6 +30,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
@@ -61,8 +61,7 @@ class AddressPopupHelpers {
             showTemporaryViewOption: Boolean,
         ) {
             val context = viewController.get()!!.view.context
-            ContextCompat.getDrawable(
-                context,
+            context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
             )?.let { drawable ->
                 drawable.mutate()

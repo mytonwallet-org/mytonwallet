@@ -1,5 +1,5 @@
 //
-//  WalletSettingsVC.swift
+//  CustomizeWalletView.swift
 //  UISettings
 //
 //  Created by nikstar on 02.11.2025.

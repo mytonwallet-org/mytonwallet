@@ -1,0 +1,5 @@
+schemaVersion: 1
+sessionDefaults:
+  workspacePath: "mobile/ios/App/App.xcworkspace"
+  scheme: "MyTonWallet_AirOnly"
+  simulatorName: "iPhone 17 Pro"

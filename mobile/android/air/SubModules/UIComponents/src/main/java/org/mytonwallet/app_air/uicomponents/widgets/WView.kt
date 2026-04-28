@@ -19,11 +19,17 @@ import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.ShapeDrawable
 import android.graphics.drawable.shapes.RoundRectShape
 import android.os.Build
+import android.os.SystemClock
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewOutlineProvider
-import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.ViewParent
+import android.widget.HorizontalScrollView
+import android.widget.ScrollView
+import androidx.core.widget.NestedScrollView
+import androidx.recyclerview.widget.RecyclerView
 import android.view.animation.TranslateAnimation
 import android.view.inputmethod.InputMethodManager
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -631,6 +637,23 @@ fun View.unlockView() {
     isEnabled = true
     ((this as? ViewGroup)?.children)?.forEach {
         it.unlockView()
+    }
+}
+
+fun View.cancelAncestorTouches() {
+    val now = SystemClock.uptimeMillis()
+    var p: ViewParent? = parent
+    while (p is ViewGroup) {
+        when (p) {
+            is RecyclerView -> p.stopScroll()
+            is ScrollView -> p.fling(0)
+            is HorizontalScrollView -> p.fling(0)
+            is NestedScrollView -> p.fling(0)
+        }
+        val cancelEvent = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+        p.dispatchTouchEvent(cancelEvent)
+        cancelEvent.recycle()
+        p = p.parent
     }
 }
 

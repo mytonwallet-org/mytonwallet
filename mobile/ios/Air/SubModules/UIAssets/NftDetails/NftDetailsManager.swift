@@ -19,11 +19,9 @@ final class NftDetailsManager: @unchecked Sendable {
             startPendingLoads()
         }
     }
-
-    private let modelsIndexMap: [String: Int] // fast search
-    
     let models: [ItemModel]
     private(set) var activeModelIndex: Int = 0
+    private let modelsIndexMap: [String: Int] // fast search
 
     @MainActor
     func setActiveModel(_ model: ItemModel) {
@@ -74,7 +72,10 @@ final class NftDetailsManager: @unchecked Sendable {
         modelsIndexMap = models.indexById()
 
         processedImageCache = ImageCache(name: "NftDetails.processed")
-        processedImageCache.diskStorage.config.expiration = .days(10)
+        processedImageCache.diskStorage.config.expiration = .days(7)
+        processedImageCache.diskStorage.config.sizeLimit = 500 * 1024 * 1024
+        processedImageCache.diskStorage.config.pathExtension = "png"
+        processedImageCache.diskStorage.config.usesHashedFileName = false
 
         models.forEach { $0.delegate = self }
 
@@ -137,32 +138,49 @@ final class NftDetailsManager: @unchecked Sendable {
     // Pipeline entry point: model state (in-memory) -> disk cache -> download -> serial process.
     // If the model is already .loaded, the isIdle guard below is the fast path — no work done.
     private func startLoad(for model: ItemModel) {
+        
         guard targetWidth > 0 else { return }
-        guard model.processedImageState.isIdle else { return }
+        
+        switch model.processedImageState {
+        case .idle:
+            traceModelActivity(model) { "Requested " }
+        case .failed:
+            traceModelActivity(model) { "Requested after failure" }
+        case .loading:
+            traceModelActivity(model) { "Requested, but another loading is in progress ⌛️" }
+            return
+        case .loaded:
+            return
+        }
 
         // Mark loading, then probe disk cache asynchronously.
         model.processedImageState = .loading
         model.notify(.processedImageUpdated)
-
         let gen = generation
-        tryLoadFromDiskCache(model: model, generation: gen) { [weak self] processed in
-            guard let self, self.generation == gen else { return }
-            guard case .loading = model.processedImageState else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            
+            let processed = await self.tryLoadFromDiskCache(model: model, generation: gen)
+            
+            await MainActor.run { [weak self] in
+                guard let self, self.generation == gen else { return }
+                guard case .loading = model.processedImageState else { return }
 
-            if let processed {
-                model.processedImageState = .loaded(processed)
-                model.notify(.processedImageUpdated)
-                return
-            }
+                if let processed {
+                    model.processedImageState = .loaded(processed)
+                    model.notify(.processedImageUpdated)
+                    return
+                }
 
-            guard let url = model.item.imageUrl else {
                 // No URL — show placeholder without processing or caching; re-applied on every load.
-                self.applyPlaceholder(model: model, image: NftDetailsImage.noImagePlaceholderImage())
-                return
-            }
+                guard let url = model.item.imageUrl else {
+                    self.applyPlaceholder(model: model, image: NftDetailsImage.noImagePlaceholderImage())
+                    return
+                }
 
-            // 3. Disk miss — start Kingfisher download.
-            self.startDownload(url: url, model: model, modelId: ObjectIdentifier(model), generation: gen)
+                // Disk miss — start Kingfisher download.
+                self.startDownload(url: url, model: model, generation: gen)
+            }
         }
     }
     
@@ -180,50 +198,61 @@ final class NftDetailsManager: @unchecked Sendable {
         func bgCacheKey(id: String) -> String { "\(id)_\(value)_bg" }
     }
 
-    private func tryLoadFromDiskCache(model: ItemModel, generation: Int, completion: @escaping @Sendable (NftDetailsImage.Processed?) -> Void) {
+    private func tryLoadFromDiskCache(model: ItemModel, generation: Int) async -> NftDetailsImage.Processed? {
         let bucket = WidthBucket(targetWidth)
-
+        let modelId = model.id
+        
         // Color cache is synchronous (in-memory after initial disk load). Check it before
         // touching disk so we bail cheaply when the entry was never written.
-        guard colorCache.color(forKey: model.id) != nil else { completion(nil); return }
-
-        // Sequential lookups: bail immediately on the first miss (the common case on first run
-        // or after a bucket change), which is faster than launching all three in parallel.
-        processedImageCache.retrieveImage(forKey: bucket.origCacheKey(id: model.id)) { [weak self] origResult in
-            guard let self, self.generation == generation else { return }
-            guard case .success(let r) = origResult, let orig = r.image else { completion(nil); return }
-
-            self.processedImageCache.retrieveImage(forKey: bucket.previewCacheKey(id: model.id)) { [weak self] prevResult in
-                guard let self, self.generation == generation else { return }
-                guard case .success(let r) = prevResult, let prev = r.image else { completion(nil); return }
-
-                self.processedImageCache.retrieveImage(forKey: bucket.bgCacheKey(id: model.id)) { [weak self] bgResult in
-                    guard let self, self.generation == generation else { return }
-                    guard case .success(let r) = bgResult, let bgImage = r.image else { completion(nil); return }
-
-                    completion(self.buildProcessed(orig: orig, prev: prev, bg: bgImage, modelId: model.id))
-                }
-            }
-        }
-    }
-
-    private func buildProcessed(orig: UIImage, prev: UIImage, bg: UIImage, modelId: String) -> NftDetailsImage.Processed {
-        var processed = NftDetailsImage.Processed()
-        processed.originalImage = orig
-        processed.previewImage = prev
-        processed.backgroundPattern = bg.cgImage.map { CIImage(cgImage: $0) }
+        guard let cachedColor = colorCache.color(forKey: modelId) else { return nil }
         
-        // UIColor.clear (alpha=0) is the sentinel for "processed, no detectable color";
-        // treat it as nil so callers don't try to use a transparent color.
-        let cached = colorCache.color(forKey: modelId)
-        processed.baseColor = (cached.flatMap { $0.cgColor.alpha > 0 ? $0 : nil })
-        return processed
+        async let origResult  = processedImageCache.retrieveImage(forKey: bucket.origCacheKey(id: modelId))
+        async let prevResult  = processedImageCache.retrieveImage(forKey: bucket.previewCacheKey(id: modelId))
+        async let bgResult    = processedImageCache.retrieveImage(forKey: bucket.bgCacheKey(id: modelId))
+        
+        let orig = try? await origResult
+        let prev = try? await prevResult
+        let bgImage = try? await bgResult // this can be null for transparent backgrounds so we wont check the result
+        guard generation == self.generation, let orig = orig?.image, let prev = prev?.image else {
+            return nil
+        }
+        
+        traceModelActivity(model) { "Restored from cache 🟢" }
+        return NftDetailsImage.Processed(
+            originalImage: orig,
+            previewImage: prev,
+            previewCIImage:  imageProcessor.ciImageOptional(from: prev),
+            backgroundImage: bgImage?.image,
+            backgroundCIImage: imageProcessor.ciImageOptional(from: bgImage?.image),
+            baseColor: (cachedColor.alpha ?? 0) > 0 ? cachedColor : nil // (alpha=0) is the sentinel for "processed, no detectable color";
+        )
     }
+    
+    private func getDownloadTaskId(_ model: ItemModel) -> ObjectIdentifier {
+        ObjectIdentifier(model)
+    }
+    
+    #if DEBUG
+    private let traceEnabled = false
+    @inline(__always) private func traceModelActivity(_ model: ItemModel, _ s: () -> String) {
+        guard traceEnabled else { return }
+        let modelIndex = modelsIndexMap[model.id] ?? -1
+        print("[NftDetails] [\(modelIndex)] \(model): \(s())")
+    }
+    #else
+    @inline(__always) private func traceModelActivity(_ model: ItemModel, _ s: () -> String) { }
+    #endif
 
-    private func startDownload(url: URL, model: ItemModel, modelId: ObjectIdentifier, generation: Int) {
-        guard downloadTasks[modelId] == nil else { return }
+    private func startDownload(url: URL, model: ItemModel, generation: Int) {
+        traceModelActivity(model) { "Start download 🟡" }
+        let taskId = getDownloadTaskId(model)
+        guard downloadTasks[taskId] == nil else {
+            traceModelActivity(model) { "Already downloading" }
+            return
+        }
 
         let task = KingfisherManager.shared.retrieveImage(with: url, options: [
+            .cacheMemoryOnly,
             .memoryCacheExpiration(.expired),
             .requestModifier(AnyModifier { request in
                 var r = request
@@ -232,41 +261,45 @@ final class NftDetailsManager: @unchecked Sendable {
             })
         ]) { [weak self] result in
             guard let self else { return }
+            
+            traceModelActivity(model) { "Downloaded" }
+            
             DispatchQueue.main.async {
                 guard self.generation == generation else { return }
-                self.downloadTasks.removeValue(forKey: modelId)
+                self.downloadTasks.removeValue(forKey: taskId)
                 guard case .loading = model.processedImageState else { return }
 
                 switch result {
                 case .success(let value):
                     self.enqueueForProcessing(model: model, rawImage: value.image)
                 case .failure:
-                    // Show error placeholder without processing or caching; forces a fresh
-                    // network request on every subsequent load attempt.
                     self.applyPlaceholder(model: model, image: NftDetailsImage.errorPlaceholderImage())
                 }
             }
         }
-        if let task { downloadTasks[modelId] = task }
+        if let task {
+            downloadTasks[taskId] = task
+        }
     }
 
-    // Sets a minimal .loaded state with a placeholder image, bypassing the processing queue and
-    // both caches entirely. After eviction the model returns to .idle and re-downloads/re-applies fresh.
     private func applyPlaceholder(model: ItemModel, image: UIImage) {
         guard case .loading = model.processedImageState else { return }
         var processed = NftDetailsImage.Processed()
         processed.originalImage = image
         processed.previewImage = image
+        processed.previewCIImage = imageProcessor.ciImageOptional(from: image)
         model.processedImageState = .loaded(processed)
         model.notify(.processedImageUpdated)
     }
 
     private func enqueueForProcessing(model: ItemModel, rawImage: UIImage) {
+        let modelId = model.id
+        
         guard case .loading = model.processedImageState else { return }
-        guard !pendingModelIds.contains(model.id), pendingRawImages[model.id] == nil else { return }
+        guard !pendingModelIds.contains(modelId), pendingRawImages[modelId] == nil else { return }
 
-        pendingRawImages[model.id] = rawImage
-        pendingModelIds.append(model.id)
+        pendingRawImages[modelId] = rawImage
+        pendingModelIds.append(modelId)
         reprioritizePendingQueue()
         drainQueue()
     }
@@ -305,16 +338,18 @@ final class NftDetailsManager: @unchecked Sendable {
             let operation = BlockOperation()
             operation.addExecutionBlock { [weak self, weak operation] in
                 guard let self, let operation, !operation.isCancelled else { return }
-
+                
+                traceModelActivity(model) { "Processing" }
                 let processed = self.imageProcessor.loadImage(
                     rawImage,
                     targetWidth: width,
                     simplifiedProcessing: model.simplifiedImageProcessing
                 )
-
+                
                 guard !operation.isCancelled else { return }
-
-                self.storeToCache(processed: processed, modelId: id, bucket: bucket)
+                
+                traceModelActivity(model) {"Storing to cache" }
+                storeToCache(processed: processed, modelId: id, bucket: bucket)
 
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.generation == gen else { return }
@@ -323,6 +358,7 @@ final class NftDetailsManager: @unchecked Sendable {
                         self.drainQueue()
                         return
                     }
+                    traceModelActivity(model) { "Completed full pipeline 🔵" }
                     model.processedImageState = .loaded(processed)
                     model.notify(.processedImageUpdated)
                     self.drainQueue()
@@ -344,9 +380,8 @@ final class NftDetailsManager: @unchecked Sendable {
         if let prev = processed.previewImage {
             processedImageCache.store(prev, forKey: bucket.previewCacheKey(id: modelId), options: diskOnly)
         }
-        if let bg = processed.backgroundPattern,
-           let cgImage = imageProcessor.ciContext.createCGImage(bg, from: bg.extent, format: .RGBA8, colorSpace: CGColorSpaceCreateDeviceRGB()) {
-            processedImageCache.store(UIImage(cgImage: cgImage), forKey: bucket.bgCacheKey(id: modelId), options: diskOnly)
+        if let bg = processed.backgroundImage {
+            processedImageCache.store(bg, forKey: bucket.bgCacheKey(id: modelId), options: diskOnly)
         }
         // Always write the color entry so future lookups can distinguish "processed with no detectable color" (sentinel .clear, alpha=0) from
         // "never processed" (absent key). regionColor only returns colors with alpha >= 120/255, so alpha=0 is an unambiguous sentinel.
@@ -358,9 +393,7 @@ final class NftDetailsManager: @unchecked Sendable {
 
 extension NftDetailsManager: @MainActor NftDetailsItemModelDelegate {
     func modelDidRequestImage(_ model: ItemModel) {
-        if targetWidth > 0 {
-            startLoad(for: model)
-        }
+        startLoad(for: model)
     }
 }
 
@@ -380,13 +413,15 @@ extension NftDetailsManager {
 
     @MainActor
     private func releaseImageResources(for model: ItemModel) {
-        let id = ObjectIdentifier(model)
-        downloadTasks[id]?.cancel()
-        downloadTasks.removeValue(forKey: id)
+        let taskId = getDownloadTaskId(model)
+        downloadTasks[taskId]?.cancel()
+        downloadTasks.removeValue(forKey: taskId)
 
         pendingModelIds.removeAll { $0 == model.id }
         pendingRawImages.removeValue(forKey: model.id)
 
+        traceModelActivity(model) { "Evicted 🧹" }
+        
         model.processedImageState = .idle
         model.notify(.processedImageUpdated)
     }

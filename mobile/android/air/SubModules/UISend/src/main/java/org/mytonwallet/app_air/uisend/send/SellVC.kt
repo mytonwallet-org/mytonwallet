@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisend.send
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -119,7 +120,7 @@ class SellVC(
                 WRAP_CONTENT
             )
             setPaddingDp(20, 19, 20, 14)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             clipLabel = "Address"
             clipToast = LocaleController.getString("Address was copied!")
@@ -128,7 +129,7 @@ class SellVC(
 
     private val commentInputView by lazy {
         WLabel(context).apply {
-            setStyle(16f)
+            setStyle(adaptiveFontSize())
             layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             setPaddingDp(20, 20, 20, 14)
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)

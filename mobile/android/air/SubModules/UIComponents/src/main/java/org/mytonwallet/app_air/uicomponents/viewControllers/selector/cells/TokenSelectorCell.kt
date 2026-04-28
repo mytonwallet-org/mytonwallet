@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.viewControllers.selector.cells
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
@@ -39,7 +40,7 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
 
     private val topLeftLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f, WFont.Medium)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl.setSingleLine()
         lbl.ellipsize = TextUtils.TruncateAt.END
         lbl.isHorizontalFadingEdgeEnabled = true
@@ -56,7 +57,7 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
 
     private val topRightLabel: WSensitiveDataContainer<WLabel> by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         WSensitiveDataContainer(
             lbl,
             WSensitiveDataContainer.MaskConfig(0, 2, Gravity.END or Gravity.CENTER_VERTICAL)
@@ -195,7 +196,7 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
             }
             bottomRightLabel.text = priceText
             if (bottomRightLabel.textSize != topRightLabel.contentView.textSize)
-                bottomRightLabel.textSize = 16f
+                bottomRightLabel.textSize = adaptiveFontSize()
         }
 
         bottomLeftLabel.text = token?.mBlockchain?.displayName

@@ -6,6 +6,7 @@ import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft } from '../../api/types'
 import type { UserToken } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
+import { calculateFullBalance } from '../../util/calculateFullBalance';
 import { getShortCurrencySymbol } from '../../util/formatNumber';
 import { DEFAULT_CARD_ADDRESS } from './constants';
 
@@ -15,7 +16,6 @@ import useWindowSize from '../../hooks/useWindowSize';
 import useFontScalePreview from './hooks/useFontScalePreview';
 
 import CustomCardManager from '../main/sections/Card/CustomCardManager';
-import { calculateFullBalance } from '../main/sections/Card/helpers/calculateFullBalance';
 
 import styles from './NftCardItem.module.scss';
 

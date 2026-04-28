@@ -195,9 +195,9 @@ class PasscodeConfirmVC(
             }
         } else {
             if ((passcodeViewState as? PasscodeViewState.Default)?.isUnlockScreen == true) {
-                if (!WalletCore.isBridgeReady) {
-                    passcodeScreenView.showIndicator(animateToGreen = false)
-                }
+                //if (!WalletCore.isBridgeReady) {
+                passcodeScreenView.showIndicator(animateToGreen = false)
+                //}
             }
             WalletCore.doOnBridgeReady {
                 try {
@@ -220,7 +220,11 @@ class PasscodeConfirmVC(
         super.signOutPressed()
         showAlert(
             LocaleController.getString("Remove Wallet"),
-            LocaleController.getString("\$logout_warning")
+            "${LocaleController.getString("\$logout_all_wallets_warning")} ${
+                LocaleController.getString(
+                    "\$all_secret_words_backup_reminder"
+                )
+            }"
                 .toProcessedSpannableStringBuilder(),
             LocaleController.getString("Remove"),
             buttonPressed = {

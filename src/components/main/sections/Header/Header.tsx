@@ -30,7 +30,6 @@ import AccountSelector from './AccountSelector';
 import AppLockButton from './actionButtons/AppLockButton';
 import BackButton from './actionButtons/BackButton';
 import QrScannerButton from './actionButtons/QrScannerButton';
-import SettingsButton from './actionButtons/SettingsButton';
 import ToggleFullscreenButton from './actionButtons/ToggleFullscreenButton';
 import ToggleLayoutButton from './actionButtons/ToggleLayoutButton';
 import ToggleSensitiveDataButton from './actionButtons/ToggleSensitiveDataButton';
@@ -201,8 +200,8 @@ function Header({
 
   const showBackButton = isTemporaryAccount && !IS_EXPLORER;
   const buttonsAmount = Math.max(
-    1 + (showBackButton ? 1 : 0) + (isAppLockEnabled ? 1 : 0) + (isQrScannerSupported ? 1 : 0),
-    1 + (canToggleAppLayout ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0),
+    1 + (showBackButton ? 1 : 0) + (isAppLockEnabled ? 1 : 0),
+    (isQrScannerSupported ? 1 : 0) + (canToggleAppLayout ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0),
   );
 
   return (
@@ -216,7 +215,6 @@ function Header({
         >
           {showBackButton && <BackButton isIconOnly />}
           {!IS_EXPLORER && <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />}
-          <QrScannerButton isViewMode={isViewMode} />
           {isAppLockEnabled && <AppLockButton />}
         </div>
 
@@ -228,9 +226,9 @@ function Header({
           styles.landscapeActionsEnd,
         )}
         >
+          <QrScannerButton isViewMode={isViewMode} />
           {IS_TELEGRAM_APP && <ToggleFullscreenButton isFullscreen={isFullscreen} />}
           {canToggleAppLayout && <ToggleLayoutButton />}
-          <SettingsButton />
         </div>
       </div>
     </div>

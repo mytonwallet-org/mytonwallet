@@ -8,11 +8,11 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
@@ -21,11 +21,14 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -134,8 +137,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
     private val seasonalThemeDropdown: WEditableItemView? = if (DEBUG_MODE) {
         WEditableItemView(context).apply {
             id = generateViewId()
-            drawable = ContextCompat.getDrawable(
-                context,
+            drawable = context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18
             )
             setText(ConfigStore.seasonalThemeOverride?.value ?: "None")
@@ -205,9 +207,12 @@ class DebugMenuVC(context: Context) : WViewController(context) {
                     topToBottom(spacer3!!, performanceClassRow)
                     topToBottom(debugTitleLabel!!, spacer3)
                     topToBottom(seasonalThemeRow!!, debugTitleLabel)
-                    toBottomPx(seasonalThemeRow, navigationController?.getSystemBars()?.bottom ?: 0)
+                    toBottomPx(seasonalThemeRow, navigationController?.bottomInset ?: 0)
                 } else {
-                    toBottomPx(performanceClassRow, navigationController?.getSystemBars()?.bottom ?: 0)
+                    toBottomPx(
+                        performanceClassRow,
+                        navigationController?.bottomInset ?: 0
+                    )
                 }
             }
         }

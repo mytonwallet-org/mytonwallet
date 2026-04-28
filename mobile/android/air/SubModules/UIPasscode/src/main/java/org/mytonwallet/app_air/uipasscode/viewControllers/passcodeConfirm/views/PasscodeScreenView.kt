@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views
 
 import android.animation.ValueAnimator
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.graphics.Color
 import android.os.Handler
@@ -15,7 +16,6 @@ import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.animation.doOnEnd
-import androidx.core.content.ContextCompat
 import androidx.core.view.children
 import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.Runnable
@@ -42,6 +42,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
@@ -97,7 +98,7 @@ class PasscodeScreenView(
     }
 
     private val subTitleTextView = WLabel(context).apply {
-        setStyle(16f)
+        setStyle(adaptiveFontSize())
         text = subtitle
         gravity = Gravity.CENTER
     }
@@ -387,13 +388,11 @@ class PasscodeScreenView(
                 if (passcodeViewState.light ?: ThemeManager.isDark) Color.WHITE else Color.BLACK
             containerVC.window?.forceStatusBarLight = passcodeViewState.light
             containerVC.window?.forceBottomBarLight = passcodeViewState.light
-            val lockDrawable =
-                ContextCompat.getDrawable(
-                    context,
-                    org.mytonwallet.app_air.uipasscode.R.drawable.ic_lock
-                )?.apply {
-                    setTint(color)
-                }
+            val lockDrawable = context.getDrawableCompat(
+                org.mytonwallet.app_air.uipasscode.R.drawable.ic_lock
+            )?.apply {
+                setTint(color)
+            }
             topImageView.setImageDrawable(lockDrawable)
             titleTextView.setTextColor(color)
             subTitleTextView.setTextColor(color)

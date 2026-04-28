@@ -9,7 +9,6 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isGone
 import com.google.android.material.progressindicator.CircularProgressIndicator
@@ -23,6 +22,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.DEFAULT_TINT_DARK
 import org.mytonwallet.app_air.walletbasecontext.theme.DEFAULT_TINT_LIGHT
 import org.mytonwallet.app_air.walletbasecontext.theme.NftAccentColors
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.isDark
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.solidColorWithAlpha
 
 @SuppressLint("ViewConstructor")
@@ -63,10 +63,7 @@ class AppearancePaletteItemView(
                 isLoading = false
                 selectedItemView?.isGone = true
                 if (lockView == null) {
-                    lockDrawable = ContextCompat.getDrawable(
-                        context,
-                        R.drawable.ic_lock_item
-                    )
+                    lockDrawable = context.getDrawableCompat(R.drawable.ic_lock_item)
                     lockView = AppCompatImageView(context).apply {
                         setImageDrawable(lockDrawable)
                     }

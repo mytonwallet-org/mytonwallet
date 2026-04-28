@@ -9,7 +9,16 @@ import type { ApiParsedPayload } from './payload';
 import type { ApiSseOptions, ApiWalletByChain } from './storage';
 import type { ApiUpdatingStatus } from './updates';
 
-export type ApiChain = 'ton' | 'tron' | 'solana';
+export type EVMChain =
+  'ethereum'
+  | 'base'
+  | 'bnb'
+  // | 'polygon'
+  | 'arbitrum'
+  // | 'monad'
+  // | 'avalanche'
+  | 'hyperliquid';
+export type ApiChain = 'ton' | 'tron' | 'solana' | EVMChain;
 export type ApiNetwork = 'mainnet' | 'testnet';
 export type ApiLedgerDriver = 'HID' | 'USB';
 export type ApiTokenType = 'lp_token' | 'legacy_token' | 'token_2022';
@@ -144,6 +153,11 @@ export interface ApiNftMetadata {
   mtwCardBorderShineType?: ApiMtwCardBorderShineType;
 }
 
+export type EvmNftInterface = 'ERC721' | 'ERC1155';
+export type SolanaNftInterface = 'compressed' | 'mplCore';
+
+export type ApiNftInterface = EvmNftInterface | SolanaNftInterface | 'default';
+
 export interface ApiNft {
   chain: ApiChain;
   index: number;
@@ -161,7 +175,7 @@ export interface ApiNft {
   isTelegramGift?: boolean;
   isScam?: boolean;
   metadata: ApiNftMetadata;
-  interface: 'default' | 'compressed' | 'mplCore';
+  interface: ApiNftInterface;
   compression?: {
     tree: string;
     dataHash: string;
@@ -194,6 +208,8 @@ type BaseStakingState = {
   yieldType: ApiYieldType;
   balance: bigint;
   pool: string;
+  tvl?: bigint;
+  totalStakers?: number;
   unstakeRequestAmount?: bigint;
 };
 
@@ -209,6 +225,8 @@ export type ApiLiquidStakingState = BaseStakingState & {
   instantAvailable: bigint;
   start: number;
   end: number;
+  tvl: bigint;
+  totalStakers: number;
 };
 
 export type ApiJettonStakingState = BaseStakingState & {
@@ -389,7 +407,7 @@ export type ApiCountryCode = 'AF' | 'AX' | 'AL' | 'DZ' | 'AS' | 'AD' | 'AO' | 'A
 /** Each string value can be either an address or a domain name */
 export type ApiImportAddressByChain = Partial<Record<ApiChain, string>>;
 
-export type ApiNftMarketplace = 'fragment' | 'getgems';
+export type ApiNftMarketplace = 'fragment' | 'getgems' | 'opensea';
 
 export type OnUpdatingStatusChange = (kind: ApiUpdatingStatus['kind'], isUpdating: boolean) => void;
 
@@ -402,6 +420,16 @@ export type ApiWalletVariant<T extends ApiChain> = {
   wallet: Omit<ApiWalletByChain[T], 'index'>;
   balance: bigint;
   metadata: ApiWalletVariantMetadata;
+};
+
+export type ApiGroupedWalletVariant = {
+  index: number;
+  totalBalance: bigint;
+  byChain: Partial<Record<ApiChain, {
+    wallet: Omit<ApiWalletByChain[ApiChain], 'index'>;
+    balance: bigint;
+    hasDerivation: boolean;
+  }>>;
 };
 
 export interface ApiDerivation {

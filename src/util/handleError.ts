@@ -34,7 +34,7 @@ export function handleError(err: Error | string) {
     return;
   }
 
-  if (APP_ENV === 'staging' && message === 'Failed to fetch') {
+  if (APP_ENV === 'staging' && message.endsWith('Failed to fetch')) {
     return;
   }
 

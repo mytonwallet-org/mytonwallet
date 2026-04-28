@@ -154,6 +154,7 @@ class MoshiBuilder {
                         .withSubtype(MSignDataPayload.SignDataPayloadText::class.java, "text")
                         .withSubtype(MSignDataPayload.SignDataPayloadBinary::class.java, "binary")
                         .withSubtype(MSignDataPayload.SignDataPayloadCell::class.java, "cell")
+                        .withSubtype(MSignDataPayload.SignDataPayloadEip712::class.java, "eip712")
                         .withDefaultValue(null)
                 )
                 .add(

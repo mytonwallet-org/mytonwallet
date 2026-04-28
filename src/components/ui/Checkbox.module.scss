@@ -1,3 +1,5 @@
+@use "../../styles/mixins";
+
 .wrapper {
   cursor: var(--custom-cursor, pointer);
 
@@ -34,11 +36,8 @@
     border: 0.125rem solid var(--color-gray-1);
     border-radius: var(--border-radius-mini);
     background-color: transparent;
-    transition: border-color 150ms, background-color 150ms;
 
-    :global(html.animation-level-0) & {
-      transition: none !important;
-    }
+    @include mixins.transition("border-color 150ms, background-color 150ms");
   }
 
   // noinspection CssUnknownTarget
@@ -46,11 +45,8 @@
     opacity: 0;
     background: center no-repeat url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTguODI0IDE0Ljc4NmMuMzk2IDAgLjczNy0uMTk3Ljk2Ny0uNTQ5bDQuOTExLTcuNjhjLjE0My0uMjMuMjc1LS40OTQuMjc1LS43NDYgMC0uNTM5LS40ODQtLjkwMS0xLS45MDEtLjMzIDAtLjYyNi4xNzUtLjg1Ny41NDlsLTQuMzQgNi45NjUtMi4wNDMtMi42MDNjLS4yNjQtLjM0MS0uNTI3LS40NjItLjg1Ny0uNDYyLS41MzggMC0uOTU2LjQyOS0uOTU2Ljk3OCAwIC4yNjQuMS41MDUuMjg2LjczNmwyLjU5MyAzLjE2NGMuMjk2LjM4NS42MTUuNTUgMS4wMjEuNTVaIiBmaWxsPSIjZmZmIi8+PC9zdmc+);
     background-size: contain;
-    transition: opacity 150ms;
 
-    :global(html.animation-level-0) & {
-      transition: none !important;
-    }
+    @include mixins.transition("opacity 150ms");
 
     :global(html.theme-dark.is-white-accent) & {
       background-image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTguODI0IDE0Ljc4NmMuMzk2IDAgLjczNy0uMTk3Ljk2Ny0uNTQ5bDQuOTExLTcuNjhjLjE0My0uMjMuMjc1LS40OTQuMjc1LS43NDYgMC0uNTM5LS40ODQtLjkwMS0xLS45MDEtLjMzIDAtLjYyNi4xNzUtLjg1Ny41NDlsLTQuMzQgNi45NjUtMi4wNDMtMi42MDNjLS4yNjQtLjM0MS0uNTI3LS40NjItLjg1Ny0uNDYyLS41MzggMC0uOTU2LjQyOS0uOTU2Ljk3OCAwIC4yNjQuMS41MDUuMjg2LjczNmwyLjU5MyAzLjE2NGMuMjk2LjM4NS42MTUuNTUgMS4wMjEuNTVaIiBmaWxsPSIjMDAwIi8+PC9zdmc+);

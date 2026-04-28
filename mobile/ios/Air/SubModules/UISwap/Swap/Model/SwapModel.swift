@@ -27,6 +27,8 @@ import Perception
     @PerceptionIgnored
     private var estimateLoopTask: Task<Void, Never>?
     @PerceptionIgnored
+    private var estimateLoopGeneration = 0
+    @PerceptionIgnored
     @AccountContext var account: MAccount
 
     deinit {
@@ -170,7 +172,12 @@ extension SwapModel: CrosschainSwapModelDelegate {
 }
 
 extension SwapModel: SwapInputModelDelegate {
-    func swapDataChanged(swapSide: SwapSide, selling: TokenAmount, buying: TokenAmount) {
+    func swapDataChanged(
+        swapSide: SwapSide,
+        selling: TokenAmount,
+        buying: TokenAmount,
+        source: SwapInputChangeSource
+    ) {
         updateSwapType(selling: selling, buying: buying)
         if (swapSide == .selling && selling.amount <= 0) || (swapSide == .buying && buying.amount <= 0) {
             estimateLoopTask?.cancel()
@@ -185,15 +192,31 @@ extension SwapModel: SwapInputModelDelegate {
             return
         }
 
-        restartEstimateLoop(changedFrom: swapSide)
+        switch source {
+        case .user:
+            restartEstimateLoop(changedFrom: swapSide)
+        case .maxAmountRecalculation:
+            if estimateLoopTask == nil {
+                restartEstimateLoop(changedFrom: swapSide)
+            } else {
+                applyCurrentButtonConfiguration()
+            }
+        }
     }
 }
 
 private extension SwapModel {
     func restartEstimateLoop(changedFrom: SwapSide) {
         estimateLoopTask?.cancel()
+        estimateLoopGeneration += 1
+        let generation = estimateLoopGeneration
         beginEstimating(changedFrom: changedFrom)
         estimateLoopTask = Task { [weak self] in
+            defer {
+                if self?.estimateLoopGeneration == generation {
+                    self?.estimateLoopTask = nil
+                }
+            }
             while !Task.isCancelled {
                 guard let self else { return }
                 let selling = self.input.sellingTokenAmount

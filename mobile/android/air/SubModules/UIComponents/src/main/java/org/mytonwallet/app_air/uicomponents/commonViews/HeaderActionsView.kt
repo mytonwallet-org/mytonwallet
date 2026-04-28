@@ -15,7 +15,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintSet
-import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.sp
@@ -35,6 +34,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
@@ -339,6 +339,7 @@ class HeaderActionsView(
     fun updateActions(account: MAccount?, tokenSlug: String? = null) {
         this.account = account
         val isMainNet = account?.network == MBlockchainNetwork.MAINNET
+        setReceiveVisibility(account?.supportsReceiveScreen == true)
         setSendVisibility(account?.accountType != MAccount.AccountType.VIEW)
         setEarnVisibility(isMainNet)
         setSwapVisibility(isMainNet && account.accountType == MAccount.AccountType.MNEMONIC)
@@ -363,6 +364,10 @@ class HeaderActionsView(
         }
         label.text = title
         updateTextSizes()
+    }
+
+    private fun setReceiveVisibility(visible: Boolean) {
+        actionViews[Identifier.RECEIVE]?.visibility = if (visible) VISIBLE else GONE
     }
 
     private fun setSendVisibility(visible: Boolean) {
@@ -427,24 +432,21 @@ class HeaderActionsView(
                 add(
                     Item(
                         Identifier.RECEIVE,
-                        ContextCompat.getDrawable(
-                            context,
-                            R.drawable.ic_header_add_outline
-                        )!!,
+                        context.requireDrawableCompat(R.drawable.ic_header_add_outline),
                         LocaleController.getString("Fund")
                     )
                 )
                 add(
                     Item(
                         Identifier.SEND,
-                        ContextCompat.getDrawable(context, R.drawable.ic_header_send_outline)!!,
+                        context.requireDrawableCompat(R.drawable.ic_header_send_outline),
                         LocaleController.getString("Send")
                     )
                 )
                 add(
                     Item(
                         Identifier.SWAP,
-                        ContextCompat.getDrawable(context, R.drawable.ic_header_swap_outline)!!,
+                        context.requireDrawableCompat(R.drawable.ic_header_swap_outline),
                         LocaleController.getString("Swap")
                     )
                 )
@@ -452,7 +454,7 @@ class HeaderActionsView(
                     add(
                         Item(
                             Identifier.EARN,
-                            ContextCompat.getDrawable(context, R.drawable.ic_header_earn_outline)!!,
+                            context.requireDrawableCompat(R.drawable.ic_header_earn_outline),
                             LocaleController.getString("Earn")
                         )
                     )

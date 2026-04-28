@@ -104,8 +104,8 @@ public struct TappableAddress: View {
                 )
             )
             HStack(alignment: .firstTextBaseline, spacing: 3) {
-                ChainIcon(model.chain, style: .s16, color: .air.secondaryLabel)
-                    .prepended(to: addr)
+                ChainIcon(model.chain, style: .sDefault, color: .air.secondaryLabel)
+                    .prepended(to: addr, separator: .hairline)
                 
                 if isMenuEnabled {
                     Image.airBundle("ArrowUpDownSmall")
@@ -159,8 +159,8 @@ public struct TappableAddressFull: View {
             let model = self.model.withLocalName(account: accountContext)
             let isMenuEnabled = model.addressToCopy != nil
             
-            let iconedAddressText = ChainIcon(model.chain, style: .s16, color: .air.secondaryLabel)
-                .prepended(to: text(forModel: model))
+            let iconedAddressText = ChainIcon(model.chain, style: .sDefault, color: .air.secondaryLabel)
+                .prepended(to: text(forModel: model), separator: .hairline)
             
             Group {
                 if isMenuEnabled {

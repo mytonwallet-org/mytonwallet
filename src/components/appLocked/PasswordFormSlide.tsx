@@ -67,7 +67,6 @@ function PasswordFormSlide({
       <PasswordForm
         isActive={!isActive ? false : getIsNativeBiometricAuthSupported() ? !shouldHideBiometrics : true}
         noAnimatedIcon
-        forceBiometricsInMain
         error={passwordError}
         resetStateDelayMs={PINPAD_RESET_DELAY}
         operationType="unlock"

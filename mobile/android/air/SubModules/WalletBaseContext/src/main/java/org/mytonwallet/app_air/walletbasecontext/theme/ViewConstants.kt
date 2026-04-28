@@ -15,4 +15,6 @@ object ViewConstants {
 
     // The paddings on the left and right, when Side Gutters are on
     var HORIZONTAL_PADDINGS = 10
+
+    var ADDITIONAL_GRADIENT_HEIGHT = 16f
 }

@@ -26,16 +26,11 @@ render.experimental.xml
 *.jks
 *.keystore
 
-# Google Services (e.g. APIs or Firebase)
-google-services.json
 
 # Android Profiling
 *.hprof
 
 .DS_Store
-
-# SDK
-SubModules/AirAsFramework/src/main/assets/js/mytonwallet-sdk.js
 
 # Localization
 SubModules/AirAsFramework/src/main/assets/i18n/*

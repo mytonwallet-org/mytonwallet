@@ -5,8 +5,13 @@ import WalletContext
 import UIComponents
 
 private func makeDeleteAccountWarningText(account: MAccount) -> String {
-    let warningKey = account.isView ? "$logout_view_mode_warning" : "$logout_warning"
-    return lang(warningKey).replacingOccurrences(of: "**", with: "")
+    let text: String
+    if account.isView {
+        text = lang("$logout_current_wallet_warning")
+    } else {
+        text = "\(lang("$logout_current_wallet_warning")) \(lang("$secret_words_backup_reminder"))"
+    }
+    return text.replacingOccurrences(of: "**", with: "")
 }
 
 @MainActor public func showDeleteAccountAlert(

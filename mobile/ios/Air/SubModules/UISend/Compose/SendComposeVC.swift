@@ -86,6 +86,7 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         case .regular:
             navigationItem.titleView = HostingView {
                 SendComposeTitleView(
+                    isSellSupported: model.token.chain.isOfframpSupported,
                     onSellTapped: { [weak self] in self?.showSell() },
                     onMultisendTapped: { [weak self] in self?.showMultisend() }
                 )

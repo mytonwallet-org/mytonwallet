@@ -4,6 +4,7 @@ import type { DappProtocolType, DappSignDataResult, UnifiedSignDataPayload } fro
 import type { TonConnectProof } from '../../dappProtocols/adapters';
 import type { ApiDappTransfer } from '../../types';
 import type { TonTransferParams } from './types';
+import { ApiCommonError } from '../../types';
 
 import { getSigner } from './util/signer';
 import { fetchStoredChainAccount } from '../../common/accounts';
@@ -67,6 +68,10 @@ export async function signDappData(
   payloadToSign: UnifiedSignDataPayload,
   password?: string,
 ) {
+  if (payloadToSign.type === 'eip712') {
+    return { error: ApiCommonError.Unexpected };
+  }
+
   const timestamp = Math.floor(Date.now() / 1000);
   const domain = new URL(dappUrl).host;
 

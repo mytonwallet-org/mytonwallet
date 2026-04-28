@@ -9,8 +9,6 @@ import { DappConnectState } from '../../global/types';
 
 import {
   selectCurrentAccountId,
-  selectMultipleAccountsStakingStatesSlow,
-  selectMultipleAccountsTokensSlow,
   selectNetworkAccounts,
   selectOrderedAccounts,
 } from '../../global/selectors';
@@ -24,7 +22,7 @@ import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
-import { type AccountBalance, useAccountsBalances } from '../main/modals/accountSelector/hooks/useAccountsBalances';
+import { useMultipleAccountsBalances } from '../../hooks/useMultipleAccountsBalances';
 
 import AccountRowContent from '../common/AccountRowContent';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
@@ -100,41 +98,17 @@ function DappConnectModal({
 
   const dappHost = useMemo(() => dapp && dapp.url ? new URL(dapp.url).host : undefined, [dapp]);
 
-  const allAccountsTokens = useMemo(() => {
-    if (!settingsByAccountId || !byAccountId || !tokenInfo || !baseCurrency || !currencyRates) return undefined;
-
-    return selectMultipleAccountsTokensSlow(
-      accounts,
-      byAccountId,
-      tokenInfo,
-      settingsByAccountId,
-      areTokensWithNoCostHidden,
-      baseCurrency,
-      currencyRates,
-    );
-  }, [
-    accounts,
+  const { balancesByAccountId } = useMultipleAccountsBalances({
+    filteredAccounts: orderedAccounts,
+    sourceAccounts: accounts,
     byAccountId,
     tokenInfo,
     settingsByAccountId,
     areTokensWithNoCostHidden,
     baseCurrency,
     currencyRates,
-  ]);
-
-  const allAccountsStakingStates = useMemo(() => {
-    if (!byAccountId || !stakingDefault) return undefined;
-
-    return selectMultipleAccountsStakingStatesSlow(accounts, byAccountId, stakingDefault);
-  }, [accounts, byAccountId, stakingDefault]);
-
-  const { balancesByAccountId } = useAccountsBalances(
-    orderedAccounts,
-    allAccountsTokens,
-    allAccountsStakingStates,
-    baseCurrency,
-    currencyRates,
-  ) as { balancesByAccountId: Record<string, AccountBalance | undefined> };
+    stakingDefault,
+  });
 
   useEffect(() => {
     if (!currentAccountId) return;

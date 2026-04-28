@@ -37,6 +37,7 @@ public final class LedgerAddAccountModel: LedgerBaseModel, Sendable {
     var currentWalletAddresses: Set<String> = []
     var discoveredWallets: [DiscoveredWallet] = []
     var isLoadingMore: Bool = false
+    public private(set) var importedAccountsCount: Int = 0
     
     var selectedCount: Int { discoveredWallets.count(where: { $0.status == .selected }) }
     var canContinue: Bool { discoveredWallets.any { $0.status == .selected } }
@@ -126,8 +127,10 @@ public final class LedgerAddAccountModel: LedgerBaseModel, Sendable {
     func finalizeImport() async throws {
         let walletsToImport = discoveredWallets.filter { $0.status == .selected }
         var firstId: String?
+        var importedCount = 0
         for discoveredWallet in walletsToImport {
             let accountId = try await AccountStore.importLedgerAccount(accountInfo: discoveredWallet.accountInfo)
+            importedCount += 1
             if firstId == nil {
                 firstId = accountId
             }
@@ -135,6 +138,7 @@ public final class LedgerAddAccountModel: LedgerBaseModel, Sendable {
         if let firstId {
             _ = try await AccountStore.activateAccount(accountId: firstId)
         }
+        importedAccountsCount = importedCount
         onDone?()
     }
 }

@@ -176,6 +176,7 @@ export async function getNftUpdates(accountId: string, fromSec: number) {
         updates.push({
           type: 'nftSent',
           accountId,
+          chain: 'ton',
           nftAddress,
           newOwnerAddress: to,
         });

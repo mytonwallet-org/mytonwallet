@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -105,7 +106,7 @@ class WordCheckerView(
                 id = generateViewId()
                 text = wordText
                 setTextColor(WColor.PrimaryText)
-                setStyle(16f)
+                setStyle(adaptiveFontSize())
                 setPaddingDp(14)
                 setTextColor(WColor.PrimaryText.color)
             }

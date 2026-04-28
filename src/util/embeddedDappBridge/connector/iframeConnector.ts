@@ -4,7 +4,9 @@ import {
   TONCONNECT_PROTOCOL_VERSION,
   TONCONNECT_WALLET_JSBRIDGE_KEY,
 } from '../../../config';
-import { registerSolanaInjectedWallet, solanaConnectorIcon } from '../../injectedConnector/solanaConnector';
+import { registerEvmInjectedWallet } from '../../injectedConnector/evmConnector';
+import { INJECTED_ICON } from '../../injectedConnector/injectedIcon';
+import { registerSolanaInjectedWallet } from '../../injectedConnector/solanaConnector';
 import { tonConnectGetDeviceInfo } from '../../tonConnectEnvironment';
 import { initConnector } from './connector';
 
@@ -19,7 +21,8 @@ export function initIframeBridgeConnector() {
       isWalletBrowser: true,
     },
     APP_NAME,
-    solanaConnectorIcon,
+    INJECTED_ICON,
     registerSolanaInjectedWallet,
+    registerEvmInjectedWallet,
   );
 }

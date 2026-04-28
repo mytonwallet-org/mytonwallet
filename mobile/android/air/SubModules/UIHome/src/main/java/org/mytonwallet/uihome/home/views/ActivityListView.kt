@@ -111,6 +111,7 @@ class ActivityListView<T>(
             animationMode: TitleAnimationMode?,
             shouldShowTransferActions: Boolean
         )
+
         fun endSelectionMode()
         fun onTransactionTap(accountId: String, transaction: MApiTransaction)
         fun pauseBlurViews()
@@ -582,6 +583,7 @@ class ActivityListView<T>(
 
         if (shouldShowRecyclerView) {
             isShowingRecyclerView = true
+            reloadData()
             if (animated && shouldFadeInRecyclerView && alpha >= 0.1) {
                 fadeInChildren()
             } else {
@@ -776,6 +778,10 @@ class ActivityListView<T>(
     }
 
     private fun reloadData() {
+        if (recyclerView.isComputingLayout) {
+            recyclerView.post { reloadData() }
+            return
+        }
         showActions = dataSource?.activityListReserveActionsCell() == true
         rvAdapter.reloadData()
     }
@@ -966,11 +972,10 @@ class ActivityListView<T>(
                                         shouldShowTransferActions
                                     )
                                 },
-                                onSelectionChanged = {
-                                        selectedCount,
-                                        animationMode,
-                                        isInSelectionMode,
-                                        shouldShowTransferActions ->
+                                onSelectionChanged = { selectedCount,
+                                                       animationMode,
+                                                       isInSelectionMode,
+                                                       shouldShowTransferActions ->
                                     if (isInSelectionMode) {
                                         delegate?.updateSelectionMode(
                                             selectedCount,

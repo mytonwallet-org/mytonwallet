@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uistake.confirm
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.SpannableStringBuilder
 import android.text.style.RelativeSizeSpan
 import android.util.AttributeSet
@@ -54,7 +55,7 @@ class ConfirmStakingHeaderView @JvmOverloads constructor(
         textAlignment = TEXT_ALIGNMENT_CENTER
         typeface = WFont.Regular.typeface
 
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
     }
 

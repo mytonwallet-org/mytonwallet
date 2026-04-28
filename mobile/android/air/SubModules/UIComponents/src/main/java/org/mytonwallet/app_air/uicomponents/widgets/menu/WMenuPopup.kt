@@ -9,6 +9,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
+import org.mytonwallet.app_air.uicomponents.widgets.cancelAncestorTouches
 import org.mytonwallet.app_air.uicomponents.widgets.frameAsPath
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.Icon
@@ -257,6 +258,7 @@ class WMenuPopup {
             onWillDismiss: (() -> Unit)? = null,
             displayProgressListener: ((progress: Float) -> Unit)? = null,
         ): INavigationPopup {
+            view.cancelAncestorTouches()
             view.lockView()
 
             lateinit var popupWindow: WNavigationPopup
@@ -273,7 +275,7 @@ class WMenuPopup {
                     initialPopupView,
                     popupWidth,
                     windowBackgroundStyle,
-                    backdropStyle
+                    backdropStyle,
                 ).apply {
                     setOnDismissListener {
                         view.post {

@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiwidgets.configurations.actionsWidget.views
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import androidx.constraintlayout.widget.ConstraintSet
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -24,7 +25,7 @@ class ActionsStyleView(
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
         lbl.text = LocaleController.getString("Theme")
-        lbl.setStyle(16f, WFont.Medium)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl
     }
 

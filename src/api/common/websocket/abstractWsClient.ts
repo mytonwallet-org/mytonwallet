@@ -1,5 +1,5 @@
 import type { SocketFinality } from '../../chains/ton/toncenter/types';
-import type { ApiActivity } from '../../types';
+import type { ApiActivity, ApiChain } from '../../types';
 
 import ReconnectingWebSocket from '../../../util/reconnectingWebsocket';
 import { throttle } from '../../../util/schedulers';
@@ -23,7 +23,7 @@ export interface BalanceUpdate {
   finality: SocketFinality;
 }
 
-export interface ActivitiesUpdate {
+export interface DefaultActivitiesUpdate {
   address: string;
   /**
    * Multiple events with the same normalized hash can arrive. Every time it happens, the new event data must replace
@@ -35,16 +35,22 @@ export interface ActivitiesUpdate {
   /** The activities may be unsorted */
   activities: ApiActivity[];
 }
+export type DefaultNftUpdateArgument = { signature: string };
+export type DefaultWatchedWallet = { address: string; chain: ApiChain };
 
-export type NewActivitiesCallback<T = ActivitiesUpdate> = (update: T) => void;
+export type NewActivitiesCallback<T = DefaultActivitiesUpdate> = (update: T) => void;
 
 export type BalanceUpdateCallback = (update: BalanceUpdate) => void;
 
 export type TraceInvalidatedCallback = NoneToVoidFunction;
 
-export type NftUpdateCallback = (update: { signature: string }) => void;
+export type NftUpdateCallback<T = DefaultNftUpdateArgument> = (update: T) => void;
 
-export interface WalletWatcherInternal<T = { address: string }, K = ActivitiesUpdate> extends WalletWatcher {
+export interface WalletWatcherInternal<
+  T = DefaultWatchedWallet,
+  K = DefaultActivitiesUpdate,
+  N = DefaultNftUpdateArgument,
+> extends WalletWatcher {
   id: number;
   wallets: T[];
   isConnected: boolean;
@@ -75,24 +81,26 @@ export interface WalletWatcherInternal<T = { address: string }, K = ActivitiesUp
    */
   onTraceInvalidated?: TraceInvalidatedCallback;
 
-  onNftUpdated?: NftUpdateCallback;
+  onNftUpdated?: NftUpdateCallback<N>;
 }
 
-type WalletWatcherInternalCallbacks<K = ActivitiesUpdate> = Pick<WalletWatcherInternal<never, K>,
- 'onNewActivities' | 'onBalanceUpdate' | 'onConnect' | 'onDisconnect' | 'onTraceInvalidated' | 'onNftUpdated'
+type WalletWatcherInternalCallbacks<K = DefaultActivitiesUpdate, N = DefaultNftUpdateArgument> = Pick<
+  WalletWatcherInternal<never, K, N>,
+  'onNewActivities' | 'onBalanceUpdate' | 'onConnect' | 'onDisconnect' | 'onTraceInvalidated' | 'onNftUpdated'
 >;
 
 export abstract class AbstractWebsocketClient<
-  OutMessage = any,
-  InMessage = any,
-  WatchedWallet = { address: string },
-  Activity = ActivitiesUpdate,
+  OutMessage,
+  InMessage,
+  WatchedWallet,
+  Activity,
+  NftUpdate,
 > {
   #url: URL;
 
   protected socket?: ReconnectingWebSocket<OutMessage, InMessage>;
 
-  protected walletWatchers: WalletWatcherInternal<WatchedWallet, Activity>[] = [];
+  protected walletWatchers: WalletWatcherInternal<WatchedWallet, Activity, NftUpdate>[] = [];
 
   /**
    * A shared incremental counter for various unique ids. The fact that it's incremental is used to tell what actions
@@ -113,10 +121,10 @@ export abstract class AbstractWebsocketClient<
       onDisconnect,
       onTraceInvalidated,
       onNftUpdated,
-    }: WalletWatcherInternalCallbacks<Activity> = {},
+    }: WalletWatcherInternalCallbacks<Activity, NftUpdate> = {},
   ): WalletWatcher {
     const id = this.currentUniqueId++;
-    const watcher: WalletWatcherInternal<WatchedWallet, Activity> = {
+    const watcher: WalletWatcherInternal<WatchedWallet, Activity, NftUpdate> = {
       id,
       wallets,
       // The status will turn to `true` via `#actualizeSocket` → `#sendWatchedWalletsToSocket` → socket request → socket response → `#handleSubscriptionSet`
@@ -174,7 +182,7 @@ export abstract class AbstractWebsocketClient<
     return this.walletWatchers.some((watcher) => watcher.wallets.length);
   }
 
-  protected isWatcherReady(watcher: WalletWatcherInternal<WatchedWallet>) {
+  protected isWatcherReady(watcher: WalletWatcherInternal<WatchedWallet, Activity, NftUpdate>) {
     // Even though the socket may already listen to some wallet addresses, we promise the class users to trigger the
     // callbacks only in the connected state.
     return watcher.isConnected;

@@ -66,7 +66,7 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
 
     override val mBlockchain = try {
         MBlockchain.valueOf(chain)
-    } catch (t: Throwable) {
+    } catch (_: Throwable) {
         null
     }
     override val isUsdt: Boolean

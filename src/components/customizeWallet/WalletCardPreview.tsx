@@ -6,6 +6,7 @@ import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft } from '../../api/types'
 import type { Account, UserToken } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
+import { calculateFullBalance } from '../../util/calculateFullBalance';
 import { getShortCurrencySymbol } from '../../util/formatNumber';
 import { IS_IOS, IS_SAFARI } from '../../util/windowEnvironment';
 
@@ -16,7 +17,6 @@ import useFontScalePreview from './hooks/useFontScalePreview';
 
 import CardAddress from '../main/sections/Card/CardAddress';
 import CustomCardManager from '../main/sections/Card/CustomCardManager';
-import { calculateFullBalance } from '../main/sections/Card/helpers/calculateFullBalance';
 import AnimatedCounter from '../ui/AnimatedCounter';
 
 import styles from './WalletCardPreview.module.scss';

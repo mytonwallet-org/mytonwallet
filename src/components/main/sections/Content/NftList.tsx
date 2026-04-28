@@ -25,6 +25,7 @@ interface OwnProps {
   addresses: string[];
   isActive?: boolean;
   isLoading?: boolean;
+  isWidget?: boolean;
   appTheme: AppTheme;
   dnsExpiration?: Record<string, number>;
   isViewAccount?: boolean;
@@ -41,11 +42,16 @@ const COLUMNS_GAP_SIZE = 0.5 * REM;
 const ROWS_GAP_SIZE = 0.75 * REM;
 const TEXT_DATA_HEIGHT = 2.5 * REM;
 const LOADING_ROW_HEIGHT = 3 * REM;
+const COMPACT_TWO_COLUMNS_MAX = 4;
+// Must match `md` in `src/styles/mixins/_responsive.scss` - keeps `nftsPerRow` in sync
+// with the `respond-above(md)` CSS rules
+const LANDSCAPE_WIDE_BREAKPOINT_PX = 992;
 
 function NftList({
   addresses,
   isActive,
   isLoading,
+  isWidget,
   appTheme,
   dnsExpiration,
   isViewAccount,
@@ -61,7 +67,7 @@ function NftList({
 
   const [viewportNftAddresses, getMore] = useInfiniteScroll({
     listIds: addresses,
-    isActive,
+    isActive: isActive && !isWidget,
     listSlice: LIST_SLICE,
     withResetOnInactive: isPortrait,
   });
@@ -69,13 +75,14 @@ function NftList({
   // Reset scroll position when tab becomes active after viewport was reset (portrait only)
   const prevIsActive = usePrevious(isActive);
   useEffect(() => {
+    if (isWidget) return;
     if (isPortrait && isActive && prevIsActive === false && containerRef.current) {
       const scrollContainer = containerRef.current.closest<HTMLElement>('.app-slide-content');
       if (scrollContainer) {
         scrollContainer.scrollTop = 0;
       }
     }
-  }, [isActive, prevIsActive, isPortrait]);
+  }, [isActive, isWidget, isPortrait, prevIsActive]);
 
   // Map address→index to avoid O(n) indexOf on every viewport update; lookup is O(1).
   const addressToIndexMap = useMemo(() => {
@@ -89,11 +96,14 @@ function NftList({
     return addressToIndexMap.get(viewportNftAddresses[0]) ?? 0;
   }, [addressToIndexMap, viewportNftAddresses]);
 
-  const nftsPerRow = isLandscape ? 3 : 2;
-  // Calculate empty cells needed for proper grid alignment via CSS `nth-child()`
+  const nftsPerRow = isLandscape
+    ? (width >= LANDSCAPE_WIDE_BREAKPOINT_PX ? 4 : 3)
+    : 2;
   const emptyCellsCount = viewportIndex % nftsPerRow;
 
   useLayoutEffect(() => {
+    if (isWidget) return;
+
     forceMeasure(() => {
       const container = containerRef.current;
       if (!container || container.closest('.Transition_slide-inactive')) return;
@@ -117,7 +127,31 @@ function NftList({
         '--cell-height': `${rowHeight}px`,
       });
     });
-  }, [nftsPerRow, viewportIndex, viewportNftAddresses?.length, width, isLoading, addresses.length, isActive]);
+  }, [
+    addresses.length, isActive, isWidget, isLoading, nftsPerRow,
+    viewportIndex, viewportNftAddresses?.length, width,
+  ]);
+
+  if (isWidget) {
+    const columns = addresses.length <= COMPACT_TWO_COLUMNS_MAX ? 2 : 3;
+
+    return (
+      <div className={styles.listCompact} style={`--columns: ${columns}`}>
+        {addresses.map((address) => (
+          <Nft
+            key={address}
+            nft={nftsByAddresses[address]}
+            appTheme={appTheme}
+            tonDnsExpiration={getDnsExpirationDate(nftsByAddresses[address], dnsExpiration)}
+            isViewAccount={isViewAccount}
+            withChainIcon={isMultichainAccount}
+            selectedNfts={selectedNfts}
+            isWidget
+          />
+        ))}
+      </div>
+    );
+  }
 
   // Empty cells for grid alignment via CSS `nth-child()`
   const emptyCells = Array.from({ length: emptyCellsCount });

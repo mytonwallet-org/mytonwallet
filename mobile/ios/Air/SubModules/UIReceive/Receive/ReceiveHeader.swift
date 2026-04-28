@@ -14,14 +14,14 @@ struct ReceiveHeaderView: View {
         WithPerceptionTracking {
             ZStack {
                 ZStack {
-                    Color.blue.opacity(0.2)
+                    // The background is visible for extra-scrolling (out of [0...1] progress) state.
+                    // Should be a "dark" color to prevent navigation controls "thin glass" (non-whitish) appearance loosing
+                    Color.black.opacity(0.51)
                     
                     ForEach(viewModel.items) { item in
                         WithPerceptionTracking {
                             let distance = viewModel.distanceToItem(itemId: item.id)
-                            Image.airBundle("receive_background_\(item.id)")
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
+                            receiveBackground(for: item.id)
                                 .opacity(1 - distance)
                         }
                     }
@@ -40,9 +40,18 @@ struct ReceiveHeaderView: View {
             }
         }
     }
+
+    @ViewBuilder
+    private func receiveBackground(for itemId: String) -> some View {
+        if let chain = ApiChain(rawValue: itemId) {
+            ReceiveHeaderBackgroundView(chain: chain)
+        } else {
+            Color.black.opacity(0.51)
+        }
+    }
 }
 
-struct ReceiveHeaderItemView: View {
+private struct ReceiveHeaderItemView: View {
     
     var viewModel: SegmentedControlModel
     var chain: ApiChain
@@ -54,9 +63,7 @@ struct ReceiveHeaderItemView: View {
             let progressAbs = 1 - abs(progress)
             
             ZStack {
-                Image.airBundle("receive_ornament_\(chain.rawValue)")
-                    .blendMode(.softLight)
-                    .opacity(interpolate(from: 0.25, to: 1, progress: progressAbs))
+                receiveOrnament(progressAbs: progressAbs)
                 
                 _QRCodeView(chain: chain, address: address, opacity: interpolate(from: 0.25, to: 1, progress: progressAbs), onTap: {})
                     .frame(width: 220, height: 220)
@@ -67,10 +74,18 @@ struct ReceiveHeaderItemView: View {
             .rotation3DEffect(.degrees(-10) * progress, axis: (0, 1, 0))
         }
     }
+
+    @ViewBuilder
+    private func receiveOrnament(progressAbs: CGFloat) -> some View {
+        ReceiveHeaderOrnamentView(
+            chain: chain,
+            opacity: interpolate(from: 0.25, to: 1, progress: progressAbs)
+        )
+    }
 }
 
 
-struct _QRCodeView: UIViewRepresentable {
+private struct _QRCodeView: UIViewRepresentable {
         
     var chain: ApiChain
     var address: String

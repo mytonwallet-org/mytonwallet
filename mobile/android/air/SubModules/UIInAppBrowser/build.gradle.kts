@@ -45,6 +45,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.material)
     implementation(libs.fresco)
+    implementation(libs.blurview)
     implementation(project("$airSubModulePath:Icons"))
     implementation(project("$airSubModulePath:UIComponents"))
     implementation(project("$airSubModulePath:WalletContext"))

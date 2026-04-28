@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.Drawable
@@ -83,7 +84,7 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
 
     private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = WFont.Medium.typeface
-        textSize = 16f.dp
+        textSize = adaptiveFontSize().dp
     }
 
     private val baseCurrIndicatorPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {

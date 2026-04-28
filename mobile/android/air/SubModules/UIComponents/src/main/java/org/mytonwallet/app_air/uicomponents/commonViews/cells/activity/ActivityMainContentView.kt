@@ -8,7 +8,6 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
@@ -16,6 +15,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ScamLabelSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -29,6 +29,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.formatTime
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
@@ -52,7 +53,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
     }
 
     private val topLeftLabel = WLabel(context).apply {
-        setStyle(ApplicationContextHolder.adaptiveFontSize, WFont.DemiBold)
+        setStyle(adaptiveFontSize(), WFont.DemiBold)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
     }
@@ -237,7 +238,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
             builder.append(" ")
             if (isMultichain) {
                 token?.mBlockchain?.symbolIcon?.let {
-                    val drawable = ContextCompat.getDrawable(context, it)!!
+                    val drawable = context.requireDrawableCompat(it)
                     drawable.mutate()
                     drawable.setTint(WColor.PrimaryLightText.color)
                     val width = 12.dp

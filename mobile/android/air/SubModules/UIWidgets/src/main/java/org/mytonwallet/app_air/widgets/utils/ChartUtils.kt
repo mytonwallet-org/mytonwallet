@@ -22,6 +22,7 @@ object ChartUtils {
         paddingBottom: Int = 77.dp,
     ): Bitmap {
         val totalHeight = chartHeight + paddingBottom
+        if (chartWidth <= 0 || chartHeight <= 0 || totalHeight <= 0) return createBitmap(1, 1)
         val bitmap = createBitmap(chartWidth, totalHeight)
         val canvas = Canvas(bitmap)
 

@@ -11,6 +11,14 @@ extension UIImage {
         UIImage(named: named, in: AirBundle, compatibleWith: nil)
     }
 
+    public static func mainBundle(_ named: String) -> UIImage {
+        UIImage(named: named, in: .main, compatibleWith: nil)!
+    }
+
+    public static func mainBundleOptional(_ named: String) -> UIImage? {
+        UIImage(named: named, in: .main, compatibleWith: nil)
+    }
+
     /// Resizes the image (useful in SwiftUI Text where .font() does not scale asset images).
     /// Uses aspect fit to preserve proportions.
     public func resizedToFit(size: CGSize) -> UIImage {

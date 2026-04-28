@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
@@ -23,7 +24,7 @@ class WCounterLabel(context: Context) : View(context), Counter.Callback, WThemed
 
     private var textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = WFont.Regular.typeface
-        textSize = 16f.dp
+        textSize = adaptiveFontSize().dp
     }
     private val counter = Counter(textPaint, this)
 

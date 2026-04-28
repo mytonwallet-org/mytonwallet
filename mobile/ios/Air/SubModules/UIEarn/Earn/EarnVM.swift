@@ -16,6 +16,7 @@ private let log = Log("EarnVM")
 private let STAKING_HISTORY_RETRY_DELAY_WHEN_VISIBLE: TimeInterval = 2
 private let STAKING_HISTORY_RETRY_DELAY_WHEN_HIDDEN: TimeInterval = 20
 private let MAX_EMPTY_STAKING_HISTORY_RETRIES = 3
+private let ACCOUNT_CHANGE_RESET_DELAY_WHEN_HIDDEN: Duration = .seconds(1)
 
 
 @MainActor
@@ -68,6 +69,12 @@ public final class EarnVM: WalletCoreData.EventsObserver {
     var historyItems: [MStakingHistoryItem]? = nil
     @PerceptionIgnored
     private var shownListOnce: Bool = false
+    @PerceptionIgnored
+    private var isScreenVisible = false
+    @PerceptionIgnored
+    private var pendingAccountResetTask: Task<Void, Never>?
+    @PerceptionIgnored
+    private var pendingAccountId: String?
 
     // unstake
     @PerceptionIgnored
@@ -97,24 +104,7 @@ public final class EarnVM: WalletCoreData.EventsObserver {
         case .accountChanged(let accountId, _):
             guard $account.source == .current else { return }
             if accountId != self.currentAccountId {
-                self.currentAccountId = accountId
-                isLoadingStakingHistoryPage = nil
-                isLoadedAllHistoryItems = false
-                lastLoadedPage = 0
-                emptyStakingHistoryRetryCount = 0
-                lastStakingItem = nil
-                historyItems = nil
-                shownListOnce = false
-                lastUnstakeActivityItem = nil
-                isLoadedAllUnstakeActivityItems = false
-                isLoadingUnstakeActivities = false
-                lastActivityItem = nil
-                isLoadedAllActivityItems = false
-                isLoadingActivities = false
-                
-                loadInitialHistory()
-                delegate?.newPageLoaded(animateChanges: false)
-                delegate?.stakingStateUpdated()
+                handleAccountChanged(to: accountId)
             }
         
         case .stakingAccountData(let data):
@@ -136,6 +126,18 @@ public final class EarnVM: WalletCoreData.EventsObserver {
         
     public func preload() {
     }
+
+    func setScreenVisible(_ isVisible: Bool) {
+        let wasVisible = isScreenVisible
+        isScreenVisible = isVisible
+        if isVisible, !wasVisible {
+            applyPendingAccountResetIfNeeded()
+            delegate?.stakingStateUpdated()
+            if historyItems != nil || allLoadedOnce {
+                delegate?.newPageLoaded(animateChanges: false)
+            }
+        }
+    }
         
     var allLoadedOnce: Bool {
         return lastLoadedPage > 0 &&
@@ -147,6 +149,62 @@ public final class EarnVM: WalletCoreData.EventsObserver {
         fetchTokenActivities()
         fetchUnstakeTokenActivities()
         loadStakingHistory(page: 1)
+    }
+
+    private func handleAccountChanged(to accountId: String) {
+        pendingAccountId = accountId
+        pendingAccountResetTask?.cancel()
+
+        if isScreenVisible {
+            applyPendingAccountResetIfNeeded()
+            return
+        }
+
+        pendingAccountResetTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: ACCOUNT_CHANGE_RESET_DELAY_WHEN_HIDDEN)
+            } catch {
+                return
+            }
+            await MainActor.run {
+                self?.applyPendingAccountResetIfNeeded()
+            }
+        }
+    }
+
+    private func applyPendingAccountResetIfNeeded() {
+        guard let pendingAccountId, pendingAccountId != currentAccountId else {
+            self.pendingAccountId = nil
+            pendingAccountResetTask = nil
+            return
+        }
+
+        self.pendingAccountId = nil
+        pendingAccountResetTask = nil
+        resetStateForAccountChange(to: pendingAccountId)
+    }
+
+    private func resetStateForAccountChange(to accountId: String) {
+        currentAccountId = accountId
+        isLoadingStakingHistoryPage = nil
+        isLoadedAllHistoryItems = false
+        lastLoadedPage = 0
+        emptyStakingHistoryRetryCount = 0
+        lastStakingItem = nil
+        historyItems = nil
+        shownListOnce = false
+        lastUnstakeActivityItem = nil
+        isLoadedAllUnstakeActivityItems = false
+        isLoadingUnstakeActivities = false
+        lastActivityItem = nil
+        isLoadedAllActivityItems = false
+        isLoadingActivities = false
+
+        loadInitialHistory()
+        if isScreenVisible {
+            delegate?.newPageLoaded(animateChanges: false)
+            delegate?.stakingStateUpdated()
+        }
     }
 
     private func scheduleStakingHistoryRetry(page: Int, accountId: String) {

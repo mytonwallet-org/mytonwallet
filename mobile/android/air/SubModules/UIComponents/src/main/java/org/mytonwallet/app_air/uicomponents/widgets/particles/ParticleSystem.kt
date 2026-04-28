@@ -25,6 +25,7 @@ data class ParticleSystem(
     lateinit var lifetimeBuffer: FloatBuffer
     lateinit var sizeBuffer: FloatBuffer
     lateinit var baseOpacityBuffer: FloatBuffer
+    lateinit var colorBuffer: FloatBuffer
 
     fun initializeBuffers(dpr: Float) {
         val rng = SeededRandom(seed)
@@ -35,6 +36,7 @@ data class ParticleSystem(
         val lifetimes = FloatArray(config.particleCount)
         val sizes = FloatArray(config.particleCount)
         val baseOpacities = FloatArray(config.particleCount)
+        val colors = FloatArray(config.particleCount * 3)
 
         for (i in 0 until config.particleCount) {
             val angle = rng.next() * Math.PI.toFloat() * 2f
@@ -71,6 +73,20 @@ data class ParticleSystem(
             }
 
             baseOpacities[i] = rng.nextBetween(0.1f, 0.7f)
+
+            val pair = config.colorPair
+            if (pair != null && pair.size >= 2) {
+                val t = rng.next()
+                val a = pair[0]
+                val b = pair[1]
+                colors[i * 3] = a[0] + (b[0] - a[0]) * t
+                colors[i * 3 + 1] = a[1] + (b[1] - a[1]) * t
+                colors[i * 3 + 2] = a[2] + (b[2] - a[2]) * t
+            } else {
+                colors[i * 3] = config.color[0]
+                colors[i * 3 + 1] = config.color[1]
+                colors[i * 3 + 2] = config.color[2]
+            }
         }
 
         startPositionBuffer = createFloatBuffer(startPositions)
@@ -79,6 +95,7 @@ data class ParticleSystem(
         lifetimeBuffer = createFloatBuffer(lifetimes)
         sizeBuffer = createFloatBuffer(sizes)
         baseOpacityBuffer = createFloatBuffer(baseOpacities)
+        colorBuffer = createFloatBuffer(colors)
     }
 
     private fun createFloatBuffer(data: FloatArray): FloatBuffer {

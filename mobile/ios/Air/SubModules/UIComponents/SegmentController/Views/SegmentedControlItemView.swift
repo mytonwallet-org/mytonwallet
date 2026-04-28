@@ -14,6 +14,9 @@ struct SegmentedControlItemView: View {
                 selectedItemId: model.selection?.effectiveSelectedItemID,
                 distanceToItem: model.distanceToItem(itemId: item.id),
                 item: item,
+                innerPadding: model.constants.innerPadding,
+                itemHeight: model.constants.height,
+                accessoryWidth: model.constants.accessoryWidth,
                 onSelect: {
                     model.onSelect(item)
                 }
@@ -26,6 +29,9 @@ struct _SegmentedControlItemView: View {
     var selectedItemId: String?
     var distanceToItem: CGFloat
     var item: SegmentedControlItem
+    var innerPadding: CGFloat
+    var itemHeight: CGFloat
+    var accessoryWidth: CGFloat
     var onSelect: @MainActor () -> Void
 
     var isSelected: Bool { selectedItemId == item.id }
@@ -33,8 +39,8 @@ struct _SegmentedControlItemView: View {
     var body: some View {
         content
             .fixedSize()
-            .padding(.horizontal, SegmentedControlConstants.innerPadding)
-            .padding(.vertical, 4.333)
+            .padding(.horizontal, innerPadding)
+            .frame(height: itemHeight)
             .contentShape(.capsule)
             .overlay {
                 SegmentedControlInteractionAttachmentView(
@@ -49,7 +55,7 @@ struct _SegmentedControlItemView: View {
         HStack(spacing: 0) {
             Text(item.title)
             if item.shouldShowMenuIconWhenActive {
-                _SegmentedControlItemAccessory(distanceToItem: distanceToItem)
+                _SegmentedControlItemAccessory(distanceToItem: distanceToItem, accessoryWidth: accessoryWidth)
             }
         }
     }
@@ -80,7 +86,7 @@ private struct SegmentedControlInteractionAttachmentView: UIViewRepresentable {
 }
 
 @MainActor
-private final class SegmentedControlInteractionView: UIView {
+private final class SegmentedControlInteractionView: UIView, UIGestureRecognizerDelegate {
     private var selectionTapGestureRecognizer: UITapGestureRecognizer?
     private var contextMenuInteraction: ContextMenuInteraction?
     private var onSelect: (@MainActor () -> Void)?
@@ -116,6 +122,7 @@ private final class SegmentedControlInteractionView: UIView {
         if !isSelected {
             if self.selectionTapGestureRecognizer == nil {
                 let gestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.handleSelectionTap))
+                gestureRecognizer.delegate = self
                 self.addGestureRecognizer(gestureRecognizer)
                 self.selectionTapGestureRecognizer = gestureRecognizer
             }
@@ -123,6 +130,10 @@ private final class SegmentedControlInteractionView: UIView {
             self.removeGestureRecognizer(gestureRecognizer)
             self.selectionTapGestureRecognizer = nil
         }
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        gestureRecognizer === selectionTapGestureRecognizer && otherGestureRecognizer is UILongPressGestureRecognizer
     }
 
     private func updateContextMenuInteraction(
@@ -171,12 +182,13 @@ private final class SegmentedControlInteractionView: UIView {
 
 struct _SegmentedControlItemAccessory: View {
     var distanceToItem: CGFloat
+    var accessoryWidth: CGFloat
 
     var body: some View {
         Image.airBundle("SegmentedControlArrow")
             .opacity(0.5)
             .offset(x: 4)
             .scaleEffect(1 - distanceToItem)
-            .frame(width: SegmentedControlConstants.accessoryWidth * (1 - distanceToItem), alignment: .leading)
+            .frame(width: accessoryWidth * (1 - distanceToItem), alignment: .leading)
     }
 }

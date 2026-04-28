@@ -8,6 +8,7 @@ import type {
   ApiNominatorsStakingState,
   ApiSwapAsset,
   ApiSwapDexLabel,
+  ApiToken,
 } from './api/types';
 import type { TOKEN_CARD_COLORS } from './components/main/helpers/cardColors';
 import type { AutolockValueType, LangCode, LangItem, TokenPeriod } from './global/types';
@@ -15,7 +16,9 @@ import type { AutolockValueType, LangCode, LangItem, TokenPeriod } from './globa
 export const APP_ENV = process.env.APP_ENV || 'production';
 
 export const IS_CORE_WALLET = process.env.IS_CORE_WALLET === '1';
-export const APP_NAME = process.env.APP_NAME || (IS_CORE_WALLET ? 'TON Wallet' : 'MyTonWallet');
+export const IS_GRAM_WALLET = process.env.IS_AIR_APP === '1' && process.env.IS_GRAM_WALLET === '1';
+export const APP_NAME = process.env.APP_NAME
+  || (IS_CORE_WALLET ? 'TON Wallet' : IS_GRAM_WALLET ? 'Gram Wallet' : 'MyTonWallet');
 export const APP_VERSION = process.env.APP_VERSION!;
 export const APP_COMMIT_HASH = process.env.APP_COMMIT_HASH!;
 export const APP_ENV_MARKER = APP_ENV === 'staging' ? 'Beta' : APP_ENV === 'development' ? 'Dev' : undefined;
@@ -52,6 +55,10 @@ export const BETA_URL = IS_CORE_WALLET ? 'https://beta.wallet.ton.org' : 'https:
 export const APP_INSTALL_URL = 'https://get.mytonwallet.io/';
 export const APP_REPO_URL = 'https://github.com/mytonwallet-org/mytonwallet';
 export const SELF_UNIVERSAL_HOST_URL = 'https://my.tt';
+export const APP_WEBSITE_URL = IS_GRAM_WALLET ? 'https://gramwallet.io' : 'https://mytonwallet.io';
+export const APP_ICON_URL = IS_GRAM_WALLET
+  ? 'https://gramwallet.io/icon-512x512.png'
+  : 'https://mytonwallet.io/icon-512x512.png';
 
 // GitHub workflow uses an empty string as the default value if it's not in repository variables, so we cannot define a default value here
 export const BASE_URL = process.env.BASE_URL || PRODUCTION_URL;
@@ -96,7 +103,6 @@ export const ANIMATED_STICKER_HUGE_SIZE_PX = 192;
 
 export const DEFAULT_PORTRAIT_WINDOW_SIZE = { width: 368, height: 770 };
 export const DEFAULT_LANDSCAPE_WINDOW_SIZE = { width: 980, height: 788 };
-export const DEFAULT_LANDSCAPE_ACTION_TAB_ID = 0;
 export const TRANSACTION_ADDRESS_SHIFT = 4;
 
 export const WHOLE_PART_DELIMITER = ' '; // https://www.compart.com/en/unicode/U+202F
@@ -150,6 +156,9 @@ export const SOLANA_MAINNET_API_URL = process.env.SOLANA_MAINNET_API_URL || 'htt
 
 export const SOLANA_GASLESS_PAYER_ADDRESS = process.env.SOLANA_GASLESS_PAYER_ADDRESS || 'BkVfRKjZnnYCcRBgXBsfaWFZFidBL9drm5MZwNqoNGCu';
 
+export const EVM_MAINNET_RPC_URL = process.env.EVM_MAINNET_RPC_URL || 'https://evmapi.mytonwallet.org';
+export const EVM_TESTNET_RPC_URL = process.env.EVM_TESTNET_RPC_URL || 'https://evmapi-testnet.mytonwallet.org';
+
 export const FRACTION_DIGITS = 9;
 export const SHORT_FRACTION_DIGITS = 2;
 
@@ -167,6 +176,7 @@ export const MTW_TIPS_CHANNEL_NAME: Partial<Record<LangCode, string>> = {
 export const NFT_MARKETPLACE_TITLES: Record<ApiNftMarketplace, string> = {
   getgems: 'Getgems',
   fragment: 'Fragment',
+  opensea: 'OpenSea',
 };
 export const MTW_STATIC_BASE_URL = 'https://static.mytonwallet.org';
 export const MTW_CARDS_BASE_URL = `${MTW_STATIC_BASE_URL}/cards/v2/cards/`;
@@ -181,10 +191,13 @@ export const MYTONWALLET_PRIVACY_POLICY_URL = 'https://mytonwallet.io/privacy-po
 
 export const MULTISEND_DAPP_URL = process.env.MULTISEND_DAPP_URL || 'https://multisend.mytonwallet.io/';
 export const PORTFOLIO_DAPP_URL = process.env.PORTFOLIO_DAPP_URL || 'https://portfolio.mytonwallet.io/';
+export const PORTFOLIO_API_URL = process.env.PORTFOLIO_API_URL || 'https://api-portfolio.mytonwallet.io/api';
 export const AGENT_API_URL = process.env.AGENT_API_URL || 'https://agent.mytonwallet.org/api';
 
-export const NFT_MARKETPLACE_URL = 'https://getgems.io/';
-export const NFT_MARKETPLACE_TITLE = NFT_MARKETPLACE_TITLES.getgems;
+export const NFT_MARKETPLACE_URL = 'https://opensea.io/';
+export const NFT_MARKETPLACE_TITLE = NFT_MARKETPLACE_TITLES.opensea;
+export const TON_NFT_MARKETPLACE_URL = 'https://getgems.io/';
+export const TON_NFT_MARKETPLACE_TITLE = NFT_MARKETPLACE_TITLES.getgems;
 export const GETGEMS_BASE_MAINNET_URL = 'https://getgems.io/';
 export const GETGEMS_BASE_TESTNET_URL = 'https://testnet.getgems.io/';
 export const EMPTY_HASH_VALUE = 'NOHASH';
@@ -212,7 +225,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-285';
+export const LANG_CACHE_NAME = 'mtw-lang-292';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -326,6 +339,72 @@ export const SOLANA = {
   cmcSlug: 'solana',
 } as const;
 
+export const ETH = {
+  name: 'Ethereum',
+  symbol: 'ETH',
+  slug: 'eth',
+  decimals: 18,
+  chain: 'ethereum',
+} as const;
+
+export const BASE = {
+  name: 'Base',
+  symbol: 'ETH',
+  slug: 'base',
+  decimals: 18,
+  chain: 'base',
+  label: 'Base',
+} as const;
+
+export const BNB = {
+  name: 'BNB',
+  symbol: 'BNB',
+  slug: 'bnb',
+  decimals: 18,
+  chain: 'bnb',
+} as const;
+
+export const POLYGON = {
+  name: 'Polygon',
+  symbol: 'POL',
+  slug: 'pol',
+  decimals: 18,
+  chain: 'polygon',
+} as const;
+
+export const ARBITRUM = {
+  name: 'Arbitrum',
+  symbol: 'ETH',
+  slug: 'arb',
+  decimals: 18,
+  chain: 'arbitrum',
+  label: 'Arbitrum',
+} as const;
+
+export const MONAD = {
+  name: 'Monad',
+  symbol: 'MON',
+  slug: 'mon',
+  decimals: 18,
+  chain: 'monad',
+} as const;
+
+export const AVALANCHE = {
+  name: 'Avalanche',
+  symbol: 'AVAX',
+  slug: 'ava',
+  decimals: 18,
+  chain: 'avalanche',
+} as const;
+
+export const HYPERLIQUID = {
+  name: 'Hyperliquid',
+  symbol: 'HYPE',
+  slug: 'hyperliquid',
+  decimals: 18,
+  chain: 'hyperliquid',
+} as const;
+
 export const MYCOIN_MAINNET = {
   name: 'MyTonWallet Coin',
   symbol: 'MY',
@@ -436,6 +515,90 @@ export const SOLANA_USDC_MAINNET = {
   priceUsd: 1,
 } as const;
 
+export const ETH_USDT_MAINNET = {
+  name: 'Tether USD',
+  symbol: 'USDT',
+  decimals: 6,
+  chain: 'ethereum',
+  slug: 'ethereum-0xdac17f95',
+  tokenAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+  label: 'ERC-20',
+  image: 'https://imgproxy.mytonwallet.org/imgproxy/T3PB4s7oprNVaJkwqbGg54nexKE0zzKhcrPv8jcWYzU/rs:fill:200:200:1/g:no/aHR0cHM6Ly90ZXRoZXIudG8vaW1hZ2VzL2xvZ29DaXJjbGUucG5n.webp',
+  priceUsd: 1,
+} as const;
+
+export const ETH_USDC_MAINNET = {
+  name: 'USD Coin',
+  symbol: 'USDC',
+  decimals: 6,
+  chain: 'ethereum',
+  slug: 'ethereum-0xa0b86991',
+  tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+  label: 'ERC-20',
+  image: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
+  priceUsd: 1,
+} as const;
+
+export const BASE_USDT_MAINNET = {
+  name: 'Tether USD',
+  symbol: 'USDT',
+  decimals: 6,
+  chain: 'base',
+  slug: 'base-0xfde4c96c',
+  tokenAddress: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
+  label: 'ERC-20',
+  image: 'https://imgproxy.mytonwallet.org/imgproxy/T3PB4s7oprNVaJkwqbGg54nexKE0zzKhcrPv8jcWYzU/rs:fill:200:200:1/g:no/aHR0cHM6Ly90ZXRoZXIudG8vaW1hZ2VzL2xvZ29DaXJjbGUucG5n.webp',
+  priceUsd: 1,
+} as const;
+
+export const BASE_USDC_MAINNET = {
+  name: 'USD Coin',
+  symbol: 'USDC',
+  decimals: 6,
+  chain: 'base',
+  slug: 'base-0x833589fc',
+  tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  label: 'ERC-20',
+  image: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
+  priceUsd: 1,
+} as const;
+
+export const BSC_USDT_MAINNET = {
+  name: 'Tether USD',
+  symbol: 'USDT',
+  decimals: 6,
+  chain: 'bnb',
+  slug: 'bnb-0x55d39832',
+  tokenAddress: '0x55d398326f99059ff775485246999027b3197955',
+  label: 'BEP-20',
+  image: 'https://imgproxy.mytonwallet.org/imgproxy/T3PB4s7oprNVaJkwqbGg54nexKE0zzKhcrPv8jcWYzU/rs:fill:200:200:1/g:no/aHR0cHM6Ly90ZXRoZXIudG8vaW1hZ2VzL2xvZ29DaXJjbGUucG5n.webp',
+  priceUsd: 1,
+} as const;
+
+export const AVALANCHE_USDT_MAINNET = {
+  name: 'Tether USD',
+  symbol: 'USDT',
+  decimals: 6,
+  chain: 'avalanche',
+  slug: 'avalanche-0x9702230a',
+  tokenAddress: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7',
+  label: 'ERC-20',
+  image: 'https://imgproxy.mytonwallet.org/imgproxy/T3PB4s7oprNVaJkwqbGg54nexKE0zzKhcrPv8jcWYzU/rs:fill:200:200:1/g:no/aHR0cHM6Ly90ZXRoZXIudG8vaW1hZ2VzL2xvZ29DaXJjbGUucG5n.webp',
+  priceUsd: 1,
+} as const;
+
+export const HYPERLIQUID_USDC_MAINNET = {
+  name: 'USD Coin',
+  symbol: 'USDC',
+  decimals: 6,
+  chain: 'hyperliquid',
+  slug: 'hyperliquid-0xb88339cb',
+  tokenAddress: '0xb88339CB7199b77E23DB6E890353E22632Ba630f',
+  label: 'ERC-20',
+  image: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
+  priceUsd: 1,
+} as const;
+
 /** The properties not returned by the backend, and therefore not stored in token objects */
 export const TOKEN_CUSTOM_STYLES: Partial<Record<string, {
   fontIcon?: string;
@@ -453,6 +616,14 @@ export const TOKEN_CUSTOM_STYLES: Partial<Record<string, {
     fontIcon: 'icon-chain-solana',
     cardColor: 'purple',
   },
+  [ETH.slug]: {
+    fontIcon: 'icon-chain-ethereum',
+    cardColor: 'purple',
+  },
+  [BASE.slug]: {
+    fontIcon: 'icon-chain-base',
+    cardColor: 'blue',
+  },
   [STAKED_TON_SLUG]: {
     cardColor: 'green',
   },
@@ -465,14 +636,14 @@ export const ALL_STAKING_POOLS = [
   TON_TSUSDE.tokenAddress,
 ];
 
-export const PRIORITY_TOKEN_SLUGS = [
-  TONCOIN.slug,
-  SOLANA.slug,
-  TRC20_USDT_MAINNET.slug,
-  TON_USDT_MAINNET.slug,
-  SOLANA_USDT_MAINNET.slug,
-  SOLANA_USDC_MAINNET.slug,
-] as string[];
+export const PRIORITY_TOKENS = [
+  ETH,
+  SOLANA,
+  TRX,
+  BNB,
+  TONCOIN,
+  HYPERLIQUID,
+] as ApiToken[];
 
 export const INIT_SWAP_ASSETS: Record<'in' | 'out', ApiSwapAsset> = {
   in: {
@@ -509,7 +680,7 @@ export const WINDOW_PROVIDER_PORT = `${IS_CORE_WALLET ? 'TonWallet' : 'MyTonWall
 
 export const SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY = IS_CORE_WALLET;
 export const PORTRAIT_MIN_ASSETS_TAB_VIEW = 6;
-export const LANDSCAPE_MIN_ASSETS_TAB_VIEW = 6;
+export const DESKTOP_MIN_ASSETS_TAB_VIEW = 7;
 
 export const DEFAULT_PRICE_CURRENCY = 'USD';
 export const CURRENCIES: Record<
@@ -671,6 +842,8 @@ export const DEFAULT_STAKING_STATE: ApiLiquidStakingState = {
   instantAvailable: 0n,
   start: 0,
   end: 0,
+  tvl: 0n,
+  totalStakers: 0,
 };
 
 export const DEFAULT_NOMINATORS_STAKING_STATE: ApiNominatorsStakingState = {

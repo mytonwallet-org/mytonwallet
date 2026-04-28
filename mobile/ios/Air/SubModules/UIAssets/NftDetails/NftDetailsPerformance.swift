@@ -153,18 +153,12 @@ private final class VsyncScrollEventCounter: NSObject {
 
         if scrollN > 0 || drawN > 0 {
             let hz = 1.0 / link.duration
-            NftDetailsPerformance.logDebug {
-                "vsync ~\(Int(hz)) Hz scrollDidScroll=\(scrollN) mtk_draw=\(drawN) idle=\(idleFrameCount)"
+            if scrollN != drawN {
+                NftDetailsPerformance.logDebug { "vsync ~\(Int(hz)) Hz scrollDidScroll=\(scrollN) mtk_draw=\(drawN) idle=\(idleFrameCount)"}
             }
             if scrollN > 1 {
-                if skipMultiEventWarnings {
-                    NftDetailsPerformance.logDebug {
-                        "(ignoring multi-scroll warning this frame: first bucket after display link attach)"
-                    }
-                } else {
-                    NftDetailsPerformance.logDebug {
-                        "scrollDidScroll fired \(scrollN)× in one display frame (>1 ⇒ more scroll callbacks than vsync for that frame)."
-                    }
+                if !skipMultiEventWarnings {
+                    NftDetailsPerformance.logDebug { "scrollDidScroll fired \(scrollN)× in one display frame (>1 ⇒ more scroll callbacks than vsync for that frame)." }
                 }
             }
             if drawN > scrollN, scrollN > 0, !skipMultiEventWarnings {

@@ -115,6 +115,13 @@ final class InAppBrowserPageVC: WViewController {
             )
             webView.configuration.userContentController.addUserScript(tonConnectScript)
 
+            let evmConnectScript = WKUserScript(
+                source: EvmConnectInjectionScript.source,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+            webView.configuration.userContentController.addUserScript(evmConnectScript)
+
             let walletConnectScript = WKUserScript(
                 source: WalletConnectInjectionScript.source,
                 injectionTime: .atDocumentEnd,
@@ -206,7 +213,7 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
             return .cancel
         }
         
-        let allowedSchemes = ["itms-appss", "itms-apps", "tel", "sms", "mailto", "geo", "tg", "mtw"]
+        let allowedSchemes = ["itms-appss", "itms-apps", "tel", "sms", "mailto", "geo", "tg", SELF_PROTOCOL_SCHEME]
         var shouldStart = true
         var shouldDismiss = false
         
@@ -214,7 +221,7 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
             webView.stopLoading()
             openSystemUrl(url)
             shouldStart = false
-            if scheme == "mtw" {
+            if scheme == SELF_PROTOCOL_SCHEME {
                 shouldDismiss = true
             }
         }

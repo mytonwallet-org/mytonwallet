@@ -167,6 +167,7 @@ public final class _TokenStore: Sendable {
             isTiny: incoming.isTiny ?? cached.isTiny,
             customPayloadApiUrl: incoming.customPayloadApiUrl?.nilIfEmpty ?? cached.customPayloadApiUrl,
             codeHash: incoming.codeHash?.nilIfEmpty ?? cached.codeHash,
+            label: incoming.label?.nilIfEmpty ?? cached.label,
             isFromBackend: incoming.isFromBackend ?? cached.isFromBackend,
             priceUsd: priceIsInvalid ? cached.priceUsd : incoming.priceUsd,
             percentChange24h: priceIsInvalid ? cached.percentChange24h : incoming.percentChange24h
@@ -183,6 +184,18 @@ public final class _TokenStore: Sendable {
         if tokens[TRON_USDT_SLUG]?.image?.nilIfEmpty == nil {
             let image = tokens[TON_USDT_SLUG]!.image
             tokens[TRON_USDT_SLUG]?.image = image
+        }
+        if tokens[BSC_USDT_MAINNET_SLUG]?.image?.nilIfEmpty == nil {
+            let image = tokens[TON_USDT_SLUG]!.image
+            tokens[BSC_USDT_MAINNET_SLUG]?.image = image
+        }
+        if tokens[AVALANCHE_USDT_MAINNET_SLUG]?.image?.nilIfEmpty == nil {
+            let image = tokens[TON_USDT_SLUG]!.image
+            tokens[AVALANCHE_USDT_MAINNET_SLUG]?.image = image
+        }
+        if tokens[HYPERLIQUID_USDC_MAINNET_SLUG]?.image?.nilIfEmpty == nil {
+            let image = tokens[SOLANA_USDC_MAINNET_SLUG]!.image
+            tokens[HYPERLIQUID_USDC_MAINNET_SLUG]?.image = image
         }
     }
     
@@ -245,6 +258,21 @@ public final class _TokenStore: Sendable {
         TRON_USDT_TESTNET_SLUG: .TRON_USDT_TESTNET,
         SOLANA_USDT_MAINNET_SLUG: .SOLANA_USDT_MAINNET,
         SOLANA_USDC_MAINNET_SLUG: .SOLANA_USDC_MAINNET,
+        ETH_SLUG: .ETH,
+        ETH_USDT_MAINNET_SLUG: .ETH_USDT_MAINNET,
+        ETH_USDC_MAINNET_SLUG: .ETH_USDC_MAINNET,
+        BASE_SLUG: .BASE,
+        BASE_USDT_MAINNET_SLUG: .BASE_USDT_MAINNET,
+        BASE_USDC_MAINNET_SLUG: .BASE_USDC_MAINNET,
+        BNB_SLUG: .BNB,
+        BSC_USDT_MAINNET_SLUG: .BSC_USDT_MAINNET,
+//        POLYGON_SLUG: .POLYGON,
+        ARBITRUM_SLUG: .ARBITRUM,
+//        MONAD_SLUG: .MONAD,
+//        AVALANCHE_SLUG: .AVALANCHE,
+//        AVALANCHE_USDT_MAINNET_SLUG: .AVALANCHE_USDT_MAINNET,
+        HYPERLIQUID_SLUG: .HYPERLIQUID,
+        HYPERLIQUID_USDC_MAINNET_SLUG: .HYPERLIQUID_USDC_MAINNET,
     ]
 
     private static let invalidPriceSlugs: Set<String> = [
@@ -257,6 +285,21 @@ public final class _TokenStore: Sendable {
         SOLANA_SLUG,
         SOLANA_USDT_MAINNET_SLUG,
         SOLANA_USDC_MAINNET_SLUG,
+        ETH_SLUG,
+        ETH_USDT_MAINNET_SLUG,
+        ETH_USDC_MAINNET_SLUG,
+        BASE_SLUG,
+        BASE_USDT_MAINNET_SLUG,
+        BASE_USDC_MAINNET_SLUG,
+        BNB_SLUG,
+        BSC_USDT_MAINNET_SLUG,
+//        POLYGON_SLUG,
+        ARBITRUM_SLUG,
+//        MONAD_SLUG,
+//        AVALANCHE_SLUG,
+        AVALANCHE_USDT_MAINNET_SLUG,
+        HYPERLIQUID_SLUG,
+        HYPERLIQUID_USDC_MAINNET_SLUG,
     ]
     
     

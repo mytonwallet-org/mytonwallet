@@ -3,7 +3,7 @@ import { withGlobal } from '../../global';
 
 import type { ApiNft } from '../../api/types';
 import type { Account } from '../../global/types';
-import type { AccountBalance } from '../main/modals/accountSelector/hooks/useAccountsBalances';
+import type { AccountBalance } from '../../hooks/useAccountsBalances';
 
 import { selectAccountSettings, selectCurrentAccount, selectCurrentAccountId } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';

@@ -76,6 +76,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     }
 
     open val shouldDisplayBottomBar = false
+    open val forceBlurBottomView = false
     open val bottomBlurRootView: ViewGroup? by lazy {
         topBarConfiguration.blurRootView
     }
@@ -476,6 +477,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         if (themeChanged || isTinted)
             updateTheme()
         updateThemeForChildren(view, onlyTintedViews = !themeChanged)
+        syncBottomCornerRadius()
         if (themeChanged) {
             topReversedCornerView?.let { topReversedCornerView ->
                 view.setConstraints {
@@ -492,10 +494,10 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
                     }
                 }
             }
+            bottomReversedCornerView?.refreshModeFromSettings()
             if (bottomReversedCornerView?.parent != null)
                 bottomReversedCornerView?.updateLayoutParams {
-                    height = ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
-                        (navigationController?.getSystemBars()?.bottom ?: 0)
+                    height = bottomReversedCornerViewHeight()
                 }
         }
     }
@@ -608,25 +610,52 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
 
     var bottomReversedCornerView: ReversedCornerViewUpsideDown? = null
 
-    // Add bottom corner radius to the view controller
-    private fun WViewController.addBottomCornerRadius() {
-        bottomReversedCornerView = ReversedCornerViewUpsideDown(context, bottomBlurRootView)
-        if (ignoreSideGuttering)
-            bottomReversedCornerView?.setHorizontalPadding(0f)
-        view.addView(
-            bottomReversedCornerView,
-            ConstraintLayout.LayoutParams(
-                MATCH_PARENT,
-                ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
-                    (navigationController?.getSystemBars()?.bottom ?: 0)
-            )
-        )
-        view.setConstraints {
-            toBottom(bottomReversedCornerView!!)
+    protected fun syncBottomCornerRadius(shouldShow: Boolean = shouldDisplayBottomBar) {
+        val existing = bottomReversedCornerView
+        if (shouldShow && existing == null) {
+            addBottomCornerRadius()
+        } else if (!shouldShow && existing != null) {
+            removeBottomCornerRadius()
         }
     }
 
-    fun updateBlurViews(recyclerView: RecyclerView) {
+    private fun removeBottomCornerRadius() {
+        val bottomView = bottomReversedCornerView ?: return
+        bottomView.pauseBlurring()
+        (bottomView.parent as? ViewGroup)?.removeView(bottomView)
+        bottomReversedCornerView = null
+    }
+
+    // Add bottom corner radius to the view controller
+    private fun WViewController.addBottomCornerRadius() {
+        val bottomView = ReversedCornerViewUpsideDown(
+            context = context,
+            blurRootView = bottomBlurRootView,
+            forceBlurView = forceBlurBottomView,
+        )
+        bottomReversedCornerView = bottomView
+        if (ignoreSideGuttering)
+            bottomView.setHorizontalPadding(0f)
+        view.addView(
+            bottomView,
+            ConstraintLayout.LayoutParams(
+                MATCH_PARENT,
+                bottomReversedCornerViewHeight()
+            )
+        )
+        view.setConstraints {
+            toBottom(bottomView)
+        }
+    }
+
+    private fun bottomReversedCornerViewHeight(): Int {
+        val extra = bottomReversedCornerView?.extraTopHeight ?: 0
+        return ViewConstants.TOOLBAR_RADIUS.dp.roundToInt() +
+            (navigationController?.getSystemBars()?.bottom ?: 0) +
+            extra
+    }
+
+    open fun updateBlurViews(recyclerView: RecyclerView) {
         updateBlurViews(recyclerView, recyclerView.computeVerticalScrollOffset())
     }
 

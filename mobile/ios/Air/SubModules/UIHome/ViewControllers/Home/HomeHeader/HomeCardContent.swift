@@ -139,7 +139,15 @@ private struct _BalanceChange: View {
 
     var body: some View {
         WithPerceptionTracking {
-            _BalanceChangeContent(balance: accountContext.balance, balance24h: accountContext.balance24h, balanceChange: accountContext.balanceChange, nft: accountContext.nft)
+            _BalanceChangeContent(
+                balance: accountContext.balance,
+                balance24h: accountContext.balance24h,
+                balanceChange: accountContext.balanceChange,
+                nft: accountContext.nft,
+                onTap: {
+                    AppActions.showPortfolio(accountContext: accountContext)
+                }
+            )
         }
     }
 }
@@ -147,10 +155,18 @@ private struct _BalanceChange: View {
 private struct _BalanceChangeContent: View, Equatable {
     let text: String?
     let nft: ApiNft?
+    let onTap: () -> Void
     
-    init(balance: BaseCurrencyAmount?, balance24h: BaseCurrencyAmount?, balanceChange: Double?, nft: ApiNft?) {
+    init(
+        balance: BaseCurrencyAmount?,
+        balance24h: BaseCurrencyAmount?,
+        balanceChange: Double?,
+        nft: ApiNft?,
+        onTap: @escaping () -> Void
+    ) {
         self.text = Self.makeText(balance: balance, balance24h: balance24h, balanceChange: balanceChange)
         self.nft = nft
+        self.onTap = onTap
     }
     
     static func == (lhs: Self, rhs: Self) -> Bool {
@@ -194,11 +210,7 @@ private struct _BalanceChangeContent: View, Equatable {
     }
     
     private func mainView(_ text: String) -> some View {
-        Button {
-            if let url = URL(string: "https://portfolio.mytonwallet.io") {
-                AppActions.openInBrowser(url)
-            }
-        } label: {
+        Button(action: onTap) {
             HStack(spacing: 4) {
                 Text(text)
                 Image(systemName: "chevron.right")
@@ -250,7 +262,8 @@ private struct _AddressLine: View {
             _AddressLineContent(
                 accountId: account.id,
                 isTemporary: account.isTemporary == true,
-                addressLine: account.addressLine,
+                addressLine: accountContext.addressLine,
+                accountContext: accountContext,
                 nft: accountContext.nft
             )
         }
@@ -262,6 +275,7 @@ private struct _AddressLineContent: View {
     var accountId: String
     var isTemporary: Bool
     var addressLine: MAccount.AddressLine
+    var accountContext: AccountContext
     var nft: ApiNft?
     
     var body: some View {
@@ -275,7 +289,7 @@ private struct _AddressLineContent: View {
                 .padding(.trailing, 8)
                 .contextMenuSource(
                     triggers: [.tap],
-                    configuration: makeAddressesMenuConfig(accountId: accountId)
+                    configuration: makeAddressesMenuConfig(accountContext: accountContext)
                 )
                 .padding(.trailing, -8)
                 .backportGeometryGroup()

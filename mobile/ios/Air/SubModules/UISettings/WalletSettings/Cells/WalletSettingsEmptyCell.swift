@@ -1,5 +1,5 @@
 //
-//  WalletSettingsGridCell.swift
+//  WalletSettingsEmptyCell.swift
 //  MyTonWalletAir
 //
 //  Created by nikstar on 04.11.2025.
@@ -13,7 +13,6 @@ import Dependencies
 import Perception
 import OrderedCollections
 import Kingfisher
-import Lottie
 
 struct WalletSettingsEmptyCell: View {
     

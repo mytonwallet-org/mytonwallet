@@ -12,6 +12,7 @@ import android.view.animation.DecelerateInterpolator
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.doOnNextLayout
+import androidx.core.view.isGone
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.LinearSmoothScroller
 import androidx.recyclerview.widget.RecyclerView
@@ -30,18 +31,20 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
-import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
-import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 import java.lang.ref.WeakReference
@@ -62,6 +65,7 @@ class AgentVC(context: Context) : WViewController(context),
         private const val HINTS_SECTION = 64.66f
         private const val HINTS_SPACING = 12
         private const val GRADIENT_EXTRA = 4
+        private const val COMPOSER_BOTTOM_OFFSET = -17
         private const val DATE_HEADER_GAP_MS = 10 * 60 * 1000L
     }
 
@@ -106,6 +110,8 @@ class AgentVC(context: Context) : WViewController(context),
                 } else if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                     isUserScrolling = false
                 }
+                if (newState != RecyclerView.SCROLL_STATE_IDLE)
+                    updateBlurViews(recyclerView)
             }
 
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -125,6 +131,7 @@ class AgentVC(context: Context) : WViewController(context),
                         lm.stackFromEnd = true
                     }
                 }
+                updateBlurViews(recyclerView)
             }
         })
     }
@@ -132,7 +139,7 @@ class AgentVC(context: Context) : WViewController(context),
     private val bottomGradientView = View(context).apply {
         id = View.generateViewId()
     }
-    private val composerView = AgentComposerView(context)
+    private val composerView by lazy { AgentComposerView(context, chatRecyclerView) }
     private val hintsSectionView = AgentHintsSectionView(context).apply {
         layoutParams = ConstraintLayout.LayoutParams(
             MATCH_PARENT, HINTS_SECTION.dp.roundToInt()
@@ -146,7 +153,7 @@ class AgentVC(context: Context) : WViewController(context),
         val btn = WImageButton(context)
         btn.setPaddingDp(8)
         btn.setImageDrawable(
-            ContextCompat.getDrawable(context, org.mytonwallet.app_air.icons.R.drawable.ic_more)
+            context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_more)
         )
         btn.updateColors(WColor.PrimaryLightText, WColor.BackgroundRipple)
         btn.setOnClickListener { presentMoreMenu() }
@@ -193,7 +200,10 @@ class AgentVC(context: Context) : WViewController(context),
 
             toStart(composerView)
             toEnd(composerView)
-            toBottomPx(composerView, navigationController?.getSystemBars()?.bottom ?: 0)
+            toBottomPx(
+                composerView,
+                COMPOSER_BOTTOM_OFFSET.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+            )
 
             toStart(hintsSectionView)
             toEnd(hintsSectionView)
@@ -234,13 +244,18 @@ class AgentVC(context: Context) : WViewController(context),
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.Background.color)
-        val bgColor = WColor.Background.color
-        val bgColor80 = bgColor.colorWithAlpha(204)
-        val bgColor90 = bgColor.colorWithAlpha(230)
-        bottomGradientView.background = GradientShaderDrawable(
-            intArrayOf(bgColor90 and 0x00FFFFFF, bgColor80, bgColor90),
-            floatArrayOf(0f, 0.1f, 1f)
-        )
+        if (WGlobalStorage.isGradientNavigationBarActive()) {
+            bottomGradientView.isGone = false
+            val bgColor = WColor.Background.color
+            val bgColor80 = bgColor.colorWithAlpha(204)
+            val bgColor90 = bgColor.colorWithAlpha(230)
+            bottomGradientView.background = GradientShaderDrawable(
+                intArrayOf(bgColor90 and 0x00FFFFFF, bgColor80, bgColor90),
+                floatArrayOf(0f, 0.1f, 1f)
+            )
+        } else {
+            bottomGradientView.isGone = true
+        }
         composerView.updateTheme()
         hintsSectionView.updateTheme()
     }
@@ -248,6 +263,14 @@ class AgentVC(context: Context) : WViewController(context),
     override fun insetsUpdated() {
         super.insetsUpdated()
         updateLayout()
+    }
+
+    override fun updateBlurViews(recyclerView: RecyclerView) {
+        super.updateBlurViews(recyclerView)
+        if (recyclerView.computeVerticalScrollOffset() == 0)
+            composerView.pauseBlurring()
+        else
+            composerView.resumeBlurring()
     }
 
     private var hasAppliedInitialLayout = false
@@ -283,6 +306,7 @@ class AgentVC(context: Context) : WViewController(context),
     }
 
     private fun applyBottom(bottom: Int) {
+        val bottom = bottom - 17.dp
         view.setConstraints {
             toBottomPx(composerView, bottom)
         }
@@ -490,9 +514,6 @@ class AgentVC(context: Context) : WViewController(context),
             if (viewsOverlap(bubbleView, topReversedCornerView)) {
                 topReversedCornerView?.fadeOut()
             }
-            if (viewsOverlap(bubbleView, bottomReversedCornerView)) {
-                bottomReversedCornerView?.fadeOut()
-            }
             if (viewsOverlap(bubbleView, navigationBar?.titleLabel)) {
                 navigationBar?.titleLabel?.fadeOut()
             }
@@ -500,7 +521,7 @@ class AgentVC(context: Context) : WViewController(context),
                 moreButton.fadeOut()
             }
             val tabBarController = navigationController?.tabBarController
-            if (viewsOverlap(bubbleView, tabBarController?.bottomCornerView)) {
+            if (viewsOverlap(bubbleView, tabBarController?.bottomNavigationView)) {
                 tabBarController?.hideTabBar()
             }
             if (viewsOverlap(bubbleView, hintsSectionView)) {
@@ -514,12 +535,13 @@ class AgentVC(context: Context) : WViewController(context),
             }
         } else {
             topReversedCornerView?.fadeIn()
-            bottomReversedCornerView?.fadeIn()
             navigationBar?.titleLabel?.fadeIn()
             moreButton.fadeIn()
             navigationController?.tabBarController?.showTabBar()
             composerView.fadeIn()
-            bottomGradientView.fadeIn()
+            if (WGlobalStorage.isGradientNavigationBarActive()) {
+                bottomGradientView.fadeIn()
+            }
             if (hintsSectionView.isEnabled) {
                 hintsSectionView.fadeIn()
             }

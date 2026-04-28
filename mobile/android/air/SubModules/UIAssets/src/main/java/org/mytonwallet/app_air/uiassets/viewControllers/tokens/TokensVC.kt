@@ -337,7 +337,8 @@ class TokensVC(
             withContext(Dispatchers.Main) {
                 pinnedSlugs = newPinnedSlugs
                 totalVisibleTokensCount = filteredWalletTokens.size
-                val limit = currentHomeAssetsLimit
+                val limit =
+                    if (totalVisibleTokensCount == currentHomeAssetsLimit + 1) totalVisibleTokensCount else currentHomeAssetsLimit
                 walletTokens = if (mode == Mode.HOME) {
                     filteredWalletTokens.take(limit).toTypedArray()
                 } else {

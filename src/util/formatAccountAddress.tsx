@@ -56,8 +56,9 @@ export function formatAccountAddresses(
 
   // Multi-chain account
   const elements: TeactNode[] = [];
+  const visibleChains = variant === 'small' ? chains.slice(0, 3) : chains;
 
-  chains.forEach((chain, index) => {
+  visibleChains.forEach((chain, index) => {
     const account = byChain[chain];
     if (!account) return;
 

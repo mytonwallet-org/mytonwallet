@@ -31,14 +31,16 @@ struct AboutView: View {
     @ViewBuilder
     var header: some View {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        let websiteUrl = URL(string: APP_WEBSITE_URL)!
+        let websiteTitle = websiteUrl.host ?? APP_WEBSITE_URL
         VStack(spacing: 14) {
-            Image.airBundle("IntroLogo")
+            Image.airBundle(IS_GRAM_WALLET ? "IntroLogoGramWallet" : "IntroLogo")
                 .resizable()
                 .frame(width: 96, height: 96)
             VStack(spacing: 4) {
                 Text("\(APP_NAME) \(appVersion)")
                     .font(.system(size: 17, weight: .semibold))
-                Text("[mytonwallet.io](https://mytonwallet.io)")
+                Text(LocalizedStringKey("[\(websiteTitle)](\(APP_WEBSITE_URL))"))
                     .font(.system(size: 14, weight: .regular))
             }
         }
@@ -58,11 +60,13 @@ struct AboutView: View {
     
     var resources: some View {
         InsetSection(dividersInset: 46) {
-            Item(
-                icon: "PlayIcon",
-                text: lang("Watch Video about Features"),
-                onTap: onWatch
-            )
+            if !IS_GRAM_WALLET {
+                Item(
+                    icon: "PlayIcon",
+                    text: lang("Watch Video about Features"),
+                    onTap: onWatch
+                )
+            }
             Item(
                 icon: "FireIcon",
                 text: lang("Enjoy Monthly Updates in Blog"),
@@ -83,7 +87,7 @@ struct AboutView: View {
     }
     
     func onBlog() {
-        open("https://mytonwallet.io/en/blog")
+        open(APP_BLOG_URL)
     }
     
     func onLearn() {
@@ -120,13 +124,13 @@ struct AboutView: View {
     }
     
     func onTerms() {
-        let url = URL(string: "https://mytonwallet.io/terms-of-use")!
+        let url = URL(string: APP_TERMS_OF_USE_URL)!
         let title = lang("Terms of Use")
         topWViewController()?.navigationController?.pushPlainWebView(title: title, url: url)
     }
     
     func onPrivacyPolicy() {
-        let url = URL(string: "https://mytonwallet.io/privacy-policy")!
+        let url = URL(string: APP_PRIVACY_POLICY_URL)!
         let title = lang("Privacy Policy")
         topWViewController()?.navigationController?.pushPlainWebView(title: title, url: url)
     }

@@ -1,0 +1,36 @@
+name: PortfolioDemoApp
+options:
+  createIntermediateGroups: true
+packages:
+  GraphKit:
+    path: ../..
+settings:
+  base:
+    SWIFT_VERSION: 5.10
+    IPHONEOS_DEPLOYMENT_TARGET: 16.0
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 1.0
+    TARGETED_DEVICE_FAMILY: 1
+targets:
+  PortfolioDemoApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: PortfolioDemoApp/Sources
+      - path: PortfolioDemoApp/Resources
+        buildPhase: resources
+        excludes:
+          - Info.plist
+    dependencies:
+      - package: GraphKit
+    settings:
+      base:
+        PRODUCT_NAME: PortfolioDemoApp
+        GENERATE_INFOPLIST_FILE: NO
+        PRODUCT_BUNDLE_IDENTIFIER: com.graphkit.portfoliodemoapp
+        INFOPLIST_FILE: PortfolioDemoApp/Resources/Info.plist
+    scheme:
+      testTargets: []

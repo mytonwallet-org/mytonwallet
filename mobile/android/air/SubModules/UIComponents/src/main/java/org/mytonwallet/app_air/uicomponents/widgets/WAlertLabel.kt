@@ -34,6 +34,7 @@ open class WAlertLabel(
     }
 
     init {
+        id = generateViewId()
         setStyle(14f, WFont.Medium)
         setLineHeight(20f)
         text = textContents

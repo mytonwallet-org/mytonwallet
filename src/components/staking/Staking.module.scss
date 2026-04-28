@@ -1,55 +1,16 @@
 @use "../../styles/mixins";
 
+.modalTitle {
+  margin-top: 0.375rem;
+  line-height: 1.25rem;
+}
+
 .modalDialog {
   height: 35rem;
 
   @supports (height: var(--safe-area-bottom)) {
     height: calc(35rem + var(--safe-area-bottom));
   }
-}
-
-.welcome {
-  display: flex;
-  align-items: center;
-
-  margin-bottom: 1.25rem;
-  padding: 1rem;
-  border-radius: var(--border-radius-default);
-
-  background: var(--color-background-first);
-
-  &_static {
-    margin-bottom: 1.5rem;
-    padding: 0 0 1rem 0;
-  }
-}
-
-.welcomeInformation {
-  display: flex;
-  flex-direction: column;
-
-  margin-inline-start: 1rem;
-
-  font-size: 0.9375rem;
-  font-weight: 700;
-
-  &_static {
-    margin-inline-start: 0.75rem;
-  }
-}
-
-.stakingApy {
-  display: inline-block;
-  align-self: flex-start;
-
-  margin: 0.5rem 0 0.875rem;
-  padding: 0.375rem;
-  border-radius: var(--border-radius-tiny);
-
-  line-height: 0.9375rem;
-  color: var(--color-apy-text);
-
-  background: var(--color-apy-background);
 }
 
 .textButton {
@@ -72,15 +33,6 @@
 
   & + .textButton {
     margin-top: 0.75rem;
-  }
-}
-
-.sticker {
-  flex-grow: 0;
-  flex-shrink: 0;
-
-  &_static {
-    margin-top: -0.375rem;
   }
 }
 
@@ -122,49 +74,138 @@
   margin-bottom: 0.75rem;
 }
 
-.balanceResultWrapper {
-  height: 5.4375rem;
-
-  &__slide {
-    background: var(--background-color);
-  }
+.amountInputContainer {
+  height: auto;
+  margin-top: 0.6875rem;
+  margin-bottom: 1.1875rem;
 }
 
-.balanceResultInput {
-  display: block;
+.amountInputWrapper {
+  border-radius: 1.5rem;
 }
 
-.balanceResultLabel {
+.amountInputLabel {
+  margin-bottom: 0.625rem !important;
+  padding: 0 0.125rem !important;
+
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  line-height: 1rem !important;
+  color: var(--color-gray-2) !important;
+}
+
+.detailsSection {
+  margin-bottom: 0.75rem;
+}
+
+.detailsSectionTitle {
+  margin-bottom: 0.4375rem;
+  padding: 0 0.5rem;
+
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1rem;
   color: var(--color-gray-2);
 }
 
-.balanceStakedLabel {
-  color: var(--color-purple-2) !important;
-}
-
-.balanceStakedResult {
-  color: var(--color-purple-1);
-}
-
-.balanceResult {
+.detailsCard {
   overflow: hidden;
+  border-radius: 1.5rem;
+  background: var(--color-background-first);
+}
+
+.detailsRow {
+  position: relative;
+
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+
+  min-height: 3rem;
+  padding: 0.6875rem 1rem;
+
+  @include mixins.separatorList(1rem);
+
+  &_button {
+    cursor: var(--custom-cursor, pointer);
+
+    width: 100%;
+    border: 0;
+
+    text-align: left;
+
+    background: none;
+
+    @include mixins.transition(background-color 150ms);
+
+    @media (hover: hover) {
+      &:focus-visible,
+      &:hover {
+        background-color: var(--color-interactive-item-hover);
+      }
+    }
+  }
+}
+
+.detailsLabel {
+  min-width: 0;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+
+  .detailsRow_button > & {
+    color: var(--color-accent);
+  }
+}
+
+.detailsValue {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: flex-end;
 
-  width: auto;
-  max-width: 100%;
+  min-width: 0;
+  margin-left: auto;
 
-  background: linear-gradient(81.88deg, var(--color-purple-1) 19.42%, #1EC160 71.55%);
-  background-clip: text;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+  text-align: right;
 
-  -webkit-text-fill-color: transparent;
-
-  :global(.theme-dark) & {
-    background: linear-gradient(81.88deg, var(--color-purple-1) 19.42%, var(--color-green) 71.55%);
+  &_highlight {
+    background: var(--color-gradient-main-purple-green);
     background-clip: text;
 
     -webkit-text-fill-color: transparent;
   }
+
+  &_highlightBlock {
+    padding: 0.1875rem 0.25rem;
+    border-radius: 0.5rem;
+
+    font-size: 0.9375rem;
+    color: var(--color-white);
+
+    background: var(--color-gradient-main-purple-green);
+  }
+}
+
+.detailsArrow {
+  flex-shrink: 0;
+  font-size: 1rem;
+  color: var(--color-gray-3);
+}
+
+.detailsTextButton {
+  margin: 0 0 0.25rem;
+  padding: 0 0.125rem;
+}
+
+.submitButton {
+  border-radius: 1.5rem !important;
 }
 
 .stakingInfoModal {

@@ -218,6 +218,7 @@ public class PasscodeScreenView: UIView {
         )
         passcodeInputView.isUserInteractionEnabled = false
         passcodeInputView.setCirclesCount(to: passcodeLength)
+        passcodeInputView.setAccessibilityTitle(enterPasscodeLabel.label.text)
         unlockView.addArrangedSubview(passcodeInputView)
 
         // gap
@@ -271,6 +272,9 @@ public class PasscodeScreenView: UIView {
                         num = 0
                     }
                     buttonTitleLabel.text = "\(num)"
+                    button.isAccessibilityElement = true
+                    button.accessibilityLabel = buttonTitleLabel.text
+                    button.accessibilityTraits.insert(.keyboardKey)
                     button.addSubview(buttonTitleLabel)
                     NSLayoutConstraint.activate([
                         buttonTitleLabel.heightAnchor.constraint(equalToConstant: 32),
@@ -303,10 +307,23 @@ public class PasscodeScreenView: UIView {
                             hideButton(button)
                         }
                         image = UIImage(named: imageName, in: AirBundle, compatibleWith: nil)!
+                        switch biometryType {
+                        case .face:
+                            button.isAccessibilityElement = true
+                            button.accessibilityLabel = lang("Face ID")
+                        case .touch:
+                            button.isAccessibilityElement = true
+                            button.accessibilityLabel = lang("Touch ID")
+                        case nil:
+                            break
+                        }
                     } else {
                         // backspace!
                         image = UIImage(named: "BackspaceIcon", in: AirBundle, compatibleWith: nil)!
+                        button.isAccessibilityElement = true
+                        button.accessibilityLabel = lang("Delete")
                     }
+                    button.accessibilityTraits.insert(.keyboardKey)
                     let buttonImageView = UIImageView(image: image.withRenderingMode(.alwaysTemplate))
                     buttonImageView.tintColor = matchHeaderColors ? unlockScreenTintColor : UIColor.label
                     buttonImageView.translatesAutoresizingMaskIntoConstraints = false
@@ -401,6 +418,8 @@ public class PasscodeScreenView: UIView {
     
     private func hideButton(_ button: UIView) {
         button.alpha = 0 // if we set isHidden, stackView will not consider it's space
+        button.isAccessibilityElement = false
+        button.accessibilityElementsHidden = true
     }
     
     private let biometricButtonTag = 10

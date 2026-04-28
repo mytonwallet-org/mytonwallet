@@ -54,6 +54,7 @@ dependencies {
     implementation(project("$airSubModulePath:UIInAppBrowser"))
     implementation(project("$airSubModulePath:UISettings"))
     implementation(project("$airSubModulePath:UIAgent"))
+    implementation(project("$airSubModulePath:UIPortfolio"))
     implementation(project("$airSubModulePath:UITransaction"))
     implementation(project("$airSubModulePath:UIComponents"))
     implementation(project("$airSubModulePath:UITonConnect"))

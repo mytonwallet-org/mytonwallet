@@ -1,11 +1,10 @@
-import React, { memo, useEffect } from '../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import { selectCurrentAccountId, selectIsHardwareAccount, selectIsMultichainAccount } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { IS_IOS_APP } from '../../util/windowEnvironment';
 
-import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useLang from '../../hooks/useLang';
 
 import Modal from '../ui/Modal';
@@ -35,16 +34,9 @@ function ReceiveModal({
 
   const lang = useLang();
 
-  const { isLandscape } = useDeviceScreen();
   const isSwapAllowed = !isTestnet && !isLedger && !isSwapDisabled;
   const isOnRampAllowed = !isTestnet && !isOnRampDisabled;
   const modalTitle = lang(isSwapAllowed || isOnRampAllowed ? 'Fund' : 'Add');
-
-  useEffect(() => {
-    if (isOpen && isLandscape) {
-      closeReceiveModal();
-    }
-  }, [isLandscape, isOpen]);
 
   return (
     <Modal

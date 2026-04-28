@@ -64,7 +64,6 @@ interface OwnProps {
   children?: TeactNode;
   noAnimatedIcon?: boolean;
   inputWrapperClassName?: string;
-  forceBiometricsInMain?: boolean;
   noAutoConfirm?: boolean;
   onCancel?: NoneToVoidFunction;
   onUpdate: NoneToVoidFunction;
@@ -146,7 +145,6 @@ function PasswordForm({
   isFullWidthButton,
   noAnimatedIcon,
   inputWrapperClassName,
-  forceBiometricsInMain,
   isAutoConfirmEnabled,
   noAutoConfirm,
   onUpdate,
@@ -234,7 +232,7 @@ function PasswordForm({
     }
 
     void pause(APPEAR_ANIMATION_DURATION_MS).then(handleBiometrics);
-  }, [forceBiometricsInMain, handleBiometrics, isActive, isBiometricAuthEnabled, withConfirmScreenOnly]);
+  }, [handleBiometrics, isActive, isBiometricAuthEnabled, withConfirmScreenOnly]);
 
   useEffectOnce(() => {
     return getHandleBiometricsSignal.subscribe(handleBiometrics);

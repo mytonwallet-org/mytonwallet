@@ -2,14 +2,15 @@ import Foundation
 import OrderedCollections
 
 public struct MAccountWalletTokensData: Equatable, Hashable, Sendable {
-    public let walletTokensDict: OrderedDictionary<String, MTokenBalance>
-    public let walletStakedDict: OrderedDictionary<String, MTokenBalance>
+    public let orderedTokenBalancesDict: OrderedDictionary<TokenID, MTokenBalance>
 
-    public var walletTokens: [MTokenBalance] { Array(walletTokensDict.values) }
-    public var walletStaked: [MTokenBalance] { Array(walletStakedDict.values) }
+    public var orderedTokenBalances: [MTokenBalance] { Array(orderedTokenBalancesDict.values) }
+    public var walletTokens: [MTokenBalance] { orderedTokenBalances.filter { !$0.isStaking } }
+    public var walletStaked: [MTokenBalance] { orderedTokenBalances.filter(\.isStaking) }
 
-    init(walletTokens: [MTokenBalance], walletStaked: [MTokenBalance]) {
-        self.walletTokensDict = walletTokens.orderedDictionaryByKey(\.tokenSlug)
-        self.walletStakedDict = walletStaked.orderedDictionaryByKey(\.tokenSlug)
+    init(orderedTokenBalances: [MTokenBalance]) {
+        self.orderedTokenBalancesDict = OrderedDictionary(
+            uniqueKeysWithValues: orderedTokenBalances.map { ($0.tokenID, $0) }
+        )
     }
 }

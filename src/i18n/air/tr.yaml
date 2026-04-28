@@ -85,10 +85,11 @@ App Icon: Uygulama simgesi
 App Font: Uygulama yazı tipi
 Rounded Toolbars: Yuvarlatılmış araç çubukları
 Side Gutters: Yan boşluklar
+Gradient Navigation Bar: Gradyan gezinme çubuğu
 Tokens on Home Screen: Ana ekrandaki tokenlar
 Current Wallet Version: Mevcut cüzdan sürümü
 Tokens on Other Versions: Diğer sürümlerdeki tokenlar
-Show Recovery Phrase: Kurtarma ifadesini göster
+Show Secret Words: Gizli kelimeleri göster
 Passcode: Geçiş kodu
 Lock the app after: Uygulamayı şu kadar sonra kilitle
 Never: Asla
@@ -105,7 +106,7 @@ Up to %1$@: "%1$@'a kadar"
 up to %1$@: "%1$@'a kadar"
 Current APY: Güncel APY
 Current APR: Güncel APR
-Est. earning per year: Tahmini yıllık kazanç
+Est. Yearly Earnings: Tahmini yıllık kazanç
 in: içinde
 Error: Hata
 Network Error: Ağ hatası
@@ -134,7 +135,7 @@ via %agg%: "%agg% üzerinden"
 Switch to Legacy Version: Klasik sürüme geç
 Hide tab: Sekmeyi gizle
 Received from: Şuradan alındı
-Your Recovery Phrase: Kurtarma ifadeniz
+Your Secret Words: Gizli kelimeleriniz
 day:
   zeroValue: "%1$d gün"
   oneValue: "%1$d gün"
@@ -354,3 +355,11 @@ $more_nfts:
   zeroValue: NFT yok
   oneValue: "+1 NFT"
   otherValue: "+%1$d NFT"
+
+$subwallets_found:
+  oneValue: "Bulundu: %1$d"
+  otherValue: "Bulundu: %1$d"
+
+$subwallets_hint: Yeni gizli kelimeler oluşturmadan ek adresler almak için alt cüzdanlar kullanın.
+$subwallets_created_wallets: Daha önce alt cüzdan oluşturduysanız, aşağıdaki listede görünecektir.
+$subwallets_none: Henüz alt cüzdan yok.

@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.uiassets.viewControllers.token.views
 import android.annotation.SuppressLint
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -29,6 +28,7 @@ import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -186,10 +186,7 @@ class TokenHeaderView(
         }
         equivalentLabel.contentView.setTextColor(WColor.SubtitleText.color)
         val moreDrawable =
-            ContextCompat.getDrawable(
-                context,
-                R.drawable.ic_more
-            )?.apply {
+            context.getDrawableCompat(R.drawable.ic_more)?.apply {
                 setTint(WColor.SecondaryText.color)
             }
         moreButton.setImageDrawable(moreDrawable)

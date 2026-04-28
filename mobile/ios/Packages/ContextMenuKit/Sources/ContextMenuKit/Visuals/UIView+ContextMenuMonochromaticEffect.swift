@@ -19,7 +19,7 @@ extension UIView {
             self.overrideUserInterfaceStyle = overrideStyle
         }
 
-        guard #available(iOS 26.0, *), overrideStyle != .unspecified else {
+        guard #available(iOS 26.1, *), overrideStyle != .unspecified else {
             return
         }
 

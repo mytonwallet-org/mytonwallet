@@ -1,4 +1,5 @@
 $landscapeAuthContentMaxWidth: 31.4375rem;
+$landscapeMainContentMaxWidth: 53.5rem;
 $portraitContentMaxWidth: 27rem;
 $portraitHeaderHeight: 3rem;
 $defaultCardGradient: #479DE2 0, #367CCC 100%;
@@ -7,8 +8,9 @@ $goldCardGradient: #C4842B 0, #FFDE5E 100%;
 $platinumCardGradient: #393A3F 0, #393A3F 100%;
 $blackCardGradient: #000 0, #000 100%;
 
-// Card
-$cardAspectRatio: 58.203%;
+// Card (portrait: 378×220, landscape: 328×200)
+$cardAspectRatioPortrait: 58.201%;
+$cardAspectRatioLandscape: 60.976%;
 $cardPortraitBaseBalanceSize: 3.25rem;
 $cardLandscapeBaseBalanceSize: 3rem;
 
@@ -18,15 +20,47 @@ $transactionModalMaxWidth: 24rem;
 
 $byChain: (
   ton: (
-    tabColor: var(--color-activity-blue),
-    tabBackground: var(--color-activity-blue-background),
+    tabColor: var(--color-default-accent),
+    tabBackground: var(--color-default-accent-bg),
   ),
   tron: (
     tabColor: var(--color-activity-red-text),
     tabBackground: var(--color-activity-red-background),
   ),
   solana: (
-    tabColor: var(--color-activity-purple-text),
-    tabBackground: var(--color-activity-purple-background),
+    tabColor: var(--color-chain-solana),
+    tabBackground: var(--color-chain-solana-bg),
+  ),
+  ethereum: (
+    tabColor: var(--color-chain-ethereum),
+    tabBackground: var(--color-chain-ethereum-bg),
+  ),
+  base: (
+    tabColor: var(--color-chain-base),
+    tabBackground: var(--color-chain-base-bg),
+  ),
+  bnb: (
+    tabColor: var(--color-chain-bnb),
+    tabBackground: var(--color-chain-bnb-bg),
+  ),
+  polygon: (
+    tabColor: var(--color-chain-polygon),
+    tabBackground: var(--color-chain-polygon-bg),
+  ),
+  arbitrum: (
+    tabColor: var(--color-chain-arbitrum),
+    tabBackground: var(--color-chain-arbitrum-bg),
+  ),
+  monad: (
+    tabColor: var(--color-chain-monad),
+    tabBackground: var(--color-chain-monad-bg),
+  ),
+  avalanche: (
+    tabColor: var(--color-chain-avalanche),
+    tabBackground: var(--color-chain-avalanche-bg),
+  ),
+  hyperliquid: (
+    tabColor: var(--color-chain-hyperliquid),
+    tabBackground: var(--color-chain-hyperliquid-bg),
   ),
 );

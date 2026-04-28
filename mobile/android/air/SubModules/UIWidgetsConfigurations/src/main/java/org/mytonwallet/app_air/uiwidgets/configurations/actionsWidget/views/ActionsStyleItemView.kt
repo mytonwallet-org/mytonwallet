@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiwidgets.configurations.actionsWidget.views
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.view.View
@@ -75,7 +76,7 @@ class ActionsStyleItemView(
         )
         addRippleEffect(WColor.BackgroundRipple.color, 20f.dp)
         nameLabel.setTextColor((if (isActive) WColor.Tint else WColor.SecondaryText).color)
-        nameLabel.setStyle(16f, if (isActive) WFont.Medium else WFont.Regular)
+        nameLabel.setStyle(adaptiveFontSize(), if (isActive) WFont.Medium else WFont.Regular)
     }
 
 }

@@ -1,6 +1,7 @@
 More: More
 at: at
 MyTonWallet: MyTonWallet
+Gram Wallet: Gram Wallet
 MyTonWallet Resources: MyTonWallet Resources
 I agree to %term%: I agree to %term%
 See Words: See Words
@@ -84,10 +85,11 @@ App Icon: App Icon
 App Font: App Font
 Rounded Toolbars: Rounded Toolbars
 Side Gutters: Side Gutters
+Gradient Navigation Bar: Gradient Navigation Bar
 Tokens on Home Screen: Tokens on Home Screen
 Current Wallet Version: Current Wallet Version
 Tokens on Other Versions: Tokens on Other Versions
-Show Recovery Phrase: Show Recovery Phrase
+Show Secret Words: Show Secret Words
 Passcode: Passcode
 Lock the app after: Lock the app after
 Never: Never
@@ -104,7 +106,7 @@ Up to %1$@: Up to %1$@
 up to %1$@: up to %1$@
 Current APY: Current APY
 Current APR: Current APR
-Est. earning per year: Est. earning per year
+Est. Yearly Earnings: Est. Yearly Earnings
 in: in
 Error: Error
 Network Error: Network Error
@@ -133,7 +135,7 @@ via %agg%: via %agg%
 Switch to Legacy Version: Switch to Classic Version
 Hide tab: Hide tab
 Received from: Received from
-Your Recovery Phrase: Your Recovery Phrase
+Your Secret Words: Your Secret Words
 day:
   zeroValue: "%1$d day"
   oneValue: "%1$d day"
@@ -353,3 +355,10 @@ $more_nfts:
   zeroValue: No NFTs
   oneValue: "+1 NFT"
   otherValue: "+%1$d NFTs"
+
+$subwallets_found:
+  oneValue: "Found: %1$d"
+  otherValue: "Found: %1$d"
+$subwallets_hint: Use subwallets to get additional addresses without creating a new set of secret words.
+$subwallets_created_wallets: If you have previously created subwallets, they will appear in the list below.
+$subwallets_none: No subwallets yet.

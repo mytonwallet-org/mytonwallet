@@ -3,7 +3,7 @@ import React, { memo } from '../../lib/teact/teact';
 
 import type { ApiNft } from '../../api/types';
 import type { Account, AccountType } from '../../global/types';
-import type { AccountBalance } from '../main/modals/accountSelector/hooks/useAccountsBalances';
+import type { AccountBalance } from '../../hooks/useAccountsBalances';
 
 import buildClassName from '../../util/buildClassName';
 

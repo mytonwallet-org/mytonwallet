@@ -98,13 +98,38 @@ fileprivate struct StakeInfoSection: View {
                 }
                 InsetCell {
                     HStack {
-                        Text(lang("Est. earning per year"))
+                        Text(lang("Est. Yearly Earnings"))
                             .font17h22()
                         Spacer()
                         estEarning
                     }
                     .padding(.top, -1)
                 }
+                
+                if let totalStaked = model.totalStaked, totalStaked > 0 {
+                    InsetCell {
+                        HStack {
+                            Text(lang("Total Staked"))
+                                .font17h22()
+                            Spacer()
+                            Text(amount: TokenAmount(totalStaked, model.baseToken), format: .init(maxDecimals: 0))
+                        }
+                        .padding(.top, -1)
+                    }
+                }
+                
+                if let totalStakers = model.totalStakers, totalStakers > 0 {
+                    InsetCell {
+                        HStack {
+                            Text(lang("Total Stakers"))
+                                .font17h22()
+                            Spacer()
+                            Text(formatBigIntText(BigInt(totalStakers), tokenDecimals: 0))
+                        }
+                        .padding(.top, -1)
+                    }
+                }
+
                 InsetButtonCell(action: { model.onWhyIsSafe?() }) {
                     Text(model.config.explainTitle)
                         .font17h22()
@@ -146,11 +171,11 @@ fileprivate struct StakeInfoSection: View {
         if model.switchedToBaseCurrencyInput {
             let cur = model.amountInBaseCurrency ?? 0
             let income = cur * BigInt(model.apy * 1000) / 1000 / 100
-            return Text(amount: DecimalAmount.baseCurrency(income)!, format: .init(showPlus: true))
+            return Text(amount: DecimalAmount.baseCurrency(income)!, format: .init(preset: .defaultAdaptive, showPlus: true))
         } else {
             let amnt = (model.amount ?? 0)
             let income = amnt * BigInt(model.apy * 1000) / 1000 / 100
-            return Text(amount: TokenAmount(income, model.baseToken), format: .init(showPlus: true))
+            return Text(amount: TokenAmount(income, model.baseToken), format: .init(preset: .defaultAdaptive, showPlus: true))
         }
     }
 }

@@ -7,7 +7,6 @@ import android.text.TextUtils
 import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.View
-import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.extensions.atMost
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -21,11 +20,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.SensitiveDataMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
@@ -36,12 +36,13 @@ import java.math.BigInteger
 import kotlin.math.abs
 import kotlin.math.absoluteValue
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView, WProtectedView {
 
     private val amountLabel = WSensitiveDataContainer(
         WLabel(context).apply {
-            setStyle(ApplicationContextHolder.adaptiveFontSize)
+            setStyle(adaptiveFontSize())
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
@@ -165,8 +166,7 @@ class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView,
             )
         }
 
-        ContextCompat.getDrawable(
-            context,
+        context.getDrawableCompat(
             org.mytonwallet.app_air.walletcontext.R.drawable.ic_act_swap_done
         )?.let { drawable ->
             drawable.mutate()
@@ -275,9 +275,9 @@ class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView,
 
             mainIconView.layout(
                 mainIconLeft,
-                (height - mainIconView.measuredHeight) / 2,
+                (height - mainIconView.measuredHeight) / 2 - 0.5f.dp.roundToInt(),
                 mainIconRight,
-                (height - mainIconView.measuredHeight) / 2 + mainIconView.measuredHeight
+                (height - mainIconView.measuredHeight) / 2 + mainIconView.measuredHeight - 0.5f.dp.roundToInt()
             )
 
             if (secondIconView.isVisible) {
@@ -287,16 +287,16 @@ class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView,
 
                 secondIconView.layout(
                     secondIconLeft,
-                    secondIconTop,
+                    secondIconTop - 0.5f.dp.roundToInt(),
                     secondIconRight,
-                    secondIconTop + secondIconView.measuredHeight
+                    secondIconTop + secondIconView.measuredHeight - 0.5f.dp.roundToInt()
                 )
 
                 borderView.layout(
                     secondIconLeft - 1.dp,
-                    secondIconTop - 1.dp,
+                    secondIconTop - 1.5f.dp.roundToInt(),
                     secondIconRight + 1.dp,
-                    secondIconTop + secondIconView.measuredHeight + 1.dp
+                    secondIconTop + secondIconView.measuredHeight + 0.5f.dp.roundToInt()
                 )
 
                 val mainIconOverlapLeft = secondIconRight - 6.dp
@@ -336,9 +336,9 @@ class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView,
             val mainIconLeft = amountLabelRight + 4.dp
             mainIconView.layout(
                 mainIconLeft,
-                (height - mainIconView.measuredHeight) / 2,
+                (height - mainIconView.measuredHeight) / 2 - 0.5f.dp.roundToInt(),
                 mainIconLeft + mainIconView.measuredWidth,
-                (height - mainIconView.measuredHeight) / 2 + mainIconView.measuredHeight
+                (height - mainIconView.measuredHeight) / 2 + mainIconView.measuredHeight - 0.5f.dp.roundToInt()
             )
 
             if (secondIconView.isVisible) {
@@ -346,15 +346,15 @@ class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView,
                 val secondIconTop = mainIconView.top
                 borderView.layout(
                     secondIconLeft - 1.dp,
-                    secondIconTop - 1.dp,
+                    secondIconTop - 1.5f.dp.roundToInt(),
                     secondIconLeft + secondIconView.measuredWidth + 1.dp,
-                    secondIconTop + secondIconView.measuredHeight + 1.dp
+                    secondIconTop + secondIconView.measuredHeight + 0.5f.dp.roundToInt()
                 )
                 secondIconView.layout(
                     secondIconLeft,
-                    secondIconTop,
+                    secondIconTop - 0.5f.dp.roundToInt(),
                     secondIconLeft + secondIconView.measuredWidth,
-                    secondIconTop + secondIconView.measuredHeight
+                    secondIconTop + secondIconView.measuredHeight - 0.5f.dp.roundToInt()
                 )
             }
         }

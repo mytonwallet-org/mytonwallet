@@ -490,6 +490,8 @@ function buildLiquidState({
     annualYield: liquidApy,
     yieldType: 'APY',
     tokenBalance,
+    tvl: commonData.liquid.tvl,
+    totalStakers: commonData.liquid.totalStakers,
     unstakeRequestAmount,
     instantAvailable: liquidAvailable,
     start,

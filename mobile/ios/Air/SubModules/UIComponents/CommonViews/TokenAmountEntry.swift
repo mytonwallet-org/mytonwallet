@@ -169,8 +169,6 @@ public struct TokenAmountEntry: View {
     public var isInputEnabled: Bool
     public var onInputTapped: (() -> ())?
     
-    @State private var indicatorAngle = Angle.zero
-    
     public init(
         amount: Binding<BigInt?>,
         token: ApiToken?,
@@ -276,14 +274,7 @@ public struct TokenAmountEntry: View {
     }
 
     var loadingIndicator: some View {
-        Image.airBundle("ActivityIndicator")
-            .renderingMode(.template)
+        WUIActivityIndicator()
             .foregroundStyle(Color.air.secondaryLabel)
-            .rotationEffect(indicatorAngle)
-            .onAppear {
-                withAnimation(.linear(duration: 0.625).repeatForever(autoreverses: false)) {
-                    indicatorAngle += .radians(2 * .pi)
-                }
-            }
     }
 }

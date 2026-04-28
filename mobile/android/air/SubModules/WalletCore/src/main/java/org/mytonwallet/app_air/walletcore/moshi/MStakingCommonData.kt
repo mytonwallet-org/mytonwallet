@@ -29,7 +29,9 @@ data class Liquid(
     //val collection: String,
     val apy: Double,
     val loyaltyApy: LoyaltyApy,
-    val available: String
+    val available: String,
+    val tvl: String? = null,
+    val totalStakers: Long? = null,
 )
 
 @JsonClass(generateAdapter = true)

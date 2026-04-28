@@ -68,9 +68,9 @@ class WordDisplayVC(
         view.unlockView()
     }
 
-    override fun finalizedCreation(createdAccount: MAccount) {
+    override fun finalizedCreation(createdAccount: MAccount, importedAccountsCount: Int) {
         if (isFirstWalletToAdd) {
-            push(WalletAddedVC(context, true), {
+            push(WalletAddedVC(context, true, importedAccountsCount), {
                 navigationController?.removePrevViewControllers()
             })
         } else {

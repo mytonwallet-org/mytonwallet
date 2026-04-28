@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.ledger.screens.ledgerConnect
 
 import android.Manifest
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -58,6 +59,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.R
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
@@ -67,13 +69,10 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.submitStake
 import org.mytonwallet.app_air.walletcore.api.submitUnstake
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
-import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
-import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
-import org.mytonwallet.app_air.walletcore.moshi.ApiTransferToSign
 import org.mytonwallet.app_air.walletcore.moshi.LocalActivityParams
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -83,7 +82,6 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRe
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRequestConnect.Request
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRequestSendTransaction
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.SignDappProof
-import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Domains.SubmitDnsChangeWallet
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Domains.SubmitDnsRenewal
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Nft.SubmitNftTransfer
@@ -259,11 +257,11 @@ class LedgerConnectVC(
 
     val connectionTypeLabel = WLabel(context).apply {
         text = LocaleController.getString("Connection Type")
-        setStyle(16f, WFont.SemiBold)
+        setStyle(adaptiveFontSize(), WFont.SemiBold)
     }
 
     val connectionTypeValue = WLabel(context).apply {
-        setStyle(16f, WFont.SemiBold)
+        setStyle(adaptiveFontSize(), WFont.SemiBold)
     }
 
     val connectionTypeView: WView by lazy {
@@ -449,8 +447,7 @@ class LedgerConnectVC(
                     "USB"
             ) + " "
         val ss = SpannableStringBuilder(txt)
-        ContextCompat.getDrawable(
-            context,
+        context.getDrawableCompat(
             org.mytonwallet.app_air.icons.R.drawable.ic_arrow_bottom_8
         )?.let { drawable ->
             drawable.mutate()
@@ -625,8 +622,10 @@ class LedgerConnectVC(
 
                 is SignData.SignDappTransfers -> {
                     try {
-                        val account = AccountStore.accountById(signData.update.accountId) ?: return@launch
-                        val dappChain = account.dappChain(signData.update.operationChain) ?: return@launch
+                        val account =
+                            AccountStore.accountById(signData.update.accountId) ?: return@launch
+                        val dappChain =
+                            account.dappChain(signData.update.operationChain) ?: return@launch
                         val signedMessages = WalletCore.call(
                             SignDappTransfers(
                                 dappChain = dappChain,
@@ -817,8 +816,10 @@ class LedgerConnectVC(
 
                 is SignData.SignDappData -> {
                     try {
-                        val account = AccountStore.accountById(signData.update.accountId) ?: return@launch
-                        val dappChain = account.dappChain(signData.update.operationChain) ?: return@launch
+                        val account =
+                            AccountStore.accountById(signData.update.accountId) ?: return@launch
+                        val dappChain =
+                            account.dappChain(signData.update.operationChain) ?: return@launch
                         val signedData = WalletCore.call(
                             ApiMethod.Transfer.SignDappData(
                                 dappChain = dappChain,

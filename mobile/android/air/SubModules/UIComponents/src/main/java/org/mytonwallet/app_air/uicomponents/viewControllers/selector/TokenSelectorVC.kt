@@ -155,7 +155,7 @@ class TokenSelectorVC(
         super.insetsUpdated()
 
         val ime = (window?.imeInsets?.bottom ?: 0)
-        val nav = (navigationController?.getSystemBars()?.bottom ?: 0)
+        val nav = (navigationController?.bottomInset ?: 0)
 
         view.setConstraints {
             toCenterX(recyclerView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())

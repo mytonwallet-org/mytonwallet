@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisend.sendNft
 
 import android.animation.Animator
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
@@ -15,14 +16,12 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.Space
-import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.widget.doOnTextChanged
-import com.google.android.material.chip.ChipGroup
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListIconDualLineCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -32,18 +31,17 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
-import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
-import org.mytonwallet.app_air.uicomponents.widgets.WTagView
 import org.mytonwallet.app_air.uicomponents.widgets.autoComplete.WAutoCompleteAddressView
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.setRoundedOutline
 import org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm.ConfirmNftVC
+import org.mytonwallet.app_air.uisend.sendNft.views.WNftTagsChipGroup
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -70,10 +68,6 @@ class SendNftVC(
     context: Context,
     val nfts: List<ApiNft>,
 ) : WViewController(context), SendNftVM.Delegate, WalletCore.EventObserver {
-
-    private companion object {
-        const val MAX_VISIBLE_NFT_TAGS = 10
-    }
 
     constructor(context: Context, nft: ApiNft) : this(context, listOf(nft))
 
@@ -198,30 +192,10 @@ class SendNftVC(
     }
 
     private val multipleNftView by lazy {
-        ChipGroup(context).apply {
+        WNftTagsChipGroup(context).apply {
             id = View.generateViewId()
-            setPaddingDp(16)
-            isSingleLine = false
-            chipSpacingHorizontal = 8.dp
-            chipSpacingVertical = 8.dp
-            nfts.take(MAX_VISIBLE_NFT_TAGS).forEach { nft ->
-                addView(WTagView(context).apply {
-                    configure(Content.ofUrl(nft.thumbnail ?: nft.image ?: ""), nft.name)
-                })
-            }
-            val remainingNfts = nfts.size - MAX_VISIBLE_NFT_TAGS
-            if (remainingNfts > 0) {
-                addView(
-                    WLabel(context).apply {
-                        setStyle(14f, WFont.Regular)
-                        setTextColor(WColor.SecondaryText)
-                        gravity = Gravity.CENTER_VERTICAL
-                        text = LocaleController.getString("%amount% NFTs")
-                            .replace("%amount%", "+$remainingNfts")
-                    },
-                    ViewGroup.LayoutParams(WRAP_CONTENT, 28.dp)
-                )
-            }
+            onMoreClickListener = { openSelectedNfts() }
+            configure(nfts)
         }
     }
 
@@ -255,7 +229,7 @@ class SendNftVC(
     private val commentInputView by lazy {
         WEditText(context, multilinePaste = false).apply {
             hint = LocaleController.getString("Add a message, if needed")
-            setStyle(16f)
+            setStyle(adaptiveFontSize())
             layoutParams =
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             setPaddingDp(20, 13, 20, 20)
@@ -564,6 +538,17 @@ class SendNftVC(
             addressInputView.resetInputFieldFocus()
         }
         view.hideKeyboard()
+    }
+
+    private fun openSelectedNfts() {
+        val accountId = displayedAccount.accountId ?: AccountStore.activeAccountId ?: return
+        WalletCore.notifyEvent(
+            WalletEvent.OpenNftList(
+                name = title,
+                accountId = accountId,
+                nfts = nfts
+            )
+        )
     }
 
     private fun showSuggestions() {

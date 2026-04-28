@@ -15,8 +15,10 @@ object TronConfig : MBlockchainConfig {
 
     override val symbolIconPadded = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_tron_15
 
-    override val receiveOrnamentImage = org.mytonwallet.app_air.icons.R.drawable.receive_ornament_tron_light
+    override val receiveOrnamentImage =
+        org.mytonwallet.app_air.icons.R.drawable.receive_ornament_tron_light
 
+    override val qrIcon = null
     override val qrGradientColors = intArrayOf(
         "#A32F22".toColorInt(),
         "#9A184A".toColorInt(),
@@ -28,7 +30,7 @@ object TronConfig : MBlockchainConfig {
     override val isEncryptedCommentSupported = false
 
     override val burnAddress = null
-    override val canBuyWithCard = true
+    override val multiWalletSupport = MultiWalletSupport.PATH
 
     override fun isValidAddress(address: String): Boolean =
         Regex("""^T[1-9A-HJ-NP-Za-km-z]{33}$""").matches(address)

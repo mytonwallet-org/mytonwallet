@@ -1,0 +1,43 @@
+@use "../../../../styles/scssVariables" as v;
+
+.transition {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.slide {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.standaloneWrapper {
+  display: flex;
+  flex-direction: column;
+
+  // Mirrors the scrollbar gutter that `LandscapeWalletOverview`'s outer scroll
+  // container reserves, so Agent/Explore content right edge aligns with
+  // Activities at narrow viewports (no-op once max-width caps the box).
+  width: calc(100% - var(--scrollbar-width));
+  max-width: v.$landscapeMainContentMaxWidth;
+  height: 100%;
+  min-height: 0;
+  padding-top: var(--app-padding-top);
+  padding-right: 1rem;
+  padding-bottom: max(var(--safe-area-bottom), 1rem);
+}
+
+.settingsWrapper {
+  display: flex;
+  flex-direction: column;
+
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  // Mirrors the scrollbar gutter that `LandscapeWalletOverview`'s outer scroll
+  // container reserves, so Settings content right edge aligns with Activities
+  // at narrow viewports (where the layout fills the full width).
+  padding-right: var(--scrollbar-width);
+}

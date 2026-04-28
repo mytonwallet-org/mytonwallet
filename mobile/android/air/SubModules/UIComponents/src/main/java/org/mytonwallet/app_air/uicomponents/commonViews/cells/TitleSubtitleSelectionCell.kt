@@ -1,12 +1,13 @@
 package org.mytonwallet.app_air.uicomponents.commonViews.cells
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -14,6 +15,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 
 @SuppressLint("ViewConstructor")
 class TitleSubtitleSelectionCell(
@@ -28,7 +30,7 @@ class TitleSubtitleSelectionCell(
 
     private val titleLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize(), WFont.DemiBold)
         lbl
     }
 
@@ -66,8 +68,7 @@ class TitleSubtitleSelectionCell(
         )
         addRippleEffect(WColor.SecondaryBackground.color)
         selectionImageView.setImageDrawable(
-            ContextCompat.getDrawable(
-                context,
+            context.getDrawableCompat(
                 if (isSelected) R.drawable.ic_radio_fill else R.drawable.ic_radio
             )?.apply {
                 setTint(if (isSelected) WColor.Tint.color else WColor.Separator.color)

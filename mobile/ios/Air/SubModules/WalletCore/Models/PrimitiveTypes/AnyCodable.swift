@@ -1,6 +1,6 @@
 import Foundation
 
-public enum AnyCodable: Codable, Sendable {
+public enum AnyCodable: Codable, Equatable, Hashable, Sendable {
     case string(String)
     case int(Int)
     case double(Double)

@@ -1,12 +1,12 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.views
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.InputType
 import android.text.TextUtils
 import android.text.method.DigitsKeyListener
 import android.view.Gravity
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 
 class SwapAssetInputView(context: Context) : WCell(context), WThemedView {
@@ -32,7 +33,7 @@ class SwapAssetInputView(context: Context) : WCell(context), WThemedView {
         isSingleLine = true
         ellipsize = TextUtils.TruncateAt.END
 
-        setStyle(16f, WFont.Regular)
+        setStyle(adaptiveFontSize(), WFont.Regular)
         setLineHeight(24f)
     }
 
@@ -43,10 +44,7 @@ class SwapAssetInputView(context: Context) : WCell(context), WThemedView {
 
     val assetView = WTokenSymbolIconView(context).apply {
         id = generateViewId()
-        drawable = ContextCompat.getDrawable(
-            context,
-            org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18
-        )
+        drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
         defaultSymbol = LocaleController.getString("Select Token")
         layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
     }

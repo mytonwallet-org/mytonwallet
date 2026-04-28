@@ -58,13 +58,16 @@ export async function fetchWithRetry(url: string | URL, init?: RequestInit, opti
     shouldSkipRetryFn = isNotTemporaryError,
   } = options ?? {};
 
+  const method = init?.method ?? 'GET';
+  const urlString = url.toString();
+
   let message = 'Unknown error.';
   let statusCode: number | undefined;
 
   for (let i = 1; i <= retries; i++) {
     try {
       if (i > 1) {
-        logDebug(`Retry request #${i}:`, url.toString(), statusCode);
+        logDebug(`Retry request #${i}:`, urlString, statusCode);
       }
 
       const timeout = Array.isArray(timeouts)
@@ -85,7 +88,7 @@ export async function fetchWithRetry(url: string | URL, init?: RequestInit, opti
       const shouldSkipRetry = shouldSkipRetryFn(message, statusCode);
 
       if (shouldSkipRetry) {
-        throw new ApiServerError(message, statusCode);
+        throw new ApiServerError(buildFetchErrorMessage(method, urlString, message, i, statusCode), statusCode);
       }
 
       if (i < retries) {
@@ -94,7 +97,20 @@ export async function fetchWithRetry(url: string | URL, init?: RequestInit, opti
     }
   }
 
-  throw new ApiServerError(message);
+  throw new ApiServerError(buildFetchErrorMessage(method, urlString, message, retries, statusCode), statusCode);
+}
+
+function buildFetchErrorMessage(
+  method: string,
+  url: string,
+  message: string,
+  attempts: number,
+  statusCode?: number,
+): string {
+  const parts = [`${method} ${url}`, `attempts=${attempts}`];
+  if (statusCode !== undefined) parts.push(`status=${statusCode}`);
+  parts.push(message);
+  return parts.join(' | ');
 }
 
 export async function fetchWithTimeout(url: string | URL, init?: RequestInit, timeout = DEFAULT_TIMEOUT) {

@@ -8,7 +8,6 @@ import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -21,6 +20,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
@@ -206,7 +206,7 @@ class HeaderAndActionsView(
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subTitleLabel.setTextColor(WColor.PrimaryText.color)
         (media as? Media.Image)?.let { media ->
-            val drawable = ContextCompat.getDrawable(context, media.image)!!
+            val drawable = context.requireDrawableCompat(media.image)
             if (media.tintedImage) {
                 drawable.mutate()
                 drawable.setTint(WColor.Tint.color)

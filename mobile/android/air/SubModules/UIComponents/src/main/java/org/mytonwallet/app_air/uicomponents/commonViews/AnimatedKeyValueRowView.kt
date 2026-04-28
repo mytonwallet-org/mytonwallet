@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -10,7 +11,6 @@ import android.text.TextUtils
 import android.util.AttributeSet
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -20,9 +20,10 @@ import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import kotlin.math.roundToInt
 
 class AnimatedKeyValueRowView @JvmOverloads constructor(
@@ -38,7 +39,7 @@ class AnimatedKeyValueRowView @JvmOverloads constructor(
 
     private val titleTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = WFont.Regular.typeface
-        textSize = 16f.dp
+        textSize = adaptiveFontSize().dp
     }
     private val valueTextPaint = TextPaint(titleTextPaint)
 
@@ -193,7 +194,7 @@ class AnimatedKeyValueRowView @JvmOverloads constructor(
     }
 
     fun setTitleDrawable(res: Int, alpha: Float = 1f) {
-        val drawable = ContextCompat.getDrawable(context, res)
+        val drawable = context.getDrawableCompat(res)
         drawable?.alpha = (alpha * 255f).roundToInt()
         setTitleDrawable(drawable)
     }
@@ -205,7 +206,7 @@ class AnimatedKeyValueRowView @JvmOverloads constructor(
     }
 
     fun setValueDrawable(res: Int, alpha: Float = 1f) {
-        val drawable = ContextCompat.getDrawable(context, res)
+        val drawable = context.getDrawable(res)
         drawable?.alpha = (alpha * 255f).roundToInt()
         setValueDrawable(drawable)
     }

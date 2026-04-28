@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisend.send
 
 import android.animation.Animator
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
@@ -19,10 +20,8 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Space
-import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.Guideline
-import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
@@ -53,6 +52,7 @@ import org.mytonwallet.app_air.uicomponents.viewControllers.SendTokenVC
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
 import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.autoComplete.WAutoCompleteAddressView
 import org.mytonwallet.app_air.uicomponents.widgets.clearSegmentedControl.WClearSegmentedControl
@@ -70,6 +70,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
@@ -127,33 +128,35 @@ class SendVC(
         }
 
     private val shouldShowSellTab: Boolean
-        get() = !isSell && isOffRampAllowed
+        get() {
+            if (isSell || !isOffRampAllowed) return false
+            val tokenSlug = viewModel.getTokenSlug()
+            val chain = TokenStore.getToken(tokenSlug)?.mBlockchain ?: return false
+            return chain.isOfframpSupported
+        }
 
     private var didAutoConfirm = false
 
-    private val navSegmentedControl by lazy {
-        WClearSegmentedControl(context).apply {
-            paintColor = WColor.Background.color
-            setItems(
-                buildSegmentedItems(), 0, object : WClearSegmentedControl.Delegate {
-                    override fun onIndexChanged(to: Int, animated: Boolean) {
-                        if (shouldShowSellTab && to == 1) {
-                            openSellWithCard()
-                            updateThumbPosition(
-                                position = 0f,
-                                targetPosition = 0,
-                                animated = false,
-                                force = true,
-                                isAnimatingToPosition = false
-                            )
-                        }
-                    }
-
-                    override fun onItemMoved(from: Int, to: Int) {}
-
-                    override fun enterReorderingMode() {}
-                })
+    private val segmentedDelegate = object : WClearSegmentedControl.Delegate {
+        override fun onIndexChanged(to: Int, animated: Boolean) {
+            if (shouldShowSellTab && to == 1) {
+                openSellWithCard()
+                navSegmentedControl.updateThumbPosition(
+                    position = 0f,
+                    targetPosition = 0,
+                    animated = false,
+                    force = true,
+                    isAnimatingToPosition = false
+                )
+            }
         }
+
+        override fun onItemMoved(from: Int, to: Int) {}
+        override fun enterReorderingMode() {}
+    }
+
+    private val navSegmentedControl = WClearSegmentedControl(context).apply {
+        paintColor = WColor.Background.color
     }
 
     private var suggestionAnimator: Animator? = null
@@ -307,7 +310,7 @@ class SendVC(
     private val commentInputView by lazy {
         WEditText(context, multilinePaste = false).apply {
             hint = LocaleController.getString("Add a message, if needed")
-            setStyle(16f)
+            setStyle(adaptiveFontSize())
             layoutParams =
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             setPaddingDp(20, 13, 20, 14)
@@ -350,7 +353,7 @@ class SendVC(
             )
             setPaddingDp(20, 14, 20, 14)
 
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = initialValues?.binary
             clipLabel = LocaleController.getString("Signing Data")
@@ -380,7 +383,7 @@ class SendVC(
             )
             setPaddingDp(20, 14, 20, 14)
 
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = initialValues?.init
             clipLabel = LocaleController.getString("Contract Initialization Data")
@@ -737,6 +740,7 @@ class SendVC(
 
         WalletCore.registerObserver(this)
 
+        navSegmentedControl.setItems(buildSegmentedItems(), 0, segmentedDelegate)
         setupNavBar(true)
         navigationBar?.setTitleView(navSegmentedControl, animated = false)
         navigationBar?.addCloseButton()
@@ -1012,6 +1016,13 @@ class SendVC(
         viewModel.onInputToken(tokenSlug)
         updateCommentViews()
         showServiceTokenWarningIfRequired()
+
+        if (isSell) return
+        navSegmentedControl.setItems(
+            buildSegmentedItems(),
+            0,
+            segmentedDelegate
+        )
     }
 
     private fun updateCommentTitleLabel() {
@@ -1043,8 +1054,7 @@ class SendVC(
             }
         )
         if (supportsEncryption) {
-            ContextCompat.getDrawable(
-                context,
+            context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_arrow_bottom_8
             )?.let { drawable ->
                 drawable.mutate()

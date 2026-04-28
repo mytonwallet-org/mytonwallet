@@ -1,6 +1,6 @@
 {
   "name": "mytonwallet",
-  "version": "4.8.5",
+  "version": "4.9.0",
   "description": "The most feature-rich web wallet and browser extension for TON – with support of multi-accounts, tokens (jettons), NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.",
   "main": "index.js",
   "scripts": {
@@ -236,6 +236,7 @@
     "capacitor-secure-storage-plugin": "github:mytonwallet-org/capacitor-secure-storage-plugin#d0304dddaacaaa49e342ff6c4d7fbfedff2b1503",
     "cordova-plugin-inappbrowser": "github:mytonwallet-org/cordova-plugin-inappbrowser#360b79fda72c125d9af0c46d8a7fbe7e21ef5005",
     "create-hmac": "1.1.7",
+    "ethers": "^6.13.0",
     "dexie": "4.0.11",
     "electron-conf": "1.3.0",
     "ffjavascript": "^0.3.1",

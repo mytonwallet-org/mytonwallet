@@ -92,7 +92,7 @@
   color: var(--color-flashlight-button-text);
 
   background-color: var(--color-flashlight-button-background);
-  backdrop-filter: blur(1rem);
+  backdrop-filter: blur(16px);
 
   transition: background-color 200ms, color 200ms;
 }

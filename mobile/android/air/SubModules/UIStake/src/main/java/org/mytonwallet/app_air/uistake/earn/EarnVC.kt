@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uistake.earn
 
 import android.animation.ValueAnimator
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
@@ -24,7 +25,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
-import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter.WRecyclerViewDataSource
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
@@ -41,6 +41,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WCounterLabel
+import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -48,6 +49,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uistake.earn.cells.EarnHistoryHeaderCell
 import org.mytonwallet.app_air.uistake.earn.cells.EarnItemCell
 import org.mytonwallet.app_air.uistake.earn.cells.EarnSpaceCell
 import org.mytonwallet.app_air.uistake.earn.models.EarnItem
@@ -58,7 +60,6 @@ import org.mytonwallet.app_air.uistake.staking.StakingVC
 import org.mytonwallet.app_air.uistake.staking.StakingViewModel
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -95,6 +96,8 @@ class EarnVC(
 
         val SKELETON_HEADER_CELL = WCell.Type(3)
         val SKELETON_CELL = WCell.Type(4)
+
+        val HISTORY_HEADER_CELL = WCell.Type(5)
     }
 
     private val viewModelFactory = EarnViewModelFactory(tokenSlug)
@@ -112,7 +115,7 @@ class EarnVC(
             USDE_SLUG -> "USDe"
             else -> ""
         }
-        set(value) {}
+        set(_) {}
 
     override val isSwipeBackAllowed: Boolean = false
 
@@ -135,7 +138,7 @@ class EarnVC(
                 }
 
                 else -> {
-                    return if (indexPath.row == 0) SKELETON_HEADER_CELL else SKELETON_CELL
+                    if (indexPath.row == 0) SKELETON_HEADER_CELL else SKELETON_CELL
                 }
             }
         }
@@ -195,7 +198,7 @@ class EarnVC(
         rv.adapter = rvSkeletonAdapter
         rv.setLayoutManager(LinearLayoutManager(context))
         rv.setItemAnimator(null)
-        rv.alpha = 0f
+        rv.visibility = View.GONE
         rv.setPadding(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0,
@@ -208,7 +211,10 @@ class EarnVC(
     private val skeletonView = SkeletonView(context)
 
     private val rvAdapter =
-        WRecyclerViewAdapter(WeakReference(this), arrayOf(HEADER_CELL, ITEMS_CELL)).apply {
+        WRecyclerViewAdapter(
+            WeakReference(this),
+            arrayOf(HEADER_CELL, HISTORY_HEADER_CELL, ITEMS_CELL)
+        ).apply {
             setHasStableIds(true)
         }
 
@@ -243,7 +249,7 @@ class EarnVC(
                 toTopPx(
                     animationView,
                     (view.height - headerView.measuredHeight -
-                        (navigationController?.getSystemBars()?.bottom ?: 0) - 250.dp) / 2
+                        (navigationController?.bottomInset ?: 0) - 250.dp) / 2
                 )
             }
         }
@@ -258,7 +264,7 @@ class EarnVC(
 
     private val noItemLabel: WLabel by lazy {
         val label = WLabel(context)
-        label.setStyle(16f, WFont.Medium)
+        label.setStyle(adaptiveFontSize(), WFont.Medium)
         label.textAlignment = View.TEXT_ALIGNMENT_CENTER
         label.text =
             LocaleController.getString("Earn up to %1$@ per year from your tokens")
@@ -371,7 +377,7 @@ class EarnVC(
         WSensitiveDataContainer(
             WCounterLabel(context).apply {
                 id = View.generateViewId()
-                setStyle(16f)
+                setStyle(adaptiveFontSize())
                 setGradientColor(
                     arrayOf(
                         WColor.EarnGradientLeft,
@@ -398,13 +404,13 @@ class EarnVC(
         setPadding(12.dp, 0, 12.dp, 0)
         gravity = Gravity.CENTER
     }
+    private var claimRewardShadow: PillShadowView? = null
     private val claimRewardView: WView by lazy {
         WView(context).apply {
-            elevation = 4f.dp
             val titleLabel = WLabel(context).apply {
                 text =
                     LocaleController.getString("Accumulated Rewards")
-                setStyle(16f, WFont.Medium)
+                setStyle(adaptiveFontSize(), WFont.Medium)
                 setTextColor(WColor.PrimaryText)
                 setSingleLine()
                 TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
@@ -454,9 +460,14 @@ class EarnVC(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
-            (navigationController?.getSystemBars()?.bottom ?: 0)
+            (navigationController?.bottomInset ?: 0)
         )
         view.addView(claimRewardView, ConstraintLayout.LayoutParams(0, 58.dp))
+        claimRewardShadow =
+            PillShadowView.attachTo(claimRewardView, ViewConstants.BLOCK_RADIUS.dp)
+        claimRewardView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            claimRewardShadow?.sync()
+        }
         view.setConstraints {
             allEdges(recyclerView)
             allEdges(skeletonRecyclerView)
@@ -468,7 +479,7 @@ class EarnVC(
 
             toBottomPx(
                 claimRewardView,
-                16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+                16.dp + (navigationController?.bottomInset ?: 0)
             )
             toCenterX(claimRewardView, 2 * ViewConstants.HORIZONTAL_PADDINGS + 12f)
         }
@@ -485,15 +496,31 @@ class EarnVC(
 
     private var lastListState: HistoryListState? = null
     private var previousHistoryItems: List<EarnItem> = emptyList()
+    private var newlyInsertedItemIds: List<String> = emptyList()
+    private var replacedItemId: String? = null
+
     private fun updateItems(newItems: List<EarnItem>) {
         val previousHistoryItems = previousHistoryItems
+        val previousIds = previousHistoryItems.map { it.id }.toHashSet()
+        newlyInsertedItemIds =
+            if (previousIds.isEmpty()) emptyList() else newItems.mapNotNull { if (it.id !in previousIds) it.id else null }
         this.previousHistoryItems = newItems.toList()
-        rvAdapter.applyChanges(
-            previousHistoryItems,
-            newItems,
-            1,
-            true
-        )
+        if (previousIds.isEmpty()) {
+            rvAdapter.reloadData()
+        } else {
+            rvAdapter.applyChanges(
+                previousHistoryItems,
+                newItems,
+                2,
+                true
+            )
+        }
+        if (newlyInsertedItemIds.isNotEmpty()) {
+            recyclerView.post {
+                newlyInsertedItemIds = emptyList()
+                replacedItemId = null
+            }
+        }
     }
 
     private fun updateView(viewState: EarnViewState) {
@@ -575,6 +602,9 @@ class EarnVC(
             if (!claimRewardView.isVisible) {
                 claimRewardView.visibility = View.VISIBLE
                 claimRewardView.fadeIn()
+                claimRewardView.animate().setUpdateListener {
+                    claimRewardShadow?.sync()
+                }
             }
             rewardLabel.contentView.setAmount(TokenStore.getToken(tokenSlug)?.let { token ->
                 viewState.unclaimedReward.toString(
@@ -590,7 +620,7 @@ class EarnVC(
                 ViewConstants.HORIZONTAL_PADDINGS.dp,
                 0,
                 ViewConstants.HORIZONTAL_PADDINGS.dp,
-                86.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+                86.dp + (navigationController?.bottomInset ?: 0)
             )
         } else {
             claimRewardView.visibility = View.GONE
@@ -598,7 +628,7 @@ class EarnVC(
                 ViewConstants.HORIZONTAL_PADDINGS.dp,
                 0,
                 ViewConstants.HORIZONTAL_PADDINGS.dp,
-                (navigationController?.getSystemBars()?.bottom ?: 0)
+                (navigationController?.bottomInset ?: 0)
             )
         }
     }
@@ -617,11 +647,11 @@ class EarnVC(
         super.updateTheme()
 
         recyclerView.setBackgroundColor(WColor.SecondaryBackground.color)
+        rvAdapter.reloadData()
+        headerView.updateTheme()
 
         noItemView.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp, 0f)
         noItemLabel.setTextColor(WColor.PrimaryText.color)
-
-        rvAdapter.reloadData()
 
         claimRewardView.setBackgroundColor(
             WColor.Background.color,
@@ -652,15 +682,13 @@ class EarnVC(
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return listOf(
-            HEADER_CELL,
-            ITEMS_CELL
-        ).size
+        return 3
     }
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
         return when (section) {
             0 -> 1
+            1 -> if (earnViewModel.getHistoryItems().isNotEmpty()) 1 else 0
             else -> earnViewModel.getHistoryItems().size
         }
     }
@@ -668,6 +696,7 @@ class EarnVC(
     override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
         return when (indexPath.section) {
             0 -> HEADER_CELL
+            1 -> HISTORY_HEADER_CELL
             else -> ITEMS_CELL
         }
     }
@@ -678,8 +707,19 @@ class EarnVC(
                 getHeaderCell()
             }
 
+            HISTORY_HEADER_CELL -> {
+                EarnHistoryHeaderCell(context)
+            }
+
             ITEMS_CELL -> {
-                EarnItemCell(context)
+                EarnItemCell(context).apply {
+                    onTap = { item ->
+                        if (item is EarnItem.ProfitGroup) {
+                            replacedItemId = item.profitItems.lastOrNull()?.id
+                            earnViewModel.unmergeGroup(item.id)
+                        }
+                    }
+                }
             }
 
             else -> {
@@ -717,16 +757,29 @@ class EarnVC(
                 return
             }
 
+            1 -> {
+                (cellHolder.cell as EarnHistoryHeaderCell).configure(earnViewModel.getTotalProfitFormatted())
+
+                return
+            }
+
             else -> {
                 val item = earnViewModel.getHistoryItems()[indexPath.row]
                 val cell = (cellHolder.cell as EarnItemCell)
-                cell.configure(
-                    item,
-                    earnViewModel.token?.symbol ?: "",
-                    earnViewModel.getTotalProfitFormatted(),
-                    indexPath.row == 0,
-                    indexPath.row == earnViewModel.getHistoryItems().size - 1
-                ) { }
+                val insertedIds = newlyInsertedItemIds
+                val insertIndex = insertedIds.indexOf(item.id)
+                if (insertIndex > recyclerView.height / EarnItemCell.ITEM_HEIGHT.dp) {
+                    cell.layoutParams.height = 0
+                } else {
+                    cell.configure(
+                        item,
+                        earnViewModel.token?.symbol ?: "",
+                        indexPath.row == earnViewModel.getHistoryItems().size - 1,
+                        isAdded = insertIndex >= 0,
+                        isReplaced = item.id == replacedItemId,
+                        animationDelay = if (insertIndex >= 0) insertIndex * 50L else 0L,
+                    )
+                }
 
                 checkShouldLoadMoreItems(item.timestamp)
 
@@ -746,15 +799,11 @@ class EarnVC(
     }
 
     override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
-        when (indexPath.section) {
-            0 -> {}
-
-            else -> {
-                val item = earnViewModel.getHistoryItems()[indexPath.row]
-                return item.id
-            }
+        return when (indexPath.section) {
+            1 -> "history_header"
+            2 -> earnViewModel.getHistoryItems()[indexPath.row].id
+            else -> super.recyclerViewCellItemId(rv, indexPath)
         }
-        return super.recyclerViewCellItemId(rv, indexPath)
     }
 
     private fun checkShouldLoadMoreItems(timestampOfShowingItem: Long) {
@@ -814,6 +863,7 @@ class EarnVC(
     }
 
     private fun showSkeletonViews(showHeaderSkeleton: Boolean) {
+        skeletonRecyclerView.visibility = View.VISIBLE
         rvSkeletonAdapter.reloadData()
         view.post {
             updateSkeletonViews(showHeaderSkeleton)
@@ -834,6 +884,7 @@ class EarnVC(
     }
 
     override fun onDestroy() {
+        earnViewModel.clearExpandedGroups()
         super.onDestroy()
         onScroll = null
         recyclerView.adapter = null
@@ -862,6 +913,7 @@ class EarnVC(
                 visibilityFraction = animatedValue as Float
                 claimRewardView.alpha = visibilityFraction
                 claimRewardView.translationY = 16.dp * (1 - visibilityFraction)
+                claimRewardShadow?.sync()
             }
             visibilityTarget = 1f
             start()
@@ -880,6 +932,7 @@ class EarnVC(
                 visibilityFraction = animatedValue as Float
                 claimRewardView.alpha = visibilityFraction
                 claimRewardView.translationY = 16.dp * (1 - visibilityFraction)
+                claimRewardShadow?.sync()
             }
             visibilityTarget = 0f
             start()

@@ -63,6 +63,12 @@ class AssetsVM(
     private var expiringDomains: List<ApiNft> = emptyList()
     private var expiringDomainsRefreshJob: Job? = null
 
+    private val hasReadOnlyNfts: Boolean
+        get() = readOnlyNfts != null
+
+    private val readOnlyNfts: List<ApiNft>?
+        get() = (collectionMode as? AssetsVC.CollectionMode.ReadOnly)?.nfts
+
     val hasLoadedNfts: Boolean
         get() = nfts != null
 
@@ -76,6 +82,9 @@ class AssetsVM(
         get() = nftsCount > 6
 
     fun configure(accountId: String) {
+        if (hasReadOnlyNfts) {
+            return
+        }
         scope.coroutineContext.cancelChildren()
         showingAccountId = accountId
         nftsShown = false
@@ -93,12 +102,18 @@ class AssetsVM(
     }
 
     fun delegateIsReady() {
+        if (hasReadOnlyNfts) {
+            applyReadOnlyNfts()
+            return
+        }
         WalletCore.registerObserver(this)
         updateNfts(forceLoadNewAccount = false)
     }
 
     fun onDestroy() {
-        WalletCore.unregisterObserver(this)
+        if (!hasReadOnlyNfts) {
+            WalletCore.unregisterObserver(this)
+        }
         scope.cancel()
         queueDispatcher.close()
     }
@@ -121,6 +136,11 @@ class AssetsVM(
         keepOrder: Boolean,
         onFinished: ((Boolean) -> Unit)? = null
     ) {
+        if (hasReadOnlyNfts) {
+            val isChanged = applyReadOnlyNfts()
+            onFinished?.invoke(isChanged)
+            return
+        }
         scope.launch {
             val nftData = NftStore.nftData
             val cachedNfts =
@@ -138,6 +158,20 @@ class AssetsVM(
                 }
             }
         }
+    }
+
+    private fun applyReadOnlyNfts(): Boolean {
+        val oldNfts = nfts?.toList()
+        nfts = readOnlyNfts.orEmpty()
+            .distinctBy { it.address }
+            .toMutableList()
+        rebuildAssetRows()
+        val isChanged = oldNfts != nfts
+        if (!nftsShown) {
+            nftsShown = true
+            delegate.get()?.nftsShown()
+        }
+        return isChanged
     }
 
     private fun applyCachedNfts(

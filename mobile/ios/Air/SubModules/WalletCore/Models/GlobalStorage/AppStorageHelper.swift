@@ -168,4 +168,33 @@ public enum AppStorageHelper {
             settingsStore.setPushNotifications(newValue)
         }
     }
+
+    // MARK: - Wallet settings
+    
+    public static var walletSettingsListLayout: String {
+        get {
+            settingsStore.walletSettingsListLayout ?? ""
+        }
+        set {
+            settingsStore.setWalletSettingsListLayout(newValue)
+        }
+    }
+
+    public static var walletSettingsCurrentFilter: String {
+        get {
+            settingsStore.walletSettingsCurrentFilter ?? ""
+        }
+        set {
+            settingsStore.setWalletSettingsCurrentFilter(newValue)
+        }
+    }
+
+    public static var walletSettingsFilterOrder: [String] {
+        get {
+            settingsStore.walletSettingsFilterOrder
+        }
+        set {
+            settingsStore.setWalletSettingsFilterOrder(newValue)
+        }
+    }
 }

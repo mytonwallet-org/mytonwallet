@@ -16,7 +16,6 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
@@ -74,6 +73,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MCollectionTab
@@ -133,9 +133,14 @@ class AssetsVC(
                     NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION
                 }
 
+                is CollectionMode.ReadOnly -> collectionMode.collectionAddress
+
                 null -> AssetsTabVC.TAB_COLLECTIBLES
             }
         }
+
+    val isReadOnly: Boolean
+        get() = collectionMode is CollectionMode.ReadOnly
 
     enum class ViewMode {
         THUMB,
@@ -145,6 +150,7 @@ class AssetsVC(
     sealed class CollectionMode {
         data object TelegramGifts : CollectionMode()
         data class SingleCollection(val collection: MCollectionTabToShow) : CollectionMode()
+        data class ReadOnly(val name: String?, val nfts: List<ApiNft>) : CollectionMode()
 
         val collectionAddress: String
             get() {
@@ -155,6 +161,11 @@ class AssetsVC(
 
                     TelegramGifts -> {
                         NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION
+                    }
+
+                    is ReadOnly -> {
+                        // technical in-app use only address
+                        "read_only"
                     }
                 }
             }
@@ -167,6 +178,10 @@ class AssetsVC(
 
                 TelegramGifts -> {
                     comparing is TelegramGifts
+                }
+
+                is ReadOnly -> {
+                    comparing is ReadOnly
                 }
             }
         }
@@ -277,7 +292,7 @@ class AssetsVC(
 
     // Expiring domains warning
     private val shouldShowWarningBanner: Boolean
-        get() = assetsVM.expiringDomainsData != null
+        get() = !isReadOnly && assetsVM.expiringDomainsData != null
     private var isShowingWarningBanner = false
     private val thumbWarningBannerView: WDomainExpirationBannerView by lazy {
         WDomainExpirationBannerView(context).apply {
@@ -372,7 +387,7 @@ class AssetsVC(
                 (firstVisibleViewTop == null || abs(firstVisibleViewTop - previousPaddingTop) <= 2.dp)
 
         val topInset = completeModeTopInset()
-        val bottomInset = navigationController?.getSystemBars()?.bottom ?: 0
+        val bottomInset = navigationController?.bottomInset ?: 0
         val bannerInset = (completeModeExpiringDomainsBannerHeight * floatValue).roundToInt()
         val bannerInsetDelta = bannerInset - completeModeBannerInset
         completeModeBannerInset = bannerInset
@@ -718,9 +733,11 @@ class AssetsVC(
         }
 
         rv.addOnScrollListener(scrollListener)
-        rv.addOnItemTouchListener(recyclerViewTouchListener)
+        if (!isReadOnly) {
+            rv.addOnItemTouchListener(recyclerViewTouchListener)
+        }
 
-        if (allowReordering) {
+        if (!isReadOnly && allowReordering) {
             itemTouchHelper.attachToRecyclerView(rv)
         }
 
@@ -792,7 +809,7 @@ class AssetsVC(
                     NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION
                 )
 
-                null -> throw Exception()
+                is CollectionMode.ReadOnly, null -> throw Exception()
             }
         }
 
@@ -893,7 +910,7 @@ class AssetsVC(
                         )
                     }
 
-                    null -> return@setOnClickListener
+                    is CollectionMode.ReadOnly, null -> return@setOnClickListener
                 }
                 items.lastOrNull()?.hasSeparator = true
 
@@ -973,8 +990,10 @@ class AssetsVC(
         setNavTitle(title!!)
         if (isShowingSingleCollection) {
             setupNavBar(true)
-            setupActionBar()
-            navigationBar?.addTrailingView(navTrailingView, LayoutParams(WRAP_CONTENT, 40.dp))
+            if (!isReadOnly) {
+                setupActionBar()
+                navigationBar?.addTrailingView(navTrailingView, LayoutParams(WRAP_CONTENT, 40.dp))
+            }
         }
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         if (viewMode == ViewMode.THUMB) {
@@ -1138,6 +1157,7 @@ class AssetsVC(
     }
 
     fun shouldShowSelectionTransferActions(): Boolean {
+        if (isReadOnly) return false
         if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) return false
         val nfts = assetsVM.getSelectedNfts()
         if (nfts.isEmpty()) return false
@@ -1301,12 +1321,9 @@ class AssetsVC(
             recyclerView.setBackgroundColor(WColor.Background.color)
         }
         rvAdapter.reloadData()
-        if (isShowingSingleCollection) {
+        if (isShowingSingleCollection && !isReadOnly) {
             val moreDrawable =
-                ContextCompat.getDrawable(
-                    context,
-                    org.mytonwallet.app_air.icons.R.drawable.ic_more
-                )?.apply {
+                context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_more)?.apply {
                     setTint(WColor.SecondaryText.color)
                 }
             moreButton.setImageDrawable(moreDrawable)
@@ -1324,8 +1341,7 @@ class AssetsVC(
     }
 
     private fun updatePinButton() {
-        val pinDrawable = ContextCompat.getDrawable(
-            context,
+        val pinDrawable = context.getDrawableCompat(
             if (isInHomeTabs)
                 org.mytonwallet.app_air.uiassets.R.drawable.ic_collection_unpin
             else
@@ -1560,6 +1576,7 @@ class AssetsVC(
                     interactionMode = row.interactionMode,
                     animationsPaused = row.animationsPaused,
                     isSelected = row.isSelected,
+                    isReadOnly = isReadOnly,
                     daysUntilExpiration = row.daysUntilExpiration
                 )
             }
@@ -1809,6 +1826,10 @@ val AssetsVC.CollectionMode?.title: String
 
             is SingleCollection -> {
                 collection.name
+            }
+
+            is AssetsVC.CollectionMode.ReadOnly -> {
+                name ?: LocaleController.getString("Collectibles")
             }
 
             else -> {

@@ -36,7 +36,7 @@ addActionHandler('initApi', async (global, actions) => {
     const isDerivationsMigrationNeeded = Object.values(global.accounts?.byId ?? {})
       .filter((e) => Object.values(e.byChain).length > 1)
       .some((account) => Object.entries(account.byChain)
-        .some(([chain, acc]) => chain !== 'tron' && !acc?.derivation));
+        .some(([_, acc]) => !acc?.derivation));
 
     if (isDerivationsMigrationNeeded) {
       await callApi('loadAccountsDerivations');

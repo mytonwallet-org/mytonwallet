@@ -6,8 +6,6 @@ import { type Account, AccountSelectorState, type GlobalState } from '../../../g
 
 import {
   selectCurrentAccountId,
-  selectMultipleAccountsStakingStatesSlow,
-  selectMultipleAccountsTokensSlow,
   selectNetworkAccounts,
   selectOrderedAccounts,
 } from '../../../global/selectors';
@@ -15,7 +13,7 @@ import buildClassName from '../../../util/buildClassName';
 
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
-import { useAccountsBalances } from '../../main/modals/accountSelector/hooks/useAccountsBalances';
+import { useMultipleAccountsBalances } from '../../../hooks/useMultipleAccountsBalances';
 
 import AccountInfo from '../../common/AccountInfo';
 import AccountRowContent from '../../common/AccountRowContent';
@@ -66,37 +64,17 @@ const SettingsWallets = ({
   } = getActions();
   const lang = useLang();
 
-  const allAccountsTokens = useMemo(() => (
-    selectMultipleAccountsTokensSlow(
-      networkAccounts,
-      byAccountId,
-      tokenInfo,
-      settingsByAccountId,
-      areTokensWithNoCostHidden,
-      baseCurrency,
-      currencyRates,
-    )
-  ), [
-    networkAccounts,
+  const { balancesByAccountId } = useMultipleAccountsBalances({
+    filteredAccounts: orderedAccounts,
+    sourceAccounts: networkAccounts,
     byAccountId,
     tokenInfo,
-    currencyRates,
-    baseCurrency,
-    areTokensWithNoCostHidden,
     settingsByAccountId,
-  ]);
-
-  const allAccountsStakingStates = useMemo(() => (
-    selectMultipleAccountsStakingStatesSlow(networkAccounts, byAccountId, stakingDefault)
-  ), [networkAccounts, byAccountId, stakingDefault]);
-
-  const { balancesByAccountId } = useAccountsBalances(
-    orderedAccounts,
-    allAccountsTokens,
-    allAccountsStakingStates,
+    areTokensWithNoCostHidden,
     baseCurrency,
     currencyRates,
-  );
+    stakingDefault,
+  });
 
   const allAccountsExceptCurrent = useMemo(() => {
     return orderedAccounts.filter(([accountId]) => accountId !== currentAccountId);

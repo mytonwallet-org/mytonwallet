@@ -20,15 +20,6 @@ abstract public class BaseActivity extends AppCompatActivity {
     super.onCreate(savedInstanceState);
     getApplication().setTheme(R.style.AppTheme_NoActionBar);
     setTheme(R.style.AppTheme_NoActionBar);
-
-    int backgroundColor;
-    int currentNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-    if (currentNightMode == Configuration.UI_MODE_NIGHT_YES) {
-      backgroundColor = 0xFF242426;
-    } else {
-      backgroundColor = 0xFFFFFFFF;
-    }
-    getWindow().getDecorView().setBackgroundColor(backgroundColor);
   }
 
   protected void makeStatusBarTransparent() {

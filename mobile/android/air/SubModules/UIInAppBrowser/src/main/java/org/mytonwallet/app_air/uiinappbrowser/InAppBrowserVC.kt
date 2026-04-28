@@ -35,6 +35,7 @@ import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.WMinimizableBlurHost
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -54,6 +55,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.helpers.EvmConnectHelper
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectHelper
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectInjectedInterface
 import org.mytonwallet.app_air.walletcore.helpers.WalletConnectHelper
@@ -178,7 +180,16 @@ class InAppBrowserVC(
     context: Context,
     private val tabBarController: WNavigationController.ITabBarController?,
     val config: InAppBrowserConfig
-) : WViewController(context), IInAppBrowser, WalletCore.EventObserver {
+) : WViewController(context), IInAppBrowser, WalletCore.EventObserver, WMinimizableBlurHost {
+
+    override fun pauseMinimizedBlur() {
+        topBar.pauseBlurring()
+    }
+
+    override fun resumeMinimizedBlur() {
+        topBar.resumeBlurring()
+    }
+
     override val TAG = "InAppBrowser"
 
     private var lastTitle: String = config.title ?: URL(config.url).host
@@ -208,10 +219,20 @@ class InAppBrowserVC(
             selectedOption = config.selectedOption,
             optionsOnTitle = config.optionsOnTitle,
             minimizeStarted = {
+                barBackgroundAnimator?.cancel()
+                barBackgroundAnimator = null
                 updateSystemBarColors()
                 webViewScreenShot.setImageBitmap(webViewContainer.asImage())
                 webViewScreenShot.visibility = View.VISIBLE
                 webView.visibility = View.GONE
+            },
+            minimizeFinished = {
+                topReversedCornerView?.setBlurOverlayColor(null)
+                bottomReversedCornerView?.setBlurOverlayColor(null)
+            },
+            maximizeStarted = {
+                topReversedCornerView?.setBlurOverlayColor(topBackgroundColor)
+                bottomReversedCornerView?.setBlurOverlayColor(topBackgroundColor)
             },
             maximizeFinished = {
                 updateSystemBarColors()
@@ -231,6 +252,7 @@ class InAppBrowserVC(
     }
 
     override val shouldDisplayBottomBar = true
+    override val forceBlurBottomView = true
 
     private val webViewScreenShot: AppCompatImageView by lazy {
         AppCompatImageView(context).apply {
@@ -259,7 +281,8 @@ class InAppBrowserVC(
                     setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
                 }
 
-                val dm = webView.context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                val dm =
+                    webView.context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 dm.enqueue(request)
             } catch (_: Throwable) {
             }
@@ -280,6 +303,7 @@ class InAppBrowserVC(
                     webView.evaluateJavascript(TonConnectHelper.injectBridge(), null)
                     webView.evaluateJavascript(TonConnectHelper.inject(), null)
                     webView.evaluateJavascript(WalletConnectHelper.inject(), null)
+                    webView.evaluateJavascript(EvmConnectHelper.inject(), null)
                 }
                 super.onPageStarted(view, url, favicon)
             }
@@ -659,6 +683,7 @@ class InAppBrowserVC(
     }
 
     private var topBackgroundColor: Int? = null
+    private var barBackgroundAnimator: ValueAnimator? = null
     private fun animateBarBackground(newColor: Int?) {
         val isMinimized = topBar.isMinimizing || topBar.isMinimized
         newColor?.let { newColor ->
@@ -670,11 +695,11 @@ class InAppBrowserVC(
         updateSystemBarColors()
         if (isMinimized) {
             topBackgroundColor = newColor
-            topReversedCornerView?.setBlurOverlayColor(topBackgroundColor)
-            bottomReversedCornerView?.setBlurOverlayColor(topBackgroundColor)
+            topReversedCornerView?.setBlurOverlayColor(null)
+            bottomReversedCornerView?.setBlurOverlayColor(null)
             return
         }
-        ValueAnimator.ofArgb(
+        barBackgroundAnimator = ValueAnimator.ofArgb(
             topBackgroundColor ?: WColor.SecondaryBackground.color,
             newColor ?: WColor.SecondaryBackground.color
         ).apply {

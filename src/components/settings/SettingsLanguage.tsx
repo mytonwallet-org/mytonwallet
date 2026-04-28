@@ -13,8 +13,7 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useScrolledState from '../../hooks/useScrolledState';
 
-import Button from '../ui/Button';
-import ModalHeader from '../ui/ModalHeader';
+import SettingsHeader from './SettingsHeader';
 
 import styles from './Settings.module.scss';
 
@@ -23,14 +22,12 @@ import checkmarkImg from '../../assets/settings/settings_checkmark.svg';
 interface OwnProps {
   isActive?: boolean;
   langCode: LangCode;
-  isInsideModal?: boolean;
   onBackClick: NoneToVoidFunction;
 }
 
 function SettingsLanguage({
   isActive,
   langCode,
-  isInsideModal,
   onBackClick,
 }: OwnProps) {
   const {
@@ -71,28 +68,8 @@ function SettingsLanguage({
 
   return (
     <div className={styles.slide}>
-      {isInsideModal ? (
-        <ModalHeader
-          title={lang('Language')}
-          onBackButtonClick={onBackClick}
-          className={buildClassName(styles.modalHeader, styles.languageHeader)}
-        />
-      ) : (
-        <div className={
-          buildClassName(
-            styles.header,
-            'with-notch-on-scroll',
-            isScrolled && 'is-scrolled',
-          )
-        }
-        >
-          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
-            <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-            <span>{lang('Back')}</span>
-          </Button>
-          <span className={styles.headerTitle}>{lang('Language')}</span>
-        </div>
-      )}
+      <SettingsHeader title={lang('Language')} isScrolled={isScrolled} onBackClick={onBackClick} />
+
       <div className={buildClassName(styles.content, 'custom-scroll')} onScroll={handleContentScroll}>
         <div className={styles.block}>
           {renderLanguages()}

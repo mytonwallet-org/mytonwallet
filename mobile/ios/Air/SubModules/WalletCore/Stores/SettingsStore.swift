@@ -185,6 +185,36 @@ public final class SettingsStore: Sendable {
             $0.walletTokensLimit = limit.rawValue
         }
     }
+    
+    public var walletSettingsListLayout: String? {
+        _row.withLock { $0.walletSettingsListLayout }
+    }
+
+    public func setWalletSettingsListLayout(_ layout: String?) {
+        update {
+            $0.walletSettingsListLayout = layout
+        }
+    }
+
+    public var walletSettingsCurrentFilter: String? {
+        _row.withLock { $0.walletSettingsCurrentFilter }
+    }
+
+    public func setWalletSettingsCurrentFilter(_ layout: String?) {
+        update {
+            $0.walletSettingsCurrentFilter = layout
+        }
+    }
+
+    public var walletSettingsFilterOrder: [String] {
+        _row.withLock { $0.walletSettingsFilterOrder }
+    }
+
+    public func setWalletSettingsFilterOrder(_ order: [String]) {
+        update {
+            $0.walletSettingsFilterOrder = order
+        }
+    }
 
     private func update(_ mutate: (inout MSettings) -> Void) {
         var row = _row.withLock { $0 }

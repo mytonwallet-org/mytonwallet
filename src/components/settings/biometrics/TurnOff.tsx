@@ -28,14 +28,13 @@ interface OwnProps {
   state: BiometricsState;
   error?: string;
   isLoading?: boolean;
-  isInsideModal?: boolean;
   onClose: NoneToVoidFunction;
 }
 
 const STICKER_SIZE = 180;
 
 function TurnOff({
-  isOpen, isLoading, isInsideModal, state, error, onClose,
+  isOpen, isLoading, state, error, onClose,
 }: OwnProps) {
   const { disableBiometrics } = getActions();
 
@@ -139,7 +138,6 @@ function TurnOff({
       <Transition
         name={resolveSlideTransitionName()}
         className={buildClassName(modalStyles.transition, 'custom-scroll')}
-        slideClassName={buildClassName(isInsideModal && modalStyles.transitionSlide)}
         activeKey={renderingKey}
         nextKey={nextKey}
         onStop={updateNextKey}

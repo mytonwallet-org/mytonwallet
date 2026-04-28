@@ -16,6 +16,7 @@ MyTonWallet-opera.zip
 .idea
 .vscode
 *.iml
+*.swp
 dev/perf/screenshot*
 dev/locales/input.yaml
 dev/locales/output.yaml
@@ -36,3 +37,4 @@ mobile/plugins/native-enclave/android/build/
 AGENTS.md
 .agent/tasks
 .codex/agents
+.build

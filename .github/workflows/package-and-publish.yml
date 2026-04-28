@@ -10,6 +10,25 @@ name: Package and publish
 
 on:
   workflow_dispatch:
+    inputs:
+      android_variant:
+        description: Android app variant to release
+        required: true
+        type: choice
+        default: both
+        options:
+          - both
+          - mytonwallet
+          - gram
+      ios_variant:
+        description: iOS app variant to release
+        required: true
+        type: choice
+        default: both
+        options:
+          - both
+          - mytonwallet
+          - gram
   push:
     branches:
       - master
@@ -40,6 +59,8 @@ jobs:
       android-only: ${{ steps.filter.outputs.android-only }}
       ios-only: ${{ steps.filter.outputs.ios-only }}
       electron-changed: ${{ steps.filter.outputs.electron-changed }}
+      android-variants: ${{ steps.filter.outputs.android-variants }}
+      ios-variants: ${{ steps.filter.outputs.ios-variants }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,6 +74,28 @@ jobs:
             echo "android-only=false" >> "$GITHUB_OUTPUT"
             echo "ios-only=false" >> "$GITHUB_OUTPUT"
             echo "electron-changed=true" >> "$GITHUB_OUTPUT"
+            case "${{ inputs.android_variant }}" in
+              mytonwallet)
+                echo 'android-variants=["mytonwallet"]' >> "$GITHUB_OUTPUT"
+                ;;
+              gram)
+                echo 'android-variants=["gram"]' >> "$GITHUB_OUTPUT"
+                ;;
+              *)
+                echo 'android-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
+                ;;
+            esac
+            case "${{ inputs.ios_variant }}" in
+              mytonwallet)
+                echo 'ios-variants=["mytonwallet"]' >> "$GITHUB_OUTPUT"
+                ;;
+              gram)
+                echo 'ios-variants=["gram"]' >> "$GITHUB_OUTPUT"
+                ;;
+              *)
+                echo 'ios-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
+                ;;
+            esac
             echo "Manual dispatch — building all platforms"
             exit 0
           fi
@@ -61,7 +104,9 @@ jobs:
             echo "android-only=false" >> "$GITHUB_OUTPUT"
             echo "ios-only=false" >> "$GITHUB_OUTPUT"
             echo "electron-changed=true" >> "$GITHUB_OUTPUT"
-            echo "Production release — building all platforms"
+            echo 'android-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
+            echo 'ios-variants=["mytonwallet"]' >> "$GITHUB_OUTPUT"
+            echo "Production release — building automatic platform variants"
             exit 0
           fi
 
@@ -86,6 +131,8 @@ jobs:
           echo "android-only=$ANDROID_ONLY" >> "$GITHUB_OUTPUT"
           echo "ios-only=$IOS_ONLY" >> "$GITHUB_OUTPUT"
           echo "electron-changed=$ELECTRON_CHANGED" >> "$GITHUB_OUTPUT"
+          echo 'android-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
+          echo 'ios-variants=["mytonwallet"]' >> "$GITHUB_OUTPUT"
           echo "Changed files:"
           echo "$CHANGED"
           echo "android-only=$ANDROID_ONLY, ios-only=$IOS_ONLY, electron-changed=$ELECTRON_CHANGED"
@@ -455,15 +502,40 @@ jobs:
           path: ${{ env.HASH_FILENAME }}
 
   android-release:
-    name: Release Android app
+    name: Release Android app (${{ matrix.app_variant }})
     needs: detect-changes
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 30
-    if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master' && needs.detect-changes.outputs.ios-only != 'true'
+    if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master') && needs.detect-changes.outputs.ios-only != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        app_variant: ${{ fromJSON(needs.detect-changes.outputs.android-variants) }}
+    env:
+      APP_VARIANT: ${{ matrix.app_variant }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure Android variant
+        run: |
+          case "$APP_VARIANT" in
+            mytonwallet)
+              echo "ANDROID_APP_NAME=MyTonWallet" >> "$GITHUB_ENV"
+              echo "ANDROID_PACKAGE_NAME=org.mytonwallet.app" >> "$GITHUB_ENV"
+              echo "ANDROID_ARTIFACT_NAME=MyTonWallet.apk" >> "$GITHUB_ENV"
+              ;;
+            gram)
+              echo "ANDROID_APP_NAME=Gram Wallet" >> "$GITHUB_ENV"
+              echo "ANDROID_PACKAGE_NAME=io.gramwallet.app" >> "$GITHUB_ENV"
+              echo "ANDROID_ARTIFACT_NAME=GramWallet.apk" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "::error::Unknown APP_VARIANT: $APP_VARIANT"
+              exit 1
+              ;;
+          esac
 
       - name: Prepare the Node environment
         uses: mytonwallet-org/shared-actions/prepare_node@master
@@ -487,23 +559,38 @@ jobs:
           bundler-cache: true
           working-directory: mobile
 
-      - name: Set up JDK 21
+      - name: Set up JDK 21 (release)
+        if: env.PUBLISH_REPO != ''
         uses: actions/setup-java@v4
         with:
           java-version: "21"
           distribution: "temurin"
           cache: gradle
 
+      - name: Set up JDK 21 (staging)
+        if: env.PUBLISH_REPO == ''
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Set up Gradle with build cache (staging only)
+        if: env.PUBLISH_REPO == ''
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Package and publish
         env:
           ANDROID_API_KEY_BASE64: ${{ secrets.ANDROID_API_KEY_BASE64 }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          FIREBASE_SERVICE_ACCOUNT_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd mobile/android
 
           echo -n "$ANDROID_API_KEY_BASE64" | base64 --decode > ./api-key.json
           echo -n "$ANDROID_KEYSTORE_BASE64" | base64 --decode > ./android.keystore
+          echo -n "$FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 --decode > ./firebase-service-account.json
 
           if [ -z "$PUBLISH_REPO" ]; then
             bundle exec fastlane beta
@@ -524,31 +611,71 @@ jobs:
 
       - name: Build direct apk
         env:
-          ANDROID_API_KEY_BASE64: ${{ secrets.ANDROID_API_KEY_BASE64 }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
+          export ANDROID_APK_OUTPUT_PATH_FILE="$RUNNER_TEMP/android-apk-path.txt"
+          rm -f "$ANDROID_APK_OUTPUT_PATH_FILE"
           cd mobile/android
           bundle exec fastlane direct
           cd ../../
-          mv mobile/android/app/build/outputs/apk/release/app-release.apk $APP_NAME.apk
+          APK_PATH=$(cat "$ANDROID_APK_OUTPUT_PATH_FILE")
+          cp "$APK_PATH" "$ANDROID_ARTIFACT_NAME"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}.apk
-          path: ${{ env.APP_NAME }}.apk
+          name: ${{ env.ANDROID_ARTIFACT_NAME }}
+          path: ${{ env.ANDROID_ARTIFACT_NAME }}
 
   ios-release:
-    name: Release iOS app
+    name: Release iOS app (${{ matrix.app_variant }})
     needs: detect-changes
     runs-on: macos-26
     environment: production
     timeout-minutes: 30
-    if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master' && needs.detect-changes.outputs.android-only != 'true'
+    if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master') && needs.detect-changes.outputs.android-only != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        app_variant: ${{ fromJSON(needs.detect-changes.outputs.ios-variants) }}
+    env:
+      APP_VARIANT: ${{ matrix.app_variant }}
+      IOS_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure iOS variant
+        env:
+          IOS_TESTFLIGHT_GROUP: ${{ vars.IOS_TESTFLIGHT_GROUP }}
+          IOS_GRAM_TESTFLIGHT_GROUP: ${{ vars.IOS_GRAM_TESTFLIGHT_GROUP }}
+        run: |
+          case "$APP_VARIANT" in
+            mytonwallet)
+              echo "IOS_APP_NAME=MyTonWallet" >> "$GITHUB_ENV"
+              echo "IOS_APP_IDENTIFIER=org.mytonwallet.app" >> "$GITHUB_ENV"
+              echo "IOS_APP_IDENTIFIER_WIDGET=org.mytonwallet.app.AirWidget" >> "$GITHUB_ENV"
+              echo "IOS_SCHEME=MyTonWallet" >> "$GITHUB_ENV"
+              echo "IOS_WIDGET_SCHEME=AirWidgetExtension" >> "$GITHUB_ENV"
+              echo "IOS_PLIST_PATH=../../App/App/Info.plist" >> "$GITHUB_ENV"
+              echo "IOS_TESTFLIGHT_GROUP=${IOS_TESTFLIGHT_GROUP:-MTW external group}" >> "$GITHUB_ENV"
+              ;;
+            gram)
+              echo "IOS_APP_NAME=Gram Wallet" >> "$GITHUB_ENV"
+              echo "IOS_APP_IDENTIFIER=io.gramwallet.app" >> "$GITHUB_ENV"
+              echo "IOS_APP_IDENTIFIER_WIDGET=io.gramwallet.app.widget" >> "$GITHUB_ENV"
+              echo "IOS_SCHEME=GramWallet" >> "$GITHUB_ENV"
+              echo "IOS_WIDGET_SCHEME=GramWalletWidgetExtension" >> "$GITHUB_ENV"
+              echo "IOS_PLIST_PATH=../../App/App/GramWallet-Info.plist" >> "$GITHUB_ENV"
+              echo "IOS_TESTFLIGHT_GROUP=${IOS_GRAM_TESTFLIGHT_GROUP:-Gram Wallet external group}" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "::error::Unknown APP_VARIANT: $APP_VARIANT"
+              exit 1
+              ;;
+          esac
+
       - name: Prepare the Node environment
         uses: mytonwallet-org/shared-actions/prepare_node@master
         with:
@@ -560,7 +687,13 @@ jobs:
         run: |
           defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
 
-          if [ -z "$PUBLISH_REPO" ]; then
+          if [ "$APP_VARIANT" = "gram" ]; then
+            if [ -z "$PUBLISH_REPO" ]; then
+              APP_ENV=staging npm run mobile:build:sdk
+            else
+              APP_ENV=production npm run mobile:build:sdk
+            fi
+          elif [ -z "$PUBLISH_REPO" ]; then
             npm run mobile:build:staging
           else
             npm run mobile:build:production
@@ -579,8 +712,39 @@ jobs:
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
           IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
           IOS_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_WIDGET_BASE64 }}
+          IOS_GRAM_CERTIFICATE_BASE64: ${{ secrets.IOS_GRAM_CERTIFICATE_BASE64 }}
+          IOS_GRAM_CERTIFICATE_PASSWORD: ${{ secrets.IOS_GRAM_CERTIFICATE_PASSWORD }}
+          IOS_GRAM_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_GRAM_PROVISION_PROFILE_BASE64 }}
+          IOS_GRAM_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_GRAM_PROVISION_PROFILE_WIDGET_BASE64 }}
           IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
         run: |
+          set -euo pipefail
+
+          CERTIFICATE_BASE64="$IOS_CERTIFICATE_BASE64"
+          CERTIFICATE_PASSWORD="$IOS_CERTIFICATE_PASSWORD"
+          PROVISION_PROFILE_BASE64="$IOS_PROVISION_PROFILE_BASE64"
+          PROVISION_PROFILE_WIDGET_BASE64="$IOS_PROVISION_PROFILE_WIDGET_BASE64"
+
+          if [ "$APP_VARIANT" = "gram" ]; then
+            CERTIFICATE_BASE64="${IOS_GRAM_CERTIFICATE_BASE64:-$IOS_CERTIFICATE_BASE64}"
+            CERTIFICATE_PASSWORD="${IOS_GRAM_CERTIFICATE_PASSWORD:-$IOS_CERTIFICATE_PASSWORD}"
+            PROVISION_PROFILE_BASE64="$IOS_GRAM_PROVISION_PROFILE_BASE64"
+            PROVISION_PROFILE_WIDGET_BASE64="$IOS_GRAM_PROVISION_PROFILE_WIDGET_BASE64"
+          fi
+
+          if [ -z "$CERTIFICATE_BASE64" ]; then
+            echo "::error::Missing iOS distribution certificate for $APP_VARIANT"
+            exit 1
+          fi
+          if [ -z "$CERTIFICATE_PASSWORD" ]; then
+            echo "::error::Missing iOS distribution certificate password for $APP_VARIANT"
+            exit 1
+          fi
+          if [ -z "$PROVISION_PROFILE_BASE64" ] || [ -z "$PROVISION_PROFILE_WIDGET_BASE64" ]; then
+            echo "::error::Missing iOS provisioning profiles for $APP_VARIANT"
+            exit 1
+          fi
+
           # create variables
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
           PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
@@ -588,9 +752,9 @@ jobs:
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           # import certificate and provisioning profile from secrets
-          echo -n "$IOS_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-          echo -n "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
-          echo -n "$IOS_PROVISION_PROFILE_WIDGET_BASE64" | base64 --decode -o $PP_WIDGET_PATH
+          echo -n "$CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          echo -n "$PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+          echo -n "$PROVISION_PROFILE_WIDGET_BASE64" | base64 --decode -o $PP_WIDGET_PATH
 
           # create temporary keychain
           security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
@@ -598,7 +762,7 @@ jobs:
           security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
           # import certificate to keychain
-          security import $CERTIFICATE_PATH -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security import $CERTIFICATE_PATH -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
 
           # apply provisioning profile
@@ -609,14 +773,29 @@ jobs:
           # print keychain contents
           security find-identity -v -p codesigning "$KEYCHAIN_PATH" || true
           security cms -D -i "$PP_PATH" > /tmp/app_profile.plist
+          security cms -D -i "$PP_WIDGET_PATH" > /tmp/widget_profile.plist
+          APP_PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' /tmp/app_profile.plist)
+          WIDGET_PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' /tmp/widget_profile.plist)
+          echo "IOS_PROFILE_NAME=$APP_PROFILE_NAME" >> "$GITHUB_ENV"
+          echo "IOS_PROFILE_NAME_WIDGET=$WIDGET_PROFILE_NAME" >> "$GITHUB_ENV"
           /usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' /tmp/app_profile.plist
           /usr/libexec/PlistBuddy -c 'Print :Name' /tmp/app_profile.plist
+          /usr/libexec/PlistBuddy -c 'Print :Name' /tmp/widget_profile.plist
 
       - name: "iOS: Package and publish"
         env:
           IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
+          IOS_GRAM_AUTH_KEY_BASE64: ${{ secrets.IOS_GRAM_AUTH_KEY_BASE64 }}
+          IOS_AUTH_KEY_ID: ${{ vars.IOS_AUTH_KEY_ID }}
+          IOS_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_AUTH_KEY_ISSUER_ID }}
+          IOS_GRAM_AUTH_KEY_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ID }}
+          IOS_GRAM_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ISSUER_ID }}
+          IOS_METADATA_PATH: ${{ vars.IOS_METADATA_PATH }}
+          IOS_GRAM_METADATA_PATH: ${{ vars.IOS_GRAM_METADATA_PATH }}
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: 300
         run: |
+          set -euo pipefail
+
           sudo xcode-select --switch /Applications/Xcode_26.1.app/Contents/Developer
           export DEVELOPER_DIR=/Applications/Xcode_26.1.app/Contents/Developer
           xcodebuild -version
@@ -626,7 +805,34 @@ jobs:
           xcodebuild -showsdks | grep iphoneos
 
           cd mobile/ios/App
-          echo -n "$IOS_AUTH_KEY_BASE64" | base64 --decode -o ./AuthKey.p8
+          AUTH_KEY_BASE64="$IOS_AUTH_KEY_BASE64"
+          ASC_KEY_ID="${IOS_AUTH_KEY_ID:-}"
+          ASC_ISSUER_ID="${IOS_AUTH_KEY_ISSUER_ID:-}"
+          METADATA_PATH="${IOS_METADATA_PATH:-}"
+
+          if [ "$APP_VARIANT" = "gram" ]; then
+            AUTH_KEY_BASE64="${IOS_GRAM_AUTH_KEY_BASE64:-$IOS_AUTH_KEY_BASE64}"
+            ASC_KEY_ID="${IOS_GRAM_AUTH_KEY_ID:-$ASC_KEY_ID}"
+            ASC_ISSUER_ID="${IOS_GRAM_AUTH_KEY_ISSUER_ID:-$ASC_ISSUER_ID}"
+            METADATA_PATH="${IOS_GRAM_METADATA_PATH:-$METADATA_PATH}"
+          fi
+
+          if [ -z "$AUTH_KEY_BASE64" ]; then
+            echo "::error::Missing App Store Connect auth key for $APP_VARIANT"
+            exit 1
+          fi
+
+          echo -n "$AUTH_KEY_BASE64" | base64 --decode -o ./AuthKey.p8
+          if [ -n "$ASC_KEY_ID" ]; then
+            export APP_STORE_CONNECT_KEY_ID="$ASC_KEY_ID"
+          fi
+          if [ -n "$ASC_ISSUER_ID" ]; then
+            export APP_STORE_CONNECT_ISSUER_ID="$ASC_ISSUER_ID"
+          fi
+          if [ -n "$METADATA_PATH" ]; then
+            export IOS_METADATA_PATH="$METADATA_PATH"
+          fi
+
           if [ -z "$PUBLISH_REPO" ]; then
             bundle exec fastlane beta
           else
@@ -651,7 +857,6 @@ jobs:
           echo "WINDOWS_X64_FILE_NAME=${{ env.APP_NAME }}-x64.exe" >> "$GITHUB_ENV"
           echo "WINDOWS_ARM64_FILE_NAME=${{ env.APP_NAME }}-arm64.exe" >> "$GITHUB_ENV"
           echo "WINDOWS_UNIVERSAL_FILE_NAME=${{ env.APP_NAME }}.exe" >> "$GITHUB_ENV"
-          echo "ANDROID_FILE_NAME=${{ env.APP_NAME }}.apk" >> "$GITHUB_ENV"
 
       - name: Download Windows x64 package
         id: dl_win_x64
@@ -671,11 +876,13 @@ jobs:
         with:
           name: ${{ env.WINDOWS_UNIVERSAL_FILE_NAME }}
 
-      - name: Download Android package
+      - name: Download Android packages
         id: download-android
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.ANDROID_FILE_NAME }}
+          pattern: "*.apk"
+          path: android-release
+          merge-multiple: true
 
       - name: Get latest release ID
         id: release-id
@@ -718,17 +925,39 @@ jobs:
           upload "$FILE_PATH_ARM64" "$WINDOWS_ARM64_FILE_NAME"
           upload "$FILE_PATH_UNIVERSAL" "$WINDOWS_UNIVERSAL_FILE_NAME"
 
-      - name: Push new Android asset
+      - name: Replace Android assets
         env:
-          FILE_PATH: ${{ steps.download-android.outputs.download-path }}
           RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
         run: |
-          FILE_NAME=$ANDROID_FILE_NAME
-          PUBLISH_FILE_NAME=${ANDROID_FILE_NAME// /-}
-          curl -X POST -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary "@$FILE_PATH/$FILE_NAME" \
-            "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$PUBLISH_FILE_NAME"
+          set -e
+          shopt -s nullglob
+
+          APK_FILES=(android-release/*.apk)
+          if [ ${#APK_FILES[@]} -eq 0 ]; then
+            echo "No Android APK artifacts were downloaded"
+            exit 1
+          fi
+
+          for FILE_PATH in "${APK_FILES[@]}"; do
+            FILE_NAME=$(basename "$FILE_PATH")
+            PUBLISH_FILE_NAME="${FILE_NAME// /-}"
+
+            ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets" \
+              | jq -r --arg PUBLISH_FILE_NAME "$PUBLISH_FILE_NAME" '.[] | select(.name == $PUBLISH_FILE_NAME) | .id')
+
+            if [ "$ASSET_ID" != "null" ] && [ -n "$ASSET_ID" ]; then
+              curl -X DELETE -H "Authorization: Bearer $GH_TOKEN" \
+                "https://api.github.com/repos/$PUBLISH_REPO/releases/assets/$ASSET_ID"
+            fi
+
+            curl -X POST -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@$FILE_PATH" \
+              "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$PUBLISH_FILE_NAME"
+
+            echo "Uploaded $FILE_NAME"
+          done
 
       - name: Publish release
         env:

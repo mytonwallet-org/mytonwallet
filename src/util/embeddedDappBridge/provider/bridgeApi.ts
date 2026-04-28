@@ -1,6 +1,7 @@
 import { getActions } from '../../../global';
 
 import { openDeeplinkOrUrl } from '../../deeplink';
+import { buildEvmConnectBridgeApi } from './evmConnectBridgeApi';
 import { buildSolanaConnectBridgeApi } from './solanaConnectBridgeApi';
 import { buildTonConnectBridgeApi } from './tonConnectBridgeApi';
 
@@ -11,8 +12,10 @@ export function buildBridgeApi(pageUrl: string) {
 
   const tonConnectApi = buildTonConnectBridgeApi(pageUrl);
   const solanaConnectApi = buildSolanaConnectBridgeApi(pageUrl);
+  const evmConnectApi = buildEvmConnectBridgeApi(pageUrl);
   const prefixedTonConnectApi = tonConnectApi ? prefixApi(tonConnectApi, 'tonConnect:') : undefined;
   const prefixedSolanaConnectApi = solanaConnectApi ? prefixApi(solanaConnectApi, 'solanaConnect:') : undefined;
+  const prefixedEvmConnectApi = prefixApi(evmConnectApi, 'evmConnect:');
 
   return {
     'window:open'({ url }: { url: string }) {
@@ -25,6 +28,7 @@ export function buildBridgeApi(pageUrl: string) {
 
     ...prefixedTonConnectApi,
     ...prefixedSolanaConnectApi,
+    ...prefixedEvmConnectApi,
   };
 }
 

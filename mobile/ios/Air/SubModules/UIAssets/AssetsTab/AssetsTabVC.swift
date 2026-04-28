@@ -79,7 +79,8 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
             defaultItemId: defaultTabIndex == 1 ? Tab.nfts.rawValue : Tab.tokens.rawValue,
             barHeight: 0,
             goUnderNavBar: true,
-            animationSpeed: .slow
+            animationSpeed: .slow,
+            delegate: self
         )
         segmentedController.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(segmentedController)
@@ -95,11 +96,7 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         updateState()
         configureNavigationItemWithTransparentBackground()
         addCustomNavigationBarBackground()
-        
-        let segmentedControl = segmentedController.segmentedControl!
-        segmentedControl.removeFromSuperview()
-        navigationItem.titleView = segmentedControl
-        segmentedControl.widthAnchor.constraint(equalToConstant: 200).isActive = true
+        segmentedController.segmentedControl.embed(in: navigationItem)
         
         view.backgroundColor = .air.pickerBackground
         
@@ -113,6 +110,16 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         if let sheet = self.sheetPresentationController {
             sheet.configureAllowsInteractiveDismiss(true)
         }
+    }
+
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        activateNftAnimationForSelectedPage()
+    }
+
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        pauseAllNftAnimations()
     }
     
     private func updateState() {
@@ -151,5 +158,50 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
     
     public override func scrollToTop(animated: Bool) {
         segmentedController?.scrollToTop(animated: animated)
+    }
+
+    private func forEachNftAnimationController(_ body: (NftAnimationPlaybackControlling) -> Void) {
+        var processedIds = Set<ObjectIdentifier>()
+        for viewController in segmentedController.viewControllers {
+            guard let animatable = viewController as? NftAnimationPlaybackControlling else {
+                continue
+            }
+            let id = ObjectIdentifier(animatable as AnyObject)
+            guard processedIds.insert(id).inserted else {
+                continue
+            }
+            body(animatable)
+        }
+    }
+
+    private func pauseAllNftAnimations() {
+        forEachNftAnimationController {
+            $0.setNftAnimationPlaybackActive(false)
+        }
+    }
+
+    private func activateNftAnimationForSelectedPage() {
+        let selectedControllerID = segmentedController.selectedIndex
+            .flatMap { index -> (NftAnimationPlaybackControlling)? in
+                let viewControllers = segmentedController.viewControllers ?? []
+                guard viewControllers.indices.contains(index) else {
+                    return nil
+                }
+                return viewControllers[index] as? NftAnimationPlaybackControlling
+            }
+            .map { ObjectIdentifier($0 as AnyObject) }
+        forEachNftAnimationController { controller in
+            controller.setNftAnimationPlaybackActive(selectedControllerID == ObjectIdentifier(controller as AnyObject))
+        }
+    }
+}
+
+extension AssetsTabVC: WSegmentedControllerDelegate {
+    public func segmentedControllerDidStartDragging() {
+        pauseAllNftAnimations()
+    }
+
+    public func segmentedControllerDidEndScrolling() {
+        activateNftAnimationForSelectedPage()
     }
 }

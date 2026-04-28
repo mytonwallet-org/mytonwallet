@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiswap.screens.cex.receiveAddressInput.views
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.os.Build
 import android.util.TypedValue
 import android.widget.FrameLayout
@@ -17,7 +18,7 @@ class SwapInputView(context: Context) : FrameLayout(context), WThemedView {
 
     val editText = AppCompatEditText(context).apply {
         background = null
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         }

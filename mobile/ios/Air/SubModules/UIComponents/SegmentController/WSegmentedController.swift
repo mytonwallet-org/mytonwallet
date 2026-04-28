@@ -12,8 +12,6 @@ import WalletContext
 @MainActor
 public protocol WSegmentedControllerContent: UIViewController {
     var onScroll: ((_ y: CGFloat) -> Void)? { get set }
-    var view: UIView! { get }
-    var title: String? { get set }
     var scrollingView: UIScrollView? { get }
     func scrollToTop(animated: Bool)
     func calculateHeight(isHosted: Bool) -> CGFloat
@@ -60,21 +58,12 @@ public class WSegmentedController: WTouchPassView {
     }
     public var animationSpeed: AnimationSpeed
 
-    private static let notSelectedDefaultAttr = [
-        NSAttributedString.Key.font: UIFont.systemFont(ofSize: 17, weight: .semibold),
-        NSAttributedString.Key.foregroundColor: UIColor.air.secondaryLabel
-    ]
-    private static let selectedDefaultAttr = [
-        NSAttributedString.Key.font: UIFont.systemFont(ofSize: 17, weight: .semibold),
-        NSAttributedString.Key.foregroundColor: UIColor.label
-    ]
-
     private let barHeight: CGFloat
     private let goUnderNavBar: Bool
     private let primaryTextColor: UIColor?
     private let secondaryTextColor: UIColor?
     private let capsuleFillColor: UIColor?
-    public var delegate: Delegate?
+    private weak var delegate: Delegate?
 
     public private(set) var model: SegmentedControlModel
 
@@ -97,6 +86,7 @@ public class WSegmentedController: WTouchPassView {
                 primaryTextColor: UIColor? = nil,
                 secondaryTextColor: UIColor? = nil,
                 capsuleFillColor: UIColor? = nil,
+                style: SegmentedControlStyle = .regular,
                 delegate: Delegate? = nil) {
         self.barHeight = barHeight
         self.goUnderNavBar = goUnderNavBar
@@ -104,21 +94,21 @@ public class WSegmentedController: WTouchPassView {
         self.primaryTextColor = primaryTextColor
         self.secondaryTextColor = secondaryTextColor
         self.capsuleFillColor = capsuleFillColor
-        self.model = .init(items: items)
+        self.model = .init(items: items, style: style)
         self.delegate = delegate
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         let viewControllers = items.map(\.viewController)
         self.viewControllers = viewControllers
         setupViews(viewControllers: viewControllers)
-        setupModel(viewControllers: viewControllers, selectedId: defaultItemId)
+        setupModel(selectedId: defaultItemId)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private func setupModel(viewControllers: [WSegmentedControllerContent], selectedId: String?) {
+    private func setupModel(selectedId: String?) {
         if !model.items.isEmpty {
             if let selectedId {
                 model.selection = .init(item1: selectedId)
@@ -228,13 +218,11 @@ public class WSegmentedController: WTouchPassView {
         segmentedControl.translatesAutoresizingMaskIntoConstraints = false
         addSubview(segmentedControl)
 
+        let constants = model.constants
         NSLayoutConstraint.activate([
             segmentedControl.centerXAnchor.constraint(equalTo: centerXAnchor),
-            segmentedControl.topAnchor.constraint(
-                equalTo: topAnchor,
-                constant: (barHeight - SegmentedControlConstants.height) / 2.0 + 3.0 - SegmentedControlConstants.topInset
-            ),
-            segmentedControl.heightAnchor.constraint(equalToConstant: SegmentedControlConstants.fullHeight),
+            segmentedControl.topAnchor.constraint(equalTo: topAnchor, constant: (barHeight - constants.height) / 2.0 + 3.0 - constants.topInset),
+            segmentedControl.heightAnchor.constraint(equalToConstant: constants.fullHeightWithBackground),
             segmentedControl.widthAnchor.constraint(equalTo: widthAnchor)
         ])
 
@@ -248,7 +236,7 @@ public class WSegmentedController: WTouchPassView {
     public func replace(items: [SegmentedControlItem], force: Bool = false) {
         let viewControllers = items.map(\.viewController)
         
-        // Remember current selection and tray to restore it later. For the very first time
+        // Remember current selection and try to restore it later. For the very first time
         // if effectively would be resolved to the first item in the list
         let oldSelectedID = model.selection?.effectiveSelectedItemID
         
@@ -368,12 +356,15 @@ public class WSegmentedController: WTouchPassView {
         let targetPoint = CGPoint(x: CGFloat(index) * scrollView.frame.width, y: 0)
         let progress = targetPoint.x / scrollView.frame.width
         if animated {
+            delegate?.segmentedControllerDidStartDragging()
             withAnimation(.spring(duration: 0.25)) {
                 segmentedControl.model.setRawProgress(progress)
             }
             UIView.animateAdaptive(duration: animationSpeed.duration) { [self] in
                 scrollView.setContentOffset(targetPoint, animated: false)
                 delegate?.segmentedController(scrollOffsetChangedTo: progress)
+            } completion: { [weak self] _ in
+                self?.delegate?.segmentedControllerDidEndScrolling()
             }
         } else {
             scrollView.setContentOffset(targetPoint, animated: false)

@@ -1,4 +1,4 @@
-import { APP_ENV, APP_VERSION, BRILLIANT_API_BASE_URL } from '../../config';
+import { APP_ENV, APP_NAME, APP_VERSION, BRILLIANT_API_BASE_URL } from '../../config';
 import { fetchJson, fetchWithRetry, fetchWithTimeout, handleFetchErrors } from '../../util/fetch';
 import { getEnvironment } from '../environment';
 import { getClientId } from './other';
@@ -57,6 +57,7 @@ export function getBackendHeaders() {
     'X-App-ClientID': getClientId(),
     'X-App-Version': APP_VERSION,
     'X-App-Env': APP_ENV,
+    'X-App-Name': APP_NAME,
   } as Record<string, string>;
 }
 

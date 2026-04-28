@@ -10,7 +10,6 @@ struct LedgerSelectWalletsView: View {
     
     var model: LedgerAddAccountModel
     
-    @State private var angle: Angle = .zero
     @State private var continueLoading = false
     
     var body: some View {
@@ -24,15 +23,7 @@ struct LedgerSelectWalletsView: View {
                     InsetButtonCell(horizontalPadding: 0, verticalPadding: 0, action: onLoadMore) {
                         HStack(spacing: 0) {
                             if model.isLoadingMore {
-                                Image.airBundle("ActivityIndicator")
-                                    .renderingMode(.template)
-                                    .rotationEffect(angle)
-                                    .onAppear {
-                                        withAnimation(.linear(duration: 0.625).repeatForever(autoreverses: false)) {
-                                            angle += .radians(2 * .pi)
-                                        }
-                                    }
-
+                                WUIActivityIndicator()
                                     .frame(width: 22)
                                     .padding(.horizontal, 20)
                                     .transition(.scale.combined(with: .opacity))

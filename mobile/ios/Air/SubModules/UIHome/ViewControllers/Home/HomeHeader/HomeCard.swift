@@ -72,6 +72,8 @@ final class HomeCard: UICollectionViewCell {
         cardBackground = HostingView { [container] in
             BackgroundContainer(container: container)
         }
+        cardBackground.isAccessibilityElement = false
+        cardBackground.accessibilityElementsHidden = true
         contentView.addSubview(cardBackground)
         NSLayoutConstraint.activate([
             cardBackground.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -83,6 +85,8 @@ final class HomeCard: UICollectionViewCell {
         cardPromotion = HostingView { [container] in
             PromotionContainer(container: container)
         }
+        cardPromotion.isAccessibilityElement = false
+        cardPromotion.accessibilityElementsHidden = true
         cardPromotion.isUserInteractionEnabled = false
         contentView.addSubview(cardPromotion)
         NSLayoutConstraint.activate([
@@ -112,6 +116,7 @@ final class HomeCard: UICollectionViewCell {
         cardContent = HostingView {
             CardContentContainer(container: container)
         }
+        cardContent.isAccessibilityElement = false
         cardContentMaskingContainer.addSubview(cardContent)
         NSLayoutConstraint.activate([
             cardContent.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -123,6 +128,8 @@ final class HomeCard: UICollectionViewCell {
         miniatureContent = HostingView {
             CardMiniatureContainer(container: container)
         }
+        miniatureContent.isAccessibilityElement = false
+        miniatureContent.accessibilityElementsHidden = true
         miniatureContent.isUserInteractionEnabled = false
         contentView.addSubview(miniatureContent)
         NSLayoutConstraint.activate([
@@ -149,10 +156,12 @@ final class HomeCard: UICollectionViewCell {
         updateLayout(layout)
         cardContentMask.bounds = CGRect(x: 0, y: 0, width: layout.itemWidth, height: layout.itemHeight)
         cardContentMask.center = CGPoint(x: layout.itemWidth/2, y: layout.itemHeight/2)
+        updateAccessibilityState(headerViewModel: headerViewModel)
         observeToken?.cancel()
         observeToken = observe { [weak self] in
             guard let self else { return }
             let isCollapsed = headerViewModel.isCollapsed
+            updateAccessibilityState(headerViewModel: headerViewModel)
             UIView.animateAdaptive(duration: isCollapsed ? 0.3 : (IOS_26_MODE_ENABLED ? 0.4 : 0.3)) {
                 self.applyTransform(headerViewModel: headerViewModel)
             }
@@ -211,6 +220,13 @@ final class HomeCard: UICollectionViewCell {
     private func updateLayout(_ layout: HomeCardLayoutMetrics) {
         widthConstraint.constant = layout.itemWidth
         heightConstraint.constant = layout.itemHeight
+    }
+
+    private func updateAccessibilityState(headerViewModel: HomeHeaderViewModel) {
+        let isCollapsed = headerViewModel.isCollapsed
+        let isHidden = headerViewModel.isCardHidden
+        cardContent.accessibilityElementsHidden = isCollapsed || isHidden
+        collapsedContent.accessibilityElementsHidden = !isCollapsed || isHidden
     }
 }
 

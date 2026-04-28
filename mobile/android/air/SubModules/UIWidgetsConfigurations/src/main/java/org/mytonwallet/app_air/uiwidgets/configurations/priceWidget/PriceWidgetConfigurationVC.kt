@@ -8,15 +8,14 @@ import android.view.Gravity
 import android.view.View.generateViewId
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorVC
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WTokenSymbolIconView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
@@ -31,6 +30,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -50,7 +50,8 @@ class PriceWidgetConfigurationVC(
     WidgetConfigurationVC(context), WalletCore.EventObserver {
     override val TAG = "PriceWidgetConfiguration"
 
-    private val periodViewRowRipple = WRippleDrawable.create(0f, 0f, ViewConstants.BLOCK_RADIUS.dp, ViewConstants.BLOCK_RADIUS.dp)
+    private val periodViewRowRipple =
+        WRippleDrawable.create(0f, 0f, ViewConstants.BLOCK_RADIUS.dp, ViewConstants.BLOCK_RADIUS.dp)
 
     override val shouldDisplayTopBar = false
 
@@ -64,10 +65,7 @@ class PriceWidgetConfigurationVC(
         }
     }.apply {
         id = generateViewId()
-        drawable = ContextCompat.getDrawable(
-            context,
-            org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18
-        )
+        drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
         defaultSymbol = LocaleController.getString("Loading...")
         setAsset(selectedToken)
     }
@@ -88,10 +86,7 @@ class PriceWidgetConfigurationVC(
     var selectedPeriod = MHistoryTimePeriod.DAY
     private val periodView = WEditableItemView(context).apply {
         id = generateViewId()
-        drawable = ContextCompat.getDrawable(
-            context,
-            org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18
-        )
+        drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
         setText(selectedPeriod.localizedLong)
     }
     private val periodViewRow =

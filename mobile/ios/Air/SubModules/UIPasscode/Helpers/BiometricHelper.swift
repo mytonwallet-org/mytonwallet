@@ -36,7 +36,11 @@ public enum BiometryType {
     
     private struct Texts {
         static var notAvailable: String { lang("Biometric authentication not available.")}
-        static var reason: String { lang("MyTonWallet uses biometric authentication to unlock and authorize transactions") }
+        static var reason: String {
+            IS_GRAM_WALLET
+                ? "\(APP_NAME) uses biometric authentication to unlock and authorize transactions"
+                : lang("MyTonWallet uses biometric authentication to unlock and authorize transactions")
+        }
         static var setPasscode: String { lang("Please set a passcode on your device, and then try to use biometric authentication.") }
     }
     

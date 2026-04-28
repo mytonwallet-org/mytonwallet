@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.hiddenNFTs.cells
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.SpannableStringBuilder
 import android.text.TextUtils
 import android.view.ViewGroup
@@ -41,7 +42,7 @@ class HiddenNFTsItemCell(
 
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f, WFont.Medium)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl.setSingleLine()
         lbl.ellipsize = TextUtils.TruncateAt.END
         lbl.useCustomEmoji = true

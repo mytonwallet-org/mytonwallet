@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uibrowser.viewControllers.search.cells
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.drawable.Drawable
 import android.text.TextUtils
@@ -41,7 +42,7 @@ class SearchItemCell(context: Context, private val onTap: (keyword: String) -> U
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.Regular)
+            setStyle(adaptiveFontSize(), WFont.Regular)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(WColor.PrimaryText)

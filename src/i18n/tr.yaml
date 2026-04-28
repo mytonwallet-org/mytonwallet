@@ -94,9 +94,12 @@ Address removed from saved: Adres kaydedilenlerden kaldırıldı
 Warning!: Uyarı!
 $logout_without_backup_warning: Bu cüzdanı yedeklemediniz. Cüzdanı kaldırırsanız tokenlarınıza ve NFT'lerinize erişiminizi kaybedersiniz.
 $logout_accounts_without_backup_warning: "%links% için yedekleme yapmadınız. Devam ederseniz tokenlarınıza ve NFT'lerinize erişiminizi kaybedersiniz."
-$logout_warning: Bu, mevcut cüzdanı uygulamadan kaldıracaktır. **Gizli kelimelerinizi** yedeklediğinizden emin olun.
-$logout_all_wallets_warning: Bu, uygulamadaki tüm cüzdanları kaldıracaktır. Tüm **gizli kelimelerinizin** yedeğini aldığınızdan emin olun.
-$logout_view_mode_warning: Bu, mevcut cüzdanı uygulamadan kaldıracaktır.
+$logout_current_wallet_warning: Bu, mevcut cüzdanı uygulamadan kaldıracaktır.
+$logout_selected_wallet_warning: Bu, seçili cüzdanı uygulamadan kaldıracaktır.
+$logout_selected_wallets_warning: Bu, seçili cüzdanları uygulamadan kaldıracaktır.
+$logout_all_wallets_warning: Bu, uygulamadaki tüm cüzdanları kaldıracaktır.
+$secret_words_backup_reminder: "**Gizli kelimelerinizi** yedeklediğinizden emin olun."
+$all_secret_words_backup_reminder: Tüm **gizli kelimelerinizin** yedeğini aldığınızdan emin olun.
 Create Deposit Link: Para Yatırma Bağlantısı Oluşturun
 $receive_invoice_description: |
   Göndericiye zaman kazandırmak adına ödeme
@@ -145,7 +148,6 @@ Switch Account: Hesap değiştir
 Copy wallet address: Cüzdan adresini kopyala
 View address on %explorer_name%: "%explorer_name%'da adresi görüntüleyin"
 You have just created a new wallet: Az önce yeni bir cüzdan oluşturdunuz
-You can now transfer your tokens from another wallet or exchange.: Artık tokenlarınızı başka bir cüzdandan veya borsadan aktarabilirsiniz.
 Assets: Varlıklar
 Activity: Etkinlik
 NFT: NFT
@@ -204,19 +206,24 @@ Focus on asset value rather than current balance: Mevcut bakiyeden ziyade varlı
 $logout_confirm: "**Tüm** cüzdanları kaldırın"
 $tiny_transfers_help: Tutarı $%value%'den az olan işlemleri görüntülemek için bu düğmeyi kapalı konuma getirin. Lütfen bu tür işlemlerin genellikle spam ve dolandırıcılık amacıyla kullanıldığını unutmayın.
 Today: Bugün
+Total: Toplam
+Zoom Out: Uzaklaştır
 Yesterday: Dün
 Now: Şimdi
-$receive_description: Cüzdan bakiyenizi artırmak için bu QR'yi tarayın veya adresinizi paylaşın.
+$receive_description: Cüzdan bakiyesini artırmak için bu QR'yi tarayın veya adresi paylaşın.
 Wrong password, please try again.: Yanlış parola, lütfen tekrar deneyin.
 Appearance: Görünüm
 Light: Açık
 Dark: Koyu
 System: Sistem
 $stake_asset: "%symbol% stake et"
+Add Stake: Stake ekle
 Earn from your tokens while holding them: Tokenlarınızı tutarken pasif gelir elde edin
 Est. %annual_yield%: Tahmini %annual_yield%
+Current APY: Mevcut APY
+Est. Yearly Earnings: Tahmini Yıllık Kazanç
+Staking Details: Staking Detayları
 Why this is safe: Neden güvenlidir?
-Why is staking safe?: Staking neden güvenlidir?
 $safe_staking_description1: Staking **tamamen merkeziyetsiz** bir işlemdir ve **resmi TON Likit Staking** akıllı sözleşmeleri tarafından yürütülür.
 $safe_staking_description2: Stake edilen tutar, **hisse kanıtı** esası kapsamında %chain% ağındaki işlemlerin doğrulanması için kullanılacaktır.
 $safe_staking_description3: Stake edilen tutarı **istediğiniz zaman** çekebilirsiniz; bu tutar **iki gün** içinde hesabınıza geri yatırılacaktır.
@@ -230,6 +237,8 @@ View: Görüntüle
 Stake More: Daha fazla stake edin
 Staking: Staking
 Currently Staked: Güncel stake miktarı
+Total Staked: Toplam Stake
+Total Stakers: Toplam Staker
 Unstake: Unstake et
 Earning History: Kazanç Geçmişi
 $total: "Toplam: %value%"
@@ -284,6 +293,28 @@ Are you sure you want to disconnect all websites?: Tüm web sitelerinin bağlant
 Logged in with %app_name%: "%app_name% ile oturum açıldı"
 No active connections: Aktif bağlantı yok
 Other: Diğer
+No price data: Fiyat verisi yok
+Not staked: Stake edilmemiş
+Portfolio: Portföy
+Total Balance: Toplam bakiye
+No data: Veri yok
+Total Value: Toplam değer
+Tracked asset value over time.: İzlenen varlıkların zaman içindeki değeri.
+Portfolio Share: Portföy dağılımı
+Current allocation across tracked assets.: İzlenen varlıklar arasındaki mevcut dağılım.
+Deep history analysis will be available in upcoming updates.: Derin geçmiş analizi gelecek güncellemelerde kullanıma sunulacak.
+By Chain: Ağa göre
+No chain balances: Ağ bakiyesi yok
+Native: Yerel
+Stablecoins: Stablecoinler
+Altcoins: Altcoinler
+Asset Mix: Varlık dağılımı
+No asset balances: Varlık bakiyesi yok
+No staked assets: Stake edilmiş varlık yok
+"Asset %1$@": "Varlık %1$@"
+Error: Hata
+Unavailable: Kullanılamıyor
+Updating: Güncelleniyor
 Assets & Activity: Varlıklar ve Etkinlik
 Token Settings: Token ayarları
 Add Token: Token ekle
@@ -437,7 +468,7 @@ $max_balance: "Maks.: %balance%"
 $unstake_information_instantly: Yatırdığınız tutarı anında alacaksınız
 Select Token: Token seçin
 MY: Cüzdanımdakiler
-POPULAR: POPÜLER
+POPULAR: Popüler
 Not Found: Bulunamadı
 Wallet is ready!: Cüzdan hazır!
 Wallet is imported!: Cüzdan içeri aktarıldı!
@@ -551,9 +582,17 @@ $unsupported_chain: Desteklenmeyen blok zinciri.
 Successfully: Başarıyla
 Unstake More: Unstake daha fazla
 Are you sure you want to burn this NFT? It will be lost forever.: Bu NFT'yi yakmak istediğinizden emin misiniz? Sonsuza kadar kaybolacak.
-$multi_burn_nft_warning: "%amount% NFT yakacaksınız."
+$multi_burn_nft_warning: |
+  %amount% NFT yakacaksınız. İşlem ~%duration% sürebilir. Lütfen işlem tamamlanana kadar uygulamayı kapatmayın veya cüzdan değiştirmeyin.
+
+  Bu NFT'ler sonsuza kadar kaybolacak.
+$duration_minutes:
+  zeroValue: "%1$d dakika"
+  oneValue: "%1$d dakika"
+  otherValue: "%1$d dakika"
 $multi_send_nft_warning: İşlem ~%duration% dakika sürebilir. Lütfen işlem tamamlanana kadar uygulamayı kapatmayın ve hesap değiştirmeyin.
 Burn NFT: NFT'yi yaz
+Burn Collectibles: Koleksiyon öğelerini yak
 Burn: Yakmak
 Private Key: Gizli anahtar
 "%amount% NFTs": "%amount% NFT"
@@ -571,6 +610,11 @@ Transaction ID Copied: İşlem kimliği kopyalandı
 $swap_changelly_support: "Herhangi bir sorun varsa lütfen %livechat% veya %email% ile iletişime geçin ve **İşlem Kimliğini** sağlayın:"
 Changelly Live Chat: Changelly Canlı Sohbet
 Your %blockchain% Address: "%blockchain% Adresiniz"
+My %blockchain% Address: "%blockchain% Adresim"
+"%blockchain% Address": "%blockchain% Adresi"
+$view_only_wallet_receive_warning: |
+  **Görüntüleme modu: bu SİZİN cüzdanınız DEĞİL**
+  Fon göndermeden önce dikkatlice doğrulayın.
 Vesting: Hak Kazanma
 Vesting Balance: Hak Kazanma Bakiyesi
 Ready to Unfreeze: Çözülmeye Hazır
@@ -636,8 +680,6 @@ Untitled: Başlıksız
 Multichain: Multichain
 $swap_too_small_amount: Çok küçük miktar
 Not enough %symbol%: Yeterli %symbol% yok
-You have just created a new multichain wallet: Yeni bir çok zincirli cüzdan oluşturdunuz
-Now you can transfer tokens from your %chains% wallets.: Artık %chains% cüzdanlarınızdan token transferi yapabilirsiniz.
 Enter Secret Words: Gizli Kelimeleri Girin
 Turn this off so you can manually download updates and verify signatures.: Bunu kapatın, böylece güncellemeleri manuel olarak indirip imzaları doğrulayabilirsiniz.
 InvalidMnemonic: Mnemonik kelimeleriniz geçersiz
@@ -931,16 +973,16 @@ $wallet_done_description: Artık coinleri ve diğer dijital varlıkları güvenl
 Security Warning: Güvenlik Uyarısı
 Go back to Words: Kelimelere Geri Dön
 I’m sure. Continue: Eminim. Devam Et
-$copy_mnemonic_warning: Kelimeleri **pano** dahil dijital bir ortamda saklamak güvenli değildir. Kurtarma ifadenizi güvenli bir şekilde kaydettiğinizden emin olun.
-$screenshot_mnemonic_warning: Kelimeleri **ekran görüntüsü** dahil dijital bir ortamda saklamak güvenli değildir. Kurtarma ifadenizi güvenli bir şekilde kaydettiğinizden emin olun.
-Other apps will be able to read your recovery phrase!: Diğer uygulamalar kurtarma ifadenizi okuyabilecek!
+$copy_mnemonic_warning: Kelimeleri **pano** dahil dijital bir ortamda saklamak güvenli değildir. Gizli kelimelerinizi güvenli bir şekilde kaydettiğinizden emin olun.
+$screenshot_mnemonic_warning: Kelimeleri **ekran görüntüsü** dahil dijital bir ortamda saklamak güvenli değildir. Gizli kelimelerinizi güvenli bir şekilde kaydettiğinizden emin olun.
+Other apps will be able to read your secret words!: Diğer uygulamalar gizli kelimelerinizi okuyabilecek!
 I’m sure. Copy anyway: Eminim. Yine de Kopyala
 $auth_biometric_info: "**Daha fazla konfor** için biyometrik verilerinizi bağlayabilirsiniz."
 Open wallet without checking: Kontrol etmeden cüzdanı aç
-Make sure you have your recovery phrase securely saved.: Kurtarma ifadenizi güvenli bir şekilde kaydettiğinizden emin olun.
+Make sure you have your secret words securely saved.: Gizli kelimelerinizi güvenli bir şekilde kaydettiğinizden emin olun.
 Without it, you won't be able to access your wallet.: Onsuz cüzdanınıza erişemezsiniz.
 $ledger_connection_broken: Ledger bağlantısı kesildi. Lütfen yeniden bağlanıp tekrar deneyin.
-$ledger_wrong_device: Mevcut hesap başka bir Ledger kurtarma ifadesi veya parola ile kuruldu ya da başka bir Ledger cihazında saklanıyor
+$ledger_wrong_device: Mevcut hesap farklı Ledger gizli kelimeleri veya parola ile kuruldu ya da başka bir Ledger cihazında saklanıyor
 Show More: Daha fazla göster
 Search app or enter address: Uygulama ara veya adres gir
 Connected Apps: Bağlı Uygulamalar
@@ -969,6 +1011,7 @@ Add Ledger Wallet: Ledger Cüzdanı Ekle
 Add View Wallet: Görüntüleme Cüzdanı Ekle
 No Ledger wallets yet: Henüz Ledger cüzdanı yok
 No view wallets yet: Henüz görüntüleme cüzdanı yok
+View wallets can receive assets, but you cannot use them to send or sign transactions.: Görüntüleme cüzdanları varlık alabilir, ancak gönderme veya işlem imzalama için kullanılamaz.
 Add the first one to track balances and activity for any address.: Herhangi bir adresin bakiyelerini ve aktivitelerini takip etmek için ilk cüzdanı ekleyin.
 Customize Wallet: Cüzdanı özelleştir
 "Select the card stored in this wallet:": "Bu cüzdanda saklanan kartı seçin:"
@@ -1079,7 +1122,6 @@ Subwallets: Alt cüzdanlar
 Other addresses for this wallet: Bu cüzdan için diğer adresler
 Current Wallet: Mevcut Cüzdan
 Add Subwallet: Alt cüzdan ekle
-Replace in this wallet: Bu cüzdanda değiştir
 Create Subwallet: Alt cüzdan oluştur
 You have tokens on other subwallets. You can switch to them here.: Diğer alt cüzdanlarda tokenlarınız var. Buradan onlara geçiş yapabilirsiniz.
 Subwallet Created: Alt cüzdan oluşturuldu
@@ -1098,11 +1140,23 @@ Scroll To Bottom: Alta kaydır
 $agent_clear_chat_confirm: Sohbet geçmişini temizlemek istediğinizden emin misiniz?
 $unknown_swap_token: Swap bağlantısında bilinmeyen token. Varsayılan tokenlar kullanıldı.
 $action_not_available_view_mode: Bu işlem Görüntüleme Cüzdanları için kullanılamaz
+Deposit: Yatır
+Trade: Ticaret
+Show All %collection_name%: Tümünü göster %collection_name%
 Scanning for subwallets...: Alt cüzdanlar aranıyor...
 This process may take up to a minute. Please wait.: Bu işlem bir dakikaya kadar sürebilir. Lütfen bekleyin.
 Your assets on other TON contracts: Diğer TON sözleşmelerindeki varlıklarınız
 No existing subwallets found: Mevcut alt cüzdan bulunamadı
-You can create a new subwallet if you need another address on the same recovery phrase.: Aynı kurtarma ifadesinde başka bir adrese ihtiyacınız varsa yeni bir alt cüzdan oluşturabilirsiniz.
+You can create a new subwallet if you need another address on the same secret words.: Aynı gizli kelimelerde başka bir adrese ihtiyacınız varsa yeni bir alt cüzdan oluşturabilirsiniz.
 You have tokens on other subwallets. Each subwallet has its own address.: Diğer alt cüzdanlarda tokenlarınız var. Her alt cüzdanın kendine ait bir adresi vardır.
-$chain_Subwallets: '%chain% alt cüzdanlar'
 Scanning...: Taranıyor...
+Show All Assets: Tüm Varlıkları göster
+Show All Collectibles: Tüm Koleksiyonları göster
+No collectibles yet: Henüz koleksiyonunuz yok
+Hide Tab: Sekmeyi gizle
+Show Collectibles: Koleksiyonları göster
+Show Assets: Varlıkları göster
+Top %amount%: En iyi %amount%
+No subwallets yet.: Henüz alt cüzdan yok.
+$subwallets_found: "Bulundu: %1$d"
+Send, receive, and trade tokens and collectibles.: Tokenleri ve koleksiyon ürünlerini gönderin, alın ve takas edin.

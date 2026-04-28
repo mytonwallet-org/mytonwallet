@@ -177,6 +177,7 @@ private let log = Log("Home-WalletAssets")
 
         if view.window != nil {
             activateEmptyStateAnimationForSelectedPage()
+            activateNftAnimationForSelectedPage()
         }
     }
     
@@ -241,12 +242,15 @@ private let log = Log("Home-WalletAssets")
 
         walletAssetsView.tabsContainer.onWillStartTransition = { [weak self] in
             self?.pauseAllEmptyStateAnimations()
+            self?.pauseAllNftAnimations()
         }
         walletAssetsView.tabsContainer.onDidStartDragging = { [weak self] in
             self?.pauseAllEmptyStateAnimations()
+            self?.pauseAllNftAnimations()
         }
         walletAssetsView.tabsContainer.onDidEndScrolling = { [weak self] in
             self?.activateEmptyStateAnimationForSelectedPage()
+            self?.activateNftAnimationForSelectedPage()
         }
         
         updateTheme()
@@ -287,11 +291,13 @@ private let log = Log("Home-WalletAssets")
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         activateEmptyStateAnimationForSelectedPage()
+        activateNftAnimationForSelectedPage()
     }
 
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         pauseAllEmptyStateAnimations()
+        pauseAllNftAnimations()
     }
     
     private func updateTheme() {
@@ -376,6 +382,26 @@ private let log = Log("Home-WalletAssets")
         }
     }
 
+    private func forEachNftAnimationController(_ body: (NftAnimationPlaybackControlling) -> Void) {
+        var processedIds = Set<ObjectIdentifier>()
+        for viewController in walletAssetsView.tabsContainer.viewControllers {
+            guard let animatable = viewController as? NftAnimationPlaybackControlling else {
+                continue
+            }
+            let id = ObjectIdentifier(animatable as AnyObject)
+            guard processedIds.insert(id).inserted else {
+                continue
+            }
+            body(animatable)
+        }
+    }
+
+    private func pauseAllNftAnimations() {
+        forEachNftAnimationController {
+            $0.setNftAnimationPlaybackActive(false)
+        }
+    }
+
     private func activateEmptyStateAnimationForSelectedPage() {
         let selectedControllerID = walletAssetsView.tabsContainer.selectedIndex
             .flatMap { index -> (WalletAssetsEmptyStateAnimationControlling)? in
@@ -388,6 +414,21 @@ private let log = Log("Home-WalletAssets")
             .map { ObjectIdentifier($0 as AnyObject) }
         forEachEmptyStateAnimationController { controller in
             controller.setWalletAssetsEmptyStateAnimationActive(selectedControllerID == ObjectIdentifier(controller as AnyObject))
+        }
+    }
+
+    private func activateNftAnimationForSelectedPage() {
+        let selectedControllerID = walletAssetsView.tabsContainer.selectedIndex
+            .flatMap { index -> (NftAnimationPlaybackControlling)? in
+                let viewControllers = walletAssetsView.tabsContainer.viewControllers
+                guard viewControllers.indices.contains(index) else {
+                    return nil
+                }
+                return viewControllers[index] as? NftAnimationPlaybackControlling
+            }
+            .map { ObjectIdentifier($0 as AnyObject) }
+        forEachNftAnimationController { controller in
+            controller.setNftAnimationPlaybackActive(selectedControllerID == ObjectIdentifier(controller as AnyObject))
         }
     }
     

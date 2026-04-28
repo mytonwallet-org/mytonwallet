@@ -33,12 +33,13 @@ $createSubwalletPaddingBottom: 1rem;
   max-height: 100%;
   margin: 0 auto;
 
-  &:not(:global(.Transition_slide-from)):not(:global(.Transition_slide-to)) {
-    position: relative;
+  @include mixins.respond-above(xs) {
+    max-width: v.$landscapeMainContentMaxWidth;
+    margin-inline-start: 0;
   }
 
-  .modalDialog & {
-    --safe-area-top: 0px;
+  &:not(:global(.Transition_slide-from)):not(:global(.Transition_slide-to)) {
+    position: relative;
   }
 
   & > & {
@@ -97,31 +98,19 @@ $createSubwalletPaddingBottom: 1rem;
   &:global(.is-scrolled) {
     @supports (backdrop-filter: saturate(180%) blur(20px)) {
       background-color: var(--color-background-tab-bar);
-      backdrop-filter: saturate(180%) blur(20px);
+      backdrop-filter: var(--filter-blur-bar);
     }
   }
 
   :global(html.is-mobile-telegram-app.is-fullscreen) & {
     padding-top: calc(var(--tg-safe-area-inset-top) + var(--header-title-height));
   }
-
-  &_withWallet {
-    padding: var(--header-padding-top) 0.125rem var(--header-padding-bottom);
-  }
-}
-
-.headerInsideModal {
-  padding: 1.5rem 0.25rem 1.25rem;
 }
 
 .headerWithWalletName {
   display: flex;
   justify-content: space-between;
   padding: var(--header-padding-top) 1rem var(--header-padding-bottom);
-}
-
-.languageHeader {
-  grid-template-columns: 0.85fr 1fr 0.85fr;
 }
 
 .mobileHeader {
@@ -206,10 +195,6 @@ $createSubwalletPaddingBottom: 1rem;
   min-width: 9rem;
 }
 
-.modalHeader {
-  min-height: 4rem;
-}
-
 .content {
   overflow-x: hidden;
   overflow-y: scroll;
@@ -218,7 +203,7 @@ $createSubwalletPaddingBottom: 1rem;
 
   height: 100%;
   min-height: 0;
-  padding: 0.75rem 1rem max(var(--safe-area-bottom), 1rem);
+  padding: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom) + 1.5rem) 1rem max(var(--safe-area-bottom), 1rem);
 
   @include mixins.adapt-padding-to-scrollbar(1rem);
 
@@ -231,11 +216,13 @@ $createSubwalletPaddingBottom: 1rem;
   }
 
   &_withWallet {
-    padding: 1.1875rem 1rem max(var(--safe-area-bottom), 1rem);
-
     @include mixins.respond-below(xs) {
-      padding-bottom: calc(var(--safe-area-bottom) + var(--bottombar-height) + 1.625rem);
+      padding-bottom: calc(var(--bottombar-height) + 1.625rem);
     }
+  }
+
+  &_main {
+    padding-bottom: calc(var(--bottombar-height) + 1rem);
   }
 
   @include mixins.respond-below(xs) {
@@ -243,6 +230,16 @@ $createSubwalletPaddingBottom: 1rem;
 
     :global(html.is-mobile-telegram-app.is-fullscreen) & {
       padding-top: 0.75rem;
+    }
+  }
+
+  @include mixins.respond-above(xs) {
+    padding-left: 0;
+
+    &_noHeader {
+      padding: var(--app-padding-top) 1rem max(var(--safe-area-bottom), 1rem) 0;
+
+      @include mixins.adapt-padding-to-scrollbar(1rem);
     }
   }
 }
@@ -254,7 +251,6 @@ $createSubwalletPaddingBottom: 1rem;
 }
 
 .content.contentWallets {
-  padding-top: 1rem;
   padding-bottom: calc(
     #{$createSubwalletPaddingTop} + #{$createSubwalletPaddingBottom} + #{$createSubwalletButtonHeight}
   );
@@ -262,10 +258,6 @@ $createSubwalletPaddingBottom: 1rem;
   @include mixins.respond-below(xs) {
     padding-top: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom) + 1.375rem);
   }
-}
-
-.contentInModal {
-  height: auto;
 }
 
 .contentFullSize {
@@ -283,7 +275,7 @@ $createSubwalletPaddingBottom: 1rem;
   align-items: center;
   justify-content: space-between;
 
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.375rem;
   padding: 0 0.5rem;
 }
 
@@ -302,7 +294,7 @@ $createSubwalletPaddingBottom: 1rem;
   }
 
   &_small {
-    margin-bottom: 0.3125rem;
+    margin-bottom: 0.375rem;
 
     &:not(:first-of-type) {
       margin-top: 0.0625rem;
@@ -320,6 +312,10 @@ $createSubwalletPaddingBottom: 1rem;
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1rem 0.75rem;
+
+  @include mixins.respond-above(xs) {
+    justify-content: space-around;
+  }
 }
 
 .theme {
@@ -484,6 +480,39 @@ $createSubwalletPaddingBottom: 1rem;
   }
 }
 
+.tokenListContent {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+
+  min-height: 0;
+  padding-top: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom) + 1.25rem);
+
+  @include mixins.respond-above(xs) {
+    // Same visible right edge as `.block` inside `.content` (which sits
+    // `.content` padding-right + scrollbar = 1rem inset from `.slide` right).
+    margin: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom) + 1.5rem) 1rem 0 0;
+    padding-top: 0;
+    border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+    background-color:  var(--color-background-first);
+
+    :global(html.theme-dark) & {
+      background-color: var(--color-background-window);
+    }
+  }
+}
+
+.tokenListSearch {
+  height: 2.75rem;
+  min-height: 2.75rem;
+  margin: 0 1.25rem;
+  border-radius: 2.75rem;
+
+  background-color: var(--color-background-first-blur);
+  backdrop-filter: blur(2rem);
+  box-shadow: 0 0.25rem 1rem 0 #00000014, 0 0 0.25rem 0 #00000014;
+}
+
 .iconChevronRight,
 .iconQuestion {
   font-size: 1rem;
@@ -521,6 +550,8 @@ $createSubwalletPaddingBottom: 1rem;
   }
 
   &_red {
+    --color-black: var(--color-red);
+
     color: var(--color-red);
   }
 
@@ -725,6 +756,7 @@ a.item:hover {
 .version {
   user-select: none;
 
+  margin-top: auto;
   padding-top: 0.8125rem;
 
   font-size: 0.9375rem;
@@ -806,12 +838,8 @@ a.item:hover {
   padding: 0 !important;
 }
 
-.passwordFormContentInModal {
-  padding: 0 1rem 1rem;
-
-  @supports (padding-bottom: var(--safe-area-bottom)) {
-    padding-bottom: max(var(--safe-area-bottom), 1rem);
-  }
+.passwordFormWithHeaderOffset {
+  padding-top: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom) + 1.5rem);
 
   @include mixins.respond-below(xs) {
     padding-top: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom));
@@ -828,10 +856,15 @@ a.item:hover {
 
   font-size: 0.8125rem;
   font-weight: 600;
+  line-height: 1.125rem;
   color: var(--color-gray-2);
 
   & + & {
     margin-top: -0.625rem;
+  }
+
+  &.noTopMargin {
+    margin-top: 0;
   }
 }
 
@@ -1006,8 +1039,6 @@ a.item:hover {
 }
 
 .tokenDescription {
-  --border-radius-value: 0.25rem;
-
   display: flex;
   align-items: center;
 
@@ -1034,30 +1065,6 @@ a.item:hover {
 .dapp,
 .themeIcon {
   position: relative;
-}
-
-.modalDialog {
-  // Hidden is needed for animating screen transition on the desktop
-  overflow: hidden;
-  height: 47rem;
-
-  @supports (height: var(--safe-area-bottom)) {
-    height: calc(46rem + var(--safe-area-bottom));
-  }
-}
-
-.modalDialogWeb {
-  height: 38rem;
-
-  @supports (height: var(--safe-area-bottom)) {
-    height: calc(38rem + var(--safe-area-bottom));
-  }
-}
-
-.modalContent {
-  overflow: visible;
-  height: 100%;
-  min-height: 0;
 }
 
 .deleteText {
@@ -1112,6 +1119,7 @@ a.item:hover {
 }
 
 .walletVersionInfoRight {
+  overflow: hidden;
   align-items: flex-end;
 }
 
@@ -1164,6 +1172,35 @@ a.item:hover {
   font-weight: 500;
   color: var(--color-gray-2);
   text-wrap: nowrap;
+}
+
+.walletVersionAddress {
+  :global([class^="icon-chain-"]) {
+    margin-inline-end: 0.125rem;
+    vertical-align: -0.125rem;
+  }
+}
+
+.walletVersionAmount {
+  overflow: hidden;
+  max-width: 100%;
+  padding-inline-start: 0.75rem;
+  text-overflow: ellipsis;
+}
+
+.walletGroupChainLines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1875rem;
+  margin-top: 0.125rem;
+}
+
+.walletGroupChainLine {
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+  word-break: break-all;
 }
 
 .blockWalletVersionReadMore {
@@ -1273,6 +1310,23 @@ $externalRadius: $internalRadius + $borderWidth;
   --spinner-size: 0.75rem;
 }
 
+.emptySubwallets {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 3rem;
+  padding: 0.9375rem 1rem;
+  border-radius: var(--border-radius-default);
+
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+  color: var(--color-gray-3);
+
+  background: var(--color-background-first);
+}
+
 .variantTabs {
   --tab-gap-size: 0.25rem;
 
@@ -1322,7 +1376,7 @@ $externalRadius: $internalRadius + $borderWidth;
   padding: $createSubwalletPaddingTop 1rem $createSubwalletPaddingBottom;
 
   background-color: var(--color-background-window);
-  backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: var(--filter-blur-bar);
 
   @include mixins.respond-below(xs) {
     padding-bottom: max(var(--safe-area-bottom), $createSubwalletPaddingBottom);

@@ -17,13 +17,13 @@ import { handleUrlClick } from '../../util/openUrl';
 import { getBlogUrl, getTelegramNewsChannelUrl, getTelegramTipsChannelUrl } from '../../util/url';
 
 import useAppTheme from '../../hooks/useAppTheme';
+import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
-import useScrolledState from '../../hooks/useScrolledState';
 
 import Header from '../auth/Header';
 import Emoji from '../ui/Emoji';
-import ModalHeader from '../ui/ModalHeader';
+import SettingsHeader from './SettingsHeader';
 
 import activityStyles from '../main/sections/Content/Activity.module.scss';
 import styles from './Settings.module.scss';
@@ -36,52 +36,42 @@ import videoImg from '../../assets/settings/settings_video.svg';
 
 interface OwnProps {
   isActive?: boolean;
-  isInsideModal?: boolean;
   slideClassName?: string;
   theme: Theme;
   onBackClick: NoneToVoidFunction;
 }
 
 function SettingsAbout({
-  isActive, isInsideModal, theme, slideClassName, onBackClick,
+  isActive, theme, slideClassName, onBackClick,
 }: OwnProps) {
   const lang = useLang();
+
+  const { isPortrait } = useDeviceScreen();
+  const appTheme = useAppTheme(theme);
+  const headerRef = useRef<HTMLHeadingElement>();
+  const logoPath = appTheme === 'light' ? logoLightPath : logoDarkPath;
+  const aboutExtensionTitle = lang('$about_extension_link_text', { app_name: APP_NAME });
 
   useHistoryBack({
     isActive,
     onBack: onBackClick,
   });
 
-  const {
-    handleScroll: handleContentScroll,
-    isScrolled,
-  } = useScrolledState();
-
-  const appTheme = useAppTheme(theme);
-  const headerRef = useRef<HTMLHeadingElement>();
-  const logoPath = appTheme === 'light' ? logoLightPath : logoDarkPath;
-  const aboutExtensionTitle = lang('$about_extension_link_text', { app_name: APP_NAME });
-
   return (
     <div className={buildClassName(styles.slide, slideClassName)}>
-      {isInsideModal ? (
-        <ModalHeader
-          title={lang('About %app_name%', { app_name: APP_NAME })}
-          withNotch={isScrolled}
-          onBackButtonClick={onBackClick}
-          className={styles.modalHeader}
-        />
-      ) : (
+      {isPortrait ? (
         <Header
           isActive={isActive}
           title={`${APP_NAME} ${APP_VERSION} ${APP_ENV_MARKER || ''}`}
           topTargetRef={headerRef}
           onBackClick={onBackClick}
         />
+      ) : (
+        <SettingsHeader onBackClick={onBackClick} />
       )}
+
       <div
         className={buildClassName(styles.content, styles.noTitle, 'custom-scroll')}
-        onScroll={isInsideModal ? handleContentScroll : undefined}
       >
         <img src={logoPath} alt={lang('Logo')} className={styles.logo} />
         <h2 ref={headerRef} className={styles.title}>

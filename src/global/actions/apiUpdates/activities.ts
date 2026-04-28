@@ -43,11 +43,13 @@ const PRELOAD_ACTIVITY_TOKEN_COUNT = 10;
 addActionHandler('apiUpdate', (global, actions, update) => {
   switch (update.type) {
     case 'initialActivities': {
-      const { accountId, mainActivities, bySlug, chain } = update;
+      const {
+        accountId, mainActivities, mainHistoryHasMore, bySlug, chain,
+      } = update;
 
       updatePoisoningCacheFromActivities(mainActivities);
 
-      global = addInitialActivities(global, accountId, mainActivities, bySlug, chain);
+      global = addInitialActivities(global, accountId, mainActivities, bySlug, chain, mainHistoryHasMore);
       setGlobal(global);
 
       void preloadTopTokenHistory(accountId, chain);
@@ -216,7 +218,7 @@ async function preloadTopTokenHistory(accountId: string, chain: ApiChain) {
 
   for (const { slug } of tokens) {
     if (idsBySlug?.[slug] === undefined) {
-      fetchPastActivities({ slug });
+      fetchPastActivities({ accountId, slug });
     }
   }
 }

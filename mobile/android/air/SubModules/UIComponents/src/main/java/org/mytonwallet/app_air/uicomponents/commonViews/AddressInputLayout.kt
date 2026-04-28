@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.R
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.os.Build
 import android.text.Spanned
@@ -18,7 +19,6 @@ import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.appcompat.widget.AppCompatTextView
-import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
 import androidx.core.view.isGone
@@ -59,6 +59,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.theme.colorStateList
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -200,7 +201,7 @@ class AddressInputLayout(
             }
             false
         }
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         }
@@ -266,7 +267,7 @@ class AddressInputLayout(
     val pasteTextView = AppCompatTextView(context).apply {
         background = pasteTextViewRipple
         setPaddingDp(4, 0, 4, 0)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
 
         text = LocaleController.getString("Paste")
@@ -294,7 +295,7 @@ class AddressInputLayout(
     }
 
     private val overlayLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Regular)
+        setStyle(adaptiveFontSize(), WFont.Regular)
         gravity = Gravity.CENTER_VERTICAL
         isGone = true
         setOnClickListener {
@@ -311,18 +312,14 @@ class AddressInputLayout(
 
     private val closeButton: WImageButton by lazy {
         WImageButton(context).apply {
-            val closeDrawable =
-                ContextCompat.getDrawable(
-                    context,
-                    org.mytonwallet.app_air.uicomponents.R.drawable.ic_close_filled
-                )
+            val closeDrawable = context.getDrawableCompat(
+                org.mytonwallet.app_air.uicomponents.R.drawable.ic_close_filled
+            )
             setImageDrawable(closeDrawable)
             isGone = true
             setOnClickListener {
                 hideOverlayViews()
                 textField.setText("")
-                textField.requestFocus()
-                textField.showKeyboard()
             }
             layoutParams = LayoutParams(
                 WRAP_CONTENT,

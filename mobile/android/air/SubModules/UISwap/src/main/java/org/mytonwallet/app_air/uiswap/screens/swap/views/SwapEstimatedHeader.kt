@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.views
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Paint.Style
@@ -55,7 +56,7 @@ class SwapEstimatedHeader @JvmOverloads constructor(
     }
 
     init {
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         setPaddingDpLocalized(20, 16, 48, 16)
         typeface = WFont.Medium.typeface

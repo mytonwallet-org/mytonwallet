@@ -41,6 +41,7 @@ final class NftDetailsPagerView: UIView {
     private(set) var isExpanded: Bool = false
     private(set) var isUserDragging: Bool = false
     private var needsInitialScroll = true
+    private var ignoreDidScroll = false
     private var isAnimating: Bool = false
 
     private struct PageViewCacheItem {
@@ -81,7 +82,12 @@ final class NftDetailsPagerView: UIView {
     }
 
     override func layoutSubviews() {
-        super.layoutSubviews()
+        ignoreDidScroll = true
+        do {
+            defer { ignoreDidScroll = false }
+            super.layoutSubviews()
+        }
+        
         if needsInitialScroll {
             needsInitialScroll = false
             collectionView.layoutIfNeeded()
@@ -342,7 +348,7 @@ extension NftDetailsPagerView: UICollectionViewDelegate {
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         let offsetX = scrollView.contentOffset.x
         let pageWidth = layoutGeometry.pageWidth
-        guard pageWidth > 0 else { return }
+        guard pageWidth > 0, !ignoreDidScroll else { return }
 
         // Derive progress from the raw scroll offset rather than the stale `currentIndex`
         // so that fast multi-page swipes are reflected by the cover flow and background
@@ -356,7 +362,7 @@ extension NftDetailsPagerView: UICollectionViewDelegate {
         let toModel = leftIndex < rightIndex ? models[rightIndex] : nil
                 
         // Make sure that we schedule image loading for neighbours
-        for i in normalizeIndex(leftIndex - 2)...normalizeIndex(rightIndex + 1) {
+        for i in normalizeIndex(leftIndex - 2)...normalizeIndex(rightIndex + 2) {
             models[i].requestImage()
         }
         

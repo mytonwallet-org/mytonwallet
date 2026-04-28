@@ -27,8 +27,6 @@ This directory hosts every Swift module that composes the Air app. Use the list 
 
 ## Platform Services & Libraries
 - `Ledger` – Discovers, connects to, and exchanges APDUs with Ledger hardware wallets.
-- `GZip` – Compression/decompression helpers for payloads and cached assets.
-- `RLottieBinding` – Bridging layer to render Telegram’s RLottie animations inside SwiftUI/UIKit.
 - `WReachability` – Network reachability monitoring and status notifications.
 - `YUVConversion` – Accelerated YUV↔RGB conversion routines backing animation and camera surfaces.
 

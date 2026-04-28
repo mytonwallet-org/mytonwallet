@@ -124,6 +124,9 @@ enum class ApiSwapStatus {
                 EXPIRED -> WColor.Red
             }
         }
+
+    val isPending: Boolean
+        get() = this == PENDING || this == PENDING_TRUSTED
 }
 
 @JsonClass(generateAdapter = true)
@@ -501,7 +504,8 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
             return (when (this) {
                 is Transaction -> {
                     val text =
-                        if (metadata?.name?.isNotEmpty() == true) metadata.name else (if (isIncoming) fromAddress else toAddress) ?: ""
+                        if (metadata?.name?.isNotEmpty() == true) metadata.name else (if (isIncoming) fromAddress else toAddress)
+                            ?: ""
                     text
                 }
 

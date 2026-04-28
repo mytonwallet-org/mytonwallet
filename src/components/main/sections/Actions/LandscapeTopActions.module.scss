@@ -1,0 +1,77 @@
+@use "../../../../styles/mixins";
+
+@use "../../../../styles/scssVariables" as v;
+
+.root {
+  overflow-x: auto;
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-start;
+
+  width: 100%;
+  max-width: v.$landscapeMainContentMaxWidth;
+}
+
+.button {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  justify-content: space-between;
+
+  width: 5.5rem;
+  height: 5.5rem;
+  padding: 0.4375rem 0.75rem 0.75rem;
+  border-radius: 1.25rem;
+
+  color: var(--color-accent);
+  text-align: left;
+
+  background-color: var(--color-background-first);
+
+  @include mixins.transition('background-color 200ms');
+
+  @media (hover: hover) {
+    &:focus-visible,
+    &:hover {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+
+  @media (pointer: coarse) {
+    &:active {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+
+  &_purple {
+    color: var(--color-purple-1);
+  }
+}
+
+.icon {
+  display: block;
+
+  margin-bottom: 0.75rem;
+  margin-inline-start: -0.25rem;
+
+  font-size: 2rem;
+  line-height: 2rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-black);
+
+  .button_purple > & {
+    color: inherit;
+  }
+
+  :global(html:is([lang="ru"], [lang="uk"])) & {
+    font-size: 0.75rem;
+  }
+}

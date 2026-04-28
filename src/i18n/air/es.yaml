@@ -85,10 +85,11 @@ App Icon: Icono de la app
 App Font: Fuente de la app
 Rounded Toolbars: Barras de herramientas redondeadas
 Side Gutters: Márgenes laterales
+Gradient Navigation Bar: Barra de navegación con degradado
 Tokens on Home Screen: Tokens en la pantalla principal
 Current Wallet Version: Versión actual de la cartera
 Tokens on Other Versions: Tokens en otras versiones
-Show Recovery Phrase: Mostrar frase de recuperación
+Show Secret Words: Mostrar palabras secretas
 Passcode: Código
 Lock the app after: Bloquear la app tras
 Never: Nunca
@@ -105,7 +106,7 @@ Up to %1$@: Hasta %1$@
 up to %1$@: hasta %1$@
 Current APY: APY actual
 Current APR: APR actual
-Est. earning per year: Ganancia anual estimada
+Est. Yearly Earnings: Ganancia anual estimada
 in: en
 Error: Error
 Network Error: Error de red
@@ -134,7 +135,7 @@ via %agg%: mediante %agg%
 Switch to Legacy Version: Cambiar a la versión clásica
 Hide tab: Ocultar pestaña
 Received from: Recibido de
-Your Recovery Phrase: Tu frase de recuperación
+Your Secret Words: Tus palabras secretas
 day:
   zeroValue: "%1$d días"
   oneValue: "%1$d día"
@@ -354,3 +355,11 @@ $more_nfts:
   zeroValue: Sin NFTs
   oneValue: "+1 NFT"
   otherValue: "+%1$d NFTs"
+
+$subwallets_found:
+  oneValue: "Encontrado: %1$d"
+  otherValue: "Encontrados: %1$d"
+
+$subwallets_hint: Usa subwallets para obtener direcciones adicionales sin crear nuevas palabras secretas.
+$subwallets_created_wallets: Si has creado subwallets anteriormente, aparecerán en la lista de abajo.
+$subwallets_none: Aún no hay subwallets.

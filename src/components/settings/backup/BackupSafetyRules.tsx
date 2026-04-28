@@ -9,15 +9,13 @@ import useLastCallback from '../../../hooks/useLastCallback';
 import useScrolledState from '../../../hooks/useScrolledState';
 
 import SafetyRulesContent from '../../common/backup/SafetyRulesContent';
-import Button from '../../ui/Button';
-import ModalHeader from '../../ui/ModalHeader';
+import SettingsHeader from '../SettingsHeader';
 
 import settingsStyles from '../Settings.module.scss';
 import styles from './Backup.module.scss';
 
 interface OwnProps {
   isActive?: boolean;
-  isInsideModal?: boolean;
   backupType: 'key' | 'words';
   onBackClick: NoneToVoidFunction;
   onSubmit: NoneToVoidFunction;
@@ -25,7 +23,6 @@ interface OwnProps {
 
 function BackupSafetyRules({
   isActive,
-  isInsideModal,
   backupType,
   onBackClick,
   onSubmit,
@@ -55,22 +52,7 @@ function BackupSafetyRules({
 
   return (
     <div className={settingsStyles.slide}>
-      {isInsideModal ? (
-        <ModalHeader
-          title={lang('Safety Rules')}
-          withNotch={isScrolled}
-          onBackButtonClick={handleBackClick}
-          className={settingsStyles.modalHeader}
-        />
-      ) : (
-        <div className={buildClassName(settingsStyles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={handleBackClick} className={settingsStyles.headerBack}>
-            <i className={buildClassName(settingsStyles.iconChevron, 'icon-chevron-left')} aria-hidden />
-            <span>{lang('Back')}</span>
-          </Button>
-          <span className={settingsStyles.headerTitle}>{lang('Safety Rules')}</span>
-        </div>
-      )}
+      <SettingsHeader title={lang('Safety Rules')} isScrolled={isScrolled} onBackClick={handleBackClick} />
       <div
         className={buildClassName(settingsStyles.content, styles.content)}
         onScroll={handleContentScroll}

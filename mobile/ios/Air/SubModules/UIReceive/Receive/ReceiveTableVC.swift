@@ -35,14 +35,19 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
         configureDataSource()
         applySnapshot(animated: false)
     }
-
+    
+    private var isViewWalletMode: Bool {
+        account.isView == true
+    }
+    
     private func setupViews() {
         view.backgroundColor = .clear
 
-        let layout = UICollectionViewCompositionalLayout { sectionIndex, layoutEnvironment in
+        let layout = UICollectionViewCompositionalLayout { [weak self] sectionIndex, layoutEnvironment in
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
             configuration.backgroundColor = .clear
             configuration.headerMode = sectionIndex == 0 ? .supplementary : .none
+            configuration.footerMode = (sectionIndex == 0 && self?.isViewWalletMode == true) ? .supplementary : .none
             configuration.headerTopPadding = sectionIndex == 0 ? 16 : 8
             return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
         }
@@ -73,7 +78,12 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] cell, _, _ in
             guard let self else { return }
-            let title = lang("Your %blockchain% Address", arg1: chain.title)
+            let title: String
+            if isViewWalletMode {
+                title = lang("%blockchain% Address", arg1: chain.title)
+            } else {
+                title = lang("My %blockchain% Address", arg1: chain.title)
+            }
             var content = UIListContentConfiguration.groupedHeader()
             content.text = title
             cell.contentConfiguration = content
@@ -81,6 +91,7 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
 
         let addressRegistration = AddressCell.makeRegistration(address: address, chain: chain)
         let buyCryptoRegistration = BuyCryptoItemCell.makeRegistration()
+        let warningFooterRegistration = ViewWalletWarningFooter.makeFooterRegistration()
 
         dataSource = UICollectionViewDiffableDataSource<Section, ReceiveItem>(collectionView: collectionView) { collectionView, indexPath, item in
             switch item {
@@ -95,6 +106,8 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
             switch kind {
             case UICollectionView.elementKindSectionHeader:
                 collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
+            case UICollectionView.elementKindSectionFooter:
+                collectionView.dequeueConfiguredReusableSupplementary(using: warningFooterRegistration, for: indexPath)
             default:
                 nil
             }
@@ -107,7 +120,7 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
         snapshot.appendSections([.address])
         snapshot.appendItems([.address], toSection: .address)
 
-        if !ConfigStore.shared.shouldRestrictSwapsAndOnRamp {
+        if !ConfigStore.shared.shouldRestrictSwapsAndOnRamp && !isViewWalletMode {
             snapshot.appendSections([.buyCrypto])
 
             var buyCryptoItems: [ReceiveItem] = []
@@ -179,12 +192,16 @@ private extension ApiChain {
             TON_USDT_SLUG
         case .solana:
             TON_USDT_SLUG
-        case .other:
+        default:
             TON_USDT_SLUG
         }
     }
     
     var defaultBuyingSlug: String {
-        self.usdtSlug[.mainnet] ?? self.nativeToken.slug
+        let crosschainSwapSlugs = getChainConfig(chain: self).crosschainSwapSlugs
+        if let usdtSlug = self.usdtSlug[.mainnet], crosschainSwapSlugs.contains(usdtSlug) {
+            return usdtSlug
+        }
+        return crosschainSwapSlugs.first ?? self.nativeToken.slug
     }
 }

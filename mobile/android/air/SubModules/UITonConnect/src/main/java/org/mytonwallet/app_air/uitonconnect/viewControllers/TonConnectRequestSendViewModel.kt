@@ -7,8 +7,6 @@ import android.text.style.AbsoluteSizeSpan
 import android.text.style.ClickableSpan
 import android.view.Gravity
 import android.view.View
-import androidx.core.content.ContextCompat
-import androidx.core.text.inSpans
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -39,6 +37,7 @@ import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
@@ -307,8 +306,7 @@ class TonConnectRequestSendViewModel private constructor(
                     val previewTitle = SpannableStringBuilder()
                     previewTitle.append(LocaleController.getString("Preview"))
                     previewTitle.append(" ", WSpacingSpan(6.dp), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    ContextCompat.getDrawable(
-                        ApplicationContextHolder.applicationContext,
+                    ApplicationContextHolder.applicationContext.getDrawableCompat(
                         org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning_14
                     )?.let { drawable ->
                         val width = 12.dp
@@ -464,6 +462,57 @@ class TonConnectRequestSendViewModel private constructor(
                                     "Message",
                                     LocaleController.getString("Data Copied")
                                 ),
+                            )
+                        )
+                    }
+
+                    is MSignDataPayload.SignDataPayloadEip712 -> {
+                        val eip712 = update.payloadToSign as MSignDataPayload.SignDataPayloadEip712
+                        fun pretty(value: Any?): String =
+                            org.json.JSONObject.wrap(value)?.toString() ?: value.toString()
+                        uiItems.addAll(
+                            listOf(
+                                Item.ListTitle(
+                                    LocaleController.getString("Primary type"),
+                                    topRounding = HeaderCell.TopRounding.NORMAL
+                                ),
+                                Item.CopyableText(
+                                    eip712.primaryType,
+                                    "Primary type",
+                                    LocaleController.getString("Data Copied")
+                                ),
+                                Item.Gap(),
+                                Item.ListTitle(
+                                    LocaleController.getString("EIP-712 typed data"),
+                                    topRounding = HeaderCell.TopRounding.NORMAL
+                                ),
+                                Item.CopyableText(
+                                    pretty(eip712.types),
+                                    "EIP-712 typed data",
+                                    LocaleController.getString("Data Copied")
+                                ),
+                                Item.Gap(),
+                                Item.ListTitle(
+                                    LocaleController.getString("Domain"),
+                                    topRounding = HeaderCell.TopRounding.NORMAL
+                                ),
+                                Item.CopyableText(
+                                    pretty(eip712.domain),
+                                    "Domain",
+                                    LocaleController.getString("Data Copied")
+                                ),
+                                Item.Gap(),
+                                Item.ListTitle(
+                                    LocaleController.getString("Message"),
+                                    topRounding = HeaderCell.TopRounding.NORMAL
+                                ),
+                                Item.CopyableText(
+                                    pretty(eip712.message),
+                                    "Message",
+                                    LocaleController.getString("Data Copied")
+                                ),
+                                Item.Gap(),
+                                Item.Alert(LocaleController.getString("\$signature_warning"))
                             )
                         )
                     }

@@ -10,7 +10,6 @@ import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
-import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.TokensVC
@@ -22,6 +21,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.TokenNameHelper
 import org.mytonwallet.app_air.uicomponents.helpers.TokenTagHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WEvaporateLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -34,6 +34,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
@@ -63,7 +64,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
 
     private val topLeftLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(ApplicationContextHolder.adaptiveFontSize, WFont.DemiBold)
+        lbl.setStyle(adaptiveFontSize(), WFont.DemiBold)
         lbl.setSingleLine()
         lbl.ellipsize = TextUtils.TruncateAt.END
         lbl.isHorizontalFadingEdgeEnabled = true
@@ -85,7 +86,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
 
     private val topRightLabel: WSensitiveDataContainer<WEvaporateLabel> by lazy {
         val lbl = WEvaporateLabel(context)
-        lbl.setStyle(ApplicationContextHolder.adaptiveFontSize)
+        lbl.setStyle(adaptiveFontSize())
         WSensitiveDataContainer(
             lbl,
             WSensitiveDataContainer.MaskConfig(0, 2, Gravity.END or Gravity.CENTER_VERTICAL)
@@ -190,7 +191,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         tokenBalance?.let {
             updateBottomLeftLabel(it, null)
         }
-        val drawable = ContextCompat.getDrawable(context, R.drawable.ic_pin_solid_14_20)?.apply {
+        val drawable = context.getDrawableCompat(R.drawable.ic_pin_solid_14_20)?.apply {
             setTint(WColor.SecondaryText.color)
         }
         pinIcon.setImageDrawable(drawable)
@@ -218,7 +219,8 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         this.isLast = isLast
 
         val accountChanged = this.accountId != accountId
-        val tokenChanged = this.tokenBalance?.virtualStakingToken != tokenBalance.virtualStakingToken
+        val tokenChanged =
+            this.tokenBalance?.virtualStakingToken != tokenBalance.virtualStakingToken
         val pinnedChanged = this.isPinned != isPinned
         if (!accountChanged &&
             this.tokenBalance == tokenBalance &&

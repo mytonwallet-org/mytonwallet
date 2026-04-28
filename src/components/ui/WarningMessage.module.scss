@@ -1,0 +1,30 @@
+.root {
+  position: relative;
+
+  overflow: hidden;
+
+  padding: 0.5625rem 0.75rem 0.625rem 1rem;
+  border-radius: var(--border-radius-small);
+
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.125rem;
+  color: var(--color-orange);
+
+  background-color: var(--color-background-yellow);
+
+  &::before {
+    content: '';
+
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    display: block;
+
+    width: 0.25rem;
+    height: 100%;
+
+    background: currentColor;
+  }
+}

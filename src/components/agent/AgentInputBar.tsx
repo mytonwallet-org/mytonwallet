@@ -2,9 +2,6 @@ import React, { memo, useEffect, useRef } from '../../lib/teact/teact';
 
 import type { AgentHint } from '../../global/types';
 
-import buildClassName from '../../util/buildClassName';
-
-import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useShowTransition from '../../hooks/useShowTransition';
@@ -17,7 +14,6 @@ interface OwnProps {
   inputRef?: React.RefObject<HTMLTextAreaElement | undefined>;
   inputValue: string;
   hints?: AgentHint[];
-  isScrolledUp?: boolean;
   onInput: (value: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onSend: NoneToVoidFunction;
@@ -26,14 +22,12 @@ interface OwnProps {
 }
 
 function AgentInputBar({
-  inputRef: externalInputRef, inputValue, hints, isScrolledUp,
+  inputRef: externalInputRef, inputValue, hints,
   onInput, onKeyDown, onSend, onClearInput, onHintsToggle,
 }: OwnProps) {
   const lang = useLang();
-  const { isPortrait } = useDeviceScreen();
   const ownInputRef = useRef<HTMLTextAreaElement>();
   const inputRef = externalInputRef || ownInputRef;
-  const wrapperRef = useRef<HTMLDivElement>();
   const savedScrollRef = useRef({ top: 0, isCaretAtEnd: true });
 
   // Save scroll state and caret position before re-render triggers Input's resize
@@ -61,59 +55,56 @@ function AgentInputBar({
     }
   }, [inputRef, inputValue]);
 
-  const { ref: sendButtonWrapperRef } = useShowTransition<HTMLDivElement>({
+  const { ref: sendButtonRef } = useShowTransition<HTMLButtonElement>({
     isOpen: !!inputValue,
     noMountTransition: true,
+    className: false,
   });
 
-  return (
-    <div
-      ref={wrapperRef}
-      className={buildClassName(styles.wrapper, (isScrolledUp || isPortrait) && styles.withSeparator)}
-    >
-      <div className={styles.inputBar}>
-        <div className={styles.inputField}>
-          <Input
-            ref={inputRef}
-            isMultiline
-            value={inputValue}
-            placeholder={lang('Ask anything')}
-            className={styles.input}
-            wrapperClassName={styles.inputInnerWrapper}
-            onInput={handleInput}
-            onKeyDown={onKeyDown}
-          />
-          {inputValue ? (
-            <button
-              type="button"
-              className={styles.inputButton}
-              aria-label={lang('Clear')}
-              onClick={onClearInput}
-            >
-              <i className="icon-clear" aria-hidden />
-            </button>
-          ) : hints?.length ? (
-            <button
-              type="button"
-              className={styles.inputButton}
-              aria-label={lang('Toggle Hints')}
-              onClick={onHintsToggle}
-            >
-              <i className="icon-agent-actions" aria-hidden />
-            </button>
-          ) : undefined}
-        </div>
+  const shouldRenderHints = !inputValue && !!hints?.length;
 
-        <div ref={sendButtonWrapperRef} className={styles.sendButtonWrapper}>
+  return (
+    <div className={styles.wrapper}>
+      <div className={styles.pill}>
+        <Input
+          ref={inputRef}
+          isMultiline
+          value={inputValue}
+          placeholder={lang('Ask anything')}
+          className={styles.input}
+          wrapperClassName={styles.inputInnerWrapper}
+          onInput={handleInput}
+          onKeyDown={onKeyDown}
+        />
+        {inputValue ? (
           <button
-            type="submit"
-            className={styles.sendButton}
-            onClick={onSend}
+            type="button"
+            className={styles.inputButton}
+            aria-label={lang('Clear')}
+            onClick={onClearInput}
           >
-            <i className="icon-send-alt2" aria-hidden />
+            <i className="icon-clear" aria-hidden />
           </button>
-        </div>
+        ) : shouldRenderHints && (
+          <button
+            type="button"
+            className={styles.inputButton}
+            aria-label={lang('Toggle Hints')}
+            onClick={onHintsToggle}
+          >
+            <i className="icon-agent-actions" aria-hidden />
+          </button>
+        )}
       </div>
+      <button
+        ref={sendButtonRef}
+        type="submit"
+        className={styles.sendButton}
+        aria-label={lang('Send')}
+        onClick={onSend}
+      >
+        <i className="icon-send-alt2" aria-hidden />
+      </button>
     </div>
   );
 }

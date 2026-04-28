@@ -11,6 +11,7 @@ public enum SignDataPayload: Equatable, Hashable, Codable, Sendable {
     case text(SignDataPayloadText)
     case binary(SignDataPayloadBinary)
     case cell(SignDataPayloadCell)
+    case eip712(SignDataPayloadEip712)
 
     enum CodingKeys: String, CodingKey {
         case type
@@ -26,6 +27,8 @@ public enum SignDataPayload: Equatable, Hashable, Codable, Sendable {
             self = try .binary(SignDataPayloadBinary(from: decoder))
         case "cell":
             self = try .cell(SignDataPayloadCell(from: decoder))
+        case "eip712":
+            self = try .eip712(SignDataPayloadEip712(from: decoder))
         default:
             throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "Invalid type")
         }
@@ -39,6 +42,8 @@ public enum SignDataPayload: Equatable, Hashable, Codable, Sendable {
             try binary.encode(to: encoder)
         case .cell(let cell):
             try cell.encode(to: encoder)
+        case .eip712(let eip712):
+            try eip712.encode(to: encoder)
         }
     }
 }
@@ -59,3 +64,15 @@ public struct SignDataPayloadCell: Equatable, Hashable, Codable, Sendable {
     public var cell: String
 }
 
+public struct SignDataPayloadEip712: Equatable, Hashable, Codable, Sendable {
+    public var type: String = "eip712"
+    public var domain: [String: AnyCodable]
+    public var types: [String: [SignDataPayloadEip712TypeField]]
+    public var primaryType: String
+    public var message: [String: AnyCodable]
+}
+
+public struct SignDataPayloadEip712TypeField: Equatable, Hashable, Codable, Sendable {
+    public var name: String
+    public var type: String
+}

@@ -36,6 +36,7 @@ private struct _HomeCardPromotionVisual: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: geometry.size.width, height: geometry.size.height)
+                    .accessibilityHidden(true)
 
                 mascotView(for: geometry.size)
 
@@ -43,6 +44,7 @@ private struct _HomeCardPromotionVisual: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: geometry.size.width, height: geometry.size.height)
+                    .accessibilityHidden(true)
             }
             .allowsHitTesting(false)
         }
@@ -65,6 +67,7 @@ private struct _HomeCardPromotionVisual: View {
                 .frame(width: frame.size.width, height: frame.size.height)
                 .rotationEffect(.degrees(mascotIcon.rotation))
                 .offset(x: frame.offset.x, y: frame.offset.y)
+                .accessibilityHidden(true)
         }
     }
 
@@ -97,6 +100,7 @@ struct HomeCardPromotionHitArea: View {
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(promotionAccessibilityLabel(promotion))
             .offset(x: frame.offset.x, y: frame.offset.y)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         } else {
@@ -132,6 +136,17 @@ private func handlePromotionTap(_ promotion: ApiPromotion) {
         AppActions.showPromotion(promotion)
     case .openMintCardModal:
         AppActions.showUpgradeCard()
+    }
+}
+
+private func promotionAccessibilityLabel(_ promotion: ApiPromotion) -> String {
+    switch promotion.cardOverlay.onClickAction {
+    case .openPromotionModal:
+        promotion.modal?.title.nilIfEmpty
+            ?? promotion.modal?.actionButton?.title.nilIfEmpty
+            ?? lang("More")
+    case .openMintCardModal:
+        lang("Mint Cards")
     }
 }
 

@@ -64,7 +64,7 @@ class WBlurryBackgroundView(
     fun setOverlayColor(overlayColor: WColor, alpha: Int? = null): BlurViewFacade {
         overrideOverlayColor = overlayColor
         overlayAlpha = alpha
-        val alpha = alpha ?: if (ThemeManager.isDark) 200 else 140
+        val alpha = alpha ?: if (ThemeManager.isDark) 204 else 140
         return super.setOverlayColor(overrideOverlayColor!!.color.colorWithAlpha(alpha))
     }
 
@@ -79,13 +79,13 @@ class WBlurryBackgroundView(
             val blurRadius =
                 (overrideBlurRadius ?: if (ThemeManager.isDark) 14f else 16f).coerceAtMost(25f)
             setBlurRadius(blurRadius)
-            val alpha = overlayAlpha ?: if (ThemeManager.isDark) 200 else 140
+            val alpha = overlayAlpha ?: if (ThemeManager.isDark) 204 else 140
             val color = solidBackgroundColor.colorWithAlpha(alpha)
             setOverlayColor(color)
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            setBackgroundColor(Color.TRANSPARENT)
         } else {
             // When blur is disabled, use solid opaque background
-            setOverlayColor(android.graphics.Color.TRANSPARENT)
+            setOverlayColor(Color.TRANSPARENT)
             setBackgroundColor(solidBackgroundColor)
         }
         updateLinearGradient()

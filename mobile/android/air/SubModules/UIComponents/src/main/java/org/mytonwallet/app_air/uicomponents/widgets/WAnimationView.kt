@@ -7,7 +7,7 @@ import com.airbnb.lottie.LottieAnimationView
 import com.airbnb.lottie.LottieDrawable
 import com.airbnb.lottie.RenderMode
 
-class WAnimationView(context: Context) : LottieAnimationView(context) {
+open class WAnimationView(context: Context) : LottieAnimationView(context) {
     private var pendingOnStart: (() -> Unit)? = null
 
     init {

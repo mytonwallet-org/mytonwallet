@@ -37,19 +37,30 @@ public class LegacyActivity extends BridgeActivity {
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
 
+    if (Build.VERSION.SDK_INT == Build.VERSION_CODES.S) {
+      updateStatusBarStyle();
+      return;
+    }
+
+    boolean isGramApp = getPackageName().startsWith("io.gramwallet.");
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     splashScreen.setKeepOnScreenCondition(() -> keep);
     splashScreen.setOnExitAnimationListener(splashScreenView -> {
       AnimatorSet animationSet = new AnimatorSet();
 
       View view = splashScreenView.getView();
-      ObjectAnimator scaleY = ObjectAnimator.ofFloat(view, View.SCALE_Y, 4f);
-      ObjectAnimator scaleX = ObjectAnimator.ofFloat(view, View.SCALE_X, 4f);
       ObjectAnimator opacity = ObjectAnimator.ofFloat(view, View.ALPHA, 0.0f);
 
       animationSet.setInterpolator(new FastOutSlowInInterpolator());
-      animationSet.setDuration(350L);
-      animationSet.playTogether(scaleX, scaleY, opacity);
+      if (isGramApp) {
+        animationSet.setDuration(200L);
+        animationSet.playTogether(opacity);
+      } else {
+        ObjectAnimator scaleY = ObjectAnimator.ofFloat(view, View.SCALE_Y, 4f);
+        ObjectAnimator scaleX = ObjectAnimator.ofFloat(view, View.SCALE_X, 4f);
+        animationSet.setDuration(350L);
+        animationSet.playTogether(scaleX, scaleY, opacity);
+      }
 
       animationSet.addListener(new AnimatorListenerAdapter() {
         @Override
@@ -66,7 +77,7 @@ public class LegacyActivity extends BridgeActivity {
     });
 
     Handler handler = new Handler();
-    handler.postDelayed(() -> keep = false, DELAY);
+    handler.postDelayed(() -> keep = false, isGramApp ? 0L : DELAY);
   }
 
   public void onResume() {

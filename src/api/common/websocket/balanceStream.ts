@@ -13,7 +13,10 @@ import { throttle } from '../../../util/schedulers';
 import { FallbackPollingScheduler } from '../../common/polling/fallbackPollingScheduler';
 import { buildTokenSlug, getTokenByAddress, tokensPreload } from '../../common/tokens';
 
-export type OnBalancesUpdate = (balances: ApiBalanceBySlug) => void;
+/** `poll` — HTTP / fallback sync (including first load after connect); `socket` — live wallet subscription. */
+export type BalanceStreamUpdateSource = 'poll' | 'socket';
+
+export type OnBalancesUpdate = (balances: ApiBalanceBySlug, updateSource: BalanceStreamUpdateSource) => void;
 export type OnLoadingChange = (isLoading: boolean) => void;
 
 type OnSocketBalancesUpdate = (balances: BalanceByTokenAddress) => void;
@@ -66,7 +69,7 @@ export class BalanceStream {
 
   constructor(
     chain: ApiChain,
-    wsClient: AbstractWebsocketClient,
+    wsClient: AbstractWebsocketClient<any, any, any, any, any>,
     network: ApiNetwork,
     address: string,
     sendUpdateTokens: NoneToVoidFunction,
@@ -94,7 +97,7 @@ export class BalanceStream {
     this.#importUnknownTokens = importUnknownTokens;
     this.#ensureIsPollingNeeded = ensureIsPollingNeeded;
     this.#walletWatcher = wsClient.watchWallets(
-      [{ address }],
+      [{ address, chain }],
       {
         onConnect: this.#handleSocketConnect,
         onDisconnect: this.#handleSocketDisconnect,
@@ -165,8 +168,16 @@ export class BalanceStream {
     if (this.#isDestroyed) return;
     this.#fallbackPollingScheduler.onSocketMessage();
 
-    // `this.#balances` must contain all the balances, so we ignore partial updates until we load all the balances
-    if (!this.#balances) return;
+    const wasInactive = this.#walletStatus === 'inactive';
+
+    if (this.#walletStatus !== 'active') {
+      this.#walletStatus = 'active';
+      this.#fallbackPollingScheduler.forceImmediatePoll();
+    }
+
+    // Normally `this.#balances` must contain all balances before applying partial socket deltas.
+    // For a wallet just activated by the socket, the delta is the only fresh source until HTTP APIs catch up.
+    if (!this.#balances && !wasInactive) return;
 
     const tokenAddresses = await splitKnownAndUnknownTokens(newBalances);
     this.#setBalancesPartially(pick(newBalances, tokenAddresses.known));
@@ -183,8 +194,9 @@ export class BalanceStream {
 
       if (!this.#walletStatus) {
         const isEnsured = await this.#ensureIsPollingNeeded!();
-        if (!isEnsured) {
-          logDebug('balanceStream: wallet is inactive, skip polling', this.#address);
+
+        if (!isEnsured && this.#walletStatus !== 'active') {
+          logDebug('balanceStream: wallet is inactive, skip polling', this.#chain, this.#address);
           this.#walletStatus = 'inactive';
 
           return;
@@ -213,7 +225,7 @@ export class BalanceStream {
   #setAllBalances(newBalances: ApiBalanceBySlug) {
     if (!areDeepEqual(this.#balances, newBalances)) {
       this.#balances = newBalances;
-      this.#updateListeners.runCallbacks(this.#balances);
+      this.#updateListeners.runCallbacks(this.#balances, 'poll');
     }
   }
 
@@ -226,7 +238,7 @@ export class BalanceStream {
         ...this.#balances,
         ...newBySlug,
       };
-      this.#updateListeners.runCallbacks(this.#balances);
+      this.#updateListeners.runCallbacks(this.#balances, 'socket');
     }
   }
 }

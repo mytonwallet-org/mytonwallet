@@ -11,7 +11,6 @@ import buildStyle from '../../util/buildStyle';
 import { SECOND } from '../../util/dateFormat';
 import resetScroll from '../../util/resetScroll';
 import { debounce } from '../../util/schedulers';
-import { IS_ANDROID } from '../../util/windowEnvironment';
 
 import useLastCallback from '../../hooks/useLastCallback';
 import useLayoutEffectWithPrevDeps from '../../hooks/useLayoutEffectWithPrevDeps';
@@ -140,9 +139,9 @@ const InfiniteScroll: FC<OwnProps> = ({
     const listItemElements = scrollContainer.querySelectorAll<HTMLDivElement>(itemSelector);
     if (!listItemElements.length) return;
 
-    const firstItemTop = listItemElements[0].offsetTop;
+    const firstItemTop = getScrollSpaceTop(listItemElements[0], scrollContainer);
     const lastItem = listItemElements[listItemElements.length - 1];
-    const lastItemBottom = lastItem.offsetTop + lastItem.offsetHeight;
+    const lastItemBottom = getScrollSpaceTop(lastItem, scrollContainer) + lastItem.offsetHeight;
     const { scrollTop, offsetHeight } = scrollContainer;
     const scrollBottom = scrollTop + offsetHeight;
 
@@ -217,11 +216,26 @@ const InfiniteScroll: FC<OwnProps> = ({
         ? containerRef.current!.closest<HTMLDivElement>(scrollContainerClosest)!
         : containerRef.current!;
       const { scrollTop, scrollHeight, offsetHeight } = scrollContainer;
-      const top = listLength ? listItemElements[0].offsetTop : 0;
+
+      let top = 0;
+      let bottom = scrollHeight;
+
+      if (listLength) {
+        const lastItemEl = listItemElements[listLength - 1];
+
+        if (scrollContainerClosest) {
+          // `offsetTop` is relative to the nearest positioned ancestor, not the scroll container,
+          // so we fall back to `getBoundingClientRect` when the scroll container is an outer element
+          const scrollContainerTop = scrollContainer.getBoundingClientRect().top;
+          top = listItemElements[0].getBoundingClientRect().top - scrollContainerTop + scrollTop;
+          bottom = lastItemEl.getBoundingClientRect().top - scrollContainerTop + scrollTop + lastItemEl.offsetHeight;
+        } else {
+          top = listItemElements[0].offsetTop;
+          bottom = lastItemEl.offsetTop + lastItemEl.offsetHeight;
+        }
+      }
+
       const isNearTop = scrollTop <= top + sensitiveArea;
-      const bottom = listLength
-        ? listItemElements[listLength - 1].offsetTop + listItemElements[listLength - 1].offsetHeight
-        : scrollHeight;
       const isNearBottom = bottom - (scrollTop + offsetHeight) <= sensitiveArea;
       let isUpdated = false;
 
@@ -316,7 +330,7 @@ const InfiniteScroll: FC<OwnProps> = ({
       {withAbsolutePositioning && items?.length ? (
         <div
           teactFastList={!noFastList}
-          style={buildStyle('position: relative', IS_ANDROID && maxHeight !== undefined && `height: ${maxHeight}`)}
+          style={buildStyle('position: relative', maxHeight !== undefined && `height: ${maxHeight}`)}
         >
           {children}
         </div>
@@ -326,3 +340,14 @@ const InfiniteScroll: FC<OwnProps> = ({
 };
 
 export default InfiniteScroll;
+
+/**
+ * Returns the element's top position in the scroll container's scroll space, in pixels.
+ *
+ * `HTMLElement.offsetTop` is measured from the nearest positioned ancestor, which is not always the scroll container
+ * (for example, when using `scrollContainerClosest` with a wrapper that contains the InfiniteScroll as a descendant).
+ * Using `getBoundingClientRect` makes the math coordinate-system-independent and matches `scrollContainer.scrollTop`.
+ */
+function getScrollSpaceTop(element: HTMLElement, scrollContainer: HTMLElement) {
+  return element.getBoundingClientRect().top - scrollContainer.getBoundingClientRect().top + scrollContainer.scrollTop;
+}

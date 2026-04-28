@@ -1,0 +1,31 @@
+{
+  "configurations" : [
+    {
+      "id" : "923B8B08-0A27-489D-9420-562ECFF94B33",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:..\/Air",
+        "identifier" : "WalletContextTests",
+        "name" : "WalletContextTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:..\/Air",
+        "identifier" : "WalletCoreTests",
+        "name" : "WalletCoreTests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -23,6 +23,7 @@ extension ApiUpdate {
     public struct NftSent: Equatable, Hashable, Codable, Sendable {
         public var type = "nftSent"
         public var accountId: String
+        public var chain: ApiChain
         public var nftAddress: String
         public var newOwnerAddress: String
     }

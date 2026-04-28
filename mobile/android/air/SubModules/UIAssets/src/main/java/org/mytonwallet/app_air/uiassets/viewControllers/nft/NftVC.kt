@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.nft
 
 import android.animation.ValueAnimator
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.Drawable
@@ -22,7 +23,6 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
 import androidx.core.view.children
@@ -71,7 +71,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.WORD_JOIN
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.replaceSpacesWithNbsp
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
@@ -81,6 +83,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
+import org.mytonwallet.app_air.walletcore.moshi.ApiNftMetadata
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import java.lang.ref.WeakReference
@@ -141,11 +144,9 @@ class NftVC(
         btn.setOnClickListener {
             presentMoreMenu()
         }
-        val moreDrawable =
-            ContextCompat.getDrawable(
-                context,
-                org.mytonwallet.app_air.icons.R.drawable.ic_more
-            )
+        val moreDrawable = context.getDrawableCompat(
+            org.mytonwallet.app_air.icons.R.drawable.ic_more
+        )
         btn.setImageDrawable(moreDrawable)
         btn.updateColors(WColor.PrimaryLightText, WColor.BackgroundRipple)
         btn
@@ -161,7 +162,7 @@ class NftVC(
     }
     private val descriptionLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.Regular)
+            setStyle(adaptiveFontSize(), WFont.Regular)
             setTextColor(WColor.PrimaryText)
             useCustomEmoji = true
         }
@@ -203,7 +204,7 @@ class NftVC(
     }
     private val ownerAddressLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.Regular)
+            setStyle(adaptiveFontSize(), WFont.Regular)
             setTextColor(WColor.SecondaryText)
             setLineHeight(COMPLEX_UNIT_SP, 24f)
             letterSpacing = -0.015f
@@ -242,7 +243,7 @@ class NftVC(
 
     private fun ownerChainIconDrawable(): Drawable? {
         return nft.chain?.symbolIconPadded?.let {
-            ContextCompat.getDrawable(context, it)
+            context.getDrawableCompat(it)
         }?.mutate()
     }
 
@@ -252,8 +253,7 @@ class NftVC(
             setSizeBounds(16.dp, 16.dp)
         }
 
-        val expandDrawable = ContextCompat.getDrawable(
-            context,
+        val expandDrawable = context.getDrawableCompat(
             org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
         )?.mutate()?.apply {
             setTint(WColor.SecondaryText.color)
@@ -368,9 +368,11 @@ class NftVC(
             }
         }
     }
+    private val nftAttributes: List<ApiNftMetadata.Attribute>
+        get() = nft.metadata?.attributes?.filterNotNull() ?: emptyList()
     private val isAttributesSectionExpandable: Boolean
         get() {
-            return (nft.metadata?.attributes?.size ?: 0) > COLLAPSED_ATTRIBUTES_COUNT
+            return nftAttributes.size > COLLAPSED_ATTRIBUTES_COUNT
         }
     private val attributesView: WView by lazy {
         WView(context).apply {
@@ -522,7 +524,7 @@ class NftVC(
             interceptedViews = listOf(headerView.avatarImageView),
             interceptedByVerticalScrollViews = listOf(headerView.avatarCoverFlowView),
             isDirectionalScrollAllowed = { isVertical, _ ->
-                !isVertical || (!nft.description.isNullOrEmpty() || shouldShowOwnerSection || !nft.metadata?.attributes.isNullOrEmpty())
+                !isVertical || (!nft.description.isNullOrEmpty() || shouldShowOwnerSection || nftAttributes.isNotEmpty())
             })
     }
 
@@ -561,7 +563,7 @@ class NftVC(
     }
 
     private fun updateAttributes() {
-        attributesView.isGone = nft.metadata?.attributes.isNullOrEmpty()
+        attributesView.isGone = nftAttributes.isEmpty()
         if (!attributesView.isVisible)
             return
         attributesContentView.setupNft(nft)
@@ -858,10 +860,9 @@ class NftVC(
             animated = false
         )
         sendActionButton.setImageDrawable(
-            ContextCompat.getDrawable(
-                context,
+            context.requireDrawableCompat(
                 org.mytonwallet.app_air.uiassets.R.drawable.ic_nft_send
-            )!!.apply {
+            ).apply {
                 setTint(WColor.PrimaryLightText.color)
             }
         )
@@ -902,8 +903,7 @@ class NftVC(
     }
 
     private fun updateShareActionTheme() {
-        val drawable = ContextCompat.getDrawable(
-            context,
+        val drawable = context.getDrawableCompat(
             org.mytonwallet.app_air.uiassets.R.drawable.ic_nft_share
         )?.mutate()
         drawable?.setTint(WColor.PrimaryLightText.color)
@@ -916,10 +916,9 @@ class NftVC(
 
     private fun updateWearButtonTheme() {
         wearActionButton.setImageDrawable(
-            ContextCompat.getDrawable(
-                context,
+            context.requireDrawableCompat(
                 org.mytonwallet.app_air.uiassets.R.drawable.ic_nft_wear
-            )!!.apply {
+            ).apply {
                 setTint(
                     if (!NftAccentColors.veryBrightColors.contains(WColor.Tint.color))
                         Color.WHITE
@@ -936,10 +935,9 @@ class NftVC(
         if (isAttributesSectionExpandable) {
             if (arrowDrawable == null) {
                 arrowDrawable = RotatableDrawable(
-                    ContextCompat.getDrawable(
-                        context,
+                    context.requireDrawableCompat(
                         org.mytonwallet.app_air.icons.R.drawable.ic_arrow_bottom_14
-                    )!!.apply {
+                    ).apply {
                         mutate()
                         setTint(WColor.Tint.color)
                     }

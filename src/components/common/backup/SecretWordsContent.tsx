@@ -90,7 +90,7 @@ function SecretWordsContent({
         title={lang('Security Warning')}
         onClose={hideWarning}
       >
-        <p className={styles.text}>{lang('Make sure you have your recovery phrase securely saved.')}</p>
+        <p className={styles.text}>{lang('Make sure you have your secret words securely saved.')}</p>
         <p className={buildClassName(styles.text, styles.warningText)}>
           {lang('Without it, you won\'t be able to access your wallet.')}
         </p>

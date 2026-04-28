@@ -3,7 +3,7 @@ import { isAddress } from '@solana/kit';
 
 import type { ApiNetwork } from '../../types';
 
-export function normalizeAddress(network: ApiNetwork, address: string) {
+export function normalizeAddress(address: string, network?: ApiNetwork) {
   return address;
 }
 

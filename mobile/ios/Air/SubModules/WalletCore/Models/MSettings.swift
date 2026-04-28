@@ -30,6 +30,9 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
     // Air intentionally keeps token period shared across accounts.
     public var currentTokenPeriod: String
     public var walletTokensLimit: Int
+    public var walletSettingsListLayout: String?
+    public var walletSettingsCurrentFilter: String?
+    public var walletSettingsFilterOrder: [String]
 
     public init(
         id: Int64 = SINGLETON_TABLE_ROW_ID,
@@ -46,7 +49,10 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
         isTokenChartExpanded: Bool = false,
         pushNotifications: GlobalPushNotifications? = nil,
         currentTokenPeriod: String = defaultCurrentTokenPeriod,
-        walletTokensLimit: Int = defaultWalletTokensLimit
+        walletTokensLimit: Int = defaultWalletTokensLimit,
+        walletSettingsListLayout: String? = nil,
+        walletSettingsCurrentFilter: String?  = nil,
+        walletSettingsFilterOrder: [String] = []
     ) {
         self.id = id
         self.theme = theme
@@ -63,6 +69,9 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
         self.pushNotifications = pushNotifications
         self.currentTokenPeriod = currentTokenPeriod
         self.walletTokensLimit = HomeWalletVisibleTokensLimit(storedValue: walletTokensLimit).rawValue
+        self.walletSettingsListLayout = walletSettingsListLayout
+        self.walletSettingsCurrentFilter = walletSettingsCurrentFilter
+        self.walletSettingsFilterOrder = walletSettingsFilterOrder
     }
 
     @MainActor public init(global: GlobalStorage, currentAccountId: String? = nil) {

@@ -16,9 +16,10 @@ final class FooterView: UICollectionReusableView {
     func setupViews() {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "???"
         let bundleVersion = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        let appDisplayName = IS_GRAM_WALLET ? APP_NAME : "\(APP_NAME) Air"
         let versionLabel = UILabel()
         versionLabel.translatesAutoresizingMaskIntoConstraints = false
-        versionLabel.text = "MyTonWallet Air v\(appVersion) (\(bundleVersion))"
+        versionLabel.text = "\(appDisplayName) v\(appVersion) (\(bundleVersion))"
         versionLabel.textColor = .air.secondaryLabel
         versionLabel.font = .systemFont(ofSize: 14)
         addSubview(versionLabel)

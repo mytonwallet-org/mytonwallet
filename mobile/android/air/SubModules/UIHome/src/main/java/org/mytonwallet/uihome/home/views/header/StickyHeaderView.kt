@@ -6,7 +6,6 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import androidx.core.content.ContextCompat
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
@@ -25,6 +24,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.uihome.R
@@ -66,7 +66,7 @@ class StickyHeaderView(
 
     private val lockButton: WImageButton by lazy {
         val v = WImageButton(context)
-        v.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.ic_header_lock))
+        v.setImageDrawable(context.getDrawableCompat(R.drawable.ic_header_lock))
         v.setOnClickListener {
             onActionClick(HeaderActionsView.Identifier.LOCK_APP)
         }
@@ -85,8 +85,7 @@ class StickyHeaderView(
     private val scanButton: WImageButton by lazy {
         val v = WImageButton(context)
         v.setImageDrawable(
-            ContextCompat.getDrawable(
-                context,
+            context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_qr_code_scan_18_24
             )
         )
@@ -100,11 +99,9 @@ class StickyHeaderView(
             setOnClickListener {
                 onActionClick(HeaderActionsView.Identifier.BACK)
             }
-            val arrowDrawable =
-                ContextCompat.getDrawable(
-                    context,
-                    org.mytonwallet.app_air.uicomponents.R.drawable.ic_nav_back
-                )
+            val arrowDrawable = context.getDrawableCompat(
+                org.mytonwallet.app_air.uicomponents.R.drawable.ic_nav_back
+            )
             setImageDrawable(arrowDrawable)
             updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
         }
@@ -295,8 +292,7 @@ class StickyHeaderView(
 
     private fun updateEyeIcon() {
         eyeButton.setImageDrawable(
-            ContextCompat.getDrawable(
-                context,
+            context.getDrawableCompat(
                 if (WGlobalStorage.getIsSensitiveDataProtectionOn()) org.mytonwallet.app_air.icons.R.drawable.ic_header_eye else org.mytonwallet.app_air.icons.R.drawable.ic_header_eye_hidden
             )
         )

@@ -1,13 +1,13 @@
 package org.mytonwallet.app_air.uistake.staking.views
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.InputType
 import android.text.TextUtils
 import android.text.method.DigitsKeyListener
 import android.view.Gravity
 import android.widget.LinearLayout
-import androidx.core.content.ContextCompat
 import androidx.core.widget.doOnTextChanged
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -24,6 +24,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.models.MToken
@@ -47,7 +48,7 @@ class StakeInputView(
             LocaleController.getString("Amount")
 
         setTextColor(WColor.PrimaryText.color)
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setLineHeight(24f)
     }
 
@@ -88,10 +89,7 @@ class StakeInputView(
     private val switchCurrencyIcon: WImageView by lazy {
         val icon = WImageView(context)
         icon.setImageDrawable(
-            ContextCompat.getDrawable(
-                context,
-                R.drawable.ic_switch_24
-            )?.apply {
+            context.getDrawableCompat(R.drawable.ic_switch_24)?.apply {
                 setTint(WColor.SecondaryText.color)
             }
         )
@@ -201,10 +199,7 @@ class StakeInputView(
         equivalentAmountLabel.setTextColor(WColor.SecondaryText.color)
         feeLabel.setTextColor(WColor.SecondaryText.color)
         switchCurrencyIcon.setImageDrawable(
-            ContextCompat.getDrawable(
-                context,
-                R.drawable.ic_switch_24
-            )?.apply {
+            context.getDrawableCompat(R.drawable.ic_switch_24)?.apply {
                 setTint(WColor.SecondaryText.color)
             }
         )

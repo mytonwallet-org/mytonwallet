@@ -26,12 +26,12 @@ import {
   selectSeasonalTheme,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
+import { calculateFullBalance } from '../../../../util/calculateFullBalance';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
 import { openDeeplinkOrUrl } from '../../../../util/deeplink';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
 import { preloadedImageUrls } from '../../../../util/preloadImage';
 import { IS_IOS, IS_SAFARI } from '../../../../util/windowEnvironment';
-import { calculateFullBalance } from './helpers/calculateFullBalance';
 import getSensitiveDataMaskSkinFromCardNft from './helpers/getSensitiveDataMaskSkinFromCardNft';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
@@ -121,61 +121,10 @@ function useSeasonalTheming({
   };
 }
 
-function usePromotionModal({
-  activePromotion,
-  promoBgMaskUrl: promoBgMaskUrlParam,
-  promoOverlayMaskUrl: promoOverlayMaskUrlParam,
-  openPromotionModal,
-  openMintCardModal,
-}: {
-  activePromotion?: ApiPromotion;
-  promoBgMaskUrl: string;
-  promoOverlayMaskUrl: string;
-  openPromotionModal: NoneToVoidFunction;
-  openMintCardModal: NoneToVoidFunction;
-}) {
-  const shouldRenderPromo = Boolean(activePromotion?.kind === 'cardOverlay');
-  const mascotIcon = activePromotion?.cardOverlay?.mascotIcon;
-
-  const promoMascotStyle = useMemo(() => (mascotIcon
-    ? `--promo-mascot-top: ${mascotIcon.top}px; `
-    + `--promo-mascot-right: ${mascotIcon.right}px; `
-    + `--promo-mascot-height: ${mascotIcon.height / 200 * 100}%;`
-    + `--promo-mascot-width: ${mascotIcon.width / 345 * 100}%;`
-    + `--promo-mascot-rotation: ${mascotIcon.rotation}deg;`
-    : undefined), [mascotIcon]);
-
-  // Mascot image should appear only after the card overlay is loaded
-  const [isPromoBgLoaded, setIsPromoBgLoaded] = useState(preloadedImageUrls.has(promoBgMaskUrlParam));
-  const [isPromoOverlayLoaded, setIsPromoOverlayLoaded] = useState(preloadedImageUrls.has(promoOverlayMaskUrlParam));
-  const isPromoImagesLoaded = isPromoBgLoaded && isPromoOverlayLoaded;
-  const handlePromoBgLoad = useLastCallback(() => setIsPromoBgLoaded(true));
-  const handlePromoOverlayLoad = useLastCallback(() => setIsPromoOverlayLoaded(true));
-
-  const handlePromoClick = useLastCallback(() => {
-    const { onClickAction } = activePromotion?.cardOverlay || {};
-    switch (onClickAction) {
-      case 'openPromotionModal':
-        openPromotionModal();
-        break;
-      case 'openMintCardModal':
-        openMintCardModal();
-        break;
-      default:
-        break;
-    }
-  });
-
-  return {
-    shouldRenderPromo,
-    promoMascotStyle,
-    isPromoImagesLoaded,
-    mascotIcon,
-    handlePromoBgLoad,
-    handlePromoOverlayLoad,
-    handlePromoClick,
-  };
-}
+const CARD_PORTRAIT_WIDTH = 378;
+const CARD_PORTRAIT_HEIGHT = 220;
+const CARD_LANDSCAPE_WIDTH = 328;
+const CARD_LANDSCAPE_HEIGHT = 200;
 
 function Card({
   ref,
@@ -265,6 +214,7 @@ function Card({
     promoOverlayMaskUrl,
     openPromotionModal,
     openMintCardModal,
+    isPortrait,
   });
 
   const values = useMemo(() => {
@@ -445,6 +395,18 @@ function Card({
               loading="eager"
               onLoad={handlePromoOverlayLoad}
             />
+            <div
+              // This class name should be applied only once. When the mascot is present, it should be applied to the image instead.
+              className={!(mascotIcon && isPromoImagesLoaded) ? styles.promoMascot : undefined}
+              style={promoMascotStyle}
+              role="button"
+              tabIndex={0}
+              onClick={handlePromoClick}
+            >
+              {mascotIcon && isPromoImagesLoaded && (
+                <Image url={mascotIcon.url} alt="" loading="eager" className={styles.promoMascot} />
+              )}
+            </div>
           </div>
         )}
 
@@ -463,21 +425,6 @@ function Card({
           )}
         </div>
       </div>
-
-      {shouldRenderPromo && (
-        <div
-          // This class name should be applied only once. When the mascot is present, it should be applied to the image instead.
-          className={!(mascotIcon && isPromoImagesLoaded) ? styles.promoMascot : undefined}
-          style={promoMascotStyle}
-          role="button"
-          tabIndex={0}
-          onClick={handlePromoClick}
-        >
-          {mascotIcon && isPromoImagesLoaded && (
-            <Image url={mascotIcon.url} alt="" loading="eager" className={styles.promoMascot} />
-          )}
-        </div>
-      )}
 
       {shouldRenderChartCard && (
         <ChartCard
@@ -521,3 +468,64 @@ export default memo(
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(Card),
 );
+
+function usePromotionModal({
+  activePromotion,
+  promoBgMaskUrl: promoBgMaskUrlParam,
+  promoOverlayMaskUrl: promoOverlayMaskUrlParam,
+  openPromotionModal,
+  openMintCardModal,
+  isPortrait,
+}: {
+  activePromotion?: ApiPromotion;
+  promoBgMaskUrl: string;
+  promoOverlayMaskUrl: string;
+  openPromotionModal: NoneToVoidFunction;
+  openMintCardModal: NoneToVoidFunction;
+  isPortrait: boolean;
+}) {
+  const shouldRenderPromo = Boolean(activePromotion?.kind === 'cardOverlay');
+  const mascotIcon = activePromotion?.cardOverlay?.mascotIcon;
+
+  const cardWidth = isPortrait ? CARD_PORTRAIT_WIDTH : CARD_LANDSCAPE_WIDTH;
+  const cardHeight = isPortrait ? CARD_PORTRAIT_HEIGHT : CARD_LANDSCAPE_HEIGHT;
+
+  const promoMascotStyle = useMemo(() => (mascotIcon
+    ? `--promo-mascot-top: ${mascotIcon.top}px; `
+    + `--promo-mascot-right: ${mascotIcon.right}px; `
+    + `--promo-mascot-height: ${mascotIcon.height / cardHeight * 100}%;`
+    + `--promo-mascot-width: ${mascotIcon.width / cardWidth * 100}%;`
+    + `--promo-mascot-rotation: ${mascotIcon.rotation}deg;`
+    : undefined), [mascotIcon, cardWidth, cardHeight]);
+
+  // Mascot image should appear only after the card overlay is loaded
+  const [isPromoBgLoaded, setIsPromoBgLoaded] = useState(preloadedImageUrls.has(promoBgMaskUrlParam));
+  const [isPromoOverlayLoaded, setIsPromoOverlayLoaded] = useState(preloadedImageUrls.has(promoOverlayMaskUrlParam));
+  const isPromoImagesLoaded = isPromoBgLoaded && isPromoOverlayLoaded;
+  const handlePromoBgLoad = useLastCallback(() => setIsPromoBgLoaded(true));
+  const handlePromoOverlayLoad = useLastCallback(() => setIsPromoOverlayLoaded(true));
+
+  const handlePromoClick = useLastCallback(() => {
+    const { onClickAction } = activePromotion?.cardOverlay || {};
+    switch (onClickAction) {
+      case 'openPromotionModal':
+        openPromotionModal();
+        break;
+      case 'openMintCardModal':
+        openMintCardModal();
+        break;
+      default:
+        break;
+    }
+  });
+
+  return {
+    shouldRenderPromo,
+    promoMascotStyle,
+    isPromoImagesLoaded,
+    mascotIcon,
+    handlePromoBgLoad,
+    handlePromoOverlayLoad,
+    handlePromoClick,
+  };
+}

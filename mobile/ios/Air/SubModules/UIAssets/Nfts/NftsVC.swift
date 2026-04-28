@@ -63,11 +63,15 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     private let layoutMode: LayoutMode
     private let canOpenCollection: Bool
     private weak var manager: NftsVCManager?
+    private let animationPlaybackCoordinator = NftGridAnimationPlaybackCoordinator()
 
     private var layoutChangeID: LayoutGeometry.LayoutChangeID?
     private let layoutGeometry: LayoutGeometry
     private var isWalletAssetsEmptyStateAnimationActive = false
     private var walletAssetsEmptyStateAnimationSessionID = 0
+    private var isNftAnimationPlaybackExternallyActive = true
+    private var isViewVisibleForNftAnimationPlayback = false
+    private var nftAnimationPlaybackEligibleIDs = Set<String>()
     private var pendingInteractiveSwitchAccountId: String?
     
     private var contextMenuExtraBlurView: UIView?
@@ -110,9 +114,23 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         WalletCoreData.add(eventObserver: self)
     }
 
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        self.isViewVisibleForNftAnimationPlayback = true
+        self.updateNftAnimationPlaybackActivity()
+        self.updateVisibleNftAnimationPlayback()
+    }
+
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        self.isViewVisibleForNftAnimationPlayback = false
+        self.updateNftAnimationPlaybackActivity()
+    }
+
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         applyLayoutIfNeeded()
+        updateVisibleNftAnimationPlayback()
     }
     
     private var displayNfts: OrderedDictionary<String, DisplayNft>?
@@ -331,6 +349,10 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         applySnapshot(makeSnapshot(), animated: animated)
         updateVisibleEmptyStateAnimations()
         applyLayoutIfNeeded()
+        updateVisibleNftAnimationPlayback()
+        DispatchQueue.main.async { [weak self] in
+            self?.updateVisibleNftAnimationPlayback()
+        }
         
         if inSelectionMode, let selectedIds {
             let allIds = Set(displayNfts?.keys ?? [])
@@ -581,6 +603,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
     
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         onScroll?(scrollView.contentOffset.y + scrollView.contentInset.top)
+        updateVisibleNftAnimationPlayback()
     }
             
     public func reorderController(_ controller: ReorderableCollectionViewController, contextMenuConfigurationForItemAt indexPath: IndexPath,
@@ -670,7 +693,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
             items += UIAction(title: lang("Hide"), image: .airBundle("MenuHide26")) { _ in
                 NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
             }
-            if account.supportsBurn, !nft.isOnSale {
+            if account.supportsBurn, nft.chain.isNftBurnSupported, !nft.isOnSale {
                 items += UIAction(title: lang("Burn"), image: .airBundle("MenuBurn26"), attributes: .destructive) { _ in
                     AppActions.showSend(accountContext: self.$account, prefilledValues: .init(mode: .burnNft, nfts: [nft]))
                 }
@@ -691,6 +714,10 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                 items += UIAction(title: "Getgems", image: .airBundle("MenuGetgems26")) { _ in
                     let url = ExplorerHelper.nftUrl(nft)
                     AppActions.openInBrowser(url)
+                }
+            } else if let marketplace = ExplorerHelper.marketplaceNftWebsite(nft) {
+                items += UIAction(title: marketplace.title, image: .airBundle("SendGlobe")) { _ in
+                    AppActions.openInBrowser(marketplace.address)
                 }
             }
             items += UIAction(title: ExplorerHelper.selectedExplorerName(for: nft.chain), image: .airBundle(ExplorerHelper.selectedExplorerMenuIconName(for: nft.chain))) { _ in
@@ -811,6 +838,80 @@ extension NftsVC: WalletCoreData.EventsObserver {
 }
 
 extension NftsVC {
+    private var nftAnimationPlaybackAppearVisibilityThreshold: CGFloat { 0.75 }
+    private var nftAnimationPlaybackDisappearVisibilityThreshold: CGFloat { 0.25 }
+
+    private var isNftAnimationPlaybackActive: Bool {
+        self.isViewVisibleForNftAnimationPlayback
+            && self.isNftAnimationPlaybackExternallyActive
+            && self.viewIfLoaded?.window != nil
+    }
+
+    private func updateNftAnimationPlaybackActivity() {
+        self.animationPlaybackCoordinator.setActive(self.isNftAnimationPlaybackActive)
+    }
+
+    private func updateVisibleNftAnimationPlayback() {
+        guard isViewLoaded, collectionView != nil else {
+            return
+        }
+
+        collectionView.layoutIfNeeded()
+        var nextEligibleIDs = Set<String>()
+        let visibleItems = collectionView.indexPathsForVisibleItems
+            .sorted { lhs, rhs in
+                if lhs.section != rhs.section {
+                    return lhs.section < rhs.section
+                }
+                return lhs.item < rhs.item
+            }
+            .compactMap { indexPath -> NftGridAnimationPlaybackCoordinator.VisibleItem? in
+            guard case .nft(let id) = dataSource?.itemIdentifier(for: indexPath),
+                  let cell = collectionView.cellForItem(at: indexPath) as? NftCell,
+                  cell.hasPlayableAnimation else {
+                return nil
+            }
+            guard self.isEligibleForNftAnimationPlayback(
+                id: id,
+                cell: cell,
+                in: collectionView
+            ) else {
+                return nil
+            }
+            nextEligibleIDs.insert(id)
+            return .init(id: id, cell: cell)
+        }
+        self.nftAnimationPlaybackEligibleIDs = nextEligibleIDs
+        self.animationPlaybackCoordinator.updateVisibleItems(visibleItems)
+        self.updateNftAnimationPlaybackActivity()
+    }
+
+    private func isEligibleForNftAnimationPlayback(
+        id: String,
+        cell: NftCell,
+        in collectionView: UICollectionView
+    ) -> Bool {
+        let cellFrame = cell.convert(cell.bounds, to: collectionView)
+        let visibleFrame = cellFrame.intersection(collectionView.bounds)
+        guard !visibleFrame.isNull, !visibleFrame.isEmpty else {
+            return false
+        }
+
+        let cellArea = cellFrame.width * cellFrame.height
+        guard cellArea > 0 else {
+            return false
+        }
+
+        let visibleAreaFraction = (visibleFrame.width * visibleFrame.height) / cellArea
+        if visibleAreaFraction >= self.nftAnimationPlaybackAppearVisibilityThreshold {
+            return true
+        }
+        if visibleAreaFraction <= self.nftAnimationPlaybackDisappearVisibilityThreshold {
+            return false
+        }
+        return self.nftAnimationPlaybackEligibleIDs.contains(id)
+    }
+
     private var isShowingEmptyState: Bool {
         displayNfts?.isEmpty == true
     }
@@ -942,6 +1043,14 @@ extension NftsVC {
 }
 
 extension NftsVC: WalletAssetsEmptyStateAnimationControlling { }
+
+extension NftsVC: NftAnimationPlaybackControlling {
+    public func setNftAnimationPlaybackActive(_ isActive: Bool) {
+        self.isNftAnimationPlaybackExternallyActive = isActive
+        self.updateNftAnimationPlaybackActivity()
+        self.updateVisibleNftAnimationPlayback()
+    }
+}
 
 @MainActor
 private class LayoutGeometry {

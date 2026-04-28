@@ -477,9 +477,10 @@ class SwapVC(
             }
 
             is SwapViewModel.Event.ShowAddressToSend -> {
+                isSwapDone = true
                 view.hideKeyboard()
                 push(
-                    SwapSendAddressOutputVC(
+                    viewController = SwapSendAddressOutputVC(
                         context,
                         event.estimate.request.tokenToSend,
                         event.estimate.request.tokenToReceive,
@@ -487,7 +488,10 @@ class SwapVC(
                         event.estimate.toAmount,
                         event.cex.payinAddress,
                         event.cex.transactionId
-                    )
+                    ),
+                    onCompletion = {
+                        navigationController?.removePrevViewControllers()
+                    }
                 )
             }
 
@@ -568,7 +572,10 @@ class SwapVC(
 
     private fun showConfirm(event: SwapViewModel.Event.ShowConfirm) {
         val request = event.request
-        Logger.d(Logger.LogTag.SWAP, "showConfirm: fromToken=${request.request.tokenToSend.symbol} toToken=${request.request.tokenToReceive.symbol}")
+        Logger.d(
+            Logger.LogTag.SWAP,
+            "showConfirm: fromToken=${request.request.tokenToSend.symbol} toToken=${request.request.tokenToReceive.symbol}"
+        )
         view.hideKeyboard()
         val confirmActionVC = PasscodeConfirmVC(
             context,

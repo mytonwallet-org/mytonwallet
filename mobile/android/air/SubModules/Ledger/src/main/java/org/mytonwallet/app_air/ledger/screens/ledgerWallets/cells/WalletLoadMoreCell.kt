@@ -1,8 +1,8 @@
 package org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -12,6 +12,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 
 class LedgerLoadMoreCell(
     context: Context,
@@ -27,7 +28,7 @@ class LedgerLoadMoreCell(
     }
 
     private val loadMoreLabel = WLabel(context).apply {
-        setStyle(16f)
+        setStyle(adaptiveFontSize())
         setTextColor(WColor.Tint)
         text = LocaleController.getString("Load 5 More Wallets")
     }
@@ -57,8 +58,7 @@ class LedgerLoadMoreCell(
         ripple.backgroundColor = WColor.Background.color
         ripple.rippleColor = WColor.SecondaryBackground.color
         imageView.setImageDrawable(
-            ContextCompat.getDrawable(
-                context,
+            context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_arrow_bottom_24
             )!!.apply {
                 setTint(WColor.Tint.color)

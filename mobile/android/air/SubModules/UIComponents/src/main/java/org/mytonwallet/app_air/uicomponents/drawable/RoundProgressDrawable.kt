@@ -10,9 +10,10 @@ import android.os.SystemClock
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 class RoundProgressDrawable(
-    private val sizeDp: Int = 16,
+    private val sizeDp: Float = 16f,
     strokeWidthDp: Float = 3f
 ) : Drawable() {
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -23,11 +24,11 @@ class RoundProgressDrawable(
     }
 
     override fun getMinimumWidth(): Int {
-        return sizeDp.dp
+        return sizeDp.dp.roundToInt()
     }
 
     override fun getMinimumHeight(): Int {
-        return sizeDp.dp
+        return sizeDp.dp.roundToInt()
     }
 
     private var angle = 0f

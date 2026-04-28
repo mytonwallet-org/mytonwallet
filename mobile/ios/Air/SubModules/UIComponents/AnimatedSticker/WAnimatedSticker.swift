@@ -6,17 +6,23 @@
 //
 
 import UIKit
-import GZip
-import RLottieBinding
 import WalletContext
 import SwiftUI
+@_exported import LottieKit
 
 public class WAnimatedSticker: UIView {
 
     @IBInspectable
     public var animationName: String = ""
+
+    public var renderingScale: CGFloat = 2.0 {
+        didSet {
+            animationView?.renderingScale = renderingScale
+        }
+    }
     
-    private(set) var animatedSticker: AnimatedStickerNode? = nil
+    private(set) var animationView: LottieAnimationView? = nil
+    private var toggleState: Bool? = nil
 
     override open func awakeFromNib() {
         super.awakeFromNib()
@@ -25,80 +31,106 @@ public class WAnimatedSticker: UIView {
     override open func prepareForInterfaceBuilder() {
         super.prepareForInterfaceBuilder()
     }
+
+    private func ensureAnimationView(size: CGSize) -> LottieAnimationView {
+        let animationView: LottieAnimationView
+        if let existingAnimationView = self.animationView {
+            animationView = existingAnimationView
+        } else {
+            let createdAnimationView = LottieAnimationView(frame: CGRect(origin: .zero, size: size))
+            createdAnimationView.translatesAutoresizingMaskIntoConstraints = false
+            createdAnimationView.renderingScale = renderingScale
+            addSubview(createdAnimationView)
+            NSLayoutConstraint.activate([
+                createdAnimationView.leadingAnchor.constraint(equalTo: leadingAnchor),
+                createdAnimationView.trailingAnchor.constraint(equalTo: trailingAnchor),
+                createdAnimationView.topAnchor.constraint(equalTo: topAnchor),
+                createdAnimationView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+            self.animationView = createdAnimationView
+            animationView = createdAnimationView
+        }
+
+        animationView.frame = CGRect(origin: .zero, size: size)
+        animationView.renderingScale = renderingScale
+        animationView.layoutIfNeeded()
+        return animationView
+    }
+
+    private func setup(source: LottieAnimationSource, size: CGSize, playbackMode: LottieAnimationPlaybackMode) {
+        let animationView = ensureAnimationView(size: size)
+        self.toggleState = nil
+
+        do {
+            try animationView.setAnimationSynchronously(
+                source: source,
+                playbackMode: playbackMode,
+                displayFirstFrameSynchronously: true
+            )
+        } catch {
+            return
+        }
+    }
+
+    private func playToggleTransition(to isOn: Bool) {
+        guard let animationView else {
+            return
+        }
+        let targetPosition: LottieAnimationStartingPosition
+        if let info = animationView.animationInfo, info.frameCount > 1 {
+            let midpointProgress = Double(info.frameCount / 2) / Double(max(info.frameCount - 1, 1))
+            targetPosition = isOn ? .fraction(midpointProgress) : .begin
+        } else {
+            targetPosition = isOn ? .fraction(0.5) : .begin
+        }
+        animationView.playTransition(to: targetPosition)
+    }
     
     // setup animation data
-    public func setup(width: Int, height: Int, playbackMode: AnimatedStickerPlaybackMode) {
+    public func setup(width: Int, height: Int, playbackMode: LottieAnimationPlaybackMode) {
         // load the animation
         guard let path = AirBundle.path(forResource: animationName, ofType: "tgs") else {
             return
         }
 
-        // add animated sticker to the view
-        animatedSticker = AnimatedStickerNode()
-        animatedSticker?.translatesAutoresizingMaskIntoConstraints = false
-        animatedSticker?.frame = CGRect(x: 0, y: 0, width: width, height: width)
-        addSubview(animatedSticker!)
-        animatedSticker?.didLoad()
-
-        // setup the animated sticker
-        animatedSticker?.setup(source: AnimatedStickerNodeLocalFileSource(path: path),
-                               width: width * 2, height: height * 2,
-                               playbackMode: playbackMode,
-                               mode: .direct)
-        animatedSticker?.play(firstFrame: playbackMode == .toggle(false))
+        setup(source: .file(path: path), size: CGSize(width: width, height: height), playbackMode: playbackMode)
     }
     
-    public func setup(localUrl: URL, width: Int, height: Int, playbackMode: AnimatedStickerPlaybackMode) {
-        // load the animation
-        let path = localUrl.path(percentEncoded: false)
-
-        // add animated sticker to the view
-        animatedSticker = AnimatedStickerNode()
-        animatedSticker?.translatesAutoresizingMaskIntoConstraints = false
-        animatedSticker?.frame = CGRect(x: 0, y: 0, width: width, height: width)
-        addSubview(animatedSticker!)
-        animatedSticker?.didLoad()
-
-        // setup the animated sticker
-        animatedSticker?.setup(source: AnimatedStickerNodeLocalFileSource(path: path),
-                               width: width * 2, height: height * 2,
-                               playbackMode: playbackMode,
-                               mode: .direct)
+    public func setup(localUrl: URL, width: Int, height: Int, playbackMode: LottieAnimationPlaybackMode) {
+        setup(
+            source: .file(path: localUrl.path(percentEncoded: false)),
+            size: CGSize(width: width, height: height),
+            playbackMode: playbackMode
+        )
     }
 
     public func toggle(_ on: Bool) {
-        switch animatedSticker!.playbackMode {
-            case .toggle(let toggleMode):
-                if toggleMode == on {
-                    return
-                }
-                break
-            default:
-                break
+        if toggleState == on {
+            return
         }
-        animatedSticker?.playbackMode = .toggle(on)
-        animatedSticker?.play()
+        toggleState = on
+        playToggleTransition(to: on)
     }
 
     public func pause() {
-        animatedSticker?.isPlaying = false
-        animatedSticker?.pause()
+        animationView?.pause()
     }
 
     public func showFirstFrame() {
         pause()
-        animatedSticker?.seekTo(.start)
+        animationView?.setPlaybackMode(.still(position: .begin))
+        animationView?.seek(to: .begin)
     }
 
     public func playOnceFromStart() {
         pause()
-        animatedSticker?.playbackMode = .once
-        animatedSticker?.seekTo(.start)
-        _ = animatedSticker?.playIfNeeded()
+        animationView?.setPlaybackMode(.once)
+        animationView?.playOnce()
     }
     
     public func playOnce() {
-        _ = animatedSticker?.playIfNeeded()
+        animationView?.setPlaybackMode(.once)
+        animationView?.playOnce()
     }
 }
 

@@ -20,5 +20,9 @@ class WInterpolator {
             return 1 - (1 - progress).pow(3f)
         }
 
+        fun easeOutQuad(progress: Float): Float {
+            return 1 - (1 - progress).pow(2f)
+        }
+
     }
 }

@@ -1,4 +1,4 @@
-import type { ActivitiesUpdate } from '../../../common/websocket/abstractWsClient';
+import type { DefaultActivitiesUpdate } from '../../../common/websocket/abstractWsClient';
 import type { SocketFinality } from './types';
 
 import { pause } from '../../../../util/schedulers';
@@ -167,7 +167,7 @@ describe('throttleToncenterSocketActions', () => {
 function createMockUpdate(
   messageHashNormalized: string,
   finality: SocketFinality,
-): ActivitiesUpdate {
+): DefaultActivitiesUpdate {
   return {
     address: 'test-address',
     messageHashNormalized,

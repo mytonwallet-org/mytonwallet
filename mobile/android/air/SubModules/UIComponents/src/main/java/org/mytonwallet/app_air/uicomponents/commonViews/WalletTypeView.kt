@@ -9,9 +9,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
-import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
@@ -23,6 +21,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcontext.utils.solidColorWithAlpha
@@ -153,7 +152,7 @@ open class WalletTypeView(
             org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye
         }
 
-        eyeDrawable = ContextCompat.getDrawable(context, iconRes)?.apply {
+        eyeDrawable = context.getDrawableCompat(iconRes)?.apply {
             setTint(tintColor)
         }
 
@@ -216,8 +215,7 @@ open class WalletTypeView(
         isGone = false
         viewTagView?.isGone = true
         if (hardwareTagView == null) {
-            hardwareDrawable = ContextCompat.getDrawable(
-                context,
+            hardwareDrawable = context.getDrawableCompat(
                 org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_ledger
             )?.apply {
                 setTint(color)

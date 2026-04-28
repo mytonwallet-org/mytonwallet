@@ -206,6 +206,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     }
 
     private func configureTokenCell(_ cell: WalletTokenCell, indexPath: IndexPath, item: TokenBalanceItem) {
+        let account = self.account
         let token = item.tokenBalance
         let badgeContent = getBadgeContent(accountContext: _account, slug: token.tokenSlug, isStaking: token.isStaking)
 
@@ -216,6 +217,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         cell.configure(with: item.tokenBalance,
                        animated: item.animatedAmounts,
                        badgeContent: badgeContent,
+                       isMultichain: account.isMultichain,
                        isPinned: item.isPinned,
                        highlightBackgroundWhenPinned: highlightBackgroundWhenPinned)
     }
@@ -274,37 +276,26 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         }
 
         let assetsData = AssetsAndActivityDataStore.data(accountId: account.id) ?? .empty
-        let tokenBalances = makeTokenBalances(walletTokensData: walletTokensData)
-        let sortedTokens = MTokenBalance.sortedForUI(
-            tokenBalances: tokenBalances,
-            assetsAndActivityData: assetsData,
-            balances: $account.balances,
-            defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: account.network)
+        let pinPartition = MTokenBalance.partitionTokensByPinning(
+            tokens: walletTokensData.orderedTokenBalances,
+            assetsAndActivityData: assetsData
         )
-        if sortedTokens.isEmpty {
+        let orderedTokens = pinPartition.pinned + pinPartition.unpinned
+        if orderedTokens.isEmpty {
             return .empty
         }
-        let visibleTokens = makeVisibleTokens(from: sortedTokens)
+        let visibleTokens = makeVisibleTokens(from: orderedTokens)
+        let pinnedTokenIDs = Set(pinPartition.pinned.map(\.tokenID))
         let rows = visibleTokens.map { tokenBalance in
             TokenBalanceItem(
                 tokenBalance: tokenBalance,
                 accountId: account.id,
-                isPinned: isTokenPinned(tokenBalance, assetsAndActivityData: assetsData),
+                isPinned: pinnedTokenIDs.contains(tokenBalance.tokenID),
                 animatedAmounts: animatedAmounts
             )
         }
 
-        return .loaded(rows: rows, allTokensCount: sortedTokens.count)
-    }
-
-    private func makeTokenBalances(walletTokensData: MAccountWalletTokensData) -> [MTokenBalance] {
-        (walletTokensData.walletStaked + walletTokensData.walletTokens).map { tokenBalance in
-            MTokenBalance(
-                tokenSlug: tokenBalance.tokenSlug,
-                balance: tokenBalance.balance,
-                isStaking: tokenBalance.isStaking
-            )
-        }
+        return .loaded(rows: rows, allTokensCount: orderedTokens.count)
     }
 
     private func makeVisibleTokens(from sortedTokens: [MTokenBalance]) -> [MTokenBalance] {
@@ -312,15 +303,6 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
             return Array(sortedTokens.prefix(layoutMode.visibleRowsLimit))
         } else {
             return sortedTokens
-        }
-    }
-
-    private func isTokenPinned(_ tokenBalance: MTokenBalance, assetsAndActivityData: MAssetsAndActivityData) -> Bool {
-        switch assetsAndActivityData.isTokenPinned(slug: tokenBalance.tokenSlug, isStaked: tokenBalance.isStaking) {
-        case .pinned:
-            true
-        case .notPinned:
-            false
         }
     }
 

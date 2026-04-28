@@ -1,4 +1,4 @@
-import type { ActivitiesUpdate, NewActivitiesCallback } from '../../../common/websocket/abstractWsClient';
+import type { DefaultActivitiesUpdate, NewActivitiesCallback } from '../../../common/websocket/abstractWsClient';
 import type { SocketFinality } from './types';
 
 import { setCancellableTimeout } from '../../../../util/schedulers';
@@ -26,11 +26,11 @@ function isFinalityAtLeast(a: SocketFinality, b: SocketFinality) {
  */
 export function throttleToncenterSocketActions(
   delayMs: number,
-  onUpdates: (updates: ActivitiesUpdate[]) => void,
+  onUpdates: (updates: DefaultActivitiesUpdate[]) => void,
 ): NewActivitiesCallback {
   // A record item is created when the first pending version arrives and is removed when it gets confirmed or invalidated.
   // All message hashes are throttled independently.
-  const updatesByHash: Record<string, { toReport?: ActivitiesUpdate; cancelReport?: NoneToVoidFunction }> = {};
+  const updatesByHash: Record<string, { toReport?: DefaultActivitiesUpdate; cancelReport?: NoneToVoidFunction }> = {};
 
   const scheduleReport = (hash: string) => {
     updatesByHash[hash] ??= {};

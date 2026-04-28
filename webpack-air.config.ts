@@ -11,6 +11,7 @@ import { APP_ENV } from './src/config';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const appVersion = require('./package.json').version;
+const sdkName = process.env.IS_GRAM_WALLET === '1' ? 'gramwallet' : 'mytonwallet';
 
 export default function createConfig(
   _: any,
@@ -33,9 +34,9 @@ export default function createConfig(
     },
 
     output: {
-      filename: 'mytonwallet-sdk.js',
+      filename: `${sdkName}-sdk.js`,
       path: path.resolve(__dirname, 'dist-air'),
-      clean: true,
+      clean: process.env.SDK_OUTPUT_CLEAN !== '0',
     },
 
     module: {
@@ -75,6 +76,7 @@ export default function createConfig(
       }),
       new EnvironmentPlugin({
         APP_ENV: 'production',
+        IS_GRAM_WALLET: '0',
         APP_VERSION: appVersion,
         PLATFORM_ENV: '',
         IS_CAPACITOR: '1',
@@ -95,6 +97,8 @@ export default function createConfig(
         TRON_TESTNET_API_URL: '',
         SOLANA_MAINNET_RPC_URL: '',
         SOLANA_TESTNET_RPC_URL: '',
+        EVM_MAINNET_RPC_URL: '',
+        EVM_TESTNET_RPC_URL: '',
         PROXY_HOSTS: '',
         STAKING_POOLS: '',
         BOT_USERNAME: '',

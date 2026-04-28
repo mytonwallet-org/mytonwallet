@@ -11,14 +11,15 @@ private let log = Log("AppearanceSettingsView")
 struct AppearanceSettingsView: View {
     
     var canSwitchToCapacitor: Bool {
-        // can't be force unwrapped because app delegate is different in previews
-        (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.canSwitchToCapacitor ?? true
+        isCapacitorAvailable
     }
     
     var body: some View {
         WithPerceptionTracking {
             InsetList(topPadding: 16, spacing: 24) {
-                switchToClassicSection
+                if canSwitchToCapacitor {
+                    switchToClassicSection
+                }
                 themeSection
                 PaletteAndCardSection()
                 OtherAppearanceSettingsSection()
@@ -37,8 +38,6 @@ struct AppearanceSettingsView: View {
                     .padding(.vertical, 1)
                     .foregroundStyle(Color.accentColor)
             }
-            .allowsHitTesting(canSwitchToCapacitor)
-            .opacity(canSwitchToCapacitor ? 1 : 0.5)
         }
     }
     

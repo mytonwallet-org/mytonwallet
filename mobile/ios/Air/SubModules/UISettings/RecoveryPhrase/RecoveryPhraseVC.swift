@@ -53,7 +53,7 @@ open class RecoveryPhraseVC: SettingsBaseVC {
         // header
         headerView = HeaderView(animationName: "Recovery Phrase",
                                     animationPlaybackMode: .once,
-                                    title: lang("Your Recovery Phrase"),
+                                    title: lang("Your Secret Words"),
                                 description: lang("$mnemonic_list_description").replacingOccurrences(of: "**", with: ""))
         scrollView.addSubview(headerView)
         NSLayoutConstraint.activate([
@@ -110,7 +110,7 @@ open class RecoveryPhraseVC: SettingsBaseVC {
 extension RecoveryPhraseVC: UIScrollViewDelegate {
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         navigationItem.title = scrollView.contentOffset.y + scrollView.adjustedContentInset.top > 123
-            ? lang("Your Recovery Phrase")
+            ? lang("Your Secret Words")
             : nil
     }
 }

@@ -312,11 +312,11 @@ object MMCQ {
             val bval = pixel[2] shr RSHIFT
 
             if (rval < rmin) rmin = rval
-            else if (rval > rmax) rmax = rval
+            if (rval > rmax) rmax = rval
             if (gval < gmin) gmin = gval
-            else if (gval > gmax) gmax = gval
+            if (gval > gmax) gmax = gval
             if (bval < bmin) bmin = bval
-            else if (bval > bmax) bmax = bval
+            if (bval > bmax) bmax = bval
         }
         return VBox(rmin, rmax, gmin, gmax, bmin, bmax, histo)
     }
@@ -335,13 +335,11 @@ object MMCQ {
         }
 
         var total = 0
-        val size = when (maxw) {
-            rw -> vbox.r2 + 1
-            gw -> vbox.g2 + 1
-            else -> vbox.b2 + 1
-        }
-        val partialSum = IntArray(size) { 0 }
-        val lookaheadSum = IntArray(size) { 0 }
+        // Index by absolute coord (0..(1<<SIGBITS)-1) to match ColorThiefSwift.
+        // Sentinel -1 marks "not set" so cut() can treat untouched slots as ignorable.
+        val axisLen = 1 shl SIGBITS
+        val partialSum = IntArray(axisLen) { -1 }
+        val lookaheadSum = IntArray(axisLen) { -1 }
 
         if (maxw == rw) {
             for (i in vbox.r1..vbox.r2) {
@@ -349,15 +347,11 @@ object MMCQ {
                 for (j in vbox.g1..vbox.g2) {
                     for (k in vbox.b1..vbox.b2) {
                         val index = getColorIndex(i, j, k)
-                        if (index < histo.size) {
-                            sum += histo[index]
-                        }
+                        sum += histo[index]
                     }
                 }
                 total += sum
-                if (i < partialSum.size) {
-                    partialSum[i] = total
-                }
+                partialSum[i] = total
             }
         } else if (maxw == gw) {
             for (i in vbox.g1..vbox.g2) {
@@ -365,15 +359,11 @@ object MMCQ {
                 for (j in vbox.r1..vbox.r2) {
                     for (k in vbox.b1..vbox.b2) {
                         val index = getColorIndex(j, i, k)
-                        if (index < histo.size) {
-                            sum += histo[index]
-                        }
+                        sum += histo[index]
                     }
                 }
                 total += sum
-                if (i < partialSum.size) {
-                    partialSum[i] = total
-                }
+                partialSum[i] = total
             }
         } else { // maxw == bw
             for (i in vbox.b1..vbox.b2) {
@@ -381,20 +371,16 @@ object MMCQ {
                 for (j in vbox.r1..vbox.r2) {
                     for (k in vbox.g1..vbox.g2) {
                         val index = getColorIndex(j, k, i)
-                        if (index < histo.size) {
-                            sum += histo[index]
-                        }
+                        sum += histo[index]
                     }
                 }
                 total += sum
-                if (i < partialSum.size) {
-                    partialSum[i] = total
-                }
+                partialSum[i] = total
             }
         }
 
         for (i in partialSum.indices) {
-            lookaheadSum[i] = total - partialSum[i]
+            if (partialSum[i] != -1) lookaheadSum[i] = total - partialSum[i]
         }
 
         fun doCut(color: Char): List<VBox>? {
@@ -412,8 +398,7 @@ object MMCQ {
             }
 
             for (i in dim1..dim2) {
-                val index = i - dim1
-                if (index in partialSum.indices && partialSum[index] > total / 2) {
+                if (partialSum[i] > total / 2) {
                     val vbox1 = vbox.copy()
                     val vbox2 = vbox.copy()
 
@@ -426,17 +411,15 @@ object MMCQ {
                         maxOf(dim1, i - 1 - left / 2)
                     }
 
-                    // Avoid 0-count boxes, with bounds checking
-                    while (d2 - dim1 in partialSum.indices && partialSum.getOrElse(d2 - dim1) { 0 } == 0) {
+                    // Avoid 0-count boxes
+                    while (d2 < 0 || partialSum[d2] <= 0) {
                         d2++
                     }
 
-                    var count2 = lookaheadSum.getOrElse(d2 - dim1) { 0 }
-                    while (count2 == 0 && d2 - dim1 - 1 in partialSum.indices && partialSum.getOrElse(
-                            d2 - dim1 - 1
-                        ) { 0 } != 0
-                    ) {
-                        count2 = lookaheadSum.getOrElse(--d2 - dim1) { 0 }
+                    var count2 = lookaheadSum[d2]
+                    while (count2 == 0 && d2 > 0 && partialSum[d2 - 1] > 0) {
+                        d2--
+                        count2 = lookaheadSum[d2]
                     }
 
                     // Set dimensions

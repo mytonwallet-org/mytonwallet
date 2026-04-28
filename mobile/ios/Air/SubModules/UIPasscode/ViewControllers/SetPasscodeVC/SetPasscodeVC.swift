@@ -9,6 +9,8 @@ import UIKit
 import UIComponents
 import WalletContext
 
+public typealias SetPasscodeCompletion = @MainActor (_ biometricsEnabled: Bool, _ passcode: String) async throws -> Void
+
 public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
     func animateSuccess() {
         
@@ -18,9 +20,9 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         
     }
     
-    private let onCompletion: (_ biometricsEnabled: Bool, _ passcode: String) -> Void
+    private let onCompletion: SetPasscodeCompletion
 
-    public init(onCompletion: @escaping (Bool, String) -> Void) {
+    public init(onCompletion: @escaping SetPasscodeCompletion) {
         self.onCompletion = onCompletion
         super.init(nibName: nil, bundle: nil)
     }

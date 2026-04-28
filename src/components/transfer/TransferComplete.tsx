@@ -7,7 +7,6 @@ import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
-import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -52,7 +51,6 @@ function TransferComplete({
   const { startTransfer } = getActions();
 
   const lang = useLang();
-  const { isPortrait } = useDeviceScreen();
   const isNftTransfer = Boolean(nfts?.length);
 
   useHistoryBack({
@@ -68,7 +66,6 @@ function TransferComplete({
 
   const handleTransactionRepeatClick = useLastCallback(() => {
     startTransfer({
-      isPortrait,
       tokenSlug,
       toAddress,
       amount,

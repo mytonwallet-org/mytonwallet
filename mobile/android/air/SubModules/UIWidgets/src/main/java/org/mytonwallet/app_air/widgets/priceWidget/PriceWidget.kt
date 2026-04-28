@@ -15,6 +15,7 @@ import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.APP_SCHEME
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
@@ -373,7 +374,7 @@ class PriceWidget : AppWidgetProvider() {
             context,
             views,
             R.id.container,
-            "mtw://token/${config.tokenSlug}",
+            "$APP_SCHEME://token/${config.tokenSlug}",
             PriceWidget::class.java,
             appWidgetId
         )
@@ -575,15 +576,17 @@ class PriceWidget : AppWidgetProvider() {
         height: Int?,
         isCompact: Boolean
     ) {
-        if (width != null && height != null)
+        val chartWidth = width?.dp ?: 0
+        val chartHeight = (height?.dp ?: 0) - 130.dp
+        if (chartWidth > 0 && chartHeight > 0)
             views.setImageViewBitmap(
                 R.id.chart,
                 ChartUtils.chartToBitmap(
                     context,
                     priceChartData,
                     baseColor = baseColor,
-                    chartWidth = width.dp,
-                    chartHeight = height.dp - 130.dp,
+                    chartWidth = chartWidth,
+                    chartHeight = chartHeight,
                     paddingBottom = if (isCompact) 80.dp else 68.dp
                 )
             )

@@ -3,6 +3,10 @@ package org.mytonwallet.app_air.walletcore.deeplink
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import org.mytonwallet.app_air.walletbasecontext.APP_SCHEME
+import org.mytonwallet.app_air.walletbasecontext.APP_TC_SCHEME
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.decodeUrlOrNull
 import org.mytonwallet.app_air.walletcontext.helpers.AddressHelpers
 import org.mytonwallet.app_air.walletcontext.helpers.DNSHelpers
@@ -135,9 +139,9 @@ class DeeplinkParser {
                 return null
             return when (uri.scheme) {
                 "ton" -> handleTonInvoice(uri)
-                "tc", "mytonwallet-tc" -> handleTonConnect(uri)
+                "tc", APP_TC_SCHEME -> handleTonConnect(uri)
                 "wc" -> handleWalletConnect(uri)
-                "mtw" -> handleMTW(uri)
+                APP_SCHEME -> handleMTW(uri)
                 "https" -> handleHttpsDeeplinks(uri)
                 else -> {
                     null
@@ -222,7 +226,7 @@ class DeeplinkParser {
                     val pathSegments = path.split('/')
 
                     val mtwUri = Uri.Builder()
-                        .scheme("mtw")
+                        .scheme(APP_SCHEME)
                         .authority(pathSegments.firstOrNull() ?: "")
                         .apply {
                             if (pathSegments.size > 1) {
@@ -302,9 +306,12 @@ class DeeplinkParser {
                 }
 
                 "giveaway" -> {
+                    val giveawayBase = ApplicationContextHolder.applicationContext
+                        .getString(BaseR.string.app_giveaway_url)
+                    if (giveawayBase.isEmpty()) return null
                     val giveawayId = extractId(uri.toString(), "giveaway/([^/]+)")
                     val urlString =
-                        "https://giveaway.mytonwallet.io/" + if (giveawayId != null) "?giveawayId=$giveawayId" else ""
+                        giveawayBase + if (giveawayId != null) "?giveawayId=$giveawayId" else ""
                     val config = InAppBrowserConfig(
                         url = urlString,
                         title = "Giveaway",
@@ -369,6 +376,14 @@ class DeeplinkParser {
                             val blockchain = MBlockchain.valueOf(chain)
                             if (blockchain.isValidAddress(address) || blockchain.isValidDNS(address)) {
                                 addressByChain[chain] = address
+                            }
+                        }
+                    }
+                    val evmAddress = uri.getQueryParameter(MBlockchain.VIEW_ACCOUNT_EVM_PARAM)
+                    if (!evmAddress.isNullOrBlank() && MBlockchain.ethereum.isValidAddress(evmAddress)) {
+                        MBlockchain.evmChains.forEach { chain ->
+                            if (!addressByChain.containsKey(chain.name)) {
+                                addressByChain[chain.name] = evmAddress
                             }
                         }
                     }
@@ -472,7 +487,7 @@ fun Uri.extractSubUri(): Uri? {
 }
 
 fun parseWalletUrl(uri: Uri): ParsedWalletUrl? {
-    if ((uri.scheme != "ton" && uri.scheme != "mtw") || uri.host != "transfer") {
+    if ((uri.scheme != "ton" && uri.scheme != APP_SCHEME) || uri.host != "transfer") {
         return null
     }
 

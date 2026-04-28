@@ -2,20 +2,14 @@ import React, { memo, type TeactNode, useCallback, useEffect, useMemo, useState 
 import { getActions, withGlobal } from '../../global';
 
 import type {
-  ApiBaseCurrency, ApiCurrencyRates, ApiEthenaStakingState, ApiStakingState, ApiTokenWithPrice,
+  ApiBaseCurrency, ApiCurrencyRates, ApiStakingState, ApiTokenWithPrice,
 } from '../../api/types';
 import type { UserToken } from '../../global/types';
-import type { Big } from '../../lib/big.js';
 import { StakingState } from '../../global/types';
 
 import {
-  ANIMATED_STICKER_MIDDLE_SIZE_PX,
-  ANIMATED_STICKER_SMALL_SIZE_PX,
-  CURRENCIES,
   DEFAULT_PRICE_CURRENCY,
-  ETHENA_ELIGIBILITY_CHECK_URL,
   JVAULT_URL,
-  SHORT_FRACTION_DIGITS,
   TONCOIN,
 } from '../../config';
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
@@ -31,7 +25,7 @@ import {
 import { bigintMax } from '../../util/bigint';
 import buildClassName from '../../util/buildClassName';
 import { getChainTitle } from '../../util/chain';
-import { toBig, toDecimal } from '../../util/decimals';
+import { toDecimal } from '../../util/decimals';
 import { stopEvent } from '../../util/domEvents';
 import { getTonStakingFees } from '../../util/fee/getTonOperationFees';
 import { formatCurrency } from '../../util/formatNumber';
@@ -42,7 +36,6 @@ import { getStakingMinAmount, getStakingTitle } from '../../util/staking';
 import { buildUserToken, getIsNativeToken, getNativeToken } from '../../util/tokens';
 import calcJettonStakingApr from '../../util/ton/calcJettonStakingApr';
 import { getHostnameFromUrl } from '../../util/url';
-import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
@@ -51,18 +44,16 @@ import { useAmountInputState } from '../ui/hooks/useAmountInputState';
 import { useTokenDropdown } from './hooks/useTokenDropdown';
 
 import AmountInput from '../ui/AmountInput';
-import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import Button from '../ui/Button';
 import Fee from '../ui/Fee';
 import Modal from '../ui/Modal';
-import RichNumberField from '../ui/RichNumberField';
 import Transition from '../ui/Transition';
+import StakingDetails from './StakingDetails';
 
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Staking.module.scss';
 
 interface OwnProps {
-  isActive?: boolean;
   isStatic?: boolean;
 }
 
@@ -94,7 +85,6 @@ const ACTIVE_STATES = new Set([StakingState.StakeInitial, StakingState.None]);
 const runThrottled = throttle((cb) => cb(), 1500, true);
 
 function StakingInitial({
-  isActive,
   isStatic,
   isLoading,
   isComplete,
@@ -146,6 +136,7 @@ function StakingInitial({
       dailyReward: stakingState.dailyReward,
       decimals,
     });
+    annualYieldText = `${annualYield}%`;
   } else if (stakingState?.type === 'ethena') {
     const { annualYieldStandard, annualYieldVerified, isBoostAvailable } = stakingState;
     annualYieldText = isBoostAvailable && annualYieldVerified !== undefined
@@ -177,7 +168,7 @@ function StakingInitial({
     return bigintMax(0n, value);
   })();
 
-  const title = getStakingTitle();
+  const title = getStakingTitle(stakingType);
 
   if (amount !== undefined) {
     if (Number.isNaN(amount) || amount < 0) {
@@ -240,10 +231,6 @@ function StakingInitial({
   useEffect(() => {
     if (isComplete) setAmount(undefined);
   }, [isComplete]);
-
-  const handleCheckEligibility = useLastCallback(() => {
-    void openUrl(ETHENA_ELIGIBILITY_CHECK_URL);
-  });
 
   const [error, errorTransitionKey] = useMemo(() => {
     if (isInsufficientBalance) {
@@ -389,50 +376,6 @@ function StakingInitial({
     );
   }
 
-  function renderStakingResult() {
-    const amountBig = toBig(amount ?? 0, decimals);
-    let currentAmount: Big;
-    let prefix: string | undefined;
-    let suffix: string | undefined;
-
-    if (amountInputProps.isBaseCurrency) {
-      currentAmount = amountBig.mul(token?.price ?? 0);
-      const { shortSymbol } = CURRENCIES[baseCurrency];
-      if (shortSymbol) {
-        prefix = shortSymbol;
-      } else {
-        suffix = baseCurrency;
-      }
-    } else {
-      currentAmount = amountBig;
-    }
-
-    const balanceResult = currentAmount.mul((annualYield / 100) + 1).toString();
-
-    return (
-      <Transition
-        activeKey={amountInputProps.isBaseCurrency ? 0 : 1}
-        name="semiFade"
-        className={styles.balanceResultWrapper}
-        slideClassName={styles.balanceResultWrapper__slide}
-        shouldCleanup
-      >
-        <RichNumberField
-          labelText={lang('Est. balance in a year')}
-          zeroValue="..."
-          value={balanceResult}
-          decimals={SHORT_FRACTION_DIGITS}
-          prefix={prefix}
-          suffix={suffix}
-          isStatic={isStatic}
-          inputClassName={styles.balanceResultInput}
-          labelClassName={styles.balanceResultLabel}
-          valueClassName={styles.balanceResult}
-        />
-      </Transition>
-    );
-  }
-
   const handleChangeStaking = useLastCallback((id: string) => {
     cancelStaking();
 
@@ -452,32 +395,10 @@ function StakingInitial({
       className={isStatic ? undefined : modalStyles.transitionContent}
       onSubmit={handleSubmit}
     >
-      <div className={buildClassName(styles.welcome, isStatic && styles.welcome_static)}>
-        <AnimatedIconWithPreview
-          size={isStatic ? ANIMATED_STICKER_MIDDLE_SIZE_PX : ANIMATED_STICKER_SMALL_SIZE_PX}
-          play={isActive}
-          noLoop={false}
-          nonInteractive
-          className={buildClassName(styles.sticker, isStatic && styles.sticker_static)}
-          tgsUrl={ANIMATED_STICKERS_PATHS.wait}
-          previewUrl={ANIMATED_STICKERS_PATHS.waitPreview}
-        />
-        <div className={buildClassName(styles.welcomeInformation, isStatic && styles.welcomeInformation_static)}>
-          <div>{lang('Earn from your tokens while holding them', { symbol })}</div>
-          <div className={styles.stakingApy}>{lang('Est. %annual_yield%', { annual_yield: annualYieldText })}</div>
-          {stakingType === 'ethena' && (stakingState as ApiEthenaStakingState | undefined)?.isBoostAvailable && (
-            <Button isText className={styles.textButton} onClick={handleCheckEligibility}>
-              {lang('Check eligibility')}
-            </Button>
-          )}
-          <Button isText className={styles.textButton} onClick={openSafeInfoModal}>
-            {lang(getStakingTitle(stakingType))}
-          </Button>
-        </div>
-      </div>
-
       <AmountInput
         {...amountInputProps}
+        containerClassName={styles.amountInputContainer}
+        inputWrapperClassName={styles.amountInputWrapper}
         maxAmount={maxAmount}
         token={selectedToken}
         allTokens={selectableTokens}
@@ -489,7 +410,19 @@ function StakingInitial({
         onPressEnter={handleSubmit}
       />
 
-      {renderStakingResult()}
+      {!!stakingState && !!symbol && (
+        <StakingDetails
+          stakingState={stakingState}
+          symbol={symbol}
+          amount={amount}
+          decimals={decimals}
+          annualYieldText={annualYieldText}
+          isBaseCurrency={amountInputProps.isBaseCurrency}
+          token={token}
+          baseCurrency={baseCurrency}
+          onSafeInfoClick={openSafeInfoModal}
+        />
+      )}
 
       {!isViewMode && (
         <div className={modalStyles.buttons}>
@@ -498,6 +431,7 @@ function StakingInitial({
             isSubmit
             isDisabled={!canSubmit}
             isLoading={isLoading}
+            className={styles.submitButton}
           >
             {lang('$stake_asset', { symbol: token?.symbol })}
           </Button>

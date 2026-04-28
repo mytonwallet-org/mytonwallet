@@ -13,10 +13,10 @@ import type { ApiAnyDisplayError } from './errors';
 import type {
   ApiActivityTimestamps,
   ApiChain,
+  ApiDerivation,
   ApiNetwork,
   ApiNft,
   ApiToken,
-  ApiWalletVariant,
   OnUpdatingStatusChange,
 } from './misc';
 import type { ApiAccountWithChain, ApiWalletByChain } from './storage';
@@ -41,6 +41,12 @@ export interface ChainSdk<T extends ApiChain> {
   /** Must return activities sorted in accordance with `sortActivities` */
   fetchActivitySlice(options: ApiFetchActivitySliceOptions): Promise<ApiActivity[]>;
 
+  /**
+   * Must return activities sorted in accordance with `sortActivities`
+   * Used in case of cross-chain activity fetching by one API call (EVM chains case).
+   *  */
+  fetchCrossChainActivitySlice(options: ApiFetchActivitySliceOptions): Promise<ApiActivity[]>;
+
   /** May return `undefined` if the activity doesn't change and there are no unexpected errors */
   fetchActivityDetails(accountId: string, activity: ApiActivity): MaybePromise<ApiActivity | undefined>;
 
@@ -53,13 +59,17 @@ export interface ChainSdk<T extends ApiChain> {
   /**
    * Converts an address to the normalized form (to fill the `normalizedAddress` field of `ApiTransactionActivity`).
    */
-  normalizeAddress(network: ApiNetwork, address: string): string;
+  normalizeAddress(address: string, network?: ApiNetwork): string;
 
   //
   // Authentication
   //
 
-  getWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]): MaybePromise<ApiWalletByChain[T]>;
+  getWalletFromBip39Mnemonic(
+    network: ApiNetwork,
+    mnemonic: string[],
+    derivation?: ApiDerivation,
+  ): MaybePromise<ApiWalletByChain[T][]>;
 
   getWalletFromPrivateKey(network: ApiNetwork, privateKey: string): MaybePromise<ApiWalletByChain[T]>;
 
@@ -76,24 +86,6 @@ export interface ChainSdk<T extends ApiChain> {
     network: ApiNetwork,
     accountIndices: number[],
   ): Promise<{ wallet: ApiWalletByChain[T]; balance: bigint }[] | { error: ApiAnyDisplayError }>;
-
-  getWalletVariants(
-    network: ApiNetwork,
-    account: ApiAccountWithChain<T>,
-    page: number,
-    isTestnetSubwalletId?: boolean,
-    mnemonic?: string[],
-  ): Promise<ApiWalletVariant<T>[] | { error: ApiAnyDisplayError }>;
-
-  /**
-   * Creates a new subwallet for the given account based on its current derivation
-   * (e.g. by incrementing the index in the derivation path).
-   */
-  createSubWalletFromDerivation: (
-    network: ApiNetwork,
-    account: ApiAccountWithChain<T>,
-    mnemonic: string[],
-  ) => MaybePromise<ApiWalletByChain[T] | { error: ApiAnyDisplayError }>;
 
   //
   // Realtime updates
@@ -169,6 +161,9 @@ export interface ChainSdk<T extends ApiChain> {
     network: ApiNetwork,
     addressOrDomain: string,
   ): MaybePromise<ApiAddressInfo | { error: ApiAnyDisplayError }>;
+
+  /** Native token balance in smallest units for the given wallet address. */
+  getWalletBalance(network: ApiNetwork, address: string): Promise<bigint>;
 
   /**
    * Opens the verification screen of the chain's app on the Ledger device.

@@ -27,7 +27,7 @@ export async function fetchActivitySlice({
   const { address } = await fetchStoredWallet(accountId, 'tron');
 
   if (tokenSlug) {
-    return getTokenActivitySlice(
+    const { activities } = await getTokenActivitySlice(
       network,
       address,
       tokenSlug,
@@ -35,6 +35,7 @@ export async function fetchActivitySlice({
       fromTimestamp,
       limit,
     );
+    return activities;
   } else {
     return getAllActivitySlice(
       network,
@@ -53,8 +54,9 @@ export async function getTokenActivitySlice(
   toTimestamp?: number,
   fromTimestamp?: number,
   limit?: number,
-) {
+): Promise<{ activities: ApiActivity[]; hasMore: boolean }> {
   let activities: ApiActivity[];
+  let rawCount: number;
 
   if (slug === TRX.slug) {
     const rawTransactions = await getTrxTransactions(network, address, {
@@ -63,6 +65,7 @@ export async function getTokenActivitySlice(
       limit,
       search_internal: false, // The parsing is not supported and not needed currently
     });
+    rawCount = rawTransactions.length;
     activities = rawTransactions
       .map((rawTx) => parseRawTrxTransaction(address, rawTx))
       .filter((activity) => !activity.shouldHide);
@@ -74,12 +77,19 @@ export async function getTokenActivitySlice(
       max_timestamp: toTimestamp ? toTimestamp - SEC : undefined,
       limit,
     });
+    rawCount = rawTransactions.length;
     activities = rawTransactions.map((rawTx) => parseRawTrc20Transaction(address, rawTx));
   }
 
+  // `hasMore` is derived from the raw API response length (before `shouldHide` filtering),
+  // so cursor-style pagination keeps advancing even when a page contains nothing but hidden
+  // TRC10/transfer noise — otherwise the chain would be wrongly reported as exhausted while
+  // older history still exists upstream.
+  const hasMore = limit !== undefined && rawCount >= limit;
+
   // Even though the activities returned by the Tron API are sorted by timestamp, our sorting may differ.
   // It's important to enforce our sorting, because otherwise `mergeSortedActivities` may leave duplicates.
-  return sortActivities(activities);
+  return { activities: sortActivities(activities), hasMore };
 }
 
 async function getAllActivitySlice(
@@ -93,7 +103,7 @@ async function getAllActivitySlice(
   const txsBySlug: Record<string, ApiActivity[]> = {};
 
   await Promise.all(tokenSlugs.map(async (slug) => {
-    const txs = await getTokenActivitySlice(
+    const { activities: txs } = await getTokenActivitySlice(
       network, address, slug, toTimestamp, fromTimestamp, limit,
     );
 

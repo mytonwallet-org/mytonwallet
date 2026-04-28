@@ -62,7 +62,7 @@ class LanguageVC(context: Context) : WViewController(context),
         rv.setLayoutManager(layoutManager)
         rv.addItemDecoration(
             LastItemPaddingDecoration(
-                navigationController?.getSystemBars()?.bottom ?: 0
+                navigationController?.bottomInset ?: 0
             )
         )
         rv.setItemAnimator(null)

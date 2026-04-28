@@ -6,6 +6,7 @@ import { ApiCommonError } from '../../types';
 
 import { SOLANA } from '../../../config';
 import { fetchJson } from '../../../util/fetch';
+import withCacheAsync from '../../../util/withCacheAsync';
 import { getSolanaClient } from './util/client';
 import { getKnownAddressInfo } from '../../common/addresses';
 import { callBackendGet } from '../../common/backend';
@@ -185,13 +186,15 @@ export function getAddressInfo(
   };
 }
 
-export async function getIsWalletActive(network: ApiNetwork, address: string) {
-  const isWalletActive = await callBackendGet<{ result: boolean }>(
-    `/utils/checkIsInitWallet?address=${address}&chain=solana`,
-  );
+export const getIsWalletActive = withCacheAsync(
+  async (network: ApiNetwork, address: string) => {
+    const isWalletActive = await callBackendGet<{ result: boolean }>(
+      `/utils/checkIsInitWallet?address=${address}&chain=solana`,
+    );
 
-  return isWalletActive.result;
-}
+    return isWalletActive.result;
+  },
+);
 
 export function extractIndexFromPath(path: string) {
   for (const template of Object.values(SOLANA_DERIVATION_PATHS)) {

@@ -6,16 +6,15 @@ import android.graphics.Typeface
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.StyleSpan
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 
 object SpannableHelpers {
     fun encryptedCommentSpan(context: Context): SpannableStringBuilder {
         val builder = SpannableStringBuilder()
-        ContextCompat.getDrawable(
-            context,
+        context.getDrawableCompat(
             org.mytonwallet.app_air.uicomponents.R.drawable.ic_lock
         )?.let { drawable ->
             drawable.mutate()

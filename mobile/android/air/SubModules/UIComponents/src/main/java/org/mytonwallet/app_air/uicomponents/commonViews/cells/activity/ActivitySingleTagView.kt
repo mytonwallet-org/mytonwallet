@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.commonViews.cells.activity
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -22,7 +23,7 @@ class ActivitySingleTagView(context: Context) : WFrameLayout(context), WThemedVi
 
     val imageView = WNftImageView(context, 32.dp, 0)
     val titleLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
         useCustomEmoji = true

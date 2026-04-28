@@ -8,7 +8,6 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.Shader
 import androidx.annotation.DrawableRes
-import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
 import com.facebook.common.executors.CallerThreadExecutor
@@ -19,6 +18,7 @@ import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.imagepipeline.image.CloseableBitmap
 import com.facebook.imagepipeline.image.CloseableImage
 import com.facebook.imagepipeline.request.ImageRequestBuilder
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 
 object ImageUtils {
     fun getTintedBitmap(
@@ -26,8 +26,7 @@ object ImageUtils {
         @DrawableRes drawableId: Int,
         color: Int
     ): Bitmap? {
-        var drawable = ContextCompat.getDrawable(context, drawableId)
-        if (drawable == null) return null
+        var drawable = context.getDrawableCompat(drawableId) ?: return null
 
         drawable = drawable.mutate()
         drawable.setColorFilter(color, PorterDuff.Mode.SRC_IN)

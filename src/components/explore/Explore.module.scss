@@ -8,6 +8,23 @@ $listHorizontalPadding: 1rem;
 
   overflow: visible !important;
   background-color: var(--background-color);
+
+  @include mixins.respond-above(xs) {
+    border-radius: var(--border-radius-default);
+  }
+
+  :global(html.theme-dark) & {
+    --background-color: var(--color-background-window);
+
+    @include mixins.respond-below(xs) {
+      --background-color: var(--color-background-second);
+    }
+  }
+}
+
+.slideWrapper {
+  position: relative;
+  height: 100%;
 }
 
 .slide {
@@ -15,8 +32,8 @@ $listHorizontalPadding: 1rem;
   overflow-y: scroll;
   height: 100%;
 
-  @include mixins.respond-above(xs) {
-    --color-gray-button-background-light: var(--color-background-second);
+  @include mixins.respond-below(xs) {
+    padding-top: calc(0.5rem + var(--safe-area-top));
   }
 }
 
@@ -32,6 +49,10 @@ $listHorizontalPadding: 1rem;
     padding-bottom: 1rem;
   }
 
+  @include mixins.respond-below(xs) {
+    padding-bottom: calc(max(var(--safe-area-bottom), 1rem) + var(--bottombar-height) + 4.5rem);
+  }
+
   @include mixins.adapt-padding-to-scrollbar($listHorizontalPadding);
 }
 
@@ -41,6 +62,13 @@ $listHorizontalPadding: 1rem;
   width: calc(100% - 1rem);
 
   @include mixins.respond-below(xs) {
+    --offset-x-value: 1.25rem;
+
+    top: auto !important;
+    bottom: 3.25rem;
+    transform-origin: bottom center !important;
+
+    width: calc(100% - 2rem);
     max-height: 15rem;
   }
 }
@@ -170,8 +198,15 @@ $listHorizontalPadding: 1rem;
 
   color: var(--color-gray-2);
 
+  background-color:  var(--color-background-first);
+
   @include mixins.respond-above(xs) {
     justify-content: center;
+    border-radius: var(--border-radius-default);
+  }
+
+  :global(html.theme-dark) & {
+    background-color: var(--color-background-window);
   }
 }
 
@@ -184,65 +219,86 @@ $listHorizontalPadding: 1rem;
 }
 
 .searchWrapper {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+
   width: 100%;
   margin-bottom: 0.5rem;
+  padding-top: 1.25rem;
   padding-bottom: 1rem;
-  background-color: var(--background-color);
+  border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 100%);
+
+  :global(html.theme-dark) & {
+    background: linear-gradient(180deg, rgba(14, 14, 15, 0.9) 0%, rgba(14, 14, 15, 0) 100%);
+  }
 
   @include mixins.respond-below(xs) {
-    position: sticky !important;
+    position: absolute !important;
     z-index: 3;
-    top: 0;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
 
-    padding-top: calc(0.5rem + var(--safe-area-top));
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0.75rem;
+    border-radius: 0 !important;
 
-    transition: background-color 300ms;
+    background: none !important;
 
-    :global(html.animation-level-0) & {
-      transition: none !important;
-    }
-
-    &:global(.is-scrolled) {
-      @supports (backdrop-filter: saturate(180%) blur(20px)) {
-        background-color: var(--color-background-first-blur);
-        backdrop-filter: saturate(180%) blur(20px);
-      }
+    :global(html.with-bottombar:not(.is-keyboard-open)) & {
+      padding-bottom: calc(0.75rem + var(--bottombar-height));
     }
   }
 }
 
 .searchContainer {
-  --background-color: #B4BCC329;
-
   position: relative;
 
   display: flex;
   flex-shrink: 0;
   align-items: center;
 
-  height: 2.5rem;
-  margin: 0 1rem;
-  border-radius: var(--border-radius-normal);
+  height: 2.75rem;
+  margin: 0 1.25rem;
+  border-radius: 2.75rem;
 
   font-size: 1.25rem;
   line-height: 1;
   color: var(--color-gray-2);
 
-  background-color: var(--background-color);
+  background-color: var(--color-background-first-blur);
+  backdrop-filter: blur(2rem);
+  box-shadow: 0 0.25rem 1rem 0 #00000014, 0 0 0.25rem 0 #00000014;
 
-  @include mixins.adapt-margin-to-scrollbar(1rem);
+  @include mixins.adapt-margin-to-scrollbar(1.25rem);
 
   @include mixins.respond-below(xs) {
-    margin-top: 0.25rem;
-  }
+    height: 2.75rem;
+    margin: 0 1.25rem;
+    border-radius: 6.25rem;
 
-  :global(.theme-dark) & {
-    --background-color: #888C9029;
+    background-color: var(--color-app-background);
+    box-shadow: var(--shadow-glass-capsule);
+
+    @supports (backdrop-filter: blur(16px)) {
+      background-color: var(--color-background-lock);
+      backdrop-filter: blur(var(--blur-glass-capsule));
+    }
   }
 }
 
 .searchIcon {
   margin-left: 0.75rem;
+
+  @include mixins.respond-below(xs) {
+    font-size: 1.25rem;
+    color: var(--color-gray-2);
+  }
 }
 
 .searchInput {

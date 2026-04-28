@@ -11,11 +11,13 @@ public struct AccountChain: Equatable, Hashable, Sendable, Codable {
     public var address: String
     public var domain: String?
     public var isMultisig: Bool?
+    public var derivation: ApiDerivation?
     
-    public init(address: String, domain: String? = nil, isMultisig: Bool? = nil) {
+    public init(address: String, domain: String? = nil, isMultisig: Bool? = nil, derivation: ApiDerivation? = nil) {
         self.address = address
         self.domain = domain
         self.isMultisig = isMultisig
+        self.derivation = derivation
     }
 }
 

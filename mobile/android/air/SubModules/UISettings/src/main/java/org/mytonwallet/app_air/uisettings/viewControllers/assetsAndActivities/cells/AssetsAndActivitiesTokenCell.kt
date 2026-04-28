@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.assetsAndActivities.cells
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup
@@ -8,7 +9,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatTextView
-import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.customview.widget.ViewDragHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
@@ -80,7 +81,7 @@ class AssetsAndActivitiesTokenCell(
 
     private val tokenNameLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.Medium)
+            setStyle(adaptiveFontSize(), WFont.Medium)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
@@ -108,7 +109,7 @@ class AssetsAndActivitiesTokenCell(
 
     private val deleteLabel = AppCompatTextView(context).apply {
         id = generateViewId()
-        setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         setLineHeight(android.util.TypedValue.COMPLEX_UNIT_SP, 24f)
         includeFontPadding = false
         ellipsize = TextUtils.TruncateAt.END
@@ -271,7 +272,7 @@ class AssetsAndActivitiesTokenCell(
         amountLabel.contentView.setTextColor(WColor.SecondaryText.color)
         deleteLabel.setTextColor(WColor.TextOnTint.color)
 
-        val drawable = ContextCompat.getDrawable(context, R.drawable.ic_pin_solid_14_20)?.apply {
+        val drawable = context.getDrawableCompat(R.drawable.ic_pin_solid_14_20)?.apply {
             setTint(WColor.SecondaryText.color)
         }
         pinIcon.setImageDrawable(drawable)

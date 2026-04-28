@@ -72,7 +72,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
         fatalError("init(coder:) has not been implemented")
     }
     
-    func setup() {
+    private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         
         collectionView = _CollectionView(frame: .zero, collectionViewLayout: makeLayout(for: currentLayoutMetrics))
@@ -115,10 +115,16 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     private func setupObservers() {
         observe { [weak self] in
             guard let self else { return }
+            
             let accountIds = makeAccountIds()
+            let newItems = accountIds.map(Item.account)
+            let currentItems = dataSource.snapshot().itemIdentifiers
+            if newItems != currentItems {
+                pendingSelectionScroll = true
+            }
             var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
             snapshot.appendSections([.main])
-            snapshot.appendItems(accountIds.map(Item.account))
+            snapshot.appendItems(newItems)
             dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in
                 self?.scrollToSelectedIfPossible()
             }
@@ -185,7 +191,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
         scrollToSelectedIfPossible()
     }
     
-    func makeLayout(for metrics: HomeCardLayoutMetrics) -> UICollectionViewCompositionalLayout {
+    private func makeLayout(for metrics: HomeCardLayoutMetrics) -> UICollectionViewCompositionalLayout {
         let item = NSCollectionLayoutItem(layoutSize: .init(.absolute(metrics.itemWidth), .absolute(metrics.itemHeight)))
         
         let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(.absolute(metrics.itemWidth), .absolute(metrics.itemHeight)), subitems: [item])
@@ -280,7 +286,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
         }
     }
 
-    func scrollTo(accountId: String, animated: Bool) {
+    private func scrollTo(accountId: String, animated: Bool) {
         selectedAccountId = accountId
         pendingSelectionScroll = true
         pendingSelectionAnimated = animated

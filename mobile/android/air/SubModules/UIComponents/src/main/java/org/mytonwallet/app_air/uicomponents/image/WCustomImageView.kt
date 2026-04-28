@@ -4,16 +4,18 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Path
-import android.graphics.drawable.Animatable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import androidx.appcompat.content.res.AppCompatResources
-import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toDrawable
 import com.facebook.drawee.backends.pipeline.Fresco
+import com.facebook.drawee.controller.BaseControllerListener
 import com.facebook.drawee.generic.GenericDraweeHierarchyBuilder
 import com.facebook.drawee.generic.RoundingParams
 import com.facebook.drawee.view.SimpleDraweeView
+import com.facebook.fresco.ui.common.OnFadeListener
+import com.facebook.imagepipeline.image.ImageInfo
 import com.facebook.imagepipeline.request.ImageRequest
 import org.mytonwallet.app_air.uicomponents.drawable.ContentGradientDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -21,12 +23,9 @@ import org.mytonwallet.app_air.uicomponents.extensions.setRounding
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.models.MToken
-import androidx.core.graphics.drawable.toDrawable
-import com.facebook.drawee.controller.BaseControllerListener
-import com.facebook.fresco.ui.common.OnFadeListener
-import com.facebook.imagepipeline.image.ImageInfo
 
 open class WCustomImageView @JvmOverloads constructor(
     context: Context,
@@ -207,11 +206,11 @@ open class WCustomImageView @JvmOverloads constructor(
 
     private fun getPlaceholderDrawable(content: Content): Drawable? {
         return when (content.image) {
-            is Content.Image.Res -> ContextCompat.getDrawable(context, content.image.res)
+            is Content.Image.Res -> context.getDrawableCompat(content.image.res)
             is Content.Image.Gradient -> {
                 val res = content.image.icon
                 val drawable = if (res != 0) {
-                    ContextCompat.getDrawable(context, res)?.apply {
+                    context.getDrawableCompat(res)?.apply {
                         setTint(Color.WHITE)
                     }
                 } else null

@@ -13,7 +13,15 @@
 }
 
 .labelContainer {
+  overflow: hidden;
   display: inline-flex;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+
+.tokenName {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pinIcon {

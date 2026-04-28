@@ -8,7 +8,9 @@ data class StakeViewState(
     val estimatedEarning: String,
     val currentApy: String,
     val currentFee: String,
-    val maxAmountString: String
+    val maxAmountString: String,
+    val tvl: Double? = null,
+    val totalStakers: Long? = null,
 ) {
     fun emptyInput(): StakeViewState = copy(
         buttonState = StakeButtonState.EmptyAmount,

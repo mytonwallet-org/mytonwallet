@@ -73,7 +73,7 @@
   font-weight: 600;
   color: var(--color-accent);
   background-color: transparent;
-  transition: color 150ms;
+  transition: color 150ms, opacity 150ms;
 
   &:active {
     color: var(--color-accent-button-background-hover);
@@ -185,7 +185,6 @@
 .sizeSmall {
   min-width: auto !important;
   height: 2rem !important;
-  border-radius: var(--border-radius-tiny) !important;
   font-size: 0.9375rem !important
 }
 

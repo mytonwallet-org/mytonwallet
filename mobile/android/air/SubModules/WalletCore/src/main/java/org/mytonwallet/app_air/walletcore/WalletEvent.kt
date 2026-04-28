@@ -90,6 +90,12 @@ sealed class WalletEvent {
         val slug: String
     ) : WalletEvent()
 
+    data class OpenNftList(
+        val name: String?,
+        val accountId: String,
+        val nfts: List<ApiNft>
+    ) : WalletEvent()
+
     data object NftCardUpdated : WalletEvent()
     data object NftDomainDataUpdated : WalletEvent()
     data class LedgerDeviceModelRequest(

@@ -53,7 +53,7 @@ const POLL_DELAY_AFTER_SOCKET = 3 * SEC;
 const POLL_MIN_INTERVAL = { focused: 2 * SEC, notFocused: 10 * SEC };
 const DOMAIN_INTERVAL = { focused: MINUTE, notFocused: 5 * MINUTE };
 const INITIALIZATION_INTERVAL = { focused: MINUTE, notFocused: 5 * MINUTE };
-const STAKING_INTERVAL = { focused: 5 * SEC, notFocused: 20 * SEC };
+const STAKING_INTERVAL = { focused: 30 * SEC, notFocused: 2 * MINUTE };
 const VERSIONS_INTERVAL = { focused: 5 * MINUTE, notFocused: 15 * MINUTE };
 const VESTING_INTERVAL = { focused: 10 * SEC, notFocused: MINUTE };
 const TON_DNS_INTERVAL = { focused: 15 * SEC, notFocused: 2 * MINUTE };
@@ -399,26 +399,41 @@ function setupStakingPolling(accountId: string, getBalances: () => Promise<ApiBa
 }
 
 async function loadInitialConfirmedActivities(accountId: string, onUpdate: OnApiUpdate) {
-  let mainActivities = await fetchActivitySlice({ accountId, limit: FIRST_TRANSACTIONS_LIMIT });
-  mainActivities = await swapReplaceActivities(accountId, mainActivities, undefined, true);
+  try {
+    let mainActivities = await fetchActivitySlice({ accountId, limit: FIRST_TRANSACTIONS_LIMIT });
+    const mainHistoryHasMore = mainActivities.length >= FIRST_TRANSACTIONS_LIMIT;
+    mainActivities = await swapReplaceActivities(accountId, mainActivities, undefined, true);
 
-  const bySlug = {
-    // Loading the TON history is a side effect of loading the main history.
-    // Because there is no way to load TON activities without loading activities of other tokens.
-    [TONCOIN.slug]: mainActivities.filter((activity) => getActivityTokenSlugs(activity).includes(TONCOIN.slug)),
-  };
+    const bySlug = {
+      // Loading the TON history is a side effect of loading the main history.
+      // Because there is no way to load TON activities without loading activities of other tokens.
+      [TONCOIN.slug]: mainActivities.filter((activity) => getActivityTokenSlugs(activity).includes(TONCOIN.slug)),
+    };
 
-  const newestActivityTimestamp = mainActivities[0]?.timestamp;
+    const newestActivityTimestamp = mainActivities[0]?.timestamp;
 
-  onUpdate({
-    type: 'initialActivities',
-    chain: 'ton',
-    accountId,
-    mainActivities,
-    bySlug,
-  });
+    onUpdate({
+      type: 'initialActivities',
+      chain: 'ton',
+      accountId,
+      mainActivities,
+      mainHistoryHasMore,
+      bySlug,
+    });
 
-  return newestActivityTimestamp;
+    return newestActivityTimestamp;
+  } catch (err) {
+    // Ensure the UI marks `areInitialActivitiesLoaded.ton = true` even on failure,
+    // otherwise `waitInitialActivityLoading` blocks and other chains' activities never render.
+    onUpdate({
+      type: 'initialActivities',
+      chain: 'ton',
+      accountId,
+      mainActivities: [],
+      bySlug: {},
+    });
+    throw err;
+  }
 }
 
 function logAndRescue(err: Error) {

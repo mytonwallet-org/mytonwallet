@@ -17,4 +17,6 @@ public struct ApiStakingStateLiquid: MBaseStakingState, Equatable, Hashable, Cod
     public var instantAvailable: BigInt
     public var start: Int
     public var end: Int
+    public var totalStakers: Int
+    public var tvl: BigInt
 }

@@ -11,7 +11,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-fileprivate let dateFormatter = DateFormatter()
+fileprivate let chartAxisDateFormatter = DateFormatter()
 
 fileprivate func applyTint(to dataSet: LineChartDataSet) {
     dataSet.colors = [.tintColor]
@@ -170,9 +170,10 @@ final class TokenExpandableChartView: UIView {
 
     private lazy var expandedChart = {
         let lineChartView = WLineChartView(popupDateFormatter: { date in
-            let dateObj = Date(timeIntervalSince1970: date)
-            dateFormatter.dateFormat = dateObj.isInSameYear(as: Date()) ? "MMM d, HH:mm" : "MMM d, yyyy HH:mm"
-            return dateFormatter.string(from: dateObj)
+            MtwChartDateFormatter.tokenChart.singleDateString(
+                from: Date(timeIntervalSince1970: date),
+                includesTime: true
+            )
         }, popupValueFormatter: { newLabel in
             guard let amount = Double(newLabel) else {
                 return ""
@@ -484,7 +485,7 @@ final class TokenExpandableChartView: UIView {
             dateFormat = "MMM d, HH:mm"
             break
         }
-        dateFormatter.dateFormat = dateFormat
+        chartAxisDateFormatter.dateFormat = dateFormat
 
         processorQueue.async(flags: .barrier) { [self] in
             let allDataEntries: [ChartDataEntry] = (historyData ?? []).map { item in ChartDataEntry(x: item[0], y: item[1]) }
@@ -732,6 +733,6 @@ private func scope(data: [[Double]]?, range:  ClosedRange<CGFloat>) -> [[Double]
 class ChartTimeFormatter: AxisValueFormatter {
 
     func stringForValue(_ value: Double, axis: AxisBase?) -> String {
-        return dateFormatter.string(from: Date(timeIntervalSince1970: value))
+        return chartAxisDateFormatter.string(from: Date(timeIntervalSince1970: value))
     }
 }

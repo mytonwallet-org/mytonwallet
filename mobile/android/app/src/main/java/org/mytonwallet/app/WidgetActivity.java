@@ -26,7 +26,7 @@ public class WidgetActivity extends BaseActivity {
     if (currentNightMode == Configuration.UI_MODE_NIGHT_YES) {
       backgroundColor = 0xFF181818;
     } else {
-      backgroundColor = 0xFFF4F4F5;
+      backgroundColor = 0xFFFFFFFF;
     }
     getWindow().getDecorView().setBackgroundColor(backgroundColor);
 

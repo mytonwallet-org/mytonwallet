@@ -267,7 +267,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     }
     
     private func showReceiveWithQR() {
-        AppActions.showReceive(accountContext: AccountContext(source: .current), chain: nil, title: lang("Your Address"))
+        AppActions.showReceive(accountContext: AccountContext(source: .current), chain: nil, title: nil)
     }
     
     private func removeWalllet() {
@@ -315,11 +315,9 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             snapshot.appendItems([.security])
         }
         snapshot.appendItems([.assetsAndActivity])
-        #if DEBUG
         if currentAccountSupportsSubwallets() {
             snapshot.appendItems([.subwallets])
         }
-        #endif
         if let account = AccountStore.account,
            !account.isHardware,
            let count = AccountStore.walletVersionsData?.versions.count,
@@ -338,7 +336,9 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             snapshot.appendItems([.support])
         }
         snapshot.appendItems([.helpCenter])
-        snapshot.appendItems([.tips])
+        if !IS_GRAM_WALLET {
+            snapshot.appendItems([.tips])
+        }
         snapshot.appendItems([.useResponsibly])
 
         // About

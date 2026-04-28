@@ -33,6 +33,10 @@ public struct AccountListCell: View {
         self.showBalance = showBalance
     }
     
+    static let topRowHeight: CGFloat = 22
+    static let bottomRowHeight: CGFloat = 18
+    public static var contentHeight: CGFloat { topRowHeight + bottomRowHeight }
+
     public var body: some View {
         WithPerceptionTracking {
             HStack(alignment: .center, spacing: 10) {
@@ -49,11 +53,11 @@ public struct AccountListCell: View {
                                 .layoutPriority(1)
                             CardMiniature(accountContext: accountContext)
                         }
-                        .frame(height: 22)
-                        ListAddressLine(addressLine: accountContext.account.addressLine)
+                        .frame(height: Self.topRowHeight)
+                        ListAddressLine(addressLine: accountContext.addressLine)
                             .lineLimit(1)
                             .foregroundStyle(Color.air.secondaryLabel)
-                            .frame(height: 18)
+                            .frame(height: Self.bottomRowHeight)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     

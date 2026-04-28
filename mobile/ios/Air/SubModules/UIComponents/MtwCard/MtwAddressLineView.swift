@@ -23,6 +23,7 @@ public struct MtwCardAddressLine: View {
         public let singlechainAddressCount: Int
         public let multichainEndCount: Int
         public let multichainAddressCount: Int
+        public let maxChainCount: Int?
         public let showComma: Bool
         public let showAccessories: Bool
         
@@ -38,6 +39,7 @@ public struct MtwCardAddressLine: View {
             singlechainAddressCount: 6,
             multichainEndCount: 6,
             multichainAddressCount: 2,
+            maxChainCount: 3,
             showComma: true,
             showAccessories: false,
         )
@@ -52,7 +54,8 @@ public struct MtwCardAddressLine: View {
             chainSpacing: 1.667,
             singlechainAddressCount: 4,
             multichainEndCount: 4,
-            multichainAddressCount: 2,
+            multichainAddressCount: 1,
+            maxChainCount: 3,
             showComma: false,
             showAccessories: false,
         )
@@ -68,6 +71,7 @@ public struct MtwCardAddressLine: View {
             singlechainAddressCount: 6,
             multichainEndCount: 6,
             multichainAddressCount: 2,
+            maxChainCount: 3,
             showComma: true,
             showAccessories: true,
         )
@@ -83,6 +87,7 @@ public struct MtwCardAddressLine: View {
             singlechainAddressCount: 4,
             multichainEndCount: 4,
             multichainAddressCount: 2,
+            maxChainCount: 3,
             showComma: true,
             showAccessories: false,
         )
@@ -102,7 +107,6 @@ public struct MtwCardAddressLine: View {
     
     public var body: some View {
         HStack(spacing: style.accountTypeIconSpacing) {
-            let itemsCount = addressLine.items.count
             if addressLine.isTestnet {
                 addressLine.testnetImage
                     .sourceAtop {
@@ -139,12 +143,15 @@ public struct MtwCardAddressLine: View {
                 }
             }
             HStack(spacing: style.chainSpacing) {
-                let addressesToShowCount = itemsCount == 1 ? 1 : min(style.multichainAddressCount, itemsCount)
-                ForEach(addressLine.items.indices, id: \.self) { idx in
+                let displayItems = addressLine.displayItems(
+                    maxChainCount: style.maxChainCount,
+                    multichainAddressCount: style.multichainAddressCount
+                )
+                ForEach(displayItems.indices, id: \.self) { idx in
                     ItemView(
-                        item: addressLine.items[idx],
-                        itemsCount: itemsCount,
-                        showAddress: idx < addressesToShowCount,
+                        item: displayItems[idx].item,
+                        itemsCount: displayItems.count,
+                        showAddress: displayItems[idx].showsAddress,
                         style: style,
                         gradient: gradient,
                         ns: ns
@@ -191,10 +198,7 @@ private struct ItemView: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: style.chainIconWidth)
             } else {
-                Image.airBundle("inline_chain_\(item.chain.rawValue)")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: style.chainIconWidth)
+                ChainIcon(item.chain, font: style.font)
                     .opacity(style.textOpacity)
             }
             

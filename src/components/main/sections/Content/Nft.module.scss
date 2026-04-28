@@ -2,104 +2,15 @@
 
 $gapSize: 0.5rem;
 
-.emptyList {
+.loading {
   display: flex;
   align-items: center;
-  padding: 1.5rem 1.5rem 2rem;
-  color: var(--color-gray-2);
-
-  @include mixins.respond-below(xs) {
-    gap: 1rem;
-  }
-
-  @include mixins.respond-above(xs) {
-    flex-direction: column;
-    justify-content: center;
-    height: 100%;
-    padding: 1.875rem 1rem 2rem;
-  }
-}
-
-.emptyListContent {
-  @include mixins.respond-above(xs) {
-    text-align: center;
-  }
-}
-
-.emptyListTitle {
-  margin: 0;
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--color-black);
-
-  @include mixins.respond-above(xs) {
-    margin: 1.25rem 0 0;
-    font-size: 1.0625rem;
-  }
-}
-
-.emptyListText {
-  margin: 0.625rem 0;
-  font-size: 0.8125rem;
-
-  @include mixins.respond-above(xs) {
-    margin: 1.0625rem 0 1.125rem;
-    font-size: 0.9375rem;
-    text-align: center;
-  }
-}
-
-.emptyListLoading {
   justify-content: center;
-  padding-top: 8rem;
 
-  @include mixins.respond-above(xs) {
-    padding-bottom: 8rem;
-  }
-}
-
-.emptyListButton {
-  cursor: var(--custom-cursor, pointer);
-
-  display: inline-block;
-
-  padding: 0.375rem 0.5rem;
-  border: none;
-  border-radius: var(--border-radius-tiny);
-
-  font-size: 0.8125rem;
-  font-weight: 700;
-  line-height: 1rem;
-  color: var(--color-accent-button-text);
-  text-decoration: none;
-
-  background-color: var(--color-accent-button-background);
-
-  transition: background-color 150ms, color 150ms;
-
-  &:hover,
-  &:focus-visible {
-    color: var(--color-accent-button-text-hover);
-    text-decoration: none;
-    background-color: var(--color-accent-button-background-hover);
-  }
-
-  @include mixins.active-transition-optimization(!important);
-
-  :global(html.animation-level-0) & {
-    transition: none !important;
-  }
-
-  @include mixins.respond-above(xs) {
-    margin: 0 auto;
-    padding: 0.5rem 1rem;
-    font-size: 0.9375rem;
-  }
-}
-
-.sticker {
-  width: 9.75rem;
-  height: 9.75rem;
+  width: 100%;
+  height: 100%;
+  min-height: 8rem;
+  padding: 1rem;
 }
 
 @include mixins.respond-above(xs) {
@@ -145,6 +56,16 @@ $gapSize: 0.5rem;
   margin-bottom: 1.25rem;
 }
 
+.listCompact {
+  display: grid;
+  grid-template-columns: repeat(var(--columns, 3), minmax(0, 1fr));
+  gap: 0.5rem;
+  align-self: flex-start;
+
+  width: 100%;
+  padding: 1rem;
+}
+
 .item {
   cursor: var(--custom-cursor, pointer);
 
@@ -179,6 +100,24 @@ $gapSize: 0.5rem;
 
     &:nth-child(3n) {
       left: calc((var(--cell-width) + #{$gapSize}) * 2) !important;
+    }
+  }
+
+  @include mixins.respond-above(md) {
+    &:nth-child(4n + 1) {
+      left: 0 !important;
+    }
+
+    &:nth-child(4n + 2) {
+      left: calc(var(--cell-width) + #{$gapSize}) !important;
+    }
+
+    &:nth-child(4n + 3) {
+      left: calc((var(--cell-width) + #{$gapSize}) * 2) !important;
+    }
+
+    &:nth-child(4n) {
+      left: calc((var(--cell-width) + #{$gapSize}) * 3) !important;
     }
   }
 
@@ -227,6 +166,24 @@ $gapSize: 0.5rem;
       opacity: 0;
       transition: none;
     }
+  }
+}
+
+.item.itemCompact {
+  position: relative;
+  top: auto;
+  left: auto;
+
+  width: 100%;
+  height: auto;
+  padding-bottom: 0;
+
+  &:nth-child(n) {
+    left: auto !important;
+  }
+
+  .imageWrapper {
+    margin-bottom: 0;
   }
 }
 

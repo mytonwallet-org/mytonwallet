@@ -6,7 +6,7 @@ import type { Account, AccountSettings, AccountType, GlobalState } from '../../g
 import { MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT } from '../../config';
 import { selectOrderedAccounts } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { getChainConfig } from '../../util/chain';
+import { getChainConfig, getOrderedAccountChains } from '../../util/chain';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
@@ -15,15 +15,13 @@ import useScrolledState from '../../hooks/useScrolledState';
 
 import AccountButton from '../common/AccountButton';
 import AccountButtonWrapper from '../common/AccountButtonWrapper';
-import Button from '../ui/Button';
-import ModalHeader from '../ui/ModalHeader';
 import Switcher from '../ui/Switcher';
+import SettingsHeader from './SettingsHeader';
 
 import styles from './Settings.module.scss';
 
 interface OwnProps {
   isActive?: boolean;
-  isInsideModal?: boolean;
   onBackClick: NoneToVoidFunction;
 }
 
@@ -36,7 +34,6 @@ interface StateProps {
 
 function SettingsPushNotifications({
   isActive,
-  isInsideModal,
   orderedAccounts,
   canPlaySounds,
   pushNotifications: {
@@ -78,7 +75,7 @@ function SettingsPushNotifications({
     title?: string,
   ) {
     const hasSupportedChain = useMemo(() => {
-      return (Object.keys(byChain) as (keyof typeof byChain)[])
+      return getOrderedAccountChains(byChain)
         .some((chain) => getChainConfig(chain).doesSupportPushNotifications);
     }, [byChain]);
 
@@ -130,22 +127,8 @@ function SettingsPushNotifications({
 
   return (
     <div className={styles.slide}>
-      {isInsideModal ? (
-        <ModalHeader
-          title={headerTitle}
-          withNotch={isScrolled}
-          onBackButtonClick={onBackClick}
-          className={styles.modalHeader}
-        />
-      ) : (
-        <div className={buildClassName(styles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
-            <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-            <span>{lang('Back')}</span>
-          </Button>
-          <span className={styles.headerTitle}>{headerTitle}</span>
-        </div>
-      )}
+      <SettingsHeader title={headerTitle} isScrolled={isScrolled} onBackClick={onBackClick} />
+
       <div
         className={buildClassName(styles.content, 'custom-scroll')}
         onScroll={handleContentScroll}

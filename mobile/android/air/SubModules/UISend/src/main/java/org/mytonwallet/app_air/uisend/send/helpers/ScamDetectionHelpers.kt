@@ -4,7 +4,9 @@ import android.text.Spannable
 import android.text.style.ForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WClickableSpan
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
@@ -49,10 +51,14 @@ class ScamDetectionHelpers {
             return hasTronTokens
         }
 
-        private val HELP_CENTER_SEED_SCAM_URL = mapOf(
-            "en" to "https://help.mytonwallet.io/intro/scams/leaked-seed-phrases",
-            "ru" to "https://help.mytonwallet.io/ru/baza-znanii/moshennichestvo-i-skamy/slitye-sid-frazy"
-        )
+        private fun seedScamHelpUrl(): String {
+            val ctx = ApplicationContextHolder.applicationContext
+            val lang = WGlobalStorage.getLangCode()
+            val resId = if (lang == "ru") BaseR.string.app_help_scam_url_ru
+            else BaseR.string.app_help_scam_url_en
+            return ctx.getString(resId)
+                .ifEmpty { ctx.getString(BaseR.string.app_help_scam_url_en) }
+        }
 
         fun scamWarningMessage(): CharSequence {
             val helpCenterString = LocaleController.getString("Help Center")
@@ -73,11 +79,11 @@ class ScamDetectionHelpers {
                     end,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
-                val helpCenterUrl = HELP_CENTER_SEED_SCAM_URL[WGlobalStorage.getLangCode()]
-                    ?: HELP_CENTER_SEED_SCAM_URL["en"]!!
+                val helpCenterUrl = seedScamHelpUrl()
                 spannable.setSpan(
                     WClickableSpan(helpCenterUrl) {
-                        WalletCore.notifyEvent(WalletEvent.OpenUrl(helpCenterUrl))
+                        if (helpCenterUrl.isNotEmpty())
+                            WalletCore.notifyEvent(WalletEvent.OpenUrl(helpCenterUrl))
                     },
                     start,
                     end,

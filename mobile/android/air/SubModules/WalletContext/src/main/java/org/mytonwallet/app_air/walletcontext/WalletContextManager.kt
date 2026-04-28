@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.walletcontext
 import android.content.Context
 import android.content.Intent
 import android.view.View
-import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
@@ -11,7 +10,7 @@ import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 interface WalletContextManagerDelegate {
     fun restartApp()
     fun getAddAccountVC(network: MBlockchainNetwork): Any
-    fun getWalletAddedVC(isNew: Boolean): Any
+    fun getWalletAddedVC(isNew: Boolean, importedAccountsCount: Int = 1): Any
     fun getWordCheckVC(
         network: MBlockchainNetwork,
         words: Array<String>,
@@ -66,9 +65,8 @@ object WalletContextManager {
         }
     }
 
-    val packageId = if (DEBUG_MODE) "org.mytonwallet.app.debug" else "org.mytonwallet.app"
     fun getMainActivityIntent(context: Context): Intent {
-        return context.packageManager.getLaunchIntentForPackage(packageId)!!.apply {
+        return context.packageManager.getLaunchIntentForPackage(context.packageName)!!.apply {
             putExtra("switchToLegacy", true)
         }
     }

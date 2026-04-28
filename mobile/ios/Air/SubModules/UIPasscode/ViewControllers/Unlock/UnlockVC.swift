@@ -12,7 +12,7 @@ import WalletContext
 
 // Used for AppUnlock and other actions that require user to unlock using passcode or biometric, first.
 public class UnlockVC: WViewController {
-    
+
     public static func pushAuth(
         on vc: UIViewController,
         title: String,
@@ -20,7 +20,7 @@ public class UnlockVC: WViewController {
         onAuthTask: @escaping (_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void,
         onDone: @escaping (_ passcode: String) -> Void
     ) {
-        
+
         let unlockVC = UnlockVC(
             title: title,
             replacedTitle: nil,
@@ -37,7 +37,7 @@ public class UnlockVC: WViewController {
         )
         vc.navigationController?.pushViewController(unlockVC, animated: true)
     }
-    
+
     /// Should be called before auth required actions
     ///  This function first, tries to unlock using biometric, if is activated and then, present this VC if failed.
     public static func presentAuth(
@@ -56,7 +56,7 @@ public class UnlockVC: WViewController {
             onDone(nil)
             return
         }
-        
+
         func _makeUnlockVC(useBioOnPresent: Bool) -> UIViewController {
             let unlockVC =  UnlockVC(
                 title: title,
@@ -78,7 +78,7 @@ public class UnlockVC: WViewController {
                 return unlockVC
             }
         }
-        
+
         let canUseBiometric = AppStorageHelper.isBiometricActivated() && BiometricHelper.biometryType != nil
         if onAuthTask == nil && canUseBiometric {
             Task { @MainActor [weak vc] in
@@ -95,7 +95,7 @@ public class UnlockVC: WViewController {
                     } catch {
                         vc?.present(_makeUnlockVC(useBioOnPresent: false), animated: true)
                     }
-                    
+
                 case .canceled, .error, .userDeniedBiometrics:
                     vc?.present(_makeUnlockVC(useBioOnPresent: false), animated: true)
                 }
@@ -105,7 +105,7 @@ public class UnlockVC: WViewController {
             vc.present(_makeUnlockVC(useBioOnPresent: canUseBiometric), animated: true)
         }
     }
-    
+
     /// Should be called before auth required actions
     /// This function first, tries to unlock using biometric, if is activated and then, present this VC if failed.
     @MainActor public static func presentAuthAsync(
@@ -116,11 +116,11 @@ public class UnlockVC: WViewController {
         customHeaderVC: UIViewController? = nil,
         authTask: (@MainActor (_ passcode: String) async -> Void)? = nil
     ) async -> String? {
-        
+
         guard AuthSupport.accountsSupportAppLock else {
             return nil
         }
-        
+
         var onAuthTask: ((_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void)? = nil
         if let authTask {
             onAuthTask = { passcode, onTaskDone in
@@ -158,7 +158,7 @@ public class UnlockVC: WViewController {
             )
         }
     }
-    
+
     private let unlockTitle: String
     private let replacedTitle: String?
     private let subtitle: String?
@@ -176,7 +176,7 @@ public class UnlockVC: WViewController {
     private var viewStartedDismissing: Bool = false
     private var cancelOnDisappear = true
     private var showsSignOutWhenEmpty = false
-    
+
     public init(
         title: String = lang("Enter your Wallet Passcode"),
         replacedTitle: String? = nil,
@@ -210,7 +210,7 @@ public class UnlockVC: WViewController {
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .fullScreen
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -219,24 +219,24 @@ public class UnlockVC: WViewController {
         super.loadView()
         setupViews()
     }
-    
+
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         if useBioOnPresent {
             passcodeScreenView.tryBiometric()
         }
     }
-    
+
     public override var preferredStatusBarStyle: UIStatusBarStyle {
         if AirTintColor == .label {
             return .default
         }
         return .lightContent
     }
-    
+
     private(set) public var passcodeScreenView: PasscodeScreenView!
     private var indicatorView: WActivityIndicator!
-    
+
     var shouldShowEmptyNavigationBar: Bool {
         IOS_26_MODE_ENABLED && customHeaderVC != nil
     }
@@ -244,7 +244,7 @@ public class UnlockVC: WViewController {
     public override var hideNavigationBar: Bool {
         false
     }
-    
+
     public override func viewIsAppearing(_ animated: Bool) {
         if shouldShowEmptyNavigationBar,
            let navbarHeight = navigationController?.navigationBar.frame.height {
@@ -260,13 +260,13 @@ public class UnlockVC: WViewController {
         super.viewWillDisappear(animated)
         self.viewStartedDismissing = true
     }
-    
+
     private func setupViews() {
-        
+
         let compactLayout = customHeaderVC != nil
         let showNavBar = compactLayout
         let customHeader = customHeaderVC?.view
-        
+
         // legacy
         if cancellable && !compactLayout {
             addCloseNavigationItemIfNeeded()
@@ -278,7 +278,7 @@ public class UnlockVC: WViewController {
         }
 
         showsSignOutWhenEmpty = onSignOutRequested != nil && AuthSupport.cooldownRemaining != nil
-        
+
         passcodeScreenView = PasscodeScreenView(
             title: unlockTitle,
             replacedTitle: replacedTitle,
@@ -297,7 +297,7 @@ public class UnlockVC: WViewController {
         indicatorView = WActivityIndicator()
 
         // add subviews
-        
+
         if let customHeaderVC {
             addChild(customHeaderVC)
             view.addSubview(customHeaderVC.view)
@@ -309,7 +309,7 @@ public class UnlockVC: WViewController {
             ])
             customHeaderVC.didMove(toParent: self)
         }
-        
+
         view.addSubview(passcodeScreenView)
         passcodeScreenView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -322,7 +322,7 @@ public class UnlockVC: WViewController {
         } else {
             passcodeScreenView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
         }
-        
+
         view.addSubview(indicatorView)
         indicatorView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -330,7 +330,7 @@ public class UnlockVC: WViewController {
             indicatorView.centerYAnchor.constraint(equalTo: passcodeScreenView.passcodeInputView.centerYAnchor),
         ])
     }
-    
+
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
 
@@ -339,7 +339,7 @@ public class UnlockVC: WViewController {
             passcodeScreenView.fadeIn()
         }
     }
-    
+
     public override func viewDidDisappear(_ animated: Bool) {
         if cancelOnDisappear {
             self.onCancel?()
@@ -352,7 +352,7 @@ public class UnlockVC: WViewController {
         loadViewIfNeeded()
         passcodeScreenView?.tryBiometric()
     }
-    
+
     public override func present(_ viewControllerToPresent: UIViewController, animated flag: Bool, completion: (() -> Void)? = nil) {
         // do not allow this
     }
@@ -362,7 +362,7 @@ extension UnlockVC: PasscodeScreenViewDelegate {
     func passcodeChanged(passcode: String) {
         passcodeScreenView.setShowsSignOutWhenEmpty(showsSignOutWhenEmpty)
     }
-    
+
     func passcodeSelected(passcode: String) {
         passcodeScreenView.isUserInteractionEnabled = false
         Task { @MainActor [weak self] in
@@ -396,7 +396,8 @@ extension UnlockVC: PasscodeScreenViewDelegate {
 
     func signOutRequested() {
         guard let onSignOutRequested else { return }
-        let text = lang("$logout_all_wallets_warning").replacingOccurrences(of: "**", with: "")
+        let text = "\(lang("$logout_all_wallets_warning")) \(lang("$all_secret_words_backup_reminder"))"
+            .replacingOccurrences(of: "**", with: "")
         let alert = alert(
             title: lang("Remove Wallets"),
             text: text,
@@ -421,7 +422,7 @@ extension UnlockVC: PasscodeScreenViewDelegate {
         )
         super.present(alert, animated: true, completion: nil)
     }
-    
+
     func showCooldownAlert(error: AuthCooldownError) {
         let time = formatTimeInterval(error.waitFor)
         let alert = alert(
@@ -436,7 +437,7 @@ extension UnlockVC: PasscodeScreenViewDelegate {
         )
         super.present(alert, animated: true, completion: nil)
     }
-    
+
     @MainActor func animateSuccess() {
         passcodeScreenView.passcodeInputView.animateSuccess()
         guard onAuthTask != nil else {

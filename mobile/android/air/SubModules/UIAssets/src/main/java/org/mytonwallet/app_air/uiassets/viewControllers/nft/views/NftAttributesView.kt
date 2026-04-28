@@ -78,7 +78,7 @@ class NftAttributesView(
             titlesBackground,
             LayoutParams(MATCH_CONSTRAINT, LayoutParams.MATCH_PARENT)
         )
-        val attributes = nft.metadata?.attributes ?: emptyList()
+        val attributes = nft.metadata?.attributes?.filterNotNull() ?: emptyList()
         for ((index, attribute) in attributes.withIndex()) {
             val titleLabel = WLabel(context).apply {
                 setStyle(15f, WFont.Medium)

@@ -11,6 +11,10 @@ import { createWindow, setupCloseHandlers, setupElectronActionHandlers } from '.
 // Must be set before app is ready
 if (IS_LINUX) {
   app.commandLine.appendSwitch('gtk-version', MTW_GTK_VERSION);
+  if (process.env.XDG_SESSION_TYPE === 'wayland' || process.env.WAYLAND_DISPLAY) {
+    app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform');
+    app.commandLine.appendSwitch('ozone-platform', 'wayland');
+  }
 }
 
 initDeeplink();

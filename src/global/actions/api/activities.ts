@@ -22,8 +22,11 @@ const PAST_ACTIVITY_BATCH = 50;
 const pastActivityThrottle: Record<string, NoneToVoidFunction> = {};
 const initialActivityWaitingByAccountId: Record<string, Promise<unknown>> = {};
 
-addActionHandler('fetchPastActivities', (global, actions, { slug, shouldLoadWithBudget }) => {
-  const accountId = selectCurrentAccountId(global)!;
+addActionHandler('fetchPastActivities', (global, actions, payload) => {
+  const accountId = payload.accountId ?? selectCurrentAccountId(global);
+  if (!accountId) return;
+
+  const { slug, shouldLoadWithBudget } = payload;
   const throttleKey = `${accountId} ${slug ?? '__main__'}`;
 
   // Besides the throttling itself, the `throttle` avoids concurrent activity loading

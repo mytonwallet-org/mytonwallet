@@ -7,13 +7,13 @@ import { IS_CORE_WALLET } from '../../../../config';
 import buildClassName from '../../../../util/buildClassName';
 import { vibrate } from '../../../../util/haptics';
 import { handleSendMenuItemClick, SEND_CONTEXT_MENU_ITEMS } from './helpers/sendMenu';
+import { STAKING_TAB_TEXT_VARIANTS } from './helpers/stakingLabels';
 
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 
 import Button from '../../../ui/Button';
 import WithContextMenu from '../../../ui/WithContextMenu';
-import { STAKING_TAB_TEXT_VARIANTS } from './LandscapeActions';
 
 import styles from './PortraitActions.module.scss';
 
@@ -65,7 +65,7 @@ function PortraitActions({
   const handleStartTransfer = useLastCallback(() => {
     void vibrate();
 
-    startTransfer({ isPortrait: true });
+    startTransfer();
   });
 
   const handleAddBuyClick = useLastCallback(() => {

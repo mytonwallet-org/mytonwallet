@@ -84,10 +84,11 @@ App Icon: Иконка приложения
 App Font: Шрифт приложения
 Rounded Toolbars: Закруглённые панели инструментов
 Side Gutters: Боковые отступы
+Gradient Navigation Bar: Градиентная панель навигации
 Tokens on Home Screen: Токены на главном экране
 Current Wallet Version: Текущая версия кошелька
 Tokens on Other Versions: Токены в других версиях
-Show Recovery Phrase: Показать фразу восстановления
+Show Secret Words: Показать секретные слова
 Passcode: Код доступа
 Lock the app after: Автоматическая блокировка через
 Never: Никогда
@@ -104,7 +105,7 @@ Up to %1$@: До %1$@
 up to %1$@: до %1$@
 Current APY: Текущий APY
 Current APR: Текущий APR
-Est. earning per year: Ожидаемый доход в год
+Est. Yearly Earnings: Ожидаемый доход в год
 in: в
 Error: Ошибка
 Network Error: Ошибка сети
@@ -133,7 +134,7 @@ via %agg%: через %agg%
 Switch to Legacy Version: Классическая версия
 Hide tab: Убрать вкладку
 Received from: Получено от
-Your Recovery Phrase: Секретная фраза
+Your Secret Words: Секретные слова
 day:
   zeroValue: "%1$d дней"
   oneValue: "%1$d день"
@@ -359,3 +360,12 @@ $more_nfts:
   zeroValue: Нет NFT
   oneValue: "+1 NFT"
   otherValue: "+%1$d NFT"
+
+$subwallets_found:
+  oneValue: "Найден: %1$d"
+  fewValue: "Найдено: %1$d"
+  otherValue: "Найдено: %1$d"
+
+$subwallets_hint: Используйте субкошельки для получения дополнительных адресов без создания новых секретных слов.
+$subwallets_created_wallets: Если вы ранее создавали субкошельки, они появятся в списке ниже.
+$subwallets_none: Субкошельков пока нет.

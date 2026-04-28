@@ -1,4 +1,9 @@
-import type { InMessageCallback } from '../../../common/websocket/abstractWsClient';
+import type {
+  DefaultActivitiesUpdate,
+  DefaultNftUpdateArgument,
+  DefaultWatchedWallet,
+  InMessageCallback,
+} from '../../../common/websocket/abstractWsClient';
 import type { ApiNetwork } from '../../../types';
 import type { ClientSocketMessage, ServerSocketMessage, UnsubscribeMethod } from '../types';
 
@@ -20,7 +25,13 @@ const PING_INTERVAL = 60 * SEC;
 
 const PONG_TIMEOUT = 5 * SEC;
 
-class HeliusSocket extends AbstractWebsocketClient<ClientSocketMessage, ServerSocketMessage> {
+class HeliusSocket extends AbstractWebsocketClient<
+  ClientSocketMessage,
+  ServerSocketMessage,
+  DefaultWatchedWallet,
+  DefaultActivitiesUpdate,
+  DefaultNftUpdateArgument
+> {
   #subscriptions = new Map<string, Subscription>();
 
   #stopPing?: NoneToVoidFunction;

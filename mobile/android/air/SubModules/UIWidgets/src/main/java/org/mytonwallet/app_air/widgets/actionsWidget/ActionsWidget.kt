@@ -14,6 +14,7 @@ import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.APP_SCHEME
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
@@ -234,15 +235,15 @@ class ActionsWidget : AppWidgetProvider() {
             }
         }
         if (!isPreview) {
-            DeeplinkUtils.setOnClickDeeplink(context, remoteViews, R.id.action_add, "mtw://receive")
+            DeeplinkUtils.setOnClickDeeplink(context, remoteViews, R.id.action_add, "$APP_SCHEME://receive")
             DeeplinkUtils.setOnClickDeeplink(
                 context,
                 remoteViews,
                 R.id.action_send,
-                "mtw://transfer"
+                "$APP_SCHEME://transfer"
             )
-            DeeplinkUtils.setOnClickDeeplink(context, remoteViews, R.id.action_swap, "mtw://swap")
-            DeeplinkUtils.setOnClickDeeplink(context, remoteViews, R.id.action_earn, "mtw://stake")
+            DeeplinkUtils.setOnClickDeeplink(context, remoteViews, R.id.action_swap, "$APP_SCHEME://swap")
+            DeeplinkUtils.setOnClickDeeplink(context, remoteViews, R.id.action_earn, "$APP_SCHEME://stake")
         }
         remoteViews.setContentDescription(R.id.action_add, addString)
         remoteViews.setContentDescription(R.id.action_send, sendString)

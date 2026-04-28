@@ -10,18 +10,22 @@ import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import org.mytonwallet.app_air.uicomponents.drawable.StickyBottomGradientDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
 @SuppressLint("ViewConstructor")
 class ReversedCornerViewUpsideDown(
     context: Context,
     private var blurRootView: ViewGroup?,
+    private val forceBlurView: Boolean = false,
 ) : BaseReversedCornerView(context), WThemedView {
 
     init {
@@ -37,10 +41,20 @@ class ReversedCornerViewUpsideDown(
         }
     }
 
-    private var blurryBackgroundView: WBlurryBackgroundView? =
-        if (WGlobalStorage.isBlurEnabled()) blurRootView?.let {
-            WBlurryBackgroundView(context, fadeSide = WBlurryBackgroundView.Side.TOP)
-        } else null
+    var isGradientMode: Boolean = !forceBlurView && WGlobalStorage.isGradientNavigationBarActive()
+        private set
+
+    val extraTopHeight: Int
+        get() = if (isGradientMode) ViewConstants.ADDITIONAL_GRADIENT_HEIGHT.dp.toInt() else 0
+
+    private var blurryBackgroundView: WBlurryBackgroundView? = null
+
+    private val gradientView: View by lazy {
+        View(context).apply {
+            id = generateViewId()
+        }
+    }
+    private var gradientDrawable: StickyBottomGradientDrawable? = null
 
     private val path = Path()
     private val cornerPath = Path()
@@ -66,15 +80,23 @@ class ReversedCornerViewUpsideDown(
     fun setBlurOverlayColor(color: Int?) {
         overlayColor = color
 
-        blurryBackgroundView?.setOverlayColor(color ?: Color.TRANSPARENT) ?: run {
-            backgroundView.setBackgroundColor(color ?: WColor.SecondaryBackground.color)
+        if (isGradientMode) {
+            rebuildGradientDrawable()
+        } else {
+            blurryBackgroundView?.setOverlayColor(color ?: Color.TRANSPARENT) ?: run {
+                backgroundView.setBackgroundColor(color ?: WColor.SecondaryBackground.color)
+            }
         }
         postInvalidateOnAnimation()
     }
 
+    private var configured = false
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         resumeBlurring()
+        if (configured)
+            return
+        updateTheme()
     }
 
     override fun dispatchDraw(canvas: Canvas) {
@@ -90,6 +112,11 @@ class ReversedCornerViewUpsideDown(
             lastWidth = width
             lastHeight = height
             pathDirty = true
+        }
+
+        if (isGradientMode) {
+            super.dispatchDraw(canvas)
+            return
         }
 
         if (pathDirty) {
@@ -132,40 +159,95 @@ class ReversedCornerViewUpsideDown(
         canvas.restore()
     }
 
+    private fun rebuildGradientDrawable() {
+        val bgColor = overlayColor
+            ?: if (ThemeManager.isDark) WColor.SecondaryBackground.color else WColor.Background.color
+        val drawable = StickyBottomGradientDrawable(
+            intArrayOf(
+                bgColor.colorWithAlpha(0),
+                bgColor
+            )
+        )
+        drawable.setStops(floatArrayOf(0f, 1f))
+        gradientDrawable = drawable
+        gradientView.background = drawable
+    }
+
+    private fun attachGradientView() {
+        if (gradientView.parent != null) return
+        addView(gradientView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        if (gradientDrawable == null) rebuildGradientDrawable()
+    }
+
+    private fun detachGradientView() {
+        if (gradientView.parent != null) {
+            (gradientView.parent as ViewGroup).removeView(gradientView)
+        }
+    }
+
     private fun syncBlurView() {
+        if (isGradientMode) {
+            blurryBackgroundView?.let { blur ->
+                blur.pauseBlurring()
+                if (blur.parent != null) (blur.parent as ViewGroup).removeView(blur)
+            }
+            blurryBackgroundView = null
+            if (backgroundView.parent != null)
+                (backgroundView.parent as ViewGroup).removeView(backgroundView)
+            attachGradientView()
+            return
+        }
+
+        detachGradientView()
+
         val blurEnabled = WGlobalStorage.isBlurEnabled() && blurRootView != null
         if (blurEnabled && blurryBackgroundView == null) {
-            blurryBackgroundView = WBlurryBackgroundView(context, fadeSide = WBlurryBackgroundView.Side.TOP)
-            if (backgroundView.parent != null) (backgroundView.parent as ViewGroup).removeView(backgroundView)
-            isPlaying = false
+            blurryBackgroundView =
+                WBlurryBackgroundView(context, fadeSide = WBlurryBackgroundView.Side.TOP)
+            if (backgroundView.parent != null)
+                (backgroundView.parent as ViewGroup).removeView(backgroundView)
+            if (isPlaying) {
+                isPlaying = false
+                resumeBlurring()
+            }
         } else if (!blurEnabled && blurryBackgroundView != null) {
             blurryBackgroundView?.let { blur ->
                 blur.pauseBlurring()
                 if (blur.parent != null) (blur.parent as ViewGroup).removeView(blur)
             }
             blurryBackgroundView = null
-            isPlaying = false
+            if (backgroundView.parent == null)
+                addView(backgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        } else if (!blurEnabled && blurryBackgroundView == null) {
+            if (backgroundView.parent == null)
+                addView(backgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         }
     }
 
+    fun refreshModeFromSettings() {
+        val next = !forceBlurView && WGlobalStorage.isGradientNavigationBarActive()
+        if (next == isGradientMode)
+            return
+        isGradientMode = next
+        clipChildren = !isGradientMode
+        pathDirty = true
+        return
+    }
+
     override fun updateTheme() {
+        refreshModeFromSettings()
         syncBlurView()
 
-        val bgColor = overlayColor
-            ?: WColor.SecondaryBackground.color
-        if (blurryBackgroundView == null)
-            backgroundView.setBackgroundColor(bgColor)
-
-        blurryBackgroundView?.updateTheme()
+        if (isGradientMode) {
+            rebuildGradientDrawable()
+        } else {
+            val bgColor = overlayColor ?: WColor.SecondaryBackground.color
+            if (blurryBackgroundView == null)
+                backgroundView.setBackgroundColor(bgColor)
+            blurryBackgroundView?.updateTheme()
+        }
 
         updateRadius()
-
-        if (!isPlaying) {
-            resumeBlurring()
-            post { pauseBlurring() }
-        } else {
-            postInvalidateOnAnimation()
-        }
     }
 
     private fun updateRadius() {
@@ -186,6 +268,12 @@ class ReversedCornerViewUpsideDown(
     fun resumeBlurring() {
         if (isPlaying) return
         isPlaying = true
+
+        if (isGradientMode) {
+            attachGradientView()
+            postInvalidateOnAnimation()
+            return
+        }
 
         blurryBackgroundView?.let {
             if (it.parent == null) {

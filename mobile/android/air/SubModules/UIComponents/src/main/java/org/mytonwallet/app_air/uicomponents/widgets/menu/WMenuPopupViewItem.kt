@@ -1,25 +1,26 @@
 package org.mytonwallet.app_air.uicomponents.widgets.menu
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.atMost
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
@@ -35,7 +36,7 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : WFrameLa
     private val hasSubtitle = !item.getSubTitle().isNullOrEmpty()
 
     private val label = WLabel(context).apply {
-        setStyle(16f, if (hasSubtitle) WFont.Medium else WFont.Regular)
+        setStyle(adaptiveFontSize(), if (hasSubtitle) WFont.Medium else WFont.Regular)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
         text = item.getTitle()
@@ -151,7 +152,7 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : WFrameLa
         ripple.rippleColor = WColor.TrinaryBackground.color
         val icon = item.getIcon()
         if (icon != null) {
-            val drawable = ContextCompat.getDrawable(context, icon)?.apply {
+            val drawable = context.getDrawableCompat(icon)?.apply {
                 item.getIconTint()?.let {
                     setTint(it)
                 }
@@ -163,10 +164,9 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : WFrameLa
         if (item.hasSeparator)
             separatorView?.setBackgroundColor(WColor.PopupSeparator.color)
         if (!item.getSubItems().isNullOrEmpty()) {
-            val drawable =
-                ContextCompat.getDrawable(context, R.drawable.ic_menu_arrow_right)?.apply {
-                    setTint(WColor.PrimaryLightText.color)
-                }
+            val drawable = context.getDrawableCompat(R.drawable.ic_menu_arrow_right)?.apply {
+                setTint(WColor.PrimaryLightText.color)
+            }
             arrowView?.setImageDrawable(drawable)
         }
     }

@@ -56,7 +56,7 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAsse
     private var accountSource: AccountSource?
     private var tabsViewModel: WalletAssetsViewModel?
     private var displayTabs: [DisplayAssetTab] = []
-    private var tabViewControllers: [DisplayAssetTab: (UIViewController & WSegmentedControllerContent)] = [:]
+    private var tabViewControllers: [DisplayAssetTab: WSegmentedControllerContent] = [:]
     private var tokensVC: WalletTokensVC?
     private var nftsVC: NftsVC?
     private var nftsVCManager: NftsVCManager?
@@ -104,8 +104,10 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAsse
         
         if window == nil {
             delegate?.editingNavigator = nil
+            updateVisibleNftAnimationPlayback(isActive: false)
         } else {
             delegate?.editingNavigator = nftsVCManager?.editingNavigator
+            updateVisibleNftAnimationPlayback(isActive: true)
         }
     }
     
@@ -120,6 +122,7 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAsse
         snapshot.appendSections([.main])
         snapshot.appendItems(displayTabs.map(Item.tab))
         dataSource.apply(snapshot, animatingDifferences: false)
+        updateVisibleNftAnimationPlayback(isActive: window != nil)
     }
     
     func updateTheme() {
@@ -145,7 +148,7 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAsse
         }
         
         guard let accountSource else { return nil }
-        let viewController: (UIViewController & WSegmentedControllerContent)
+        let viewController: WSegmentedControllerContent
         
         switch tab {
         case .tokens:
@@ -183,6 +186,7 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAsse
         let tabsToRemove = tabViewControllers.keys.filter { !tabsToKeep.contains($0) }
         for tab in tabsToRemove {
             guard let viewController = tabViewControllers[tab] else { continue }
+            (viewController as? NftAnimationPlaybackControlling)?.setNftAnimationPlaybackActive(false)
             viewController.willMove(toParent: nil)
             viewController.view.removeFromSuperview()
             viewController.removeFromParent()
@@ -192,6 +196,7 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAsse
     
     private func removeAllTabViewControllers() {
         for viewController in tabViewControllers.values {
+            (viewController as? NftAnimationPlaybackControlling)?.setNftAnimationPlaybackActive(false)
             viewController.willMove(toParent: nil)
             viewController.view.removeFromSuperview()
             viewController.removeFromParent()
@@ -204,6 +209,20 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, WalletAsse
         
     func walletAssetModelDidChangeDisplayTabs() {
         displayTabsChanged()
+    }
+
+    private func updateVisibleNftAnimationPlayback(isActive: Bool) {
+        for case let cell as SplitHomeAssetSectionCollectionCell in collectionView.visibleCells {
+            cell.setNftAnimationPlaybackActive(isActive)
+        }
+    }
+
+    func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        (cell as? SplitHomeAssetSectionCollectionCell)?.setNftAnimationPlaybackActive(window != nil)
+    }
+
+    func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        (cell as? SplitHomeAssetSectionCollectionCell)?.setNftAnimationPlaybackActive(false)
     }
 }
 
@@ -259,6 +278,7 @@ private final class SplitHomeAssetSectionCollectionCell: UICollectionViewCell {
     
     override func prepareForReuse() {
         super.prepareForReuse()
+        setNftAnimationPlaybackActive(false)
         hostedViewController = nil
         cardView.subviews.forEach { $0.removeFromSuperview() }
     }
@@ -267,6 +287,7 @@ private final class SplitHomeAssetSectionCollectionCell: UICollectionViewCell {
         titleLabel.text = makeTitle(for: tab)
         
         if self.hostedViewController !== hostedViewController {
+            setNftAnimationPlaybackActive(false)
             self.hostedViewController = hostedViewController
             cardView.subviews.forEach { $0.removeFromSuperview() }
             let hostedView = hostedViewController.view!
@@ -281,6 +302,10 @@ private final class SplitHomeAssetSectionCollectionCell: UICollectionViewCell {
         }
         
         updateTheme()
+    }
+
+    func setNftAnimationPlaybackActive(_ isActive: Bool) {
+        (hostedViewController as? NftAnimationPlaybackControlling)?.setNftAnimationPlaybackActive(isActive)
     }
     
     private func makeTitle(for tab: DisplayAssetTab) -> String {

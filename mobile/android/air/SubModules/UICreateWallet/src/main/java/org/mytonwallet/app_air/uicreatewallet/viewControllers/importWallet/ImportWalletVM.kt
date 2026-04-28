@@ -22,7 +22,7 @@ import java.lang.ref.WeakReference
 class ImportWalletVM(delegate: Delegate) {
     interface Delegate {
         fun walletCanBeImported(words: Array<String>)
-        fun finalizedImport(accountId: String)
+        fun finalizedImport(accountId: String, importedAccountsCount: Int)
         fun showError(error: MBridgeError?)
     }
 
@@ -55,7 +55,7 @@ class ImportWalletVM(delegate: Delegate) {
         biometricsActivated: Boolean?,
         retriesLeft: Int = 3
     ) {
-        fun onResult(importedAccount: MAccount?, error: MBridgeError?) {
+        fun onResult(importedAccounts: List<MAccount>?, error: MBridgeError?) {
             if (error != null) {
                 if (retriesLeft > 0) {
                     Handler(Looper.getMainLooper()).postDelayed({
@@ -73,12 +73,12 @@ class ImportWalletVM(delegate: Delegate) {
                 }
                 return
             }
-            val importedAccountId = importedAccount?.accountId ?: return
+            val primaryAccount = importedAccounts?.firstOrNull() ?: return
             Logger.d(
                 Logger.LogTag.ACCOUNT,
                 LogMessage.Builder()
                     .append(
-                        "finalizeAccount: accountId=$importedAccountId",
+                        "finalizeAccount: accountId=${primaryAccount.accountId}",
                         LogMessage.MessagePartPrivacy.PUBLIC
                     )
                     .append(
@@ -86,17 +86,19 @@ class ImportWalletVM(delegate: Delegate) {
                         LogMessage.MessagePartPrivacy.PUBLIC
                     )
                     .append(
-                        "${importedAccount.tonAddress}",
+                        "${primaryAccount.tonAddress}",
                         LogMessage.MessagePartPrivacy.REDACTED
                     ).build()
             )
-            WGlobalStorage.addAccount(
-                accountId = importedAccountId,
-                accountType = MAccount.AccountType.MNEMONIC.value,
-                byChain = importedAccount.byChain.jsonObject,
-                importedAt = importedAccount.importedAt
-            )
-            AirPushNotifications.subscribe(importedAccount, ignoreIfLimitReached = true)
+            importedAccounts.forEach { account ->
+                WGlobalStorage.addAccount(
+                    accountId = account.accountId,
+                    accountType = MAccount.AccountType.MNEMONIC.value,
+                    byChain = account.byChain.jsonObject,
+                    importedAt = account.importedAt
+                )
+                AirPushNotifications.subscribe(account, ignoreIfLimitReached = true)
+            }
             if (biometricsActivated != null) {
                 if (biometricsActivated) {
                     val activated = WSecureStorage.setBiometricPasscode(window, passcode)
@@ -106,17 +108,17 @@ class ImportWalletVM(delegate: Delegate) {
                     WGlobalStorage.setIsBiometricActivated(false)
                 }
             }
-            delegate.get()?.finalizedImport(importedAccountId)
+            delegate.get()?.finalizedImport(primaryAccount.accountId, importedAccounts.size)
         }
 
         val privateKeyWords = PrivateKeyHelper.normalizeMnemonicPrivateKey(words)
         if (privateKeyWords != null) {
             WalletCore.importPrivateKey(network, privateKeyWords[0], passcode) { account, error ->
-                onResult(account, error)
+                onResult(account?.let { listOf(it) }, error)
             }
         } else {
-            WalletCore.importWallet(network, words, passcode, false) { account, error ->
-                onResult(account, error)
+            WalletCore.importWallet(network, words, passcode, false) { accounts, error ->
+                onResult(accounts, error)
             }
         }
     }

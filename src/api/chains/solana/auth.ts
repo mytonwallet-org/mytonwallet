@@ -11,13 +11,11 @@ import * as bip39 from 'bip39';
 import nacl from 'tweetnacl';
 
 import type {
-  ApiAccountWithChain,
   ApiAccountWithMnemonic,
   ApiAnyDisplayError,
   ApiDerivation,
   ApiNetwork,
   ApiSolanaWallet,
-  ApiWalletVariant,
 } from '../../types';
 import type { SolanaKeyPairSigner } from './types';
 import { ApiCommonError } from '../../types';
@@ -25,7 +23,6 @@ import { ApiCommonError } from '../../types';
 import * as HDKey from '../../../lib/ed25519-hd-key';
 import { parseAccountId } from '../../../util/account';
 import isMnemonicPrivateKey from '../../../util/isMnemonicPrivateKey';
-import { split } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { pause } from '../../../util/schedulers';
 import { fetchStoredAccount } from '../../common/accounts';
@@ -37,9 +34,6 @@ import { SOLANA_DERIVATION_PATHS } from './constants';
 import { getWalletBalance, getWalletLastTransaction } from './wallet';
 
 const MULTIWALLET_BY_PATH_DEFAULT_COUNT = 2;
-const WALLET_DERIVATIONS_BATCH_SIZE = 6;
-const SETTINGS_MULTIWALLET_BY_PATH_COUNT = 4;
-const MAX_NON_EMPTY_WALLETS_TO_SCAN = 20;
 
 // Mimic @solana/kit signer w/o Web Crypto API
 function createNaclKeyPairSigner(privateKeyBytes: Uint8Array): SolanaKeyPairSigner {
@@ -84,7 +78,8 @@ export async function fetchPrivateKeyString(accountId: string, password: string,
 
       const derivation = account.byChain.solana?.derivation;
 
-      const privateKey = (await getRawWalletFromBip39Mnemonic(network, mnemonic, derivation)).privateKeyBytes;
+      // If derivation is provided, its always returns array with one element
+      const privateKey = (await getRawWalletFromBip39Mnemonic(network, mnemonic, derivation))[0].privateKeyBytes;
 
       return bytesToHex(privateKey);
     }
@@ -98,16 +93,17 @@ export async function fetchPrivateKeyString(accountId: string, password: string,
 export async function getWalletFromBip39Mnemonic(
   network: ApiNetwork,
   mnemonic: string[],
+  derivation?: ApiDerivation,
   isMigration?: boolean,
-): Promise<ApiSolanaWallet> {
-  const raw = await getRawWalletFromBip39Mnemonic(network, mnemonic, undefined, isMigration);
+): Promise<ApiSolanaWallet[]> {
+  const rawWallets = await getRawWalletFromBip39Mnemonic(network, mnemonic, derivation, isMigration);
 
-  return {
+  return rawWallets.map((raw) => ({
     address: raw.wallet.address,
     publicKey: bytesToHex(raw.wallet.publicKeyBytes),
     index: 0,
     derivation: { path: raw.path, index: raw.index, label: raw.label },
-  };
+  }));
 }
 
 export function getWalletFromPrivateKey(network: ApiNetwork, privateKey: string): ApiSolanaWallet {
@@ -144,83 +140,6 @@ export function getWalletFromAddress(
   };
 }
 
-export async function createSubWalletFromDerivation(
-  network: ApiNetwork,
-  account: ApiAccountWithChain<'solana'>,
-  mnemonic: string[],
-): Promise<ApiSolanaWallet | { error: ApiAnyDisplayError }> {
-  const current = account.byChain.solana;
-  if (!current) {
-    return { error: ApiCommonError.Unexpected };
-  }
-
-  const { derivation } = current;
-
-  const defaultLabel = 'phantom';
-
-  const pathTemplate = derivation?.path ?? SOLANA_DERIVATION_PATHS[defaultLabel];
-  const startIndex = derivation?.index ?? 0;
-
-  const seed = bip39.mnemonicToSeedSync(mnemonic.join(' '));
-  const seedHex = seed.toString('hex');
-
-  let offset = startIndex + 1;
-  let scannedNonEmptyWallets = 0;
-
-  let emptySubwallet: {
-    wallet: SolanaKeyPairSigner;
-    privateKeyBytes: Uint8Array<ArrayBufferLike>;
-    path: string;
-    index: number;
-  } | undefined;
-
-  while (emptySubwallet === undefined) {
-    const batch = Array.from({ length: SETTINGS_MULTIWALLET_BY_PATH_COUNT }, (_, indexInBatch) =>
-      getWalletVariantByIndex(seedHex, pathTemplate, offset + indexInBatch));
-
-    const balances = await Promise.all(batch.map(({ wallet }) => getWalletBalance(network, wallet.address)));
-
-    for (const [i, subwallet] of batch.entries()) {
-      if (balances[i] === 0n) {
-        emptySubwallet = subwallet;
-        break;
-      }
-
-      scannedNonEmptyWallets += 1;
-      if (scannedNonEmptyWallets >= MAX_NON_EMPTY_WALLETS_TO_SCAN) {
-        break;
-      }
-    }
-
-    if (scannedNonEmptyWallets >= MAX_NON_EMPTY_WALLETS_TO_SCAN) {
-      break;
-    }
-
-    offset += SETTINGS_MULTIWALLET_BY_PATH_COUNT;
-
-    if (emptySubwallet === undefined) {
-      await pause(500);
-    }
-  }
-
-  if (emptySubwallet === undefined) {
-    return { error: ApiCommonError.Unexpected };
-  }
-
-  const signer = emptySubwallet.wallet;
-
-  return {
-    address: signer.address,
-    publicKey: bytesToHex(signer.publicKeyBytes),
-    index: current.index,
-    derivation: {
-      path: pathTemplate,
-      index: emptySubwallet.index,
-      label: derivation?.label || defaultLabel,
-    },
-  };
-}
-
 async function getRawWalletFromBip39Mnemonic(
   network: ApiNetwork,
   mnemonic: string[],
@@ -231,10 +150,10 @@ async function getRawWalletFromBip39Mnemonic(
 
   if (derivation) {
     const wallet = getWalletVariantByIndex(seed.toString('hex'), derivation.path, derivation.index);
-    return { ...wallet, label: derivation.label };
+    return [{ ...wallet, label: derivation.label }];
   } else {
-    const bestWallet = await pickBestWallet(network, seed.toString('hex'), isMigration);
-    return bestWallet;
+    const bestWallets = await pickBestWallets(network, seed.toString('hex'), isMigration);
+    return bestWallets;
   }
 }
 
@@ -292,72 +211,17 @@ function getWalletVariantsByPath(
   return addresses;
 }
 
-export async function getWalletVariants(
+export async function pickBestWallets(
   network: ApiNetwork,
-  account: ApiAccountWithChain<'solana'>,
-  page: number,
-  isTestnetSubwalletId?: boolean,
-  mnemonic?: string[],
-): Promise<ApiWalletVariant<'solana'>[] | { error: ApiAnyDisplayError }> {
-  if (!mnemonic) {
-    return { error: ApiCommonError.Unexpected };
-  }
-
-  const seed = bip39.mnemonicToSeedSync(mnemonic.join(' '));
-
-  const offset = page * SETTINGS_MULTIWALLET_BY_PATH_COUNT;
-
-  const addreses = getWalletVariantsByPath(seed.toString('hex'), SETTINGS_MULTIWALLET_BY_PATH_COUNT, offset);
-
-  const batches = split(addreses, WALLET_DERIVATIONS_BATCH_SIZE);
-
-  const addressesWithBalances: {
-    wallet: SolanaKeyPairSigner;
-    balance: bigint;
-    privateKeyBytes: Uint8Array<ArrayBufferLike>;
-    path: string;
-    label: string | undefined;
-    index: number;
-  }[] = [];
-
-  for (const batch of batches) {
-    const addressBalances = await Promise.all(batch.map(async (e) => ({
-      wallet: e.wallet,
-      balance: await getWalletBalance(network, e.wallet.address),
-      privateKeyBytes: e.privateKeyBytes,
-      path: e.path,
-      label: e.label,
-      index: e.index,
-    })));
-    addressesWithBalances.push(...addressBalances);
-
-    await pause(500);
-  }
-
-  return addressesWithBalances.map((e) => ({
-    chain: 'solana',
-    wallet: {
-      address: e.wallet.address,
-      publicKey: bytesToHex(e.wallet.publicKeyBytes),
-      index: account.byChain.solana.index,
-      derivation: { path: e.path, index: e.index, label: e.label },
-    },
-    balance: e.balance,
-    metadata: {
-      type: 'path',
-      path: e.path.replace('{index}', e.index.toString()),
-      label: e.label,
-    },
-  }));
-}
-
-export async function pickBestWallet(network: ApiNetwork, seed: string, isMigration?: boolean) {
+  seed: string,
+  isMigration?: boolean,
+) {
   const addresses = getWalletVariantsByPath(seed);
 
   const defaultAddress = addresses.find((e) => e.path === SOLANA_DERIVATION_PATHS.phantom)!;
 
   if (isMigration) {
-    return defaultAddress;
+    return [defaultAddress];
   }
 
   const addressBalances = await Promise.all(addresses.map(async (e) => ({
@@ -369,12 +233,10 @@ export async function pickBestWallet(network: ApiNetwork, seed: string, isMigrat
     label: e.label,
   })));
 
-  const bestWalletByBalance = addressBalances.reduce<typeof addressBalances[0] | undefined>((best, current) => {
-    return current.balance > (best?.balance ?? 0n) ? current : best;
-  }, undefined);
+  const withBalances = addressBalances.filter((e) => e.balance > 0n);
 
-  if (bestWalletByBalance) {
-    return bestWalletByBalance;
+  if (withBalances.length > 0) {
+    return withBalances;
   }
 
   // TODO: rm after API plan upgrade from 10rps, but now wait to avoid 429 error
@@ -389,13 +251,11 @@ export async function pickBestWallet(network: ApiNetwork, seed: string, isMigrat
     label: e.label,
   })));
 
-  const bestWalletByLastTx = addressLastTxs.reduce<typeof addressLastTxs[0] | undefined>((best, current) => {
-    return current?.lastTxTimestamp && current.lastTxTimestamp > (best?.lastTxTimestamp ?? 0) ? current : best;
-  }, undefined);
+  const withLastTx = addressLastTxs.filter((e) => e.lastTxTimestamp !== undefined);
 
-  if (bestWalletByLastTx) {
-    return bestWalletByLastTx;
+  if (withLastTx.length > 0) {
+    return withLastTx;
   }
 
-  return defaultAddress;
+  return [defaultAddress];
 }

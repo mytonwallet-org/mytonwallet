@@ -14,7 +14,6 @@ import type {
   ApiTransactionActivity,
 } from '../../../../api/types';
 import type { Account, SavedAddress, Theme } from '../../../../global/types';
-import { ActiveTab } from '../../../../global/types';
 
 import {
   ANIMATION_END_DELAY,
@@ -113,7 +112,6 @@ function TransactionModal({
     closeActivityInfo,
     setIsPinAccepted,
     clearIsPinAccepted,
-    setLandscapeActionsActiveTabIndex,
     selectToken,
   } = getActions();
 
@@ -232,7 +230,6 @@ function TransactionModal({
   const handleSendClick = useLastCallback(() => {
     closeActivityInfo({ id: id! });
     startTransfer({
-      isPortrait,
       tokenSlug: slug || TONCOIN.slug,
       toAddress: address,
       amount: bigintAbs(amount!),
@@ -242,22 +239,11 @@ function TransactionModal({
 
   const handleStartStakingClick = useLastCallback(() => {
     closeActivityInfo({ id: id! });
-
-    if (!isPortrait) {
-      setLandscapeActionsActiveTabIndex({ index: ActiveTab.Stake });
-      return;
-    }
-
     startStaking();
   });
 
   const handleUnstakeMoreClick = useLastCallback(() => {
     closeActivityInfo({ id: id! });
-
-    if (!isPortrait) {
-      setLandscapeActionsActiveTabIndex({ index: ActiveTab.Stake });
-    }
-
     startUnstaking();
   });
 

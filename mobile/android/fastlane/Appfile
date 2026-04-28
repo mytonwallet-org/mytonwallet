@@ -1,2 +1,2 @@
-json_key_file("./api-key.json")
-package_name("org.mytonwallet.app")
+json_key_file(ENV.fetch("ANDROID_PLAY_JSON_KEY_FILE", "./api-key.json"))
+package_name(ENV.fetch("ANDROID_PACKAGE_NAME", "org.mytonwallet.app"))

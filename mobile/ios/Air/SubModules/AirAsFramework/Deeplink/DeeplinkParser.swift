@@ -9,15 +9,17 @@ extension Deeplink {
         let deeplink: Deeplink? = switch url.scheme {
         case "ton":
             parseTonInvoiceUrl(url)
-        case "tc", "mytonwallet-tc":
+        case "tc":
+            parseTonConnectUrl(url)
+        case let scheme where scheme == TONCONNECT_PROTOCOL_SCHEME:
             parseTonConnectUrl(url)
         case "wc":
             parseWalletConnectUrl(url)
-        case "mtw":
+        case let scheme where scheme == SELF_PROTOCOL_SCHEME:
             parseMtwUrl(url)
         case "https", "http":
             switch url.host {
-            case "connect.mytonwallet.org":
+            case let host? where isTonConnectUniversalUrl(host: host, path: url.path):
                 parseTonConnectUrl(url)
             case "walletconnect.com":
                 if url.path == "/wc" {
@@ -25,9 +27,7 @@ extension Deeplink {
                 } else {
                     nil
                 }
-            case "go.mytonwallet.org":
-                parseMtwUrl(url)
-            case "my.tt":
+            case let host? where SELF_UNIVERSAL_URL_HOSTS.contains(host):
                 parseMtwUrl(url)
             default:
                 nil
@@ -41,6 +41,21 @@ extension Deeplink {
             return nil
         }
     }
+}
+
+private func isTonConnectUniversalUrl(host: String, path: String) -> Bool {
+    guard let url = URL(string: TONCONNECT_UNIVERSAL_URL),
+          let universalHost = url.host?.lowercased() else {
+        return false
+    }
+    guard host.lowercased() == universalHost else {
+        return false
+    }
+    let universalPath = url.path
+    if universalPath.isEmpty {
+        return true
+    }
+    return path == universalPath
 }
 
 private func parseTonConnectUrl(_ url: URL) -> Deeplink {
@@ -143,6 +158,9 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
     case "stake":
         return .stake
 
+    case "portfolio":
+        return .portfolio
+
     case "settings":
         let pathComponents = url.pathComponents.filter { $0 != "/" }
         if let section = pathComponents.first?.nilIfEmpty {
@@ -233,6 +251,12 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
                let addressOrDomain = queryItem.value?.nilIfEmpty,
                chain.isValidAddressOrDomain(addressOrDomain) {
                 addressOrDomainByChain[chain.rawValue] = addressOrDomain
+            }
+        }
+        if let evmAddress = queryItems.first(where: { $0.name == ApiChain.viewAccountEvmParam })?.value?.nilIfEmpty,
+           ApiChain.ethereum.isValidAddressOrDomain(evmAddress) {
+            for chain in ApiChain.evmChains where addressOrDomainByChain[chain.rawValue] == nil {
+                addressOrDomainByChain[chain.rawValue] = evmAddress
             }
         }
         return .view(addressOrDomainByChain: addressOrDomainByChain)

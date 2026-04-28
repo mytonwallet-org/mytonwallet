@@ -264,12 +264,47 @@ extension ApiToken {
     /// initial StubTokenSlugs
     /// These are shown when account is created and there are no transactions yet.
     /// The order is defined as for displaying in UI.
-    public static func defaultSlugs(forNetwork network: ApiNetwork) -> OrderedSet<String> {
-        OrderedSet(
-            ApiChain.allCases.flatMap { chain in
-                chain.defaultEnabledSlugs[network] ?? []
+    public static func defaultSlugs(forNetwork network: ApiNetwork, account: MAccount? = nil) -> OrderedSet<String> {
+        if IS_GRAM_WALLET {
+            return OrderedSet(defaultSlugs(for: .ton, network: network, account: nil))
+        }
+
+        if let account {
+            let supportedChains = account.supportedChains
+            if supportedChains.count == 1, let chain = supportedChains.first {
+                return OrderedSet(defaultSlugs(for: chain, network: network, account: account))
+            }
+        }
+
+        let slugs: [(ApiChain, String)] = [
+            (.ethereum, ETH_SLUG),
+            (.solana, SOLANA_SLUG),
+            (.tron, TRX_SLUG),
+            (.bnb, BNB_SLUG),
+            (.ton, TONCOIN_SLUG),
+            (.hyperliquid, HYPERLIQUID_SLUG),
+        ]
+
+        return OrderedSet(
+            slugs.compactMap { chain, slug in
+                if let account, !account.supports(chain: chain) {
+                    return nil
+                }
+                return slug
             }
         )
+    }
+
+    private static func defaultSlugs(for chain: ApiChain, network: ApiNetwork, account: MAccount?) -> [String] {
+        guard account?.supports(chain: chain) != false else {
+            return []
+        }
+
+        var slugs = [chain.nativeToken.slug]
+        if let stablecoinSlug = chain.usdtSlug[network]?.nilIfEmpty {
+            slugs.append(stablecoinSlug)
+        }
+        return slugs
     }
 }
 
@@ -303,6 +338,72 @@ extension ApiToken {
         decimals: 9,
         chain: .solana,
         cmcSlug: "solana"
+    )
+
+    public static let ETH = ApiToken(
+        slug: ETH_SLUG,
+        name: "Ethereum",
+        symbol: "ETH",
+        decimals: 18,
+        chain: .ethereum
+    )
+
+    public static let BASE = ApiToken(
+        slug: BASE_SLUG,
+        name: "Base",
+        symbol: "ETH",
+        decimals: 18,
+        chain: .base,
+        label: "Base"
+    )
+
+    public static let BNB = ApiToken(
+        slug: BNB_SLUG,
+        name: "BNB",
+        symbol: "BNB",
+        decimals: 18,
+        chain: .bnb
+    )
+
+//    public static let POLYGON = ApiToken(
+//        slug: POLYGON_SLUG,
+//        name: "Polygon",
+//        symbol: "POL",
+//        decimals: 18,
+//        chain: .polygon
+//    )
+
+    public static let ARBITRUM = ApiToken(
+        slug: ARBITRUM_SLUG,
+        name: "Arbitrum",
+        symbol: "ETH",
+        decimals: 18,
+        chain: .arbitrum,
+        label: "Arbitrum"
+    )
+
+//    public static let MONAD = ApiToken(
+//        slug: MONAD_SLUG,
+//        name: "Monad",
+//        symbol: "MON",
+//        decimals: 18,
+//        chain: .monad
+//    )
+//
+//    public static let AVALANCHE = ApiToken(
+//        slug: AVALANCHE_SLUG,
+//        name: "Avalanche",
+//        symbol: "AVAX",
+//        decimals: 18,
+//        chain: .avalanche
+//    )
+
+    public static let HYPERLIQUID = ApiToken(
+        slug: HYPERLIQUID_SLUG,
+        name: "Hyperliquid",
+        symbol: "HYPE",
+        decimals: 18,
+        chain: .hyperliquid
     )
 
     public static let MYCOIN = ApiToken(
@@ -375,6 +476,90 @@ extension ApiToken {
         tokenAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
         image: SOLANA_USDC_MAINNET_IMAGE,
         label: "SOL",
+        priceUsd: 1
+    )
+
+    public static let ETH_USDT_MAINNET = ApiToken(
+        slug: ETH_USDT_MAINNET_SLUG,
+        name: "Tether USD",
+        symbol: "USDT",
+        decimals: 6,
+        chain: .ethereum,
+        tokenAddress: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        image: TON_USDT_MAINNET_IMAGE,
+        label: "ERC-20",
+        priceUsd: 1
+    )
+
+    public static let ETH_USDC_MAINNET = ApiToken(
+        slug: ETH_USDC_MAINNET_SLUG,
+        name: "USD Coin",
+        symbol: "USDC",
+        decimals: 6,
+        chain: .ethereum,
+        tokenAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        image: SOLANA_USDC_MAINNET_IMAGE,
+        label: "ERC-20",
+        priceUsd: 1
+    )
+
+    public static let BASE_USDT_MAINNET = ApiToken(
+        slug: BASE_USDT_MAINNET_SLUG,
+        name: "Tether USD",
+        symbol: "USDT",
+        decimals: 6,
+        chain: .base,
+        tokenAddress: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
+        image: TON_USDT_MAINNET_IMAGE,
+        label: "ERC-20",
+        priceUsd: 1
+    )
+
+    public static let BASE_USDC_MAINNET = ApiToken(
+        slug: BASE_USDC_MAINNET_SLUG,
+        name: "USD Coin",
+        symbol: "USDC",
+        decimals: 6,
+        chain: .base,
+        tokenAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        image: SOLANA_USDC_MAINNET_IMAGE,
+        label: "ERC-20",
+        priceUsd: 1
+    )
+
+    public static let BSC_USDT_MAINNET = ApiToken(
+        slug: BSC_USDT_MAINNET_SLUG,
+        name: "Tether USD",
+        symbol: "USDT",
+        decimals: 6,
+        chain: .bnb,
+        tokenAddress: "0x55d398326f99059ff775485246999027b3197955",
+        image: TON_USDT_MAINNET_IMAGE,
+        label: "BEP-20",
+        priceUsd: 1
+    )
+
+//    public static let AVALANCHE_USDT_MAINNET = ApiToken(
+//        slug: AVALANCHE_USDT_MAINNET_SLUG,
+//        name: "Tether USD",
+//        symbol: "USDT",
+//        decimals: 6,
+//        chain: .avalanche,
+//        tokenAddress: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
+//        image: TON_USDT_MAINNET_IMAGE,
+//        label: "ERC-20",
+//        priceUsd: 1
+//    )
+
+    public static let HYPERLIQUID_USDC_MAINNET = ApiToken(
+        slug: HYPERLIQUID_USDC_MAINNET_SLUG,
+        name: "USD Coin",
+        symbol: "USDC",
+        decimals: 6,
+        chain: .hyperliquid,
+        tokenAddress: "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        image: SOLANA_USDC_MAINNET_IMAGE,
+        label: "ERC-20",
         priceUsd: 1
     )
 

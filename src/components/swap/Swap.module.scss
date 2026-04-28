@@ -301,7 +301,7 @@
 .changellyInfo,
 .priceImpact {
   padding: 1rem;
-  border-radius: var(--border-radius-default);
+  border-radius: var(--border-radius-medium);
   background-color: var(--color-background-first);
 
   .feeLine + & {

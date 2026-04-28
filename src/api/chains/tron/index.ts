@@ -11,13 +11,14 @@ import {
 import { setupActivePolling, setupInactivePolling } from './polling';
 import { fetchTransactionById } from './transactionInfo';
 import { checkTransactionDraft, fetchEstimateDiesel, submitGasfullTransfer } from './transfer';
-import { getAddressInfo } from './wallet';
+import { getAddressInfo, getWalletBalance } from './wallet';
 
 function notSupported(): never {
   throw new Error('Not supported in Tron');
 }
 
 const tronSdk: ChainSdk<'tron'> = {
+  fetchCrossChainActivitySlice: notSupported,
   fetchActivitySlice,
   fetchActivityDetails,
   decryptComment: notSupported,
@@ -30,8 +31,6 @@ const tronSdk: ChainSdk<'tron'> = {
   // Ledger is relatively slow. So, to parallelize and speed up the loading, each balance should be loaded as soon as
   // the corresponding wallet is loaded from Ledger.
   getWalletsFromLedgerAndLoadBalance: notSupported,
-  getWalletVariants: notSupported,
-  createSubWalletFromDerivation: notSupported,
   setupActivePolling,
   setupInactivePolling,
   fetchToken: notSupported,
@@ -41,6 +40,7 @@ const tronSdk: ChainSdk<'tron'> = {
   submitGasfullTransfer,
   submitGaslessTransfer: notSupported,
   getAddressInfo,
+  getWalletBalance,
   verifyLedgerWalletAddress: notSupported,
   fetchPrivateKeyString,
   getIsLedgerAppOpen: notSupported,

@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.nft.views
 
 import android.animation.ValueAnimator
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
@@ -16,7 +17,6 @@ import android.view.Gravity
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ImageView.ScaleType
 import androidx.core.animation.doOnEnd
-import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
@@ -42,6 +42,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
@@ -185,7 +186,7 @@ open class NftHeaderView(
         useCustomEmoji = true
     }
     val subtitleLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Regular)
+        setStyle(adaptiveFontSize(), WFont.Regular)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.MARQUEE
         setSingleLine(true)
@@ -198,10 +199,9 @@ open class NftHeaderView(
         }
     }
 
-    private val subtitleArrowDrawable = ContextCompat.getDrawable(
-        context,
+    private val subtitleArrowDrawable = context.requireDrawableCompat(
         org.mytonwallet.app_air.icons.R.drawable.ic_arrow_right_16_24
-    )!!.apply {
+    ).apply {
         mutate()
         setTint(WColor.PrimaryLightText.color)
         val width = 12.dp

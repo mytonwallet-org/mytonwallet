@@ -38,7 +38,8 @@ export async function fetchActivitySlice({
   const { address } = await fetchStoredWallet(accountId, 'solana');
 
   if (tokenSlug) {
-    return getTokenActivitySlice(network, address, tokenSlug, toTimestamp, fromTimestamp, limit);
+    const { activities } = await getTokenActivitySlice(network, address, tokenSlug, toTimestamp, fromTimestamp, limit);
+    return activities;
   } else {
     return getAllActivitySlice(network, address, toTimestamp, fromTimestamp, limit);
   }
@@ -51,7 +52,7 @@ export async function getTokenActivitySlice(
   toTimestamp?: number,
   fromTimestamp?: number,
   limit?: number,
-) {
+): Promise<{ activities: ApiActivity[]; hasMore: boolean }> {
   let activities: ApiActivity[] = [];
 
   let rawTransactions: SolanaParsedTransaction[] = [];
@@ -79,6 +80,11 @@ export async function getTokenActivitySlice(
     }
   }
 
+  // hasMore is computed from the raw API response length, not the post-transform `activities`.
+  // `transformSolanaTxToUnified` returns undefined for unsupported tx shapes, and `.filter(Boolean)`
+  // drops those - so a length check on the returned activities would underreport remaining pages.
+  const hasMore = limit !== undefined && rawTransactions.length >= limit;
+
   const [, nfts] = await Promise.all([
     collectTokensFromTransactions(network, address, rawTransactions),
     collectNftsFromTransactions(network, address, rawTransactions),
@@ -88,7 +94,7 @@ export async function getTokenActivitySlice(
     .map((e) => transformSolanaTxToUnified(address, e, nfts))
     .filter(Boolean);
 
-  return sortActivities(activities);
+  return { activities: sortActivities(activities), hasMore };
 }
 
 async function getAllActivitySlice(
@@ -100,7 +106,10 @@ async function getAllActivitySlice(
 ) {
   const txsBySlug: Record<string, ApiActivity[]> = {};
 
-  const txs = await getTokenActivitySlice(network, address, undefined, toTimestamp, fromTimestamp, limit);
+  const { activities: txs } = await getTokenActivitySlice(
+    network, address, undefined, toTimestamp, fromTimestamp, limit,
+  );
+
   for (const tx of txs) {
     if (tx.kind === 'transaction') {
       txsBySlug[tx.slug] = [...(txsBySlug[tx.slug] || []), tx];
@@ -183,6 +192,7 @@ export async function collectTokensFromTransactions(
   rawTxs: SolanaParsedTransaction[],
 ) {
   const addresses = new Set<string>();
+
   for (const tx of rawTxs) {
     if (tx.tokenTransfers && tx.tokenTransfers.length) {
       for (const transfer of tx.tokenTransfers) {
@@ -192,6 +202,7 @@ export async function collectTokensFromTransactions(
       }
     }
   }
+
   await updateTokensMetadataByAddress(network, [...addresses]);
 }
 

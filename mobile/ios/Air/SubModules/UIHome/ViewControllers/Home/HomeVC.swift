@@ -144,7 +144,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         view.backgroundColor = .air.headerBackground
 
         headerTouchTarget.translatesAutoresizingMaskIntoConstraints = false
-        headerTouchTarget.text = String(repeating: "A", count: 20)
+        headerTouchTarget.text = lang("Wallet")
         headerTouchTarget.textColor = .clear
         headerTouchTarget.isUserInteractionEnabled = true
         headerTouchTarget.accessibilityElementsHidden = true

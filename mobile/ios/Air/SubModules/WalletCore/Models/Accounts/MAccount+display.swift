@@ -60,18 +60,36 @@ public extension MAccount {
             public var isLast: Bool = false
             public var id: String { chain.rawValue }
         }
+        public struct DisplayItem: Equatable, Hashable, Identifiable {
+            public var item: Item
+            public var showsAddress: Bool
+            public var id: String { item.id }
+        }
         public var items: [Item]
         public var testnetImage: Image {
             Image.airBundle("inline_testnet")
         }
 
+        public func displayItems(maxChainCount: Int?, multichainAddressCount: Int) -> [DisplayItem] {
+            let displayItems = Self.items(items, maxChainCount: maxChainCount)
+            let addressCount = if displayItems.count == 1 {
+                1
+            } else {
+                min(max(0, multichainAddressCount), displayItems.count)
+            }
+            return displayItems.enumerated().map { idx, item in
+                DisplayItem(item: item, showsAddress: idx < addressCount)
+            }
+        }
+
         /// Builds NSAttributedString similar to `MtwCardAddressLine` (list style)
-        public func attributedString(font: UIFont, color: UIColor) -> NSAttributedString {
+        public func attributedString(font: UIFont, color: UIColor, maxChainCount: Int? = nil, multichainAddressCount: Int = 2) -> NSAttributedString {
             let result = NSMutableAttributedString()
             let iconSize: CGFloat = font.pointSize
             let singleChainCount = 6
             let multiChainEndCount = 6
-            let itemsCount = items.count
+            let displayItems = displayItems(maxChainCount: maxChainCount, multichainAddressCount: multichainAddressCount)
+            let itemsCount = displayItems.count
 
             let attributes: [NSAttributedString.Key : Any] = [.font: font, .foregroundColor: color]
             let space = NSAttributedString(string: " ", attributes: attributes)
@@ -82,6 +100,18 @@ public extension MAccount {
                 let attachment = NSTextAttachment()
                 attachment.image = scaled.withTintColor(color, renderingMode: .alwaysOriginal)
                 attachment.bounds = CGRect(x: 0, y: (font.capHeight - iconSize) / 2, width: iconSize, height: iconSize)
+                result.append(NSAttributedString(attachment: attachment))
+            }
+
+            func appendSymbol(_ name: String) {
+                let configuration = UIImage.SymbolConfiguration(font: font, scale: .small)
+                guard let image = UIImage(named: name, in: AirBundle, compatibleWith: nil)?
+                    .withConfiguration(configuration)
+                    .withTintColor(color, renderingMode: .alwaysOriginal)
+                else {
+                    return
+                }
+                let attachment = NSTextAttachment(image: image)
                 result.append(NSAttributedString(attachment: attachment))
             }
 
@@ -97,11 +127,13 @@ public extension MAccount {
                 result.append(space)
             }
 
-            for (idx, item) in items.enumerated() {
+            for (idx, displayItem) in displayItems.enumerated() {
+                let item = displayItem.item
                 if idx > 0 {
                     result.append(NSAttributedString(string: ", ", attributes: attributes))
                 }
-                appendIcon("inline_chain_\(item.chain.rawValue)")
+                appendSymbol("inline.chain.\(item.chain.rawValue)")
+                guard displayItem.showsAddress else { continue }
                 let text: String
                 if item.isDomain {
                     text = item.text
@@ -115,13 +147,46 @@ public extension MAccount {
 
             return result
         }
+
+        private static func items(_ items: [Item], maxChainCount: Int?) -> [Item] {
+            let limitedItems = if let maxChainCount {
+                Array(items.prefix(max(0, maxChainCount)))
+            } else {
+                items
+            }
+            return limitedItems.enumerated().map { idx, item in
+                var item = item
+                item.isLast = idx == limitedItems.count - 1
+                return item
+            }
+        }
+    }
+
+    func addressLine(orderedChains: [(ApiChain, AccountChain)], tokenChains: Set<ApiChain>? = nil, isGramWallet: Bool = IS_GRAM_WALLET) -> AddressLine {
+        let orderedChains = Self.addressLineChains(
+            orderedChains: orderedChains,
+            tokenChains: tokenChains,
+            isGramWallet: isGramWallet
+        )
+        return makeAddressLine(orderedChains: orderedChains)
+    }
+
+    static func addressLineChains(orderedChains: [(ApiChain, AccountChain)], tokenChains: Set<ApiChain>?, isGramWallet: Bool) -> [(ApiChain, AccountChain)] {
+        guard
+            isGramWallet,
+            let tokenChains,
+            tokenChains.subtracting([.ton]).isEmpty,
+            let tonChain = orderedChains.first(where: { $0.0 == .ton })
+        else {
+            return orderedChains
+        }
+        return [tonChain]
     }
     
-    var addressLine: AddressLine {
+    private func makeAddressLine(orderedChains: [(ApiChain, AccountChain)]) -> AddressLine {
         let isTestnet = network == .testnet
         let leadingIcon: AddressLine.LeadingIcon? = isTemporary == true ? nil : isView ? .view : isHardware ? .ledger : nil
         var items: [AddressLine.Item] = []
-        let orderedChains = orderedChains
         for (idx, chainInfo) in orderedChains.enumerated() {
             let (chain, info) = chainInfo
             let isDomain: Bool
@@ -145,6 +210,47 @@ public extension MAccount {
             )
         }
         return AddressLine(isTestnet: isTestnet, leadingIcon: leadingIcon, items: items)
+    }
+}
+
+public extension AccountContext {
+    var orderedChains: [(ApiChain, AccountChain)] {
+        let defaultOrderedChains = account.orderedChains
+        guard defaultOrderedChains.count > 1 else {
+            return defaultOrderedChains
+        }
+
+        let defaultOrder = Dictionary(uniqueKeysWithValues: defaultOrderedChains.enumerated().map { offset, element in
+            (element.0, offset)
+        })
+        let chainBalances = balanceUsdByChain ?? [:]
+
+        return defaultOrderedChains.sorted { lhs, rhs in
+            let lhsBalance = chainBalances[lhs.0] ?? 0
+            let rhsBalance = chainBalances[rhs.0] ?? 0
+
+            if lhsBalance != rhsBalance {
+                return lhsBalance > rhsBalance
+            }
+
+            return defaultOrder[lhs.0, default: Int.max] < defaultOrder[rhs.0, default: Int.max]
+        }
+    }
+
+    var addressLine: MAccount.AddressLine {
+        account.addressLine(orderedChains: orderedChains, tokenChains: addressLineTokenChains)
+    }
+
+    private var addressLineTokenChains: Set<ApiChain>? {
+        guard let tokens = walletTokensData?.orderedTokenBalances else { return nil }
+        var chains: Set<ApiChain> = []
+        for token in tokens {
+            guard let chain = getChainBySlug(token.tokenSlug) ?? token.token?.chain else {
+                return nil
+            }
+            chains.insert(chain)
+        }
+        return chains
     }
 }
 

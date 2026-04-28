@@ -11,8 +11,18 @@ enum SwapSide {
     case buying
 }
 
+enum SwapInputChangeSource {
+    case user
+    case maxAmountRecalculation
+}
+
 @MainActor protocol SwapInputModelDelegate: AnyObject {
-    func swapDataChanged(swapSide: SwapSide, selling: TokenAmount, buying: TokenAmount)
+    func swapDataChanged(
+        swapSide: SwapSide,
+        selling: TokenAmount,
+        buying: TokenAmount,
+        source: SwapInputChangeSource
+    )
 }
 
 @Perceptible
@@ -202,19 +212,26 @@ enum SwapSide {
         }
     }
     
-    private func updateRemote(amount: BigInt?, token: ApiToken, side: SwapSide) {
+    private func updateRemote(
+        amount: BigInt?,
+        token: ApiToken,
+        side: SwapSide,
+        source: SwapInputChangeSource = .user
+    ) {
         switch side {
         case .selling:
             delegate?.swapDataChanged(
                 swapSide: .selling,
                 selling: TokenAmount(amount ?? 0, token),
                 buying: buyingTokenAmount,
+                source: source
             )
         case .buying:
             delegate?.swapDataChanged(
                 swapSide: .buying,
                 selling: sellingTokenAmount,
                 buying: TokenAmount(amount ?? 0, token),
+                source: source
             )
         }
     }
@@ -251,8 +268,15 @@ enum SwapSide {
             maxAmountFromBackend: backendMaxAmount
         ))
         if isUsingMax, let targetAmount = maxAmount ?? tokenBalance, sellingAmount != targetAmount {
+            suspendUpdates = true
             sellingAmount = targetAmount
-            updateRemote(amount: targetAmount, token: sellingToken, side: .selling)
+            suspendUpdates = false
+            updateRemote(
+                amount: targetAmount,
+                token: sellingToken,
+                side: .selling,
+                source: .maxAmountRecalculation
+            )
         }
     }
 

@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.notificationSettings.cells
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.SpannableStringBuilder
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -48,7 +49,7 @@ class NotificationSettingsAccountCell(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.Medium)
+            setStyle(adaptiveFontSize(), WFont.Medium)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
             useCustomEmoji = true

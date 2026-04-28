@@ -17,7 +17,6 @@ import { getCountDaysToDate } from '../../../../util/dateFormat';
 import { getDomainsExpirationDate, isRenewableDnsNft } from '../../../../util/dns';
 import { compact } from '../../../../util/iteratees';
 
-import { getIsPortrait } from '../../../../hooks/useDeviceScreen';
 import useHistoryBack from '../../../../hooks/useHistoryBack';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
@@ -105,7 +104,6 @@ function NftSelectionHeader({
     clearNftsSelection();
 
     startTransfer({
-      isPortrait: getIsPortrait(),
       nfts,
     });
   });

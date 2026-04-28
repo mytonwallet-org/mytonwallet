@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uistake.staking.views
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.text.TextUtils
@@ -17,9 +18,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLinearLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 
 @SuppressLint("ViewConstructor")
 class StakeDetailView(
@@ -41,19 +42,19 @@ class StakeDetailView(
 
     private val apyStartLabel = WLabel(context).apply {
         text = LocaleController.getString("Current APY")
-        setStyle(16f, WFont.Regular)
+        setStyle(adaptiveFontSize(), WFont.Regular)
         setLineHeight(24f)
         setTextColor(WColor.SecondaryText.color)
         setPadding(0, 0, 0, 1.dp)
     }
 
     private val apyEndLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setLineHeight(24f)
         setTextColor(Color.WHITE)
         visibility = View.INVISIBLE
 
-        setPaddingDp(6f, 1f, 6f, 3f)
+        setPaddingDp(6f, 1f, 6f, 1f)
     }
 
     private val earningRow: WView by lazy {
@@ -71,8 +72,8 @@ class StakeDetailView(
             ConstraintLayout.LayoutParams.MATCH_CONSTRAINT,
             ConstraintLayout.LayoutParams.WRAP_CONTENT
         )
-        text = LocaleController.getString("Est. earning per year")
-        setStyle(16f, WFont.Regular)
+        text = LocaleController.getString("Est. Yearly Earnings")
+        setStyle(adaptiveFontSize(), WFont.Regular)
         setLineHeight(24f)
         setTextColor(WColor.SecondaryText.color)
         setPadding(0, 0, 0, 1.dp)
@@ -84,7 +85,7 @@ class StakeDetailView(
 
     private val earningEndLabel = WCounterLabel(context).apply {
         id = generateViewId()
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         layoutParams = ConstraintLayout.LayoutParams(
             ConstraintLayout.LayoutParams.WRAP_CONTENT,
             ConstraintLayout.LayoutParams.WRAP_CONTENT
@@ -97,6 +98,56 @@ class StakeDetailView(
         )
         setPadding(4.dp, 7.dp, 0, 0)
         visibility = INVISIBLE
+    }
+
+    private val tvlRow: WView by lazy {
+        WView(
+            context, layoutParams = ConstraintLayout.LayoutParams(
+                ConstraintLayout.LayoutParams.MATCH_PARENT,
+                50.dp
+            )
+        ).apply {
+            visibility = GONE
+        }
+    }
+
+    private val tvlStartLabel = WLabel(context).apply {
+        text = LocaleController.getString("Total Staked")
+        setStyle(adaptiveFontSize(), WFont.Regular)
+        setLineHeight(24f)
+        setTextColor(WColor.SecondaryText.color)
+        setPadding(0, 0, 0, 1.dp)
+    }
+
+    private val tvlEndLabel = WLabel(context).apply {
+        setStyle(adaptiveFontSize(), WFont.Medium)
+        setLineHeight(24f)
+        setPadding(0, 0, 0, 1.dp)
+    }
+
+    private val stakersRow: WView by lazy {
+        WView(
+            context, layoutParams = ConstraintLayout.LayoutParams(
+                ConstraintLayout.LayoutParams.MATCH_PARENT,
+                50.dp
+            )
+        ).apply {
+            visibility = GONE
+        }
+    }
+
+    private val stakersStartLabel = WLabel(context).apply {
+        text = LocaleController.getString("Total Stakers")
+        setStyle(adaptiveFontSize(), WFont.Regular)
+        setLineHeight(24f)
+        setTextColor(WColor.SecondaryText.color)
+        setPadding(0, 0, 0, 1.dp)
+    }
+
+    private val stakersEndLabel = WLabel(context).apply {
+        setStyle(adaptiveFontSize(), WFont.Medium)
+        setLineHeight(24f)
+        setPadding(0, 0, 0, 1.dp)
     }
 
     private val whySafeRow: WView by lazy {
@@ -112,8 +163,8 @@ class StakeDetailView(
     }
 
     private val whySafeStartLabel = WLabel(context).apply {
-        text = LocaleController.getString("Why is staking safe?")
-        setStyle(16f, WFont.Regular)
+        text = LocaleController.getString("Why this is safe")
+        setStyle(adaptiveFontSize(), WFont.Regular)
         setLineHeight(24f)
         setTextColor(WColor.Tint.color)
         setPadding(0, 5.dp, 0, 1.dp)
@@ -145,6 +196,30 @@ class StakeDetailView(
             toBottom(earningEndLabel, 16f)
         }
 
+        tvlRow.addView(tvlStartLabel)
+        tvlRow.addView(tvlEndLabel)
+        tvlRow.setConstraints {
+            toTop(tvlStartLabel, 16f)
+            toStart(tvlStartLabel, 20f)
+            toBottom(tvlStartLabel, 16f)
+
+            toTop(tvlEndLabel, 16f)
+            toEnd(tvlEndLabel, 20f)
+            toBottom(tvlEndLabel, 16f)
+        }
+
+        stakersRow.addView(stakersStartLabel)
+        stakersRow.addView(stakersEndLabel)
+        stakersRow.setConstraints {
+            toTop(stakersStartLabel, 16f)
+            toStart(stakersStartLabel, 20f)
+            toBottom(stakersStartLabel, 16f)
+
+            toTop(stakersEndLabel, 16f)
+            toEnd(stakersEndLabel, 20f)
+            toBottom(stakersEndLabel, 16f)
+        }
+
         whySafeRow.addView(whySafeStartLabel)
         whySafeRow.setConstraints {
             toTop(whySafeStartLabel, 16f)
@@ -154,6 +229,8 @@ class StakeDetailView(
 
         addView(apyRow)
         addView(earningRow)
+        addView(tvlRow)
+        addView(stakersRow)
         addView(whySafeRow)
     }
 
@@ -168,6 +245,10 @@ class StakeDetailView(
     override fun updateTheme() {
         apyStartLabel.setTextColor(WColor.Tint.color)
         earningStartLabel.setTextColor(WColor.Tint.color)
+        tvlStartLabel.setTextColor(WColor.Tint.color)
+        tvlEndLabel.setTextColor(WColor.PrimaryText.color)
+        stakersStartLabel.setTextColor(WColor.Tint.color)
+        stakersEndLabel.setTextColor(WColor.PrimaryText.color)
         whySafeStartLabel.setTextColor(WColor.Tint.color)
         whySafeRow.addRippleEffect(WColor.SecondaryBackground.color)
     }
@@ -175,6 +256,34 @@ class StakeDetailView(
     fun setEarning(earningAmount: String) {
         earningEndLabel.setAmount(earningAmount)
         earningEndLabel.visibility = VISIBLE
+    }
+
+    fun setTvl(tvl: Double?) {
+        if (tvl == null) {
+            tvlRow.visibility = GONE
+            return
+        }
+        tvlRow.visibility = VISIBLE
+        tvlEndLabel.text = tvl.toString(
+            decimals = 0,
+            currency = "TON",
+            currencyDecimals = 0,
+            smartDecimals = false,
+        )
+    }
+
+    fun setTotalStakers(totalStakers: Long?) {
+        if (totalStakers == null) {
+            stakersRow.visibility = GONE
+            return
+        }
+        stakersRow.visibility = VISIBLE
+        stakersEndLabel.text = totalStakers.toDouble().toString(
+            decimals = 0,
+            currency = "",
+            currencyDecimals = 0,
+            smartDecimals = false,
+        )
     }
 
     @SuppressLint("SetTextI18n")

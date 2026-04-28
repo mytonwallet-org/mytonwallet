@@ -17,7 +17,6 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Scroller
-import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.withSave
@@ -40,6 +39,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import kotlin.math.abs
 import kotlin.math.pow
@@ -145,7 +145,7 @@ class WCoverFlowView @JvmOverloads constructor(
             org.mytonwallet.app_air.icons.R.drawable.img_nft_no_image_dark
         else
             org.mytonwallet.app_air.icons.R.drawable.img_nft_no_image_light
-        val iconDrawable = ContextCompat.getDrawable(context, iconRes)
+        val iconDrawable = context.getDrawableCompat(iconRes)
         val iconSize = 60f.dp.toInt()
         val iconLeft = ((COVER_WIDTH - iconSize) / 2f).toInt()
         val textSize = TypedValue.applyDimension(

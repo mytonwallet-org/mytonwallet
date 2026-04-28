@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -27,7 +28,7 @@ class WEmptyIconView(
 
     private val textLabel: WLabel by lazy {
         val v = WLabel(context)
-        v.setStyle(16f)
+        v.setStyle(adaptiveFontSize())
         v.textAlignment = TEXT_ALIGNMENT_CENTER
         v
     }

@@ -1,4 +1,4 @@
-import type { ApiAccountWithMnemonic, ApiAnyDisplayError, ApiNetwork, ApiTronWallet } from '../../types';
+import type { ApiAccountWithMnemonic, ApiAnyDisplayError, ApiDerivation, ApiNetwork, ApiTronWallet } from '../../types';
 import { ApiCommonError } from '../../types';
 
 import { parseAccountId } from '../../../util/account';
@@ -10,6 +10,7 @@ import { getKnownAddressInfo } from '../../common/addresses';
 import { getMnemonic } from '../../common/mnemonic';
 import { bytesToHex, hexToBytes } from '../../common/utils';
 import { isValidAddress } from './address';
+import { TRON_BIP39_PATH } from './constants';
 
 export async function fetchPrivateKeyString(accountId: string, password: string, account?: ApiAccountWithMnemonic) {
   try {
@@ -23,7 +24,10 @@ export async function fetchPrivateKeyString(accountId: string, password: string,
       return mnemonic[0];
     } else {
       const { network } = parseAccountId(accountId);
-      return getRawWalletFromBip39Mnemonic(network, mnemonic).privateKey.slice(2);
+      const derivation = account.byChain.tron?.derivation;
+      const raw = getRawWalletFromBip39Mnemonic(network, mnemonic, derivation);
+
+      return raw.privateKey.replace(/^0x/i, '');
     }
   } catch (err) {
     logDebugError('fetchPrivateKeyString', err);
@@ -32,13 +36,28 @@ export async function fetchPrivateKeyString(accountId: string, password: string,
   }
 }
 
-export function getWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]): ApiTronWallet {
-  const { address, publicKey } = getRawWalletFromBip39Mnemonic(network, mnemonic);
-  return {
-    address,
+export function getWalletFromBip39Mnemonic(
+  network: ApiNetwork,
+  mnemonic: string[],
+  derivation?: ApiDerivation,
+): ApiTronWallet[] {
+  const raw = getRawWalletFromBip39Mnemonic(network, mnemonic, derivation);
+
+  const pathTemplate = derivation?.path ?? TRON_BIP39_PATH;
+  const index = derivation?.index ?? 0;
+
+  const publicKey = raw.publicKey.replace(/^0x/i, '');
+
+  return [{
+    address: raw.address,
     publicKey,
     index: 0,
-  };
+    derivation: {
+      path: pathTemplate,
+      index,
+      ...(derivation?.label !== undefined && { label: derivation.label }),
+    },
+  }];
 }
 
 export function getWalletFromPrivateKey(
@@ -73,6 +92,17 @@ export function getWalletFromAddress(
   };
 }
 
-function getRawWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]) {
-  return getTronClient(network).fromMnemonic(mnemonic.join(' '));
+function buildResolvedTronPath(derivation?: ApiDerivation) {
+  const pathTemplate = derivation?.path ?? TRON_BIP39_PATH;
+  const index = derivation?.index ?? 0;
+
+  return pathTemplate.replace('{index}', String(index));
+}
+
+function getRawWalletFromBip39Mnemonic(
+  network: ApiNetwork,
+  mnemonic: string[],
+  derivation?: ApiDerivation,
+) {
+  return getTronClient(network).fromMnemonic(mnemonic.join(' '), buildResolvedTronPath(derivation));
 }

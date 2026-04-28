@@ -44,7 +44,9 @@ public struct SendComposeView: View {
                             )
                             .padding(.horizontal, 16)
                         }
-                        CommentOrMemoSection(model: self.model, commentIsEncrypted: $model.isMessageEncrypted, commentOrMemo: $model.comment)
+                        if model.isTransferPayloadAvailable {
+                            CommentOrMemoSection(model: self.model, commentIsEncrypted: $model.isMessageEncrypted, commentOrMemo: $model.comment)
+                        }
                     }
                     .transition(.opacity.combined(with: .offset(y: 20)))
                 }
@@ -83,6 +85,7 @@ public struct SendComposeView: View {
 // MARK: -
 
 struct SendComposeTitleView: View {
+    var isSellSupported: Bool
     var onSellTapped: () -> Void
     var onMultisendTapped: () -> Void
 
@@ -90,7 +93,7 @@ struct SendComposeTitleView: View {
 
     var body: some View {
         
-        let showSell = !ConfigStore.shared.shouldRestrictSell
+        let showSell = isSellSupported && !ConfigStore.shared.shouldRestrictSell
         
         HStack(spacing: 12) {
             HStack(spacing: 4) {

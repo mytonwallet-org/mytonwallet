@@ -77,6 +77,10 @@
   color: var(--color-black);
   text-overflow: ellipsis;
   white-space: nowrap;
+
+  @include mixins.respond-above(xs) {
+    font-size: 0.9375rem;
+  }
 }
 
 .nftIndicator {
@@ -107,6 +111,18 @@
     margin-inline-end: 0.125rem;
     vertical-align: -0.125rem;
   }
+
+  @include mixins.respond-above(xs) {
+    font-size: 0.75rem;
+  }
+}
+
+.balanceWrapper {
+  height: 1rem;
+}
+
+.balanceContainer {
+  vertical-align: top;
 }
 
 .balance {
@@ -120,6 +136,10 @@
   color: var(--color-gray-2);
   text-align: right;
   white-space: nowrap;
+
+  @include mixins.respond-above(xs) {
+    font-size: 0.9375rem;
+  }
 }
 
 .currencySymbol,

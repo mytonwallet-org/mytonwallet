@@ -123,8 +123,13 @@ struct AccountTypePickerView: View {
                     let introModel = IntroModel(network: network, password: passcode)
                     let model = await LedgerAddAccountModel()
                     let importWalletVC = LedgerAddAccountVC(model: model, showBackButton: false)
+                    let hadExistingAccounts = !AccountStore.accountsById.isEmpty
                     importWalletVC.onDone = { _ in
-                        introModel.onDone(successKind: .imported)
+                        introModel.onDone(
+                            successKind: .imported,
+                            hadExistingAccounts: hadExistingAccounts,
+                            importedAccountsCount: model.importedAccountsCount
+                        )
                     }
                     let navVC = WNavigationController(rootViewController: importWalletVC)
                     topViewController()?.present(navVC, animated: true)

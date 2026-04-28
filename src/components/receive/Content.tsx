@@ -5,11 +5,12 @@ import type { ApiChain } from '../../api/types';
 import type { Account } from '../../global/types';
 import type { TabWithProperties } from '../ui/TabList';
 
-import { DEFAULT_CHAIN } from '../../config';
+import { DEFAULT_CHAIN, PRIORITY_TOKENS } from '../../config';
 import {
   selectCurrentAccount,
   selectCurrentAccountId,
   selectCurrentAccountState,
+  selectIsCurrentAccountViewMode,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { getChainTitle, getSupportedChains } from '../../util/chain';
@@ -21,31 +22,47 @@ import useLastCallback from '../../hooks/useLastCallback';
 
 import TabList from '../ui/TabList';
 import Transition from '../ui/Transition';
-import Actions from './content/Actions';
 import Address from './content/Address';
 
 import styles from './ReceiveModal.module.scss';
 
+const CHAIN_ORDER = PRIORITY_TOKENS.reduce((acc, token) => {
+  if (!acc.has(token.chain)) {
+    acc.set(token.chain, acc.size);
+  }
+
+  return acc;
+}, new Map<ApiChain, number>());
+
+const ORDERED_SUPPORTED_CHAINS = getSupportedChains()
+  .map((chain, index) => ({ chain, index }))
+  .sort((a, b) => {
+    const orderDiff = (CHAIN_ORDER.get(a.chain) ?? Infinity) - (CHAIN_ORDER.get(b.chain) ?? Infinity);
+
+    return orderDiff || a.index - b.index;
+  })
+  .map(({ chain }) => chain);
+
 interface StateProps {
   accountChains?: Account['byChain'];
   isLedger?: boolean;
+  isViewMode: boolean;
   chain: ApiChain;
 }
 
 type OwnProps = {
   isOpen?: boolean;
-  isStatic?: boolean;
   onClose?: NoneToVoidFunction;
 };
 
 const tabIdByChain = Object.fromEntries(
-  getSupportedChains().map((chain, index) => [chain, index]),
+  ORDERED_SUPPORTED_CHAINS.map((chain, index) => [chain, index]),
 ) as Record<ReturnType<typeof getSupportedChains>[number], number>;
 
 const chainByTabId = swapKeysAndValues(tabIdByChain);
 
 function Content({
-  isOpen, accountChains, chain, isStatic, isLedger, onClose,
+  isOpen, accountChains, chain, isLedger, isViewMode, onClose,
 }: StateProps & OwnProps) {
   const { setReceiveActiveTab } = getActions();
 
@@ -71,8 +88,8 @@ function Content({
       <Address
         chain={chain}
         isActive={isOpen && isActive}
-        isStatic={isStatic}
         isLedger={isLedger}
+        isViewMode={isViewMode}
         address={accountChains?.[chain]?.address ?? ''}
         onClose={onClose}
       />
@@ -85,13 +102,11 @@ function Content({
 
   return (
     <>
-      {isStatic && <Actions chain={chain} isStatic isLedger={isLedger} />}
-
       {tabs.length > 1 && (
         <TabList
           tabs={tabs}
           activeTab={activeTab}
-          className={buildClassName(styles.tabs, !isStatic && styles.tabsInModal)}
+          className={styles.tabs}
           overlayClassName={buildClassName(styles.tabsOverlay, chain && styles[chain])}
           onSwitchTab={handleSwitchTab}
         />
@@ -101,8 +116,7 @@ function Content({
         activeKey={activeTab}
         name={isPortrait ? 'slide' : 'semiFade'}
         className={styles.contentWrapper}
-        slideClassName={buildClassName(styles.content, isStatic && styles.contentStatic, 'custom-scroll')}
-        shouldRestoreHeight={isStatic}
+        slideClassName={buildClassName(styles.content, 'custom-scroll')}
       >
         {renderAddress}
       </Transition>
@@ -118,6 +132,7 @@ export default memo(
     return {
       accountChains: account?.byChain,
       isLedger: account?.type === 'hardware',
+      isViewMode: selectIsCurrentAccountViewMode(global),
       chain: receiveModalChain ?? DEFAULT_CHAIN,
     };
   },
@@ -127,7 +142,7 @@ export default memo(
 function getChainTabs(accountChains: Partial<Record<ApiChain, unknown>>) {
   const result: TabWithProperties[] = [];
 
-  for (const chain of getSupportedChains()) {
+  for (const chain of ORDERED_SUPPORTED_CHAINS) {
     if (!(chain in accountChains)) {
       continue;
     }

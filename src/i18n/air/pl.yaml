@@ -85,10 +85,11 @@ App Icon: Ikona aplikacji
 App Font: Czcionka aplikacji
 Rounded Toolbars: Zaokrąglone paski narzędzi
 Side Gutters: Boczne marginesy
+Gradient Navigation Bar: Gradientowy pasek nawigacji
 Tokens on Home Screen: Tokeny na ekranie głównym
 Current Wallet Version: Obecna wersja portfela
 Tokens on Other Versions: Tokeny w innych wersjach
-Show Recovery Phrase: Pokaż frazę odzyskiwania
+Show Secret Words: Pokaż tajne słowa
 Passcode: Kod
 Lock the app after: Zablokuj aplikację po
 Never: Nigdy
@@ -105,7 +106,7 @@ Up to %1$@: Do %1$@
 up to %1$@: do %1$@
 Current APY: Bieżący APY
 Current APR: Bieżący APR
-Est. earning per year: Szacowany roczny zysk
+Est. Yearly Earnings: Szacowany roczny zysk
 in: w
 Error: Błąd
 Network Error: Błąd sieci
@@ -134,7 +135,7 @@ via %agg%: przez %agg%
 Switch to Legacy Version: Przełącz na klasyczną wersję
 Hide tab: Ukryj kartę
 Received from: Otrzymano od
-Your Recovery Phrase: Twoja fraza odzyskiwania
+Your Secret Words: Twoje tajne słowa
 day:
   zeroValue: "%1$d dni"
   oneValue: "%1$d dzień"
@@ -360,3 +361,11 @@ $more_nfts:
   zeroValue: Brak NFT
   oneValue: "+1 NFT"
   otherValue: "+%1$d NFT"
+
+$subwallets_found:
+  oneValue: "Znaleziono: %1$d"
+  otherValue: "Znaleziono: %1$d"
+
+$subwallets_hint: Używaj subportfeli, aby uzyskać dodatkowe adresy bez tworzenia nowych tajnych słów.
+$subwallets_created_wallets: Jeśli wcześniej tworzyłeś subportfele, pojawią się na poniższej liście.
+$subwallets_none: Brak subportfeli.

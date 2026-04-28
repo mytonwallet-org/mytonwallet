@@ -12,7 +12,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-import androidx.core.content.ContextCompat
 import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -35,6 +34,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
@@ -81,8 +81,7 @@ open class WalletCustomizationAvailableCardsView(
     var onCardChanged: ((accountId: String, nft: ApiNft?) -> Unit)? = null
     var tintColor = 0
 
-    private val topDrawable = ContextCompat.getDrawable(
-        context,
+    private val topDrawable = context.getDrawableCompat(
         org.mytonwallet.app_air.uisettings.R.drawable.ic_arrow_tooltip_top
     )
     private val topImageView = AppCompatImageView(context).apply {
@@ -117,7 +116,7 @@ open class WalletCustomizationAvailableCardsView(
     }
 
     private val roundDrawable by lazy {
-        RoundProgressDrawable(13.dp, 1f.dp).apply {
+        RoundProgressDrawable(13f.dp, 1f.dp).apply {
             color = WColor.SecondaryText.color
         }
     }

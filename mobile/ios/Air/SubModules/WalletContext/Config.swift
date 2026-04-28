@@ -3,11 +3,14 @@ import Foundation
 
 public let DEFAULT_TO_AIR = false
 public let SINGLETON_TABLE_ROW_ID: Int64 = 0
+public var IS_GRAM_WALLET: Bool {
+    Bundle.main.bundleIdentifier?.hasPrefix("io.gramwallet.") == true
+}
 
 // reference: src/config.ts
 
-public let NATIVE_BIOMETRICS_USERNAME = "MyTonWallet"
-public let NATIVE_BIOMETRICS_SERVER = "https://mytonwallet.app"
+public var NATIVE_BIOMETRICS_USERNAME: String { IS_GRAM_WALLET ? "GramWallet" : "MyTonWallet" }
+public var NATIVE_BIOMETRICS_SERVER: String { IS_GRAM_WALLET ? "https://gramwallet.io" : "https://mytonwallet.app" }
 
 public let PRICELESS_TOKEN_HASHES: Set<String?> = [
   "82566ad72b6568fe7276437d3b0c911aab65ed701c13601941b2917305e81c11", // Stonfi V1
@@ -50,6 +53,12 @@ public let MAX_PRICE_IMPACT_VALUE = 5.0
 
 public let JSBRIDGE_IDENTIFIER = "jsbridge"
 
+public var APP_WEBSITE_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io" : "https://mytonwallet.io" }
+public var APP_BLOG_URL: String { "\(APP_WEBSITE_URL)/en/blog" }
+public var APP_TERMS_OF_USE_URL: String { "\(APP_WEBSITE_URL)/terms-of-use" }
+public var APP_PRIVACY_POLICY_URL: String { "\(APP_WEBSITE_URL)/privacy-policy" }
+public var APP_INSTALL_URL: String { IS_GRAM_WALLET ? "\(APP_WEBSITE_URL)/ios" : "https://get.mytonwallet.io/ios" }
+public var BOT_USERNAME: String { IS_GRAM_WALLET ? "GramWalletBot" : "MyTonWalletBot" }
 public let SUPPORT_USERNAME = "mysupport"
 
 public let MTW_TIPS_CHANNEL_NAME = "MyTonWalletTips"
@@ -69,9 +78,17 @@ public let SMALL_CARD_RATIO: CGFloat = 116/80
 public let MEDIUM_CARD_RATIO: CGFloat = 110/75
 public let LARGE_CARD_RATIO: CGFloat = 274/176
 
-public var APP_NAME: String { lang("MyTonWallet") }
+public var APP_NAME: String { IS_GRAM_WALLET ? "Gram Wallet" : lang("MyTonWallet") }
 
-public var IS_DEBUG_OR_TESTFLIGHT: Bool {
+public enum DebugProductionMode {
+    public static let userDefaultsKey = "debug_forceProductionMode"
+
+    public static var isEnabled: Bool {
+        UserDefaults.standard.bool(forKey: userDefaultsKey)
+    }
+}
+
+public var IS_DEBUG_OR_TESTFLIGHT_DEFAULT: Bool {
     #if DEBUG
     return true
     #else
@@ -79,6 +96,14 @@ public var IS_DEBUG_OR_TESTFLIGHT: Bool {
     #endif
 }
 
-public let SELF_PROTOCOL = "mtw://"
-public let SHORT_UNIVERSAL_URL = "https://my.tt/"
-public let SELF_UNIVERSAL_URLS = [SHORT_UNIVERSAL_URL,  "https://go.mytonwallet.org/"]
+public var IS_DEBUG_OR_TESTFLIGHT: Bool {
+    !DebugProductionMode.isEnabled && IS_DEBUG_OR_TESTFLIGHT_DEFAULT
+}
+
+public var SELF_PROTOCOL_SCHEME: String { IS_GRAM_WALLET ? "gramwallet" : "mtw" }
+public var TONCONNECT_PROTOCOL_SCHEME: String { IS_GRAM_WALLET ? "gramwallet-tc" : "mytonwallet-tc" }
+public var SELF_PROTOCOL: String { "\(SELF_PROTOCOL_SCHEME)://" }
+public var TONCONNECT_UNIVERSAL_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/tonconnect" : "https://connect.mytonwallet.org" }
+public var SHORT_UNIVERSAL_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/" : "https://my.tt/" }
+public var SELF_UNIVERSAL_URLS: [String] { IS_GRAM_WALLET ? ["https://gramwallet.io/"] : [SHORT_UNIVERSAL_URL, "https://go.mytonwallet.org/"] }
+public var SELF_UNIVERSAL_URL_HOSTS: Set<String> { IS_GRAM_WALLET ? ["gramwallet.io"] : ["go.mytonwallet.org", "my.tt"] }

@@ -85,10 +85,11 @@ App Icon: App 圖示
 App Font: App 字體
 Rounded Toolbars: 圓角工具列
 Side Gutters: 側邊留白
+Gradient Navigation Bar: 漸層導覽列
 Tokens on Home Screen: 主畫面顯示代幣
 Current Wallet Version: 目前錢包版本
 Tokens on Other Versions: 其他版本的代幣
-Show Recovery Phrase: 顯示備份助記詞
+Show Secret Words: 顯示密語
 Passcode: PIN 碼
 Lock the app after: 自動鎖定於
 Never: 永不
@@ -105,7 +106,7 @@ Up to %1$@: 最高 %1$@
 up to %1$@: 最高 %1$@
 Current APY: 目前 APY
 Current APR: 目前 APR
-Est. earning per year: 預估每年收益
+Est. Yearly Earnings: 預估每年收益
 in: 於
 Error: 錯誤
 Network Error: 網路錯誤
@@ -134,7 +135,7 @@ via %agg%: 經由 %agg%
 Switch to Legacy Version: 切換到傳統版本
 Hide tab: 隱藏分頁
 Received from: 收到自
-Your Recovery Phrase: 你的備份助記詞
+Your Secret Words: 您的密語
 day:
   zeroValue: "%1$d 天"
   otherValue: "%1$d 天"
@@ -346,3 +347,11 @@ $more_nfts:
   zeroValue: 無 NFT
   oneValue: "+1 個 NFT"
   otherValue: "+%1$d 個 NFT"
+
+$subwallets_found:
+  oneValue: "已找到：%1$d"
+  otherValue: "已找到：%1$d"
+
+$subwallets_hint: 使用子錢包可獲取額外地址，無需建立新的密語。
+$subwallets_created_wallets: 如果您之前建立過子錢包，它們將顯示在下面的列表中。
+$subwallets_none: 暫無子錢包。

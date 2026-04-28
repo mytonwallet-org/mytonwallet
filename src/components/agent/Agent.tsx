@@ -16,7 +16,6 @@ import { stopEvent } from '../../util/domEvents';
 import { openUrl } from '../../util/openUrl';
 import buildMessageIds, { DATE_ITEM_ID_PREFIX } from './helpers/buildMessageIds';
 
-import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useFlag from '../../hooks/useFlag';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useInfiniteScroll from '../../hooks/useInfiniteScroll';
@@ -59,7 +58,6 @@ function Agent({
   const { setAgentHints, switchToWallet } = getActions();
 
   const lang = useLang();
-  const { isPortrait } = useDeviceScreen();
   const [inputValue, setInputValue] = useState('');
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [areHintsOpen, setAreHintsOpen] = useState(false);
@@ -292,7 +290,9 @@ function Agent({
   });
 
   const handleClearInput = useLastCallback(() => {
-    handleInput('');
+    setInputValue('');
+    setEditingMessageId(undefined);
+    inputRef.current?.focus();
   });
 
   const handleEditMessage = useLastCallback((id: number, text: string) => {
@@ -390,9 +390,7 @@ function Agent({
 
   return (
     <div className={styles.root}>
-      {isPortrait && (
-        <AgentHeader isScrolled={isScrolled} isMenuVisible={messages.length > 0} onClearChat={openClearConfirm} />
-      )}
+      <AgentHeader isScrolled={isScrolled} isMenuVisible={messages.length > 0} onClearChat={openClearConfirm} />
 
       <InfiniteScroll
         ref={messagesRef}
@@ -423,7 +421,6 @@ function Agent({
         inputRef={inputRef}
         inputValue={inputValue}
         hints={agentHints}
-        isScrolledUp={isScrolledUp}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         onSend={handleSend}

@@ -422,6 +422,9 @@ class AssetsTabVC(
 
                                                                 is AssetsVC.CollectionMode.TelegramGifts ->
                                                                     MBlockchain.ton.name
+
+                                                                is AssetsVC.CollectionMode.ReadOnly ->
+                                                                    return@showAlert
                                                             }
                                                         homeNftCollections.removeAll {
                                                             it.address == collectionMode.collectionAddress &&

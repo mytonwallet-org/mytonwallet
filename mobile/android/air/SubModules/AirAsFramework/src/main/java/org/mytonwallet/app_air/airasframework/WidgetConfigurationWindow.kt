@@ -16,6 +16,7 @@ import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
 import org.mytonwallet.app_air.walletcore.WalletCore
 
 class WidgetConfigurationWindow : WWindow() {
+    private var isBridgeUser = false
     override fun getKeyNavigationController(): WNavigationController {
         val navigationController = WNavigationController(this)
         val appWidgetManager = AppWidgetManager.getInstance(this)
@@ -60,6 +61,7 @@ class WidgetConfigurationWindow : WWindow() {
 
         AirAsFrameworkApplication.initTheme(applicationContext)
 
+        isBridgeUser = true
         WalletCore.incBridgeUsers()
         restartBridge(forcedRecreation = false)
     }
@@ -93,6 +95,9 @@ class WidgetConfigurationWindow : WWindow() {
 
     override fun onDestroy() {
         super.onDestroy()
-        destroyBridge()
+        if (isBridgeUser) {
+            isBridgeUser = false
+            destroyBridge()
+        }
     }
 }

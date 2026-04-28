@@ -327,4 +327,8 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
         }
         collectionView.alpha = 1
     }
+    
+    override var activeCustomSectionIDs: [String] {
+        account.isView ? [assetsCustomSectionID] : [actionsCustomSectionID, assetsCustomSectionID]
+    }
 }

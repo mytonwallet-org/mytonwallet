@@ -90,7 +90,7 @@ object ActivityStore : IStore {
      * @property idsBySlug Ordered list of activity IDs per token slug
      */
     data class AccountActivityState(
-        var cachedTransactions: MutableMap<String, MApiTransaction> = HashMap(),
+        var cachedTransactions: MutableMap<String, MApiTransaction> = ConcurrentHashMap(),
         @Volatile
         var localTransactions: List<MApiTransaction> = emptyList(),
         @Volatile
@@ -809,9 +809,9 @@ object ActivityStore : IStore {
 
     private fun setCachedTransactions(
         accountId: String,
-        transactions: HashMap<String, MApiTransaction>
+        transactions: Map<String, MApiTransaction>
     ) {
-        getOrCreateAccountState(accountId).cachedTransactions = transactions
+        getOrCreateAccountState(accountId).cachedTransactions = ConcurrentHashMap(transactions)
         transactions.values.forEach {
             PoisoningCacheHelper.updatePoisoningCache(accountId, it)
         }

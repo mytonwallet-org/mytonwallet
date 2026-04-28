@@ -45,6 +45,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import androidx.core.graphics.ColorUtils
 import java.lang.ref.WeakReference
 import kotlin.math.abs
 import kotlin.math.max
@@ -53,6 +55,7 @@ import kotlin.math.max
 @SuppressLint("ViewConstructor")
 class WClearSegmentedControl(
     context: Context,
+    private val horizontalPaddingDp: Float = 11f,
 ) : FrameLayout(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource {
     data class Item(
         val title: String,
@@ -61,7 +64,8 @@ class WClearSegmentedControl(
         // onClick, usually opens a popup menu
         var onClick: ((v: View) -> Unit)?,
         var arrowVisibility: Float? = null,
-        var badge: String? = null
+        var badge: String? = null,
+        val color: Int? = null,
     )
 
     var horizontalFadingEdge: Boolean
@@ -374,7 +378,10 @@ class WClearSegmentedControl(
             }
 
             val textView = itemView.textView
-            textView.setTextColor(if (isDrawThumb) primaryTextColor else secondaryTextColor)
+            val itemColor = items.getOrNull(position)?.color
+            textView.setTextColor(
+                if (isDrawThumb) (itemColor ?: primaryTextColor) else secondaryTextColor
+            )
             textView.paint.typeface =
                 if (isDrawThumb) WFont.DemiBold.typeface else WFont.Medium.typeface
             val frameResult = super.drawChild(canvas, itemView, drawingTime)
@@ -426,7 +433,7 @@ class WClearSegmentedControl(
         setLayoutManager(layoutManager)
         addItemDecoration(SpacesItemDecoration(ITEM_SPACING.dp, 0))
         addOnItemTouchListener(recyclerViewTouchListener)
-        setPaddingDp(11, 0, 11, 0)
+        setPaddingDp(horizontalPaddingDp, 0f, horizontalPaddingDp, 0f)
         clipToPadding = false
         overScrollMode = OVER_SCROLL_NEVER
 
@@ -780,8 +787,19 @@ class WClearSegmentedControl(
         ensureVisibleThumb: Boolean = true,
         targetIndex: Int?
     ) {
+        if (items.isEmpty()) return
         val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
         val (index, nextIndex, fraction) = calculatePositionParams(position)
+
+        val color1 = items.getOrNull(index)?.color
+        if (color1 != null) {
+            val color2 = items.getOrNull(nextIndex)?.color ?: color1
+            paint.color =
+                ColorUtils.blendARGB(color1.colorWithAlpha(20), color2.colorWithAlpha(20), fraction)
+        } else {
+            paint.color = paintColor ?: WColor.TrinaryBackground.color
+        }
+
         val (currentView, nextView) = getViews(layoutManager, index, nextIndex)
 
         if (ensureVisibleThumb)

@@ -25,7 +25,7 @@ import java.lang.ref.WeakReference
 class LedgerWalletsVM(delegate: Delegate) {
     interface Delegate {
         fun finalizeFailed()
-        fun finalizedWallets()
+        fun finalizedWallets(importedAccountsCount: Int)
         fun loaded(wallets: List<MLedgerWalletInfo>)
     }
 
@@ -103,7 +103,7 @@ class LedgerWalletsVM(delegate: Delegate) {
                             return@activateAccount
                         }
                         Handler(Looper.getMainLooper()).post {
-                            delegate.get()?.finalizedWallets()
+                            delegate.get()?.finalizedWallets(finalizedWallets.size)
                         }
                     }
                 }

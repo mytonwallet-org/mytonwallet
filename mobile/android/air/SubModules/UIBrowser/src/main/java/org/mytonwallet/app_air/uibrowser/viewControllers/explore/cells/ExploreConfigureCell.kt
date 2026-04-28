@@ -3,13 +3,13 @@ package org.mytonwallet.app_air.uibrowser.viewControllers.explore.cells
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
-import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 
 
 @SuppressLint("ViewConstructor")
@@ -29,10 +29,7 @@ class ExploreConfigureCell(
     private val imageView = AppCompatImageView(context).apply {
         id = generateViewId()
         setImageDrawable(
-            ContextCompat.getDrawable(
-                context,
-                org.mytonwallet.app_air.icons.R.drawable.ic_details
-            )
+            context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_details)
         )
     }
 

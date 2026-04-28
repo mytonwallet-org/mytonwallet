@@ -27,7 +27,7 @@
   position: relative;
 
   padding: 0.4375rem 0.625rem;
-  border-radius: var(--border-radius-default);
+  border-radius: var(--border-radius-content);
 
   font-size: 0.9375rem;
   font-weight: 400;
@@ -184,8 +184,8 @@
   background: var(--color-accent-10o);
 
   &:last-child {
-    border-bottom-right-radius: var(--border-radius-default);
-    border-bottom-left-radius: var(--border-radius-default);
+    border-bottom-right-radius: var(--border-radius-medium);
+    border-bottom-left-radius: var(--border-radius-medium);
   }
 
   &:hover {

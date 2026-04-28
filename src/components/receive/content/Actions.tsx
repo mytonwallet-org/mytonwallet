@@ -3,6 +3,7 @@ import { getActions, withGlobal } from '../../../global';
 
 import type { ApiChain, ApiCountryCode } from '../../../api/types';
 
+import { selectIsCurrentAccountViewMode } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { getChainConfig } from '../../../util/chain';
 import { getNativeToken } from '../../../util/tokens';
@@ -14,7 +15,6 @@ import styles from './Actions.module.scss';
 
 interface OwnProps {
   chain: ApiChain;
-  isStatic?: boolean;
   isLedger?: boolean;
   className?: string;
   onClose?: NoneToVoidFunction;
@@ -24,17 +24,18 @@ interface StateProps {
   isTestnet?: boolean;
   isSwapDisabled?: boolean;
   isOnRampDisabled?: boolean;
+  isViewMode?: boolean;
   countryCode?: ApiCountryCode;
 }
 
 function Actions({
   chain,
   className,
-  isStatic,
   isTestnet,
   isLedger,
   isSwapDisabled,
   isOnRampDisabled,
+  isViewMode,
   countryCode,
   onClose,
 }: OwnProps & StateProps) {
@@ -47,13 +48,12 @@ function Actions({
 
   const lang = useLang();
 
-  const { canBuyWithCardInRussia, formatTransferUrl } = getChainConfig(chain);
-  const canBuyWithCard = canBuyWithCardInRussia || countryCode !== 'RU';
-  const isSwapAllowed = !isTestnet && !isLedger && !isSwapDisabled;
-  // TRX purchase is not possible via the Dreamwalkers service (Russian), however in static mode we show the buy button
-  const isOnRampAllowed = !isTestnet && !isOnRampDisabled && (canBuyWithCard || isStatic);
+  const { canBuyWithCardInRussia, isOnRampSupported, formatTransferUrl, buySwap } = getChainConfig(chain);
+  const canBuyWithCard = isOnRampSupported && (canBuyWithCardInRussia || countryCode !== 'RU');
+  const isSwapAllowed = !isViewMode && !isTestnet && !isLedger && !isSwapDisabled && !!buySwap;
+  const isOnRampAllowed = !isViewMode && !isTestnet && !isOnRampDisabled && canBuyWithCard;
   const isDepositLinkSupported = !!formatTransferUrl;
-  const shouldRender = Boolean(isSwapAllowed || isOnRampAllowed || isStatic);
+  const shouldRender = Boolean(isSwapAllowed || isOnRampAllowed || isDepositLinkSupported);
 
   const handleBuyFiat = useLastCallback(() => {
     openOnRampWidgetModal({ chain });
@@ -61,12 +61,10 @@ function Actions({
   });
 
   const handleSwapClick = useLastCallback(() => {
-    const { tokenInSlug, amountIn } = getChainConfig(chain).buySwap;
-
     startSwap({
-      tokenInSlug,
+      tokenInSlug: buySwap!.tokenInSlug,
       tokenOutSlug: getNativeToken(chain).slug,
-      amountIn,
+      amountIn: buySwap!.amountIn,
     });
     onClose?.();
   });
@@ -79,7 +77,6 @@ function Actions({
 
   const contentClassName = buildClassName(
     styles.actionButtons,
-    isStatic && styles.actionButtonStatic,
     className,
   );
 
@@ -106,11 +103,8 @@ function Actions({
           <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
         </div>
       )}
-      {(isStatic || isDepositLinkSupported) && (
-        <div
-          className={buildClassName(styles.actionButton, !isDepositLinkSupported && styles.disabled)}
-          onClick={isDepositLinkSupported ? handleReceiveClick : undefined}
-        >
+      {isDepositLinkSupported && (
+        <div className={styles.actionButton} onClick={handleReceiveClick}>
           <i className={buildClassName(styles.actionIcon, 'icon-link')} aria-hidden />
           {lang('Create Deposit Link')}
           <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
@@ -131,6 +125,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     isTestnet: global.settings.isTestnet,
     isSwapDisabled,
     isOnRampDisabled,
+    isViewMode: selectIsCurrentAccountViewMode(global),
     countryCode,
   };
 })(Actions));

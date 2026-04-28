@@ -21,6 +21,7 @@ data class SettingsItem(
         CONNECTED_APPS,
         LANGUAGE,
         SECURITY,
+        SUBWALLETS,
         WALLET_VERSIONS,
         ASK_A_QUESTION,
         HELP_CENTER,

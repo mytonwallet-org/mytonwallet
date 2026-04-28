@@ -28,25 +28,40 @@ struct ActionsRow: View {
         }
     }
 
-    private var shouldShowShare: Bool {
-        !model.activity.isBackendSwapId
+    private var shareUrl: URL? {
+        let activity = model.activity
+        guard let chain = TokenStore.tokens[activity.slug]?.chain, chain.isSupported else { return nil }
+        
+        var txHash: String?
+        if case .swap(let swap) = activity, swap.cex != nil {
+            // Assuming the backend always returns the "from" transaction hash as the first hash (by Classic)
+            txHash = swap.hashes?.first
+        } else {
+            txHash = activity.parsedTxId.hash
+        }
+        guard let txHash else { return nil }
+        
+        let url = ExplorerHelper.viewTransactionUrl(network: model.accountContext.account.network, chain: chain, txHash: txHash)
+        return url
     }
-
+    
     var body: some View {
         WithPerceptionTracking {
             @Perception.Bindable var model = model
+            
+            let shareUrl = self.shareUrl
             let toolbarModel = ActivityDetailsActionsToolbar.Model(
                 showDetails: model.detailsCollapseEnabled,
                 showRepeat: shouldShowRepeat,
-                showShare: shouldShowShare,
+                showShare: shareUrl != nil,
                 onDetailsExpanded: { model.onDetailsExpanded() },
                 onRepeat: { AppActions.repeatActivity(accountContext: model.accountContext, model.activity) },
                 onShare: {
-                    if let chain = TokenStore.tokens[model.activity.slug]?.chain, chain.isSupported {
-                        let txHash = model.activity.parsedTxId.hash
-                        let url = ExplorerHelper.viewTransactionUrl(network: model.accountContext.account.network, chain: chain, txHash: txHash)
-                        AppActions.shareUrl(url)
+                    guard let shareUrl else {
+                        assertionFailure()
+                        return
                     }
+                    AppActions.shareUrl(shareUrl)
                 }
             )
             ActivityDetailsActionsToolbarRepresentable(model: toolbarModel)

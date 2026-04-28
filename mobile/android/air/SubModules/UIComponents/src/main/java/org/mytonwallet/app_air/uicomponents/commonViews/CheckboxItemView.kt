@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.util.TypedValue
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -17,7 +18,13 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class CheckboxItemView(context: Context, val isEnabledInitially: Boolean) : WView(context),
+class CheckboxItemView(
+    context: Context,
+    val isEnabledInitially: Boolean,
+    val horizontalGapDp: Float = 16f,
+    val labelGapDp: Float = 16f
+) :
+    WView(context),
     WThemedView {
 
     private val ripple = WRippleDrawable.create(ViewConstants.BLOCK_RADIUS.dp)
@@ -36,7 +43,7 @@ class CheckboxItemView(context: Context, val isEnabledInitially: Boolean) : WVie
     }
 
     private val label = WLabel(context).apply {
-        setStyle(16f)
+        setStyle(adaptiveFontSize())
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         setTextColor(WColor.PrimaryText)
     }
@@ -54,11 +61,11 @@ class CheckboxItemView(context: Context, val isEnabledInitially: Boolean) : WVie
         addView(imageView, LayoutParams(22.dp, 22.dp))
         addView(label, LayoutParams(0, WRAP_CONTENT))
         setConstraints {
-            toStart(imageView, 16f)
+            toStart(imageView, horizontalGapDp)
             toCenterY(imageView)
             toCenterY(label, 12f)
-            startToEnd(label, imageView, 16f)
-            toEnd(label, 16f)
+            startToEnd(label, imageView, labelGapDp)
+            toEnd(label, horizontalGapDp)
         }
 
         updateTheme()
@@ -74,6 +81,10 @@ class CheckboxItemView(context: Context, val isEnabledInitially: Boolean) : WVie
 
     fun setText(text: CharSequence) {
         label.text = text
+    }
+
+    fun setTextSize(textSize: Float) {
+        label.textSize = textSize
     }
 
     var isChecked: Boolean = false

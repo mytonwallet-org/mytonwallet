@@ -91,6 +91,43 @@ extension BuyCryptoItemCell {
     }
 }
 
+struct ViewWalletWarningFooter: View {
+    var body: some View {
+        let color = Color(UIColor.airBundle("WarningLabel"))
+        
+        Text(langMd("$view_only_wallet_receive_warning"))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .font(.system(size: 13))
+            .foregroundStyle(color)
+            .padding(.leading, 12)
+            .padding(.trailing, 16)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .background(color.opacity(0.12))
+            .overlay(alignment: .leading) {
+                Rectangle()
+                    .fill(color)
+                    .frame(width: 4)
+            }
+            .clipShape(.rect(cornerRadius: 10))
+    }
+}
+
+extension ViewWalletWarningFooter {
+    static func makeFooterRegistration() -> UICollectionView.SupplementaryRegistration<UICollectionViewCell> {
+        UICollectionView.SupplementaryRegistration<UICollectionViewCell>(
+            elementKind: UICollectionView.elementKindSectionFooter
+        ) { view, _, _ in
+            view.contentConfiguration = UIHostingConfiguration {
+                ViewWalletWarningFooter()
+            }
+            .margins(.horizontal, 0)
+            .margins(.vertical, 16)
+        }
+    }
+}
+
 enum ReceiveItem: Hashable {
     case address
     case buyWithCard

@@ -76,15 +76,14 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
         addChild(mycoinVC)
         addChild(ethenaVC)
         
-        let capsuleColor = UIColor { .air.secondaryLabel.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.2 : 0.12 ) }
-        let items = segmentedControlItems
         segmentedController = WSegmentedController(
-            items: items,
+            items: segmentedControlItems,
             defaultItemId: tokenSlug,
             barHeight: 0,
             goUnderNavBar: true,
             animationSpeed: .slow,
-            capsuleFillColor: capsuleColor,
+            capsuleFillColor: .airBundle("DarkCapsuleColor") ,
+            style: .header,
             delegate: self
         )
         
@@ -112,10 +111,7 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
             segmentedController.handleSegmentChange(to: idx, animated: false)
         }
 
-        let segmentedControl = segmentedController.segmentedControl!
-        segmentedControl.removeFromSuperview()
-        navigationItem.titleView = segmentedControl
-        segmentedControl.widthAnchor.constraint(equalToConstant: 200).isActive = true
+        segmentedController.segmentedControl?.embed(in: navigationItem)
         addCloseNavigationItemIfNeeded()
         addCustomNavigationBarBackground()
         configureNavigationItemWithTransparentBackground()

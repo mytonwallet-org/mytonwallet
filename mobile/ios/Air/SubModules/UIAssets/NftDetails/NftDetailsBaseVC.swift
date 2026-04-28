@@ -304,8 +304,8 @@ public class NftDetailsBaseVC: UIViewController {
             var backgroundPattern: CIImage?
             var image: CIImage?
             if case .loaded(let processed) = model.processedImageState {
-                backgroundPattern = processed.backgroundPattern
-                image = processed.previewImage?.cgImage.flatMap { CIImage(cgImage: $0) }
+                backgroundPattern = processed.backgroundCIImage
+                image = processed.previewCIImage
             }
             return .init(background: backgroundPattern, image: image, tag: model.name)
         }
@@ -401,11 +401,7 @@ extension NftDetailsBaseVC: NftDetailsPagerDelegate {
         state.pageTransition = .init(leftPage: fromModel, rightPage: toModel, progress: progress)
 
         // permit/deny header to show preview. After operation update the sate
-        let canShowPreview = switch state.pageTransition {
-            case .transition: false
-            case .staticPage: true
-            }
-
+        let canShowPreview = state.pageTransition.isStatic
         headerView?.setCanShowPreview(canShowPreview)
         state.isPreviewHidden = headerView?.isPreviewHidden ?? true
 
@@ -415,6 +411,11 @@ extension NftDetailsBaseVC: NftDetailsPagerDelegate {
         }
         
         NftDetailsPerformance.markPagerScrollEvent()
+        
+        // To reduce frame dropping cancels animations on any transitions.
+        if state.pageTransition.isTransitioning {
+            NotificationCenter.default.post(name: .nftDetailsStopLottieAnimations, object: nil)
+        }
         
         updateBackground()
     }

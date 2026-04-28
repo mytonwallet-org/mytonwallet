@@ -59,7 +59,7 @@ function SecretWordsList({
       >
         <p className={styles.text}>{renderText(lang('$copy_mnemonic_warning'))}</p>
         <p className={buildClassName(styles.text, styles.warningText)}>
-          {lang('Other apps will be able to read your recovery phrase!')}
+          {lang('Other apps will be able to read your secret words!')}
         </p>
 
         <div className={buildClassName(modalStyles.footerButtons, modalStyles.footerButtonsVertical)}>

@@ -6,114 +6,182 @@ public struct ChainIcon: View {
     public enum Style: CaseIterable {
         case s12, s14, s16, sDefault
     }
+
+    public enum Separator: Equatable {
+        case none
+        case hairline
+        case fixed(CGFloat)
+        case custom(String)
+    }
     
     public let chain: ApiChain
     public let style: Style
     public let color: Color?
+    private let customFont: Font?
+    private let customUIKitFont: UIFont?
 
     public init(_ chain: ApiChain, style: Style, color: Color? = nil) {
         self.chain = chain
         self.style = style
         self.color = color
+        self.customFont = nil
+        self.customUIKitFont = nil
+    }
+
+    public init(_ chain: ApiChain, font: Font, color: Color? = nil) {
+        self.chain = chain
+        self.style = .sDefault
+        self.color = color
+        self.customFont = font
+        self.customUIKitFont = nil
+    }
+
+    public init(_ chain: ApiChain, font: Font, uiFont: UIFont, color: Color? = nil) {
+        self.chain = chain
+        self.style = .sDefault
+        self.color = color
+        self.customFont = font
+        self.customUIKitFont = uiFont
     }
     
-    private var image: Image? {
-        guard let image = styleData.imageForChain(chain, resize: true) else { return nil }
-        return Image(uiImage: image)
+    private var symbolName: String? {
+        styleData.symbolName(for: chain)
     }
-    
+
+    private var symbolImage: Image? {
+        guard let symbolName else { return nil }
+        return Image.airBundle(symbolName)
+    }
+
     @ViewBuilder
     public var body: some View {
-        if let image = self.image {
+        if let symbolImage {
             if let color {
-                image.foregroundStyle(color)
+                symbolImage
+                    .font(preferredFont)
+                    .imageScale(.small)
+                    .foregroundStyle(color)
             } else {
-                image
+                symbolImage
+                    .font(preferredFont)
+                    .imageScale(.small)
             }
         }
     }
     
     public var text: Text {
-        guard let image = self.image else { return Text("") }
-        let t = Text(image).baselineOffset(styleData.baselineOffset)
+        guard let symbolImage else { return Text("") }
+        let t = Text(symbolImage).font(preferredFont)
         if let color { return t.foregroundColor(color) }
         return t
     }
 
-    /// Uses a narrow non-breakable space as a separator
-    public func prepended(to text: Text) -> Text {
-        guard let image = self.image else { return text }
-        var iconText = Text(image).baselineOffset(styleData.baselineOffset)
+    public func prepended(to text: Text, separator: Separator = .none) -> Text {
+        guard let symbolImage else { return text }
+        var iconText = Text(symbolImage).font(preferredFont)
         if let color { iconText = iconText.foregroundColor(color) }
-        return Text("\(iconText)\u{202F}\(text)")
+        return Text("\(iconText)\(separator.text(font: preferredFont, uiFont: preferredUIKitFont))\(text)")
     }
     
-    /// Uses a narrow non-breakable space as a separator
-    public func prepended(to attr: NSAttributedString) -> NSAttributedString {
-        let styleData = self.styleData
-        guard let image = styleData.imageForChain(chain) else { return attr }
+    public func prepended(to attr: NSAttributedString, separator: Separator = .none) -> NSAttributedString {
+        var font = preferredUIKitFont
+        if attr.length > 0, let firstFont = attr.attributes(at: 0, effectiveRange: nil)[.font] as? UIFont {
+            font = firstFont
+        }
+        guard var image = styleData.uiImageForChain(chain, font: font) else { return attr }
+        if let color {
+            image = image.withTintColor(UIColor(color), renderingMode: .alwaysOriginal)
+        }
 
         let textAttachment = NSTextAttachment(image: image)
-        textAttachment.bounds = styleData.bounds
         let result = NSMutableAttributedString(attachment: textAttachment)
 
-        if let color {
-            result.addAttribute(.foregroundColor, value: UIColor(color), range: NSRange(location: 0, length: result.length))
-        }
-
-        var spaceAttributes: [NSAttributedString.Key: Any] = [.font: styleData.preferredUIKitFont]
-        if attr.length > 0 {
-            let firstAttributes = attr.attributes(at: 0, effectiveRange: nil)
-            if let font = firstAttributes[.font] {
-                spaceAttributes[.font] = font
-            }
-        }
-        result.append(NSAttributedString(string: "\u{202F}", attributes: spaceAttributes))
+        result.append(separator.attributedString(font: font))
         
         result.append(attr)
         return result
     }
 }
 
+private extension ChainIcon.Separator {
+
+    func text(font: Font, uiFont: UIFont) -> Text {
+        switch self {
+        case .none:
+            Text("")
+        case .hairline:
+            Text("\u{200A}").font(font)
+        case .fixed(let width):
+            Text(Self.hairlineString(width: width, uiFont: uiFont)).font(font)
+        case .custom(let string):
+            Text(string).font(font)
+        }
+    }
+
+    func attributedString(font: UIFont) -> NSAttributedString {
+        switch self {
+        case .none:
+            NSAttributedString()
+        case .hairline:
+            NSAttributedString(string: "\u{200A}", attributes: [.font: font])
+        case .fixed(let width):
+            Self.fixedWidthString(width: width)
+        case .custom(let string):
+            NSAttributedString(string: string, attributes: [.font: font])
+        }
+    }
+
+    static func hairlineString(width: CGFloat, uiFont: UIFont) -> String {
+        guard width > 0 else { return "" }
+        let hairlineWidth = max(uiFont.pointSize / 24, 0.5)
+        let count = max(1, Int((width / hairlineWidth).rounded()))
+        return String(repeating: "\u{200A}", count: count)
+    }
+
+    static func fixedWidthString(width: CGFloat) -> NSAttributedString {
+        guard width > 0 else { return NSAttributedString() }
+        let image = UIGraphicsImageRenderer(size: CGSize(width: width, height: 1)).image { _ in }
+        let attachment = NSTextAttachment(image: image)
+        attachment.bounds = CGRect(x: 0, y: 0, width: width, height: 1)
+        return NSAttributedString(attachment: attachment)
+    }
+}
+
 private extension ChainIcon {
     
-    var preferredFont: Font { Font(styleData.preferredUIKitFont) }
+    var preferredFont: Font { customFont ?? Font(preferredUIKitFont) }
+    var preferredUIKitFont: UIFont { customUIKitFont ?? styleData.preferredUIKitFont }
 
     struct StyleData {
-        let bounds: CGRect
         let preferredUIKitFont: UIFont
-        let imagePrefix: String = "inline_chain_"
+        let symbolPrefix: String = "inline.chain."
         
-        func imageForChain(_ chain: ApiChain, resize: Bool = false) -> UIImage? {
-            let imageName = "\(imagePrefix)\(chain.rawValue)"
-            guard var image = UIImage.airBundleOptional(imageName) else {
-                return nil
-            }
-            if resize {
-                image = image.resizedToFit(size: CGSize(width: bounds.width, height: bounds.height))
-            }
-            return image.withRenderingMode(.alwaysTemplate)
+        func symbolName(for chain: ApiChain) -> String? {
+            let name = "\(symbolPrefix)\(chain.rawValue)"
+            return UIImage.airBundleOptional(name) == nil ? nil : name
         }
         
-        var baselineOffset: CGFloat { bounds.origin.y }
+        func uiImageForChain(_ chain: ApiChain, font: UIFont) -> UIImage? {
+            guard let symbolName = symbolName(for: chain) else { return nil }
+            let configuration = UIImage.SymbolConfiguration(font: font, scale: .small)
+            return UIImage.airBundleOptional(symbolName)?
+                .withConfiguration(configuration)
+                .withRenderingMode(.alwaysTemplate)
+        }
     }
 
     var styleData: StyleData {
         return switch style {
         case .s12: .init(
-                bounds: .init(x: 0, y: -2.5, width: 13, height: 13),
                 preferredUIKitFont: .systemFont(ofSize: 12),
             )
         case .s14: .init(
-                bounds: .init(x: 0, y: -2.8, width: 15, height: 15),
                 preferredUIKitFont: .systemFont(ofSize: 14, weight: .semibold),
             )
         case .s16: .init(
-                bounds: .init(x: 0, y: -3.0, width: 17, height: 17),
                 preferredUIKitFont: .systemFont(ofSize: 16),
             )
         case .sDefault: .init(
-                bounds: .init(x: 0, y: -3.5, width: 18, height: 18),
                 preferredUIKitFont: .systemFont(ofSize: 17),
             )
         }
@@ -136,7 +204,7 @@ private extension ChainIcon {
 
         func updateUIView(_ uiView: UILabel, context: Context) {
             let base = NSAttributedString(string: address, attributes: [.font: icon.styleData.preferredUIKitFont])
-            uiView.attributedText = icon.prepended(to: base)
+            uiView.attributedText = icon.prepended(to: base, separator: .hairline)
             uiView.textColor = .secondaryLabel
         }
     }
@@ -165,8 +233,8 @@ private extension ChainIcon {
                         let icon = ChainIcon(chain, style: style, color: .red)
 
                         HStack {
-                            icon.prepended(to: Text("EQAG0273409823").font(icon.preferredFont))
-                            icon.prepended(to: Text("@\(chain.rawValue)_domain").font(icon.preferredFont))
+                            icon.prepended(to: Text("EQAG0273409823").font(icon.preferredFont), separator: .hairline)
+                            icon.prepended(to: Text("@\(chain.rawValue)_domain").font(icon.preferredFont), separator: .hairline)
                         }
                     }
 

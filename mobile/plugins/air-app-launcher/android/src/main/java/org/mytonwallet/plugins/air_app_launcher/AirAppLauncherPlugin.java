@@ -14,6 +14,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations;
+import org.mytonwallet.app_air.walletbasecontext.R;
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage;
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController;
 import org.mytonwallet.plugins.air_app_launcher.airLauncher.AirLauncher;
@@ -39,7 +40,7 @@ public class AirAppLauncherPlugin extends Plugin {
   public void switchToAir(PluginCall call) {
     new Handler(Looper.getMainLooper()).post(() -> {
       if (!isChromeVersionSupported(getActivity())) {
-        Toast.makeText(getActivity(), "MyTonWallet Air needs Chrome 86+ to work.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(getActivity(), getActivity().getString(R.string.app_locale_name_key) + " needs Chrome 86+ to work.", Toast.LENGTH_SHORT).show();
         return;
       }
       if (airLauncher == null)

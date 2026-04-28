@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.settings.cells
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -16,7 +17,6 @@ import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.CardThumbnailView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -53,7 +53,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.DemiBold)
+            setStyle(adaptiveFontSize(), WFont.DemiBold)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
@@ -75,7 +75,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
 
     private val valueLabel: WSensitiveDataContainer<WLabel> by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl.gravity = Gravity.LEFT
         lbl.layoutDirection = LAYOUT_DIRECTION_LTR
         WSensitiveDataContainer(

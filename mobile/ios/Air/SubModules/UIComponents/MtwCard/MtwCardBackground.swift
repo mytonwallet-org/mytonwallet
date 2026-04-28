@@ -50,5 +50,5 @@ public struct MtwCardBackground: View {
 }
 
 public extension UIImage {
-    static let homeCard = UIImage.airBundle("HomeCard")
+    static let homeCard = UIImage.mainBundleOptional("HomeCard") ?? UIImage.airBundle("HomeCard")
 }

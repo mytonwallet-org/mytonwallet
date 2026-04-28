@@ -15,6 +15,7 @@ import UIEarn
 import UIHome
 import UIToken
 import UIInAppBrowser
+import UIPortfolio
 import UniformTypeIdentifiers
 import Dependencies
 
@@ -24,6 +25,11 @@ import Dependencies
 }
 
 private let log = Log("AppActions")
+private let portfolioURL = URL(string: "https://portfolio.mytonwallet.io/")!
+
+private func isPortfolioHomeURL(_ url: URL) -> Bool {
+    url.host == portfolioURL.host && (url.path.isEmpty || url.path == "/")
+}
 
 @MainActor
 private class AppActionsImpl: AppActionsProtocol {
@@ -71,6 +77,10 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool) {
         let url = url.isSubproject ? url.appendingSubprojectContext() : url
+        if IS_DEBUG_OR_TESTFLIGHT, isPortfolioHomeURL(url) {
+            showPortfolio(accountContext: AccountContext(source: .current))
+            return
+        }
         InAppBrowserSupport.shared.openInBrowser(url, title: title, injectDappConnect: injectDappConnect)
     }
     
@@ -254,7 +264,12 @@ private class AppActionsImpl: AppActionsProtocol {
             AppActions.showError(error: DisplayError(text: lang("Buying with card is not supported in Testnet.")))
             return
         }
-        let buyWithCardVC = BuyWithCardVC(accountContext: accountContext, chain: chain ?? accountContext.account.firstChain)
+        let chain = chain ?? accountContext.account.firstChain
+        guard chain.isOnrampSupported else {
+            AppActions.showError(error: DisplayError(text: lang("Buying with card is not supported for this chain.")))
+            return
+        }
+        let buyWithCardVC = BuyWithCardVC(accountContext: accountContext, chain: chain)
         pushIfNeeded(buyWithCardVC, push: push)
     }
     
@@ -389,6 +404,15 @@ private class AppActionsImpl: AppActionsProtocol {
         }
         topViewController()?.present(nc, animated: true)
     }
+
+    static func showPortfolio(accountContext: AccountContext) {
+        guard IS_DEBUG_OR_TESTFLIGHT else {
+            openInBrowser(portfolioURL, title: nil, injectDappConnect: true)
+            return
+        }
+        let vc = PortfolioVC(accountContext: accountContext)
+        pushIfNeeded(vc, push: true)
+    }
     
     static func showReceive(accountContext: AccountContext, chain: ApiChain?, title: String?) {
         let receiveVC = ReceiveVC(accountContext: accountContext, chain: chain, title: title)
@@ -431,6 +455,10 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func showSell(accountContext: AccountContext, tokenSlug: String?) {
         let tokenSlug = tokenSlug ?? TONCOIN_SLUG
+        guard getChainBySlug(tokenSlug)?.isOfframpSupported == true else {
+            AppActions.showError(error: DisplayError(text: lang("Selling is not supported for this token.")))
+            return
+        }
         let vc = SellVC(accountContext: accountContext, tokenSlug: tokenSlug)
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
     }

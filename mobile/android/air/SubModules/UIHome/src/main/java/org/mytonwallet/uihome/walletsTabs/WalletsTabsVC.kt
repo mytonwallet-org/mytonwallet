@@ -13,7 +13,6 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
@@ -40,6 +39,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
@@ -177,7 +177,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             segmentItems,
             0,
             applySideGutters = false,
-            navTopPadding = 42.dp,
+            navTopPadding = 44.dp,
             onOffsetChange = { _, currentOffset ->
                 val nearestIndex = currentOffset.roundToInt()
                 if (segmentedController.targetIndex == null ||
@@ -262,11 +262,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
 
     private val listButton: WImageButton by lazy {
         WImageButton(context).apply {
-            val closeDrawable =
-                ContextCompat.getDrawable(
-                    context,
-                    org.mytonwallet.uihome.R.drawable.ic_list
-                )
+            val closeDrawable = context.getDrawableCompat(org.mytonwallet.uihome.R.drawable.ic_list)
             setImageDrawable(closeDrawable)
             updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
             setPadding(8.dp)
@@ -640,8 +636,8 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 allVC.toggleReorder(reordering = false, animated = true)
             }
             listButton.setImageDrawable(
-                ContextCompat.getDrawable(
-                    context, if (isReordering)
+                context.getDrawableCompat(
+                    if (isReordering)
                         org.mytonwallet.uihome.R.drawable.ic_check
                     else
                         org.mytonwallet.uihome.R.drawable.ic_list
@@ -684,8 +680,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         if (isReordering) {
             addNewWalletButton.setText(text, animated)
         } else {
-            val drawable = ContextCompat.getDrawable(
-                context,
+            val drawable = context.getDrawableCompat(
                 org.mytonwallet.app_air.uisettings.R.drawable.ic_plus
             )?.apply {
                 setTint(WColor.TextOnTint.color)

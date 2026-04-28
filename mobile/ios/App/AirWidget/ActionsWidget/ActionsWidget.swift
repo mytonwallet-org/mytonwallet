@@ -45,7 +45,7 @@ struct ActionsWidgetView: View {
                 ActionButton(
                     label: localized("add"),
                     image: "AddIcon",
-                    link: "mtw://receive",
+                    link: "\(SELF_PROTOCOL)receive",
                     style: entry.style,
                     usesUnevenCorners: usesUnevenCorners,
                     rotationIndex: 0,
@@ -53,7 +53,7 @@ struct ActionsWidgetView: View {
                 ActionButton(
                     label: localized("send"),
                     image: "SendIcon",
-                    link: "mtw://transfer",
+                    link: "\(SELF_PROTOCOL)transfer",
                     style: entry.style,
                     usesUnevenCorners: usesUnevenCorners,
                     rotationIndex: 1,
@@ -63,7 +63,7 @@ struct ActionsWidgetView: View {
                 ActionButton(
                     label: localized("swap"),
                     image: "SwapIcon",
-                    link: "mtw://swap",
+                    link: "\(SELF_PROTOCOL)swap",
                     style: entry.style,
                     usesUnevenCorners: usesUnevenCorners,
                     rotationIndex: 3,
@@ -71,7 +71,7 @@ struct ActionsWidgetView: View {
                 ActionButton(
                     label: localized("earn"),
                     image: "EarnIcon",
-                    link: "mtw://stake",
+                    link: "\(SELF_PROTOCOL)stake",
                     style: entry.style,
                     usesUnevenCorners: usesUnevenCorners,
                     rotationIndex: 2,

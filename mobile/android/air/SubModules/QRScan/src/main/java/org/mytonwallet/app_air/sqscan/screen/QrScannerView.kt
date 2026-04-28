@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.sqscan.screen
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -104,7 +105,7 @@ class QrScannerView @JvmOverloads constructor(
 
     private val titleTextView = AppCompatTextView(context).apply {
         setLineHeight(TypedValue.COMPLEX_UNIT_DIP, 24f)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         setTextColor(Color.WHITE)
         setText(LocaleController.getString("Scan QR Code"))
         gravity = Gravity.CENTER

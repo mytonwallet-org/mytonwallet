@@ -6,6 +6,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.APP_SCHEME
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -25,7 +26,7 @@ class RealAgentProcessor : AgentProcessor {
         private const val HINTS_ENDPOINT = "$BASE_URL/hints"
         private const val PLATFORM = "android"
         private const val CLIENT = "native"
-        private val DEEPLINK_REGEX = Regex("""\[([^\]]+)]\((mtw://[^)\s]+)\)\s*$""")
+        private val DEEPLINK_REGEX by lazy { Regex("""\[([^\]]+)]\(($APP_SCHEME://[^)\s]+)\)\s*$""") }
         private const val TAG = "RealAgentProcessor"
     }
 

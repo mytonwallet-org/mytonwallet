@@ -63,7 +63,6 @@ import Toasts from './main/Toasts';
 import MediaViewer from './mediaViewer/MediaViewer';
 import MintCardModal from './mintCard/MintCardModal';
 import Settings from './settings/Settings';
-import SettingsModal from './settings/SettingsModal';
 import SwapModal from './swap/SwapModal';
 import TransferModal from './transfer/TransferModal';
 import ConfettiContainer from './ui/ConfettiContainer';
@@ -124,13 +123,12 @@ function App({
   } = getActions();
 
   const { isPortrait } = useDeviceScreen();
-  const areSettingsInModal = !isPortrait;
 
   const [isInactive, markInactive] = useFlag(false);
   const [canPrerenderMain, prerenderMain] = useFlag();
 
   const renderingKey = resolveRenderingKey({
-    isInactive, areSettingsOpen, areSettingsInModal, isAgentOpen, isExploreOpen, isPortrait, appState,
+    isInactive, areSettingsOpen, isAgentOpen, isExploreOpen, isPortrait, appState,
   });
   const withBottomBar = isPortrait && (!IS_EXPLORER || isAppReady) && APP_STATES_WITH_BOTTOM_BAR.has(renderingKey);
   const transitionName = withBottomBar
@@ -245,14 +243,6 @@ function App({
         {renderContent}
       </Transition>
 
-      {areSettingsInModal && (
-        <SettingsModal
-          isOpen={areSettingsOpen}
-          onClose={closeSettings}
-        >
-          <Settings isActive={!!areSettingsOpen} isInsideModal />
-        </SettingsModal>
-      )}
       <AppLocked />
       <MediaViewer />
       {!isInactive && (
@@ -319,18 +309,17 @@ export default memo(withGlobal((global): StateProps => {
 })(App));
 
 function resolveRenderingKey({
-  isInactive, areSettingsOpen, areSettingsInModal, isAgentOpen, isExploreOpen, isPortrait, appState,
+  isInactive, areSettingsOpen, isAgentOpen, isExploreOpen, isPortrait, appState,
 }: {
   isInactive: boolean;
   areSettingsOpen?: boolean;
-  areSettingsInModal: boolean;
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
   isPortrait: boolean;
   appState: AppState;
 }) {
   if (isInactive) return AppState.Inactive;
-  if (areSettingsOpen && !areSettingsInModal) return AppState.Settings;
+  if (areSettingsOpen && isPortrait) return AppState.Settings;
   if (isAgentOpen && isPortrait) return AppState.Agent;
   if (isExploreOpen && isPortrait) return AppState.Explore;
   return appState;

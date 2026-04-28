@@ -1,3 +1,5 @@
+@use "../../../../styles/mixins";
+
 @use "../../../../styles/scssVariables" as v;
 
 .root {
@@ -11,7 +13,11 @@
   width: 100%;
   min-width: 16rem;
   height: 0;
-  padding-top: v.$cardAspectRatio;
+  padding-top: v.$cardAspectRatioPortrait;
+
+  @include mixins.respond-above(xs) {
+    padding-top: v.$cardAspectRatioLandscape;
+  }
 
   &.sticky {
     --border-radius-card: 0;

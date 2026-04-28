@@ -3,7 +3,7 @@ import { getActions } from '../../../global';
 
 import { BiometricsState } from '../../../global/types';
 
-import { ANIMATED_STICKER_HUGE_SIZE_PX } from '../../../config';
+import { ANIMATED_STICKER_HUGE_SIZE_PX, IS_CAPACITOR } from '../../../config';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import buildClassName from '../../../util/buildClassName';
 import resolveSlideTransitionName from '../../../util/resolveSlideTransitionName';
@@ -29,14 +29,13 @@ interface OwnProps {
   state: BiometricsState;
   error?: string;
   isLoading?: boolean;
-  isInsideModal?: boolean;
   onClose: NoneToVoidFunction;
 }
 
 const STICKER_SIZE = 180;
 
 function TurnOn({
-  isOpen, isLoading, isInsideModal, state, error, onClose,
+  isOpen, isLoading, state, error, onClose,
 }: OwnProps) {
   const { enableBiometrics } = getActions();
 
@@ -80,6 +79,7 @@ function TurnOn({
             <PasswordForm
               isActive={isActive}
               isLoading={isLoading}
+              containerClassName={IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormWithHeaderOffset}
               error={error || localError}
               operationType="turnOnBiometrics"
               help={lang(help)}
@@ -182,7 +182,6 @@ function TurnOn({
       <Transition
         name={resolveSlideTransitionName()}
         className={buildClassName(modalStyles.transition, 'custom-scroll')}
-        slideClassName={buildClassName(isInsideModal && modalStyles.transitionSlide)}
         activeKey={renderingKey}
         nextKey={nextKey}
         onStop={updateNextKey}

@@ -1,6 +1,7 @@
 package org.mytonwallet.uihome.wallets.cells
 
 import android.animation.ValueAnimator
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
@@ -14,7 +15,6 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
@@ -23,17 +23,15 @@ import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WMultichainAddressLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -84,7 +82,7 @@ class WalletCardRowCell(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.DemiBold)
+            setStyle(adaptiveFontSize(), WFont.DemiBold)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
@@ -106,7 +104,7 @@ class WalletCardRowCell(
 
     private val valueLabel: WSensitiveDataContainer<WLabel> by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl.gravity = Gravity.LEFT
         lbl.layoutDirection = LAYOUT_DIRECTION_LTR
         WSensitiveDataContainer(
@@ -119,10 +117,7 @@ class WalletCardRowCell(
         AppCompatImageView(context).apply {
             id = generateViewId()
             setImageDrawable(
-                ContextCompat.getDrawable(
-                    context,
-                    org.mytonwallet.uihome.R.drawable.ic_handle
-                )
+                context.getDrawableCompat(org.mytonwallet.uihome.R.drawable.ic_handle)
             )
             alpha = 0f
             translationX = -reorderingOffset + REORDERING_OFFSET.dp

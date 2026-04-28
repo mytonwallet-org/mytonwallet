@@ -1,7 +1,7 @@
 .chartContainer {
   margin: 1rem;
   padding: 0.5rem 0 0;
-  border-radius: 1rem;
+  border-radius: var(--border-radius-default);
   background-color: var(--color-background-first);
 
   :global(.lovely-chart--container) {

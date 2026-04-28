@@ -13,13 +13,14 @@
 
   width: 100%;
   padding: calc(var(--header-padding-top) + 0.3125rem) 1rem var(--header-padding-bottom);
+  border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
 
   font-size: 1.0625rem;
   font-weight: 700;
   line-height: 1.0625rem;
 
   background-color: var(--color-background-first);
-  backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: var(--filter-blur-bar);
 
   :global(html.theme-dark) & {
     background-color: var(--color-background-window);

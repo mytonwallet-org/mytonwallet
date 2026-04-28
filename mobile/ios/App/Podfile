@@ -39,14 +39,17 @@ end
 
 target 'MyTonWallet' do
   capacitor_pods
-  # Add your Pods here
-  pod 'FirebaseMessaging'
+  pod 'FirebaseMessaging', '11.15.0'
 end
 
 target 'MyTonWallet_NoExtensions' do
   capacitor_pods
-  # Add your Pods here
-  pod 'FirebaseMessaging'
+  pod 'FirebaseMessaging', '11.15.0'
+end
+
+target 'MyTonWallet_Preview' do
+  capacitor_pods
+  pod 'FirebaseMessaging', '11.15.0'
 end
 
 # Fix Xcode 14 warnings like:

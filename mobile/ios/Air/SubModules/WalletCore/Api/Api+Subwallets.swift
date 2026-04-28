@@ -3,40 +3,31 @@ import WalletContext
 
 extension Api {
     public static func getWalletVariants(
-        network: ApiNetwork,
-        chain: ApiChain,
         accountId: String,
         page: Int,
-        isTestnetSubwalletId: Bool? = nil,
         mnemonic: [String]
-    ) async throws -> [ApiWalletVariant] {
+    ) async throws -> [ApiGroupedWalletVariant] {
         try await bridge.callApi(
             "getWalletVariants",
-            network,
-            chain,
             accountId,
             page,
-            isTestnetSubwalletId,
             mnemonic,
-            decoding: [ApiWalletVariant].self
+            decoding: [ApiGroupedWalletVariant].self
         )
     }
 
     internal static func createSubWallet(
-        chain: ApiChain,
         accountId: String,
         password: String
     ) async throws -> ApiCreateSubWalletResult {
-        try await bridge.callApi("createSubWallet", chain, accountId, password, decoding: ApiCreateSubWalletResult.self)
+        try await bridge.callApi("createSubWallet", accountId, password, decoding: ApiCreateSubWalletResult.self)
     }
 
     internal static func addSubWallet(
-        chain: ApiChain,
         accountId: String,
-        newWallet: ApiSubWallet,
-        isReplace: Bool
+        byChain: [String: ApiSubWallet]
     ) async throws -> ApiAddSubWalletResult {
-        try await bridge.callApi("addSubWallet", chain, accountId, newWallet, isReplace, decoding: ApiAddSubWalletResult.self)
+        try await bridge.callApi("addSubWallet", accountId, byChain, decoding: ApiAddSubWalletResult.self)
     }
 }
 
@@ -125,6 +116,34 @@ public struct ApiWalletVariant: Equatable, Hashable, Codable, Sendable {
         self.wallet = wallet
         self.balance = balance
         self.metadata = metadata
+    }
+}
+
+public struct ApiGroupedWalletVariant: Equatable, Hashable, Codable, Sendable {
+    public struct ChainEntry: Equatable, Hashable, Codable, Sendable {
+        public var wallet: ApiSubWallet
+        public var balance: BigInt
+        public var hasDerivation: Bool
+
+        public init(wallet: ApiSubWallet, balance: BigInt, hasDerivation: Bool) {
+            self.wallet = wallet
+            self.balance = balance
+            self.hasDerivation = hasDerivation
+        }
+    }
+
+    public var index: Int
+    public var totalBalance: BigInt
+    public var byChain: [String: ChainEntry]
+
+    public init(index: Int, totalBalance: BigInt, byChain: [String: ChainEntry]) {
+        self.index = index
+        self.totalBalance = totalBalance
+        self.byChain = byChain
+    }
+
+    public func entry(for chain: ApiChain) -> ChainEntry? {
+        byChain[chain.rawValue]
     }
 }
 

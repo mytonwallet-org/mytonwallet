@@ -7,7 +7,7 @@ import android.text.Spanned
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import androidx.core.content.ContextCompat
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.resize
@@ -18,10 +18,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
+import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
 
 @SuppressLint("ViewConstructor")
@@ -52,8 +54,7 @@ class WAutoCompleteCell(context: Context, val onRemove: () -> Unit) :
     private val deleteButton: WImageButton by lazy {
         WImageButton(context).apply {
             val deleteDrawable =
-                ContextCompat.getDrawable(
-                    context,
+                context.getDrawableCompat(
                     org.mytonwallet.app_air.uicomponents.R.drawable.ic_close // TODO:: Update this icon
                 )?.resize(context, 16.dp, 16.dp)
             setImageDrawable(deleteDrawable)
@@ -102,7 +103,7 @@ class WAutoCompleteCell(context: Context, val onRemove: () -> Unit) :
         titleLabel.text = address.name
         val valueSpan = SpannableStringBuilder()
         MBlockchain.valueOf(address.chain).symbolIcon?.let {
-            val drawable = ContextCompat.getDrawable(context, it)!!
+            val drawable = context.requireDrawableCompat(it)
             drawable.mutate()
             drawable.setTint(WColor.PrimaryLightText.color)
             val width = 12.dp

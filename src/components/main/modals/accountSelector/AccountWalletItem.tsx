@@ -2,8 +2,8 @@ import React, { type ElementRef, useRef } from '../../../../lib/teact/teact';
 
 import type { ApiNft } from '../../../../api/types';
 import type { Account, AccountType } from '../../../../global/types';
+import type { AccountBalance } from '../../../../hooks/useAccountsBalances';
 import type { Layout } from '../../../../hooks/useMenuPosition';
-import type { AccountBalance } from './hooks/useAccountsBalances';
 
 import buildClassName from '../../../../util/buildClassName';
 import { OPEN_CONTEXT_MENU_CLASS_NAME } from './constants';

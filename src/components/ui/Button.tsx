@@ -31,6 +31,7 @@ export type OwnProps = {
   shouldStopPropagation?: boolean;
   onClick?: NoneToVoidFunction;
   onMouseDown?: (e: React.MouseEvent) => void;
+  onMouseEnter?: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 };
 
@@ -59,6 +60,7 @@ function Button({
   shouldStopPropagation,
   onClick,
   onMouseDown,
+  onMouseEnter,
   onContextMenu,
 }: OwnProps) {
   const [isClicked, setIsClicked] = useState(false);
@@ -108,6 +110,7 @@ function Button({
       form={forFormId}
       onClick={handleClick}
       onMouseDown={onMouseDown}
+      onMouseEnter={onMouseEnter}
       onContextMenu={onContextMenu}
     >
       {children}

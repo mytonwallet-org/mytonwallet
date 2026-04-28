@@ -7,13 +7,12 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
-import androidx.core.content.ContextCompat
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.resize
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -21,6 +20,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 
 @SuppressLint("ViewConstructor")
@@ -85,8 +85,7 @@ class ExploreLargeConnectedItemCell(
         } ?: run {
             imageView.setBackgroundColor(WColor.Background.color, 16f.dp)
             imageView.scaleType = ImageView.ScaleType.CENTER_INSIDE
-            val drawable = ContextCompat.getDrawable(
-                context,
+            val drawable = context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_details
             )!!
             imageView.setImageDrawable(

@@ -14,6 +14,7 @@ struct ImportSuccessView: View {
     
     var introModel: IntroModel
     var successKind: SuccessKind
+    var importedAccountsCount: Int
     
     @State private var showConfetti: Bool = false
 
@@ -59,13 +60,15 @@ struct ImportSuccessView: View {
         Text(langMd("All Set!"))
             .style(.header28)
             .multilineTextAlignment(.center)
+            .accessibilityAddTraits(.isHeader)
     }
     
     @ViewBuilder
     var description: some View {
-        let line1 = successKind == .created ? lang("$wallet_create_done") : lang("$wallet_import_done", arg1: 1)
+        let line1 = successKind == .created ? lang("$wallet_create_done") : lang("$wallet_import_done", arg1: importedAccountsCount)
         let line2 = successKind != .importedView ? lang("$wallet_done_description") : ""
-        Text(LocalizedStringKey(line1 + "\n\n" + line2))
+        let text = [line1, line2].filter { !$0.isEmpty }.joined(separator: "\n\n")
+        Text(LocalizedStringKey(text))
             .style(.body17)
             .multilineTextAlignment(.center)
     }

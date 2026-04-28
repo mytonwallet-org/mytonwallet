@@ -1,9 +1,8 @@
-import type { SignDataPayload } from '@tonconnect/protocol';
-
 import type { GlobalState } from '../../global/types';
 import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type { TonConnectProof } from '../dappProtocols/adapters';
 import type { StoredDappConnection } from '../dappProtocols/storage';
+import type { UnifiedSignDataPayload } from '../dappProtocols/types';
 import type { ApiActivity } from './activities';
 import type {
   ApiAccountConfig,
@@ -41,6 +40,7 @@ export type ApiUpdateInitialActivities = {
   accountId: string;
   chain: ApiChain;
   mainActivities: ApiActivity[];
+  mainHistoryHasMore?: boolean;
   /** The dictionary may contain not all tokens of the given chain */
   bySlug: Record<string, ApiActivity[]>;
 };
@@ -126,7 +126,7 @@ export type ApiUpdateDappSignData = {
   accountId: string;
   dapp: StoredDappConnection;
   operationChain: ApiChain;
-  payloadToSign: SignDataPayload;
+  payloadToSign: UnifiedSignDataPayload;
 };
 
 export type ApiUpdateDappSendTransactions = {
@@ -235,6 +235,7 @@ export type ApiUpdateNftReceived = {
 export type ApiUpdateNftSent = {
   type: 'nftSent';
   accountId: string;
+  chain: ApiChain;
   nftAddress: string;
   newOwnerAddress: string;
 };

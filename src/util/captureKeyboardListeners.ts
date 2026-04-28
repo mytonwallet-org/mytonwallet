@@ -1,5 +1,5 @@
 type HandlerName = 'onEnter' | 'onBackspace' | 'onDelete' | 'onEsc' | 'onUp' | 'onDown' | 'onLeft' | 'onRight'
-  | 'onTab';
+  | 'onTab' | 'onSpace';
 type EventHandler = (e: KeyboardEvent) => boolean | void | Promise<void>;
 type HandlerWithOptions = {
   handler: (e: KeyboardEvent) => void;
@@ -22,6 +22,7 @@ const keyToHandlerName: Record<string, HandlerName> = {
   ArrowLeft: 'onLeft',
   ArrowRight: 'onRight',
   Tab: 'onTab',
+  ' ': 'onSpace',
 };
 
 const handlers: Record<HandlerName, Handler[]> = {
@@ -34,6 +35,7 @@ const handlers: Record<HandlerName, Handler[]> = {
   onLeft: [],
   onRight: [],
   onTab: [],
+  onSpace: [],
 };
 
 export default function captureKeyboardListeners(options: CaptureOptions) {

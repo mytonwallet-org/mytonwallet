@@ -7,7 +7,6 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.annotation.DrawableRes
-import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
 import androidx.core.view.setPadding
 import com.facebook.drawee.drawable.ScalingUtils
@@ -18,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WActivityImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MToken
@@ -205,10 +205,12 @@ class IconView(
         gradientEndColor: String?,
     ) {
         abbreviationText = ""
-        activityImageView.imageView.setPadding(17.dp)
+        activityImageView.imageView.setPadding((viewSize - 14.dp) / 2)
 
         iconDrawableRes?.let { res ->
-            activityImageView.imageView.setImageDrawable(ContextCompat.getDrawable(context, res))
+            activityImageView.imageView.setImageDrawable(
+                context.getDrawableCompat(res)
+            )
         }
 
         val startColor = gradientStartColor?.toColorInt() ?: 0

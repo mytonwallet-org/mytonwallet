@@ -33,16 +33,16 @@ class BurnNftWarningTile: UIView {
     private let textLabel = UILabel()
     private var widthConstraint: NSLayoutConstraint!
     
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setup()
+    init(text: String) {
+        super.init(frame: .zero)
+        setup(text: text)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    private func setup() {
+    private func setup(text: String) {
         backgroundColor = .air.error.withAlphaComponent(0.12)
         layer.cornerCurve = .continuous
         layer.cornerRadius = 10
@@ -53,7 +53,7 @@ class BurnNftWarningTile: UIView {
         band.translatesAutoresizingMaskIntoConstraints = false
         addSubview(band)
         
-        textLabel.text = lang("Are you sure you want to burn this NFT? It will be lost forever.")
+        textLabel.text = text
         textLabel.textColor = .air.error
         textLabel.font = .systemFont(ofSize: 14, weight: .medium)
         textLabel.translatesAutoresizingMaskIntoConstraints = false

@@ -14,7 +14,10 @@ import UIPasscode
 import Ledger
 import UISettings
 
-private let log = Log("IntroActions")
+enum WalletSetupResult {
+    case completed
+    case deferredToPasscode
+}
 
 @MainActor public final class IntroModel {
     
@@ -23,6 +26,9 @@ private let log = Log("IntroActions")
     private var words: [String]?
     
     let allowOpenWithoutChecking: Bool = IS_DEBUG_OR_TESTFLIGHT
+    var hasExistingPassword: Bool {
+        password?.nilIfEmpty != nil
+    }
     
     public init(network: ApiNetwork, password: String?, words: [String]? = nil) {
         self.network = network
@@ -67,78 +73,76 @@ private let log = Log("IntroActions")
             Task { @MainActor in
                 let model = await LedgerAddAccountModel()
                 let vc = LedgerAddAccountVC(model: model, showBackButton: true)
+                let hadExistingAccounts = !AccountStore.accountsById.isEmpty
                 vc.onDone = { vc in
-                    self.onDone(successKind: .imported)
+                    self.onDone(
+                        successKind: .imported,
+                        hadExistingAccounts: hadExistingAccounts,
+                        importedAccountsCount: model.importedAccountsCount
+                    )
                 }
                 push(vc)
             }
         })
     }
     
-    func onGoToWords() {
-        Task { @MainActor in
-            do {
-                let words = try await Api.generateMnemonic()
-                self.words = words
-                let nc = try getNavigationController()
-                let wordsVC = WordDisplayVC(introModel: self, wordList: words)
-                let intro = nc.viewControllers.first ?? IntroVC(introModel: self)
-                push(wordsVC, completion: { _ in
-                    nc.viewControllers = [intro, wordsVC] // remove disclaimer
-                })
-            } catch {
-                log.error("onGoToWords: \(error)")
-                assertionFailure("\(error)")
-            }
-        }
+    func onGoToWords() async throws {
+        let words = try await Api.generateMnemonic()
+        self.words = words
+        let nc = try getNavigationController()
+        let wordsVC = WordDisplayVC(introModel: self, wordList: words)
+        let intro = nc.viewControllers.first ?? IntroVC(introModel: self)
+        push(wordsVC, completion: { _ in
+            nc.viewControllers = [intro, wordsVC] // remove disclaimer
+        })
     }
     
-    func onLetsCheck() {
-        Task { @MainActor in
-            do {
-                let words = try words.orThrow()
-                let allWords = try await Api.getMnemonicWordList()
-                push(WordCheckVC(introModel: self, words: words, allWords: allWords))
-            } catch {
-                log.error("onLetsCheck: \(error, .public)")
-            }
-        }
+    func onLetsCheck() async throws {
+        let words = try words.orThrow()
+        let allWords = try await Api.getMnemonicWordList()
+        push(WordCheckVC(introModel: self, words: words, allWords: allWords))
     }
     
-    func onOpenWithoutChecking() {
-        onCheckPassed()
+    func onOpenWithoutChecking() async throws -> WalletSetupResult {
+        try await onCheckPassed()
     }
     
-    func onCheckPassed() {
+    @discardableResult
+    func onCheckPassed() async throws -> WalletSetupResult {
         if let password = password?.nilIfEmpty {
-            _createWallet(passcode: password, biometricsEnabled: nil)
+            try await _createWallet(passcode: password, biometricsEnabled: nil)
+            return .completed
         } else {
             let setPasscode = SetPasscodeVC(onCompletion: { biometricsEnabled, password in
-                self._createWallet(passcode: password, biometricsEnabled: biometricsEnabled)
+                try await self._createWallet(passcode: password, biometricsEnabled: biometricsEnabled)
             })
             push(setPasscode)
+            return .deferredToPasscode
         }
     }
     
-    public func onDone(successKind: SuccessKind) {
-        if AccountStore.accountsById.count >= 2 {
+    public func onDone(successKind: SuccessKind, hadExistingAccounts: Bool, importedAccountsCount: Int = 1) {
+        if hadExistingAccounts {
             onOpenWallet()
         } else {
-            let success = ImportSuccessVC(successKind, introModel: self)
+            let success = ImportSuccessVC(successKind, introModel: self, importedAccountsCount: importedAccountsCount)
             push(success) { nc in
                 nc.viewControllers = [success] // no going back
             }
         }
     }
     
-    func onWordInputContinue(words: [String]) {
+    @discardableResult
+    func onWordInputContinue(words: [String]) async throws -> WalletSetupResult {
         if let password = password?.nilIfEmpty {
-            _importWallet(words: words, passcode: password, biometricsEnabled: nil)
+            try await _importWallet(words: words, passcode: password, biometricsEnabled: nil)
+            return .completed
         } else {
             let setPasscode = SetPasscodeVC(onCompletion: { biometricsEnabled, password in
-                self._importWallet(words: words, passcode: password, biometricsEnabled: biometricsEnabled)
+                try await self._importWallet(words: words, passcode: password, biometricsEnabled: biometricsEnabled)
             })
             push(setPasscode)
+            return .deferredToPasscode
         }
 
     }
@@ -160,41 +164,35 @@ private let log = Log("IntroActions")
     
     // MARK: - Actions
     
-    private func _createWallet(passcode: String, biometricsEnabled: Bool?) {
-        Task { @MainActor in
-            do {
-                _ = try await AccountStore.importMnemonic(network: network, words: words.orThrow(), passcode: passcode, version: nil)
-                KeychainHelper.save(biometricPasscode: passcode)
-                if let biometricsEnabled { // nil if not first wallet
-                    AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
-                }
-                self.onDone(successKind: .created)
-            } catch {
-                log.error("_createWallet: \(error)")
-            }
+    private func _createWallet(passcode: String, biometricsEnabled: Bool?) async throws {
+        let hadExistingAccounts = !AccountStore.accountsById.isEmpty
+        let accounts = try await AccountStore.importMnemonic(network: network, words: words.orThrow(), passcode: passcode, version: nil)
+        KeychainHelper.save(biometricPasscode: passcode)
+        if let biometricsEnabled { // nil if not first wallet
+            AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
         }
+        self.onDone(successKind: .created, hadExistingAccounts: hadExistingAccounts, importedAccountsCount: accounts.count)
     }
     
-    private func _importWallet(words: [String], passcode: String, biometricsEnabled: Bool?) {
-        Task { @MainActor in
-            do {
-                if let privateKeyWords = normalizeMnemonicPrivateKey(words) {
-                    _ = try await AccountStore.importPrivateKey(network: network, privateKey: privateKeyWords[0], passcode: passcode)
-                } else {
-                    _ = try await AccountStore.importMnemonic(network: network, words: words, passcode: passcode, version: nil)
-                }
-                KeychainHelper.save(biometricPasscode: passcode)
-                if let biometricsEnabled { // nil if not first wallet
-                    AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
-                }
-                self.onDone(successKind: .imported)
-            } catch {
-                log.error("_importWallet: \(error)")
-            }
+    private func _importWallet(words: [String], passcode: String, biometricsEnabled: Bool?) async throws {
+        let hadExistingAccounts = !AccountStore.accountsById.isEmpty
+        let importedAccountsCount: Int
+        if let privateKeyWords = normalizeMnemonicPrivateKey(words) {
+            _ = try await AccountStore.importPrivateKey(network: network, privateKey: privateKeyWords[0], passcode: passcode)
+            importedAccountsCount = 1
+        } else {
+            let accounts = try await AccountStore.importMnemonic(network: network, words: words, passcode: passcode, version: nil)
+            importedAccountsCount = accounts.count
         }
+        KeychainHelper.save(biometricPasscode: passcode)
+        if let biometricsEnabled { // nil if not first wallet
+            AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
+        }
+        self.onDone(successKind: .imported, hadExistingAccounts: hadExistingAccounts, importedAccountsCount: importedAccountsCount)
     }
     
     private func _addViewWallet(address: String) async throws {
+        let hadExistingAccounts = !AccountStore.accountsById.isEmpty
         var addressByChain: [String: String] = [:]
         for chain in ApiChain.allCases {
             if chain.isValidAddressOrDomain(address) {
@@ -202,7 +200,7 @@ private let log = Log("IntroActions")
             }
         }
         _ = try await AccountStore.importViewWallet(network: network, addressByChain: addressByChain)
-        self.onDone(successKind: .importedView)
+        self.onDone(successKind: .importedView, hadExistingAccounts: hadExistingAccounts)
     }
 }
 

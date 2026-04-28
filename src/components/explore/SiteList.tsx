@@ -5,7 +5,6 @@ import type { ApiSite } from '../../api/types';
 
 import buildClassName from '../../util/buildClassName';
 
-import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useScrolledState from '../../hooks/useScrolledState';
 
@@ -23,8 +22,6 @@ interface OwnProps {
 function SiteList({ isActive, categoryId, sites }: OwnProps) {
   const { closeSiteCategory } = getActions();
 
-  const { isPortrait } = useDeviceScreen();
-
   useHistoryBack({
     isActive,
     onBack: closeSiteCategory,
@@ -37,10 +34,10 @@ function SiteList({ isActive, categoryId, sites }: OwnProps) {
 
   return (
     <div
-      onScroll={isPortrait ? handleContentScroll : undefined}
+      onScroll={handleContentScroll}
       className={buildClassName(styles.root, 'custom-scroll')}
     >
-      {isPortrait && <CategoryHeader id={categoryId} withNotch={isScrolled} />}
+      <CategoryHeader id={categoryId} withNotch={isScrolled} />
       <div className={styles.list}>
         {sites.map((site) => (
           <Site

@@ -7,6 +7,8 @@ import Perception
 struct SegmentedControlReordering: View {
     
     let model: SegmentedControlModel
+    let scrollContentMargin: CGFloat
+    
     var body: some View {
         WithPerceptionTracking {
             if model.isReordering {
@@ -24,11 +26,13 @@ struct SegmentedControlReordering: View {
                 primaryColor: model.primaryColor,
                 secondaryColor: model.secondaryColor,
                 capsuleColor: model.capsuleColor,
-                font: model.uikitFont,
+                font: model.font,
+                constants: model.constants,
+                scrollContentMargin: scrollContentMargin,
                 onChange: { model.requestItemsReorder($0) }
             )
         }
-        .frame(height: SegmentedControlConstants.fullHeight)
+        .frame(height: model.constants.fullHeight)
     }
 }
 
@@ -37,6 +41,8 @@ struct SegmentedControlReordering: View {
 private final class SegmentedControlReorderingVC: UIViewController {
     private var items: [SegmentedControlItem]
     private var selectedItemID: SegmentedControlItem.ID?
+    private var constants: SegmentedControlConstants
+    private var scrollContentMargin: CGFloat
     
     // This is a lightweight version of SegmentedControlItem for fast change comparison
     private struct ItemSignature: Hashable {
@@ -66,7 +72,8 @@ private final class SegmentedControlReorderingVC: UIViewController {
 
     init(items: [SegmentedControlItem], selection: SegmentedControlSelection?,
                 primaryColor: UIColor, secondaryColor: UIColor, capsuleColor: UIColor,
-                font: UIFont, onChange: @escaping ([SegmentedControlItem]) -> Void) {
+                font: UIFont, constants: SegmentedControlConstants, scrollContentMargin: CGFloat,
+                onChange: @escaping ([SegmentedControlItem]) -> Void) {
         self.items = items
         self.selectedItemID = selection?.effectiveSelectedItemID
         self.itemsSignatures = items.map { .init(segmentItem:$0) }
@@ -74,6 +81,8 @@ private final class SegmentedControlReorderingVC: UIViewController {
         self.secondaryColor = secondaryColor
         self.capsuleColor = capsuleColor
         self.font = font
+        self.constants = constants
+        self.scrollContentMargin = scrollContentMargin
         self.onChange = onChange
         super.init(nibName: nil, bundle: nil)
     }
@@ -85,15 +94,12 @@ private final class SegmentedControlReorderingVC: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        view.backgroundColor = .air.groupedItem // Fully hides tabs underneath
-
-        let layout = UICollectionViewFlowLayout()
+        let layout = HorizontalCenteringFlowLayout()
         layout.scrollDirection = .horizontal
         layout.minimumInteritemSpacing = 4
-        layout.minimumLineSpacing = SegmentedControlConstants.spacing
-        layout.sectionInset = UIEdgeInsets(top: 0, left:  SegmentedControlConstants.scrollContentMargin, bottom: 0,
-                                           right:  SegmentedControlConstants.scrollContentMargin)
-        layout.itemSize = .init(width: 100, height: SegmentedControlConstants.fullHeight)
+        layout.minimumLineSpacing = constants.spacing
+        layout.sectionInset = UIEdgeInsets(top: 0, left: scrollContentMargin, bottom: 0, right:  scrollContentMargin)
+        layout.itemSize = .init(width: 100, height: constants.fullHeight)
 
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -118,10 +124,13 @@ private final class SegmentedControlReorderingVC: UIViewController {
             }
             
             cell.configure(
-                title: item.title, textColor: secondaryColor, font: font,
+                title: item.title,
+                textColor: selectedItemID == item.id ? primaryColor : secondaryColor,
+                font: font,
                 backgroundColor: selectedItemID == item.id ? capsuleColor : .clear,
                 deleteButtonColor: capsuleColor,
-                isDeletable: item.isDeletable
+                isDeletable: item.isDeletable,
+                constants: constants
             )
             cell.onDeleteTapped = { [weak self, weak cell] in
                 guard let self else { return }
@@ -185,13 +194,16 @@ extension SegmentedControlReorderingVC: ReorderableCollectionViewControllerDeleg
 
     func reorderController(_ controller: ReorderableCollectionViewController, sizeForItemAt indexPath: IndexPath) -> CGSize? {
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return nil }
-        return _Cell.sizeFor(item, font: font)
+        let width = _Cell.widthFor(item, font: font, labelGap: constants.labelGap)
+        return CGSize(width: width, height: constants.fullHeight)
     }
     
     func reorderController(_ controller: ReorderableCollectionViewController, adjustPreviewFrame previewFrame: CGRect) -> CGRect {
         let insets = UIEdgeInsets(
-            top: SegmentedControlConstants.topInset, left: SegmentedControlConstants.scrollContentMargin,
-            bottom: 0, right: SegmentedControlConstants.scrollContentMargin
+            top: constants.topInset,
+            left: -previewFrame.width,
+            bottom: 0,
+            right: -previewFrame.width
         )
         let bounds = controller.collectionView.bounds.inset(by: insets)
         return previewFrame.clamped(to: bounds)
@@ -213,7 +225,11 @@ private final class _Cell: UICollectionViewCell, ReorderableCell {
     private lazy var wiggleBehavior = WiggleBehavior(view: contentView)
     
     private var mainViewLeadingConstraint: NSLayoutConstraint!
-    
+    private var mainViewTopConstraint: NSLayoutConstraint!
+    private var mainViewHeightConstraint: NSLayoutConstraint!
+    private var titleLeadingConstraint: NSLayoutConstraint!
+    private var titleTrailingConstraint: NSLayoutConstraint!
+
     private let deleteButton: UIButton = {
         let b = UIButton(type: .custom)
         b.alpha = 0
@@ -248,7 +264,6 @@ private final class _Cell: UICollectionViewCell, ReorderableCell {
     
     let mainView = UIView()
     
-    static let labelGap = SegmentedControlConstants.innerPadding
     static let deleteButtonImageSize: CGFloat = 18
     static let deleteButtonSize: CGFloat = 24
     static let deleteButtonImageSideOffset: CGFloat = 6
@@ -258,15 +273,16 @@ private final class _Cell: UICollectionViewCell, ReorderableCell {
         super.init(frame: frame)
         
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        mainView.translatesAutoresizingMaskIntoConstraints = false
-        mainView.layer.cornerRadius = SegmentedControlConstants.height / 2
         mainView.addSubview(titleLabel)
+        titleLeadingConstraint = titleLabel.leadingAnchor.constraint(equalTo: mainView.leadingAnchor, constant: 0)
+        titleTrailingConstraint = titleLabel.trailingAnchor.constraint(equalTo: mainView.trailingAnchor, constant: 0)
         NSLayoutConstraint.activate([
-            titleLabel.leadingAnchor.constraint(equalTo: mainView.leadingAnchor, constant: Self.labelGap),
-            titleLabel.trailingAnchor.constraint(equalTo: mainView.trailingAnchor, constant: -Self.labelGap),
+            titleLeadingConstraint,
+            titleTrailingConstraint,
             titleLabel.centerYAnchor.constraint(equalTo: mainView.centerYAnchor)
         ])
+
+        mainView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(mainView)
         
         deleteButton.translatesAutoresizingMaskIntoConstraints = false
@@ -274,9 +290,11 @@ private final class _Cell: UICollectionViewCell, ReorderableCell {
         contentView.addSubview(deleteButton)
         
         mainViewLeadingConstraint = mainView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 0)
+        mainViewHeightConstraint = mainView.heightAnchor.constraint(equalToConstant: 0)
+        mainViewTopConstraint = mainView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 0)
         NSLayoutConstraint.activate([
-            mainView.heightAnchor.constraint(equalToConstant: SegmentedControlConstants.height),
-            mainView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: SegmentedControlConstants.topInset),
+            mainViewTopConstraint,
+            mainViewHeightConstraint,
             mainView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: 0),
             mainViewLeadingConstraint,
             
@@ -321,12 +339,18 @@ private final class _Cell: UICollectionViewCell, ReorderableCell {
     }
     
     func configure(title: String, textColor: UIColor, font: UIFont, backgroundColor: UIColor,
-                   deleteButtonColor: UIColor, isDeletable: Bool) {
+                   deleteButtonColor: UIColor, isDeletable: Bool, constants: SegmentedControlConstants) {
         mainView.backgroundColor = backgroundColor
         
         titleLabel.text = title
         titleLabel.textColor = textColor
         titleLabel.font = font
+        
+        mainView.layer.cornerRadius = constants.height / 2
+        mainViewTopConstraint.constant = constants.topInset
+        mainViewHeightConstraint.constant = constants.height
+        titleLeadingConstraint.constant = constants.labelGap
+        titleTrailingConstraint.constant = -constants.labelGap
         
         onDeleteTapped = nil
         if isDeletable {
@@ -339,7 +363,7 @@ private final class _Cell: UICollectionViewCell, ReorderableCell {
         updateLayouts()
     }
     
-    static func sizeFor(_ item: SegmentedControlItem, font: UIFont) -> CGSize {
+    static func widthFor(_ item: SegmentedControlItem, font: UIFont, labelGap: CGFloat) -> CGFloat {
         let text = item.title as NSString
         let constraintSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: font.lineHeight)
         let boundingRect = text.boundingRect(
@@ -348,11 +372,11 @@ private final class _Cell: UICollectionViewCell, ReorderableCell {
             attributes: [.font: font],
             context: nil
         )
-        var width = ceil(boundingRect.width) + _Cell.labelGap * 2
+        var width = ceil(boundingRect.width) + labelGap * 2
         if item.isDeletable {
             width += _Cell.deleteButtonSideOffset
         }
-        return CGSize(width: width, height: SegmentedControlConstants.fullHeight)
+        return width
     }
 }
 
@@ -363,6 +387,8 @@ private struct SegmentedControlReorderingVCRepresentable: UIViewRepresentable {
     let secondaryColor: UIColor
     let capsuleColor: UIColor
     let font: UIFont
+    let constants: SegmentedControlConstants
+    let scrollContentMargin: CGFloat
     let onChange: ([SegmentedControlItem]) -> Void
     
     func makeUIView(context: Context) -> UIView {
@@ -370,7 +396,8 @@ private struct SegmentedControlReorderingVCRepresentable: UIViewRepresentable {
         container.backgroundColor = .clear
         let vc = SegmentedControlReorderingVC(
             items: items, selection: selection, primaryColor: primaryColor, secondaryColor: secondaryColor,
-            capsuleColor: capsuleColor, font: font, onChange: onChange
+            capsuleColor: capsuleColor, font: font, constants: constants, scrollContentMargin: scrollContentMargin,
+            onChange: onChange
         )
         context.coordinator.vc = vc
         let childView = vc.view!
@@ -395,5 +422,74 @@ private struct SegmentedControlReorderingVCRepresentable: UIViewRepresentable {
 
     final class Coordinator {
         var vc: SegmentedControlReorderingVC?
+    }
+}
+
+
+private class HorizontalCenteringFlowLayout: UICollectionViewFlowLayout {
+    private var horizontalOffset: CGFloat = 0
+
+    override func prepare() {
+        super.prepare()
+        horizontalOffset = computeHorizontalOffset()
+    }
+
+    private func computeHorizontalOffset() -> CGFloat {
+        guard let collectionView else { return 0 }
+        let insets = collectionView.adjustedContentInset
+        let availableWidth = collectionView.bounds.width - insets.left - insets.right
+        let contentWidth = super.collectionViewContentSize.width
+        guard contentWidth < availableWidth else { return 0 }
+        return ((availableWidth - contentWidth) / 2).rounded()
+    }
+
+    override var collectionViewContentSize: CGSize {
+        var size = super.collectionViewContentSize
+        if horizontalOffset > 0, let collectionView {
+            let insets = collectionView.adjustedContentInset
+            let availableWidth = collectionView.bounds.width - insets.left - insets.right
+            size.width = max(size.width, availableWidth)
+        }
+        return size
+    }
+
+    override func layoutAttributesForElements(in rect: CGRect) -> [UICollectionViewLayoutAttributes]? {
+        guard horizontalOffset > 0 else {
+            return super.layoutAttributesForElements(in: rect)
+        }
+        let queryRect = rect.offsetBy(dx: -horizontalOffset, dy: 0)
+        guard let originals = super.layoutAttributesForElements(in: queryRect) else { return nil }
+        return originals.map { shifted($0) }
+    }
+
+    override func layoutAttributesForItem(at indexPath: IndexPath) -> UICollectionViewLayoutAttributes? {
+        guard let attr = super.layoutAttributesForItem(at: indexPath) else { return nil }
+        guard horizontalOffset > 0 else { return attr }
+        return shifted(attr)
+    }
+
+    override func layoutAttributesForSupplementaryView(ofKind elementKind: String, at indexPath: IndexPath) -> UICollectionViewLayoutAttributes? {
+        guard let attr = super.layoutAttributesForSupplementaryView(ofKind: elementKind, at: indexPath) else { return nil }
+        guard horizontalOffset > 0 else { return attr }
+        return shifted(attr)
+    }
+
+    override func layoutAttributesForDecorationView(ofKind elementKind: String, at indexPath: IndexPath) -> UICollectionViewLayoutAttributes? {
+        guard let attr = super.layoutAttributesForDecorationView(ofKind: elementKind, at: indexPath) else { return nil }
+        guard horizontalOffset > 0 else { return attr }
+        return shifted(attr)
+    }
+
+    override func shouldInvalidateLayout(forBoundsChange newBounds: CGRect) -> Bool {
+        if let collectionView, collectionView.bounds.size != newBounds.size {
+            return true
+        }
+        return super.shouldInvalidateLayout(forBoundsChange: newBounds)
+    }
+
+    private func shifted(_ attr: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
+        guard let copy = attr.copy() as? UICollectionViewLayoutAttributes else { return attr }
+        copy.frame = copy.frame.offsetBy(dx: horizontalOffset, dy: 0)
+        return copy
     }
 }

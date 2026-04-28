@@ -506,7 +506,7 @@ function TransferInitial({
               {lang(nfts.length > 1 ? 'Send Collectibles' : 'Send Collectible')}
             </div>
           ) : (
-            <SentTabs isInsideModal={!isStatic} />
+            <SentTabs />
           )}
 
           {nfts?.length === 1 && <NftInfo nft={nfts[0]} isStatic={isStatic} withMediaViewer />}

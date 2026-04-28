@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -53,7 +54,7 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
         ellipsize = TextUtils.TruncateAt.END
         isSingleLine = true
 
-        setStyle(ApplicationContextHolder.adaptiveFontSize, WFont.DemiBold)
+        setStyle(adaptiveFontSize(), WFont.DemiBold)
         setTextColor(WColor.PrimaryText)
     }
 

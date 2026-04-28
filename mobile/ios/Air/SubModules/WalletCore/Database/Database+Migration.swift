@@ -264,5 +264,13 @@ func makeMigrator() -> DatabaseMigrator {
             t.column("system_style_time", .text)
         }
     }
+    migrator.registerMigration("v13") { db in
+        try db.alter(table: "settings") { t in
+            t.add(column: "walletSettingsListLayout", .text)
+            t.add(column: "walletSettingsCurrentFilter", .text)
+            t.add(column: "walletSettingsFilterOrder", .jsonText).defaults(to: "[]").notNull()
+        }
+    }
+
     return migrator
 }

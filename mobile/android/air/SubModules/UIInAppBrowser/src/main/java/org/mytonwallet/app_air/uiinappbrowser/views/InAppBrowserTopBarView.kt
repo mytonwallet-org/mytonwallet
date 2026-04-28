@@ -15,27 +15,27 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.net.toUri
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.extensions.resize
+import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.BackDrawable
+import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
@@ -45,6 +45,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.theme.colorForTheme
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
@@ -59,10 +60,16 @@ class InAppBrowserTopBarView(
     private var selectedOption: String?,
     private val optionsOnTitle: Boolean,
     private val minimizeStarted: () -> Unit,
+    private val minimizeFinished: () -> Unit,
+    private val maximizeStarted: () -> Unit,
     private val maximizeFinished: () -> Unit,
 ) : WView(viewController.context), WThemedView {
 
     val canBeMinimized = tabBarController != null
+    private val minimizedBlurRoot = tabBarController?.minimizedBlurRootView
+    private val useMinimizedBlur = minimizedBlurRoot != null
+
+    private var minimizedBlurView: WBlurryBackgroundView? = null
 
     private val moreButtonRipple = WRippleDrawable.create(20f.dp)
     private val minimizeButtonRipple = WRippleDrawable.create(20f.dp)
@@ -99,10 +106,7 @@ class InAppBrowserTopBarView(
     fun textWithArrow(txt: String?, isTitle: Boolean): SpannableStringBuilder? {
         val txt = txt ?: return null
         val ss = SpannableStringBuilder(txt)
-        ContextCompat.getDrawable(
-            context,
-            R.drawable.ic_arrows_14
-        )?.let { drawable ->
+        context.getDrawableCompat(R.drawable.ic_arrows_14)?.let { drawable ->
             drawable.mutate()
             drawable.setTint(
                 (if (isTitle) WColor.PrimaryText else WColor.SecondaryText).colorForTheme(
@@ -195,6 +199,11 @@ class InAppBrowserTopBarView(
     private val minimizeButton: WImageButton by lazy {
         val v = WImageButton(context)
         v.setPadding(8.dp)
+        val minimizeDrawable =
+            context.getDrawableCompat(
+                R.drawable.ic_arrow_up_24
+            )?.resize(context, 24.dp, 24.dp)
+        v.setImageDrawable(minimizeDrawable)
         v.setOnClickListener {
             minimize()
         }
@@ -204,6 +213,9 @@ class InAppBrowserTopBarView(
     private val moreButton: WImageButton by lazy {
         val v = WImageButton(context)
         v.setPadding(8.dp)
+        v.setImageDrawable(
+            context.getDrawableCompat(R.drawable.ic_more)
+        )
         v
     }
 
@@ -275,38 +287,54 @@ class InAppBrowserTopBarView(
             updateTheme()
         }
 
+    private fun syncBlurView() {
+        if (minimizedBlurView != null)
+            return
+        minimizedBlurView = WBlurryBackgroundView(context, fadeSide = null).also {
+            it.setupWith(minimizedBlurRoot!!)
+            it.setOverlayColor(WColor.Background, 204)
+            it.alpha = 0f
+            addView(it, 0, LayoutParams(0, 0))
+            setConstraints {
+                allEdges(it)
+            }
+        }
+    }
+
+    fun pauseBlurring() {
+        minimizedBlurView?.pauseBlurring()
+    }
+
+    fun resumeBlurring() {
+        minimizedBlurView?.resumeBlurring()
+    }
+
     override fun updateTheme() {
         val shouldRenderMinimized = isMinimizing || isMinimized
         val shouldRenderAsDarkMode = if (shouldRenderMinimized) null else overrideThemeIsDark
-        if (isMinimizing || isMinimized) {
-            setBackgroundColor(WColor.SearchFieldBackground.color)
-            backDrawable.setColor(WColor.PrimaryText.color)
-            backDrawable.setRotatedColor(WColor.PrimaryText.color)
-        } else {
-            backDrawable.setColor(WColor.SecondaryText.colorForTheme(shouldRenderAsDarkMode))
-            backDrawable.setRotatedColor(WColor.SecondaryText.colorForTheme(shouldRenderAsDarkMode))
-        }
-        titleLabel.animateTextColor(WColor.PrimaryText.colorForTheme(shouldRenderAsDarkMode))
-        val moreDrawable =
-            ContextCompat.getDrawable(
-                context,
-                R.drawable.ic_more
-            )?.apply {
-                setTint(WColor.SecondaryText.colorForTheme(shouldRenderAsDarkMode))
+        val tintColor =
+            if (shouldRenderMinimized) WColor.PrimaryText.color else WColor.SecondaryText.colorForTheme(
+                shouldRenderAsDarkMode
+            )
+        if (shouldRenderMinimized) {
+            if (useMinimizedBlur) {
+                setBackgroundColor(Color.TRANSPARENT)
+                syncBlurView()
+                minimizedBlurView?.alpha = 1f
+                minimizedBlurView?.updateTheme()
+            } else {
+                setBackgroundColor(WColor.SearchFieldBackground.color)
             }
-        moreButton.setImageDrawable(moreDrawable)
+        }
+        backDrawable.setColor(tintColor)
+        backDrawable.setRotatedColor(tintColor)
+        titleLabel.animateTextColor(WColor.PrimaryText.colorForTheme(shouldRenderAsDarkMode))
+        moreButton.drawable.setTint(WColor.SecondaryText.colorForTheme(shouldRenderAsDarkMode))
         moreButton.background = moreButtonRipple
         moreButtonRipple.backgroundColor = Color.TRANSPARENT
         moreButtonRipple.rippleColor = WColor.BackgroundRipple.colorForTheme(shouldRenderAsDarkMode)
-        val minimizeDrawable =
-            ContextCompat.getDrawable(
-                context,
-                R.drawable.ic_arrow_up_24
-            )?.apply {
-                setTint(WColor.SecondaryText.colorForTheme(shouldRenderAsDarkMode))
-            }?.resize(context, 24.dp, 24.dp)
-        minimizeButton.rotation = 180f
-        minimizeButton.setImageDrawable(minimizeDrawable)
+        minimizeButton.rotation = if (shouldRenderMinimized) 0f else 180f
+        minimizeButton.drawable.setTint(tintColor)
         minimizeButton.background = minimizeButtonRipple
         minimizeButtonRipple.backgroundColor = Color.TRANSPARENT
         minimizeButtonRipple.rippleColor =
@@ -328,6 +356,17 @@ class InAppBrowserTopBarView(
 
     fun blendColors(color1: Int, color2: Int, ratio: Float): Int {
         return ColorUtils.blendARGB(color1, color2, ratio)
+    }
+
+    private fun applyMinimizedBackground(fraction: Float) {
+        val f = fraction.coerceIn(0f, 1f)
+        if (useMinimizedBlur) {
+            setBackgroundColor(Color.TRANSPARENT)
+            syncBlurView()
+            minimizedBlurView?.alpha = f
+        } else {
+            setBackgroundColor(WColor.SearchFieldBackground.color.colorWithAlpha((f * 255).toInt()))
+        }
     }
 
     var isMinimized = false
@@ -366,11 +405,11 @@ class InAppBrowserTopBarView(
                 titleLabel.scaleX = 1 - 0.23f * it
                 titleLabel.scaleY = titleLabel.scaleX
                 minimizeButton.rotation = (1 - it) * 180
-                setBackgroundColor(WColor.SearchFieldBackground.color.colorWithAlpha((it * 255).toInt()))
+                applyMinimizedBackground(it)
                 val drawableColor =
                     blendColors(
                         WColor.SecondaryText.color,
-                        WColor.PrimaryLightText.color,
+                        WColor.PrimaryText.color,
                         it
                     )
                 backDrawable.setColor(drawableColor)
@@ -388,9 +427,11 @@ class InAppBrowserTopBarView(
                     isMinimized = true
                     isMinimizing = false
                     titleLabel.isClickable = false
+                    minimizeFinished()
                 }
             }, onMaximizeProgress = {
                 if (it == 0f) {
+                    maximizeStarted()
                     updateBackButton(true)
                     titleLabel.isClickable = true
                 }
@@ -416,7 +457,7 @@ class InAppBrowserTopBarView(
                         it
                     )
                 )
-                setBackgroundColor(WColor.SearchFieldBackground.color.colorWithAlpha(((1 - it) * 255).toInt()))
+                applyMinimizedBackground(1 - it)
                 val drawableColor =
                     blendColors(
                         WColor.PrimaryText.color,

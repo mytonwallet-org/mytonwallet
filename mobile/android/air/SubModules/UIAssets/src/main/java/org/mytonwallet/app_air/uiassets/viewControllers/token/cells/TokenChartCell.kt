@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.token.cells
 
 import android.animation.AnimatorSet
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.graphics.Color
@@ -117,7 +118,7 @@ class TokenChartCell(
 
     private val priceLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f, WFont.Medium)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl
     }
 
@@ -207,7 +208,7 @@ class TokenChartCell(
         visibility = INVISIBLE
     }
 
-    private val roundDrawable = RoundProgressDrawable(12.dp, 0.5f.dp)
+    private val roundDrawable = RoundProgressDrawable(12f.dp, 0.5f.dp)
 
     private val progressViewWidth = 24.dp
     private val progressView = AppCompatImageView(context).apply {

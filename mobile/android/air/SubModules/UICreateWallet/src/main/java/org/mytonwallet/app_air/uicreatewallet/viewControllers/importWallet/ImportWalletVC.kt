@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicreatewallet.viewControllers.importWallet
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.util.TypedValue
 import android.view.Gravity
@@ -97,7 +98,7 @@ class ImportWalletVC(
 
     private val subtitleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f)
+            setStyle(adaptiveFontSize())
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = LocaleController.getStringWithKeyValues(
                 "\$auth_import_mnemonic_description",
@@ -117,7 +118,7 @@ class ImportWalletVC(
 
     private val pasteButton: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.SemiBold)
+            setStyle(adaptiveFontSize(), WFont.SemiBold)
             text = LocaleController.getString("Paste from Clipboard")
             setTextColor(WColor.Tint.color)
             setPaddingDp(16, 8, 16, 8)
@@ -376,7 +377,7 @@ class ImportWalletVC(
         }
     }
 
-    override fun finalizedImport(accountId: String) {
+    override fun finalizedImport(accountId: String, importedAccountsCount: Int) {
         WalletCore.activateAccount(
             accountId,
             notifySDK = false
@@ -396,8 +397,8 @@ class ImportWalletVC(
                 showError(MBridgeError.UNKNOWN)
                 return@activateAccount
             } else {
-                if (WGlobalStorage.accountIds().size < 2) {
-                    push(WalletAddedVC(context, false), {
+                if (WGlobalStorage.accountIds().size <= importedAccountsCount) {
+                    push(WalletAddedVC(context, false, importedAccountsCount), {
                         navigationController?.removePrevViewControllers()
                     })
                 } else {

@@ -24,7 +24,7 @@ $signSizeDiff: 0.375rem;
   min-width: 16rem;
   height: 0;
   margin: 0 auto;
-  padding-top: v.$cardAspectRatio;
+  padding-top: v.$cardAspectRatioPortrait;
 
   :global(html.is-electron) &,
   :global(html.is-mobile-telegram-app.with-safe-area-top) & {
@@ -33,6 +33,7 @@ $signSizeDiff: 0.375rem;
 
   @include mixins.respond-above(xs) {
     margin-top: 0;
+    padding-top: v.$cardAspectRatioLandscape;
   }
 }
 
@@ -278,7 +279,7 @@ $signSizeDiff: 0.375rem;
 }
 
 .balanceTransition {
-  --border-radius-value: var(--border-radius-normal);
+  --border-radius-value: var(--border-radius-default);
 
   max-height: 3.5rem;
 
@@ -412,7 +413,7 @@ $signSizeDiff: 0.375rem;
   margin-bottom: -0.375rem;
   padding: 0.25rem 0.5rem;
   border: 0.0625rem solid var(--color-card-button-border);
-  border-radius: var(--border-radius-tiny);
+  border-radius: var(--border-radius-buttons);
 
   font-size: 0.875rem;
   font-weight: 700;
@@ -431,10 +432,10 @@ $signSizeDiff: 0.375rem;
   display: inline-flex;
   align-items: center;
 
-  height: 1rem;
-  margin-right: 0.5rem;
+  height: 1.25rem;
+  margin: -0.125rem 0.5rem -0.125rem 0;
   padding: 0 0.25rem;
-  border-radius: 0.3125rem;
+  border-radius: 1.5rem;
 
   font-size: 0.6875rem;
   font-weight: 700;
@@ -672,7 +673,7 @@ $signSizeDiff: 0.375rem;
 
   height: 1.75rem;
   padding: 0 0.5rem;
-  border-radius: var(--border-radius-big);
+  border-radius: var(--border-radius-default);
 
   font-size: 1rem;
   font-weight: 600;
@@ -783,8 +784,6 @@ $signSizeDiff: 0.375rem;
 
 .tokenAmount,
 .tokenName {
-  --border-radius-value: 0.25rem;
-
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -805,8 +804,6 @@ $signSizeDiff: 0.375rem;
 }
 
 .tokenChange {
-  --border-radius-value: var(--border-radius-micro);
-
   line-height: 0.875rem;
 }
 
@@ -821,7 +818,6 @@ $signSizeDiff: 0.375rem;
 }
 
 .tokenValue {
-  --border-radius-value: 0.25rem;
   --offset-x-value: -0.3125rem;
   --offset-y-value: 0.1875rem;
 

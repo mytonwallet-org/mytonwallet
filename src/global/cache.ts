@@ -644,6 +644,16 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     }
     cached.stateVersion = 54;
   }
+  if (cached.stateVersion === 54) {
+    // Desktop redesign reordered `ContentTab` enum (added `Overview` at index 0, `Settings` at end),
+    // so persisted numeric values now point to the wrong tabs. Clear them to let the layout-aware
+    // default in `Content.tsx` (`useEffectOnce`) pick `Overview`/`Assets` based on orientation.
+    for (const accountId of Object.keys(cached.byAccountId)) {
+      delete (cached.byAccountId[accountId] as any).landscapeActionsActiveTabIndex;
+      delete (cached.byAccountId[accountId] as any).activeContentTab;
+    }
+    cached.stateVersion = 55;
+  }
   // When adding migration here, increase `STATE_VERSION`
 }
 
@@ -781,7 +791,6 @@ function reduceByAccountId(global: GlobalState) {
       'savedAddresses',
       'staking',
       'activeContentTab',
-      'landscapeActionsActiveTabIndex',
       'browserHistory',
       'blacklistedNftAddresses',
       'whitelistedNftAddresses',

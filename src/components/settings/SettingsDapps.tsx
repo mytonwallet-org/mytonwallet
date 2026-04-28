@@ -17,22 +17,20 @@ import DappInfo from '../dapps/DappInfo';
 import DisconnectDappModal from '../main/modals/DisconnectDappModal';
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import Button from '../ui/Button';
-import ModalHeader from '../ui/ModalHeader';
 import Transition from '../ui/Transition';
+import SettingsHeader from './SettingsHeader';
 
 import styles from './Settings.module.scss';
 
 interface OwnProps {
   isActive: boolean;
   dapps: StoredDappConnection[];
-  isInsideModal?: boolean;
   onBackClick: NoneToVoidFunction;
 }
 
 function SettingsDapps({
   isActive,
   dapps,
-  isInsideModal,
   onBackClick,
 }: OwnProps) {
   const lang = useLang();
@@ -113,22 +111,8 @@ function SettingsDapps({
 
   return (
     <div className={styles.slide}>
-      {isInsideModal ? (
-        <ModalHeader
-          title={lang('Apps')}
-          withNotch={isScrolled}
-          onBackButtonClick={onBackClick}
-          className={styles.modalHeader}
-        />
-      ) : (
-        <div className={buildClassName(styles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
-            <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-            <span>{lang('Back')}</span>
-          </Button>
-          <span className={styles.headerTitle}>{lang('Apps')}</span>
-        </div>
-      )}
+      <SettingsHeader title={lang('Apps')} isScrolled={isScrolled} onBackClick={onBackClick} />
+
       <div
         className={buildClassName(styles.content, 'custom-scroll')}
         onScroll={handleContentScroll}

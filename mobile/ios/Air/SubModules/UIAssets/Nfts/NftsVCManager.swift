@@ -139,9 +139,9 @@ public class NftsVCManager {
                 inSelection = true
                 if let nfts = vc.collectMultiSelectedNfts() {
                     selectedItemCount = nfts.count
+                    canBurnSelection = vc.$account.account.supportsBurn && nfts.allSatisfy(\.chain.isNftBurnSupported)
+                    canSendSelection = vc.$account.account.supportsSend
                 }
-                canBurnSelection = vc.$account.account.supportsBurn
-                canSendSelection = vc.$account.account.supportsSend
             }
             
             vcStates[ObjectIdentifier(vc)] = State.VCState(
@@ -165,13 +165,6 @@ public class NftsVCManager {
             self.state = newState
             onStateChange?(oldState, newState)
             editingNavigator.notifyStateChange(oldState, newState)
-        }
-        
-        // Auto-cancel editing if no items are in the single view controller
-        if state.itemCount == 0, state.controllerStates.count == 1, state.editingState != nil {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                self?.stopEditing(isCanceled: false)
-            }
         }
     }
 
@@ -211,6 +204,9 @@ public class NftsVCManager {
     internal func burnSelected() {
         guard let vc = selectionTargetVC, let nfts = vc.collectMultiSelectedNfts() else {
             assertionFailure()
+            return
+        }
+        guard nfts.allSatisfy(\.chain.isNftBurnSupported) else {
             return
         }
         guard canSendOrBurnItems(nfts: nfts) else {
@@ -292,4 +288,3 @@ extension NftsVCManager {
         fileprivate let controllerStates: [ObjectIdentifier: VCState]
     }
 }
-

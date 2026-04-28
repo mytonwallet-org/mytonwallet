@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.widgets.dialog
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.view.Gravity
@@ -34,7 +35,7 @@ class WDialogButton(
     private val ripple = WRippleDrawable.create(20f.dp)
 
     init {
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setPadding(12.dp, 0, 12.dp, 0)
         text = config.title
         gravity = Gravity.CENTER

@@ -202,16 +202,18 @@ function TransferConfirm({
     );
   }
 
-  const burningDurationMin = nfts?.length
-    ? (Math.ceil(nfts.length / NFT_BATCH_SIZE) * BURN_CHUNK_DURATION_APPROX_SEC) / 60
-    : undefined;
+  function getBurningDurationText(nftsCount: number) {
+    const durationSeconds = Math.ceil(nftsCount / NFT_BATCH_SIZE) * BURN_CHUNK_DURATION_APPROX_SEC;
+
+    return lang('$duration_minutes', Math.ceil(durationSeconds / 60));
+  }
 
   function getSubmitBtnText() {
     if (isOfframp) {
       return lang('Sell %symbol%', { symbol: token?.symbol ?? '' });
     }
     if (isBurning || isNotcoinBurning) {
-      return lang(isNftTransfer ? 'Burn NFT' : 'Burn');
+      return lang(isNftTransfer ? ((nfts?.length ?? 0) > 1 ? 'Burn Collectibles' : 'Burn NFT') : 'Burn');
     }
     if (isGaslessWithStars) {
       return lang('Pay fee with %stars_symbol%', { stars_symbol: STARS_SYMBOL });
@@ -267,11 +269,11 @@ function TransferConfirm({
             {(
               nfts?.length === 1 ? (
                 renderText(lang('Are you sure you want to burn this NFT? It will be lost forever.'))
-              ) : ([
-                renderText(lang('$multi_burn_nft_warning', { amount: nfts.length })),
-                ' ',
-                renderText(lang('$multi_send_nft_warning', { duration: burningDurationMin })),
-              ])
+              ) : renderText(
+                (lang('$multi_burn_nft_warning'))
+                  .replace('%amount%', String(nfts.length))
+                  .replace('%duration%', getBurningDurationText(nfts.length) as string),
+              )
             )}
           </div>
         )}

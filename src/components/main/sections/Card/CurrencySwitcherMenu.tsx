@@ -15,8 +15,8 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountTokens,
 } from '../../../../global/selectors';
+import { calculateFullBalance } from '../../../../util/calculateFullBalance';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
-import { calculateFullBalance } from './helpers/calculateFullBalance';
 
 import useLastCallback from '../../../../hooks/useLastCallback';
 

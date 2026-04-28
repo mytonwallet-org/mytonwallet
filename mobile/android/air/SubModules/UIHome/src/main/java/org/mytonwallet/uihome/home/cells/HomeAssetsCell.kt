@@ -579,7 +579,10 @@ class HomeAssetsCell(
                             NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION
                         )
 
-                    null -> MCollectionTab(MBlockchain.ton.name, AssetsTabVC.TAB_COLLECTIBLES)
+                    is AssetsVC.CollectionMode.ReadOnly, null -> MCollectionTab(
+                        MBlockchain.ton.name,
+                        AssetsTabVC.TAB_COLLECTIBLES
+                    )
                 }
 
                 else -> null

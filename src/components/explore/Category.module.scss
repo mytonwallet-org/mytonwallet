@@ -1,3 +1,5 @@
+@use "../../styles/mixins";
+
 .root {
   display: flex;
   flex-direction: column-reverse;
@@ -31,6 +33,14 @@
 
   &.interactive {
     cursor: var(--custom-cursor, pointer);
+  }
+
+  :global(html.theme-dark) & {
+    background-color: var(--color-background-first);
+
+    @include mixins.respond-below(xs) {
+      background-color: var(--color-gray-button-background-light);
+    }
   }
 }
 

@@ -247,29 +247,36 @@ public class ImportWalletVC: CreateWalletBaseVC {
     // MARK: Validate words
     
     func validateWords(enteredWords: [String]) {
-        if let privateKeyWords = normalizeMnemonicPrivateKey(enteredWords) {
-            goNext(didImport: false, wordsToImport: privateKeyWords)
-            return
-        }
-
         Task { @MainActor in
             do {
                 isLoading = true
-                let ok = try await Api.validateMnemonic(mnemonic: enteredWords)
-                if ok {
-                    goNext(didImport: false, wordsToImport: enteredWords)
+                let wordsToImport: [String]
+                if let privateKeyWords = normalizeMnemonicPrivateKey(enteredWords) {
+                    wordsToImport = privateKeyWords
                 } else {
-                    throw BridgeCallError.message(.invalidMnemonic, nil)
+                    let ok = try await Api.validateMnemonic(mnemonic: enteredWords)
+                    if ok {
+                        wordsToImport = enteredWords
+                    } else {
+                        throw BridgeCallError.message(.invalidMnemonic, nil)
+                    }
                 }
+                try await goNext(wordsToImport: wordsToImport)
             } catch {
-                isLoading = false
                 errorOccured(failure: error)
             }
         }
     }
     
-    public func goNext(didImport: Bool, wordsToImport: [String]) {
-        introModel.onWordInputContinue(words: wordsToImport)
+    private func goNext(wordsToImport: [String]) async throws {
+        let execution = try await introModel.onWordInputContinue(words: wordsToImport)
+        switch execution {
+        case .completed:
+            break
+        case .deferredToPasscode:
+            isLoading = false
+            isSubmitting = false
+        }
     }
 
     public func errorOccured(failure: any Error) {

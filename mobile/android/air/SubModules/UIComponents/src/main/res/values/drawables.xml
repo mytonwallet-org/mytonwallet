@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="img_logo" type="drawable">@drawable/img_logo_src</item>
+</resources>

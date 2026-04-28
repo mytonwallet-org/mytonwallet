@@ -20,7 +20,6 @@ import { ContentTab } from '../../../../global/types';
 
 import {
   ANIMATED_STICKER_BIG_SIZE_PX,
-  LANDSCAPE_MIN_ASSETS_TAB_VIEW,
   PORTRAIT_MIN_ASSETS_TAB_VIEW,
 } from '../../../../config';
 import { forceMeasure } from '../../../../lib/fasterdom/stricterdom';
@@ -73,6 +72,8 @@ import styles from './Activities.module.scss';
 interface OwnProps {
   isActive?: boolean;
   totalTokensAmount: number;
+  scrollContainerSelector?: string;
+  isWidget?: boolean;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
@@ -122,6 +123,7 @@ const EMPTY_DICTIONARY = Object.freeze({});
 
 function Activities({
   isActive,
+  scrollContainerSelector,
   currentAccountId,
   accountChains = EMPTY_DICTIONARY,
   slug,
@@ -147,6 +149,9 @@ function Activities({
 
   const lang = useLang();
   const { isLandscape, isPortrait } = useDeviceScreen();
+
+  const resolvedScrollSelector = scrollContainerSelector
+    ?? getScrollContainerClosestSelector(isActive, isPortrait);
 
   const containerRef = useRef<HTMLDivElement>();
   const isUpdating = useUpdateIndicator('activitiesUpdateStartedAt');
@@ -229,14 +234,16 @@ function Activities({
     isPortrait,
     containerRef,
     hasUserScrolledRef,
+    scrollContainerSelector,
   );
 
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    setExtraStyles(container, { height: isLandscape ? '' : `${currentContainerHeight}rem` });
-  }, [isLandscape, currentContainerHeight]);
+    const shouldSetExplicitHeight = !isLandscape || Boolean(scrollContainerSelector);
+    setExtraStyles(container, { height: shouldSetExplicitHeight ? `${currentContainerHeight}rem` : '' });
+  }, [isLandscape, currentContainerHeight, scrollContainerSelector]);
 
   // Requests the history when the UI shows a spinner instead of the list.
   // Keeps requesting the history when all the currently loaded activities are hidden.
@@ -362,7 +369,6 @@ function Activities({
         <div className={buildClassName(isLandscape && styles.greeting)}>
           <NewWalletGreeting
             isActive={isActive}
-            accountChains={accountChains}
             mode={isLandscape ? 'emptyList' : 'panel'}
           />
         </div>
@@ -388,8 +394,13 @@ function Activities({
   return (
     <InfiniteScroll
       ref={containerRef}
-      className={buildClassName('custom-scroll', styles.listGroup)}
-      scrollContainerClosest={getScrollContainerClosestSelector(isActive, isPortrait)}
+      className={buildClassName(
+        'custom-scroll',
+        'inner-scroll',
+        styles.listGroup,
+        scrollContainerSelector && styles.listGroupExternalScroll,
+      )}
+      scrollContainerClosest={resolvedScrollSelector}
       items={viewportIds}
       preloadBackwards={FURTHER_SLICE}
       withAbsolutePositioning
@@ -404,11 +415,11 @@ function Activities({
 
 export default memo(
   withGlobal<OwnProps>(
-    (global): StateProps => {
+    (global, { isWidget }): StateProps => {
       const currentAccountId = selectCurrentAccountId(global)!;
       const accountState = selectCurrentAccountState(global);
       const accountSettings = selectCurrentAccountSettings(global);
-      const slug = accountState?.currentTokenSlug;
+      const slug = isWidget ? undefined : accountState?.currentTokenSlug;
       const stakingStateBySlug = selectAccountStakingStatesBySlug(global, currentAccountId);
       const { activities } = accountState || {};
       const { byId } = activities || {};
@@ -439,14 +450,14 @@ export default memo(
         accounts,
       };
     },
-    (global, { totalTokensAmount }, stickToFirst) => {
+    (global, { totalTokensAmount, isWidget }, stickToFirst) => {
       const accountState = selectCurrentAccountState(global);
-      const shouldShowSeparateAssetsPanel = totalTokensAmount <= (
-        getIsPortrait() ? PORTRAIT_MIN_ASSETS_TAB_VIEW : LANDSCAPE_MIN_ASSETS_TAB_VIEW
-      );
+      const shouldShowSeparateAssetsPanel = getIsPortrait()
+        && totalTokensAmount <= PORTRAIT_MIN_ASSETS_TAB_VIEW;
 
       return stickToFirst((
-        accountState?.activeContentTab === ContentTab.Activity
+        isWidget
+        || accountState?.activeContentTab === ContentTab.Activity
         || (accountState?.activeContentTab === ContentTab.Assets && shouldShowSeparateAssetsPanel)
       ) && selectCurrentAccountId(global));
     },
@@ -549,9 +560,12 @@ function usePreventScrolledListShift(
   isPortrait: boolean,
   containerRef: React.RefObject<HTMLDivElement | undefined>,
   hasUserScrolledRef: React.RefObject<boolean>,
+  scrollContainerSelector: string | undefined,
 ) {
   useLayoutEffectWithPrevDeps(([prevItemPositionById]) => {
-    const container = getScrollableContainer(containerRef.current, isPortrait);
+    const container = scrollContainerSelector
+      ? containerRef.current?.closest<HTMLElement>(scrollContainerSelector)
+      : getScrollableContainer(containerRef.current, isPortrait);
     if (!hasUserScrolledRef.current || !container || !prevItemPositionById || !viewportIds.length) return;
 
     const anchorId = viewportIds[Math.floor(viewportIds.length / 2)];
@@ -566,5 +580,5 @@ function usePreventScrolledListShift(
         behavior: 'instant',
       });
     });
-  }, [itemPositionById, viewportIds, containerRef, hasUserScrolledRef, isPortrait]);
+  }, [itemPositionById, viewportIds, containerRef, hasUserScrolledRef, isPortrait, scrollContainerSelector]);
 }

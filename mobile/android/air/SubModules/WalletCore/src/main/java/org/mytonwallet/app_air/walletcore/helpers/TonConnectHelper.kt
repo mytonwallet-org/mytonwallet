@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.DeviceInfo
@@ -12,7 +13,7 @@ object TonConnectHelper {
     val deviceInfo: DeviceInfo
         get() = DeviceInfo(
             platform = "android",
-            appName = "MyTonWallet",
+            appName = ApplicationContextHolder.applicationContext.getString(BaseR.string.app_locale_name_key),
             appVersion = ApplicationContextHolder.getAppVersion ?: "",
             maxProtocolVersion = 2,
             features = listOf(

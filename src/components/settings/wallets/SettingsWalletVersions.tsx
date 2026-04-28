@@ -13,15 +13,13 @@ import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 import useScrolledState from '../../../hooks/useScrolledState';
 
-import Button from '../../ui/Button';
+import SettingsHeader from '../SettingsHeader';
 import WalletVariantListItem from './WalletVariantListItem';
 
-import modalStyles from '../../ui/Modal.module.scss';
 import styles from '../Settings.module.scss';
 
 interface OwnProps {
   isActive?: boolean;
-  isInsideModal?: boolean;
   currentVersion?: ApiTonWalletVersion;
   wallets: Wallet[];
   onBackClick: NoneToVoidFunction;
@@ -29,7 +27,6 @@ interface OwnProps {
 
 function SettingsWalletVersions({
   isActive,
-  isInsideModal,
   currentVersion,
   wallets,
   onBackClick,
@@ -84,32 +81,11 @@ function SettingsWalletVersions({
 
   return (
     <div className={styles.slide}>
-      <div className={buildClassName(
-        isInsideModal ? modalStyles.header : styles.header,
-        'with-notch-on-scroll',
-        isScrolled && 'is-scrolled',
-        isInsideModal && styles.modalHeader,
-      )}
-      >
-        <Button
-          isSimple
-          isText
-          onClick={onBackClick}
-          className={isInsideModal ? modalStyles.header_back : styles.headerBack}
-        >
-          <i
-            className={buildClassName(
-              isInsideModal ? modalStyles.header_backIcon : styles.iconChevron,
-              'icon-chevron-left',
-            )}
-            aria-hidden
-          />
-          {!isInsideModal && <span>{lang('Back')}</span>}
-        </Button>
-        <span className={isInsideModal ? modalStyles.title : styles.headerTitle}>
-          {lang('Wallet Versions')}
-        </span>
-      </div>
+      <SettingsHeader
+        title={lang('Wallet Versions')}
+        isScrolled={isScrolled}
+        onBackClick={onBackClick}
+      />
 
       <div
         className={buildClassName(styles.content, 'custom-scroll')}

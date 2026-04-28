@@ -10,18 +10,20 @@ public final class SegmentedControlModel {
     public internal(set) var items: [SegmentedControlItem]
     public var selection: SegmentedControlSelection?
 
-    public var isReordering: Bool = false
-    public let font: Font;
+    var isReordering: Bool = false
     
     @PerceptionIgnored
-    public let uikitFont = UIFont.systemFont(ofSize: 14, weight: .medium)
-
+    let constants: SegmentedControlConstants
     @PerceptionIgnored
-    public var primaryColor: UIColor
+    let backgroundStyle: SegmentedControlBackgroundStyle
     @PerceptionIgnored
-    public var secondaryColor: UIColor
+    let font: UIFont
     @PerceptionIgnored
-    public var capsuleColor: UIColor
+    var primaryColor: UIColor
+    @PerceptionIgnored
+    var secondaryColor: UIColor
+    @PerceptionIgnored
+    var capsuleColor: UIColor
     
     @PerceptionIgnored
     public var onSelect: (SegmentedControlItem) -> () = { _ in }
@@ -29,22 +31,39 @@ public final class SegmentedControlModel {
     public var onItemsReorder: ([SegmentedControlItem]) async -> () = { _ in }
     
     internal var elementSizes: [String: CGSize] = [:]
-    internal var isScrollingRequired: Bool = false
     
-    public init(
+    init(
         items: [SegmentedControlItem],
         selection: SegmentedControlSelection? = nil,
         primaryColor: UIColor = UIColor.label,
         secondaryColor: UIColor = UIColor.secondaryLabel,
-        capsuleColor: UIColor = UIColor.tintColor
+        capsuleColor: UIColor = UIColor.tintColor,
+        style: SegmentedControlStyle,
     ) {
         self.items = items
         self.selection = selection
         self.primaryColor = primaryColor
         self.secondaryColor = secondaryColor
         self.capsuleColor = capsuleColor
-        self.font = Font(uikitFont)
-        updateIfScrollingRequired()
+        
+        var constants = SegmentedControlConstants()
+        var backgroundStyle = SegmentedControlBackgroundStyle.none
+        let font: UIFont
+        switch style {
+        case .regular:
+            font = .systemFont(ofSize: 14, weight: .medium)
+        case .colorHeader, .header:
+            font = .systemFont(ofSize: 15, weight: .medium)
+            constants.spacing = 0
+            constants.height = 34
+            constants.topInset = 0
+            constants.innerPadding = 16
+            constants.backgroundPadding = 3
+            backgroundStyle = style == .colorHeader ? .colorHeader : .header
+        }
+        self.constants = constants
+        self.font = font
+        self.backgroundStyle = backgroundStyle
     }
     
     public func setRawProgress(_ rawProgress: CGFloat) {
@@ -82,7 +101,6 @@ public final class SegmentedControlModel {
                 self.selection = .init(item1: newItems[0].id)
             }
         }
-        updateIfScrollingRequired()
     }
     
     public func distanceToItem(itemId: String) -> CGFloat {
@@ -120,23 +138,27 @@ public final class SegmentedControlModel {
     }
     
     // MARK: Internals
-    
-    private func updateIfScrollingRequired() {
-        self.isScrollingRequired = _measureIsScrollingRequired()
-    }
-    
-    func _measureIsScrollingRequired() -> Bool {
-        guard items.count > 0 else {
-            return false
+
+    func calculateContentWidth(includeBackground: Bool) -> CGFloat {
+        guard items.count > 0 else { return 0 }
+        let attrs: [NSAttributedString.Key: Any] = [.font: font]
+        var canAccessory = false
+        var width: CGFloat = 0
+        for item in items {
+            var itemWidth = (item.title as NSString).size(withAttributes: attrs).width
+            if item.canHaveAccessoryView, !canAccessory {
+                canAccessory = true
+                itemWidth += constants.accessoryWidth
+            }
+            width += itemWidth
         }
-        let attrs: [NSAttributedString.Key: Any] = [.font: uikitFont]
-        var width: CGFloat = items.map { item in
-            (item.title as NSString).size(withAttributes: attrs).width
-        }.reduce(0, +)
-        width += CGFloat(items.count) * 2 * SegmentedControlConstants.innerPadding
-        width += CGFloat(items.count - 1) * SegmentedControlConstants.spacing
-        width += SegmentedControlConstants.accessoryWidth
-        return width > screenWidth - 32.0
+        width += CGFloat(items.count) * 2 * constants.innerPadding
+        width += CGFloat(items.count - 1) * constants.spacing
+        
+        if includeBackground {
+            width += 2 * constants.backgroundPadding
+        }
+        return ceil(width)
     }
     
     func getItemById(itemId: String) -> SegmentedControlItem? {
@@ -167,19 +189,19 @@ public final class SegmentedControlModel {
                 w2 = size.width
                 break
             } else {
-                x += size.width + SegmentedControlConstants.spacing
+                x += size.width + constants.spacing
             }
         }
-        let x2 = x + w1 + SegmentedControlConstants.spacing
+        let x2 = x + w1 + constants.spacing
         if items.first(id: selection.item1)?.shouldShowMenuIconWhenActive == true {
-            w1 += SegmentedControlConstants.accessoryWidth
+            w1 += constants.accessoryWidth
         }
         if let item2 = selection.item2, items.first(id: item2)?.shouldShowMenuIconWhenActive == true {
-            w2 += SegmentedControlConstants.accessoryWidth
+            w2 += constants.accessoryWidth
         }
-        let frame1 = CGRect(x: x, y: 0, width: w1, height: SegmentedControlConstants.height)
-        let frame2 = CGRect(x: x2, y: 0, width: w2, height: SegmentedControlConstants.height)
-        let progress = selection.progress ?? 0
+        let frame1 = CGRect(x: x, y: 0, width: w1, height: constants.height)
+        let frame2 = CGRect(x: x2, y: 0, width: w2, height: constants.height)
+        let progress = (selection.progress ?? 0.0).clamped(to: 0...1)
         return interpolate(from: frame1, to: frame2, progress: progress)
     }
     

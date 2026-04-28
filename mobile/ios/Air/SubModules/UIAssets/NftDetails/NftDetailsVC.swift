@@ -166,10 +166,8 @@ public class NftDetailsVC: NftDetailsBaseVC {
             
         case .share:
             return .init(
-                onTap: { [weak self] in
-                    guard let self else { return }
-                    let accountContext = AccountContext(accountId: accountId)
-                    AppActions.shareUrl(ExplorerHelper.viewNftUrl(network: accountContext.account.network, nftAddress: nft.address))
+                onTap: {
+                    AppActions.shareUrl(ExplorerHelper.nftUrl(nft))
                 }
             )
                 
@@ -214,7 +212,7 @@ public class NftDetailsVC: NftDetailsBaseVC {
                             )
                         )
                     )
-                    if !nft.isOnSale {
+                    if nft.chain.isNftBurnSupported && !nft.isOnSale {
                         items.append(
                             .action(
                                 ContextMenuAction(
@@ -240,6 +238,18 @@ public class NftDetailsVC: NftDetailsBaseVC {
                                             AppActions.openInBrowser(url)
                                         }
                                     )
+                            )
+                        )
+                    } else if let marketplace = ExplorerHelper.marketplaceNftWebsite(nft) {
+                        items.append(
+                            .action(
+                                ContextMenuAction(
+                                    title: marketplace.title,
+                                    icon: .airBundle("SendGlobe"),
+                                    handler: {
+                                        AppActions.openInBrowser(marketplace.address)
+                                    }
+                                )
                             )
                         )
                     }

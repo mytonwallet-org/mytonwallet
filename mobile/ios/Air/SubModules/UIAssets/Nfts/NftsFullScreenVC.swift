@@ -169,6 +169,11 @@ public class NftsFullScreenVC: WViewController {
                             image: .airBundle(ExplorerHelper.selectedExplorerMenuIconName(for: collection.chain))
                         ) { _ in AppActions.openInBrowser(url) }
                     }
+                } else if let url = ExplorerHelper.nftCollectionUrl(collection) {
+                    items += UIAction(
+                        title: ExplorerHelper.selectedExplorerName(for: collection.chain),
+                        image: .airBundle(ExplorerHelper.selectedExplorerMenuIconName(for: collection.chain))
+                    ) { _ in AppActions.openInBrowser(url) }
                 }
             }
             openInSection = UIMenu(title: "", options: .displayInline, children: items)

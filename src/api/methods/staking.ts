@@ -20,8 +20,7 @@ import { createLocalTransactions } from './transfer';
 
 import { StakingPool } from '../chains/ton/contracts/JettonStaking/StakingPool';
 
-export function initStaking() {
-}
+export function initStaking() {}
 
 export function checkStakeDraft(accountId: string, amount: bigint, state: ApiStakingState) {
   return ton.checkStakeDraft(accountId, amount, state);
@@ -107,6 +106,7 @@ export async function tryUpdateStakingCommonData() {
       liquid: {
         ...response.liquid,
         available: fromDecimal(response.liquid.available),
+        tvl: fromDecimal(response.liquid.tvl),
       },
       jettonPools: await Promise.all(response.jettonPools.map(async (pool) => {
         const poolContract = tonClient.open(StakingPool.createFromAddress(Address.parse(pool.pool)));
@@ -126,7 +126,7 @@ export async function tryUpdateStakingCommonData() {
 
     setStakingCommonCache(data);
   } catch (err) {
-    logDebugError('tryUpdateLiquidStakingState', err);
+    logDebugError('tryUpdateStakingCommonData', err);
   }
 }
 

@@ -43,6 +43,7 @@ interface OwnProps {
   amount?: string;
   isInvestorView?: boolean;
   classNames?: string;
+  tokenClassName?: string;
   style?: string;
   annualYield?: number;
   yieldType?: ApiYieldType;
@@ -75,6 +76,7 @@ function Token({
   annualYield,
   isInvestorView,
   classNames,
+  tokenClassName,
   style,
   appTheme,
   isActive,
@@ -236,6 +238,7 @@ function Token({
   const fullClassName = buildClassName(
     styles.button,
     isActive && styles.active,
+    tokenClassName,
     isContextMenuOpen && OPEN_CONTEXT_MENU_CLASS_NAME,
   );
 

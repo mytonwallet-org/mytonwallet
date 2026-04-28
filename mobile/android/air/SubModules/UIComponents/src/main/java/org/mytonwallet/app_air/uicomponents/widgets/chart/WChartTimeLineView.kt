@@ -12,10 +12,10 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
+import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import java.util.Collections
 import kotlin.math.max
@@ -51,8 +52,7 @@ class WChartTimeLineView(
         setPadding(20.dp, 0, 0, 0)
     }
     private val imgRight = AppCompatImageView(context).apply {
-        setPadding(20.dp, 0, 0, 0)
-        rotation = 180f
+        setPadding(0, 0, 20.dp, 0)
     }
 
     private var startPercentage = 0f
@@ -253,15 +253,20 @@ class WChartTimeLineView(
             0f, 12f.dp, 12f.dp, 0f
         )
         thumbCenterDrawable.setStroke(1.dp, WColor.Thumb.color)
-        val thumbDrawable = ContextCompat.getDrawable(
-            context,
+        val thumbDrawable = context.getDrawableCompat(
             if (ThemeManager.isDark)
-                org.mytonwallet.app_air.uicomponents.R.drawable.ic_chart_thumb_dark
+                R.drawable.ic_chart_thumb_dark
             else
-                org.mytonwallet.app_air.uicomponents.R.drawable.ic_chart_thumb
+                R.drawable.ic_chart_thumb
+        )
+        val thumbRightDrawable = context.getDrawableCompat(
+            if (ThemeManager.isDark)
+                R.drawable.ic_chart_thumb_right_dark
+            else
+                R.drawable.ic_chart_thumb_right
         )
         imgLeft.setImageDrawable(thumbDrawable)
-        imgRight.setImageDrawable(thumbDrawable)
+        imgRight.setImageDrawable(thumbRightDrawable)
     }
 
     private var historyData: Array<Array<Double>>? = null

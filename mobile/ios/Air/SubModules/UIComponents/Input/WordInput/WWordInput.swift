@@ -65,6 +65,7 @@ public class WWordInput: UIView {
         numberLabel.translatesAutoresizingMaskIntoConstraints = false
         numberLabel.text = "\(wordNumber)"
         numberLabel.textAlignment = .right
+        numberLabel.isAccessibilityElement = false
         stackView.addArrangedSubview(numberLabel)
         NSLayoutConstraint.activate([
             numberLabel.widthAnchor.constraint(equalToConstant: 42)
@@ -78,6 +79,7 @@ public class WWordInput: UIView {
         textField.delegate = self
         textField.clearButtonMode = .whileEditing
         textField.inputAccessoryView = suggestionsView
+        textField.accessibilityLabel = "\(wordNumber)"
         stackView.addArrangedSubview(textField)
 
         updateTheme()

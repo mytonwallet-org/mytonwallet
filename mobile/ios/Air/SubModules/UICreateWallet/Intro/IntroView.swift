@@ -25,7 +25,7 @@ struct IntroView: View {
                     title
                     shortDescription
                         .gesture(TapGesture(count: 5).onEnded {
-                            introModel.onDone(successKind: .imported)
+                            introModel.onDone(successKind: .imported, hadExistingAccounts: false)
                         })
                 }
                 moreAbout
@@ -42,7 +42,7 @@ struct IntroView: View {
     }
     
     var iconAndEffect: some View {
-        Image.airBundle("IntroLogo")
+        Image.airBundle(IS_GRAM_WALLET ? "IntroLogoGramWallet" : "IntroLogo")
             .highlightScale(isTouching, scale: 0.9, isEnabled: true)
             .touchGesture($isTouching)
             .frame(width: 124, height: 124)
@@ -55,11 +55,13 @@ struct IntroView: View {
                 }
             }
             .backportSensoryFeedback(value: isTouching)
+            .accessibilityHidden(true)
     }
     
     var title: some View {
         Text(APP_NAME)
             .font(.nunito(size: 32))
+            .accessibilityAddTraits(.isHeader)
     }
     
     var shortDescription: some View {
@@ -83,10 +85,13 @@ struct IntroView: View {
     @ViewBuilder
     var useResposibly: some View {
         let link = "[\(lang("use the wallet responsibly"))](responsibly://s)"
+        let accessibilityLinkText = lang("use the wallet responsibly")
+        let accessibilityText = langMd("I agree to %term%", arg1: accessibilityLinkText)
         let text = langMd("I agree to %term%", arg1: link)
         
         HStack(spacing: 10) {
             Checkmark(isOn: didAgreeToTerms)
+                .accessibilityHidden(true)
             Text(text)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .font(.system(size: 14, weight: .medium))
@@ -99,6 +104,16 @@ struct IntroView: View {
             onUseResponsibly()
             return .handled
         })
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(accessibilityText))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAddTraits(didAgreeToTerms ? .isSelected : [])
+        .accessibilityAction {
+            onAgreeToTerms()
+        }
+        .accessibilityAction(named: Text(lang("Use Responsibly"))) {
+            onUseResponsibly()
+        }
     }
     
     var createNewWallet: some View {

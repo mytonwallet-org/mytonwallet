@@ -11,7 +11,6 @@ import android.text.style.ReplacementSpan
 import android.util.AttributeSet
 import android.widget.Toast
 import androidx.appcompat.widget.AppCompatTextView
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -19,6 +18,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import kotlin.math.roundToInt
 
 class CopyTextView @JvmOverloads constructor(
@@ -92,8 +92,9 @@ class CopyTextView @JvmOverloads constructor(
     }
 
     private class CopyButtonSpan(context: Context) : ReplacementSpan() {
-        val copyDrawable =
-            ContextCompat.getDrawable(context, org.mytonwallet.app_air.icons.R.drawable.ic_copy_16)
+        val copyDrawable = context.getDrawableCompat(
+            org.mytonwallet.app_air.icons.R.drawable.ic_copy_16
+        )
 
         override fun getSize(
             paint: Paint,

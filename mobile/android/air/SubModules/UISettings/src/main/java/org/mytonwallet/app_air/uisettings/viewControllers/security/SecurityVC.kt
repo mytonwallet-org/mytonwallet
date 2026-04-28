@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.security
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.os.Build
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -8,7 +9,6 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.generateViewId
-import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
@@ -31,6 +31,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
@@ -66,7 +67,7 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
 
     private val backupRow = KeyValueRowView(
         context,
-        LocaleController.getString("Show Recovery Phrase"),
+        LocaleController.getString("Show Secret Words"),
         "",
         KeyValueRowView.Mode.PRIMARY,
         isLast = true,
@@ -102,7 +103,7 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
 
     private val biometricLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl.text = LocaleController.getString("Biometric Authentication")
         lbl
     }
@@ -168,10 +169,7 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
 
     private val lockTimeView = WEditableItemView(context).apply {
         id = generateViewId()
-        drawable = ContextCompat.getDrawable(
-            context,
-            org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18
-        )
+        drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
         setText(WGlobalStorage.getAppLock().displayName)
     }
 
@@ -275,7 +273,7 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             topToBottom(disableScreenRecordWarningRow, screenRecordTitleLabel)
             toBottomPx(
                 disableScreenRecordWarningRow,
-                (navigationController?.getSystemBars()?.bottom ?: 0)
+                (navigationController?.bottomInset ?: 0)
             )
         }
         v

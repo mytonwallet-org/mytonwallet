@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.views
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.Gravity
 import android.view.ViewGroup
@@ -8,7 +9,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.drawable.HighlightGradientBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
@@ -25,6 +25,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 
 @SuppressLint("ViewConstructor")
@@ -42,12 +43,12 @@ class SwapRateRowView(
     @SuppressLint("SetTextI18n")
     private val titleLabel = WLabel(context).apply {
         id = generateViewId()
-        setStyle(16f)
+        setStyle(adaptiveFontSize())
         text = LocaleController.getString("Price per") + " 1"
     }
 
     private val valueLabel = WLabel(context).apply {
-        setStyle(16f)
+        setStyle(adaptiveFontSize())
     }
 
     private val bestRateLabel = WLinearGradientLabel(context).apply {
@@ -70,10 +71,9 @@ class SwapRateRowView(
         setStyle(14f)
     }
 
-    private val arrowDrawable = ContextCompat.getDrawable(
-        context,
+    private val arrowDrawable = context.requireDrawableCompat(
         org.mytonwallet.app_air.icons.R.drawable.ic_arrow_right_thin_24
-    )!!
+    )
 
     private val arrowImage = AppCompatImageView(context).apply {
         setImageDrawable(arrowDrawable)

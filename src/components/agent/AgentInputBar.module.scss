@@ -2,59 +2,81 @@
 
 .wrapper {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+
+  display: flex;
   flex-shrink: 0;
+  align-items: flex-end;
+
+  padding: 0 1.25rem 0.75rem;
 
   :global(html.with-bottombar:not(.is-keyboard-open)) & {
-    padding-bottom: calc(var(--bottombar-height) + max(0.25rem, var(--safe-area-bottom)));
-  }
-
-  &.withSeparator::after {
-    @include mixins.separator-list-base('top');
+    padding-bottom: calc(0.75rem + var(--bottombar-height));
   }
 
   @include mixins.respond-below(xs) {
-    background-color: var(--color-background-second);
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+
+  @include mixins.respond-above(xs) {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.9) 100%);
 
     :global(html.theme-dark) & {
-      background-color: var(--color-background-first);
+      background: linear-gradient(180deg, rgba(14, 14, 15, 0) 0%, rgba(14, 14, 15, 0.9) 100%);
     }
   }
 }
 
-.inputBar {
+.pill {
   position: relative;
-  z-index: 1;
 
-  display: flex;
-  align-items: flex-end;
+  flex: 1;
 
-  padding: 0.5rem 0.875rem 0.75rem;
+  min-width: 0;
+  border-radius: 1.4375rem;
+
+  background-color: var(--color-app-background);
+  box-shadow: var(--shadow-glass-capsule);
+
+  @supports (backdrop-filter: blur(16px)) {
+    background-color: var(--color-background-lock);
+    backdrop-filter: blur(var(--blur-glass-capsule));
+  }
 }
 
 .inputInnerWrapper {
   margin-bottom: 0;
 }
 
-.inputField {
-  position: relative;
-  transform: translate3d(0, 0, 0); /* Preventing animation glitches in Safari */
-  flex: 1;
-  min-width: 0;
-}
-
 .input {
-  overflow-y: auto !important; /* Override textarea.input `overflow: hidden` */
+  overflow-y: auto !important;
 
   height: auto;
-  max-height: 7.5rem; /* 5 lines × 1.25rem + vertical padding */
-  padding: 0.625rem 2.75rem 0.625rem 0.75rem !important;
-  border-radius: var(--border-radius-content) !important;
+  min-height: 2.75rem !important;
+  max-height: 7.5rem;
+  padding: 0.75rem 2.75rem 0.75rem 0.75rem !important;
+  border: none !important;
+  border-radius: 1.4375rem !important;
 
-  box-shadow: inset 0 0 0 0.0625rem var(--color-separator-input-stroke);
+  line-height: 1.25rem !important;
+
+  background: transparent !important;
+  box-shadow: none !important;
+
+  &::placeholder {
+    color: var(--color-gray-2);
+  }
 
   &:focus {
-    box-shadow: inset 0 0 0 0.0625rem var(--color-accent);
+    box-shadow: none !important;
   }
 }
 
@@ -63,7 +85,7 @@
 
   position: absolute;
   right: 0.75rem;
-  bottom: 0.5rem;
+  bottom: 0.625rem;
 
   display: flex;
   align-items: center;
@@ -74,7 +96,7 @@
   border: none;
   border-radius: 50%;
 
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   color: var(--color-gray-3);
 
   background: none;
@@ -100,41 +122,19 @@
   @include mixins.active-transition-optimization();
 }
 
-.sendButtonWrapper {
-  overflow: visible;
-  flex-shrink: 0;
-
-  width: 100%;
-  max-width: 2.375rem;
-  height: 2.375rem;
-
-  @include mixins.transition("max-width 200ms ease, opacity 200ms ease", !important);
-
-  &:global(.not-open) {
-    pointer-events: none;
-    max-width: 0;
-    opacity: 0;
-
-    .sendButton {
-      transform: scale(0);
-    }
-  }
-}
-
 .sendButton {
   cursor: var(--custom-cursor, pointer);
 
-  position: relative;
-  bottom: 0.0625rem;
-  transform-origin: left center;
+  transform-origin: center;
 
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
 
-  width: 2.375rem;
-  height: 2.375rem;
-  margin-inline-start: 0.375rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-left: 0.5rem;
   border: none;
   border-radius: 50%;
 
@@ -142,8 +142,16 @@
   color: var(--color-accent-button-text);
 
   background-color: var(--color-accent);
+  outline: none;
 
-  @include mixins.transition(transform 200ms ease);
+  @include mixins.transition("transform 200ms ease, opacity 200ms ease, margin-left 200ms ease");
+
+  &:global(.not-open) {
+    pointer-events: none;
+    transform: scale(0);
+    margin-left: -2.75rem;
+    opacity: 0;
+  }
 
   @include mixins.active-transition-optimization();
 }

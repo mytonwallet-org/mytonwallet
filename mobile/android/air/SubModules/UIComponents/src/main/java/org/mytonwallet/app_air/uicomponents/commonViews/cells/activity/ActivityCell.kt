@@ -22,6 +22,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -60,7 +61,7 @@ class ActivityCell(
     private val mainContentView = ActivityMainContentView(context)
     private val commentLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(ApplicationContextHolder.adaptiveFontSize)
+            setStyle(adaptiveFontSize())
             setTextColor(Color.WHITE)
             maxLines = 5
             isSingleLine = false

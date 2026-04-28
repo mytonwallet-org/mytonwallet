@@ -3,22 +3,62 @@ default_platform(:ios)
 $package_json_path = '../../../../package.json'
 $workspace_path = 'App.xcworkspace'
 $project_path = '../App.xcodeproj/project.pbxproj'
-$plist_path = '../../App/App/Info.plist'
 
-$team_id = CredentialsManager::AppfileConfig.try_fetch_value(:team_id)
-$app_identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
-$profile_name = 'MyTonWallet Production profile'
-$scheme = 'MyTonWallet'
-$app_identifier_widget = "#{$app_identifier}.AirWidget"
-$profile_name_widget = 'MyTonWallet Production profile - Widget'
-$scheme_widget = 'AirWidgetExtension'
+def env_value(name, fallback = nil)
+  value = ENV[name]
+  value.nil? || value.empty? ? fallback : value
+end
 
+$variant = env_value('APP_VARIANT', 'mytonwallet').downcase
+$variant_config = {
+  'mytonwallet' => {
+    app_identifier: 'org.mytonwallet.app',
+    app_identifier_widget: 'org.mytonwallet.app.AirWidget',
+    profile_name: 'MyTonWallet Production profile',
+    profile_name_widget: 'MyTonWallet Production profile - Widget',
+    scheme: 'MyTonWallet',
+    scheme_widget: 'AirWidgetExtension',
+    plist_path: '../../App/App/Info.plist',
+    testflight_group: 'MTW external group',
+  },
+  'gram' => {
+    app_identifier: 'io.gramwallet.app',
+    app_identifier_widget: 'io.gramwallet.app.widget',
+    profile_name: 'Gram Wallet Production profile',
+    profile_name_widget: 'Gram Wallet Production profile - Widget',
+    scheme: 'GramWallet',
+    scheme_widget: 'GramWalletWidgetExtension',
+    plist_path: '../../App/App/GramWallet-Info.plist',
+    testflight_group: 'Gram Wallet external group',
+  },
+}
+
+raise "Unknown APP_VARIANT: #{$variant}" unless $variant_config.key?($variant)
+
+$config = $variant_config[$variant]
+$plist_path = env_value('IOS_PLIST_PATH', $config[:plist_path])
+
+$team_id = env_value('IOS_TEAM_ID', CredentialsManager::AppfileConfig.try_fetch_value(:team_id))
+$app_identifier = env_value('IOS_APP_IDENTIFIER', $config[:app_identifier])
+$profile_name = env_value('IOS_PROFILE_NAME', $config[:profile_name])
+$scheme = env_value('IOS_SCHEME', $config[:scheme])
+$app_identifier_widget = env_value('IOS_APP_IDENTIFIER_WIDGET', $config[:app_identifier_widget])
+$profile_name_widget = env_value('IOS_PROFILE_NAME_WIDGET', $config[:profile_name_widget])
+$scheme_widget = env_value('IOS_WIDGET_SCHEME', $config[:scheme_widget])
+$testflight_group = env_value('IOS_TESTFLIGHT_GROUP', $config[:testflight_group])
+$metadata_path = env_value('IOS_METADATA_PATH')
+$asc_key_id = env_value('APP_STORE_CONNECT_KEY_ID', 'TL49GJ73DP')
+$asc_issuer_id = env_value('APP_STORE_CONNECT_ISSUER_ID', '519080b4-bc5f-4d06-a889-a69254108348')
+$asc_key_path = env_value('APP_STORE_CONNECT_KEY_PATH', './AuthKey.p8')
+
+puts "$variant: #{$variant}"
 puts "$app_identifier: #{$app_identifier}"
 puts "$profile_name: #{$profile_name}"
 puts "$scheme: #{$scheme}"
 puts "$app_identifier_widget: #{$app_identifier_widget}"
 puts "$profile_name_widget: #{$profile_name_widget}"
 puts "$scheme_widget: #{$scheme_widget}"
+puts "$testflight_group: #{$testflight_group}"
 
 $project_data = nil
 $plist_data = nil
@@ -37,10 +77,10 @@ def update_version_and_build_number
   version = JSON.parse(File.read($package_json_path))["version"]
   production_build_number = 0
   begin
-    production_build_number = app_store_build_number(version: version, initial_build_number: 0, live: true).to_i
+    production_build_number = app_store_build_number(app_identifier: $app_identifier, version: version, initial_build_number: 0, live: true).to_i
   rescue
   end
-  beta_build_number = latest_testflight_build_number(version: version, initial_build_number: 0)
+  beta_build_number = latest_testflight_build_number(app_identifier: $app_identifier, version: version, initial_build_number: 0)
   build_number = [production_build_number, beta_build_number].max() + 1
 
   increment_version_number(version_number: version)
@@ -56,9 +96,9 @@ platform :ios do
     read_files
 
     app_store_connect_api_key(
-      key_id: "TL49GJ73DP",
-      issuer_id: "519080b4-bc5f-4d06-a889-a69254108348",
-      key_filepath: "./AuthKey.p8",
+      key_id: $asc_key_id,
+      issuer_id: $asc_issuer_id,
+      key_filepath: $asc_key_path,
       duration: 1200,
       in_house: false
     )
@@ -102,8 +142,9 @@ platform :ios do
 
     changelog_from_git_commits(merge_commit_filtering: "exclude_merges", commits_count: 3)
     upload_to_testflight(
+      app_identifier: $app_identifier,
       distribute_external: true,
-      groups: "MTW external group",
+      groups: $testflight_group,
       beta_app_description: "Bug fixes and performance improvements"
     )
   end
@@ -131,7 +172,8 @@ platform :ios do
       xcargs: "-skipMacroValidation",
     )
 
-    upload_to_app_store(
+    upload_options = {
+      app_identifier: $app_identifier,
       skip_screenshots: true,
       skip_metadata: false,
       precheck_include_in_app_purchases: false,
@@ -144,7 +186,9 @@ platform :ios do
         "default" => changelog,
         "en-US" => changelog,
       }
-    )
+    }
+    upload_options[:metadata_path] = $metadata_path if $metadata_path
+    upload_to_app_store(upload_options)
   end
 
   after_all do |lane|

@@ -12,7 +12,6 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
@@ -36,11 +35,14 @@ import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletbasecontext.utils.max
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import kotlin.math.max
 
 class AppearanceVC(context: Context) : WViewController(context), WalletCore.EventObserver {
     override val TAG = "Appearance"
@@ -87,10 +89,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
 
     private val appFontDropdownView = WEditableItemView(context).apply {
         id = generateViewId()
-        drawable = ContextCompat.getDrawable(
-            context,
-            org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18
-        )
+        drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
         setText(FontManager.activeFont.displayName)
     }
     private val appFontView: KeyValueRowView by lazy {
@@ -115,7 +114,10 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
                             false
                         ) {
                             if (FontManager.activeFont != it) {
-                                Logger.d(Logger.LogTag.SETTINGS, "appFontView: fontChanged=${it.displayName}")
+                                Logger.d(
+                                    Logger.LogTag.SETTINGS,
+                                    "appFontView: fontChanged=${it.displayName}"
+                                )
                                 FontManager.setActiveFont(context, it)
                                 appFontDropdownView.setText(it.displayName)
                                 // Font changes require app restart to refresh all cached typefaces
@@ -139,11 +141,30 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         v
     }*/
 
+    private val gradientNavigationBarRow = SwitchCell(
+        context,
+        title = LocaleController.getString("Gradient Navigation Bar"),
+        isChecked = WGlobalStorage.isGradientNavigationBarActive(),
+        isFirst = true,
+        onChange = { isChecked ->
+            Logger.d(Logger.LogTag.SETTINGS, "gradientNavigationBarRow: isChecked=$isChecked")
+            WGlobalStorage.setIsGradientNavigationBarActive(isChecked)
+            pendingThemeChange = true
+            WalletContextManager.delegate?.themeChanged()
+            scrollingContentView.setPadding(
+                scrollingContentView.paddingLeft,
+                scrollingContentView.paddingTop,
+                scrollingContentView.paddingRight,
+                max(scrollingContentView.paddingBottom, navigationController?.bottomInset ?: 0)
+            )
+        }
+    )
+
     private val roundedCornersRow = SwitchCell(
         context,
         title = LocaleController.getString("Rounded Corners"),
         isChecked = WGlobalStorage.getAreRoundedCornersActive(),
-        isFirst = true,
+        isFirst = false,
         onChange = { isChecked ->
             Logger.d(Logger.LogTag.SETTINGS, "roundedCornersRow: isChecked=$isChecked")
             WGlobalStorage.setAreRoundedCornersActive(isChecked)
@@ -176,7 +197,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             Logger.d(Logger.LogTag.SETTINGS, "roundedToolbarsRow: isChecked=$isChecked")
             val prevBarRounds = topReversedCornerView?.cornerRadius ?: 0f
             WGlobalStorage.setAreRoundedToolbarsActive(isChecked)
-            ViewConstants.TOOLBAR_RADIUS = if (isChecked) 24f else 0f
             ViewConstants.TOOLBAR_RADIUS = if (isChecked) 24f else 0f
             pendingThemeChange = true
             WalletContextManager.delegate?.themeChanged()
@@ -285,6 +305,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         v.addView(switchToLegacyCell, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(appThemeView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(appPaletteView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
+        v.addView(gradientNavigationBarRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(roundedCornersRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(roundedToolbarsRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(sideGuttersRow, ConstraintLayout.LayoutParams(0, 50.dp))
@@ -304,8 +325,10 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             toCenterX(appThemeView)
             topToBottom(appPaletteView, appThemeView, ViewConstants.GAP.toFloat())
             toCenterX(appPaletteView)
-            // Group 1: Rounded Corners, Rounded Toolbars, Side Gutters
-            topToBottom(roundedCornersRow, appPaletteView, ViewConstants.GAP.toFloat())
+            // Group 1: Gradient Navigation Bar, Rounded Corners, Rounded Toolbars, Side Gutters
+            topToBottom(gradientNavigationBarRow, appPaletteView, ViewConstants.GAP.toFloat())
+            toCenterX(gradientNavigationBarRow)
+            topToBottom(roundedCornersRow, gradientNavigationBarRow)
             toCenterX(roundedCornersRow)
             topToBottom(roundedToolbarsRow, roundedCornersRow)
             toCenterX(roundedToolbarsRow)
@@ -321,8 +344,9 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             // Group 3: App Font
             topToBottom(appFontView, seasonalThemingRow, ViewConstants.GAP.toFloat())
             toCenterX(appFontView)
-            toBottomPx(appFontView, (navigationController?.getSystemBars()?.bottom ?: 0))
+            toBottom(appFontView)
         }
+        v.setPadding(0, 0, 0, navigationController?.bottomInset ?: 0)
         v
     }
 
@@ -370,6 +394,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
 
     override fun updateTheme() {
         super.updateTheme()
+        bottomReversedCornerView?.resumeBlurring()
 
         appFontView.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
 

@@ -9,7 +9,15 @@ enum class MBlockchainExplorer(val identifier: String) {
     TONSCAN("tonscan"),
     TONVIEWER("tonviewer"),
     TRONSCAN("tronscan"),
-    SOLSCAN("solscan");
+    SOLSCAN("solscan"),
+    ETHERSCAN("etherscan"),
+    BASESCAN("basescan"),
+    BSCTRACE("bsctrace"),
+    POLYGONSCAN("polygonscan"),
+    ARBISCAN("arbiscan"),
+    MONADSCAN("monadscan"),
+    SNOWTRACE("snowtrace"),
+    HYPEREVMSCAN("hyperevmscan");
 
     val title: String
         get() {
@@ -18,8 +26,21 @@ enum class MBlockchainExplorer(val identifier: String) {
                 TONVIEWER -> "Tonviewer"
                 TRONSCAN -> "Tronscan"
                 SOLSCAN -> "Solscan"
+                ETHERSCAN -> "Etherscan"
+                BASESCAN -> "BaseScan"
+                BSCTRACE -> "BSCTrace"
+                POLYGONSCAN -> "Polygonscan"
+                ARBISCAN -> "Arbiscan"
+                MONADSCAN -> "Monadscan"
+                SNOWTRACE -> "Snowtrace"
+                HYPEREVMSCAN -> "Hyperevmscan"
             }
         }
+
+    private val isEvm: Boolean
+        get() = this in setOf(
+            ETHERSCAN, BASESCAN, BSCTRACE, POLYGONSCAN, ARBISCAN, MONADSCAN, SNOWTRACE, HYPEREVMSCAN
+        )
 
     private fun baseUrlBuilder(network: MBlockchainNetwork): Uri.Builder {
         return when (this) {
@@ -41,6 +62,38 @@ enum class MBlockchainExplorer(val identifier: String) {
                     if (network != MBlockchainNetwork.MAINNET)
                         appendQueryParameter("cluster", "devnet")
                 }
+
+            ETHERSCAN -> Uri.Builder()
+                .scheme("https")
+                .authority(if (network == MBlockchainNetwork.MAINNET) "etherscan.io" else "sepolia.etherscan.io")
+
+            BASESCAN -> Uri.Builder()
+                .scheme("https")
+                .authority(if (network == MBlockchainNetwork.MAINNET) "basescan.org" else "sepolia.basescan.org")
+
+            BSCTRACE -> Uri.Builder()
+                .scheme("https")
+                .authority(if (network == MBlockchainNetwork.MAINNET) "bscscan.com" else "testnet.bscscan.com")
+
+            POLYGONSCAN -> Uri.Builder()
+                .scheme("https")
+                .authority(if (network == MBlockchainNetwork.MAINNET) "polygonscan.com" else "testnet.polygonscan.com")
+
+            ARBISCAN -> Uri.Builder()
+                .scheme("https")
+                .authority(if (network == MBlockchainNetwork.MAINNET) "arbiscan.io" else "sepolia.arbiscan.io")
+
+            MONADSCAN -> Uri.Builder()
+                .scheme("https")
+                .authority(if (network == MBlockchainNetwork.MAINNET) "monadscan.com" else "testnet.monadscan.com")
+
+            SNOWTRACE -> Uri.Builder()
+                .scheme("https")
+                .authority(if (network == MBlockchainNetwork.MAINNET) "snowtrace.io" else "testnet.snowtrace.io")
+
+            HYPEREVMSCAN -> Uri.Builder()
+                .scheme("https")
+                .authority("hyperevmscan.io")
         }
     }
 
@@ -62,6 +115,11 @@ enum class MBlockchainExplorer(val identifier: String) {
                 .build().toString()
 
             SOLSCAN -> baseUrlBuilder(network)
+                .appendPath("tx")
+                .appendPath(txHash)
+                .build().toString()
+
+            else -> baseUrlBuilder(network)
                 .appendPath("tx")
                 .appendPath(txHash)
                 .build().toString()
@@ -88,6 +146,11 @@ enum class MBlockchainExplorer(val identifier: String) {
                 .appendPath("account")
                 .appendPath(address)
                 .build().toString()
+
+            else -> baseUrlBuilder(network)
+                .appendPath("address")
+                .appendPath(address)
+                .build().toString()
         }
     }
 
@@ -108,7 +171,11 @@ enum class MBlockchainExplorer(val identifier: String) {
                 .appendPath(tokenAddress)
                 .build().toString()
 
-            else -> null
+            else -> if (isEvm) baseUrlBuilder(network)
+                .appendPath("token")
+                .appendPath(tokenAddress)
+                .build().toString()
+            else null
         }
     }
 
@@ -119,7 +186,11 @@ enum class MBlockchainExplorer(val identifier: String) {
                 .appendPath(nftAddress)
                 .build().toString()
 
-            else -> null
+            else -> if (isEvm) baseUrlBuilder(network)
+                .appendPath("nft")
+                .appendPath(nftAddress)
+                .build().toString()
+            else null
         }
     }
 }

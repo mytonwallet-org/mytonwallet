@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.text.TextUtils
@@ -63,14 +64,14 @@ class KeyValueRowView(
 
     private val keyLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f)
+            setStyle(adaptiveFontSize())
             text = key
         }
     }
 
     val valueLabel: WSensitiveDataContainer<WLabel> by lazy {
         val lbl = WLabel(context).apply {
-            setStyle(16f)
+            setStyle(adaptiveFontSize())
             text = value
             movementMethod = ExtraHitLinkMovementMethod(8.dp, 4.dp)
             highlightColor = Color.TRANSPARENT

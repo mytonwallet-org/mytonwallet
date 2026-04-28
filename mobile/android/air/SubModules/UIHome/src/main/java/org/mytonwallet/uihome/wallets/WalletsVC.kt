@@ -2,6 +2,7 @@ package org.mytonwallet.uihome.wallets
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Path
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
@@ -39,6 +40,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.frameAsRectF
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.WalletCustomizationVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
@@ -546,11 +548,12 @@ class WalletsVC(
             val dy = (height * 1.05f - height) / 2f
             rect.inset(-dx, -dy)
         }
+        val cornerRadius = if (cell is WalletCardCell) 16f.dp else 24f.dp
         highlightOverlayView =
             HighlightOverlayView(
                 context,
                 rect,
-                if (cell is WalletCardCell) 16f.dp else 24f.dp,
+                cornerRadius,
                 if (topReversedCornerView?.isVisible == true)
                     topReversedCornerView
                 else
@@ -630,7 +633,10 @@ class WalletsVC(
             yOffset = if (isGridMode) 1 else (-20).dp,
             positioning = WMenuPopup.Positioning.BELOW,
             centerHorizontally = true,
-            windowBackgroundStyle = WMenuPopup.BackgroundStyle.Transparent,
+            windowBackgroundStyle = BackgroundStyle.Cutout(Path().apply {
+                addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
+            }),
+            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
             onWillDismiss = {
                 cell.isShowingPopup = false
                 highlightOverlayView?.let { highlightOverlayView ->

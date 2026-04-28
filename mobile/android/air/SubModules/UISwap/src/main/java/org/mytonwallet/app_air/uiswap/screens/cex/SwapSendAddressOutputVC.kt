@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiswap.screens.cex
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.os.Build
@@ -131,7 +132,7 @@ class SwapSendAddressOutputVC(
 
     private val addressView = CopyTextView(context).apply {
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 22f)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         gravity = Gravity.CENTER
         typeface = WFont.Regular.typeface
         layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
@@ -214,7 +215,7 @@ class SwapSendAddressOutputVC(
     private val titleView = AppCompatTextView(context).apply {
         setPaddingDp(20, 0, 20, 0)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 22f)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         gravity = Gravity.CENTER
         typeface = WFont.Regular.typeface
         layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
@@ -268,7 +269,7 @@ class SwapSendAddressOutputVC(
             (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT_THIN.dp,
             0,
-            navigationController?.getSystemBars()?.bottom ?: 0,
+            navigationController?.bottomInset ?: 0,
         )
         linearLayout.clipToPadding = false
 
@@ -292,7 +293,7 @@ class SwapSendAddressOutputVC(
         bottomDetails.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp,
-            0f
+            ViewConstants.BLOCK_RADIUS.dp,
         )
         qrCodeView.setPadding(if (ThemeManager.isDark) 16.dp else 0)
         if (ThemeManager.isDark) {
@@ -313,14 +314,13 @@ class SwapSendAddressOutputVC(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        view.setConstraints({
-            toBottomPx(
-                scrollView, max(
-                    (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (window?.imeInsets?.bottom ?: 0)
-                )
-            )
-        })
+        linearLayout.setPadding(
+            0,
+            (navigationController?.getSystemBars()?.top ?: 0) +
+                WNavigationBar.DEFAULT_HEIGHT_THIN.dp,
+            0,
+            navigationController?.bottomInset ?: 0,
+        )
     }
 
     override fun onDestroy() {

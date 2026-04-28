@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.userResponsibility
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.Gravity
 import android.view.View
@@ -8,6 +9,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.R
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -56,55 +58,57 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
     @SuppressLint("SetTextI18n")
     private val descriptionLabel = WLabel(context).apply {
         setPaddingDp(24, 16, 24, 16)
-        setStyle(16f)
+        setStyle(adaptiveFontSize())
         text = ("${LocaleController.getString("\$auth_responsibly_description1")}\n" +
             "${LocaleController.getString("\$auth_responsibly_description2")}\n" +
             "${LocaleController.getString("\$auth_responsibly_description3")}\n" +
             LocaleController.getString("\$auth_responsibly_description4"))
             .trim()
-            .replace("%app_name%", "MyTonWallet")
+            .replace("%app_name%", context.getString(BaseR.string.app_name))
             .toProcessedSpannableStringBuilder()
     }
 
-    private val termsOfUseRow = SettingsItemCell(context, baseContentHeight = SettingsItemCell.SIMPLE_ROW_HEIGHT).apply {
-        val title = LocaleController.getString("Terms of Use")
-        configure(
-            SettingsItem(
-                identifier = SettingsItem.Identifier.USE_RESPONSIBILITY,
-                icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_responsibility_terms,
-                title = title,
-                value = null,
-                hasTintColor = false
-            ),
-            subtitle = null,
-            isFirst = true,
-            isLast = false,
-            isEnabled = true,
-            onTap = {
-                openLink("https://mytonwallet.io/terms-of-use", title)
-            }
-        )
-    }
+    private val termsOfUseRow =
+        SettingsItemCell(context, baseContentHeight = SettingsItemCell.SIMPLE_ROW_HEIGHT).apply {
+            val title = LocaleController.getString("Terms of Use")
+            configure(
+                SettingsItem(
+                    identifier = SettingsItem.Identifier.USE_RESPONSIBILITY,
+                    icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_responsibility_terms,
+                    title = title,
+                    value = null,
+                    hasTintColor = false
+                ),
+                subtitle = null,
+                isFirst = true,
+                isLast = false,
+                isEnabled = true,
+                onTap = {
+                    openLink(context.getString(BaseR.string.app_terms_of_use_url), title)
+                }
+            )
+        }
 
-    private val privacyPolicyRow = SettingsItemCell(context, baseContentHeight = SettingsItemCell.SIMPLE_ROW_HEIGHT).apply {
-        val title = LocaleController.getString("Privacy Policy")
-        configure(
-            SettingsItem(
-                identifier = SettingsItem.Identifier.NONE,
-                icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_responsibility_policy,
-                title = title,
-                value = null,
-                hasTintColor = false
-            ),
-            subtitle = null,
-            isFirst = false,
-            isLast = true,
-            isEnabled = true,
-            onTap = {
-                openLink("https://mytonwallet.io/privacy-policy", title)
-            }
-        )
-    }
+    private val privacyPolicyRow =
+        SettingsItemCell(context, baseContentHeight = SettingsItemCell.SIMPLE_ROW_HEIGHT).apply {
+            val title = LocaleController.getString("Privacy Policy")
+            configure(
+                SettingsItem(
+                    identifier = SettingsItem.Identifier.NONE,
+                    icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_responsibility_policy,
+                    title = title,
+                    value = null,
+                    hasTintColor = false
+                ),
+                subtitle = null,
+                isFirst = false,
+                isLast = true,
+                isEnabled = true,
+                onTap = {
+                    openLink(context.getString(BaseR.string.app_privacy_policy_url), title)
+                }
+            )
+        }
 
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
@@ -128,7 +132,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
             topToBottom(privacyPolicyRow, termsOfUseRow)
             toBottomPx(
                 privacyPolicyRow,
-                navigationController?.getSystemBars()?.bottom ?: 0
+                navigationController?.bottomInset ?: 0
             )
         }
         v
@@ -168,9 +172,9 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
             toBottomPx(
                 privacyPolicyRow,
                 max(
-                        (navigationController?.getSystemBars()?.bottom ?: 0),
-                        (window?.imeInsets?.bottom ?: 0)
-                    )
+                    (navigationController?.bottomInset ?: 0),
+                    (window?.imeInsets?.bottom ?: 0)
+                )
             )
         }
     }

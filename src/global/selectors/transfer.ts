@@ -104,8 +104,11 @@ function selectBestChainTokenSlow(global: GlobalState, chain: ApiChain, currentT
   return selectChainTokenWithMaxBalanceSlow(global, chain);
 }
 
-export function selectIsOffRampAllowed(global: GlobalState) {
+export function selectIsOffRampAllowed(global: GlobalState, chain?: ApiChain) {
   const { settings: { isTestnet }, restrictions: { isOffRampDisabled } } = global;
 
-  return !isTestnet && !isOffRampDisabled;
+  if (isTestnet || isOffRampDisabled) return false;
+  if (chain && !getChainConfig(chain).isOffRampSupported) return false;
+
+  return true;
 }

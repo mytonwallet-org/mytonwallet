@@ -18,35 +18,63 @@ import UIKitNavigation
 private let maxWidth: CGFloat = 580
 
 public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delegate {
+    
+    @MainActor
+    private class Tabs {
+        private let viewModel: WalletSettingsViewModel
+        private var itemsRestoreSnapshot: [SegmentedControlItem]?
+        private var viewControllers: [UIViewController] = []
+        
+        private(set) var segmentedControlItems: [SegmentedControlItem] = [] {
+            didSet {
+                viewModel.filters = segmentedControlItems.compactMap { WalletFilter(rawValue: $0.id) }
+            }
+        }
+        
+        init(viewModel: WalletSettingsViewModel) {
+            self.viewModel = viewModel
+            for filter in viewModel.filters {
+                let vc = WalletSettingsListVC(viewModel: viewModel, filter: filter)
+                let item = SegmentedControlItem(
+                    id: filter.rawValue,
+                    title: filter.title,
+                    isDeletable: false,
+                    viewController: vc
+                )
+                segmentedControlItems.append(item)
+                viewControllers.append(vc)
+            }
+        }
+        
+        func addToParentVC(_ parent: UIViewController) {
+            viewControllers.forEach {
+                parent.addChild($0)
+                $0.didMove(toParent: parent)
+            }
+        }
+        
+        func itemIndexForFilter(_ filter: WalletFilter) -> Int? {
+            return segmentedControlItems.firstIndex(where: { $0.id == filter.rawValue })
+        }
+        
+        func startEditing() {
+            itemsRestoreSnapshot = segmentedControlItems
+        }
 
-    lazy var items = [
-        SegmentedControlItem(
-            id: "all",
-            title: lang("All"),
-            viewController: tabViewControllers[0],
-        ),
-        SegmentedControlItem(
-            id: "my",
-            title: lang("My"),
-            viewController: tabViewControllers[1],
-        ),
-        SegmentedControlItem(
-            id: "ledger",
-            title: lang("Ledger"),
-            viewController: tabViewControllers[2],
-        ),
-        SegmentedControlItem(
-            id: "view",
-            title: lang("$view_accounts"),
-            viewController: tabViewControllers[3],
-        ),
-    ]
-    lazy var tabViewControllers: [WalletSettingsListVC] = [
-        WalletSettingsListVC(viewModel: viewModel, filter: .all),
-        WalletSettingsListVC(viewModel: viewModel, filter: .my),
-        WalletSettingsListVC(viewModel: viewModel, filter: .ledger),
-        WalletSettingsListVC(viewModel: viewModel, filter: .view),
-    ]
+        func editItems(with newValue: [SegmentedControlItem]) {
+            segmentedControlItems = newValue
+        }
+        
+        func stopEditing(isCanceled: Bool) {
+            if let itemsRestoreSnapshot, isCanceled  {
+                segmentedControlItems = itemsRestoreSnapshot
+            }
+            itemsRestoreSnapshot = nil
+        }
+    }
+    
+    private lazy var tabs = Tabs(viewModel: viewModel)
+
     private var currentFilter: WalletFilter { viewModel.currentFilter }
     private var segmentedController: WSegmentedController?
     private var segmentedControl: WSegmentedControl? { segmentedController?.segmentedControl }
@@ -54,23 +82,23 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
     private let segmentedControlWidth: CGFloat = 320
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
     
+    @Dependency(\.accountStore) private var accountStore
+    private var orderedAccountIdsRestoreSnapshot: OrderedSet<String>?
+    
     public override func viewDidLoad() {
         
         super.viewDidLoad()
         
         view.backgroundColor = .air.sheetBackground
         
+        tabs.addToParentVC(self)
+        
         observe { [weak self] in
-            guard let self else { return }
-            makeLeadingBarItem()
+            self?.updateEditingState()
         }
         navigationItem.titleView = HostingView {
             WalletSettingsNavigationHeader(viewModel: viewModel)
         }
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            systemItem: .close,
-            primaryAction: UIAction { [weak self] _ in self?.dismiss(animated: true) }
-        )
         if let sheet = sheetPresentationController {
             if IOS_26_MODE_ENABLED {
                 sheet.prefersGrabberVisible = !isPad
@@ -91,11 +119,10 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
         }
         
         let segmentedController = WSegmentedController(
-            items: items,
+            items: tabs.segmentedControlItems,
             defaultItemId: viewModel.currentFilter.rawValue,
             barHeight: 44,
             animationSpeed: .slow,
-            secondaryTextColor: UIColor.secondaryLabel,
             capsuleFillColor: .airBundle("DarkCapsuleColor"),
             delegate: self
         )
@@ -146,39 +173,60 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
             bottomButton.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         
-        observe { [weak self] in
+        segmentedController.model.onItemsReorder = { [weak self] items in
+            self?.tabs.editItems(with: items)
+        }
+        
+        viewModel.onStartEditing = { [weak self] in
             guard let self else { return }
-            if viewModel.isReordering {
-                let idx = items.firstIndex(where: { $0.id == "all" })!
-                segmentedController.switchTo(tabIndex: idx)
-                segmentedController.handleSegmentChange(to: idx, animated: true)
-                segmentedController.scrollView.isScrollEnabled = false
-                segmentedControl.isUserInteractionEnabled = false
-            } else {
-                segmentedController.scrollView.isScrollEnabled = true
-                segmentedControl.isUserInteractionEnabled = true
+            
+            let idx = tabs.itemIndexForFilter(.all) ?? 0
+            segmentedController.switchTo(tabIndex: idx)
+            segmentedController.handleSegmentChange(to: idx, animated: true)
+            segmentedController.scrollView.isScrollEnabled = false
+            segmentedController.model.startReordering()
+            
+            tabs.startEditing()
+            orderedAccountIdsRestoreSnapshot = accountStore.orderedAccountIds
+        }
+        
+        viewModel.onStopEditing = { [weak self] isCanceled in
+            guard let self else { return }
+            
+            segmentedController.scrollView.isScrollEnabled = true
+            segmentedController.model.stopReordering()
+            
+            tabs.stopEditing(isCanceled: isCanceled)
+            segmentedController.replace(items: tabs.segmentedControlItems)
+            if isCanceled, let orderedAccountIdsRestoreSnapshot {
+                accountStore.reorderAccounts(newOrder: orderedAccountIdsRestoreSnapshot)
             }
+            orderedAccountIdsRestoreSnapshot = nil
         }
     }
     
-    func makeLeadingBarItem() {
-        if viewModel.isReordering {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                self.navigationItem.leftBarButtonItem = UIBarButtonItem(systemItem: .done, primaryAction: UIAction { [weak self] _ in
-                    self?.viewModel.stopEditing()
-                })
+    private func updateNavigation() {
+        let isEditing = viewModel.isReordering
+        
+        if isEditing {
+            navigationItem.leftBarButtonItem = UIBarButtonItem.cancelTextButtonItem { [weak self] in
+                self?.viewModel.stopEditing(isCanceled: true)
             }
+            navigationItem.rightBarButtonItem = UIBarButtonItem.doneButtonItem { [weak self] in
+                self?.viewModel.stopEditing(isCanceled: false)
+            }
+            
         } else {
             let other = viewModel.preferredLayout.other
             let viewAs = UIAction(
                 title: other.title,
                 image: UIImage(systemName: other.imageName),
-                handler: { [weak self] _ in self?.viewModel.setPreferredLayout(other) }
+                handler: { [weak self] _ in self?.viewModel.preferredLayout = other }
             )
             let viewAsMenu = UIMenu(options: .displayInline, children: [viewAs])
             let reorder = UIAction(
                 title: lang("Reorder"),
-                image: UIImage(systemName: "chevron.up.chevron.down"),
+                image: .airBundle("MenuReorder26"),
                 handler: { [weak self] _ in
                     self?.viewModel.startEditing()
                 }
@@ -188,6 +236,23 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
                 image: UIImage(systemName: "line.3.horizontal.decrease"),
                 menu: menu,
             )
+            
+            navigationItem.rightBarButtonItem = UIBarButtonItem(
+                systemItem: .close,
+                primaryAction: UIAction { [weak self] _ in self?.dismiss(animated: true) }
+            )
+        }
+        
+        navigationController?.isModalInPresentation = isEditing
+    }
+    
+    private func updateEditingState() {
+        if viewModel.isReordering {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self.updateNavigation()
+            }
+        } else {
+            updateNavigation()
         }
     }
 

@@ -178,7 +178,7 @@ class ExploreVC(context: Context) : WViewController(context),
             0,
             topPadding,
             0,
-            navigationController?.getSystemBars()?.bottom ?: 0
+            navigationController?.bottomInset ?: 0
         )
         bottomReversedCornerView?.setHorizontalPadding(ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat())
         rvAdapter.reloadData()

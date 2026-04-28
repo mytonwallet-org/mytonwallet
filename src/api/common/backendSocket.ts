@@ -8,6 +8,7 @@ import type {
   ApiSocketEventType,
   ApiSubscribedSocketMessage,
 } from '../types';
+import type { DefaultNftUpdateArgument } from './websocket/abstractWsClient';
 
 import { BRILLIANT_API_BASE_URL } from '../../config';
 import safeExec from '../../util/safeExec';
@@ -28,7 +29,8 @@ class BackendSocket extends AbstractWebsocketClient<
   ApiClientSocketMessage,
   ApiServerSocketMessage,
   ExtendedWatchedWallet,
-  { address: string }
+  { address: string },
+  DefaultNftUpdateArgument
 > {
   constructor(network: ApiNetwork) {
     super(getSocketUrl(network));

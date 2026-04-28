@@ -4,6 +4,11 @@ import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.icons.R
 import java.math.BigDecimal
 
+enum class MultiWalletSupport {
+    VERSION,
+    PATH
+}
+
 @Suppress("EnumEntryName")
 @JsonClass(generateAdapter = false)
 enum class MBlockchain(
@@ -13,6 +18,22 @@ enum class MBlockchain(
     internal val config: MBlockchainConfig? = null,
     val isSupported: Boolean = false
 ) {
+
+    ethereum(
+        R.drawable.ic_blockchain_ethereum_128,
+        "eth",
+        "Ethereum",
+        EthereumConfig,
+        isSupported = true
+    ),
+
+    solana(
+        R.drawable.ic_blockchain_solana_40,
+        "sol",
+        "Solana",
+        SolanaConfig,
+        isSupported = true
+    ),
 
     ton(
         R.drawable.ic_blockchain_ton_128,
@@ -30,25 +51,70 @@ enum class MBlockchain(
         isSupported = true
     ),
 
-    solana(
-        R.drawable.ic_blockchain_solana_40,
-        "sol",
-        "Solana",
-        SolanaConfig,
+    bnb(
+        R.drawable.ic_blockchain_bnb_128,
+        "bnb",
+        "BNB",
+        BnbConfig,
         isSupported = true
     ),
 
+    hyperliquid(
+        R.drawable.ic_blockchain_hyperliquid_128,
+        "hyperliquid",
+        "Hyperliquid",
+        HyperliquidConfig,
+        isSupported = true
+    ),
+
+    base(
+        R.drawable.ic_blockchain_base_128,
+        "base",
+        "Base",
+        BaseConfig,
+        isSupported = true
+    ),
+
+    polygon(
+        R.drawable.ic_blockchain_polygon_128,
+        "pol",
+        "Polygon",
+        PolygonConfig,
+        isSupported = false
+    ),
+
+    arbitrum(
+        R.drawable.ic_blockchain_arbitrum_128,
+        "arb",
+        "Arbitrum",
+        ArbitrumConfig,
+        isSupported = true
+    ),
+
+    monad(
+        R.drawable.ic_blockchain_monad_128,
+        "mon",
+        "Monad",
+        MonadConfig,
+        isSupported = false
+    ),
+
+    avalanche(
+        R.drawable.ic_blockchain_avalanche_128,
+        "ava",
+        "Avalanche",
+        AvalancheConfig,
+        isSupported = false
+    ),
+
     // unsupported examples (data only, no config yet)
-    ethereum(R.drawable.ic_blockchain_ethereum_128, "eth", "Ethereum"),
     polkadot(R.drawable.ic_blockchain_polkadot_128, "dot", "Polkadot"),
     zcash(R.drawable.ic_blockchain_zcash_128, "zec", "Zcash"),
     internet_computer(R.drawable.ic_blockchain_internet_computer_40, "icp", "Internet Computer"),
-    avalanche(R.drawable.ic_blockchain_avalanche_128, "avax", "Avalanche"),
     litecoin(R.drawable.ic_blockchain_litecoin_128, "ltc", "Litecoin"),
     cosmos(R.drawable.ic_blockchain_cosmos_128, "atom", "Cosmos"),
     ripple(R.drawable.ic_blockchain_ripple_128, "xrp", "Ripple"),
     ethereum_classic(R.drawable.ic_blockchain_ethereum_classic_128, "etc", "Ethereum Classic"),
-    binance_smart_chain(R.drawable.ic_blockchain_bnb_128, "bsc", "Binance Smart Chain"),
     dash(R.drawable.ic_blockchain_dash_128, "dash", "Dash"),
     monero(R.drawable.ic_blockchain_monero_128, "xmr", "Monero"),
     cardano(R.drawable.ic_blockchain_cardano_128, "ada", "Cardano"),
@@ -73,6 +139,7 @@ enum class MBlockchain(
     val feeCheckAddress get() = config?.feeCheckAddress
     val isCommentSupported get() = config?.isCommentSupported
     val isEncryptedCommentSupported get() = config?.isEncryptedCommentSupported
+    val multiWalletSupport get() = config?.multiWalletSupport
 
     fun isValidAddress(address: String) =
         config?.isValidAddress(address) ?: false
@@ -95,22 +162,35 @@ enum class MBlockchain(
     fun nftExplorer() =
         config?.nftExplorer()
 
-    val canBuyWithCard get() = config?.canBuyWithCard ?: true
+    val isOnrampSupported get() = isSupported && config?.isOnRampSupported == true
+    val isOfframpSupported get() = isSupported && config?.isOffRampSupported == true
 
     val burnAddress: String
         get() {
             return config?.burnAddress ?: ""
         }
 
+    val qrIcon: Int
+        get() {
+            return config?.qrIcon ?: icon
+        }
+
     companion object {
+
+        const val VIEW_ACCOUNT_EVM_PARAM = "evm"
 
         val supportedChains = entries.filter { it.isSupported }
         val supportedChainValues = supportedChains.map { it.name }
+        val evmChains = supportedChains.filter { it.config?.chainStandard == "ethereum" }
+        val evmChainValues = evmChains.map { it.name }
         val supportedChainIndexes =
             supportedChains.mapIndexed { index, chain -> chain.name to index }.toMap()
 
         fun isValidAddressOnAnyChain(address: String): Boolean =
             supportedChains.any { it.isValidAddress(address) }
+
+        fun isEvmChain(chain: String): Boolean =
+            evmChainValues.contains(chain)
 
         fun valueOfOrNull(name: String): MBlockchain? =
             entries.firstOrNull { it.name == name }

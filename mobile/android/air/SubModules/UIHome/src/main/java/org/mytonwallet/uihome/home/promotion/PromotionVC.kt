@@ -1,6 +1,7 @@
 package org.mytonwallet.uihome.home.promotion
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Outline
@@ -14,10 +15,9 @@ import android.text.Spanned
 import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.View
-import android.view.ViewOutlineProvider
-import androidx.core.content.ContextCompat
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -34,6 +34,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
@@ -161,7 +162,7 @@ class PromotionVC(
         if (m.description.isBlank()) return
 
         val descLabel = WLabel(context).apply {
-            setStyle(16f, WFont.Medium)
+            setStyle(adaptiveFontSize(), WFont.Medium)
             text = parseSimpleMarkdownBold(m.description)
             gravity = Gravity.CENTER
             setTextColor(parseCssColorInt(m.descriptionColor) ?: Color.argb(191, 255, 255, 255))
@@ -222,8 +223,7 @@ class PromotionVC(
     private fun setupCloseButton(container: FrameLayout) {
         val closeButton = WImageButton(context).apply {
             setImageDrawable(
-                ContextCompat.getDrawable(
-                    context,
+                context.getDrawableCompat(
                     org.mytonwallet.app_air.uicomponents.R.drawable.ic_close
                 )
             )

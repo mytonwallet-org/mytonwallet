@@ -4,11 +4,11 @@ import WalletContext
 import UIComponents
 import WalletCore
 import WebKit
+import FirebaseCore
+import FirebaseMessaging
 #if canImport(Capacitor)
 import Capacitor
 import MytonwalletAirAppLauncher
-import FirebaseCore
-import FirebaseMessaging
 import SwiftKeychainWrapper
 #endif
 
@@ -94,10 +94,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProto
             details: "protectedData=\(application.isProtectedDataAvailable) firstLaunch=\(isFirstLaunch)"
         )
         
-        #if canImport(Capacitor)
         FirebaseApp.configure()
         StartupTrace.mark("appDelegate.firebase.configure")
-        #endif
         
         guard application.isProtectedDataAvailable else {
             log.error("application.isProtectedDataAvailable = false")
@@ -153,15 +151,18 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProto
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        #if canImport(Capacitor)
         Messaging.messaging().apnsToken = deviceToken
         Messaging.messaging().token(completion: { (token, error) in
             if let error = error {
                 log.error("capacitorDidFailToRegisterForRemoteNotifications \(error, .public)")
+                #if canImport(Capacitor)
                 NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+                #endif
             } else if let token = token {
                 log.info("capacitorDidRegisterForRemoteNotifications")
+                #if canImport(Capacitor)
                 NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: token)
+                #endif
                 if self.isOnTheAir {
                     Task { @MainActor in
                         AirLauncher.didRegisterForPushNotifications(userToken: token)
@@ -169,12 +170,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProto
                 }
             }
         })
-        #endif
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        #if canImport(Capacitor)
         log.error("didFailToRegisterForRemoteNotificationsWithError \(error, .public)")
+        #if canImport(Capacitor)
         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
         #endif
     }

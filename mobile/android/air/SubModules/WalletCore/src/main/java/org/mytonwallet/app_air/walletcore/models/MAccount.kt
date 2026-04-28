@@ -6,8 +6,9 @@ import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
-import org.mytonwallet.app_air.walletcore.DEFAULT_SHOWN_TOKENS
+import org.mytonwallet.app_air.walletcore.ALL_DEFAULT_TOKENS
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.ApiDerivation
 import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -34,6 +35,7 @@ class MAccount(
         val address: String,
         val domain: String? = null,
         val isMultisig: Boolean? = null,
+        val derivation: ApiDerivation? = null,
     ) {
         val jsonObject: JSONObject
             get() {
@@ -41,6 +43,7 @@ class MAccount(
                     put("address", address)
                     put("domain", domain)
                     put("isMultisig", isMultisig)
+                    derivation?.let { put("derivation", it.toJSONObject()) }
                 }
             }
     }
@@ -101,6 +104,9 @@ class MAccount(
                     domain = chainData.optString("domain").takeIf { it.isNotEmpty() },
                     isMultisig = chainData.optBoolean("isMultisig")
                         .takeIf { chainData.has("isMultisig") },
+                    derivation = chainData.optJSONObject("derivation")?.let {
+                        ApiDerivation.fromJSONObject(it)
+                    },
                 )
             }
             return result
@@ -113,6 +119,7 @@ class MAccount(
                     put("address", accountChain.address)
                     accountChain.domain?.let { put("domain", it) }
                     accountChain.isMultisig?.let { put("isMultisig", it) }
+                    accountChain.derivation?.let { put("derivation", it.toJSONObject()) }
                 }
                 json.put(chainName, chain)
             }
@@ -156,6 +163,11 @@ class MAccount(
     val addressByChain: Map<String, String>
         get() = byChain.mapValues { it.value.address }
 
+    val supportsReceiveScreen: Boolean
+        get() {
+            return true
+        }
+
     val supportsSwap: Boolean
         get() {
             return network == MBlockchainNetwork.MAINNET && accountType == AccountType.MNEMONIC
@@ -179,8 +191,9 @@ class MAccount(
     val isNew: Boolean
         get() {
             val balances = BalanceStore.getBalances(accountId) ?: return false
-            val defaultTokens = DEFAULT_SHOWN_TOKENS[network]
-            return balances.filter { defaultTokens?.contains(it.key) != true }.isEmpty() && balances.filter {
+            val defaultTokens = ALL_DEFAULT_TOKENS[network]
+            return balances.filter { defaultTokens?.contains(it.key) != true }
+                .isEmpty() && balances.filter {
                 val token = TokenStore.getToken(it.key) ?: return@filter false
                 return@filter token.priceUsd *
                     it.value.doubleAbsRepresentation(token.decimals) >= 0.01
@@ -189,17 +202,30 @@ class MAccount(
 
     val firstChain: MBlockchain?
         get() {
-            return MBlockchain.supportedChains.firstOrNull { addressByChain.contains(it.name) }
+            val firstSorted = sortedChains().firstOrNull()?.key ?: return null
+            return MBlockchain.supportedChains.firstOrNull { it.name == firstSorted }
         }
 
     val shareLink: String
         get() {
+            val sortedChains = sortedChains()
+            val evmAddress = collapsedEvmAddress(sortedChains)
+            var didAddEvm = false
+
             return Uri.Builder()
                 .scheme("https")
                 .authority("my.tt")
                 .path("view/")
                 .apply {
-                    sortedChains().forEach { (chain, chainAccount) ->
+                    sortedChains.forEach { (chain, chainAccount) ->
+                        if (evmAddress != null && MBlockchain.isEvmChain(chain)) {
+                            if (!didAddEvm) {
+                                appendQueryParameter(MBlockchain.VIEW_ACCOUNT_EVM_PARAM, evmAddress)
+                                didAddEvm = true
+                            }
+                            return@forEach
+                        }
+
                         appendQueryParameter(chain, chainAccount.address)
                     }
 
@@ -210,6 +236,13 @@ class MAccount(
                 .build()
                 .toString()
         }
+
+    private fun collapsedEvmAddress(sortedChains: List<Map.Entry<String, AccountChain>>): String? {
+        val addressByChain = sortedChains.associate { it.key to it.value.address }
+        val evmAddresses = MBlockchain.evmChains.map { addressByChain[it.name] }
+        val firstAddress = evmAddresses.firstOrNull() ?: return null
+        return if (evmAddresses.all { it == firstAddress }) firstAddress else null
+    }
 
     fun isChainSupported(chain: String): Boolean {
         return byChain.containsKey(chain)

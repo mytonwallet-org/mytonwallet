@@ -3,15 +3,14 @@ package org.mytonwallet.app_air.uicomponents.commonViews.cells
 import android.content.Context
 import android.graphics.drawable.Drawable
 import android.text.TextUtils
-import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintSet
-import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WCounterLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -20,6 +19,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import kotlin.math.roundToInt
 
 class ShowAllView(
@@ -63,7 +63,7 @@ class ShowAllView(
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
             id = generateViewId()
-            setStyle(16f)
+            setStyle(adaptiveFontSize())
             setTextColor(WColor.PrimaryText)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
@@ -89,10 +89,12 @@ class ShowAllView(
     }
 
     fun configure(icon: Int, text: String) {
-        iconDrawable = ContextCompat.getDrawable(context, icon)?.apply {
+        iconDrawable = context.getDrawableCompat(icon)?.apply {
             setTint(WColor.SecondaryText.color)
         }
-        menuDrawable = ContextCompat.getDrawable(context, org.mytonwallet.app_air.icons.R.drawable.ic_more)?.apply {
+        menuDrawable = context.getDrawableCompat(
+            org.mytonwallet.app_air.icons.R.drawable.ic_more
+        )?.apply {
             setTint(WColor.SecondaryText.color)
         }
         iconView.setImageDrawable(iconDrawable)

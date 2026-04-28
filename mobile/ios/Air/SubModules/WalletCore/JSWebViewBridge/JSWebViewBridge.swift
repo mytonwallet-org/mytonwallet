@@ -99,7 +99,9 @@ let LOGGING_FETCH = """
 
 private let log = Log("JSWebViewBridge")
 private let console = Log("console")
-private let sdkIndexFileURL = AirBundle.url(forResource: "index", withExtension: "html")!
+private var sdkIndexFileURL: URL {
+    AirBundle.url(forResource: IS_GRAM_WALLET ? "index-gramwallet" : "index", withExtension: "html")!
+}
 private let sdkReadAccessURL = sdkIndexFileURL.deletingLastPathComponent()
 
 // The bridge to use mytonwallet js logic in Swift applications.
@@ -199,7 +201,7 @@ public class JSWebViewBridge: UIViewController {
         webView?.loadFileURL(sdkIndexFileURL, allowingReadAccessTo: sdkReadAccessURL)
     }
     
-    private func _callApiImpl(methodName: String, args: [AnyEncodable?]) async throws -> sending Any? { // todo: check use of sending
+    private func _callApiImpl(methodName: String, args: [AnyEncodable?]) async throws -> String? {
         let jsonData = try! JSONEncoder().encode(args)
         let argsString = String(data: jsonData, encoding: .utf8)!
         
@@ -217,9 +219,7 @@ public class JSWebViewBridge: UIViewController {
         do {
             let rawResult = try await webView.callAsyncJavaScript(CALL_API, arguments: ["methodName": methodName, "argsString": argsString], contentWorld: .page)
             if let rawResult {
-                let string = try (rawResult as? String).orThrow()
-                let obj = try JSONSerialization.jsonObject(withString: string)
-                return obj
+                return try (rawResult as? String).orThrow()
             } else {
                 return nil
             }
@@ -252,27 +252,31 @@ public class JSWebViewBridge: UIViewController {
         throw BridgeCallError(message: error.localizedDescription, payload: error)
     }
     
-    func callApiRaw<each E: Encodable>(_ methodName: String, _ args: repeat each E) async throws -> sending Any? {
-        try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args))
+    nonisolated(nonsending) func callApiRaw<each E: Encodable>(_ methodName: String, _ args: repeat each E) async throws -> sending Any? {
+        if let responseString = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args)) {
+            return try JSONSerialization.jsonObject(withString: responseString)
+        } else {
+            return nil
+        }
     }
     
-    func callApi<each E: Encodable & Sendable, T: Decodable & Sendable>(_ methodName: String, _ args: repeat each E, decoding: T.Type) async throws -> T {
-        let data = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args))
+    nonisolated(nonsending) func callApi<each E: Encodable & Sendable, T: Decodable & Sendable>(_ methodName: String, _ args: repeat each E, decoding: T.Type) async throws -> T {
+        let responseString = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args))
         do {
-            return try JSONSerialization.decode(T.self, from: data.orThrow())
+            return try JSONDecoder().decode(T.self, fromString: responseString.orThrow())
         } catch {
-            try BridgeCallError.tryToParseDataAsErrorAndThrow(data: data)
+            try BridgeCallError.tryToParseStringAsErrorAndThrow(dataString: responseString)
             throw error
         }
     }
     
-    func callApiOptional<each E: Encodable, T: Decodable>(_ methodName: String, _ args: repeat each E, decodingOptional: T.Type) async throws -> T? {
-        let data = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args))
-        if let data {
+    nonisolated(nonsending) func callApiOptional<each E: Encodable, T: Decodable>(_ methodName: String, _ args: repeat each E, decodingOptional: T.Type) async throws -> T? {
+        let responseString = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args))
+        if let responseString {
             do {
-                return try JSONSerialization.decode(T.self, from: data)
+                return try JSONDecoder().decode(T.self, fromString: responseString)
             } catch {
-                try BridgeCallError.tryToParseDataAsErrorAndThrow(data: data)
+                try BridgeCallError.tryToParseStringAsErrorAndThrow(dataString: responseString)
                 throw error
             }
         } else {
@@ -280,13 +284,13 @@ public class JSWebViewBridge: UIViewController {
         }
     }
     
-    func callApiVoid<each E: Encodable>(_ methodName: String, _ args: repeat each E, tryToParseError: Bool = true, assertIsNil: Bool = true) async throws {
-        let data = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args))
-        if tryToParseError, let data {
-            try BridgeCallError.tryToParseDataAsErrorAndThrow(data: data)
+    nonisolated(nonsending) func callApiVoid<each E: Encodable>(_ methodName: String, _ args: repeat each E, tryToParseError: Bool = true, assertIsNil: Bool = true) async throws {
+        let responseString = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args))
+        if tryToParseError, let responseString {
+            try BridgeCallError.tryToParseStringAsErrorAndThrow(dataString: responseString)
         }
         if assertIsNil {
-            assert(data == nil, "no return value expected")
+            assert(responseString == nil, "no return value expected")
         }
     }
     
@@ -604,7 +608,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                         WalletCoreData.notify(event: .updateStaking(update))
                     } catch {
                         log.error("failed to decode updateStaking: \(error, .public)")
-                        assertionFailure()
+//                        assertionFailure()
                     }
 
                 case "updatingStatus":

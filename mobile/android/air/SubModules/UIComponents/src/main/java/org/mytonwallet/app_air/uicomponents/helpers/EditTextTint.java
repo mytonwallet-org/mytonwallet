@@ -10,7 +10,7 @@ import android.widget.TextView;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
+import androidx.appcompat.content.res.AppCompatResources;
 
 import java.lang.reflect.Field;
 
@@ -93,7 +93,7 @@ public class EditTextTint {
                 field = TextView.class.getDeclaredField("mCursorDrawableRes");
                 field.setAccessible(true);
                 int cursorDrawableRes = field.getInt(editText);
-                Drawable cursorDrawable = ContextCompat.getDrawable(editText.getContext(), cursorDrawableRes);
+                Drawable cursorDrawable = AppCompatResources.getDrawable(editText.getContext(), cursorDrawableRes);
                 if (cursorDrawable != null) {
                     cursorDrawable = cursorDrawable.mutate();
                     cursorDrawable.setColorFilter(cursorColor, PorterDuff.Mode.SRC_IN);
@@ -121,7 +121,7 @@ public class EditTextTint {
                 field.setAccessible(true);
                 int selectHandleRes = field.getInt(editText);
 
-                Drawable selectHandleDrawable = ContextCompat.getDrawable(editText.getContext(), selectHandleRes);
+                Drawable selectHandleDrawable = AppCompatResources.getDrawable(editText.getContext(), selectHandleRes);
                 if (selectHandleDrawable != null) {
                     selectHandleDrawable = selectHandleDrawable.mutate();
                     selectHandleDrawable.setColorFilter(color, PorterDuff.Mode.SRC_IN);

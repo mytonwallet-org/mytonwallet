@@ -41,10 +41,22 @@ object LedgerBleManager : ILedgerConnectionManager {
             stopConnection()
         isStopped = false
         onUpdate(ConnectionState.Connecting)
-        bleManager?.startScanning { devices ->
+        val started = bleManager?.startScanning { devices ->
             this.devices = devices
-            if (selectedDevice == null)
-                selectDevice(devices.first(), onUpdate)
+            if (selectedDevice == null) {
+                val firstDevice = devices.firstOrNull() ?: return@startScanning
+                selectDevice(firstDevice, onUpdate)
+            }
+        } == true
+        if (!started) {
+            stopConnection()
+            onUpdate(
+                ConnectionState.Error(
+                    step = ConnectionState.Error.Step.CONNECT,
+                    shortMessage = null
+                )
+            )
+            return
         }
     }
 

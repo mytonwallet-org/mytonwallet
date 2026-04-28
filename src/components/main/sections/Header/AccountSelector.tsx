@@ -12,13 +12,13 @@ import {
 } from '../../../../global/selectors';
 import { getAccountTitle } from '../../../../util/account';
 import buildClassName from '../../../../util/buildClassName';
+import { calculateFullBalance } from '../../../../util/calculateFullBalance';
 import { getShortCurrencySymbol } from '../../../../util/formatNumber';
 
 import useLang from '../../../../hooks/useLang';
 
 import SensitiveData from '../../../ui/SensitiveData';
 import Transition from '../../../ui/Transition';
-import { calculateFullBalance } from '../Card/helpers/calculateFullBalance';
 
 import styles from './AccountSelector.module.scss';
 

@@ -34,7 +34,7 @@
   }
 
   :global(html.with-bottombar) & {
-    bottom: calc(var(--bottombar-height) + max(var(--safe-area-bottom), 0px) + 1rem);
+    bottom: calc(var(--bottombar-height) + 1rem);
   }
 }
 

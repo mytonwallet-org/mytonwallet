@@ -237,13 +237,6 @@ class ReversedCornerView(
         backgroundView.setBackgroundColor(bgColor)
 
         blurryBackgroundView?.updateTheme()
-
-        if (!isPlaying) {
-            resumeBlurring()
-            post { pauseBlurring(showSeparator == true) }
-        } else {
-            postInvalidateOnAnimation()
-        }
     }
 
     fun setRadius(radius: Float?) {

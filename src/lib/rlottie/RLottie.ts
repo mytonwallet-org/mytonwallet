@@ -75,6 +75,10 @@ class RLottie {
 
   private isRendererInited = false;
 
+  private isChangingData = false;
+
+  private pendingGoToFirstFrame = false;
+
   private approxFrameIndex = 0;
 
   private prevFrameIndex = -1;
@@ -190,6 +194,23 @@ class RLottie {
         }
       });
     }
+  }
+
+  goToFirstFrame(viewId?: string) {
+    if (viewId) {
+      const view = this.views.get(viewId);
+      if (view) view.isPaused = false;
+    }
+
+    if (this.framesCount === undefined) {
+      this.pendingGoToFirstFrame = true;
+      return;
+    }
+
+    this.approxFrameIndex = 0;
+    this.stopFrameIndex = 0;
+    this.direction = 1;
+    this.doPlay();
   }
 
   playSegment([startFrameIndex, stopFrameIndex]: [number, number], forceRestart = false, viewId?: string) {
@@ -404,13 +425,32 @@ class RLottie {
     this.msPerFrame = msPerFrame;
     this.framesCount = framesCount;
 
-    if (this.isWaiting) {
+    if (this.pendingGoToFirstFrame) {
+      this.pendingGoToFirstFrame = false;
+      this.approxFrameIndex = 0;
+      this.stopFrameIndex = 0;
+      this.direction = 1;
+      this.doPlay();
+    } else if (this.isWaiting) {
       this.doPlay();
     }
   }
 
   changeData(tgsUrl: string) {
-    this.pause();
+    this.isChangingData = true;
+    this.isAnimating = false;
+    this.isWaiting = false;
+    this.lastRenderAt = undefined;
+    this.stopFrameIndex = undefined;
+    this.prevFrameIndex = -1;
+
+    this.frames.forEach((frame) => {
+      if (frame && frame !== WAITING) {
+        frame.close();
+      }
+    });
+    this.frames = [];
+
     this.tgsUrl = tgsUrl;
     this.initConfig();
 
@@ -431,6 +471,14 @@ class RLottie {
     this.framesCount = framesCount;
     this.isWaiting = false;
     this.isAnimating = false;
+    this.isChangingData = false;
+
+    if (this.pendingGoToFirstFrame) {
+      this.pendingGoToFirstFrame = false;
+      this.approxFrameIndex = 0;
+      this.stopFrameIndex = 0;
+      this.direction = 1;
+    }
 
     this.doPlay();
   }
@@ -572,6 +620,9 @@ class RLottie {
   }
 
   private requestFrame(frameIndex: number) {
+    if (this.isChangingData) {
+      return;
+    }
     this.frames[frameIndex] = WAITING;
 
     void workers[this.workerIndex].request({

@@ -1,8 +1,9 @@
 import type { Period } from './utils';
 
 import { focusAwareDelay, onFocusAwareDelay } from '../../../util/focusAwareDelay';
-import { handleError } from '../../../util/handleError';
+import { logDebugError } from '../../../util/logs';
 import { throttle } from '../../../util/schedulers';
+import { ApiServerError } from '../../errors';
 import { periodToMs } from './utils';
 
 export type PollCallback = () => MaybePromise<void>;
@@ -98,8 +99,15 @@ export class FallbackPollingScheduler {
 
     try {
       await this.#rawPoll();
-    } catch (err: any) {
-      handleError(err);
+    } catch (err: unknown) {
+      // Polling re-issues requests, so any `ApiServerError` encountered here
+      // (transport, 4xx, 5xx) is suppressed - alerting on each cycle just
+      // creates user-visible noise scaled by poller count.
+      if (err instanceof ApiServerError) {
+        logDebugError('FallbackPollingScheduler poll failed (suppressed)', err);
+        return;
+      }
+      throw err;
     }
   }, () => {
     return focusAwareDelay(...periodToMs(this.#options.minPollDelay));

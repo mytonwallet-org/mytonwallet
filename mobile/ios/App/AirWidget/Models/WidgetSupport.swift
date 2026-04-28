@@ -2,8 +2,13 @@ import Foundation
 import SwiftUI
 import UIKit
 
+#if GRAM_WALLET
+let APP_GROUP_ID = "group.io.gramwallet.app"
+let SELF_PROTOCOL = "gramwallet://"
+#else
 let APP_GROUP_ID = "group.org.mytonwallet.app"
 let SELF_PROTOCOL = "mtw://"
+#endif
 
 let TONCOIN_SLUG = "toncoin"
 let TON_USDT_SLUG = "ton-eqcxe6mutq"

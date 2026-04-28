@@ -85,10 +85,11 @@ App Icon: ไอคอนแอป
 App Font: ฟอนต์แอป
 Rounded Toolbars: แถบเครื่องมือโค้งมน
 Side Gutters: ขอบด้านข้าง
+Gradient Navigation Bar: แถบนำทางไล่สี
 Tokens on Home Screen: โทเคนบนหน้าจอหลัก
 Current Wallet Version: เวอร์ชันกระเป๋าปัจจุบัน
 Tokens on Other Versions: โทเคนบนเวอร์ชันอื่น
-Show Recovery Phrase: แสดงวลีกู้คืน
+Show Secret Words: แสดงคำลับ
 Passcode: รหัสปลดล็อก
 Lock the app after: ล็อกแอปหลังจาก
 Never: ไม่เลย
@@ -105,7 +106,7 @@ Up to %1$@: สูงสุด %1$@
 up to %1$@: สูงสุด %1$@
 Current APY: APY ปัจจุบัน
 Current APR: APR ปัจจุบัน
-Est. earning per year: ประมาณการรายได้ต่อปี
+Est. Yearly Earnings: ประมาณการรายได้ต่อปี
 in: ใน
 Error: ข้อผิดพลาด
 Network Error: ข้อผิดพลาดของเครือข่าย
@@ -134,7 +135,7 @@ via %agg%: ผ่าน %agg%
 Switch to Legacy Version: สลับไปใช้เวอร์ชันเดิม
 Hide tab: ซ่อนแท็บ
 Received from: ได้รับจาก
-Your Recovery Phrase: วลีกู้คืนของคุณ
+Your Secret Words: คำลับของคุณ
 day:
   zeroValue: "%1$d วัน"
   oneValue: "%1$d วัน"
@@ -354,3 +355,11 @@ $more_nfts:
   zeroValue: ไม่มี NFT
   oneValue: "+1 NFT"
   otherValue: "+%1$d NFT"
+
+$subwallets_found:
+  oneValue: "พบ: %1$d"
+  otherValue: "พบ: %1$d"
+
+$subwallets_hint: ใช้ subwallet เพื่อรับที่อยู่เพิ่มเติมโดยไม่ต้องสร้างคำลับใหม่
+$subwallets_created_wallets: หากคุณเคยสร้าง subwallet ไว้ก่อนหน้านี้ จะปรากฏในรายการด้านล่าง
+$subwallets_none: ยังไม่มี subwallet

@@ -241,6 +241,9 @@ export type ApiStakingCommonResponse = {
     apy: number;
     /** The string is a floating point number */
     available: string;
+    /** The string is a floating point number */
+    tvl: string;
+    totalStakers: number;
     loyaltyApy: Record<ApiLoyaltyType, number>;
   };
   round: {
@@ -266,6 +269,7 @@ export type ApiStakingCommonResponse = {
 export type ApiStakingCommonData = Override<ApiStakingCommonResponse, {
   liquid: Override<ApiStakingCommonResponse['liquid'], {
     available: bigint;
+    tvl: bigint;
   }>;
   jettonPools: ApiStakingJettonPool[];
 }>;

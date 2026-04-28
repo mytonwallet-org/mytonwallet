@@ -155,7 +155,7 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
   min-width: 16rem;
   height: 0;
   margin: 0 auto;
-  padding-top: v.$cardAspectRatio;
+  padding-top: v.$cardAspectRatioPortrait;
   border-radius: var(--border-radius-card);
 
   background-image: url("../../assets/cards/card.jpg"), linear-gradient(125deg, #{v.$defaultCardGradient});
@@ -188,7 +188,7 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
 }
 
 .cardBalance {
-  @include skeleton-box(12rem, #{v.$cardPortraitBaseBalanceSize}, var(--border-radius-big));
+  @include skeleton-box(12rem, #{v.$cardPortraitBaseBalanceSize}, var(--border-radius-default));
 
   margin-bottom: 0.625rem;
   background-color: $card-overlay-primary !important;
@@ -360,7 +360,7 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
 
   height: 3.625rem;
   padding: 0.5rem;
-  border-radius: var(--border-radius-default);
+  border-radius: var(--border-radius-content);
 
   background: var(--color-background-first);
 
@@ -557,7 +557,7 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
 
   @supports (backdrop-filter: saturate(180%) blur(20px)) {
     background-color: var(--color-background-tab-bar);
-    backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: var(--filter-blur-bar);
   }
 }
 

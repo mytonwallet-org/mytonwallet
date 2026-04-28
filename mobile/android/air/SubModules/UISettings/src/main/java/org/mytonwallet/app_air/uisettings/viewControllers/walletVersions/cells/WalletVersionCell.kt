@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.cells
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.SpannableStringBuilder
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -31,7 +32,7 @@ class WalletVersionCell(
 
     private val topLeftLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f, WFont.Medium)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl
     }
 
@@ -43,7 +44,7 @@ class WalletVersionCell(
 
     private val rightLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f, WFont.Medium)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl
     }
 

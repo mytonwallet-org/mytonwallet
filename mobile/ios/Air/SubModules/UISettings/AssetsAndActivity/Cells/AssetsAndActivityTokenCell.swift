@@ -115,7 +115,7 @@ final class AssetsAndActivityTokenCell: UITableViewCell {
         let tokenChanged = self.token != token
         self.token = token
         self.onTokenVisibilityChange = onTokenVisibilityChange
-        iconImageView.config(with: token, shouldShowChain: true)
+        iconImageView.config(with: token, shouldShowChain: AccountStore.account?.isMultichain == true)
         titleLabel.text = MTokenBalance.displayName(apiToken: token, isStaking: isStaking)
         symbolLabel.text = token.symbol
         if !tokenChanged {

@@ -18,7 +18,11 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.uihome.tabs.TabsVC
 
-class WalletAddedVC(context: Context, isNew: Boolean) : WViewController(context) {
+class WalletAddedVC(
+    context: Context,
+    isNew: Boolean,
+    importedAccountsCount: Int = 1,
+) : WViewController(context) {
     override val TAG = "WalletAdded"
 
     override val shouldDisplayTopBar = false
@@ -40,7 +44,7 @@ class WalletAddedVC(context: Context, isNew: Boolean) : WViewController(context)
                 (if (isNew)
                     LocaleController.getString("\$wallet_create_done")
                 else
-                    LocaleController.getPlural(1, "\$wallet_import_done")) +
+                    LocaleController.getPlural(importedAccountsCount, "\$wallet_import_done")) +
                     "\n\n" +
                     LocaleController.getString("\$wallet_done_description")
                 ).toProcessedSpannableStringBuilder(),

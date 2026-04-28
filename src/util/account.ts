@@ -76,8 +76,11 @@ export function generateAccountTitle(params: {
 }
 
 export function generateNextSubwalletTitle(baseTitle: string, accounts: Record<string, Account>) {
-  // Match existing "{baseTitle}.{number}" accounts to find the next available number
-  const pattern = new RegExp(`^${escapeStringRegexp(baseTitle)}\\.(\\d+)$`);
+  // Ensure the base ends with a number so the result reads "Wallet 1.1" instead of "Wallet.1"
+  const normalizedBase = /\d$/.test(baseTitle) ? baseTitle : `${baseTitle} 1`;
+
+  // Match existing "{normalizedBase}.{number}" accounts to find the next available number
+  const pattern = new RegExp(`^${escapeStringRegexp(normalizedBase)}\\.(\\d+)$`);
 
   const existingNums = Object.values(accounts)
     .map((acc) => acc.title?.match(pattern))
@@ -86,5 +89,5 @@ export function generateNextSubwalletTitle(baseTitle: string, accounts: Record<s
 
   const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
 
-  return `${baseTitle}.${nextNum}`;
+  return `${normalizedBase}.${nextNum}`;
 }

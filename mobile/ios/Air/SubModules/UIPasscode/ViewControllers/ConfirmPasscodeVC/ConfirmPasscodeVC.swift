@@ -18,9 +18,9 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         
     }
     
-    private let onCompletion: (_ biometricsEnabled: Bool, _ passcode: String) -> Void
+    private let onCompletion: SetPasscodeCompletion
 
-    public init(onCompletion: @escaping (Bool, String) -> Void, setPasscodeVC: SetPasscodeVC, selectedPasscode: String) {
+    public init(onCompletion: @escaping SetPasscodeCompletion, setPasscodeVC: SetPasscodeVC, selectedPasscode: String) {
         self.onCompletion = onCompletion
         self.setPasscodeVC = setPasscodeVC
         self.selectedPasscode = selectedPasscode
@@ -33,6 +33,8 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
 
     private let selectedPasscode: String
     private weak var setPasscodeVC: SetPasscodeVC? = nil
+    private let indicatorView = WActivityIndicator()
+    private var isCompleting = false
 
     private lazy var headerView = HeaderView(
         animationName: "animation_guard",
@@ -102,6 +104,13 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
             passcodeScreenView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         passcodeScreenView.enterPasscodeLabel.label.text = lang("Enter your code again")
+        passcodeScreenView.passcodeInputView.setAccessibilityTitle(lang("Enter your code again"))
+
+        view.addSubview(indicatorView)
+        NSLayoutConstraint.activate([
+            indicatorView.centerXAnchor.constraint(equalTo: passcodeScreenView.passcodeInputView.centerXAnchor),
+            indicatorView.centerYAnchor.constraint(equalTo: passcodeScreenView.passcodeInputView.centerYAnchor),
+        ])
     }
 
     public override func viewDidAppear(_ animated: Bool) {
@@ -131,12 +140,50 @@ extension ConfirmPasscodeVC: PasscodeInputViewDelegate {
             // So user with non-enrolled faceID will not receive a dialog
             if let biometryType = BiometricHelper.biometryType {
                 navigationController?.pushViewController(
-                    ActivateBiometricVC(biometryType: biometryType) { [weak self] biometricsEnabled in
-                        self?.onCompletion(biometricsEnabled, passcode)
+                    ActivateBiometricVC(biometryType: biometryType) { biometricsEnabled in
+                        try await self.onCompletion(biometricsEnabled, passcode)
                 }, animated: true)
             } else {
-                onCompletion(false, passcode)
+                completeWithoutBiometrics(passcode: passcode)
             }
+        }
+    }
+
+    private func completeWithoutBiometrics(passcode: String) {
+        setCompletionLoading(true)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await onCompletion(false, passcode)
+            } catch {
+                setCompletionLoading(false)
+                showAlert(error: error)
+            }
+        }
+    }
+
+    private func setCompletionLoading(_ isLoading: Bool) {
+        isCompleting = isLoading
+        passcodeScreenView.isUserInteractionEnabled = !isLoading
+        if isLoading {
+            passcodeScreenView.passcodeInputView.animateSuccess()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+                guard let self, self.isCompleting else { return }
+                indicatorView.alpha = 0
+                indicatorView.transform = .init(scaleX: 0.2, y: 0.2)
+                UIView.animate(withDuration: 0.2) {
+                    self.passcodeScreenView.passcodeInputView.alpha = 0
+                    self.indicatorView.alpha = 1
+                    self.indicatorView.transform = .identity
+                    self.indicatorView.startAnimating(animated: true)
+                }
+            }
+        } else {
+            indicatorView.stopAnimating(animated: true)
+            UIView.animate(withDuration: 0.2) {
+                self.passcodeScreenView.passcodeInputView.alpha = 1
+            }
+            passcodeScreenView.passcodeInputView.currentPasscode = ""
         }
     }
 }

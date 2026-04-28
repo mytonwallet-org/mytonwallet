@@ -146,12 +146,18 @@ public class WScalableButton: UIControl {
     private func configure(title: String, image: UIImage?) {
         titleLabel.text = title
         imageView.image = image
+        accessibilityLabel = title
     }
     
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
+        isAccessibilityElement = true
+        accessibilityTraits = .button
 
         containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.isAccessibilityElement = false
+        imageView.isAccessibilityElement = false
+        titleLabel.isAccessibilityElement = false
         
         containerContentView.addSubview(imageView)
         containerContentView.addSubview(titleLabel)

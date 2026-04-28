@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import LottieKit
 
 fileprivate let _animationSize = 124
 
@@ -13,7 +14,7 @@ public class HeaderView: UIView {
     
     // MARK: - Initializers
     public init(animationName: String,
-                animationPlaybackMode: AnimatedStickerPlaybackMode,
+                animationPlaybackMode: LottieAnimationPlaybackMode,
                 title: String,
                 description: String? = nil,
                 additionalView: UIView? = nil,
@@ -76,7 +77,7 @@ public class HeaderView: UIView {
 
     // MARK: - HeaderView with animation
     private func setupView(animationName: String,
-                           animationPlaybackMode: AnimatedStickerPlaybackMode,
+                           animationPlaybackMode: LottieAnimationPlaybackMode,
                            title: String,
                            description: String? = nil,
                            additionalView: UIView? = nil,
@@ -152,6 +153,7 @@ public class HeaderView: UIView {
         lblTitle.font = UIFont.systemFont(ofSize: 28, weight: .semibold)
         lblTitle.numberOfLines = 0
         lblTitle.textAlignment = .center
+        lblTitle.accessibilityTraits.insert(.header)
         addSubview(lblTitle)
         NSLayoutConstraint.activate([
             lblTitle.topAnchor.constraint(equalTo: topView?.bottomAnchor ?? topAnchor, constant: compactMode ? 12 : 24),

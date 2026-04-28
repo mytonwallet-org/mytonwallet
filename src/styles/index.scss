@@ -21,7 +21,8 @@ html, body {
 
   transition: background-color 350ms;
 
-  &.is-agent-active.with-bottombar {
+  &.is-agent-active.with-bottombar,
+  &.is-explore-active.with-bottombar {
     --color-app-background: var(--color-background-second);
 
     &.theme-dark {
@@ -73,7 +74,7 @@ html {
   }
 
   &.with-bottombar {
-    --bottombar-height: 3.25rem;
+    --bottombar-height: calc(3.5rem + max(0.75rem, var(--safe-area-bottom)));
   }
 
   // Due to a bug on Android

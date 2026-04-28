@@ -43,17 +43,17 @@ open class WHighlightCell: UITableViewCell {
     
     open override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         isHighlighted = true
-//        super.touchesBegan(touches, with: event)
+        super.touchesBegan(touches, with: event)
     }
     
     open override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         isHighlighted = false
-//        super.touchesEnded(touches, with: event)
+        super.touchesEnded(touches, with: event)
     }
     
     open override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         isHighlighted = false
-//        super.touchesCancelled(touches, with: event)
+        super.touchesCancelled(touches, with: event)
     }
     
     open override func prepareForReuse() {

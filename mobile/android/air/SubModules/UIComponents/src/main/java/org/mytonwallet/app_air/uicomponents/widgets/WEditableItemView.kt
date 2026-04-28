@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.Drawable
@@ -82,7 +83,7 @@ class WEditableItemView(context: Context) : FrameLayout(context), ReplaceAnimato
 
     private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = WFont.Medium.typeface
-        textSize = 16f.dp
+        textSize = adaptiveFontSize().dp
     }
 
     private val baseCurrIndicatorPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {

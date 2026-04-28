@@ -350,7 +350,8 @@ $labelSidePadding: 0.5rem;
 }
 
 .rowContainerSkeleton,
-.dataField {
+.dataField,
+.eip712TypedBlock {
   margin-bottom: $fieldGap;
 }
 
@@ -424,6 +425,56 @@ $labelSidePadding: 0.5rem;
 
 .payloadFieldTerm {
   white-space: nowrap;
+}
+
+.eip712Struct {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.eip712FieldRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.eip712FieldName {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+  overflow-wrap: anywhere;
+}
+
+.eip712FieldValue {
+  min-width: 0;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+  overflow-wrap: anywhere;
+}
+
+.eip712Array {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.eip712ArrayItem {
+  display: flex;
+  gap: 0.375rem;
+  align-items: baseline;
+}
+
+.eip712ArrayIndex {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-gray-2);
 }
 
 .transactionList {

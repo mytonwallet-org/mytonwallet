@@ -81,6 +81,10 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
     var networkFee: BigInt { fees.gas.orZero }
     var realFee: BigInt { fees.real.orZero }
     
+    var totalStakers: Int? { stakingState.totalStakers }
+    
+    var totalStaked: BigInt? { stakingState.totalStaked }
+    
     var nativeAmount: BigInt {
         if let amount, isNativeToken {
             return amount + networkFee

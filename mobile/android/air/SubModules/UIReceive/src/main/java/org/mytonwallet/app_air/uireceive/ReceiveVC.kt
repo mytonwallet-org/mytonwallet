@@ -24,10 +24,13 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
+import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
@@ -41,6 +44,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -51,12 +55,11 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
-import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class ReceiveVC private constructor(
     context: Context,
-    private val defaultChain: MBlockchain = MBlockchain.ton,
+    private val defaultChain: MBlockchain? = null,
     private var openBuyWithCardInstantly: Boolean = false,
 ) : WViewControllerWithModelStore(context) {
     override val TAG = "Receive"
@@ -74,7 +77,7 @@ class ReceiveVC private constructor(
 
         fun createIfAvailable(
             context: Context,
-            defaultChain: MBlockchain = MBlockchain.ton,
+            defaultChain: MBlockchain?,
             openBuyWithCardInstantly: Boolean = false,
         ): ReceiveVC? {
             val addressByChain = AccountStore.activeAccount?.addressByChain ?: return null
@@ -85,15 +88,30 @@ class ReceiveVC private constructor(
 
     private val receiveViewModel by lazy { ViewModelProvider(this)[ReceiveViewModel::class.java] }
 
-    private val addressByChain = AccountStore.activeAccount?.addressByChain ?: emptyMap()
-
     val availableChains: List<MBlockchain> =
-        MBlockchain.supportedChains.filter { addressByChain.containsKey(it.name) }
+        AccountStore.activeAccount?.sortedChains()?.mapNotNull { entry ->
+            MBlockchain.supportedChains.find { it.name == entry.key }
+        } ?: emptyList()
 
-    val qrCodeVCs: Map<MBlockchain, QRCodeVC> =
-        availableChains.associateWith { QRCodeVC(context, it) }
+    private val isViewOnlyAccount = AccountStore.activeAccount?.isViewOnly == true
 
     private val defaultChainIndex = availableChains.indexOf(defaultChain).coerceAtLeast(0)
+
+    private val onQrLoaded = {
+        if (isViewOnlyAccount)
+            viewOnlyWarningView.fadeIn()
+        else
+            optionsContainerView.fadeIn()
+    }
+
+    val qrCodeVCs: Map<MBlockchain, QRCodeVC> =
+        availableChains.mapIndexed { index, blockchain ->
+            blockchain to QRCodeVC(
+                context,
+                blockchain,
+                if (index == defaultChainIndex) onQrLoaded else null
+            )
+        }.toMap()
 
     private val gradientColorViews: List<View> =
         availableChains.mapIndexed { i, _ ->
@@ -102,9 +120,6 @@ class ReceiveVC private constructor(
                 alpha = if (i == defaultChainIndex) 1f else 0f
             }
         }
-
-    private val currentChain: MBlockchain
-        get() = availableChains.getOrElse(qrSegmentView.currentOffset.roundToInt()) { availableChains.first() }
 
     private val qrSegmentView: WSegmentedController by lazy {
         val defaultIndex = availableChains.indexOf(defaultChain).coerceAtLeast(0)
@@ -150,7 +165,8 @@ class ReceiveVC private constructor(
 
                 updateOptionsForOffset(currentOffset)
             },
-            forceCenterTabs = true
+            forceCenterTabs = false,
+            pilledTabs = true
         )
         segmentedController.addCloseButton()
         segmentedController
@@ -176,7 +192,7 @@ class ReceiveVC private constructor(
 
     private val copyAddressLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl.text =
             LocaleController.getString("Copy Address")
         lbl
@@ -214,7 +230,7 @@ class ReceiveVC private constructor(
 
     private val shareQRCodeLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl.text =
             LocaleController.getString("Share QR Code")
         lbl
@@ -227,7 +243,7 @@ class ReceiveVC private constructor(
 
     private val buyWithCardLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl.text =
             LocaleController.getString("Buy with Card")
         lbl
@@ -251,7 +267,7 @@ class ReceiveVC private constructor(
 
     private val buyWithCryptoLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl.text =
             LocaleController.getString("Buy with Crypto")
         lbl
@@ -293,7 +309,7 @@ class ReceiveVC private constructor(
 
     private val invoiceLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl.text =
             LocaleController.getString("Create Deposit Link")
         lbl
@@ -312,6 +328,19 @@ class ReceiveVC private constructor(
         v
     }
 
+    private val viewOnlyWarningView: WAlertLabel by lazy {
+        WAlertLabel(
+            context,
+            LocaleController.getString("\$view_only_wallet_receive_warning")
+                .trim()
+                .toProcessedSpannableStringBuilder(),
+            WColor.Orange.color,
+            coloredText = true
+        ).apply {
+            alpha = 0f
+        }
+    }
+
     private val optionsContainerView: WView by lazy {
         val v = WView(context)
         v.addView(buyWithCardView, LayoutParams(MATCH_PARENT, OPTION_ROW_HEIGHT.dp))
@@ -328,6 +357,7 @@ class ReceiveVC private constructor(
         }
         v.clipToOutline = true
         v.clipChildren = false
+        v.alpha = 0f
         v
     }
 
@@ -353,7 +383,11 @@ class ReceiveVC private constructor(
             LayoutParams(WRAP_CONTENT, WNavigationBar.DEFAULT_HEIGHT.dp)
         )
         v.addView(optionsSeparatorView, LayoutParams(MATCH_PARENT, 16.dp))
-        v.addView(optionsContainerView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        if (isViewOnlyAccount) {
+            v.addView(viewOnlyWarningView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        } else {
+            v.addView(optionsContainerView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
         v.setPadding(0, 0, 0, navigationController?.getSystemBars()?.bottom ?: 0)
         v
     }
@@ -392,9 +426,15 @@ class ReceiveVC private constructor(
             bottomToBottom(backgroundColorView, qrSegmentView)
             toCenterX(backgroundColorView)
             topToBottom(optionsSeparatorView, qrSegmentView)
-            topToBottom(optionsContainerView, optionsSeparatorView)
-            toBottom(optionsContainerView)
-            toCenterX(optionsContainerView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+            if (isViewOnlyAccount) {
+                topToBottom(viewOnlyWarningView, optionsSeparatorView)
+                toBottom(viewOnlyWarningView)
+                toCenterX(viewOnlyWarningView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+            } else {
+                topToBottom(optionsContainerView, optionsSeparatorView)
+                toBottom(optionsContainerView)
+                toCenterX(optionsContainerView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+            }
         }
 
         updateTheme()
@@ -421,19 +461,23 @@ class ReceiveVC private constructor(
         copyAddressSeparator.setBackgroundColor(WColor.Separator.color)
         shareQRCodeLabel.setTextColor(WColor.Tint.color)
         optionsSeparatorView.setBackgroundColor(WColor.SecondaryBackground.color)
-        optionsContainerView.setBackgroundColor(
-            WColor.Background.color,
-            ViewConstants.BLOCK_RADIUS.dp
-        )
-        buyWithCardView.setBackgroundColor(WColor.Background.color)
-        buyWithCardView.addRippleEffect(WColor.SecondaryBackground.color)
-        buyWithCardLabel.setTextColor(WColor.Tint.color)
-        buyWithCryptoView.setBackgroundColor(WColor.Background.color)
-        buyWithCryptoView.addRippleEffect(WColor.SecondaryBackground.color)
-        buyWithCryptoLabel.setTextColor(WColor.Tint.color)
-        invoiceView.setBackgroundColor(WColor.Background.color)
-        invoiceView.addRippleEffect(WColor.SecondaryBackground.color)
-        invoiceLabel.setTextColor(WColor.Tint.color)
+        if (isViewOnlyAccount) {
+            viewOnlyWarningView.updateTheme()
+        } else {
+            optionsContainerView.setBackgroundColor(
+                WColor.Background.color,
+                ViewConstants.BLOCK_RADIUS.dp
+            )
+            buyWithCardView.setBackgroundColor(WColor.Background.color)
+            buyWithCardView.addRippleEffect(WColor.SecondaryBackground.color)
+            buyWithCardLabel.setTextColor(WColor.Tint.color)
+            buyWithCryptoView.setBackgroundColor(WColor.Background.color)
+            buyWithCryptoView.addRippleEffect(WColor.SecondaryBackground.color)
+            buyWithCryptoLabel.setTextColor(WColor.Tint.color)
+            invoiceView.setBackgroundColor(WColor.Background.color)
+            invoiceView.addRippleEffect(WColor.SecondaryBackground.color)
+            invoiceLabel.setTextColor(WColor.Tint.color)
+        }
         qrSegmentView.layoutParams.height = qrHeight
 
         val cacheWidth = ApplicationContextHolder.screenWidth
@@ -450,8 +494,14 @@ class ReceiveVC private constructor(
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        view.setConstraints {
-            toCenterX(optionsContainerView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+        if (isViewOnlyAccount) {
+            view.setConstraints {
+                toCenterX(viewOnlyWarningView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+            }
+        } else {
+            view.setConstraints {
+                toCenterX(optionsContainerView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+            }
         }
     }
 
@@ -523,9 +573,11 @@ class ReceiveVC private constructor(
         super.viewDidAppear()
         window!!.forceStatusBarLight = true
 
-        if (openBuyWithCardInstantly) {
+        if (openBuyWithCardInstantly && defaultChain != null) {
             openBuyWithCardInstantly = false
-            openBuyWithCard(defaultChain.name)
+            if (!isViewOnlyAccount) {
+                openBuyWithCard(defaultChain.name)
+            }
         }
     }
 
@@ -595,14 +647,18 @@ class ReceiveVC private constructor(
         super.onDestroy()
         qrSegmentView.onDestroy()
         copyAddressView.setOnClickListener(null)
-        buyWithCardView.setOnClickListener(null)
-        buyWithCryptoView.setOnClickListener(null)
+        if (!isViewOnlyAccount) {
+            buyWithCardView.setOnClickListener(null)
+            buyWithCryptoView.setOnClickListener(null)
+        }
         val defaultVC = qrCodeVCs[defaultChain] ?: qrCodeVCs.values.firstOrNull()
         defaultVC?.addressView?.viewTreeObserver?.removeOnPreDrawListener(viewTreeObserver)
         viewTreeObserver = null
     }
 
     private fun updateOptionsForOffset(offset: Float) {
+        if (isViewOnlyAccount) return
+
         val tonIndex = availableChains.indexOf(MBlockchain.ton)
         val tonFraction = if (tonIndex >= 0)
             (1f - kotlin.math.abs(offset - tonIndex)).coerceIn(0f, 1f)
@@ -614,8 +670,8 @@ class ReceiveVC private constructor(
         if (AccountStore.activeAccount?.supportsBuyWithCard == true) {
             val floorIdx = offset.toInt().coerceIn(0, availableChains.size - 1)
             val ceilIdx = (floorIdx + 1).coerceAtMost(availableChains.size - 1)
-            val fracA = if (availableChains[floorIdx].canBuyWithCard) 1f else 0f
-            val fracB = if (availableChains[ceilIdx].canBuyWithCard) 1f else 0f
+            val fracA = if (availableChains[floorIdx].isOnrampSupported) 1f else 0f
+            val fracB = if (availableChains[ceilIdx].isOnrampSupported) 1f else 0f
             val buyWithCardFraction = fracA + (fracB - fracA) * (offset - floorIdx)
             val buyWithCardHeight = (OPTION_ROW_HEIGHT.dp * buyWithCardFraction).toInt()
             buyWithCardView.layoutParams?.height = buyWithCardHeight

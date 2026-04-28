@@ -9,7 +9,6 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.ImageView
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.commonViews.RadialGradientView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -28,6 +27,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardTextType
@@ -193,10 +193,7 @@ class WalletCustomizationAvailableCardCell(context: Context, val cellWidth: Int)
             radialGradientView.visibility = GONE
         }
         imageView.hierarchy.setPlaceholderImage(
-            ContextCompat.getDrawable(
-                context,
-                R.drawable.img_card
-            )
+            context.getDrawableCompat(R.drawable.img_card)
         )
         imageView.loadUrl(cardNft?.metadata?.cardImageUrl(false) ?: "")
     }

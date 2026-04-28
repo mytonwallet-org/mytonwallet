@@ -9,16 +9,14 @@ import Foundation
 import OrderedCollections
 import WalletContext
 
-// FIXME: - Hashable invariant violation: equal values MUST have equal hashes
-// default compiler generated implementation of `hash(into:)` is inconsistent with custom `==`
 public struct MTokenBalance: Equatable, Hashable, Sendable {
-    public static func == (lhs: MTokenBalance, rhs: MTokenBalance) -> Bool {
-        lhs.tokenSlug == rhs.tokenSlug && lhs.isStaking == rhs.isStaking
-    }
-
     public let tokenSlug: String
     public let balance: BigInt
     public let isStaking: Bool
+
+    public var tokenID: TokenID {
+        TokenID(slug: tokenSlug, isStaking: isStaking)
+    }
 
     // Improvement: token can not be nil if TokenBalance exists
     public var token: ApiToken? { TokenStore.tokens[tokenSlug] }
@@ -77,6 +75,28 @@ public struct MTokenBalance: Equatable, Hashable, Sendable {
 }
 
 extension MTokenBalance {
+    public static func sortedForBalanceData(tokenBalances: [MTokenBalance],
+                                            balances: [String: BigInt],
+                                            defaultTokenSlugs: OrderedSet<String>,
+                                            importedTokenSlugs: Set<String>) -> [MTokenBalance] {
+        if let sortedForNewWallet = sortForNewWallet(tokens: tokenBalances,
+                                                     tokenName: { $0.displayName ?? $0.tokenSlug },
+                                                     tokenSlug: \.tokenSlug,
+                                                     defaultTokenSlugs: defaultTokenSlugs,
+                                                     importedTokenSlugs: importedTokenSlugs,
+                                                     balances: balances) {
+            return sortedForNewWallet
+        }
+
+        var sortedTokens = tokenBalances
+        sortUnpinned(tokens: &sortedTokens,
+                     tokenName: { $0.displayName ?? $0.tokenSlug },
+                     tokenSlug: \.tokenSlug,
+                     priorityTokenSlugs: defaultTokenSlugs,
+                     amountInBaseCurrency: \.toUsd)
+        return sortedTokens
+    }
+
     /// ## Group / Sort Rules
     ///
     /// 1. **Pinned Tokens** (Most recent first)
@@ -88,7 +108,10 @@ extension MTokenBalance {
     ///    - Token E (Highest Balance)
     ///    - Token H (Lowest Balance)
     ///
-    /// 3. **Unpinned Tokens** (Zero balance)
+    /// 3. **Unpinned Default Tokens** (Zero balance)
+    ///    Sorted by **Default Token Order**
+    ///
+    /// 4. **Unpinned Tokens** (Zero balance)
     ///    Sorted by **Name**
     ///    - Token I (name: A...)
     ///    - Token L (name: Z...)
@@ -96,29 +119,15 @@ extension MTokenBalance {
                                    assetsAndActivityData: MAssetsAndActivityData,
                                    balances: [String: BigInt],
                                    defaultTokenSlugs: OrderedSet<String>) -> [MTokenBalance] {
-        let sortedForNewWallet = sortForNewWallet(tokens: tokenBalances,
-                                                  tokenName: { $0.displayName ?? $0.tokenSlug },
-                                                  tokenSlug: \.tokenSlug,
-                                                  defaultTokenSlugs: defaultTokenSlugs,
-                                                  importedTokenSlugs: assetsAndActivityData.importedSlugs,
-                                                  balances: balances)
-        if let sortedForNewWallet {
-            return sortPinnedTokensFirst(tokens: sortedForNewWallet, assetsAndActivityData: assetsAndActivityData)
-        } else {
-            let partitionedTokens = partitionTokensByPinning(
-                tokens: tokenBalances,
-                assetsAndActivityData: assetsAndActivityData
-            )
-            let sortedPinnedTokens = partitionedTokens.pinned
-            var unpinnedTokens = partitionedTokens.unpinned
-
-            // 3. Sort unpinned tokens
-            sortUnpinned(tokens: &unpinnedTokens,
-                         tokenName: { $0.displayName ?? $0.tokenSlug },
-                         amountInBaseCurrency: \.toUsd)
-
-            return sortedPinnedTokens + unpinnedTokens
-        }
+        pinnedFirst(
+            tokens: sortedForBalanceData(
+                tokenBalances: tokenBalances,
+                balances: balances,
+                defaultTokenSlugs: defaultTokenSlugs,
+                importedTokenSlugs: assetsAndActivityData.importedSlugs
+            ),
+            assetsAndActivityData: assetsAndActivityData
+        )
     }
 
     /// (TokenID, ApiToken) can represent ApiToken and ephemeral staking MTokenBalance
@@ -137,6 +146,8 @@ extension MTokenBalance {
         } else {
             sortUnpinned(tokens: &apiTokens,
                          tokenName: \.1.name,
+                         tokenSlug: \.1.slug,
+                         priorityTokenSlugs: defaultTokenSlugs,
                          amountInBaseCurrency: {
                              guard let balance = balances[$1.slug] else { return nil }
                              guard let price = $1.price else { return nil }
@@ -156,10 +167,9 @@ extension MTokenBalance {
         // For new wallet, there either no balance for key or balance is 0
         let totalBalance = balances.values.reduce(into: 0, +=)
         
-        if totalBalance == 0,
-           tokens.allSatisfy({ defaultTokenSlugs.contains(tokenSlug($0)) || importedTokenSlugs.contains(tokenSlug($0)) })  {
-            
-            var (defaultTokens, importedTokens) = tokens.partition { token in defaultTokenSlugs.contains(tokenSlug(token)) }
+        if totalBalance == 0 {
+            var (defaultTokens, otherTokens) = tokens.partition { token in defaultTokenSlugs.contains(tokenSlug(token)) }
+            guard !defaultTokens.isEmpty else { return nil }
             
             let indexedDefaultTokenSlugs = defaultTokenSlugs.lazy.enumerated().map { index, slug in (slug, index) }
             let defaultTokensOrder = Dictionary(uniqueKeysWithValues: indexedDefaultTokenSlugs)
@@ -171,10 +181,14 @@ extension MTokenBalance {
                 return orderA < orderB
             })
             
-            // 2. Sort imported tokens with regular rules
-            sortUnpinned(tokens: &importedTokens, tokenName: tokenName, amountInBaseCurrency: { _ in nil })
+            // 2. Sort imported and other zero-balance tokens with regular rules
+            sortUnpinned(tokens: &otherTokens,
+                         tokenName: tokenName,
+                         tokenSlug: tokenSlug,
+                         priorityTokenSlugs: [],
+                         amountInBaseCurrency: { _ in nil })
             
-            defaultTokens.append(contentsOf: importedTokens)
+            defaultTokens.append(contentsOf: otherTokens)
             return defaultTokens
         } else { // otherwise wallet is not treated as new
             return nil
@@ -184,7 +198,13 @@ extension MTokenBalance {
     /// Generic sort by balance and name
     private static func sortUnpinned<T>(tokens: inout [T],
                                         tokenName: (T) -> String,
+                                        tokenSlug: (T) -> String,
+                                        priorityTokenSlugs: OrderedSet<String>,
                                         amountInBaseCurrency: (T) -> Double?) {
+        let priorityOrder = Dictionary(uniqueKeysWithValues: priorityTokenSlugs.enumerated().map { idx, slug in
+            (slug, idx)
+        })
+
         // 3. Sort unpinned tokens
         tokens.sort(by: { tokenA, tokenB in
             let amountInBaseCurrencyA = amountInBaseCurrency(tokenA) ?? 0
@@ -194,6 +214,16 @@ extension MTokenBalance {
                 // tokens with higher amount are shown closer to top of the list
                 return amountInBaseCurrencyA > amountInBaseCurrencyB
             } else {
+                let priorityA = priorityOrder[tokenSlug(tokenA)]
+                let priorityB = priorityOrder[tokenSlug(tokenB)]
+                if let priorityA, let priorityB, priorityA != priorityB {
+                    return priorityA < priorityB
+                } else if priorityA != nil {
+                    return true
+                } else if priorityB != nil {
+                    return false
+                }
+
                 let nameA = tokenName(tokenA)
                 let nameB = tokenName(tokenB)
                 // - tokens with equal amount will be sorted by name
@@ -203,8 +233,8 @@ extension MTokenBalance {
         })
     }
 
-    private static func sortPinnedTokensFirst(tokens: [MTokenBalance],
-                                              assetsAndActivityData: MAssetsAndActivityData) -> [MTokenBalance] {
+    public static func pinnedFirst(tokens: [MTokenBalance],
+                                   assetsAndActivityData: MAssetsAndActivityData) -> [MTokenBalance] {
         let (pinnedTokens, unpinnedTokens) = partitionTokensByPinning(
             tokens: tokens,
             assetsAndActivityData: assetsAndActivityData
@@ -212,8 +242,8 @@ extension MTokenBalance {
         return pinnedTokens + unpinnedTokens
     }
 
-    private static func partitionTokensByPinning(tokens: [MTokenBalance],
-                                                 assetsAndActivityData: MAssetsAndActivityData) -> (pinned: [MTokenBalance], unpinned: [MTokenBalance]) {
+    public static func partitionTokensByPinning(tokens: [MTokenBalance],
+                                                assetsAndActivityData: MAssetsAndActivityData) -> (pinned: [MTokenBalance], unpinned: [MTokenBalance]) {
         var pinnedTokens: [(token: MTokenBalance, pinIndex: Int)] = []
         var unpinnedTokens: [MTokenBalance] = []
 

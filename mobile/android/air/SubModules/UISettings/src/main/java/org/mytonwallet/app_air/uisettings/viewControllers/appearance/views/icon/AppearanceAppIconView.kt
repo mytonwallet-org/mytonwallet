@@ -1,6 +1,7 @@
 /*package org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.icon
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintSet
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
@@ -28,7 +29,7 @@ class AppearanceAppIconView(
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
         lbl.text = LocaleController.getString("App Icon")
-        lbl.setStyle(16f, WFont.Medium)
+        lbl.setStyle(adaptiveFontSize(), WFont.Medium)
         lbl
     }
 

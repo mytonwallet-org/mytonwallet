@@ -41,6 +41,8 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
     data class Config(
         val title: String? = null,
         val subtitle: String? = null,
+        val contentTopOffset: Int = 0,
+        val contentBottomOffset: Int = 0,
         val actionButton: WDialogButton.Config? = null,
         val secondaryButton: WDialogButton.Config? = null,
     )
@@ -142,14 +144,16 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
         }
         addView(customView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
             gravity = Gravity.TOP
-            topMargin = if (config.title != null) 60.dp else 24.dp
-            bottomMargin = if (config.actionButton != null) 64.dp else 24.dp
+            topMargin = config.contentTopOffset + if (config.title != null) 60.dp else 24.dp
+            bottomMargin =
+                config.contentBottomOffset +
+                    if (config.actionButton != null || config.secondaryButton != null) 64.dp else 24.dp
         })
         if (titleLabel != null || subtitleLabel != null)
             customView.post {
                 customView.layoutParams =
                     (customView.layoutParams as ViewGroup.MarginLayoutParams).apply {
-                        topMargin = max(
+                        topMargin = config.contentTopOffset + max(
                             60.dp,
                             (titleLabel?.top ?: 0) +
                                 (titleLabel?.height ?: (-16).dp) +

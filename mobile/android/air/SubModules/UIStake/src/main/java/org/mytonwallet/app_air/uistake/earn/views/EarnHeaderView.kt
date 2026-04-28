@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uistake.earn.views
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.os.Handler
 import android.os.Looper
 import android.text.SpannableStringBuilder
@@ -88,7 +89,7 @@ class EarnHeaderView(
 
     private val messageLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.Regular)
+            setStyle(adaptiveFontSize(), WFont.Regular)
             gravity = Gravity.CENTER
         }
     }

@@ -170,7 +170,9 @@ function LogOutModal({
       isInAppLock={isInAppLock}
     >
       <p className={buildClassName(modalStyles.text, modalStyles.text_noExtraMargin)}>
-        {renderText(isViewMode ? lang('$logout_view_mode_warning') : lang('$logout_warning', '12/24'))}
+        {renderText(isViewMode
+          ? lang('$logout_current_wallet_warning')
+          : `${lang('$logout_current_wallet_warning')} ${lang('$secret_words_backup_reminder')}`)}
       </p>
       {!(IS_CORE_WALLET || !!isInAppLock) && hasManyAccounts && (
         <Checkbox

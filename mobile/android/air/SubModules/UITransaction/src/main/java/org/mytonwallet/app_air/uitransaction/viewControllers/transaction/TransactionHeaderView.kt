@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uitransaction.viewControllers.transaction
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Color
 import android.text.Spannable
 import android.text.SpannableStringBuilder
@@ -82,7 +83,7 @@ class TransactionHeaderView(
     private var peerBlockchain: MBlockchain? = null
 
     private val addressLabel = WLabel(context).apply {
-        setStyle(16f)
+        setStyle(adaptiveFontSize())
         setLineHeight(24f)
         setPaddingDp(8, 4, 8, 4)
         foreground = WRippleDrawable.create(12f.dp).apply {

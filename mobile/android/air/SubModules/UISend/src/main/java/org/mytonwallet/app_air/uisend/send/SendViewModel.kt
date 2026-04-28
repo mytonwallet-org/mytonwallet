@@ -733,7 +733,8 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
     companion object {
         val INVALID_ADDRESS_ERRORS = setOf(
             MApiAnyDisplayError.DOMAIN_NOT_RESOLVED,
-            MApiAnyDisplayError.INVALID_TO_ADDRESS
+            MApiAnyDisplayError.INVALID_TO_ADDRESS,
+            MApiAnyDisplayError.INVALID_ADDRESS_FORMAT
         )
 
         private fun buildUiInputState(
@@ -800,7 +801,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                         )
             if (!isValidAddress) {
                 return ButtonState(
-                    ButtonStatus.WaitAddress,
+                    ButtonStatus.Error,
                     LocaleController.getString("Invalid address")
                 )
             }
@@ -853,10 +854,11 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                         )
                     )
                 }
-                val error = (draft.error?.parsedResult as? MApiCheckTransactionDraftResult)?.error
+                val error = draft.anyError
+                    ?: (draft.error?.parsedResult as? MApiCheckTransactionDraftResult)?.error
                 return if (INVALID_ADDRESS_ERRORS.contains(error))
                     ButtonState(
-                        ButtonStatus.WaitAddress,
+                        ButtonStatus.Error,
                         LocaleController.getString("Invalid address")
                     )
                 else if (error?.toErrorDialogMessage != null)

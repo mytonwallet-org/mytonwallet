@@ -40,7 +40,8 @@ interface OwnProps {
   tonDnsExpiration?: number;
   isViewAccount?: boolean;
   withChainIcon?: boolean;
-  style: string;
+  isWidget?: boolean;
+  style?: string;
 }
 
 interface UseLottieReturnType {
@@ -60,6 +61,7 @@ function Nft({
   tonDnsExpiration,
   isViewAccount,
   withChainIcon,
+  isWidget,
   style,
 }: OwnProps) {
   const { selectNfts, clearNftSelection, openDomainRenewalModal, openNftAttributesModal } = getActions();
@@ -120,6 +122,7 @@ function Nft({
 
   const fullClassName = buildClassName(
     styles.item,
+    isWidget && styles.itemCompact,
     !isSelectionEnabled && nft.isOnSale && styles.item_onSale,
     isMenuOpen && styles.itemWithMenu,
     (isCrossChainBlocked || (isSelectionEnabled && nft.isOnSale)) && styles.nonInteractive,
@@ -219,6 +222,24 @@ function Nft({
     );
   }
 
+  function renderNftInfo() {
+    return (
+      <>
+        <div className={styles.infoWrapper} title={nft.name}>
+          {!hasCollectionName && withChainIcon && renderChainIcon()}
+          <b className={styles.title}>{nftName || shortenAddress(nft.address, 4)}</b>
+          {nftNumber && <span className={styles.number}>{nftNumber}</span>}
+        </div>
+        {hasCollectionName && (
+          <div className={styles.collection}>
+            {withChainIcon && renderChainIcon()}
+            {nft.collectionName}
+          </div>
+        )}
+      </>
+    );
+  }
+
   function renderDnsExpireWarning() {
     return (
       <button
@@ -270,17 +291,7 @@ function Nft({
           {lang('Different blockchain. Cannot be selected')}
         </div>
       )}
-      <div className={styles.infoWrapper} title={nft.name}>
-        {!hasCollectionName && withChainIcon && renderChainIcon()}
-        <b className={styles.title}>{nftName || shortenAddress(nft.address, 4)}</b>
-        {nftNumber && <span className={styles.number}>{nftNumber}</span>}
-      </div>
-      {hasCollectionName && (
-        <div className={styles.collection}>
-          {withChainIcon && renderChainIcon()}
-          {nft.collectionName}
-        </div>
-      )}
+      {!isWidget && renderNftInfo()}
     </div>
   );
 }

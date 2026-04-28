@@ -7,7 +7,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import androidx.core.content.ContextCompat
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
@@ -37,6 +36,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import java.lang.ref.WeakReference
@@ -62,6 +62,7 @@ class WSegmentedController(
     private val onReorderingStarted: (() -> Unit)? = null,
     private val onForceEndReorderingRequested: (() -> Unit)? = null,
     private val forceCenterTabs: Boolean = false,
+    private val pilledTabs: Boolean = false,
 ) : WView(navigationController.context), WThemedView, WProtectedView,
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     WClearSegmentedControl.Delegate,
@@ -69,11 +70,13 @@ class WSegmentedController(
 
     companion object {
         val PAGE_CELL = WCell.Type(1)
+        const val PILLED_TABS_HEIGHT = 38
     }
 
     var items = initialItems
 
     var currentOffset: Float = 0f
+    val clipContent = pilledTabs
 
     // Blur state for each tab, from 0 to 1, and -1 if it's on the bottom and paused, but with blur screenshot
     private var blurState: HashMap<Int, Float> = hashMapOf()
@@ -184,19 +187,20 @@ class WSegmentedController(
         vp
     }
 
-    private val clearSegmentedControl = WClearSegmentedControl(context)
+    private val clearSegmentedControl =
+        WClearSegmentedControl(context, horizontalPaddingDp = if (pilledTabs) 1f else 11f)
     private var underTabsView: View? = null
     private var underTabsHeight = 0
     private val blurSourceContainerView: WView by lazy {
         WView(context).apply {
-            clipChildren = false
-            clipToPadding = false
+            clipChildren = clipContent
+            clipToPadding = clipContent
         }
     }
     private val underTabsContainerView: WView by lazy {
         WView(context).apply {
-            clipChildren = false
-            clipToPadding = false
+            clipChildren = clipContent
+            clipToPadding = clipContent
         }
     }
     private val actionBar: WActionBar by lazy {
@@ -209,14 +213,12 @@ class WSegmentedController(
     private val closeButton: WImageButton by lazy {
         val v = WImageButton(context)
         v.setPadding(8.dp)
-        val closeDrawable =
-            ContextCompat.getDrawable(
-                context,
-                R.drawable.ic_close
-            )
+        val closeDrawable = context.getDrawableCompat(R.drawable.ic_close)
         v.setImageDrawable(closeDrawable)
         v
     }
+
+    private var backButton: WImageButton? = null
 
     val reversedCornerView: ReversedCornerView by lazy {
         ReversedCornerView(
@@ -229,18 +231,26 @@ class WSegmentedController(
 
     private val contentView: WView by lazy {
         val v = WView(context)
-        v.clipChildren = false
-        v.clipToPadding = false
+        v.clipChildren = clipContent
+        v.clipToPadding = clipContent
+        val clearSegmentedControlWidth = if (forceCenterTabs && pilledTabs) WRAP_CONTENT else 0
+        val clearSegmentedControlHeight = if (pilledTabs) PILLED_TABS_HEIGHT.dp else navHeight
         v.addView(
             clearSegmentedControl,
-            ViewGroup.LayoutParams(0, navHeight)
+            ViewGroup.LayoutParams(clearSegmentedControlWidth, clearSegmentedControlHeight)
         )
         v.setConstraints {
             toTopPx(
                 clearSegmentedControl,
-                (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 2)
+                if (pilledTabs) {
+                    (navHeight - PILLED_TABS_HEIGHT.dp) / 2 +
+                        (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 2)
+                } else {
+                    (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 2)
+                }
             )
             toCenterX(clearSegmentedControl)
+            constrainedWidth(clearSegmentedControl.id, true)
         }
         v
     }
@@ -273,8 +283,8 @@ class WSegmentedController(
     override fun setupViews() {
         super.setupViews()
 
-        clipChildren = false
-        clipToPadding = false
+        clipChildren = clipContent
+        clipToPadding = clipContent
         applyItems()
 
         if (!isTransparent) {
@@ -293,7 +303,11 @@ class WSegmentedController(
             toCenterX(underTabsContainerView)
             if (isFullScreen && !isTransparent) {
                 toTop(reversedCornerView)
-                bottomToBottom(reversedCornerView, underTabsContainerView, -ViewConstants.TOOLBAR_RADIUS)
+                bottomToBottom(
+                    reversedCornerView,
+                    underTabsContainerView,
+                    -ViewConstants.TOOLBAR_RADIUS
+                )
             }
         }
         blurSourceContainerView.setConstraints {
@@ -331,6 +345,14 @@ class WSegmentedController(
 
     override fun updateTheme() {
         closeButton.updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
+        backButton?.updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
+        if (pilledTabs) {
+            clearSegmentedControl.setBackgroundColor(
+                if (isTransparent) Color.WHITE.colorWithAlpha(38) else WColor.Background.color,
+                (PILLED_TABS_HEIGHT.dp / 2).toFloat(),
+                clipContent
+            )
+        }
         if (isFullScreen)
             clearSegmentedControl.paintColor = WColor.ThumbBackground.color
         if (isTransparent)
@@ -356,6 +378,7 @@ class WSegmentedController(
     private fun updateThemeTransparent() {
         setBackgroundColor(Color.TRANSPARENT, ViewConstants.BLOCK_RADIUS.dp, true)
         closeButton.updateColors(WColor.White, WColor.BackgroundRipple)
+        backButton?.updateColors(WColor.White, WColor.BackgroundRipple)
         clearSegmentedControl.paintColor = Color.WHITE.colorWithAlpha(38)
         clearSegmentedControl.primaryTextColor = Color.WHITE
         clearSegmentedControl.secondaryTextColor = Color.WHITE.colorWithAlpha(153)
@@ -371,6 +394,7 @@ class WSegmentedController(
                 title = it.viewController.title ?: "",
                 onRemove = it.onRemovePressed,
                 onClick = it.onMenuPressed,
+                color = it.color,
             )
         }, selectedItem, this)
         clearSegmentedControl.isVisible = items.size > 1 && !actionBar.isVisible
@@ -384,6 +408,7 @@ class WSegmentedController(
             if (closeButton.parent != null) {
                 add(closeButton)
             }
+            backButton?.let { add(it) }
         }
     }
 
@@ -391,7 +416,7 @@ class WSegmentedController(
         if (closeButton.parent == null) {
             return
         }
-        closeButton.visibility = clearSegmentedControl.visibility
+        closeButton.isVisible = !actionBar.isVisible
         closeButton.alpha = clearSegmentedControl.alpha
     }
 
@@ -403,7 +428,8 @@ class WSegmentedController(
     ) {
         if (closeButton.parent != null)
             contentView.setConstraints {
-                toEnd(clearSegmentedControl, if (items.size < 3 || forceCenterTabs) 0f else 56f)
+                toStart(clearSegmentedControl, 16f)
+                toEnd(clearSegmentedControl, if (items.size < 3 || forceCenterTabs) 16f else 56f)
             }
         if (fadeAnimation) {
             clearSegmentedControl
@@ -518,10 +544,36 @@ class WSegmentedController(
                     (navigationController.getSystemBars().top + navTopPadding)
             )
             toEnd(closeButton, 8f)
-            toEnd(clearSegmentedControl, if (items.size < 3 || forceCenterTabs) 0f else 56f)
+            toStart(clearSegmentedControl, 16f)
+            toEnd(clearSegmentedControl, if (items.size < 3 || forceCenterTabs) 16f else 56f)
         }
         clearSegmentedControl.horizontalFadingEdge = true
         syncCloseButtonVisibility()
+    }
+
+    fun addBackButton(
+        onBack: () -> Unit = {
+            navigationController.pop()
+        }
+    ) {
+        val btn = WImageButton(context).apply {
+            setPadding(8.dp)
+            setImageDrawable(context.getDrawableCompat(R.drawable.ic_nav_back))
+            updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
+            setOnClickListener { onBack() }
+        }
+        backButton = btn
+        contentView.addView(btn, LayoutParams(40.dp, 40.dp))
+        contentView.setConstraints {
+            toTopPx(
+                btn,
+                (navHeight - 40.dp) / 2 +
+                    (navigationController.getSystemBars().top + navTopPadding)
+            )
+            toStart(btn, 8f)
+            toStart(clearSegmentedControl, if (items.size < 3 || forceCenterTabs) 0f else 56f)
+        }
+        clearSegmentedControl.horizontalFadingEdge = true
     }
 
     fun showActionBar() {
@@ -573,10 +625,11 @@ class WSegmentedController(
             viewPager.isUserInputEnabled = !isTabLocked
             val shouldShowSegmentedControl = items.size > 1
             headerViews().forEach {
-                it.isVisible = shouldShowSegmentedControl
+                it.isVisible = it !== clearSegmentedControl || shouldShowSegmentedControl
             }
-            if (shouldShowSegmentedControl) {
-                headerViews().fadeIn(AnimationConstants.SUPER_QUICK_ANIMATION)
+            val viewsToFadeIn = headerViews().filter { it.isVisible }
+            if (viewsToFadeIn.isNotEmpty()) {
+                viewsToFadeIn.fadeIn(AnimationConstants.SUPER_QUICK_ANIMATION)
             }
         }
     }

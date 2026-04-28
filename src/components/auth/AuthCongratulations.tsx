@@ -3,6 +3,7 @@ import { getActions } from '../../global';
 
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
+import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { vibrateOnSuccess } from '../../util/haptics';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
@@ -39,6 +40,12 @@ function AuthCongratulations({
   const handleClick = useLastCallback(() => {
     afterCongratulations({ isImporting: isImporting && !hardwareWalletsAmount });
   });
+
+  useEffect(() => {
+    return isActive
+      ? captureKeyboardListeners({ onEnter: handleClick, onSpace: handleClick })
+      : undefined;
+  }, [isActive]);
 
   function getInfo() {
     if (isImporting) {

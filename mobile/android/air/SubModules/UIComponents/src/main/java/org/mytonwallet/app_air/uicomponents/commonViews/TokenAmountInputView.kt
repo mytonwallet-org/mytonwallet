@@ -8,7 +8,6 @@ import android.text.TextPaint
 import android.text.TextUtils
 import android.text.method.DigitsKeyListener
 import android.view.Gravity
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
@@ -27,6 +26,8 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 
 @SuppressLint("ViewConstructor")
@@ -75,10 +76,7 @@ class TokenAmountInputView(
 
     val tokenSelectorView = WTokenSymbolIconView(context).apply {
         id = generateViewId()
-        drawable = ContextCompat.getDrawable(
-            context,
-            org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18
-        )
+        drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
         defaultSymbol =
             LocaleController.getString("Select Token")
     }
@@ -97,10 +95,7 @@ class TokenAmountInputView(
     private val equivalentTextView =
         WCounterButton(
             context,
-            ContextCompat.getDrawable(
-                context,
-                org.mytonwallet.app_air.icons.R.drawable.ic_switch_24
-            )!!,
+            context.requireDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_switch_24),
             false
         ).apply {
             id = generateViewId()
@@ -109,10 +104,7 @@ class TokenAmountInputView(
     private val feeTextView =
         WCounterButton(
             context,
-            ContextCompat.getDrawable(
-                context,
-                org.mytonwallet.app_air.icons.R.drawable.ic_info_24
-            )!!,
+            context.requireDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_info_24),
             true
         ).apply {
             id = generateViewId()

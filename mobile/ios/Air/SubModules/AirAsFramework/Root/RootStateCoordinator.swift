@@ -98,7 +98,7 @@ final class RootStateCoordinator: WalletCoreData.EventsObserver {
                     phase: .databaseBootstrap,
                     kind: .unknown,
                     title: lang("Error"),
-                    message: "MyTonWallet couldn't start safely.",
+                    message: "\(APP_NAME) couldn't start safely.",
                     technicalCode: "databaseBootstrap.unknown",
                     detailsText: "Technical code: databaseBootstrap.unknown"
                 ),

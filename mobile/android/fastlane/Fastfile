@@ -1,19 +1,118 @@
 default_platform(:android)
 
+def env_value(name, fallback = nil)
+  value = ENV[name]
+  value.nil? || value.empty? ? fallback : value
+end
+
+$variant = env_value('APP_VARIANT', 'mytonwallet').downcase
+$variant_config = {
+  'mytonwallet' => {
+    package_name: 'org.mytonwallet.app',
+    firebase_app_id: '1:155616896352:android:2d448728d65b6d277eaa05',
+    beta_gradle_task: 'assembleMytonwalletBetaRelease',
+    release_gradle_task: 'bundleMytonwalletProdRelease',
+    direct_gradle_task: 'assembleMytonwalletProdRelease',
+  },
+  'gram' => {
+    package_name: 'io.gramwallet.app',
+    firebase_app_id: '1:155616896352:android:539fe0c1f3fc36fa7eaa05',
+    beta_gradle_task: 'assembleGramBetaRelease',
+    release_gradle_task: 'bundleGramProdRelease',
+    direct_gradle_task: 'assembleGramProdRelease',
+  },
+}
+
+raise "Unknown APP_VARIANT: #{$variant}" unless $variant_config.key?($variant)
+
+$config = $variant_config[$variant]
+$package_name = env_value('ANDROID_PACKAGE_NAME', $config[:package_name])
+$firebase_app_id = env_value('ANDROID_FIREBASE_APP_ID', $config[:firebase_app_id])
+$firebase_groups = env_value('ANDROID_FIREBASE_GROUPS', 'developers,qa')
+$play_json_key_file = env_value('ANDROID_PLAY_JSON_KEY_FILE', './api-key.json')
+$firebase_service_credentials_file = env_value('ANDROID_FIREBASE_SERVICE_CREDENTIALS_FILE', './firebase-service-account.json')
+$beta_gradle_task = env_value('ANDROID_BETA_GRADLE_TASK', $config[:beta_gradle_task])
+$release_gradle_task = env_value('ANDROID_RELEASE_GRADLE_TASK', $config[:release_gradle_task])
+$direct_gradle_task = env_value('ANDROID_DIRECT_GRADLE_TASK', $config[:direct_gradle_task])
+
+puts "$variant: #{$variant}"
+puts "$package_name: #{$package_name}"
+puts "$firebase_app_id: #{$firebase_app_id}"
+puts "$beta_gradle_task: #{$beta_gradle_task}"
+puts "$release_gradle_task: #{$release_gradle_task}"
+puts "$direct_gradle_task: #{$direct_gradle_task}"
+
+def build_release_notes
+  commit_sha = ENV['GITHUB_SHA']
+  short_sha = commit_sha&.slice(0, 7)
+  commit_subject = `git log -1 --pretty=%s`.strip
+  fallback = "#{commit_subject}\n\nCommit: #{short_sha}"
+
+  return fallback if ENV['GH_TOKEN'].nil? || ENV['GH_TOKEN'].empty? || commit_sha.nil?
+
+  pr_number = `gh pr list --search "#{commit_sha}" --state merged --json number --jq '.[0].number // empty'`.strip
+  return fallback if pr_number.empty?
+
+  pr_json = `gh pr view #{pr_number} --json title,body`
+  return fallback if pr_json.nil? || pr_json.empty?
+
+  require 'json'
+  pr = JSON.parse(pr_json) rescue nil
+  return fallback if pr.nil?
+
+  "#{pr['title']} (##{pr_number})\n\n#{pr['body']}\n\nCommit: #{short_sha}"
+rescue StandardError
+  "#{`git log -1 --pretty=%s`.strip}\n\nCommit: #{ENV['GITHUB_SHA']&.slice(0, 7)}"
+end
+
+def play_track_version_code(track)
+  version_codes = google_play_track_version_codes(
+    package_name: $package_name,
+    track: track,
+    json_key: $play_json_key_file,
+  )
+
+  version_codes[0] || 0
+rescue StandardError
+  0
+end
+
+def firebase_beta_build_number
+  latest_release = firebase_app_distribution_get_latest_release(
+    app: $firebase_app_id,
+    service_credentials_file: $firebase_service_credentials_file,
+  )
+
+  latest_release ? latest_release[:buildVersion].to_i : 0
+rescue StandardError
+  0
+end
+
+def signing_properties
+  {
+    "android.injected.signing.store.file" => $keystore_path,
+    "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
+    "android.injected.signing.key.alias" => "key0",
+    "android.injected.signing.key.password" => ENV["ANDROID_KEYSTORE_PASSWORD"]
+  }
+end
+
+def write_apk_output_path
+  output_path_file = ENV['ANDROID_APK_OUTPUT_PATH_FILE']
+  return if output_path_file.nil? || output_path_file.empty?
+
+  output_path = lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH]
+  return if output_path.nil? || output_path.empty?
+
+  File.write(output_path_file, output_path)
+end
+
 def update_version_and_build_number
-  beta_build_number = google_play_track_version_codes(
-   package_name: CredentialsManager::AppfileConfig.try_fetch_value(:package_name),
-   track: "closed-beta",
-   json_key: CredentialsManager::AppfileConfig.try_fetch_value(:json_key_file),
-  )[0]
+  play_beta_build_number = play_track_version_code("closed-beta")
+  play_production_build_number = play_track_version_code("production")
+  firebase_build_number = firebase_beta_build_number
 
-  production_build_number = google_play_track_version_codes(
-   package_name: CredentialsManager::AppfileConfig.try_fetch_value(:package_name),
-   track: "production",
-   json_key: CredentialsManager::AppfileConfig.try_fetch_value(:json_key_file),
-  )[0]
-
-  build_number = [beta_build_number, production_build_number].max() + 1
+  build_number = [play_beta_build_number, play_production_build_number, firebase_build_number].max + 1
   version = JSON.parse(File.read("../../../package.json"))["version"]
 
   android_set_version_name(version_name: version)
@@ -35,50 +134,48 @@ platform :android do
     update_version_and_build_number
 
     gradle(
-      task: "clean bundle",
-      build_type: "Release",
-      properties: {
-        "android.injected.signing.store.file" => $keystore_path,
-        "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
-        "android.injected.signing.key.alias" => "key0",
-        "android.injected.signing.key.password" => ENV["ANDROID_KEYSTORE_PASSWORD"]
-      }
+      task: $beta_gradle_task,
+      properties: signing_properties
     )
 
-    upload_to_play_store(track: "closed-beta", skip_upload_apk: true)
+    firebase_app_distribution(
+      app: $firebase_app_id,
+      android_artifact_type: "APK",
+      android_artifact_path: lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH],
+      service_credentials_file: $firebase_service_credentials_file,
+      release_notes: build_release_notes,
+      groups: $firebase_groups
+    )
   end
 
   desc "Release a new version to the Google Play"
   lane :release do
     update_version_and_build_number
 
+    gradle(task: "clean")
     gradle(
-      task: "clean bundle",
-      build_type: "Release",
-      properties: {
-        "android.injected.signing.store.file" => $keystore_path,
-        "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
-        "android.injected.signing.key.alias" => "key0",
-        "android.injected.signing.key.password" => ENV["ANDROID_KEYSTORE_PASSWORD"]
-      }
+      task: $release_gradle_task,
+      properties: signing_properties
     )
 
-    upload_to_play_store(track: "production", skip_upload_apk: true)
+    upload_to_play_store(
+      package_name: $package_name,
+      json_key: $play_json_key_file,
+      track: "production",
+      skip_upload_apk: true,
+      aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+    )
   end
 
   lane :direct do
     update_version_and_build_number
 
     gradle(
-      task: "assemble",
-      build_type: "Release",
-      properties: {
-        "android.injected.signing.store.file" => $keystore_path,
-        "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
-        "android.injected.signing.key.alias" => "key0",
-        "android.injected.signing.key.password" => ENV["ANDROID_KEYSTORE_PASSWORD"]
-      }
+      task: $direct_gradle_task,
+      properties: signing_properties
     )
+
+    write_apk_output_path
   end
 
   after_all do |lane|

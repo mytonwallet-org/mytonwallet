@@ -26,6 +26,7 @@ struct DebugView: View {
     @AppStorage("debug_glassOpacity") var glassOpacity: Double = 1
     @AppStorage("debug_gradientIsHidden") var gradientIsHidden: Bool = true
     @AppStorage("debug_displayLogOverlay") private var displayLogOverlayEnabled = false
+    @AppStorage(DebugProductionMode.userDefaultsKey) private var forceProductionMode = false
 #if DEBUG
     @AppStorage(DebugBypassLockscreen.userDefaultsKey) private var bypassLockscreen = false
     @AppStorage(DebugPromotionPreset.userDefaultsKey) private var showAirPromotionPreset = false
@@ -60,12 +61,12 @@ struct DebugView: View {
                 Section {
                     Button("Switch to Air") {
                         log.info("Switch to Air")
-                        UIApplication.shared.open(URL(string: "mtw://air")!)
+                        UIApplication.shared.open(URL(string: "\(SELF_PROTOCOL)air")!)
                         dismiss()
                     }
                     Button("Switch to Classic") {
                         log.info("Switch to Classic")
-                        UIApplication.shared.open(URL(string: "mtw://classic")!)
+                        UIApplication.shared.open(URL(string: "\(SELF_PROTOCOL)classic")!)
                     }
                 }
                 
@@ -88,10 +89,16 @@ struct DebugView: View {
                 
                 // MARK: - TestFlight or debug
                 
-                if IS_DEBUG_OR_TESTFLIGHT {
+                if IS_DEBUG_OR_TESTFLIGHT_DEFAULT {
 
                     Text("TestFlight Only")
                         .header(.purple)
+
+                    Section {
+                        Toggle("View as production", isOn: $forceProductionMode)
+                    } footer: {
+                        Text("Makes `IS_DEBUG_OR_TESTFLIGHT` return false. Restart the app to apply it to startup-only behavior.")
+                    }
 
                     Section {
                         Picker("Is Limited Override", selection: $isLimitedOverride) {

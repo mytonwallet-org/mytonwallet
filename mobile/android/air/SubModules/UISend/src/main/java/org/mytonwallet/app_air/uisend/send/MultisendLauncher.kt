@@ -3,18 +3,19 @@ package org.mytonwallet.app_air.uisend.send
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.helpers.SubprojectHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 
 object MultisendLauncher {
-    private const val MULTISEND_URL = "https://multisend.mytonwallet.io/"
-
     fun launch(
         caller: WViewController,
     ) {
         val window = caller.window ?: return
-        val url = SubprojectHelpers.appendSubprojectContext(MULTISEND_URL)
+        val multisendUrl = caller.view.context.getString(BaseR.string.app_multisend_url)
+        if (multisendUrl.isEmpty()) return
+        val url = SubprojectHelpers.appendSubprojectContext(multisendUrl)
 
         val nav = WNavigationController(window)
         val browserVC = InAppBrowserVC(

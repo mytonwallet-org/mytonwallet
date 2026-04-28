@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uibrowser.viewControllers.search.cells
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.drawable.Drawable
 import android.text.TextUtils
@@ -86,7 +87,7 @@ class SearchHistoryCell(context: Context) :
 
         historyImageView.clear()
         historyImageView.set(Content.ofUrl(site.favicon))
-        titleLabel.setStyle(16f, WFont.SemiBold)
+        titleLabel.setStyle(adaptiveFontSize(), WFont.SemiBold)
         titleLabel.text = site.title
         subtitleLabel.text =
             "${site.url.toUri().host} · ${Date(site.visitDate).timeAgo("\$visited_ago")}"
@@ -103,7 +104,7 @@ class SearchHistoryCell(context: Context) :
 
         historyImageView.clear()
         historyImageView.setImageDrawable(historyDrawable)
-        titleLabel.setStyle(16f, WFont.Regular)
+        titleLabel.setStyle(adaptiveFontSize(), WFont.Regular)
         titleLabel.text = site.title
         subtitleLabel.text = site.visitDate?.let { visitDate -> Date(visitDate).timeAgo() }
 

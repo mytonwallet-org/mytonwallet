@@ -107,11 +107,18 @@ extension MAccount {
     }
     
     public var version: String? {
-        if let accountsData = KeychainHelper.getAccounts(),
-           let tonDict = accountsData[id]?["ton"] as? [String: Any] {
-            return tonDict["version"] as? String
+        guard
+            let accountsData = KeychainHelper.getAccounts(),
+            let account = accountsData[id]
+        else {
+            return nil
         }
-        return nil
+
+        let rawByChain = account["byChain"] as? [String: Any]
+        let tonDict = rawByChain?[ApiChain.ton.rawValue] as? [String: Any]
+        let legacyTonDict = account[ApiChain.ton.rawValue] as? [String: Any]
+
+        return tonDict?["version"] as? String ?? legacyTonDict?["version"] as? String
     }
 
     public var currentTonWalletVersion: String? {
@@ -123,11 +130,25 @@ extension MAccount {
     }
 
     public func derivation(chain: ApiChain) -> ApiDerivation? {
+        if let derivation = getChainInfo(chain: chain)?.derivation {
+            return derivation
+        }
+
         guard
             let accounts = KeychainHelper.getAccounts(),
-            let account = accounts[id],
-            let rawChain = account[chain.rawValue] as? [String: Any],
-            let rawDerivation = rawChain["derivation"] as? [String: Any],
+            let account = accounts[id]
+        else {
+            return nil
+        }
+
+        let rawByChain = account["byChain"] as? [String: Any]
+        return parseDerivation(from: rawByChain?[chain.rawValue] as? [String: Any])
+            ?? parseDerivation(from: account[chain.rawValue] as? [String: Any])
+    }
+
+    private func parseDerivation(from rawChain: [String: Any]?) -> ApiDerivation? {
+        guard
+            let rawDerivation = rawChain?["derivation"] as? [String: Any],
             let path = rawDerivation["path"] as? String,
             let index = rawDerivation["index"] as? Int
         else {
@@ -164,18 +185,41 @@ extension MAccount {
     
     public var shareLink: URL {
         var components = URLComponents(string: SHORT_UNIVERSAL_URL + "view/")!
-        components.queryItems = orderedChains.map { (chain, info) in
-            URLQueryItem(name: chain.rawValue, value: info.preferredCopyString)
-        }
+        components.queryItems = viewAccountQueryItems
         if network == .testnet {
             components.queryItems?.append(URLQueryItem(name: "testnet", value: "true"))
         }
         return components.url!
     }
+
+    private var viewAccountQueryItems: [URLQueryItem] {
+        let evmAddress = collapsedEvmAddress
+        var didAddEvm = false
+
+        return orderedChains.compactMap { (chain, info) in
+            if let evmAddress, chain.isEvm {
+                guard !didAddEvm else { return nil }
+                didAddEvm = true
+                return URLQueryItem(name: ApiChain.viewAccountEvmParam, value: evmAddress)
+            }
+
+            return URLQueryItem(name: chain.rawValue, value: info.preferredCopyString)
+        }
+    }
+
+    private var collapsedEvmAddress: String? {
+        let byChain = Dictionary(uniqueKeysWithValues: orderedChains.map { ($0.0, $0.1.preferredCopyString) })
+        let evmAddresses = ApiChain.evmChains.map { byChain[$0] }
+        guard let firstAddress = evmAddresses.first.flatMap({ $0 }),
+              evmAddresses.allSatisfy({ $0 == firstAddress }) else {
+            return nil
+        }
+        return firstAddress
+    }
     
     public var dieselAuthLink: URL? {
         guard let tonAddress = getAddress(chain: .ton) else { return nil }
-        return URL(string: "https://t.me/MyTonWalletBot?start=auth-\(tonAddress)")!
+        return URL(string: "https://t.me/\(BOT_USERNAME)?start=auth-\(tonAddress)")!
     }
     
     public var dreamwalkersLink: String? {

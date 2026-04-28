@@ -289,7 +289,7 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
 
         if totalBalance == 0 || totalBalanceUsd < TINY_TRANSFER_MAX_COST {
             let slugsInWallet = Set(walletTokens.map { $0.tokenSlug })
-            let defaultSlugs = ApiToken.defaultSlugs(forNetwork: account.network)
+            let defaultSlugs = ApiToken.defaultSlugs(forNetwork: account.network, account: account)
             for slug in defaultSlugs.subtracting(slugsInWallet) {
                 if account.supports(chain: tokenStore.tokens[slug]?.chain) {
                     walletTokens.append(MTokenBalance(tokenSlug: slug, balance: 0, isStaking: false))
@@ -335,10 +335,13 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
         } else {
             nil
         }
-        let walletTokensData = MAccountWalletTokensData(
-            walletTokens: walletTokens,
-            walletStaked: walletStaked
+        let orderedTokenBalances = MTokenBalance.sortedForBalanceData(
+            tokenBalances: walletTokens + walletStaked,
+            balances: balances,
+            defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: account.network, account: account),
+            importedTokenSlugs: prefs.importedSlugs
         )
+        let walletTokensData = MAccountWalletTokensData(orderedTokenBalances: orderedTokenBalances)
         let balanceTotals = MAccountBalanceTotals(
             totalBalance: totalBalanceAmount,
             totalBalanceYesterday: totalBalanceYesterdayAmount,

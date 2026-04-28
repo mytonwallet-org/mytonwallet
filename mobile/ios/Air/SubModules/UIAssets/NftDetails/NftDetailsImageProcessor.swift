@@ -226,27 +226,11 @@ class NftDetailsImageProcessor {
         return image.transformed(by: transform)
     }
     
-    private func ciImageFromUIImage(_ uiImage: UIImage) throws (IntError) -> CIImage {
-        guard let cgImage = uiImage.cgImage else { throw IntError("Failed to create CIImage") }
-        return CIImage(cgImage: cgImage)
-    }
-    
-    private func cgImageFromCIImage(_ ciImage: CIImage) throws (IntError) -> CGImage {
-        guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent, format: .RGBA8, colorSpace: colorSpace) else {
-            throw IntError("Failed to create CGImage from CIImage")
-        }
-        return cgImage
-    }
-
-    private func uiImageFromCIImage(_ ciImage: CIImage) throws (IntError) -> UIImage {
-        UIImage(cgImage: try cgImageFromCIImage(ciImage), scale: deviceScale, orientation: .up)
-    }
-    
     private func backgroundPattern(cgImage: CGImage) throws (IntError) -> CIImage {
         let bottomRowHeight = 1.0
         let bottomRowRect = CGRect(x: 0, y: CGFloat(cgImage.height) - bottomRowHeight, width: CGFloat(cgImage.width), height: bottomRowHeight)
         guard let bottomRowCGImage = cgImage.cropping(to: bottomRowRect) else { throw IntError("CreateBackgroundPattern.Crop") }
-        let bottomCI = CIImage(cgImage: bottomRowCGImage)
+        let bottomCI = ciImage(from: bottomRowCGImage)
         return translateImage(bottomCI, x: -bottomCI.extent.origin.x, y: -bottomCI.extent.origin.y)
     }
             
@@ -264,10 +248,10 @@ class NftDetailsImageProcessor {
         var result = NftDetailsImage.Processed()
         do {
             // Load image, crop to square, scale down if necessary
-            var sourceImage = try ciImageFromUIImage(image)
+            guard var sourceImage = ciImageOptional(from: image) else { throw IntError("Failed to create CIImage from the source") }
             sourceImage = cropToSquare(sourceImage)
             sourceImage = try fitToWidth(sourceImage, maxWidth: targetWidth * deviceScale)
-            result.originalImage = try uiImageFromCIImage(sourceImage)
+            result.originalImage = try uiImage(from: sourceImage)
             result.previewImage = result.originalImage
                                             
             let scaleK1 = sourceImage.extent.width / targetWidth
@@ -276,11 +260,13 @@ class NftDetailsImageProcessor {
             // For simplified processing we should stop here: square from original image + base color is all we need
             if simplifiedProcessing {
                 let baseColor = regionColor(sourceImage.cropped(to: sourceImage.extent.copyWith(height: 1)))
-                result.baseColor =  baseColor
+                result.baseColor = baseColor
                 if let baseColor {
                     let extent = sourceImage.extent.copyWith(height: 1)
-                    result.backgroundPattern = solidColorImage(color: baseColor, extent: extent)
+                    let ciPattern = solidColorImage(color: baseColor, extent: extent)
+                    result.setBackground(ciPattern, try uiImage(from: ciPattern))
                 }
+                result.previewCIImage = ciImageOptional(from: result.previewImage)
                 return result
             }
             
@@ -288,18 +274,16 @@ class NftDetailsImageProcessor {
             let bottomBand = calcScale(layoutBottomBand)
             var mirror = mirrorBottom(sourceImage, sourceBandHeight: calcScale(layoutMirroredBandHeight), targetScale: mirrorK)
             
-            // Get a base color.
+            // Get a base color or exit
             var e = sourceImage.extent
             e.size.height = min(calcScale(layoutMirroredBandHeight * 2), e.size.height)
             let croppedForColor = sourceImage.cropped(to: e)
-            let baseColor = regionColor(croppedForColor)
-            result.baseColor = baseColor
-            
-            // In case we failed to get a base color, we return immediately.
-            guard let baseColor else {
+            guard let baseColor = regionColor(croppedForColor) else {
+                result.previewCIImage = ciImageOptional(from: result.previewImage)
                 return result
             }
-            
+            result.baseColor = baseColor
+
             // Overlay the mirrored area with a gradient
             do {
                 let extent = mirror.extent
@@ -326,12 +310,46 @@ class NftDetailsImageProcessor {
             let tintedBlurred = try blurBottomArea(composited, blurRadius: blurRadius, bottomHeight: h, gradientK: gradientK)
 
             // Create final images: large blurred one + stretchable bottom band
-            let cgImage = try cgImageFromCIImage(tintedBlurred)
-            result.previewImage = UIImage(cgImage: cgImage, scale: deviceScale, orientation: .up)
-            result.backgroundPattern = try backgroundPattern(cgImage: cgImage)
+            let cgImage = try cgImage(from: tintedBlurred)
+            result.previewImage = uiImage(from: cgImage)
+            result.previewCIImage = ciImage(from: cgImage)
+            let ciPattern = try backgroundPattern(cgImage: cgImage)
+            result.setBackground(ciPattern, try uiImage(from: ciPattern))
+            
         } catch {
             log.error("Unable load image: \(error)")
         }
         return result
+    }
+}
+
+extension NftDetailsImageProcessor {
+    private func cgImage(from ciImage: CIImage) throws (IntError) -> CGImage {
+        guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent, format: .RGBA8, colorSpace: colorSpace) else {
+            throw IntError("Failed to create CGImage from CIImage")
+        }
+        return cgImage
+    }
+
+    private func uiImage(from cgImage: CGImage) -> UIImage {
+        UIImage(cgImage: cgImage, scale: deviceScale, orientation: .up)
+    }
+
+    private func uiImage(from ciImage: CIImage) throws (IntError) -> UIImage {
+        uiImage(from: try cgImage(from: ciImage))
+    }
+    
+    func ciImage(from cgImage: CGImage) -> CIImage {
+        CIImage(cgImage: cgImage, options: [.colorSpace: colorSpace])
+    }
+
+    func ciImageOptional(from cgImage: CGImage?) -> CIImage? {
+        guard let cgImage else { return nil }
+        return ciImage(from: cgImage)
+    }
+
+    func ciImageOptional(from uiImage: UIImage?) -> CIImage? {
+        guard let uiImage else { return nil }
+        return CIImage(image: uiImage, options: [.applyOrientationProperty: true])
     }
 }

@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.util.TypedValue
@@ -10,7 +11,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
@@ -24,6 +24,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -53,7 +54,7 @@ class AccountItemView(
     }
 
     private val label = WLabel(context).apply {
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setTextColor(WColor.PrimaryText)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         setSingleLine()
@@ -154,10 +155,9 @@ class AccountItemView(
 
     override fun updateTheme() {
         backgroundDrawable.rippleColor = WColor.BackgroundRipple.color
-        val drawable =
-            ContextCompat.getDrawable(context, R.drawable.ic_menu_arrow_right)?.apply {
-                setTint(WColor.PrimaryLightText.color)
-            }
+        val drawable = context.getDrawableCompat(R.drawable.ic_menu_arrow_right)?.apply {
+            setTint(WColor.PrimaryLightText.color)
+        }
         arrowView.setImageDrawable(drawable)
         separatorView?.setBackgroundColor(WColor.PopupSeparator.color)
     }

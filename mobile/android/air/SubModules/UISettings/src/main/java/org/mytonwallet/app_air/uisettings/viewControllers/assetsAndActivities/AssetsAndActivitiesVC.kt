@@ -93,7 +93,7 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
             setLayoutManager(layoutManager)
             addItemDecoration(
                 LastItemPaddingDecoration(
-                    navigationController?.getSystemBars()?.bottom ?: 0
+                    navigationController?.bottomInset ?: 0
                 )
             )
             setItemAnimator(null)

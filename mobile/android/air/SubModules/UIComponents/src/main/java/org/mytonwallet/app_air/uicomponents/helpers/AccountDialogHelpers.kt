@@ -76,7 +76,7 @@ class AccountDialogHelpers {
             val vc = window.topViewController ?: return
             vc.showAlert(
                 LocaleController.getString("Remove Wallet"),
-                LocaleController.getString("\$logout_warning")
+                buildSignOutMessage(accounts = listOf(account))
                     .toProcessedSpannableStringBuilder(),
                 LocaleController.getString("Remove"),
                 {
@@ -92,7 +92,7 @@ class AccountDialogHelpers {
             val vc = window.topViewController ?: return
             vc.showAlert(
                 LocaleController.getString("Remove Wallet"),
-                LocaleController.getString("\$logout_warning")
+                buildSignOutMessage(accounts)
                     .toProcessedSpannableStringBuilder(),
                 LocaleController.getString("Remove"),
                 {
@@ -123,6 +123,31 @@ class AccountDialogHelpers {
                 preferPrimary = false,
                 primaryIsDanger = true
             )
+        }
+
+        private fun buildSignOutMessage(accounts: List<MAccount>): String {
+            val warningKey = when {
+                accounts.size > 1 ->
+                    "\$logout_selected_wallets_warning"
+
+                AccountStore.activeAccountId == accounts.firstOrNull()?.accountId ->
+                    "\$logout_current_wallet_warning"
+
+                else ->
+                    "\$logout_selected_wallet_warning"
+            }
+            val nonViewOnlyCount = accounts.count { !it.isViewOnly }
+            val reminderKey = when {
+                nonViewOnlyCount > 1 -> "\$all_secret_words_backup_reminder"
+                nonViewOnlyCount == 1 -> "\$secret_words_backup_reminder"
+                else -> null
+            }
+            val warning = LocaleController.getString(warningKey)
+            return if (reminderKey != null) {
+                "$warning ${LocaleController.getString(reminderKey)}"
+            } else {
+                warning
+            }
         }
 
         private fun signout(

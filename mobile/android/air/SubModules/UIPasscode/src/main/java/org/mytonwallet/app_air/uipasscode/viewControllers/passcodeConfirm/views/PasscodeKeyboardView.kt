@@ -2,7 +2,6 @@ package org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views
 
 import android.annotation.SuppressLint
 import android.content.Context
-import androidx.core.content.ContextCompat
 import androidx.core.view.children
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.R
@@ -18,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcore.stores.AuthStore
@@ -66,10 +66,7 @@ class PasscodeKeyboardView(
                         }
 
                         9 -> { // biometric
-                            customDrawable = ContextCompat.getDrawable(
-                                context,
-                                R.drawable.ic_biometric
-                            )
+                            customDrawable = context.getDrawableCompat(R.drawable.ic_biometric)
                             setOnClickListener {
                                 Haptics.play(this, HapticType.LIGHT_TAP)
                                 listener?.onBiometricsCheck()
@@ -138,14 +135,10 @@ class PasscodeKeyboardView(
     }
 
     var showSignOut: Boolean = AuthStore.getCooldownDate() > System.currentTimeMillis()
-    val exitDrawable = ContextCompat.getDrawable(
-        context,
+    val exitDrawable = context.getDrawableCompat(
         org.mytonwallet.app_air.icons.R.drawable.ic_exit_filled
     )
-    val backspaceDrawable = ContextCompat.getDrawable(
-        context,
-        R.drawable.ic_backspace
-    )
+    val backspaceDrawable = context.getDrawableCompat(R.drawable.ic_backspace)
 
     fun updateButtons(isEmpty: Boolean) {
         deleteButton.drawableTint = if (isEmpty && showSignOut) WColor.Error.color else null

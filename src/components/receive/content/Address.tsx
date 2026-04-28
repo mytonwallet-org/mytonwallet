@@ -11,6 +11,7 @@ import useLang from '../../../hooks/useLang';
 import useQrCode from '../../../hooks/useQrCode';
 
 import InteractiveTextField from '../../ui/InteractiveTextField';
+import WarningMessage from '../../ui/WarningMessage';
 import Actions from './Actions';
 
 import styles from '../ReceiveModal.module.scss';
@@ -18,8 +19,8 @@ import styles from '../ReceiveModal.module.scss';
 interface OwnProps {
   chain: ApiChain;
   isActive?: boolean;
-  isStatic?: boolean;
   isLedger?: boolean;
+  isViewMode?: boolean;
   address: string;
   onClose?: NoneToVoidFunction;
 }
@@ -27,8 +28,8 @@ interface OwnProps {
 function Address({
   chain,
   isActive,
-  isStatic,
   isLedger,
+  isViewMode,
   address,
   onClose,
 }: OwnProps) {
@@ -41,10 +42,6 @@ function Address({
     isActive,
     preferUrl: true,
   });
-  const qrClassNames = buildClassName(
-    styles.qrCode,
-    isStatic && styles.qrCodeStatic,
-  );
 
   const handleVerify = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
@@ -59,23 +56,25 @@ function Address({
         {renderText(lang('$receive_description'))}
       </div>
 
-      <div className={qrClassNames} ref={qrCodeRef} />
+      <div className={styles.qrCode} ref={qrCodeRef} />
 
       <InteractiveTextField
         chain={chain}
         address={address}
-        className={isStatic ? styles.copyButtonStatic : styles.addressWrapper}
+        className={styles.addressWrapper}
         copyNotification={lang('%chain% Address Copied', { chain: getChainTitle(chain) }) as string}
         noSavedAddress
         noDimming
       />
 
+      {isViewMode && (
+        <WarningMessage className={styles.viewModeWarning}>
+          {renderText(lang('$view_only_wallet_receive_warning'))}
+        </WarningMessage>
+      )}
+
       {isLedger && (
-        <div
-          className={buildClassName(
-            styles.contentTitle, styles.contentTitleLedger, isStatic && styles.contentTitleLedgerStatic,
-          )}
-        >
+        <div className={buildClassName(styles.contentTitle, styles.contentTitleLedger)}>
           {renderText(lang('$ledger_verify_address'))}
           {' '}
           <a href="#" onClick={handleVerify} className={styles.dottedLink}>
@@ -84,7 +83,7 @@ function Address({
         </div>
       )}
 
-      {!isStatic && <Actions chain={chain} isLedger={isLedger} onClose={onClose} />}
+      {!isViewMode && <Actions chain={chain} isLedger={isLedger} onClose={onClose} />}
     </div>
   );
 }

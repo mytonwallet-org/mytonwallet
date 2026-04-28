@@ -8,8 +8,7 @@ import useLang from '../../../hooks/useLang';
 import useScrolledState from '../../../hooks/useScrolledState';
 
 import SecretWordsContent from '../../common/backup/SecretWordsContent';
-import Button from '../../ui/Button';
-import ModalHeader from '../../ui/ModalHeader';
+import SettingsHeader from '../SettingsHeader';
 
 import settingsStyles from '../Settings.module.scss';
 import styles from './Backup.module.scss';
@@ -18,7 +17,6 @@ interface OwnProps {
   isActive?: boolean;
   currentAccountId: string;
   enteredPassword?: string;
-  isInsideModal?: boolean;
   isBackupSlideActive?: boolean;
   onBackClick: NoneToVoidFunction;
   onSubmit: NoneToVoidFunction;
@@ -29,7 +27,6 @@ function BackupSecretWords({
   currentAccountId,
   enteredPassword,
   isBackupSlideActive,
-  isInsideModal,
   onBackClick,
   onSubmit,
 }: OwnProps) {
@@ -63,22 +60,11 @@ function BackupSecretWords({
 
   return (
     <div className={settingsStyles.slide}>
-      {isInsideModal ? (
-        <ModalHeader
-          title={lang('%1$d Secret Words', wordsCount) as string}
-          withNotch={isScrolled}
-          className={settingsStyles.modalHeader}
-          onBackButtonClick={onBackClick}
-        />
-      ) : (
-        <div className={buildClassName(settingsStyles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText className={settingsStyles.headerBack} onClick={onBackClick}>
-            <i className={buildClassName(settingsStyles.iconChevron, 'icon-chevron-left')} aria-hidden />
-            <span>{lang('Back')}</span>
-          </Button>
-          <span className={settingsStyles.headerTitle}>{lang('%1$d Secret Words', wordsCount) as string}</span>
-        </div>
-      )}
+      <SettingsHeader
+        title={lang('%1$d Secret Words', wordsCount) as string}
+        isScrolled={isScrolled}
+        onBackClick={onBackClick}
+      />
       <div
         className={buildClassName(settingsStyles.content, styles.content)}
         onScroll={handleContentScroll}

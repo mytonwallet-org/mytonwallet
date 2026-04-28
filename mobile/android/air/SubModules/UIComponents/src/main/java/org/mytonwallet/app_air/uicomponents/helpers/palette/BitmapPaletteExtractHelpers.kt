@@ -14,7 +14,7 @@ class BitmapPaletteExtractHelpers {
             return try {
                 val palette = extractPaletteFromBitmap(bitmap)?.get(0) ?: return Color.BLACK
                 return Color.rgb(palette[0], palette[1], palette[2])
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 Color.BLACK
             }
         }
@@ -23,9 +23,9 @@ class BitmapPaletteExtractHelpers {
         private fun extractPaletteFromBitmap(bitmap: Bitmap): List<IntArray>? {
             val imageData = extractImageData(bitmap)
             val pixelCount = bitmap.width * bitmap.height
-            val quality = 1
+            val quality = 10
             val pixelArray = createPixelArray(imageData, pixelCount, quality)
-            val colorCount = 2
+            val colorCount = 5
 
             val cmap = quantize(pixelArray, colorCount) ?: return null
             return cmap.palette()

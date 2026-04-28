@@ -7,9 +7,9 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.view.doOnLayout
+import androidx.core.view.isGone
 import androidx.core.view.setPadding
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.helpers.AccountDialogHelpers
@@ -26,7 +27,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
@@ -47,8 +47,10 @@ import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.Setting
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsVersionCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.views.SettingsHeaderView
+import org.mytonwallet.app_air.uisettings.viewControllers.subwallets.SubWalletsVC
 import org.mytonwallet.app_air.uisettings.viewControllers.userResponsibility.UserResponsibilityVC
 import org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.WalletVersionsVC
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage.Builder
@@ -56,6 +58,7 @@ import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
@@ -68,6 +71,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent.AccountChangedInApp
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -82,10 +86,6 @@ class SettingsVC(context: Context) : WViewController(context),
     private val moreButtonRipple = WRippleDrawable.create(20f.dp)
 
     companion object {
-        val TIP_URLS = mapOf(
-            "en" to "MyTonWalletTips",
-            "ru" to "MyTonWalletTipsRu"
-        )
         val HEADER_CELL = WCell.Type(1)
         val SECTION_HEADER_CELL = WCell.Type(2)
         val ACCOUNT_CELL = WCell.Type(3)
@@ -161,7 +161,7 @@ class SettingsVC(context: Context) : WViewController(context),
         btn.setOnClickListener {
             val receiveVC = ReceiveVC.createIfAvailable(
                 context,
-                AccountStore.activeAccount?.firstChain ?: MBlockchain.ton
+                AccountStore.activeAccount?.firstChain
             ) ?: return@setOnClickListener
             val navVC = WNavigationController(window!!)
             navVC.setRoot(receiveVC)
@@ -247,6 +247,7 @@ class SettingsVC(context: Context) : WViewController(context),
         updateTheme()
 
         WalletCore.doOnBridgeReady {
+            updateQrButtonVisibility()
             settingsVM.fillOtherAccounts(async = false)
             settingsVM.updateSettingsSection()
             settingsVM.updateHelpSection()
@@ -288,24 +289,20 @@ class SettingsVC(context: Context) : WViewController(context),
         if (headerView.parent == headerCell)
             headerView.updateTheme()
 
-        val moreDrawable =
-            ContextCompat.getDrawable(
-                context,
-                org.mytonwallet.app_air.uisettings.R.drawable.ic_more
-            )?.apply {
-                setTint(WColor.SecondaryText.color)
-            }
+        val moreDrawable = context.getDrawableCompat(
+            org.mytonwallet.app_air.uisettings.R.drawable.ic_more
+        )?.apply {
+            setTint(WColor.SecondaryText.color)
+        }
 
         moreButton.setImageDrawable(moreDrawable)
         moreButtonRipple.rippleColor = WColor.BackgroundRipple.color
 
-        val qrDrawable =
-            ContextCompat.getDrawable(
-                context,
-                org.mytonwallet.app_air.uisettings.R.drawable.ic_qr
-            )?.apply {
-                setTint(WColor.SecondaryText.color)
-            }
+        val qrDrawable = context.getDrawableCompat(
+            org.mytonwallet.app_air.uisettings.R.drawable.ic_qr
+        )?.apply {
+            setTint(WColor.SecondaryText.color)
+        }
         qrButton.setImageDrawable(qrDrawable)
     }
 
@@ -325,6 +322,10 @@ class SettingsVC(context: Context) : WViewController(context),
     override fun scrollToTop() {
         super.scrollToTop()
         recyclerView.layoutManager?.smoothScrollToPosition(recyclerView, null, 0)
+    }
+
+    private fun updateQrButtonVisibility() {
+        qrButton.isGone = AccountStore.activeAccount?.supportsReceiveScreen != true
     }
 
     private var isReparenting = false
@@ -480,49 +481,42 @@ class SettingsVC(context: Context) : WViewController(context),
             }
 
             SettingsItem.Identifier.SECURITY -> {
-                val nav = navigationController?.tabBarController?.navigationController
-                val passcodeConfirmVC = PasscodeConfirmVC(
-                    context,
-                    Default(
-                        LocaleController.getString("Locked"),
-                        LocaleController.getString(
-                            if (WGlobalStorage.isBiometricActivated() &&
-                                BiometricHelpers.canAuthenticate(window!!)
-                            )
-                                "Enter passcode or use fingerprint" else "Enter Passcode"
-                        ),
-                        LocaleController.getString("Security")
-                    ),
-                    task = { passcode ->
-                        nav?.push(SecurityVC(context, passcode), onCompletion = {
-                            nav.removePrevViewControllerOnly()
-                        })
-                    }
-                )
-                nav?.push(passcodeConfirmVC)
+                pushProtectedScreen("Security") { passcode -> SecurityVC(context, passcode) }
             }
 
             SettingsItem.Identifier.HELP_CENTER -> {
-                openUrl(
-                    item.title,
-                    "https://help.mytonwallet.io/"
-                )
+                val url = context.getString(BaseR.string.app_help_url)
+                if (url.isNotEmpty()) openUrl(item.title, url)
             }
 
             SettingsItem.Identifier.USE_RESPONSIBILITY -> {
-                push(UserResponsibilityVC(context))
+                navigationController?.tabBarController?.navigationController?.push(
+                    UserResponsibilityVC(context)
+                )
+            }
+
+            SettingsItem.Identifier.SUBWALLETS -> {
+                pushProtectedScreen("Subwallets") { passcode -> SubWalletsVC(context, passcode) }
             }
 
             SettingsItem.Identifier.WALLET_VERSIONS -> {
-                push(WalletVersionsVC(context))
+                navigationController?.tabBarController?.navigationController?.push(
+                    WalletVersionsVC(context)
+                )
             }
 
             SettingsItem.Identifier.ASK_A_QUESTION -> {
-                openExternalUrl("https://t.me/mysupport")
+                val url = context.getString(BaseR.string.app_support_telegram_url)
+                if (url.isNotEmpty()) openExternalUrl(url)
             }
 
             SettingsItem.Identifier.MTW_FEATURES -> {
-                openExternalUrl("https://t.me/${TIP_URLS[LocaleController.activeLanguage.langCode] ?: TIP_URLS["en"]}")
+                val lang = LocaleController.activeLanguage.langCode
+                val usernameRes = if (lang == "ru") BaseR.string.app_tips_telegram_username_ru
+                else BaseR.string.app_tips_telegram_username_en
+                val username = context.getString(usernameRes)
+                    .ifEmpty { context.getString(BaseR.string.app_tips_telegram_username_en) }
+                if (username.isNotEmpty()) openExternalUrl("https://t.me/$username")
             }
 
             SettingsItem.Identifier.MTW_CARDS_NFT -> {
@@ -533,11 +527,14 @@ class SettingsVC(context: Context) : WViewController(context),
             }
 
             SettingsItem.Identifier.INSTALL_ON_DESKTOP -> {
-                openExternalUrl("https://mytonwallet.io/get/desktop")
+                val url = context.getString(BaseR.string.app_desktop_install_url)
+                if (url.isNotEmpty()) openExternalUrl(url)
             }
 
             SettingsItem.Identifier.ABOUT_MTW -> {
-                push(AppInfoVC(context))
+                navigationController?.tabBarController?.navigationController?.push(
+                    AppInfoVC(context)
+                )
             }
 
             else -> {}
@@ -559,7 +556,7 @@ class SettingsVC(context: Context) : WViewController(context),
                 (SettingsHeaderView.HEIGHT_NORMAL - SettingsHeaderView.HEIGHT_COLLAPSED).dp
             val contentHeight = settingsVM.contentHeight()
             val topInset = (navigationController?.getSystemBars()?.top ?: 0)
-            val bottomInset = (navigationController?.getSystemBars()?.bottom ?: 0)
+            val bottomInset = (navigationController?.bottomInset ?: 0)
             val recyclerViewPaddingBottom =
                 (view.height - contentHeight - topInset + additionalPadding)
                     .coerceAtLeast(bottomInset)
@@ -591,6 +588,32 @@ class SettingsVC(context: Context) : WViewController(context),
 
     private fun openExternalUrl(url: String) {
         window?.startActivityCatching(Intent(Intent.ACTION_VIEW, url.toUri()))
+    }
+
+    private fun pushProtectedScreen(
+        destinationTitle: String,
+        destinationBuilder: (String) -> WViewController
+    ) {
+        val nav = navigationController?.tabBarController?.navigationController
+        val passcodeConfirmVC = PasscodeConfirmVC(
+            context,
+            Default(
+                LocaleController.getString("Locked"),
+                LocaleController.getString(
+                    if (WGlobalStorage.isBiometricActivated() &&
+                        BiometricHelpers.canAuthenticate(window!!)
+                    )
+                        "Enter passcode or use fingerprint" else "Enter Passcode"
+                ),
+                LocaleController.getString(destinationTitle)
+            ),
+            task = { passcode ->
+                nav?.push(destinationBuilder(passcode), onCompletion = {
+                    nav.removePrevViewControllerOnly()
+                })
+            }
+        )
+        nav?.push(passcodeConfirmVC)
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
@@ -732,6 +755,7 @@ class SettingsVC(context: Context) : WViewController(context),
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
             is WalletEvent.AccountChanged -> {
+                updateQrButtonVisibility()
                 headerView.configure()
                 settingsVM.fillOtherAccounts(
                     async = walletEvent.fromHome,

@@ -26,11 +26,11 @@ class ParticleRenderer : GLSurfaceView.Renderer {
     private var aLifetime: Int = 0
     private var aSize: Int = 0
     private var aBaseOpacity: Int = 0
+    private var aColor: Int = 0
 
     // Uniform locations
     private var uResolution: Int = 0
     private var uTime: Int = 0
-    private var uColor: Int = 0
     private var uCanvasWidth: Int = 0
     private var uCanvasHeight: Int = 0
     private var uAccelerationFactor: Int = 0
@@ -39,6 +39,7 @@ class ParticleRenderer : GLSurfaceView.Renderer {
     private var uEdgeFadeZone: Int = 0
     private var uRotationMatrices: Int = 0
     private var uSpawnCenter: Int = 0
+    private var uUseStar: Int = 0
 
     private var width: Int = 0
     private var height: Int = 0
@@ -86,11 +87,11 @@ class ParticleRenderer : GLSurfaceView.Renderer {
         aLifetime = GLES20.glGetAttribLocation(program, "a_lifetime")
         aSize = GLES20.glGetAttribLocation(program, "a_size")
         aBaseOpacity = GLES20.glGetAttribLocation(program, "a_baseOpacity")
+        aColor = GLES20.glGetAttribLocation(program, "a_color")
 
         // Get uniform locations
         uResolution = GLES20.glGetUniformLocation(program, "u_resolution")
         uTime = GLES20.glGetUniformLocation(program, "u_time")
-        uColor = GLES20.glGetUniformLocation(program, "u_color")
         uCanvasWidth = GLES20.glGetUniformLocation(program, "u_canvasWidth")
         uCanvasHeight = GLES20.glGetUniformLocation(program, "u_canvasHeight")
         uAccelerationFactor = GLES20.glGetUniformLocation(program, "u_accelerationFactor")
@@ -99,6 +100,7 @@ class ParticleRenderer : GLSurfaceView.Renderer {
         uEdgeFadeZone = GLES20.glGetUniformLocation(program, "u_edgeFadeZone")
         uRotationMatrices = GLES20.glGetUniformLocation(program, "u_rotationMatrices")
         uSpawnCenter = GLES20.glGetUniformLocation(program, "u_spawnCenter")
+        uUseStar = GLES20.glGetUniformLocation(program, "u_useStar")
 
         // Initialize rotation matrices
         initRotationMatrices()
@@ -133,7 +135,6 @@ class ParticleRenderer : GLSurfaceView.Renderer {
 
             // Set uniforms for this system
             GLES20.glUniform1f(uTime, systemTime)
-            GLES20.glUniform3fv(uColor, 1, system.config.color, 0)
             GLES20.glUniform1f(uCanvasWidth, system.config.width * dpr)
             GLES20.glUniform1f(uCanvasHeight, system.config.height * dpr)
             GLES20.glUniform1f(uAccelerationFactor, system.config.accelerationFactor)
@@ -141,6 +142,7 @@ class ParticleRenderer : GLSurfaceView.Renderer {
             GLES20.glUniform1f(uFadeOutTime, system.config.fadeOutTime)
             GLES20.glUniform1f(uEdgeFadeZone, system.config.edgeFadeZone * dpr)
             GLES20.glUniform2f(uSpawnCenter, system.centerX * dpr, system.centerY * dpr)
+            GLES20.glUniform1f(uUseStar, if (system.config.useStarShape) 1f else 0f)
 
             // Bind attributes for this system
             bindAttribute(aStartPosition, 2, system.startPositionBuffer)
@@ -149,6 +151,7 @@ class ParticleRenderer : GLSurfaceView.Renderer {
             bindAttribute(aLifetime, 1, system.lifetimeBuffer)
             bindAttribute(aSize, 1, system.sizeBuffer)
             bindAttribute(aBaseOpacity, 1, system.baseOpacityBuffer)
+            bindAttribute(aColor, 3, system.colorBuffer)
 
             // Draw particles
             GLES20.glDrawArrays(GLES20.GL_POINTS, 0, system.config.particleCount)

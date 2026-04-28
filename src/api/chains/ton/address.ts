@@ -36,7 +36,7 @@ export async function resolveAddress(network: ApiNetwork, address: string, skipF
 
   let normalizedAddress: string;
   try {
-    normalizedAddress = normalizeAddress(network, address);
+    normalizedAddress = normalizeAddress(address, network);
   } catch {
     return { error: ApiCommonError.InvalidAddress };
   }
@@ -80,6 +80,6 @@ export async function resolveAddressByDomain(network: ApiNetwork, domain: string
   }
 }
 
-export function normalizeAddress(network: ApiNetwork, address: string) {
+export function normalizeAddress(address: string, network?: ApiNetwork) {
   return toBase64Address(address, true, network);
 }

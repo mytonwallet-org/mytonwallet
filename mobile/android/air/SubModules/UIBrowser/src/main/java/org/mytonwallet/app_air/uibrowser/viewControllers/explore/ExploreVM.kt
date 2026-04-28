@@ -29,12 +29,12 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
     private var waitingForNetwork = false
     internal var connectedSites: Array<ApiDapp>? =
         DappsStore.dApps[AccountStore.activeAccountId]?.toTypedArray()
-    var allSites: Array<MExploreSite>? = null
+    var allSites: List<MExploreSite>? = null
         private set
-    private var allExploreCategories: Array<MExploreCategory>? = null
+    private var allExploreCategories: List<MExploreCategory>? = null
 
-    internal var showingExploreCategories: Array<MExploreCategory>? = null
-    internal var showingTrendingSites = arrayOf<MExploreSite>()
+    internal var showingExploreCategories: List<MExploreCategory>? = null
+    internal var showingTrendingSites = listOf<MExploreSite>()
 
     fun delegateIsReady() {
         WalletCore.registerObserver(this)
@@ -58,7 +58,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         }
     }
 
-    private fun updateSites(categories: Array<MExploreCategory>?, sites: Array<MExploreSite>?) {
+    private fun updateSites(categories: List<MExploreCategory>?, sites: List<MExploreSite>?) {
         this.allSites = sites
         allExploreCategories = categories
         filterAndShowSites()
@@ -67,9 +67,9 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
     private fun filterAndShowSites() {
         showingExploreCategories = allExploreCategories?.filter {
             it.sites.any { it.canBeShown }
-        }?.toTypedArray()
+        }
         showingTrendingSites =
-            allSites?.filter { it.isFeatured && it.canBeShown }?.toTypedArray() ?: emptyArray()
+            allSites?.filter { it.isFeatured && it.canBeShown } ?: emptyList()
         delegate.get()?.updateEmptyView()
         delegate.get()?.sitesUpdated()
     }

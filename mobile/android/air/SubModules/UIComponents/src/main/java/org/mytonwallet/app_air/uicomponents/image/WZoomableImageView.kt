@@ -11,7 +11,6 @@ import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.MotionEvent
 import androidx.appcompat.content.res.AppCompatResources
-import androidx.core.content.ContextCompat
 import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.drawee.generic.GenericDraweeHierarchyBuilder
 import com.facebook.drawee.generic.RoundingParams
@@ -27,6 +26,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.zoomable.DefaultZoomableCont
 import org.mytonwallet.app_air.uicomponents.widgets.zoomable.ZoomableDraweeView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.models.MToken
 
@@ -212,11 +212,11 @@ open class WZoomableImageView @JvmOverloads constructor(
 
     private fun getPlaceholderDrawable(content: Content): Drawable? {
         return when (content.image) {
-            is Content.Image.Res -> ContextCompat.getDrawable(context, content.image.res)
+            is Content.Image.Res -> context.getDrawableCompat(content.image.res)
             is Content.Image.Gradient -> {
                 val res = content.image.icon
                 val drawable = if (res != 0) {
-                    ContextCompat.getDrawable(context, res)?.apply {
+                    context.getDrawableCompat(res)?.apply {
                         setTint(Color.WHITE)
                     }
                 } else null

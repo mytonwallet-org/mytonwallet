@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uibrowser.viewControllers.explore.cells
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -34,7 +35,7 @@ class ExploreConnectedItemCell(
     }
 
     private val titleLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         maxLines = 1
     }
 

@@ -1,14 +1,14 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent.views
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.animation.ValueAnimator
 import android.graphics.drawable.GradientDrawable
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -24,17 +24,24 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
+import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
+import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.scaleIn
 import org.mytonwallet.app_air.uicomponents.widgets.scaleOut
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class AgentComposerView(context: Context) : WFrameLayout(context), WThemedView {
+class AgentComposerView(
+    context: Context,
+    private val blurRootView: ViewGroup? = null,
+) : WFrameLayout(context), WThemedView {
 
     var onSend: ((String) -> Unit)? = null
     var onHintsToggle: (() -> Unit)? = null
@@ -43,7 +50,7 @@ class AgentComposerView(context: Context) : WFrameLayout(context), WThemedView {
     var onHeightChanged: (() -> Unit)? = null
 
     private val editText = AppCompatEditText(context).apply {
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         typeface = WFont.Regular.typeface
         hint = LocaleController.getString("Ask anything")
         maxLines = 5
@@ -55,9 +62,6 @@ class AgentComposerView(context: Context) : WFrameLayout(context), WThemedView {
         setPaddingDp(16, 10, 52, 10)
     }
 
-    private val hintsBgDrawable = GradientDrawable().apply {
-        cornerRadius = 12f.dp
-    }
     private val hintsRipple = WRippleDrawable.create(12f.dp)
     private val hintsButton = ImageView(context).apply {
         scaleType = ImageView.ScaleType.CENTER
@@ -79,6 +83,9 @@ class AgentComposerView(context: Context) : WFrameLayout(context), WThemedView {
     private var hintsActive = false
     private var lastHeight = 0
     private var isApplyingEmoji = false
+    private var inputShadow: PillShadowView? = null
+    private var blurView: WBlurryBackgroundView? = null
+    private var isPlayingBlur = true
 
     init {
         layoutParams = LayoutParams(MATCH_PARENT, WRAP_CONTENT)
@@ -87,6 +94,7 @@ class AgentComposerView(context: Context) : WFrameLayout(context), WThemedView {
         clipToPadding = false
 
         inputBackground.minimumHeight = 48.dp
+        syncBlurView()
         inputBackground.addView(editText, LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
             gravity = Gravity.TOP
             topMargin = 2.5f.dp.roundToInt()
@@ -107,6 +115,7 @@ class AgentComposerView(context: Context) : WFrameLayout(context), WThemedView {
         inputBackground.addView(sendButton)
 
         addView(inputBackground, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        inputShadow = PillShadowView.attachTo(inputBackground, 24f.dp)
 
         editText.doAfterTextChanged { editable ->
             if (!isApplyingEmoji && editable != null) {
@@ -121,6 +130,9 @@ class AgentComposerView(context: Context) : WFrameLayout(context), WThemedView {
                     onHeightChanged?.invoke()
                 }
             }
+        }
+        editText.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            inputShadow?.sync()
         }
 
         hintsButton.setOnClickListener {
@@ -143,6 +155,11 @@ class AgentComposerView(context: Context) : WFrameLayout(context), WThemedView {
         }
 
         updateTheme()
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        if (changed) inputShadow?.sync()
     }
 
     private fun trySend() {
@@ -244,16 +261,61 @@ class AgentComposerView(context: Context) : WFrameLayout(context), WThemedView {
         editText.setTextColor(WColor.PrimaryText.color)
         editText.highlightColor = WColor.Tint.color and 0x40FFFFFF
 
-        val bgDrawable = GradientDrawable().apply {
-            cornerRadius = 24f.dp
-            setColor(WColor.Background.color)
-        }
-        inputBackground.background = bgDrawable
-        inputBackground.elevation = 2f.dp
+        syncBlurView()
+        inputBackground.setBackgroundColor(
+            WColor.SearchFieldBackground.color,
+            24f.dp,
+            clipToBounds = true
+        )
+        blurView?.updateTheme()
 
         applyHintsButtonTheme()
         hintsRipple.rippleColor = WColor.BackgroundRipple.color
 
         applySendButtonTheme()
+    }
+
+    private fun syncBlurView() {
+        val blurEnabled = WGlobalStorage.isBlurEnabled() && blurRootView != null
+        if (blurEnabled && blurView == null) {
+            blurView = WBlurryBackgroundView(context, fadeSide = null).also {
+                it.setupWith(blurRootView)
+                it.setOverlayColor(WColor.SearchFieldBackground, 204)
+                inputBackground.addView(it, 0, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            }
+            isPlayingBlur = true
+        } else if (!blurEnabled && blurView != null) {
+            inputBackground.removeView(blurView)
+            blurView = null
+            isPlayingBlur = false
+        }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (blurView != null && !isPlayingBlur) {
+            isPlayingBlur = true
+            blurView?.resumeBlurring()
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        if (isPlayingBlur) {
+            isPlayingBlur = false
+            blurView?.pauseBlurring()
+        }
+    }
+
+    fun pauseBlurring() {
+        if (!isPlayingBlur) return
+        isPlayingBlur = false
+        blurView?.pauseBlurring()
+    }
+
+    fun resumeBlurring() {
+        if (isPlayingBlur) return
+        isPlayingBlur = true
+        blurView?.resumeBlurring()
     }
 }

@@ -66,10 +66,21 @@ class NftDetailsItemCoverFlowTile: UIView {
         let longTapRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongTap))
         longTapRecognizer.minimumPressDuration = 0.25
         addGestureRecognizer(longTapRecognizer)
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleStopLottieAnimationsNotification),
+            name: .nftDetailsStopLottieAnimations,
+            object: nil
+        )
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     @objc private func handleTap() {
@@ -80,6 +91,10 @@ class NftDetailsItemCoverFlowTile: UIView {
     @objc private func handleLongTap() {
         guard let model else { return }
         delegate?.nftDetailsItemCoverFlowTile(self, didSelectModel: model, longTap: true)
+    }
+
+    @objc private func handleStopLottieAnimationsNotification() {
+        removeLottieViewer()
     }
 
     func prepareForCollectionViewReuse() {

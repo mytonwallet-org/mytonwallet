@@ -42,7 +42,7 @@ function PasswordSlide({
         error={error}
         withCloseButton={IS_CAPACITOR}
         containerClassName={buildClassName(
-          IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormContentInModal,
+          IS_CAPACITOR && styles.passwordFormContent,
           childClassName,
         )}
         submitLabel={lang('Confirm')}

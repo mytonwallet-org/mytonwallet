@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.adapter.implementation.holders
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup
@@ -23,7 +24,7 @@ class ListTextCell(context: Context) : WLabel(context) {
         maxLines = 1
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         setPaddingDp(20f, 16f, 20f, 8f)
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         gravity =
             if (LocaleController.isRTL)
                 Gravity.RIGHT
@@ -45,7 +46,7 @@ class ListTextCell(context: Context) : WLabel(context) {
                     Gravity.RIGHT
                 else
                     Gravity.LEFT
-            view.setTextSize(TypedValue.COMPLEX_UNIT_SP, item.textSize ?: 16f)
+            view.setTextSize(TypedValue.COMPLEX_UNIT_SP, item.textSize ?: adaptiveFontSize())
             view.setTextColor(item.textColor ?: WColor.PrimaryText)
             view.typeface = item.font ?: WFont.Medium.typeface
         }

@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uitransaction.viewControllers.transaction
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.graphics.Color
 import android.graphics.Paint
 import android.text.Spannable
@@ -61,7 +62,7 @@ class NftHeaderView(
     private var peerAddress: String? = null
 
     private val addressLabel = WLabel(context).apply {
-        setStyle(16f)
+        setStyle(adaptiveFontSize())
         setLineHeight(24f)
         gravity = Gravity.START
         layoutParams = LayoutParams(WRAP_CONTENT, lineHeight + 8.dp)
@@ -123,7 +124,7 @@ class NftHeaderView(
         ) + " "
         val startOffset = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = WFont.Regular.typeface
-            textSize = 16f.dp
+            textSize = adaptiveFontSize().dp
         }.measureText(prefixString)
         val addressAttr = SpannableStringBuilder(
             prefixString + formattedAddress

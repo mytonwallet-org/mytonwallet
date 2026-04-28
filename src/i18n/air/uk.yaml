@@ -85,10 +85,11 @@ App Icon: Значок застосунку
 App Font: Шрифт застосунку
 Rounded Toolbars: Заокруглені панелі інструментів
 Side Gutters: Бічні відступи
+Gradient Navigation Bar: Градієнтна панель навігації
 Tokens on Home Screen: Токени на головному екрані
 Current Wallet Version: Поточна версія гаманця
 Tokens on Other Versions: Токени в інших версіях
-Show Recovery Phrase: Показати фразу відновлення
+Show Secret Words: Показати секретні слова
 Passcode: Код
 Lock the app after: Блокувати застосунок через
 Never: Ніколи
@@ -105,7 +106,7 @@ Up to %1$@: До %1$@
 up to %1$@: до %1$@
 Current APY: Поточний APY
 Current APR: Поточний APR
-Est. earning per year: Орієнтовний річний дохід
+Est. Yearly Earnings: Орієнтовний річний дохід
 in: у
 Error: Помилка
 Network Error: Помилка мережі
@@ -134,7 +135,7 @@ via %agg%: через %agg%
 Switch to Legacy Version: Перемкнутися на класичну версію
 Hide tab: Приховати вкладку
 Received from: Отримано від
-Your Recovery Phrase: Ваша фраза відновлення
+Your Secret Words: Ваші секретні слова
 day:
   zeroValue: "%1$d днів"
   oneValue: "%1$d день"
@@ -360,3 +361,12 @@ $more_nfts:
   zeroValue: Немає NFT
   oneValue: "+1 NFT"
   otherValue: "+%1$d NFT"
+
+$subwallets_found:
+  oneValue: "Знайдено: %1$d"
+  fewValue: "Знайдено: %1$d"
+  otherValue: "Знайдено: %1$d"
+
+$subwallets_hint: Використовуйте субгаманці для отримання додаткових адрес без створення нових секретних слів.
+$subwallets_created_wallets: Якщо ви раніше створювали субгаманці, вони з'являться у списку нижче.
+$subwallets_none: Субгаманців поки немає.

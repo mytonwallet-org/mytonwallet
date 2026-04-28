@@ -5,9 +5,6 @@ import { getActions } from '../../../global';
 import { type ApiNft } from '../../../api/types';
 import { MediaType } from '../../../global/types';
 
-import { IS_ELECTRON } from '../../../util/windowEnvironment';
-
-import { useDeviceScreen } from '../../../hooks/useDeviceScreen';
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 
@@ -24,12 +21,9 @@ function ProbablyScamNft({ nft, isWhitelisted }: OwnProps) {
   const { openMediaViewer, removeNftSpecialStatus, openUnhideNftModal } = getActions();
   const lang = useLang();
 
-  const { isPortrait } = useDeviceScreen();
-  const areSettingsInModal = !isPortrait || IS_ELECTRON;
-
   const handleNftClick = useLastCallback(() => {
     openMediaViewer({
-      mediaId: nft.address, mediaType: MediaType.Nft, noGhostAnimation: areSettingsInModal, hiddenNfts: 'scam',
+      mediaId: nft.address, mediaType: MediaType.Nft, hiddenNfts: 'scam',
     });
   });
 
@@ -49,7 +43,7 @@ function ProbablyScamNft({ nft, isWhitelisted }: OwnProps) {
       key={nft.address}
       role="button"
       tabIndex={0}
-      data-nft-address={!areSettingsInModal && nft.address}
+      data-nft-address={nft.address}
     >
       <img className={styles.nftImage} src={nft.image} alt={nft.name} />
       <div className={styles.nftPrimaryCell}>

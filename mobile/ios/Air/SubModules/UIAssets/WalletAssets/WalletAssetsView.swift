@@ -40,6 +40,7 @@ final class WalletAssetsView: WTouchPassView {
                 viewController: walletCollectiblesView
             ),
         ],
+        scrollContentMargin: 16,
         onScrollProgressChanged: { [weak self] progress in
             self?.scrollProgress = progress
             self?.onScrollingOffsetChanged?(progress)

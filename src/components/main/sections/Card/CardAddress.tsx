@@ -1,16 +1,25 @@
 import React, { memo, useMemo, useRef } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import type { ApiChain } from '../../../../api/types';
-import type { AccountChain, AccountType } from '../../../../global/types';
+import type { ApiChain, ApiStakingState } from '../../../../api/types';
+import type { AccountChain, AccountType, UserToken } from '../../../../global/types';
 
-import { selectAccount, selectCurrentAccountId, selectCurrentAccountTokens } from '../../../../global/selectors';
+import { PRIORITY_TOKENS, STAKED_TOKEN_SLUGS } from '../../../../config';
+import { Big } from '../../../../lib/big.js';
+import {
+  selectAccount,
+  selectAccountStakingStates,
+  selectCurrentAccountId,
+  selectCurrentAccountTokens,
+} from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
-import { getChainConfig, getChainTitle, getSupportedChains } from '../../../../util/chain';
+import { getChainTitle } from '../../../../util/chain';
 import { copyTextToClipboard } from '../../../../util/clipboard';
-import { toDecimal } from '../../../../util/decimals';
+import { toBig } from '../../../../util/decimals';
+import { buildArrayCollectionByKey } from '../../../../util/iteratees';
 import { openUrl } from '../../../../util/openUrl';
 import { shortenAddress } from '../../../../util/shortenAddress';
+import { getFullStakingBalance } from '../../../../util/staking';
 import getChainNetworkIcon from '../../../../util/swap/getChainNetworkIcon';
 import { getExplorerAddressUrl, getExplorerName } from '../../../../util/url';
 import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
@@ -24,6 +33,37 @@ import AddressMenuButton from './AddressMenuButton';
 import ViewModeIcon from './ViewModeIcon';
 
 import styles from './Card.module.scss';
+
+const CHAIN_ORDER = PRIORITY_TOKENS.reduce((acc, token) => {
+  if (!acc.has(token.chain)) {
+    acc.set(token.chain, acc.size);
+  }
+
+  return acc;
+}, new Map<ApiChain, number>());
+
+function calculateChainBalanceUsd(
+  chain: ApiChain,
+  tokens?: UserToken[],
+  stakingStates?: ApiStakingState[],
+) {
+  const stakingStateBySlug = buildArrayCollectionByKey(stakingStates ?? [], 'tokenSlug');
+
+  return (tokens ?? []).reduce((acc, token) => {
+    if (token.chain !== chain || STAKED_TOKEN_SLUGS.has(token.slug)) {
+      return acc;
+    }
+
+    const tokenStakingStates = stakingStateBySlug[token.slug] ?? [];
+    for (const stakingState of tokenStakingStates) {
+      const stakingAmount = toBig(getFullStakingBalance(stakingState), token.decimals);
+
+      acc = acc.plus(stakingAmount.mul(token.priceUsd));
+    }
+
+    return acc.plus(toBig(token.amount, token.decimals).mul(token.priceUsd));
+  }, Big(0)).toNumber();
+}
 
 interface OwnProps {
   isMinimized?: boolean;
@@ -68,21 +108,7 @@ function CardAddress({
   } = useAddressMenu(ref, menuRef);
 
   const chains = useMemo(() => {
-    const dynamicOrder: ApiChain[] = [];
-    const staticOrder: ApiChain[] = [];
-
-    [...byChain].map((e) => {
-      if (e[1].balance > 0) {
-        dynamicOrder.push(e[0]);
-      } else {
-        staticOrder.push(e[0]);
-      }
-    });
-
-    return [
-      ...dynamicOrder,
-      ...getSupportedChains().filter((chain) => staticOrder.includes(chain)),
-    ];
+    return [...byChain.keys()];
   }, [byChain]);
 
   const isHardwareAccount = accountType === 'hardware';
@@ -162,24 +188,29 @@ export default memo(withGlobal((global): StateProps => {
   const { type: accountType, byChain, isTemporary } = account || {};
 
   const accountTokens = selectCurrentAccountTokens(global);
+  const stakingStates = accountId ? selectAccountStakingStates(global, accountId) : undefined;
 
   // Maps preserve an order
-  const byChainWithBalances = new Map(Object.entries(byChain || {}).map(([chain, account]) => {
-    const token = accountTokens?.filter((token) =>
-      token.chain === chain
-      && (
-        token.slug === getChainConfig(chain).nativeToken.slug
-        || token.slug === getChainConfig(chain).usdtSlug.mainnet
-      ),
-    ).reduce((acc, token) => acc + token.priceUsd * Number(toDecimal(token.amount || 0n, token.decimals || 0)), 0);
+  const byChainWithBalances = new Map(Object.entries(byChain || {}).map(([chainKey, account]) => {
+    const chain = chainKey as ApiChain;
+
+    const balance = calculateChainBalanceUsd(chain, accountTokens, stakingStates);
 
     return [
       chain,
       {
         ...account,
-        balance: token,
+        balance,
       }] as [ApiChain, AccountChain & { balance: number }];
-  }).sort((a, b) => b[1].balance - a[1].balance));
+  }).sort((a, b) => {
+    const balanceDiff = b[1].balance - a[1].balance;
+
+    if (balanceDiff !== 0) {
+      return balanceDiff;
+    }
+
+    return (CHAIN_ORDER.get(a[0]) ?? Infinity) - (CHAIN_ORDER.get(b[0]) ?? Infinity);
+  }));
 
   return {
     byChain: byChainWithBalances,

@@ -48,6 +48,10 @@
     overflow-y: scroll;
   }
 
+  @supports (padding-top: var(--safe-area-top)) {
+    padding-top: var(--safe-area-top);
+  }
+
   @include mixins.respond-below(xs) {
     overflow-y: scroll;
 
@@ -57,8 +61,8 @@
     }
   }
 
-  @supports (padding-top: var(--safe-area-top)) {
-    padding-top: var(--safe-area-top);
+  @include mixins.respond-above(xs) {
+    padding-left: 1rem;
   }
 }
 

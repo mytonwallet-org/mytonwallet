@@ -18,18 +18,27 @@ import { WalletKit } from '@reown/walletkit';
 import { Core } from '@walletconnect/core';
 import type { SessionTypes } from '@walletconnect/types';
 import { buildApprovedNamespaces, getSdkError } from '@walletconnect/utils';
+import { getAddress, Transaction } from 'ethers';
 
 import type {
   confirmDappRequestConnect,
   confirmDappRequestSendTransaction,
   confirmDappRequestSignData,
 } from '../../../methods';
-import type { ApiChain, ApiDappRequest, OnApiUpdate } from '../../../types';
+import type { ApiChain, ApiDappRequest, ApiNetwork, EVMChain, OnApiUpdate } from '../../../types';
 import type { DappProtocolError } from '../../errors';
 import type { StoredDappConnection } from '../../storage';
 import type {
   DappDisconnectRequest,
   UnifiedSignDataPayload } from '../../types';
+import type {
+  ChainId,
+  EthSignParams,
+  EthSignTypedDataParams,
+  EvmTransactionParams,
+  PersonalSignParams,
+  WalletCapabilities,
+  WalletConnectEip712Params } from './types';
 import {
   type DappConnectionRequest,
   type DappConnectionResult,
@@ -42,15 +51,25 @@ import {
 } from '../../types';
 import {
   CHAIN_IDS,
+  EVM_CHAIN_IDS,
+  getEip155Caip2ForEvmChain,
   namespacesToSessionChains,
   type WalletConnectSessionProposal,
 } from './types';
 
-import { APP_NAME, IS_EXTENSION, WALLET_CONNECT_PROJECT_ID } from '../../../../config';
+import {
+  APP_ICON_URL,
+  APP_NAME,
+  APP_WEBSITE_URL,
+  IS_EXTENSION,
+  WALLET_CONNECT_PROJECT_ID,
+} from '../../../../config';
 import { parseAccountId } from '../../../../util/account';
 import { getDappConnectionUniqueId } from '../../../../util/getDappConnectionUniqueId';
 import { logDebugError } from '../../../../util/logs';
 import safeExec from '../../../../util/safeExec';
+import chains from '../../../chains';
+import { getEvmProvider } from '../../../chains/evm/util/client';
 import {
   fetchStoredChainAccount,
   getAccountIdByAddress,
@@ -75,6 +94,9 @@ const WALLET_CONNECT_DEEP_LINK_PREFIXES = [
   'wc:',
   'https://walletconnect.com/wc',
 ];
+
+const WALLET_CONNECT_EVM_FEE_BUMP_PERCENT = 10n;
+
 /**
  * WalletConnect v2 protocol adapter.
  */
@@ -115,8 +137,8 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       metadata: {
         name: APP_NAME,
         description: 'Multichain cryptocurrency wallet',
-        url: 'https://mytonwallet.io',
-        icons: ['https://mytonwallet.io/icon-512x512.png'],
+        url: APP_WEBSITE_URL,
+        icons: [APP_ICON_URL],
       },
     });
 
@@ -212,7 +234,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     chain: ApiChain,
     topic: string,
     url: string,
-    tx: string,
+    tx: string | EvmTransactionParams,
     full?: boolean,
   ) {
     const message: DappTransactionRequest<typeof this.protocolType> = {
@@ -257,7 +279,60 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     // Route based on method
     switch (request.method) {
       case 'eth_sendTransaction':
-      case 'eth_signTransaction':
+      case 'eth_signTransaction': {
+        const paramsList = request.params as EvmTransactionParams[];
+        const txParams = paramsList[0];
+
+        if (!txParams) {
+          await this.walletKit.respondSessionRequest({
+            topic,
+            response: {
+              id,
+              jsonrpc: '2.0',
+              error: {
+                code: -32602,
+                message: 'Invalid params: missing transaction object',
+              },
+            },
+          });
+          return;
+        }
+
+        if (request.method === 'eth_signTransaction') {
+          const response = await this.requestTransactionSign(
+            id,
+            namespace.chain,
+            topic,
+            byTopic.dapp.url,
+            txParams,
+          );
+
+          if (!response.success) {
+            return;
+          }
+
+          await this.walletKit.respondSessionRequest({
+            topic,
+            response: {
+              id,
+              jsonrpc: '2.0',
+              result: response.result.result,
+            },
+          });
+        } else {
+          const message: DappTransactionRequest<typeof this.protocolType> = {
+            id: String(id),
+            chain: namespace.chain,
+            payload: {
+              topic,
+              data: txParams,
+            },
+          };
+
+          await this.sendTransaction({ url: byTopic.dapp.url }, message);
+        }
+        break;
+      }
       case 'solana_signTransaction': {
         const response = await this.requestTransactionSign(
           id,
@@ -312,10 +387,129 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         break;
       }
 
-      case 'personal_sign':
-      case 'eth_sign':
+      case 'personal_sign': {
+        const [messageHex, from] = request.params as PersonalSignParams;
+
+        const account = await fetchStoredChainAccount(byTopic.accountId, namespace.chain);
+        const walletAddress = account.byChain[namespace.chain].address;
+
+        if (getAddress(from) !== walletAddress) {
+          await this.walletKit.respondSessionRequest({
+            topic,
+            response: {
+              id,
+              jsonrpc: '2.0',
+              error: {
+                code: 4100,
+                message: 'Unauthorized',
+              },
+            },
+          });
+          break;
+        }
+
+        const message: DappSignDataRequest<typeof this.protocolType> = {
+          id: String(id),
+          chain: namespace.chain,
+          payload: {
+            topic,
+            data: messageHex,
+            isEthSign: true,
+          },
+        };
+
+        await this.signData({ url: byTopic.dapp.url }, message);
+        break;
+      }
+
+      case 'eth_sign': {
+        const [from, dataHex] = request.params as EthSignParams;
+
+        const account = await fetchStoredChainAccount(byTopic.accountId, namespace.chain);
+        const walletAddress = account.byChain[namespace.chain].address;
+
+        if (getAddress(from) !== walletAddress) {
+          await this.walletKit.respondSessionRequest({
+            topic,
+            response: {
+              id,
+              jsonrpc: '2.0',
+              error: {
+                code: 4100,
+                message: 'Unauthorized',
+              },
+            },
+          });
+          break;
+        }
+
+        const message: DappSignDataRequest<typeof this.protocolType> = {
+          id: String(id),
+          chain: namespace.chain,
+          payload: {
+            topic,
+            data: dataHex,
+            isEthSign: true,
+          },
+        };
+
+        await this.signData({ url: byTopic.dapp.url }, message);
+        break;
+      }
+
       case 'eth_signTypedData':
-      case 'eth_signTypedData_v4':
+      case 'eth_signTypedData_v4': {
+        const [from, typedRaw] = request.params as EthSignTypedDataParams;
+
+        const account = await fetchStoredChainAccount(byTopic.accountId, namespace.chain);
+        const walletAddress = account.byChain[namespace.chain].address;
+
+        if (getAddress(from) !== walletAddress) {
+          await this.walletKit.respondSessionRequest({
+            topic,
+            response: {
+              id,
+              jsonrpc: '2.0',
+              error: {
+                code: 4100,
+                message: 'Unauthorized',
+              },
+            },
+          });
+          break;
+        }
+
+        const eip712 = parseWalletConnectTypedData(typedRaw);
+
+        if (!eip712) {
+          await this.walletKit.respondSessionRequest({
+            topic,
+            response: {
+              id,
+              jsonrpc: '2.0',
+              error: {
+                code: -32602,
+                message: 'Invalid typed data',
+              },
+            },
+          });
+          break;
+        }
+
+        const message: DappSignDataRequest<typeof this.protocolType> = {
+          id: String(id),
+          chain: namespace.chain,
+          payload: {
+            topic,
+            eip712,
+            isEthSign: true,
+          },
+        };
+
+        await this.signData({ url: byTopic.dapp.url }, message);
+        break;
+      }
+
       case 'solana_signMessage': {
         const message: DappSignDataRequest<typeof this.protocolType> = {
           id: String(id),
@@ -326,6 +520,20 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
           },
         };
         await this.signData({ url: byTopic.dapp.url }, message);
+        break;
+      }
+
+      case 'wallet_getCapabilities': {
+        const capabilityParams = request.params as string[];
+
+        await this.getWalletCapabilities(
+          id,
+          capabilityParams,
+          byTopic.accountId,
+          topic,
+          namespace,
+          chainId,
+        );
         break;
       }
 
@@ -388,13 +596,9 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
       const { promiseId, promise } = createDappPromise();
 
-      const chains = await Promise.all(message.requestedChains.map(async (e) => ({
-        ...e,
-        network: message.transport === 'extension' ? network : e.network, // we have no useful info about network from extension request
-        address: (await fetchStoredChainAccount(accountId, e.chain)).byChain[e.chain].address,
-      })));
+      let chains = await getAccountChains(message, network, accountId, message.requestedChains);
 
-      const dapp: StoredDappConnection = {
+      let dapp: StoredDappConnection = {
         name: message.protocolData.params.proposer.metadata.name,
         iconUrl: message.protocolData.params.proposer.metadata.icons[0],
         protocolType: this.protocolType,
@@ -421,15 +625,23 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
       const promiseResult: Parameters<typeof confirmDappRequestConnect>[1] = await promise;
 
-      accountId = promiseResult.accountId;
-      request.accountId = accountId;
+      // Recalculate chains in case of account change from modal
+      if (promiseResult.accountId !== accountId) {
+        accountId = promiseResult.accountId;
+        request.accountId = accountId;
+
+        chains = await getAccountChains(message, network, accountId, message.requestedChains);
+
+        dapp = {
+          ...dapp,
+          chains,
+        };
+      }
 
       await addDapp(accountId, dapp, uniqueId);
 
       this.onUpdate({ type: 'updateDapps' });
       this.onUpdate({ type: 'dappConnectComplete' });
-
-      const address = (await fetchStoredChainAccount(accountId, 'solana')).byChain.solana.address;
 
       const namespaces = Object.entries({
         ...message.protocolData.params.requiredNamespaces,
@@ -439,7 +651,10 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         {
           ...namespace[1],
           chains: namespace[1].chains || [],
-          accounts: (namespace[1].chains || []).map((chain) => `${chain}:${address}`),
+          accounts: (namespace[1].chains || [])
+            .map((chain) =>
+              `${chain}:${chains.find((c) => CHAIN_IDS[chain]?.chain === c.chain)?.address}`,
+            ),
         },
       ]));
 
@@ -598,12 +813,48 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       } else {
         accountAddress = message.payload.address!;
         const uniqueId = getDappConnectionUniqueId(request);
-        accountId = await getAccountIdByAddress(accountAddress, message.chain);
+
+        accountId = await getAccountIdByAddress(
+          chains[message.chain].normalizeAddress(accountAddress),
+          message.chain,
+        );
 
         dapp = (await getDapp(accountId, message.payload.url!, uniqueId))!;
       }
 
       const { network } = parseAccountId(accountId);
+
+      let serializedTxForPreview: string;
+
+      if (message.chain !== 'solana') {
+        const caip2 = getEip155Caip2ForEvmChain(message.chain as EVMChain, network);
+
+        if (!caip2) {
+          throw new Error('Unknown EVM chain/network');
+        }
+
+        const raw = message.payload.data;
+
+        if (raw === undefined) {
+          throw new Error('Invalid params: missing transaction data');
+        }
+
+        serializedTxForPreview = await resolveWalletConnectEvmSerializedTx({
+          raw,
+          chain: message.chain as EVMChain,
+          network,
+          caip2,
+          signerAddress: accountAddress,
+        });
+      } else {
+        const raw = message.payload.data;
+
+        if (typeof raw !== 'string') {
+          throw new Error('Invalid transaction data');
+        }
+
+        serializedTxForPreview = raw;
+      }
 
       await this.openExtensionPopup(true);
 
@@ -614,7 +865,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       });
 
       const { transfers, emulation } = await this.chainDappSupports[message.chain]!.parseTransactionForPreview!(
-        message.payload.data,
+        serializedTxForPreview,
         accountAddress,
         network,
       );
@@ -678,18 +929,21 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       };
     } catch (err) {
       logDebugError('walletConnect:sendTransaction', err);
+
       if (message.payload.topic) {
         const response = {
           id: Number(message.id),
           jsonrpc: '2.0',
           error: getSdkError('USER_REJECTED'),
         };
+
         try {
           await this.walletKit.respondSessionRequest({ topic: message.payload.topic, response });
         } catch (respondErr) {
           logDebugError('walletConnect:sendTransaction:respondSessionRequest', respondErr);
         }
       }
+
       return formatConnectError(Number(message.id), err);
     }
   }
@@ -716,7 +970,10 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       } else {
         const uniqueId = getDappConnectionUniqueId(request);
 
-        accountId = await getAccountIdByAddress(message.payload.address!, message.chain);
+        accountId = await getAccountIdByAddress(
+          chains[message.chain].normalizeAddress(message.payload.address!),
+          message.chain,
+        );
 
         dapp = (await getDapp(accountId, message.payload.url!, uniqueId))!;
       }
@@ -730,10 +987,31 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
       const { promiseId, promise } = createDappPromise();
 
-      const payloadToSign: UnifiedSignDataPayload = {
-        type: 'text',
-        text: message.payload.data,
-      };
+      let simplePaloadToSign: UnifiedSignDataPayload;
+
+      if (!message.payload.eip712) {
+        if (message.payload.isEthSign) {
+          simplePaloadToSign = {
+            type: 'binary',
+            bytes: message.payload.data as string,
+          };
+        } else {
+          simplePaloadToSign = {
+            type: 'text',
+            text: message.payload.data as string,
+          };
+        }
+      }
+
+      const payloadToSign: UnifiedSignDataPayload = message.payload.eip712
+        ? {
+          type: 'eip712',
+          domain: message.payload.eip712.domain,
+          types: message.payload.eip712.types,
+          primaryType: message.payload.eip712.primaryType,
+          message: message.payload.eip712.message,
+        }
+        : simplePaloadToSign!;
 
       this.onUpdate({
         type: 'dappSignData',
@@ -752,13 +1030,18 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       });
 
       if (message.payload.topic) {
+        // EVM personal_sign/eth_sign/eth_signTypedData* expect a plain signature hex string.
+        // Solana signMessage expects { signature }.
+        const signatureResult = message.payload.isEthSign
+          ? result.result.signature
+          : { signature: result.result.signature };
+
         const response = {
           id: Number(message.id),
           jsonrpc: '2.0',
-          result: {
-            signature: result.result.signature,
-          },
+          result: signatureResult,
         };
+
         await this.walletKit.respondSessionRequest({ topic: message.payload.topic, response });
       }
 
@@ -786,6 +1069,87 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       }
       return formatConnectError(Number(message.id), err);
     }
+  }
+
+  async getWalletCapabilities(
+    id: number,
+    params: string[],
+    accountId: string,
+    topic: string,
+    namespace: ChainId,
+    chainId: string,
+  ): Promise<void> {
+    const requestedAddress = params[0];
+
+    const account = await fetchStoredChainAccount(accountId, namespace.chain);
+
+    const walletAddress = account.byChain[namespace.chain].address;
+
+    if (requestedAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+      await this.walletKit.respondSessionRequest({
+        topic,
+        response: {
+          id,
+          jsonrpc: '2.0',
+          error: {
+            code: 4100,
+            message: 'Unauthorized',
+          },
+        },
+      });
+      return;
+    }
+
+    const chainIdHexList = params[1];
+    let queriedHexChainIds: string[];
+
+    if (Array.isArray(chainIdHexList) && chainIdHexList.length > 0) {
+      try {
+        queriedHexChainIds = chainIdHexList.map((e) => {
+          if (typeof e !== 'string') {
+            throw new Error('invalid');
+          }
+          return normalizeEip155HexChainId(e);
+        });
+      } catch {
+        await this.walletKit.respondSessionRequest({
+          topic,
+          response: {
+            id,
+            jsonrpc: '2.0',
+            error: {
+              code: -32602,
+              message: 'Invalid params: invalid chain id',
+            },
+          },
+        });
+        return;
+      }
+    } else {
+      queriedHexChainIds = [caip2ToHexChainId(chainId)];
+    }
+
+    // TODO: set actual capabilities
+    const result: Record<string, WalletCapabilities> = {};
+
+    for (const hex of queriedHexChainIds) {
+      const caip2 = hexToEip155Caip2(hex);
+      if (!EVM_CHAIN_IDS[caip2]) {
+        continue;
+      }
+      result[hex] = {
+        atomic: { status: 'unsupported' },
+      };
+    }
+
+    await this.walletKit.respondSessionRequest({
+      topic,
+      response: {
+        id,
+        jsonrpc: '2.0',
+        result,
+      },
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -839,12 +1203,347 @@ export function createWalletConnectAdapter(): DappProtocolAdapter {
   return new WalletConnectAdapter();
 }
 
+/**
+ * WalletConnect / EIP-1474 pass `eth_signTypedData*` params as `[address, typedData]`
+ * where `typedData` is a JSON string or object `{ domain, types, primaryType, message }`.
+ */
+function parseWalletConnectTypedData(raw: unknown): WalletConnectEip712Params | undefined {
+  let value: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      value = JSON.parse(raw) as unknown;
+    } catch {
+      return undefined;
+    }
+  }
+
+  const parsed = value as Record<string, unknown>;
+  const { domain, types, message, primaryType } = parsed;
+
+  if (!domain || typeof domain !== 'object') {
+    return undefined;
+  }
+
+  if (!types || typeof types !== 'object' || Array.isArray(types)) {
+    return undefined;
+  }
+
+  if (!message || typeof message !== 'object' || Array.isArray(message)) {
+    return undefined;
+  }
+
+  if (typeof primaryType !== 'string') {
+    return undefined;
+  }
+
+  return {
+    domain,
+    types,
+    primaryType,
+    message,
+  } as WalletConnectEip712Params;
+}
+
 async function getCurrentAccountOrFail() {
   const accountId = await getCurrentAccountId();
   if (!accountId) {
     throw new Error('No currentAccountFound');
   }
   return accountId;
+}
+
+async function getAccountChains(
+  message: DappConnectionRequest<DappProtocolType.WalletConnect>,
+  network: ApiNetwork,
+  accountId: string,
+  chains: ChainId[],
+) {
+  return await Promise.all(chains.map(async (e) => ({
+    ...e,
+    network: message.transport === 'extension' ? network : e.network,
+    address: (await fetchStoredChainAccount(accountId, e.chain)).byChain[e.chain].address,
+  })));
+}
+
+function parseOptionalHexBigInt(value: string | undefined): bigint | undefined {
+  if (value === undefined || value === '') {
+    return undefined;
+  }
+
+  return BigInt(value);
+}
+
+function bumpWalletConnectEvmFeePerGas(value: bigint): bigint {
+  return (value * (100n + WALLET_CONNECT_EVM_FEE_BUMP_PERCENT) + 99n) / 100n;
+}
+
+function bumpOptionalHexFeePerGas(value: string | undefined): string | undefined {
+  const parsed = parseOptionalHexBigInt(value);
+  if (parsed === undefined) {
+    return value;
+  }
+
+  return `0x${bumpWalletConnectEvmFeePerGas(parsed).toString(16)}`;
+}
+
+function bigintToHex(value: bigint): string {
+  return `0x${value.toString(16)}`;
+}
+
+function hasHexValue(value: string | undefined): boolean {
+  return value !== undefined && value !== '';
+}
+
+function fillWalletConnectEvmTransactionParamsFees(
+  txParams: EvmTransactionParams,
+  feeData: Awaited<ReturnType<ReturnType<typeof getEvmProvider>['getFeeData']>>,
+): EvmTransactionParams {
+  if (hasHexValue(txParams.gasPrice)) {
+    return txParams;
+  }
+
+  const maxFeePerGas = feeData.maxFeePerGas ?? undefined;
+  const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?? undefined;
+  const gasPrice = feeData.gasPrice ?? undefined;
+
+  if (
+    hasHexValue(txParams.maxFeePerGas)
+    || hasHexValue(txParams.maxPriorityFeePerGas)
+    || (maxFeePerGas !== undefined && maxPriorityFeePerGas !== undefined)
+  ) {
+    return {
+      ...txParams,
+      maxFeePerGas: hasHexValue(txParams.maxFeePerGas)
+        ? txParams.maxFeePerGas
+        : (maxFeePerGas !== undefined ? bigintToHex(maxFeePerGas) : undefined),
+      maxPriorityFeePerGas: hasHexValue(txParams.maxPriorityFeePerGas)
+        ? txParams.maxPriorityFeePerGas
+        : (maxPriorityFeePerGas !== undefined ? bigintToHex(maxPriorityFeePerGas) : undefined),
+    };
+  }
+
+  if (gasPrice !== undefined) {
+    return {
+      ...txParams,
+      gasPrice: bigintToHex(gasPrice),
+    };
+  }
+
+  return txParams;
+}
+
+function bumpWalletConnectEvmTransactionParamsFees(txParams: EvmTransactionParams): EvmTransactionParams {
+  return {
+    ...txParams,
+    gasPrice: bumpOptionalHexFeePerGas(txParams.gasPrice),
+    maxFeePerGas: bumpOptionalHexFeePerGas(txParams.maxFeePerGas),
+    maxPriorityFeePerGas: bumpOptionalHexFeePerGas(txParams.maxPriorityFeePerGas),
+  };
+}
+
+function fillWalletConnectEvmTransactionFees(
+  tx: Transaction,
+  feeData: Awaited<ReturnType<ReturnType<typeof getEvmProvider>['getFeeData']>>,
+) {
+  const currentGasPrice = tx.gasPrice ?? undefined;
+  const currentMaxFeePerGas = tx.maxFeePerGas ?? undefined;
+  const currentMaxPriorityFeePerGas = tx.maxPriorityFeePerGas ?? undefined;
+
+  if (currentGasPrice !== undefined) {
+    return;
+  }
+
+  const maxFeePerGas = feeData.maxFeePerGas ?? undefined;
+  const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?? undefined;
+
+  if (currentMaxFeePerGas !== undefined || currentMaxPriorityFeePerGas !== undefined) {
+    if (currentMaxFeePerGas === undefined && maxFeePerGas !== undefined) {
+      tx.maxFeePerGas = maxFeePerGas;
+    }
+
+    if (currentMaxPriorityFeePerGas === undefined && maxPriorityFeePerGas !== undefined) {
+      tx.maxPriorityFeePerGas = maxPriorityFeePerGas;
+    }
+
+    return;
+  }
+
+  if (maxFeePerGas !== undefined && maxPriorityFeePerGas !== undefined) {
+    tx.maxFeePerGas = maxFeePerGas;
+    tx.maxPriorityFeePerGas = maxPriorityFeePerGas;
+    return;
+  }
+
+  const gasPrice = feeData.gasPrice ?? undefined;
+  if (gasPrice !== undefined) {
+    tx.gasPrice = gasPrice;
+  }
+}
+
+function bumpWalletConnectEvmTransactionFees(tx: Transaction) {
+  const gasPrice = tx.gasPrice ?? undefined;
+  if (gasPrice !== undefined) {
+    tx.gasPrice = bumpWalletConnectEvmFeePerGas(gasPrice);
+  }
+
+  const maxFeePerGas = tx.maxFeePerGas ?? undefined;
+  if (maxFeePerGas !== undefined) {
+    tx.maxFeePerGas = bumpWalletConnectEvmFeePerGas(maxFeePerGas);
+  }
+
+  const maxPriorityFeePerGas = tx.maxPriorityFeePerGas ?? undefined;
+  if (maxPriorityFeePerGas !== undefined) {
+    tx.maxPriorityFeePerGas = bumpWalletConnectEvmFeePerGas(maxPriorityFeePerGas);
+  }
+}
+
+/** `TransactionLike.nonce` is `number` in ethers; JSON-RPC sends hex quantity strings. */
+function parseOptionalNonce(value: string | undefined): number | undefined {
+  const n = parseOptionalHexBigInt(value);
+
+  if (n === undefined) {
+    return undefined;
+  }
+  return Number(n);
+}
+
+/** EIP-5792 `wallet_getCapabilities`: normalize hex chain id (no leading zero digits after `0x`). */
+function normalizeEip155HexChainId(hex: string): string {
+  const withPrefix = hex.startsWith('0x') ? hex : `0x${hex}`;
+  return `0x${BigInt(withPrefix).toString(16)}`;
+}
+
+function caip2ToHexChainId(caip2: string): string {
+  const match = /^eip155:(\d+)$/.exec(caip2);
+  if (!match) {
+    throw new Error('Invalid CAIP-2 chain id');
+  }
+  return `0x${BigInt(match[1]).toString(16)}`;
+}
+
+function hexToEip155Caip2(hex: string): string {
+  const withPrefix = hex.startsWith('0x') ? hex : `0x${hex}`;
+  return `eip155:${BigInt(withPrefix)}`;
+}
+
+/**
+ * Builds an unsigned serialized hex transaction (EIP-2718 / legacy) for preview/signing,
+ * matching `eth_sendTransaction` JSON-RPC field shapes.
+ */
+function evmTransactionParamsToUnsignedSerializedHex(
+  txParams: EvmTransactionParams,
+  caip2ChainId: string,
+): string {
+  const chainId = BigInt(caip2ChainId.replace(/^eip155:/, ''));
+
+  return Transaction.from({
+    chainId,
+    from: undefined, // tx is abstract and unsigned on serialization step
+    to: txParams.to && txParams.to.length > 0 ? txParams.to : undefined,
+    nonce: parseOptionalNonce(txParams.nonce),
+    gasLimit: parseOptionalHexBigInt(txParams.gasLimit ?? txParams.gas),
+    gasPrice: parseOptionalHexBigInt(txParams.gasPrice),
+    maxFeePerGas: parseOptionalHexBigInt(txParams.maxFeePerGas),
+    maxPriorityFeePerGas: parseOptionalHexBigInt(txParams.maxPriorityFeePerGas),
+    value: parseOptionalHexBigInt(txParams.value) ?? 0n,
+    data: txParams.data ?? '0x',
+  }).unsignedSerialized;
+}
+
+function normalizeHexTxForEvm(raw: string): string {
+  const trimmed = raw.trim();
+  return trimmed.startsWith('0x') ? trimmed : `0x${trimmed}`;
+}
+
+async function resolveWalletConnectEvmSerializedTx(options: {
+  raw: string | EvmTransactionParams;
+  chain: EVMChain;
+  network: ApiNetwork;
+  caip2: string;
+  signerAddress: string;
+}): Promise<string> {
+  const { raw, chain, network, caip2, signerAddress } = options;
+
+  if (typeof raw === 'string') {
+    let tx: Transaction;
+    try {
+      tx = Transaction.from(normalizeHexTxForEvm(raw));
+    } catch (err) {
+      logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:parse', err);
+
+      throw new Error('Invalid transaction fields');
+    }
+
+    if (tx.isSigned()) {
+      return raw;
+    }
+
+    const fromAddr = getAddress(signerAddress);
+    const updated = tx.clone();
+    let provider: ReturnType<typeof getEvmProvider> | undefined;
+
+    try {
+      provider = getEvmProvider(network, chain);
+
+      const fallbackFee = await provider.getFeeData();
+
+      fillWalletConnectEvmTransactionFees(updated, fallbackFee);
+    } catch (err) {
+      logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:fee', err);
+    }
+
+    bumpWalletConnectEvmTransactionFees(updated);
+
+    try {
+      provider ??= getEvmProvider(network, chain);
+
+      const pendingNonce = await provider.getTransactionCount(fromAddr, 'pending');
+
+      if (updated.nonce === 0 && pendingNonce > 0) {
+        updated.nonce = pendingNonce;
+      }
+    } catch (err) {
+      logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:nonce', err);
+    }
+
+    return updated.unsignedSerialized;
+  }
+
+  let txParamsForHex = raw;
+  let provider: ReturnType<typeof getEvmProvider> | undefined;
+
+  try {
+    provider = getEvmProvider(network, chain);
+
+    const fallbackFee = await provider.getFeeData();
+
+    txParamsForHex = fillWalletConnectEvmTransactionParamsFees(txParamsForHex, fallbackFee);
+  } catch (err) {
+    logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:fee', err);
+  }
+
+  txParamsForHex = bumpWalletConnectEvmTransactionParamsFees(txParamsForHex);
+
+  if (txParamsForHex.nonce === undefined || txParamsForHex.nonce === '') {
+    try {
+      provider ??= getEvmProvider(network, chain);
+      const pendingNonce = await provider.getTransactionCount(txParamsForHex.from, 'pending');
+
+      txParamsForHex = {
+        ...txParamsForHex,
+        nonce: `0x${pendingNonce.toString(16)}`,
+      };
+    } catch (err) {
+      logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:nonce', err);
+    }
+  }
+
+  try {
+    return evmTransactionParamsToUnsignedSerializedHex(txParamsForHex, caip2);
+  } catch (err) {
+    logDebugError('walletConnect:evmTransactionParamsToUnsignedSerializedHex', err);
+    throw new Error('Invalid transaction fields');
+  }
 }
 
 async function getDappByTopic(topic: string, mode: 'default' | 'pairing') {
@@ -881,6 +1580,7 @@ async function ensureRequestParams(
 
   const { network } = parseAccountId(await getCurrentAccountIdOrFail());
   const lastAccountId = await findLastConnectedAccount(network, request.url);
+
   if (!lastAccountId) {
     throw new Error('The connection is outdated, try relogin');
   }

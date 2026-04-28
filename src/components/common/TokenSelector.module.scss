@@ -1,36 +1,54 @@
 @use "../../styles/mixins";
 
+.tokenSelectSearchWrapper {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+
+  margin-bottom: 0.5rem;
+  padding-top: 1.25rem;
+  padding-bottom: 1rem;
+
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 100%);
+
+  :global(html.theme-dark) & {
+    background: linear-gradient(180deg, rgba(14, 14, 15, 0.9) 0%, rgba(14, 14, 15, 0) 100%);
+  }
+}
+
 .tokenSelectInputWrapper {
   position: relative;
 
   display: flex;
+  flex-shrink: 0;
   align-items: center;
 
-  height: 2.25rem;
-  min-height: 2.25rem;
-  margin: 0 0.75rem 0.5rem;
-  border-radius: var(--border-radius-buttons);
+  height: 2.75rem;
+  min-height: 2.75rem;
+  margin: 0 0.75rem;
+  border-radius: 2.75rem;
 
   font-size: 1.25rem;
   line-height: 1;
   color: var(--color-gray-2);
 
-  background-color: var(--color-close-button-background);
+  background-color: var(--color-background-first-blur);
+  box-shadow: 0 0.25rem 1rem 0 #00000014, 0 0 0.25rem 0 #00000014;
 
-  @supports (backdrop-filter: saturate(180%) blur(20px)) {
-    background-color: var(--color-close-button-background);
-    backdrop-filter: saturate(180%) blur(20px);
+  @supports (backdrop-filter: var(--filter-blur-bar)) {
+    background-color: var(--color-background-first-blur);
+    backdrop-filter: var(--filter-blur-bar);
   }
 }
 
 .tokenSelectSearchIcon {
-  margin-left: 0.5rem;
+  margin-left: 0.75rem;
 }
 
 .tokenSelectSearchResetWrapper {
   position: absolute;
-  top: 0.125rem;
-  right: 0;
+  top: 0.375rem;
+  right: 0.25rem;
 
   display: flex;
 
@@ -104,6 +122,10 @@
   background-color: var(--color-background-first);
 
   @include mixins.adapt-padding-to-scrollbar(0.25rem);
+
+  @include mixins.respond-above(xs) {
+    border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+  }
 }
 
 .tokenGroupContainer {
@@ -115,7 +137,6 @@
   display: flex;
   justify-content: space-between;
   padding: 0.5rem 1rem;
-  background: var(--color-background-first-disabled);
 }
 
 .tokenGroupTitle,
@@ -174,9 +195,14 @@
 }
 
 .tokenLogoContainer {
+  overflow: hidden;
   display: flex;
   gap: 0.625rem;
   align-items: center;
+
+  /* Reserve space for the chain icon that overflows below the logo */
+  margin-bottom: -0.25rem;
+  padding-bottom: 0.25rem;
 }
 
 .logoContainer {
@@ -235,6 +261,10 @@
   box-shadow: 0 0 0 0.0938rem var(--color-background-drop-down);
 }
 
+.nameContainer {
+  overflow: hidden;
+}
+
 .nameContainer,
 .tokenPriceContainer {
   display: flex;
@@ -243,8 +273,6 @@
 }
 
 .tokenPriceContainer {
-  --border-radius-value: 0.25rem;
-
   align-items: end;
   text-align: end;
 }

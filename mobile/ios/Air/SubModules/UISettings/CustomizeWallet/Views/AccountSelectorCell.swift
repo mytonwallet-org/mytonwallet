@@ -1,5 +1,5 @@
 //
-//  WalletSettingsGridCell.swift
+//  AccountSelectorCell.swift
 //  MyTonWalletAir
 //
 //  Created by nikstar on 18.11.2025.
@@ -90,7 +90,7 @@ private struct GridAddressLine: View {
     
     var body: some View {
         WithPerceptionTracking {
-            MtwCardAddressLine(addressLine: accountContext.account.addressLine, style: .customizeWalletCard, gradient: MtwCardCenteredGradient(nft: accountContext.nft))
+            MtwCardAddressLine(addressLine: accountContext.addressLine, style: .customizeWalletCard, gradient: MtwCardCenteredGradient(nft: accountContext.nft))
         }
     }
 }

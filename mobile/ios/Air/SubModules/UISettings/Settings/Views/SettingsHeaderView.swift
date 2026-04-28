@@ -17,6 +17,7 @@ protocol SettingsHeaderViewDelegate: AnyObject {
 
 class SettingsHeaderView: WTouchPassView {
     weak var delegate: SettingsHeaderViewDelegate?
+    private let accountContext = AccountContext(source: .current)
     
     private var qrButton: UIButton = {
         let btn = UIButton(type: .system)
@@ -102,7 +103,7 @@ class SettingsHeaderView: WTouchPassView {
         }
         
         let view = HeaderTouchTarget()
-        view.text = String(repeating: "A", count: 100)
+        view.text = lang("Settings")
         view.textColor = .clear
         view.font = .systemFont(ofSize: 24)
         view.isUserInteractionEnabled = true
@@ -307,18 +308,18 @@ class SettingsHeaderView: WTouchPassView {
     }
     
     private func updateAddresses() {
-        guard let account = AccountStore.account else {
-            return
-        }
-        let addressLine = account.addressLine
+        let addressLine = accountContext.addressLine
         addressLabel.attributedText = addressLine.attributedString(
             font: .systemFont(ofSize: 16, weight: .regular),
-            color: .air.secondaryLabel
+            color: .air.secondaryLabel,
+            maxChainCount: 3,
+            multichainAddressCount: 2
         )
     }
     
     func updateBalance() {
         updateTitle()
+        updateAddresses()
     }
     
     @objc private func headerTouched(recognizer: UIGestureRecognizer) {

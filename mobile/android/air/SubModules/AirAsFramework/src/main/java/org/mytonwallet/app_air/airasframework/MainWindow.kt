@@ -73,6 +73,10 @@ class MainWindow : WWindow() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
+        if (!WGlobalStorage.isInitialized) {
+            return
+        }
+
         WGlobalStorage.clearUiCacheData()
         val langCode = WGlobalStorage.getLangCode()
         if (LocaleController.init(this, langCode)) {

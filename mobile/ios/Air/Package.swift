@@ -87,10 +87,8 @@ let package = Package(
     ],
     products: [
         airLibrary("AirAsFramework"),
-        airLibrary("GZip"),
         airLibrary("Ledger"),
         airLibrary("MyAgent"),
-        airLibrary("RLottieBinding"),
         airLibrary("UIAssets"),
         airLibrary("UIActivityList"),
         airLibrary("UIAgent"),
@@ -101,6 +99,7 @@ let package = Package(
         airLibrary("UIEarn"),
         airLibrary("UIHome"),
         airLibrary("UIInAppBrowser"),
+        airLibrary("UIPortfolio"),
         airLibrary("UIPasscode"),
         airLibrary("UIQRScan"),
         airLibrary("UIReceive"),
@@ -116,6 +115,8 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../Packages/ContextMenuKit"),
+        .package(path: "../Packages/GraphKit"),
+        .package(path: "../Packages/LottieKit"),
         .package(
             url: "https://github.com/airbnb/lottie-spm.git",
             exact: "4.5.2"
@@ -174,41 +175,6 @@ let package = Package(
         ),
     ],
     targets: [
-        .target(
-            name: "GZip",
-            path: "SubModules/GZip",
-            publicHeadersPath: ".",
-            linkerSettings: [
-                .linkedFramework("Foundation"),
-                .linkedLibrary("z"),
-            ]
-        ),
-        .target(
-            name: "RLottieBinding",
-            path: "SubModules/RLottieBinding",
-            publicHeadersPath: "PublicHeaders",
-            cSettings: [
-                .unsafeFlags(
-                    [
-                        "-DLOTTIE_DISABLE_ARM_NEON=1",
-                        "-DLOTTIE_IMAGE_MODULE_DISABLED=1",
-                        "-D_FORTIFY_SOURCE=1",
-                        "-Dpixman_region_selfcheck(x)=1",
-                        "-w", // suppress all warnings
-                    ]
-                ),
-                .headerSearchPath("."),
-                .headerSearchPath("PublicHeaders"),
-                .headerSearchPath("rlottie/inc"),
-                .headerSearchPath("rlottie/src/vector"),
-                .headerSearchPath("rlottie/src/vector/freetype"),
-                .headerSearchPath("rlottie/src/vector/pixman"),
-            ],
-            linkerSettings: [
-                .linkedFramework("CoreGraphics"),
-                .linkedFramework("Foundation"),
-            ]
-        ),
         .target(
             name: "WReachability",
             path: "SubModules/WReachability",
@@ -274,11 +240,10 @@ let package = Package(
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 .product(name: "DGCharts", package: "dgcharts"),
                 .product(name: "Kingfisher", package: "kingfisher"),
+                .product(name: "LottieKit", package: "LottieKit"),
                 .product(name: "Perception", package: "swift-perception"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Lottie", package: "lottie-spm"),
-                "GZip",
-                "RLottieBinding",
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
                 .product(name: "SwiftUIIntrospect", package: "swiftui-introspect"),
                 "YUVConversion",
@@ -424,6 +389,7 @@ let package = Package(
                 "UIPasscode",
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Kingfisher", package: "kingfisher"),
+                .product(name: "LottieKit", package: "LottieKit"),
             ]
         ),
         airTarget(
@@ -448,6 +414,16 @@ let package = Package(
                 "Ledger",
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
+            ]
+        ),
+        airTarget(
+            "UIPortfolio",
+            dependencies: [
+                "UIComponents",
+                "WalletContext",
+                "WalletCore",
+                .product(name: "Perception", package: "swift-perception"),
+                .product(name: "GraphKit", package: "GraphKit"),
             ]
         ),
         .target(
@@ -556,6 +532,7 @@ let package = Package(
                 "UIEarn",
                 "UIToken",
                 "UIInAppBrowser",
+                "UIPortfolio",
                 .product(name: "Perception", package: "swift-perception"),
                 "UIHome",
                 "UIBrowser",

@@ -23,7 +23,7 @@ $transformTransition: transform 200ms ease-out;
   width: 100%;
 
   background-color: var(--color-background-tab-bar);
-  backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: var(--filter-blur-bar);
 
   @include mixins.transition("#{$transformTransition}, backdrop-filter 200ms");
 

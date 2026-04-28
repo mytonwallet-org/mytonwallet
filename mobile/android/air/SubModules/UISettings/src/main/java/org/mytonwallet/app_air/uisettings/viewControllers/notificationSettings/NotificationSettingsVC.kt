@@ -80,11 +80,6 @@ class NotificationSettingsVC(
         val layoutManager = LinearLayoutManagerAccurateOffset(context)
         layoutManager.isSmoothScrollbarEnabled = true
         rv.setLayoutManager(layoutManager)
-        rv.addItemDecoration(
-            LastItemPaddingDecoration(
-                navigationController?.getSystemBars()?.bottom ?: 0
-            )
-        )
         rv.setItemAnimator(null)
         rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -110,13 +105,6 @@ class NotificationSettingsVC(
         setupNavBar(true)
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        recyclerView.setPadding(
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            navigationBar?.calculatedMinHeight ?: 0,
-            ViewConstants.HORIZONTAL_PADDINGS.dp,
-            20.dp +
-                (navigationController?.getSystemBars()?.bottom ?: 0)
-        )
         recyclerView.clipToPadding = false
 
         updateTheme()
@@ -142,7 +130,7 @@ class NotificationSettingsVC(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             navigationBar?.calculatedMinHeight ?: 0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
-            (navigationController?.getSystemBars()?.bottom ?: 0)
+            (navigationController?.bottomInset ?: 0)
         )
     }
 

@@ -215,6 +215,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         switch result {
         case .success(let activity):
             if presentCrosschain, let swap = activity?.swap {
+                awaitingActivity = false
                 let crosschainSwapVC = CrosschainToWalletVC(swap: swap, accountId: nil)
                 navigationController?.pushViewController(crosschainSwapVC, animated: true)
             }

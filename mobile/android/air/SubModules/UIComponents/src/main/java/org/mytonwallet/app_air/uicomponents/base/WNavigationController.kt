@@ -6,14 +6,16 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.graphics.Color
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.widget.FrameLayout
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.animation.doOnEnd
 import androidx.core.graphics.Insets
 import androidx.core.view.isGone
 import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -23,6 +25,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.material.bottomSheetBehavior
 import org.mytonwallet.app_air.uicomponents.widgets.material.bottomSheetBehavior.BottomSheetBehavior.BottomSheetCallback
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import java.lang.ref.WeakReference
@@ -49,7 +52,8 @@ class WNavigationController(
         val navigationController: WNavigationController?
         val activeNavigationController: WNavigationController?
         val pausedBlurViews: Boolean
-        val bottomCornerView: ReversedCornerViewUpsideDown
+        val bottomNavigationView: FrameLayout?
+        val minimizedBlurRootView: ViewGroup? get() = null
         fun getBottomNavigationHeight(): Int
         fun minimize(
             nav: WNavigationController,
@@ -128,6 +132,12 @@ class WNavigationController(
             tabBarController?.getBottomNavigationHeight() ?: (window.systemBars?.bottom ?: 0),
         )
     }
+
+    val bottomInset: Int
+        get() {
+            return (if (WGlobalStorage.isGradientNavigationBarActive()) ViewConstants.ADDITIONAL_GRADIENT_HEIGHT.dp.roundToInt() else 0) +
+                (tabBarController?.getBottomNavigationHeight() ?: (window.systemBars?.bottom ?: 0))
+        }
 
     fun insetsUpdated() {
         viewControllers.lastOrNull()?.apply {
@@ -241,8 +251,8 @@ class WNavigationController(
         animated: Boolean = true,
         onCompletion: (() -> Unit)? = null
     ) {
+        val hidingVC = viewControllers.lastOrNull() ?: return
         PopupHelpers.dismissAllPopups()
-        val hidingVC = viewControllers.last()
         hidingVC.apply {
             isEnabled = false
         }

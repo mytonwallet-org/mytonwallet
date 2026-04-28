@@ -1,0 +1,11 @@
+What's New in v4.9:
+
+· 5 New Networks · Use MyTonWallet with Ethereum, Base, BNB Chain, Arbitrum, and Hyperliquid. Send, receive, swap, manage NFTs, and use dapps.
+
+· Subwallets · Manage multiple wallets from one seed phrase to separate funds and use different addresses with ease.
+
+· New Desktop Experience · Enjoy a redesigned desktop layout with clearer navigation and better use of larger screens.
+
+· Redesigned Navigation Bar · Navigate faster with modern tab bars and a softer Liquid Glass-inspired look.
+
+· Updated Staking Menu · See TVL and staker counts directly on staking screens.

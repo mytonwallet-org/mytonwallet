@@ -144,6 +144,20 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
         }
         return nil
     }
+    
+    public var totalStakers: Int? {
+        if case .liquid(let v) = self {
+            return v.totalStakers
+        }
+        return nil
+    }
+    
+    public var totalStaked: BigInt? {
+        if case .liquid(let v) = self {
+            return v.tvl
+        }
+        return nil
+    }
 }
 
 public extension ApiStakingState {

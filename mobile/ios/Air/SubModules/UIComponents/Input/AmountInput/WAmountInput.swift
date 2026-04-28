@@ -55,7 +55,7 @@ public class WAmountInput: UITextField {
         guard !normalizedText.isEmpty else {
             return nil
         }
-        return amountValue(normalizedText, digits: maximumFractionDigits)
+        return normalizedAmountValue(normalizedText, digits: maximumFractionDigits)
     }
     
     @objc func changed() {

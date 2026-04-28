@@ -25,4 +25,19 @@ sealed class MSignDataPayload {
         val schema: String,
         val cell: String
     ) : MSignDataPayload()
+
+    @JsonSealedSubtype("eip712")
+    @JsonClass(generateAdapter = true)
+    data class SignDataPayloadEip712(
+        val domain: Map<String, Any?>,
+        val types: Map<String, List<TypeField>>,
+        val primaryType: String,
+        val message: Map<String, Any?>,
+    ) : MSignDataPayload() {
+        @JsonClass(generateAdapter = true)
+        data class TypeField(
+            val name: String,
+            val type: String,
+        )
+    }
 }

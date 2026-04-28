@@ -9,6 +9,7 @@ object ParticleShaders {
         attribute float a_lifetime;
         attribute float a_size;
         attribute float a_baseOpacity;
+        attribute vec3 a_color;
 
         uniform vec2 u_resolution;
         uniform float u_time;
@@ -22,8 +23,10 @@ object ParticleShaders {
         uniform vec2 u_spawnCenter;
 
         varying float v_opacity;
+        varying vec3 v_color;
 
         void main() {
+            v_color = a_color;
             float totalAge = u_time - a_startTime;
             float age = mod(totalAge, a_lifetime);
 
@@ -80,29 +83,56 @@ object ParticleShaders {
     const val FRAGMENT_SHADER = """
         precision mediump float;
 
-        uniform vec3 u_color;
+        uniform float u_useStar;
         varying float v_opacity;
+        varying vec3 v_color;
 
         void main() {
             vec2 coord = gl_PointCoord - vec2(0.5);
-            vec2 absCoord = abs(coord);
+            float alpha;
 
-            // Convert to square with rounded corners
-            float radius = 0.25; // 25% of full edge (1.0)
-            float squareSize = 0.5 - radius;
+            if (u_useStar > 0.5) {
+                float absX = abs(coord.x);
+                float absY = abs(coord.y);
 
-            // Distance to rounded corner
-            vec2 cornerDist = max(absCoord - squareSize, 0.0);
-            float dist = length(cornerDist);
+                float innerSize = 0.12;
+                float armLength = 0.45;
+                float armWidth = 0.08;
 
-            // Use smoothstep for anti-aliasing to reduce subpixel artifacts
-            float alpha = 1.0 - smoothstep(radius - 0.05, radius + 0.05, dist);
+                float dist = 1.0;
+
+                if (absX <= innerSize && absY <= innerSize) {
+                    dist = max(absX, absY) - innerSize;
+                } else if (absY <= armWidth && absX <= armLength) {
+                    float normalizedX = (absX - innerSize) / (armLength - innerSize);
+                    float taperFactor = 1.0 - normalizedX * 0.8;
+                    float currentArmWidth = armWidth * taperFactor;
+                    dist = absY - currentArmWidth;
+                } else if (absX <= armWidth && absY <= armLength) {
+                    float normalizedY = (absY - innerSize) / (armLength - innerSize);
+                    float taperFactor = 1.0 - normalizedY * 0.8;
+                    float currentArmWidth = armWidth * taperFactor;
+                    dist = absX - currentArmWidth;
+                }
+
+                alpha = 1.0 - smoothstep(-0.01, 0.01, dist);
+            } else {
+                vec2 absCoord = abs(coord);
+
+                float radius = 0.25;
+                float squareSize = 0.5 - radius;
+
+                vec2 cornerDist = max(absCoord - squareSize, 0.0);
+                float dist = length(cornerDist);
+
+                alpha = 1.0 - smoothstep(radius - 0.05, radius + 0.05, dist);
+            }
 
             if (alpha <= 0.0) {
                 discard;
             }
 
-            gl_FragColor = vec4(u_color * v_opacity * alpha, v_opacity * alpha);
+            gl_FragColor = vec4(v_color * v_opacity * alpha, v_opacity * alpha);
         }
     """
 }

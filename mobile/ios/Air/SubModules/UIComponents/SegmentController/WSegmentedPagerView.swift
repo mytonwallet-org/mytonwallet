@@ -51,10 +51,10 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
     public var onDidStartDragging: (() -> Void)?
     public var onDidEndScrolling: (() -> Void)?
 
-    public init(items: [WSegmentedPagerItem], onScrollProgressChanged: ((CGFloat) -> Void)? = nil) {
+    public init(items: [WSegmentedPagerItem], style: SegmentedControlStyle = .regular, scrollContentMargin: CGFloat = 0, onScrollProgressChanged: ((CGFloat) -> Void)? = nil) {
         self.items = items
-        self.model = SegmentedControlModel(items: items.map(\.segmentedControlItem))
-        self.segmentedControl = WSegmentedControl(model: model)
+        self.model = SegmentedControlModel(items: items.map(\.segmentedControlItem), style: style)
+        self.segmentedControl = WSegmentedControl(model: model, scrollContentMargin: scrollContentMargin)
         self.onScrollProgressChanged = onScrollProgressChanged
 
         super.init(frame: .zero)
@@ -302,7 +302,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
                 bridgeOffsetX: nil,
                 animatedOffsetX: realOffsetX,
             )
-            scrollView.setContentOffset(CGPoint(x: realOffsetX, y: 0), animated: true)
+            animateProgrammaticScroll(to: realOffsetX)
             return
         }
 
@@ -322,7 +322,27 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
         layoutTransitionPageView()
         syncVisiblePages(around: CGFloat(bridgeIndex))
         scrollView.setContentOffset(CGPoint(x: bridgeOffsetX, y: 0), animated: false)
-        scrollView.setContentOffset(CGPoint(x: realOffsetX, y: 0), animated: true)
+        animateProgrammaticScroll(to: realOffsetX)
+    }
+
+    private func animateProgrammaticScroll(to offsetX: CGFloat) {
+        UIView.animate(
+            withDuration: 0.5,
+            delay: 0,
+            usingSpringWithDamping: 1.0,
+            initialSpringVelocity: 0.0,
+            options: [.beginFromCurrentState, .allowUserInteraction],
+            animations: {
+                self.scrollView.contentOffset = CGPoint(x: offsetX, y: 0)
+            },
+            completion: { [weak self] finished in
+                guard finished, let self else { return }
+                guard let transition = self.pendingProgrammaticTransition else { return }
+                self.clearTransientState()
+                self.syncSettledState(at: transition.targetIndex)
+                self.onDidEndScrolling?()
+            }
+        )
     }
 
     private func visiblePageIndices(around progress: CGFloat) -> [Int] {
@@ -346,23 +366,25 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
     }
 
     private func syncVisiblePages(around progress: CGFloat) {
-        let neededIndices = Set(visiblePageIndices(around: progress))
-        let obsoleteIndices = pageContainers.keys.filter { !neededIndices.contains($0) }
-        for index in obsoleteIndices {
-            guard let container = pageContainers.removeValue(forKey: index) else { continue }
-            host(nil, in: container)
-            container.removeFromSuperview()
-        }
+        UIView.performWithoutAnimation {
+            let neededIndices = Set(visiblePageIndices(around: progress))
+            let obsoleteIndices = pageContainers.keys.filter { !neededIndices.contains($0) }
+            for index in obsoleteIndices {
+                guard let container = pageContainers.removeValue(forKey: index) else { continue }
+                host(nil, in: container)
+                container.removeFromSuperview()
+            }
 
-        for index in neededIndices.sorted() {
-            let container = pageContainers[index] ?? makePageContainer(for: index)
-            container.frame = frame(for: index)
-            host(viewController(at: index), in: container)
-        }
+            for index in neededIndices.sorted() {
+                let container = pageContainers[index] ?? makePageContainer(for: index)
+                container.frame = frame(for: index)
+                host(viewController(at: index), in: container)
+            }
 
-        layoutPageContainers()
-        if !transitionPageView.isHidden {
-            scrollView.bringSubviewToFront(transitionPageView)
+            layoutPageContainers()
+            if !transitionPageView.isHidden {
+                scrollView.bringSubviewToFront(transitionPageView)
+            }
         }
     }
 

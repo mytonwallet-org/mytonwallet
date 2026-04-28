@@ -27,7 +27,11 @@ import type {
 } from '../types/misc';
 import type { OnApiUpdate } from '../types/updates';
 import type { TonConnectTransactionPayload } from './adapters/tonConnect/types';
-import type { WalletConnectSessionProposal, WalletConnectSignRequest } from './adapters/walletConnect/types';
+import type {
+  EvmEip712SignDataPayload,
+  WalletConnectSessionProposal,
+  WalletConnectSignRequest,
+} from './adapters/walletConnect/types';
 import type { DappProtocolError } from './errors';
 import type { StoredDappConnection } from './storage';
 
@@ -57,7 +61,7 @@ export type DappTransportType =
   | 'sse' // Server-sent events (TON Connect bridge)
   | 'relay'; // WalletConnect relay server
 
-export type UnifiedSignDataPayload = SignDataPayload;
+export type UnifiedSignDataPayload = SignDataPayload | EvmEip712SignDataPayload;
 
 type ProtocolSpecificData<T extends string> = {
   session: T extends 'tonConnect' ? ConnectEventSuccess : SessionTypes.Namespaces;
@@ -456,14 +460,12 @@ export interface ChainDappSupport<T extends ApiChain = any> {
     password?: string
   ): Promise<DappSignDataResult | { error: ApiAnyDisplayError }>;
 
-  // Used by Solana only now
   parseTransactionForPreview?(
     rawTx: string,
     address: string,
     network: ApiNetwork,
   ): Promise<{ transfers: ApiDappTransfer[]; emulation: ApiEmulationResult | undefined }>;
 
-  // Used by Solana only now
   sendSignedTransaction?(
     transaction: string,
     network: ApiNetwork,

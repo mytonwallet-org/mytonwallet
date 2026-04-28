@@ -5,6 +5,7 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiConnectionType
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
+import org.mytonwallet.app_air.walletcore.moshi.ApiDerivation
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -154,7 +155,8 @@ sealed class ApiUpdate {
         val address: String?,
         /** `false` means that the account has no domain; `undefined` means that the domain has not changed */
         val domain: String?,
-        val isMultisig: Boolean?
+        val isMultisig: Boolean?,
+        val derivation: ApiDerivation?
     ) : ApiUpdate()
 
     // NOTICE: Do NOT forget to add new sub-types to MoshiBuilder file to prevent minification issues.

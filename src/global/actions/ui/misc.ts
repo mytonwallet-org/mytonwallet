@@ -70,8 +70,6 @@ import {
 } from '../../selectors';
 import { switchAccount } from '../api/auth';
 
-import { getIsPortrait } from '../../../hooks/useDeviceScreen';
-
 import { closeModal } from '../../../components/ui/Modal';
 
 const APP_VERSION_URL = IS_ANDROID_APP ? `${IS_PRODUCTION ? PRODUCTION_URL : BETA_URL}/version.txt` : 'version.txt';
@@ -389,6 +387,7 @@ addActionHandler('closeSettings', (global) => {
     return global;
   }
 
+  global = updateSettings(global, { state: SettingsState.Initial });
   return { ...global, areSettingsOpen: false };
 });
 
@@ -472,12 +471,6 @@ addActionHandler('setDeveloperSettingsOverride', (global, actions, { key, value 
       ...global.settings.developerSettingsOverrides,
       [key]: value,
     },
-  });
-});
-
-addActionHandler('setLandscapeActionsActiveTabIndex', (global, actions, { index }) => {
-  return updateCurrentAccountState(global, {
-    landscapeActionsActiveTabIndex: index,
   });
 });
 
@@ -614,7 +607,6 @@ addActionHandler('handleQrCode', async (global, actions, { data: rawData }) => {
   if (plainAddressData) {
     actions.startTransfer({
       ...plainAddressData,
-      isPortrait: getIsPortrait(),
     });
     return;
   }

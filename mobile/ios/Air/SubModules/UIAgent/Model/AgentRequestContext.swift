@@ -33,7 +33,7 @@ struct AgentRequestContext: Encodable {
         } ?? nil
 
         let walletTokenSlugs: [String] = accountContext.walletTokensData
-            .map { Set($0.walletTokens.map(\.tokenSlug) + $0.walletStaked.map(\.tokenSlug)).sorted() }
+            .map { Set($0.orderedTokenBalances.map(\.tokenSlug)).sorted() }
             ?? []
         let walletTokens: [[String]]? = {
             let items: [[String]] = walletTokenSlugs.compactMap { slug -> [String]? in

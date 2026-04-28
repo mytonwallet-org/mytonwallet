@@ -8,6 +8,7 @@ protocol DeeplinkNavigator: AnyObject {
     func handleNotification(_ notification: UNNotification)
 }
 
+@MainActor
 final class DeeplinkHandler {
 
     private weak var deeplinkNavigator: DeeplinkNavigator? = nil
@@ -18,6 +19,9 @@ final class DeeplinkHandler {
     
     func handle(_ url: URL, source: DeeplinkOpenSource = .generic) -> Bool {
         guard let deeplink = Deeplink(url: url) else { return false }
+        if case .switchToClassic = deeplink, !isCapacitorAvailable {
+            return false
+        }
         if source == .exploreSearchBar, !deeplink.isAllowedFromExploreSearchBar {
             return false
         }

@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcontext.globalStorage
 
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
@@ -87,6 +88,7 @@ object WGlobalStorage {
     private const val ARE_ANIMATIONS_ACTIVE = "settings.animationLevel"
     private const val ARE_SIDE_GUTTERS_ACTIVE = "settings.sideGutters"
     private const val ARE_ROUNDED_CORNERS_ACTIVE = "settings.roundedCorners"
+    private const val IS_GRADIENT_NAVIGATION_BAR_ACTIVE = "settings.gradientNavigationBar"
     private const val IS_BLUR_ENABLED = "settings.blurEnabled"
     private const val ARE_SOUNDS_ACTIVE = "settings.canPlaySounds"
     private const val HIDE_TINY_TRANSFERS = "settings.areTinyTransfersHidden"
@@ -403,6 +405,18 @@ object WGlobalStorage {
     fun setAreSideGuttersActive(active: Boolean) {
         globalStorageProvider.set(
             ARE_SIDE_GUTTERS_ACTIVE,
+            active,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    fun isGradientNavigationBarActive(): Boolean {
+        return globalStorageProvider.getBool(IS_GRADIENT_NAVIGATION_BAR_ACTIVE) ?: true
+    }
+
+    fun setIsGradientNavigationBarActive(active: Boolean) {
+        globalStorageProvider.set(
+            IS_GRADIENT_NAVIGATION_BAR_ACTIVE,
             active,
             IGlobalStorageProvider.PERSIST_INSTANT
         )
@@ -805,8 +819,10 @@ object WGlobalStorage {
             ?: return ArrayList()
         return ArrayList<MCollectionTab>(arr.length()).apply {
             for (i in 0 until arr.length()) {
-                val obj = arr.getJSONObject(i)
-                add(MCollectionTab(obj.getString("chain"), obj.getString("address")))
+                val obj = arr.optJSONObject(i) ?: continue
+                val chain = obj.optString("chain").takeIf { it.isNotEmpty() } ?: continue
+                val address = obj.optString("address").takeIf { it.isNotEmpty() } ?: continue
+                add(MCollectionTab(chain, address))
             }
         }
     }
@@ -1104,8 +1120,8 @@ object WGlobalStorage {
             accountIds().forEach { accountId ->
                 val account = getAccount(accountId)
                 val updatedType =
-                    if (account?.getBoolean("isHardware") == true ||
-                        account?.getString("type") == "hardware"
+                    if (account?.optBoolean("isHardware") == true ||
+                        account?.optString("type") == "hardware"
                     )
                         "hardware" else "mnemonic"
                 account?.put("type", updatedType)
@@ -1129,14 +1145,14 @@ object WGlobalStorage {
             WCacheStorage.getTokens()?.let { tokensString ->
                 val tokensJsonArray = JSONArray(tokensString)
                 for (i in 0..<tokensJsonArray.length()) {
-                    migrateObject(tokensJsonArray.get(i) as JSONObject)
+                    migrateObject(tokensJsonArray.optJSONObject(i) ?: continue)
                 }
                 WCacheStorage.setTokens(tokensJsonArray.toString())
             }
             // Update Tokens
             val tokensArray = globalStorageProvider.getArray("tokenInfo.bySlug") ?: JSONArray()
             for (i in 0..<tokensArray.length()) {
-                migrateObject(tokensArray.get(i) as JSONObject)
+                migrateObject(tokensArray.optJSONObject(i) ?: continue)
             }
             globalStorageProvider.set(
                 "tokenInfo.bySlug",
@@ -1374,7 +1390,13 @@ object WGlobalStorage {
     ): String {
         val prefix = if (network == MBlockchainNetwork.MAINNET) "" else "Testnet "
         if (accountIds(network = network).isEmpty()) {
-            return "$prefix${LocaleController.getString("MyTonWallet")}"
+            return "$prefix${
+                LocaleController.getString(
+                    ApplicationContextHolder.applicationContext.getString(
+                        BaseR.string.app_locale_name_key
+                    )
+                )
+            }"
         }
         val count = countAccountsByType(network = network, type = type)
         return "$prefix$baseNameKey ${count + 1}"

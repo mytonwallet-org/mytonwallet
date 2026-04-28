@@ -19,7 +19,7 @@ $amountBottomMargin: 1rem;
 }
 
 .baseCurrencyAmountSensitiveData {
-  --border-radius-value: var(--border-radius-normal);
+  --border-radius-value: var(--border-radius-default);
 
   margin-top: -$amountBottomMargin + 0.625rem;
 }
@@ -28,7 +28,7 @@ $amountBottomMargin: 1rem;
 .baseCurrencyAmount {
   overflow: hidden;
   max-width: 100%;
-  border-radius: var(--border-radius-value);
+  border-radius: var(--border-radius-default);
 }
 
 .amount {
@@ -99,7 +99,7 @@ $amountBottomMargin: 1rem;
 .status {
   margin: 0 auto;
   padding: 0.8125rem 0.75rem;
-  border-radius: var(--border-radius-mini) var(--border-radius-mini) var(--border-radius-default) var(--border-radius-default);
+  border-radius: var(--border-radius-mini) var(--border-radius-mini) var(--border-radius-medium) var(--border-radius-medium);
 
   font-size: 1.0625rem;
   font-weight: 700;

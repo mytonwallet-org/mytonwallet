@@ -8,6 +8,14 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
     case ton
     case tron
     case solana
+    case ethereum
+    case base
+    case bnb
+//    case polygon
+    case arbitrum
+//    case monad
+//    case avalanche
+    case hyperliquid
     case other(String)
 
     public init?(rawValue: String) {
@@ -20,6 +28,22 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
             self = .tron
         case "solana":
             self = .solana
+        case "ethereum":
+            self = .ethereum
+        case "base":
+            self = .base
+        case "bnb":
+            self = .bnb
+//        case "polygon":
+//            self = .polygon
+        case "arbitrum":
+            self = .arbitrum
+//        case "monad":
+//            self = .monad
+//        case "avalanche":
+//            self = .avalanche
+        case "hyperliquid":
+            self = .hyperliquid
         default:
             self = .other(rawValue)
         }
@@ -33,21 +57,32 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
             "tron"
         case .solana:
             "solana"
+        case .ethereum:
+            "ethereum"
+        case .base:
+            "base"
+        case .bnb:
+            "bnb"
+//        case .polygon:
+//            "polygon"
+        case .arbitrum:
+            "arbitrum"
+//        case .monad:
+//            "monad"
+//        case .avalanche:
+//            "avalanche"
+        case .hyperliquid:
+            "hyperliquid"
         case .other(let rawValue):
             rawValue
         }
     }
 
     public var isSupported: Bool {
-        switch self {
-        case .ton, .tron, .solana:
-            true
-        case .other:
-            false
-        }
+        isSupportedChain(self)
     }
 
-    public static let allCases: [ApiChain] = [.ton, .tron, .solana]
+    public static let allCases: [ApiChain] = getSupportedChains()
     
     public var config: ChainConfig {
         getChainConfig(chain: self)
@@ -85,46 +120,45 @@ public func getChainBySlug(_ tokenSlug: String) -> ApiChain? {
 }
 
 public func getChainByNativeSlug(_ tokenSlug: String) -> ApiChain? {
-    switch tokenSlug {
-    case ApiChain.ton.nativeToken.slug: .ton
-    case ApiChain.tron.nativeToken.slug: .tron
-    case ApiChain.solana.nativeToken.slug: .solana
-    default: nil
+    ApiChain.allCases.first {
+        $0.nativeToken.slug == tokenSlug
     }
 }
 
 // MARK: - ChainConfig extensions
 
 public extension ApiChain {
+    static let viewAccountEvmParam = "evm"
+
+    static var evmChains: [ApiChain] {
+        allCases.filter(\.isEvm)
+    }
+
+    var isEvm: Bool {
+        config.chainStandard == .ethereum
+    }
+
     var isOnrampSupported: Bool {
-        guard isSupported else { return false }
+        guard isSupported, config.isOnRampSupported else { return false }
         return config.canBuyWithCardInRussia || ConfigStore.shared.config?.countryCode != "RU"
     }
 
     var isOfframpSupported: Bool {
-        switch self {
-        case .other:
-            false
-        case .ton, .tron, .solana:
-            true
-        }
+        guard isSupported else { return false }
+        return config.isOffRampSupported
     }
 
     var isOnchainSwapSupported: Bool {
         switch self {
         case .ton: true
-        case .tron: false
-        case .solana: false
-        case .other: false
+        default: false
         }
     }
     
     var isSendToSelfAllowed: Bool {
         switch self {
         case .ton: true
-        case .tron: false
-        case .solana: false
-        case .other: false
+        default: false
         }
     }
     
@@ -136,6 +170,12 @@ public extension ApiChain {
             "TRC-20"
         case .solana:
             "Solana"
+        case .bnb:
+            "BEP-20"
+        case .ethereum, .base:
+            "ERC-20"
+        case /*.polygon,*/ .arbitrum, /*.monad, .avalanche,*/ .hyperliquid:
+            "ERC-20"
         case .other(let chain):
             chain.uppercased()
         }
@@ -190,7 +230,7 @@ public extension ApiChain {
                 maxTransfer: 0,
                 maxTransferToken: 0,
             )
-        case .other:
+        default:
             return Gas(
                 maxSwap: nil,
                 maxTransfer: 0,

@@ -10,13 +10,13 @@ import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
 import android.view.View
-import androidx.core.content.ContextCompat
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.core.fromToArgb
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 
 class QrScannerToggleFlashlight @JvmOverloads constructor(
     context: Context,
@@ -32,8 +32,8 @@ class QrScannerToggleFlashlight @JvmOverloads constructor(
 
     private val path = Path()
     private val pathReverse = Path()
-    private val drawableLight = ContextCompat.getDrawable(context, R.drawable.ic_flashlight_75)
-    private val drawableDark = ContextCompat.getDrawable(context, R.drawable.ic_flashlight_75)
+    private val drawableLight = context.getDrawableCompat(R.drawable.ic_flashlight_75)
+    private val drawableDark = context.getDrawableCompat(R.drawable.ic_flashlight_75)
     private val backgroundPaintLight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         color = BACKGROUND_DARK

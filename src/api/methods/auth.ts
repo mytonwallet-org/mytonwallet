@@ -8,6 +8,8 @@ import type {
   ApiAuthImportViewAccountResult,
   ApiBip39Account,
   ApiChain,
+  ApiDerivation,
+  ApiGroupedWalletVariant,
   ApiImportAddressByChain,
   ApiLedgerAccount,
   ApiLedgerAccountInfo,
@@ -22,13 +24,12 @@ import { ApiCommonError } from '../types';
 
 import { IS_TON_MNEMONIC_ONLY } from '../../config';
 import { parseAccountId } from '../../util/account';
+import { getChainConfig, getOrderedAccountChains, getSupportedChains } from '../../util/chain';
 import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import { range } from '../../util/iteratees';
 import { logDebug, logDebugError } from '../../util/logs';
 import { createTaskQueue } from '../../util/schedulers';
 import chains from '../chains';
-import { SOLANA_DERIVATION_PATHS } from '../chains/solana/constants';
-import { extractIndexFromPath } from '../chains/solana/wallet';
 import * as ton from '../chains/ton';
 import {
   fetchStoredAccount,
@@ -99,8 +100,8 @@ export async function importMnemonic(
   }
 
   try {
-    return await Promise.all(networks.map(async (network) => {
-      let account: ApiAccountWithMnemonic;
+    return (await Promise.all(networks.map(async (network) => {
+      let accounts: (ApiAccountWithMnemonic & { derivedFromIndex?: number })[] = [];
       let tonWallet: ApiTonWallet & { lastTxId?: string } | undefined;
       let shouldForceTonMnemonic = false;
 
@@ -112,38 +113,129 @@ export async function importMnemonic(
       }
 
       if (isBip39Mnemonic && !shouldForceTonMnemonic) {
-        account = {
-          type: 'bip39',
-          mnemonicEncrypted,
-          byChain: {},
-        };
+        let foundWallets: (ApiWalletByChain[ApiChain] & { chain: ApiChain })[] = [];
 
         await Promise.all((Object.keys(chains) as (keyof typeof chains)[]).map(async (_chain) => {
           // TypeScript emits false notices, because it doesn't see relations between the key and value types in record
           // mapping. We lock the key type to one of the possible values to resolve the TS notices and have at least
           // some type checking.
           const chain = _chain as 'ton';
-          account.byChain[chain] = await chains[chain].getWalletFromBip39Mnemonic(network, mnemonic);
+          const wallets = await chains[chain].getWalletFromBip39Mnemonic(network, mnemonic);
+
+          if (wallets.length > 0) {
+            foundWallets = [...foundWallets, ...wallets.map((e) => ({ ...e, chain }))];
+          }
         }));
+
+        if (foundWallets.length > 0) {
+          type WalletWithChain = ApiWalletByChain[ApiChain] & { chain: ApiChain };
+          const walletsByDerivationIndex = new Map<number, WalletWithChain[]>();
+
+          for (const e of foundWallets) {
+            const idx = e.derivation?.index ?? 0;
+            if (!walletsByDerivationIndex.has(idx)) {
+              walletsByDerivationIndex.set(idx, []);
+            }
+            walletsByDerivationIndex.get(idx)!.push(e);
+          }
+
+          // For non-zero derivation indices, fill in chains that were missing (had no balance there)
+          // using the derivation path from the chain's index-0 wallet.
+          const allChainKeys = Object.keys(chains) as ApiChain[];
+          const index0Group = walletsByDerivationIndex.get(0) ?? [];
+
+          for (const [derivationIndex, groupWallets] of walletsByDerivationIndex) {
+            if (derivationIndex === 0) continue;
+
+            const foundChains = new Set(groupWallets.map((w) => w.chain));
+
+            await Promise.all(allChainKeys.map(async (_chain) => {
+              // TypeScript emits false notices, because it doesn't see relations between the key and value
+              // types in record mapping. We lock the key type to one of the possible values to resolve the
+              // TS notices and have at least some type checking.
+              const chain = _chain as 'ton';
+              if (foundChains.has(chain)) return;
+
+              // Derive the chain's path from its index-0 wallet
+              const chain0Wallet = index0Group.find((w) => w.chain === chain);
+
+              if (!chain0Wallet?.derivation?.path) {
+                const [placeholderWallet] = await chains[chain].getWalletFromBip39Mnemonic(
+                  network, mnemonic,
+                );
+                if (placeholderWallet) {
+                  groupWallets.push({ ...placeholderWallet, chain });
+                }
+                return;
+              }
+
+              const fillerDerivation: ApiDerivation = {
+                path: chain0Wallet.derivation.path,
+                index: derivationIndex,
+                label: chain0Wallet.derivation.label,
+              };
+
+              const [fillerWallet] = await chains[chain].getWalletFromBip39Mnemonic(
+                network, mnemonic, fillerDerivation,
+              );
+
+              if (fillerWallet) {
+                groupWallets.push({ ...fillerWallet, chain });
+              }
+            }));
+          }
+
+          for (const [index, wallets] of walletsByDerivationIndex) {
+            accounts.push({
+              derivedFromIndex: index,
+              type: 'bip39',
+              mnemonicEncrypted,
+              byChain: Object.fromEntries(wallets.map((e) => [e.chain, e])),
+            });
+          }
+        }
       } else {
         tonWallet ||= await ton.getWalletFromMnemonic(network, mnemonic);
-        account = {
+        accounts = [{
           type: 'ton',
           mnemonicEncrypted,
           byChain: {
             ton: tonWallet,
           },
-        };
+        }];
       }
 
-      const accountId = await addAccount(network, account);
-      void activateAccount(accountId);
+      let primaryAccountId: string | undefined;
 
-      return {
-        accountId,
+      // We need to preserve accountId in account object for return
+      const sortedAccounts: (ApiAccountWithMnemonic & { id?: string; derivedFromIndex?: number })[]
+      = accounts.sort((a, b) => (a.derivedFromIndex ?? 0) - (b.derivedFromIndex ?? 0));
+
+      for (const account of sortedAccounts) {
+        // We need to remove temporary id and derivedFromIndex from the account to preserve db schema
+        const accountToSave = account;
+        delete accountToSave.id;
+        delete accountToSave.derivedFromIndex;
+
+        const accountId = await addAccount(network, accountToSave);
+        account.id = accountId;
+
+        if (!primaryAccountId) {
+          primaryAccountId = accountId;
+        }
+      }
+
+      if (!primaryAccountId) {
+        throw new Error('No primary account found');
+      }
+
+      void activateAccount(primaryAccountId);
+
+      return sortedAccounts.map((account) => ({
+        accountId: account.id!,
         byChain: getAccountChains(account),
-      };
-    }));
+      }));
+    }))).flat();
   } catch (err) {
     return handleServerError(err);
   }
@@ -298,22 +390,25 @@ export async function changePassword(oldPassword: string, password: string) {
 }
 
 export async function upgradeMultichainAccounts(password: string) {
-  const accountsToUpgrade = Object.entries(await fetchStoredAccounts())
-    .filter(([, account]) =>
-      account.type === 'bip39' && (!account.byChain.solana || !account.byChain.solana.derivation),
+  const supportedChains = getSupportedChains();
+
+  const accounts = await fetchStoredAccounts();
+
+  const accountsToUpgrade = Object.entries(accounts)
+    .filter(([, account]) => account.type === 'bip39'
+      && supportedChains.some((chain) =>
+        !account.byChain?.[chain]?.derivation
+        && getChainConfig(chain).isSubwalletsSupported,
+      ),
     ) as [string, ApiBip39Account][];
 
   if (accountsToUpgrade.length) {
-    logDebug('Upgrade multichain accounts', accountsToUpgrade);
+    logDebug('Upgrade multichain accounts', accountsToUpgrade.map((e) => e[0]));
   }
-
-  const updates: {
-    accountId: string;
-    address: string;
-  }[] = [];
 
   for (const [accountId, account] of accountsToUpgrade) {
     const mnemonic = await getMnemonic(accountId, password, account);
+
     if (!mnemonic) {
       return { error: ApiCommonError.InvalidPassword };
     }
@@ -323,37 +418,44 @@ export async function upgradeMultichainAccounts(password: string) {
     }
 
     const { network } = parseAccountId(accountId);
-    const solanaWallet = await (chains.solana.getWalletFromBip39Mnemonic as any)(network, mnemonic, true);
-    const currentAccount = await fetchStoredAccount<ApiBip39Account>(accountId);
 
-    if (currentAccount.type !== 'bip39'
-      || (currentAccount.byChain.solana && currentAccount.byChain.solana.derivation)
-    ) {
-      continue;
+    for (const chain of supportedChains) {
+      if (!getChainConfig(chain).isSubwalletsSupported) {
+        continue;
+      }
+
+      if (account.byChain?.[chain]?.derivation) {
+        continue;
+      }
+
+      try {
+        const [wallet] = await (chains[chain].getWalletFromBip39Mnemonic as any)(network, mnemonic, undefined, true);
+
+        if (!wallet) {
+          continue;
+        }
+
+        const fresh = await fetchStoredAccount<ApiBip39Account>(accountId);
+        if (fresh.byChain?.[chain]?.derivation) {
+          continue;
+        }
+
+        await updateStoredAccount<ApiBip39Account>(accountId, {
+          byChain: { ...(fresh.byChain ?? {}), [chain]: wallet },
+        });
+
+        onUpdate({
+          type: 'updateAccount',
+          accountId,
+          chain,
+          address: wallet.address,
+          derivation: wallet.derivation,
+        });
+      } catch (err) {
+        logDebugError('upgradeMultichainAccounts: chain failed', { accountId, chain }, err);
+      }
     }
-
-    await updateStoredAccount<ApiBip39Account>(accountId, {
-      byChain: {
-        ...currentAccount.byChain,
-        solana: solanaWallet,
-      },
-    });
-
-    onUpdate({
-      type: 'updateAccount',
-      accountId,
-      chain: 'solana',
-      address: solanaWallet.address,
-      derivation: solanaWallet.derivation,
-    });
-
-    updates.push({
-      accountId,
-      address: solanaWallet.address,
-    });
   }
-
-  return updates;
 }
 
 export async function importViewAccount(
@@ -451,204 +553,360 @@ export async function importNewWalletVersion(
   };
 }
 
-export async function getWalletVariants(
-  network: ApiNetwork,
-  chain: ApiChain,
-  accountId: string,
-  page: number,
-  isTestnetSubwalletId?: boolean,
-  mnemonic?: string[],
+const SETTINGS_SUBWALLET_PAGE_SIZE = 4;
+
+function isGroupedVariantSameAsCurrentAccount(
+  account: ApiBip39Account,
+  byChain: ApiGroupedWalletVariant['byChain'],
 ) {
-  const account = await fetchStoredChainAccount(accountId, chain);
-
-  const chainVariants = await chains[chain].getWalletVariants(
-    network,
-    account,
-    page,
-    isTestnetSubwalletId,
-    mnemonic,
-  );
-
-  if ('error' in chainVariants) {
-    return chainVariants;
-  }
-
-  const solanaAccount = account.byChain.solana;
-
-  if (
-    chain === 'solana'
-    && solanaAccount?.address
-    && !solanaAccount.derivation
-    && mnemonic
-  ) {
-    const match = chainVariants.find((variant) => {
-      return variant.wallet.address === solanaAccount.address
-        && variant.metadata?.type === 'path';
-    });
-
-    if (match && match.metadata?.type === 'path') {
-      const path = match.wallet.derivation?.path || SOLANA_DERIVATION_PATHS.phantom;
-      const index = extractIndexFromPath(path);
-      const label = match.wallet.derivation?.label;
-
-      await updateStoredWallet(accountId, 'solana', {
-        derivation: { path, index, label },
-      });
+  for (const chain of Object.keys(byChain) as ApiChain[]) {
+    const entry = byChain[chain];
+    if (!entry) return false;
+    if (account.byChain[chain]?.address !== entry.wallet.address) {
+      return false;
     }
   }
-
-  return chainVariants;
+  return true;
 }
 
-export async function createSubWallet<T extends ApiChain>(
-  chain: T,
+async function maybeMigrateSolanaDerivation(
   accountId: string,
-  password: string,
+  account: ApiBip39Account,
+  pageGroups: ApiGroupedWalletVariant[],
 ) {
-  const account = await fetchStoredAccount<ApiAccountWithMnemonic>(accountId);
+  const solanaAccount = account.byChain.solana;
+  if (!solanaAccount?.address || solanaAccount.derivation) return;
 
-  if (!('mnemonicEncrypted' in account)) {
+  for (const group of pageGroups) {
+    const sol = group.byChain.solana;
+    if (!sol?.hasDerivation || sol.wallet.address !== solanaAccount.address) continue;
+    const { path, index, label } = sol.wallet.derivation ?? {};
+    if (path === undefined || typeof index !== 'number') continue;
+
+    await updateStoredWallet(accountId, 'solana', {
+      derivation: { path, index, ...(label !== undefined && { label }) },
+    });
+
+    break;
+  }
+}
+
+export async function getWalletVariants(
+  accountId: string,
+  page: number,
+  mnemonic: string[],
+): Promise<ApiGroupedWalletVariant[] | { error: ApiAnyDisplayError }> {
+  if (!mnemonic?.length) {
     return { error: ApiCommonError.Unexpected };
   }
 
-  const wallet = account.byChain[chain];
+  const account = await fetchStoredAccount<ApiBip39Account>(accountId);
 
-  if (!wallet || !wallet.derivation) {
+  if (account.type !== 'bip39') {
     return { error: ApiCommonError.Unexpected };
-  }
-
-  const mnemonic = await getMnemonic(accountId, password, account);
-  if (!mnemonic) {
-    return { error: ApiCommonError.InvalidPassword };
   }
 
   const { network } = parseAccountId(accountId);
 
-  const newWallet = await chains[chain].createSubWalletFromDerivation(
-    network,
-    account as ApiAccountWithChain<typeof chain>,
-    mnemonic,
-  );
+  const offset = page * SETTINGS_SUBWALLET_PAGE_SIZE;
+  const pageGroups: ApiGroupedWalletVariant[] = [];
 
-  if (!newWallet || 'error' in newWallet) {
-    return newWallet;
+  for (let i = 0; i < SETTINGS_SUBWALLET_PAGE_SIZE; i++) {
+    const index = offset + i;
+    const byChain: ApiGroupedWalletVariant['byChain'] = {};
+    let totalBalance = 0n;
+    let anyPositive = false;
+
+    for (const chain of getSupportedChains()) {
+      const parentWallet = account.byChain[chain];
+
+      if (!parentWallet) continue;
+
+      if (!getChainConfig(chain).isSubwalletsSupported) {
+        const balance = await chains[chain].getWalletBalance(network, parentWallet.address);
+
+        totalBalance += balance;
+
+        const { index: _index, ...wallet } = parentWallet;
+        byChain[chain] = {
+          wallet: wallet as Omit<ApiWalletByChain[typeof chain], 'index'>,
+          balance,
+          hasDerivation: false,
+        };
+
+        continue;
+      }
+
+      let pathTemplate = parentWallet.derivation?.path;
+      if (!pathTemplate) {
+        pathTemplate = getChainConfig(chain).defaultDerivationPath;
+      }
+
+      if (!pathTemplate) {
+        return { error: ApiCommonError.Unexpected };
+      }
+
+      const derivation: ApiDerivation = {
+        path: pathTemplate,
+        index,
+        label: parentWallet.derivation?.label,
+      };
+
+      const wallets = await chains[chain].getWalletFromBip39Mnemonic(network, mnemonic, derivation);
+      const w = wallets[0];
+
+      if (!w) {
+        return { error: ApiCommonError.Unexpected };
+      }
+
+      const { index: _wi, ...walletRest } = w;
+      const balance = await chains[chain].getWalletBalance(network, walletRest.address);
+
+      totalBalance += balance;
+      if (balance > 0n) anyPositive = true;
+
+      byChain[chain] = {
+        wallet: walletRest as Omit<ApiWalletByChain[typeof chain], 'index'>,
+        balance,
+        hasDerivation: true,
+      };
+    }
+
+    if (!anyPositive || isGroupedVariantSameAsCurrentAccount(account, byChain)) {
+      continue;
+    }
+
+    pageGroups.push({
+      index,
+      totalBalance,
+      byChain,
+    });
   }
 
-  const accounts = await fetchStoredAccounts();
-
-  const duplicate = Object.entries(accounts).find(
-    ([id, acc]) => id !== accountId
-      && acc.byChain[chain]?.address === newWallet.address
-      && acc.type !== 'view',
-  );
-
-  if (duplicate) {
-    logDebugError('Duplicate account found', duplicate);
-
-    return { isNew: false as const, accountId: duplicate[0] };
+  if (page === 0) {
+    await maybeMigrateSolanaDerivation(accountId, account, pageGroups);
   }
 
-  const newAccountData = {
-    ...account,
-    byChain: {
-      ...account.byChain,
-      [chain]: newWallet,
-    },
-  };
-  const newAccountId = await addAccount(network, newAccountData);
+  return pageGroups;
+}
 
-  onUpdate({
-    type: 'updateAccount',
-    accountId: newAccountId,
-    chain,
-    address: newWallet.address,
-    derivation: newWallet.derivation,
-  });
+export async function createSubWallet(accountId: string, password: string) {
+  try {
+    const account = await fetchStoredAccount<ApiBip39Account>(accountId);
 
-  void activateAccount(newAccountId, undefined, true);
+    if (account.type !== 'bip39') {
+      return { error: ApiCommonError.Unexpected };
+    }
 
-  return {
-    isNew: true as const,
-    address: newWallet.address,
-    derivation: newWallet.derivation,
-    accountId: newAccountId,
-    byChain: getAccountChains(newAccountData),
-  };
+    const mnemonic = await getMnemonic(accountId, password, account);
+
+    if (!mnemonic) {
+      return { error: ApiCommonError.InvalidPassword };
+    }
+
+    if (isMnemonicPrivateKey(mnemonic)) {
+      return { error: ApiCommonError.Unexpected };
+    }
+
+    const { network } = parseAccountId(accountId);
+    const stored = await fetchStoredAccounts();
+
+    const siblings = Object.entries(stored).filter(([id, acc]) => {
+      if (!('mnemonicEncrypted' in acc)) return false;
+      if (acc.mnemonicEncrypted !== account.mnemonicEncrypted) return false;
+
+      return parseAccountId(id).network === network;
+    }).map(([, acc]) => acc);
+
+    let maxIndex = -1;
+
+    for (const sib of siblings) {
+      for (const chain of Object.keys(sib.byChain) as ApiChain[]) {
+        const idx = sib.byChain[chain]?.derivation?.index;
+
+        if (typeof idx === 'number') maxIndex = Math.max(maxIndex, idx);
+      }
+    }
+
+    const chainKeys = getOrderedAccountChains(account.byChain);
+    const hasParentDerivation = chainKeys.some((c) => account.byChain[c]?.derivation);
+
+    if (!hasParentDerivation) {
+      return { error: ApiCommonError.Unexpected };
+    }
+
+    const newIndex = maxIndex + 1;
+    const newByChain: ApiBip39Account['byChain'] = {};
+
+    for (const chain of chainKeys) {
+      const parentWallet = account.byChain[chain]!;
+
+      let pathTemplate = parentWallet.derivation?.path;
+      if (!pathTemplate) {
+        pathTemplate = getChainConfig(chain).defaultDerivationPath;
+      }
+
+      const derivation: ApiDerivation | undefined = pathTemplate
+        ? {
+          path: pathTemplate,
+          index: newIndex,
+          label: parentWallet.derivation?.label,
+        }
+        : undefined;
+
+      const wallets = await chains[chain].getWalletFromBip39Mnemonic(network, mnemonic, derivation);
+      const wallet = wallets[0];
+
+      if (!wallet) {
+        return { error: ApiCommonError.Unexpected };
+      }
+
+      (newByChain as Record<ApiChain, ApiWalletByChain[ApiChain]>)[chain] = {
+        ...parentWallet,
+        ...wallet,
+        index: parentWallet.index,
+      } as ApiWalletByChain[typeof chain];
+    }
+
+    const duplicateEntry = Object.entries(stored).find(([id, acc]) => {
+      if (id === accountId || acc.type === 'view') return false;
+      if (!('mnemonicEncrypted' in acc)) return false;
+      if (acc.mnemonicEncrypted !== account.mnemonicEncrypted) return false;
+      if (parseAccountId(id).network !== network) return false;
+
+      const sameAddresses = chainKeys.every((c) => acc.byChain[c]?.address === newByChain[c]?.address);
+
+      const hasDerivationIndexToMatch = chainKeys.some(
+        (c) => typeof newByChain[c]?.derivation?.index === 'number',
+      );
+
+      const sameDerivationIndex = hasDerivationIndexToMatch && chainKeys.every((c) => {
+        const nextIdx = newByChain[c]?.derivation?.index;
+
+        if (typeof nextIdx !== 'number') return true;
+
+        return acc.byChain[c]?.derivation?.index === nextIdx;
+      });
+
+      return sameAddresses || sameDerivationIndex;
+    });
+
+    if (duplicateEntry) {
+      logDebugError('Duplicate account found (createSubWallet)', duplicateEntry);
+
+      void activateAccount(duplicateEntry[0]);
+
+      return { isNew: false as const, accountId: duplicateEntry[0] };
+    }
+
+    const newAccountData: ApiBip39Account = {
+      type: 'bip39',
+      mnemonicEncrypted: account.mnemonicEncrypted,
+      byChain: newByChain,
+    };
+
+    const newAccountId = await addAccount(network, newAccountData);
+
+    for (const chain of chainKeys) {
+      const w = newByChain[chain]!;
+
+      onUpdate({
+        type: 'updateAccount',
+        accountId: newAccountId,
+        chain,
+        address: w.address,
+        ...(w.derivation && { derivation: w.derivation }),
+      });
+    }
+
+    void activateAccount(newAccountId, undefined, true);
+
+    return {
+      isNew: true as const,
+      accountId: newAccountId,
+      byChain: getAccountChains(newAccountData),
+    };
+  } catch (err) {
+    return handleServerError(err);
+  }
 }
 
 export async function addSubWallet(
-  chain: ApiChain,
   accountId: string,
-  newWallet: Omit<ApiWalletByChain[ApiChain], 'index'>,
-  isReplace: boolean,
+  partialByChain: Partial<Record<ApiChain, Omit<ApiWalletByChain[ApiChain], 'index'>>>,
 ) {
-  const account = await fetchStoredChainAccount(accountId, chain);
+  const account = await fetchStoredAccount<ApiBip39Account>(accountId);
 
+  if (account.type !== 'bip39') {
+    return { error: ApiCommonError.Unexpected };
+  }
+
+  const { network } = parseAccountId(accountId);
   const accounts = await fetchStoredAccounts();
+  const chainKeys = Object.keys(partialByChain) as ApiChain[];
 
-  const duplicate = Object.entries(accounts).find(
-    ([id, acc]) => id !== accountId
-      && acc.byChain[chain]?.address === newWallet.address
-      && acc.type !== 'view',
-  );
+  if (!chainKeys.length) {
+    return { error: ApiCommonError.Unexpected };
+  }
+
+  const duplicate = Object.entries(accounts).find(([id, acc]) => {
+    if (id === accountId || acc.type === 'view') return false;
+    if (!('mnemonicEncrypted' in acc)) return false;
+    if (acc.mnemonicEncrypted !== account.mnemonicEncrypted) return false;
+    if (parseAccountId(id).network !== network) return false;
+
+    return chainKeys.every((c) => acc.byChain[c]?.address === partialByChain[c]?.address);
+  });
 
   if (duplicate) {
     logDebugError('Duplicate account found', duplicate);
 
+    void activateAccount(duplicate[0]);
+
     return { isNew: false as const, accountId: duplicate[0] };
   }
 
-  if (!isReplace) {
-    const { network } = parseAccountId(accountId);
-    const newAccount: ApiAccountAny = {
-      ...account,
-      byChain: {
-        ...account.byChain,
-        [chain]: {
-          ...newWallet,
-          index: account.byChain[chain].index,
-          publicKey: newWallet.publicKey || account.byChain[chain].publicKey,
-        },
-      },
-    };
-    const newAccountId = await addAccount(network, newAccount);
+  const newByChain: ApiBip39Account['byChain'] = { ...account.byChain };
+
+  for (const chain of chainKeys) {
+    const parentWallet = account.byChain[chain]!;
+    const newWallet = partialByChain[chain]!;
+
+    (newByChain as Record<ApiChain, ApiWalletByChain[ApiChain]>)[chain] = {
+      ...parentWallet,
+      ...newWallet,
+      index: parentWallet.index,
+      publicKey: newWallet.publicKey || parentWallet.publicKey,
+    } as ApiWalletByChain[typeof chain]; // merged chain wallet shapes differ per chain
+  }
+
+  const newAccountData: ApiBip39Account = {
+    type: 'bip39',
+    mnemonicEncrypted: account.mnemonicEncrypted,
+    byChain: newByChain,
+  };
+
+  const newAccountId = await addAccount(network, newAccountData);
+
+  for (const chain of chainKeys) {
+    const w = newByChain[chain]!;
 
     onUpdate({
       type: 'updateAccount',
       accountId: newAccountId,
       chain,
-      address: newWallet.address,
+      address: w.address,
+      ...(w.derivation && { derivation: w.derivation }),
     });
-
-    void activateAccount(newAccountId);
-
-    return {
-      isNew: true as const,
-      address: newWallet.address,
-      accountId: newAccountId,
-      byChain: getAccountChains(newAccount),
-    };
   }
 
-  await updateStoredAccount(accountId, {
-    byChain: { ...account.byChain, [chain]: {
-      ...newWallet,
-      index: account.byChain[chain].index,
-      publicKey: newWallet.publicKey || account.byChain[chain].publicKey,
-    } },
-  });
+  void activateAccount(newAccountId, undefined, true);
 
-  onUpdate({
-    type: 'updateAccount',
-    accountId,
-    chain,
-    address: newWallet.address,
-    derivation: newWallet.derivation,
-  });
-
-  void activateAccount(accountId);
-
-  return { isNew: false as const, accountId };
+  return {
+    isNew: true as const,
+    accountId: newAccountId,
+    byChain: getAccountChains(newAccountData),
+  };
 }
 
 /** In explorer mode, we don't need to store all data, only current account, so we clear the storage  */

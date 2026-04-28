@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicreatewallet.viewControllers.intro
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.graphics.Color
 import android.text.Spannable
@@ -13,11 +14,13 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.TEXT_ALIGNMENT_CENTER
+import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.TextView
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -28,7 +31,9 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.WSpeedingDiamondView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
@@ -37,15 +42,18 @@ import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleView
 import org.mytonwallet.app_air.uicomponents.widgets.pulseView
 import org.mytonwallet.app_air.uicomponents.widgets.shakeView
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.addAccountOptions.AddAccountOptionsVC
-import org.mytonwallet.app_air.uisettings.viewControllers.appInfo.AppInfoVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.backup.BackupVC
-import org.mytonwallet.app_air.uisettings.viewControllers.userResponsibility.UserResponsibilityVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
+import org.mytonwallet.app_air.uisettings.viewControllers.appInfo.AppInfoVC
+import org.mytonwallet.app_air.uisettings.viewControllers.userResponsibility.UserResponsibilityVC
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -64,13 +72,22 @@ class IntroVC(
 
     override val shouldDisplayTopBar = false
 
+    private val isGramApp = ApplicationContextHolder.isGramApp
+
     // Normal particle configuration
-    private val particleParams = ParticleConfig(
-        particleCount = 35,
-        centerShift = floatArrayOf(0f, 32f),
-        distanceLimit = 0.45f,
-        color = ParticleConfig.Companion.PARTICLE_COLORS.TON
-    )
+    private val particleParams =
+        if (isGramApp) ParticleConfig(
+            particleCount = 35,
+            centerShift = floatArrayOf(0f, -36f),
+            distanceLimit = 0.45f,
+            colorPair = ParticleConfig.Companion.PARTICLE_COLORS.PURPLE_GRADIENT,
+            useStarShape = true
+        ) else ParticleConfig(
+            particleCount = 35,
+            centerShift = floatArrayOf(0f, 32f),
+            distanceLimit = 0.45f,
+            color = ParticleConfig.Companion.PARTICLE_COLORS.TON
+        )
 
     var particlesCleaner: (() -> Unit)? = null
     val tonParticlesView = ParticleView(context).apply {
@@ -78,26 +95,37 @@ class IntroVC(
         isGone = true
     }
 
+    val diamondAnimationView: WSpeedingDiamondView? = if (isGramApp) {
+        WSpeedingDiamondView(view.context).apply {
+            id = View.generateViewId()
+            bindParticleHost(tonParticlesView, centerShift = floatArrayOf(0f, -36f))
+        }
+    } else null
+
     val logoImageView = AppCompatImageView(view.context).apply {
         id = View.generateViewId()
-        setImageDrawable(
-            ContextCompat.getDrawable(
-                view.context,
-                org.mytonwallet.app_air.uicomponents.R.drawable.img_logo
-            )
-        )
-        setOnClickListener {
-            pulseView(0.98f, AnimationConstants.VERY_VERY_QUICK_ANIMATION)
-            tonParticlesView.addParticleSystem(
-                ParticleConfig.particleBurstParams(
-                    ParticleConfig.Companion.PARTICLE_COLORS.TON
+        if (isGramApp) {
+            isGone = true
+        } else {
+            setImageDrawable(
+                AppCompatResources.getDrawable(
+                    view.context,
+                    org.mytonwallet.app_air.uicomponents.R.drawable.img_logo
                 )
             )
+            setOnClickListener {
+                pulseView(0.98f, AnimationConstants.VERY_VERY_QUICK_ANIMATION)
+                tonParticlesView.addParticleSystem(
+                    ParticleConfig.particleBurstParams(
+                        ParticleConfig.Companion.PARTICLE_COLORS.TON
+                    )
+                )
+            }
         }
     }
 
     val titleLabel = WLabel(view.context).apply {
-        text = LocaleController.getString("MyTonWallet")
+        text = LocaleController.getString(context.getString(BaseR.string.app_locale_name_key))
         setStyle(32f, WFont.NunitoExtraBold)
         setTextColor(WColor.PrimaryText)
     }
@@ -119,7 +147,7 @@ class IntroVC(
     val moreInfoButton: WLabel by lazy {
         val btn = WLabel(context)
         btn.textAlignment = TEXT_ALIGNMENT_CENTER
-        btn.setStyle(16f)
+        btn.setStyle(adaptiveFontSize())
         btn.setPaddingDp(16, 8, 16, 8)
         btn.setOnClickListener {
             push(AppInfoVC(context))
@@ -169,23 +197,24 @@ class IntroVC(
         btn
     }
 
-    override fun setupViews() {
-        super.setupViews()
+    private val contentView = WView(context).apply {
+        addView(tonParticlesView, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+        addView(logoImageView, FrameLayout.LayoutParams(124.dp, 124.dp))
+        diamondAnimationView?.let { dv ->
+            addView(dv, FrameLayout.LayoutParams(124.dp, 124.dp))
+            alpha = 0f
+            dv.start(onStart = { fadeIn(AnimationConstants.VERY_VERY_QUICK_ANIMATION) })
+        }
+        addView(titleLabel)
+        addView(subtitleLabel, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+        addView(moreInfoButton)
+        addView(termsView, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(createNewWalletButton, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+        addView(importExistingWalletButton, FrameLayout.LayoutParams(0, WRAP_CONTENT))
 
-        setTopBlur(visible = false, animated = false)
-
-        view.addView(tonParticlesView, FrameLayout.LayoutParams(0, WRAP_CONTENT))
-        view.addView(logoImageView, FrameLayout.LayoutParams(124.dp, 124.dp))
-        view.addView(titleLabel)
-        view.addView(subtitleLabel, FrameLayout.LayoutParams(0, WRAP_CONTENT))
-        view.addView(moreInfoButton)
-        view.addView(termsView, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        view.addView(createNewWalletButton, FrameLayout.LayoutParams(0, WRAP_CONTENT))
-        view.addView(importExistingWalletButton, FrameLayout.LayoutParams(0, WRAP_CONTENT))
-
-        view.isVisible = false
-        view.post {
-            view.isVisible = true
+        isVisible = false
+        post {
+            isVisible = true
             val screenHeight =
                 (navigationController?.height ?: 0) -
                     (navigationController?.getSystemBars()?.top ?: 0) -
@@ -197,7 +226,7 @@ class IntroVC(
             val subtitleTopMargin = if (screenHeight < minRequiredHeight) 12f else 18f
             val moreInfoTopMargin = if (screenHeight < minRequiredHeight) 22f else 43f
 
-            view.setConstraints {
+            setConstraints {
                 toTopPx(
                     tonParticlesView,
                     (navigationController?.getSystemBars()?.top
@@ -209,7 +238,16 @@ class IntroVC(
                     (navigationController?.getSystemBars()?.top ?: 0) + logoTopMargin.dp
                 )
                 toCenterX(logoImageView)
-                topToBottom(titleLabel, logoImageView, titleTopMargin)
+                diamondAnimationView?.let {
+                    toTopPx(
+                        it,
+                        (navigationController?.getSystemBars()?.top ?: 0) + logoTopMargin.dp
+                    )
+                    toCenterX(it)
+                    topToBottom(titleLabel, it, titleTopMargin)
+                } ?: run {
+                    topToBottom(titleLabel, logoImageView, titleTopMargin)
+                }
                 toCenterX(titleLabel, 32f)
                 topToBottom(subtitleLabel, titleLabel, subtitleTopMargin)
                 toCenterX(subtitleLabel, 20f)
@@ -227,6 +265,14 @@ class IntroVC(
                 toCenterX(termsView, 32f)
             }
         }
+    }
+
+    override fun setupViews() {
+        super.setupViews()
+
+        setTopBlur(visible = false, animated = false)
+
+        view.addView(contentView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
 
         updateTheme()
     }
@@ -252,12 +298,21 @@ class IntroVC(
             particlesCleaner = tonParticlesView.addParticleSystem(particleParams)
             tonParticlesView.isGone = false
         }
-        tonParticlesView.fadeIn()
+        if (contentView.alpha == 0f) {
+            tonParticlesView.alpha = 0f
+            tonParticlesView.fadeIn(AnimationConstants.VERY_VERY_QUICK_ANIMATION)
+        } else {
+            tonParticlesView.alpha = 1f
+        }
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
-        tonParticlesView.fadeOut()
+        tonParticlesView.fadeOut(AnimationConstants.VERY_VERY_QUICK_ANIMATION) {
+            particlesCleaner?.invoke()
+            particlesCleaner = null
+            tonParticlesView.isGone = true
+        }
     }
 
     override fun onDestroy() {
@@ -270,7 +325,7 @@ class IntroVC(
         val str = LocaleController.getSpannableStringWithKeyValues(
             "More about %app_name%",
             listOf(
-                Pair("%app_name%", "MyTonWallet")
+                Pair("%app_name%", context.getString(BaseR.string.app_locale_name_key))
             )
         )
         attr.append(SpannableString("$str ").apply {
@@ -281,10 +336,9 @@ class IntroVC(
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
         })
-        val drawable = ContextCompat.getDrawable(
-            context,
+        val drawable = context.requireDrawableCompat(
             org.mytonwallet.app_air.walletcontext.R.drawable.ic_relate_right
-        )!!
+        )
         drawable.mutate()
         drawable.setTint(WColor.SecondaryText.color)
         val width = 6.dp

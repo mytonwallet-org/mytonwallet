@@ -36,7 +36,6 @@ type SuggestionItem =
   | { type: 'wallet'; value: WalletSuggestion };
 
 interface OwnProps {
-  shouldShowNotch: boolean;
   sites: ApiSite[] | undefined;
 }
 
@@ -49,7 +48,6 @@ interface StateProps {
 const SUGGESTIONS_OPEN_DELAY = 300;
 
 function ExploreSearch({
-  shouldShowNotch,
   sites,
   allSites,
   browserHistory,
@@ -218,7 +216,7 @@ function ExploreSearch({
   }
 
   return (
-    <div className={buildClassName(styles.searchWrapper, 'with-notch-on-scroll', shouldShowNotch && 'is-scrolled')}>
+    <div className={styles.searchWrapper}>
       <form action="#" onSubmit={handleSearchSubmit} className={styles.searchContainer} autoComplete="off">
         <i className={buildClassName(styles.searchIcon, 'icon-search')} aria-hidden />
         <input

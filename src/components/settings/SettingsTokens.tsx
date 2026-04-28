@@ -37,7 +37,7 @@ function SettingsTokens({
   tokens,
   baseCurrency,
   isSensitiveDataHidden,
-  pinnedSlugs = [],
+  pinnedSlugs,
 }: OwnProps) {
   const {
     openSettingsWithState,
@@ -88,7 +88,7 @@ function SettingsTokens({
     } = token;
 
     const totalAmount = bigintMultiplyToNumber(amount, price);
-    const isPinned = pinnedSlugs.includes(slug);
+    const isPinned = pinnedSlugs?.includes(slug);
     const tokenName = getTokenName(lang, token);
 
     const isDeleteButtonVisible = amount === 0n;

@@ -1,11 +1,11 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.Layout
 import android.text.SpannableStringBuilder
 import android.util.TypedValue
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
@@ -21,6 +21,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.WORD_JOIN
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.replaceSpacesWithNbsp
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
@@ -49,7 +50,7 @@ class WAddressActionView(context: Context) : WLabel(context) {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
-        setStyle(16f, WFont.Regular)
+        setStyle(adaptiveFontSize(), WFont.Regular)
         setTextColor(WColor.SecondaryText)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         letterSpacing = -0.015f
@@ -91,7 +92,7 @@ class WAddressActionView(context: Context) : WLabel(context) {
         val data = data ?: return
         val blockchain = MBlockchain.valueOfOrNull(data.chain)
         val chainIconDrawable = blockchain?.symbolIconPadded?.let { symbol ->
-            ContextCompat.getDrawable(context, symbol)?.mutate()
+            context.getDrawableCompat(symbol)?.mutate()
         }
 
         val accentSpans = mutableListOf<WTypefaceSpan>()
@@ -121,8 +122,7 @@ class WAddressActionView(context: Context) : WLabel(context) {
                 appendStyledAddress(data.address, accentSpans)
             }
 
-            val expandDrawable = ContextCompat.getDrawable(
-                context,
+            val expandDrawable = context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
             )?.mutate()?.apply {
                 setTint(WColor.SecondaryText.color)

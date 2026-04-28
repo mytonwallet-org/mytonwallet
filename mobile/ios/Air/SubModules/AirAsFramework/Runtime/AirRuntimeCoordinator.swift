@@ -182,6 +182,9 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
             case .stake:
                 AppActions.showEarn(accountContext: accountContext, tokenSlug: nil)
 
+            case .portfolio:
+                AppActions.showPortfolio(accountContext: accountContext)
+
             case .url(let config):
                 AppActions.openInBrowser(config.url, title: config.title, injectDappConnect: config.injectDappConnect)
 

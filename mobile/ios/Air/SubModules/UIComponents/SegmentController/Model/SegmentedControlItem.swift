@@ -6,12 +6,12 @@ import WalletContext
 
 public struct SegmentedControlItem: Identifiable, Equatable, Hashable, Sendable {
     
-    public var id: String
+    public let id: String
     var title: String
     var contextMenuProvider: SegmentedControlContextMenuProvider?
     var hidesMenuIcon: Bool
     var isDeletable: Bool
-    var viewController: WSegmentedControllerContent
+    public let viewController: WSegmentedControllerContent
         
     public init(
         id: String,
@@ -41,5 +41,9 @@ public struct SegmentedControlItem: Identifiable, Equatable, Hashable, Sendable 
     
     var shouldShowMenuIconWhenActive: Bool {
         contextMenuProvider != nil && !hidesMenuIcon
+    }
+    
+    var canHaveAccessoryView: Bool {
+        shouldShowMenuIconWhenActive
     }
 }

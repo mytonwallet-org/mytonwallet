@@ -4,7 +4,7 @@ import React, {
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiStakingState, ApiTokenWithPrice } from '../../api/types';
-import { ActiveTab, ContentTab, type Theme, type TokenChartMode } from '../../global/types';
+import { ContentTab, type Theme, type TokenChartMode } from '../../global/types';
 
 import { IS_CORE_WALLET, IS_EXPLORER } from '../../config';
 import {
@@ -13,7 +13,6 @@ import {
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
-  selectIsHardwareAccount,
   selectIsOffRampAllowed,
   selectIsStakingDisabled,
   selectIsSwapDisabled,
@@ -55,11 +54,16 @@ import VestingPasswordModal from '../vesting/VestingPasswordModal';
 import MainSkeleton from './MainSkeleton';
 import AccountSelectorModal from './modals/accountSelector/AccountSelectorModal';
 import PromotionModal from './modals/PromotionModal';
-import { LandscapeActions, PortraitActions } from './sections/Actions';
+import {
+  LandscapeNavBar,
+  LandscapeWalletList,
+  PortraitActions,
+} from './sections/Actions';
 import PromoteWallet from './sections/Actions/PromoteWallet';
 import Card from './sections/Card';
-import Content from './sections/Content';
+import PortraitContent from './sections/Content/PortraitContent';
 import Header, { HEADER_HEIGHT_REM } from './sections/Header/Header';
+import LandscapeLayout from './sections/LandscapeLayout';
 import Warnings from './sections/Warnings';
 
 import styles from './Main.module.scss';
@@ -73,7 +77,6 @@ type StateProps = {
   currentToken?: ApiTokenWithPrice;
   stakingState?: ApiStakingState;
   isTestnet?: boolean;
-  isLedger?: boolean;
   isViewMode: boolean;
   isStakingInfoModalOpen?: boolean;
   isSwapDisabled?: boolean;
@@ -95,7 +98,6 @@ function Main({
   stakingState,
   isTestnet,
   isViewMode,
-  isLedger,
   isStakingInfoModalOpen,
   isSwapDisabled,
   isStakingDisabled,
@@ -114,7 +116,6 @@ function Main({
     closeStakingInfo,
     openStakingInfoOrStart,
     changeCurrentStaking,
-    setLandscapeActionsActiveTabIndex,
     loadExploreSites,
     updatePendingSwaps,
   } = getActions();
@@ -201,11 +202,7 @@ function Main({
   const handleEarnClick = useLastCallback((stakingId?: string) => {
     if (stakingId) changeCurrentStaking({ stakingId });
 
-    if (isPortrait || isViewMode) {
-      openStakingInfoOrStart();
-    } else {
-      setLandscapeActionsActiveTabIndex({ index: ActiveTab.Stake });
-    }
+    openStakingInfoOrStart();
   });
 
   function renderPortraitLayout() {
@@ -246,7 +243,7 @@ function Main({
           )}
         </div>
 
-        <Content
+        <PortraitContent
           isActive={isActive}
           onStakedTokenClick={handleEarnClick}
           onTabsStuck={setAreTabsStuck}
@@ -274,22 +271,13 @@ function Main({
             tokenChartMode={tokenChartMode}
             onYieldClick={handleEarnClick}
           />
-          {!isViewMode && (
-            <LandscapeActions
-              containerRef={landscapeContainerRef}
-              stakingStatus={stakingStatus}
-              isLedger={isLedger}
-              isOffRampDisabled={!isOffRampAllowed}
-              theme={theme}
-            />
-          )}
 
-          {IS_EXPLORER && (
-            <PromoteWallet />
-          )}
+          <LandscapeNavBar />
+          <LandscapeWalletList />
+          {IS_EXPLORER && <PromoteWallet />}
         </div>
         <div className={styles.main}>
-          <Content onStakedTokenClick={handleEarnClick} />
+          <LandscapeLayout onStakedTokenClick={handleEarnClick} />
         </div>
       </div>
     );
@@ -333,7 +321,6 @@ function Main({
 export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
-      const isLedger = selectIsHardwareAccount(global);
       const currentAccountId = selectCurrentAccountId(global);
       const accountState = selectCurrentAccountState(global);
       const { currentTokenSlug, isAppReady } = accountState ?? {};
@@ -350,7 +337,6 @@ export default memo(
         currentTokenSlug,
         currentToken,
         isTestnet: global.settings.isTestnet,
-        isLedger,
         isViewMode: selectIsCurrentAccountViewMode(global),
         isStakingInfoModalOpen: global.isStakingInfoModalOpen,
         isMediaViewerOpen: Boolean(global.mediaViewer?.mediaId),

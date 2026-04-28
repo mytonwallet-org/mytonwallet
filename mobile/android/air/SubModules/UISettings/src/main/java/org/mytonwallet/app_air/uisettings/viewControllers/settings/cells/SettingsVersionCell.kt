@@ -13,6 +13,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.MultiTapDetector
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -43,7 +44,7 @@ class SettingsVersionCell(
             val versionName = packageInfo.versionName ?: ""
             val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo).toString()
             LocaleController.getFormattedString(
-                "MyTonWallet Air v%1$@ (%2$@)",
+                "${context.getString(BaseR.string.app_locale_name_key)} v%1$@ (%2$@)",
                 listOf(versionName, versionCode)
             )
         } catch (e: PackageManager.NameNotFoundException) {

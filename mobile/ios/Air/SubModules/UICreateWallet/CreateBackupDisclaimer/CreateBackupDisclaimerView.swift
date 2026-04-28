@@ -9,6 +9,7 @@ import UIKit
 import SwiftUI
 import UIComponents
 import WalletContext
+import WalletCore
 
 enum Step: Comparable {
     case zero, one, two, three
@@ -19,6 +20,7 @@ struct CreateBackupDisclaimerView: View {
     let introModel: IntroModel
 
     @State private var currentStep: Step = .zero
+    @State private var isLoading = false
     
     var body: some View {
         InsetList(topPadding: 0, spacing: 40) {
@@ -73,6 +75,7 @@ struct CreateBackupDisclaimerView: View {
         }
         .buttonStyle(.airPrimary)
         .disabled(currentStep != .three)
+        .environment(\.isLoading, isLoading)
         .animation(.smooth(duration: 0.4), value: currentStep)
         .padding(.horizontal, 32)
         .padding(.bottom, 32)
@@ -87,7 +90,16 @@ struct CreateBackupDisclaimerView: View {
     }
     
     func onGoToWords() {
-        introModel.onGoToWords()
+        guard !isLoading else { return }
+        isLoading = true
+        Task { @MainActor in
+            do {
+                try await introModel.onGoToWords()
+            } catch {
+                isLoading = false
+                AppActions.showError(error: error)
+            }
+        }
     }
 }
 
@@ -108,6 +120,7 @@ private struct StepView: View {
                     Checkmark(isOn: isCompleted)
                         .padding(.leading, 4)
                         .allowsHitTesting(false) // handled by button
+                        .accessibilityHidden(true)
                     Text(text)
                         .font(.system(size: 16, weight: .regular))
                         .contentShape(.rect(cornerRadius: 12))
@@ -117,10 +130,16 @@ private struct StepView: View {
                 }
                 .backportGeometryGroup()
             }
+            .accessibilityRepresentation {
+                Button(action: onTap) {
+                    Text(text)
+                }
+                .disabled(isCompleted || !isEnabled)
+                .accessibilityAddTraits(isCompleted ? .isSelected : [])
+            }
         }
         .opacity(isEnabled ? 1 : 0.4)
         .animation(.smooth(duration: 0.4), value: isEnabled)
         .allowsHitTesting(!isCompleted && isEnabled)
     }
 }
-

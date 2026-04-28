@@ -19,7 +19,7 @@ import java.lang.ref.WeakReference
 class WalletCreationVM(delegate: Delegate) {
     interface Delegate {
         fun showError(error: MBridgeError?)
-        fun finalizedCreation(createdAccount: MAccount)
+        fun finalizedCreation(createdAccount: MAccount, importedAccountsCount: Int)
     }
 
     val delegate: WeakReference<Delegate> = WeakReference(delegate)
@@ -33,8 +33,8 @@ class WalletCreationVM(delegate: Delegate) {
         biometricsActivated: Boolean?,
         retriesLeft: Int
     ) {
-        WalletCore.importWallet(network, words, passcode, true) { account, error ->
-            if (account == null || error != null) {
+        WalletCore.importWallet(network, words, passcode, true) { accounts, error ->
+            if (accounts.isNullOrEmpty() || error != null) {
                 if (retriesLeft > 0) {
                     finalizeAccount(
                         window,
@@ -48,12 +48,12 @@ class WalletCreationVM(delegate: Delegate) {
                     delegate.get()?.showError(error)
                 }
             } else {
-                val createdAccountId = account.accountId
+                val primaryAccount = accounts[0]
                 Logger.d(
                     Logger.LogTag.ACCOUNT,
                     LogMessage.Builder()
                         .append(
-                            "finalizeAccount: accountId=$createdAccountId",
+                            "finalizeAccount: accountId=${primaryAccount.accountId}",
                             LogMessage.MessagePartPrivacy.PUBLIC
                         )
                         .append(
@@ -61,18 +61,20 @@ class WalletCreationVM(delegate: Delegate) {
                             LogMessage.MessagePartPrivacy.PUBLIC
                         )
                         .append(
-                            "${account.tonAddress}",
+                            "${primaryAccount.tonAddress}",
                             LogMessage.MessagePartPrivacy.REDACTED
                         ).build()
                 )
-                WGlobalStorage.addAccount(
-                    accountId = createdAccountId,
-                    accountType = MAccount.AccountType.MNEMONIC.value,
-                    byChain = account.byChain.jsonObject,
-                    importedAt = account.importedAt
-                )
-                BalanceStore.setBalances(createdAccountId, HashMap(), false)
-                AirPushNotifications.subscribe(account, ignoreIfLimitReached = true)
+                accounts.forEach { account ->
+                    WGlobalStorage.addAccount(
+                        accountId = account.accountId,
+                        accountType = MAccount.AccountType.MNEMONIC.value,
+                        byChain = account.byChain.jsonObject,
+                        importedAt = account.importedAt
+                    )
+                    BalanceStore.setBalances(account.accountId, HashMap(), false)
+                    AirPushNotifications.subscribe(account, ignoreIfLimitReached = true)
+                }
                 if (biometricsActivated != null) {
                     if (biometricsActivated) {
                         val activated = WSecureStorage.setBiometricPasscode(window, passcode)
@@ -82,7 +84,7 @@ class WalletCreationVM(delegate: Delegate) {
                         WGlobalStorage.setIsBiometricActivated(false)
                     }
                 }
-                WalletCore.activateAccount(account.accountId, notifySDK = false) { res, err ->
+                WalletCore.activateAccount(primaryAccount.accountId, notifySDK = false) { res, err ->
                     if (res == null || err != null) {
                         // Should not happen!
                         Logger.e(
@@ -94,7 +96,7 @@ class WalletCreationVM(delegate: Delegate) {
                                 ).build()
                         )
                     } else {
-                        delegate.get()?.finalizedCreation(account)
+                        delegate.get()?.finalizedCreation(primaryAccount, accounts.size)
                     }
                 }
             }

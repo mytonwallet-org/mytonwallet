@@ -33,6 +33,7 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     private var isExternalDriving = false
     private var externalDrivenIndex: CGFloat?
     private weak var internalScrollView: UIScrollView?
+    private var lastExternalSyncedIndex: CGFloat?
 
     private var needsInitialScroll = true
     private var orthogonalScrollDelegateProxy: CoverFlowOrthogonalScrollDelegateProxy?
@@ -158,10 +159,10 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
                         let position = idx - scrollOffset.x / itemSpacing
                         let progress = clamp(-position, to: -0.5...0.5)
                         if abs(progress) > 0.40 && userImpact == .scrolling {
-                            let newFapticPlayedIdFor = progress > 0 ? itemIndex : itemIndex - 1
-                            if hapticPlayedIdFor != newFapticPlayedIdFor {
+                            let newHapticPlayedIdFor = progress > 0 ? itemIndex : itemIndex - 1
+                            if hapticPlayedIdFor != newHapticPlayedIdFor {
                                 Haptics.play(.selection)
-                                hapticPlayedIdFor = newFapticPlayedIdFor
+                                hapticPlayedIdFor = newHapticPlayedIdFor
                             }
                         }
                         delegate.onCoverFlowScrollProgress(progress, currentItemId: itemId)
@@ -269,9 +270,12 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     // MARK: - UIScrollViewDelegate (orthogonal scroll view)
     
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        // User is taking over: stop external driving so the handler reverts to the actual scroll offset
-        // (which setContentOffset kept in sync with externalDrivenIndex, so there is no visual jump).
+        if let idx = externalDrivenIndex {
+            let offset = CGPoint(x: -scrollView.adjustedContentInset.left + idx * itemSpacing, y: 0)
+            scrollView.setContentOffset(offset, animated: false)
+        }
         externalDrivenIndex = nil
+        lastExternalSyncedIndex = nil
         userImpact = .scrolling
         hapticPlayedIdFor = selectedIdx
     }
@@ -320,9 +324,10 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     }
 
     func selectModel(byId id: String) {
+        externalDrivenIndex = nil
+        lastExternalSyncedIndex = nil
+        
         if selectedId != id {
-            // End pager-driven mode before snapping/scrolling to the final position.
-            externalDrivenIndex = nil
             selectedId = id
             scrollTo(id, animated: false)
         }
@@ -355,16 +360,24 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
         // resist a non-boundary content offset.
         externalDrivenIndex = fractionalIndex
 
-        // Also move the actual scroll view so that (a) it triggers visibleItemsInvalidationHandler as a secondary path and (b) the cover-flow
-        // scroll position matches where the user's finger would expect to start when they, take over scrolling.
+        var didSyncScrollView = false
         if let sv = internalScrollView {
-            let offset = CGPoint(x: -sv.adjustedContentInset.left + fractionalIndex * itemSpacing, y: 0)
-            sv.setContentOffset(offset, animated: false)
+            let currentIndex = (sv.contentOffset.x + sv.adjustedContentInset.left) / itemSpacing
+            let shouldSync = lastExternalSyncedIndex == nil
+                || abs(currentIndex - fractionalIndex) >= 0.55
+                || abs((lastExternalSyncedIndex ?? 0) - fractionalIndex) >= 0.55
+            if shouldSync {
+                let offset = CGPoint(x: -sv.adjustedContentInset.left + fractionalIndex * itemSpacing, y: 0)
+                sv.setContentOffset(offset, animated: false)
+
+                lastExternalSyncedIndex = fractionalIndex
+                didSyncScrollView = true
+            }
         }
 
-        // Force an immediate layout pass so visibleItemsInvalidationHandler fires this frame even when setContentOffset alone does
-        // not trigger it (e.g. when the compositional layout considers the orthogonal section already laid out).
-        collectionView.layoutIfNeeded()
+        if !didSyncScrollView {
+            collectionView.collectionViewLayout.invalidateLayout()
+        }
 
         DispatchQueue.main.async { [weak self] in
             self?.isExternalDriving = false

@@ -1,3 +1,5 @@
+export { PORTFOLIO_API_URL } from '../config';
+
 export const APP_ENV = process.env.APP_ENV || 'production';
 export const DEBUG = APP_ENV !== 'production' && APP_ENV !== 'perf' && APP_ENV !== 'test';
 export const STRICTERDOM_ENABLED = DEBUG;
@@ -21,5 +23,3 @@ export const ANIMATION_LEVEL_DEFAULT = ANIMATION_LEVEL_MAX;
 export const THEME_DEFAULT = 'system';
 
 export const IS_CAPACITOR = false;
-
-export const PORTFOLIO_API_URL = process.env.PORTFOLIO_API_URL || 'https://api-portfolio.mytonwallet.io/api';

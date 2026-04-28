@@ -35,7 +35,9 @@ sealed class StakingState {
         override val unstakeRequestAmount: BigInteger?,
         val tokenBalance: String,
         val instantAvailable: BigInteger,
-        val end: Long
+        val end: Long,
+        val totalStakers: Int?,
+        val tvl: BigInteger?,
     ) : StakingState()
 
     @JsonClass(generateAdapter = true)

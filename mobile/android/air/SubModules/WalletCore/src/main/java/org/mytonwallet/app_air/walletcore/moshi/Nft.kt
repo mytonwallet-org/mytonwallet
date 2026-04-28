@@ -82,7 +82,7 @@ data class ApiNftMetadata(
     @Json(name = "mtwCardType") val mtwCardType: ApiMtwCardType? = null,
     @Json(name = "mtwCardTextType") val mtwCardTextType: ApiMtwCardTextType? = null,
     @Json(name = "mtwCardBorderShineType") val mtwCardBorderShineType: ApiMtwCardBorderShineType? = null,
-    @Json(name = "attributes") val attributes: List<Attribute>? = null,
+    @Json(name = "attributes") val attributes: List<Attribute?>? = null,
 ) {
     companion object {
         const val MTW_CARD_BASE_URL = "https://static.mytonwallet.org/cards/"
@@ -172,8 +172,16 @@ data class ApiNftMetadata(
 enum class ApiNftInterface {
     @Json(name = "default")
     DEFAULT,
+
+    @Json(name = "ERC721")
+    ERC721,
+
+    @Json(name = "ERC1155")
+    ERC1155,
+
     @Json(name = "compressed")
     COMPRESSED,
+
     @Json(name = "mplCore")
     MPL_CORE,
 }
@@ -252,7 +260,9 @@ data class ApiNft(
             "https://fragment.com/number/${name?.replace(Regex("[^0-9]"), "")}"
 
         else ->
-            "https://fragment.com/username/${name?.takeIf { it.length > 1 }?.substring(1).let { Uri.encode(it) } ?: ""}"
+            "https://fragment.com/username/${
+                name?.takeIf { it.length > 1 }?.substring(1).let { Uri.encode(it) } ?: ""
+            }"
     }
 
     val isTonDns: Boolean

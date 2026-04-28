@@ -9,13 +9,13 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.core.animation.doOnEnd
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import kotlin.math.roundToInt
 
@@ -23,7 +23,7 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
 
     private val drawableSize = 13.dp
     private val expandSize = 14.dp
-    private val roundDrawable = RoundProgressDrawable(drawableSize, 1f.dp)
+    private val roundDrawable = RoundProgressDrawable(drawableSize.toFloat(), 1f.dp)
 
     private var animator: ValueAnimator? = null
     private var animationProgress: Float = 0f
@@ -45,10 +45,9 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
         useCustomEmoji = true
     }
 
-    private val expandDrawable = ContextCompat.getDrawable(
-        context,
+    private val expandDrawable = context.requireDrawableCompat(
         org.mytonwallet.app_air.uicomponents.R.drawable.ic_expand
-    )!!
+    )
 
     private val selectDelayMs = 1_000L
     private val selectRunnable = Runnable {

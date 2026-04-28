@@ -2,12 +2,14 @@ import type { ApiActivity, ApiChain } from '../../api/types';
 import type { AccountState, GlobalState } from '../types';
 
 import {
+  getActivityChains,
   getActivityTokenSlugs,
   getIsActivityPending,
   getIsActivitySuitableForFetchingTimestamp,
   getIsTxIdLocal,
 } from '../../util/activities';
-import { mergeSortedActivityIds, mergeSortedActivityIdsToMaxTime } from '../../util/activities/order';
+import { mergeSortedActivityIds } from '../../util/activities/order';
+import { getOrderedAccountChains } from '../../util/chain';
 import { buildCollectionByKey, extractKey, mapValues, swapKeysAndValues, unique } from '../../util/iteratees';
 import { replaceActivityId } from '../helpers/misc';
 import { selectAccountOrAuthAccount, selectAccountState } from '../selectors';
@@ -16,6 +18,11 @@ import { updateAccountState } from './misc';
 /**
  * Handles the `initialActivities` update, which delivers the latest activity history after the account is added.
  * The given activity lists must be sorted and contain no pending or local activities.
+ *
+ * Each chain reports its initial slice independently. The merged main feed (`idsMain`) is only
+ * built once all chains have reported, so partial multi-chain history isn't shown out of order.
+ * Until then, only local/pending ids remain visible. Per-chain ids are kept in `mainActivityIdsByChain`
+ * (along with each chain's `hasMore` flag) to enable boundary recomputation on subsequent pagination.
  */
 export function addInitialActivities(
   global: GlobalState,
@@ -23,9 +30,30 @@ export function addInitialActivities(
   mainActivities: ApiActivity[],
   bySlug: Record<string, ApiActivity[]>,
   chain: ApiChain,
+  mainHistoryHasMore?: boolean,
 ) {
   const { activities } = selectAccountState(global, accountId) || {};
-  let { byId, idsMain, areInitialActivitiesLoaded } = activities || {};
+  let {
+    byId,
+    idsMain,
+    isMainHistoryEndReached,
+    areInitialActivitiesLoaded,
+    mainActivityIdsByChain,
+    mainHistoryHasMoreByChain,
+  } = activities || {};
+
+  // If the chain has already been marked as loaded and this update carries no data, skip the work
+  // to avoid re-rendering on every retry of a persistently failing chain (per-chain pollings
+  // emit empty `initialActivities` on each failed attempt to unblock `waitInitialActivityLoading`).
+  if (
+    areInitialActivitiesLoaded?.[chain]
+    && mainActivities.length === 0
+    && Object.keys(bySlug).length === 0
+  ) {
+    return global;
+  }
+
+  const mainActivityIds = extractKey(mainActivities, 'id');
 
   byId = { ...byId, ...buildCollectionByKey(mainActivities, 'id') };
 
@@ -34,12 +62,35 @@ export function addInitialActivities(
     [chain]: true,
   };
 
-  // Activities from different blockchains arrive separately, which causes the order to be disrupted
-  idsMain = mergeSortedActivityIdsToMaxTime(byId, extractKey(mainActivities, 'id'), idsMain ?? []);
+  mainActivityIdsByChain = {
+    ...mainActivityIdsByChain,
+    [chain]: mainActivityIds,
+  };
 
-  // Enforcing the requirement to have the id list undefined if it hasn't loaded yet
-  if (idsMain.length === 0 && !areAllInitialActivitiesLoaded(global, accountId, areInitialActivitiesLoaded)) {
-    idsMain = undefined;
+  mainHistoryHasMoreByChain = {
+    ...mainHistoryHasMoreByChain,
+    [chain]: mainHistoryHasMore,
+  };
+
+  const areAllLoaded = areAllInitialActivitiesLoaded(global, accountId, areInitialActivitiesLoaded);
+  if (areAllLoaded) {
+    const initialIdsMain = buildMainActivityIds(byId, mainActivityIdsByChain, mainHistoryHasMoreByChain);
+    const initialIds = new Set(Object.values(mainActivityIdsByChain).flat());
+    const nonInitialIdsMain = (idsMain ?? []).filter((id) => !initialIds.has(id));
+
+    idsMain = mergeSortedActivityIds(byId, initialIdsMain, nonInitialIdsMain);
+
+    if (areAllMainHistoriesEndReached(global, accountId, mainHistoryHasMoreByChain)) {
+      isMainHistoryEndReached = true;
+    } else {
+      isMainHistoryEndReached = undefined;
+    }
+  } else {
+    // Keep local/pending activities visible while initial multi-chain history is still loading;
+    // initial ids are dropped to avoid showing partial history before all chains report in.
+    const initialIds = new Set(Object.values(mainActivityIdsByChain).flat());
+    const nonInitialIdsMain = (idsMain ?? []).filter((id) => !initialIds.has(id));
+    idsMain = nonInitialIdsMain.length > 0 ? nonInitialIdsMain : undefined;
   }
 
   global = updateAccountState(global, accountId, {
@@ -47,7 +98,10 @@ export function addInitialActivities(
       ...activities,
       idsMain,
       byId,
+      isMainHistoryEndReached,
       areInitialActivitiesLoaded,
+      mainActivityIdsByChain,
+      mainHistoryHasMoreByChain,
     },
   });
 
@@ -129,6 +183,7 @@ export function addPastActivities(
   const { activities } = selectAccountState(global, accountId) || {};
   let {
     byId, idsBySlug, idsMain, newestActivitiesBySlug, isMainHistoryEndReached, isHistoryEndReachedBySlug,
+    mainActivityIdsByChain, mainHistoryHasMoreByChain,
   } = activities || {};
 
   byId = { ...byId, ...buildCollectionByKey(pastActivities, 'id') };
@@ -144,7 +199,37 @@ export function addPastActivities(
       };
     }
   } else {
-    idsMain = mergeSortedActivityIds(byId, idsMain ?? [], extractKey(pastActivities, 'id'));
+    // Track per-chain main-feed ids continuously so the boundary can be recomputed on each
+    // pagination event. Otherwise items trimmed at initial load could never come back to the
+    // merged feed even though they live in `byId`.
+    const newIdsByChain = groupMainPastIdsByChain(pastActivities);
+    for (const [chain, chainIds] of Object.entries(newIdsByChain) as [ApiChain, string[]][]) {
+      const prev = mainActivityIdsByChain?.[chain] ?? [];
+      mainActivityIdsByChain = {
+        ...mainActivityIdsByChain,
+        [chain]: mergeSortedActivityIds(byId, prev, chainIds),
+      };
+    }
+
+    // `isEndReached` for the main feed means every chain returned no more activities; promote
+    // that to per-chain hasMore=false so the boundary collapses and previously trimmed items
+    // can be re-included on the recompute below.
+    if (isEndReached && mainHistoryHasMoreByChain) {
+      mainHistoryHasMoreByChain = mapValues(mainHistoryHasMoreByChain, () => false);
+    }
+
+    if (mainActivityIdsByChain) {
+      const recomputedMainIds = buildMainActivityIds(
+        byId,
+        mainActivityIdsByChain,
+        mainHistoryHasMoreByChain ?? {},
+      );
+      const trackedIds = new Set(Object.values(mainActivityIdsByChain).flat());
+      const untrackedIdsMain = (idsMain ?? []).filter((id) => !trackedIds.has(id));
+      idsMain = mergeSortedActivityIds(byId, recomputedMainIds, untrackedIdsMain);
+    } else {
+      idsMain = mergeSortedActivityIds(byId, idsMain ?? [], extractKey(pastActivities, 'id'));
+    }
 
     if (isEndReached) {
       isMainHistoryEndReached = true;
@@ -160,8 +245,25 @@ export function addPastActivities(
       newestActivitiesBySlug,
       isMainHistoryEndReached,
       isHistoryEndReachedBySlug,
+      mainActivityIdsByChain,
+      mainHistoryHasMoreByChain,
     },
   });
+}
+
+function groupMainPastIdsByChain(pastActivities: ApiActivity[]) {
+  // A swap activity touches multiple chains, but it must be attributed to exactly one of them
+  // for boundary computation. Attributing it to all of its chains would push its timestamp into
+  // every chain's perceived "oldest loaded item", artificially advancing chains that haven't
+  // actually paginated that deep — breaking the invariant that the boundary represents a
+  // uniform depth across paginating chains and producing a feed with chain-shaped gaps.
+  const byChain: Partial<Record<ApiChain, string[]>> = {};
+  for (const activity of pastActivities) {
+    const [primaryChain] = getActivityChains(activity);
+    if (!primaryChain) continue;
+    (byChain[primaryChain] ??= []).push(activity.id);
+  }
+  return byChain;
 }
 
 function buildActivityIdsBySlug(activities: readonly ApiActivity[]) {
@@ -328,11 +430,57 @@ function areAllInitialActivitiesLoaded(
   accountId: string,
   newAreInitialActivitiesLoaded: Partial<Record<ApiChain, boolean>>,
 ) {
-  // The initial activities may be loaded and added before the authentication completes
+  // The initial activities may be loaded and added before the authentication completes.
+  // `getOrderedAccountChains` filters stored keys to those still in CHAIN_CONFIG, so a key
+  // for a removed chain (whose `loaded` flag is never delivered) doesn't pin this at `false`.
   const byChain = selectAccountOrAuthAccount(global, accountId)?.byChain ?? {};
-  const chains = Object.keys(byChain) as (keyof typeof byChain)[];
+  const chains = getOrderedAccountChains(byChain);
 
   return chains.every((chain) => newAreInitialActivitiesLoaded[chain]);
+}
+
+function areAllMainHistoriesEndReached(
+  global: GlobalState,
+  accountId: string,
+  mainHistoryHasMoreByChain: Partial<Record<ApiChain, boolean>>,
+) {
+  const byChain = selectAccountOrAuthAccount(global, accountId)?.byChain ?? {};
+  const chains = getOrderedAccountChains(byChain);
+
+  return chains.every((chain) => mainHistoryHasMoreByChain[chain] === false);
+}
+
+/**
+ * Builds the merged main-feed id list across all chains, applying a pagination boundary
+ * to chains that still have unloaded history.
+ *
+ * The boundary is the latest "oldest known timestamp" among chains still paginating. Below
+ * that boundary, any of those chains might have intermediate items not yet loaded, so we
+ * trim their below-boundary ids to avoid showing a partial slice of their history.
+ *
+ * Exhausted chains are exempt: we know their full history, so their oldest items are kept
+ * and become visible immediately. They will reappear in correct chronological order as the
+ * paginating chains catch up via `addPastActivities`.
+ */
+function buildMainActivityIds(
+  byId: Record<string, ApiActivity>,
+  mainActivityIdsByChain: Partial<Record<ApiChain, string[]>>,
+  mainHistoryHasMoreByChain: Partial<Record<ApiChain, boolean>>,
+) {
+  const loadedIdLists = Object.entries(mainActivityIdsByChain) as [ApiChain, string[]][];
+  const paginationBoundary = Math.max(
+    -Infinity,
+    ...loadedIdLists
+      .filter(([chain, ids]) => mainHistoryHasMoreByChain[chain] === true && ids.length)
+      .map(([, ids]) => byId[ids[ids.length - 1]]?.timestamp ?? -Infinity),
+  );
+
+  const idLists = loadedIdLists.map(([chain, chainIds]) => {
+    if (mainHistoryHasMoreByChain[chain] !== true) return chainIds;
+    return chainIds.filter((id) => (byId[id]?.timestamp ?? -Infinity) >= paginationBoundary);
+  });
+
+  return mergeSortedActivityIds(byId, ...idLists);
 }
 
 export function updatePendingActivitiesToTrustedByReplacements(

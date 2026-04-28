@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.views
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Canvas
@@ -11,7 +12,6 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
-import androidx.core.content.ContextCompat
 import androidx.core.widget.doOnTextChanged
 import me.vkryl.core.parseFloat
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
@@ -32,6 +32,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 
 @SuppressLint("ViewConstructor")
 class SwapSlippageRowView(
@@ -48,22 +50,19 @@ class SwapSlippageRowView(
     private var currentVal: Float = 5f
 
     private val titleLabel = WLabel(context).apply {
-        setStyle(16f)
+        setStyle(adaptiveFontSize())
         text = LocaleController.getString("Slippage")
     }
 
-    private val infoDrawable =
-        ContextCompat.getDrawable(context, org.mytonwallet.app_air.icons.R.drawable.ic_info_24)!!
-            .apply {
-                alpha = 128
-            }
+    private val infoDrawable = context.requireDrawableCompat(
+        org.mytonwallet.app_air.icons.R.drawable.ic_info_24
+    ).apply {
+        alpha = 128
+    }
 
     private val valueView = WEditableItemView(context).apply {
         id = generateViewId()
-        drawable = ContextCompat.getDrawable(
-            context,
-            org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18
-        )
+        drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
         setText("${currentVal.toInt()}%")
     }
 
@@ -72,7 +71,7 @@ class SwapSlippageRowView(
         alpha = 0f
         isClickable = false
         setTextColor(WColor.Tint)
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         setPadding(8.dp, 0, 8.dp, 0)
         gravity = Gravity.CENTER_VERTICAL
     }

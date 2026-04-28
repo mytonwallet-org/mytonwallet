@@ -8,7 +8,7 @@ import { DEFAULT_CHAIN, IS_CAPACITOR } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import { selectCurrentAccount, selectCurrentAccountState } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { getChainConfig } from '../../util/chain';
+import { getChainConfig, getOrderedAccountChains } from '../../util/chain';
 import { fromDecimal } from '../../util/decimals';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { getChainBySlug } from '../../util/tokens';
@@ -61,7 +61,7 @@ function InvoiceModal({
 
   const avalableChains = useMemo(
     () => byChain
-      ? (Object.keys(byChain) as (keyof typeof byChain)[]).filter((chain) => getChainConfig(chain).formatTransferUrl)
+      ? getOrderedAccountChains(byChain).filter((chain) => getChainConfig(chain).formatTransferUrl)
       : [],
     [byChain],
   );

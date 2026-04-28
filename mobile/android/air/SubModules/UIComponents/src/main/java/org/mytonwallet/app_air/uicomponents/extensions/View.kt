@@ -1,8 +1,10 @@
 package org.mytonwallet.app_air.uicomponents.extensions
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Build
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -10,6 +12,24 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.Vec2i
 import org.mytonwallet.app_air.walletbasecontext.utils.vec2i
 import kotlin.math.roundToInt
+
+@SuppressLint("ClickableViewAccessibility")
+fun View.setOnLongHoldListener(delayMs: Long, action: () -> Unit) {
+    var runnable: Runnable? = null
+    setOnTouchListener { v, event ->
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                runnable?.let { v.removeCallbacks(it) }
+                runnable = Runnable { runnable = null; action() }.also { v.postDelayed(it, delayMs) }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                runnable?.let { v.removeCallbacks(it) }
+                runnable = null
+            }
+        }
+        false
+    }
+}
 
 fun View.setOnClickListener(listener: (() -> Unit)?) {
     listener?.let { l ->

@@ -49,6 +49,8 @@ struct SignDataView: View {
                 makeBinary(payload: binary)
             case .cell(let cell):
                 makeCell(payload: cell)
+            case .eip712(let eip712):
+                makeEip712(payload: eip712)
             }
 
         }
@@ -84,6 +86,34 @@ struct SignDataView: View {
     }
 
     @ViewBuilder
+    func makeEip712(payload: SignDataPayloadEip712) -> some View {
+        InsetSection {
+            InsetCell {
+                Text(verbatim: payload.primaryType)
+                    .font17h22()
+            }
+        } header: {
+            Text(lang("Primary type"))
+        }
+        InsetSection {
+            InsetExpandableCell(content: payload.types.prettyJSONString)
+        } header: {
+            Text(lang("EIP-712 typed data"))
+        }
+        InsetSection {
+            InsetExpandableCell(content: payload.domain.prettyJSONString)
+        } header: {
+            Text(lang("Domain"))
+        }
+        InsetSection {
+            InsetExpandableCell(content: payload.message.prettyJSONString)
+        } header: {
+            Text(lang("Message"))
+        }
+        signatureWarningView
+    }
+
+    @ViewBuilder
     func makeCell(payload: SignDataPayloadCell) -> some View {
         InsetSection {
             InsetCell {
@@ -112,6 +142,14 @@ struct SignDataView: View {
         .padding(.horizontal, 16)
     }
 
+    var signatureWarningView: some View {
+        WarningView(
+            text: lang("$signature_warning"),
+            kind: .warning,
+        )
+        .padding(.horizontal, 16)
+    }
+
     var buttons: some View {
 
         HStack(spacing: 16) {
@@ -127,5 +165,17 @@ struct SignDataView: View {
         .padding(.horizontal, 16)
         .padding(.top, 16)
         .padding(.bottom, 16)
+    }
+}
+
+private extension Encodable {
+    var prettyJSONString: String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        guard let data = try? encoder.encode(self),
+              let string = String(data: data, encoding: .utf8) else {
+            return ""
+        }
+        return string
     }
 }

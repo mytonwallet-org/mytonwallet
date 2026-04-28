@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.settings.cells
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -8,7 +9,6 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -20,6 +20,7 @@ import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.Settin
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import kotlin.math.roundToInt
 
 interface ISettingsItemCell {
@@ -76,7 +77,7 @@ class SettingsItemCell(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f)
+            setStyle(adaptiveFontSize())
             setSingleLine()
             setTextColor(WColor.PrimaryText)
             ellipsize = TextUtils.TruncateAt.END
@@ -105,7 +106,7 @@ class SettingsItemCell(
 
     private val valueLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(adaptiveFontSize())
         lbl
     }
 
@@ -149,7 +150,7 @@ class SettingsItemCell(
         this.isLast = isLast
 
         if (item.icon != null)
-            iconView.setImageDrawable(ContextCompat.getDrawable(context, item.icon)?.apply {
+            iconView.setImageDrawable(context.getDrawableCompat(item.icon)?.apply {
                 if (item.hasTintColor)
                     setTint(WColor.SecondaryText.color)
             })

@@ -5,23 +5,19 @@ import type { ApiNft } from '../../api/types';
 
 import { selectCurrentAccountState } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { IS_ELECTRON } from '../../util/windowEnvironment';
 
-import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useScrolledState from '../../hooks/useScrolledState';
 
-import Button from '../ui/Button';
-import ModalHeader from '../ui/ModalHeader';
 import HiddenByUserNft from './nfts/HiddenByUserNft';
 import ProbablyScamNft from './nfts/ProbablyScamNft';
+import SettingsHeader from './SettingsHeader';
 
 import styles from './Settings.module.scss';
 
 interface OwnProps {
   isActive?: boolean;
-  isInsideModal?: boolean;
   onBackClick: NoneToVoidFunction;
 }
 
@@ -34,7 +30,6 @@ interface StateProps {
 
 function SettingsHiddenNfts({
   isActive,
-  isInsideModal,
   blacklistedNftAddresses,
   whitelistedNftAddresses,
   orderedAddresses,
@@ -78,14 +73,11 @@ function SettingsHiddenNfts({
     return new Set(whitelistedNftAddresses);
   }, [whitelistedNftAddresses]);
 
-  const { isPortrait } = useDeviceScreen();
-  const areSettingsInModal = !isPortrait || IS_ELECTRON;
-
   function renderHiddenByUserNfts() {
     return (
       <>
         <p className={styles.blockTitle}>{lang('Hidden By Me')}</p>
-        <div className={buildClassName(styles.block, !areSettingsInModal && 'hidden-nfts-user')}>
+        <div className={buildClassName(styles.block, 'hidden-nfts-user')}>
           {hiddenByUserNfts!.map((nft) => <HiddenByUserNft key={nft.address} nft={nft} />)}
         </div>
       </>
@@ -97,7 +89,7 @@ function SettingsHiddenNfts({
       <>
         <p className={styles.blockTitle}>{lang('Probably Scam')}</p>
         <div className={
-          buildClassName(styles.block, styles.settingsBlockWithDescription, !areSettingsInModal && 'hidden-nfts-scam')
+          buildClassName(styles.block, styles.settingsBlockWithDescription, 'hidden-nfts-scam')
         }
         >
           {
@@ -121,22 +113,7 @@ function SettingsHiddenNfts({
 
   return (
     <div className={styles.slide}>
-      {isInsideModal ? (
-        <ModalHeader
-          title={lang('Hidden NFTs')}
-          withNotch={isScrolled}
-          onBackButtonClick={onBackClick}
-          className={styles.modalHeader}
-        />
-      ) : (
-        <div className={buildClassName(styles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
-            <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-            <span>{lang('Back')}</span>
-          </Button>
-          <span className={styles.headerTitle}>{lang('Hidden NFTs')}</span>
-        </div>
-      )}
+      <SettingsHeader title={lang('Hidden NFTs')} isScrolled={isScrolled} onBackClick={onBackClick} />
 
       <div
         className={buildClassName(styles.content, 'custom-scroll')}

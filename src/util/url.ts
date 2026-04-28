@@ -11,7 +11,14 @@ import {
   SELF_UNIVERSAL_HOST_URL,
 } from '../config';
 import { base64ToHex } from './base64toHex';
-import { getAvailableExplorers, getExplorer, getMarketplace, getSupportedChains } from './chain';
+import {
+  getAvailableExplorers,
+  getEvmChains,
+  getExplorer,
+  getMarketplace,
+  getSupportedChains,
+  VIEW_ACCOUNT_EVM_PARAM,
+} from './chain';
 import { logDebugError } from './logs';
 
 const VALID_PROTOCOLS = new Set(['http:', 'https:']);
@@ -204,6 +211,7 @@ export function getMarketplaceNftCollectionUrl(
   return marketplace.nftCollection
     .replace('{base}', parsedBaseUrl)
     .replace('{address}', nftCollectionAddress)
+    .replace('{chain}', chain)
     + parsedUrlParam;
 }
 
@@ -222,6 +230,7 @@ export function getMarketplaceNftUrl(
   return marketplace.nft
     .replace('{base}', parsedBaseUrl)
     .replace('{address}', nftAddress)
+    .replace('{chain}', chain)
     + parsedUrlParam;
 }
 
@@ -253,7 +262,19 @@ export function getViewTransactionUrl(chain: ApiChain, txId: string, isTestnet?:
 
 export function getViewAccountUrl(addressByChain: Partial<Record<ApiChain, string>>, isTestnet?: boolean): string {
   const params = new URLSearchParams();
+  const evmAddress = getCollapsedEvmAddress(addressByChain);
+  const evmChains = new Set(getEvmChains());
+  let isEvmAdded = false;
+
   Object.entries(addressByChain).forEach(([chain, address]) => {
+    if (evmAddress && evmChains.has(chain as ApiChain)) {
+      if (!isEvmAdded) {
+        params.append(VIEW_ACCOUNT_EVM_PARAM, evmAddress);
+        isEvmAdded = true;
+      }
+      return;
+    }
+
     params.append(chain, address);
   });
   if (isTestnet) {
@@ -261,6 +282,14 @@ export function getViewAccountUrl(addressByChain: Partial<Record<ApiChain, strin
   }
 
   return `${SELF_UNIVERSAL_HOST_URL}/view/?${params.toString()}`;
+}
+
+function getCollapsedEvmAddress(addressByChain: Partial<Record<ApiChain, string>>) {
+  const evmChains = getEvmChains();
+  const evmAddresses = evmChains.map((chain) => addressByChain[chain]);
+  const [firstAddress] = evmAddresses;
+
+  return firstAddress && evmAddresses.every((address) => address === firstAddress) ? firstAddress : undefined;
 }
 
 export function getViewNftUrl(nftAddress: string, isTestnet?: boolean): string {

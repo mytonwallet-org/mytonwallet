@@ -11,8 +11,6 @@ $subheaderReleaseHeight: 1.25rem;
   $leftPadding: 0.75rem;
   $iconColumnWidth: 2.875rem;
 
-  --border-radius-value: 0.25rem;
-
   position: relative;
 
   display: grid;
@@ -269,7 +267,7 @@ $subheaderReleaseHeight: 1.25rem;
   grid-area: comment;
 
   padding: 0.4375rem 0.625rem;
-  border-radius: var(--border-radius-default);
+  border-radius: var(--border-radius-medium);
 
   font-size: 0.8125rem;
   font-weight: 600;

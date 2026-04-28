@@ -171,8 +171,12 @@ function StakeModal({
       case StakingState.StakeInitial:
         return (
           <>
-            <ModalHeader title={lang('$stake_asset', { symbol: token?.symbol })} onClose={cancelStaking} />
-            <StakingInitial isActive={isActive} />
+            <ModalHeader
+              title={lang('Add Stake')}
+              titleClassName={styles.modalTitle}
+              onClose={cancelStaking}
+            />
+            <StakingInitial />
           </>
         );
 

@@ -45,6 +45,16 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         earnVM.loadInitialHistory()
     }
 
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        earnVM.setScreenVisible(true)
+    }
+
+    public override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        earnVM.setScreenVisible(false)
+    }
+
     private var tableView: UITableView?
     private var dataSource: UITableViewDiffableDataSource<Section, Row>?
     private var emptyView: EmptyEarnView!
@@ -76,7 +86,7 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         tableView.register(EarnHistoryCell.self, forCellReuseIdentifier: "EarnHistory")
         tableView.delegate = self
         tableView.separatorStyle = .none
-        tableView.allowsSelection = false
+        tableView.allowsSelection = true
         tableView.delaysContentTouches = false
         view.addSubview(tableView)
         NSLayoutConstraint.activate([
@@ -380,6 +390,29 @@ extension EarnVC: UITableViewDelegate {
             return 26 // FIXME: This is unnecessary but margins on UIContentConfiguration were not working
         }
         return UITableView.automaticDimension
+    }
+
+    public func tableView(_: UITableView, willSelectRowAt indexPath: IndexPath) -> IndexPath? {
+        switch dataSource?.itemIdentifier(for: indexPath) {
+        case .stackedProfits?:
+            return areProfitsCollapsed ? indexPath : nil
+        default:
+            return nil
+        }
+    }
+
+    public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        defer {
+            tableView.deselectRow(at: indexPath, animated: true)
+        }
+
+        guard case .stackedProfits = dataSource?.itemIdentifier(for: indexPath),
+              areProfitsCollapsed else {
+            return
+        }
+
+        areProfitsCollapsed = false
+        applySnapshot(animated: true)
     }
     
     public func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {

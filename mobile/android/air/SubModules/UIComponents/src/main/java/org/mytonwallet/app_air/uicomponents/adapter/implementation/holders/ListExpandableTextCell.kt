@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.adapter.implementation.holders
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
 import android.util.AttributeSet
 import android.util.TypedValue
@@ -52,7 +53,7 @@ class ListExpandableTextCell @JvmOverloads constructor(
     private val moreButtonView = AppCompatTextView(context).apply {
         setPaddingDp(PADDING_HORIZONTAL, 0, PADDING_HORIZONTAL, 0)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         typeface = WFont.Regular.typeface
         text = LocaleController.getString("More")
         layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
@@ -61,7 +62,7 @@ class ListExpandableTextCell @JvmOverloads constructor(
 
     private val textViewFull = CopyTextView(context).apply {
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         typeface = WFont.Regular.typeface
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
         isVisible = false
@@ -75,7 +76,7 @@ class ListExpandableTextCell @JvmOverloads constructor(
             CopyTextView.PADDING_VERTICAL
         )
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         typeface = WFont.Regular.typeface
         ellipsize = TextUtils.TruncateAt.END
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)

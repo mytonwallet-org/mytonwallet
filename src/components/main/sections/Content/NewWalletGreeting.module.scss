@@ -2,11 +2,12 @@
   position: relative;
   display: flex;
   align-items: center;
-  padding: 1.5rem 2rem;
+  padding: 1.5rem 0;
 
   &.panel {
     flex-direction: row;
     gap: 1rem;
+    padding: 1.5rem 2rem;
   }
 
   &.emptyList {

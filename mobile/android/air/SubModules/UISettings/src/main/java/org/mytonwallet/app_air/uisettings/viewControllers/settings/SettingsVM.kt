@@ -13,9 +13,13 @@ import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.Setting
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsSection
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.views.SettingsHeaderView
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
@@ -61,7 +65,7 @@ class SettingsVM {
                     icon = R.drawable.ic_about,
                     title = LocaleController.getStringWithKeyValues(
                         "About %app_name%", listOf(
-                            Pair("%app_name%", "MyTonWallet")
+                            Pair("%app_name%", ApplicationContextHolder.applicationContext.getString(BaseR.string.app_locale_name_key))
                         )
                     ),
                     hasTintColor = false
@@ -157,6 +161,7 @@ class SettingsVM {
         val walletConfigSectionIndex =
             settingsSections.indexOfFirst { it.section == SettingsSection.Section.SETTINGS }
         if (walletConfigSectionIndex == -1) return
+        val currentAccountSupportsSubWallets = currentAccountSupportsSubWallets()
 
         val items = listOfNotNull(
             SettingsItem(
@@ -182,12 +187,21 @@ class SettingsVM {
                 subtitle = LocaleController.getString("Base Currency, Token Order, Hidden NFTs"),
                 hasTintColor = false
             ),
+            if (currentAccountSupportsSubWallets)
+                SettingsItem(
+                    identifier = SettingsItem.Identifier.SUBWALLETS,
+                    icon = R.drawable.ic_subwallets,
+                    title = LocaleController.getString("Subwallets"),
+                    subtitle = LocaleController.getString("Other addresses for this wallet"),
+                    hasTintColor = false
+                )
+            else null,
             if (AccountStore.walletVersionsData?.versions?.isNotEmpty() == true)
                 SettingsItem(
                     identifier = SettingsItem.Identifier.WALLET_VERSIONS,
                     icon = R.drawable.ic_versions,
                     title = LocaleController.getString("Wallet Versions"),
-                    subtitle = LocaleController.getString("Your assets on other contracts"),
+                    subtitle = LocaleController.getString("Your assets on other TON contracts"),
                     hasTintColor = false
                 )
             else null,
@@ -224,30 +238,44 @@ class SettingsVM {
         value = "@mysupport",
         hasTintColor = false
     )
-    private val helpSectionStaticItems = listOf(
-        SettingsItem(
-            identifier = SettingsItem.Identifier.HELP_CENTER,
-            icon = R.drawable.ic_help_center,
-            title = LocaleController.getString("Help Center"),
-            hasTintColor = false
-        ),
-        SettingsItem(
-            identifier = SettingsItem.Identifier.MTW_FEATURES,
-            icon = R.drawable.ic_features,
-            title = LocaleController.getStringWithKeyValues(
-                "%app_name% Features", listOf(
-                    Pair("%app_name%", "MyTonWallet")
+    private val helpSectionStaticItems: List<SettingsItem>
+        get() = buildList {
+            add(
+                SettingsItem(
+                    identifier = SettingsItem.Identifier.HELP_CENTER,
+                    icon = R.drawable.ic_help_center,
+                    title = LocaleController.getString("Help Center"),
+                    hasTintColor = false
                 )
-            ),
-            hasTintColor = false
-        ),
-        SettingsItem(
-            identifier = SettingsItem.Identifier.USE_RESPONSIBILITY,
-            icon = R.drawable.ic_responsibility,
-            title = LocaleController.getString("Use Responsibly"),
-            hasTintColor = false
-        ),
-    )
+            )
+            val tipsUsername = ApplicationContextHolder.applicationContext
+                .getString(BaseR.string.app_tips_telegram_username_en)
+            if (tipsUsername.isNotEmpty()) {
+                add(
+                    SettingsItem(
+                        identifier = SettingsItem.Identifier.MTW_FEATURES,
+                        icon = R.drawable.ic_features,
+                        title = LocaleController.getStringWithKeyValues(
+                            "%app_name% Features", listOf(
+                                Pair(
+                                    "%app_name%",
+                                    ApplicationContextHolder.applicationContext.getString(BaseR.string.app_locale_name_key)
+                                )
+                            )
+                        ),
+                        hasTintColor = false
+                    )
+                )
+            }
+            add(
+                SettingsItem(
+                    identifier = SettingsItem.Identifier.USE_RESPONSIBILITY,
+                    icon = R.drawable.ic_responsibility,
+                    title = LocaleController.getString("Use Responsibly"),
+                    hasTintColor = false
+                )
+            )
+        }
 
     fun updateHelpSection(): Boolean {
         val helpSectionIndex =
@@ -263,6 +291,16 @@ class SettingsVM {
             return false
         settingsSections[helpSectionIndex].children = newChildren
         return true
+    }
+
+    private fun currentAccountSupportsSubWallets(): Boolean {
+        val account = AccountStore.activeAccount ?: return false
+        if (account.accountType != MAccount.AccountType.MNEMONIC) return false
+        if (!account.isMultichain) return false
+        return account.byChain.keys.any { chainName ->
+            val chain = MBlockchain.valueOfOrNull(chainName) ?: return@any false
+            AccountStore.chainSupportsSubWallets(chain)
+        }
     }
 
     fun contentHeight(): Int {

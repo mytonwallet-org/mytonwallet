@@ -26,9 +26,8 @@ import useLastCallback from '../../hooks/useLastCallback';
 import useScrolledState from '../../hooks/useScrolledState';
 
 import CustomCardPreview from '../main/modals/accountSelector/CustomCardPreview';
-import Button from '../ui/Button';
-import ModalHeader from '../ui/ModalHeader';
 import Switcher from '../ui/Switcher';
+import SettingsHeader from './SettingsHeader';
 
 import styles from './Settings.module.scss';
 
@@ -41,7 +40,6 @@ interface OwnProps {
   isActive?: boolean;
   theme: Theme;
   animationLevel: AnimationLevel;
-  isInsideModal?: boolean;
   isTrayIconEnabled: boolean;
   onBackClick: NoneToVoidFunction;
   onTrayIconEnabledToggle: NoneToVoidFunction;
@@ -74,7 +72,6 @@ function SettingsAppearance({
   theme,
   animationLevel,
   cardBackgroundNft,
-  isInsideModal,
   isTrayIconEnabled,
   isNftBuyingDisabled,
   isSeasonalThemingDisabled,
@@ -112,7 +109,7 @@ function SettingsAppearance({
   const handleThemeChange = useLastCallback((newTheme: string) => {
     document.documentElement.classList.add('no-transitions');
     setTheme({ theme: newTheme as Theme });
-    switchTheme(newTheme as Theme, isInsideModal);
+    switchTheme(newTheme as Theme);
     setTimeout(() => {
       document.documentElement.classList.remove('no-transitions');
     }, SWITCH_THEME_DURATION_MS);
@@ -184,22 +181,7 @@ function SettingsAppearance({
 
   return (
     <div className={styles.slide}>
-      {isInsideModal ? (
-        <ModalHeader
-          title={lang('Appearance')}
-          withNotch={isScrolled}
-          onBackButtonClick={onBackClick}
-          className={styles.modalHeader}
-        />
-      ) : (
-        <div className={buildClassName(styles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-          <Button isSimple isText onClick={onBackClick} className={styles.headerBack}>
-            <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-            <span>{lang('Back')}</span>
-          </Button>
-          <span className={styles.headerTitle}>{lang('Appearance')}</span>
-        </div>
-      )}
+      <SettingsHeader title={lang('Appearance')} isScrolled={isScrolled} onBackClick={onBackClick} />
 
       <div
         className={buildClassName(styles.content, 'custom-scroll')}

@@ -122,7 +122,7 @@ fileprivate struct CommentSection: View {
     
     @ViewBuilder
     var commentSection: some View {
-        if !model.comment.isEmpty {
+        if !model.comment.isEmpty && model.isTransferPayloadAvailable {
             InsetSection {
                 InsetCell {
                     Text(verbatim: model.comment)

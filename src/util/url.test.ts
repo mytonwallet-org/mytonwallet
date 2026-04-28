@@ -1,8 +1,10 @@
-import { convertExplorerUrl, isValidUrl, normalizeUrl } from './url';
+import { convertExplorerUrl, getViewAccountUrl, isValidUrl, normalizeUrl } from './url';
 
 // Test constants
 const TEST_TON_ADDRESS = 'EQAIsixsrb93f9kDyplo_bK5OdgW5r0WCcIJZdGOUG1B282S';
 const TEST_TRON_ADDRESS = 'TRjE1H8dxypKM1NZRdysbs9wo7huR4bdNz';
+const TEST_SOLANA_ADDRESS = '6fHx3tfJdMz7NEjjSdzFy18byg328vnrNH5Z23zGprKL';
+const TEST_EVM_ADDRESS = '0x9429C8Af1089efD542b313156Af2DFA35c7e0a81';
 const TEST_TON_HASH = 'cd3547d822b1f33e5825572709b9ac95e64d46680cde5fc6e5ae489ecec83b27';
 const TEST_NFT_ADDRESS = 'EQCchzdeVwH5js22ReWU7smONvgpB9bZG9k_VEmYmGhIhuTL';
 const TEST_NFT_COLLECTION_ADDRESS = 'EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM';
@@ -55,6 +57,50 @@ describe('normalizeUrl', () => {
 
   it('should handle empty string', () => {
     expect(normalizeUrl('')).toBe('https://');
+  });
+});
+
+describe('getViewAccountUrl', () => {
+  it('should collapse matching EVM chain addresses into the evm parameter', () => {
+    expect(getViewAccountUrl({
+      ethereum: TEST_EVM_ADDRESS,
+      solana: TEST_SOLANA_ADDRESS,
+      ton: TEST_TON_ADDRESS,
+      tron: TEST_TRON_ADDRESS,
+      bnb: TEST_EVM_ADDRESS,
+      hyperliquid: TEST_EVM_ADDRESS,
+      base: TEST_EVM_ADDRESS,
+      arbitrum: TEST_EVM_ADDRESS,
+      // monad: TEST_EVM_ADDRESS,
+      // polygon: TEST_EVM_ADDRESS,
+      // avalanche: TEST_EVM_ADDRESS,
+    })).toBe(
+      `https://my.tt/view/?evm=${TEST_EVM_ADDRESS}&solana=${TEST_SOLANA_ADDRESS}`
+      + `&ton=${TEST_TON_ADDRESS}&tron=${TEST_TRON_ADDRESS}`,
+    );
+  });
+
+  it('should keep concrete EVM chain parameters when the EVM set is incomplete', () => {
+    expect(getViewAccountUrl({
+      ethereum: TEST_EVM_ADDRESS,
+      base: TEST_EVM_ADDRESS,
+      ton: TEST_TON_ADDRESS,
+    })).toBe(
+      `https://my.tt/view/?ethereum=${TEST_EVM_ADDRESS}&base=${TEST_EVM_ADDRESS}&ton=${TEST_TON_ADDRESS}`,
+    );
+  });
+
+  it('should keep testnet parameter after the collapsed EVM parameter', () => {
+    expect(getViewAccountUrl({
+      ethereum: TEST_EVM_ADDRESS,
+      base: TEST_EVM_ADDRESS,
+      bnb: TEST_EVM_ADDRESS,
+      // polygon: TEST_EVM_ADDRESS,
+      arbitrum: TEST_EVM_ADDRESS,
+      // monad: TEST_EVM_ADDRESS,
+      // avalanche: TEST_EVM_ADDRESS,
+      hyperliquid: TEST_EVM_ADDRESS,
+    }, true)).toBe(`https://my.tt/view/?evm=${TEST_EVM_ADDRESS}&testnet=true`);
   });
 });
 

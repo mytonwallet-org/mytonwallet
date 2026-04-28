@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.cells
 
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.SpannableStringBuilder
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -33,7 +34,7 @@ class WalletVersionsHeaderCell(context: Context) :
     }
 
     private val walletVersionLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Medium)
+        setStyle(adaptiveFontSize(), WFont.Medium)
         text = AccountStore.walletVersionsData?.currentVersion
     }
 

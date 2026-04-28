@@ -9,7 +9,6 @@ import { SettingsState } from '../../global/types';
 import {
   ANIMATED_STICKER_BIG_SIZE_PX,
   ANIMATED_STICKER_HUGE_SIZE_PX,
-  ANIMATED_STICKER_SMALL_SIZE_PX,
   APP_NAME,
   AUTO_CONFIRM_DURATION_MINUTES,
   AUTOLOCK_OPTIONS_LIST,
@@ -48,7 +47,6 @@ import Button from '../ui/Button';
 import Collapsible from '../ui/Collapsible';
 import CreatePasswordForm from '../ui/CreatePasswordForm';
 import Dropdown, { type DropdownItem } from '../ui/Dropdown';
-import ModalHeader from '../ui/ModalHeader';
 import PasswordForm from '../ui/PasswordForm';
 import PinPad from '../ui/PinPad';
 import Switcher from '../ui/Switcher';
@@ -58,6 +56,7 @@ import BackupPrivateKey from './backup/BackupPrivateKey';
 import BackupSafetyRules from './backup/BackupSafetyRules';
 import BackupSecretWords from './backup/BackupSecretWords';
 import NativeBiometricsToggle from './biometrics/NativeBiometricsToggle';
+import SettingsHeader from './SettingsHeader';
 
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Settings.module.scss';
@@ -83,7 +82,6 @@ const CHANGE_PASSWORD_PAUSE_MS = 1500;
 
 interface OwnProps {
   isActive: boolean;
-  isInsideModal?: boolean;
   isAutoUpdateEnabled: boolean;
   onBackClick: NoneToVoidFunction;
   onAutoUpdateEnabledToggle: NoneToVoidFunction;
@@ -108,7 +106,6 @@ const INITIAL_CHANGE_PASSWORD_SLIDE = getDoesUsePinPad() ? SLIDES.createNewPin :
 
 function SettingsSecurity({
   isActive,
-  isInsideModal,
   isBiometricAuthEnabled,
   isNativeBiometricAuthEnabled,
   isPasswordNumeric,
@@ -373,29 +370,12 @@ function SettingsSecurity({
   const shouldRenderNativeBiometrics = (
     getIsNativeBiometricAuthSupported() || IS_IOS_APP || getIsTelegramBiometricsRestricted()
   );
-  const shouldRenderMinifiedPinPad = isInsideModal && getDoesUsePinPad();
-
   const isAutoConfirmAvailable = !isBiometricAuthEnabled;
 
   function renderSettings() {
     return (
       <div className={styles.slide}>
-        {isInsideModal ? (
-          <ModalHeader
-            title={lang('Security')}
-            withNotch={isScrolled}
-            onBackButtonClick={handleBackToSettingsClick}
-            className={styles.modalHeader}
-          />
-        ) : (
-          <div className={buildClassName(styles.header, 'with-notch-on-scroll', isScrolled && 'is-scrolled')}>
-            <Button isSimple isText onClick={handleBackToSettingsClick} className={styles.headerBack}>
-              <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-              <span>{lang('Back')}</span>
-            </Button>
-            <span className={styles.headerTitle}>{lang('Security')}</span>
-          </div>
-        )}
+        <SettingsHeader title={lang('Security')} isScrolled={isScrolled} onBackClick={handleBackToSettingsClick} />
         <div
           className={buildClassName(styles.content, 'custom-scroll')}
           onScroll={handleContentScroll}
@@ -574,26 +554,14 @@ function SettingsSecurity({
         }
         return (
           <>
-            {isInsideModal ? (
-              <ModalHeader
-                title={isPasswordNumeric ? lang('Confirm Passcode') : lang('Confirm Password')}
-                onBackButtonClick={handleBackToSettingsClick}
-                className={styles.modalHeader}
-              />
-            ) : (
-              <div className={styles.header}>
-                <Button isSimple isText onClick={handleBackToSettingsClick} className={styles.headerBack}>
-                  <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-                  <span>{lang('Back')}</span>
-                </Button>
-                <span className={styles.headerTitle}>{lang('Enter Password')}</span>
-              </div>
-            )}
+            <SettingsHeader
+              title={lang(getDoesUsePinPad() ? 'Enter Passcode' : 'Enter Password')}
+              onBackClick={handleBackToSettingsClick}
+            />
             <PasswordForm
               isActive={isSlideActive && isActive}
               error={passwordError}
-              containerClassName={IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormContentInModal}
-              forceBiometricsInMain={!isInsideModal}
+              containerClassName={IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormWithHeaderOffset}
               placeholder={lang('Enter your current password')}
               submitLabel={lang('Continue')}
               noAutoConfirm
@@ -606,25 +574,10 @@ function SettingsSecurity({
       case SLIDES.newPassword:
         return (
           <>
-            {isInsideModal ? (
-              <ModalHeader
-                title={lang('Change Password')}
-                onBackButtonClick={openSettingsSlide}
-                className={styles.modalHeader}
-              />
-            ) : (
-              <div className={styles.header}>
-                <Button isSimple isText onClick={openSettingsSlide} className={styles.headerBack}>
-                  <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-                  <span>{lang('Back')}</span>
-                </Button>
-                <span className={styles.headerTitle}>{lang('Change Password')}</span>
-              </div>
-            )}
+            <SettingsHeader title={lang('Change Password')} onBackClick={openSettingsSlide} />
             <div className={buildClassName(
               modalStyles.transitionContent,
               styles.content,
-              isInsideModal && styles.contentInModal,
             )}
             >
               <AnimatedIconWithPreview
@@ -649,33 +602,18 @@ function SettingsSecurity({
       case SLIDES.createNewPin:
         return (
           <>
-            {isInsideModal ? (
-              <ModalHeader
-                onBackButtonClick={openSettingsSlide}
-                className={styles.modalHeader}
-                title={shouldRenderMinifiedPinPad && lang('Change Passcode')}
-              />
-            ) : (
-              <div className={styles.header}>
-                <Button isSimple isText onClick={openSettingsSlide} className={styles.headerBack}>
-                  <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-                  <span>{lang('Back')}</span>
-                </Button>
-              </div>
-            )}
+            <SettingsHeader onBackClick={openSettingsSlide} />
 
-            <div
-              className={buildClassName(styles.pinPadHeader, shouldRenderMinifiedPinPad && styles.pinPadHeaderMinified)}
-            >
+            <div className={styles.pinPadHeader}>
               <AnimatedIconWithPreview
                 play={isActive}
                 tgsUrl={ANIMATED_STICKERS_PATHS.guard}
                 previewUrl={ANIMATED_STICKERS_PATHS.guardPreview}
                 noLoop={false}
-                size={shouldRenderMinifiedPinPad ? ANIMATED_STICKER_SMALL_SIZE_PX : ANIMATED_STICKER_HUGE_SIZE_PX}
+                size={ANIMATED_STICKER_HUGE_SIZE_PX}
                 nonInteractive
               />
-              {!shouldRenderMinifiedPinPad && <div className={styles.pinPadTitle}>{lang('Change Passcode')}</div>}
+              <div className={styles.pinPadTitle}>{lang('Change Passcode')}</div>
             </div>
             <PinPad
               isActive={isActive}
@@ -684,54 +622,30 @@ function SettingsSecurity({
               value={pinValue}
               onChange={setPinValue}
               onSubmit={handlePinSubmit}
-              isMinified={shouldRenderMinifiedPinPad}
             />
           </>
         );
       case SLIDES.confirmNewPin:
         return (
           <>
-            {isInsideModal ? (
-              <ModalHeader
-                onBackButtonClick={openSettingsSlide}
-                className={styles.modalHeader}
-                title={shouldRenderMinifiedPinPad && (
-                  passwordError && pinValue === confirmPinValue
-                    ? lang('Passcode Changed!')
-                    : lang('Change Passcode')
-                )}
-              />
-            ) : (
-              <div className={styles.header}>
-                <Button isSimple isText onClick={openSettingsSlide} className={styles.headerBack}>
-                  <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-                  <span>{lang('Back')}</span>
-                </Button>
-              </div>
-            )}
+            <SettingsHeader onBackClick={openSettingsSlide} />
 
-            <div
-              className={buildClassName(styles.pinPadHeader, shouldRenderMinifiedPinPad && styles.pinPadHeaderMinified)}
-            >
+            <div className={styles.pinPadHeader}>
               <AnimatedIconWithPreview
                 play={isActive}
                 tgsUrl={ANIMATED_STICKERS_PATHS.guard}
                 previewUrl={ANIMATED_STICKERS_PATHS.guardPreview}
                 noLoop={false}
-                size={shouldRenderMinifiedPinPad ? ANIMATED_STICKER_SMALL_SIZE_PX : ANIMATED_STICKER_HUGE_SIZE_PX}
+                size={ANIMATED_STICKER_HUGE_SIZE_PX}
                 nonInteractive
               />
-              {
-                !shouldRenderMinifiedPinPad && (
-                  <div className={styles.pinPadTitle}>
-                    {
-                      passwordError && pinValue === confirmPinValue
-                        ? lang('Passcode Changed!')
-                        : lang('Change Passcode')
-                    }
-                  </div>
-                )
-              }
+              <div className={styles.pinPadTitle}>
+                {
+                  passwordError && pinValue === confirmPinValue
+                    ? lang('Passcode Changed!')
+                    : lang('Change Passcode')
+                }
+              </div>
             </div>
 
             <PinPad
@@ -742,23 +656,13 @@ function SettingsSecurity({
               value={confirmPinValue}
               onChange={setConfirmPinValue}
               onSubmit={handleConfirmPinSubmit}
-              isMinified={shouldRenderMinifiedPinPad}
             />
           </>
         );
       case SLIDES.passwordChanged:
         return (
           <>
-            {isInsideModal ? (
-              <ModalHeader
-                title={lang('Password Changed!')}
-                className={styles.modalHeader}
-              />
-            ) : (
-              <div className={buildClassName(styles.header, styles.onlyTextHeader)}>
-                <span className={styles.headerTitle}>{lang('Password Changed!')}</span>
-              </div>
-            )}
+            <SettingsHeader title={lang('Password Changed!')} className={styles.onlyTextHeader} />
             <div className={styles.content}>
               <AnimatedIconWithPreview
                 tgsUrl={ANIMATED_STICKERS_PATHS.yeee}
@@ -782,7 +686,6 @@ function SettingsSecurity({
         return (
           <Backup
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
             isMultichainAccount={isMultichainAccount}
             hasMnemonicWallet={hasMnemonicWallet}
             onBackClick={handleBackToSettingsClick}
@@ -795,7 +698,6 @@ function SettingsSecurity({
         return (
           <BackupSafetyRules
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
             backupType={backupType!}
             onBackClick={openBackupPage}
             onSubmit={
@@ -810,7 +712,6 @@ function SettingsSecurity({
           <BackupSecretWords
             isActive={isActive && isSlideActive}
             isBackupSlideActive={currentKey === SLIDES.secretWords || currentKey === SLIDES.safetyRules}
-            isInsideModal={isInsideModal}
             enteredPassword={password}
             currentAccountId={currentAccountId}
             onBackClick={openBackupPage}
@@ -822,7 +723,6 @@ function SettingsSecurity({
           <BackupPrivateKey
             isActive={isActive && isSlideActive}
             isBackupSlideActive={currentKey === SLIDES.privateKey || currentKey === SLIDES.safetyRules}
-            isInsideModal={isInsideModal}
             enteredPassword={password}
             currentAccountId={currentAccountId}
             onBackClick={openBackupPage}
@@ -837,7 +737,7 @@ function SettingsSecurity({
       direction={previousSlide === SLIDES.password && currentSlide === SLIDES.settings ? 1 : 'auto'}
       name={resolveSlideTransitionName()}
       className={buildClassName(modalStyles.transition, 'custom-scroll')}
-      slideClassName={buildClassName(styles.slide, isInsideModal && modalStyles.transitionSlide)}
+      slideClassName={styles.slide}
       activeKey={currentSlide}
       nextKey={nextKey}
       shouldCleanup

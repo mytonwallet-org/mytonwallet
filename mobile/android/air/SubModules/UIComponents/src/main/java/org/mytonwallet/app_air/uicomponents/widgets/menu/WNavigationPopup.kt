@@ -22,6 +22,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
+import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -40,8 +41,11 @@ class WNavigationPopup(
     private val initialPopupView: WMenuPopupView,
     private val popupWidth: Int,
     private val windowBackgroundStyle: WMenuPopup.BackgroundStyle,
-    private val backdropStyle: WMenuPopup.BackdropStyle
+    private val backdropStyle: WMenuPopup.BackdropStyle,
 ) : INavigationPopup {
+
+    private val usePillShadow: Boolean
+        get() = backdropStyle is WMenuPopup.BackdropStyle.Transparent
     companion object {
         private const val BACKDROP_BLUR_RADIUS = 14f
     }
@@ -302,6 +306,16 @@ class WNavigationPopup(
         displayProgressListener = listener
     }
 
+    private var pillShadow: PillShadowView? = null
+
+    private fun attachPillShadowIfNeeded() {
+        if (!usePillShadow || pillShadow != null) return
+        pillShadow = PillShadowView.attachTo(contentContainerLayout, roundRadius)
+        contentContainerLayout.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            pillShadow?.sync()
+        }
+    }
+
     fun showAtLocation(
         x: Int, y: Int, initialHeight: Int = 0, fromTop: Boolean = true
     ) {
@@ -310,7 +324,9 @@ class WNavigationPopup(
         contentContainerLayout.apply {
             translationX = x.toFloat() - popupHost.paddingLeft
             translationY = y.toFloat() - popupHost.paddingTop
-            val elevationValue = if (!shouldUseDimBackdrop ||
+            val elevationValue = if (usePillShadow) {
+                0f
+            } else if (!shouldUseDimBackdrop ||
                 windowBackgroundStyle is WMenuPopup.BackgroundStyle.Transparent
             ) {
                 4f
@@ -320,6 +336,7 @@ class WNavigationPopup(
             elevation = elevationValue.dp
         }
         popupHost.addView(rootContainerLayout)
+        attachPillShadowIfNeeded()
         if (shouldUseBlurBackdrop) {
             configureBlurBackdrop()
             blurBackdropContainer.alpha = 0f
@@ -330,6 +347,7 @@ class WNavigationPopup(
             val interpolated = interpolator.getInterpolation(animationFraction)
             updateBackdropProgress(interpolated)
             displayProgressListener?.invoke(animationFraction)
+            pillShadow?.sync()
         }
         PopupHelpers.popupShown(this)
     }
@@ -469,6 +487,7 @@ class WNavigationPopup(
                 val reversedInterpolated = interpolator.getInterpolation(reversed)
                 updateBackdropProgress(reversedInterpolated)
                 displayProgressListener?.invoke(reversedInterpolated)
+                pillShadow?.sync()
             }
             PopupHelpers.popupDismissed(this@WNavigationPopup)
         }

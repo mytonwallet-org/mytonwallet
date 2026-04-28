@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisend.send
 
 import android.annotation.SuppressLint
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -121,7 +122,7 @@ class SendConfirmVC(
             )
             setPaddingDp(20, 12, 20, 14)
 
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             val destination = config.request.input.destination
             val resolved = resolvedAddress(destination)
@@ -137,7 +138,7 @@ class SendConfirmVC(
 
     private val commentInputView by lazy {
         WLabel(context).apply {
-            setStyle(16f)
+            setStyle(adaptiveFontSize())
             layoutParams =
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             setPaddingDp(20, 13, 20, 14)
@@ -198,7 +199,7 @@ class SendConfirmVC(
             )
             setPaddingDp(20, 14, 20, 14)
 
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = config.request.input.binary
             clipLabel = "Signing Data"
@@ -228,7 +229,7 @@ class SendConfirmVC(
             )
             setPaddingDp(20, 14, 20, 14)
 
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = config.request.input.stateInit
             clipLabel = "Contract Initialization Data"

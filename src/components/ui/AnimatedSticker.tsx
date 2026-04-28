@@ -231,9 +231,13 @@ const AnimatedSticker: FC<OwnProps> = ({
       isFirstRender.current = false;
     } else if (tgsUrl) {
       animation.changeData(tgsUrl);
-      playAnimation(noLoop);
+      if (playRef.current || playSegmentRef.current) {
+        playAnimation(noLoop);
+      } else if (noLoop) {
+        animation.goToFirstFrame(viewId);
+      }
     }
-  }, [playAnimation, animation, tgsUrl, noLoop]);
+  }, [playAnimation, animation, tgsUrl, noLoop, playRef, playSegmentRef, viewId]);
 
   useHeavyAnimation(pauseAnimation, playAnimation, forceOnHeavyAnimation || IS_IOS || !playKey);
   usePriorityPlaybackCheck(pauseAnimation, playAnimation, !playKey);

@@ -27,7 +27,7 @@ fun WalletCore.importWallet(
     words: Array<String>,
     passcode: String,
     isNew: Boolean,
-    callback: (MAccount?, MBridgeError?) -> Unit
+    callback: (List<MAccount>?, MBridgeError?) -> Unit
 ) {
     // Safely quote network and passcode to prevent injection
     val quotedNetwork = JSONArray().apply {
@@ -42,17 +42,24 @@ fun WalletCore.importWallet(
         if (error != null || result == null) {
             callback(null, error)
         } else {
-            val account = JSONArray(result).getJSONObject(0)
-            callback(
+            val resultArray = JSONArray(result)
+            if (resultArray.length() == 0) {
+                callback(null, MBridgeError.UNKNOWN)
+                return@callApi
+            }
+            val importedAt = if (isNew) null else System.currentTimeMillis()
+            val accounts = (0 until resultArray.length()).map { i ->
+                val account = resultArray.getJSONObject(i)
                 MAccount(
                     account.optString("accountId", ""),
                     MAccount.parseByChain(account.optJSONObject("byChain")),
                     name = "",
                     accountType = MAccount.AccountType.MNEMONIC,
-                    importedAt = if (isNew) null else System.currentTimeMillis(),
+                    importedAt = importedAt,
                     isTemporary = false
-                ), null
-            )
+                )
+            }
+            callback(accounts, null)
         }
     }
 }

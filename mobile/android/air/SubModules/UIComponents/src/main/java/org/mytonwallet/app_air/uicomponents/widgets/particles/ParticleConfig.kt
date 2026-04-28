@@ -18,7 +18,9 @@ data class ParticleConfig(
     val edgeFadeZone: Float = 50f,
     val centerShift: FloatArray = floatArrayOf(0f, 0f),
     val accelerationFactor: Float = 3f,
-    val selfDestroyTime: Float = 0f
+    val selfDestroyTime: Float = 0f,
+    val colorPair: Array<FloatArray>? = null,
+    val useStarShape: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -44,6 +46,13 @@ data class ParticleConfig(
         if (!centerShift.contentEquals(other.centerShift)) return false
         if (accelerationFactor != other.accelerationFactor) return false
         if (selfDestroyTime != other.selfDestroyTime) return false
+        if (colorPair?.size != other.colorPair?.size) return false
+        if (colorPair != null && other.colorPair != null) {
+            for (i in colorPair.indices) {
+                if (!colorPair[i].contentEquals(other.colorPair[i])) return false
+            }
+        }
+        if (useStarShape != other.useStarShape) return false
 
         return true
     }
@@ -67,6 +76,8 @@ data class ParticleConfig(
         result = 31 * result + centerShift.contentHashCode()
         result = 31 * result + accelerationFactor.hashCode()
         result = 31 * result + selfDestroyTime.hashCode()
+        colorPair?.forEach { result = 31 * result + it.contentHashCode() }
+        result = 31 * result + useStarShape.hashCode()
         return result
     }
 
@@ -76,6 +87,11 @@ data class ParticleConfig(
             val USDT = floatArrayOf(0f, 147f / 255f, 147f / 255f) // #009393
             val MY = floatArrayOf(64f / 255f, 122f / 255f, 207f / 255f) // #407ACF
             val GREEN = floatArrayOf(83f / 255f, 163f / 255f, 13f / 255f) // #407ACF
+
+            val PURPLE_GRADIENT = arrayOf(
+                floatArrayOf(107f / 255f, 147f / 255f, 255f / 255f),
+                floatArrayOf(228f / 255f, 106f / 255f, 206f / 255f)
+            )
         }
 
         // Burst particle configuration for tap
@@ -91,6 +107,26 @@ data class ParticleConfig(
                 minSpawnRadius = 35f,
                 maxSpawnRadius = 50f,
                 color = color
+            )
+        }
+
+        fun interactiveSparkleBurstParams(
+            colorPair: Array<FloatArray>,
+            centerShift: FloatArray = floatArrayOf(0f, -36f)
+        ): ParticleConfig {
+            return ParticleConfig(
+                particleCount = 5,
+                distanceLimit = 1f,
+                fadeInTime = 0.05f,
+                minLifetime = 3f,
+                maxLifetime = 3f,
+                maxStartTimeDelay = 0f,
+                selfDestroyTime = 3f,
+                minSpawnRadius = 5f,
+                maxSpawnRadius = 50f,
+                centerShift = centerShift,
+                colorPair = colorPair,
+                useStarShape = true
             )
         }
     }

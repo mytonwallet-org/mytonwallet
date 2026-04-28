@@ -225,6 +225,7 @@ function setupNftPolling(
       onUpdate({
         type: 'nftSent',
         accountId,
+        chain: 'solana',
         nftAddress: params.nftAddress,
         newOwnerAddress: params.newOwner,
       });
@@ -261,53 +262,66 @@ export function setupInactivePolling(
 }
 
 async function loadInitialActivities(accountId: string, onUpdate: OnApiUpdate) {
-  const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredWallet(accountId, 'solana');
-  const result: ApiActivityTimestamps = {};
-  const bySlug: Record<string, ApiActivity[]> = {};
+  try {
+    const { network } = parseAccountId(accountId);
+    const { address } = await fetchStoredWallet(accountId, 'solana');
+    const result: ApiActivityTimestamps = {};
+    const bySlug: Record<string, ApiActivity[]> = {};
 
-  let activities: ApiActivity[] = await getTokenActivitySlice(
-    network,
-    address,
-    undefined,
-    undefined,
-    undefined,
-    FIRST_TRANSACTIONS_LIMIT,
-  );
+    const { activities: slice, hasMore: mainHistoryHasMore } = await getTokenActivitySlice(
+      network,
+      address,
+      undefined,
+      undefined,
+      undefined,
+      FIRST_TRANSACTIONS_LIMIT,
+    );
+    const activities = await swapReplaceActivities(accountId, slice, undefined, true);
 
-  activities = await swapReplaceActivities(accountId, activities, undefined, true);
+    for (const tx of activities) {
+      if (tx.kind === 'transaction') {
+        bySlug[tx.slug] = [...(bySlug[tx.slug] || []), tx];
+        result[tx.slug] = bySlug[tx.slug][0].timestamp;
+      } else {
+        bySlug[tx.from] = [...(bySlug[tx.from] || []), tx];
+        bySlug[tx.to] = [...(bySlug[tx.to] || []), tx];
 
-  for (const tx of activities) {
-    if (tx.kind === 'transaction') {
-      bySlug[tx.slug] = [...(bySlug[tx.slug] || []), tx];
-      result[tx.slug] = bySlug[tx.slug][0].timestamp;
-    } else {
-      bySlug[tx.from] = [...(bySlug[tx.from] || []), tx];
-      bySlug[tx.to] = [...(bySlug[tx.to] || []), tx];
-
-      result[tx.from] = bySlug[tx.from][0].timestamp;
-      result[tx.to] = bySlug[tx.to][0].timestamp;
+        result[tx.from] = bySlug[tx.from][0].timestamp;
+        result[tx.to] = bySlug[tx.to][0].timestamp;
+      }
     }
-  }
 
-  const mainActivities = activities;
+    const mainActivities = activities;
 
-  mainActivities
-    .slice()
-    .reverse()
-    .forEach((transaction) => {
-      txCallbacks.runCallbacks(transaction);
+    mainActivities
+      .slice()
+      .reverse()
+      .forEach((transaction) => {
+        txCallbacks.runCallbacks(transaction);
+      });
+
+    onUpdate({
+      type: 'initialActivities',
+      chain: 'solana',
+      accountId,
+      mainActivities,
+      mainHistoryHasMore,
+      bySlug,
     });
 
-  onUpdate({
-    type: 'initialActivities',
-    chain: 'solana',
-    accountId,
-    mainActivities,
-    bySlug,
-  });
-
-  return result;
+    return result;
+  } catch (err) {
+    // Ensure `areInitialActivitiesLoaded.solana = true` even on failure so
+    // `waitInitialActivityLoading` unblocks and other chains stay visible.
+    onUpdate({
+      type: 'initialActivities',
+      chain: 'solana',
+      accountId,
+      mainActivities: [],
+      bySlug: {},
+    });
+    throw err;
+  }
 }
 
 async function loadNewActivities(
@@ -320,7 +334,7 @@ async function loadNewActivities(
   const result: ApiActivityTimestamps = {};
   const bySlug: Record<string, ApiActivity[]> = {};
 
-  let rawActivities: ApiActivity[] = await getTokenActivitySlice(
+  const { activities: slice } = await getTokenActivitySlice(
     network,
     address,
     undefined,
@@ -329,7 +343,7 @@ async function loadNewActivities(
     FIRST_TRANSACTIONS_LIMIT,
   );
 
-  rawActivities = await swapReplaceActivities(accountId, rawActivities, undefined, true);
+  const rawActivities = await swapReplaceActivities(accountId, slice, undefined, true);
 
   for (const tx of rawActivities) {
     if (tx.kind === 'transaction') {

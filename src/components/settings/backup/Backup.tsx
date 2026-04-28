@@ -7,8 +7,7 @@ import useHistoryBack from '../../../hooks/useHistoryBack';
 import useLang from '../../../hooks/useLang';
 import useScrolledState from '../../../hooks/useScrolledState';
 
-import Button from '../../ui/Button';
-import ModalHeader from '../../ui/ModalHeader';
+import SettingsHeader from '../SettingsHeader';
 
 import styles from '../Settings.module.scss';
 
@@ -17,7 +16,6 @@ import secretWordsImg from '../../../assets/settings/settings_secret-words.svg';
 
 interface OwnProps {
   isActive?: boolean;
-  isInsideModal?: boolean;
   isMultichainAccount: boolean;
   hasMnemonicWallet?: boolean;
   onBackClick: NoneToVoidFunction;
@@ -28,7 +26,6 @@ interface OwnProps {
 
 function Backup({
   isActive,
-  isInsideModal,
   isMultichainAccount,
   hasMnemonicWallet,
   onBackClick,
@@ -42,29 +39,11 @@ function Backup({
     onBack: onBackClick,
   });
 
-  const {
-    handleScroll: handleContentScroll,
-    isScrolled,
-  } = useScrolledState();
+  const { handleScroll: handleContentScroll } = useScrolledState();
 
   return (
     <div className={styles.slide}>
-      {isInsideModal ? (
-        <ModalHeader
-          onBackButtonClick={onOpenSettingsSlide}
-          className={styles.modalHeader}
-          withNotch={isScrolled}
-          title={lang('$back_up_security')}
-        />
-      ) : (
-        <div className={styles.header}>
-          <Button isSimple isText onClick={onOpenSettingsSlide} className={styles.headerBack}>
-            <i className={buildClassName(styles.iconChevron, 'icon-chevron-left')} aria-hidden />
-            <span>{lang('Back')}</span>
-          </Button>
-          <span className={styles.headerTitle}>{lang('$back_up_security')}</span>
-        </div>
-      )}
+      <SettingsHeader title={lang('$back_up_security')} onBackClick={onOpenSettingsSlide} />
 
       <div
         className={buildClassName(styles.content, 'custom-scroll')}

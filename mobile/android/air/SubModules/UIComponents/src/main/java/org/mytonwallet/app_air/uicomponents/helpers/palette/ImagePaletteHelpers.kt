@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.NftAccentColors
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardBorderShineType
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 class ImagePaletteHelpers {
@@ -48,21 +49,53 @@ class ImagePaletteHelpers {
         }
 
         private fun findClosestColorIndex(color: Int): Int {
-            val r1 = Color.red(color)
-            val g1 = Color.green(color)
-            val b1 = Color.blue(color)
+            val target = rgbToLab(Color.red(color), Color.green(color), Color.blue(color))
 
             return NftAccentColors.light.mapIndexed { index, hex ->
-                val rgb = Color.parseColor(hex)
-                val r2 = Color.red(rgb)
-                val g2 = Color.green(rgb)
-                val b2 = Color.blue(rgb)
-                val distance = sqrt(
-                    ((r1 - r2) * (r1 - r2) + (g1 - g2) * (g1 - g2) + (b1 - b2) * (b1 - b2)).toDouble()
-                )
-                index to distance
+                if (index in EXCLUDED_DETECT_INDICES) {
+                    index to Double.MAX_VALUE
+                } else {
+                    val rgb = Color.parseColor(hex)
+                    val candidate =
+                        rgbToLab(Color.red(rgb), Color.green(rgb), Color.blue(rgb))
+                    val distance = sqrt(
+                        (target[0] - candidate[0]).pow(2) +
+                            (target[1] - candidate[1]).pow(2) +
+                            (target[2] - candidate[2]).pow(2)
+                    )
+                    index to distance
+                }
             }.minByOrNull { it.second }!!.first
         }
+
+        private fun rgbToLab(r: Int, g: Int, b: Int): DoubleArray {
+            fun toLinear(value: Double): Double =
+                if (value > 0.04045) ((value + 0.055) / 1.055).pow(2.4) else value / 12.92
+
+            val rl = toLinear(r / 255.0)
+            val gl = toLinear(g / 255.0)
+            val bl = toLinear(b / 255.0)
+
+            var x = rl * 0.4124 + gl * 0.3576 + bl * 0.1805
+            var y = rl * 0.2126 + gl * 0.7152 + bl * 0.0722
+            var z = rl * 0.0193 + gl * 0.1192 + bl * 0.9505
+
+            fun fxyz(value: Double): Double =
+                if (value > 0.008856) value.pow(1.0 / 3.0) else (7.787 * value) + 16.0 / 116.0
+
+            x = fxyz(x / 0.95047)
+            y = fxyz(y)
+            z = fxyz(z / 1.08883)
+
+            return doubleArrayOf(116.0 * y - 16.0, 500.0 * (x - y), 200.0 * (y - z))
+        }
+
+        private val EXCLUDED_DETECT_INDICES = setOf(
+            NftAccentColors.ACCENT_RADIOACTIVE_INDEX,
+            NftAccentColors.ACCENT_SILVER_INDEX,
+            NftAccentColors.ACCENT_GOLD_INDEX,
+            NftAccentColors.ACCENT_BNW_INDEX,
+        )
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         private fun extractPaletteFromImage(imageUrl: String, onPaletteExtracted: (Int?) -> Unit) {

@@ -5,9 +5,6 @@ import { getActions } from '../../../global';
 import { type ApiNft } from '../../../api/types';
 import { MediaType } from '../../../global/types';
 
-import { IS_ELECTRON } from '../../../util/windowEnvironment';
-
-import { useDeviceScreen } from '../../../hooks/useDeviceScreen';
 import useFlag from '../../../hooks/useFlag';
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
@@ -36,12 +33,9 @@ function HiddenByUserNft({ nft }: OwnProps) {
     onCloseAnimationEnd: handleUnhide,
   });
 
-  const { isPortrait } = useDeviceScreen();
-  const areSettingsInModal = !isPortrait || IS_ELECTRON;
-
   function handleNftClick() {
     openMediaViewer({
-      mediaId: nft.address, mediaType: MediaType.Nft, noGhostAnimation: areSettingsInModal, hiddenNfts: 'user',
+      mediaId: nft.address, mediaType: MediaType.Nft, hiddenNfts: 'user',
     });
   }
 
@@ -53,7 +47,7 @@ function HiddenByUserNft({ nft }: OwnProps) {
       key={nft.address}
       role="button"
       tabIndex={0}
-      data-nft-address={!areSettingsInModal && nft.address}
+      data-nft-address={nft.address}
     >
       <img className={styles.nftImage} src={nft.image} alt={nft.name} />
       <div className={styles.nftPrimaryCell}>

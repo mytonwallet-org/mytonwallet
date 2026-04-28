@@ -1,0 +1,4 @@
+interface:
+  display_name: "iOS Accessibility Flow Audit"
+  short_description: "Run simulator-led iOS accessibility reviews"
+  default_prompt: "Use $ios-accessibility-flow-audit to audit an iOS flow screen by screen with simulator automation and document findings before moving on."

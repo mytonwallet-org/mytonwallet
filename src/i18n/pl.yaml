@@ -96,9 +96,12 @@ Address removed from saved: Adres usunięty z zapisanych
 Warning!: Ostrzeżenie!
 $logout_without_backup_warning: Nie utworzono kopii zapasowej tego portfela. Jeśli usuniesz go teraz, stracisz dostęp do swoich tokenów i NFT.
 $logout_accounts_without_backup_warning: Nie utworzono kopii zapasowej %links%. Kontynuowanie spowoduje utratę dostępu do tokenów i NFT.
-$logout_warning: Spowoduje to usunięcie bieżącego portfela z aplikacji. Upewnij się, że masz kopię zapasową swoich **tajnych słów**.
-$logout_all_wallets_warning: Spowoduje to usunięcie wszystkich portfeli z aplikacji. Upewnij się, że masz kopie zapasowe wszystkich swoich **tajnych słów**.
-$logout_view_mode_warning: Spowoduje to usunięcie bieżącego portfela z aplikacji.
+$logout_current_wallet_warning: Spowoduje to usunięcie bieżącego portfela z aplikacji.
+$logout_selected_wallet_warning: Spowoduje to usunięcie wybranego portfela z aplikacji.
+$logout_selected_wallets_warning: Spowoduje to usunięcie wybranych portfeli z aplikacji.
+$logout_all_wallets_warning: Spowoduje to usunięcie wszystkich portfeli z aplikacji.
+$secret_words_backup_reminder: Upewnij się, że masz kopię zapasową swoich **tajnych słów**.
+$all_secret_words_backup_reminder: Upewnij się, że masz kopie zapasowe wszystkich swoich **tajnych słów**.
 Create Deposit Link: Utwórz łącze do wpłaty
 $receive_invoice_description: |
   Możesz określić kwotę i cel
@@ -147,7 +150,6 @@ Switch Account: Konto Switch
 Copy wallet address: Kopiowanie adresu portfela
 View address on %explorer_name%: Wyświetl adres w %explorer_name%
 You have just created a new wallet: Właśnie utworzyłeś nowy portfel
-You can now transfer your tokens from another wallet or exchange.: Możesz teraz przenieść swoje tokeny z innego portfela lub giełdy.
 Assets: Aktywa
 Activity: Aktywność
 NFT: NFT
@@ -206,18 +208,23 @@ Focus on asset value rather than current balance: Skup się na wartości aktywó
 $logout_confirm: Usuń wszystkie portfele
 $tiny_transfers_help: Wyłącz to, aby wyświetlać transakcje o wartości mniejszej niż $%value%. Proszę pamiętaj, że tego typu transakcje często są wykorzystywane w celach spamowych i oszustw.
 Today: Dzisiaj
+Total: Razem
+Zoom Out: Pomniejsz
 Yesterday: Wczoraj
 Now: Teraz
-$receive_description: Zeskanuj ten kod QR lub udostępnij swój adres, aby doładować saldo portfela.
+$receive_description: Zeskanuj ten kod QR lub udostępnij adres, aby doładować saldo portfela.
 Wrong password, please try again.: Niepoprawne hasło, spróbuj ponownie.
 Appearance: Wygląd
 Light: Jasny
 Dark: Ciemny
 System: Systemowy
 $stake_asset: Stakuj %symbol%
+Add Stake: Dodaj do stakingu
 Earn from your tokens while holding them: Zarabiaj na swoich tokenach, trzymając je
+Current APY: Aktualny APY
+Est. Yearly Earnings: Szacowany roczny dochód
+Staking Details: Szczegóły stakingu
 Why this is safe: Dlaczego to jest bezpieczne
-Why is staking safe?: Dlaczego staking jest bezpieczny?
 $safe_staking_description1: Staking jest w pełni zdecentralizowany i działa za pomocą oficjalnych kontraktów inteligentnych TON Liquid Staking.
 $safe_staking_description2: Wpłacona stawka będzie wykorzystywana do walidacji sieci %chain% jako część jej zasady proof-of-stake.
 $safe_staking_description3: Możesz wypłacić swoją stawkę w dowolnym momencie, a zostanie ona zdeponowana z powrotem na Twoje konto w ciągu dwóch dni.
@@ -231,6 +238,8 @@ View: Widok
 Stake More: Zastaw więcej
 Staking: Staking
 Currently Staked: Obecnie zastawione
+Total Staked: Łącznie zastakowane
+Total Stakers: Liczba stakujących
 Unstake: Odzastaw
 Earning History: Historia zarobków
 $total: "Suma: %value%"
@@ -290,6 +299,28 @@ Are you sure you want to disconnect all websites?: Czy na pewno chcesz rozłącz
 Logged in with %app_name%: Zalogowany za pomocą %app_name%
 No active connections: Brak aktywnych połączeń
 Other: Inne
+No price data: Brak danych o cenie
+Not staked: Nie w stakingu
+Portfolio: Portfolio
+Total Balance: Łączne saldo
+No data: Brak danych
+Total Value: Łączna wartość
+Tracked asset value over time.: Wartość śledzonych aktywów w czasie.
+Portfolio Share: Udział w portfolio
+Current allocation across tracked assets.: Aktualny podział śledzonych aktywów.
+Deep history analysis will be available in upcoming updates.: Dogłębna analiza historii będzie dostępna w kolejnych aktualizacjach.
+By Chain: Według sieci
+No chain balances: Brak sald według sieci
+Native: Natywne
+Stablecoins: Stablecoiny
+Altcoins: Altcoiny
+Asset Mix: Skład aktywów
+No asset balances: Brak sald aktywów
+No staked assets: Brak aktywów w stakingu
+"Asset %1$@": "Aktyw %1$@"
+Error: Błąd
+Unavailable: Niedostępne
+Updating: Aktualizowanie
 Assets & Activity: Aktywa i aktywność
 Token Settings: Ustawienia tokenów
 Add Token: Dodaj token
@@ -443,8 +474,8 @@ Bitcoin: Bitcoin
 $max_balance: "Maksymalnie: %balance%"
 $unstake_information_instantly: Otrzymasz swoją kaucję natychmiast
 Select Token: Wybierz token
-MY: MOJE
-POPULAR: POPULAR
+MY: Moje
+POPULAR: Popularne
 Not Found: Nie znaleziono
 Wallet is ready!: Portfel jest gotowy!
 Wallet is imported!: Portfel został zaimportowany!
@@ -560,9 +591,18 @@ Unstake More: Cofnij więcej
 Are you sure you want to burn this NFT? It will be lost forever.: |
   Czy na pewno chcesz spalić ten NFT?
   Zostanie on stracony na zawsze.
-$multi_burn_nft_warning: Zamierzasz spalić %amount% NFT.
+$multi_burn_nft_warning: |
+  Zamierzasz spalić %amount% NFT. Proces może zająć około %duration%. Nie zamykaj aplikacji ani nie przełączaj portfeli, dopóki się nie zakończy.
+
+  Te NFT zostaną bezpowrotnie utracone.
+$duration_minutes:
+  zeroValue: "%1$d minut"
+  oneValue: "%1$d minutę"
+  fewValue: "%1$d minuty"
+  manyValue: "%1$d minut"
 $multi_send_nft_warning: Proces może zająć około %duration% minut(y). Proszę nie zamykać aplikacji i nie przełączać kont do czasu zakończenia.
 Burn NFT: Spal NFT
+Burn Collectibles: Spal kolekcjonerskie przedmioty
 Burn: Spal
 Private Key: Klucz prywatny
 "%amount% NFTs": "%amount% NFTów"
@@ -580,6 +620,11 @@ Transaction ID Copied: Identyfikator transakcji został skopiowany
 $swap_changelly_support: "W przypadku jakichkolwiek problemów skontaktuj się z %livechat% lub %email% i podaj **ID transakcji**:"
 Changelly Live Chat: Czat na żywo Changelly
 Your %blockchain% Address: Twój adres %blockchain%
+My %blockchain% Address: Mój adres %blockchain%
+"%blockchain% Address": "Adres %blockchain%"
+$view_only_wallet_receive_warning: |
+  **Tryb podglądu: to NIE jest Twój portfel**
+  Przed wysłaniem środków sprawdź wszystko uważnie.
 Vesting: Nabywanie uprawnień
 Vesting Balance: Bilans uprawnień
 Ready to Unfreeze: Gotowy do odmrożenia
@@ -645,8 +690,6 @@ Untitled: Bez tytułu
 Multichain: Multichain
 $swap_too_small_amount: Zbyt mała kwota
 Not enough %symbol%: Za mało %symbol%
-You have just created a new multichain wallet: Właśnie utworzyłeś nowy portfel multichain
-Now you can transfer tokens from your %chains% wallets.: Teraz możesz przesyłać tokeny ze swoich portfeli %chains%.
 Enter Secret Words: Wprowadź Tajne Słowa
 Turn this off so you can manually download updates and verify signatures.: Wyłącz to, aby móc ręcznie pobierać aktualizacje i weryfikować podpisy.
 InvalidMnemonic: Twoje słowa mnemoniczne są nieprawidłowe
@@ -945,16 +988,16 @@ $wallet_done_description: Możesz teraz bezpiecznie przechowywać, otrzymywać i
 Security Warning: Ostrzeżenie bezpieczeństwa
 Go back to Words: Wróć do słów
 I’m sure. Continue: Jestem pewien. Kontynuuj
-$copy_mnemonic_warning: Przechowywanie słów w środowisku cyfrowym, w tym w **schowku**, nie jest bezpieczne. Upewnij się, że masz bezpiecznie zapisaną frazę odzyskiwania.
-$screenshot_mnemonic_warning: Przechowywanie słów w środowisku cyfrowym, w tym w **zrzucie ekranu**, nie jest bezpieczne. Upewnij się, że masz bezpiecznie zapisaną frazę odzyskiwania.
-Other apps will be able to read your recovery phrase!: Inne aplikacje będą mogły odczytać twoją frazę odzyskiwania!
+$copy_mnemonic_warning: Przechowywanie słów w środowisku cyfrowym, w tym w **schowku**, nie jest bezpieczne. Upewnij się, że masz bezpiecznie zapisane tajne słowa.
+$screenshot_mnemonic_warning: Przechowywanie słów w środowisku cyfrowym, w tym w **zrzucie ekranu**, nie jest bezpieczne. Upewnij się, że masz bezpiecznie zapisane tajne słowa.
+Other apps will be able to read your secret words!: Inne aplikacje będą mogły odczytać twoje tajne słowa!
 I’m sure. Copy anyway: Jestem pewien. Kopiuj mimo to
 $auth_biometric_info: Możesz połączyć swoje dane biometryczne dla **większej wygody.**
 Open wallet without checking: Otwórz portfel bez sprawdzania
-Make sure you have your recovery phrase securely saved.: Upewnij się, że bezpiecznie zapisałeś swoją frazę odzyskiwania.
+Make sure you have your secret words securely saved.: Upewnij się, że bezpiecznie zapisałeś swoje tajne słowa.
 Without it, you won't be able to access your wallet.: Bez niej nie będziesz mógł uzyskać dostępu do portfela.
 $ledger_connection_broken: Połączenie Ledger zostało przerwane. Proszę połączyć ponownie i spróbować jeszcze raz.
-$ledger_wrong_device: Bieżące konto jest skonfigurowane z inną frazą odzyskiwania lub hasłem Ledger albo przechowywane na innym urządzeniu Ledger
+$ledger_wrong_device: Bieżące konto jest skonfigurowane z innymi tajnymi słowami lub hasłem Ledger albo przechowywane na innym urządzeniu Ledger
 Show More: Pokaż więcej
 Search app or enter address: Wyszukaj aplikację lub wprowadź adres
 Connected Apps: Połączone aplikacje
@@ -984,6 +1027,7 @@ Add Ledger Wallet: Dodaj portfel Ledger
 Add View Wallet: Dodaj portfel podglądu
 No Ledger wallets yet: Jeszcze brak portfeli Ledger
 No view wallets yet: Jeszcze brak portfeli podglądu
+View wallets can receive assets, but you cannot use them to send or sign transactions.: Portfele podglądu mogą odbierać aktywa, ale nie można ich używać do wysyłania ani podpisywania transakcji.
 Add the first one to track balances and activity for any address.: Dodaj pierwszy, aby śledzić salda i aktywność dla dowolnego adresu.
 Customize Wallet: Dostosuj portfel
 "Select the card stored in this wallet:": "Wybierz kartę zapisaną w tym portfelu:"
@@ -1094,7 +1138,6 @@ Subwallets: Subportfele
 Other addresses for this wallet: Inne adresy dla tego portfela
 Current Wallet: Obecny portfel
 Add Subwallet: Dodaj subportfel
-Replace in this wallet: Zastąp w tym portfelu
 Create Subwallet: Utwórz subportfel
 You have tokens on other subwallets. You can switch to them here.: Masz tokeny na innych subportfelach. Możesz się tu na nie przełączyć.
 Subwallet Created: Subportfel utworzony
@@ -1113,11 +1156,27 @@ Scroll To Bottom: Przewiń na dół
 $agent_clear_chat_confirm: Czy na pewno chcesz wyczyścić historię czatu?
 $unknown_swap_token: Nieznany token w linku wymiany. Użyto domyślnych tokenów.
 $action_not_available_view_mode: Ta akcja jest niedostępna dla portfeli podglądu
+Deposit: Wpłać
+Trade: Handluj
+Show All %collection_name%: Pokaż wszystkie %collection_name%
 Scanning for subwallets...: Wyszukiwanie subportfeli...
 This process may take up to a minute. Please wait.: Ten proces może potrwać do minuty. Proszę czekać.
 Your assets on other TON contracts: Twoje aktywa na innych kontraktach TON
 No existing subwallets found: Nie znaleziono istniejących subportfeli
-You can create a new subwallet if you need another address on the same recovery phrase.: Możesz utworzyć nowy subportfel, jeśli potrzebujesz innego adresu na tej samej frazie odzyskiwania.
+You can create a new subwallet if you need another address on the same secret words.: Możesz utworzyć nowy subportfel, jeśli potrzebujesz innego adresu na tych samych tajnych słowach.
 You have tokens on other subwallets. Each subwallet has its own address.: Masz tokeny na innych subportfelach. Każdy subportfel ma swój własny adres.
-$chain_Subwallets: 'Subportfele %chain%'
 Scanning...: Skanowanie...
+Show All Assets: Pokaż wszystkie aktywa
+Show All Collectibles: Pokaż wszystkie kolekcjonerskie
+No collectibles yet: Nie ma jeszcze przedmiotów kolekcjonerskich
+Hide Tab: Ukryj zakładkę
+Show Collectibles: Pokaż kolekcjonerskie
+Show Assets: Pokaż aktywa
+Top %amount%: "%amount% najlepszych"
+No subwallets yet.: Brak subportfeli.
+$subwallets_found:
+  zeroValue: "Znaleziono: %1$d"
+  oneValue: "Znaleziono: %1$d"
+  fewValue: "Znaleziono: %1$d"
+  manyValue: "Znaleziono: %1$d"
+Send, receive, and trade tokens and collectibles.: Wysyłaj, odbieraj i handluj tokenami oraz przedmiotami kolekcjonerskimi.

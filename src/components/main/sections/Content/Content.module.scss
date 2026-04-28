@@ -47,7 +47,7 @@
   align-items: center;
   justify-content: flex-start;
 
-  border-radius: 0 0 var(--border-radius-default) var(--border-radius-default);
+  border-radius: var(--border-radius-default);
 
   background: var(--color-background-first);
 
@@ -73,6 +73,20 @@
 
 .landscapeContentPanel {
   overflow: hidden;
+
+  width: 100%;
+  max-width: v.$landscapeMainContentMaxWidth;
+  height: 100%;
+  padding-top: var(--app-padding-top);
+  padding-right: 1rem;
+  padding-bottom: max(var(--safe-area-bottom), 1rem);
+}
+
+.landscapeRoot {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .contentPanel {
@@ -239,5 +253,19 @@
 
   .slides {
     flex-grow: 1;
+    border-radius: 0 0 var(--border-radius-default) var(--border-radius-default);
+  }
+
+  .landscapeSlide {
+    overflow: hidden;
+    overflow-y: auto;
+    width: 100%;
+    height: 100%;
+
+    @supports selector(:has(.inner-scroll)) {
+      &:global(:has(.inner-scroll)) {
+        overflow: hidden !important;
+      }
+    }
   }
 }

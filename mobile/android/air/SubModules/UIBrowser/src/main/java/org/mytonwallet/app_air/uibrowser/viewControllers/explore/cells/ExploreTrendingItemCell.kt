@@ -8,7 +8,6 @@ import android.text.TextUtils
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
@@ -22,6 +21,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
 
@@ -70,10 +70,9 @@ class ExploreTrendingItemCell(
         isSelected = true
     }
 
-    private val verifiedDrawable = ContextCompat.getDrawable(
-        titleLabel.context,
+    private val verifiedDrawable = titleLabel.context.requireDrawableCompat(
         org.mytonwallet.app_air.uicomponents.R.drawable.ic_verified
-    )!!.apply {
+    ).apply {
         setBounds(0, 1.dp, 13.dp, 14.dp)
     }
 

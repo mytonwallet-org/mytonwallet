@@ -14,6 +14,7 @@ enum Deeplink {
     case buyWithCard
     case sell(Sell)
     case stake
+    case portfolio
     case url(config: InAppBrowserPageConfig)
     case switchToClassic
     case transfer

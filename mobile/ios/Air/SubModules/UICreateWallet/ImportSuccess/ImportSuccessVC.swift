@@ -21,12 +21,14 @@ public class ImportSuccessVC: CreateWalletBaseVC {
     
     var introModel: IntroModel
     private let successKind: SuccessKind
+    private let importedAccountsCount: Int
 
     public override var hideNavigationBar: Bool { true }
     
-    public init(_ successKind: SuccessKind, introModel: IntroModel) {
+    public init(_ successKind: SuccessKind, introModel: IntroModel, importedAccountsCount: Int) {
         self.introModel = introModel
         self.successKind = successKind
+        self.importedAccountsCount = importedAccountsCount
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -46,7 +48,11 @@ public class ImportSuccessVC: CreateWalletBaseVC {
     }
     
     private func makeView() -> ImportSuccessView {
-        ImportSuccessView(introModel: introModel, successKind: successKind)
+        ImportSuccessView(
+            introModel: introModel,
+            successKind: successKind,
+            importedAccountsCount: importedAccountsCount
+        )
     }
 }
 
@@ -54,6 +60,6 @@ public class ImportSuccessVC: CreateWalletBaseVC {
 @available(iOS 18.0, *)
 #Preview {
     LocalizationSupport.shared.setLanguageCode("ru")
-    return UINavigationController(rootViewController: ImportSuccessVC(.imported, introModel: IntroModel(network: .mainnet, password: nil)))
+    return UINavigationController(rootViewController: ImportSuccessVC(.imported, introModel: IntroModel(network: .mainnet, password: nil), importedAccountsCount: 2))
 }
 #endif

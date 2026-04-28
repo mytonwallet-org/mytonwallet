@@ -12,7 +12,6 @@ import WalletCore
 
 
 class EarnHistoryCell: WHighlightCell {
-
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupViews()

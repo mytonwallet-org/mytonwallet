@@ -3,7 +3,7 @@ import React from '../../lib/teact/teact';
 
 import type { ApiNft } from '../../api/types';
 import type { Account, AccountType } from '../../global/types';
-import type { AccountBalance } from '../main/modals/accountSelector/hooks/useAccountsBalances';
+import type { AccountBalance } from '../../hooks/useAccountsBalances';
 
 import buildClassName from '../../util/buildClassName';
 import { formatAccountAddresses } from '../../util/formatAccountAddress';
@@ -80,6 +80,8 @@ function AccountRowInner({
           max={10}
           seed={title || ''}
           cellSize={8}
+          className={styles.balanceWrapper}
+          contentClassName={styles.balanceContainer}
           align="right"
         >
           <div className={styles.balance}>

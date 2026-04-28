@@ -21,10 +21,6 @@ object ApplicationContextHolder {
         widthDp <= SMALL_SCREEN_WIDTH_DP
     }
 
-    /** Font size that adapts to screen width. 15sp on small screens, 16sp otherwise. */
-    val adaptiveFontSize: Float
-        get() = if (isSmallScreen) 15f else 16f
-
     /** Icon size that adapts to screen width. 40dp on small screens, 44dp otherwise. */
     val adaptiveIconSize: Int
         get() = if (isSmallScreen) 40 else 44
@@ -42,12 +38,16 @@ object ApplicationContextHolder {
         density = applicationContext.density()
     }
 
+    val isGramApp: Boolean by lazy {
+        applicationContext.packageName.startsWith("io.gramwallet.")
+    }
+
     val packageInfo: PackageInfo
         get() {
-        val packageManager = applicationContext.packageManager
-        val packageName = applicationContext.packageName
-        return packageManager.getPackageInfo(packageName, 0)
-    }
+            val packageManager = applicationContext.packageManager
+            val packageName = applicationContext.packageName
+            return packageManager.getPackageInfo(packageName, 0)
+        }
 
     // version from app.gradle
     val getAppVersion get() = packageInfo.versionName

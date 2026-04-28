@@ -6,8 +6,6 @@
 //
 
 import UIKit
-import GZip
-import RLottieBinding
 
 // This view is a wrapper around `TransformImageView` which in fact is `TransformImageNode` from the original app
 public class WQrCode: UIView {

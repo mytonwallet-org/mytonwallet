@@ -7,8 +7,6 @@ import { addActionHandler, setGlobal } from '../../index';
 import { updateAccountState, updateCurrentAccountState } from '../../reducers';
 import { selectAccountState, selectCurrentAccountId, selectCurrentAccountState } from '../../selectors';
 
-import { getIsPortrait } from '../../../hooks/useDeviceScreen';
-
 addActionHandler('fetchNftsFromCollection', (global, actions, { collection }) => {
   const accountId = selectCurrentAccountId(global);
   // Can be `undefined` during logout or before any account is selected
@@ -47,7 +45,6 @@ addActionHandler('clearNftCollectionLoading', (global, actions, { collection }) 
 
 addActionHandler('burnNfts', (global, actions, { nfts }) => {
   actions.startTransfer({
-    isPortrait: getIsPortrait(),
     nfts,
   });
 

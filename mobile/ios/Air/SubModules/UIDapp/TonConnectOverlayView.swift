@@ -51,7 +51,6 @@ struct _TonConnectOverlayView: View {
     
     @State private var isShown = false
     @State private var closeShown = false
-    @State private var angle: Angle = .zero
     
     var body: some View {
         WithPerceptionTracking {
@@ -60,14 +59,7 @@ struct _TonConnectOverlayView: View {
                 if isShown {
                     ZStack {
                         Rectangle().fill(Material.thin)
-                        Image.airBundle("ActivityIndicator")
-                            .renderingMode(.template)
-                            .rotationEffect(angle)
-                            .onAppear {
-                                withAnimation(.linear(duration: 0.625).repeatForever(autoreverses: false)) {
-                                    angle += .radians(2 * .pi)
-                                }
-                            }
+                        WUIActivityIndicator()
                             .foregroundStyle(Color.air.secondaryLabel)
                         
                         if closeShown {

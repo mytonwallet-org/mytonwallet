@@ -14,8 +14,8 @@ import styles from './Activity.module.scss';
 
 const iconNamePrefix = 'iconClock';
 
-export type Color = keyof typeof ANIMATED_STICKERS_PATHS.light.preview extends `${typeof iconNamePrefix}${infer C}`
-  ? C : never;
+type ClockPreviewKey = Extract<keyof typeof ANIMATED_STICKERS_PATHS.light.preview, `${typeof iconNamePrefix}${string}`>;
+export type Color = ClockPreviewKey extends `${typeof iconNamePrefix}${infer C}` ? C : never;
 
 interface OwnProps {
   isPending?: boolean;
