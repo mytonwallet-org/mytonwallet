@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -33,27 +34,53 @@ object TokenStore : IStore {
     /////
 
     fun loadFromCache() {
-        currencyRates = WGlobalStorage.getCurrencyRates()?.let { jsonObject ->
-            jsonObject.keys().asSequence().associateWith { key -> jsonObject.getDouble(key) }
+        try {
+            currencyRates = WGlobalStorage.getCurrencyRates()?.let { jsonObject ->
+                jsonObject.keys().asSequence().associateWith { key -> jsonObject.getDouble(key) }
+            }
+        } catch (t: Throwable) {
+            Logger.e(Logger.LogTag.AIR_APPLICATION, "TokenStore: bad currencyRates: ${t.message}")
+            currencyRates = null
+            WGlobalStorage.setCurrencyRates(null)
         }
 
         WCacheStorage.getTokens()?.let { tokensString ->
-            val tokensJsonArray = JSONArray(tokensString)
-            for (item in 0..<tokensJsonArray.length()) {
-                val token = MToken(tokensJsonArray.get(item) as JSONObject)
-                setToken(token.slug, token)
+            try {
+                val tokensJsonArray = JSONArray(tokensString)
+                for (item in 0..<tokensJsonArray.length()) {
+                    val token = MToken(tokensJsonArray.get(item) as JSONObject)
+                    setToken(token.slug, token)
+                }
+                swapAssets2 = tokens.values.map { MApiSwapAsset.from(it) }
+            } catch (t: Throwable) {
+                Logger.e(
+                    Logger.LogTag.AIR_APPLICATION,
+                    "TokenStore: bad tokens cache: ${t.message}"
+                )
+                tokens.clear()
+                swapAssets2 = null
+                WCacheStorage.setTokens(null)
             }
-            swapAssets2 = tokens.values.map { MApiSwapAsset.from(it) }
         }
         WCacheStorage.getSwapAssets()?.let { swapAssetsString ->
-            val swapAssetsArray = JSONArray(swapAssetsString)
-            val assetsArray = ArrayList<MToken>()
-            for (item in 0..<swapAssetsArray.length()) {
-                assetsArray.add(MToken(swapAssetsArray.get(item) as JSONObject))
-            }
-            if (assetsArray.isNotEmpty()) {
-                swapAssets = assetsArray
-                _swapAssetsFlow.value = assetsArray.map { MApiSwapAsset.from(it) }
+            try {
+                val swapAssetsArray = JSONArray(swapAssetsString)
+                val assetsArray = ArrayList<MToken>()
+                for (item in 0..<swapAssetsArray.length()) {
+                    assetsArray.add(MToken(swapAssetsArray.get(item) as JSONObject))
+                }
+                if (assetsArray.isNotEmpty()) {
+                    swapAssets = assetsArray
+                    _swapAssetsFlow.value = assetsArray.map { MApiSwapAsset.from(it) }
+                }
+            } catch (t: Throwable) {
+                Logger.e(
+                    Logger.LogTag.AIR_APPLICATION,
+                    "TokenStore: bad swapAssets cache: ${t.message}"
+                )
+                swapAssets = null
+                _swapAssetsFlow.value = null
+                WCacheStorage.setSwapAssets(null)
             }
         }
         BalanceStore.resetBalanceInBaseCurrency()

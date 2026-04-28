@@ -27,7 +27,11 @@ object WCacheStorage {
         return sharedPreferences.getString(CACHE_PREF_TOKENS, null)
     }
 
-    fun setTokens(value: String) {
+    fun setTokens(value: String?) {
+        if (value == null) {
+            sharedPreferences.edit { remove(CACHE_PREF_TOKENS) }
+            return
+        }
         sharedPreferences.edit { putString(CACHE_PREF_TOKENS, value) }
     }
 
@@ -35,7 +39,11 @@ object WCacheStorage {
         return sharedPreferences.getString(CACHE_PREF_SWAP_ASSETS, null)
     }
 
-    fun setSwapAssets(value: String) {
+    fun setSwapAssets(value: String?) {
+        if (value == null) {
+            sharedPreferences.edit { remove(CACHE_PREF_SWAP_ASSETS) }
+            return
+        }
         sharedPreferences.edit { putString(CACHE_PREF_SWAP_ASSETS, value) }
     }
 

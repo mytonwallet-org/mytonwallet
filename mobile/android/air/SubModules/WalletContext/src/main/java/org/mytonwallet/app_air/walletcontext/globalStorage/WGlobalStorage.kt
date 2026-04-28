@@ -933,10 +933,10 @@ object WGlobalStorage {
         return globalStorageProvider.keysIn("accounts.byId.$accountId.byChain").size > 1
     }
 
-    fun setCurrencyRates(rates: Map<String, Double>) {
+    fun setCurrencyRates(rates: Map<String, Double>?) {
         return globalStorageProvider.set(
             "currencyRates",
-            JSONObject(rates),
+            rates?.let { JSONObject(it) },
             IGlobalStorageProvider.PERSIST_NORMAL
         )
     }
