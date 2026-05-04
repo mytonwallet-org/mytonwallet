@@ -100,12 +100,15 @@ struct ActivityView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(name)
                         .font(.system(size: 24, weight: .semibold))
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        Text((tx.isIncoming == true ? lang("Received from") : lang("Sent to")) + " ")
-                        TappableAddress(
-                            account: model.accountContext,
-                            model: .fromTransaction(tx, chain: chain, addressKind: .peer),
-                        )
+                    if activity.shouldShowTransactionAddress(in: .details) {
+                        HStack(alignment: .firstTextBaseline, spacing: 0) {
+                            Text((tx.isIncoming == true ? lang("Received from") : lang("Sent to")) + " ")
+                                .font17h22()
+                            TappableAddress(
+                                account: model.accountContext,
+                                model: .fromTransaction(tx, chain: chain, addressKind: .peer),
+                            )
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -219,7 +222,9 @@ struct ActivityView: View {
     
     @ViewBuilder
     private func addressSection(activity: ApiActivity, address: ApiTransactionActivity.AddressKind, title: String) -> some View {
-        if case .transaction(let tx) = activity, nil != tx.getAddress(for: address) {
+        if case .transaction(let tx) = activity,
+           nil != tx.getAddress(for: address),
+           address == .from || activity.shouldShowTransactionAddress(in: .details) {
             let chain = getChainBySlug(tx.slug) ?? FALLBACK_CHAIN
             InsetSection {
                 InsetCell {
@@ -294,7 +299,13 @@ struct ActivityView: View {
                     .font17h22()
                     .foregroundStyle(Color.air.secondaryLabel)
             } value: {
-                Text(formatAddressAttributed(payinAddress, startEnd: true))
+                let addressFont = UIFont.systemFont(ofSize: 17, weight: .regular)
+                Text(formatAddressAttributed(
+                    payinAddress,
+                    startEnd: true,
+                    primaryFont: addressFont,
+                    secondaryFont: addressFont
+                ))
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }

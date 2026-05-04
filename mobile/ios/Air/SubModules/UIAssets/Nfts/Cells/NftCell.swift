@@ -1,5 +1,6 @@
 
 import UIKit
+import SwiftUI
 import UIComponents
 import WalletContext
 import WalletCore
@@ -227,9 +228,10 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
             let resolvedNft = nft ?? ApiNft.ERROR
             titleLabel.text = resolvedNft.name?.nilIfEmpty ?? formatStartEndAddress(resolvedNft.address, prefix: 4, suffix: 4)
             let subtitle = resolvedNft.collectionName?.nilIfEmpty ?? lang("Standalone NFT")
-            let subtitleAttr = NSAttributedString(string: subtitle, attributes: [.font: UIFont.systemFont(ofSize: 12)])
+            let subtitleFont = UIFont.systemFont(ofSize: 12)
+            subtitleLabel.font = subtitleFont
             subtitleLabel.textColor = .air.secondaryLabel
-            subtitleLabel.attributedText = ChainIcon(resolvedNft.chain, style: .s12).prepended(to: subtitleAttr, separator: .hairline)
+            subtitleLabel.attributedText = ChainIcon(resolvedNft.chain).prepended(to: subtitle, font: subtitleFont, separator: .hairline)
         }
     }
 

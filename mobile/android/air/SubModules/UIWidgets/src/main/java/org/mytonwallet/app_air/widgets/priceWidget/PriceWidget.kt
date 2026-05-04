@@ -17,6 +17,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.APP_SCHEME
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
@@ -330,22 +331,7 @@ class PriceWidget : AppWidgetProvider() {
                 config.isShown = true
                 WBaseStorage.setWidgetConfigurations(appWidgetId, config.toJson())
             }
-            appWidgetManager.updateAppWidget(
-                appWidgetId,
-                generateRemoteViews(
-                    context,
-                    config,
-                    if (isLandscape) config.appWidgetMaxWidth else config.appWidgetMinWidth,
-                    if (isLandscape) config.appWidgetMinHeight else config.appWidgetMaxHeight,
-                    null,
-                    appWidgetId
-                )
-            )
-        }
-        ImageUtils.loadBitmapFromUrl(
-            context,
-            config.token?.optString("image", ""),
-            onBitmapReady = { image ->
+            try {
                 appWidgetManager.updateAppWidget(
                     appWidgetId,
                     generateRemoteViews(
@@ -353,10 +339,43 @@ class PriceWidget : AppWidgetProvider() {
                         config,
                         if (isLandscape) config.appWidgetMaxWidth else config.appWidgetMinWidth,
                         if (isLandscape) config.appWidgetMinHeight else config.appWidgetMaxHeight,
-                        image,
+                        null,
                         appWidgetId
                     )
                 )
+            } catch (t: Throwable) {
+                Logger.e(
+                    Logger.LogTag.AIR_APPLICATION,
+                    "PriceWidget initial updateAppWidget failed " +
+                        "appWidgetId=$appWidgetId " +
+                        "size=${config.appWidgetMinWidth}x${config.appWidgetMaxHeight}: $t"
+                )
+            }
+        }
+        ImageUtils.loadBitmapFromUrl(
+            context,
+            config.token?.optString("image", ""),
+            onBitmapReady = { image ->
+                try {
+                    appWidgetManager.updateAppWidget(
+                        appWidgetId,
+                        generateRemoteViews(
+                            context,
+                            config,
+                            if (isLandscape) config.appWidgetMaxWidth else config.appWidgetMinWidth,
+                            if (isLandscape) config.appWidgetMinHeight else config.appWidgetMaxHeight,
+                            image,
+                            appWidgetId
+                        )
+                    )
+                } catch (t: Throwable) {
+                    Logger.e(
+                        Logger.LogTag.AIR_APPLICATION,
+                        "PriceWidget updateAppWidget failed " +
+                            "appWidgetId=$appWidgetId " +
+                            "size=${config.appWidgetMinWidth}x${config.appWidgetMaxHeight}: $t"
+                    )
+                }
             })
     }
 

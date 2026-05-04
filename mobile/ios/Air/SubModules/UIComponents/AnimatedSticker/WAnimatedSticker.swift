@@ -93,10 +93,8 @@ public class WAnimatedSticker: UIView {
         animationView.playTransition(to: targetPosition)
     }
     
-    // setup animation data
-    public func setup(width: Int, height: Int, playbackMode: LottieAnimationPlaybackMode) {
-        // load the animation
-        guard let path = AirBundle.path(forResource: animationName, ofType: "tgs") else {
+    public func setup(width: Int, height: Int, playbackMode: LottieAnimationPlaybackMode, bundle: Bundle = AirBundle) {
+        guard let path = bundle.path(forResource: animationName, ofType: "tgs") else {
             return
         }
 
@@ -152,12 +150,14 @@ public struct WUIAnimatedSticker: UIViewRepresentable {
     var size: CGFloat
     var loop: Bool
     var playTrigger: Int
+    var bundle: Bundle
     
-    public init(_ name: String, size: CGFloat, loop: Bool, playTrigger: Int = 0) {
+    public init(_ name: String, size: CGFloat, loop: Bool, playTrigger: Int = 0, bundle: Bundle = AirBundle) {
         self.name = name
         self.size = size
         self.loop = loop
         self.playTrigger = playTrigger
+        self.bundle = bundle
     }
     
     public func makeCoordinator() -> Coordinator {
@@ -167,7 +167,7 @@ public struct WUIAnimatedSticker: UIViewRepresentable {
     public func makeUIView(context: Context) -> WAnimatedSticker {
         let sticker = WAnimatedSticker()
         sticker.animationName = name
-        sticker.setup(width: Int(size), height: Int(size), playbackMode: loop ? .loop : .once)
+        sticker.setup(width: Int(size), height: Int(size), playbackMode: loop ? .loop : .once, bundle: bundle)
         return sticker
     }
     

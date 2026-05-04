@@ -198,7 +198,8 @@ private struct ItemView: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: style.chainIconWidth)
             } else {
-                ChainIcon(item.chain, font: style.font)
+                ChainIcon(item.chain)
+                    .imageScale(.small)
                     .opacity(style.textOpacity)
             }
             

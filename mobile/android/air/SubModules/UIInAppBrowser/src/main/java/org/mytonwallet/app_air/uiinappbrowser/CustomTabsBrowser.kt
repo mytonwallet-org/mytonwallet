@@ -33,7 +33,7 @@ object CustomTabsBrowser {
         }
         try {
             intent.launchUrl(context, uri)
-        } catch (_: SecurityException) {
+        } catch (_: Throwable) {
             val fallback = Intent(Intent.ACTION_VIEW, uri)
             fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             try {

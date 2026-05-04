@@ -518,6 +518,7 @@ class PasscodeScreenView(
                     "checkPasscode: Passcode incorrect hasCooldown=${cooldownDate != null}"
                 )
                 inBiometry.animatedValue = false
+                passcodeInputView.hideIndicator(true)
                 passcodeInputView.resetInput()
                 if ((passcodeViewState as? PasscodeViewState.Default)?.isUnlockScreen == true && cooldownDate != null)
                     passcodeKeyboardView.showSignOut = true
@@ -533,7 +534,7 @@ class PasscodeScreenView(
     }
 
     fun clearPasscode() {
-        passcodeInputView.hideIndicator()
+        passcodeInputView.hideIndicator(false)
         passcodeInputView.passcode = ""
         passcodeKeyboardView.updateButtons(isEmpty = true)
     }

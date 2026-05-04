@@ -381,6 +381,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         var stakingState: ApiStakingState?
         var isEmulation: Bool
         var address: String = ""
+        var addressLabelKey: String = "$transaction_to"
         
         init(activity: ApiActivity, accountContext: AccountContext, isEmulation: Bool) {
             self.activity = activity
@@ -390,12 +391,18 @@ public class ActivityCell: WHighlightCollectionViewCell {
                 if activity.shouldShowTransactionAnnualYield {
                     stakingState = accountContext.stakingData?.bySlug(activity.slug)
                 }
-                let chain = getChainBySlug(transaction.slug) ?? FALLBACK_CHAIN
-                let vm = AddressViewModel.fromTransaction(transaction, chain: chain, addressKind: .peer).withLocalName(account: accountContext)
-                if let name = vm.name {
-                    self.address = name
+                if let address = transaction.extra?.dex?.displayName ?? transaction.extra?.marketplace?.displayName {
+                    self.address = address
+                    self.addressLabelKey = "$transaction_on"
                 } else {
-                    self.address = formatStartEndAddress(vm.address ?? "", prefix: 4, suffix: 4)
+                    self.addressLabelKey = transaction.isIncoming ? "$transaction_from" : "$transaction_to"
+                    let chain = getChainBySlug(transaction.slug) ?? FALLBACK_CHAIN
+                    let vm = AddressViewModel.fromTransaction(transaction, chain: chain, addressKind: .peer).withLocalName(account: accountContext)
+                    if let name = vm.name {
+                        self.address = name
+                    } else {
+                        self.address = formatStartEndAddress(vm.address ?? "", prefix: 4, suffix: 4)
+                    }
                 }
             }
         }
@@ -404,36 +411,50 @@ public class ActivityCell: WHighlightCollectionViewCell {
     func configureDetails(_ options: ConfigureDetailsOptions) {
         let activity = options.activity
         let attr = NSMutableAttributedString()
+        let detailsAttributes: [NSAttributedString.Key: Any] = [
+            .font: ActivityCell.regular14Font
+        ]
         
         switch activity {
         case .transaction(let transaction):
             if transaction.status == .failed {
-                attr.append(NSAttributedString(string: lang("Failed")))
+                attr.append(NSAttributedString(string: lang("Failed"), attributes: detailsAttributes))
             }
             
-            if activity.type == nil {
+            if activity.shouldShowTransactionAddress(in: .list) {
                 if !attr.string.isEmpty {
-                    attr.append(NSAttributedString(string: " · "))
+                    attr.append(NSAttributedString(string: " · ", attributes: detailsAttributes))
                 }
                 
+                let addressFont = UIFont.systemFont(ofSize: 14, weight: .semibold)
                 var address = NSAttributedString(string: options.address, attributes: [
-                    .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
+                    .font: addressFont
                 ])
                 
                 if let chain = getChainBySlug(activity.slug) {
-                    address = ChainIcon(chain, style: .s14).prepended(to: address, separator: .hairline)
+                    address = ChainIcon(chain).prepended(to: options.address, font: addressFont, separator: .hairline)
                 }
                 
-                attr.append(attributedLang(transaction.isIncoming  ? "$transaction_from" : "$transaction_to", arg1: address))
+                attr.append(attributedLang(
+                    options.addressLabelKey,
+                    attributes: detailsAttributes,
+                    arg1: address
+                ))
                 
-            } else if activity.shouldShowTransactionAnnualYield, let stakingState = options.stakingState {
+            }
+            
+            if activity.shouldShowTransactionAnnualYield, let stakingState = options.stakingState {
                 if !attr.string.isEmpty {
-                    attr.append(NSAttributedString(string: " · "))
+                    attr.append(NSAttributedString(string: " · ", attributes: detailsAttributes))
                 }
-                attr.append(NSAttributedString(string: "at "))
-                attr.append(NSAttributedString(string: "\(stakingState.yieldType.rawValue) \(stakingState.annualYield.value)%", attributes: [
+                let annualYield = NSAttributedString(string: "\(stakingState.yieldType.rawValue) \(stakingState.annualYield.value)%", attributes: [
                     .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
-                ]))
+                ])
+                attr.append(attributedLang(
+                    "at %annual_yield%",
+                    attributes: detailsAttributes,
+                    arg1: annualYield
+                ))
             } else {
                 // TODO: auction bid, nft bought
             }
@@ -458,15 +479,15 @@ public class ActivityCell: WHighlightCollectionViewCell {
                 status = lang("Expired swap")
             }
             if let status {
-                attr.append(NSAttributedString(string: status))
+                attr.append(NSAttributedString(string: status, attributes: detailsAttributes))
             }
         }
         if !options.isEmulation {
             if !attr.string.isEmpty {
-                attr.append(NSAttributedString(string: " · "))
+                attr.append(NSAttributedString(string: " · ", attributes: detailsAttributes))
             }
             let timestamp = stringForTimestamp(timestamp: Int32(clamping: activity.timestamp / 1000))
-            attr.append(NSAttributedString(string: timestamp))
+            attr.append(NSAttributedString(string: timestamp, attributes: detailsAttributes))
         }
         detailsLabel.textColor = UIColor.air.secondaryLabel
         detailsLabel.attributedText = attr

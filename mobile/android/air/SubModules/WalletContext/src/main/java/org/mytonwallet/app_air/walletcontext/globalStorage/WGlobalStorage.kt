@@ -110,6 +110,7 @@ object WGlobalStorage {
     private const val IS_SEASONAL_THEMING_DISABLED = "settings.isSeasonalThemingDisabled"
     private const val EXPLORER = "settings.selectedExplorerIds"
     private const val IS_SCREEN_RECORD_WARNING_DISABLED = "settings.isScreenRecordWarningDisabled"
+    private const val IS_SHAKE_TO_DEBUG_ENABLED = "settings.isShakeToDebugEnabled"
 
     fun save(accountId: String, accountName: String?, persist: Boolean = true) {
         // Save null names as empty string in the cache to return it without accessing storage
@@ -1002,6 +1003,19 @@ object WGlobalStorage {
         globalStorageProvider.set(
             IS_SCREEN_RECORD_WARNING_DISABLED,
             disabled,
+            IGlobalStorageProvider.PERSIST_NORMAL
+        )
+    }
+
+    fun getIsShakeToDebugEnabled(): Boolean {
+        return globalStorageProvider.getBool(IS_SHAKE_TO_DEBUG_ENABLED)
+            ?: org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
+    }
+
+    fun setIsShakeToDebugEnabled(enabled: Boolean) {
+        globalStorageProvider.set(
+            IS_SHAKE_TO_DEBUG_ENABLED,
+            enabled,
             IGlobalStorageProvider.PERSIST_NORMAL
         )
     }

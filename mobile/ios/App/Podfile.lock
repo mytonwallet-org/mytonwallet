@@ -33,8 +33,6 @@ PODS:
     - SwiftKeychainWrapper
   - CapacitorShare (8.0.1):
     - Capacitor
-  - CapacitorSplashScreen (8.0.1):
-    - Capacitor
   - CapacitorStatusBar (8.0.1):
     - Capacitor
   - CapgoCapacitorNativeBiometric (0.0.1):
@@ -150,7 +148,6 @@ DEPENDENCIES:
   - "CapacitorPushNotifications (from `../../../node_modules/@capacitor/push-notifications`)"
   - CapacitorSecureStoragePlugin (from `../../../node_modules/capacitor-secure-storage-plugin`)
   - "CapacitorShare (from `../../../node_modules/@capacitor/share`)"
-  - "CapacitorSplashScreen (from `../../../node_modules/@capacitor/splash-screen`)"
   - "CapacitorStatusBar (from `../../../node_modules/@capacitor/status-bar`)"
   - "CapgoCapacitorNativeBiometric (from `../../../node_modules/@capgo/capacitor-native-biometric`)"
   - "CapgoNativeAudio (from `../../../node_modules/@capgo/native-audio`)"
@@ -213,8 +210,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/capacitor-secure-storage-plugin"
   CapacitorShare:
     :path: "../../../node_modules/@capacitor/share"
-  CapacitorSplashScreen:
-    :path: "../../../node_modules/@capacitor/splash-screen"
   CapacitorStatusBar:
     :path: "../../../node_modules/@capacitor/status-bar"
   CapgoCapacitorNativeBiometric:
@@ -247,7 +242,6 @@ SPEC CHECKSUMS:
   CapacitorPushNotifications: 5a1de4191a9fdbeacc84907313eede0bd59d2eb0
   CapacitorSecureStoragePlugin: d083ff28d9ba5bc74924b9bcf9754ea605016b63
   CapacitorShare: 0c58305114538568059bfc07111f22dcb9cb2a82
-  CapacitorSplashScreen: 4b46c72298db552b3c57ce021ef028b6dc7f1fa7
   CapacitorStatusBar: 32206abd53b14f339763da26f71286deaa891e16
   CapgoCapacitorNativeBiometric: be4ceeff38739d9c0f59b8c41456a3b01cfeddf0
   CapgoNativeAudio: ecd3daa4bcffa3c69468398aba32fa20e2f1fd1d
@@ -273,6 +267,6 @@ SPEC CHECKSUMS:
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   SwiftKeychainWrapper: 807ba1d63c33a7d0613288512399cd1eda1e470c
 
-PODFILE CHECKSUM: 07d19eff7922f80952a93c9bd80a0f05cc7ecebf
+PODFILE CHECKSUM: 51120a262727c2eefdbc4e32a96f106e58b45db3
 
 COCOAPODS: 1.16.2

@@ -85,8 +85,8 @@
 		<string>remote-notification</string>
 		<string>fetch</string>
 	</array>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
+	<key>UILaunchScreen</key>
+	<dict/>
 	<key>UIObservationTrackingEnabled</key>
 	<false/>
 	<key>UIRequiredDeviceCapabilities</key>

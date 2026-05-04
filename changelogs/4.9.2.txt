@@ -1,6 +1,6 @@
 What's New in v4.9:
 
-· 5 New Networks · Use MyTonWallet with Ethereum, Base, BNB Chain, Arbitrum, and Hyperliquid. Send, receive, swap, manage NFTs, and use dapps.
+· 5 New Networks · Use MyTonWallet with Ethereum, Base, BNB Chain, Arbitrum, and Hyperliquid.
 
 · Subwallets · Manage multiple wallets from one seed phrase to separate funds and use different addresses with ease.
 

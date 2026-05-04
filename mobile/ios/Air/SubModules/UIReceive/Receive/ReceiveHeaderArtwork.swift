@@ -48,7 +48,9 @@ struct ReceiveHeaderOrnamentView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             ForEach(Self.items) { item in
-                ChainIcon(chain, font: .system(size: item.size), color: .black)
+                ChainIcon(chain, color: .black)
+                    .font(.system(size: item.size))
+                    .imageScale(.small)
                     .frame(width: item.size, height: item.size)
                     .blendMode(.softLight)
                     .opacity(item.opacity * opacity)

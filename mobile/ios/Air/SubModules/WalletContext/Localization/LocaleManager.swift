@@ -44,16 +44,13 @@ import ObjectiveC
     /**
      Reloads all windows to apply orientation changes in user interface.
      
-     - Important: Either rootViewController must be set or storyboardIdentifier of root viewcontroller
-         in Main.storyboard must set to a string.
+     - Important: rootViewController must be set if windows need to be rebuilt.
     */
     internal class func reloadWindows(animated: Bool = true) {
         let windows = UIApplication.shared.sceneWindows
         for window in windows {
             if let rootViewController = self.rootViewController?(window) {
                 window.rootViewController = rootViewController
-            } else if let storyboard = window.rootViewController?.storyboard, let id = window.rootViewController?.value(forKey: "storyboardIdentifier") as? String {
-                window.rootViewController = storyboard.instantiateViewController(withIdentifier: id)
             }
             for view in (window.subviews) {
                 view.removeFromSuperview()

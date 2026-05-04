@@ -33,7 +33,6 @@ def capacitor_pods
   pod 'CapacitorNativeSettings', :path => '../../../node_modules/capacitor-native-settings'
   pod 'CapacitorPluginSafeArea', :path => '../../../node_modules/capacitor-plugin-safe-area'
   pod 'CapacitorSecureStoragePlugin', :path => '../../../node_modules/capacitor-secure-storage-plugin'
-  pod 'CapacitorSplashScreen', :path => '../../../node_modules/@capacitor/splash-screen'
   pod 'CordovaPlugins', :path => '../capacitor-cordova-ios-plugins'
 end
 

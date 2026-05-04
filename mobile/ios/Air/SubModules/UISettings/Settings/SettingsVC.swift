@@ -267,7 +267,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     }
     
     private func showReceiveWithQR() {
-        AppActions.showReceive(accountContext: AccountContext(source: .current), chain: nil, title: nil)
+        AppActions.showReceive(accountContext: AccountContext(source: .current), chain: nil)
     }
     
     private func removeWalllet() {

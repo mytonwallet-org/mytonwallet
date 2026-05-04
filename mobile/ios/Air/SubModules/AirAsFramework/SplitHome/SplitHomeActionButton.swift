@@ -38,7 +38,7 @@ enum SplitHomeActionItem: CaseIterable, Hashable, Sendable {
     @MainActor func perform(accountContext: AccountContext) {
         switch self {
         case .buy: AppActions.showBuyWithCard(accountContext: accountContext, chain: nil, push: nil)
-        case .deposit: AppActions.showReceive(accountContext: accountContext, chain: nil, title: nil)
+        case .deposit: AppActions.showReceive(accountContext: accountContext, chain: nil)
         case .earn: AppActions.showEarn(accountContext: accountContext, tokenSlug: nil)
         case .scan: onScan(accountContext: accountContext)
         case .sell: AppActions.showSell(accountContext: accountContext, tokenSlug: nil)

@@ -18,7 +18,7 @@ $variant_config = {
     profile_name_widget: 'MyTonWallet Production profile - Widget',
     scheme: 'MyTonWallet',
     scheme_widget: 'AirWidgetExtension',
-    plist_path: '../../App/App/Info.plist',
+    plist_path: '../../App/App/Resources/MyTonWallet/Info.plist',
     testflight_group: 'MTW external group',
   },
   'gram' => {
@@ -28,7 +28,7 @@ $variant_config = {
     profile_name_widget: 'Gram Wallet Production profile - Widget',
     scheme: 'GramWallet',
     scheme_widget: 'GramWalletWidgetExtension',
-    plist_path: '../../App/App/GramWallet-Info.plist',
+    plist_path: '../../App/App/Resources/GramWallet/Info.plist',
     testflight_group: 'Gram Wallet external group',
   },
 }

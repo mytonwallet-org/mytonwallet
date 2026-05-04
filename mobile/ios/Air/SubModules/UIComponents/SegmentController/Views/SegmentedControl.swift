@@ -13,58 +13,56 @@ public struct SegmentedControl: View {
 
     @Namespace private var ns
 
-    @AppStorage("debug_hideSegmentedControls") private var hideSegmentedControls = false
-
     public init(model: SegmentedControlModel, scrollContentMargin: CGFloat) {
         self.model = model
         self.scrollContentMargin = scrollContentMargin
     }
             
     public var body: some View {
-        if !hideSegmentedControls {
-            Color.clear
-                .overlay {
+        Color.clear
+            .overlay {
+                content
+            }
+    }
+    
+    var content: some View {
+        WithPerceptionTracking {
+            ScrollViewReader { proxy in
+                GeometryReader { geo in
                     WithPerceptionTracking {
-                        ScrollViewReader { proxy in
-                            GeometryReader { geo in
-                                WithPerceptionTracking {
-                                    let contentFits = model.calculateContentWidth(includeBackground: false) <= geo.size.width
-                                    ScrollView(.horizontal) {
-                                        _SegmentedControlContent(model: model, ns: ns)
-                                            .fixedSize()
-                                            .padding(.horizontal, scrollContentMargin)
-                                            .frame(minWidth: geo.size.width, alignment: .center)
-                                    }
-                                    .backportScrollClipDisabled()
-                                    .backportScrollBounceBehaviorBasedOnSize()
-                                    .scrollDisabled(contentFits)
-                                    .scrollIndicators(.hidden)
-                                    .onChange(of: model.selectedItem?.id) { _ in
-                                        scrollDebounceToken &+= 1
-                                    }
-                                    .task(id: scrollDebounceToken) {
-                                        guard scrollDebounceToken > 0 else { return }
-                                        try? await Task.sleep(for: .milliseconds(80))
-                                        guard !Task.isCancelled, let id = model.selectedItem?.id else { return }
-                                        withAnimation(.smooth(duration: 0.35)) {
-                                            proxy.scrollTo(id)
-                                        }
-                                    }
-                                }
-                            }
+                        let contentFits = model.calculateContentWidth(includeBackground: false) <= geo.size.width
+                        ScrollView(.horizontal) {
+                            _SegmentedControlContent(model: model, ns: ns)
+                                .fixedSize()
+                                .padding(.horizontal, scrollContentMargin)
+                                .frame(minWidth: geo.size.width, alignment: .center)
                         }
-                        .opacity(model.isReordering ? 0.0 : 1.0)
-                        .clipShape(RoundedRectangle(cornerRadius: model.constants.height / 2, style: .continuous))
-                        .padding(model.constants.backgroundPadding)
-                        .background { _SegmentedControlBackground(model: model, ns: ns) }
-                        .padding(.top, model.constants.topInset)
-                        .overlay {
-                            SegmentedControlReordering(model: model, scrollContentMargin: scrollContentMargin)
+                        .backportScrollClipDisabled()
+                        .backportScrollBounceBehaviorBasedOnSize()
+                        .scrollDisabled(contentFits)
+                        .scrollIndicators(.hidden)
+                        .onChange(of: model.selectedItem?.id) { _ in
+                            scrollDebounceToken &+= 1
+                        }
+                        .task(id: scrollDebounceToken) {
+                            guard scrollDebounceToken > 0 else { return }
+                            try? await Task.sleep(for: .milliseconds(80))
+                            guard !Task.isCancelled, let id = model.selectedItem?.id else { return }
+                            withAnimation(.smooth(duration: 0.35)) {
+                                proxy.scrollTo(id)
+                            }
                         }
                     }
                 }
-        } else {
-            Color.blue
+            }
+            .opacity(model.isReordering ? 0.0 : 1.0)
+            .clipShape(RoundedRectangle(cornerRadius: model.constants.height / 2, style: .continuous))
+            .padding(model.constants.backgroundPadding)
+            .background { _SegmentedControlBackground(model: model, ns: ns) }
+            .padding(.top, model.constants.topInset)
+            .overlay {
+                SegmentedControlReordering(model: model, scrollContentMargin: scrollContentMargin)
+            }
         }
     }
 }

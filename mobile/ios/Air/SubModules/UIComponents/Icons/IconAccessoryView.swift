@@ -177,6 +177,17 @@ public final class IconAccessoryView: UIView {
 private final class AccessoryClockView: UIView {
     let fastHand = CAShapeLayer()
     let slowHand = CAShapeLayer()
+    private var shouldAnimate = false
+
+    override var isHidden: Bool {
+        didSet {
+            if isHidden {
+                removeAnimations()
+            } else {
+                restartAnimations()
+            }
+        }
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -190,25 +201,40 @@ private final class AccessoryClockView: UIView {
             hand.lineJoin = .round
             layer.addSublayer(hand)
         }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationDidBecomeActive),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
     }
 
     required init?(coder: NSCoder) {
         fatalError()
     }
 
-    func startAnimating() {
-        let now = CACurrentMediaTime()
-        if fastHand.animation(forKey: "spin") == nil {
-            fastHand.add(spinAnimation(duration: 1, time: now), forKey: "spin")
-        }
-        if slowHand.animation(forKey: "spin") == nil {
-            slowHand.add(spinAnimation(duration: 6, time: now), forKey: "spin")
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil {
+            removeAnimations()
+        } else {
+            restartAnimations()
         }
     }
 
+    func startAnimating() {
+        shouldAnimate = true
+        restartAnimations()
+    }
+
     func stopAnimating() {
-        fastHand.removeAllAnimations()
-        slowHand.removeAllAnimations()
+        shouldAnimate = false
+        removeAnimations()
     }
 
     override func layoutSubviews() {
@@ -238,6 +264,23 @@ private final class AccessoryClockView: UIView {
         path.move(to: center)
         path.addLine(to: tip)
         return path.cgPath
+    }
+
+    @objc private func applicationDidBecomeActive() {
+        restartAnimations()
+    }
+
+    private func restartAnimations() {
+        guard shouldAnimate, !isHidden, window != nil else { return }
+        removeAnimations()
+        let now = CACurrentMediaTime()
+        fastHand.add(spinAnimation(duration: 1, time: now), forKey: "spin")
+        slowHand.add(spinAnimation(duration: 6, time: now), forKey: "spin")
+    }
+
+    private func removeAnimations() {
+        fastHand.removeAllAnimations()
+        slowHand.removeAllAnimations()
     }
 
     func spinAnimation(duration: Double, time: CFTimeInterval) -> CABasicAnimation {

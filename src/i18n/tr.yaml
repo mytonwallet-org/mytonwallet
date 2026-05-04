@@ -1105,11 +1105,12 @@ Ask anything: Her şeyi sor
 Agent: Asistan
 Learn more: Daha fazla bilgi
 Data shared with Agent: Asistan ile paylaşılan veriler
+$agent_consent_allow_button: Asistana İzin Ver
 $agent_consent_subtitle: Cüzdan yardımı, token bilgileri ve desteklenen işlemler için Asistan'a danışın.
 $agent_consent_feature_answers: "%app_name%, tokenlar ve cüzdan etkinliği hakkında yanıtlar alın."
-$agent_consent_feature_actions: Kripto gönderme, alma, takas etme ve satın alma gibi desteklenen işlemleri hazırlayın.
+$agent_consent_feature_actions: Gönderme, alma ve staking gibi desteklenen işlemleri hazırlayın.
 $agent_consent_feature_context: Yanıtların ilgili varlıklara ve adreslere referans verebilmesi için cüzdan bağlamını kullanın.
-$agent_consent_disclosure_text: Devam ederek %app_name% uygulamasının Asistan mesajlarınızı ve cüzdan bağlamınızı %app_name% Agent (agent.mytonwallet.org) ile bizim adımıza istekleri işleyen üçüncü taraf yapay zeka sağlayıcılarına göndermesine izin verirsiniz. Cüzdan bağlamı herkese açık adresleri, bakiyeleri, token listesini, kayıtlı adresleri, dili ve temel para birimini içerebilir. Kurtarma ifadeleri, özel anahtarlar, parolalar veya diğer gizli bilgileri girmeyin.
+$agent_consent_disclosure_text: Asistana İzin Ver düğmesine dokunarak %app_name% uygulamasının Asistan mesajlarınızı ve ilgili cüzdan bağlamınızı %app_name% Agent (agent.mytonwallet.org) ile üçüncü taraf AI sağlayıcımız Anthropic Claude API'ye isteklerinizi işlemek üzere göndermesine izin verirsiniz. Cüzdan bağlamı cüzdan adreslerini, bakiyeleri, tokenları, etkinliği ve istenen işlem ayrıntılarını içerebilir. Veriler yalnızca Asistan yanıtları sağlamak ve istediğiniz işlemleri hazırlamak için kullanılır.
 $agent_consent_debug_reset_button: Asistan onay durumunu sıfırla
 $agent_consent_debug_reset_footer: Asistan sekmesi açıldığında Asistan onay ekranını tekrar gösterir.
 Clear Chat: Sohbeti temizle

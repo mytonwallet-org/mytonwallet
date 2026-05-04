@@ -27,10 +27,6 @@ const COMMON_PLUGINS = [
   'cordova-plugin-inappbrowser',
 ];
 
-const IOS_PLUGINS = [
-  '@capacitor/splash-screen',
-];
-
 const config: CapacitorConfig = {
   appId: 'org.mytonwallet.app',
   appName: 'MyTonWallet',
@@ -46,14 +42,11 @@ const config: CapacitorConfig = {
   },
   ios: {
     path: 'mobile/ios',
-    includePlugins: COMMON_PLUGINS.concat(IOS_PLUGINS),
+    includePlugins: COMMON_PLUGINS,
     scheme: 'MyTonWallet',
     webContentsDebuggingEnabled: APP_ENV !== 'production',
   },
   plugins: {
-    SplashScreen: {
-      launchAutoHide: false,
-    },
     CapacitorHttp: {
       enabled: true,
     },

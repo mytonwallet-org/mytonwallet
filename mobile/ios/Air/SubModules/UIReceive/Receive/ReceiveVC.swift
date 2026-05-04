@@ -17,7 +17,6 @@ let headerHeight: CGFloat = 360
 public class ReceiveVC: WViewController {
     
     private let selectedChain: ApiChain?
-    private let customTitle: String?
     
     private var segmentedController: WSegmentedController!
     private var hostingController: UIHostingController<ReceiveHeaderView>!
@@ -25,9 +24,8 @@ public class ReceiveVC: WViewController {
     
     @AccountContext private var account: MAccount
 
-    public init(accountContext: AccountContext, chain: ApiChain? = nil, title: String? = nil) {
+    public init(accountContext: AccountContext, chain: ApiChain? = nil) {
         self._account = accountContext
-        self.customTitle = title
         self.selectedChain = chain
         super.init(nibName: nil, bundle: nil)
     }
@@ -102,7 +100,7 @@ public class ReceiveVC: WViewController {
             segmentedController.segmentedControl.removeFromSuperview()
             navigationItem.titleView = HostingView {
                 NavigationHeader {
-                    Text(customTitle ?? lang("Add Crypto"))
+                    Text(lang("Add Crypto"))
                         .foregroundStyle(.white)
                 }
             }
@@ -146,7 +144,7 @@ public class ReceiveVC: WViewController {
             SegmentedControlItem(
                 id: chain.rawValue,
                 title: chain.title,
-                viewController: ReceiveTableVC(account: _account, chain: chain, customTitle: chain.title),
+                viewController: ReceiveTableVC(account: _account, chain: chain),
             )
         }
     }

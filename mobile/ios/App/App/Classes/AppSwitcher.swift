@@ -40,7 +40,7 @@ private let log = Log("AppSwitcher")
             }
         } else {
             #if canImport(Capacitor)
-            let capBridgeVC = UIStoryboard(name: "Main", bundle: Bundle.main).instantiateViewController(withIdentifier: "capBridgeVC") as! CAPBridgeViewController
+            let capBridgeVC = CAPBridgeViewController()
             addLongTapGesture(vc: capBridgeVC)
             window.rootViewController = capBridgeVC
             window.makeKeyAndVisible()

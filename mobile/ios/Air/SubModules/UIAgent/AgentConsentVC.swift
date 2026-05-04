@@ -60,6 +60,9 @@ private enum AgentConsentCopy {
     static var disclosureText: String {
         lang("$agent_consent_disclosure_text", arg1: APP_NAME)
     }
+    static var allowButton: String {
+        lang("$agent_consent_allow_button")
+    }
     static var learnMore: String {
         lang("Learn more")
     }
@@ -174,7 +177,7 @@ private final class AgentConsentView: UIView {
         bottomContainerView.backgroundColor = UIColor.air.background
 
         continueButton.translatesAutoresizingMaskIntoConstraints = false
-        continueButton.setTitle(lang("Continue"), for: .normal)
+        continueButton.setTitle(AgentConsentCopy.allowButton, for: .normal)
         continueButton.addTarget(self, action: #selector(continueButtonPressed), for: .touchUpInside)
 
         addLayoutGuide(contentWidthGuide)

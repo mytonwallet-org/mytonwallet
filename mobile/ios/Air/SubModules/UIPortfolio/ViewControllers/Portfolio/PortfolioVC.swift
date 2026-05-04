@@ -480,7 +480,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
 
         switch action.kind {
         case .fund:
-            AppActions.showReceive(accountContext: viewModel.accountContext, chain: nil, title: nil)
+            AppActions.showReceive(accountContext: viewModel.accountContext, chain: nil)
         case .swap:
             AppActions.showSwap(
                 accountContext: viewModel.accountContext,

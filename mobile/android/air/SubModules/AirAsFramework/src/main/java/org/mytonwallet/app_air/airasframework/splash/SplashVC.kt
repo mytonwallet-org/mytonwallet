@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
+import androidx.core.view.isVisible
 import org.mytonwallet.app_air.airasframework.AirAsFrameworkApplication
 import org.mytonwallet.app_air.airasframework.MainWindow
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
@@ -280,10 +281,12 @@ class SplashVC(context: Context) : WViewController(context),
 
     private fun presentTabsAndLockScreen(presentLockScreen: Boolean) {
         val tabsNav = WNavigationController(window!!)
-        tabsNav.setRoot(TabsVC(context))
+        val tabsVC = TabsVC(context)
+        tabsNav.setRoot(tabsVC)
         if (!presentLockScreen)
             appIsUnlocked = true
-        window!!.replace(tabsNav, false, onCompletion = {
+        tabsVC.view.isVisible = !presentLockScreen
+        window!!.replace(tabsNav, appIsUnlocked, onCompletion = {
             Logger.i(Logger.LogTag.AIR_APPLICATION, "presentTabsAndLockScreen: Done")
             if (presentLockScreen) {
                 if (!appIsUnlocked)
@@ -405,6 +408,7 @@ class SplashVC(context: Context) : WViewController(context),
                 // After unlock:
                 window?.forceStatusBarLight = null
                 window?.forceBottomBarLight = null
+                tabsVC?.view?.isVisible = true
                 window?.dismissLastNav(
                     WWindow.DismissAnimation.SCALE_IN,
                     onCompletion = {

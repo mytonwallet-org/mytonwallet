@@ -38,7 +38,7 @@ import WalletContext
     static func showNftByAddress(_ nftAddress: String)
     static func showPromotion(_ promotion: ApiPromotion)
     static func showPortfolio(accountContext: AccountContext)
-    static func showReceive(accountContext: AccountContext, chain: ApiChain?, title: String?)
+    static func showReceive(accountContext: AccountContext, chain: ApiChain?)
     static func showRenewDomain(accountSource: AccountSource, nftsToRenew: [String])
     static func showRenameAccount(accountId: String)
     static func showSaveAddressDialog(accountContext: AccountContext, chain: ApiChain, address: String)
@@ -108,7 +108,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showNftByAddress(_ nftAddress: String) { }
     static func showPromotion(_ promotion: ApiPromotion) { }
     static func showPortfolio(accountContext: AccountContext) { }
-    static func showReceive(accountContext: AccountContext, chain: ApiChain?, title: String?) { }
+    static func showReceive(accountContext: AccountContext, chain: ApiChain?) { }
     static func showRenewDomain(accountSource: AccountSource, nftsToRenew: [String]) { }
     static func showRenameAccount(accountId: String) { }
     static func showSaveAddressDialog(accountContext: AccountContext, chain: ApiChain, address: String) { }

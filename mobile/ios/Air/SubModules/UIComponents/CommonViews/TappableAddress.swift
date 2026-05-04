@@ -1,5 +1,6 @@
 import ContextMenuKit
 import SwiftUI
+import UIKit
 import WalletCore
 import WalletContext
 import Perception
@@ -100,13 +101,17 @@ public struct TappableAddress: View {
                 formatAddressAttributed(
                     text,
                     startEnd: compact,
+                    primaryFont: AddressTextStyle.uiFont,
+                    secondaryFont: AddressTextStyle.uiFont,
                     primaryColor: .air.secondaryLabel
                 )
             )
+
             HStack(alignment: .firstTextBaseline, spacing: 3) {
-                ChainIcon(model.chain, style: .sDefault, color: .air.secondaryLabel)
+                ChainIcon(model.chain, color: .air.secondaryLabel)
                     .prepended(to: addr, separator: .hairline)
-                
+                    .imageScale(.small)
+
                 if isMenuEnabled {
                     Image.airBundle("ArrowUpDownSmall")
                         .foregroundColor(.air.secondaryLabel)
@@ -114,6 +119,7 @@ public struct TappableAddress: View {
                         .offset(y: 1)
                 }
             }
+            .font(AddressTextStyle.font)
             .padding(extraTouchPadding)
             .contentShape(.rect)
             .contextMenuSource(isEnabled: isMenuEnabled) {
@@ -147,11 +153,26 @@ public struct TappableAddressFull: View {
         if let name = model.name {
             let nameText = Text(name)
             let separator = Text("\u{A0}·\u{A0}").foregroundColor(.air.secondaryLabel)
-            let addrText = Text(formatAddressAttributed(address, startEnd: compactAddressWithName, primaryColor: .air.secondaryLabel))
+            let addrText = Text(
+                formatAddressAttributed(
+                    address,
+                    startEnd: compactAddressWithName,
+                    primaryFont: AddressTextStyle.uiFont,
+                    secondaryFont: AddressTextStyle.uiFont,
+                    primaryColor: .air.secondaryLabel
+                )
+            )
             return Text("\(nameText)\(separator)\(addrText)")
         }
         
-        return Text(formatAddressAttributed(address, startEnd: false))
+        return Text(
+            formatAddressAttributed(
+                address,
+                startEnd: false,
+                primaryFont: AddressTextStyle.uiFont,
+                secondaryFont: AddressTextStyle.uiFont
+            )
+        )
     }
     
     public var body: some View {
@@ -159,7 +180,7 @@ public struct TappableAddressFull: View {
             let model = self.model.withLocalName(account: accountContext)
             let isMenuEnabled = model.addressToCopy != nil
             
-            let iconedAddressText = ChainIcon(model.chain, style: .sDefault, color: .air.secondaryLabel)
+            let iconedAddressText = ChainIcon(model.chain, color: .air.secondaryLabel)
                 .prepended(to: text(forModel: model), separator: .hairline)
             
             Group {
@@ -173,6 +194,8 @@ public struct TappableAddressFull: View {
                     iconedAddressText
                 }
             }
+            .font(AddressTextStyle.font)
+            .imageScale(.small)
             .lineLimit(nil)
             .multilineTextAlignment(.leading)
             .contextMenuSource(isEnabled: isMenuEnabled) {
@@ -181,4 +204,9 @@ public struct TappableAddressFull: View {
             }
         }
     }
+}
+
+private enum AddressTextStyle {
+    static let uiFont = UIFont.systemFont(ofSize: 17, weight: .regular)
+    static let font = Font(uiFont)
 }

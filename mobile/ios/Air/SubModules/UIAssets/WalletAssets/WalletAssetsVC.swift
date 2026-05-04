@@ -26,8 +26,6 @@ private let log = Log("Home-WalletAssets")
     private let accountIdProvider: AccountIdProvider
     private var accountSource: AccountSource { accountIdProvider.source }
     
-    @AppStorage("debug_hideSegmentedControls") private var hideSegmentedControls = false
-    
     private let tabsViewModel: WalletAssetsViewModel
     
     private var tabViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]

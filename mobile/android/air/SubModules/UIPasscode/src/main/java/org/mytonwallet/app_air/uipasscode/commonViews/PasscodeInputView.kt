@@ -230,30 +230,40 @@ class PasscodeInputView(
         }, AnimationConstants.VERY_QUICK_ANIMATION)
     }
 
-    fun hideIndicator() {
+    fun hideIndicator(animated: Boolean) {
         if (!isShowingIndicator) return
 
         isShowingIndicator = false
-        (progressView.parent as? ViewGroup)?.removeView(progressView)
 
-        circleViews.forEachIndexed { i, view ->
-            view.apply {
-                scaleX = 1f
-                scaleY = 1f
-                alpha = 1f
-                layoutParams = (layoutParams as LayoutParams).apply {
-                    if (LocaleController.isRTL) {
-                        rightMargin = 4.dp + i * (14 + margins).dp
-                        leftMargin = 4.dp
-                    } else {
-                        leftMargin = 4.dp + i * (14 + margins).dp
-                        rightMargin = 4.dp
+        if (!animated) {
+            (progressView.parent as? ViewGroup)?.removeView(progressView)
+            circleViews.forEachIndexed { i, view ->
+                view.animate().cancel()
+                view.apply {
+                    translationX = 0f
+                    scaleX = 1f
+                    scaleY = 1f
+                    alpha = 1f
+                    layoutParams = (layoutParams as LayoutParams).apply {
+                        if (LocaleController.isRTL) {
+                            rightMargin = 4.dp + i * (14 + margins).dp
+                            leftMargin = 4.dp
+                        } else {
+                            leftMargin = 4.dp + i * (14 + margins).dp
+                            rightMargin = 4.dp
+                        }
+                        gravity = Gravity.NO_GRAVITY
                     }
-                    gravity = Gravity.NO_GRAVITY
+                    visibility = if (i < passLength) VISIBLE else GONE
                 }
-                visibility = if (i < passLength) VISIBLE else GONE
             }
+            return
         }
+
+        progressView.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
+            (progressView.parent as? ViewGroup)?.removeView(progressView)
+        }
+        animateCirclesFromCenter()
     }
 
     private fun animateCirclesToCenter(animateToGreen: Boolean, onComplete: () -> Unit) {
@@ -284,6 +294,50 @@ class PasscodeInputView(
 
             if (animateToGreen)
                 view.animateBackgroundColor(WColor.Green.color, 8f.dp)
+        }
+    }
+
+    private fun animateCirclesFromCenter() {
+        val secondaryText =
+            if (!forceDarkScreen && (forceLightScreen || ThemeManager.isDark))
+                Color.WHITE.colorWithAlpha(85) else Color.BLACK.colorWithAlpha(85)
+
+        circleViews.forEachIndexed { index, view ->
+            view.animate().cancel()
+
+            val targetLeftMargin =
+                if (LocaleController.isRTL) 4.dp
+                else 4.dp + index * (14 + margins).dp
+            val targetRightMargin =
+                if (LocaleController.isRTL) 4.dp + index * (14 + margins).dp
+                else 4.dp
+            val targetX =
+                if (LocaleController.isRTL)
+                    (width - targetRightMargin - 14.dp).toFloat()
+                else
+                    targetLeftMargin.toFloat()
+            val startTranslation = view.x - targetX
+
+            view.translationX = startTranslation
+            view.layoutParams = (view.layoutParams as LayoutParams).apply {
+                leftMargin = targetLeftMargin
+                rightMargin = targetRightMargin
+                gravity = Gravity.NO_GRAVITY
+            }
+            view.visibility = if (index < passLength) VISIBLE else GONE
+
+            view.animate()
+                .translationX(0f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(AnimationConstants.VERY_QUICK_ANIMATION)
+                .setInterpolator(WInterpolator.emphasized)
+                .withEndAction {
+                    view.translationX = 0f
+                }
+
+            view.animateBackgroundColor(Color.TRANSPARENT, 8f.dp, secondaryText, 1.dp)
         }
     }
 }
