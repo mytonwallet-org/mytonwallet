@@ -388,7 +388,7 @@ class WalletCardView(
             clipChildren = false
             clipToPadding = false
         }
-        val maxBottomContainerWidth = max(240.dp, window.windowView.width - (34 + 96).dp)
+        val maxBottomContainerWidth = max(240.dp, window.windowView.width - 100.dp)
 
         clippedContainer.addView(img, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         clippedContainer.addView(shiningView, LayoutParams(MATCH_PARENT, MATCH_PARENT))

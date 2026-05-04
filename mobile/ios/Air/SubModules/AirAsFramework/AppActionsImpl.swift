@@ -414,8 +414,8 @@ private class AppActionsImpl: AppActionsProtocol {
         pushIfNeeded(vc, push: true)
     }
     
-    static func showReceive(accountContext: AccountContext, chain: ApiChain?, title: String?) {
-        let receiveVC = ReceiveVC(accountContext: accountContext, chain: chain, title: title)
+    static func showReceive(accountContext: AccountContext, chain: ApiChain?) {
+        let receiveVC = ReceiveVC(accountContext: accountContext, chain: chain)
         topViewController()?.present(WNavigationController(rootViewController: receiveVC), animated: true)
     }
 

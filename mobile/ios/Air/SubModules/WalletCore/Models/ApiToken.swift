@@ -531,7 +531,7 @@ extension ApiToken {
         slug: BSC_USDT_MAINNET_SLUG,
         name: "Tether USD",
         symbol: "USDT",
-        decimals: 6,
+        decimals: 18,
         chain: .bnb,
         tokenAddress: "0x55d398326f99059ff775485246999027b3197955",
         image: TON_USDT_MAINNET_IMAGE,

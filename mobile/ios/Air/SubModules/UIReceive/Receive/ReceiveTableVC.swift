@@ -18,11 +18,11 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, ReceiveItem>!
 
-    public init(account: AccountContext, chain: ApiChain, customTitle: String? = nil) {
+    public init(account: AccountContext, chain: ApiChain) {
         self._account = account
         self.chain = chain
         super.init(nibName: nil, bundle: nil)
-        title = customTitle ?? lang("Add Crypto")
+        title = lang("Add Crypto")
     }
 
     required init?(coder: NSCoder) {

@@ -19,8 +19,8 @@ public class HiddenNftsVC: WViewController, Sendable {
         
         var localizedTitle: String {
             switch self {
-            case .hiddenByUser: "Hidden Manually"
-            case .likelyScam: "Likely Scam"
+            case .hiddenByUser: lang("Hidden By Me")
+            case .likelyScam: lang("Probably Scam")
             }
         }
     }
@@ -66,13 +66,14 @@ public class HiddenNftsVC: WViewController, Sendable {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        addCloseNavigationItemIfNeeded()
         WalletCoreData.add(eventObserver: self)
     }
     
     private var displayNfts: OrderedDictionary<String, DisplayNft>?
     
     func setupViews() {
-        title = "Hidden NFTs"
+        title = lang("Hidden NFTs")
         
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
         collectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -123,17 +124,19 @@ public class HiddenNftsVC: WViewController, Sendable {
             }
         }
         let sectionHeader = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(elementKind: UICollectionView.elementKindSectionHeader) { [weak self] cell, _, indexPath in
-            if let id = self?.dataSource.sectionIdentifier(for: indexPath.section) {
-                let title = id.localizedTitle
-                cell.contentConfiguration = UIHostingConfiguration {
-                    Text(title)
-                        .font(.system(size: 20, weight: .bold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .margins(.top, 16)
-                .margins(.bottom, 4)
-                .margins(.horizontal, 4)
+            guard let section = self?.dataSource.sectionIdentifier(for: indexPath.section) else { return }
+            var content = UIListContentConfiguration.groupedHeader()
+            content.text = section.localizedTitle
+            cell.contentConfiguration = content
+        }
+        let sectionFooter = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(elementKind: UICollectionView.elementKindSectionFooter) { [weak self] cell, _, indexPath in
+            guard self?.dataSource.sectionIdentifier(for: indexPath.section) == .likelyScam else {
+                cell.contentConfiguration = nil
+                return
             }
+            var content = UIListContentConfiguration.groupedFooter()
+            content.text = lang("$settings_nft_probably_scam_description")
+            cell.contentConfiguration = content
         }
         dataSource = .init(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
             switch itemIdentifier {
@@ -147,6 +150,8 @@ public class HiddenNftsVC: WViewController, Sendable {
             switch elementKind {
             case UICollectionView.elementKindSectionHeader:
                 collectionView.dequeueConfiguredReusableSupplementary(using: sectionHeader, for: indexPath)
+            case UICollectionView.elementKindSectionFooter:
+                collectionView.dequeueConfiguredReusableSupplementary(using: sectionFooter, for: indexPath)
             default:
                 nil
             }
@@ -162,14 +167,18 @@ public class HiddenNftsVC: WViewController, Sendable {
     func makeLayout() -> UICollectionViewCompositionalLayout {
         var configuration = UICollectionLayoutListConfiguration.init(appearance: .insetGrouped)
         configuration.headerMode = .supplementary
-        configuration.footerMode = .none
+        configuration.footerMode = .supplementary
         configuration.separatorConfiguration.bottomSeparatorInsets.leading = 60
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
         } else {
             configuration.separatorConfiguration.color = .air.separator
         }
         configuration.backgroundColor = .clear
-        let layout = UICollectionViewCompositionalLayout.list(using: configuration)
+        let layout = UICollectionViewCompositionalLayout(sectionProvider: { [weak self] sectionIndex, layoutEnvironment in
+            var sectionConfiguration = configuration
+            sectionConfiguration.footerMode = self?.dataSource?.sectionIdentifier(for: sectionIndex) == .likelyScam ? .supplementary : .none
+            return NSCollectionLayoutSection.list(using: sectionConfiguration, layoutEnvironment: layoutEnvironment)
+        })
         return layout
     }
     
@@ -179,7 +188,7 @@ public class HiddenNftsVC: WViewController, Sendable {
     
     private func updateTheme() {
         view.backgroundColor = .air.sheetBackground
-        collectionView.backgroundColor = .air.sheetBackground
+        collectionView.backgroundColor = .clear
     }
     
     public var scrollingView: UIScrollView? {

@@ -11,6 +11,7 @@ import { getEvmProvider } from './util/client';
 import { getZerionFungibleImplementation, isZerionNativeFungible } from './util/tokens';
 import { getKnownAddressInfo } from '../../common/addresses';
 import { buildTokenSlug, updateTokens } from '../../common/tokens';
+import { fetchEvmTxs } from './activities';
 import { isValidAddress } from './address';
 import { EVM_RPC_URLS, getEvmApiUrl, getZerionChainByApiChain } from './constants';
 
@@ -196,18 +197,13 @@ export const getAddressInfo = (
 
 export const getIsWalletActive = withCacheAsync(
   async (network: ApiNetwork, chain: EVMChain, address: string) => {
-    const balance = await getWalletBalance(chain, network, address);
+    const txs = await fetchEvmTxs({
+      chain,
+      network,
+      address,
+      limit: 1,
+    });
 
-    return balance > 0n;
-
-    // TODO: use backend-based activity checking instead of balance checking
-    // const txs = await fetchEvmTxs({
-    //   chain,
-    //   network,
-    //   address,
-    //   limit: 1,
-    // });
-
-    // return !!txs.length;
+    return !!txs.length;
   },
 );

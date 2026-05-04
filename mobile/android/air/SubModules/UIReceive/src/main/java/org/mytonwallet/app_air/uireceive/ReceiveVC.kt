@@ -17,6 +17,7 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.constraintlayout.widget.ConstraintLayout.generateViewId
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.ViewModelProvider
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
@@ -446,8 +447,6 @@ class ReceiveVC private constructor(
             layoutParams.height = qrTransparentHeight(firstVC)
             colorView.layoutParams = layoutParams
         }
-        val defaultVC = qrCodeVCs[defaultChain] ?: firstVC
-        defaultVC.addressView.viewTreeObserver.addOnPreDrawListener(viewTreeObserver)
     }
 
     override val isTinted = true
@@ -478,7 +477,6 @@ class ReceiveVC private constructor(
             invoiceView.addRippleEffect(WColor.SecondaryBackground.color)
             invoiceLabel.setTextColor(WColor.Tint.color)
         }
-        qrSegmentView.layoutParams.height = qrHeight
 
         val cacheWidth = ApplicationContextHolder.screenWidth
         val cacheHeight = (navigationController?.getSystemBars()?.top ?: 0) + 307.dp + 64.dp
@@ -564,6 +562,7 @@ class ReceiveVC private constructor(
 
     override fun viewWillAppear() {
         super.viewWillAppear()
+        resubscribeQrHeightListener()
         if (navigationController?.isSwipingBack == true)
             return
         window!!.forceStatusBarLight = true
@@ -598,17 +597,32 @@ class ReceiveVC private constructor(
             return qrCodeHeight(activeVC)
         }
 
-    private var viewTreeObserver: ViewTreeObserver.OnPreDrawListener? =
-        object : ViewTreeObserver.OnPreDrawListener {
-            override fun onPreDraw(): Boolean {
-                val layoutParams = qrSegmentView.layoutParams
-                layoutParams.height = qrHeight
-                qrSegmentView.layoutParams = layoutParams
-                val defaultVC = qrCodeVCs[defaultChain] ?: qrCodeVCs.values.first()
+    private var lastAppliedQrHeight = 0
+
+    private val viewTreeObserver = object : ViewTreeObserver.OnPreDrawListener {
+        override fun onPreDraw(): Boolean {
+            val calculatedQRHeight = qrHeight
+            if (calculatedQRHeight == lastAppliedQrHeight) {
                 defaultVC.addressView.viewTreeObserver.removeOnPreDrawListener(this)
                 return true
             }
+            lastAppliedQrHeight = calculatedQRHeight
+            qrSegmentView.updateLayoutParams {
+                height = calculatedQRHeight
+            }
+            return true
         }
+    }
+
+    private val defaultVC get() = qrCodeVCs[defaultChain] ?: qrCodeVCs.values.first()
+
+    private fun resubscribeQrHeightListener() {
+        lastAppliedQrHeight = 0
+        with(defaultVC.addressView.viewTreeObserver) {
+            removeOnPreDrawListener(viewTreeObserver)
+            addOnPreDrawListener(viewTreeObserver)
+        }
+    }
 
     private fun qrCodeHeight(vc: QRCodeVC): Int {
         return vc.getHeight()
@@ -651,9 +665,7 @@ class ReceiveVC private constructor(
             buyWithCardView.setOnClickListener(null)
             buyWithCryptoView.setOnClickListener(null)
         }
-        val defaultVC = qrCodeVCs[defaultChain] ?: qrCodeVCs.values.firstOrNull()
-        defaultVC?.addressView?.viewTreeObserver?.removeOnPreDrawListener(viewTreeObserver)
-        viewTreeObserver = null
+        defaultVC.addressView.viewTreeObserver.removeOnPreDrawListener(viewTreeObserver)
     }
 
     private fun updateOptionsForOffset(offset: Float) {

@@ -10,6 +10,9 @@ import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.airasframework.splash.SplashVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.helpers.ShakeDetector
+import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
+import org.mytonwallet.app_air.uisettings.viewControllers.debugMenu.DebugMenuVC
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -50,7 +53,21 @@ class MainWindow : WWindow() {
 
         AutoLockHelper.start(WGlobalStorage.getAppLock().period)
 
+        ShakeDetector.onShake = { presentDebugMenuIfAllowed() }
+
         checkPushNotifications()
+    }
+
+    private fun presentDebugMenuIfAllowed() {
+        if (!WGlobalStorage.getIsShakeToDebugEnabled()) return
+        if (WalletContextManager.delegate?.isAppUnlocked() != true) return
+        val topVC = topViewController ?: return
+        if (topVC is PasscodeConfirmVC) return
+        if (topVC.isLockedScreen) return
+        if (topVC is DebugMenuVC) return
+        val nav = WNavigationController(this)
+        nav.setRoot(DebugMenuVC(this))
+        present(nav, true)
     }
 
     fun restartBridge(forcedRecreation: Boolean) {
@@ -106,11 +123,17 @@ class MainWindow : WWindow() {
     override fun onResume() {
         super.onResume()
         AutoLockHelper.appResumed()
+        if (WGlobalStorage.getIsShakeToDebugEnabled()) {
+            ShakeDetector.onAppResume()
+        }
     }
 
     var lastWidgetUpdate: Long = 0
     override fun onPause() {
         super.onPause()
+        if (WGlobalStorage.getIsShakeToDebugEnabled()) {
+            ShakeDetector.onAppPause()
+        }
         val currentDt = System.currentTimeMillis()
         if (currentDt - lastWidgetUpdate > 60 * 1000) {
             lastWidgetUpdate = currentDt
@@ -120,6 +143,7 @@ class MainWindow : WWindow() {
 
     override fun onDestroy() {
         super.onDestroy()
+        ShakeDetector.onShake = null
         if (isBridgeUser) {
             isBridgeUser = false
             destroyBridge()

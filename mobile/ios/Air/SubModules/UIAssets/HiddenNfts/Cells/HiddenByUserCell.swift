@@ -20,7 +20,7 @@ struct HiddenByUserCell: View {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Image(systemName: isHiddenByUser ? "eye.fill" : "eye.slash.fill")
                         .imageScale(.small)
-                    Text(isHiddenByUser ? "Unhide" : "Hide")
+                    Text(lang(isHiddenByUser ? "Unhide" : "Hide"))
                 }
                 .font(.system(size: 16, weight: .semibold))
                 .contentShape(.capsule)

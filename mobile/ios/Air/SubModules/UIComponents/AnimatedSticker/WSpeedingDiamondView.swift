@@ -44,7 +44,7 @@ public final class WSpeedingDiamondView: UIView {
         didSetupAnimation = true
         stickerView.animationName = "diamond"
         stickerView.playbackSpeed = Self.minSpeed
-        stickerView.setup(width: Int(animationSize), height: Int(animationSize), playbackMode: .loop)
+        stickerView.setup(width: Int(animationSize), height: Int(animationSize), playbackMode: .loop, bundle: .main)
     }
 
     public override func didMoveToWindow() {

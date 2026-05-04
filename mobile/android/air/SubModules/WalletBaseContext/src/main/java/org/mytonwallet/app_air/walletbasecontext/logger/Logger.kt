@@ -183,6 +183,16 @@ object Logger {
         }
     }
 
+    fun readLogText(): String {
+        synchronize()
+        val file = logFile ?: return ""
+        return try {
+            file.readText(Charsets.UTF_8)
+        } catch (_: Throwable) {
+            ""
+        }
+    }
+
     fun shareLogFile(context: Context) {
         synchronize()
         val logFile = logFile ?: return

@@ -14,12 +14,14 @@ import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.ShakeDetector
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uisettings.viewControllers.logs.LogsVC
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -44,6 +46,19 @@ class DebugMenuVC(context: Context) : WViewController(context) {
     // Section 1: Logs
     private val logsTitleLabel = HeaderCell(context).apply {
         configure("Logs", titleColor = WColor.Tint, HeaderCell.TopRounding.FIRST_ITEM)
+    }
+
+    private val viewLogsRow = KeyValueRowView(
+        context,
+        "View Logs on Device",
+        "",
+        KeyValueRowView.Mode.PRIMARY,
+        isLast = false,
+    ).apply {
+        setOnClickListener {
+            navigationController?.tabBarController?.navigationController?.push(LogsVC(context))
+                ?: navigationController?.push(LogsVC(context))
+        }
     }
 
     private val shareLogRow = KeyValueRowView(
@@ -88,7 +103,24 @@ class DebugMenuVC(context: Context) : WViewController(context) {
 
     private val spacer2 = WBaseView(context)
 
-    // Section 3: Info
+    // Section 3: Settings
+    private val settingsTitleLabel = HeaderCell(context).apply {
+        configure("Settings", titleColor = WColor.Tint, HeaderCell.TopRounding.NORMAL)
+    }
+
+    private val shakeToDebugRow = SwitchCell(
+        context,
+        "Shake to open Debug Menu",
+        WGlobalStorage.getIsShakeToDebugEnabled(),
+        isLast = true,
+    ) { checked ->
+        WGlobalStorage.setIsShakeToDebugEnabled(checked)
+        if (checked) ShakeDetector.onAppResume() else ShakeDetector.onAppPause()
+    }
+
+    private val spacer3 = WBaseView(context)
+
+    // Section 4: Info
     private val infoTitleLabel = HeaderCell(context).apply {
         configure("Info", titleColor = WColor.Tint, HeaderCell.TopRounding.NORMAL)
     }
@@ -125,8 +157,8 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         isLast = true,
     )
 
-    // Section 4: Debug (DEBUG_MODE only)
-    private val spacer3: WBaseView? = if (DEBUG_MODE) WBaseView(context) else null
+    // Section 5: Debug (DEBUG_MODE only)
+    private val spacer4: WBaseView? = if (DEBUG_MODE) WBaseView(context) else null
 
     private val debugTitleLabel: HeaderCell? = if (DEBUG_MODE) {
         HeaderCell(context).apply {
@@ -167,28 +199,35 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             )
             // Section 1: Logs
             addView(logsTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(viewLogsRow)
             addView(shareLogRow)
             addView(spacer1, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
             // Section 2: Testnet
             addView(testnetTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(addTestnetRow)
             addView(spacer2, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
-            // Section 3: Info
+            // Section 3: Settings
+            addView(settingsTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(shakeToDebugRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
+            addView(spacer3, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+            // Section 4: Info
             addView(infoTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(appVersionRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             addView(deviceModelRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             addView(androidVersionRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             addView(performanceClassRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
-            // Section 4: Debug (DEBUG_MODE only)
+            // Section 5: Debug (DEBUG_MODE only)
             if (DEBUG_MODE) {
-                addView(spacer3!!, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+                addView(spacer4!!, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
                 addView(debugTitleLabel!!, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
                 addView(seasonalThemeRow!!, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             }
             setConstraints {
                 // Logs
                 toTop(logsTitleLabel)
-                topToBottom(shareLogRow, logsTitleLabel)
+                topToBottom(viewLogsRow, logsTitleLabel)
+                toCenterX(viewLogsRow)
+                topToBottom(shareLogRow, viewLogsRow)
                 toCenterX(shareLogRow)
                 topToBottom(spacer1, shareLogRow)
                 // Testnet
@@ -196,16 +235,21 @@ class DebugMenuVC(context: Context) : WViewController(context) {
                 topToBottom(addTestnetRow, testnetTitleLabel)
                 toCenterX(addTestnetRow)
                 topToBottom(spacer2, addTestnetRow)
+                // Settings
+                topToBottom(settingsTitleLabel, spacer2)
+                topToBottom(shakeToDebugRow, settingsTitleLabel)
+                toCenterX(shakeToDebugRow)
+                topToBottom(spacer3, shakeToDebugRow)
                 // Info
-                topToBottom(infoTitleLabel, spacer2)
+                topToBottom(infoTitleLabel, spacer3)
                 topToBottom(appVersionRow, infoTitleLabel)
                 topToBottom(deviceModelRow, appVersionRow)
                 topToBottom(androidVersionRow, deviceModelRow)
                 topToBottom(performanceClassRow, androidVersionRow)
                 // Debug or bottom
                 if (DEBUG_MODE) {
-                    topToBottom(spacer3!!, performanceClassRow)
-                    topToBottom(debugTitleLabel!!, spacer3)
+                    topToBottom(spacer4!!, performanceClassRow)
+                    topToBottom(debugTitleLabel!!, spacer4)
                     topToBottom(seasonalThemeRow!!, debugTitleLabel)
                     toBottomPx(seasonalThemeRow, navigationController?.bottomInset ?: 0)
                 } else {
@@ -232,6 +276,9 @@ class DebugMenuVC(context: Context) : WViewController(context) {
 
         setNavTitle("Debug Menu")
         setupNavBar(true)
+        if (navigationController?.viewControllers?.size == 1) {
+            navigationBar?.addCloseButton()
+        }
 
         view.addView(scrollView, ConstraintLayout.LayoutParams(MATCH_PARENT, 0))
         view.setConstraints {
@@ -252,6 +299,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             ViewConstants.TOOLBAR_RADIUS.dp,
             0f,
         )
+        viewLogsRow.setBackgroundColor(WColor.Background.color)
         shareLogRow.setBackgroundColor(WColor.Background.color)
         testnetTitleLabel.setBackgroundColor(
             WColor.Background.color,
@@ -259,6 +307,12 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             0f,
         )
         addTestnetRow.setBackgroundColor(WColor.Background.color)
+        settingsTitleLabel.setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.BLOCK_RADIUS.dp,
+            0f,
+        )
+        shakeToDebugRow.setBackgroundColor(WColor.Background.color)
         infoTitleLabel.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp,

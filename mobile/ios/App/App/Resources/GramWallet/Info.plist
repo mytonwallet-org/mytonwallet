@@ -2,13 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>UIAppFonts</key>
-	<array>
-		<string>AirModules_WalletContext.bundle/Nunito-ExtraBold.ttf</string>
-		<string>AirModules_WalletContext.bundle/SFCompactDisplayMedium.otf</string>
-		<string>AirModules_WalletContext.bundle/SFCompactRoundedBold.otf</string>
-		<string>AirModules_WalletContext.bundle/SFCompactRoundedSemibold.otf</string>
-	</array>
 	<key>CADisableMinimumFrameDuration</key>
 	<true/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
@@ -16,7 +9,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>MyTonWallet</string>
+	<string>Gram Wallet</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -33,13 +26,13 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>org.mytonwallet.app</string>
+			<string>io.gramwallet.app</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>ton</string>
 				<string>tc</string>
-				<string>mytonwallet-tc</string>
-				<string>mtw</string>
+				<string>gramwallet-tc</string>
+				<string>gramwallet</string>
 				<string>wc</string>
 			</array>
 		</dict>
@@ -62,6 +55,13 @@
 	<string>For an easier and faster operation verification.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Photo library access is needed to download NFTs.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>AirModules_WalletContext.bundle/Nunito-ExtraBold.ttf</string>
+		<string>AirModules_WalletContext.bundle/SFCompactDisplayMedium.otf</string>
+		<string>AirModules_WalletContext.bundle/SFCompactRoundedBold.otf</string>
+		<string>AirModules_WalletContext.bundle/SFCompactRoundedSemibold.otf</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -85,8 +85,8 @@
 		<string>remote-notification</string>
 		<string>fetch</string>
 	</array>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
+	<key>UILaunchScreen</key>
+	<dict/>
 	<key>UIObservationTrackingEnabled</key>
 	<false/>
 	<key>UIRequiredDeviceCapabilities</key>

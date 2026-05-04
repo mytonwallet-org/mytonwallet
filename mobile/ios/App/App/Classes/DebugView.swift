@@ -22,9 +22,6 @@ private let log = Log("DebugView")
 struct DebugView: View {
     
     @State private var showDeleteAllAlert: Bool = false
-    @AppStorage("debug_hideSegmentedControls") private var hideSegmentedControls = false
-    @AppStorage("debug_glassOpacity") var glassOpacity: Double = 1
-    @AppStorage("debug_gradientIsHidden") var gradientIsHidden: Bool = true
     @AppStorage("debug_displayLogOverlay") private var displayLogOverlayEnabled = false
     @AppStorage(DebugProductionMode.userDefaultsKey) private var forceProductionMode = false
 #if DEBUG
@@ -104,6 +101,7 @@ struct DebugView: View {
                         Button(lang("$agent_consent_debug_reset_button")) {
                             log.info("Reset Agent consent state")
                             AirDebugActions.resetAgentConsentState()
+                            dismiss()
                         }
                     } footer: {
                         Text(lang("$agent_consent_debug_reset_footer"))

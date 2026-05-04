@@ -22,6 +22,18 @@ public enum ActivityAccessoryStatus: Sendable {
     case expired
 }
 
+public struct TransactionAddressDisplayOptions: OptionSet, Sendable {
+    public let rawValue: Int
+
+    public init(rawValue: Int) {
+        self.rawValue = rawValue
+    }
+
+    public static let list = Self(rawValue: 1 << 0)
+    public static let details = Self(rawValue: 1 << 1)
+    public static let all: Self = [.list, .details]
+}
+
 public extension ApiActivity {
     var displayTitle: ApiTransactionTypeTitles {
         let base: ApiTransactionTypeTitles = switch type {
@@ -343,18 +355,33 @@ public extension ApiActivity {
         }
     }
 
-    var shouldShowTransactionAddress: Bool {
-        if case .transaction(let transaction) = self {
-            let shouldHide = isOurStakingTransaction
-                || type == .burn
-                || type == .nftPurchase
-                || type == .nftTrade
-                || (!transaction.isIncoming && transaction.nft != nil && transaction.toAddress == transaction.nft?.address)
-                || (transaction.isIncoming && type == .excess && transaction.fromAddress == BURN_ADDRESS)
-
-          return !shouldHide;
+    var transactionAddressDisplayOptions: TransactionAddressDisplayOptions {
+        guard case .transaction(let transaction) = self else {
+            return []
         }
-        return false
+
+        if type == .nftTrade || type == .nftPurchase {
+            return transaction.extra?.marketplace == nil ? [] : .list
+        }
+
+        let chain = transaction.nft?.chain ?? getChainBySlug(transaction.slug) ?? FALLBACK_CHAIN
+        let shouldHide = isOurStakingTransaction
+            || (!transaction.isIncoming && transaction.nft != nil && transaction.toAddress == transaction.nft?.address)
+            || (transaction.isIncoming && type == .excess && transaction.fromAddress == BURN_ADDRESS)
+
+        if shouldHide {
+            return []
+        }
+
+        if type == .burn {
+            return chain.shouldShowBurnAddress ? .details : []
+        }
+
+        return .all
+    }
+
+    func shouldShowTransactionAddress(in options: TransactionAddressDisplayOptions) -> Bool {
+        transactionAddressDisplayOptions.contains(options)
     }
     
     /** "Our" is staking that can be controlled with MyTonWallet app */

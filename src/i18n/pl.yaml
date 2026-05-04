@@ -1121,11 +1121,12 @@ Ask anything: Zapytaj o cokolwiek
 Agent: Agent
 Learn more: Dowiedz się więcej
 Data shared with Agent: Dane udostępniane Agentowi
+$agent_consent_allow_button: Zezwól Agentowi
 $agent_consent_subtitle: Zapytaj Agenta o pomoc z portfelem, informacje o tokenach i obsługiwane działania.
 $agent_consent_feature_answers: Uzyskaj odpowiedzi dotyczące %app_name%, tokenów i aktywności portfela.
-$agent_consent_feature_actions: Przygotuj obsługiwane działania, takie jak wysyłanie, odbieranie, wymiana i kupowanie kryptowalut.
+$agent_consent_feature_actions: Przygotuj obsługiwane działania, takie jak wysyłanie, odbieranie i staking.
 $agent_consent_feature_context: Użyj kontekstu portfela, aby odpowiedzi mogły odnosić się do odpowiednich aktywów i adresów.
-$agent_consent_disclosure_text: Kontynuując, zezwalasz %app_name% na wysyłanie wiadomości Agenta i kontekstu portfela do %app_name% Agent (agent.mytonwallet.org) oraz do zewnętrznych dostawców AI, którzy przetwarzają żądania w naszym imieniu. Kontekst portfela może obejmować publiczne adresy, salda, listę tokenów, zapisane adresy, język i walutę bazową. Nie wpisuj fraz odzyskiwania, kluczy prywatnych, haseł ani innych sekretów.
+$agent_consent_disclosure_text: Stukając Zezwól Agentowi, zezwalasz %app_name% na wysyłanie wiadomości Agenta i odpowiedniego kontekstu portfela do %app_name% Agent (agent.mytonwallet.org) oraz Anthropic Claude API, naszego zewnętrznego dostawcy AI, w celu przetwarzania Twoich żądań. Kontekst portfela może obejmować adresy portfela, salda, tokeny, aktywność i szczegóły żądanych działań. Dane są używane wyłącznie do dostarczania odpowiedzi Agenta i przygotowywania działań, o które prosisz.
 $agent_consent_debug_reset_button: Zresetuj zgodę dla Agenta
 $agent_consent_debug_reset_footer: Ponownie pokazuje ekran zgody dla Agenta podczas otwierania karty Agent.
 Clear Chat: Wyczyść czat

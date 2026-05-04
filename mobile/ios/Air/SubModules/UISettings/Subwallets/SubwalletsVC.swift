@@ -793,17 +793,18 @@ private struct SubwalletAddressView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ChainIcon(address.chain, font: .system(size: 14, weight: .regular))
+            ChainIcon(address.chain)
+                .imageScale(.small)
 
             if showsAddress {
                 Text(formattedAddress + (showsComma ? "," : ""))
-                    .font(.system(size: 14, weight: .regular))
                     .tracking(-0.15)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
             }
         }
+        .font(.system(size: 14, weight: .regular))
         .fixedSize(horizontal: true, vertical: false)
         .frame(height: 18, alignment: .center)
     }

@@ -281,7 +281,6 @@ function SwapModal({
     <Modal
       isOpen={isOpen}
       onClose={cancelSwap}
-      noBackdropClose
       dialogClassName={styles.modalDialog}
       hasCloseButton
       onCloseAnimationEnd={handleModalClose}

@@ -1107,11 +1107,12 @@ Ask anything: Pregunta lo que quieras
 Agent: Agente
 Learn more: Más información
 Data shared with Agent: Datos compartidos con el Agente
+$agent_consent_allow_button: Permitir al Agente
 $agent_consent_subtitle: Pide ayuda al Agente sobre la billetera, información de tokens y acciones compatibles.
 $agent_consent_feature_answers: Obtén respuestas sobre %app_name%, tokens y actividad de la billetera.
-$agent_consent_feature_actions: Prepara acciones compatibles como enviar, recibir, intercambiar y comprar cripto.
+$agent_consent_feature_actions: Prepara acciones compatibles como enviar, recibir y hacer staking.
 $agent_consent_feature_context: Usa el contexto de la billetera para que las respuestas puedan hacer referencia a activos y direcciones relevantes.
-$agent_consent_disclosure_text: Al continuar, permites que %app_name% envíe tus mensajes del Agente y el contexto de la billetera a %app_name% Agent (agent.mytonwallet.org) y a proveedores de IA externos que procesan solicitudes para nosotros. El contexto de la billetera puede incluir direcciones públicas, saldos, lista de tokens, direcciones guardadas, idioma y moneda base. No introduzcas frases de recuperación, claves privadas, contraseñas u otros secretos.
+$agent_consent_disclosure_text: Al tocar Permitir al Agente, permites que %app_name% envíe tus mensajes del Agente y el contexto relevante de la billetera a %app_name% Agent (agent.mytonwallet.org) y a Anthropic Claude API, nuestro proveedor externo de IA, para procesar tus solicitudes. El contexto de la billetera puede incluir direcciones de billetera, saldos, tokens, actividad y detalles de las acciones solicitadas. Los datos se usan solo para proporcionar respuestas del Agente y preparar las acciones que solicites.
 $agent_consent_debug_reset_button: Restablecer estado de consentimiento del Agente
 $agent_consent_debug_reset_footer: Muestra de nuevo la pantalla de consentimiento del Agente al abrir la pestaña Agente.
 Clear Chat: Borrar chat

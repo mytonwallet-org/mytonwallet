@@ -128,6 +128,8 @@ public struct ChainConfig: Sendable {
     public var explorer: Explorer
     /// Whether the chain supports NFTs
     public var isNftSupported: Bool = false
+    /// Whether burn activities should display the burn address in UI
+    public var shouldShowBurnAddress: Bool = false
     /// Whether the chain supports native NFT burn operations
     public var isNftBurnSupported: Bool = false
     /// Max number of NFTs to request per pagination batch
@@ -491,6 +493,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
             doConvertHashFromBase64: true
         ),
         isNftSupported: true,
+        shouldShowBurnAddress: true,
         isNftBurnSupported: true,
         nftBatchLimit: 500,
         nftBatchPauseMs: 1000,

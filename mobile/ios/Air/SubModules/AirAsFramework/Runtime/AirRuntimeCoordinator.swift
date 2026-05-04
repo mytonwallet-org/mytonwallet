@@ -205,7 +205,7 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
                 AppActions.showSend(accountContext: accountContext, prefilledValues: .init())
 
             case .receive:
-                AppActions.showReceive(accountContext: accountContext, chain: nil, title: nil)
+                AppActions.showReceive(accountContext: accountContext, chain: nil)
 
             case .explore(siteHost: let siteHost):
                 if let siteHost {

@@ -50,5 +50,11 @@ public struct MtwCardBackground: View {
 }
 
 public extension UIImage {
-    static let homeCard = UIImage.mainBundleOptional("HomeCard") ?? UIImage.airBundle("HomeCard")
+    static let homeCard: UIImage = {
+        if let image = UIImage.mainBundleOptional("HomeCard") {
+            return image
+        }
+        assertionFailure("Missing HomeCard asset")
+        return UIImage()
+    }()
 }

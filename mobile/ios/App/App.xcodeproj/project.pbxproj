@@ -16,9 +16,6 @@
 		38A2C0CE9AE3C9C63F6990F1 /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ADCD192D3D7DF600198370 /* DebugView.swift */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
-		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
-		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
-		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		581C041C2F7131F50021E2E3 /* HomeScreenQuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 581C041B2F7131F50021E2E3 /* HomeScreenQuickAction.swift */; };
 		581C041D2F7131F50021E2E3 /* HomeScreenQuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 581C041B2F7131F50021E2E3 /* HomeScreenQuickAction.swift */; };
@@ -51,11 +48,8 @@
 		58F631822EB8CD8D00A90B79 /* MyTonWalletApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5D2CECB4EB00ACE1B9 /* MyTonWalletApp.swift */; };
 		58F631832EB8CD8D00A90B79 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		58F631852EB8CD8D00A90B79 /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ADCD192D3D7DF600198370 /* DebugView.swift */; };
-		58F631A92EB8CD8D00A90B79 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		58F631AA2EB8CD8D00A90B79 /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
-		58F631AB2EB8CD8D00A90B79 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		58F631AC2EB8CD8D00A90B79 /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
-		58F631AD2EB8CD8D00A90B79 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		58F631AE2EB8CD8D00A90B79 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 585CF17A2E6E1CE100A5804F /* AppIcon.icon */; };
 		58F631AF2EB8CD8D00A90B79 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		58F631B02EB8CD8D00A90B79 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */; };
@@ -65,11 +59,8 @@
 		58F631DD2EB8CDFA00A90B79 /* MyTonWalletApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5D2CECB4EB00ACE1B9 /* MyTonWalletApp.swift */; };
 		58F631DE2EB8CDFA00A90B79 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		58F631E02EB8CDFA00A90B79 /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ADCD192D3D7DF600198370 /* DebugView.swift */; };
-		58F632042EB8CDFA00A90B79 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		58F632052EB8CDFA00A90B79 /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
-		58F632062EB8CDFA00A90B79 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		58F632072EB8CDFA00A90B79 /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
-		58F632082EB8CDFA00A90B79 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		58F632092EB8CDFA00A90B79 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 585CF17A2E6E1CE100A5804F /* AppIcon.icon */; };
 		58F6320A2EB8CDFA00A90B79 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		58F6320B2EB8CDFA00A90B79 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */; };
@@ -85,10 +76,8 @@
 		59C000072F81000100ABCD01 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		59C000082F81000100ABCD01 /* HomeScreenQuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 581C041B2F7131F50021E2E3 /* HomeScreenQuickAction.swift */; };
 		59C000092F81000100ABCD01 /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ADCD192D3D7DF600198370 /* DebugView.swift */; };
-		59C0000A2F81000100ABCD01 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
-		59C0000C2F81000100ABCD01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
-		59C0000F2F81000100ABCD01 /* GramWalletIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 59C000272F81000100ABCD01 /* GramWalletIcon.icon */; };
-		59C000112F81000100ABCD01 /* GramWallet GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 59C0003E2F81000100ABCD01 /* GramWallet GoogleService-Info.plist */; };
+		59C0000F2F81000100ABCD01 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 59C000272F81000100ABCD01 /* AppIcon.icon */; };
+		59C000112F81000100ABCD01 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 59C0003E2F81000100ABCD01 /* GoogleService-Info.plist */; };
 		59C000122F81000100ABCD01 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
 		59C000132F81000100ABCD01 /* AirAsFramework in Frameworks */ = {isa = PBXBuildFile; productRef = 59C0003D2F81000100ABCD01 /* AirAsFramework */; };
 		59C000152F81000100ABCD01 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 582009AB2E820A850010E2B5 /* SwiftUI.framework */; };
@@ -107,7 +96,12 @@
 		59C000222F81000100ABCD01 /* ActionsWidgetTimelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 588AD2272E83D5C800588415 /* ActionsWidgetTimelineProvider.swift */; };
 		59C000232F81000100ABCD01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 582009F42E822DDD0010E2B5 /* Assets.xcassets */; };
 		59C000242F81000100ABCD01 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59B6E9A12F7B0001001A2B3C /* Localizable.xcstrings */; };
-		59C0009B2F81000100ABCD01 /* GramWalletAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59C0009A2F81000100ABCD01 /* GramWalletAssets.xcassets */; };
+		59C0009B2F81000100ABCD01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59C0009A2F81000100ABCD01 /* Assets.xcassets */; };
+		59D100012F90000100FACE01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
+		59D100022F90000100FACE01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
+		59D100032F90000100FACE01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
+		59D100042F90000100FACE01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
+		59D100052F90000100FACE01 /* diamond.tgs in Resources */ = {isa = PBXBuildFile; fileRef = 59D1000A2F90000100FACE01 /* diamond.tgs */; };
 		5A31C303501E34B6ECF0848B /* AirAsFramework in Frameworks */ = {isa = PBXBuildFile; productRef = 753F88850EDD2EDED1236C11 /* AirAsFramework */; };
 		5AE429864DBD1B9726792ABC /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		64B5317D60F6C186CD8F8DFA /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 585CF17A2E6E1CE100A5804F /* AppIcon.icon */; };
@@ -117,18 +111,15 @@
 		71798E4B19FC45A9B531DC7F /* Pods_MyTonWallet_Preview.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33AFA1C24DA894DF2CD8A681 /* Pods_MyTonWallet_Preview.framework */; };
 		74CBF4B1480ADEF6F8B6CE71 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		8109CE061EF3B5CFFD3BA3EB /* AppSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271019AC2CBE75EA00972D1A /* AppSwitcher.swift */; };
-		9E9978E0E44E9563AD9DFC22 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		A2F6C8F58E74FF70AA316904 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 25561833DFEA1EB541CE6CFA /* FirebaseCore */; };
 		A8F86EF3D77B48377D3E0039 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */; };
 		A95570473A46014B40615A92 /* HomeScreenQuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 581C041B2F7131F50021E2E3 /* HomeScreenQuickAction.swift */; };
 		BBBE0A7A3FE5AE7B3AEF04AE /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5C2CECB4EB00ACE1B9 /* main.swift */; };
-		BD5A63F91656AD082EEBA1CB /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		C4D16308205C59A627997B13 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2F4105E6D6E2A708EB52003A /* FirebaseCore */; };
 		CEE7F3F02CE1FBCE009D2B34 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */; };
 		D730E78D88D7FB7CD2D30F77 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		DEC5F7D0F4B76E59868A6B79 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 238EDAED8A39AE9B0BC5976B /* FirebaseMessaging */; };
 		F0B41E894369BE4E4690BA34 /* Pods_MyTonWallet.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9600AA328195207D1968E709 /* Pods_MyTonWallet.framework */; };
-		F2B6B127F72E043011F488C4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		F4EC0D4A6C88C0984080302D /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 /* End PBXBuildFile section */
 
@@ -243,7 +234,6 @@
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* MyTonWallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyTonWallet.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		579622823A5A8EDC7EE38C44 /* MyTonWallet_Preview.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = MyTonWallet_Preview.entitlements; sourceTree = "<group>"; };
@@ -258,30 +248,6 @@
 		58200A162E8239B50010E2B5 /* Widgets.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Widgets.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		584C517D2F6142520079935F /* Air */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = Air; path = ../Air; sourceTree = "<group>"; };
 		585CF17A2E6E1CE100A5804F /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
-		586D1CF82E453D0500A284A4 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		586D1CF92E453D0500A284A4 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
-		586D1CFA2E453E0000A284A4 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		586D1CFB2E453E0000A284A4 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/Main.strings; sourceTree = "<group>"; };
-		586D24B82E47D59000A284A4 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/LaunchScreen.strings"; sourceTree = "<group>"; };
-		586D24B92E47D59000A284A4 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Main.strings"; sourceTree = "<group>"; };
-		586D24BA2E47D59600A284A4 /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/LaunchScreen.strings"; sourceTree = "<group>"; };
-		586D24BB2E47D59600A284A4 /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/Main.strings"; sourceTree = "<group>"; };
-		586D24BC2E47D59E00A284A4 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		586D24BD2E47D59E00A284A4 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Main.strings; sourceTree = "<group>"; };
-		586D24BE2E47D5A400A284A4 /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		586D24BF2E47D5A400A284A4 /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/Main.strings; sourceTree = "<group>"; };
-		586D24C02E47D5AC00A284A4 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		586D24C12E47D5AD00A284A4 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Main.strings; sourceTree = "<group>"; };
-		586D24C22E47D5B300A284A4 /* th */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = th; path = th.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		586D24C32E47D5B300A284A4 /* th */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = th; path = th.lproj/Main.strings; sourceTree = "<group>"; };
-		586D24C42E47D5B900A284A4 /* tr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = tr; path = tr.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		586D24C52E47D5B900A284A4 /* tr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = tr; path = tr.lproj/Main.strings; sourceTree = "<group>"; };
-		586D24C62E47D5BF00A284A4 /* uk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk; path = uk.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		586D24C72E47D5C000A284A4 /* uk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk; path = uk.lproj/Main.strings; sourceTree = "<group>"; };
-		586D24C82E47D5C700A284A4 /* ar */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ar; path = ar.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		586D24C92E47D5C800A284A4 /* ar */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ar; path = ar.lproj/Main.strings; sourceTree = "<group>"; };
-		586D24CA2E47D61800A284A4 /* fa */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fa; path = fa.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		586D24CB2E47D61800A284A4 /* fa */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fa; path = fa.lproj/Main.strings; sourceTree = "<group>"; };
 		588AD2212E83D44600588415 /* ActionsWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionsWidget.swift; sourceTree = "<group>"; };
 		588AD2232E83D48F00588415 /* ActionsWidgetTimelineEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionsWidgetTimelineEntry.swift; sourceTree = "<group>"; };
 		588AD2252E83D4EE00588415 /* ActionsWidgetConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionsWidgetConfiguration.swift; sourceTree = "<group>"; };
@@ -304,13 +270,15 @@
 		59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		59B6E9A12F7B0001001A2B3C /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		59C000252F81000100ABCD01 /* GramWallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GramWallet.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		59C000262F81000100ABCD01 /* GramWallet-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GramWallet-Info.plist"; sourceTree = "<group>"; };
-		59C000272F81000100ABCD01 /* GramWalletIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = GramWalletIcon.icon; sourceTree = "<group>"; };
+		59C000262F81000100ABCD01 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		59C000272F81000100ABCD01 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		59C000282F81000100ABCD01 /* GramWallet.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GramWallet.entitlements; sourceTree = "<group>"; };
 		59C000292F81000100ABCD01 /* GramWalletWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GramWalletWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		59C0002A2F81000100ABCD01 /* GramWalletWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GramWalletWidgetExtension.entitlements; sourceTree = "<group>"; };
-		59C0003E2F81000100ABCD01 /* GramWallet GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GramWallet GoogleService-Info.plist"; path = "GramWallet/GoogleService-Info.plist"; sourceTree = "<group>"; };
-		59C0009A2F81000100ABCD01 /* GramWalletAssets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = GramWalletAssets.xcassets; path = GramWallet/GramWalletAssets.xcassets; sourceTree = "<group>"; };
+		59C0003E2F81000100ABCD01 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		59C0009A2F81000100ABCD01 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		59D100062F90000100FACE01 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		59D1000A2F90000100FACE01 /* diamond.tgs */ = {isa = PBXFileReference; lastKnownFileType = file; path = diamond.tgs; sourceTree = "<group>"; };
 		6AEDE5416E3673C42B24A76F /* Pods-MyTonWallet_NoExtensions.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MyTonWallet_NoExtensions.release.xcconfig"; path = "Target Support Files/Pods-MyTonWallet_NoExtensions/Pods-MyTonWallet_NoExtensions.release.xcconfig"; sourceTree = "<group>"; };
 		9600AA328195207D1968E709 /* Pods_MyTonWallet.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MyTonWallet.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C43B7F6B489AF6799EA86915 /* Pods-MyTonWallet.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MyTonWallet.release.xcconfig"; path = "Target Support Files/Pods-MyTonWallet/Pods-MyTonWallet.release.xcconfig"; sourceTree = "<group>"; };
@@ -321,39 +289,9 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		588AC1662E82428700588415 /* TokenWidget */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = TokenWidget;
-			sourceTree = "<group>";
-		};
-		588AC1892E82EC7400588415 /* Models */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		588AD21B2E83CE6500588415 /* SharedUI */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = SharedUI;
-			sourceTree = "<group>";
-		};
+		588AC1662E82428700588415 /* TokenWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = TokenWidget; sourceTree = "<group>"; };
+		588AC1892E82EC7400588415 /* Models */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Models; sourceTree = "<group>"; };
+		588AD21B2E83CE6500588415 /* SharedUI */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = SharedUI; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -428,16 +366,45 @@
 		271019712CBE6BA800972D1A /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
-				504EC30B1FED79650016851F /* Main.storyboard */,
-				504EC30E1FED79650016851F /* Assets.xcassets */,
-				585CF17A2E6E1CE100A5804F /* AppIcon.icon */,
-				59C000272F81000100ABCD01 /* GramWalletIcon.icon */,
-				59C0003E2F81000100ABCD01 /* GramWallet GoogleService-Info.plist */,
-				59C0009A2F81000100ABCD01 /* GramWalletAssets.xcassets */,
+				59D100082F90000100FACE01 /* MyTonWallet */,
+				59D100092F90000100FACE01 /* GramWallet */,
 				59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		59D100082F90000100FACE01 /* MyTonWallet */ = {
+			isa = PBXGroup;
+			children = (
+				59D100062F90000100FACE01 /* Assets.xcassets */,
+				585CF17A2E6E1CE100A5804F /* AppIcon.icon */,
+				CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */,
+				504EC3131FED79650016851F /* Info.plist */,
+				58F631D42EB8CD8D00A90B79 /* MyTonWallet_AirOnly-Info.plist */,
+				58F6322F2EB8CDFA00A90B79 /* MyTonWallet_NoExtensions-Info.plist */,
+				CAC3D6138B5E7B5AF24B8370 /* MyTonWallet_Preview-Info.plist */,
+			);
+			path = MyTonWallet;
+			sourceTree = "<group>";
+		};
+		59D100092F90000100FACE01 /* GramWallet */ = {
+			isa = PBXGroup;
+			children = (
+				59C0009A2F81000100ABCD01 /* Assets.xcassets */,
+				59C000272F81000100ABCD01 /* AppIcon.icon */,
+				59D100072F90000100FACE01 /* Animations */,
+				59C0003E2F81000100ABCD01 /* GoogleService-Info.plist */,
+				59C000262F81000100ABCD01 /* Info.plist */,
+			);
+			path = GramWallet;
+			sourceTree = "<group>";
+		};
+		59D100072F90000100FACE01 /* Animations */ = {
+			isa = PBXGroup;
+			children = (
+				59D1000A2F90000100FACE01 /* diamond.tgs */,
+			);
+			path = Animations;
 			sourceTree = "<group>";
 		};
 		271019722CBE6BCB00972D1A /* Classes */ = {
@@ -505,14 +472,8 @@
 				271019722CBE6BCB00972D1A /* Classes */,
 				271019712CBE6BA800972D1A /* Resources */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
-				504EC3131FED79650016851F /* Info.plist */,
-				58F631D42EB8CD8D00A90B79 /* MyTonWallet_AirOnly-Info.plist */,
-				58F6322F2EB8CDFA00A90B79 /* MyTonWallet_NoExtensions-Info.plist */,
-				59C000262F81000100ABCD01 /* GramWallet-Info.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
-				CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */,
-				CAC3D6138B5E7B5AF24B8370 /* MyTonWallet_Preview-Info.plist */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -795,8 +756,6 @@
 				th,
 				tr,
 				uk,
-				ar,
-				fa,
 			);
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
@@ -822,11 +781,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BD5A63F91656AD082EEBA1CB /* LaunchScreen.storyboard in Resources */,
 				F4EC0D4A6C88C0984080302D /* public in Resources */,
-				F2B6B127F72E043011F488C4 /* Assets.xcassets in Resources */,
+				59D100042F90000100FACE01 /* Assets.xcassets in Resources */,
 				5AE429864DBD1B9726792ABC /* capacitor.config.json in Resources */,
-				9E9978E0E44E9563AD9DFC22 /* Main.storyboard in Resources */,
 				64B5317D60F6C186CD8F8DFA /* AppIcon.icon in Resources */,
 				D730E78D88D7FB7CD2D30F77 /* config.xml in Resources */,
 				A8F86EF3D77B48377D3E0039 /* GoogleService-Info.plist in Resources */,
@@ -838,11 +795,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */,
 				50B271D11FEDC1A000F3C39B /* public in Resources */,
-				504EC30F1FED79650016851F /* Assets.xcassets in Resources */,
+				59D100012F90000100FACE01 /* Assets.xcassets in Resources */,
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
-				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				585CF17B2E6E1CE100A5804F /* AppIcon.icon in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				CEE7F3F02CE1FBCE009D2B34 /* GoogleService-Info.plist in Resources */,
@@ -863,11 +818,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				58F631A92EB8CD8D00A90B79 /* LaunchScreen.storyboard in Resources */,
 				58F631AA2EB8CD8D00A90B79 /* public in Resources */,
-				58F631AB2EB8CD8D00A90B79 /* Assets.xcassets in Resources */,
+				59D100022F90000100FACE01 /* Assets.xcassets in Resources */,
 				58F631AC2EB8CD8D00A90B79 /* capacitor.config.json in Resources */,
-				58F631AD2EB8CD8D00A90B79 /* Main.storyboard in Resources */,
 				58F631AE2EB8CD8D00A90B79 /* AppIcon.icon in Resources */,
 				58F631AF2EB8CD8D00A90B79 /* config.xml in Resources */,
 				58F631B02EB8CD8D00A90B79 /* GoogleService-Info.plist in Resources */,
@@ -879,11 +832,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				58F632042EB8CDFA00A90B79 /* LaunchScreen.storyboard in Resources */,
 				58F632052EB8CDFA00A90B79 /* public in Resources */,
-				58F632062EB8CDFA00A90B79 /* Assets.xcassets in Resources */,
+				59D100032F90000100FACE01 /* Assets.xcassets in Resources */,
 				58F632072EB8CDFA00A90B79 /* capacitor.config.json in Resources */,
-				58F632082EB8CDFA00A90B79 /* Main.storyboard in Resources */,
 				58F632092EB8CDFA00A90B79 /* AppIcon.icon in Resources */,
 				58F6320A2EB8CDFA00A90B79 /* config.xml in Resources */,
 				58F6320B2EB8CDFA00A90B79 /* GoogleService-Info.plist in Resources */,
@@ -895,11 +846,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				59C0000A2F81000100ABCD01 /* LaunchScreen.storyboard in Resources */,
-				59C0000C2F81000100ABCD01 /* Assets.xcassets in Resources */,
-				59C0000F2F81000100ABCD01 /* GramWalletIcon.icon in Resources */,
-				59C000112F81000100ABCD01 /* GramWallet GoogleService-Info.plist in Resources */,
-				59C0009B2F81000100ABCD01 /* GramWalletAssets.xcassets in Resources */,
+				59C0000F2F81000100ABCD01 /* AppIcon.icon in Resources */,
+				59C000112F81000100ABCD01 /* GoogleService-Info.plist in Resources */,
+				59C0009B2F81000100ABCD01 /* Assets.xcassets in Resources */,
+				59D100052F90000100FACE01 /* diamond.tgs in Resources */,
 				59C000122F81000100ABCD01 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -924,8 +874,12 @@
 			);
 			inputFileListPaths = (
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -962,8 +916,12 @@
 			);
 			inputFileListPaths = (
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -978,8 +936,12 @@
 			);
 			inputFileListPaths = (
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -994,8 +956,12 @@
 			);
 			inputFileListPaths = (
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1032,8 +998,12 @@
 			);
 			inputFileListPaths = (
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1048,8 +1018,12 @@
 			);
 			inputFileListPaths = (
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1204,47 +1178,6 @@
 		};
 /* End PBXTargetDependency section */
 
-/* Begin PBXVariantGroup section */
-		504EC30B1FED79650016851F /* Main.storyboard */ = {
-			isa = PBXVariantGroup;
-			children = (
-				586D1CF92E453D0500A284A4 /* Base */,
-				586D1CFB2E453E0000A284A4 /* ru */,
-				586D24B92E47D59000A284A4 /* zh-Hans */,
-				586D24BB2E47D59600A284A4 /* zh-Hant */,
-				586D24BD2E47D59E00A284A4 /* de */,
-				586D24BF2E47D5A400A284A4 /* pl */,
-				586D24C12E47D5AD00A284A4 /* es */,
-				586D24C32E47D5B300A284A4 /* th */,
-				586D24C52E47D5B900A284A4 /* tr */,
-				586D24C72E47D5C000A284A4 /* uk */,
-				586D24C92E47D5C800A284A4 /* ar */,
-				586D24CB2E47D61800A284A4 /* fa */,
-			);
-			name = Main.storyboard;
-			sourceTree = "<group>";
-		};
-		504EC3101FED79650016851F /* LaunchScreen.storyboard */ = {
-			isa = PBXVariantGroup;
-			children = (
-				586D1CF82E453D0500A284A4 /* Base */,
-				586D1CFA2E453E0000A284A4 /* ru */,
-				586D24B82E47D59000A284A4 /* zh-Hans */,
-				586D24BA2E47D59600A284A4 /* zh-Hant */,
-				586D24BC2E47D59E00A284A4 /* de */,
-				586D24BE2E47D5A400A284A4 /* pl */,
-				586D24C02E47D5AC00A284A4 /* es */,
-				586D24C22E47D5B300A284A4 /* th */,
-				586D24C42E47D5B900A284A4 /* tr */,
-				586D24C62E47D5BF00A284A4 /* uk */,
-				586D24C82E47D5C700A284A4 /* ar */,
-				586D24CA2E47D61800A284A4 /* fa */,
-			);
-			name = LaunchScreen.storyboard;
-			sourceTree = "<group>";
-		};
-/* End PBXVariantGroup section */
-
 /* Begin XCBuildConfiguration section */
 		194F61494DCC08445F401170 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1257,7 +1190,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = "App/MyTonWallet_Preview-Info.plist";
+				INFOPLIST_FILE = "App/Resources/MyTonWallet/MyTonWallet_Preview-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1309,6 +1242,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -1399,7 +1333,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_FILE = App/Resources/MyTonWallet/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1428,7 +1362,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_FILE = App/Resources/MyTonWallet/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1541,7 +1475,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = "App/MyTonWallet_NoExtensions-Info.plist";
+				INFOPLIST_FILE = "App/Resources/MyTonWallet/MyTonWallet_NoExtensions-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1570,7 +1504,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = "App/MyTonWallet_NoExtensions-Info.plist";
+				INFOPLIST_FILE = "App/Resources/MyTonWallet/MyTonWallet_NoExtensions-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1597,7 +1531,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = "App/MyTonWallet_AirOnly-Info.plist";
+				INFOPLIST_FILE = "App/Resources/MyTonWallet/MyTonWallet_AirOnly-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1625,7 +1559,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = "App/MyTonWallet_AirOnly-Info.plist";
+				INFOPLIST_FILE = "App/Resources/MyTonWallet/MyTonWallet_AirOnly-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1645,14 +1579,14 @@
 		59C000372F81000100ABCD01 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = GramWalletIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Entitlements/GramWallet.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = "App/GramWallet-Info.plist";
+				INFOPLIST_FILE = "App/Resources/GramWallet/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1673,14 +1607,14 @@
 		59C000382F81000100ABCD01 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = GramWalletIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Entitlements/GramWallet.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = "App/GramWallet-Info.plist";
+				INFOPLIST_FILE = "App/Resources/GramWallet/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1794,7 +1728,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = "App/MyTonWallet_Preview-Info.plist";
+				INFOPLIST_FILE = "App/Resources/MyTonWallet/MyTonWallet_Preview-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -69,7 +69,7 @@ export async function initCapacitor() {
     document.documentElement.style.setProperty('--safe-area-bottom', `${bottom}px`);
   });
 
-  if (getCapacitorPlatform() === 'ios') {
+  if (getCapacitorPlatform() === 'ios' && Capacitor.isPluginAvailable('SplashScreen')) {
     setTimeout(() => {
       void SplashScreen.hide({ fadeOutDuration: IOS_SPLASH_SCREEN_HIDE_DURATION });
     }, IOS_SPLASH_SCREEN_HIDE_DELAY);

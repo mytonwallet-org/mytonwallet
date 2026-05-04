@@ -121,7 +121,7 @@ final class ActionsView: ButtonsToolbar {
             image: .airBundle("AddIconBold"),
             onTap: { [weak self] in
                 guard let accountContext = self?.accountContext else { return }
-                AppActions.showReceive(accountContext: accountContext, chain: nil, title: nil)
+                AppActions.showReceive(accountContext: accountContext, chain: nil)
             }
         )
         addArrangedSubview(addButton)

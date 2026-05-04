@@ -74,10 +74,12 @@ struct TransactionActivityHeader: View {
     
     @ViewBuilder
     var toView: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-            (Text(transaction.isIncoming ? lang("Received from") :  lang("Sent to")) + Text(" "))
-                .font17h22()
-            TappableAddress(account: account, model: .fromTransaction(transaction, chain: token.chain, addressKind: .peer))
+        if ApiActivity.transaction(transaction).shouldShowTransactionAddress(in: .details) {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                (Text(transaction.isIncoming ? lang("Received from") :  lang("Sent to")) + Text(" "))
+                    .font17h22()
+                TappableAddress(account: account, model: .fromTransaction(transaction, chain: token.chain, addressKind: .peer))
+            }
         }
     }
 }

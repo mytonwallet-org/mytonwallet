@@ -478,7 +478,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
             } else {
                 if !isServiceToken {
                     primaryActions.append(UIAction(title: lang("Fund"), image: UIImage(systemName: "plus")) { _ in
-                        AppActions.showReceive(accountContext: self.$account, chain: token.chain, title: nil)
+                        AppActions.showReceive(accountContext: self.$account, chain: token.chain)
                     })
                 }
                 primaryActions.append(UIAction(title: lang("Send"), image: UIImage(systemName: "arrow.up")) { _ in

@@ -1100,11 +1100,12 @@ Ask anything: 儘管提問
 Agent: 助手
 Learn more: 了解更多
 Data shared with Agent: 與助手共享的資料
+$agent_consent_allow_button: 允許助手
 $agent_consent_subtitle: 向助手詢問錢包協助、代幣資訊和支援的操作。
 $agent_consent_feature_answers: 取得有關 %app_name%、代幣和錢包活動的解答。
-$agent_consent_feature_actions: 準備支援的操作，例如傳送、接收、兌換和購買加密貨幣。
+$agent_consent_feature_actions: 準備支援的操作，例如傳送、接收和質押。
 $agent_consent_feature_context: 使用錢包上下文，讓解答可以參照相關資產和地址。
-$agent_consent_disclosure_text: 繼續即表示你允許 %app_name% 將你的助手訊息和錢包上下文傳送給 %app_name% Agent (agent.mytonwallet.org)，以及為我們處理請求的第三方 AI 供應商。錢包上下文可能包括公開地址、餘額、代幣列表、已儲存的地址、語言和基礎貨幣。請勿輸入助記詞、私鑰、密碼或其他機密資訊。
+$agent_consent_disclosure_text: 點按「允許助手」即表示你允許 %app_name% 將你的助手訊息和相關錢包上下文傳送給 %app_name% Agent (agent.mytonwallet.org) 以及我們的第三方 AI 供應商 Anthropic Claude API，以處理你的請求。錢包上下文可能包括錢包地址、餘額、代幣、活動和請求操作詳情。資料僅用於提供助手回覆並準備你請求的操作。
 $agent_consent_debug_reset_button: 重置助手同意狀態
 $agent_consent_debug_reset_footer: 下次開啟助手分頁時再次顯示助手同意畫面。
 Clear Chat: 清除聊天

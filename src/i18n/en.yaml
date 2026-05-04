@@ -1102,11 +1102,12 @@ Ask anything: Ask anything
 Agent: Agent
 Learn more: Learn more
 Data shared with Agent: Data shared with Agent
+$agent_consent_allow_button: Allow Agent
 $agent_consent_subtitle: Ask Agent for wallet help, token information, and supported actions.
 $agent_consent_feature_answers: Get answers about %app_name%, tokens, and wallet activity.
-$agent_consent_feature_actions: Prepare supported actions like sending, receiving, swapping, and buying crypto.
+$agent_consent_feature_actions: Prepare supported actions like sending, receiving, and staking.
 $agent_consent_feature_context: Use wallet context so answers can reference relevant assets and addresses.
-$agent_consent_disclosure_text: By continuing, you allow %app_name% to send your Agent messages and wallet context to %app_name% Agent (agent.mytonwallet.org) and third-party AI providers that process requests for us. Wallet context can include public addresses, balances, token list, saved addresses, language, and base currency. Do not enter recovery phrases, private keys, passwords, or other secrets.
+$agent_consent_disclosure_text: By tapping Allow Agent, you allow %app_name% to send your Agent messages and relevant wallet context to %app_name% Agent (agent.mytonwallet.org) and Anthropic Claude API, our third-party AI provider, to process your requests. Wallet context may include wallet addresses, balances, tokens, activity, and requested action details. Data is used only to provide Agent responses and prepare actions you request.
 $agent_consent_debug_reset_button: Reset Agent consent state
 $agent_consent_debug_reset_footer: Shows the Agent consent screen again when opening the Agent tab.
 Clear Chat: Clear Chat
