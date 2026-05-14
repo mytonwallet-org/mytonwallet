@@ -360,6 +360,12 @@ $subwallets_found:
   oneValue: "Gefunden: %1$d"
   otherValue: "Gefunden: %1$d"
 
+$subwallet_scan_no_native_balances: Keine nativen Guthaben
+$subwallet_scan_other_tokens_suffix:
+  zeroValue: " + %1$d weitere Tokens"
+  oneValue: " + %1$d weiteres Token"
+  otherValue: " + %1$d weitere Tokens"
+
 $subwallets_hint: Verwende Subwallets, um zusätzliche Adressen zu erhalten, ohne neue geheime Wörter zu erstellen.
 $subwallets_created_wallets: Wenn du zuvor Subwallets erstellt hast, werden sie in der Liste unten angezeigt.
 $subwallets_none: Noch keine Subwallets.

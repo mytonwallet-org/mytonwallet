@@ -22,7 +22,7 @@ class FeeEstimationHelpers private constructor() {
         ): NetworkFeeData? {
             sellToken ?: return null
 
-            val tokenInChain = sellToken.chain.let { MBlockchain.valueOf(it ?: "") }
+            val tokenInChain = MBlockchain.valueOfOrNull(sellToken.chain ?: "") ?: return null
             val nativeUserTokenIn = if (sellTokenIsOnChain) {
                 TokenStore.getToken(tokenInChain.nativeSlug)
             } else {

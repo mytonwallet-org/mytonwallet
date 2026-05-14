@@ -58,6 +58,7 @@ $labelSidePadding: 0.5rem;
 
 .dappLargePreviewLogo {
   display: block;
+  flex-shrink: 0;
 
   width: 5rem;
   height: 5rem;
@@ -82,9 +83,12 @@ $labelSidePadding: 0.5rem;
 }
 
 .dappLogo {
+  flex-shrink: 0;
+
   width: 2.25rem;
   height: 2.25rem;
   border-radius: var(--border-radius-tiny);
+
   object-fit: cover;
 
   &_icon {
@@ -127,7 +131,9 @@ $labelSidePadding: 0.5rem;
 
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   align-items: center;
+
   margin-top: $margin-top;
 }
 

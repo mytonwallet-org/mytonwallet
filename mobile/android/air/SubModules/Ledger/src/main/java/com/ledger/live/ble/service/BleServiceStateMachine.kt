@@ -75,9 +75,16 @@ class BleServiceStateMachine(
     fun clear() {
         this.isCleared = true
         _stateMachineFlow.resetReplayCache()
-        pairingCallbackFlow.unbind()
-        this.gattInteractor.gatt.close()
-        this.gattInteractor.gatt.disconnect()
+        if (::pairingCallbackFlow.isInitialized) {
+            pairingCallbackFlow.unbind()
+        }
+        if (::gattInteractor.isInitialized) {
+            this.gattInteractor.gatt.close()
+            this.gattInteractor.gatt.disconnect()
+        }
+        if (::timeoutJob.isInitialized) {
+            timeoutJob.cancel()
+        }
     }
 
     internal val bleSender: BleSender by lazy {

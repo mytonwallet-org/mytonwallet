@@ -51,10 +51,10 @@ public class ActivityCell: WHighlightCollectionViewCell {
     let mainView = UIView()
     let firstTwoRows: UIView = .init()
     
-    let iconView: IconView = .init(size: 40)
+    let iconView: IconView = .init(size: 40, accessoryGeometry: .forIcon40)
     
     let titleLabel: UILabel = .init()
-    let scamBadge: UIImageView = .init()
+    private let scamBadge: UIImageView = .init()
     
     let detailsLabel: UILabel = .init()
     
@@ -63,23 +63,19 @@ public class ActivityCell: WHighlightCollectionViewCell {
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
-    
-    var amountContainer: WSensitiveData<UILabel> = .init(cols: 12, rows: 2, cellSize: 9, cornerRadius: 5, theme: .adaptive, alignment: .trailing)
-    var amountLabel: UILabel!
-    var amountIcon1 = IconView(size: 18, borderWidth: 1, borderColor: UIColor.air.groupedItem)
-    var amountIcon2 = IconView(size: 18, borderWidth: 1, borderColor: UIColor.air.groupedItem)
-    var amountIcon2Constraints: [NSLayoutConstraint] = []
-    
-    var amount2Container: WSensitiveData<UILabel> = .init(cols: 9, rows: 2, cellSize: 7, cornerRadius: 4, theme: .adaptive, alignment: .trailing)
-    var amount2Label: UILabel!
-    
-    var nftView: NftPreviewLarge = .init()
-    var nftViewConstraints: [NSLayoutConstraint] = []
+    private let amountContainer: WSensitiveData<UILabel> = .init(cols: 12, rows: 2, cellSize: 9, cornerRadius: 5, theme: .adaptive, alignment: .trailing)
+    private let amountLabel = WAmountLabel()
+    private let amount2Container: WSensitiveData<UILabel> = .init(cols: 9, rows: 2, cellSize: 7, cornerRadius: 4, theme: .adaptive, alignment: .trailing)
+    private let amount2Label = UILabel()
+    private var amountIcons = AmountIcons()
+
+    private(set) var nftView: NftPreviewLarge = .init()
+    private var nftViewConstraints: [NSLayoutConstraint] = []
     
     var commentView: BubbleView = .init()
-    var commentViewConstraints: [NSLayoutConstraint] = []
-    var commentViewLeadingConstraint: NSLayoutConstraint!
-    var commentViewTrailingConstraint: NSLayoutConstraint!
+    private var commentViewConstraints: [NSLayoutConstraint] = []
+    private var commentViewLeadingConstraint: NSLayoutConstraint!
+    private var commentViewTrailingConstraint: NSLayoutConstraint!
     private var firstTwoRowsTrailingConstraint: NSLayoutConstraint!
     private var firstTwoRowsTrailingToChevronConstraint: NSLayoutConstraint!
 
@@ -87,11 +83,11 @@ public class ActivityCell: WHighlightCollectionViewCell {
     
     weak var delegate: Delegate? = nil
     var activity: ApiActivity?
-    var trackedValue: Double?
+    private var trackedValue: Double?
 
-    var viewModel: ActivityCellViewModel!
+    private var viewModel: ActivityCellViewModel!
     
-    var observeAccountAndActivity: ObserveToken?
+    private var observeAccountAndActivity: ObserveToken?
     
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -133,7 +129,6 @@ public class ActivityCell: WHighlightCollectionViewCell {
 
         // MARK: left icon
         mainView.addSubview(iconView)
-        iconView.setChainSize(14, borderWidth: 1.333, borderColor: UIColor.air.background, horizontalOffset: 3, verticalOffset: 1)
         NSLayoutConstraint.activate([
             iconView.topAnchor.constraint(equalTo: mainView.topAnchor),
             iconView.leadingAnchor.constraint(equalTo: mainView.leadingAnchor),
@@ -189,9 +184,9 @@ public class ActivityCell: WHighlightCollectionViewCell {
         detailsLabel.font = ActivityCell.regular14Font
         detailsLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         detailsLabel.lineBreakMode = .byTruncatingMiddle
-
+        
         // MARK: amount1
-        amountLabel = WAmountLabel()
+        amountLabel.font = Self.regular16Font
         amountLabel.translatesAutoresizingMaskIntoConstraints = false
         amountContainer.addContent(amountLabel)
         firstTwoRows.addSubview(amountContainer)
@@ -199,48 +194,40 @@ public class ActivityCell: WHighlightCollectionViewCell {
             amountLabel.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: 8),
             amountLabel.firstBaselineAnchor.constraint(equalTo: titleLabel.firstBaselineAnchor),
         ])
-        amountLabel.font = ActivityCell.regular16Font
         
-        amountIcon1.translatesAutoresizingMaskIntoConstraints = false
-        firstTwoRows.addSubview(amountIcon1)
-        NSLayoutConstraint.activate([
-            amountIcon1.leadingAnchor.constraint(equalTo: amountLabel.trailingAnchor, constant: 4),
-            amountIcon1.bottomAnchor.constraint(equalTo: amountLabel.firstBaselineAnchor, constant: 3),
-            amountIcon1.trailingAnchor.constraint(equalTo: firstTwoRows.trailingAnchor).withPriority(.defaultHigh), // overridden if amountIcon2 is visible
-        ])
-
-        amountIcon2.translatesAutoresizingMaskIntoConstraints = false
-        firstTwoRows.addSubview(amountIcon2)
-        amountIcon2Constraints = [
-            amountIcon2.leadingAnchor.constraint(equalTo: amountIcon1.leadingAnchor, constant: 12),
-            amountIcon2.centerYAnchor.constraint(equalTo: amountIcon1.centerYAnchor),
-            amountIcon2.trailingAnchor.constraint(equalTo: firstTwoRows.trailingAnchor),
-        ]
-        amountIcon2.isHidden = true
-
         // MARK: amount2
-        amount2Label = UILabel()
-        amount2Label.font = ActivityCell.regular14Font
+        amount2Label.font = Self.regular14Font
+        amount2Label.textColor = .air.secondaryLabel
         amount2Label.translatesAutoresizingMaskIntoConstraints = false
         amount2Label.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
-        
         amount2Container.addContent(amount2Label)
         firstTwoRows.addSubview(amount2Container)
-        
         NSLayoutConstraint.activate([
             amount2Label.firstBaselineAnchor.constraint(equalTo: detailsLabel.firstBaselineAnchor),
-            amount2Label.trailingAnchor.constraint(equalTo: amountIcon1.trailingAnchor).withPriority(.defaultHigh),
             amount2Label.leadingAnchor.constraint(greaterThanOrEqualTo: detailsLabel.trailingAnchor, constant: 6)
         ])
-        amountIcon2Constraints.append(contentsOf: [
-            amount2Label.trailingAnchor.constraint(equalTo: amountIcon2.trailingAnchor),
-        ])
-        amount2Label.font = ActivityCell.regular14Font
-        amount2Label.textColor = UIColor.air.secondaryLabel
 
         NSLayoutConstraint.activate([
             firstTwoRows.heightAnchor.constraint(equalToConstant: 40)
         ])
+
+        amountIcons.translatesAutoresizingMaskIntoConstraints = false
+        firstTwoRows.addSubview(amountIcons)
+
+        let amountLabelTrailingConstraint = amountLabel.trailingAnchor.constraint(equalTo: firstTwoRows.trailingAnchor)
+        let amount2LabelTrailingConstraint = amount2Label.trailingAnchor.constraint(equalTo: firstTwoRows.trailingAnchor)
+        NSLayoutConstraint.activate([
+            amountLabelTrailingConstraint,
+            amount2LabelTrailingConstraint,
+            amountIcons.topAnchor.constraint(equalTo: firstTwoRows.topAnchor),
+            amountIcons.bottomAnchor.constraint(equalTo: firstTwoRows.bottomAnchor),
+            amountIcons.trailingAnchor.constraint(equalTo: firstTwoRows.trailingAnchor)
+        ])
+        amountIcons.attachTo(
+            amountLabelTrailingConstraint: amountLabelTrailingConstraint,
+            amountLabelBaselineAnchor: amountLabel.firstBaselineAnchor,
+            amount2LabelTrailingConstraint: amount2LabelTrailingConstraint
+        )
         
         amountContainer.isTapToRevealEnabled = false
         amount2Container.isTapToRevealEnabled = false
@@ -328,7 +315,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         CATransaction.commit()
     }
     
-    func configureViewModel(accountId: String, activity: ApiActivity) {
+    private func configureViewModel(accountId: String, activity: ApiActivity) {
         if viewModel == nil {
             viewModel = ActivityCellViewModel(accountId: accountId, activity: activity)
             observeAccountAndActivity = observe { [weak self] in
@@ -349,7 +336,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
     
     public func updateToken() {
         if let activity {
-            if (!amountIcon1.isHidden && amountIcon1.imageView.image == nil) || (!amountIcon2.isHidden && amountIcon2.imageView.image == nil) {
+            if amountIcons.hasUnloadedIcons {
                 configureAmount(.init(activity: activity, tokenStore: viewModel.tokenStore))
             }
             if !amount2Label.isHidden, case .transaction(let tx) = activity, let token = viewModel.tokenStore[tx.slug], token.price != self.trackedValue {
@@ -379,6 +366,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         var activity: ApiActivity
         var isMultichain = false
         var stakingState: ApiStakingState?
+        var accountChains: Set<ApiChain> = []
         var isEmulation: Bool
         var address: String = ""
         var addressLabelKey: String = "$transaction_to"
@@ -386,6 +374,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         init(activity: ApiActivity, accountContext: AccountContext, isEmulation: Bool) {
             self.activity = activity
             self.isEmulation = isEmulation
+            self.accountChains = accountContext.account.supportedChains
             if  case .transaction(let transaction) = activity {
                 isMultichain = accountContext.account.isMultichain
                 if activity.shouldShowTransactionAnnualYield {
@@ -412,7 +401,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         let activity = options.activity
         let attr = NSMutableAttributedString()
         let detailsAttributes: [NSAttributedString.Key: Any] = [
-            .font: ActivityCell.regular14Font
+            .font: Self.regular14Font
         ]
         
         switch activity {
@@ -460,23 +449,21 @@ public class ActivityCell: WHighlightCollectionViewCell {
             }
         case .swap(let swap):
             var status: String?
-            switch swap.status {
-            case .pending, .pendingTrusted:
-                if swap.fromToken?.isOnChain ?? true {
-                    status = lang("In Progress")
-                } else {
-                    if swap.cex?.status.uiStatus == .pending {
-                        status = lang("Waiting for Payment")
-                    } else {
-                        status = lang("In Progress")
-                    }
-                }
-            case .completed, .confirmed:
-                break
-            case .failed:
-                status = lang("Failed swap")
+            switch swap.displayStatus(accountChains: options.accountChains) {
+            case .waitingForPayment:
+                status = lang("Waiting for Payment")
+            case .pending:
+                status = lang("In Progress")
+            case .hold:
+                status = lang("On Hold")
             case .expired:
-                status = lang("Expired swap")
+                status = lang("Expired")
+            case .refunded:
+                status = lang("Refunded")
+            case .failed:
+                status = lang("Failed")
+            case .completed:
+                status = nil
             }
             if let status {
                 attr.append(NSAttributedString(string: status, attributes: detailsAttributes))
@@ -531,67 +518,48 @@ public class ActivityCell: WHighlightCollectionViewCell {
                     symbolColor: color
                 )
                 amountLabel.attributedText = amountString
-                amountIcon1.config(with: token, shouldShowChain: false)
+                if displayMode == .hide {
+                    amountIcons.setHideMode()
+                } else {
+                    amountIcons.setTransactionMode(token: token)
+                }
             } else {
                 amountLabel.text = nil
-                amountIcon1.config(with: nil, shouldShowChain: false)
+                amountIcons.setHideMode()
             }
             
         case .swap(let swap):
             if let fromToken = swap.fromToken, let toToken = swap.toToken {
-                let fromAmount = swap.fromAmount.value
-                let toAmount = swap.toAmount.value
-                let swapFailed = swap.status == .failed || swap.status == .expired
-                let swapInProgress = swap.status == .pending
-                let swapDone = swap.status == .completed || swap.status == .confirmed
-                
-                let attr = NSMutableAttributedString()
-                
-                let fromDecimalAmount = DecimalAmount.fromDouble(fromAmount, fromToken)
-                let from = fromDecimalAmount.formatted(.compact, showMinus: false)
-                attr.append(NSAttributedString(string: from, attributes: [
-                    .foregroundColor: swapFailed ? UIColor.air.error : UIColor.air.secondaryLabel,
-                ]))
-                
-                let image = swapDone ? UIImage.airBundle("ActivitySwapChevron")
-                                     : UIImage.airBundle("ActivitySwapChevron").withRenderingMode(.alwaysTemplate)
-                let chevron = NSTextAttachment(image: image)
-                chevron.bounds = .init(x: 0, y: -2, width: 16, height: 16)
-                let chevronString = NSMutableAttributedString(attachment: chevron)
-                if !swapDone {
-                    chevronString.addAttributes([
-                        .foregroundColor: swapFailed ? UIColor.air.error : UIColor.air.secondaryLabel
-                    ], range: NSRange(location: 0, length: chevronString.length))
-                }
-                attr.append(chevronString)
-                
-                let toDecimalAmount = DecimalAmount.fromDouble(toAmount, toToken)
-                let to = toDecimalAmount.formatted(.compact, showMinus: false)
-                attr.append(NSAttributedString(string: to, attributes: [
-                    .foregroundColor: swapFailed ? UIColor.air.error : swapInProgress ? UIColor.air.secondaryLabel : UIColor.air.positiveAmount,
-                ]))
-                attr.addAttributes([
-                    .font: ActivityCell.regular16Font
-                ], range: NSRange(location: 0, length: attr.length))
-                amountLabel.attributedText = attr
-                
-                amountIcon1.config(with: fromToken, shouldShowChain: false)
-                amountIcon2.config(with: toToken, shouldShowChain: false)
+                let fromDecimalAmount = DecimalAmount.fromDouble(-swap.fromAmount.value, fromToken)
+                let from = fromDecimalAmount.formatted(.compact, showMinus: true)
+                amountLabel.attributedText = swapAmountText(text: from, swap: swap, isFrom: true)
+                amountIcons.setSwapMode(fromToken: fromToken, toToken: toToken)
             } else {
                 amountLabel.attributedText = nil
-                amountIcon1.config(with: nil, shouldShowChain: false)
-                amountIcon2.config(with: nil, shouldShowChain: false)
+                amountIcons.setHideMode()
             }
         }
         
         amountLabel.isHidden = displayMode == .hide
-        amountIcon1.isHidden = displayMode == .hide
-        amountIcon2.isHidden = displayMode != .swap
-        if displayMode == .swap {
-            NSLayoutConstraint.activate(amountIcon2Constraints)
+    }
+    
+    private func swapAmountText(text: String, swap: ApiSwapActivity, isFrom: Bool) -> NSAttributedString {
+        var color: UIColor
+        if swap.cex?.status == .hold {
+            color = .air.secondaryLabel
         } else {
-            NSLayoutConstraint.deactivate(amountIcon2Constraints)
+            switch swap.status {
+            case .expired, .failed:
+                color = .air.error
+            case .pending, .pendingTrusted, .confirmed, .completed:
+                color = isFrom ? .air.secondaryLabel : .air.positiveAmount
+            }
         }
+        
+        return NSAttributedString(string: text, attributes: [
+            .foregroundColor: color,
+            .font: isFrom ? Self.regular14Font : Self.regular16Font
+        ])
     }
         
     func configureAmount2(_ options: ConfigureAmountOptions) {
@@ -610,7 +578,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
                 let color = UIColor.air.secondaryLabel
                 let amountString = amount.formatAttributed(
                     format: .init(
-                        preset: .compact,
+                        preset: .baseCurrencyEquivalent,
                         showMinus: false,
                         roundHalfUp: false
                     ),
@@ -628,40 +596,17 @@ public class ActivityCell: WHighlightCollectionViewCell {
                 self.trackedValue = nil
             }
         case .swap(let swap):
-            let fromAmount = swap.fromAmount.value
-            let toAmount = swap.toAmount.value
-            
-            if let ex = ExchangeRateHelpers.getSwapRate(fromAmount: fromAmount, toAmount: toAmount, fromToken: swap.fromToken, toToken: swap.toToken) {
-                
-                let attr = NSMutableAttributedString()
-                
-                attr.append(NSAttributedString(string: "\(ex.toToken.symbol) ≈ ", attributes: [
-                    .foregroundColor: UIColor.air.secondaryLabel,
-                    .font: UIFont.systemFont(ofSize: 14, weight: .regular)
-                ]))
-                
-                let exchangeAmount = TokenAmount.fromDouble(ex.price, ex.fromToken)
-                let exchangeRateString = exchangeAmount.formatAttributed(
-                    format: .init(
-                        preset: .compact,
-                        roundHalfUp: true
-                    ),
-                    integerFont: .systemFont(ofSize: 14, weight: .semibold),
-                    fractionFont: .systemFont(ofSize: 10, weight: .semibold),
-                    symbolFont: .systemFont(ofSize: 10, weight: .semibold),
-                    integerColor: UIColor.air.secondaryLabel,
-                    fractionColor: UIColor.air.secondaryLabel,
-                    symbolColor: UIColor.air.secondaryLabel
-                )
-                attr.append(exchangeRateString)
-                
-                amount2Label.attributedText = attr
+            if let toToken = swap.toToken {
+                let toDecimalAmount = DecimalAmount.fromDouble(swap.toAmount.value, toToken)
+                let to = toDecimalAmount.formatted(.compact, showPlus: true, showMinus: false)
+                amount2Label.attributedText = swapAmountText(text: to, swap: swap, isFrom: false)
             } else {
                 amount2Label.attributedText = nil
             }
             self.trackedValue = nil
         }
     }
+    
     
     func configureSensitiveData(activity: ApiActivity?) {
         if let activity, activity.amountDisplayMode != .hide {
@@ -719,12 +664,133 @@ public class ActivityCell: WHighlightCollectionViewCell {
             NSLayoutConstraint.deactivate(commentViewConstraints)
         }
     }
+}
+
+private class AmountIcons: UIView {
+    private var amountLabelTrailingConstraint: NSLayoutConstraint!
+    private var amount2LabelTrailingConstraint: NSLayoutConstraint!
+    private var icon1BaselineConstraint: NSLayoutConstraint!
+    private var icon1CenterYConstraint: NSLayoutConstraint!
+    private var icon2CenterYConstraint: NSLayoutConstraint!
+
+    private static let iconSize: CGFloat = 18
+    private static let centerVOffset: CGFloat = 3
+    private static let iconedLabelTrailingOffset: CGFloat = iconSize + 4
+
+    private let icon1: IconView
+    private var icon2: IconView?
+
+    enum Mode {
+        case hide
+        case transaction
+        case swap
+    }
     
-    public override var isHighlighted: Bool {
-        didSet {
-            let color = isHighlighted ? UIColor.air.highlight : UIColor.air.groupedItem
-            amountIcon1.setBorder(width: 1, color: color)
-            amountIcon2.setBorder(width: 1, color: color)
+    private(set) var mode: Mode = .hide
+    
+    private lazy var icon1MaskLayer: CALayer = {
+        let mask = CAShapeLayer()
+        mask.fillRule = .evenOdd
+        
+        let b = CGRect.square(Self.iconSize)
+        let outerPath = UIBezierPath(ovalIn: b)
+        let oval = CGRect(origin: .init(x: 0, y: Self.iconSize - Self.centerVOffset * 2), size: b.size).insetBy(dx: -1, dy: -1)
+        outerPath.append(UIBezierPath(ovalIn: oval))
+        mask.path = outerPath.cgPath
+        mask.frame = b
+        return mask
+    }()
+    
+    override init(frame: CGRect) {
+        icon1 = IconView(size: Self.iconSize)
+        
+        super.init(frame: .zero)
+        
+        icon1.isHidden = true
+        icon1.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(icon1)
+                
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: Self.iconSize),
+            icon1.centerXAnchor.constraint(equalTo: centerXAnchor),
+        ])
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    func attachTo(
+        amountLabelTrailingConstraint: NSLayoutConstraint,
+        amountLabelBaselineAnchor: NSLayoutYAxisAnchor,
+        amount2LabelTrailingConstraint: NSLayoutConstraint
+    ) {
+        self.amountLabelTrailingConstraint = amountLabelTrailingConstraint
+        self.amount2LabelTrailingConstraint = amount2LabelTrailingConstraint
+
+        icon1BaselineConstraint = icon1.bottomAnchor.constraint(equalTo: amountLabelBaselineAnchor, constant: 3)
+        icon1CenterYConstraint = icon1.bottomAnchor.constraint(equalTo: centerYAnchor, constant: Self.centerVOffset)
+    }
+    
+    var hasUnloadedIcons: Bool {
+        switch mode {
+        case .hide: false
+        case .transaction: icon1.imageView.image == nil
+        case .swap: icon1.imageView.image == nil || icon2?.imageView.image == nil
         }
+    }
+    
+    func setHideMode() {
+        mode = .hide
+        icon1.isHidden = true
+        icon2?.isHidden = true
+        amountLabelTrailingConstraint.constant = 0
+        amount2LabelTrailingConstraint.constant = 0
+    }
+    
+    private func setIcon1Mask(_ maskLayer: CALayer?) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        icon1.layer.mask = maskLayer
+        CATransaction.commit()
+    }
+    
+    func setSwapMode(fromToken: ApiToken, toToken: ApiToken) {
+        mode = .swap
+        icon1.config(with: fromToken, shouldShowChain: false)
+        icon1.isHidden = false
+        icon1BaselineConstraint.isActive = false
+        icon1CenterYConstraint.isActive = true
+        amountLabelTrailingConstraint.constant = -Self.iconedLabelTrailingOffset
+        setIcon1Mask(icon1MaskLayer)
+
+        if icon2 == nil {
+            let icon2 = IconView(size: Self.iconSize)
+            self.icon2 = icon2
+            icon2.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(icon2)
+            
+            icon2CenterYConstraint = icon2.topAnchor.constraint(equalTo: centerYAnchor, constant: -Self.centerVOffset)
+            NSLayoutConstraint.activate([
+                icon2.centerXAnchor.constraint(equalTo: centerXAnchor),
+                icon2CenterYConstraint,
+            ])
+        }
+        icon2?.config(with: toToken, shouldShowChain: false)
+        icon2?.isHidden = false
+        amount2LabelTrailingConstraint.constant = -Self.iconedLabelTrailingOffset
+    }
+    
+    func setTransactionMode(token: ApiToken) {
+        mode = .transaction
+        icon1.config(with: token, shouldShowChain: false)
+        icon1.isHidden = false
+        icon1CenterYConstraint.isActive = false
+        icon1BaselineConstraint.isActive = true
+        amountLabelTrailingConstraint.constant = -Self.iconedLabelTrailingOffset
+        setIcon1Mask(nil)
+
+        icon2?.isHidden = true
+        amount2LabelTrailingConstraint.constant = 0
     }
 }

@@ -27,15 +27,15 @@ import {
   submitGasfullTransfer,
   submitGaslessTransfer,
 } from './transfer';
-import { getAddressInfo, getWalletBalance } from './wallet';
+import { fetchAccountAssets, getAddressInfo, getWalletBalance } from './wallet';
 
 function notSupported(): never {
   throw new Error('Not supported in Solana');
 }
 
 const solanaSdk: ChainSdk<'solana'> = {
-  fetchCrossChainActivitySlice: notSupported,
   fetchActivitySlice,
+  crosschain: undefined,
   fetchActivityDetails,
   decryptComment: notSupported,
   normalizeAddress,
@@ -53,6 +53,7 @@ const solanaSdk: ChainSdk<'solana'> = {
   submitGaslessTransfer,
   getAddressInfo,
   getWalletBalance,
+  getWalletAssets: fetchAccountAssets,
   verifyLedgerWalletAddress: notSupported,
   fetchPrivateKeyString,
   getIsLedgerAppOpen: notSupported,

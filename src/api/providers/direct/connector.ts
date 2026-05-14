@@ -5,32 +5,49 @@ import { type AllMethods, recognizeDappMethod } from '../../types/methods';
 import { getProtocolManager } from '../../dappProtocols';
 import * as methods from '../../methods';
 import init from '../../methods/init';
+import { createStorage, withStorage } from '../../storages';
 
-let initPromise: Promise<void> | undefined;
+export function createDirectApiConnector() {
+  let initPromise: Promise<void> | undefined;
+  let runtimeStorage = createStorage();
 
-export function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs | (() => ApiInitArgs)) {
-  const args = typeof initArgs === 'function' ? initArgs() : initArgs;
-  initPromise = init(onUpdate, args);
-}
+  function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs | (() => ApiInitArgs)) {
+    const args = typeof initArgs === 'function' ? initArgs() : initArgs;
 
-export async function callApi<T extends keyof AllMethods>(
-  fnName: T,
-  ...args: MethodArgsWithMaybePrefix<T>
-): Promise<MethodResponseWithMaybePrefix<T>> {
-  await initPromise!;
-
-  const parsedRequest = recognizeDappMethod(fnName);
-
-  if (parsedRequest.isDapp) {
-    const adapter = getProtocolManager().getAdapter(parsedRequest.protocolType);
-    if (!adapter) {
-      throw new Error('No dApp adapter found for request');
-    }
-    const method = adapter[parsedRequest.fnName].bind(adapter);
-
-    // @ts-ignore
-    return method(...args);
+    runtimeStorage = createStorage(args.storage);
+    initPromise = withStorage(runtimeStorage, () => init(onUpdate, args));
   }
-  // @ts-ignore
-  return methods[fnName](...args) as MethodResponseWithMaybePrefix<T>;
+
+  async function callApi<T extends keyof AllMethods>(
+    fnName: T,
+    ...args: MethodArgsWithMaybePrefix<T>
+  ): Promise<MethodResponseWithMaybePrefix<T>> {
+    await initPromise!;
+
+    return withStorage(runtimeStorage, () => {
+      const parsedRequest = recognizeDappMethod(fnName);
+
+      if (parsedRequest.isDapp) {
+        const adapter = getProtocolManager().getAdapter(parsedRequest.protocolType);
+        if (!adapter) {
+          throw new Error('No dApp adapter found for request');
+        }
+        const method = adapter[parsedRequest.fnName].bind(adapter);
+
+        // @ts-ignore
+        return method(...args);
+      }
+      // @ts-ignore
+      return methods[fnName](...args) as MethodResponseWithMaybePrefix<T>;
+    });
+  }
+
+  return {
+    initApi,
+    callApi,
+  };
 }
+
+const defaultConnector = createDirectApiConnector();
+
+export const { initApi, callApi } = defaultConnector;

@@ -5,23 +5,29 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextUtils
 import android.text.style.ForegroundColorSpan
-import android.text.style.RelativeSizeSpan
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.text.buildSpannedString
 import androidx.core.view.isGone
+import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ScamLabelSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
+import org.mytonwallet.app_air.uicomponents.image.Content
+import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
+import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.SensitiveDataMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -29,8 +35,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.formatTime
+import org.mytonwallet.app_air.walletbasecontext.utils.negative
 import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
-import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
@@ -39,10 +45,10 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
+import java.math.BigInteger
 import kotlin.math.abs
-import kotlin.math.absoluteValue
 
-class ActivityMainContentView(context: Context) : WView(context), WProtectedView {
+class ActivityMainContentView(context: Context) : WView(context), WProtectedView, WThemedView {
 
     init {
         id = generateViewId()
@@ -56,14 +62,37 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         setStyle(adaptiveFontSize(), WFont.DemiBold)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
+        setTextColor(WColor.PrimaryText)
+        minHeight = 24.dp
+        gravity = Gravity.CENTER_VERTICAL
     }
 
     private val scamLabelSpan by lazy {
         ScamLabelSpan(LocaleController.getString("Scam").uppercase())
     }
 
-    private val topRightView: ActivityAmountView by lazy {
-        ActivityAmountView(context)
+    private val topRightIconView by lazy {
+        WCustomImageView(context)
+    }
+
+    private val topRightLabel by lazy {
+        WSensitiveDataContainer(
+            WLabel(context).apply {
+                setStyle(adaptiveFontSize())
+                setSingleLine()
+                ellipsize = TextUtils.TruncateAt.MARQUEE
+                isSelected = true
+                isHorizontalFadingEdgeEnabled = true
+                applyFontOffsetFix = true
+                minHeight = 24.dp
+                gravity = Gravity.CENTER_VERTICAL
+            },
+            WSensitiveDataContainer.MaskConfig(
+                0,
+                2,
+                Gravity.END or Gravity.CENTER_VERTICAL
+            )
+        )
     }
 
     private val bottomLeftLabel = WLabel(context).apply {
@@ -75,14 +104,23 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
     }
 
     private val bottomRightLabel: WSensitiveDataContainer<WLabel> by lazy {
-        val lbl = WLabel(context)
-        lbl.setStyle(13f)
-        lbl.setSingleLine()
-        lbl.gravity = Gravity.RIGHT
+        val lbl = WLabel(context).apply {
+            setStyle(13f)
+            setSingleLine()
+            gravity = Gravity.RIGHT
+            setTextColor(WColor.PrimaryLightText)
+        }
         WSensitiveDataContainer(
             lbl,
             WSensitiveDataContainer.MaskConfig(0, 2, Gravity.RIGHT or Gravity.CENTER_VERTICAL)
         )
+    }
+
+    private val activitySwapIconsView: ActivitySwapIconsView by lazy {
+        ActivitySwapIconsView(context).apply {
+            setPaddingDpLocalized(4, 0, 0, 0)
+            isGone = true
+        }
     }
 
     override fun setupViews() {
@@ -97,9 +135,15 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         )
         addView(topLeftLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(bottomLeftLabel)
-        addView(topRightView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(topRightIconView, LayoutParams(18.dp, 18.dp))
+        addView(topRightLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(bottomRightLabel)
+        addView(activitySwapIconsView)
         setConstraints {
+            // Swap Icons View
+            toCenterY(activitySwapIconsView)
+            toEndPx(activitySwapIconsView, END_MARGIN_PX)
+
             // Icon View
             toTop(iconView, ApplicationContextHolder.adaptiveIconTopMargin)
             toStart(iconView, 12f)
@@ -107,23 +151,29 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
             // Top Left View
             setHorizontalBias(topLeftLabel.id, 0f)
             toStart(topLeftLabel, ApplicationContextHolder.adaptiveContentStart)
-            toTop(topLeftLabel, 9f)
+            toTop(topLeftLabel, 8f)
 
             // Top Right View
-            setHorizontalBias(topRightView.id, 1f)
-            constrainedWidth(topRightView.id, true)
-            startToEnd(topRightView, topLeftLabel, 4f)
-            toTop(topRightView, 9f)
-            toEnd(topRightView, 16f)
+            setHorizontalBias(topRightLabel.id, 1f)
+            constrainedWidth(topRightLabel.id, true)
+            startToEnd(topRightLabel, topLeftLabel, 4f)
+            toTop(topRightLabel, 8f)
+            endToStart(topRightIconView, activitySwapIconsView)
+            endToStart(topRightLabel, topRightIconView, 4f)
+            topToTop(topRightIconView, topRightLabel)
+            bottomToBottom(topRightIconView, topRightLabel)
+            setGoneMargin(topRightLabel.id, ConstraintSet.END, 0)
+            setGoneMargin(topRightIconView.id, ConstraintSet.END, END_MARGIN_PX)
 
             // Bottom Views
-            toEnd(bottomRightLabel, 16f)
+            endToStart(bottomRightLabel, activitySwapIconsView)
             toBottom(bottomRightLabel, 10f)
             setHorizontalBias(bottomLeftLabel.id, 0f)
             constrainedWidth(bottomLeftLabel.id, true)
             toStart(bottomLeftLabel, ApplicationContextHolder.adaptiveContentStart)
             toBottom(bottomLeftLabel, 10f)
             endToStart(bottomLeftLabel, bottomRightLabel, 4f)
+            setGoneMargin(bottomRightLabel.id, ConstraintSet.END, END_MARGIN_PX)
         }
     }
 
@@ -149,10 +199,12 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         }
     }
 
-    fun updateTheme() {
-        topLeftLabel.setTextColor(WColor.PrimaryText.color)
-        topRightView.updateTheme()
-        bottomRightLabel.contentView.setTextColor(WColor.PrimaryLightText.color)
+    override fun updateTheme() {
+        topLeftLabel.updateTheme()
+        bottomLeftLabel.updateTheme()
+        topRightLabel.contentView.updateTheme()
+        bottomRightLabel.contentView.updateTheme()
+        activitySwapIconsView.updateTheme()
         (transaction as? MApiTransaction.Transaction)?.let(iconView::config)
     }
 
@@ -164,18 +216,113 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         val transaction = transaction as MApiTransaction.Transaction
         iconView.config(transaction)
         topLeftLabel.text = buildTopLeftTitle(transaction.title)
-        topRightView.configure(transaction)
+        activitySwapIconsView.isGone = true
+        with(bottomRightLabel) {
+            contentView.setStyle(13f)
+            contentView.setTextColor(WColor.PrimaryLightText)
+            maskView.skin = null
+        }
         configureTransactionSubtitle(accountId, isMultichain)
         configureTransactionEquivalentAmount()
+        configureTransactionTopRight(transaction)
+    }
+
+    fun configureTransactionTopRight(transaction: MApiTransaction.Transaction) {
+        topRightLabel.contentView.setStyle(adaptiveFontSize())
+
+        val amountCols = if (transaction.isNft || transaction.noAmountTransaction) 0 else 4 + abs(
+            transaction.id.hashCode() % 8
+        )
+        topRightLabel.setMaskCols(amountCols)
+
+        val token = transaction.token
+        if (token == null || transaction.isNft || transaction.noAmountTransaction) {
+            topRightLabel.contentView.text = ""
+            topRightIconView.isGone = true
+            topRightIconView.clear()
+            return
+        }
+
+        val isStake = transaction.type == ApiTransactionType.STAKE
+        topRightLabel.contentView.setAmount(
+            if (isStake) transaction.amount.abs() else transaction.amount,
+            token.decimals,
+            token.symbol,
+            token.decimals,
+            true,
+            !isStake,
+            forceCurrencyToRight = true,
+        )
+        topRightLabel.maskView.skin = if (transaction.type == null && transaction.isIncoming) {
+            SensitiveDataMaskView.Skin.GREEN
+        } else {
+            null
+        }
+        topRightLabel.contentView.setTextColor(
+            when {
+                transaction.status == ApiTransactionStatus.FAILED -> WColor.Red.color
+                transaction.type == ApiTransactionType.STAKE -> WColor.Purple.color
+                transaction.type == ApiTransactionType.BURN -> WColor.Red.color
+                transaction.amount > BigInteger.ZERO -> WColor.Green.color
+                else -> WColor.PrimaryText.color
+            }
+        )
+
+        topRightIconView.isVisible = true
+        topRightIconView.set(Content.of(token, showChain = false))
     }
 
     private fun configureSwap() {
         val swap = transaction as MApiTransaction.Swap
         iconView.config(swap)
         topLeftLabel.text = buildTopLeftTitle(swap.title)
-        topRightView.configure(swap)
+        activitySwapIconsView.isVisible = true
+        activitySwapIconsView.configure(swap)
         configureSwapSubtitle()
-        configureSwapRate()
+        configureSwapTo(swap)
+        configureSwapTopRight(swap)
+    }
+
+    fun configureSwapTopRight(swap: MApiTransaction.Swap) {
+        topRightLabel.contentView.setStyle(adaptiveFontSize(14f))
+        topRightLabel.setMaskCols(4 + abs(swap.id.hashCode() % 8))
+
+        val fromToken = swap.fromToken
+        if (fromToken == null) {
+            topRightLabel.contentView.text = ""
+            topRightIconView.isGone = true
+            topRightIconView.clear()
+            return
+        }
+
+        val status = swap.cex?.status?.uiStatus ?: swap.status.uiStatus
+        val isFailed =
+            status == MApiTransaction.UIStatus.EXPIRED || status == MApiTransaction.UIStatus.FAILED
+
+        topRightLabel.contentView.setAmount(
+            amount = swap.fromAmount.negative().toBigInteger(fromToken.decimals) ?: BigInteger.ZERO,
+            decimals = fromToken.decimals,
+            currency = fromToken.symbol,
+            currencyDecimals = fromToken.decimals,
+            smartDecimals = true,
+            showPositiveSign = true,
+            forceCurrencyToRight = true
+        )
+        topRightLabel.maskView.skin = if (isFailed) {
+            SensitiveDataMaskView.Skin.RED
+        } else {
+            null
+        }
+        topRightLabel.contentView.setTextColor(
+            if (isFailed) {
+                WColor.Red
+            } else {
+                WColor.PrimaryLightText
+            }
+        )
+
+        topRightIconView.visibility = GONE
+        topRightIconView.clear()
     }
 
     private fun configureTransactionEquivalentAmount() {
@@ -327,54 +474,42 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         bottomLeftLabel.text = builder
     }
 
-    private fun configureSwapRate() {
-        val swap = transaction as MApiTransaction.Swap
-        val fromToken = swap.fromToken
+    private fun configureSwapTo(swap: MApiTransaction.Swap) {
         val toToken = swap.toToken
-        if (fromToken == null || toToken == null) {
+        bottomRightLabel.contentView.setStyle(16f)
+        if (toToken == null) {
             bottomRightLabel.contentView.text = ""
             bottomRightLabel.setMaskCols(0)
             return
         }
-        val builder = SpannableStringBuilder()
-        val rateBigInt =
-            (swap.fromAmount.absoluteValue / swap.toAmount).toBigInteger(fromToken.decimals)
-        if (rateBigInt == null) {
-            bottomRightLabel.contentView.text = ""
-            bottomRightLabel.setMaskCols(0)
-            return
-        }
-        val rate = rateBigInt.toString(
-            fromToken.decimals,
-            fromToken.symbol,
-            2 + rateBigInt.smartDecimalsCount(fromToken.decimals),
-            showPositiveSign = false,
+        bottomRightLabel.contentView.setAmount(
+            amount = swap.toAmount.toBigInteger(toToken.decimals) ?: BigInteger.ZERO,
+            decimals = toToken.decimals,
+            currency = toToken.symbol,
+            currencyDecimals = toToken.decimals,
+            smartDecimals = true,
+            showPositiveSign = true,
             forceCurrencyToRight = true
         )
-        builder.append(toToken.symbol)
-        builder.append(" ≈ ")
-        val rateStart = builder.length
-        builder.setSpan(
-            ForegroundColorSpan(WColor.PrimaryLightText.color),
-            0,
-            rateStart,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        val rateFmtDotIndex = rate.indexOf(".")
-        builder.append(rate)
-        builder.setSpan(
-            WTypefaceSpan(WFont.Medium.typeface, WColor.PrimaryLightText.color),
-            rateStart,
-            builder.length,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        builder.setSpan(
-            RelativeSizeSpan(10 / 14f),
-            rateStart + (if (rateFmtDotIndex > -1) rateFmtDotIndex else rate.length),
-            builder.length,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        bottomRightLabel.contentView.text = builder
+        val status = swap.cex?.status?.uiStatus ?: swap.status.uiStatus
+        when (status) {
+            MApiTransaction.UIStatus.PENDING,
+            MApiTransaction.UIStatus.COMPLETED -> {
+                bottomRightLabel.maskView.skin = SensitiveDataMaskView.Skin.GREEN
+                bottomRightLabel.contentView.setTextColor(WColor.Green)
+            }
+
+            MApiTransaction.UIStatus.EXPIRED,
+            MApiTransaction.UIStatus.FAILED -> {
+                bottomRightLabel.maskView.skin = SensitiveDataMaskView.Skin.RED
+                bottomRightLabel.contentView.setTextColor(WColor.Red)
+            }
+
+            MApiTransaction.UIStatus.HOLD -> {
+                bottomRightLabel.maskView.skin = null
+                bottomRightLabel.contentView.setTextColor(WColor.PrimaryLightText)
+            }
+        }
         updateBottomRightLabelMaskCols()
     }
 
@@ -382,5 +517,9 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         val amountCols =
             if (bottomRightLabel.contentView.text.isNullOrEmpty()) 0 else 4 + abs(bottomRightLabel.contentView.text.hashCode() % 4)
         bottomRightLabel.setMaskCols(amountCols)
+    }
+
+    companion object {
+        val END_MARGIN_PX = 16.dp
     }
 }

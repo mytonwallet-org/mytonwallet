@@ -19,11 +19,13 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNotificationAddress
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransfersResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
+import org.mytonwallet.app_air.walletcore.moshi.ApiAddAllFoundSubwalletsResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiAddSubWalletResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiCreateSubWalletResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiGroupedWalletVariant
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubWallet
 import org.mytonwallet.app_air.walletcore.moshi.MApiGetAddressInfoResult
+import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapsResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckNftDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckStakeDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftOptions
@@ -382,6 +384,25 @@ sealed class ApiMethod<T> {
                 )
                 .build()
         }
+
+        class AddAllFoundSubwallets(
+            accountId: String,
+            foundWallets: List<Map<String, ApiSubWallet>>
+        ) : ApiMethod<ApiAddAllFoundSubwalletsResult>() {
+            override val name: String = "addAllFoundSubwallets"
+            override val type: Type = ApiAddAllFoundSubwalletsResult::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .jsArray(
+                    foundWallets,
+                    Types.newParameterizedType(
+                        Map::class.java,
+                        String::class.java,
+                        ApiSubWallet::class.java
+                    )
+                )
+                .build()
+        }
     }
 
     /* Transfer */
@@ -469,6 +490,18 @@ sealed class ApiMethod<T> {
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
                 .jsObject(request, MApiSwapEstimateRequest::class.java)
+                .build()
+        }
+
+        class FetchSwaps(
+            accountId: String,
+            ids: List<String>
+        ) : ApiMethod<MApiFetchSwapsResult>() {
+            override val name: String = "fetchSwaps"
+            override val type: Type = MApiFetchSwapsResult::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .jsArray(ids, String::class.java)
                 .build()
         }
     }
@@ -727,6 +760,18 @@ sealed class ApiMethod<T> {
                 request: Any
             ) : ApiMethod<JSONObject>() {
                 override val name: String = "walletConnect_signData"
+                override val type: Type = JSONObject::class.java
+                override val arguments: String = ArgumentsBuilder()
+                    .jsObject(dApp, DAppArg::class.java)
+                    .jsObject(request, Any::class.java)
+                    .build()
+            }
+
+            class WalletConnectProxyEvmRpc(
+                dApp: DAppArg,
+                request: Any
+            ) : ApiMethod<JSONObject>() {
+                override val name: String = "walletConnect_proxyEvmRpc"
                 override val type: Type = JSONObject::class.java
                 override val arguments: String = ArgumentsBuilder()
                     .jsObject(dApp, DAppArg::class.java)

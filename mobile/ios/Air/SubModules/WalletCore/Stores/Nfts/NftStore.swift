@@ -70,6 +70,13 @@ public final class _NftStore: Sendable {
         let chain: ApiChain
         let addresses: Set<String>
     }
+
+    private struct ValidationContext {
+        let reason: String
+        let chain: ApiChain
+        let authoritativeAddresses: Set<String>?
+        let removedAddress: String?
+    }
     
     private func received(
         accountId: String,
@@ -78,7 +85,8 @@ public final class _NftStore: Sendable {
         mergeMode: NftsMergeMode = .prepend,
         preferExistingOnConflict: Bool = false,
         streamPruneContext: StreamPruneContext? = nil,
-        shouldValidateAccountNftAvailability: Bool = false
+        shouldValidateAccountNftAvailability: Bool = false,
+        validationContext: ValidationContext? = nil
     ) {
         var nfts = self.nfts[accountId, default: [:]]
         for removedNftId in removedNftIds {
@@ -123,7 +131,7 @@ public final class _NftStore: Sendable {
         _checkNftsOrder(accountId: accountId)
         saveToCache()
         if shouldValidateAccountNftAvailability {
-            _removeAccountNftIfNoLongerAvailable(accountId: accountId)
+            _removeAccountNftIfNoLongerAvailable(accountId: accountId, context: validationContext)
         }
         WalletCoreData.notify(event: .nftsChanged(accountId: accountId))
     }
@@ -417,20 +425,86 @@ public final class _NftStore: Sendable {
         }
     }
     
-    private func _removeAccountNftIfNoLongerAvailable(accountId: String) {
+    private func _removeAccountNftIfNoLongerAvailable(accountId: String, context: ValidationContext?) {
+        guard let context else {
+            log.info("accountNft.validationSkipped accountId=\(accountId, .public) reason=unknown skipReason=missingValidationContext")
+            return
+        }
+
         if let nfts = self.nfts[accountId] {
-            let nftIds = Set(nfts.keys)
+            let nftIds = Set(nfts.values.filter { $0.nft.chain == context.chain }.map(\.nft.id))
+            let nftAddresses = Set(nfts.values.filter { $0.nft.chain == context.chain }.map(\.nft.address))
+            let cachedCount = nfts.values.count { $0.nft.chain == context.chain }
+            let isStreamCacheSynchronized = context.authoritativeAddresses.map {
+                $0.isSubset(of: nftAddresses)
+            } ?? true
             Task { @MainActor in
                 @Dependency(\.accountSettings) var _accountSettings
                 let accountSettings = _accountSettings.for(accountId: accountId)
-                if let nft = accountSettings.backgroundNft, nftIds.contains(nft.id) == false {
-                    accountSettings.setBackgroundNft(nil)
+                if let nft = accountSettings.backgroundNft,
+                   nft.chain == context.chain {
+                    if shouldSkipValidation(
+                        nft: nft,
+                        context: context,
+                        nftAddresses: nftAddresses,
+                        isStreamCacheSynchronized: isStreamCacheSynchronized
+                    ) {
+                        log.info("cardBackground.validationSkipped accountId=\(accountId, .public) reason=\(context.reason, .public) skipReason=cacheIncomplete validatedChain=\(context.chain.rawValue, .public) cardId=\(nft.id, .public) cardAddress=\(nft.address, .public) cardChain=\(nft.chain.rawValue, .public) cardMtwId=\(nft.metadata?.mtwCardId as Any, .public) cachedCount=\(cachedCount) streamedCount=\(context.authoritativeAddresses?.count as Any, .public) streamHasAddress=\((context.authoritativeAddresses?.contains(nft.address)) as Any, .public) cachedHasAddress=\(nftAddresses.contains(nft.address))")
+                    } else if shouldClearAccountNft(nft: nft, context: context, nftIds: nftIds, nftAddresses: nftAddresses) {
+                        log.info("cardBackground.validationCleared accountId=\(accountId, .public) reason=\(context.reason, .public) validatedChain=\(context.chain.rawValue, .public) cardId=\(nft.id, .public) cardAddress=\(nft.address, .public) cardChain=\(nft.chain.rawValue, .public) cardMtwId=\(nft.metadata?.mtwCardId as Any, .public) cachedCount=\(cachedCount) streamedCount=\(context.authoritativeAddresses?.count as Any, .public) streamHasAddress=\((context.authoritativeAddresses?.contains(nft.address)) as Any, .public) cachedHasAddress=\(nftAddresses.contains(nft.address))")
+                        accountSettings.setBackgroundNft(nil)
+                    }
                 }
-                if let nft = accountSettings.accentColorNft, nftIds.contains(nft.id) == false {
-                    accountSettings.setAccentColorNft(nil)
+                if let nft = accountSettings.accentColorNft,
+                   nft.chain == context.chain {
+                    if shouldSkipValidation(
+                        nft: nft,
+                        context: context,
+                        nftAddresses: nftAddresses,
+                        isStreamCacheSynchronized: isStreamCacheSynchronized
+                    ) {
+                        log.info("accentColorNft.validationSkipped accountId=\(accountId, .public) reason=\(context.reason, .public) skipReason=cacheIncomplete validatedChain=\(context.chain.rawValue, .public) nftId=\(nft.id, .public) nftAddress=\(nft.address, .public) nftChain=\(nft.chain.rawValue, .public) nftMtwId=\(nft.metadata?.mtwCardId as Any, .public) cachedCount=\(cachedCount) streamedCount=\(context.authoritativeAddresses?.count as Any, .public) streamHasAddress=\((context.authoritativeAddresses?.contains(nft.address)) as Any, .public) cachedHasAddress=\(nftAddresses.contains(nft.address))")
+                    } else if shouldClearAccountNft(nft: nft, context: context, nftIds: nftIds, nftAddresses: nftAddresses) {
+                        log.info("accentColorNft.validationCleared accountId=\(accountId, .public) reason=\(context.reason, .public) validatedChain=\(context.chain.rawValue, .public) nftId=\(nft.id, .public) nftAddress=\(nft.address, .public) nftChain=\(nft.chain.rawValue, .public) nftMtwId=\(nft.metadata?.mtwCardId as Any, .public) cachedCount=\(cachedCount) streamedCount=\(context.authoritativeAddresses?.count as Any, .public) streamHasAddress=\((context.authoritativeAddresses?.contains(nft.address)) as Any, .public) cachedHasAddress=\(nftAddresses.contains(nft.address))")
+                        accountSettings.setAccentColorNft(nil)
+                    }
                 }
             }
         }
+    }
+
+    private func shouldSkipValidation(
+        nft: ApiNft,
+        context: ValidationContext,
+        nftAddresses: Set<String>,
+        isStreamCacheSynchronized: Bool
+    ) -> Bool {
+        guard let authoritativeAddresses = context.authoritativeAddresses else {
+            return false
+        }
+
+        return !isStreamCacheSynchronized
+            && !authoritativeAddresses.contains(nft.address)
+            && !nftAddresses.contains(nft.address)
+    }
+
+    private func shouldClearAccountNft(
+        nft: ApiNft,
+        context: ValidationContext,
+        nftIds: Set<String>,
+        nftAddresses: Set<String>
+    ) -> Bool {
+        if let removedAddress = context.removedAddress {
+            return nft.address == removedAddress || nft.id == ApiNft.id(chain: context.chain, address: removedAddress)
+        }
+
+        if let authoritativeAddresses = context.authoritativeAddresses {
+            return !authoritativeAddresses.contains(nft.address)
+                && !nftIds.contains(nft.id)
+                && !nftAddresses.contains(nft.address)
+        }
+
+        return !nftIds.contains(nft.id) && !nftAddresses.contains(nft.address)
     }
 
     private func parseCollectionReference(_ value: String) -> (chain: ApiChain?, address: String) {
@@ -462,6 +536,9 @@ extension _NftStore: WalletCoreData.EventsObserver {
             let streamPruneContext = update.streamedAddresses.map {
                 StreamPruneContext(chain: update.chain, addresses: Set($0))
             }
+            if let streamedAddresses = update.streamedAddresses {
+                log.info("nftStore.streamFinal accountId=\(update.accountId, .public) chain=\(update.chain.rawValue, .public) streamedCount=\(streamedAddresses.count) incomingCount=\(update.nfts.count) shouldAppend=\(shouldAppend)")
+            }
             let incomingNfts = streamPruneContext == nil ? update.nfts : []
             self.received(
                 accountId: update.accountId,
@@ -470,7 +547,15 @@ extension _NftStore: WalletCoreData.EventsObserver {
                 mergeMode: shouldAppend ? .append : .prepend,
                 preferExistingOnConflict: shouldAppend,
                 streamPruneContext: streamPruneContext,
-                shouldValidateAccountNftAvailability: streamPruneContext != nil
+                shouldValidateAccountNftAvailability: streamPruneContext != nil,
+                validationContext: streamPruneContext.map {
+                    ValidationContext(
+                        reason: "streamFinal:\($0.chain.rawValue):count=\($0.addresses.count)",
+                        chain: $0.chain,
+                        authoritativeAddresses: $0.addresses,
+                        removedAddress: nil
+                    )
+                }
             )
 
         case .nftReceived(let update):
@@ -481,7 +566,13 @@ extension _NftStore: WalletCoreData.EventsObserver {
                 accountId: update.accountId,
                 newNfts: [],
                 removedNftIds: [ApiNft.id(chain: update.chain, address: update.nftAddress)],
-                shouldValidateAccountNftAvailability: true
+                shouldValidateAccountNftAvailability: true,
+                validationContext: ValidationContext(
+                    reason: "nftSent:\(update.chain.rawValue):\(update.nftAddress)",
+                    chain: update.chain,
+                    authoritativeAddresses: nil,
+                    removedAddress: update.nftAddress
+                )
             )
 
         case .nftPutUpForSale(let update):

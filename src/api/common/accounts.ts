@@ -124,33 +124,36 @@ export async function getAccountValue(accountId: string, key: StorageKey) {
 
 export async function removeAccountValue(accountId: string, key: StorageKey) {
   return getWriteQueue(key).run(async () => {
-    const data = await storage.getItem(key);
-    if (!data) return;
+    await storage.mutateItem!(key, (data) => {
+      if (!data) return data;
 
-    const { [accountId]: _removed, ...restData } = data;
-    await storage.setItem(key, restData);
+      const { [accountId]: _removed, ...restData } = data;
+      return restData;
+    });
   });
 }
 
 export async function setAccountValue(accountId: string, key: StorageKey, value: any) {
   return getWriteQueue(key).run(async () => {
-    const data = await storage.getItem(key);
-    await storage.setItem(key, { ...data, [accountId]: value });
+    await storage.mutateItem!(key, (data) => ({ ...data, [accountId]: value }));
   });
 }
 
 export async function removeNetworkAccountsValue(network: string, key: StorageKey) {
   return getWriteQueue(key).run(async () => {
-    const data = await storage.getItem(key);
-    if (!data) return;
+    await storage.mutateItem!(key, (data) => {
+      if (!data) return data;
 
-    for (const accountId of Object.keys(data)) {
-      if (parseAccountId(accountId).network === network) {
-        delete data[accountId];
+      const nextData = { ...data };
+
+      for (const accountId of Object.keys(nextData)) {
+        if (parseAccountId(accountId).network === network) {
+          delete nextData[accountId];
+        }
       }
-    }
 
-    await storage.setItem(key, data);
+      return nextData;
+    });
   });
 }
 

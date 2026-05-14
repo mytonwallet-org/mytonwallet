@@ -81,6 +81,9 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
         case "walletConnect:signData":
             try await handleWalletConnectSignData(dict: dict)
 
+        case "walletConnect:proxyEvmRpc":
+            try await handleWalletConnectProxyEvmRpc(dict: dict)
+
         case "window:open":
             if let args = dict["args"] as? [String: Any], let urlString = args["url"] as? String, let url = URL(string: urlString) {
                 if WalletContextManager.delegate?.handleDeeplink(url: url) ?? false {
@@ -278,12 +281,12 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
         guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { return }
         do {
             let response = try await Api.walletConnect_sendTransaction(request: dappArg, message: message)
-            try await handleDappMethodResult(response, invocationId: invocationId)
+            try await injectDappConnectResult(invocationId: invocationId, result: response)
         } catch {
             try await injectDappConnectError(invocationId: invocationId, message: badRequestMessage)
         }
     }
-    
+
     private func handleWalletConnectSignData(dict: [String: Any]) async throws {
         guard let invocationId = dict["invocationId"] as? String,
               let args = dict["args"] as? [Any],
@@ -293,12 +296,27 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
         guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { return }
         do {
             let response = try await Api.walletConnect_signData(request: dappArg, message: message)
-            try await handleDappMethodResult(response, invocationId: invocationId)
+            try await injectDappConnectResult(invocationId: invocationId, result: response)
         } catch {
             try await injectDappConnectError(invocationId: invocationId, message: badRequestMessage)
         }
     }
-    
+
+    private func handleWalletConnectProxyEvmRpc(dict: [String: Any]) async throws {
+        guard let invocationId = dict["invocationId"] as? String,
+              let args = dict["args"] as? [Any],
+              let payload = args.first,
+              let message = try? JSONSerialization.decode(ApiDappEvmRpcProxyRequest.self, from: payload)
+        else { return }
+        guard let dappArg = makeDappRequest(accountId: AccountStore.accountId) else { return }
+        do {
+            let response = try await Api.walletConnect_proxyEvmRpc(request: dappArg, message: message)
+            try await injectDappConnectResult(invocationId: invocationId, result: response)
+        } catch {
+            try await injectDappConnectError(invocationId: invocationId, message: badRequestMessage)
+        }
+    }
+
     // MARK: - Utils
     
     private func handleDappMethodResult<T: Encodable>(_ response: ApiDappMethodResult<T>, invocationId: String) async throws {

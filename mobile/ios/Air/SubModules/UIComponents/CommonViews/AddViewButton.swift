@@ -16,12 +16,21 @@ public struct AddViewButton<S: ShapeStyle>: View {
     
     public var body: some View {
         if #available(iOS 26, iOSApplicationExtension 26, *) {
-            Button(action: onTap) {
-                sharedContent
-                    .foregroundStyle(foregroundStyle)
+            if IS_GRAM_WALLET {
+                Button(action: onTap) {
+                    sharedContent
+                        .padding(7)
+                        .foregroundStyle(foregroundStyle)
+                }
+                .glassEffect(.clear.interactive(), in: .capsule)
+            } else {
+                Button(action: onTap) {
+                    sharedContent
+                        .foregroundStyle(foregroundStyle)
+                }
+                .buttonStyle(.glassProminent)
+                .tint(.blue)
             }
-            .buttonStyle(.glassProminent)
-            .tint(.blue)
         } else {
             Button(action: onTap) {
                 sharedContent

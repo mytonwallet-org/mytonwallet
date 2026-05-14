@@ -343,7 +343,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
         let messageName = message.name
         updateQueue.async {
             assert(!Thread.isMainThread)
-            let data = body as? [String: Any]
+            nonisolated(unsafe) let data = body as? [String: Any]
             switch messageName {
             case "log":
                 var body = body
@@ -359,50 +359,47 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                     return
                 }
                 Task { @MainActor in
+                    
+                    func completeNativeCallVoid() async {
+                        do {
+                            _ = try await self.webView?.nativeCallOkVoid(requestNumber: requestNumber)
+                        } catch {
+                            log.fault("Error injecting \(methodName) response to JavaScript: \(error)")
+                        }
+                    }
+                    
+                    func completeNativeCallOk(result: sending Any?) async {
+                        do {
+                            _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: result)
+                        } catch {
+                            log.fault("Error injecting \(methodName) response to JavaScript: \(error)")
+                        }
+                    }
+                    
                     switch methodName {
                     case "capacitorStorageGetItem":
                         guard let key = data?["arg0"] as? String
                         else {
+                            await completeNativeCallVoid()
                             return
                         }
                         let result = KeychainHelper.getStorage(key: key)
-                        do {
-                            _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: result)
-                        } catch {
-                            log.fault("Error injecting getItem response to JavaScript: \(error)")
-                        }
+                        await completeNativeCallOk(result: result)
                         
                     case "capacitorStorageSetItem":
-                        guard let key = data?["arg0"] as? String,
-                              let value = data?["arg1"] as? String
-                        else {
-                            return
+                        if let key = data?["arg0"] as? String, let value = data?["arg1"] as? String {
+                            KeychainHelper.saveStorage(key: key, value: value)
                         }
-                        KeychainHelper.saveStorage(key: key, value: value)
-                        do {
-                            _ = try await self.webView?.nativeCallOkVoid(requestNumber: requestNumber)
-                        } catch {
-                            log.fault("Error injecting setItem response to JavaScript: \(error)")
-                        }
+                        await completeNativeCallVoid()
                         
                     case "capacitorStorageRemoveItem":
-                        guard let key = data?["arg0"] as? String
-                        else {
-                            return
+                        if let key = data?["arg0"] as? String {
+                            KeychainHelper.saveStorage(key: key, value: nil)
                         }
-                        KeychainHelper.saveStorage(key: key, value: nil)
-                        do {
-                            _ = try await self.webView?.nativeCallOkVoid(requestNumber: requestNumber)
-                        } catch {
-                            log.fault("Error injecting removeItem response to JavaScript: \(error)")
-                        }
+                        await completeNativeCallVoid()
                         
                     case "capacitorStorageKeys":
-                        do {
-                            _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: KeychainHelper.keys())
-                        } catch {
-                            log.fault("Error injecting keys response to JavaScript: \(error)")
-                        }
+                        await completeNativeCallOk(result: KeychainHelper.keys())
                         
                     case "exchangeWithLedger":
                         guard let apdu = data?["arg0"] as? String else {
@@ -655,14 +652,16 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                         let value = try JSONSerialization.decode(ApiUpdate.DappSendTransactions.self, from: data)
                         WalletCoreData.notify(event: .dappSendTransactions(value))
                     } catch {
-                        assertionFailure()
+                        log.fault("dappSendTransactions decode failed: \(error, .public)")
+                        assertionFailure("dappSendTransactions decode failed: \(error)")
                     }
                 case "dappSignData":
                     do {
                         let value = try JSONSerialization.decode(ApiUpdate.DappSignData.self, from: data)
                         WalletCoreData.notify(event: .dappSignData(value))
                     } catch {
-                        assertionFailure()
+                        log.fault("dappSignData decode failed: \(error, .public)")
+                        assertionFailure("dappSignData decode failed: \(error)")
                     }
 
                 case "dappDisconnect":
@@ -762,7 +761,7 @@ extension JSWebViewBridge: WKNavigationDelegate, WKUIDelegate {
 }
 
 fileprivate extension WKWebView {
-    func nativeCallOk(requestNumber: Int, result: Any?) async throws {
+    func nativeCallOk(requestNumber: Int, result: sending Any?) async throws {
         _ = try await callAsyncJavaScript(NATIVE_CALL_OK, arguments: [
             "requestNumber": requestNumber,
             "result": result as Any

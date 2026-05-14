@@ -8,15 +8,14 @@ import { type Account, ContentTab, SettingsState } from '../../../../../global/t
 
 import {
   DEFAULT_CHAIN,
-  IS_CORE_WALLET,
   PORTRAIT_MIN_ASSETS_TAB_VIEW,
   STAKING_SLUG_PREFIX,
   TELEGRAM_GIFTS_SUPER_COLLECTION,
 } from '../../../../../config';
-import { buildNftCollectionIndex, getCollectionKey } from '../../../../../global/helpers/nfts';
 import { getChainsSupportingNft, getOrderedAccountChains } from '../../../../../util/chain';
 import { compact } from '../../../../../util/iteratees';
 import { getIsActiveStakingState } from '../../../../../util/staking';
+import useNftCollectionMenuItems, { HIDDEN_NFTS_VALUE } from './useNftCollectionMenuItems';
 
 import useEffectOnce from '../../../../../hooks/useEffectOnce';
 import useLang from '../../../../../hooks/useLang';
@@ -36,6 +35,7 @@ interface OwnProps {
   activeContentTab?: ContentTab;
   activityReturnContentTab?: ContentTab;
   currentCollection?: ApiNftCollection;
+  currentTokenSlug?: string;
   states?: ApiStakingState[];
   hasVesting: boolean;
   alwaysHiddenSlugs?: string[];
@@ -53,6 +53,7 @@ export default function useContentTabs({
   activeContentTab,
   activityReturnContentTab,
   currentCollection,
+  currentTokenSlug,
   states,
   hasVesting,
   alwaysHiddenSlugs,
@@ -95,7 +96,7 @@ export default function useContentTabs({
   }, [currentCollection]);
 
   const handleNftsMenuButtonClick = useLastCallback((value: string) => {
-    if (value === 'hidden_nfts') {
+    if (value === HIDDEN_NFTS_VALUE) {
       openSettingsWithState({ state: SettingsState.HiddenNfts });
     } else {
       const [address, chain] = parseCollectionId(value);
@@ -103,40 +104,15 @@ export default function useContentTabs({
     }
   });
 
-  const [nftCollections, nftCollectionNameByKey] = useMemo(() => {
-    const { byKey } = buildNftCollectionIndex(nfts, blacklistedNftAddresses, whitelistedNftAddresses);
-
-    const telegramGiftsKey = getCollectionKey('ton', TELEGRAM_GIFTS_SUPER_COLLECTION);
-    const hasTelegramGifts = byKey.has(telegramGiftsKey);
-    const unnamedLabel = lang('Unnamed collection');
-    const telegramGiftsName = lang('Telegram Gifts');
-
-    const nameByKey = new Map<string, string>();
-    const items: DropdownItem[] = [];
-
-    for (const [key, { chain, address, name }] of byKey) {
-      if (key === telegramGiftsKey) {
-        nameByKey.set(key, telegramGiftsName);
-        continue;
-      }
-      const resolvedName = name ?? unnamedLabel;
-      nameByKey.set(key, resolvedName);
-      items.push({ value: `${address}@${chain}`, name: resolvedName });
-    }
-
-    items.sort((a, b) => a.name.localeCompare(b.name));
-
-    if (hasTelegramGifts) {
-      items.unshift({
-        value: `${TELEGRAM_GIFTS_SUPER_COLLECTION}@ton`,
-        name: telegramGiftsName,
-        fontIcon: 'gift',
-        withDelimiterAfter: true,
-      });
-    }
-
-    return [items, nameByKey];
-  }, [lang, nfts, blacklistedNftAddresses, whitelistedNftAddresses]);
+  const {
+    items: nftCollections,
+    nameByKey: nftCollectionNameByKey,
+    shouldRenderHiddenNftsSection,
+  } = useNftCollectionMenuItems({
+    nfts,
+    blacklistedNftAddresses,
+    whitelistedNftAddresses,
+  });
 
   const visibleCollectionTabs = useMemo(() => (
     collectionTabs?.filter((tab) => nftCollectionNameByKey.has(`${tab.chain}_${tab.address}`)) ?? []
@@ -150,15 +126,6 @@ export default function useContentTabs({
       closeNftCollection();
     }
   }, [currentCollection, nftCollectionNameByKey, closeNftCollection]);
-
-  const shouldRenderHiddenNftsSection = useMemo(() => {
-    if (IS_CORE_WALLET) return false;
-
-    const blacklistedAddressesSet = new Set(blacklistedNftAddresses);
-    return Object.values(nfts ?? {}).some(
-      (nft) => blacklistedAddressesSet.has(nft.address) || nft.isHidden,
-    );
-  }, [blacklistedNftAddresses, nfts]);
 
   const totalTokensAmount = tokensCount + (hasVesting ? 1 : 0) + numberOfStaking;
   const shouldShowSeparateAssetsPanel = isPortrait && totalTokensAmount <= PORTRAIT_MIN_ASSETS_TAB_VIEW;
@@ -179,7 +146,7 @@ export default function useContentTabs({
             ...nftCollections,
             {
               name: lang('Hidden NFTs'),
-              value: 'hidden_nfts',
+              value: HIDDEN_NFTS_VALUE,
               withDelimiter: true,
             } as DropdownItem,
           ]
@@ -231,10 +198,12 @@ export default function useContentTabs({
   }, [activeTabIndex, visibleCollectionTabs, currentCollection, mainContentTabsCount, tabs]);
 
   useEffectOnce(() => {
-    if (isLandscape) {
-      setActiveContentTab({ tab: ContentTab.Overview });
-    } else if (activeContentTab === undefined) {
-      setActiveContentTab({ tab: ContentTab.Assets });
+    if (activeContentTab !== undefined) return;
+
+    if (currentTokenSlug !== undefined) {
+      setActiveContentTab({ tab: ContentTab.Activity });
+    } else {
+      setActiveContentTab({ tab: isLandscape ? ContentTab.Overview : ContentTab.Assets });
     }
   });
 

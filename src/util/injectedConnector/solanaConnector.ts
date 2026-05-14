@@ -19,7 +19,15 @@ declare global {
   }
 }
 
-export type SolanaRequestMethods = 'connect' | 'reconnect' | 'sendTransaction' | 'signData' | 'disconnect';
+export type SolanaRequestMethods =
+  | 'connect'
+  | 'reconnect'
+  | 'sendTransaction'
+  | 'signData'
+  | 'disconnect'
+  // EVM-only, but the request name lives on the same `walletConnect_*` namespace
+  // and the dispatcher type is shared with EvmConnector.
+  | 'proxyEvmRpc';
 
 export interface StandardWalletAddress {
   address: string;

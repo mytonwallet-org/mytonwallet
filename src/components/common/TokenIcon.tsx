@@ -24,9 +24,10 @@ function TokenIcon({
   token, size, withChainIcon, className, iconClassName, children,
 }: OwnProps) {
   const { symbol, image, chain, slug } = token;
-  const [isLoadingError, markLoadingError] = useFlag(false);
+  const [isLoadingError, markLoadingError] = useFlag();
   const isNativeToken = getIsNativeToken(slug);
   const isNativeTokenStaking = getIsNativeStakedToken(slug);
+  const shouldRenderImage = Boolean(image) && !isLoadingError;
 
   function renderDefaultIcon() {
     return (
@@ -39,8 +40,9 @@ function TokenIcon({
   return (
     <div className={buildClassName(styles.wrapper, className)}>
       {
-        !isLoadingError ? (
+        shouldRenderImage ? (
           <img
+            key={image}
             src={image}
             alt={symbol}
             className={buildClassName(styles.icon, size && styles[size], iconClassName)}

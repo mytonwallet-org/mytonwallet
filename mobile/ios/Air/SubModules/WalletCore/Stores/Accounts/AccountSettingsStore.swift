@@ -103,12 +103,14 @@ public final class AccountSettings: Sendable {
     }
 
     public func setBackgroundNft(_ nft: ApiNft?) {
+        log.info("cardBackground.set accountId=\(accountId, .public) oldAddress=\(backgroundNft?.address as Any, .public) oldChain=\(backgroundNft?.chain.rawValue as Any, .public) oldMtwId=\(backgroundNft?.metadata?.mtwCardId as Any, .public) newAddress=\(nft?.address as Any, .public) newChain=\(nft?.chain.rawValue as Any, .public) newMtwId=\(nft?.metadata?.mtwCardId as Any, .public)")
         backgroundNft = nft
         persist()
         WalletCoreData.notify(event: .cardBackgroundChanged(accountId, nft))
     }
 
     public func setAccentColorNft(_ nft: ApiNft?) {
+        log.info("accentColorNft.set accountId=\(accountId, .public) oldAddress=\(accentColorNft?.address as Any, .public) oldChain=\(accentColorNft?.chain.rawValue as Any, .public) oldMtwId=\(accentColorNft?.metadata?.mtwCardId as Any, .public) newAddress=\(nft?.address as Any, .public) newChain=\(nft?.chain.rawValue as Any, .public) newMtwId=\(nft?.metadata?.mtwCardId as Any, .public)")
         accentColorNft = nft
         persist()
         installAccentColorFromNft(accountId: accountId, nft: nft)

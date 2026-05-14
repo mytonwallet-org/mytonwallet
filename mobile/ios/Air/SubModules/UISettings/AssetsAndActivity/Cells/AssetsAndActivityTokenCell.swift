@@ -11,9 +11,9 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-final class AssetsAndActivityTokenCell: UITableViewCell {
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
+final class AssetsAndActivityTokenCell: UICollectionViewListCell {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
         setupViews()
     }
 
@@ -30,12 +30,12 @@ final class AssetsAndActivityTokenCell: UITableViewCell {
         return view
     }()
 
-    private var iconImageView: IconView = IconView(size: 40)
+    private var iconImageView = IconView(size: 40, accessoryGeometry: .forIcon40)
     
     private var titleLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 16)
+        lbl.font = .systemFont(ofSize: 16, weight: .medium)
         lbl.numberOfLines = 1
         lbl.lineBreakMode = .byTruncatingTail
         lbl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -45,7 +45,7 @@ final class AssetsAndActivityTokenCell: UITableViewCell {
     private var symbolLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 13)
+        lbl.font = .systemFont(ofSize: 14)
         lbl.numberOfLines = 1
         lbl.lineBreakMode = .byTruncatingTail
         lbl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -60,45 +60,61 @@ final class AssetsAndActivityTokenCell: UITableViewCell {
     }()
     
     private func setupViews() {
-        selectionStyle = .none
         isUserInteractionEnabled = true
         contentView.isUserInteractionEnabled = true
         addSubview(containerView)
-        NSLayoutConstraint.activate([
-            containerView.heightAnchor.constraint(equalToConstant: 56),
-            containerView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
-            containerView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 0),
-            containerView.topAnchor.constraint(equalTo: topAnchor),
-            containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
-        
         containerView.addSubview(iconImageView)
-        containerView.addSubview(titleLabel)
-        containerView.addSubview(symbolLabel)
         containerView.addSubview(showTokenSwitch)
         
+        let titleContainerView = UIView()
+        titleContainerView.translatesAutoresizingMaskIntoConstraints = false
+        titleContainerView.addSubview(titleLabel)
+        titleContainerView.addSubview(symbolLabel)
+        containerView.addSubview(titleContainerView)
+
+        let containerHeight = containerView.heightAnchor.constraint(equalToConstant: 60)
+        containerHeight.priority = UILayoutPriority(rawValue: UILayoutPriority.required.rawValue - 1)
+
         NSLayoutConstraint.activate([
-            iconImageView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            containerHeight,
+            containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            containerView.topAnchor.constraint(equalTo: topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            iconImageView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 12),
             iconImageView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
 
-            titleLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 12),
-            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 9),
-            titleLabel.trailingAnchor.constraint(equalTo: showTokenSwitch.leadingAnchor, constant: -12),
+            titleContainerView.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 10),
+            titleContainerView.trailingAnchor.constraint(equalTo: showTokenSwitch.leadingAnchor, constant: -12),
+            titleContainerView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+
+            titleLabel.leadingAnchor.constraint(equalTo: titleContainerView.leadingAnchor),
+            titleLabel.topAnchor.constraint(equalTo: titleContainerView.topAnchor),
+            titleLabel.trailingAnchor.constraint(equalTo: titleContainerView.trailingAnchor),
             
-            symbolLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 12),
-            symbolLabel.trailingAnchor.constraint(equalTo: showTokenSwitch.leadingAnchor, constant: -12),
-            symbolLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -8),
-            
+            symbolLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 1),
+            symbolLabel.leadingAnchor.constraint(equalTo: titleContainerView.leadingAnchor),
+            symbolLabel.trailingAnchor.constraint(equalTo: titleContainerView.trailingAnchor),
+            symbolLabel.bottomAnchor.constraint(equalTo: titleContainerView.bottomAnchor),
+
             showTokenSwitch.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
             showTokenSwitch.centerYAnchor.constraint(equalTo: centerYAnchor),
+
+            separatorLayoutGuide.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
         ])
-        
+
         backgroundColor = .clear
         contentView.backgroundColor = .clear
-        containerView.backgroundColor = .air.groupedItem
+        containerView.backgroundColor = .clear
         showTokenSwitch.tintColor = .air.secondaryLabel
         titleLabel.textColor = UIColor.label
         symbolLabel.textColor = .air.secondaryLabel
+
+        automaticallyUpdatesBackgroundConfiguration = false
+        var bg = UIBackgroundConfiguration.listGroupedCell()
+        bg.backgroundColor = .air.groupedItem
+        backgroundConfiguration = bg
     }
         
     private var onTokenVisibilityChange: ((String, Bool) -> Void)? = nil

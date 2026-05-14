@@ -289,9 +289,39 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		588AC1662E82428700588415 /* TokenWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = TokenWidget; sourceTree = "<group>"; };
-		588AC1892E82EC7400588415 /* Models */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Models; sourceTree = "<group>"; };
-		588AD21B2E83CE6500588415 /* SharedUI */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = SharedUI; sourceTree = "<group>"; };
+		588AC1662E82428700588415 /* TokenWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = TokenWidget;
+			sourceTree = "<group>";
+		};
+		588AC1892E82EC7400588415 /* Models */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		588AD21B2E83CE6500588415 /* SharedUI */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = SharedUI;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -371,40 +401,6 @@
 				59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */,
 			);
 			path = Resources;
-			sourceTree = "<group>";
-		};
-		59D100082F90000100FACE01 /* MyTonWallet */ = {
-			isa = PBXGroup;
-			children = (
-				59D100062F90000100FACE01 /* Assets.xcassets */,
-				585CF17A2E6E1CE100A5804F /* AppIcon.icon */,
-				CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */,
-				504EC3131FED79650016851F /* Info.plist */,
-				58F631D42EB8CD8D00A90B79 /* MyTonWallet_AirOnly-Info.plist */,
-				58F6322F2EB8CDFA00A90B79 /* MyTonWallet_NoExtensions-Info.plist */,
-				CAC3D6138B5E7B5AF24B8370 /* MyTonWallet_Preview-Info.plist */,
-			);
-			path = MyTonWallet;
-			sourceTree = "<group>";
-		};
-		59D100092F90000100FACE01 /* GramWallet */ = {
-			isa = PBXGroup;
-			children = (
-				59C0009A2F81000100ABCD01 /* Assets.xcassets */,
-				59C000272F81000100ABCD01 /* AppIcon.icon */,
-				59D100072F90000100FACE01 /* Animations */,
-				59C0003E2F81000100ABCD01 /* GoogleService-Info.plist */,
-				59C000262F81000100ABCD01 /* Info.plist */,
-			);
-			path = GramWallet;
-			sourceTree = "<group>";
-		};
-		59D100072F90000100FACE01 /* Animations */ = {
-			isa = PBXGroup;
-			children = (
-				59D1000A2F90000100FACE01 /* diamond.tgs */,
-			);
-			path = Animations;
 			sourceTree = "<group>";
 		};
 		271019722CBE6BCB00972D1A /* Classes */ = {
@@ -531,6 +527,40 @@
 				579622823A5A8EDC7EE38C44 /* MyTonWallet_Preview.entitlements */,
 			);
 			path = Entitlements;
+			sourceTree = "<group>";
+		};
+		59D100072F90000100FACE01 /* Animations */ = {
+			isa = PBXGroup;
+			children = (
+				59D1000A2F90000100FACE01 /* diamond.tgs */,
+			);
+			path = Animations;
+			sourceTree = "<group>";
+		};
+		59D100082F90000100FACE01 /* MyTonWallet */ = {
+			isa = PBXGroup;
+			children = (
+				59D100062F90000100FACE01 /* Assets.xcassets */,
+				585CF17A2E6E1CE100A5804F /* AppIcon.icon */,
+				CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */,
+				504EC3131FED79650016851F /* Info.plist */,
+				58F631D42EB8CD8D00A90B79 /* MyTonWallet_AirOnly-Info.plist */,
+				58F6322F2EB8CDFA00A90B79 /* MyTonWallet_NoExtensions-Info.plist */,
+				CAC3D6138B5E7B5AF24B8370 /* MyTonWallet_Preview-Info.plist */,
+			);
+			path = MyTonWallet;
+			sourceTree = "<group>";
+		};
+		59D100092F90000100FACE01 /* GramWallet */ = {
+			isa = PBXGroup;
+			children = (
+				59C0009A2F81000100ABCD01 /* Assets.xcassets */,
+				59C000272F81000100ABCD01 /* AppIcon.icon */,
+				59D100072F90000100FACE01 /* Animations */,
+				59C0003E2F81000100ABCD01 /* GoogleService-Info.plist */,
+				59C000262F81000100ABCD01 /* Info.plist */,
+			);
+			path = GramWallet;
 			sourceTree = "<group>";
 		};
 		8CF96923BBA8616E1DCFDC31 /* Pods */ = {
@@ -874,12 +904,8 @@
 			);
 			inputFileListPaths = (
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -916,12 +942,8 @@
 			);
 			inputFileListPaths = (
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -936,12 +958,8 @@
 			);
 			inputFileListPaths = (
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -956,12 +974,8 @@
 			);
 			inputFileListPaths = (
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -998,12 +1012,8 @@
 			);
 			inputFileListPaths = (
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1018,12 +1028,8 @@
 			);
 			inputFileListPaths = (
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1586,7 +1592,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = "App/Resources/GramWallet/Info.plist";
+				INFOPLIST_FILE = App/Resources/GramWallet/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1614,7 +1620,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = "App/Resources/GramWallet/Info.plist";
+				INFOPLIST_FILE = App/Resources/GramWallet/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -51,7 +51,7 @@ Currency: Валюта
 Choose Currency to Send: Виберіть валюту для надсилання
 Send to: Надіслати на
 Add a message, if needed: Додайте повідомлення за потреби
-Show All Collectibles: Показати всі колекційні активи
+Show All Collectibles: Показати всі NFT
 You have no NFT in this wallet yet: |
   У цьому гаманці ще немає
   NFT.
@@ -366,6 +366,13 @@ $subwallets_found:
   oneValue: "Знайдено: %1$d"
   fewValue: "Знайдено: %1$d"
   otherValue: "Знайдено: %1$d"
+
+$subwallet_scan_no_native_balances: Немає нативних балансів
+$subwallet_scan_other_tokens_suffix:
+  zeroValue: " + ще %1$d інших токенів"
+  oneValue: " + ще %1$d інший токен"
+  fewValue: " + ще %1$d інші токени"
+  manyValue: " + ще %1$d інших токенів"
 
 $subwallets_hint: Використовуйте субгаманці для отримання додаткових адрес без створення нових секретних слів.
 $subwallets_created_wallets: Якщо ви раніше створювали субгаманці, вони з'являться у списку нижче.

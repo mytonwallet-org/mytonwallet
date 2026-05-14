@@ -113,7 +113,7 @@ function AddressMenu({
       getMenuElement={getMenuElement}
       getLayout={getLayout}
       anchor={anchor}
-      bubbleClassName={styles.addressMenuBubble}
+      bubbleClassName={buildClassName(styles.addressMenuBubble, !isOpen && styles.notActive)}
       noBackdrop={!IS_TOUCH_ENV}
       onMouseEnter={!IS_TOUCH_ENV ? onMouseEnter : undefined}
       onMouseLeave={!IS_TOUCH_ENV ? onMouseLeave : undefined}

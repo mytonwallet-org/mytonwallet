@@ -25,6 +25,8 @@
 .tiles {
   gap: 0.125rem; // Remaining 0.375rem of the gap are added to the width of the tiles
   height: calc(4.25rem + 2 * 0.25rem);
+  margin: -0.1875rem 0 -0.375rem 0;
+  padding: 0.125rem 0;
 }
 
 .pills {

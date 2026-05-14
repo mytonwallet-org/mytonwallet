@@ -178,12 +178,13 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             reorderController.updateCell(cell, indexPath: indexPath)
         }
         let placeholderCellRegistration = UICollectionView.CellRegistration<WalletAssetsEmptyCell, String> { [weak self] cell, _, _ in
-            let shouldShowMarketplace = !ConfigStore.shared.shouldRestrictBuyNfts
+            let marketplace = self.flatMap { ExplorerHelper.defaultMarketplace(for: $0.account) }
+            let shouldShowMarketplace = !ConfigStore.shared.shouldRestrictBuyNfts && marketplace != nil
             cell.configure(
                 animationName: "animation_happy",
                 title: lang("No NFTs yet"),
                 description: shouldShowMarketplace ? lang("$nft_explore_offer") : nil,
-                actionTitle: shouldShowMarketplace ? lang("Open %nft_marketplace%", arg1: NFT_MARKETPLACE_TITLE) : nil,
+                actionTitle: marketplace.flatMap { shouldShowMarketplace ? lang("Open %nft_marketplace%", arg1: $0.title) : nil },
                 height: WalletAssetsEmptyCell.collectiblesHeight,
                 descriptionNumberOfLines: 3
             ) { [weak self] in
@@ -641,10 +642,12 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                 let isCurrent = mtwCardId == accountSettings.backgroundNft?.metadata?.mtwCardId
                 if isCurrent {
                     items += UIAction(title: lang("Reset Card"), image: UIImage(systemName: "xmark.rectangle")) { _ in
+                        log.info("cardBackground.uiReset source=nftsMenu accountId=\(accountId, .public) nftAddress=\(nft.address, .public) nftChain=\(nft.chain.rawValue, .public) nftMtwId=\(mtwCardId)")
                         accountSettings.setBackgroundNft(nil)
                     }
                 } else {
                     items += UIAction(title: lang("Install Card"), image: .airBundle("MenuInstallCard26")) { _ in
+                        log.info("cardBackground.uiInstall source=nftsMenu accountId=\(accountId, .public) nftAddress=\(nft.address, .public) nftChain=\(nft.chain.rawValue, .public) nftMtwId=\(mtwCardId)")
                         accountSettings.setBackgroundNft(nft)
                         accountSettings.setAccentColorNft(nft)
                     }
@@ -942,11 +945,10 @@ extension NftsVC {
     }
 
     private func didTapOpenNftMarketplace() {
-        guard let url = URL(string: NFT_MARKETPLACE_URL) else {
-            assertionFailure()
+        guard let marketplace = ExplorerHelper.defaultMarketplace(for: account) else {
             return
         }
-        AppActions.openInBrowser(url)
+        AppActions.openInBrowser(marketplace.address)
     }
 
     private var shouldShowRenewalWarning: Bool {

@@ -21,6 +21,7 @@ interface OwnProps {
   }>;
   withTextGradient?: boolean;
   isMinimized?: boolean;
+  isTinyFormat?: boolean;
   openMenu: NoneToVoidFunction;
   onLongPress?: (chain: ApiChain, address: string, domain?: string) => void;
   onMouseEnter?: NoneToVoidFunction;
@@ -28,7 +29,9 @@ interface OwnProps {
 }
 
 const MULTICHAIN_DOMAIN_LENGTH = 10;
+const MULTICHAIN_DOMAIN_LENGTH_TINY = 8;
 const MULTICHAIN_ADDRESS_LENGTH = 6;
+const MULTICHAIN_ADDRESS_LENGTH_TINY = 5;
 const MAX_RENDERED_CHAINS = 3;
 const ADDRESS_CHAINS_COUNT = 2;
 
@@ -36,6 +39,7 @@ function AddressMenuButton({
   chains,
   withTextGradient,
   isMinimized,
+  isTinyFormat,
   openMenu,
   onLongPress,
   onMouseEnter,
@@ -75,9 +79,13 @@ function AddressMenuButton({
     renderedChains.forEach((chainItem, index) => {
       const { domain: chainDomain, address: chainAddress } = byChain.get(chainItem)!;
       const shouldRenderAddress = index < ADDRESS_CHAINS_COUNT;
+      const domainLength = isTinyFormat ? MULTICHAIN_DOMAIN_LENGTH_TINY : MULTICHAIN_DOMAIN_LENGTH;
+      const addressLength = isTinyFormat
+        ? MULTICHAIN_ADDRESS_LENGTH_TINY
+        : MULTICHAIN_ADDRESS_LENGTH;
       const title = chainDomain
-        ? shortenDomain(chainDomain, MULTICHAIN_DOMAIN_LENGTH)
-        : shortenAddress(chainAddress, 0, MULTICHAIN_ADDRESS_LENGTH)!;
+        ? shortenDomain(chainDomain, domainLength)
+        : shortenAddress(chainAddress, 0, addressLength)!;
 
       nodes.push(
         <span
@@ -102,7 +110,7 @@ function AddressMenuButton({
     });
 
     return nodes;
-  }, [byChain, chains, isMultiChain]);
+  }, [byChain, chains, isMultiChain, isTinyFormat]);
 
   return (
     <button

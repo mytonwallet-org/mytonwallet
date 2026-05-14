@@ -23,7 +23,7 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentMessageC
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentSystemMessageCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentComposerView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentHintsSectionView
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.GradientShaderDrawable
+import org.mytonwallet.app_air.uicomponents.drawable.GradientShaderDrawable
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -306,16 +306,15 @@ class AgentVC(context: Context) : WViewController(context),
     }
 
     private fun applyBottom(bottom: Int) {
-        val bottom = bottom - 17.dp
         view.setConstraints {
-            toBottomPx(composerView, bottom)
+            toBottomPx(composerView, bottom + COMPOSER_BOTTOM_OFFSET.dp)
         }
         updateGradientHeight(animated = false)
 
         val topPadding =
             (navigationController?.getSystemBars()?.top ?: 0) + (navigationBar?.height ?: 0)
         val hintsExtra = if (hintsSectionView.isEnabled) {
-            HINTS_SECTION.dp.roundToInt() + HINTS_SPACING.dp + 16.dp
+            HINTS_SECTION.dp.roundToInt() + HINTS_SPACING.dp
         } else 0
         val bottomPadding = composerView.height + bottom + hintsExtra
         val paddingChanged = chatRecyclerView.paddingTop != topPadding ||
@@ -358,7 +357,7 @@ class AgentVC(context: Context) : WViewController(context),
         val topPadding =
             (navigationController?.getSystemBars()?.top ?: 0) + (navigationBar?.height ?: 0)
         val hintsExtra = if (showHints) {
-            HINTS_SECTION.dp.roundToInt() + HINTS_SPACING.dp + 16.dp
+            HINTS_SECTION.dp.roundToInt() + HINTS_SPACING.dp
         } else 0
         val targetBottom = composerView.height + currentBottom + hintsExtra
         val currentPaddingBottom = chatRecyclerView.paddingBottom
@@ -403,7 +402,7 @@ class AgentVC(context: Context) : WViewController(context),
             WMenuPopup.Item(
                 WMenuPopup.Item.Config.Item(
                     icon = WMenuPopup.Item.Config.Icon(
-                        icon = org.mytonwallet.app_air.icons.R.drawable.ic_remove,
+                        iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_remove,
                         tintColor = null
                     ),
                     title = "Clear Chat",

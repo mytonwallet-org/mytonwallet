@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.Collecti
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.CollectionMode.TelegramGifts
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.cells.AssetCell
 import org.mytonwallet.app_air.uiassets.viewControllers.assetsTab.AssetsTabVC
+import org.mytonwallet.app_air.uiassets.viewControllers.icons.menuIconRes
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
 import org.mytonwallet.app_air.uiassets.viewControllers.renew.RenewVC
 import org.mytonwallet.app_air.uiassets.viewControllers.views.WDomainExpirationBannerView
@@ -67,7 +68,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.
 import org.mytonwallet.app_air.uicomponents.widgets.recyclerView.CustomItemTouchHelper
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedControllerItemVC
-import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -84,8 +84,10 @@ import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MCollectionTabToShow
+import org.mytonwallet.app_air.walletcore.models.MMarketplace
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchainExplorer
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
@@ -265,20 +267,23 @@ class AssetsVC(
     private var displayedAssetRows: List<AssetRow> = emptyList()
 
     private val emptyDataView: WEmptyIconTitleSubtitleActionView by lazy {
+        val marketplace = getMarketplaceForEmptyAssets()
         WEmptyIconTitleSubtitleActionView(context).apply {
             configure(
                 titleText = LocaleController.getString("No collectibles yet"),
-                subtitleText = LocaleController.getString(
-                    "Explore a marketplace to discover existing NFT collections."
+                subtitleText = LocaleController.getString("\$nft_explore_offer").trim(),
+                actionText = LocaleController.getStringWithKeyValues(
+                    "Open %nft_marketplace%",
+                    listOf("%nft_marketplace%" to marketplace.title)
                 ),
-                actionText = LocaleController.getString("Open Getgems"),
                 animation = R.raw.animation_happy
             ) {
-                openGetgems()
+                openNftMarketplace(marketplace)
             }
             isGone = true
         }
     }
+
     private var isEmptyStateVisible = false
     var isDragging = false
         private set
@@ -843,34 +848,27 @@ class AssetsVC(
                         if (collectionMode.collection.chain == MBlockchain.ton.name) {
                             items.add(
                                 WMenuPopup.Item(
-                                    WMenuPopup.Item.Config.Item(
-                                        icon = Icon(
-                                            icon = org.mytonwallet.app_air.uiassets.R.drawable.ic_getgems,
-                                            tintColor = null,
-                                            iconSize = 28.dp
-                                        ),
-                                        title = "Getgems",
-                                    ),
+                                    exploreMenuItemConfig(MMarketplace.Getgems),
                                     false,
                                 ) {
-                                    val baseUrl = ExplorerHelpers.getgemsUrl(network)
-                                    val url = "${baseUrl}collection/$collectionAddress"
-                                    CollectionsMenuHelpers.openLink(url)
+                                    CollectionsMenuHelpers.openLink(
+                                        MMarketplace.Getgems.collectionUrl(
+                                            collectionAddress = collectionAddress,
+                                            network = network
+                                        )
+                                    )
                                 }
                             )
                             items.add(
                                 WMenuPopup.Item(
-                                    WMenuPopup.Item.Config.Item(
-                                        icon = Icon(
-                                            icon = org.mytonwallet.app_air.uiassets.R.drawable.ic_tonscan,
-                                            tintColor = null,
-                                            iconSize = 28.dp
-                                        ),
-                                        title = "Tonscan",
-                                    ),
+                                    exploreMenuItemConfig(MBlockchainExplorer.TONSCAN),
                                     false,
                                 ) {
-                                    CollectionsMenuHelpers.openLink("https://tonscan.org/nft/$collectionAddress")
+                                    MBlockchainExplorer.TONSCAN.nftUrl(network, collectionAddress)
+                                        ?.let { url ->
+                                            CollectionsMenuHelpers.openLink(url)
+                                        }
+
                                 }
                             )
                         }
@@ -879,33 +877,19 @@ class AssetsVC(
                     TelegramGifts -> {
                         items.add(
                             WMenuPopup.Item(
-                                WMenuPopup.Item.Config.Item(
-                                    icon = Icon(
-                                        icon = org.mytonwallet.app_air.uiassets.R.drawable.ic_fragment,
-                                        tintColor = null,
-                                        iconSize = 28.dp
-                                    ),
-                                    title = "Fragment",
-                                ),
+                                exploreMenuItemConfig(MMarketplace.Fragment),
                                 false,
                             ) {
-                                CollectionsMenuHelpers.openLink("https://fragment.com/gifts")
+                                CollectionsMenuHelpers.openLink(MMarketplace.Fragment.giftsUrl())
                             }
                         )
 
                         items.add(
                             WMenuPopup.Item(
-                                WMenuPopup.Item.Config.Item(
-                                    icon = Icon(
-                                        icon = org.mytonwallet.app_air.uiassets.R.drawable.ic_getgems,
-                                        tintColor = null,
-                                        iconSize = 28.dp
-                                    ),
-                                    title = "Getgems",
-                                ),
+                                exploreMenuItemConfig(MMarketplace.Getgems),
                                 false,
                             ) {
-                                CollectionsMenuHelpers.openLink("https://getgems.io/top-gifts")
+                                CollectionsMenuHelpers.openLink(MMarketplace.Getgems.giftsUrl())
                             }
                         )
                     }
@@ -1411,21 +1395,51 @@ class AssetsVC(
         )
     }
 
-    private fun openGetgems() {
-        val activeWindow = injectedWindow ?: window ?: return
-        val activeNetwork = AccountStore.activeAccount?.network ?: return
-        val navVC = WNavigationController(activeWindow)
-        val browserVC = InAppBrowserVC(
-            context,
-            null,
-            InAppBrowserConfig(
-                url = ExplorerHelpers.getgemsUrl(activeNetwork),
-                title = "Getgems",
-                injectDappConnect = true
+    private fun getMarketplaceForEmptyAssets(): MMarketplace {
+        val account =
+            AccountStore.accountById(assetsVM.showingAccountId) ?: return MMarketplace.Fragment
+        return ExplorerHelpers.defaultNftMarketplace(account)
+    }
+
+    private fun exploreMenuItemConfig(marketplace: MMarketplace): WMenuPopup.Item.Config.Item {
+        return exploreMenuItemConfig(marketplace.menuIconRes, marketplace.title)
+    }
+
+    private fun exploreMenuItemConfig(explorer: MBlockchainExplorer): WMenuPopup.Item.Config.Item {
+        return exploreMenuItemConfig(explorer.menuIconRes, explorer.title)
+    }
+
+    private fun exploreMenuItemConfig(iconResId: Int?, title: String): WMenuPopup.Item.Config.Item {
+        return WMenuPopup.Item.Config.Item(
+            icon = Icon(
+                iconResId = iconResId,
+                tintColor = null,
+                iconSize = 28.dp
+            ),
+            title = title
+        )
+    }
+
+    private fun openNftMarketplace(marketplace: MMarketplace) {
+        val network = AccountStore.accountById(assetsVM.showingAccountId)?.network
+            ?: AccountStore.activeAccount?.network
+            ?: MBlockchainNetwork.MAINNET
+        openNftMarketplace(
+            url = marketplace.homeUrl(network),
+            title = marketplace.title
+        )
+    }
+
+    private fun openNftMarketplace(url: String, title: String) {
+        WalletCore.notifyEvent(
+            WalletEvent.OpenUrlWithConfig(
+                InAppBrowserConfig(
+                    url = url,
+                    title = title,
+                    injectDappConnect = true
+                )
             )
         )
-        navVC.setRoot(browserVC)
-        activeWindow.present(navVC)
     }
 
     override fun insetsUpdated() {

@@ -57,7 +57,6 @@ struct TransactionAmountRow: View {
             size: 40,
             chainSize: 16,
             chainBorderWidth: 1.333,
-            chainBorderColor: .air.groupedItem,
             chainHorizontalOffset: 2,
             chainVerticalOffset: 1
         )

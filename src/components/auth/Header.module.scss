@@ -11,6 +11,10 @@ $transformTransition: transform 200ms ease-out;
   width: 100%;
   height: 3rem;
   padding-top: var(--safe-area-top);
+
+  :global(html.is-telegram-app.is-fullscreen) & {
+    padding-top: var(--tg-safe-area-inset-top);
+  }
 }
 
 .background {

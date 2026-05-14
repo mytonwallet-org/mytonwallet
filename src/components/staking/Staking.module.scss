@@ -70,7 +70,10 @@
   font-weight: 600;
 }
 
+.detailsSection,
 .stakingBalance {
+  --color-accent: var(--color-purple-1);
+
   margin-bottom: 0.75rem;
 }
 
@@ -92,10 +95,6 @@
   font-weight: 600 !important;
   line-height: 1rem !important;
   color: var(--color-gray-2) !important;
-}
-
-.detailsSection {
-  margin-bottom: 0.75rem;
 }
 
 .detailsSectionTitle {

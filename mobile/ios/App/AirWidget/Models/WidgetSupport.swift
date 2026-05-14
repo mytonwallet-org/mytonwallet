@@ -151,6 +151,9 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable, Identifiable {
         if symbol.lowercased().contains(keyword) {
             return true
         }
+        if tokenAddress?.lowercased().contains(keyword) == true {
+            return true
+        }
         return keywords?.contains(where: { $0.lowercased().contains(keyword) }) == true
     }
 

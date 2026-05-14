@@ -14,11 +14,15 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
 
     private var continueButton: WButton { bottomButton! }
     private var continueButtonConstraint: NSLayoutConstraint?
+    private let bottomButtonBackgroundView = EdgeGradientView()
+    private var bottomButtonBackgroundBottomConstraint: NSLayoutConstraint?
+    private var isKeyboardVisible = false
     
     private var startWithKeyboardActive: Bool {
         UIDevice.current.userInterfaceIdiom == .phone
     }
 
+    private var currentTokenSelectionSide: SwapSide?
     private var awaitingActivity = false
 
     public init(accountContext: AccountContext, defaultSellingToken: String? = nil, defaultBuyingToken: String? = nil, defaultSellingAmount: Double? = nil) {
@@ -49,6 +53,11 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         }
     }
 
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        swapModel.setStage(.editing)
+    }
+
     private func setupViews() {
         navigationItem.title = lang("Swap")
         addCloseNavigationItemIfNeeded()
@@ -60,6 +69,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         hostingController.view.addGestureRecognizer(tapGestureRecognizer)
 
         _ = addBottomButton(bottomConstraint: false)
+        setupBottomButtonBackground()
         continueButton.isEnabled = false
         continueButton.configureTitle(sellingToken: swapModel.input.sellingToken, buyingToken: swapModel.input.buyingToken)
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
@@ -70,6 +80,33 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         self.continueButtonConstraint = constraint
         
         updateTheme()
+    }
+
+    private func setupBottomButtonBackground() {
+        bottomButtonBackgroundView.translatesAutoresizingMaskIntoConstraints = false
+        bottomButtonBackgroundView.isUserInteractionEnabled = false
+        bottomButtonBackgroundView.direction = .bottom
+        bottomButtonBackgroundView.color = UIColor.air.sheetBackground.withAlphaComponent(0.85)
+        view.insertSubview(bottomButtonBackgroundView, belowSubview: continueButton)
+
+        let bottomConstraint = bottomButtonBackgroundView.bottomAnchor.constraint(equalTo: continueButton.bottomAnchor)
+        bottomButtonBackgroundBottomConstraint = bottomConstraint
+        NSLayoutConstraint.activate([
+            bottomButtonBackgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bottomButtonBackgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomButtonBackgroundView.topAnchor.constraint(equalTo: continueButton.topAnchor, constant: -16),
+            bottomConstraint,
+        ])
+        updateBottomButtonBackgroundBottomInset()
+    }
+
+    private func updateBottomButtonBackgroundBottomInset() {
+        bottomButtonBackgroundBottomConstraint?.constant = 16 + (isKeyboardVisible ? 0 : view.safeAreaInsets.bottom)
+    }
+
+    public override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        updateBottomButtonBackgroundBottomInset()
     }
     
     private func updateTheme() {
@@ -94,116 +131,101 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     @objc func continuePressed() {
         view.endEditing(true)
 
-        switch swapModel.swapType {
-        case .onChain:
-            warnIfNeededAndContinueInChain()
-        case .crosschainFromWallet:
-            continueChainFromTon()
-        case .crosschainToWallet:
-            continueChainToTon()
-        case .crosschainInsideWallet:
-            continueCrosschainImmediate()
-        }
+        guard let route = swapModel.continueRoute() else { return }
+        execute(route)
     }
-    
-    private func warnIfNeededAndContinueInChain() {
-        if let impact = swapModel.detailsVM.displayImpactWarning {
+
+    private func execute(_ route: SwapRoute) {
+        switch route {
+        case .priceImpactWarning(let impact, let next):
             showAlert(
                 title: lang("The exchange rate is below market value!", arg1: "\(impact.formatted(.number.precision(.fractionLength(0..<1)).locale(.forNumberFormatters)))%"),
                 text: lang("We do not recommend to perform an exchange, try to specify a lower amount."),
                 button: lang("Swap"),
                 buttonStyle: .destructive,
-                buttonPressed: { self.continueInChain() },
+                buttonPressed: { self.execute(next) },
                 secondaryButton: lang("Cancel"),
                 secondaryButtonPressed: nil,
                 preferPrimary: true,
             )
-        } else {
-            continueInChain()
-        }
-    }
-    
-    private func continueInChain() {
-        guard let swapEstimate = swapModel.onchain.swapEstimate, let lateInit = swapModel.onchain.lateInit else { return }
-        
-        if lateInit.isDiesel == true {
-            if swapEstimate.dieselStatus == .notAuthorized {
-                authorizeDiesel()
-                return
-            }
-        }
-        startSwapFlow(presentCrosschain: false)
-    }
-    
-    private func continueChainFromTon() {
-        if let cexEstimate = swapModel.crosschain.cexEstimate {
-            let networkFee = cexEstimate.realNetworkFee ?? cexEstimate.networkFee ?? .zero
+        case .authorizeDiesel:
+            authorizeDiesel()
+        case .confirmSwap(let presentCrosschainResult):
+            startSwapFlow(presentCrosschain: presentCrosschainResult)
+        case .crosschainFromWallet(let confirmation):
+            swapModel.setStage(.externalAddress)
             let crosschainSwapVC = CrosschainFromWalletVC(
-                sellingToken: TokenAmount(swapModel.input.sellingAmount ?? 0, swapModel.input.sellingToken),
-                buyingToken: TokenAmount(swapModel.input.buyingAmount ?? 0, swapModel.input.buyingToken),
-                swapFee: cexEstimate.swapFee,
-                networkFee: networkFee,
-                accountContext: _account
+                sellingToken: confirmation.selling,
+                buyingToken: confirmation.buying,
+                accountContext: _account,
+                onContinue: { [weak self] payoutAddress, sourceViewController in
+                    self?.startSwapFlow(
+                        presentCrosschain: false,
+                        payoutAddress: payoutAddress,
+                        presentingViewController: sourceViewController,
+                        failureStage: .externalAddress
+                    )
+                }
             )
             navigationController?.pushViewController(crosschainSwapVC, animated: true)
         }
     }
-    
-    private func continueChainToTon() {
-        guard swapModel.crosschain.cexEstimate != nil else { return }
-        startSwapFlow(presentCrosschain: true)
-    }
-    
-    private func continueCrosschainImmediate() {
-        guard swapModel.crosschain.cexEstimate != nil else { return }
-        startSwapFlow(presentCrosschain: false)
-    }
-
     private enum SwapResult {
         case success(ApiActivity?)
         case failure(BridgeCallError)
     }
 
-    private func startSwapFlow(presentCrosschain: Bool) {
-        let fromToken = swapModel.input.sellingToken
-        let toToken = swapModel.input.buyingToken
-        guard
-            let fromAmount = swapModel.input.sellingAmount,
-            let toAmount = swapModel.input.buyingAmount
-        else {
+    private func startSwapFlow(
+        presentCrosschain: Bool,
+        payoutAddress: String? = nil,
+        presentingViewController: UIViewController? = nil,
+        failureStage: SwapStage = .editing
+    ) {
+        guard let confirmationAmounts = swapModel.confirmationAmounts() else {
             return
         }
 
         let headerVC = UIHostingController(rootView: SwapConfirmHeaderView(
-            fromAmount: TokenAmount(fromAmount, fromToken),
-            toAmount: TokenAmount(toAmount, toToken)
+            fromAmount: confirmationAmounts.selling,
+            toAmount: confirmationAmounts.buying
         ))
         headerVC.view.backgroundColor = .clear
 
         var swapResult: SwapResult?
+        swapModel.setStage(.confirming)
         UnlockVC.pushAuth(
-            on: self,
+            on: presentingViewController ?? self,
             title: lang("Confirm Swap"),
             customHeaderVC: headerVC,
             onAuthTask: { [weak self] passcode, onTaskDone in
                 guard let self else { return }
-                let sellingToken = swapModel.input.sellingToken
-                let buyingToken = swapModel.input.buyingToken
-                awaitingActivity = true
+                awaitingActivity = !presentCrosschain
                 Task {
-                    swapResult = await self.performSwap(passcode: passcode, sellingToken: sellingToken, buyingToken: buyingToken)
+                    swapResult = await self.performSwap(
+                        passcode: passcode,
+                        confirmation: confirmationAmounts,
+                        payoutAddress: payoutAddress
+                    )
                     onTaskDone()
                 }
             },
             onDone: { [weak self] _ in
                 guard let self, let swapResult else { return }
-                handleSwapResult(swapResult, presentCrosschain: presentCrosschain)
+                handleSwapResult(swapResult, presentCrosschain: presentCrosschain, failureStage: failureStage)
             })
     }
 
-    private func performSwap(passcode: String, sellingToken: ApiToken, buyingToken: ApiToken) async -> SwapResult {
+    private func performSwap(
+        passcode: String,
+        confirmation: SwapConfirmationAmounts,
+        payoutAddress: String? = nil
+    ) async -> SwapResult {
         do {
-            let activity = try await swapModel.swapNow(sellingToken: sellingToken, buyingToken: buyingToken, passcode: passcode)
+            let activity = try await swapModel.swapNow(
+                confirmation: confirmation,
+                passcode: passcode,
+                payoutAddress: payoutAddress
+            )
             return .success(activity)
         } catch {
             let bridgeError = (error as? BridgeCallError) ?? .unknown(baseError: error)
@@ -211,16 +233,20 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         }
     }
 
-    private func handleSwapResult(_ result: SwapResult, presentCrosschain: Bool) {
+    private func handleSwapResult(_ result: SwapResult, presentCrosschain: Bool, failureStage: SwapStage = .editing) {
         switch result {
         case .success(let activity):
-            if presentCrosschain, let swap = activity?.swap {
+            swapModel.setStage(.complete)
+            if presentCrosschain {
                 awaitingActivity = false
-                let crosschainSwapVC = CrosschainToWalletVC(swap: swap, accountId: nil)
-                navigationController?.pushViewController(crosschainSwapVC, animated: true)
+                if let swap = activity?.swap {
+                    let crosschainSwapVC = CrosschainToWalletVC(swap: swap, accountId: nil)
+                    navigationController?.pushViewController(crosschainSwapVC, animated: true)
+                }
             }
         case .failure(let error):
             awaitingActivity = false
+            swapModel.setStage(failureStage)
             showAlert(error: error) { [weak self] in
                 guard let self else { return }
                 dismiss(animated: true)
@@ -239,6 +265,8 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
 
 extension SwapVC: WKeyboardObserverDelegate {
     public func keyboardWillShow(info: WKeyboardDisplayInfo) {
+        isKeyboardVisible = true
+        updateBottomButtonBackgroundBottomInset()
         UIView.animate(withDuration: info.animationDuration) { [self] in
             if let continueButtonConstraint {
                 continueButtonConstraint.constant = -info.height - 16
@@ -248,6 +276,8 @@ extension SwapVC: WKeyboardObserverDelegate {
     }
     
     public func keyboardWillHide(info: WKeyboardDisplayInfo) {
+        isKeyboardVisible = false
+        updateBottomButtonBackgroundBottomInset()
         UIView.animate(withDuration: info.animationDuration) { [self] in
             if let continueButtonConstraint {
                 continueButtonConstraint.constant =  -view.safeAreaInsets.bottom - 16
@@ -264,6 +294,10 @@ extension SwapVC: WalletCoreData.EventsObserver {
             handleNewActivities(accountId: update.accountId, activities: update.activities)
         case .newActivities(let update):
             handleNewActivities(accountId: update.accountId, activities: (update.pendingActivities ?? []) + update.activities)
+        case .balanceChanged(let accountId):
+            if accountId == account.id {
+                swapModel.refreshBalances()
+            }
         default:
             break
         }
@@ -285,5 +319,69 @@ extension SwapVC: WalletCoreData.EventsObserver {
 extension SwapVC: SwapModelDelegate {
     func applyButtonConfiguration(_ config: SwapButtonConfiguration) {
         config.apply(to: continueButton)
+    }
+
+    func executeSwapCommand(_ command: SwapCommand) {
+        switch command {
+        case .dismissKeyboard:
+            view.endEditing(true)
+        case .showTokenSelector(let side):
+            presentTokenSelector(side: side)
+        case .showBuyingAmountDisabledToast:
+            Haptics.play(.lightTap)
+            AppActions.showToast(message: lang("$swap_reverse_prohibited"))
+        }
+    }
+}
+
+extension SwapVC: TokenSelectionVCDelegate {
+    public func didSelect(token: MTokenBalance) {
+        dismiss(animated: true)
+        if let newToken = TokenStore.tokens[token.tokenSlug] {
+            didSelectToken(newToken)
+        }
+    }
+
+    public func didSelect(token newToken: ApiToken) {
+        dismiss(animated: true)
+        didSelectToken(newToken)
+    }
+
+    func presentTokenSelector(side: SwapSide) {
+        currentTokenSelectionSide = side
+        let swapTokenSelectionVC: TokenSelectionVC
+        switch side {
+        case .selling:
+            swapTokenSelectionVC = TokenSelectionVC(
+                forceAvailable: swapModel.input.sellingToken.slug,
+                otherSymbolOrMinterAddress: nil,
+                myAssetsDisplayMode: .swap,
+                title: lang("You sell"),
+                delegate: self,
+                isModal: true,
+                onlySupportedChains: false
+            )
+        case .buying:
+            swapTokenSelectionVC = TokenSelectionVC(
+                forceAvailable: swapModel.input.buyingToken.slug,
+                extraWalletTokenSlugs: ApiChain.allCases
+                    .filter(\.isOnchainSwapSupported)
+                    .map(\.nativeToken.slug),
+                otherSymbolOrMinterAddress: nil,
+                myAssetsDisplayMode: .swap,
+                title: lang("You buy"),
+                delegate: self,
+                isModal: true,
+                onlySupportedChains: false
+            )
+        }
+        let nc = WNavigationController(rootViewController: swapTokenSelectionVC)
+        present(nc, animated: true)
+    }
+
+    private func didSelectToken(_ token: ApiToken) {
+        guard let side = currentTokenSelectionSide else { return }
+        currentTokenSelectionSide = nil
+        swapModel.input.userSelectedToken(token, side: side)
     }
 }

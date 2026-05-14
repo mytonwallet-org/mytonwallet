@@ -101,12 +101,13 @@ class EarnVC(
     }
 
     private val viewModelFactory = EarnViewModelFactory(tokenSlug)
-    private val earnViewModel by lazy {
+    private val earnViewModelLazy = lazy {
         ViewModelProvider(
             window!!,
             viewModelFactory
         )[EarnViewModel.alias(tokenSlug), EarnViewModel::class.java]
     }
+    private val earnViewModel by earnViewModelLazy
 
     override var title: String?
         get() = when (tokenSlug) {
@@ -624,6 +625,7 @@ class EarnVC(
             )
         } else {
             claimRewardView.visibility = View.GONE
+            claimRewardShadow?.sync()
             recyclerView.setPadding(
                 ViewConstants.HORIZONTAL_PADDINGS.dp,
                 0,
@@ -884,7 +886,9 @@ class EarnVC(
     }
 
     override fun onDestroy() {
-        earnViewModel.clearExpandedGroups()
+        if (earnViewModelLazy.isInitialized()) {
+            earnViewModel.clearExpandedGroups()
+        }
         super.onDestroy()
         onScroll = null
         recyclerView.adapter = null
@@ -951,6 +955,7 @@ class EarnVC(
             onClaimed = {
                 if (!isEthena) {
                     claimRewardView.visibility = View.GONE
+                    claimRewardShadow?.sync()
                 }
             },
             onError = { error ->

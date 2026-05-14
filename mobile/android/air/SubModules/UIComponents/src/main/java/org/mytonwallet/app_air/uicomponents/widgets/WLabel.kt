@@ -19,9 +19,7 @@ import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.emoji.EmojiHelper
-import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.helpers.textOffset
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -100,15 +98,7 @@ open class WLabel(context: Context) : AppCompatTextView(context), WThemedView {
     fun setStyle(size: Float, font: WFont? = null) {
         typeface = (font ?: WFont.Regular).typeface
         setTextSize(TypedValue.COMPLEX_UNIT_SP, size)
-        textOffset = when (font) {
-            WFont.NunitoSemiBold, WFont.NunitoExtraBold -> {
-                0
-            }
-
-            else -> {
-                FontManager.activeFont.textOffset
-            }
-        }
+        textOffset = 0
     }
 
     fun setLineHeight(size: Float) {

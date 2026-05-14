@@ -104,18 +104,19 @@ function setupBalancePolling(
     });
   }
 
-  const balanceStream = new BalanceStream(
-    'solana',
-    getHeliusSocket(network),
+  const balanceStream = new BalanceStream({
+    chain: 'solana',
+    wsClient: getHeliusSocket(network),
     network,
     address,
-    () => sendUpdateTokens(onUpdate),
-    isActive ? activeSolanaWalletTiming : inactiveSolanaWalletTiming,
-    fetchAccountAssets,
-    undefined,
-    isActive ? undefined : getConcurrencyLimiter('solana', network),
-    checkIsWalletActive,
-  );
+    sendUpdateTokens: () => sendUpdateTokens(onUpdate),
+    fallbackPollingOptions: isActive ? activeSolanaWalletTiming : inactiveSolanaWalletTiming,
+    fetchBalancesCb: fetchAccountAssets,
+    fetchCrosschainBalancesCb: undefined,
+    importUnknownTokens: undefined,
+    loadingConcurrencyLimiter: isActive ? undefined : getConcurrencyLimiter('solana', network),
+    ensureIsPollingNeeded: checkIsWalletActive,
+  });
 
   balanceStream.onUpdate((balances) => {
     onUpdate({

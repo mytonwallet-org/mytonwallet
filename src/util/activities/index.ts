@@ -141,21 +141,23 @@ export function getTransactionTitle(
     titles = isIncoming
       ? ['Sold NFT', 'Selling NFT', '$sell_nft_action']
       : ['Bought NFT', 'Buying NFT', '$buy_nft_action'];
+  } else if (type === 'mint' && nft) {
+    titles = ['Minted NFT', 'Minting NFT', '$mint_nft_action'];
+  } else if (type === 'burn' && nft) {
+    titles = ['Burned NFT', 'Burning NFT', '$burn_nft_action'];
   } else if (type && TRANSACTION_TYPE_TITLES[type]) {
     titles = TRANSACTION_TYPE_TITLES[type];
+  } else if (nft) {
+    titles = isIncoming
+      ? ['Received NFT', 'Receiving NFT', '$receive_nft_action']
+      : ['Sent NFT', 'Sending NFT', '$send_nft_action'];
   } else {
     titles = isIncoming
       ? ['Received', 'Receiving', '$receive_action']
       : ['Sent', 'Sending', '$send_action'];
   }
 
-  let title = translate(titles[tenseIndex]);
-
-  if (nft && (!type || type === 'mint' || type === 'burn')) {
-    title += ' NFT';
-  }
-
-  return title;
+  return translate(titles[tenseIndex]);
 }
 
 export function isScamTransaction(transaction: ApiTransaction) {

@@ -28,10 +28,10 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import com.google.mlkit.vision.barcode.BarcodeScanner
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.mlkit.vision.common.InputImage
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.util.ClickHelper
@@ -292,8 +292,18 @@ class QrScannerView @JvmOverloads constructor(
     private lateinit var lifecycleOwner: LifecycleOwner
     private lateinit var delegate: QrScannerListener
     private lateinit var cameraExecutor: ExecutorService
-    private lateinit var barcodeScanner: BarcodeScanner
+    private lateinit var scannerBackend: QrScannerBackend
     private var previewCamera: Camera? = null
+
+    private fun createScannerBackend(): QrScannerBackend {
+        // mytonwallet ships the bundled MlKit model in-APK, so it works without GMS.
+        // Gram uses the thin-client and needs GMS to download the model — fall back to ZXing
+        // on no-GMS devices (e.g. recent Huawei) until the model is available.
+        if (!ApplicationContextHolder.isGramApp) return MlKitBackend()
+        val gmsAvailable = GoogleApiAvailability.getInstance()
+            .isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
+        return if (gmsAvailable) MlKitBackend() else ZXingBackend()
+    }
 
     fun init(lifecycleOwner: LifecycleOwner, listener: QrScannerListener) {
         this.lifecycleOwner = lifecycleOwner
@@ -304,7 +314,7 @@ class QrScannerView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        barcodeScanner = BarcodeScanning.getClient()
+        scannerBackend = createScannerBackend()
         cameraExecutor = Executors.newSingleThreadExecutor()
         previewCamera = null
         cameraProviderFuture.addListener(
@@ -317,7 +327,7 @@ class QrScannerView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         cameraExecutor.shutdown()
-        barcodeScanner.close()
+        scannerBackend.close()
         previewCamera = null
     }
 
@@ -361,23 +371,29 @@ class QrScannerView @JvmOverloads constructor(
 
     @OptIn(ExperimentalGetImage::class)
     private fun processImage(imageProxy: androidx.camera.core.ImageProxy) {
-        val mediaImage = imageProxy.image ?: return
+        val mediaImage = imageProxy.image
+        if (mediaImage == null) {
+            imageProxy.close()
+            return
+        }
         val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-        barcodeScanner.process(image)
-            .addOnSuccessListener { processBarcodes(image, it) }
-            .addOnFailureListener { imageProxy.close() }
-            .addOnCompleteListener { imageProxy.close() }
+        scannerBackend.process(
+            image,
+            onResult = { processBarcodes(image, it) },
+            onError = {},
+            onComplete = { imageProxy.close() },
+        )
     }
 
-    private fun processBarcodes(image: InputImage, barcodes: List<Barcode>) {
+    private fun processBarcodes(image: InputImage, barcodes: List<DecodedBarcode>) {
         val imageWidth =
             if (image.rotationDegrees == 0 || image.rotationDegrees == 180) image.width else image.height
         val imageHeight =
             if (image.rotationDegrees == 0 || image.rotationDegrees == 180) image.height else image.width
 
         for (barcode in barcodes) {
-            val qrCode = barcode.displayValue ?: continue
-            val boundingBox = barcode.boundingBox ?: continue
+            val qrCode = barcode.displayValue
+            val boundingBox = barcode.boundingBox
             if (qrCodeDetectedAnimator.value && qrCode != validatedQrCode) {
                 continue
             }

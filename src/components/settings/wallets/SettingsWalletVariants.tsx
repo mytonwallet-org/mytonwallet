@@ -3,15 +3,17 @@ import React, { memo, useEffect, useLayoutEffect, useMemo, useState } from '../.
 import { getActions, withGlobal } from '../../../global';
 
 import type { ApiTonWalletVersion } from '../../../api/chains/ton/types';
-import type { ApiBaseCurrency, ApiGroupedWalletVariant } from '../../../api/types';
-import type { Account, AccountChain, UserToken } from '../../../global/types';
+import type { ApiBaseCurrency, ApiChain, ApiCurrencyRates, ApiGroupedWalletVariant } from '../../../api/types';
+import type { Account, AccountChain, GlobalState, UserToken } from '../../../global/types';
+import type Big from '../../../lib/big.js';
 
 import { IS_CAPACITOR } from '../../../config';
 import { selectCurrentAccountId, selectCurrentAccountTokens } from '../../../global/selectors';
 import { getHasInMemoryPassword, getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import buildClassName from '../../../util/buildClassName';
-import { getChainConfig, getOrderedAccountChains } from '../../../util/chain';
+import { calculateTokenPrice } from '../../../util/calculatePrice';
+import { getOrderedAccountChains } from '../../../util/chain';
 import { toBig, toDecimal } from '../../../util/decimals';
 import { formatAccountAddresses } from '../../../util/formatAccountAddress';
 import { formatCurrency, getShortCurrencySymbol } from '../../../util/formatNumber';
@@ -51,6 +53,8 @@ interface OwnProps {
 interface StateProps {
   accountId: string;
   tokens?: UserToken[];
+  tokenInfo: GlobalState['tokenInfo'];
+  currencyRates: ApiCurrencyRates;
   baseCurrency: ApiBaseCurrency;
 }
 
@@ -58,11 +62,11 @@ type SubwalletGroup = {
   title: string;
   label?: string;
   addressContent?: TeactNode;
-  nativeAmounts: string;
+  assetAmounts: string;
   totalBalance: string;
 };
 
-const SEARCH_PAUSE = 5_000;
+const SEARCH_PAUSE = 1_000;
 const MAX_EMPTY_RESULTS_IN_ROW = 5;
 
 const enum SLIDES {
@@ -76,14 +80,17 @@ function SettingsWalletVariants({
   onBackClick,
   accountId,
   tokens,
+  tokenInfo,
+  currencyRates,
   baseCurrency,
 }: OwnProps & StateProps) {
   const {
     closeSettings,
     addSubWallet,
+    addAllFoundSubwallets,
     createSubWallet,
     setIsPinAccepted,
-    showToast,
+    clearIsPinAccepted,
   } = getActions();
   const lang = useLang();
 
@@ -103,6 +110,7 @@ function SettingsWalletVariants({
     setGroups([]);
     setDerivationsError(undefined);
     setIsLoadingDerivations(true);
+    clearIsPinAccepted();
   });
 
   const handleBackToSettingsClick = useLastCallback(() => {
@@ -180,7 +188,9 @@ function SettingsWalletVariants({
 
           const newItems = derivationsResult.filter((item) => !knownIndices.has(item.index));
           const hasPositiveBalance = derivationsResult.some((item) =>
-            Object.values(item.byChain).some((e) => e && e.balance > 0n));
+            Object.values(item.byChain).some((e) => e
+              && Object.values(e.balancesBySlug).some((balance) => balance > 0n),
+            ));
 
           if (newItems.length > 0) {
             newItems.forEach((item) => knownIndices.add(item.index));
@@ -251,37 +261,81 @@ function SettingsWalletVariants({
         </div>
         <div className={styles.walletVersionInfoRight}>
           <span className={styles.walletVersionTokens}>≥&thinsp;{group.totalBalance}</span>
-          <span className={styles.walletVersionAmount} title={group.nativeAmounts}>{group.nativeAmounts}</span>
+          <span className={styles.walletVersionAmount} title={group.assetAmounts}>{group.assetAmounts}</span>
         </div>
       </>
     );
   }
 
-  function buildSubwalletGroup(group: ApiGroupedWalletVariant): SubwalletGroup {
+  function getTokenMetaForSubwalletSlug(slug: string) {
+    const info = tokenInfo?.bySlug[slug];
+    if (!info) return undefined;
+
+    const price = calculateTokenPrice(info.priceUsd ?? 0, baseCurrency, currencyRates);
+
+    return {
+      slug: info.slug,
+      decimals: info.decimals,
+      priceUsd: info.priceUsd ?? 0,
+      symbol: info.symbol,
+      price,
+    };
+  }
+
+  function buildSubwalletRowModel(
+    dotIndex: number,
+    label: string | undefined,
+    orderedChains: ApiChain[],
+    getBalancesForChain: (chain: ApiChain) => Record<string, bigint> | undefined,
+    getAccountChainForRow: (chain: ApiChain) => AccountChain | undefined,
+  ): SubwalletGroup {
     const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
-    const nativeParts: string[] = [];
+
+    const assetItems: { fiat: Big; part: string }[] = [];
     let fiatAccum = toBig(0);
     const walletsByChain: Account['byChain'] = {};
-    const orderedChains = getOrderedAccountChains(group.byChain);
 
     for (const chain of orderedChains) {
-      const entry = group.byChain[chain];
+      const accountChain = getAccountChainForRow(chain);
+      if (!accountChain) continue;
 
-      if (!entry) continue;
-
-      const accountChain: AccountChain = { address: entry.wallet.address };
-      if (entry.wallet.derivation) accountChain.derivation = entry.wallet.derivation;
       walletsByChain[chain] = accountChain;
 
-      const nativeToken = tokens?.find(({ slug }) => slug === getChainConfig(chain).nativeToken?.slug);
+      const balancesBySlug = getBalancesForChain(chain) ?? {};
 
-      nativeParts.push(formatCurrency(toDecimal(entry.balance, nativeToken?.decimals), nativeToken?.symbol ?? ''));
+      for (const [slug, balance] of Object.entries(balancesBySlug)) {
+        const meta = getTokenMetaForSubwalletSlug(slug);
 
-      fiatAccum = fiatAccum.add(
-        toBig(entry.balance, nativeToken?.decimals).mul(nativeToken?.price ?? 0),
-      );
+        if (meta && balance > 0n) {
+          const rowFiat = toBig(balance, meta.decimals).mul(meta.price);
+
+          assetItems.push({
+            fiat: rowFiat,
+            part: formatCurrency(toDecimal(balance, meta.decimals), meta.symbol),
+          });
+
+          fiatAccum = fiatAccum.add(rowFiat);
+        }
+      }
     }
 
+    const assetAmounts = [...assetItems].sort((a, b) => {
+      if (a.fiat.gt(b.fiat)) return -1;
+      if (a.fiat.lt(b.fiat)) return 1;
+      return 0;
+    }).map(({ part }) => part).join(', ');
+
+    return {
+      title: `.${dotIndex + 1}`,
+      label,
+      addressContent: formatAccountAddresses(walletsByChain, 'small'),
+      assetAmounts,
+      totalBalance: formatCurrency(fiatAccum, shortBaseSymbol),
+    };
+  }
+
+  function buildSubwalletGroup(group: ApiGroupedWalletVariant): SubwalletGroup {
+    const orderedChains = getOrderedAccountChains(group.byChain);
     let label: string | undefined;
     for (const chain of orderedChains) {
       const derivation = group.byChain[chain]?.wallet.derivation;
@@ -291,18 +345,26 @@ function SettingsWalletVariants({
       }
     }
 
-    return {
-      title: `#${group.index + 1}`,
+    return buildSubwalletRowModel(
+      group.index,
       label,
-      addressContent: formatAccountAddresses(walletsByChain, 'small'),
-      nativeAmounts: nativeParts.join(', '),
-      totalBalance: formatCurrency(fiatAccum, shortBaseSymbol),
-    };
+      orderedChains,
+      (chain) => group.byChain[chain]?.balancesBySlug,
+      (chain) => {
+        const entry = group.byChain[chain];
+        if (!entry) return undefined;
+
+        const accountChain: AccountChain = { address: entry.wallet.address };
+        if (entry.wallet.derivation) {
+          accountChain.derivation = entry.wallet.derivation;
+        }
+
+        return accountChain;
+      },
+    );
   }
 
   const currentSubwalletRowModel = useMemo((): SubwalletGroup => {
-    const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
-
     let rowIndex = 0;
     let label: string | undefined;
     for (const chain of displayChains) {
@@ -314,36 +376,32 @@ function SettingsWalletVariants({
       }
     }
 
-    const nativeParts: string[] = [];
-    let fiatAccum = toBig(0);
+    const accountTokens = tokens ?? [];
 
-    for (const chain of displayChains) {
-      const nativeToken = tokens?.find(({ slug }) => slug === getChainConfig(chain).nativeToken?.slug);
-      if (nativeToken) {
-        nativeParts.push(
-          formatCurrency(toDecimal(nativeToken.amount, nativeToken.decimals), nativeToken.symbol),
-        );
-        fiatAccum = fiatAccum.add(
-          toBig(nativeToken.amount, nativeToken.decimals).mul(nativeToken.price ?? 0),
-        );
-      }
-    }
-
-    return {
-      title: `#${rowIndex + 1}`,
+    return buildSubwalletRowModel(
+      rowIndex,
       label,
-      addressContent: accountChains && formatAccountAddresses(accountChains, 'small'),
-      nativeAmounts: nativeParts.join(', '),
-      totalBalance: formatCurrency(fiatAccum, shortBaseSymbol),
-    };
-  }, [displayChains, accountChains, tokens, baseCurrency]);
+      displayChains,
+      (chain) => {
+        const bySlug: Record<string, bigint> = {};
+        for (const t of accountTokens) {
+          if (t.chain === chain && t.amount > 0n) {
+            bySlug[t.slug] = t.amount;
+          }
+        }
+        return bySlug;
+      },
+      (chain) => accountChains?.[chain],
+    );
+    // buildSubwalletRowModel is redefined each render. tokenInfo / rates / currency trigger rerender only if needed.
+    // eslint-disable-next-line react-hooks-static-deps/exhaustive-deps
+  }, [displayChains, accountChains, tokens, tokenInfo, baseCurrency, currencyRates]);
 
   const handleCreateSubwallet = useLastCallback(() => {
     if (!password) return;
 
     createSubWallet({ password });
     closeSettings();
-    showToast({ message: lang('Subwallet Created'), icon: 'icon-subwallet-add' });
   });
 
   const handleGroupClick = useLastCallback((
@@ -351,6 +409,13 @@ function SettingsWalletVariants({
     group: ApiGroupedWalletVariant,
   ) => {
     addSubWallet({ group });
+    closeSettings();
+  });
+
+  const handleAddAllFoundSubwallets = useLastCallback(() => {
+    if (!groups.length) return;
+
+    addAllFoundSubwallets({ foundSubwallets: groups });
     closeSettings();
   });
 
@@ -453,6 +518,17 @@ function SettingsWalletVariants({
             </div>
 
             {renderSubwalletsSection()}
+
+            {hasWallets && groups.length > 1 && (
+              <div className={styles.addAllFoundSubwalletsContainer}>
+                <Button
+                  isSecondary
+                  onClick={handleAddAllFoundSubwallets}
+                >
+                  {lang('Add All Found')}
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className={buildClassName(
@@ -519,6 +595,8 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   return {
     accountId: currentAccountId,
     tokens: selectCurrentAccountTokens(global),
+    tokenInfo: global.tokenInfo,
+    currencyRates: global.currencyRates,
     baseCurrency: global.settings.baseCurrency,
   };
 })(SettingsWalletVariants));

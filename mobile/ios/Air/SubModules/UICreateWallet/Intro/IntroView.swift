@@ -44,7 +44,7 @@ struct IntroView: View {
     @ViewBuilder
     var iconAndEffect: some View {
         if IS_GRAM_WALLET {
-            GramIntroHeaderView()
+            WUISpeedingDiamondWithParticles()
                 .offset(y: -32)
         } else {
             Image.airBundle("IntroLogo")
@@ -64,24 +64,6 @@ struct IntroView: View {
         }
     }
 
-    private struct GramIntroHeaderView: View {
-        @State private var burstTrigger = 0
-
-        var body: some View {
-            ZStack {
-                SparkleParticleBackground(burstTrigger: $burstTrigger)
-                    .frame(width: 350, height: 230)
-                    .allowsHitTesting(false)
-                WUISpeedingDiamond {
-                    burstTrigger += 1
-                }
-                .frame(width: 130, height: 130)
-            }
-            .frame(width: 130, height: 130)
-            .accessibilityHidden(true)
-        }
-    }
-    
     var title: some View {
         Text(APP_NAME)
             .font(.nunito(size: 32))

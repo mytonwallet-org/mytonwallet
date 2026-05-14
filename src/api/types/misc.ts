@@ -4,6 +4,7 @@ import type { Base58EncodedBytes } from '@solana/kit';
 import type { LangCode } from '../../global/types';
 import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type { DappProtocolType } from '../dappProtocols';
+import type { ApiStorageConfig } from '../storages/types';
 import type { ApiTransactionActivity } from './activities';
 import type { ApiParsedPayload } from './payload';
 import type { ApiSseOptions, ApiWalletByChain } from './storage';
@@ -36,6 +37,7 @@ export interface ApiInitArgs {
   langCode?: LangCode;
   referrer?: string;
   accountIds?: string[];
+  storage?: ApiStorageConfig;
 }
 
 export interface ApiToken {
@@ -424,10 +426,9 @@ export type ApiWalletVariant<T extends ApiChain> = {
 
 export type ApiGroupedWalletVariant = {
   index: number;
-  totalBalance: bigint;
   byChain: Partial<Record<ApiChain, {
     wallet: Omit<ApiWalletByChain[ApiChain], 'index'>;
-    balance: bigint;
+    balancesBySlug: ApiBalanceBySlug;
     hasDerivation: boolean;
   }>>;
 };

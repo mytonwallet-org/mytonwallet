@@ -29,15 +29,11 @@ import {
   submitGasfullTransfer,
   submitGaslessTransfer,
 } from './transfer';
-import { getWalletBalance, verifyLedgerWalletAddress } from './wallet';
-
-function notSupported(): never {
-  throw new Error('Not supported in Ton');
-}
+import { fetchBalances, getWalletBalance, verifyLedgerWalletAddress } from './wallet';
 
 const tonSdk: ChainSdk<'ton'> = {
-  fetchCrossChainActivitySlice: notSupported,
   fetchActivitySlice,
+  crosschain: undefined,
   fetchActivityDetails,
   decryptComment,
   normalizeAddress,
@@ -55,6 +51,7 @@ const tonSdk: ChainSdk<'ton'> = {
   submitGaslessTransfer,
   getAddressInfo: checkToAddress,
   getWalletBalance,
+  getWalletAssets: fetchBalances,
   verifyLedgerWalletAddress,
   fetchPrivateKeyString,
   getIsLedgerAppOpen,

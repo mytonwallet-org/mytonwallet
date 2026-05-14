@@ -1,16 +1,19 @@
 import type {
   ApiAccountWithChain,
   ApiActivityTimestamps,
+  ApiBalanceBySlug,
+  ApiChain,
   EVMChain,
   OnApiUpdate,
   OnUpdatingStatusChange,
 } from '../../types';
 
 import { parseAccountId } from '../../../util/account';
-import { getChainConfig } from '../../../util/chain';
+import { getChainConfig, getSupportedChains } from '../../../util/chain';
 import { compact } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { pause } from '../../../util/schedulers';
+import { getChainBySlug } from '../../../util/tokens';
 import { NftStream } from './util/nftStream';
 import { getAlchemySocket } from './util/socket';
 import { fetchStoredWallet } from '../../common/accounts';
@@ -22,9 +25,19 @@ import {
 import { sendUpdateTokens } from '../../common/tokens';
 import { txCallbacks } from '../../common/txCallbacks';
 import { BalanceStream } from '../../common/websocket/balanceStream';
-import { FIRST_TRANSACTIONS_LIMIT, SEC } from '../../constants';
+import { FIRST_TRANSACTIONS_LIMIT, MINUTE, SEC } from '../../constants';
 import { getTokenActivitySlice } from './activities';
-import { fetchAccountAssets, getIsWalletActive } from './wallet';
+import { fetchAccountAssets, fetchCrosschainAccountAssets, getIsWalletActive } from './wallet';
+
+const activeEvmWalletTiming = {
+  ...activeWalletTiming,
+  forcedPollingPeriod: { focused: 3 * MINUTE, notFocused: 10 * MINUTE },
+};
+
+const inactiveEvmWalletTiming = {
+  ...inactiveWalletTiming,
+  forcedPollingPeriod: { focused: 10 * MINUTE, notFocused: 10 * MINUTE },
+};
 
 export function setupActivePolling<C extends EVMChain>(
   chain: C,
@@ -143,13 +156,17 @@ function setupActivityPolling(
           return;
         }
 
-        await pause(SEC);
+        await pause(SEC * 2);
       }
     })();
   }
 
   function cancelCrossApiActivityCatchUp() {
     balanceCatchUpGeneration += 1;
+  }
+
+  if (newestConfirmedActivityTimestamp === undefined) {
+    scheduleCrossApiActivityCatchUp('poll');
   }
 
   return {
@@ -224,26 +241,46 @@ function setupBalancePolling(
     return getIsWalletActive(network, chain, address);
   };
 
-  const balanceStream = new BalanceStream(
+  const balanceStream = new BalanceStream({
     chain,
-    getAlchemySocket(network, chain),
+    wsClient: getAlchemySocket(network, chain),
     network,
     address,
-    () => sendUpdateTokens(onUpdate),
-    isActive ? activeWalletTiming : inactiveWalletTiming,
-    (...args) => fetchAccountAssets(chain, ...args),
-    undefined,
-    undefined,
-    checkIsWalletActive,
-  );
+    sendUpdateTokens: () => sendUpdateTokens(onUpdate),
+    fallbackPollingOptions: isActive ? activeEvmWalletTiming : inactiveEvmWalletTiming,
+    fetchBalancesCb: (...args) => fetchAccountAssets(chain, ...args),
+    fetchCrosschainBalancesCb: fetchCrosschainAccountAssets,
+    importUnknownTokens: undefined,
+    loadingConcurrencyLimiter: undefined,
+    ensureIsPollingNeeded: checkIsWalletActive,
+  });
 
   balanceStream.onUpdate((balances, updateSource) => {
-    onUpdate({
-      type: 'updateBalances',
-      accountId,
-      chain,
-      balances,
-    });
+    const crosschainAssetsByChain = new Map<ApiChain, ApiBalanceBySlug>();
+
+    const knownChains = getSupportedChains();
+
+    for (const [slug, balance] of Object.entries(balances)) {
+      const assetChain = getChainBySlug(slug);
+
+      if (!knownChains.includes(assetChain)) {
+        continue;
+      }
+
+      crosschainAssetsByChain.set(assetChain, {
+        ...crosschainAssetsByChain.get(assetChain),
+        [slug]: balance,
+      });
+    }
+
+    for (const [assetChain, balances] of crosschainAssetsByChain.entries()) {
+      onUpdate({
+        type: 'updateBalances',
+        accountId,
+        chain: assetChain,
+        balances,
+      });
+    }
 
     scheduleCrossApiActivityCatchUp(updateSource);
   });

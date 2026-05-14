@@ -3,12 +3,20 @@ package org.mytonwallet.app_air.uicomponents.widgets
 import android.animation.Animator
 import android.content.Context
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import com.airbnb.lottie.LottieAnimationView
 import com.airbnb.lottie.LottieDrawable
 import com.airbnb.lottie.RenderMode
 
 open class WAnimationView(context: Context) : LottieAnimationView(context) {
+    companion object {
+        private const val START_FALLBACK_MS = 3000L
+    }
+
     private var pendingOnStart: (() -> Unit)? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val startFallbackRunnable = Runnable { firePendingOnStart() }
 
     init {
         id = generateViewId()
@@ -19,8 +27,7 @@ open class WAnimationView(context: Context) : LottieAnimationView(context) {
         scaleType = ScaleType.CENTER_CROP
 
         setFailureListener { _ ->
-            pendingOnStart?.invoke()
-            pendingOnStart = null
+            firePendingOnStart()
             visibility = GONE
         }
     }
@@ -52,20 +59,29 @@ open class WAnimationView(context: Context) : LottieAnimationView(context) {
         }
     }
 
+    private fun firePendingOnStart() {
+        mainHandler.removeCallbacks(startFallbackRunnable)
+        val cb = pendingOnStart ?: return
+        pendingOnStart = null
+        removeAllAnimatorListeners()
+        cb()
+    }
+
     private fun setAnimatorListener(onStart: (() -> Unit)?) {
+        mainHandler.removeCallbacks(startFallbackRunnable)
         pendingOnStart = onStart
         removeAllAnimatorListeners()
         if (onStart == null)
             return
         addAnimatorListener(object : Animator.AnimatorListener {
             override fun onAnimationStart(animation: Animator) {
-                setAnimatorListener(null)
-                onStart()
+                firePendingOnStart()
             }
 
             override fun onAnimationEnd(animation: Animator) {}
             override fun onAnimationCancel(animation: Animator) {}
             override fun onAnimationRepeat(animation: Animator) {}
         })
+        mainHandler.postDelayed(startFallbackRunnable, START_FALLBACK_MS)
     }
 }

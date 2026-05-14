@@ -82,7 +82,7 @@ class ExploreCategoryVC(context: Context, val category: MExploreCategory) :
         recyclerView.removeItemDecorationAt(0)
         recyclerView.addItemDecoration(
             LastItemPaddingDecoration(
-                navigationController?.getSystemBars()?.bottom ?: 0
+                navigationController?.bottomInset ?: 0
             )
         )
     }

@@ -1,6 +1,6 @@
 import type { Address } from '@solana/kit';
 
-import type { ApiAddressInfo, ApiNetwork, ApiTokenWithMaybePrice } from '../../types';
+import type { ApiAddressInfo, ApiBalanceBySlug, ApiNetwork, ApiTokenWithMaybePrice } from '../../types';
 import type { SolanaSPLToken, SolanaSplTokenAccountsByAddressRaw, SolanaSPLTokensByAddressRaw } from './types';
 import { ApiCommonError } from '../../types';
 
@@ -53,7 +53,7 @@ export async function fetchAccountAssets(
   network: ApiNetwork,
   address: string,
   sendUpdateTokens: NoneToVoidFunction,
-) {
+): Promise<ApiBalanceBySlug> {
   const options = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

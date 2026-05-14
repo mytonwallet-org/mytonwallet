@@ -5,32 +5,26 @@ import WalletContext
 enum SwapCexSupport {
     static func swapCexCreateTransaction(
         accountId: String,
-        sellingToken: ApiToken?,
+        sellingToken: ApiToken,
         params: ApiSwapCexCreateTransactionParams,
         shouldTransfer: Bool,
         passcode: String
     ) async throws -> ApiActivity? {
-        guard let sellingToken else {
-            return nil
-        }
         let createResult = try await Api.swapCexCreateTransaction(accountId: accountId, password: passcode, params: params)
         if shouldTransfer {
             
-            let amountValue = createResult.swap.fromAmount.value
-            let amount: BigInt = doubleToBigInt(amountValue, decimals: sellingToken.decimals)
+            let amount = createResult.swap.fromAmount.bigintAmount(decimals: sellingToken.decimals)
             
-            guard let toAddress = createResult.swap.cex?.payinAddress else { return nil }
-            
-            let checkOptions = ApiCheckTransactionDraftOptions(
-                accountId: accountId,
-                toAddress: toAddress,
-                amount: amount,
-                payload: nil,
-                stateInit: nil,
-                tokenAddress: sellingToken.tokenAddress,
-                allowGasless: false
-            )
-            let draft = try await Api.checkTransactionDraft(chain: sellingToken.chain, options: checkOptions)
+            guard let toAddress = createResult.swap.cex?.payinAddress else {
+                throw BridgeCallError.customMessage("Missing payin address", nil)
+            }
+
+            guard let networkFee = createResult.swap.networkFee else {
+                throw BridgeCallError.customMessage("Missing network fee", createResult)
+            }
+            let nativeDecimals = sellingToken.chain.nativeToken.decimals
+            let fee = networkFee.bigintAmount(decimals: nativeDecimals)
+
             let options = ApiSubmitTransferOptions(
                 accountId: accountId,
                 toAddress: toAddress,
@@ -38,16 +32,19 @@ enum SwapCexSupport {
                 payload: nil,
                 stateInit: nil,
                 tokenAddress: sellingToken.tokenAddress,
-                realFee: draft.realNativeFee,
+                realFee: nil,
                 isGasless: false,
                 dieselAmount: nil,
                 isGaslessWithStars: nil,
                 gaslessTransaction: nil,
                 password: passcode,
-                fee: draft.fullNativeFee,
+                fee: fee,
                 noFeeCheck: nil
             )
-            _ = try await Api.swapCexSubmit(chain: sellingToken.chain, options: options, swapId: createResult.swap.id)
+            let result = try await Api.swapCexSubmit(chain: sellingToken.chain, options: options, swapId: createResult.swap.id)
+            if let error = result.error {
+                throw BridgeCallError(message: error, payload: result)
+            }
             return nil
         } else {
             return createResult.activity

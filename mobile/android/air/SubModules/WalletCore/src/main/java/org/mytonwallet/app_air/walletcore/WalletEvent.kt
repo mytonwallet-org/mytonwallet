@@ -117,4 +117,7 @@ sealed class WalletEvent {
     data object HomeNftCollectionsUpdated : WalletEvent()
     data class NftDomainExpirationDismissed(val accountId: String) : WalletEvent()
     data class ByChainUpdated(val accountId: String) : WalletEvent()
+
+    data object AppForeground : WalletEvent()
+    data object AppBackground : WalletEvent()
 }

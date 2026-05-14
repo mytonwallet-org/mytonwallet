@@ -448,6 +448,8 @@ open class ButtonsToolbar: UIView {
     }
         
     public override func layoutSubviews() {
+        super.layoutSubviews()
+        
         let width = bounds.width
         
         let visibleItems = arrangedSubviews.filter { !$0.view.isHidden }
@@ -471,13 +473,11 @@ open class ButtonsToolbar: UIView {
         
         var offsetX = max(0.0, ((width - visibleCountF * (itemWidth + spacing) + spacing) / 2).rounded())
         for btn in arrangedSubviews {
-            btn.leadingConstraint.constant = offsetX
-            btn.widthConstraint.constant = itemWidth
+            if btn.leadingConstraint.constant != offsetX { btn.leadingConstraint.constant = offsetX }
+            if btn.widthConstraint.constant != itemWidth { btn.widthConstraint.constant = itemWidth }
             if !btn.view.isHidden {
                 offsetX += itemWidth + spacing
             }
         }
-        
-        super.layoutSubviews()
     }
 }

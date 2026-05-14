@@ -3,7 +3,7 @@ import Kingfisher
 
 protocol NftDetailsMainHeaderViewDelegate: AnyObject {
     func headerCoverFlowDidSelectModel(_ model: NftDetailsItemModel)
-    func headerCoverFlowDidScroll(withProgress progress: CGFloat, currentModelId: String)
+    func headerCoverFlowDidScroll(withProgress progress: CGFloat, currentModel: NftDetailsItemModel)
     func headerCoverFlowDidTapSelectedModel()
     func headerDidChangePreviewVisibilityInternaly(_ headerView: NftDetailsMainHeaderView)
 }
@@ -155,17 +155,13 @@ class NftDetailsMainHeaderView: UIView {
             preview.centerYConstraint!,
         ])
         
-        coverFlowView.selectModel(byId: selectedModel.id)
+        coverFlowView.selectModel(selectedModel)
     }
-    
-    private func scheduleToBeVisible() {
         
-    }
-    
     /// Select the model externally (on init() or by the pager). No animation is required here.
     func selectModel(_ model: NftDetailsItemModel) {        
         selectedModel = model
-        coverFlowView.selectModel(byId: model.id)
+        coverFlowView.selectModel(model)
         
         scheduledAction.cancel()
         preview.cancelLottiePlayback()
@@ -195,7 +191,7 @@ class NftDetailsMainHeaderView: UIView {
                         self.delegate?.headerDidChangePreviewVisibilityInternaly(self)
                     }
                     
-                    // Have not idea why but this helps prevents flushes
+                    // Have no idea why but this helps prevents flushes
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
                         _ = self.preview.startLottiePlayback()
                     }
@@ -204,11 +200,11 @@ class NftDetailsMainHeaderView: UIView {
         }
     }
     
-    func syncCoverFlowWithPager(progress: CGFloat, currentItemId: String) {
+    func syncCoverFlowWithPager(progress: CGFloat, currentModel: NftDetailsItemModel) {
         if state.isExpanded {
             coverFlowView.setSelectedTileVisible(true)
         }
-        coverFlowView.setCoverFlowProgress(currentItemId: currentItemId, progress: progress)
+        coverFlowView.setCoverFlowProgress(progress: progress, currentModel: currentModel)
     }
     
     var isPreviewHidden: Bool { state.isHidden }
@@ -219,11 +215,15 @@ class NftDetailsMainHeaderView: UIView {
         if newValue {
             
         } else {
-            // Immediately hides preview, cancels all schedules
-            scheduledAction.cancel()
-            state.isHidden = true
-            UIView.performWithoutAnimation {
-                preview.setImageHidden(true)
+            if !state.isHidden {
+                // Cancels all schedules, hides the image with a little delay (to allow background paint)
+                scheduledAction.cancel()
+                state.isHidden = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                    UIView.performWithoutAnimation {
+                        self?.preview.setImageHidden(true)
+                    }
+                }
             }
         }
     }
@@ -460,7 +460,7 @@ extension NftDetailsMainHeaderView: CoverFlowDelegate {
         delegate?.headerCoverFlowDidSelectModel(model)
     }
     
-    func onCoverFlowScrollProgress(_ progress: CGFloat, currentItemId: String) {
-        delegate?.headerCoverFlowDidScroll(withProgress: progress, currentModelId: currentItemId)
+    func onCoverFlowScrollProgress(_ progress: CGFloat, currentModel: NftDetailsItemModel) {
+        delegate?.headerCoverFlowDidScroll(withProgress: progress, currentModel: currentModel)
     }
 }

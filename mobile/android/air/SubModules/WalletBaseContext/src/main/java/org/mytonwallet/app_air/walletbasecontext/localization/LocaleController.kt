@@ -77,9 +77,11 @@ object LocaleController {
 
         var jsonObject: JSONObject
         try {
-            val jsonString = context.assets.open("public/i18n/${langCode}.json")
-                .bufferedReader()
-                .use { it.readText() }
+            val jsonString = runCatching {
+                context.assets.open("public/i18n/${langCode}.json")
+            }.getOrElse {
+                context.assets.open("${langCode}.json")
+            }.bufferedReader().use { it.readText() }
             jsonObject = JSONObject(jsonString)
         } catch (_: IOException) {
             Logger.e(Logger.LogTag.LOCALIZATION, "init: Failed to load file=$langCode.json")

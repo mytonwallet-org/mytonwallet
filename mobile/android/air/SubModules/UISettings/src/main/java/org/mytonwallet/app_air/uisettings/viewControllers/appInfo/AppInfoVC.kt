@@ -124,8 +124,12 @@ class AppInfoVC(context: Context) : WViewController(context) {
 
     private val resourcesLabel = WLabel(context).apply {
         setStyle(14f, WFont.DemiBold)
-        text =
-            LocaleController.getString("MyTonWallet Resources")
+        text = LocaleController.getStringWithKeyValues(
+            "%app_name% Resources",
+            listOf(
+                "%app_name%" to context.getString(BaseR.string.app_locale_name_key)
+            )
+        )
         setTextColor(WColor.Tint)
         isTinted = true
         setPaddingDp(20, 14, 20, 5)

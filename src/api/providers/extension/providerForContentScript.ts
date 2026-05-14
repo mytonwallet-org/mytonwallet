@@ -39,6 +39,7 @@ const ALLOWED_METHODS = new Set([
   'walletConnect_sendTransaction',
   'walletConnect_deactivate',
   'walletConnect_signData',
+  'walletConnect_proxyEvmRpc',
 ]);
 
 createExtensionInterface(CONTENT_SCRIPT_PORT, (

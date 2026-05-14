@@ -45,8 +45,10 @@ private struct SparkleParticleConfig {
     var accelerationFactor: CGFloat = 3
     var selfDestroyTime: CGFloat = 0
 
-    static func burst(color: SparkleColorPair, centerShift: CGPoint) -> SparkleParticleConfig {
+    static func burst(color: SparkleColorPair, centerShift: CGPoint, canvasSize: CGSize) -> SparkleParticleConfig {
         var config = SparkleParticleConfig()
+        config.width = canvasSize.width
+        config.height = canvasSize.height
         config.particleCount = 5
         config.color = color
         config.minSpawnRadius = 5
@@ -145,9 +147,18 @@ public final class SparkleParticleBackgroundView: UIView {
         }
     }
 
-    public var centerShift: CGPoint = CGPoint(x: 0, y: -36) {
+    public var centerShift: CGPoint = .zero {
         didSet {
             guard centerShift != oldValue else {
+                return
+            }
+            restartIdleSystem()
+        }
+    }
+
+    public var canvasSize: CGSize = CGSize(width: 350, height: 230) {
+        didSet {
+            guard canvasSize != oldValue else {
                 return
             }
             restartIdleSystem()
@@ -188,7 +199,7 @@ public final class SparkleParticleBackgroundView: UIView {
         let now = CACurrentMediaTime()
         context.saveGState()
         context.setBlendMode(.normal)
-        context.translateBy(x: bounds.midX - SparkleParticleConfig().width / 2, y: bounds.midY - SparkleParticleConfig().height / 2)
+        context.translateBy(x: bounds.midX - canvasSize.width / 2, y: bounds.midY - canvasSize.height / 2)
 
         for system in systems {
             draw(system: system, at: CGFloat(now - system.startTime), in: context)
@@ -198,7 +209,7 @@ public final class SparkleParticleBackgroundView: UIView {
     }
 
     public func burst() {
-        let system = SparkleParticleSystem(config: .burst(color: color, centerShift: centerShift))
+        let system = SparkleParticleSystem(config: .burst(color: color, centerShift: centerShift, canvasSize: canvasSize))
         systems.append(system)
         ensureDisplayLink()
     }
@@ -220,6 +231,8 @@ public final class SparkleParticleBackgroundView: UIView {
 
     private func idleConfig() -> SparkleParticleConfig {
         var config = SparkleParticleConfig()
+        config.width = canvasSize.width
+        config.height = canvasSize.height
         config.color = color
         config.centerShift = centerShift
         return config
@@ -324,13 +337,16 @@ public final class SparkleParticleBackgroundView: UIView {
 
 public struct SparkleParticleBackground: UIViewRepresentable {
     public var centerShift: CGPoint
+    public var canvasSize: CGSize
     @Binding public var burstTrigger: Int
 
     public init(
-        centerShift: CGPoint = CGPoint(x: 0, y: -36),
+        centerShift: CGPoint = .zero,
+        canvasSize: CGSize = CGSize(width: 350, height: 230),
         burstTrigger: Binding<Int> = .constant(0)
     ) {
         self.centerShift = centerShift
+        self.canvasSize = canvasSize
         self._burstTrigger = burstTrigger
     }
 
@@ -341,11 +357,13 @@ public struct SparkleParticleBackground: UIViewRepresentable {
     public func makeUIView(context: Context) -> SparkleParticleBackgroundView {
         let view = SparkleParticleBackgroundView()
         view.centerShift = centerShift
+        view.canvasSize = canvasSize
         return view
     }
 
     public func updateUIView(_ uiView: SparkleParticleBackgroundView, context: Context) {
         uiView.centerShift = centerShift
+        uiView.canvasSize = canvasSize
         if burstTrigger != context.coordinator.burstTrigger {
             context.coordinator.burstTrigger = burstTrigger
             uiView.burst()

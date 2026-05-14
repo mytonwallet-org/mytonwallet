@@ -6,6 +6,23 @@ enum ContextMenuAnimationSupport {
     static let appearDuration: CFTimeInterval = 0.42
     static let appearDamping: CGFloat = 104.0
     static let disappearDuration: CFTimeInterval = 0.2
+
+    static func adjustFrameRate(animation: CAAnimation) {
+        let maxFps = Float(UIScreen.main.maximumFramesPerSecond)
+        guard maxFps > 61.0 else {
+            return
+        }
+
+        if let basicAnimation = animation as? CABasicAnimation, basicAnimation.keyPath == "opacity" {
+            return
+        }
+
+        animation.preferredFrameRateRange = CAFrameRateRange(
+            minimum: 30.0,
+            maximum: maxFps,
+            preferred: maxFps
+        )
+    }
 }
 
 extension CALayer {
@@ -33,6 +50,7 @@ extension CALayer {
             animation.speed = Float(settlingDuration / duration)
         }
 
+        ContextMenuAnimationSupport.adjustFrameRate(animation: animation)
         self.add(animation, forKey: keyPath + ".contextMenuSpring")
     }
 
@@ -55,6 +73,7 @@ extension CALayer {
         if !removeOnCompletion {
             animation.fillMode = .forwards
         }
+        ContextMenuAnimationSupport.adjustFrameRate(animation: animation)
         self.add(animation, forKey: keyPath + ".contextMenuBasic")
     }
 

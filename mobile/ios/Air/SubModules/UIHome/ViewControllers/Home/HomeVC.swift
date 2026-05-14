@@ -61,7 +61,6 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
                                                                 delegate: self)
     private var headerBlurView: WBlurView!
     private let bottomSeparatorView = UIView()
-    private let headerTouchTarget = UILabel()
     
     private var windowSafeAreaGuide = UILayoutGuide()
     private var windowSafeAreaGuideContraint: NSLayoutConstraint!
@@ -142,14 +141,14 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     // MARK: - Setup home views
     func setupViews() {
         view.backgroundColor = .air.headerBackground
-
-        headerTouchTarget.translatesAutoresizingMaskIntoConstraints = false
-        headerTouchTarget.text = lang("Wallet")
-        headerTouchTarget.textColor = .clear
-        headerTouchTarget.isUserInteractionEnabled = true
-        headerTouchTarget.accessibilityElementsHidden = true
-        navigationItem.titleView = headerTouchTarget
-
+        
+        navigationItem.titleView = {
+            let header = NavigationHeader2()
+            let g = UITapGestureRecognizer(target: self, action: #selector(onHeaderTap(_:)))
+            header.addGestureRecognizer(g)
+            return header
+        }()
+        
         navigationController?.setNavigationBarHidden(false, animated: false)
         if !IOS_26_MODE_ENABLED {
             configureNavigationItemWithTransparentBackground()
@@ -276,10 +275,6 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
         headerContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(headerContainer)
-
-//        headerContainer.alpha = 0.5
-//        headerContainer.backgroundColor = .yellow
-//        actionsHostView.backgroundColor = .green
         
         headerBottomConstraint = headerContainer.bottomAnchor.constraint(
             equalTo: actionsHostView.bottomAnchor,
@@ -393,10 +388,6 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         super.viewDidAppear(animated)
         StartupTrace.markOnce("home.visible", details: "layout=tab")
         StartupTrace.endInterval("startup.toHomeVisible", details: "layout=tab")
-        if headerTouchTarget.gestureRecognizers?.nilIfEmpty == nil {
-            let g = UITapGestureRecognizer(target: self, action: #selector(onHeaderTap))
-            headerTouchTarget.addGestureRecognizer(g)
-        }
     }
 
     public override func viewSafeAreaInsetsDidChange() {
@@ -551,7 +542,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         super.applySnapshot(snapshot, animatingDifferences: animatingDifferences)
     }
 
-    @objc func scanPressed() {
+    @objc private func scanPressed() {
         Task {
             if let result = await AppActions.scanQR() {
                 switch result {
@@ -571,11 +562,11 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         }
     }
 
-    @objc func lockPressed() {
+    @objc private func lockPressed() {
         AppActions.lockApp(animated: true)
     }
 
-    @objc func hidePressed() {
+    @objc private func hidePressed() {
         let isHidden = AppStorageHelper.isSensitiveDataHidden
         AppActions.setSensitiveDataIsHidden(!isHidden)
     }
@@ -598,11 +589,18 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         skeletonView.applyMask(with: skeletonViews)
     }
 
-    @objc func onHeaderTap() {
-        AppActions.showWalletSettings()
+    @objc private func onHeaderTap(_ recognizer: UITapGestureRecognizer) {
+        guard recognizer.state == .ended else { return }
+        
+        if let targetView = balanceHeaderView.updateStatusView {
+            let ptAtTarget = recognizer.location(in: targetView)
+            if targetView.bounds.insetBy(dx: -10, dy: -10).contains(ptAtTarget) {
+                AppActions.showWalletSettings()
+            }
+        }
     }
     
-    func updateNavigationItem() {
+    private func updateNavigationItem() {
         var leadingItemGroups: [UIBarButtonItemGroup] = []
         var trailingItemGroups: [UIBarButtonItemGroup] = []
         

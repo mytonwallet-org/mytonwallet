@@ -172,7 +172,7 @@ function LandscapeTopActions({
           className={stakingStatus !== 'inactive' ? styles.button_purple : undefined}
           tgsUrl={stickerPaths[stakingStatus !== 'inactive' ? 'iconEarnPurple' : 'iconEarn']}
           previewUrl={stickerPaths.preview[stakingStatus !== 'inactive' ? 'iconEarnPurple' : 'iconEarn']}
-          accentColor={accentColor}
+          accentColor={stakingStatus === 'inactive' ? accentColor : undefined}
           onClick={handleEarnClick}
         />
       )}

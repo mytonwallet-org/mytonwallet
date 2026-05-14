@@ -338,8 +338,8 @@ class TonConnectRequestSendViewModel private constructor(
                         )
                     }
 
-                    val tonToken =
-                        TokenStore.getToken(MBlockchain.valueOf(update.operationChain).nativeSlug)
+                    val tonToken = MBlockchain.valueOfOrNull(update.operationChain)
+                        ?.let { TokenStore.getToken(it.nativeSlug) }
                     var feeValue: CharSequence? = null
                     tonToken?.let {
                         val realFee = update.emulation?.realFee
@@ -562,7 +562,9 @@ class TonConnectRequestSendViewModel private constructor(
             }
 
             if (tonAmount != BigInteger.ZERO || amountBySlug.isEmpty()) {
-                amountBySlug[MBlockchain.valueOf(chain).nativeSlug] = tonAmount
+                MBlockchain.valueOfOrNull(chain)?.let {
+                    amountBySlug[it.nativeSlug] = tonAmount
+                }
             }
 
             if (amountBySlug.isEmpty()) {

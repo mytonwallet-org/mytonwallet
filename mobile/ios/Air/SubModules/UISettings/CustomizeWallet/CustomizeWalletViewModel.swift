@@ -15,6 +15,8 @@ import Perception
 import OrderedCollections
 import UIKitNavigation
 
+private let log = Log("CustomizeWallet")
+
 struct AccountInfo {
     var currentCard: ApiNft?
     var availableCards: [ApiNft?] = []
@@ -72,6 +74,7 @@ struct AccountInfo {
     }
     
     func selectCard(_ card: ApiNft?) {
+        log.info("cardBackground.customizeSelect accountId=\(selectedAccountId, .public) nftAddress=\(card?.address as Any, .public) nftChain=\(card?.chain.rawValue as Any, .public) nftMtwId=\(card?.metadata?.mtwCardId as Any, .public)")
         withAnimation {
             accountSettings.for(accountId: selectedAccountId).setBackgroundNft(card)
         }

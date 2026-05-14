@@ -14,14 +14,7 @@ struct NftDetailsImage {
         var originalImage: UIImage?
         var previewImage: UIImage?
         var previewCIImage: CIImage?
-        var backgroundImage: UIImage?
-        var backgroundCIImage: CIImage?
         var baseColor: UIColor?
-        
-        mutating func setBackground(_ ciImage: CIImage, _ uiImage: UIImage) {
-            backgroundImage = uiImage
-            backgroundCIImage = ciImage
-        }
     }
     
     enum ProcessedState: CustomStringConvertible {

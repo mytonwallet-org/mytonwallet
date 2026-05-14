@@ -7,8 +7,18 @@ enum SwapButtonTitle {
     case swap(ApiToken, ApiToken)
     case `continue`
     case authorizeDiesel(ApiToken)
+    case issue(SwapIssue)
+}
+
+enum SwapButtonState: Equatable {
     case invalidPair
-    case error(String)
+    case emptyAmount
+    case estimating(showContinue: Bool)
+    case waitingForEstimate
+    case blocked(SwapIssue)
+    case authorizeDiesel
+    case readyToContinue
+    case readyToSwap
 }
 
 struct SwapButtonConfiguration {
@@ -24,10 +34,8 @@ struct SwapButtonConfiguration {
             button.configureTitleContinue()
         case .authorizeDiesel(let token):
             button.configureTitleAuthorizeDiesel(sellingToken: token)
-        case .invalidPair:
-            button.configureTitleInvalidPair()
-        case .error(let message):
-            button.configureTitle(swapError: message)
+        case .issue(let issue):
+            button.configureTitle(issue: issue)
         }
         button.isEnabled = isEnabled
         button.showLoading = showLoading
@@ -35,54 +43,24 @@ struct SwapButtonConfiguration {
 }
 
 @MainActor final class SwapButtonModel {
-    func configurationForEmptyAmounts(isValidPair: Bool, sellingToken: ApiToken, buyingToken: ApiToken) -> SwapButtonConfiguration {
-        if !isValidPair {
-            return SwapButtonConfiguration(title: .invalidPair, isEnabled: false, showLoading: false)
-        }
-        return SwapButtonConfiguration(title: .swap(sellingToken, buyingToken), isEnabled: false, showLoading: false)
-    }
-
-    func configurationForOnchain(isValidPair: Bool, swapEstimate: ApiSwapEstimateResponse?, lateInit: OnchainSwapLateInit?, swapError: String?, shouldShowContinue: Bool, isEstimating: Bool, sellingToken: ApiToken, buyingToken: ApiToken) -> SwapButtonConfiguration? {
-        if !isValidPair {
-            return SwapButtonConfiguration(title: .invalidPair, isEnabled: false, showLoading: false)
-        }
-        if isEstimating {
-            let title: SwapButtonTitle = shouldShowContinue ? .continue : .swap(sellingToken, buyingToken)
+    func configuration(for state: SwapButtonState, sellingToken: ApiToken, buyingToken: ApiToken) -> SwapButtonConfiguration {
+        switch state {
+        case .invalidPair:
+            return SwapButtonConfiguration(title: .issue(.invalidPair), isEnabled: false, showLoading: false)
+        case .emptyAmount, .waitingForEstimate:
+            return SwapButtonConfiguration(title: .swap(sellingToken, buyingToken), isEnabled: false, showLoading: false)
+        case .estimating(let showContinue):
+            let title: SwapButtonTitle = showContinue ? .continue : .swap(sellingToken, buyingToken)
             return SwapButtonConfiguration(title: title, isEnabled: false, showLoading: true)
-        }
-        if let swapError {
-            return SwapButtonConfiguration(title: .error(swapError), isEnabled: false, showLoading: false)
-        }
-        guard let swapEstimate, let lateInit else {
-            return nil
-        }
-        if lateInit.isDiesel == true, swapEstimate.dieselStatus == .notAuthorized {
+        case .blocked(let issue):
+            return SwapButtonConfiguration(title: .issue(issue), isEnabled: false, showLoading: false)
+        case .authorizeDiesel:
             return SwapButtonConfiguration(title: .authorizeDiesel(sellingToken), isEnabled: true, showLoading: false)
-        }
-        if shouldShowContinue {
+        case .readyToContinue:
             return SwapButtonConfiguration(title: .continue, isEnabled: true, showLoading: false)
+        case .readyToSwap:
+            return SwapButtonConfiguration(title: .swap(sellingToken, buyingToken), isEnabled: true, showLoading: false)
         }
-        return SwapButtonConfiguration(title: .swap(sellingToken, buyingToken), isEnabled: true, showLoading: false)
-    }
-
-    func configurationForCrosschain(isValidPair: Bool, swapEstimate: ApiSwapCexEstimateResponse?, swapError: String?, shouldShowContinue: Bool, isEstimating: Bool, sellingToken: ApiToken, buyingToken: ApiToken) -> SwapButtonConfiguration? {
-        if !isValidPair {
-            return SwapButtonConfiguration(title: .invalidPair, isEnabled: false, showLoading: false)
-        }
-        if isEstimating {
-            let title: SwapButtonTitle = shouldShowContinue ? .continue : .swap(sellingToken, buyingToken)
-            return SwapButtonConfiguration(title: title, isEnabled: false, showLoading: true)
-        }
-        if let swapError {
-            return SwapButtonConfiguration(title: .error(swapError), isEnabled: false, showLoading: false)
-        }
-        guard swapEstimate != nil else {
-            return nil
-        }
-        if shouldShowContinue {
-            return SwapButtonConfiguration(title: .continue, isEnabled: true, showLoading: false)
-        }
-        return SwapButtonConfiguration(title: .swap(sellingToken, buyingToken), isEnabled: true, showLoading: false)
     }
 }
 
@@ -123,14 +101,8 @@ extension WButton {
         setAttributedTitle(attr, for: .normal)
     }
     
-    func configureTitleInvalidPair() {
-        let attr = NSMutableAttributedString(string: lang("Invalid Pair"))
-        attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
-        setAttributedTitle(attr, for: .normal)
-    }
-    
-    func configureTitle(swapError: String) {
-        let attr = NSMutableAttributedString(string: swapError)
+    func configureTitle(issue: SwapIssue) {
+        let attr = NSMutableAttributedString(string: issue.buttonTitle)
         attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
         setAttributedTitle(attr, for: .normal)
     }

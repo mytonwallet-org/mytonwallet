@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.TON_DNS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
+import org.mytonwallet.app_air.walletcore.models.MMarketplace
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType.BLACK
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType.GOLD
@@ -257,12 +258,12 @@ data class ApiNft(
     var fragmentUrl: String? = when {
         metadata?.fragmentUrl != null -> metadata.fragmentUrl
         collectionName?.lowercase()?.contains("numbers") ?: false ->
-            "https://fragment.com/number/${name?.replace(Regex("[^0-9]"), "")}"
+            MMarketplace.Fragment.numberUrl(name?.replace(Regex("[^0-9]"), "") ?: "")
 
         else ->
-            "https://fragment.com/username/${
-                name?.takeIf { it.length > 1 }?.substring(1).let { Uri.encode(it) } ?: ""
-            }"
+            MMarketplace.Fragment.usernameUrl(
+                name?.takeIf { it.length > 1 }?.substring(1) ?: ""
+            )
     }
 
     val isTonDns: Boolean
@@ -290,7 +291,7 @@ data class ApiNft(
         get() {
             return when (chain) {
                 MBlockchain.ton -> {
-                    "https://getgems.io/collection/${collectionAddress}"
+                    collectionAddress?.let { MMarketplace.Getgems.collectionUrl(it) }
                 }
 
                 else -> {

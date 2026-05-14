@@ -102,6 +102,20 @@ fun WalletCore.importNewWalletVersion(
     version: String,
     callback: (MAccount?, MBridgeError?) -> Unit
 ) {
+    importNewWalletVersionInternal(
+        prevAccount = prevAccount,
+        version = version,
+        allowRetry = true,
+        callback = callback
+    )
+}
+
+private fun WalletCore.importNewWalletVersionInternal(
+    prevAccount: MAccount,
+    version: String,
+    allowRetry: Boolean,
+    callback: (MAccount?, MBridgeError?) -> Unit
+) {
     val quotedAccountId = JSONObject.quote(prevAccount.accountId)
     val quotedVersion = JSONObject.quote(version)
 
@@ -116,7 +130,31 @@ fun WalletCore.importNewWalletVersion(
             val accountId = accountObj.getString("accountId")
             val isNew = accountObj.getBoolean("isNew")
             if (!isNew) {
-                callback(MAccount(accountId, WGlobalStorage.getAccount(accountId)!!), null)
+                val accountJson = WGlobalStorage.getAccount(accountId)
+                if (accountJson == null) {
+                    if (!allowRetry) {
+                        callback(null, MBridgeError.UNKNOWN)
+                        return@callApi
+                    }
+                    removeAccount(
+                        accountId = accountId,
+                        nextAccountId = null,
+                        isNextAccountPushedTemporary = null
+                    ) { _, removeErr ->
+                        if (removeErr != null) {
+                            callback(null, removeErr)
+                            return@removeAccount
+                        }
+                        importNewWalletVersionInternal(
+                            prevAccount = prevAccount,
+                            version = version,
+                            allowRetry = false,
+                            callback = callback
+                        )
+                    }
+                    return@callApi
+                }
+                callback(MAccount(accountId, accountJson), null)
                 return@callApi
             }
             val regex = "\\b(${POPULAR_WALLET_VERSIONS.joinToString("|")})\\b".toRegex()
@@ -288,7 +326,9 @@ fun WalletCore.removeAccount(
     val quotedAccountId = JSONObject.quote(accountId)
     val quotedNextAccountId = nextAccountId?.let { JSONObject.quote(nextAccountId) }
     val newestActivitiesTimestampBySlug =
-        nextAccountId?.let { ActivityStore.getNewestActivityTimestamps(nextAccountId) ?: JSONObject() }
+        nextAccountId?.let {
+            ActivityStore.getNewestActivityTimestamps(nextAccountId) ?: JSONObject()
+        }
 
     bridge?.callApi(
         "removeAccount",

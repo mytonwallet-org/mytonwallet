@@ -3,6 +3,7 @@ import type { WalletWatcher } from '../../../common/websocket/abstractWsClient';
 import type { ApiNetwork, ApiNft } from '../../../types';
 
 import { createCallbackManager } from '../../../../util/callbacks';
+import { logDebug } from '../../../../util/logs';
 import { FallbackPollingScheduler } from '../../../common/polling/fallbackPollingScheduler';
 import { parseSolTx } from '../activities';
 import { fetchNftByAddress, streamAllAccountNfts } from '../nfts';
@@ -143,6 +144,8 @@ export class NftStream {
     const streamedAddresses = new Set<string>();
     const ignorePreCheck = this.#ignoreNextPollPreCheck || this.#walletStatus === 'active';
     this.#ignoreNextPollPreCheck = false;
+    let didComplete = false;
+    let didFail = false;
 
     try {
       this.#abortController?.abort();
@@ -165,14 +168,28 @@ export class NftStream {
       if (this.#isDestroyed) return;
 
       this.#persistedNftAddresses = streamedAddresses;
+      didComplete = true;
+    } catch (err) {
+      didFail = true;
+      throw err;
     } finally {
+      logDebug('nftStream.fullLoadFinal', {
+        accountId: this.#accountId,
+        chain: 'solana',
+        streamedCount: streamedAddresses.size,
+        didComplete,
+        didFail,
+        destroyed: this.#isDestroyed,
+        aborted: this.#abortController?.signal.aborted,
+      });
+
       if (!this.#isDestroyed) {
         this.#updateListeners.runCallbacks({
           direction: 'set',
           nfts: [],
           hasNewNfts: false,
           isFullLoading: false,
-          streamedAddresses: [...streamedAddresses],
+          streamedAddresses: didComplete ? [...streamedAddresses] : undefined,
         });
         this.#loadingListeners.runCallbacks(false);
       }

@@ -8,6 +8,8 @@ import Perception
 import SwiftNavigation
 import Dependencies
 
+private let log = Log("NftDetailsVC")
+
 public class NftDetailsVC: NftDetailsBaseVC {
     private let nfts: [ApiNft]
     private let accountId: String
@@ -92,6 +94,7 @@ public class NftDetailsVC: NftDetailsBaseVC {
                     }
                     @Dependency(\.accountSettings) var _accountSettings
                     let accountSettings = _accountSettings.for(accountId: self.accountId)
+                    let accountId = self.accountId
                     var items: [ContextMenuItem] = []
                     if let mtwCardId = nft.metadata?.mtwCardId {
                         let isCurrent = mtwCardId == accountSettings.backgroundNft?.metadata?.mtwCardId
@@ -102,6 +105,7 @@ public class NftDetailsVC: NftDetailsBaseVC {
                                         title: lang("Reset Card"),
                                         icon: .airBundle("MenuInstallCard26"),
                                         handler: {
+                                            log.info("cardBackground.uiReset source=nftDetails accountId=\(accountId, .public) nftAddress=\(nft.address, .public) nftChain=\(nft.chain.rawValue, .public) nftMtwId=\(mtwCardId)")
                                             accountSettings.setBackgroundNft(nil)
                                         }
                                     )
@@ -114,6 +118,7 @@ public class NftDetailsVC: NftDetailsBaseVC {
                                         title: lang("Install Card"),
                                         icon: .airBundle("MenuInstallCard26"),
                                         handler: {
+                                            log.info("cardBackground.uiInstall source=nftDetails accountId=\(accountId, .public) nftAddress=\(nft.address, .public) nftChain=\(nft.chain.rawValue, .public) nftMtwId=\(mtwCardId)")
                                             accountSettings.setBackgroundNft(nft)
                                             accountSettings.setAccentColorNft(nft)
                                         }

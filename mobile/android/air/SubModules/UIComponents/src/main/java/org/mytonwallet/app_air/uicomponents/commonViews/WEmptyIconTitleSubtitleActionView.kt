@@ -118,6 +118,11 @@ class WEmptyIconTitleSubtitleActionView(context: Context) : WView(context), WThe
         animationView.fadeIn()
     }
 
+    fun updateAction(actionText: String, actionCallback: () -> Unit) {
+        actionButton.text = actionText
+        actionButton.setOnClickListener { actionCallback() }
+    }
+
     override fun updateTheme() {
         titleLabel.updateTheme()
         subtitleLabel.updateTheme()

@@ -9,10 +9,13 @@ import FirebaseMessaging
 #if canImport(Capacitor)
 import Capacitor
 import MytonwalletAirAppLauncher
-import SwiftKeychainWrapper
 #endif
 
 private let log = Log("AppDelegate")
+private let firstLaunchDateKey = "firstLaunchDate"
+private let firstLaunchVersionKey = "firstLaunchVersion"
+private let lastLaunchDateKey = "lastLaunchDate"
+private let lastLaunchVersionKey = "lastLaunchVersion"
 
 final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProtocol {
     
@@ -72,21 +75,18 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProto
         StartupTrace.mark("appDelegate.didFinishLaunching.begin", details: "isOnAir=\(isOnTheAir)")
         
         if application.isProtectedDataAvailable {
-            let isFirstLaunch = UserDefaults.standard.object(forKey: "firstLaunchDate") as? Date == nil
+            let isFirstLaunch = UserDefaults.standard.object(forKey: firstLaunchDateKey) as? Date == nil
             if isFirstLaunch {
                 log.info("firstLaunchDate key not found")
-                UserDefaults.standard.set(Date(), forKey: "firstLaunchDate")
-                UserDefaults.standard.set(appVersion, forKey: "firstLaunchVersion")
-                
-                if isDefinitelyNotAPreexistingInstall() {
-                    log.info("isDefinitelyNotAPreexistingInstall returned true, switching to Air")
-                    AirLauncher.isOnTheAir = true
-                    self.isFirstLaunch = true
-                }
+                UserDefaults.standard.set(Date(), forKey: firstLaunchDateKey)
+                UserDefaults.standard.set(appVersion, forKey: firstLaunchVersionKey)
+                self.isFirstLaunch = true
+                let decision = AirLauncher.applyMissingFirstLaunchMarkerPolicy()
+                StartupTrace.mark("appDelegate.startupModeDecision", details: decision.traceDetails)
             }
             
-            UserDefaults.standard.set(Date(), forKey: "lastLaunchDate")
-            UserDefaults.standard.set(appVersion, forKey: "lastLaunchVersion")
+            UserDefaults.standard.set(Date(), forKey: lastLaunchDateKey)
+            UserDefaults.standard.set(appVersion, forKey: lastLaunchVersionKey)
         }
 
         StartupTrace.mark(
@@ -179,41 +179,6 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProto
         #endif
     }
     
-    /// double check for app installs not opened since `firstLaunchDate` key was introduced
-    private func isDefinitelyNotAPreexistingInstall() -> Bool {
-        do {
-            func isEmpty(_ url: URL) -> Bool {
-                let contents = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: [])
-                return (contents ?? []).isEmpty
-            }
-            
-            let documentsIsEmpty = isEmpty(.documentsDirectory)
-            let cachesWebKitIsEmpty = isEmpty(.cachesDirectory.appending(path: "WebKit", directoryHint: .isDirectory))
-            let libraryWebKitIsEmpty = isEmpty(.libraryDirectory.appending(path: "WebKit", directoryHint: .isDirectory))
-            let keychainAccountsCount = KeychainHelper.getAccounts()?.count ?? 0
-            
-            if documentsIsEmpty
-                && cachesWebKitIsEmpty
-                && libraryWebKitIsEmpty
-                && keychainAccountsCount == 0 {
-                return true
-            } else {
-                log.info("isDefinitelyNotAPreexistingInstall check returned false")
-                let documents = try FileManager.default.contentsOfDirectory(at: .documentsDirectory, includingPropertiesForKeys: [])
-                let caches = try FileManager.default.contentsOfDirectory(at: .cachesDirectory, includingPropertiesForKeys: [])
-                let library = try FileManager.default.contentsOfDirectory(at: .libraryDirectory, includingPropertiesForKeys: [])
-                log.info(
-                    "preexisting install evidence documentsIsEmpty=\(documentsIsEmpty, .public) cachesWebKitIsEmpty=\(cachesWebKitIsEmpty, .public) libraryWebKitIsEmpty=\(libraryWebKitIsEmpty, .public) keychainAccounts=\(keychainAccountsCount, .public)"
-                )
-                log.info("documents=\(documents, .public)")
-                log.info("caches=\(caches, .public)")
-                log.info("library=\(library, .public)")
-            }
-        } catch {
-            log.error("failed to check if pre-existing install: \(error, .public)")
-        }
-        return false
-    }
 }
 
 #if canImport(Capacitor)

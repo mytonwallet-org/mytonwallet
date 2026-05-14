@@ -109,6 +109,26 @@ public final class SendModel: Sendable {
     var checkTransactionDraftTask: Task<Void, any Error>?
 
     private let flow: any SendFlow
+    
+    private static func getBestToken(accountContext: AccountContext) -> String {
+        let account = accountContext.account
+        let preferredTokenSlug = ApiToken.defaultSlugs(forNetwork: account.network, account: account).first ?? ApiToken.toncoin.slug
+        
+        var maxBalance: Double = 0.0
+        var tokens: [String: Double] = [:]
+        for (tokenSlug, balance) in accountContext.balances {
+            let tb = MTokenBalance(tokenSlug: tokenSlug, balance: balance, isStaking: false)
+            guard let baseCurrencyBalance = tb.toBaseCurrency, baseCurrencyBalance > 0 else { continue }
+            maxBalance = max(maxBalance, baseCurrencyBalance)
+            tokens[tokenSlug] = baseCurrencyBalance
+        }
+        
+        let mostExpensiveTokens = tokens.filter({ _, value in value == maxBalance }).keys.sorted()
+        if let firstExpensive = mostExpensiveTokens.first, !mostExpensiveTokens.contains(preferredTokenSlug) {
+            return firstExpensive
+        }
+        return preferredTokenSlug
+    }
 
     init(accountContext: AccountContext, prefilledValues: SendPrefilledValues) {
         @Dependency(\.tokenStore) var tokenStore
@@ -123,7 +143,7 @@ public final class SendModel: Sendable {
         } else if let token = prefilledValues.token {
             token
         } else {
-            accountContext.account.firstChain.nativeToken.slug
+            Self.getBestToken(accountContext: accountContext)
         }
         self._token = TokenProvider(tokenSlug: tokenSlug)
 

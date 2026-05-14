@@ -11,7 +11,9 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
 import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.JsonReader
 import com.squareup.moshi.Types
+import okio.Buffer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -192,10 +194,134 @@ class JSWebViewBridge(context: Context) : WebView(context) {
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+        private fun peekUpdateType(updateString: String): String? {
+            val reader = JsonReader.of(Buffer().writeUtf8(updateString))
+            return try {
+                if (reader.peek() != JsonReader.Token.BEGIN_OBJECT) return null
+                reader.beginObject()
+                while (reader.hasNext()) {
+                    if (reader.nextName() == "type") {
+                        return if (reader.peek() == JsonReader.Token.STRING) reader.nextString() else null
+                    }
+                    reader.skipValue()
+                }
+                null
+            } catch (_: Throwable) {
+                null
+            } finally {
+                try {
+                    reader.close()
+                } catch (_: Throwable) {
+                }
+            }
+        }
+
+        private fun streamUpdateTokens(updateString: String) {
+            val reader = JsonReader.of(Buffer().writeUtf8(updateString))
+            try {
+                reader.beginObject()
+                while (reader.hasNext()) {
+                    if (reader.nextName() != "tokens") {
+                        reader.skipValue()
+                        continue
+                    }
+                    if (reader.peek() != JsonReader.Token.BEGIN_OBJECT) {
+                        reader.skipValue()
+                        continue
+                    }
+                    reader.beginObject()
+                    while (reader.hasNext()) {
+                        val slug = reader.nextName()
+                        val tokenJsonString = reader.nextSource().readUtf8()
+                        try {
+                            val token = MToken(JSONObject(tokenJsonString))
+                            TokenStore.setToken(slug, token)
+                        } catch (_: Throwable) {
+                        }
+                    }
+                    reader.endObject()
+                }
+            } catch (_: Throwable) {
+                Logger.e(
+                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                    "streamUpdateSwapTokens: Error parsing tokens"
+                )
+            } finally {
+                try {
+                    reader.close()
+                } catch (_: Throwable) {
+                }
+            }
+            TokenStore.updateTokensCache()
+            BalanceStore.resetBalanceInBaseCurrency()
+            Handler(Looper.getMainLooper()).post {
+                WalletCore.notifyEvent(WalletEvent.TokensChanged)
+            }
+        }
+
+        private fun streamUpdateSwapTokens(updateString: String) {
+            val reader = JsonReader.of(Buffer().writeUtf8(updateString))
+            val tokens = ArrayList<MToken>()
+            try {
+                reader.beginObject()
+                while (reader.hasNext()) {
+                    if (reader.nextName() != "tokens") {
+                        reader.skipValue()
+                        continue
+                    }
+                    if (reader.peek() != JsonReader.Token.BEGIN_OBJECT) {
+                        reader.skipValue()
+                        continue
+                    }
+                    reader.beginObject()
+                    while (reader.hasNext()) {
+                        reader.nextName()
+                        val tokenJsonString = reader.nextSource().readUtf8()
+                        try {
+                            tokens.add(MToken(JSONObject(tokenJsonString)))
+                        } catch (_: Throwable) {
+                        }
+                    }
+                    reader.endObject()
+                }
+            } catch (_: Throwable) {
+                Logger.e(
+                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                    "streamUpdateSwapTokens: Error parsing tokens"
+                )
+                return
+            } finally {
+                try {
+                    reader.close()
+                } catch (_: Throwable) {
+                }
+            }
+            TokenStore.swapAssets2 = tokens.map { MApiSwapAsset.from(it) }
+            TokenStore.swapAssetsMap = TokenStore.swapAssets2?.associateBy { it.slug }
+            TokenStore._swapAssetsFlow.value = TokenStore.swapAssets2
+            TokenStore.swapAssets = tokens
+            TokenStore.updateSwapCache()
+            Handler(Looper.getMainLooper()).post {
+                TokenStore.isLoadingSwapAssets = false
+                WalletCore.notifyEvent(WalletEvent.TokensChanged)
+            }
+        }
+
         @Deprecated("Use moshi ApiUpdate")
         private fun parseUpdate(updateString: String) {
+            val updateType = peekUpdateType(updateString) ?: return
+            when (updateType) {
+                "updateTokens" -> {
+                    streamUpdateTokens(updateString)
+                    return
+                }
+
+                "updateSwapTokens" -> {
+                    streamUpdateSwapTokens(updateString)
+                    return
+                }
+            }
             val objectJSONObject = JSONObject(updateString)
-            val updateType = objectJSONObject.optString("type")
             when (updateType) {
                 "updateBalances" -> {
                     val accountId = objectJSONObject.optString("accountId")
@@ -244,54 +370,6 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                         Handler(Looper.getMainLooper()).post {
                             WalletCore.notifyEvent(WalletEvent.UpdatingStatusChanged)
                         }
-                    }
-                }
-
-                "updateTokens" -> {
-                    val tokensJSONObject =
-                        objectJSONObject.optJSONObject("tokens") ?: return
-                    if (tokensJSONObject.length() < 6) {
-                        return
-                    }
-                    val tokensObject = HashMap<String, MToken>()
-                    for (tokenSlug in tokensJSONObject.keys()) {
-                        tokensObject[tokenSlug] =
-                            MToken(tokensJSONObject.getJSONObject(tokenSlug))
-                    }
-                    for (it in tokensObject.keys) {
-                        TokenStore.setToken(it, tokensObject[it]!!)
-                    }
-                    TokenStore.updateTokensCache()
-                    BalanceStore.resetBalanceInBaseCurrency()
-                    if (tokensObject.size < 7)
-                        return
-                    Handler(Looper.getMainLooper()).post {
-                        WalletCore.notifyEvent(WalletEvent.TokensChanged)
-                    }
-                }
-
-                "updateSwapTokens" -> {
-                    val tokensJSONObject =
-                        objectJSONObject.optJSONObject("tokens") ?: return
-                    try {
-                        val tokens = ArrayList<MToken>()
-                        val tokenKeys = tokensJSONObject.keys()
-                        for (key in tokenKeys) {
-                            val tokenObj = tokensJSONObject.getJSONObject(key)
-                            val token = MToken(tokenObj)
-                            tokens.add(token)
-                        }
-                        TokenStore.swapAssets2 = tokens.map { MApiSwapAsset.from(it) }
-                        TokenStore.swapAssetsMap =
-                            TokenStore.swapAssets2?.associateBy { it.slug }
-                        TokenStore._swapAssetsFlow.value = TokenStore.swapAssets2
-                        TokenStore.swapAssets = tokens
-                        TokenStore.updateSwapCache()
-                        Handler(Looper.getMainLooper()).post {
-                            TokenStore.isLoadingSwapAssets = false
-                            WalletCore.notifyEvent(WalletEvent.TokensChanged)
-                        }
-                    } catch (_: Exception) {
                     }
                 }
 

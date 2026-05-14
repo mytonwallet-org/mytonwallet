@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcore.models
 import android.net.Uri
 import com.squareup.moshi.JsonClass
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -13,6 +14,7 @@ import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.utils.sortedByBalance
+import java.math.BigInteger
 
 @JsonClass(generateAdapter = true)
 class MAccount(
@@ -160,6 +162,11 @@ class MAccount(
             return byChain.keys.size > 1
         }
 
+    val isMainnet: Boolean
+        get() {
+            return network.isMainnet
+        }
+
     val addressByChain: Map<String, String>
         get() = byChain.mapValues { it.value.address }
 
@@ -170,12 +177,12 @@ class MAccount(
 
     val supportsSwap: Boolean
         get() {
-            return network == MBlockchainNetwork.MAINNET && accountType == AccountType.MNEMONIC
+            return isMainnet && accountType == AccountType.MNEMONIC
         }
 
     val supportsBuyWithCard: Boolean
         get() {
-            return network == MBlockchainNetwork.MAINNET && accountType != AccountType.VIEW
+            return isMainnet && accountType != AccountType.VIEW
         }
 
     val supportsBuyWithCrypto: Boolean
@@ -194,6 +201,8 @@ class MAccount(
             val defaultTokens = ALL_DEFAULT_TOKENS[network]
             return balances.filter { defaultTokens?.contains(it.key) != true }
                 .isEmpty() && balances.filter {
+                if (it.value == BigInteger.ZERO)
+                    return@filter false
                 val token = TokenStore.getToken(it.key) ?: return@filter false
                 return@filter token.priceUsd *
                     it.value.doubleAbsRepresentation(token.decimals) >= 0.01
@@ -214,7 +223,7 @@ class MAccount(
 
             return Uri.Builder()
                 .scheme("https")
-                .authority("my.tt")
+                .authority(ApplicationContextHolder.universalShortUrlHost)
                 .path("view/")
                 .apply {
                     sortedChains.forEach { (chain, chainAccount) ->
@@ -229,7 +238,7 @@ class MAccount(
                         appendQueryParameter(chain, chainAccount.address)
                     }
 
-                    if (network == MBlockchainNetwork.TESTNET) {
+                    if (network.isTestnet) {
                         appendQueryParameter("testnet", "true")
                     }
                 }

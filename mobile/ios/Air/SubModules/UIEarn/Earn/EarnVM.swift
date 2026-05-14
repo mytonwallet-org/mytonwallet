@@ -308,6 +308,7 @@ public final class EarnVM: WalletCoreData.EventsObserver {
     // MARK: - Unstaked activities
     
     private func fetchUnstakeTokenActivities(toTimestamp: Int64? = nil) {
+        let accountId = currentAccountId
         if isLoadingUnstakeActivities {
             return
         }
@@ -316,21 +317,29 @@ public final class EarnVM: WalletCoreData.EventsObserver {
             do {
                 log.info("fetchActivitySlice \(tokenSlug)")
                 let result = try await Api.fetchPastActivities(
-                    accountId: self.currentAccountId,
+                    accountId: accountId,
                     limit: 50,
                     tokenSlug: tokenSlug,
                     toTimestamp: toTimestamp
                 )
+                guard accountId == self.currentAccountId else {
+                    return
+                }
                 let newTransactions = result.activities
                 isLoadingUnstakeActivities = false
                 if newTransactions.count > 0 {
                     lastUnstakeActivityItem = (newTransactions.last!.id, newTransactions.last!.timestamp)
                 }
-                if !result.hasMore {
+                if newTransactions.isEmpty || !result.hasMore {
                     isLoadedAllUnstakeActivityItems = true
                 }
                 await merger(newTransactions: newTransactions)
             } catch {
+                guard accountId == self.currentAccountId else {
+                    return
+                }
+                isLoadingUnstakeActivities = false
+                log.error("fetchUnstakeTokenActivities failed accountId=\(accountId, .public) tokenSlug=\(tokenSlug, .public) error=\(error, .public)")
                 DispatchQueue.main.asyncAfter(deadline: .now() + (delegate != nil ? 2 : 20)) { [weak self] in
                     guard let self else {return}
                     fetchUnstakeTokenActivities(toTimestamp: toTimestamp)
@@ -340,18 +349,19 @@ public final class EarnVM: WalletCoreData.EventsObserver {
     }
     
     func loadMoreUnstakeActivityItems() {
-        if isLoadedAllActivityItems {
+        if isLoadedAllUnstakeActivityItems {
             return
         }
-        guard let lastActivityItem = lastActivityItem?.1 else {
+        guard let lastUnstakeActivityItem = lastUnstakeActivityItem?.1 else {
             return
         }
-        fetchUnstakeTokenActivities(toTimestamp: lastActivityItem)
+        fetchUnstakeTokenActivities(toTimestamp: lastUnstakeActivityItem)
     }
     
     // MARK: - STAKED token activities
     
     private func fetchTokenActivities(toTimestamp: Int64? = nil) {
+        let accountId = currentAccountId
         if isLoadingActivities {
             return
         }
@@ -360,21 +370,29 @@ public final class EarnVM: WalletCoreData.EventsObserver {
             do {
                 log.info("fetchActivitySlice \(tokenSlug)")
                 let result = try await Api.fetchPastActivities(
-                    accountId: self.currentAccountId,
+                    accountId: accountId,
                     limit: 50,
                     tokenSlug: stakedTokenSlug,
                     toTimestamp: toTimestamp
                 )
+                guard accountId == self.currentAccountId else {
+                    return
+                }
                 let newTransactions = result.activities
                 isLoadingActivities = false
                 if newTransactions.count > 0 {
                     lastActivityItem = (newTransactions.last!.id, newTransactions.last!.timestamp)
                 }
-                if !result.hasMore {
+                if newTransactions.isEmpty || !result.hasMore {
                     isLoadedAllActivityItems = true
                 }
                 await merger(newTransactions: newTransactions)
             } catch {
+                guard accountId == self.currentAccountId else {
+                    return
+                }
+                isLoadingActivities = false
+                log.error("fetchTokenActivities failed accountId=\(accountId, .public) tokenSlug=\(stakedTokenSlug, .public) error=\(error, .public)")
                 DispatchQueue.main.asyncAfter(deadline: .now() + (delegate != nil ? 2 : 20)) { [weak self] in
                     guard let self else {return}
                     fetchTokenActivities(toTimestamp: toTimestamp)

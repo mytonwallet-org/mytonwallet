@@ -54,3 +54,5 @@ fun Double.smartDecimalsCount(tokenDecimals: Int): Int {
     }
     return minOf(tokenDecimals, multiplier)
 }
+
+fun Double.negative(): Double = -abs(this)

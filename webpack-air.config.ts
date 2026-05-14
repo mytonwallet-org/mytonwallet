@@ -4,7 +4,7 @@ import WatchFilePlugin from '@mytonwallet/webpack-watch-file-plugin';
 import fs from 'fs';
 import path from 'path';
 import type { Configuration } from 'webpack';
-import { BannerPlugin, EnvironmentPlugin, ProvidePlugin } from 'webpack';
+import { BannerPlugin, EnvironmentPlugin, IgnorePlugin, ProvidePlugin } from 'webpack';
 
 import { convertI18nYamlToJson } from './dev/locales/convertI18nYamlToJson';
 import { APP_ENV } from './src/config';
@@ -19,6 +19,10 @@ export default function createConfig(
 ): Configuration {
   return {
     mode,
+
+    ignoreWarnings: [
+      { module: /src[\\/]api[\\/]storages[\\/]index\.ts$/, message: /Critical dependency/ },
+    ],
 
     optimization: {
       usedExports: true,
@@ -67,6 +71,11 @@ export default function createConfig(
       new BannerPlugin({
         banner: 'window.XMLHttpRequest = undefined;',
         raw: true,
+      }),
+      new IgnorePlugin({
+        checkResource(resource) {
+          return /.*\/wordlists\/(?!english).*\.json/.test(resource);
+        },
       }),
       new ProvidePlugin({
         Buffer: ['buffer', 'Buffer'],

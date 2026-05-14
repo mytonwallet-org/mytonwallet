@@ -89,6 +89,8 @@ $gapSize: 0.5rem;
   }
 
   &::before {
+    // Promote to its own layer to prevent hover flicker in Safari
+    will-change: transform;
     content: "";
 
     position: absolute;
@@ -155,7 +157,7 @@ $gapSize: 0.5rem;
 
   width: 100%;
   margin-bottom: 1rem;
-  padding: 0.5rem;
+  padding: 0.5rem 0 0.5rem 0.5rem;
 }
 
 .loadingWrapper {
@@ -234,6 +236,9 @@ $gapSize: 0.5rem;
 }
 
 .image {
+  // Promote to its own layer to prevent hover flicker in Safari
+  will-change: transform;
+
   transform-origin: center;
 
   overflow: hidden;

@@ -44,16 +44,19 @@ struct ActivityNavigationHeader: View {
                 return .failed
             }
         case .swap(let swap):
-            if swap.cex?.status == .hold {
+            switch swap.displayStatus(accountChains: viewModel.accountContext.account.supportedChains) {
+            case .hold:
                 return .hold
-            } else if swap.cex?.status == .expired || swap.cex?.status == .overdue {
+            case .expired:
                 return .expired
-            } else if swap.cex?.status == .refunded {
+            case .refunded:
                 return .refunded
-            } else if swap.cex?.status == .failed || swap.status == .failed || swap.status == .expired {
+            case .failed:
                 return .failed
-            } else if swap.cex?.status == .waiting && !getShouldSkipSwapWaitingStatus(activity: viewModel.activity, accountChains: viewModel.accountContext.account.supportedChains) {
+            case .waitingForPayment:
                 return .waitingForPayment
+            case .pending, .completed:
+                return nil
             }
         }
         return nil
@@ -106,16 +109,4 @@ extension DisplayStatus {
         case .waitingForPayment: .secondary
         }
     }
-}
-
-/**
- * If the account has the "from" token chain, the swap "in" transaction has been performed by the app automatically
- * (see the `submitSwapCex` action code). So, if the Changelly status is "waiting", the UI shouldn't tell the user that
- * the app is waiting for their payment.
- */
-func getShouldSkipSwapWaitingStatus(activity: ApiActivity, accountChains: Set<ApiChain>) -> Bool {
-    if let swap = activity.swap {
-        return getSwapType(from: swap.from, to: swap.to, accountChains: accountChains) != .crosschainToWallet
-    }
-    return false
 }

@@ -50,7 +50,7 @@ Currency: Валюта
 Choose Currency to Send: Выберите валюту для отправки
 Send to: Отправить на
 Add a message, if needed: Добавьте сообщение, если нужно
-Show All Collectibles: Показать все предметы
+Show All Collectibles: Показать все NFT
 You have no NFT in this wallet yet: |
   У вас пока нет NFT в
   этом кошельке.
@@ -365,6 +365,13 @@ $subwallets_found:
   oneValue: "Найден: %1$d"
   fewValue: "Найдено: %1$d"
   otherValue: "Найдено: %1$d"
+
+$subwallet_scan_no_native_balances: Нет нативных балансов
+$subwallet_scan_other_tokens_suffix:
+  zeroValue: " + ещё %1$d других токенов"
+  oneValue: " + ещё %1$d другой токен"
+  fewValue: " + ещё %1$d других токена"
+  manyValue: " + ещё %1$d других токенов"
 
 $subwallets_hint: Используйте субкошельки для получения дополнительных адресов без создания новых секретных слов.
 $subwallets_created_wallets: Если вы ранее создавали субкошельки, они появятся в списке ниже.

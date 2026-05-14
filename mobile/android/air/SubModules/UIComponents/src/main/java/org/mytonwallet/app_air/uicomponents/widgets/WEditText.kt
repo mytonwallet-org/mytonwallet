@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Rect
+import android.os.Build
 import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.inputmethod.EditorInfo
@@ -34,6 +35,8 @@ open class WEditText(
             updateEmojiWatcher()
         }
 
+    var isAutoFillSupported: Boolean = true
+
     init {
         id = generateViewId()
         background = null
@@ -48,6 +51,13 @@ open class WEditText(
             PasteInterceptingInputConnection(ic, true)
         else
             ic
+    }
+
+    override fun getAutofillType(): Int {
+        if (!isAutoFillSupported && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return AUTOFILL_TYPE_NONE
+        }
+        return super.getAutofillType()
     }
 
     interface Delegate {

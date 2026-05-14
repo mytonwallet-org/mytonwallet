@@ -42,7 +42,6 @@ public struct TransactionOverviewView: View {
             size: 60,
             chainSize: 22,
             chainBorderWidth: 1.5,
-            chainBorderColor: .air.sheetBackground,
             chainHorizontalOffset: 6,
             chainVerticalOffset: 2
         )

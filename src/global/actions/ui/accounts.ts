@@ -23,6 +23,20 @@ addActionHandler('closeAccountSelector', (global) => {
   return { ...global, isAccountSelectorOpen: undefined };
 });
 
+addActionHandler('openWalletRenameModal', (global, actions, payload) => {
+  const accountId = payload?.accountId ?? global.currentAccountId;
+
+  if (!accountId) {
+    return undefined;
+  }
+
+  return { ...global, walletRenameAccountId: accountId };
+});
+
+addActionHandler('closeWalletRenameModal', (global) => {
+  return { ...global, walletRenameAccountId: undefined };
+});
+
 addActionHandler('setAccountSelectorTab', (global, actions, { tab }) => {
   return { ...global, accountSelectorActiveTab: tab };
 });

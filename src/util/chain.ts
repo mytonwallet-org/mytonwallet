@@ -117,6 +117,7 @@ export interface ChainConfig {
   };
   /** The slug of the USDT token in this chain, if it has USDT */
   usdtSlug: Record<ApiNetwork, string | undefined>;
+  usdcSlug?: Record<ApiNetwork, string | undefined>;
   /** The token slugs of this chain added to new accounts by default. */
   defaultEnabledSlugs: Record<ApiNetwork, string[]>;
   /** The token slugs of this chain supported by the crosschain (CEX) swap mechanism. */
@@ -338,6 +339,10 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       mainnet: SOLANA_USDT_MAINNET.slug,
       testnet: undefined,
     },
+    usdcSlug: {
+      mainnet: SOLANA_USDC_MAINNET.slug,
+      testnet: undefined,
+    },
     defaultEnabledSlugs: {
       mainnet: [SOLANA.slug],
       testnet: [SOLANA.slug],
@@ -408,6 +413,10 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       mainnet: ETH_USDT_MAINNET.slug,
       testnet: ETH_USDT_MAINNET.slug,
     },
+    usdcSlug: {
+      mainnet: ETH_USDC_MAINNET.slug,
+      testnet: undefined,
+    },
     defaultEnabledSlugs: {
       mainnet: [ETH.slug],
       testnet: [ETH.slug],
@@ -471,6 +480,10 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     usdtSlug: {
       mainnet: BASE_USDT_MAINNET.slug,
       testnet: BASE_USDT_MAINNET.slug,
+    },
+    usdcSlug: {
+      mainnet: BASE_USDC_MAINNET.slug,
+      testnet: undefined,
     },
     defaultEnabledSlugs: {
       mainnet: [],
@@ -820,8 +833,12 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       amountIn: '50',
     },
     usdtSlug: {
+      mainnet: undefined,
+      testnet: undefined,
+    },
+    usdcSlug: {
       mainnet: HYPERLIQUID_USDC_MAINNET.slug,
-      testnet: HYPERLIQUID_USDC_MAINNET.slug,
+      testnet: undefined,
     },
     defaultEnabledSlugs: {
       mainnet: [HYPERLIQUID.slug],

@@ -25,6 +25,7 @@ export interface DropdownItem<T extends string = string> {
   isDangerous?: boolean;
   withDelimiter?: boolean;
   withDelimiterAfter?: boolean;
+  noTranslate?: boolean;
 }
 
 interface OwnProps<T extends string> {

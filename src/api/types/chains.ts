@@ -12,6 +12,7 @@ import type {
 import type { ApiAnyDisplayError } from './errors';
 import type {
   ApiActivityTimestamps,
+  ApiBalanceBySlug,
   ApiChain,
   ApiDerivation,
   ApiNetwork,
@@ -41,11 +42,25 @@ export interface ChainSdk<T extends ApiChain> {
   /** Must return activities sorted in accordance with `sortActivities` */
   fetchActivitySlice(options: ApiFetchActivitySliceOptions): Promise<ApiActivity[]>;
 
-  /**
+  /** SDK submodule responsible for cross-chain API requests.
+   * Passed if multiple instances of the same chain-SDK are used (EVM chains case).
+  */
+  crosschain?: {
+    /**
    * Must return activities sorted in accordance with `sortActivities`
    * Used in case of cross-chain activity fetching by one API call (EVM chains case).
    *  */
-  fetchCrossChainActivitySlice(options: ApiFetchActivitySliceOptions): Promise<ApiActivity[]>;
+    fetchCrossChainActivitySlice(options: ApiFetchActivitySliceOptions): Promise<ApiActivity[]>;
+
+    /**
+     * Fetches the assets of the given wallet address on the cross-chain (EVM chains case).
+     */
+    fetchCrosschainAccountAssets(
+      network: ApiNetwork,
+      address: string,
+      sendUpdateTokens: NoneToVoidFunction,
+    ): Promise<ApiBalanceBySlug>;
+  };
 
   /** May return `undefined` if the activity doesn't change and there are no unexpected errors */
   fetchActivityDetails(accountId: string, activity: ApiActivity): MaybePromise<ApiActivity | undefined>;
@@ -164,6 +179,13 @@ export interface ChainSdk<T extends ApiChain> {
 
   /** Native token balance in smallest units for the given wallet address. */
   getWalletBalance(network: ApiNetwork, address: string): Promise<bigint>;
+
+  /** Fetches the assets of the given wallet address (eg. Jettons, SPL tokens, ERC-20 tokens, etc.) */
+  getWalletAssets(
+    network: ApiNetwork,
+    address: string,
+    sendUpdateTokens: NoneToVoidFunction,
+  ): Promise<ApiBalanceBySlug>;
 
   /**
    * Opens the verification screen of the chain's app on the Ledger device.

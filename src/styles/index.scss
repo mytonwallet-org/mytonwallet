@@ -310,6 +310,10 @@ a {
   background-size: 200% 100%;
 
   animation: glare 2s ease-in-out infinite;
+
+  :is(html.is-ios, html.is-safari) & .icon {
+    color: transparent;
+  }
 }
 
 @keyframes glare {

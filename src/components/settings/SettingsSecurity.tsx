@@ -443,7 +443,10 @@ function SettingsSecurity({
 
           <>
             <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-              <div className={buildClassName(styles.item, styles.itemSmall)} onClick={handleAppLockToggle}>
+              <div
+                className={buildClassName(styles.item, styles.itemSmall, !isAppLockEnabled && styles.isLast)}
+                onClick={handleAppLockToggle}
+              >
                 <span className={styles.itemTitle}>{lang('App Lock')}</span>
 
                 <Switcher

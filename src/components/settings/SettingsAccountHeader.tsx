@@ -17,7 +17,6 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useWindowSize from '../../hooks/useWindowSize';
 
-import AccountRenameModal from '../main/modals/accountSelector/AccountRenameModal';
 import Button from '../ui/Button';
 import DropdownMenu from '../ui/DropdownMenu';
 import Transition from '../ui/Transition';
@@ -60,7 +59,7 @@ function SettingsAccountHeader({
   currentWalletRef,
   onRemoveClick,
 }: OwnProps & StateProps) {
-  const { openReceiveModal } = getActions();
+  const { openReceiveModal, openWalletRenameModal } = getActions();
   const lang = useLang();
   const { isPortrait } = useDeviceScreen();
   const { height: windowHeight, width: windowWidth } = useWindowSize();
@@ -70,7 +69,6 @@ function SettingsAccountHeader({
   const dropdownMenuRef = useRef<HTMLDivElement>();
 
   const [headerHeight, setHeaderHeight] = useState(0);
-  const [isRenameModalOpen, openRenameModal, closeRenameModal] = useFlag();
   const [isMenuOpen, openMenu, closeMenu] = useFlag();
   const [menuAnchor, setMenuAnchor] = useState<IAnchorPosition | undefined>();
 
@@ -84,7 +82,7 @@ function SettingsAccountHeader({
 
   const handleRenameClick = useLastCallback(() => {
     void vibrate();
-    openRenameModal();
+    openWalletRenameModal();
   });
 
   const handleRemoveClick = useLastCallback(() => {
@@ -197,13 +195,6 @@ function SettingsAccountHeader({
         />
       )}
 
-      {currentAccountId && (
-        <AccountRenameModal
-          isOpen={isRenameModalOpen}
-          accountId={currentAccountId}
-          onClose={closeRenameModal}
-        />
-      )}
     </>
   );
 }

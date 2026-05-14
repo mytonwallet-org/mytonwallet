@@ -37,7 +37,6 @@ struct StakingConfirmHeaderView: View {
             size: 60,
             chainSize: 24,
             chainBorderWidth: 1.5,
-            chainBorderColor: .air.sheetBackground,
             chainHorizontalOffset: 6,
             chainVerticalOffset: 2
         )

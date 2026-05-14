@@ -6,7 +6,7 @@ import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import path from 'path';
 import type { Compiler, Configuration } from 'webpack';
 import {
-  EnvironmentPlugin, NormalModuleReplacementPlugin, ProvidePlugin,
+  EnvironmentPlugin, IgnorePlugin, NormalModuleReplacementPlugin, ProvidePlugin,
 } from 'webpack';
 
 import { APP_ENV } from './src/multisend/config';
@@ -171,6 +171,11 @@ export default function createConfig(
         /i18n\/en\.json/,
         '../multisend/utils/mockI18nEn.json',
       ),
+      new IgnorePlugin({
+        checkResource(resource) {
+          return /.*\/wordlists\/(?!english).*\.json/.test(resource);
+        },
+      }),
       new StatoscopeWebpackPlugin({
         statsOptions: {
           context: __dirname,

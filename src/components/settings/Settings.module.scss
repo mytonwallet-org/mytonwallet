@@ -104,6 +104,12 @@ $createSubwalletPaddingBottom: 1rem;
 
   :global(html.is-mobile-telegram-app.is-fullscreen) & {
     padding-top: calc(var(--tg-safe-area-inset-top) + var(--header-title-height));
+
+    @include mixins.respond-below(xs) {
+      &:global(.with-notch-on-scroll) {
+        position: relative !important;
+      }
+    }
   }
 }
 
@@ -156,6 +162,10 @@ $createSubwalletPaddingBottom: 1rem;
 .headerBack {
   display: flex;
   align-items: center;
+
+  :global(html.is-mobile-telegram-app) & {
+    visibility: hidden;
+  }
 }
 
 .headerWalletNameTransition {
@@ -213,6 +223,10 @@ $createSubwalletPaddingBottom: 1rem;
 
   &.noTitle {
     --header-title-height: -1rem;
+
+    :global(html.is-mobile-telegram-app.is-fullscreen) & {
+      padding-top: inherit;
+    }
   }
 
   &_withWallet {
@@ -228,7 +242,7 @@ $createSubwalletPaddingBottom: 1rem;
   @include mixins.respond-below(xs) {
     padding-top: calc(var(--header-padding-top) + var(--header-title-height) + var(--header-padding-bottom) + 1.1875rem);
 
-    :global(html.is-mobile-telegram-app.is-fullscreen) & {
+    :global(html.is-mobile-telegram-app.is-fullscreen) &:not(.noTitle) {
       padding-top: 0.75rem;
     }
   }
@@ -605,9 +619,16 @@ $createSubwalletPaddingBottom: 1rem;
   }
 
   &_token {
+    position: absolute;
+    top: 0;
+    left: 0;
+
     overflow: hidden;
+
+    width: 100%;
     height: 4rem;
     padding: 0.6875rem 1rem;
+    border-radius: 0 !important;
 
     @include mixins.separatorBottomSettings(4rem, 0);
   }
@@ -649,7 +670,7 @@ $createSubwalletPaddingBottom: 1rem;
     border-top-right-radius: var(--border-radius-default);
   }
 
-  &:last-child {
+  &:is(:last-child, &.isLast) {
     border-bottom-right-radius: var(--border-radius-default);
     border-bottom-left-radius: var(--border-radius-default);
     box-shadow: none;
@@ -1038,6 +1059,11 @@ a.item:hover {
   font-size: 1.5rem;
 }
 
+.tokenInfo {
+  overflow: hidden;
+  max-width: 100%;
+}
+
 .tokenDescription {
   display: flex;
   align-items: center;
@@ -1063,6 +1089,7 @@ a.item:hover {
 }
 
 .dapp,
+.tokenList,
 .themeIcon {
   position: relative;
 }
@@ -1371,6 +1398,10 @@ $externalRadius: $internalRadius + $borderWidth;
   bottom: 0;
   left: 0;
 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
   box-sizing: content-box;
   height: $createSubwalletButtonHeight;
   padding: $createSubwalletPaddingTop 1rem $createSubwalletPaddingBottom;
@@ -1397,6 +1428,13 @@ $externalRadius: $internalRadius + $borderWidth;
 .createSubwalletButton {
   width: 100%;
   max-width: 100% !important;
+}
+
+.addAllFoundSubwalletsContainer {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.75rem;
 }
 
 .checkbox {

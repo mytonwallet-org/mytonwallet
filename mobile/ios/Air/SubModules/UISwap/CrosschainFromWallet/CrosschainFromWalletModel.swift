@@ -6,7 +6,6 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-private let log = Log("CrosschainFromWalletModel")
 private let debounceAddressValidation: Duration = .seconds(0.250)
 
 @Perceptible
@@ -15,8 +14,6 @@ final class CrosschainFromWalletModel {
     
     let sellingToken: TokenAmount
     let buyingToken: TokenAmount
-    private let swapFee: MDouble
-    private let networkFee: MDouble
     
     var addressInputString: String = ""
     var addressWithTrimming: String {
@@ -38,15 +35,11 @@ final class CrosschainFromWalletModel {
     init(
         sellingToken: TokenAmount,
         buyingToken: TokenAmount,
-        swapFee: MDouble,
-        networkFee: MDouble,
         accountContext: AccountContext
     ) {
         self._account = accountContext
         self.sellingToken = sellingToken
         self.buyingToken = buyingToken
-        self.swapFee = swapFee
-        self.networkFee = networkFee
         validateObserver = observe { [weak self] in
             guard let self else { return }
             let address = self.toAddress
@@ -95,30 +88,6 @@ final class CrosschainFromWalletModel {
         case .address(let address, let possibleChains):
             guard possibleChains.isEmpty || possibleChains.contains(buyingToken.type.chain) else { return }
             applyAddress(address)
-        }
-    }
-    
-    func performSwap(passcode: String) async throws {
-        let cexParams = try ApiSwapCexCreateTransactionParams(
-            from: sellingToken.type.swapIdentifier,
-            fromAmount: MDouble(sellingToken.amount.doubleAbsRepresentation(decimals: sellingToken.decimals)),
-            fromAddress: account.crosschainIdentifyingFromAddress.orThrow(),
-            to: buyingToken.type.swapIdentifier,
-            toAddress: toAddress,
-            swapFee: swapFee,
-            networkFee: networkFee
-        )
-        do {
-            _ = try await SwapCexSupport.swapCexCreateTransaction(
-                accountId: account.id,
-                sellingToken: sellingToken.type,
-                params: cexParams,
-                shouldTransfer: true,
-                passcode: passcode
-            )
-        } catch {
-            log.error("SwapCexSupport.swapCexCreateTransaction: \(error, .public)")
-            throw error
         }
     }
 

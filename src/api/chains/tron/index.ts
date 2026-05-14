@@ -11,15 +11,15 @@ import {
 import { setupActivePolling, setupInactivePolling } from './polling';
 import { fetchTransactionById } from './transactionInfo';
 import { checkTransactionDraft, fetchEstimateDiesel, submitGasfullTransfer } from './transfer';
-import { getAddressInfo, getWalletBalance } from './wallet';
+import { getAddressInfo, getWalletAssets, getWalletBalance } from './wallet';
 
 function notSupported(): never {
   throw new Error('Not supported in Tron');
 }
 
 const tronSdk: ChainSdk<'tron'> = {
-  fetchCrossChainActivitySlice: notSupported,
   fetchActivitySlice,
+  crosschain: undefined,
   fetchActivityDetails,
   decryptComment: notSupported,
   normalizeAddress,
@@ -41,10 +41,12 @@ const tronSdk: ChainSdk<'tron'> = {
   submitGaslessTransfer: notSupported,
   getAddressInfo,
   getWalletBalance,
+  getWalletAssets,
   verifyLedgerWalletAddress: notSupported,
   fetchPrivateKeyString,
   getIsLedgerAppOpen: notSupported,
   fetchTransactionById,
+  dapp: undefined,
   getAccountNfts: notSupported,
   streamAllAccountNfts: notSupported,
   checkNftTransferDraft: notSupported,

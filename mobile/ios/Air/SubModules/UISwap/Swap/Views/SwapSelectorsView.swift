@@ -23,11 +23,13 @@ struct SwapSelectorsView: View {
                 sellingFocused: $model.sellingFocused,
                 buyingFocused: $model.buyingFocused,
                 buyingAmountInputDisabled: model.buyingAmountInputDisabled,
-                onUseAll: model.onUseAll,
-                onReverse: model.onReverse,
-                onSellingTokenPicker: model.onSellingTokenPicker,
-                onBuyingTokenPicker: model.onBuyingTokenPicker,
-                onBuyingAmountDisabledTap: model.onBuyingAmountDisabledTap
+                onUseAll: model.userTappedUseAll,
+                onReverse: model.userTappedReverse,
+                onSellingTokenPicker: { model.userTappedTokenPicker(side: .selling) },
+                onBuyingTokenPicker: { model.userTappedTokenPicker(side: .buying) },
+                onBuyingAmountDisabledTap: model.userTappedBuyingAmountDisabled,
+                onSellingAmountChanged: { model.userEditedAmount($0, side: .selling) },
+                onBuyingAmountChanged: { model.userEditedAmount($0, side: .buying) }
             )
         }
     }
@@ -54,6 +56,8 @@ fileprivate struct _SwapSelectorsView: View {
     var onSellingTokenPicker: () -> ()
     var onBuyingTokenPicker: () -> ()
     var onBuyingAmountDisabledTap: () -> ()
+    var onSellingAmountChanged: (BigInt?) -> ()
+    var onBuyingAmountChanged: (BigInt?) -> ()
     
     private var availableSellingAmount: BigInt? {
         maxAmount ?? tokenBalance
@@ -104,13 +108,13 @@ fileprivate struct _SwapSelectorsView: View {
                 token: sellingToken,
                 inBaseCurrency: false,
                 insufficientFunds: insufficientFunds,
-                isLoading: staleAmountSide == .selling,
                 isValueStale: staleAmountSide == .selling,
                 triggerFocused: $sellingFocused,
                 onTokenPickerTapped: onSellingTokenPicker,
                 onInputTapped: {
                     sellingFocused = true
-                }
+                },
+                onAmountChanged: onSellingAmountChanged
             )
             .padding(8) // increase touch target
             .padding(-8)
@@ -151,7 +155,6 @@ fileprivate struct _SwapSelectorsView: View {
                 token: buyingToken,
                 inBaseCurrency: false,
                 insufficientFunds: false,
-                isLoading: staleAmountSide == .buying,
                 isValueStale: staleAmountSide == .buying,
                 triggerFocused: $buyingFocused,
                 onTokenPickerTapped: onBuyingTokenPicker,
@@ -162,7 +165,8 @@ fileprivate struct _SwapSelectorsView: View {
                     } else {
                         buyingFocused = true
                     }
-                }
+                },
+                onAmountChanged: onBuyingAmountChanged
             )
             .padding(8)  // increase touch target
             .padding(.bottom, 10)

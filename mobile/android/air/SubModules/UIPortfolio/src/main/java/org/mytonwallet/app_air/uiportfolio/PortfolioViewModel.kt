@@ -1,35 +1,31 @@
 package org.mytonwallet.app_air.uiportfolio
 
 import androidx.core.graphics.toColorInt
-import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.ChartModel
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.StackLinearChartData
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
-import org.mytonwallet.app_air.walletbasecontext.utils.optDoubleOrNull
-import org.mytonwallet.app_air.walletbasecontext.utils.optIntOrNull
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.api.fetchPortfolioNetWorthHistory
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.network.NetworkClient
-import org.mytonwallet.app_air.walletcore.network.NetworkRequest
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.ApiHistoryList
+import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryDataset
+import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryResponse
+import org.mytonwallet.app_air.walletcore.moshi.normalizedForPortfolioDisplay
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 import kotlin.math.pow
 import kotlin.math.roundToLong
 
@@ -38,6 +34,8 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
     val stateFlow: StateFlow<PortfolioUiState> = _stateFlow.asStateFlow()
 
     private var loadJob: Job? = null
+    private var historyRefreshJob: Job? = null
+    private var historyRefreshAttempts = 0
 
     init {
         WalletCore.registerObserver(this)
@@ -48,33 +46,84 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
         account: MAccount? = AccountStore.activeAccount,
         baseCurrency: MBaseCurrency = WalletCore.baseCurrency,
     ) {
+        reload(
+            account = account,
+            baseCurrency = baseCurrency,
+            resetHistoryRefreshAttempts = true,
+            showLoadingState = true,
+        )
+    }
+
+    private fun refreshPreservingContent(
+        account: MAccount? = AccountStore.activeAccount,
+        baseCurrency: MBaseCurrency = WalletCore.baseCurrency,
+    ) {
+        reload(
+            account = account,
+            baseCurrency = baseCurrency,
+            resetHistoryRefreshAttempts = true,
+            showLoadingState = false,
+        )
+    }
+
+    private fun reload(
+        account: MAccount?,
+        baseCurrency: MBaseCurrency,
+        resetHistoryRefreshAttempts: Boolean,
+        showLoadingState: Boolean,
+    ) {
         val request = buildRequest(account, baseCurrency)
         if (request == null) {
+            loadJob?.cancel()
+            historyRefreshJob?.cancel()
+            historyRefreshAttempts = 0
             _stateFlow.value = PortfolioUiState.Error
             return
         }
 
-        load(request)
+        load(
+            request = request,
+            resetHistoryRefreshAttempts = resetHistoryRefreshAttempts,
+            showLoadingState = showLoadingState || _stateFlow.value !is PortfolioUiState.Loaded,
+        )
     }
 
     fun load(request: PortfolioHistoryRequest) {
+        load(
+            request = request,
+            resetHistoryRefreshAttempts = true,
+            showLoadingState = true,
+        )
+    }
+
+    private fun load(
+        request: PortfolioHistoryRequest,
+        resetHistoryRefreshAttempts: Boolean,
+        showLoadingState: Boolean,
+    ) {
         loadJob?.cancel()
+        historyRefreshJob?.cancel()
+        if (resetHistoryRefreshAttempts) {
+            historyRefreshAttempts = 0
+        }
+
         loadJob = viewModelScope.launch {
-            _stateFlow.value = PortfolioUiState.Loading(request)
+            if (showLoadingState) {
+                _stateFlow.value = PortfolioUiState.Loading(request)
+            }
             try {
                 val rawData = fetchChartData(request)
-                if (rawData == null) {
-                    _stateFlow.value = PortfolioUiState.Error
-                    return@launch
-                }
                 val chartData = withContext(Dispatchers.Default) {
-                    rawData.toStackChartData(request.baseCurrency)
+                    rawData.normalizedForPortfolioDisplay().toStackChartData(request.baseCurrency)
                 }
                 _stateFlow.value = PortfolioUiState.Loaded(request, chartData)
+                scheduleHistoryRefreshIfNeeded(request, rawData)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                _stateFlow.value = PortfolioUiState.Error
+                if (showLoadingState || _stateFlow.value !is PortfolioUiState.Loaded) {
+                    _stateFlow.value = PortfolioUiState.Error
+                }
             }
         }
     }
@@ -85,11 +134,21 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
             is WalletEvent.AccountChangedInApp,
             WalletEvent.BaseCurrencyChanged -> load()
 
+            is WalletEvent.BalanceChanged -> refreshPreservingContent()
+
+            is WalletEvent.ByChainUpdated -> {
+                if (walletEvent.accountId == AccountStore.activeAccount?.accountId) {
+                    refreshPreservingContent()
+                }
+            }
+
             else -> {}
         }
     }
 
     fun onDestroy() {
+        loadJob?.cancel()
+        historyRefreshJob?.cancel()
         WalletCore.unregisterObserver(this)
     }
 
@@ -97,123 +156,46 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
         account: MAccount?,
         baseCurrency: MBaseCurrency,
     ): PortfolioHistoryRequest? {
-        val addresses = account?.byChain
-            ?.mapNotNull { (chain, wallet) ->
-                wallet.address.takeIf { it.isNotEmpty() }?.let { "$chain:$it" }
-            }
-            ?.joinToString(",")
-            ?.takeIf { it.isNotEmpty() }
-            ?: return null
+        if (account == null || !account.isMainnet) {
+            return null
+        }
 
-        val to = Date()
-        val from = Date(to.time - HISTORY_DAYS * DAY_MS)
+        val wallets = account.byChain
+            .mapNotNull { (chain, wallet) ->
+                val blockchain = MBlockchain.valueOfOrNull(chain) ?: return@mapNotNull null
+                if (!blockchain.isNetWorthSupported) {
+                    return@mapNotNull null
+                }
+
+                wallet.address.takeIf { it.isNotEmpty() }?.let { "$chain:$it" }
+            }.takeIf { it.isNotEmpty() } ?: return null
 
         return PortfolioHistoryRequest(
-            addresses = addresses,
+            wallets = wallets,
             baseCurrency = baseCurrency,
-            fromIso = isoFormatter.format(from),
-            toIso = isoFormatter.format(to),
         )
     }
 
-    private suspend fun fetchChartData(request: PortfolioHistoryRequest): PortfolioChartData? {
-        val url = "$PORTFOLIO_API_URL/net-worth-history".toUri()
-            .buildUpon()
-            .appendQueryParameter("wallets", request.addresses)
-            .appendQueryParameter("from", request.fromIso)
-            .appendQueryParameter("to", request.toIso)
-            .appendQueryParameter("density", request.density)
-            .appendQueryParameter("base", request.baseCurrency.currencyCode.lowercase())
-            .build()
-            .toString()
-
-        val json = fetchJson(url) ?: return null
-        return parseChartData(json)
-    }
-
-    private suspend fun fetchJson(url: String): JSONObject? {
-        val response = NetworkClient.request(
-            NetworkRequest(
-                url = url,
-                connectTimeoutMs = CONNECT_TIMEOUT_MS,
-                readTimeoutMs = READ_TIMEOUT_MS,
-                writeTimeoutMs = READ_TIMEOUT_MS,
-                callTimeoutMs = CONNECT_TIMEOUT_MS + READ_TIMEOUT_MS,
-                retryCount = RETRY_COUNT,
-                retryDelayMs = RETRY_DELAY_MS,
-            )
-        )
-
-        if (!response.isSuccessful) return null
-
-        return JSONObject(response.body)
-    }
-
-    private fun parseChartData(json: JSONObject): PortfolioChartData? {
-        val datasets = json.optJSONArray("datasets")
-        if (datasets != null) {
-            return PortfolioChartData.ByAsset(
-                datasets = parseDatasets(datasets),
-            )
-        }
-
-        val points = json.optJSONArray("points") ?: return null
-
-        return PortfolioChartData.Aggregated(
-            points = parsePoints(points),
+    private suspend fun fetchChartData(request: PortfolioHistoryRequest): ApiPortfolioHistoryResponse {
+        return WalletCore.fetchPortfolioNetWorthHistory(
+            wallets = request.wallets,
+            baseCurrency = request.baseCurrency,
         )
     }
 
-    private fun parseDatasets(json: JSONArray): List<PortfolioDataset> {
-        return buildList {
-            for (i in 0 until json.length()) {
-                val item = json.optJSONObject(i) ?: continue
-                val symbol = item.optString("symbol").takeIf { it.isNotEmpty() } ?: continue
-                val points = item.optJSONArray("points") ?: continue
-
-                add(
-                    PortfolioDataset(
-                        assetId = item.optIntOrNull("assetId"),
-                        symbol = symbol,
-                        contractAddress = item.optString("contractAddress")
-                            .takeIf { it.isNotEmpty() },
-                        color = item.optString("color").takeIf { it.isNotEmpty() },
-                        points = parsePoints(points),
-                        impact = item.optDoubleOrNull("impact"),
-                    )
-                )
-            }
-        }
-    }
-
-    private fun parsePoints(json: JSONArray): List<PortfolioHistoryPoint> {
-        return buildList {
-            for (i in 0 until json.length()) {
-                val point = json.optJSONArray(i) ?: continue
-                if (point.length() < 2) continue
-
-                add(
-                    PortfolioHistoryPoint(
-                        timestamp = point.getLong(0),
-                        value = point.getDouble(1),
-                    )
-                )
-            }
-        }
-    }
-
-    private fun PortfolioChartData.toStackChartData(baseCurrency: MBaseCurrency): StackLinearChartData? {
-        return when (this) {
-            is PortfolioChartData.Aggregated -> historyPointsToStackChartData(points, baseCurrency)
-            is PortfolioChartData.ByAsset -> datasetsToStackChartData(datasets, baseCurrency)
-        }
+    private fun ApiPortfolioHistoryResponse.toStackChartData(
+        baseCurrency: MBaseCurrency,
+    ): StackLinearChartData? {
+        datasets?.let { return datasetsToStackChartData(it, baseCurrency) }
+        points?.let { return historyPointsToStackChartData(it, baseCurrency) }
+        return null
     }
 
     private fun historyPointsToStackChartData(
-        points: List<PortfolioHistoryPoint>,
+        points: ApiHistoryList,
         baseCurrency: MBaseCurrency,
     ): StackLinearChartData? {
-        val sortedPoints = points.sortedBy { it.timestamp }
+        val sortedPoints = points.toHistoryPoints().sortedBy { it.timestamp }
         if (sortedPoints.isEmpty()) {
             return null
         }
@@ -232,16 +214,15 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
     }
 
     private fun datasetsToStackChartData(
-        datasets: List<PortfolioDataset>,
+        datasets: List<ApiPortfolioHistoryDataset>,
         baseCurrency: MBaseCurrency,
     ): StackLinearChartData? {
-        val activeDatasets = datasets.map(::PortfolioDatasetSummary)
+        val activeDatasets = datasets.map { it.toSummary() }
             .filter { it.impact > 0.0 || it.hasPositiveValues }
             .sortedWith(
                 compareByDescending<PortfolioDatasetSummary> { it.impact }
                     .thenByDescending { it.latestValue }
             )
-            .map { it.dataset }
 
         val timestamps = activeDatasets.flatMap { dataset -> dataset.points.map { it.timestamp } }
             .distinct()
@@ -255,11 +236,10 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
             series = activeDatasets.mapIndexed { index, dataset ->
                 val valuesByTimestamp = dataset.points.associate { it.timestamp to it.value }
                 ChartSeriesInput(
-                    id = dataset.assetId?.let { "asset_$it" }
-                        ?: dataset.contractAddress
-                        ?: "asset_${dataset.symbol}_$index",
-                    name = dataset.symbol,
-                    color = dataset.color?.toChartColor(index)
+                    id = dataset.dataset.contractAddress.takeIf { it.isNotBlank() }
+                        ?: "asset_${dataset.dataset.assetId}_$index",
+                    name = dataset.dataset.symbol,
+                    color = dataset.dataset.color?.toChartColor(index)
                         ?: fallbackChartColors[index % fallbackChartColors.size],
                     values = timestamps.map {
                         (valuesByTimestamp[it] ?: 0.0).toChartValue(baseCurrency.decimalsCount)
@@ -267,6 +247,50 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
                 )
             }
         )
+    }
+
+    private fun ApiHistoryList.toHistoryPoints(): List<PortfolioHistoryPoint> {
+        return buildList {
+            for (point in this@toHistoryPoints) {
+                if (point.size < 2) {
+                    continue
+                }
+                add(PortfolioHistoryPoint(timestamp = point[0].toLong(), value = point[1]))
+            }
+        }
+    }
+
+    private fun ApiPortfolioHistoryDataset.toSummary(): PortfolioDatasetSummary {
+        val historyPoints = points.toHistoryPoints()
+        return PortfolioDatasetSummary(
+            dataset = this,
+            points = historyPoints,
+            latestValue = historyPoints.lastOrNull { it.value > 0.0 }?.value ?: 0.0,
+            impact = impact ?: 0.0,
+            hasPositiveValues = historyPoints.any { it.value > 0.0 },
+        )
+    }
+
+    private fun scheduleHistoryRefreshIfNeeded(
+        request: PortfolioHistoryRequest,
+        response: ApiPortfolioHistoryResponse,
+    ) {
+        historyRefreshJob?.cancel()
+
+        if (response.historyScanCursor == null || historyRefreshAttempts >= MAX_HISTORY_REFRESH_ATTEMPTS) {
+            return
+        }
+
+        historyRefreshAttempts += 1
+        historyRefreshJob = viewModelScope.launch {
+            delay(HISTORY_REFRESH_DELAY_MS)
+            historyRefreshJob = null
+            load(
+                request = request,
+                resetHistoryRefreshAttempts = false,
+                showLoadingState = false,
+            )
+        }
     }
 
     private fun buildStackLinearChartData(
@@ -327,11 +351,17 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
         }
     }
 
+    private data class PortfolioHistoryPoint(
+        val timestamp: Long,
+        val value: Double,
+    )
+
     private data class PortfolioDatasetSummary(
-        val dataset: PortfolioDataset,
-        val latestValue: Double = dataset.points.lastOrNull { it.value > 0.0 }?.value ?: 0.0,
-        val impact: Double = dataset.impact ?: 0.0,
-        val hasPositiveValues: Boolean = dataset.points.any { it.value > 0.0 },
+        val dataset: ApiPortfolioHistoryDataset,
+        val points: List<PortfolioHistoryPoint>,
+        val latestValue: Double,
+        val impact: Double,
+        val hasPositiveValues: Boolean,
     )
 
     private data class ChartSeriesInput(
@@ -342,20 +372,9 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
     )
 
     companion object {
-        private val isoFormatter: SimpleDateFormat by lazy {
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            }
-        }
-
-        private const val PORTFOLIO_API_URL = "https://api-portfolio.mytonwallet.io/api"
-        private const val HISTORY_DAYS = 365L
-        private const val DAY_MS = 86_400_000L
-        private const val CONNECT_TIMEOUT_MS = 15_000
-        private const val READ_TIMEOUT_MS = 30_000
-        private const val RETRY_COUNT = 100
-        private const val RETRY_DELAY_MS = 500L
         private const val UNIX_TIMESTAMP_MS_THRESHOLD = 10_000_000_000L
+        private const val MAX_HISTORY_REFRESH_ATTEMPTS = 6
+        private const val HISTORY_REFRESH_DELAY_MS = 8_000L
 
         private val fallbackChartColors = intArrayOf(
             0xFF3497ED.toInt(),

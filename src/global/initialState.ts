@@ -109,7 +109,6 @@ export const INITIAL_STATE: GlobalState = {
     langSource: 'system',
     byAccountId: {},
     areTokensWithNoCostHidden: !SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
-    isAppLockEnabled: true,
     autolockValue: DEFAULT_AUTOLOCK_OPTION,
     baseCurrency: DEFAULT_PRICE_CURRENCY,
   },

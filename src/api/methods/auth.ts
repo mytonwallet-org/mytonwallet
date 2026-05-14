@@ -6,6 +6,7 @@ import type {
   ApiActivityTimestamps,
   ApiAnyDisplayError,
   ApiAuthImportViewAccountResult,
+  ApiBalanceBySlug,
   ApiBip39Account,
   ApiChain,
   ApiDerivation,
@@ -24,11 +25,12 @@ import { ApiCommonError } from '../types';
 
 import { IS_TON_MNEMONIC_ONLY } from '../../config';
 import { parseAccountId } from '../../util/account';
-import { getChainConfig, getOrderedAccountChains, getSupportedChains } from '../../util/chain';
+import { getChainConfig, getChainsByStandard, getOrderedAccountChains, getSupportedChains } from '../../util/chain';
 import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import { range } from '../../util/iteratees';
 import { logDebug, logDebugError } from '../../util/logs';
 import { createTaskQueue } from '../../util/schedulers';
+import { getChainBySlug } from '../../util/tokens';
 import chains from '../chains';
 import * as ton from '../chains/ton';
 import {
@@ -50,6 +52,7 @@ import {
   getMnemonic,
   validateBip39Mnemonic,
 } from '../common/mnemonic';
+import { sendUpdateTokens } from '../common/tokens';
 import { tokenRepository } from '../db';
 import { getEnvironment } from '../environment';
 import { handleServerError } from '../errors';
@@ -611,33 +614,26 @@ export async function getWalletVariants(
   const offset = page * SETTINGS_SUBWALLET_PAGE_SIZE;
   const pageGroups: ApiGroupedWalletVariant[] = [];
 
-  for (let i = 0; i < SETTINGS_SUBWALLET_PAGE_SIZE; i++) {
+  const knownChains = getSupportedChains();
+
+  await Promise.all(Array.from({ length: SETTINGS_SUBWALLET_PAGE_SIZE }, async (_, i) => {
     const index = offset + i;
     const byChain: ApiGroupedWalletVariant['byChain'] = {};
-    let totalBalance = 0n;
     let anyPositive = false;
 
-    for (const chain of getSupportedChains()) {
+    await Promise.all(knownChains.map(async (chain) => {
       const parentWallet = account.byChain[chain];
 
-      if (!parentWallet) continue;
+      if (!parentWallet) return;
 
-      if (!getChainConfig(chain).isSubwalletsSupported) {
-        const balance = await chains[chain].getWalletBalance(network, parentWallet.address);
+      const config = getChainConfig(chain);
 
-        totalBalance += balance;
-
-        const { index: _index, ...wallet } = parentWallet;
-        byChain[chain] = {
-          wallet: wallet as Omit<ApiWalletByChain[typeof chain], 'index'>,
-          balance,
-          hasDerivation: false,
-        };
-
-        continue;
+      if (config.chainStandard && config.chainStandard !== chain) {
+        return;
       }
 
       let pathTemplate = parentWallet.derivation?.path;
+
       if (!pathTemplate) {
         pathTemplate = getChainConfig(chain).defaultDerivationPath;
       }
@@ -653,34 +649,73 @@ export async function getWalletVariants(
       };
 
       const wallets = await chains[chain].getWalletFromBip39Mnemonic(network, mnemonic, derivation);
-      const w = wallets[0];
+      const wallet = wallets[0];
 
-      if (!w) {
+      if (!wallet) {
         return { error: ApiCommonError.Unexpected };
       }
 
-      const { index: _wi, ...walletRest } = w;
-      const balance = await chains[chain].getWalletBalance(network, walletRest.address);
+      const { index: _walletIndex, ...walletRest } = wallet;
 
-      totalBalance += balance;
-      if (balance > 0n) anyPositive = true;
+      if (config.chainStandard) {
+        const crosschainAssets = await chains[chain]
+          .crosschain!.fetchCrosschainAccountAssets(network, walletRest.address, () => {});
 
-      byChain[chain] = {
-        wallet: walletRest as Omit<ApiWalletByChain[typeof chain], 'index'>,
-        balance,
-        hasDerivation: true,
-      };
-    }
+        if (Object.values(crosschainAssets).some((balance) => balance > 0n)) {
+          anyPositive = true;
+        }
+
+        const crosschainAssetsByChain = new Map<ApiChain, ApiBalanceBySlug>();
+
+        for (const [slug, balance] of Object.entries(crosschainAssets)) {
+          const assetChain = getChainBySlug(slug);
+
+          if (!knownChains.includes(assetChain)) {
+            continue;
+          }
+
+          crosschainAssetsByChain.set(assetChain, {
+            ...crosschainAssetsByChain.get(assetChain),
+            [slug]: balance,
+          });
+        }
+
+        const chainsByStandard = getChainsByStandard(config.chainStandard);
+
+        for (const chainOfStandard of chainsByStandard) {
+          byChain[chainOfStandard] = {
+            wallet: walletRest as Omit<ApiWalletByChain[typeof chainOfStandard], 'index'>,
+            balancesBySlug: crosschainAssetsByChain.get(chainOfStandard) ?? {},
+            hasDerivation: true,
+          };
+        }
+      } else {
+        const balancesBySlug = await chains[chain].getWalletAssets(network, walletRest.address, () => {});
+
+        if (Object.values(balancesBySlug).some((balance) => balance > 0n)) anyPositive = true;
+
+        byChain[chain] = {
+          wallet: walletRest as Omit<ApiWalletByChain[typeof chain], 'index'>,
+          balancesBySlug,
+          hasDerivation: true,
+        };
+      }
+    }));
 
     if (!anyPositive || isGroupedVariantSameAsCurrentAccount(account, byChain)) {
-      continue;
+      return;
     }
 
     pageGroups.push({
       index,
-      totalBalance,
       byChain,
     });
+  }));
+
+  pageGroups.sort((a, b) => a.index - b.index);
+
+  if (onUpdate) {
+    sendUpdateTokens(onUpdate);
   }
 
   if (page === 0) {
@@ -834,6 +869,7 @@ export async function createSubWallet(accountId: string, password: string) {
 export async function addSubWallet(
   accountId: string,
   partialByChain: Partial<Record<ApiChain, Omit<ApiWalletByChain[ApiChain], 'index'>>>,
+  options?: { suppressActivation?: boolean },
 ) {
   const account = await fetchStoredAccount<ApiBip39Account>(accountId);
 
@@ -861,7 +897,9 @@ export async function addSubWallet(
   if (duplicate) {
     logDebugError('Duplicate account found', duplicate);
 
-    void activateAccount(duplicate[0]);
+    if (!options?.suppressActivation) {
+      void activateAccount(duplicate[0]);
+    }
 
     return { isNew: false as const, accountId: duplicate[0] };
   }
@@ -900,13 +938,54 @@ export async function addSubWallet(
     });
   }
 
-  void activateAccount(newAccountId, undefined, true);
+  if (!options?.suppressActivation) {
+    void activateAccount(newAccountId, undefined, true);
+  }
 
   return {
     isNew: true as const,
     accountId: newAccountId,
     byChain: getAccountChains(newAccountData),
   };
+}
+
+type AddSubWalletOkResult = Extract<Awaited<ReturnType<typeof addSubWallet>>, { accountId: string }>;
+
+function isSubWalletAddError(
+  result: Awaited<ReturnType<typeof addSubWallet>>,
+): result is { error: ApiCommonError } {
+  return Boolean(result && typeof result === 'object' && 'error' in result && !('isNew' in result));
+}
+
+export async function addAllFoundSubwallets(
+  accountId: string,
+  foundWallets: (Partial<Record<ApiChain, Omit<ApiWalletByChain[ApiChain], 'index'>>>)[],
+): Promise<{ error: ApiCommonError | ApiAnyDisplayError } | { results: AddSubWalletOkResult[] }> {
+  try {
+    const walletsToAdd = foundWallets.filter((w) => Object.keys(w).length > 0);
+
+    if (!walletsToAdd.length) {
+      return { error: ApiCommonError.Unexpected };
+    }
+
+    const results: AddSubWalletOkResult[] = [];
+
+    for (let i = 0; i < walletsToAdd.length; i++) {
+      const suppressActivation = i !== walletsToAdd.length - 1;
+
+      const result = await addSubWallet(accountId, walletsToAdd[i], { suppressActivation });
+
+      if (isSubWalletAddError(result)) {
+        return result;
+      }
+
+      results.push(result);
+    }
+
+    return { results };
+  } catch (err) {
+    return handleServerError(err);
+  }
 }
 
 /** In explorer mode, we don't need to store all data, only current account, so we clear the storage  */

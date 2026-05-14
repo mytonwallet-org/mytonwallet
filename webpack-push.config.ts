@@ -8,7 +8,7 @@ import HtmlPlugin from 'html-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import path from 'path';
 import type { Compiler, Configuration } from 'webpack';
-import { EnvironmentPlugin, NormalModuleReplacementPlugin, ProvidePlugin } from 'webpack';
+import { EnvironmentPlugin, IgnorePlugin, NormalModuleReplacementPlugin, ProvidePlugin } from 'webpack';
 
 import { convertI18nYamlToJson } from './dev/locales/convertI18nYamlToJson';
 import { APP_ENV, IS_TELEGRAM_APP } from './src/config';
@@ -238,6 +238,11 @@ export default function createConfig(
           resource.request = resource.request.replace(/i18n\/en\.json/, 'push/i18n/en.json');
         },
       ),
+      new IgnorePlugin({
+        checkResource(resource) {
+          return /.*\/wordlists\/(?!english).*\.json/.test(resource);
+        },
+      }),
       new StatoscopeWebpackPlugin({
         statsOptions: {
           context: __dirname,

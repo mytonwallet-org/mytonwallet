@@ -26,12 +26,14 @@ import org.mytonwallet.plugins.air_app_launcher.airLauncher.LaunchConfig;
 
 /*
   Application entry point.
-    - Decides to open LegacyActivity or trigger AirLauncher.
+    - Decides to open the classic LegacyActivity (mytonwallet flavor only) or
+      trigger AirLauncher.
     - Only passes deeplink data into active activity and finishes itself if any activities are already open.
     - Plays splash-screen for MTW Air (This flow may be enhanced later)
  */
 public class MainActivity extends BaseActivity {
   private final int DELAY = 300;
+  private final LegacyLauncher legacyLauncher = new LegacyLauncherImpl();
   private boolean keep = true;
 
   @Override
@@ -46,7 +48,8 @@ public class MainActivity extends BaseActivity {
 
     LaunchConfig.recordAppOpened(this);
     Activity activity = this;
-    boolean shouldStartOnAir = LaunchConfig.shouldStartOnAir(activity);
+    boolean shouldStartOnAir = !legacyLauncher.isAvailable()
+      || LaunchConfig.shouldStartOnAir(activity);
 
     AirLauncher airLauncher = AirLauncher.getInstance();
     if (!shouldStartOnAir) {
@@ -54,16 +57,7 @@ public class MainActivity extends BaseActivity {
         airLauncher.switchingToClassic();
         AirLauncher.setInstance(null);
       }
-      // Open LegacyActivity and pass all the data there
-      Intent intent = new Intent(activity, LegacyActivity.class);
-      intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-      intent.setAction(getIntent().getAction());
-      intent.setData(getIntent().getData());
-      if (getIntent().getExtras() != null)
-        intent.putExtras(getIntent().getExtras());
-      activity.startActivity(intent);
-      overridePendingTransition(0, 0);
-      activity.finish();
+      legacyLauncher.launch(activity, getIntent());
       return;
     }
 
@@ -82,8 +76,9 @@ public class MainActivity extends BaseActivity {
     AirLauncher.setInstance(airLauncher);
     airLauncher.handle(getIntent());
 
-    // Splash-Screen doesn't work as expected on Android 12
-    if (Build.VERSION.SDK_INT == Build.VERSION_CODES.S) {
+    // Splash-Screen doesn't work as expected on Android 12 and 13
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+      Build.VERSION.SDK_INT <= Build.VERSION_CODES.TIRAMISU) {
       splashScreenAnimatedEnded();
       return;
     }

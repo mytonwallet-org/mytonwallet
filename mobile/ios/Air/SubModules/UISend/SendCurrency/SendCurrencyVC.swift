@@ -50,16 +50,40 @@ class SendCurrencyVC: WViewController {
     }
     
     private let searchController = UISearchController(searchResultsController: nil)
-    private var tableView: UITableView!
-    
+    private var collectionView: UICollectionView!
+
     private enum Section: Hashable {
         case main
     }
     private struct Item: Hashable {
         let tokenSlug: String
     }
-    
-    private var dataSource: UITableViewDiffableDataSource<Section, Item>!
+
+    private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
+
+    private func makeLayout() -> UICollectionViewLayout {
+        UICollectionViewCompositionalLayout { _, environment in
+            var listConfig = UICollectionLayoutListConfiguration(appearance: .plain)
+            listConfig.showsSeparators = true
+            listConfig.headerMode = .none
+
+            let separatorInsets = NSDirectionalEdgeInsets(top: 0, leading: 62, bottom: 0, trailing: IOS_26_MODE_ENABLED ? 12 : 0)
+            var separatorConfig = UIListSeparatorConfiguration(listAppearance: .plain)
+            separatorConfig.topSeparatorInsets = separatorInsets
+            separatorConfig.bottomSeparatorInsets = separatorInsets
+            listConfig.separatorConfiguration = separatorConfig
+            listConfig.itemSeparatorHandler = { indexPath, config in
+                var config = config
+                if indexPath.item == 0 {
+                    config.topSeparatorVisibility = .hidden
+                }
+                return config
+            }
+
+            return NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
+        }
+    }
+
     private func setupViews() {
         title = lang("Choose Currency")
         addCloseNavigationItemIfNeeded()
@@ -76,40 +100,29 @@ class SendCurrencyVC: WViewController {
         navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = false
 
-        tableView = UITableView()
-        tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.register(TokenCell.self, forCellReuseIdentifier: "Token")
-        tableView.delegate = self
-        tableView.allowsSelection = false
-        tableView.sectionHeaderTopPadding = 0
-        tableView.tableHeaderView = UIView()
-        tableView.tableFooterView = UIView()
-        tableView.separatorInset.left = 70
-        tableView.separatorInset.right = IOS_26_MODE_ENABLED ? 16 : 0
-        tableView.keyboardDismissMode = .onDrag
-        tableView.rowHeight = 60
+        collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        collectionView.keyboardDismissMode = .onDrag
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(hideKeyboard))
         tapGesture.cancelsTouchesInView = false
-        tableView.addGestureRecognizer(tapGesture)
-        view.addSubview(tableView)
+        collectionView.addGestureRecognizer(tapGesture)
+        view.addSubview(collectionView)
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
-            tableView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            tableView.rightAnchor.constraint(equalTo: view.rightAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            collectionView.topAnchor.constraint(equalTo: view.topAnchor),
+            collectionView.leftAnchor.constraint(equalTo: view.leftAnchor),
+            collectionView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-        
-        dataSource = UITableViewDiffableDataSource<Section, Item>(tableView: tableView) { [weak self] tableView, indexPath, item in
-            guard let self else { return UITableViewCell() }
-            let cell = tableView.dequeueReusableCell(withIdentifier: "Token", for: indexPath) as! TokenCell
+
+        let cellRegistration = UICollectionView.CellRegistration<TokenCell, Item> { [weak self] cell, _, item in
+            guard let self else { return }
             guard let walletToken = self.walletTokensBySlug[item.tokenSlug] else {
                 cell.configure(
                     with: .init(tokenSlug: item.tokenSlug, balance: 0, isStaking: false),
                     isAvailable: true,
                     isCurrentSelection: item.tokenSlug == self.currentTokenSlug
-                ) {
-                }
-                return cell
+                ) {}
+                return
             }
             cell.configure(
                 with: walletToken,
@@ -122,15 +135,18 @@ class SendCurrencyVC: WViewController {
                     self.onSelect(token)
                 }
             }
-            return cell
         }
-        
+
+        dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
+            collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: item)
+        }
+
         updateTheme()
     }
-    
+
     private func updateTheme() {
         view.backgroundColor = .air.pickerBackground
-        tableView.backgroundColor = .air.pickerBackground
+        collectionView?.backgroundColor = .air.pickerBackground
     }
     
     @objc func hideKeyboard() {
@@ -146,9 +162,12 @@ class SendCurrencyVC: WViewController {
             applySnapshot(animated: false)
             return
         }
+        let normalizedKeyword = keyword.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let filtered = walletTokens.filter({ it in
-            it.tokenSlug.lowercased().contains(keyword.lowercased()) ||
-            (tokenStore.tokens[it.tokenSlug]?.name.lowercased().contains(keyword.lowercased()) ?? false)
+            if it.tokenSlug.lowercased().contains(normalizedKeyword) {
+                return true
+            }
+            return tokenStore.tokens[it.tokenSlug]?.matchesSearch(normalizedKeyword) == true
         }).sorted { lhs, rhs in
             return lhs.toBaseCurrency ?? 0 > rhs.toBaseCurrency ?? 0
         }
@@ -185,8 +204,8 @@ extension SendCurrencyVC: UISearchBarDelegate, UISearchResultsUpdating {
     }
 }
 
-extension SendCurrencyVC: UITableViewDelegate {
-    public func balanceChanged() {
+extension SendCurrencyVC {
+    func balanceChanged() {
         walletTokens = balancesStore.getAccountBalances(accountId: accountId).map({ (key: String, value: BigInt) in
             MTokenBalance(tokenSlug: key, balance: value, isStaking: false)
         })

@@ -164,5 +164,48 @@ class ActivityHelpers {
         ): MApiTransaction? {
             return byId[id] ?: fallback.firstOrNull { it.id == id }
         }
+
+        /**
+         * Hashes of CEX swap activities that are still pending (mid-flight on the
+         * exchange side). Used to drive `fetchSwaps` reconciliation polling.
+         */
+        fun pendingCexSwapHashes(activities: Collection<MApiTransaction>): List<String> {
+            return activities.asSequence()
+                .filter { it is MApiTransaction.Swap && it.cex != null && it.isPending() }
+                .map { it.parsedTxId.hash }
+                .filter { it.isNotEmpty() }
+                .distinct()
+                .toList()
+        }
+
+        /**
+         * Collect the on-chain tx hashes referenced by any CEX swap's `hashes`
+         * field. Transactions matching one of these hashes are owned by the swap
+         * row and should be hidden in the activity list.
+         */
+        fun cexSwapTxHashes(activities: Collection<MApiTransaction>): Set<String> {
+            val hashes = HashSet<String>()
+            for (a in activities) {
+                if (a is MApiTransaction.Swap && a.cex != null) {
+                    a.hashes?.forEach { if (it.isNotEmpty()) hashes.add(it) }
+                }
+            }
+            return hashes
+        }
+
+        /**
+         * True when this activity's on-chain hash (or `externalMsgHashNorm`) is
+         * present in `cexSwapHashes`, meaning a CEX swap row already represents it.
+         */
+        fun isActivityCoveredByCexSwapHashes(
+            activity: MApiTransaction,
+            cexSwapHashes: Set<String>,
+        ): Boolean {
+            if (cexSwapHashes.contains(activity.parsedTxId.hash)) return true
+            activity.externalMsgHashNorm?.let {
+                if (cexSwapHashes.contains(it)) return true
+            }
+            return false
+        }
     }
 }

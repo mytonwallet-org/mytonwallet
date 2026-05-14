@@ -413,22 +413,17 @@ public func parseTonTransferUrl(_ url: URL) -> TonTransferUrl? {
 }
 
 public func tokenDecimals(for amount: BigInt, tokenDecimals: Int, minimumSignificantDigits: Int = 2) -> Int {
-    if tokenDecimals <= minimumSignificantDigits {
-        return tokenDecimals
-    }
+    let tokenDecimals = max(0, tokenDecimals)
+    guard tokenDecimals > 0 else { return 0 }
+
     let amount = abs(amount)
-    if amount < 2 {
-        return tokenDecimals
-    }
-    let len = "\(amount)".count
-    if len >= tokenDecimals + 2 {
-        return max(minimumSignificantDigits, 1 + tokenDecimals - len)
-    }
-    var multiplier = minimumSignificantDigits
-    while len + multiplier < tokenDecimals + 2 {
-        multiplier += 1
-    }
-    return min(tokenDecimals, multiplier)
+    guard amount > 0 else { return 0 }
+
+    let minimumSignificantDigits = max(1, minimumSignificantDigits)
+    let amountDigitCount = "\(amount)".count
+    let requiredDecimals = tokenDecimals + minimumSignificantDigits - amountDigitCount
+
+    return min(tokenDecimals, max(minimumSignificantDigits, requiredDecimals))
 }
 
 public func doubleToBigInt(_ doubleValue: Double, decimals: Int) -> BigInt {

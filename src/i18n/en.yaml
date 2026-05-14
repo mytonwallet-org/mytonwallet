@@ -166,6 +166,7 @@ $fee_value_with_colon: "Fee: %fee%"
 Pay fee with %stars_symbol%: Pay fee with %stars_symbol%
 Loading...: Loading...
 No price data: No price data
+Price Copied: Price Copied
 Recipient Address: Recipient Address
 Wallet address or domain: Wallet address or domain
 Incorrect address: Incorrect address
@@ -1130,6 +1131,7 @@ Other addresses for this wallet: Other addresses for this wallet
 Current Wallet: Current Wallet
 Add Subwallet: Add Subwallet
 Create Subwallet: Create Subwallet
+Add All Found: Add All Found
 You have tokens on other subwallets. You can switch to them here.: You have tokens on other subwallets. You can switch to them here.
 Subwallet Created: Subwallet Created
 Subwallet Added: Subwallet Added
@@ -1168,7 +1170,29 @@ No subwallets yet.: No subwallets yet.
 $subwallets_found:
   oneValue: "Found: %1$d"
   otherValue: "Found: %1$d"
+$subwallet_scan_no_native_balances: No native balances
+$subwallet_scan_other_tokens_suffix:
+  oneValue: " + %1$d other token"
+  otherValue: " + %1$d other tokens"
 Send, receive, and trade tokens and collectibles.: Send, receive, and trade tokens and collectibles.
 $overview_cell_size_small: Small
 $overview_cell_size_medium: Medium
 $overview_cell_size_big: Big
+Set Name: Set Name
+Wallet Created: Wallet Created
+Wallet Imported: Wallet Imported
+View Wallet Added: View Wallet Added
+Scroll Left: Scroll left
+Scroll Right: Scroll right
+Sent NFT: Sent NFT
+Sending NFT: Sending NFT
+$send_nft_action: Send NFT
+Received NFT: Received NFT
+Receiving NFT: Receiving NFT
+$receive_nft_action: Receive NFT
+Minted NFT: Minted NFT
+Minting NFT: Minting NFT
+$mint_nft_action: Mint NFT
+Burned NFT: Burned NFT
+Burning NFT: Burning NFT
+$burn_nft_action: Burn NFT

@@ -220,8 +220,18 @@ class DeeplinkParser {
         }
 
         private fun handleHttpsDeeplinks(uri: Uri): Deeplink? {
-            when (uri.host) {
-                "my.tt", "go.mytonwallet.org" -> {
+            val isGram = ApplicationContextHolder.isGramApp
+            val universalHosts = if (isGram)
+                setOf("go.gramwallet.io", "my.tt", "go.mytonwallet.org")
+            else
+                setOf("my.tt", "go.mytonwallet.org")
+            val tonconnectHosts = if (isGram)
+                setOf("connect.gramwallet.io", "connect.mytonwallet.org")
+            else
+                setOf("connect.mytonwallet.org")
+            val host = uri.host
+            when {
+                host != null && host in universalHosts -> {
                     val path = uri.path?.trimStart('/') ?: ""
                     val pathSegments = path.split('/')
 
@@ -240,11 +250,11 @@ class DeeplinkParser {
                     return handleMTW(mtwUri)
                 }
 
-                "connect.mytonwallet.org" -> {
+                host != null && host in tonconnectHosts -> {
                     return handleTonConnect(uri)
                 }
 
-                "walletconnect.com" -> {
+                host == "walletconnect.com" -> {
                     if (uri.path == "/wc") return handleWalletConnect(uri)
                 }
             }
@@ -333,7 +343,8 @@ class DeeplinkParser {
                 }
 
                 "classic" -> {
-                    Deeplink.SwitchToLegacy(null)
+                    if (ApplicationContextHolder.isGramApp) null
+                    else Deeplink.SwitchToLegacy(null)
                 }
 
                 "token" -> {
@@ -370,17 +381,19 @@ class DeeplinkParser {
 
                 "view" -> {
                     val addressByChain = mutableMapOf<String, String>()
-                    MBlockchain.supportedChainValues.forEach { chain ->
-                        val address = uri.getQueryParameter(chain)
+                    MBlockchain.supportedChains.forEach { blockchain ->
+                        val address = uri.getQueryParameter(blockchain.name)
                         if (!address.isNullOrBlank()) {
-                            val blockchain = MBlockchain.valueOf(chain)
                             if (blockchain.isValidAddress(address) || blockchain.isValidDNS(address)) {
-                                addressByChain[chain] = address
+                                addressByChain[blockchain.name] = address
                             }
                         }
                     }
                     val evmAddress = uri.getQueryParameter(MBlockchain.VIEW_ACCOUNT_EVM_PARAM)
-                    if (!evmAddress.isNullOrBlank() && MBlockchain.ethereum.isValidAddress(evmAddress)) {
+                    if (!evmAddress.isNullOrBlank() && MBlockchain.ethereum.isValidAddress(
+                            evmAddress
+                        )
+                    ) {
                         MBlockchain.evmChains.forEach { chain ->
                             if (!addressByChain.containsKey(chain.name)) {
                                 addressByChain[chain.name] = evmAddress
@@ -423,9 +436,8 @@ class DeeplinkParser {
             val chain = target.substring(0, colonIndex)
             val address = target.substring(colonIndex + 1)
 
-            if (!MBlockchain.supportedChainValues.contains(chain)) return null
-
-            val blockchain = MBlockchain.valueOf(chain)
+            val blockchain = MBlockchain.valueOfOrNull(chain) ?: return null
+            if (!blockchain.isSupported) return null
             if (!blockchain.isValidAddress(address) && !blockchain.isValidDNS(address)) return null
 
             var amount: String? = null
@@ -457,7 +469,7 @@ class DeeplinkParser {
 
             return Deeplink.Send(
                 accountAddress = null,
-                chain = chain,
+                chain = blockchain.name,
                 address = address,
                 amount = amount,
                 comment = comment,

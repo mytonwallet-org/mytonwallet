@@ -224,38 +224,43 @@ export async function pickBestWallets(
     return [defaultAddress];
   }
 
-  const addressBalances = await Promise.all(addresses.map(async (e) => ({
-    wallet: e.wallet,
-    balance: await getWalletBalance(network, e.wallet.address),
-    privateKeyBytes: e.privateKeyBytes,
-    path: e.path,
-    index: e.index,
-    label: e.label,
-  })));
+  try {
+    const addressBalances = await Promise.all(addresses.map(async (e) => ({
+      wallet: e.wallet,
+      balance: await getWalletBalance(network, e.wallet.address),
+      privateKeyBytes: e.privateKeyBytes,
+      path: e.path,
+      index: e.index,
+      label: e.label,
+    })));
 
-  const withBalances = addressBalances.filter((e) => e.balance > 0n);
+    const withBalances = addressBalances.filter((e) => e.balance > 0n);
 
-  if (withBalances.length > 0) {
-    return withBalances;
+    if (withBalances.length > 0) {
+      return withBalances;
+    }
+
+    // TODO: rm after API plan upgrade from 10rps, but now wait to avoid 429 error
+    await pause(500);
+
+    const addressLastTxs = await Promise.all(addresses.map(async (e) => ({
+      wallet: e.wallet,
+      lastTxTimestamp: (await getWalletLastTransaction(network, e.wallet.address))?.blockTime,
+      privateKeyBytes: e.privateKeyBytes,
+      path: e.path,
+      index: e.index,
+      label: e.label,
+    })));
+
+    const withLastTx = addressLastTxs.filter((e) => e.lastTxTimestamp !== undefined);
+
+    if (withLastTx.length > 0) {
+      return withLastTx;
+    }
+
+    return [defaultAddress];
+  } catch (err) {
+    logDebugError('solana:pickBestWallets', err);
+    return [defaultAddress];
   }
-
-  // TODO: rm after API plan upgrade from 10rps, but now wait to avoid 429 error
-  await pause(500);
-
-  const addressLastTxs = await Promise.all(addresses.map(async (e) => ({
-    wallet: e.wallet,
-    lastTxTimestamp: (await getWalletLastTransaction(network, e.wallet.address))?.blockTime,
-    privateKeyBytes: e.privateKeyBytes,
-    path: e.path,
-    index: e.index,
-    label: e.label,
-  })));
-
-  const withLastTx = addressLastTxs.filter((e) => e.lastTxTimestamp !== undefined);
-
-  if (withLastTx.length > 0) {
-    return withLastTx;
-  }
-
-  return [defaultAddress];
 }

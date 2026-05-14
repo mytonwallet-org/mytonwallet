@@ -292,6 +292,7 @@ Logged in with %app_name%: 使用 %app_name% 登錄
 No active connections: 沒有活動連接
 Other: 其他的
 No price data: 暫無價格資料
+Price Copied: 價格已複製
 Not staked: 未質押
 Portfolio: 投資組合
 Total Balance: 總餘額
@@ -1128,6 +1129,7 @@ Other addresses for this wallet: 此錢包的其他地址
 Current Wallet: 目前錢包
 Add Subwallet: 新增子錢包
 Create Subwallet: 建立子錢包
+Add All Found: 加入所有找到的
 You have tokens on other subwallets. You can switch to them here.: 您在其他子錢包中有代幣。您可以在此處切換到它們。
 Subwallet Created: 子錢包已創建
 Subwallet Added: 子錢包已添加
@@ -1164,7 +1166,28 @@ Show Assets: 顯示資產
 Top %amount%: 前 %amount% 名
 No subwallets yet.: 尚無子錢包。
 $subwallets_found: "已找到：%1$d"
+$subwallet_scan_no_native_balances: 無原生代幣餘額
+$subwallet_scan_other_tokens_suffix:
+  otherValue: " + 另有 %1$d 種其他代幣"
 Send, receive, and trade tokens and collectibles.: 發送、接收和交易代幣與收藏品。
 $overview_cell_size_small: 小
 $overview_cell_size_medium: 中
 $overview_cell_size_big: 大
+Set Name: 設定名稱
+Wallet Created: 錢包已建立
+Wallet Imported: 錢包已匯入
+View Wallet Added: 查看錢包已新增
+Scroll Left: 向左捲動
+Scroll Right: 向右捲動
+Sent NFT: 已送出NFT
+Sending NFT: 正在傳送 NFT
+$send_nft_action: 傳送 NFT
+Received NFT: 已收到NFT
+Receiving NFT: 正在接收 NFT
+$receive_nft_action: 接收 NFT
+Minted NFT: 已鑄造NFT
+Minting NFT: 正在鑄造 NFT
+$mint_nft_action: 鑄造 NFT
+Burned NFT: 已銷毀NFT
+Burning NFT: 正在銷毀 NFT
+$burn_nft_action: 銷毀 NFT

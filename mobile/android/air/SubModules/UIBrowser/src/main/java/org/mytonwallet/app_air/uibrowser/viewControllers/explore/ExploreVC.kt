@@ -93,21 +93,29 @@ class ExploreVC(context: Context) : WViewController(context),
     private var emptyView: WEmptyIconView? = null
 
     private val recyclerView: WRecyclerView by lazy {
-        val rv = WRecyclerView(this)
+        val layoutManager = GridLayoutManager(context, effectiveViewWidth.coerceAtLeast(1))
+        val rv = object : WRecyclerView(this) {
+            override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+                super.onSizeChanged(w, h, oldw, oldh)
+                if (w == oldw) return
+                val newSpanCount = effectiveViewWidth
+                if (layoutManager.spanCount != newSpanCount) {
+                    layoutManager.spanCount = newSpanCount
+                }
+            }
+        }
         rv.adapter = rvAdapter
-        val dappsCols = calculateNoOfColumns()
-        val layoutManager = GridLayoutManager(context, (view.parent.parent as ViewGroup).width)
         layoutManager.isSmoothScrollbarEnabled = true
         layoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
             override fun getSpanSize(position: Int): Int {
                 val indexPath = rvAdapter.positionToIndexPath(position)
+                val fullWidth = effectiveViewWidth
                 return when (indexPath.section) {
-                    SECTION_CONNECTED, SECTION_TRENDING -> {
-                        view.width
-                    }
+                    SECTION_CONNECTED, SECTION_TRENDING -> fullWidth
 
                     else -> {
-                        if (indexPath.row == 0) view.width else {
+                        if (indexPath.row == 0) fullWidth else {
+                            val dappsCols = calculateNoOfColumns()
                             cellWidth +
                                 (if (indexPath.row % dappsCols == 1) 8.dp + ViewConstants.HORIZONTAL_PADDINGS.dp else 0) +
                                 (if (indexPath.row % dappsCols == 0) 8.dp + ViewConstants.HORIZONTAL_PADDINGS.dp else 0)
@@ -209,16 +217,22 @@ class ExploreVC(context: Context) : WViewController(context),
         navigationController?.tabBarController?.navigationController?.push(categoryVC)
     }
 
+    private val effectiveViewWidth: Int
+        get() {
+            val w = (view.parent?.parent as? View)?.width ?: 0
+            return if (w > 0) w else context.resources.displayMetrics.widthPixels
+        }
+
     private val cellWidth: Int
         get() {
             val cols = calculateNoOfColumns()
-            return (view.width - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 16.dp) / cols
+            return (effectiveViewWidth - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 16.dp) / cols
         }
 
     private val trendingCellWidth: Int
         get() {
             val cols = calculateNoOfColumns()
-            return (view.width - 4.dp) / cols
+            return (effectiveViewWidth - 4.dp) / cols
         }
 
     override fun onBackPressed(): Boolean {
@@ -433,8 +447,14 @@ class ExploreVC(context: Context) : WViewController(context),
         navigationController?.popToRoot(false)
     }
 
+    private var cachedColumnsForWidth = 0
+    private var cachedColumns = 0
     private fun calculateNoOfColumns(): Int {
-        return max(2, ((view.parent.parent as View).width - 32.dp) / 190.dp)
+        val width = effectiveViewWidth
+        if (width == cachedColumnsForWidth && cachedColumns != 0) return cachedColumns
+        cachedColumnsForWidth = width
+        cachedColumns = max(2, (width - 32.dp) / 190.dp)
+        return cachedColumns
     }
 
     // SUGGESTIONS //////////

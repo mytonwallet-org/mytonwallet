@@ -53,11 +53,13 @@ export function getIsServiceToken(token?: ApiToken) {
  * Sorts user tokens by pinned status, priority slugs, and total value.
  * Sort order:
  * 1. Pinned tokens (by `pinnedSlugs` order)
- * 2. Priority tokens (TON, USDT, TRX, USDT TRC20) — if unpinned
+ * 2. For an empty wallet (no balances) - priority tokens (in `PRIORITY_TOKENS` order)
  * 3. All others sorted by `totalValue` (descending), then alphabetically by `symbol`
  */
 export function sortTokens(tokens: UserToken[], pinnedSlugs: string[]) {
   const pinnedIndexes = new Map(pinnedSlugs.map((slug, index) => [slug, index]));
+  const isEmptyWallet = tokens.every((token) => token.amount === 0n);
+  const priorityTokenSlugs = isEmptyWallet ? PRIORITY_TOKENS.map((token) => token.slug) : undefined;
 
   return tokens.slice().sort((tokenA, tokenB) => {
     const indexA = pinnedIndexes.get(tokenA.slug) ?? -1;
@@ -70,18 +72,14 @@ export function sortTokens(tokens: UserToken[], pinnedSlugs: string[]) {
     if (indexA !== -1) return -1;
     if (indexB !== -1) return 1;
 
-    const priorityTokenSlugs = PRIORITY_TOKENS.map((token) => token.slug);
+    if (priorityTokenSlugs) {
+      const priorityA = priorityTokenSlugs.indexOf(tokenA.slug);
+      const priorityB = priorityTokenSlugs.indexOf(tokenB.slug);
 
-    // Both unpinned - priority tokens go first
-    const priorityA = priorityTokenSlugs.indexOf(tokenA.slug);
-    const priorityB = priorityTokenSlugs.indexOf(tokenB.slug);
-
-    if (priorityA !== -1 && priorityB !== -1 && tokenA.totalValue === tokenB.totalValue) {
-      return priorityA - priorityB;
+      if (priorityA !== -1 && priorityB !== -1) return priorityA - priorityB;
+      if (priorityA !== -1) return -1;
+      if (priorityB !== -1) return 1;
     }
-
-    if (priorityA !== -1 && priorityB === -1) return -1;
-    if (priorityB !== -1 && priorityA === -1) return 1;
 
     const valueDiff = Number(tokenB.totalValue) - Number(tokenA.totalValue);
     if (valueDiff !== 0) return valueDiff;

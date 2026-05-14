@@ -297,6 +297,7 @@ Logged in with %app_name%: Conectado con %app_name%
 No active connections: No hay conexiones activas
 Other: Otros
 No price data: Sin datos de precio
+Price Copied: Precio copiado
 Not staked: No en staking
 Portfolio: Portafolio
 Total Balance: Saldo total
@@ -1135,6 +1136,7 @@ Other addresses for this wallet: Otras direcciones para esta billetera
 Current Wallet: Billetera actual
 Add Subwallet: Agregar subcartera
 Create Subwallet: Crear subcartera
+Add All Found: Añadir todos los encontrados
 You have tokens on other subwallets. You can switch to them here.: Tienes tokens en otras subcarteras. Puedes cambiar a ellas aquí.
 Subwallet Created: Subcartera creada
 Subwallet Added: Subcartera agregada
@@ -1174,7 +1176,29 @@ $subwallets_found:
   zeroValue: "Encontradas: %1$d"
   oneValue: "Encontrada: %1$d"
   otherValue: "Encontradas: %1$d"
+$subwallet_scan_no_native_balances: Sin saldos nativos
+$subwallet_scan_other_tokens_suffix:
+  oneValue: " + %1$d otro token"
+  otherValue: " + %1$d otros tokens"
 Send, receive, and trade tokens and collectibles.: Envía, recibe e intercambia tokens y coleccionables.
 $overview_cell_size_small: Pequeño
 $overview_cell_size_medium: Mediano
 $overview_cell_size_big: Grande
+Set Name: Nombrar
+Wallet Created: Monedero creado
+Wallet Imported: Monedero importado
+View Wallet Added: Monedero de visualización añadido
+Scroll Left: Desplazar a la izquierda
+Scroll Right: Desplazar a la derecha
+Sent NFT: NFT enviado
+Sending NFT: Enviando NFT
+$send_nft_action: Enviar NFT
+Received NFT: NFT recibido
+Receiving NFT: Recibiendo NFT
+$receive_nft_action: Recibir NFT
+Minted NFT: NFT minteado
+Minting NFT: Minteando NFT
+$mint_nft_action: Mintear NFT
+Burned NFT: NFT quemado
+Burning NFT: Quemando NFT
+$burn_nft_action: Quemar NFT

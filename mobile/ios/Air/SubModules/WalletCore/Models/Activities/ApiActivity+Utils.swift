@@ -82,22 +82,40 @@ public extension ApiActivity {
     
     var displayTitleResolved: String {
         let displayTitle = self.displayTitle
-        let resolved = if swap?.status == .expired || swap?.status == .failed || transaction?.status == .failed {
-            displayTitle.future
-        } else if isLocal || getIsActivityPending(self) || swap?.status == .pending || swap?.status == .pendingTrusted {
-            displayTitle.inProgress
+        let resolved: String
+        if let swap {
+            switch swap.displayStatus() {
+            case .failed, .expired, .refunded, .hold:
+                resolved = displayTitle.future
+            case .pending, .waitingForPayment:
+                resolved = displayTitle.inProgress
+            case .completed:
+                resolved = displayTitle.complete
+            }
+        } else if transaction?.status == .failed {
+            resolved = displayTitle.future
+        } else if isLocal || getIsActivityPending(self) {
+            resolved = displayTitle.inProgress
         } else {
-            displayTitle.complete
+            resolved = displayTitle.complete
         }
         return resolved
     }
 
     var displayTitleResolvedOptimistic: String {
         let displayTitle = self.displayTitle
-        let resolved = if swap?.status == .expired || swap?.status == .failed || transaction?.status == .failed {
-            displayTitle.future
+        let resolved: String
+        if let swap {
+            switch swap.displayStatus() {
+            case .failed, .expired, .refunded, .hold:
+                resolved = displayTitle.future
+            case .pending, .waitingForPayment, .completed:
+                resolved = displayTitle.complete
+            }
+        } else if transaction?.status == .failed {
+            resolved = displayTitle.future
         } else {
-            displayTitle.complete
+            resolved = displayTitle.complete
         }
 //        return "\(abs(id.hashValue) % 1000) " + resolved + " " + (transaction?.status.rawValue ?? "")
         return resolved
@@ -121,26 +139,16 @@ public func activityAccessoryStatus(for activity: ApiActivity) -> ActivityAccess
             return nil
         }
     case .swap(let swap):
-        if let cexStatus = swap.cex?.status {
-            switch cexStatus {
-            case .hold:
-                return .hold
-            case .expired, .overdue:
-                return .expired
-            case .failed, .refunded:
-                return .failed
-            default:
-                break
-            }
-        }
-        switch swap.status {
-        case .failed:
+        switch swap.displayStatus() {
+        case .failed, .refunded:
             return .failed
         case .expired:
             return .expired
-        case .pending, .pendingTrusted:
+        case .hold:
+            return .hold
+        case .pending, .waitingForPayment:
             return .pendingTrusted
-        case .completed, .confirmed:
+        case .completed:
             return nil
         }
     }
@@ -252,15 +260,12 @@ public extension ApiActivity {
         case .liquidityWithdraw:
             green
         case .swap:
-            if case .swap(let swap) = self {
-                if swap.cex?.status == .hold {
-                    gray
-                } else if swap.status == .expired || swap.status == .failed {
-                    red
-                } else {
-                    blue
-                }
-            } else {
+            switch swap?.displayStatus() {
+            case .some(.hold):
+                gray
+            case .some(.expired), .some(.refunded), .some(.failed):
+                red
+            default:
                 blue
             }
         case nil:

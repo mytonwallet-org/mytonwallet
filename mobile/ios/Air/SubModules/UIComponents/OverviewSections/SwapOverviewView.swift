@@ -38,7 +38,8 @@ public struct SwapOverviewView: View {
             Button {
                 onTokenTapped?(fromToken)
             } label: {
-                WUIIconViewToken(token: fromToken, isWalletView: false, showldShowChain: true, size: 60, chainSize: 22, chainBorderWidth: 1.5, chainBorderColor: .air.sheetBackground, chainHorizontalOffset: 6, chainVerticalOffset: 2)
+                WUIIconViewToken(token: fromToken, isWalletView: false, showldShowChain: true, size: 60,
+                                 chainSize: 22, chainBorderWidth: 1.5, chainHorizontalOffset: 6, chainVerticalOffset: 2)
                     .frame(width: 64, height: 60, alignment: .leading)
                     .contentShape(.rect)
             }
@@ -50,7 +51,8 @@ public struct SwapOverviewView: View {
             Button {
                 onTokenTapped?(toToken)
             } label: {
-                WUIIconViewToken(token: toToken, isWalletView: false, showldShowChain: true, size: 60, chainSize: 22, chainBorderWidth: 1.5, chainBorderColor: .air.sheetBackground, chainHorizontalOffset: 6, chainVerticalOffset: 2)
+                WUIIconViewToken(token: toToken, isWalletView: false, showldShowChain: true, size: 60,
+                                 chainSize: 22, chainBorderWidth: 1.5, chainHorizontalOffset: 6, chainVerticalOffset: 2)
                     .frame(width: 64, height: 60, alignment: .leading)
                     .padding(.leading, 4)
                     .contentShape(.rect)
@@ -68,7 +70,7 @@ public struct SwapOverviewView: View {
             let amount = DecimalAmount(-fromAmount.amount, fromToken)
             AmountText(
                 amount: amount,
-                format: .init(maxDecimals: 2),
+                format: .init(preset: .defaultAdaptive, showMinus: true),
                 integerFont: .compactRounded(ofSize: 17, weight: .bold),
                 fractionFont: .compactRounded(ofSize: 17, weight: .bold),
                 symbolFont: .compactRounded(ofSize: 17, weight: .bold),
@@ -90,7 +92,7 @@ public struct SwapOverviewView: View {
             let amount = DecimalAmount(toAmount.amount, toToken)
             AmountText(
                 amount: amount,
-                format: .init(maxDecimals: 2, showPlus: true),
+                format: .init(preset: .defaultAdaptive, showPlus: true),
                 integerFont: .compactRounded(ofSize: 34, weight: .bold),
                 fractionFont: .compactRounded(ofSize: 28, weight: .bold),
                 symbolFont: .compactRounded(ofSize: 28, weight: .bold),

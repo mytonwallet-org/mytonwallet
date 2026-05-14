@@ -6,6 +6,12 @@ private let log = Log("WebViewGlobalStorageProvider")
 private let capacitorUrl = URL(string: "capacitor://mytonwallet.local")!
 private let globalStateKey = "mytonwallet-global-state"
 
+enum WebViewGlobalStorageLoadResult {
+    case missing
+    case empty
+    case present([String: Any])
+}
+
 
 @MainActor
 final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate {
@@ -42,7 +48,42 @@ final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate {
     func loadFromWebView() async throws(GlobalStorageError) -> sending Any {
         log.info("[wv] load started")
         try await prepareWebView()
-        
+        guard let string = try await readGlobalStateString() else {
+            throw .localStorageIsNull
+        }
+        guard !string.isEmpty else {
+            throw .localStorageIsEmpty
+        }
+        guard let dict = try Self.parseGlobalStateDict(string) else {
+            throw .localStorageIsNull
+        }
+        guard !dict.isEmpty else {
+            throw .localStorageIsEmpty
+        }
+        return dict
+    }
+
+    func loadFromWebViewIfPresent() async throws(GlobalStorageError) -> WebViewGlobalStorageLoadResult {
+        log.info("[wv] presence-aware load started")
+        try await prepareWebView()
+        guard let string = try await readGlobalStateString() else {
+            log.info("[wv] global state is missing")
+            return .missing
+        }
+        guard !string.isEmpty else {
+            log.info("[wv] global state is empty")
+            return .empty
+        }
+        guard let dict = try Self.parseGlobalStateDict(string) else {
+            return .missing
+        }
+        if dict.isEmpty {
+            return .empty
+        }
+        return .present(dict)
+    }
+
+    private func readGlobalStateString() async throws(GlobalStorageError) -> String? {
         let result: Any
         do {
             log.info("[wv] getItem called")
@@ -51,21 +92,33 @@ final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate {
         } catch {
             throw .javaScriptError(error)
         }
-        
+
         if result is NSNull {
-            throw .localStorageIsNull
+            return nil
         }
         guard let string = result as? String else {
             throw .localStorageIsNotAString(result)
         }
+        return string
+    }
+
+    private nonisolated static func parseGlobalStateDict(_ string: String) throws(GlobalStorageError) -> sending [String: Any]? {
         let data = string.data(using: .utf8)!
-        let json: Any
         do {
-            json = try JSONSerialization.jsonObject(with: data, options: [.mutableContainers, .mutableLeaves])
+            let json = try JSONSerialization.jsonObject(with: data, options: [.mutableContainers, .mutableLeaves])
+            if json is NSNull {
+                return nil
+            }
+            guard let dict = json as? [String: Any] else {
+                throw GlobalStorageError.serializedValueIsNotAValidDict(json)
+            }
+            return dict
         } catch {
+            if let error = error as? GlobalStorageError {
+                throw error
+            }
             throw .localStorageIsInvalidJson(string)
         }
-        return json
     }
     
     func saveToWebView(_ globalDict: Any) async throws(GlobalStorageError) {

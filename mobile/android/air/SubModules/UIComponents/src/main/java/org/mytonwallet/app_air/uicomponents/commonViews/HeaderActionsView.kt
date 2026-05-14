@@ -338,11 +338,11 @@ class HeaderActionsView(
 
     fun updateActions(account: MAccount?, tokenSlug: String? = null) {
         this.account = account
-        val isMainNet = account?.network == MBlockchainNetwork.MAINNET
+        val isMainNet = account?.isMainnet == true
         setReceiveVisibility(account?.supportsReceiveScreen == true)
         setSendVisibility(account?.accountType != MAccount.AccountType.VIEW)
         setEarnVisibility(isMainNet)
-        setSwapVisibility(isMainNet && account.accountType == MAccount.AccountType.MNEMONIC)
+        setSwapVisibility(account?.supportsSwap == true)
         updateEarnTitle(account, tokenSlug)
     }
 

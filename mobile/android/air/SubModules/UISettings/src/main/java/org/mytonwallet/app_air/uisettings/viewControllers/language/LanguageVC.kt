@@ -175,11 +175,6 @@ class LanguageVC(context: Context) : WViewController(context),
     }
 
     private fun switchLanguageIfRequired(nextLanguage: WLanguage) {
-        /*if (nextLanguage == WLanguage.PERSIAN) {
-            FontManager.setActiveFont(context, FontFamily.VAZIR)
-        } else if (FontManager.activeFont == FontFamily.VAZIR) {
-            FontManager.setActiveFont(context, FontFamily.MISANS)
-        }*/
     }
 
 }

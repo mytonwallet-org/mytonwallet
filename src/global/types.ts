@@ -65,6 +65,7 @@ export type Theme = 'light' | 'dark' | 'system';
 export type AppTheme = 'dark' | 'light';
 export type AppLayout = 'portrait' | 'landscape';
 export type DialogAction = 'openBluetoothSettings' | 'signOutAll';
+export type ToastAction = 'openRenameWallet';
 
 export type DeveloperSettingsUndefinedOverride = '__undefined';
 export type DeveloperSettingsOverrideValue<Value> = Exclude<Value, undefined> | DeveloperSettingsUndefinedOverride;
@@ -84,7 +85,10 @@ export type DeveloperSettingsOverridePayload = {
 export type ToastType = {
   icon?: string;
   message: string;
-};
+} & (
+  | { action?: undefined; actionText?: undefined }
+  | { action: ToastAction; actionText: string }
+);
 
 export type DialogType = {
   title?: string;
@@ -887,6 +891,7 @@ export type GlobalState = {
   currentAccountId?: string;
   currentTemporaryViewAccountId?: string;
   isAccountSelectorOpen?: boolean;
+  walletRenameAccountId?: string;
   accountSelectorActiveTab?: number;
   accountSelectorViewMode?: 'cards' | 'list';
   isBackupWalletModalOpen?: boolean;
@@ -1034,6 +1039,7 @@ export interface ActionPayloads {
   checkAppVersion: undefined;
   importAccountByVersion: { version: ApiTonWalletVersion; isTestnetSubwalletId?: boolean };
   addSubWallet: { group: ApiGroupedWalletVariant };
+  addAllFoundSubwallets: { foundSubwallets: ApiGroupedWalletVariant[] };
   createSubWallet: { password: string };
   importViewAccount: { addressByChain: ApiImportAddressByChain };
   openTemporaryViewAccount: { addressByChain: Partial<Record<ApiChain, string>> };
@@ -1102,7 +1108,7 @@ export interface ActionPayloads {
   showDialog: DialogType;
   dismissDialog: undefined;
   showError: { error?: ApiAnyDisplayError | TeactNode | string };
-  showToast: { message: string; icon?: string };
+  showToast: ToastType;
   dismissToast: undefined;
   initLedgerPage: undefined;
   afterSignIn: undefined;
@@ -1179,6 +1185,8 @@ export interface ActionPayloads {
 
   openAccountSelector: undefined;
   closeAccountSelector: undefined;
+  openWalletRenameModal: { accountId?: string } | undefined;
+  closeWalletRenameModal: undefined;
   setAccountSelectorTab: { tab: number };
   setAccountSelectorViewMode: { mode: 'cards' | 'list' };
   setCurrentTokenPeriod: { period: TokenPeriod };

@@ -33,6 +33,12 @@ public enum GlobalStorageError: Error, @unchecked Sendable { // todo: remove Any
     case localStorageSetItemError(String)
 }
 
+public enum GlobalStorageLoadResult: String, Sendable {
+    case missing
+    case empty
+    case present
+}
+
 
 private let log = Log("GlobalStorage")
 
@@ -66,6 +72,30 @@ public final class GlobalStorage {
             let json = try await WebViewGlobalStorageProvider().loadFromWebView()
             update { $0[""] = json }
             log.info("load completed")
+        } catch {
+            log.fault("failed to load global dict from webview \(error, .public)")
+            LogStore.shared.syncronize()
+            throw error
+        }
+    }
+
+    public func loadFromWebViewIfPresent() async throws(GlobalStorageError) -> GlobalStorageLoadResult {
+        do {
+            log.info("presence-aware load started")
+            switch try await WebViewGlobalStorageProvider().loadFromWebViewIfPresent() {
+            case .missing:
+                update { $0[""] = [:] }
+                log.info("presence-aware load completed: storage missing")
+                return .missing
+            case .empty:
+                update { $0[""] = [:] }
+                log.info("presence-aware load completed: storage empty")
+                return .empty
+            case .present(let json):
+                update { $0[""] = json }
+                log.info("presence-aware load completed: storage present")
+                return .present
+            }
         } catch {
             log.fault("failed to load global dict from webview \(error, .public)")
             LogStore.shared.syncronize()

@@ -2,7 +2,13 @@ import type { Table, UpdateSpec } from 'dexie';
 
 import { IS_AIR_APP } from '../../config';
 
-const IGNORED_DEXIE_ERRORS = new Set(['AbortError', 'BulkError', 'UnknownError']);
+const IGNORED_DEXIE_ERRORS = new Set([
+  'AbortError',
+  'BulkError',
+  'DatabaseClosedError',
+  'MissingAPIError',
+  'UnknownError',
+]);
 
 async function tryDbQuery<T>(cb: () => Promise<T>) {
   try {
@@ -24,8 +30,10 @@ export class DbRepository<T> {
     this.table = table;
   }
 
-  all() {
-    return this.table.toArray();
+  async all() {
+    return (await tryDbQuery(() => {
+      return this.table.toArray();
+    })) ?? [];
   }
 
   find(where: Record<string, any>) {

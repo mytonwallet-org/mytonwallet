@@ -305,6 +305,43 @@ export type AlchemyGetTokenAssetResponse = {
   };
 };
 
+export type AlchemyGetAssetTransfersResponse = {
+  jsonrpc: '2.0';
+  id: number;
+  result: {
+    transfers: {
+      blockNum: string;
+      uniqueId: string;
+      hash: string | null;
+      from: string;
+      to: string;
+      value: number | null;
+      erc721TokenId: string | null;
+      erc1155Metadata: {
+        tokenId: string;
+        value: string;
+      }[] | null;
+      tokenId: string | null;
+      asset: string | null;
+      category: 'external'
+        | 'internal'
+        | 'erc20'
+        | 'erc721'
+        | 'erc1155'
+        | 'specialnft';
+      rawContract: {
+        value: string | null;
+        address: string | null;
+        decimal: string | null;
+      } | null;
+      metadata?: {
+        blockTimestamp?: string;
+      };
+    }[];
+    pageKey: string;
+  };
+};
+
 export type AlchemyNftImage = {
   cachedUrl?: string;
   thumbnailUrl?: string;

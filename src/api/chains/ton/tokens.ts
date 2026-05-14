@@ -57,6 +57,7 @@ async function getTokenBalances(network: ApiNetwork, address: string) {
   );
   return parsed.filter(Boolean);
 }
+
 const JETTON_WALLETS_LIMIT = 1000;
 
 export async function fetchJettonWallets(network: ApiNetwork, address: string, maxLimit?: number) {

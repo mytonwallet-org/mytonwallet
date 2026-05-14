@@ -4,7 +4,7 @@ import WalletContext
 import UIKit
 import Kingfisher
 
-public let DEFAULT_AUTOLOCK_OPTION = MAutolockOption.tenMinutes
+public let DEFAULT_AUTOLOCK_OPTION = MAutolockOption.never
 
 private let log = Log("AutolockStore")
 

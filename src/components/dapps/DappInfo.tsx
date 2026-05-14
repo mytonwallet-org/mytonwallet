@@ -8,9 +8,17 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
 import Button from '../ui/Button';
+import Image from '../ui/Image';
 import DappHostWarning from './DappHostWarning';
 
 import styles from './Dapp.module.scss';
+
+const ICON_FALLBACK = (
+  <i
+    className={buildClassName(styles.dappLogo, styles.dappLogo_icon, styles.dappIcon, 'icon-laptop')}
+    aria-hidden
+  />
+);
 
 interface OwnProps {
   dapp?: StoredDappConnection;
@@ -35,16 +43,15 @@ function DappInfo({
   });
 
   function renderIcon() {
-    if (iconUrl) {
-      return (
-        <img src={iconUrl} alt={lang('Logo')} className={styles.dappLogo} />
-      );
-    }
-
     return (
-      <div className={buildClassName(styles.dappLogo, styles.dappLogo_icon)}>
-        <i className={buildClassName(styles.dappIcon, 'icon-laptop')} aria-hidden />
-      </div>
+      <Image
+        url={iconUrl}
+        alt={name || lang('Logo')}
+        forceLoaded
+        className={styles.dappLogo}
+        imageClassName={styles.dappLogo}
+        fallback={ICON_FALLBACK}
+      />
     );
   }
 

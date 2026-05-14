@@ -240,6 +240,7 @@ extension ApiToken {
         if keyword.isEmpty { return true }
         if name.lowercased().contains(keyword) { return true }
         if symbol.lowercased().contains(keyword) { return true }
+        if tokenAddress?.lowercased().contains(keyword) == true { return true }
         if let keywords, keywords.any({ $0.contains(keyword) }) {
             return true
         }

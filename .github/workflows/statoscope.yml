@@ -18,6 +18,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Reconfigure git to use HTTPS authentication
         uses: GuillaumeFalourd/SSH-to-HTTPS@v1
       - name: Setup Node.js ${{ vars.NODE_VERSION }}
@@ -32,6 +33,7 @@ jobs:
         with:
           path: |
             node_modules
+            mobile/plugins/*/node_modules
           key: ${{ github.sha }}
   statoscope:
     needs:
@@ -42,8 +44,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
       - name: Reconfigure git to use HTTPS authentication
         uses: GuillaumeFalourd/SSH-to-HTTPS@v1
+      - name: Resolve reference commit
+        id: reference
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch --no-tags "https://x-access-token:$GITHUB_TOKEN@github.com/${{ github.repository }}.git" \
+            "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          reference_sha="$(git merge-base HEAD "origin/$BASE_REF")"
+          if [ -z "$reference_sha" ]; then
+            echo "Failed to resolve merge-base with origin/$BASE_REF" >&2
+            exit 1
+          fi
+          echo "sha=$reference_sha" >> "$GITHUB_OUTPUT"
       - name: Setup Node.js ${{ vars.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
@@ -54,16 +72,38 @@ jobs:
         with:
           path: |
             node_modules
+            mobile/plugins/*/node_modules
           key: ${{ github.sha }}
       - name: Download reference statistics
+        id: download-reference
         uses: dawidd6/action-download-artifact@v9
         with:
-          github_token: ${{secrets.GITHUB_TOKEN}}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: statoscope-upload-reference-statistics.yml
           workflow_conclusion: success
           name: statoscope-reference
           path: ./
-        continue-on-error: true
+          commit: ${{ steps.reference.outputs.sha }}
+          if_no_artifact_found: ignore
+      - name: Build reference statistics
+        if: steps.download-reference.outputs.found_artifact != 'true'
+        env:
+          BASE_SHA: ${{ steps.reference.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+
+          reference_dir="$(mktemp -d)"
+          cleanup() {
+            rm -rf "$reference_dir"
+          }
+          trap cleanup EXIT
+
+          git archive "$BASE_SHA" | tar -x -C "$reference_dir"
+
+          (cd "$reference_dir" && npm ci && APP_COMMIT_HASH="$BASE_SHA" npm run statoscope:build)
+          cp "$reference_dir/dist/statoscope-build-statistics.json" statoscope-reference.json
       - name: Build
         env:
           STATOSCOPE_STATS_TO_COMPARE: statoscope-reference.json

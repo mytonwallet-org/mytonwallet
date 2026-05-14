@@ -4,6 +4,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uiinappbrowser.CustomTabsBrowser
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
@@ -16,7 +17,8 @@ import java.math.BigDecimal
 import java.math.BigInteger
 
 object SellWithCardLauncher {
-    private const val OFF_RAMP_BASE_URL = "https://my.tt/offramp/"
+    private val offRampBaseUrl: String
+        get() = "https://${ApplicationContextHolder.universalShortUrlHost}/offramp/"
     private val OFFRAMP_PREFILL_MAX_AMOUNT = BigDecimal("2000")
 
     /// https://support.moonpay.com/en/articles/362475-moonpay-s-supported-currencies
@@ -53,7 +55,7 @@ object SellWithCardLauncher {
                     theme = activeTheme,
                     currency = currency.currencyCode,
                     amount = amount,
-                    baseUrl = OFF_RAMP_BASE_URL,
+                    baseUrl = offRampBaseUrl,
                 ),
             ),
             callback = { result, _ ->

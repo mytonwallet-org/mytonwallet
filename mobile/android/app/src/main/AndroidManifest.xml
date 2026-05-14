@@ -32,36 +32,6 @@
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
-      <intent-filter android:autoVerify="true">
-        <action android:name="android.intent.action.VIEW" />
-
-        <category android:name="android.intent.category.DEFAULT" />
-        <category android:name="android.intent.category.BROWSABLE" />
-
-        <data
-          android:host="connect.mytonwallet.org"
-          android:scheme="https" />
-      </intent-filter>
-      <intent-filter android:autoVerify="true">
-        <action android:name="android.intent.action.VIEW" />
-
-        <category android:name="android.intent.category.DEFAULT" />
-        <category android:name="android.intent.category.BROWSABLE" />
-
-        <data
-          android:host="go.mytonwallet.org"
-          android:scheme="https" />
-      </intent-filter>
-      <intent-filter android:autoVerify="true">
-        <action android:name="android.intent.action.VIEW" />
-
-        <category android:name="android.intent.category.DEFAULT" />
-        <category android:name="android.intent.category.BROWSABLE" />
-
-        <data
-          android:host="my.tt"
-          android:scheme="https" />
-      </intent-filter>
       <intent-filter>
         <action android:name="android.intent.action.VIEW" />
 
@@ -120,13 +90,6 @@
       android:exported="true"
       android:launchMode="singleTop"
       android:theme="@style/Theme.MyTonWalletAir" />
-
-    <activity
-      android:name=".LegacyActivity"
-      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|layoutDirection|smallestScreenSize|screenLayout|uiMode|navigation|density"
-      android:exported="true"
-      android:launchMode="singleTask"
-      android:theme="@style/AppTheme.NoActionBarLaunch" />
 
     <receiver
       android:name="org.mytonwallet.app_air.widgets.actionsWidget.ActionsWidget"

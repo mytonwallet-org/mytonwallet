@@ -20,7 +20,7 @@ public func switchStorageFromCapacitorIfNeeded(global: GlobalStorage, db: any Da
         try await moveOrderedAccountIds(global: global, db: db, accountIds: accountIds)
     }
     await runNonEssentialSwitchFromCapacitorStep("currentAccountId", failureTrace: "airLauncher.storage.switchFromCapacitor.currentAccountId.failed") {
-        try await moveCurrentAccountId(global: global, db: db)
+        try await moveCurrentAccountId(global: global, db: db, accountIds: accountIds)
     }
     moveBaseCurrency(global: global)
     LocalizationSupport.shared.syncLanguageFromGlobalStorage(global: global)
@@ -48,51 +48,29 @@ private func moveAccounts(global: GlobalStorage, db: any DatabaseWriter) async t
     
     var accounts: [MAccount] = []
     
-    struct _RawAccountWithoutId: Codable {
-        var title: String?
-        var type: AccountType?
-        var isHardware: Bool?
-        var byChain: [String: AccountChain]?
-        var addressByChain: [String: String]?
-        var domainByChain: [String: String]?
-        var isMultisigByChain: [String: Bool]?
-        var isTemporary: Bool?
-    }
-
     for accountId in accountIds {
-        
         guard let dict = global["accounts.byId.\(accountId)"] as? [String: Any] else {
-            log.fault("failed to decode account! global=\(global as Any, .public)")
-            throw GlobalStorageError.localStorageIsInvalidJson(global)
-        }
-        let rawAccount = try JSONSerialization.decode(_RawAccountWithoutId.self, from: dict)
-        if rawAccount.isTemporary == true {
+            log.fault("skipping legacy account because it is not a dict accountId=\(accountId, .public)")
             continue
         }
-        let byChain: [String: AccountChain]
-        if let rawByChain = rawAccount.byChain, !rawByChain.isEmpty {
-            byChain = rawByChain
-        } else {
-            byChain = rawAccount.addressByChain?.reduce(into: [String: AccountChain]()) { result, item in
-                let (chain, address) = item
-                result[chain] = AccountChain(
-                    address: address,
-                    domain: rawAccount.domainByChain?[chain],
-                    isMultisig: rawAccount.isMultisigByChain?[chain]
-                )
-            } ?? [:]
-        }
+        guard bool(dict["isTemporary"]) != true else { continue }
+
+        let byChain = recoverAccountChains(from: dict)
         guard !byChain.isEmpty else {
-            log.fault("failed to decode account accountId=\(accountId, .public)")
-            throw GlobalStorageError.localStorageIsInvalidJson(dict)
+            log.fault("skipping legacy account because no chain address was recovered accountId=\(accountId, .public)")
+            continue
         }
         let account = MAccount(
             id: accountId,
-            title: rawAccount.title,
-            type: rawAccount.type ?? (rawAccount.isHardware == true ? .hardware : .mnemonic),
+            title: string(dict["title"]),
+            type: accountType(from: dict),
             byChain: byChain,
         )
         accounts.append(account)
+    }
+    guard !accounts.isEmpty else {
+        log.fault("failed to recover any legacy accounts from GlobalStorage accountKeys=\(accountIds, .public)")
+        throw GlobalStorageError.localStorageIsInvalidJson(global)
     }
     try await db.write { [accounts] db in
         try db.execute(sql: "DELETE FROM accounts")
@@ -103,9 +81,91 @@ private func moveAccounts(global: GlobalStorage, db: any DatabaseWriter) async t
     return accounts.map(\.id)
 }
 
+private func recoverAccountChains(from dict: [String: Any]) -> [String: AccountChain] {
+    var recovered: [String: AccountChain] = [:]
+
+    if let chains = dict["byChain"] as? [String: Any] {
+        recovered = chains.reduce(into: [String: AccountChain]()) { result, item in
+            let (chain, value) = item
+            if let accountChain = recoverAccountChain(from: value) {
+                result[chain] = accountChain
+            }
+        }
+    }
+
+    if let addressByChain = dict["addressByChain"] as? [String: Any] {
+        let domainByChain = dict["domainByChain"] as? [String: Any]
+        let isMultisigByChain = dict["isMultisigByChain"] as? [String: Any]
+        recovered = addressByChain.reduce(into: recovered) { result, item in
+            let (chain, rawAddress) = item
+            guard result[chain] == nil else { return }
+            guard let address = string(rawAddress) else { return }
+            result[chain] = AccountChain(
+                address: address,
+                domain: string(domainByChain?[chain]),
+                isMultisig: bool(isMultisigByChain?[chain])
+            )
+        }
+    }
+
+    if !recovered.isEmpty {
+        return recovered
+    }
+
+    if let address = string(dict["address"]) {
+        return ["ton": AccountChain(address: address)]
+    }
+
+    return [:]
+}
+
+private func recoverAccountChain(from value: Any) -> AccountChain? {
+    if let accountChain = try? JSONSerialization.decode(AccountChain.self, from: value),
+       !accountChain.address.isEmpty {
+        return accountChain
+    }
+    if let address = string(value) {
+        return AccountChain(address: address)
+    }
+    guard let dict = value as? [String: Any],
+          let address = string(dict["address"])
+    else {
+        return nil
+    }
+    return AccountChain(
+        address: address,
+        domain: string(dict["domain"]),
+        isMultisig: bool(dict["isMultisig"]),
+        derivation: dict["derivation"].flatMap { try? JSONSerialization.decode(ApiDerivation.self, from: $0) }
+    )
+}
+
+private func accountType(from dict: [String: Any]) -> AccountType {
+    if let type = string(dict["type"]).flatMap(AccountType.init(rawValue:)) {
+        return type
+    }
+    return bool(dict["isHardware"]) == true ? .hardware : .mnemonic
+}
+
+private func string(_ value: Any?) -> String? {
+    (value as? String)?.nilIfEmpty
+}
+
+private func bool(_ value: Any?) -> Bool? {
+    if let value = value as? Bool {
+        return value
+    }
+    if let value = value as? NSNumber {
+        return value.boolValue
+    }
+    return nil
+}
+
 @MainActor
-private func moveCurrentAccountId(global: GlobalStorage, db: any DatabaseWriter) async throws {
-    let accountId = global["currentAccountId"] as? String
+private func moveCurrentAccountId(global: GlobalStorage, db: any DatabaseWriter, accountIds: [String]) async throws {
+    let accountIdSet = Set(accountIds)
+    let storedAccountId = global["currentAccountId"] as? String
+    let accountId = storedAccountId.flatMap { accountIdSet.contains($0) ? $0 : nil } ?? accountIds.first
     try await db.write { db in
         try db.execute(sql: "UPDATE common SET current_account_id = ?", arguments: [accountId])
     }

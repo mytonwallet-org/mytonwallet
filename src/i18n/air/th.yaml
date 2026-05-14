@@ -360,6 +360,10 @@ $subwallets_found:
   oneValue: "พบ: %1$d"
   otherValue: "พบ: %1$d"
 
+$subwallet_scan_no_native_balances: ไม่มียอดสกุลเงินหลัก
+$subwallet_scan_other_tokens_suffix:
+  otherValue: " + อีก %1$d โทเค็นอื่น"
+
 $subwallets_hint: ใช้ subwallet เพื่อรับที่อยู่เพิ่มเติมโดยไม่ต้องสร้างคำลับใหม่
 $subwallets_created_wallets: หากคุณเคยสร้าง subwallet ไว้ก่อนหน้านี้ จะปรากฏในรายการด้านล่าง
 $subwallets_none: ยังไม่มี subwallet

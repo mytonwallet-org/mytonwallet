@@ -40,18 +40,11 @@ public enum AdaptivePreset<Backing: DecimalBackingType>: Codable {
             return tokenDecimals(for: abs(decimalAmount.amount), tokenDecimals: decimals)
             
         case .baseCurrencyPrice:
-            let resolved = if v < 0.00_00_05 {
-                min(decimals, 8)
-            } else if v < 0.00_05 {
-                min(decimals, 6)
-            } else if v < 0.05 {
-                min(decimals, 4)
-            } else if v < 10_000 {
-                min(decimals, 2)
+            return if v < 10_000 {
+                tokenDecimals(for: abs(decimalAmount.amount), tokenDecimals: decimals)
             } else {
                 0
             }
-            return resolved
 
         case .baseCurrencyHighPrecision:
             return tokenDecimals(for: abs(decimalAmount.amount), tokenDecimals: decimals, minimumSignificantDigits: 4)

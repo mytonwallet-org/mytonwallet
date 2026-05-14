@@ -71,7 +71,7 @@ class WMenuPopup {
             ) : Config()
 
             data class Icon(
-                val icon: Int,
+                val iconResId: Int?,
                 val tintColor: WColor? = null,
                 val iconSize: Int? = null,
                 val iconMargin: Int? = null,
@@ -85,7 +85,7 @@ class WMenuPopup {
                 }
 
                 is Config.Item -> {
-                    config.icon?.icon
+                    config.icon?.iconResId
                 }
 
                 is Config.SelectableItem -> {

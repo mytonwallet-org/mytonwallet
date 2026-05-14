@@ -12,7 +12,6 @@ import { getIsActivityPendingForUser, getShouldSkipSwapWaitingStatus } from '../
 import buildClassName from '../../../../util/buildClassName';
 import { formatTime } from '../../../../util/dateFormat';
 import { formatCurrencyExtended } from '../../../../util/formatNumber';
-import getSwapRate from '../../../../util/swap/getSwapRate';
 
 import useLang from '../../../../hooks/useLang';
 
@@ -126,7 +125,39 @@ function Swap({
     );
   }
 
-  function renderAmount() {
+  function renderFromAmount() {
+    const statusClass = buildClassName(isError && styles.swapError, isHold && styles.swapHold);
+
+    return (
+      <SensitiveData
+        isActive={isSensitiveDataHidden}
+        min={5}
+        max={10}
+        seed={`${timestamp}-from`}
+        rows={1}
+        cellSize={8}
+        align="right"
+        className={styles.swapAmountFrom}
+        contentClassName={styles.amount}
+      >
+        <span className={buildClassName(styles.swapSell, statusClass)}>
+          {formatCurrencyExtended(
+            -Math.abs(fromAmount),
+            fromToken?.symbol || UNKNOWN_TOKEN.symbol,
+          )}
+        </span>
+        {fromToken && (
+          <TokenIcon
+            token={fromToken}
+            size="x-small"
+            className={buildClassName(styles.amountTokenIcon, styles.swapFromIcon)}
+          />
+        )}
+      </SensitiveData>
+    );
+  }
+
+  function renderToAmount() {
     const statusClass = buildClassName(isError && styles.swapError, isHold && styles.swapHold);
 
     return (
@@ -134,32 +165,26 @@ function Swap({
         isActive={isSensitiveDataHidden}
         min={5}
         max={13}
-        seed={timestamp.toString()}
-        rows={2}
+        seed={`${timestamp}-to`}
+        rows={1}
         cellSize={8}
         align="right"
         contentClassName={styles.amount}
+        className={styles.swapAmountTo}
       >
-        <span className={buildClassName(styles.swapSell, statusClass)}>
-          {formatCurrencyExtended(
-            Math.abs(fromAmount),
-            fromToken?.symbol || UNKNOWN_TOKEN.symbol,
-            true,
-          )}
-        </span>
-        <i
-          className={buildClassName(styles.swapArrowRight, 'icon-chevron-right', statusClass)}
-          aria-hidden
-        />
         <span className={buildClassName(styles.swapBuy, statusClass)}>
           {formatCurrencyExtended(
             Math.abs(toAmount),
             toToken?.symbol || UNKNOWN_TOKEN.symbol,
-            true,
           )}
         </span>
-        {fromToken && <TokenIcon token={fromToken} size="x-small" className={styles.amountTokenIcon} />}
-        {toToken && <TokenIcon token={toToken} size="x-small" className={styles.amountTokenIcon} />}
+        {toToken && (
+          <TokenIcon
+            token={toToken}
+            size="x-small"
+            className={buildClassName(styles.amountTokenIcon, styles.swapToIcon)}
+          />
+        )}
       </SensitiveData>
     );
   }
@@ -188,7 +213,7 @@ function Swap({
     }
 
     return (
-      <div className={styles.date}>
+      <div className={buildClassName(styles.date, styles.swapDate)}>
         {state && <span className={styles.subheaderHighlight}>{state}</span>}
         {state && `${WHOLE_PART_DELIMITER}∙${WHOLE_PART_DELIMITER}`}
         {date}
@@ -204,29 +229,6 @@ function Swap({
     }
 
     return lang('Swapped');
-  }
-
-  function renderCurrency() {
-    const rate = getSwapRate(
-      String(Math.abs(Number(activity.fromAmount))),
-      String(Math.abs(Number(activity.toAmount))),
-      fromToken,
-      toToken,
-    );
-
-    if (!rate) return undefined;
-
-    const [priceWhole, priceFraction] = rate.price.split('.');
-
-    return (
-      <div>
-        {rate.firstCurrencySymbol}{' ≈ '}
-        <span className={styles.subheaderHighlight}>
-          {priceWhole}
-          <small>.{priceFraction}{' '}{rate.secondCurrencySymbol}</small>
-        </span>
-      </div>
-    );
   }
 
   return (
@@ -247,11 +249,11 @@ function Swap({
         <div className={buildClassName(styles.operationName, isFuture && styles.atMiddle)}>
           {renderTitle()}
         </div>
-        {renderAmount()}
+        {renderFromAmount()}
       </div>
-      <div className={styles.subheader}>
+      <div className={buildClassName(styles.subheader, styles.swapSubheader)}>
         {renderStatusAndDate()}
-        {renderCurrency()}
+        {renderToAmount()}
       </div>
     </Button>
   );

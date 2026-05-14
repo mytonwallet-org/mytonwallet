@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from '../../../../lib/teact/teact';
+import React, { memo, useMemo, useRef } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
 import type { ApiNft, ApiNftCollection } from '../../../../api/types';
@@ -8,8 +8,8 @@ import type { CollectiblesMenuHandler } from './hooks/useCollectiblesOverviewMen
 import type { CollectionMenuHandler } from './hooks/useCollectionOverviewMenu';
 import { ContentTab } from '../../../../global/types';
 
-import { TELEGRAM_GIFTS_SUPER_COLLECTION } from '../../../../config';
-import { buildNftCollectionIndex, getCollectionKey } from '../../../../global/helpers/nfts';
+import { ANIMATION_LEVEL_MIN, TELEGRAM_GIFTS_SUPER_COLLECTION } from '../../../../config';
+import { getCollectionKey } from '../../../../global/helpers/nfts';
 import {
   selectCurrentAccountId,
   selectCurrentAccountSettings,
@@ -22,12 +22,15 @@ import useLastCallback from '../../../../hooks/useLastCallback';
 import useAssetsOverviewMenu from './hooks/useAssetsOverviewMenu';
 import useCollectiblesOverviewMenu from './hooks/useCollectiblesOverviewMenu';
 import useCollectionOverviewMenu from './hooks/useCollectionOverviewMenu';
+import useNftCollectionMenuItems from './hooks/useNftCollectionMenuItems';
+import useScrollButtonsVisibility from './hooks/useScrollButtonsVisibility';
 
 import LandscapeTopActions from '../Actions/LandscapeTopActions';
 import Activities from './Activities';
 import Assets from './Assets';
 import Nfts from './Nfts';
 import OverviewCell from './OverviewCell';
+import OverviewScrollButton from './OverviewScrollButton';
 
 import styles from './LandscapeWalletOverview.module.scss';
 
@@ -49,6 +52,7 @@ interface StateProps {
   overviewCellSize: OverviewCellSize;
   isAssetCellVisible: boolean;
   isCollectibleCellVisible: boolean;
+  noAnimation: boolean;
 }
 
 function LandscapeWalletOverview({
@@ -60,16 +64,24 @@ function LandscapeWalletOverview({
   overviewCellSize,
   isAssetCellVisible,
   isCollectibleCellVisible,
+  noAnimation,
   onStakedTokenClick,
 }: OwnProps & StateProps) {
   const { setActiveContentTab, showTokenActivity, openNftCollection } = getActions();
 
   const lang = useLang();
+  const rowRef = useRef<HTMLDivElement>();
 
-  const { byKey: collectionByKey, totalVisibleCount: totalNftsAmount } = useMemo(
-    () => buildNftCollectionIndex(nftsByAddress, blacklistedNftAddresses, whitelistedNftAddresses),
-    [nftsByAddress, blacklistedNftAddresses, whitelistedNftAddresses],
-  );
+  const {
+    items: nftCollectionItems,
+    byKey: collectionByKey,
+    totalVisibleCount: totalNftsAmount,
+    shouldRenderHiddenNftsSection,
+  } = useNftCollectionMenuItems({
+    nfts: nftsByAddress,
+    blacklistedNftAddresses,
+    whitelistedNftAddresses,
+  });
 
   const visibleCollectionTabs = useMemo(() => (
     collectionTabs?.filter((tab) => collectionByKey.has(getCollectionKey(tab.chain, tab.address))) ?? []
@@ -127,6 +139,8 @@ function LandscapeWalletOverview({
     canHide: canHideCurrentCell,
     isAssetCellVisible,
     hiddenCheckClassName: styles.hiddenCheck,
+    nftCollectionItems,
+    shouldRenderHiddenNftsSection,
   });
 
   const {
@@ -140,81 +154,104 @@ function LandscapeWalletOverview({
     hiddenCheckClassName: styles.hiddenCheck,
   });
 
+  const { canScrollLeft, canScrollRight, scrollByOneCell } = useScrollButtonsVisibility({
+    containerRef: rowRef,
+    isDisabled: shouldStretchCell,
+    noAnimation,
+  });
+
   return (
     <div className={buildClassName(styles.wrapper, 'custom-scroll', SCROLL_CONTAINER_CLASS)}>
       <LandscapeTopActions />
-      <div className={buildClassName(styles.row, shouldStretchCell && styles.rowStretched, 'no-swipe')}>
-        {isAssetCellVisible && (
-          <OverviewCell<undefined, AssetsMenuHandler>
-            caption={lang('Assets')}
-            showAllLabel={lang('Show All Assets')}
-            showAllIcon="icon-show-all"
-            showAllAmount={totalTokensAmount}
-            menuItems={assetsMenuItems}
-            size={overviewCellSize}
-            className={stretchedCellClass}
-            onShowAllClick={hasMoreAssets ? handleShowAllAssets : undefined}
-            onMenuItemClick={handleAssetsMenuSelect}
-          >
-            <Assets
-              isActive
-              isWidget
-              onTokenClick={handleTokenClick}
-              onStakedTokenClick={onStakedTokenClick}
-            />
-          </OverviewCell>
-        )}
-        {isCollectibleCellVisible && (
-          <OverviewCell<undefined, CollectiblesMenuHandler>
-            caption={lang('Collectibles')}
-            showAllLabel={lang('Show All Collectibles')}
-            showAllIcon="icon-show-all-collectibles"
-            showAllAmount={totalNftsAmount}
-            menuItems={collectiblesMenuItems}
-            size={overviewCellSize}
-            className={stretchedCellClass}
-            onShowAllClick={totalNftsAmount ? handleShowAllNfts : undefined}
-            onMenuItemClick={handleCollectiblesMenuSelect}
-          >
-            <Nfts
-              isActive
-              isWidget
-              isStretched={shouldStretchCell}
-            />
-          </OverviewCell>
-        )}
-        {visibleCollectionTabs.map((collection) => {
-          const collectionCaption = getCollectionCaption(collection);
-          const collectionKey = getCollectionKey(collection.chain, collection.address);
-          const isTelegramGifts = collection.address === TELEGRAM_GIFTS_SUPER_COLLECTION;
-          return (
-            <OverviewCell<ApiNftCollection, CollectionMenuHandler>
-              key={`${collection.chain}_${collection.address}`}
-              caption={collectionCaption}
-              showAllLabel={lang(
-                'Show All %collection_name%',
-                { collection_name: collectionCaption },
-              ) as string}
-              showAllIcon={isTelegramGifts
-                ? buildClassName(styles.gifIconFix, 'icon-gift')
-                : 'icon-show-all-collectibles'}
-              showAllAmount={collectionByKey.get(collectionKey)?.count}
-              clickArg={collection}
-              menuItems={collectionMenuItems}
+      <div className={styles.rowContainer}>
+        <div
+          ref={rowRef}
+          className={buildClassName(styles.row, shouldStretchCell && styles.rowStretched, 'no-swipe')}
+        >
+          {isAssetCellVisible && (
+            <OverviewCell<undefined, AssetsMenuHandler>
+              caption={lang('Assets')}
+              showAllLabel={lang('Show All Assets')}
+              showAllIcon="icon-show-all"
+              showAllAmount={totalTokensAmount}
+              menuItems={assetsMenuItems}
               size={overviewCellSize}
               className={stretchedCellClass}
-              onShowAllClick={handleShowCollection}
-              onMenuItemClick={handleCollectionMenuSelect}
+              onShowAllClick={hasMoreAssets ? handleShowAllAssets : undefined}
+              onMenuItemClick={handleAssetsMenuSelect}
+            >
+              <Assets
+                isActive
+                isWidget
+                onTokenClick={handleTokenClick}
+                onStakedTokenClick={onStakedTokenClick}
+              />
+            </OverviewCell>
+          )}
+          {isCollectibleCellVisible && (
+            <OverviewCell<undefined, CollectiblesMenuHandler>
+              caption={lang('Collectibles')}
+              showAllLabel={lang('Show All Collectibles')}
+              showAllIcon="icon-show-all-collectibles"
+              showAllAmount={totalNftsAmount}
+              menuItems={collectiblesMenuItems}
+              size={overviewCellSize}
+              className={stretchedCellClass}
+              bodyClassName={styles.nftsCell}
+              onShowAllClick={totalNftsAmount ? handleShowAllNfts : undefined}
+              onMenuItemClick={handleCollectiblesMenuSelect}
             >
               <Nfts
                 isActive
                 isWidget
                 isStretched={shouldStretchCell}
-                collection={collection}
               />
             </OverviewCell>
-          );
-        })}
+          )}
+          {visibleCollectionTabs.map((collection) => {
+            const collectionCaption = getCollectionCaption(collection);
+            const collectionKey = getCollectionKey(collection.chain, collection.address);
+            const isTelegramGifts = collection.address === TELEGRAM_GIFTS_SUPER_COLLECTION;
+            return (
+              <OverviewCell<ApiNftCollection, CollectionMenuHandler>
+                key={`${collection.chain}_${collection.address}`}
+                caption={collectionCaption}
+                showAllLabel={lang(
+                  'Show All %collection_name%',
+                  { collection_name: collectionCaption },
+                ) as string}
+                showAllIcon={isTelegramGifts
+                  ? buildClassName(styles.gifIconFix, 'icon-gift')
+                  : 'icon-show-all-collectibles'}
+                showAllAmount={collectionByKey.get(collectionKey)?.count}
+                clickArg={collection}
+                menuItems={collectionMenuItems}
+                size={overviewCellSize}
+                className={stretchedCellClass}
+                bodyClassName={styles.nftsCell}
+                onShowAllClick={handleShowCollection}
+                onMenuItemClick={handleCollectionMenuSelect}
+              >
+                <Nfts
+                  isActive
+                  isWidget
+                  isStretched={shouldStretchCell}
+                  collection={collection}
+                />
+              </OverviewCell>
+            );
+          })}
+        </div>
+        <OverviewScrollButton
+          direction="left"
+          isVisible={canScrollLeft}
+          onClick={scrollByOneCell}
+        />
+        <OverviewScrollButton
+          direction="right"
+          isVisible={canScrollRight}
+          onClick={scrollByOneCell}
+        />
       </div>
       <div className={styles.activitiesWrapper}>
         <Activities
@@ -241,6 +278,7 @@ export default memo(
         overviewCellSize: accountSettings?.overviewCellSize ?? 'small',
         isAssetCellVisible: !accountSettings?.areAssetsHidden,
         isCollectibleCellVisible: !accountSettings?.areCollectiblesHidden,
+        noAnimation: global.settings.animationLevel === ANIMATION_LEVEL_MIN,
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

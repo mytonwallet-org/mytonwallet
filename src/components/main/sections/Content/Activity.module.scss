@@ -39,7 +39,7 @@ $subheaderReleaseHeight: 1.25rem;
     box-shadow: inset 0 -0.025rem 0 0 var(--color-separator);
   }
 
-  @include mixins.is-mobile() {
+  @include mixins.respond-below(xs) {
     $iconColumnWidth: 3rem;
 
     grid-template-columns: $iconColumnWidth 1fr;
@@ -98,7 +98,7 @@ $subheaderReleaseHeight: 1.25rem;
 
   background-color: var(--color-activity-gray-background);
 
-  @include mixins.is-mobile() {
+  @include mixins.respond-below(xs) {
     width: 2.375rem;
     height: 2.375rem;
     font-size: $fontSize;
@@ -110,7 +110,7 @@ $subheaderReleaseHeight: 1.25rem;
 
     font-size: $fontSize * $desktopIconScale;
 
-    @include mixins.is-mobile() {
+    @include mixins.respond-below(xs) {
       font-size: $fontSize;
     }
   }
@@ -120,7 +120,7 @@ $subheaderReleaseHeight: 1.25rem;
 
     font-size: $fontSize * $desktopIconScale;
 
-    @include mixins.is-mobile() {
+    @include mixins.respond-below(xs) {
       font-size: $fontSize;
     }
   }
@@ -132,7 +132,7 @@ $subheaderReleaseHeight: 1.25rem;
     font-weight: 650;
     font-style: normal;
 
-    @include mixins.is-mobile() {
+    @include mixins.respond-below(xs) {
       font-size: $fontSize;
     }
   }
@@ -182,13 +182,10 @@ $subheaderReleaseHeight: 1.25rem;
 .header {
   grid-area: header;
   align-self: end;
-
-  margin-block-end: 0.0625rem;
-
   font-size: 0.9375rem;
   font-weight: 600;
 
-  @include mixins.is-mobile() {
+  @include mixins.respond-below(xs) {
     font-size: 1rem;
   }
 }
@@ -203,16 +200,20 @@ $subheaderReleaseHeight: 1.25rem;
   font-weight: 500;
   color: var(--color-gray-2);
 
-  @include mixins.is-mobile() {
+  @include mixins.respond-below(xs) {
     margin-block-start: 0.0625rem;
     font-size: 0.8125rem;
   }
 }
 
+.swapSubheader {
+  margin: 0;
+}
+
 .header > .atMiddle {
   transform: translateY(0.5rem);
 
-  @include mixins.is-mobile() {
+  @include mixins.respond-below(xs) {
     transform: translateY(0.625rem);
   }
 }
@@ -221,6 +222,11 @@ $subheaderReleaseHeight: 1.25rem;
 .date {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.swapDate {
+  align-self: flex-start;
+  margin-top: 0.0625rem;
 }
 
 .subheaderHighlight {
@@ -235,6 +241,14 @@ $subheaderReleaseHeight: 1.25rem;
   vertical-align: -0.125rem;
 }
 
+.swapAmountFrom {
+  margin-top: -0.0625rem;
+}
+
+.swapAmountTo {
+  margin-top: -0.1875rem;
+}
+
 .amount {
   display: flex;
   align-items: center;
@@ -243,18 +257,21 @@ $subheaderReleaseHeight: 1.25rem;
   &TokenIcon {
     margin: -0.1875rem 0 -0.0625rem 0.25rem;
 
-    @include mixins.is-mobile() {
+    @include mixins.respond-below(xs) {
       margin-top: -0.125rem;
       margin-bottom: -0.125rem;
     }
-
-    & + & {
-      margin-left: -0.4375rem;
-      padding: 0.0625rem;
-      border-radius: 50%;
-      background: var(--color-background-first);
-    }
   }
+}
+
+.swapFromIcon {
+  margin: 0 0 -0.375rem 0.25rem;
+}
+
+.swapToIcon {
+  margin-top: -0.5rem;
+  border-radius: var(--border-radius-default);
+  outline: 1px solid var(--color-background-first);
 }
 
 .commentIcon {
@@ -275,7 +292,7 @@ $subheaderReleaseHeight: 1.25rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 
-  @include mixins.is-mobile() {
+  @include mixins.respond-below(xs) {
     font-size: 0.875rem;
   }
 
@@ -293,22 +310,26 @@ $subheaderReleaseHeight: 1.25rem;
   margin-left: 0.3125rem;
 }
 
-.swapArrowRight {
-  margin: 0 0.125rem;
-
-  color: transparent;
-
-  background: var(--color-gradient-main-gray2-green);
-  background-clip: text;
-  background-size: 100%;
-}
-
 .swapSell {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25rem;
   color: var(--color-gray-2);
+
+  @include mixins.respond-below(xs) {
+    font-size: 0.875rem;
+  }
 }
 
 .swapBuy {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
   color: var(--color-activity-green-text);
+
+  @include mixins.respond-below(xs) {
+    font-size: 1rem;
+  }
 }
 
 // .swapBuy should be stronger than .swapSell, but weaker than .swapHold
@@ -360,7 +381,7 @@ $subheaderReleaseHeight: 1.25rem;
   font-size: 0.9375rem;
   font-weight: 700;
 
-  @include mixins.is-mobile() {
+  @include mixins.respond-below(xs) {
     font-size: 1rem;
   }
 }
@@ -370,7 +391,7 @@ $subheaderReleaseHeight: 1.25rem;
   font-weight: 500;
   color: var(--color-gray-2);
 
-  @include mixins.is-mobile() {
+  @include mixins.respond-below(xs) {
     font-size: 0.8125rem;
   }
 }

@@ -15,5 +15,8 @@ ext {
     cordovaAndroidVersion = '14.0.1'
     kotlinxCoroutinesVersion = '1.10.2'
     mlkitBarcodeScanningVersion = '17.3.0'
+    playServicesMlkitBarcodeScanningVersion = '18.3.1'
+    playServicesBaseVersion = '18.5.0'
+    cameraCamera2Version = '1.4.1'
     androidxMaterialVersion = '1.13.0'
 }

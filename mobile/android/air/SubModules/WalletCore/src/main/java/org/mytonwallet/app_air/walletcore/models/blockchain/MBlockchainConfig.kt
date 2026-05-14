@@ -15,6 +15,7 @@ interface MBlockchainConfig {
     val burnAddress: String?
     val isOnRampSupported: Boolean get() = true
     val isOffRampSupported: Boolean get() = true
+    val isNetWorthSupported: Boolean get() = false
     val multiWalletSupport: MultiWalletSupport?
 
     val chainStandard: String? get() = null

@@ -16,12 +16,11 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.measureWidth
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
-import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WLetterSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
-import org.mytonwallet.app_air.uicomponents.helpers.textOffset
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.TrimResult
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
@@ -35,6 +34,8 @@ import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import java.math.BigInteger
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -117,10 +118,26 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         displayAddresses(
             account.network,
             account.accountId,
-            account.byChain,
+            account.byChain.appAddressLineChains(account.accountId),
             style,
             keyword
         )
+    }
+
+    private fun Map<String, AccountChain>.appAddressLineChains(
+        accountId: String
+    ): Map<String, AccountChain> {
+        if (!ApplicationContextHolder.isGramApp) return this
+        if (size <= 1) return this
+        val tonChain = this[MBlockchain.ton.name] ?: return this
+        val balances = BalanceStore.getBalances(accountId) ?: return this
+        val hasNonTonToken = balances.keys.any { slug ->
+            if (balances[slug] == BigInteger.ZERO)
+                return@any false
+            val chain = TokenStore.getToken(slug)?.mBlockchain ?: return@any false
+            return@any chain != MBlockchain.ton
+        }
+        return if (hasNonTonToken) this else mapOf(MBlockchain.ton.name to tonChain)
     }
 
     fun displayAddresses(
@@ -130,7 +147,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         style: Style,
         keyword: String = ""
     ) {
-        val style = if (network == MBlockchainNetwork.TESTNET) {
+        val style = if (network.isTestnet) {
             style.copy(
                 prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_testnet) + style.prefixIconResList
             )
@@ -278,7 +295,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 it.setTint(currentTextColor)
                 it.setBounds(
                     0,
-                    -FontManager.activeFont.textOffset,
+                    0,
                     style.prefixIconSize,
                     style.prefixIconSize
                 )
@@ -315,7 +332,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                     val chainDrawable = drawableRes?.let { loadDrawable(it) }
                     chainDrawable?.setBounds(
                         0,
-                        -FontManager.activeFont.textOffset,
+                        0,
                         style.chainIconSize,
                         style.chainIconSize
                     )
@@ -387,7 +404,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 it.setTint(currentTextColor)
                 it.setBounds(
                     0,
-                    -FontManager.activeFont.textOffset,
+                    0,
                     style.postfixIconSize.width,
                     style.postfixIconSize.height
                 )

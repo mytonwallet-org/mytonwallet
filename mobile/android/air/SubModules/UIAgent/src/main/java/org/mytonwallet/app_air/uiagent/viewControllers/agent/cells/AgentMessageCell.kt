@@ -25,6 +25,7 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentOutgoing
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.TypingIndicatorView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.walletbasecontext.APP_SCHEME
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
@@ -39,9 +40,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+
+private const val MYTONWALLET_SCHEME_PREFIX = "mytonwallet://"
+private const val MTW_SCHEME_PREFIX = "mtw://"
 
 @SuppressLint("ViewConstructor")
 class AgentMessageCell(context: Context) : WCell(
@@ -194,6 +197,19 @@ class AgentMessageCell(context: Context) : WCell(
         }
     }
 
+    private fun normalizeAgentUrl(url: String): String {
+        // Server may emit deeplinks under the wrong scheme; rewrite to the active app scheme.
+        return when {
+            url.startsWith(MYTONWALLET_SCHEME_PREFIX) ->
+                "$APP_SCHEME://" + url.removePrefix(MYTONWALLET_SCHEME_PREFIX)
+
+            APP_SCHEME != "mtw" && url.startsWith(MTW_SCHEME_PREFIX) ->
+                "$APP_SCHEME://" + url.removePrefix(MTW_SCHEME_PREFIX)
+
+            else -> url
+        }
+    }
+
     private fun setupDeeplinks(deeplinks: List<AgentDeeplink>, maxWidth: Int) {
         deeplinkContainer.removeAllViews()
         if (deeplinks.isEmpty()) {
@@ -229,7 +245,7 @@ class AgentMessageCell(context: Context) : WCell(
                 isClickable = true
 
                 setOnClickListener {
-                    WalletCore.notifyEvent(WalletEvent.OpenUrl(deeplink.url))
+                    WalletCore.notifyEvent(WalletEvent.OpenUrl(normalizeAgentUrl(deeplink.url)))
                 }
             }
             val lp = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)

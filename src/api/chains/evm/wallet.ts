@@ -1,19 +1,24 @@
 import { Contract, isError } from 'ethers';
 
-import type { ApiAddressInfo, ApiNetwork, ApiTokenWithMaybePrice, EVMChain } from '../../types';
-import type { AlchemyGetTokenAssetResponse, ZerionPosition, ZerionPositionsResponse } from './types';
+import type { ApiAddressInfo, ApiBalanceBySlug, ApiNetwork, ApiTokenWithMaybePrice, EVMChain } from '../../types';
+import type {
+  AlchemyGetAssetTransfersResponse,
+  AlchemyGetTokenAssetResponse,
+  ZerionPosition,
+  ZerionPositionsResponse,
+} from './types';
 import { ApiCommonError } from '../../types';
 
-import { getChainConfig } from '../../../util/chain';
+import { getChainConfig, getChainsByStandard } from '../../../util/chain';
 import { fetchJson } from '../../../util/fetch';
+import { compact } from '../../../util/iteratees';
 import withCacheAsync from '../../../util/withCacheAsync';
 import { getEvmProvider } from './util/client';
 import { getZerionFungibleImplementation, isZerionNativeFungible } from './util/tokens';
 import { getKnownAddressInfo } from '../../common/addresses';
 import { buildTokenSlug, updateTokens } from '../../common/tokens';
-import { fetchEvmTxs } from './activities';
 import { isValidAddress } from './address';
-import { EVM_RPC_URLS, getEvmApiUrl, getZerionChainByApiChain } from './constants';
+import { EVM_RPC_URLS, getApiChainByZerionChain, getEvmApiUrl, getZerionChainByApiChain } from './constants';
 
 export async function getWalletBalance(chain: EVMChain, network: ApiNetwork, address: string) {
   return getEvmProvider(network, chain).getBalance(address);
@@ -71,17 +76,31 @@ export async function fetchAssetsByAddresses(network: ApiNetwork, chain: EVMChai
   return tokenEntities;
 }
 
+export async function fetchCrosschainAccountAssets(
+  network: ApiNetwork,
+  address: string,
+  sendUpdateTokens: NoneToVoidFunction,
+) {
+  const assets = await fetchAccountAssets('ethereum', network, address, sendUpdateTokens, true);
+
+  return assets;
+}
+
 export async function fetchAccountAssets(
   chain: EVMChain,
   network: ApiNetwork,
   address: string,
   sendUpdateTokens: NoneToVoidFunction,
-) {
+  isCrossChain?: boolean,
+): Promise<ApiBalanceBySlug> {
   const zerionChain = getZerionChainByApiChain(chain);
+
   const params = {
     'filter[positions]': 'only_simple',
     currency: 'usd',
-    'filter[chain_ids]': zerionChain,
+    'filter[chain_ids]': isCrossChain
+      ? getChainsByStandard(chain).map((c) => getZerionChainByApiChain(c as EVMChain)).join(',')
+      : zerionChain,
   };
 
   const response = await fetchJson<ZerionPositionsResponse>(
@@ -99,42 +118,57 @@ export async function fetchAccountAssets(
       && !isNativeZerionAsset(chain, zerionChain, e),
     )
     .forEach((e) => {
-      const assetImplementation = getZerionFungibleImplementation(e.attributes.fungible_info, zerionChain);
+      const assetChain = getApiChainByZerionChain(e.relationships.chain.data.id);
+
+      const assetImplementation = getZerionFungibleImplementation(
+        e.attributes.fungible_info,
+        e.relationships.chain.data.id,
+      );
 
       if (!assetImplementation?.address) {
         return;
       }
 
-      const slug = buildTokenSlug(chain, assetImplementation.address);
+      const slug = buildTokenSlug(assetChain, assetImplementation.address);
 
       slugPairs[slug] = BigInt(e.attributes.quantity.int ?? 0);
 
       tokenEntities.push({
-        priceUsd: e.attributes.price ?? 0,
+        priceUsd: typeof e.attributes.price === 'number' ? e.attributes.price : undefined,
         percentChange24h: undefined,
         name: e.attributes.fungible_info.name,
         symbol: e.attributes.fungible_info.symbol,
         slug,
         decimals: assetImplementation.decimals,
-        chain,
+        chain: assetChain,
         image: e.attributes.fungible_info.icon?.url,
         tokenAddress: assetImplementation.address,
       });
     });
 
-  const nativeAsset = response.data.find((e) =>
-    isNativeZerionAsset(chain, zerionChain, e),
-  );
+  const chainsForNative = (isCrossChain ? getChainsByStandard(chain) : [chain]) as EVMChain[];
 
-  if (nativeAsset) {
-    slugPairs[getChainConfig(chain).nativeToken.slug] = BigInt(nativeAsset.attributes.quantity.int ?? 0);
+  for (const balanceChain of chainsForNative) {
+    const { nativeToken: nativeTokenMetadata } = getChainConfig(balanceChain);
+
+    const zerionBalanceChain = getZerionChainByApiChain(balanceChain);
+
+    const nativeAsset = response.data.find((e) =>
+      isNativeZerionAsset(balanceChain, zerionBalanceChain, e),
+    );
+
+    const nativeSlug = getChainConfig(balanceChain).nativeToken.slug;
+
+    slugPairs[nativeSlug] = BigInt(nativeAsset?.attributes.quantity.int ?? 0);
+
+    tokenEntities.push({
+      priceUsd: typeof nativeAsset?.attributes.price === 'number'
+        ? nativeAsset.attributes.price
+        : undefined,
+      percentChange24h: undefined,
+      ...nativeTokenMetadata,
+    });
   }
-
-  tokenEntities.push({
-    priceUsd: nativeAsset?.attributes.price ?? 0,
-    percentChange24h: undefined,
-    ...getChainConfig(chain).nativeToken,
-  });
 
   await updateTokens(tokenEntities, sendUpdateTokens, [], true);
 
@@ -197,13 +231,40 @@ export const getAddressInfo = (
 
 export const getIsWalletActive = withCacheAsync(
   async (network: ApiNetwork, chain: EVMChain, address: string) => {
-    const txs = await fetchEvmTxs({
-      chain,
-      network,
-      address,
-      limit: 1,
-    });
+    const payload = {
+      method: 'POST',
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'alchemy_getAssetTransfers',
+        params: [
+          {
+            toAddress: address,
+            excludeZeroValue: false,
+            withMetadata: false,
+            category: compact([
+              'erc721',
+              'erc1155',
+              'external',
+              chain === 'ethereum' ? 'internal' : undefined,
+              'erc20',
+              'specialnft',
+            ]),
+            maxCount: '0x1',
+          },
+        ],
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
 
-    return !!txs.length;
+    const response = await fetchJson<AlchemyGetAssetTransfersResponse>(
+      `${EVM_RPC_URLS[network](chain)}/v2`,
+      undefined,
+      payload,
+    );
+
+    return !!response.result.transfers.length;
   },
 );

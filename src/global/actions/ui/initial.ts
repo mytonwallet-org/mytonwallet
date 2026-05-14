@@ -300,15 +300,13 @@ addActionHandler('showError', (global, actions, { error } = {}) => {
 });
 
 addActionHandler('showToast', (global, actions, payload) => {
-  const { message, icon } = payload;
-
   const newToasts: ToastType[] = [...global.toasts];
-  const existingToastIndex = newToasts.findIndex((n) => n.message === message);
+  const existingToastIndex = newToasts.findIndex((n) => n.message === payload.message);
   if (existingToastIndex !== -1) {
     newToasts.splice(existingToastIndex, 1);
   }
 
-  newToasts.push({ message, icon });
+  newToasts.push(payload);
 
   return {
     ...global,

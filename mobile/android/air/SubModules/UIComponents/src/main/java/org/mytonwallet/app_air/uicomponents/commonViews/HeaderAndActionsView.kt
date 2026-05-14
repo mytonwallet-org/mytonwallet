@@ -2,8 +2,6 @@ package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -155,10 +153,6 @@ class HeaderAndActionsView(
         } ?: run {
             startedNow()
         }
-        // If animation did not start in a few seconds, fade in anyway!
-        Handler(Looper.getMainLooper()).postDelayed({
-            startedNow()
-        }, 3000)
 
         updateTheme()
     }

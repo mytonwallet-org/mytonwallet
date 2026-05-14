@@ -162,35 +162,35 @@ public struct TokenAmountEntry: View {
     public var token: ApiToken?
     public var inBaseCurrency: Bool
     public var insufficientFunds: Bool
-    public var isLoading: Bool
     public var isValueStale: Bool
     @Binding public var triggerFocused: Bool
     public var onTokenPickerTapped: (() -> ())?
     public var isInputEnabled: Bool
     public var onInputTapped: (() -> ())?
+    public var onAmountChanged: ((BigInt?) -> ())?
     
     public init(
         amount: Binding<BigInt?>,
         token: ApiToken?,
         inBaseCurrency: Bool,
         insufficientFunds: Bool,
-        isLoading: Bool = false,
         isValueStale: Bool = false,
         triggerFocused: Binding<Bool>,
         onTokenPickerTapped: (() -> ())?,
         isInputEnabled: Bool = true,
-        onInputTapped: (() -> ())? = nil
+        onInputTapped: (() -> ())? = nil,
+        onAmountChanged: ((BigInt?) -> ())? = nil
     ) {
         self._amount = amount
         self.token = token
         self.inBaseCurrency = inBaseCurrency
         self.insufficientFunds = insufficientFunds
-        self.isLoading = isLoading
         self.isValueStale = isValueStale
         self._triggerFocused = triggerFocused
         self.onTokenPickerTapped = onTokenPickerTapped
         self.isInputEnabled = isInputEnabled
         self.onInputTapped = onInputTapped
+        self.onAmountChanged = onAmountChanged
     }
 
     private var decimals: Int? {
@@ -217,14 +217,8 @@ public struct TokenAmountEntry: View {
                     triggerFocused = true
                 }
             }
-            if isLoading {
-                loadingIndicator
-                    .padding(.trailing, 6)
-                    .transition(.scale.combined(with: .opacity))
-            }
             tokenPicker
         }
-        .animation(.default, value: isLoading)
         .onChange(of: isInputEnabled) { isEnabled in
             if !isEnabled {
                 triggerFocused = false
@@ -252,7 +246,8 @@ public struct TokenAmountEntry: View {
                 fractionFont: .systemFont(ofSize: 20, weight: .semibold),
                 isFocused: $triggerFocused,
                 error: insufficientFunds,
-                muted: isValueStale
+                muted: isValueStale,
+                onUserChange: onAmountChanged
             )
             .id(inBaseCurrency)
             .allowsHitTesting(isInputEnabled)
@@ -271,10 +266,5 @@ public struct TokenAmountEntry: View {
         )
         .offset(x: 8)
         .padding(.vertical, -1)
-    }
-
-    var loadingIndicator: some View {
-        WUIActivityIndicator()
-            .foregroundStyle(Color.air.secondaryLabel)
     }
 }

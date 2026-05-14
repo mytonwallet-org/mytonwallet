@@ -124,12 +124,6 @@ class AgentComposerView(
                 isApplyingEmoji = false
             }
             updateSendButtonState()
-            post {
-                if (height != lastHeight) {
-                    lastHeight = height
-                    onHeightChanged?.invoke()
-                }
-            }
         }
         editText.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             inputShadow?.sync()
@@ -160,6 +154,10 @@ class AgentComposerView(
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
         if (changed) inputShadow?.sync()
+        if (height != lastHeight) {
+            lastHeight = height
+            onHeightChanged?.invoke()
+        }
     }
 
     private fun trySend() {

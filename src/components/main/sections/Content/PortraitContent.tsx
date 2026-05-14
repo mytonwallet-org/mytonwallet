@@ -53,6 +53,7 @@ interface StateProps {
   currentCollection?: ApiNftCollection;
   selectedNfts?: ApiNft[];
   activeContentTab?: ContentTab;
+  currentTokenSlug?: string;
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
   states?: ApiStakingState[];
@@ -84,6 +85,7 @@ function PortraitContent({
   activityReturnContentTab,
   currentSiteCategoryId,
   collectionTabs,
+  currentTokenSlug,
   onStakedTokenClick,
   onTabsStuck,
 }: OwnProps & StateProps) {
@@ -113,6 +115,7 @@ function PortraitContent({
     activeContentTab,
     activityReturnContentTab,
     currentCollection,
+    currentTokenSlug,
     states,
     hasVesting,
     alwaysHiddenSlugs,
@@ -285,6 +288,7 @@ export default memo(
       const {
         activeContentTab,
         activityReturnContentTab,
+        currentTokenSlug,
         blacklistedNftAddresses,
         whitelistedNftAddresses,
         selectedNftsToHide,
@@ -315,6 +319,7 @@ export default memo(
         tokensCount,
         activeContentTab,
         activityReturnContentTab,
+        currentTokenSlug,
         blacklistedNftAddresses,
         whitelistedNftAddresses,
         selectedNftsToHide,

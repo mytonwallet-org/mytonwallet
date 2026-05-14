@@ -3,12 +3,23 @@ export enum StorageType {
   LocalStorage,
   ExtensionLocal,
   CapacitorStorage,
+  NodeFile,
 }
+
+export interface NodeFileStorageConfig {
+  type: 'nodeFile';
+  path?: string;
+  profile?: string;
+}
+
+export type ApiStorageConfig = NodeFileStorageConfig;
 
 export interface Storage {
   getItem(name: StorageKey, force?: boolean): Promise<any>;
 
   setItem(name: StorageKey, value: any): Promise<void>;
+
+  mutateItem?(name: StorageKey, mutate: (currentValue: any) => any): Promise<any>;
 
   removeItem(name: StorageKey): Promise<void>;
 
@@ -35,4 +46,9 @@ export type StorageKey = 'accounts'
   | 'isTonProxyEnabled'
   | 'isDeeplinkHookEnabled'
   // For TonConnect SSE
-  | 'sseLastEventId';
+  | 'sseLastEventId'
+  // For Agent
+  | 'agentMessages'
+  | 'agentConversationId'
+  // For Headless
+  | 'headlessBalanceSnapshots';

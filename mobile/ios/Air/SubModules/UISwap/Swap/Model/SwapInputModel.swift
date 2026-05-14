@@ -1,19 +1,21 @@
-import SwiftUI
-import UIKit
-import UIComponents
 import WalletCore
 import WalletContext
 import Perception
-import SwiftNavigation
 
-enum SwapSide {
+enum SwapSide: Sendable {
     case selling
     case buying
 }
 
-enum SwapInputChangeSource {
+enum SwapInputChangeSource: Sendable {
     case user
     case maxAmountRecalculation
+}
+
+enum SwapCommand {
+    case dismissKeyboard
+    case showTokenSelector(SwapSide)
+    case showBuyingAmountDisabledToast
 }
 
 @MainActor protocol SwapInputModelDelegate: AnyObject {
@@ -23,6 +25,7 @@ enum SwapInputChangeSource {
         buying: TokenAmount,
         source: SwapInputChangeSource
     )
+    func swapCommandRequested(_ command: SwapCommand)
 }
 
 @Perceptible
@@ -60,25 +63,8 @@ enum SwapInputChangeSource {
     var buyingAmountInputDisabled: Bool = false
     
     @PerceptionIgnored
-    var onUseAll: () -> () = { }
-    @PerceptionIgnored
-    var onReverse: () -> () = { }
-    @PerceptionIgnored
-    var onSellingTokenPicker: () -> () = { }
-    @PerceptionIgnored
-    var onBuyingTokenPicker: () -> () = { }
-    @PerceptionIgnored
-    var onBuyingAmountDisabledTap: () -> () = { }
-    
-    @PerceptionIgnored
     weak var delegate: SwapInputModelDelegate? = nil
 
-    @PerceptionIgnored
-    private var currentSelector: SwapSide? = nil
-    @PerceptionIgnored
-    private var suspendUpdates = false
-    @PerceptionIgnored
-    private var observeTokens: [ObserveToken] = []
     @PerceptionIgnored
     private var swapType: SwapType = .onChain
     @PerceptionIgnored
@@ -95,106 +81,44 @@ enum SwapInputChangeSource {
         self._buyingToken = TokenProvider(tokenSlug: buyingTokenSlug)
         self.tokenBalance = tokenBalance
         self._account = accountContext
-        
-        setupObservers()
-        setupCallbacks()
     }
-    
-    private func setupObservers() {
-        observeTokens += observe { [weak self] in
-            guard let self, suspendUpdates == false, sellingFocused else { return }
-            let sellingAmount = self.sellingAmount
-            let sellingToken = self.sellingToken
-            Task {
-                self.updateLocal(amount: sellingAmount, token: sellingToken, side: .selling)
-            }
-        }
-        
-        observeTokens += observe { [weak self] in
-            guard let self, suspendUpdates == false, buyingFocused else { return }
-            let buyingAmount = self.buyingAmount
-            let buyingToken = self.buyingToken
-            Task {
-                self.updateLocal(amount: buyingAmount, token: buyingToken, side: .buying)
-            }
-        }
 
-        observeTokens += observe { [weak self] in
-            guard let self else { return }
-            let sellingToken = self.sellingToken
-            let balance = $account.balances[sellingToken.slug]
-            self.updateTokenBalance(balance)
-        }
+    func userTappedUseAll() {
+        isUsingMax = true
+        let amount = maxAmount ?? tokenBalance
+        sellingFocused = false
+        buyingFocused = false
+        sellingAmount = amount
+        updateLocal(amount: amount, token: sellingToken, side: .selling)
+        delegate?.swapCommandRequested(.dismissKeyboard)
     }
-    
-    private func setupCallbacks() {
-        onUseAll = { [weak self] in
-            guard let self else { return }
-            isUsingMax = true
-            let amount = maxAmount ?? tokenBalance
-            sellingFocused = false
-            buyingFocused = false
+
+    func userTappedReverse() {
+        isUsingMax = false
+        let tmp = (sellingAmount ?? 0, buyingAmount ?? 0, sellingToken, buyingToken)
+        (buyingAmount, sellingAmount, buyingToken, sellingToken) = tmp
+        clearBackendMaxAmount()
+        refreshTokenBalanceFromAccount()
+        updateLocal(amount: sellingAmount ?? 0, token: sellingToken, side: .selling)
+    }
+
+    func userTappedTokenPicker(side: SwapSide) {
+        delegate?.swapCommandRequested(.showTokenSelector(side))
+    }
+
+    func userTappedBuyingAmountDisabled() {
+        buyingFocused = false
+        delegate?.swapCommandRequested(.showBuyingAmountDisabledToast)
+    }
+
+    func userEditedAmount(_ amount: BigInt?, side: SwapSide) {
+        switch side {
+        case .selling:
             sellingAmount = amount
             updateLocal(amount: amount, token: sellingToken, side: .selling)
-            topViewController()?.view.endEditing(true)
-        }
-        
-        onReverse = { [weak self] in
-            guard let self else { return }
-            suspendUpdates = true
-            defer { suspendUpdates = false }
-            isUsingMax = false
-            let tmp = (sellingAmount ?? 0, buyingAmount ?? 0, sellingToken, buyingToken)
-            (buyingAmount, sellingAmount, buyingToken, sellingToken) = tmp
-            clearBackendMaxAmount()
-            if account.supports(chain: sellingToken.chain) {
-                self.updateTokenBalance($account.balances[sellingToken.slug] ?? 0)
-            } else {
-                self.updateTokenBalance(nil)
-            }
-            updateLocal(amount: sellingAmount ?? 0, token: sellingToken, side: .selling)
-        }
-        
-        onSellingTokenPicker = { [weak self] in
-            guard let self else { return }
-            self.currentSelector = .selling
-            let swapTokenSelectionVC = TokenSelectionVC(
-                forceAvailable: sellingToken.slug,
-                otherSymbolOrMinterAddress: nil,
-                myAssetsDisplayMode: .swap,
-                title: lang("You sell"),
-                delegate: self,
-                isModal: true,
-                onlySupportedChains: false
-            )
-            let nc = WNavigationController(rootViewController: swapTokenSelectionVC)
-            topViewController()?.present(nc, animated: true)
-        }
-
-        onBuyingTokenPicker = { [weak self] in
-            guard let self else { return }
-            self.currentSelector = .buying
-            let swapTokenSelectionVC = TokenSelectionVC(
-                forceAvailable: buyingToken.slug,
-                extraWalletTokenSlugs: ApiChain.allCases
-                    .filter(\.isOnchainSwapSupported)
-                    .map(\.nativeToken.slug),
-                otherSymbolOrMinterAddress: nil,
-                myAssetsDisplayMode: .swap,
-                title: lang("You buy"),
-                delegate: self,
-                isModal: true,
-                onlySupportedChains: false
-            )
-            let nc = WNavigationController(rootViewController: swapTokenSelectionVC)
-            topViewController()?.present(nc, animated: true)
-        }
-
-        onBuyingAmountDisabledTap = { [weak self] in
-            guard let self else { return }
-            Haptics.play(.lightTap)
-            self.buyingFocused = false
-            AppActions.showToast(message: lang("$swap_reverse_prohibited"))
+        case .buying:
+            buyingAmount = amount
+            updateLocal(amount: amount, token: buyingToken, side: .buying)
         }
     }
     
@@ -236,29 +160,37 @@ enum SwapInputChangeSource {
         }
     }
     
+    func refreshTokenBalanceFromAccount() {
+        if account.supports(chain: sellingToken.chain) {
+            updateTokenBalance($account.balances[sellingToken.slug] ?? 0)
+        } else {
+            updateTokenBalance(nil)
+        }
+    }
+
     func updateTokenBalance(_ balance: BigInt?) {
         tokenBalance = balance.flatMap { max(0, $0) }
         recalculateMaxAmount()
     }
 
-    func updateMaxAmountContext(swapType: SwapType, fullNetworkFee: MFee.FeeTerms?, ourFeePercent: Double?) {
+    func updateMaxAmountContext(swapType: SwapType, fullNetworkFee: MFee.FeeTerms?, ourFeePercent: Double?, notifyAmountChange: Bool = true) {
         self.swapType = swapType
         self.fullNetworkFee = fullNetworkFee
         self.ourFeePercent = ourFeePercent
-        recalculateMaxAmount()
+        recalculateMaxAmount(notifyAmountChange: notifyAmountChange)
     }
 
     func setBackendMaxAmount(_ amount: BigInt?) {
         backendMaxAmount = amount
-        recalculateMaxAmount()
+        recalculateMaxAmount(notifyAmountChange: false)
     }
 
     func clearBackendMaxAmount() {
         backendMaxAmount = nil
-        recalculateMaxAmount()
+        recalculateMaxAmount(notifyAmountChange: false)
     }
 
-    private func recalculateMaxAmount() {
+    private func recalculateMaxAmount(notifyAmountChange: Bool = true) {
         maxAmount = getMaxSwapAmount(.init(
             swapType: swapType,
             tokenBalance: tokenBalance,
@@ -268,15 +200,15 @@ enum SwapInputChangeSource {
             maxAmountFromBackend: backendMaxAmount
         ))
         if isUsingMax, let targetAmount = maxAmount ?? tokenBalance, sellingAmount != targetAmount {
-            suspendUpdates = true
             sellingAmount = targetAmount
-            suspendUpdates = false
-            updateRemote(
-                amount: targetAmount,
-                token: sellingToken,
-                side: .selling,
-                source: .maxAmountRecalculation
-            )
+            if notifyAmountChange {
+                updateRemote(
+                    amount: targetAmount,
+                    token: sellingToken,
+                    side: .selling,
+                    source: .maxAmountRecalculation
+                )
+            }
         }
     }
 
@@ -303,9 +235,6 @@ enum SwapInputChangeSource {
     }
 
     func updateWithEstimate(_ swapEstimate: Estimate) {
-        suspendUpdates = true
-        defer { suspendUpdates = false }
-
         switch swapEstimate.changedFrom {
         case .selling:
             if !buyingFocused {
@@ -322,9 +251,6 @@ enum SwapInputChangeSource {
     }
 
     func clearEstimatedAmount(changedFrom: SwapSide) {
-        suspendUpdates = true
-        defer { suspendUpdates = false }
-
         switch changedFrom {
         case .selling:
             if !buyingFocused {
@@ -336,26 +262,12 @@ enum SwapInputChangeSource {
             }
         }
     }
-}
 
-
-extension SwapInputModel: TokenSelectionVCDelegate {
-    func didSelect(token: MTokenBalance) {
-        topViewController()?.dismiss(animated: true)
-        if let newToken = TokenStore.tokens[token.tokenSlug] {
-            _didSelect(newToken)
-        }
-    }
-    
-    func didSelect(token newToken: ApiToken) {
-        topViewController()?.dismiss(animated: true)
-        _didSelect(newToken)
-    }
-    
-    func _didSelect(_ newToken: ApiToken) {
-        if currentSelector == .selling {
+    func userSelectedToken(_ newToken: ApiToken, side: SwapSide) {
+        switch side {
+        case .selling:
             if newToken == buyingToken {
-                onReverse()
+                userTappedReverse()
                 return
             }
             isUsingMax = false
@@ -369,12 +281,18 @@ extension SwapInputModel: TokenSelectionVCDelegate {
             clearBackendMaxAmount()
             updateTokenBalance($account.balances[newToken.slug])
             updateLocal(amount: newAmount, token: sellingToken, side: .selling)
-        } else {
+        case .buying:
             if newToken.slug == sellingToken.slug {
-                onReverse()
+                userTappedReverse()
                 return
             }
+            let newAmount: BigInt? = if buyingTokenAmount.amount > 0 {
+                buyingTokenAmount.switchKeepingDecimalValue(newType: newToken).amount
+            } else {
+                nil
+            }
             buyingToken = newToken
+            buyingAmount = newAmount
             if buyingFocused { buyingFocused = false }
             clearBackendMaxAmount()
             updateLocal(amount: sellingAmount, token: sellingToken, side: .selling)

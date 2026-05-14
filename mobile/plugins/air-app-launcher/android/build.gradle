@@ -27,6 +27,14 @@ android {
     versionName "1.0"
     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
   }
+  // Mirror the app module's `brand` dimension so the gram variant of this
+  // library can drop Capacitor while the mytonwallet variant keeps the
+  // AirAppLauncherPlugin shell consumed by the Capacitor JS bundle.
+  flavorDimensions += "brand"
+  productFlavors {
+    mytonwallet { dimension "brand" }
+    gram { dimension "brand" }
+  }
   buildTypes {
     release {
       minifyEnabled false
@@ -50,7 +58,14 @@ repositories {
 
 dependencies {
   implementation fileTree(dir: 'libs', include: ['*.jar'])
-  implementation project(':capacitor-android')
+  // AirAppLauncherPlugin.java lives in src/main/java so `npx cap sync` (which
+  // scans only src/main) registers it in capacitor.plugins.json. The
+  // mytonwallet variant ships Capacitor; the gram variant only needs the
+  // Capacitor symbols at compile time (compileOnly) — they are not packaged
+  // into the gram APK because no runtime code path on gram references the
+  // plugin class.
+  mytonwalletImplementation project(':capacitor-android')
+  gramCompileOnly project(':capacitor-android')
   implementation libs.androidx.appcompat
   implementation(project("$airSubModulePath:AirAsFramework"))
   implementation(project("$airSubModulePath:WalletCore"))

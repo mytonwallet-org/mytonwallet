@@ -82,7 +82,6 @@ object WGlobalStorage {
     private const val CURRENT_ACCOUNT_ID = "currentAccountId"
     private const val CURRENT_TEMPORARY_VIEW_ACCOUNT_ID = "currentTemporaryViewAccountId"
     private const val ACTIVE_THEME = "settings.theme"
-    private const val ACTIVE_FONT = "settings.font"
     private const val ARE_ROUNDED_TOOLBARS_ACTIVE = "settings.roundedToolbars"
     private const val IS_TESTNET = "settings.isTestnet"
     private const val ARE_ANIMATIONS_ACTIVE = "settings.animationLevel"
@@ -300,7 +299,7 @@ object WGlobalStorage {
 
     fun setActiveAccountId(id: String?, persistInstantly: Boolean) {
         setIsTestnet(
-            id?.let { MBlockchainNetwork.ofAccountId(id) != MBlockchainNetwork.MAINNET } ?: false
+            id?.let { MBlockchainNetwork.ofAccountId(id).isTestnet } ?: false
         )
         globalStorageProvider.set(
             CURRENT_ACCOUNT_ID,
@@ -356,14 +355,6 @@ object WGlobalStorage {
 
     fun setActiveTheme(theme: String) {
         globalStorageProvider.set(ACTIVE_THEME, theme, IGlobalStorageProvider.PERSIST_INSTANT)
-    }
-
-    fun getActiveFont(): String {
-        return globalStorageProvider.getString(ACTIVE_FONT) ?: "misans"
-    }
-
-    fun setActiveFont(font: String) {
-        globalStorageProvider.set(ACTIVE_FONT, font, IGlobalStorageProvider.PERSIST_INSTANT)
     }
 
     fun setAreRoundedToolbarsActive(active: Boolean) {
@@ -1402,7 +1393,7 @@ object WGlobalStorage {
         type: String,
         baseNameKey: String
     ): String {
-        val prefix = if (network == MBlockchainNetwork.MAINNET) "" else "Testnet "
+        val prefix = if (network.isMainnet) "" else "Testnet "
         if (accountIds(network = network).isEmpty()) {
             return "$prefix${
                 LocaleController.getString(

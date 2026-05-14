@@ -256,7 +256,8 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
     }
     
     private func updateLoadingState(animated: Bool = true) {
-        let isLoadingInitialHistory = earnVM.historyItems == nil
+        let hasHistoryItems = earnVM.historyItems?.isEmpty == false
+        let isLoadingInitialHistory = earnVM.historyItems == nil || (!hasHistoryItems && !earnVM.allLoadedOnce)
         let shouldShowEmptyState = earnVM.allLoadedOnce && earnVM.historyItems?.isEmpty == true
         
         if let apy = stakingState?.apy {

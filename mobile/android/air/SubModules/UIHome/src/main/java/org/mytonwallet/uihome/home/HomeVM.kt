@@ -71,7 +71,7 @@ class HomeVM(
             return TokenStore.swapAssets != null &&
                 TokenStore.loadedAllTokens &&
                 !BalanceStore.getBalances(showingAccountId).isNullOrEmpty() &&
-                (showingAccount?.network != MBlockchainNetwork.MAINNET ||
+                (showingAccount?.isMainnet != true ||
                     StakingStore.getStakingState(showingAccountId ?: "") != null ||
                     WGlobalStorage.getAccountTonAddress(showingAccountId ?: "") == null)
         }
@@ -189,12 +189,7 @@ class HomeVM(
         val account = showingAccount
 
         val missingNativeTokens = account?.byChain?.keys?.any { chain ->
-            val blockchain = try {
-                MBlockchain.valueOf(chain)
-            } catch (_: IllegalArgumentException) {
-                null
-            }
-            val nativeTokenSlug = blockchain?.nativeSlug
+            val nativeTokenSlug = MBlockchain.valueOfOrNull(chain)?.nativeSlug
             nativeTokenSlug != null && balances?.get(nativeTokenSlug) == null
         } ?: false
 

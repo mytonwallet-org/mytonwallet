@@ -89,8 +89,8 @@ enum StartupFailureClassifier {
             GlobalStorageError.localStorageIsNotAString,
             GlobalStorageError.localStorageIsNull,
             GlobalStorageError.localStorageIsEmpty,
+            GlobalStorageError.serializedValueIsNotAValidDict,
             GlobalMigrationError.stateVersionIsNil,
-            GlobalMigrationError.stateVersionTooOld,
             is DecodingError:
             return true
         default:
@@ -114,7 +114,6 @@ enum StartupFailureClassifier {
         switch error {
         case GlobalStorageError.localStorageSetItemError,
             GlobalStorageError.localStorageReadbackFailed,
-            GlobalStorageError.serializedValueIsNotAValidDict,
             GlobalStorageError.serializationError:
             return true
         default:

@@ -19,4 +19,10 @@ enum class MBlockchainNetwork(val value: String) {
                 else -> ""
             }
         }
+
+    val isMainnet: Boolean
+        get() = this == MAINNET
+
+    val isTestnet: Boolean
+        get() = this == TESTNET
 }

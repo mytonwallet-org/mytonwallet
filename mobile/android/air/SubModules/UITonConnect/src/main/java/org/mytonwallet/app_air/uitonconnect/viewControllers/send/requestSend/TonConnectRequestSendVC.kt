@@ -92,7 +92,7 @@ class TonConnectRequestSendVC(
         text = LocaleController.getString("Confirm")
     }
     private val cancelButtonView: WButton =
-        WButton(context, WButton.Type.Secondary(withBackground = true)).apply {
+        WButton(context, WButton.Type.SECONDARY_WITH_BACKGROUND).apply {
             layoutParams = ViewGroup.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT)
             text = LocaleController.getString("Cancel")
         }

@@ -51,7 +51,10 @@ struct AboutView: View {
     @ViewBuilder
     var headerIcon: some View {
         if IS_GRAM_WALLET {
-            WUISpeedingDiamond(size: 96)
+            WUISpeedingDiamondWithParticles(
+                diamondSize: 96,
+                particleSize: CGSize(width: 258, height: 170)
+            )
                 .frame(width: 96, height: 96)
         } else {
             Image.airBundle("IntroLogo")

@@ -214,6 +214,11 @@
 
 .itemName {
   unicode-bidi: plaintext;
+  overflow: hidden;
+
+  min-width: 0;
+
+  text-overflow: ellipsis;
   white-space: nowrap;
 
   :not(.inherit) > & {

@@ -1,7 +1,13 @@
 package org.mytonwallet.app_air.walletcore.stores
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -123,12 +129,32 @@ object TokenStore : IStore {
         tokens[slug] = token
     }
 
+    private val cacheScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+    @Volatile
+    private var tokensCacheJob: Job? = null
+
+    @Volatile
+    private var swapCacheJob: Job? = null
+
     fun updateSwapCache() {
-        WCacheStorage.setSwapAssets(tokensToJsonString(swapAssets ?: emptyList()))
+        val snapshot = ArrayList(swapAssets ?: emptyList())
+        swapCacheJob?.cancel()
+        swapCacheJob = cacheScope.launch {
+            val json = tokensToJsonString(snapshot)
+            ensureActive()
+            WCacheStorage.setSwapAssets(json)
+        }
     }
 
     fun updateTokensCache() {
-        WCacheStorage.setTokens(tokensToJsonString(tokens.values))
+        val snapshot = ArrayList(tokens.values)
+        tokensCacheJob?.cancel()
+        tokensCacheJob = cacheScope.launch {
+            val json = tokensToJsonString(snapshot)
+            ensureActive()
+            WCacheStorage.setTokens(json)
+        }
     }
 
     private fun tokensToJsonString(items: Iterable<MToken>): String {

@@ -179,7 +179,7 @@ class SplashVC(context: Context) : WViewController(context),
                     WCacheStorage.InitialScreen.LOCK -> {
                         if (WGlobalStorage.accountIds().isEmpty())
                             return@post
-                        presentTabsAndLockScreen(true)
+                        presentTabsAndLockScreen()
                         preloadedScreen = WCacheStorage.InitialScreen.LOCK
                     }
                 }
@@ -263,8 +263,11 @@ class SplashVC(context: Context) : WViewController(context),
             } else {
                 // Everything is fine, let's go!
                 WalletCore.swapGetAssets(true)
-                if (preloadedScreen == null)
-                    presentTabsAndLockScreen(WGlobalStorage.isPasscodeSet())
+                if (preloadedScreen == null) {
+                    if (!WGlobalStorage.isPasscodeSet())
+                        appIsUnlocked = true
+                    presentTabsAndLockScreen()
+                }
             }
             WalletCore.checkPendingBridgeTasks()
         }
@@ -279,19 +282,15 @@ class SplashVC(context: Context) : WViewController(context),
         Logger.i(Logger.LogTag.AIR_APPLICATION, "presentIntro: Done")
     }
 
-    private fun presentTabsAndLockScreen(presentLockScreen: Boolean) {
+    private fun presentTabsAndLockScreen() {
         val tabsNav = WNavigationController(window!!)
         val tabsVC = TabsVC(context)
         tabsNav.setRoot(tabsVC)
-        if (!presentLockScreen)
-            appIsUnlocked = true
-        tabsVC.view.isVisible = !presentLockScreen
+        tabsVC.view.isVisible = appIsUnlocked
         window!!.replace(tabsNav, appIsUnlocked, onCompletion = {
             Logger.i(Logger.LogTag.AIR_APPLICATION, "presentTabsAndLockScreen: Done")
-            if (presentLockScreen) {
-                if (!appIsUnlocked)
-                    presentLockScreen()
-            }
+            if (!appIsUnlocked)
+                presentLockScreen()
         })
     }
 
@@ -381,6 +380,9 @@ class SplashVC(context: Context) : WViewController(context),
     }
 
     private fun presentLockScreen() {
+        // To prevent ui glitches, make sure window has background
+        if (tabsVC?.view?.isVisible != true)
+            window?.window?.decorView?.setBackgroundColor(WColor.Background.color)
         // Make sure to dismiss all popups or dialogs when presenting lock screen
         PopupHelpers.dismissAllPopups()
         activeDialog?.dismiss()
@@ -410,7 +412,7 @@ class SplashVC(context: Context) : WViewController(context),
                 window?.forceBottomBarLight = null
                 tabsVC?.view?.isVisible = true
                 window?.dismissLastNav(
-                    WWindow.DismissAnimation.SCALE_IN,
+                    WWindow.DismissAnimation.SCALE_OUT,
                     onCompletion = {
                         appIsUnlocked = true
                         handleDeeplinkIfRequired()
@@ -421,7 +423,13 @@ class SplashVC(context: Context) : WViewController(context),
         )
         val navigationController = WNavigationController(window!!)
         navigationController.setRoot(passcodeConfirmVC)
-        window!!.present(navigationController)
+        window!!.present(
+            navigationController,
+            presentAnimation = WWindow.PresentAnimation.SCALE_IN,
+            onCompletion = {
+                // Lock-screen is on, remove unnecessary window background
+                window?.window?.decorView?.background = null
+            })
     }
 
     override fun isAppUnlocked(): Boolean {
@@ -450,11 +458,8 @@ class SplashVC(context: Context) : WViewController(context),
 
         val addressByChain = mutableMapOf<MBlockchain, String>()
         addressByChainString.forEach { (chainStr, address) ->
-            try {
-                val blockchain = MBlockchain.valueOf(chainStr)
-                addressByChain[blockchain] = address
-            } catch (_: IllegalArgumentException) {
-            }
+            val blockchain = MBlockchain.valueOfOrNull(chainStr) ?: return@forEach
+            addressByChain[blockchain] = address
         }
 
         if (addressByChain.isEmpty()) {
@@ -516,10 +521,6 @@ class SplashVC(context: Context) : WViewController(context),
 
     override fun isWalletReady(): Boolean {
         return _isWalletReady
-    }
-
-    override fun appResumed() {
-        handleDeeplinkIfRequired()
     }
 
     private fun handleDeeplinkIfRequired() {
@@ -830,7 +831,7 @@ class SplashVC(context: Context) : WViewController(context),
                 if (!account.supportsSwap) {
                     showAlertOverTopVC(
                         null,
-                        if (account.network != MBlockchainNetwork.MAINNET)
+                        if (!account.isMainnet)
                             LocaleController.getString("Swap is not supported in Testnet.")
                         else if (AccountStore.activeAccount?.isHardware == true)
                             LocaleController.getString("Swap is not yet supported by Ledger.")
@@ -946,7 +947,7 @@ class SplashVC(context: Context) : WViewController(context),
             }
 
             is Deeplink.Stake -> {
-                if (AccountStore.activeAccount?.network != MBlockchainNetwork.MAINNET) {
+                if (AccountStore.activeAccount?.isMainnet != true) {
                     showAlertOverTopVC(
                         null,
                         LocaleController.getString("Staking is not supported in Testnet.")
@@ -1372,6 +1373,8 @@ class SplashVC(context: Context) : WViewController(context),
                     }
                 }
             }
+
+            WalletEvent.AppForeground -> handleDeeplinkIfRequired()
 
             else -> {}
         }

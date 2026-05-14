@@ -67,7 +67,7 @@ class MainWindow : WWindow() {
         if (topVC is DebugMenuVC) return
         val nav = WNavigationController(this)
         nav.setRoot(DebugMenuVC(this))
-        present(nav, true)
+        present(nav, animated = true)
     }
 
     fun restartBridge(forcedRecreation: Boolean) {

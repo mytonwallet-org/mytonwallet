@@ -52,6 +52,10 @@ extension Api {
     public static func swapCexSubmit(chain: ApiChain, options: ApiSubmitTransferOptions, swapId: String) async throws -> ApiSubmitTransferResult {
         try await bridge.callApi("swapCexSubmit", chain, options, swapId, decoding: ApiSubmitTransferResult.self)
     }
+
+    public static func fetchSwaps(accountId: String, ids: [String]) async throws -> ApiFetchSwapsResult {
+        try await bridge.callApi("fetchSwaps", accountId, ids, decoding: ApiFetchSwapsResult.self)
+    }
 }
 
 // MARK: Types
@@ -63,6 +67,8 @@ public struct ApiSwapBuildResponse: Codable, Sendable {
 }
 
 public struct ApiSwapSubmitResult: Codable, Sendable {
+    public let activityId: String?
+    public let error: String?
     public let paymentLink: String?
 }
 
@@ -84,4 +90,9 @@ public struct ApiSwapCexValidateAddressResult: Decodable, Sendable {
 public struct ApiSwapCexCreateTransactionResult: Decodable, Sendable {
     public var swap: ApiSwapHistoryItem
     public var activity: ApiActivity
+}
+
+public struct ApiFetchSwapsResult: Decodable, Sendable {
+    public var nonExistentIds: [String]
+    public var swaps: [ApiSwapActivity]
 }
