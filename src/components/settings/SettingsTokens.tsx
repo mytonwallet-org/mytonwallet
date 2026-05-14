@@ -1,5 +1,5 @@
 import React, {
-  memo, useState,
+  memo, useMemo, useState,
 } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
@@ -12,8 +12,10 @@ import { toDecimal } from '../../util/decimals';
 import { stopEvent } from '../../util/domEvents';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
 import getDeterministicRandom from '../../util/getDeterministicRandom';
+import { buildCollectionByKey } from '../../util/iteratees';
 import getTokenName from '../main/helpers/getTokenName';
 
+import useInfiniteScroll from '../../hooks/useInfiniteScroll';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
@@ -21,12 +23,19 @@ import TokenIcon from '../common/TokenIcon';
 import TokenTitle from '../common/TokenTitle';
 import DeleteTokenModal from '../main/modals/DeleteTokenModal';
 import AnimatedCounter from '../ui/AnimatedCounter';
+import InfiniteScroll from '../ui/InfiniteScroll';
 import SensitiveData from '../ui/SensitiveData';
 import Switcher from '../ui/Switcher';
 
 import styles from './Settings.module.scss';
 
+const TOKEN_HEIGHT_REM = 4;
+const TOKEN_ITEM_CLASS = 'settings-token-item';
+const TOKEN_ITEM_SELECTOR = `.${TOKEN_ITEM_CLASS}`;
+const SCROLL_CONTAINER_SELECTOR = '.custom-scroll';
+
 interface OwnProps {
+  isActive?: boolean;
   tokens?: UserToken[];
   pinnedSlugs?: string[];
   baseCurrency: ApiBaseCurrency;
@@ -34,6 +43,7 @@ interface OwnProps {
 }
 
 function SettingsTokens({
+  isActive,
   tokens,
   baseCurrency,
   isSensitiveDataHidden,
@@ -47,6 +57,31 @@ function SettingsTokens({
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
 
   const [tokenToDelete, setTokenToDelete] = useState<UserToken | undefined>();
+
+  const tokenSlugs = useMemo(() => tokens?.map(({ slug }) => slug), [tokens]);
+  const tokensBySlug = useMemo(
+    () => (tokens ? buildCollectionByKey(tokens, 'slug') : undefined),
+    [tokens],
+  );
+
+  const [viewportSlugs, getMore] = useInfiniteScroll({
+    listIds: tokenSlugs,
+    isActive,
+  });
+
+  const viewportIndex = useMemo(() => (
+    viewportSlugs && tokenSlugs ? tokenSlugs.indexOf(viewportSlugs[0]) : -1
+  ), [tokenSlugs, viewportSlugs]);
+  const visibleCount = viewportSlugs?.length ?? 0;
+  const currentContainerHeight = visibleCount > 0 && viewportIndex >= 0
+    ? (viewportIndex + visibleCount) * TOKEN_HEIGHT_REM
+    : undefined;
+  const containerStyle = currentContainerHeight !== undefined
+    ? `height: ${currentContainerHeight}rem`
+    : undefined;
+  const maxHeight = currentContainerHeight !== undefined
+    ? `${currentContainerHeight}rem`
+    : undefined;
 
   const handleDeleteTokenModalClose = useLastCallback(() => {
     setTokenToDelete(undefined);
@@ -82,10 +117,13 @@ function SettingsTokens({
     setTokenToDelete(token);
   });
 
-  function renderToken(token: UserToken, index: number) {
+  function renderToken(token: UserToken, indexInViewport: number) {
     const {
       symbol, amount, price, slug, isDisabled,
     } = token;
+
+    const globalIndex = viewportIndex + indexInViewport;
+    const topOffset = globalIndex * TOKEN_HEIGHT_REM;
 
     const totalAmount = bigintMultiplyToNumber(amount, price);
     const isPinned = pinnedSlugs?.includes(slug);
@@ -104,7 +142,8 @@ function SettingsTokens({
         role="button"
         aria-label={ariaLabel}
         aria-pressed={!isDisabled}
-        className={buildClassName(styles.item, styles.item_token)}
+        style={`top: ${topOffset}rem`}
+        className={buildClassName(styles.item, styles.item_token, TOKEN_ITEM_CLASS)}
         onKeyDown={(e) => handleTokenKeyDown(token, e)}
         onClick={(e) => handleTokenVisibility(token, e)}
       >
@@ -118,7 +157,7 @@ function SettingsTokens({
           <div className={styles.tokenDescription}>
             <SensitiveData
               isActive={isSensitiveDataHidden}
-              cols={getDeterministicRandom(4, 9, index)}
+              cols={getDeterministicRandom(4, 9, globalIndex)}
               rows={2}
               cellSize={8}
               contentClassName={styles.tokenAmount}
@@ -160,7 +199,18 @@ function SettingsTokens({
           <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
         </div>
 
-        {tokens?.map(renderToken)}
+        <InfiniteScroll
+          className={styles.tokenList}
+          items={viewportSlugs}
+          itemSelector={TOKEN_ITEM_SELECTOR}
+          withAbsolutePositioning
+          scrollContainerClosest={SCROLL_CONTAINER_SELECTOR}
+          maxHeight={maxHeight}
+          style={containerStyle}
+          onLoadMore={getMore}
+        >
+          {viewportSlugs?.map((slug, i) => renderToken(tokensBySlug![slug], i))}
+        </InfiniteScroll>
       </div>
 
       <DeleteTokenModal token={tokenToDelete} onClose={handleDeleteTokenModalClose} />

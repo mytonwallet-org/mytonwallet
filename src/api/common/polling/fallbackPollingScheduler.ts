@@ -6,7 +6,7 @@ import { throttle } from '../../../util/schedulers';
 import { ApiServerError } from '../../errors';
 import { periodToMs } from './utils';
 
-export type PollCallback = () => MaybePromise<void>;
+export type PollCallback = (isInitial?: boolean) => MaybePromise<void>;
 
 export interface FallbackPollingOptions {
   /** Whether `poll` should be called when the polling object is created */
@@ -54,7 +54,7 @@ export class FallbackPollingScheduler {
     this.#schedulePolling(isSocketConnected);
 
     if (options.pollOnStart) {
-      this.#poll();
+      this.#poll(true);
     }
   }
 
@@ -65,7 +65,7 @@ export class FallbackPollingScheduler {
     // On the very first connect, skip the poll when pollOnStart already issued one.
     // On every reconnect, always poll to catch updates missed during the outage.
     if (this.#hasEverConnected || !this.#options.pollOnStart) {
-      this.#poll();
+      this.#poll(true);
     }
     this.#hasEverConnected = true;
   }
@@ -94,11 +94,11 @@ export class FallbackPollingScheduler {
   }
 
   // Using `throttle` to avoid parallel execution.
-  #poll = throttle(async () => {
+  #poll = throttle(async (isInitial?: boolean) => {
     if (this.#isDestroyed) return;
 
     try {
-      await this.#rawPoll();
+      await this.#rawPoll(isInitial);
     } catch (err: unknown) {
       // Polling re-issues requests, so any `ApiServerError` encountered here
       // (transport, 4xx, 5xx) is suppressed - alerting on each cycle just

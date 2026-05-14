@@ -55,14 +55,13 @@ data class ApiWalletVariant(
 @JsonClass(generateAdapter = true)
 data class ApiGroupedWalletVariantEntry(
     val wallet: ApiSubWallet,
-    val balance: BigInteger,
+    val balancesBySlug: Map<String, BigInteger>,
     val hasDerivation: Boolean
 )
 
 @JsonClass(generateAdapter = true)
 data class ApiGroupedWalletVariant(
     val index: Int,
-    val totalBalance: BigInteger,
     val byChain: Map<String, ApiGroupedWalletVariantEntry>
 )
 
@@ -79,4 +78,9 @@ data class ApiAddSubWalletResult(
     val address: String?,
     val accountId: String? = null,
     val byChain: Map<String, AccountChain>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ApiAddAllFoundSubwalletsResult(
+    val results: List<ApiCreateSubWalletResult>
 )

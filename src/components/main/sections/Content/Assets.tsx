@@ -201,10 +201,16 @@ function Assets({
 
   const shouldUseAnimations = Boolean(isActive && allTokensWithStaked);
 
+  // Size the container to the rendered window (viewportIndex already includes the vesting row),
+  // not the full token list. Avoids a ~8000rem spacer for wallets with thousands of tokens that
+  // wrecks scrollbar precision; the height grows progressively as `useInfiniteScroll` advances.
   const currentContainerHeight = useMemo(() => {
-    const totalItemsCount = (tokenSlugs?.length ?? 0) + (shouldRenderVestingToken ? 1 : 0);
-    return totalItemsCount > 0 ? totalItemsCount * TOKEN_HEIGHT_REM : undefined;
-  }, [tokenSlugs?.length, shouldRenderVestingToken]);
+    const visibleCount = viewportSlugs?.length ?? 0;
+    const renderedRows = visibleCount > 0
+      ? viewportIndex + visibleCount
+      : (shouldRenderVestingToken ? 1 : 0);
+    return renderedRows > 0 ? renderedRows * TOKEN_HEIGHT_REM : undefined;
+  }, [viewportIndex, viewportSlugs?.length, shouldRenderVestingToken]);
 
   const handleOpenTokenSettings = useLastCallback(() => {
     openSettingsWithState({ state: SettingsState.Assets });
@@ -353,6 +359,7 @@ function Assets({
         title={lang('No tokens yet')}
         description={lang('$no_tokens_description')}
         actionText={lang('Add Tokens')}
+        className="content-centered"
         onActionClick={handleOpenTokenSettings}
       />
     );

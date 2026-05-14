@@ -10,9 +10,34 @@ public final class IconAccessoryView: UIView {
     private var sizeConstraints: [NSLayoutConstraint] = []
     private var positionConstraints: [NSLayoutConstraint] = []
     private var imageSize: CGFloat = 0
+    
+    @MainActor
+    public struct LayoutGeometry: Equatable {
+        var size: CGFloat
+        var borderWidth: CGFloat
+        var horizontalOffset: CGFloat
+        var verticalOffset: CGFloat
+        
+        var fullSize: CGFloat { size + 2 * borderWidth }
+                
+        public init(size: CGFloat, borderWidth: CGFloat, horizontalOffset: CGFloat, verticalOffset: CGFloat) {
+            self.size = size
+            self.borderWidth = borderWidth
+            self.horizontalOffset = horizontalOffset
+            self.verticalOffset = verticalOffset
+        }
+        
+        public static let forIcon40 = LayoutGeometry(size: 14.0, borderWidth: 1.333, horizontalOffset: 3.0, verticalOffset: 1.0)
+    }
+    
+    public private(set) var layoutGeometry: LayoutGeometry
 
-    public override init(frame: CGRect) {
-        super.init(frame: frame)
+    public init(layoutGeometry: LayoutGeometry? = nil) {
+        
+        self.layoutGeometry = layoutGeometry ?? LayoutGeometry(size: 16.0, borderWidth: 1, horizontalOffset: 3.0, verticalOffset: 1.0)
+        
+        super.init(frame: .square(self.layoutGeometry.size))
+        
         translatesAutoresizingMaskIntoConstraints = false
         isHidden = true
         layer.masksToBounds = true
@@ -125,28 +150,31 @@ public final class IconAccessoryView: UIView {
         setClockVisible(false)
         setShowsSoftLightOverlay(false)
     }
-
-    public func apply(size: CGFloat, borderWidth: CGFloat, borderColor: UIColor?, horizontalOffset: CGFloat, verticalOffset: CGFloat, in parent: UIView) {
-        backgroundColor = borderColor
-        imageSize = size
+        
+    public func apply(layoutGeometry: LayoutGeometry, in parent: UIView) {
+        self.layoutGeometry = layoutGeometry
+        
+        isOpaque = false
+        backgroundColor = .clear
+        imageSize = layoutGeometry.size
         if superview !== parent {
             parent.addSubview(self)
         }
         NSLayoutConstraint.deactivate(sizeConstraints + positionConstraints)
         sizeConstraints = [
-            widthAnchor.constraint(equalToConstant: size + 2 * borderWidth),
-            heightAnchor.constraint(equalToConstant: size + 2 * borderWidth),
-            imageView.widthAnchor.constraint(equalToConstant: size),
-            imageView.heightAnchor.constraint(equalToConstant: size)
+            widthAnchor.constraint(equalToConstant: layoutGeometry.fullSize),
+            heightAnchor.constraint(equalToConstant: layoutGeometry.fullSize),
+            imageView.widthAnchor.constraint(equalToConstant: layoutGeometry.size),
+            imageView.heightAnchor.constraint(equalToConstant: layoutGeometry.size)
         ]
         positionConstraints = [
-            rightAnchor.constraint(equalTo: parent.rightAnchor, constant: horizontalOffset),
-            bottomAnchor.constraint(equalTo: parent.bottomAnchor, constant: verticalOffset)
+            rightAnchor.constraint(equalTo: parent.rightAnchor, constant: layoutGeometry.horizontalOffset),
+            bottomAnchor.constraint(equalTo: parent.bottomAnchor, constant: layoutGeometry.verticalOffset)
         ]
         NSLayoutConstraint.activate(sizeConstraints + positionConstraints)
-        let cornerRadius = (size + 2 * borderWidth) / 2
+        let cornerRadius = layoutGeometry.fullSize / 2
         layer.cornerRadius = cornerRadius
-        imageView.layer.cornerRadius = size / 2
+        imageView.layer.cornerRadius = layoutGeometry.size / 2
         overlayView.gradientLayer.cornerRadius = imageView.layer.cornerRadius
     }
 

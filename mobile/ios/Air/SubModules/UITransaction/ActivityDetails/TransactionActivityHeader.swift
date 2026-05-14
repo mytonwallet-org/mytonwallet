@@ -147,7 +147,6 @@ struct TokenIconView: View {
                 size: 28,
                 chainSize: 0,
                 chainBorderWidth: 0,
-                chainBorderColor: .clear,
                 chainHorizontalOffset: 0,
                 chainVerticalOffset: 0
             )

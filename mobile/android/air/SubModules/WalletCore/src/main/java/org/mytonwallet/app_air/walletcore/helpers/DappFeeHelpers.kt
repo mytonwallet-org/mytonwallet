@@ -17,8 +17,8 @@ class DappFeeHelpers {
             fullFee: BigInteger,
             received: BigInteger,
         ): String {
-            val nativeToken =
-                TokenStore.getToken(MBlockchain.valueOf(operationChain).nativeSlug) ?: return ""
+            val chain = MBlockchain.valueOfOrNull(operationChain) ?: return ""
+            val nativeToken = TokenStore.getToken(chain.nativeSlug) ?: return ""
             if (received == BigInteger.ZERO) {
                 return MFee(
                     precision = MFeePrecision.EXACT,

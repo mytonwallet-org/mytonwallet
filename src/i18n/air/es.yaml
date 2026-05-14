@@ -360,6 +360,11 @@ $subwallets_found:
   oneValue: "Encontrado: %1$d"
   otherValue: "Encontrados: %1$d"
 
+$subwallet_scan_no_native_balances: Sin saldos nativos
+$subwallet_scan_other_tokens_suffix:
+  oneValue: " + %1$d otro token"
+  otherValue: " + %1$d otros tokens"
+
 $subwallets_hint: Usa subwallets para obtener direcciones adicionales sin crear nuevas palabras secretas.
 $subwallets_created_wallets: Si has creado subwallets anteriormente, aparecerán en la lista de abajo.
 $subwallets_none: Aún no hay subwallets.

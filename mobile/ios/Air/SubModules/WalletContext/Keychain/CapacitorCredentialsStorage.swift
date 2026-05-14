@@ -25,7 +25,7 @@ public class CapacitorCredentialsStorage {
         do {
             let credentials = try getCredentials().orThrow()
             if credentials.username != NATIVE_BIOMETRICS_USERNAME {
-                log.error("credentials.username != MyTonWallet \(credentials.username, .public)")
+                log.error("credentials.username != \(NATIVE_BIOMETRICS_USERNAME, .public) \(credentials.username, .public)")
                 var ok: Bool = deleteCredentials()
                 guard ok else {
                     log.fault("failed to delete credentials")

@@ -366,6 +366,13 @@ $subwallets_found:
   oneValue: "Znaleziono: %1$d"
   otherValue: "Znaleziono: %1$d"
 
+$subwallet_scan_no_native_balances: Brak sald natywnych
+$subwallet_scan_other_tokens_suffix:
+  zeroValue: " + %1$d innych tokenów"
+  oneValue: " + %1$d inny token"
+  fewValue: " + %1$d inne tokeny"
+  manyValue: " + %1$d innych tokenów"
+
 $subwallets_hint: Używaj subportfeli, aby uzyskać dodatkowe adresy bez tworzenia nowych tajnych słów.
 $subwallets_created_wallets: Jeśli wcześniej tworzyłeś subportfele, pojawią się na poniższej liście.
 $subwallets_none: Brak subportfeli.

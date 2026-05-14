@@ -86,6 +86,46 @@ object EvmConnectHelper {
                 'wallet_getCapabilities',
             ];
 
+            // Read-only JSON-RPC methods we forward through walletConnect_proxyEvmRpc.
+            // Mirrors READONLY_EVM_RPC_METHODS in the SDK adapter; the wallet side enforces
+            // the same set, this list keeps us from making round-trips for clearly unsupported
+            // methods (and pollutes logs less).
+            const READONLY_RPC_METHODS = new Set([
+                'eth_blockNumber',
+                'eth_getBalance',
+                'eth_call',
+                'eth_estimateGas',
+                'eth_gasPrice',
+                'eth_maxPriorityFeePerGas',
+                'eth_feeHistory',
+                'eth_getTransactionCount',
+                'eth_getTransactionByHash',
+                'eth_getTransactionReceipt',
+                'eth_getCode',
+                'eth_getStorageAt',
+                'eth_getBlockByNumber',
+                'eth_getBlockByHash',
+                'eth_getLogs',
+                'eth_getBlockTransactionCountByNumber',
+                'eth_getBlockTransactionCountByHash',
+                'eth_protocolVersion',
+                'eth_syncing',
+                'net_listening',
+                'web3_clientVersion',
+            ]);
+
+            // Per-method TTLs (ms) for readonly RPC coalescing. See EvmConnectInjectionScript.swift
+            // for the rationale; kept in sync across platforms.
+            const READ_CACHE_TTL_MS = {
+                eth_blockNumber: 1500,
+                eth_gasPrice: 1500,
+                eth_maxPriorityFeePerGas: 1500,
+                eth_syncing: 30000,
+                eth_protocolVersion: 600000,
+                net_listening: 600000,
+                web3_clientVersion: 600000,
+            };
+
             function currentNetworkCaips() {
                 const current = Object.keys(EVM_CHAIN_IDS).filter((caip2) => EVM_CHAIN_IDS[caip2].network === ACTIVE_NETWORK);
                 return current.length ? current : Object.keys(EVM_CHAIN_IDS);
@@ -183,6 +223,10 @@ object EvmConnectHelper {
                     this.listeners = new Map();
                     this.sessionChains = [];
                     this.selectedCaip2 = firstSupportedCaip();
+                    this._readCache = new Map();
+                    // Short-TTL cache for silent reconnect to absorb Reown/wagmi polling
+                    // (eth_accounts is polled at 100+/s; in-flight dedup alone leaks 60% to the worker).
+                    this._silentReconnect = null;
                     this.provider = {
                         isMyTonWallet: $isMyTonWalletLiteral,
                         isGramWallet: $isGramWalletLiteral,
@@ -236,9 +280,47 @@ object EvmConnectHelper {
                         disconnect: 'walletConnect:disconnect',
                         sendTransaction: 'walletConnect:sendTransaction',
                         signData: 'walletConnect:signData',
+                        proxyEvmRpc: 'walletConnect:proxyEvmRpc',
                     }[name];
                     if (!method) return Promise.reject(makeProviderError(-32601, 'Unknown wallet op: ' + name));
                     return new Promise((resolve, reject) => window._mtwAir_invokeFunc(method, args, resolve, reject));
+                }
+
+                currentChain() {
+                    const entry = EVM_CHAIN_IDS[this.selectedCaip2];
+                    return entry ? entry.chain : undefined;
+                }
+
+                async proxyReadRpc(method, params) {
+                    const ttl = READ_CACHE_TTL_MS[method];
+                    if (!ttl) {
+                        return this._dispatchProxyRead(method, params);
+                    }
+                    const now = Date.now();
+                    const cached = this._readCache.get(method);
+                    if (cached && cached.expiresAt > now) {
+                        return cached.promise;
+                    }
+                    const promise = this._dispatchProxyRead(method, params);
+                    const entry = { promise, expiresAt: now + ttl };
+                    this._readCache.set(method, entry);
+                    promise.catch(() => {
+                        if (this._readCache.get(method) === entry) this._readCache.delete(method);
+                    });
+                    return promise;
+                }
+
+                async _dispatchProxyRead(method, params) {
+                    const chain = this.currentChain();
+                    if (!chain) {
+                        return Promise.reject(makeProviderError(4901, 'No selected chain for RPC proxy'));
+                    }
+                    const response = await this.requestWc('proxyEvmRpc', [{ chain, method, params }]);
+                    if (response && response.success) {
+                        return response.result;
+                    }
+                    const err = response && response.error;
+                    return Promise.reject(makeProviderError(err && err.code != null ? err.code : -32603, (err && err.message) || 'RPC proxy error'));
                 }
 
                 accountsLower() {
@@ -287,6 +369,9 @@ object EvmConnectHelper {
                 applySessionResult(response) {
                     if (!response || !response.success || !response.session) return false;
 
+                    const prevAccounts = this.accountsLower();
+                    const prevChainHex = this.chainIdHex();
+
                     this.sessionChains = response.session.chains || [];
                     const evm = this.evmChains;
                     if (!evm.length) return false;
@@ -298,16 +383,51 @@ object EvmConnectHelper {
                         this.selectedCaip2 = getCaip2ForSessionChain(evm[0].chain, evm[0].network) || firstSupportedCaip();
                     }
 
-                    this.emit('connect', [{ chainId: this.chainIdHex() }]);
-                    this.emit('accountsChanged', [this.accountsLower()]);
+                    const nextAccounts = this.accountsLower();
+                    const nextChainHex = this.chainIdHex();
+                    // Block-bound and gas-price cache must not leak across chains.
+                    if (nextChainHex !== prevChainHex) {
+                        this._readCache.clear();
+                    }
+                    // Only emit when state actually changed. Without this, every silent
+                    // reconnect (Reown polls eth_accounts ~100/s) re-emits accountsChanged
+                    // and pins React-based dapps in a re-render loop until JS heap OOMs.
+                    // Fire `connect` on the disconnected->connected transition (prev had no accounts)
+                    // even if the resolved chain matches our default fallback (mainnet for most dapps).
+                    if (prevAccounts.length === 0 || prevChainHex !== nextChainHex) {
+                        this.emit('connect', [{ chainId: nextChainHex }]);
+                    }
+                    if (prevAccounts.length !== nextAccounts.length
+                        || prevAccounts.some((a, i) => a !== nextAccounts[i])) {
+                        this.emit('accountsChanged', [nextAccounts]);
+                    }
                     return true;
                 }
 
                 async connectWallet(silent) {
-                    const id = ++this.lastGeneratedId;
                     if (silent) {
-                        return this.requestWc('reconnect', [id]);
+                        const now = Date.now();
+                        const cached = this._silentReconnect;
+                        if (cached && cached.expiresAt > now) {
+                            return cached.promise;
+                        }
+                        const id = ++this.lastGeneratedId;
+                        const promise = this.requestWc('reconnect', [id]);
+                        const entry = { promise, expiresAt: now + 500 };
+                        this._silentReconnect = entry;
+                        promise.then(
+                            (resp) => {
+                                if (!resp || !resp.success) {
+                                    if (this._silentReconnect === entry) this._silentReconnect = null;
+                                }
+                            },
+                            () => {
+                                if (this._silentReconnect === entry) this._silentReconnect = null;
+                            },
+                        );
+                        return promise;
                     }
+                    const id = ++this.lastGeneratedId;
 
                     const payload = {
                         id,
@@ -401,6 +521,8 @@ object EvmConnectHelper {
                                     return Promise.reject(makeProviderError(4902, 'Unrecognized chain'));
                                 }
                                 this.selectedCaip2 = targetCaip;
+                                // Block-bound and gas-price cache must not leak across chains.
+                                this._readCache.clear();
                                 this.emit('chainChanged', [this.chainIdHex()]);
                                 return null;
                             }
@@ -429,6 +551,9 @@ object EvmConnectHelper {
                             case 'eth_signTypedData_v4':
                                 return this.signTypedData(params);
                             default:
+                                if (READONLY_RPC_METHODS.has(method)) {
+                                    return this.proxyReadRpc(method, params || []);
+                                }
                                 return Promise.reject(makeProviderError(-32601, 'Unsupported method: ' + method));
                         }
                     } catch (err) {
@@ -605,6 +730,8 @@ object EvmConnectHelper {
                         await this.requestWc('disconnect', [{ requestId: String(++this.lastGeneratedId) }]);
                     } finally {
                         this.sessionChains = [];
+                        this._readCache.clear();
+                        this._silentReconnect = null;
                         this.emit('accountsChanged', [[]]);
                         this.emit('disconnect', [{ code: 4900, message: 'Disconnected' }]);
                     }

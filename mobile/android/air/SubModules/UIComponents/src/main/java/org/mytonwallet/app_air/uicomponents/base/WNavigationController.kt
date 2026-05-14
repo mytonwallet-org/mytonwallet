@@ -179,7 +179,7 @@ class WNavigationController(
     }
 
     fun onBottomSheetHeightChanged() {
-        if (!presentationConfig.isBottomSheet || isBottomSheetHeightAnimating) {
+        if (!presentationConfig.isBottomSheet || isBottomSheetHeightAnimating || layoutParams == null) {
             return
         }
         val topVC = viewControllers.lastOrNull() ?: return
@@ -513,8 +513,12 @@ class WNavigationController(
         removeView(removingVC.view)
         removingVC.onDestroy()
         viewControllers.removeAt(viewControllers.size - 2)
-        viewControllers.lastOrNull()?.swipeTouchListener?.behindView =
-            WeakReference(viewControllers[viewControllers.count() - 2].view)
+        if (viewControllers.size >= 2) {
+            viewControllers.lastOrNull()?.swipeTouchListener?.behindView =
+                WeakReference(viewControllers[viewControllers.size - 2].view)
+        } else {
+            viewControllers.lastOrNull()?.swipeTouchListener = null
+        }
     }
 
     fun removePrevViewControllers(keptFirstViewControllers: Int = 0) {

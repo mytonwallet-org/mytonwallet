@@ -105,6 +105,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         configuration.backgroundColor = .clear
         configuration.showsSeparators = true
         configuration.separatorConfiguration.bottomSeparatorInsets.leading = 62
+        configuration.separatorConfiguration.bottomSeparatorInsets.trailing = IOS_26_MODE_ENABLED ? 12 : 0
         if !IOS_26_MODE_ENABLED {
             configuration.separatorConfiguration.color = layoutMode.isCompact ? .air.separator : .air.separatorDarkBackground
         }
@@ -808,9 +809,3 @@ extension WalletTokensVC {
         }
     }
 }
-    
-// MARK: - iPad fixup
-
-//final class _NoInsetsTableView: UITableView {
-//    override var safeAreaInsets: UIEdgeInsets { .zero }
-//}

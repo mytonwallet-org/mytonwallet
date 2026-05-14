@@ -10,10 +10,10 @@ import UIKit
 import WalletCore
 import WalletContext
 
-public final class TokenCell: UITableViewCell {
+public final class TokenCell: UICollectionViewCell {
     
     private static let horizontalInset: CGFloat = 12
-    private static let tokenImageToTextSpacing: CGFloat = 12
+    private static let tokenImageToTextSpacing: CGFloat = 10
     private static let titleFont = UIFont.systemFont(ofSize: 16, weight: .medium)
     private static let amountFont = UIFont.systemFont(ofSize: 16, weight: .regular)
     private static let secondaryFont = UIFont.systemFont(ofSize: 14, weight: .regular)
@@ -22,8 +22,8 @@ public final class TokenCell: UITableViewCell {
 
     private let selectionIndicatorView = UIImageView(image: UIImage(systemName: "checkmark.circle.fill"))
 
-    public override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
+    override init(frame: CGRect) {
+        super.init(frame: frame)
         setupViews()
     }
     
@@ -33,7 +33,7 @@ public final class TokenCell: UITableViewCell {
     
     private var onSelect: (() -> Void)? = nil
     private let stackView = WHighlightStackView()
-    private let iconView = IconView(size: 40)
+    private let iconView = IconView(size: 40, accessoryGeometry: .forIcon40)
     private let contentStackView = UIStackView()
     private let leftLabelsStackView = UIStackView()
     private let titleRowStackView = UIStackView()
@@ -49,20 +49,21 @@ public final class TokenCell: UITableViewCell {
         isUserInteractionEnabled = true
         backgroundColor = .clear
         contentView.backgroundColor = .clear
-        selectionIndicatorView.tintColor = .tintColor
 
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .horizontal
         stackView.alignment = .center
         stackView.spacing = Self.tokenImageToTextSpacing
         stackView.isLayoutMarginsRelativeArrangement = true
-        stackView.directionalLayoutMargins = .init(top: 0, leading: Self.horizontalInset, bottom: 0, trailing: Self.horizontalInset)
+        stackView.directionalLayoutMargins = .init(top: 10, leading: Self.horizontalInset, bottom: 10, trailing: Self.horizontalInset)
+        let stackViewBottom = stackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+        stackViewBottom.priority = .defaultHigh
         contentView.addSubview(stackView)
         NSLayoutConstraint.activate([
             stackView.leftAnchor.constraint(equalTo: contentView.leftAnchor),
             stackView.topAnchor.constraint(equalTo: contentView.topAnchor),
             stackView.rightAnchor.constraint(equalTo: contentView.rightAnchor),
-            stackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            stackViewBottom,
         ])
 
         stackView.addArrangedSubview(iconView)
@@ -133,6 +134,13 @@ public final class TokenCell: UITableViewCell {
         amountLabelContainer.isTapToRevealEnabled = false
         secondaryAmountLabelContainer.isTapToRevealEnabled = false
 
+        selectionIndicatorView.translatesAutoresizingMaskIntoConstraints = false
+        selectionIndicatorView.tintColor = .tintColor
+        selectionIndicatorView.setContentCompressionResistancePriority(.required, for: .horizontal)
+        selectionIndicatorView.setContentHuggingPriority(.required, for: .horizontal)
+        selectionIndicatorView.isHidden = true
+        contentStackView.addArrangedSubview(selectionIndicatorView)
+
         updateTheme()
 
         stackView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tokenSelected)))
@@ -198,8 +206,7 @@ public final class TokenCell: UITableViewCell {
         amountLabel.text = formatAmount(balance: balance, token: token)
         secondaryAmountLabel.text = formatSecondaryAmount(balance: balance, token: token)
         stackView.alpha = isAvailable ? 1 : 0.5
-        selectionStyle = .none
-        accessoryView = isCurrentSelection ? selectionIndicatorView : nil
+        selectionIndicatorView.isHidden = !isCurrentSelection
     }
     
     private func formatAmount(balance: BigInt, token: ApiToken?) -> String {
@@ -216,3 +223,4 @@ public final class TokenCell: UITableViewCell {
         return baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
     }
 }
+

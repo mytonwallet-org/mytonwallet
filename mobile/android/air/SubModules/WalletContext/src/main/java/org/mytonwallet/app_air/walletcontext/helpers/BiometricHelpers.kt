@@ -69,7 +69,15 @@ class BiometricHelpers {
                         }
                     })
 
-            biometricPrompt.authenticate(promptInfo)
+            try {
+                biometricPrompt.authenticate(promptInfo)
+            } catch (t: Throwable) {
+                Logger.e(
+                    Logger.LogTag.PASSCODE_CONFIRM,
+                    "BiometricPrompt.authenticate failed: ${t.message}"
+                )
+                onCanceled()
+            }
         }
     }
 }

@@ -137,7 +137,9 @@ class NftDetailsPageView: UIView {
             
             if !buttons.isEmpty {
                 let toolbar = ButtonsToolbar()
+                toolbar.beginUpdate()
                 buttons.forEach { toolbar.addArrangedSubview($0) }
+                toolbar.endUpdate()
                 stackView.addArrangedSubview(toolbar)
                 stackView.setCustomSpacing(26, after: toolbar)
             }
@@ -225,7 +227,7 @@ class NftDetailsPageView: UIView {
             contentColor = .init(
                 baseColor: .black,
                 subtleBackgroundColor: .black.withAlphaComponent(0.04),
-                edgeColor: .white.withAlphaComponent(0.4),
+                edgeColor: .white.withAlphaComponent(0.7),
                 secondaryTextColor: .black.withAlphaComponent(0.75),
                 highlightColor: .black.withAlphaComponent(0.2),
             )

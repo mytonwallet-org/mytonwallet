@@ -6,15 +6,18 @@ import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
+import org.mytonwallet.app_air.walletcore.ALL_DEFAULT_TOKENS
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.importWallet
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.utils.jsonObject
 import java.lang.ref.WeakReference
+import java.math.BigInteger
 
 class WalletCreationVM(delegate: Delegate) {
     interface Delegate {
@@ -72,7 +75,13 @@ class WalletCreationVM(delegate: Delegate) {
                         byChain = account.byChain.jsonObject,
                         importedAt = account.importedAt
                     )
-                    BalanceStore.setBalances(account.accountId, HashMap(), false)
+                    WGlobalStorage.setIsHistoryEndReached(account.accountId, null, true)
+                    val seededBalances = HashMap<String, BigInteger>().apply {
+                        ALL_DEFAULT_TOKENS[account.network]?.forEach { slug ->
+                            put(slug, BigInteger.ZERO)
+                        }
+                    }
+                    BalanceStore.setBalances(account.accountId, seededBalances, true)
                     AirPushNotifications.subscribe(account, ignoreIfLimitReached = true)
                 }
                 if (biometricsActivated != null) {
@@ -84,7 +93,10 @@ class WalletCreationVM(delegate: Delegate) {
                         WGlobalStorage.setIsBiometricActivated(false)
                     }
                 }
-                WalletCore.activateAccount(primaryAccount.accountId, notifySDK = false) { res, err ->
+                WalletCore.activateAccount(
+                    primaryAccount.accountId,
+                    notifySDK = false
+                ) { res, err ->
                     if (res == null || err != null) {
                         // Should not happen!
                         Logger.e(

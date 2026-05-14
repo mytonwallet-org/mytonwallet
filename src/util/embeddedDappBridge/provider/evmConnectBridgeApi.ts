@@ -3,6 +3,8 @@ import { getActions, getGlobal } from '../../../global';
 import type {
   DappConnectionRequest,
   DappConnectionResult,
+  DappEvmRpcProxyRequest,
+  DappEvmRpcProxyResult,
   DappMethodResult,
   DappProtocolType,
   DappSignDataRequest,
@@ -20,6 +22,7 @@ type WalletConnectConnectionResult = DappConnectionResult<DappProtocolType.Walle
 type WalletConnectMethodResult = DappMethodResult<DappProtocolType.WalletConnect>;
 
 type WcBridgeFailure = { success: false; error: DappProtocolError };
+type WcRpcProxyFailure = { success: false; error: { code: number; message: string } };
 
 export interface BrowserEvmConnectBridgeMethods {
   reconnect(wcRequestId: number): Promise<
@@ -37,6 +40,10 @@ export interface BrowserEvmConnectBridgeMethods {
   signData(
     unifiedPayload: DappSignDataRequest<DappProtocolType.WalletConnect>,
   ): Promise<WalletConnectMethodResult | undefined | WcBridgeFailure>;
+
+  proxyEvmRpc(
+    payload: DappEvmRpcProxyRequest,
+  ): Promise<DappEvmRpcProxyResult | undefined | WcRpcProxyFailure>;
 }
 
 export function buildEvmConnectBridgeApi(pageUrl: string): BrowserEvmConnectBridgeMethods {
@@ -113,6 +120,19 @@ export function buildEvmConnectBridgeApi(pageUrl: string): BrowserEvmConnectBrid
       } catch (err) {
         logDebugError('evmConnectBridgeApi:wcSignData', err);
         return { success: false, error: { code: 0, message: 'Unknown error' } };
+      }
+    },
+
+    proxyEvmRpc: async (payload) => {
+      try {
+        return await callApi(
+          'walletConnect_proxyEvmRpc',
+          buildDappRequest(url),
+          payload,
+        );
+      } catch (err) {
+        logDebugError('evmConnectBridgeApi:wcProxyEvmRpc', err);
+        return { success: false, error: { code: -32603, message: 'Unknown error' } };
       }
     },
   };

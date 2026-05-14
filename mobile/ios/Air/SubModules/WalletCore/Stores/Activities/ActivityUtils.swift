@@ -70,13 +70,25 @@ func getIsIdSuitableForFetchingTimestamp(activity: ApiActivity?) -> Bool {
 }
 
 public func getIsActivityPending(_ activity: ApiActivity) -> Bool {
+    if !getIsActivityPendingForUser(activity) {
+        return false
+    }
     switch activity {
-    case .transaction(let tx):
-        tx.status == .pending || tx.status == .pendingTrusted
+    case .transaction:
+        return true
     case .swap(let swap):
         // "Pending" is a blockchain term.
         // CEX activities are never considered pending, because they are originated by the backend instead of the blockchains.
-        !getIsBackendSwapId(swap.id) && (swap.status == .pending || swap.status == .pendingTrusted)
+        return !getIsBackendSwapId(swap.id)
+    }
+}
+
+public func getIsActivityPendingForUser(_ activity: ApiActivity) -> Bool {
+    switch activity {
+    case .transaction(let tx):
+        return tx.status == .pending || tx.status == .pendingTrusted
+    case .swap(let swap):
+        return swap.status == .pending || swap.status == .pendingTrusted
     }
 }
 

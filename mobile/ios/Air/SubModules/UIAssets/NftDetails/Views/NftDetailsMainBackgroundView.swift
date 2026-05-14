@@ -7,23 +7,32 @@ import SwiftUI
 
 struct NftDetailsBackground {
     final class View: UIView, MTKViewDelegate {
+        
         private var currentModel = Model(
-            pageState: .staticPage(PageModel(background: nil, image: nil, tag: "idle")),
+            pageState: .staticPage(PageModel(backgroundColor: nil, image: nil, tag: "idle")),
             isExpanded: false,
             shouldShowPreview: false
         )
+        
         private var metalView: MTKView?
         private var ciContext: CIContext?
         private var commandQueue: MTLCommandQueue?
         private let deviceScale = UIScreen.main.scale
         private let colorSpace = CGColorSpaceCreateDeviceRGB()
-        private var lastPreparedImage: CIImage?
         private var lastLayoutSizeForPrepare: CGSize = .init(width: -1, height: -1)
-
+        private var fallbackColor: UIColor
         private var isTransitionFpsCapActive = false
         private var isLowResDrawableActive = false
-        
+
+        private struct PreparedRender {
+            var image: CIImage?
+            var isStatic = true
+            var hasPreview: Bool = false
+        }
+        private var preparedRender = PreparedRender()
+
         init() {
+            fallbackColor = NftDetailsContentPalette.defaultBackgroundColor
             super.init(frame: .zero)
             setup()
         }
@@ -38,6 +47,8 @@ struct NftDetailsBackground {
                 return
             }
             
+            updateFallbackColor()
+            
             commandQueue = device.makeCommandQueue()
             ciContext = CIContext(mtlDevice: device, options: [
                 .cacheIntermediates: true,
@@ -48,11 +59,13 @@ struct NftDetailsBackground {
             let mtkView = MTKView(frame: bounds, device: device)
             mtkView.translatesAutoresizingMaskIntoConstraints = false
             mtkView.delegate = self
-            mtkView.preferredFramesPerSecond = UIScreen.main.maximumFramesPerSecond
-            mtkView.isPaused = true
-            mtkView.enableSetNeedsDisplay = true
+            mtkView.isPaused = false
+            mtkView.enableSetNeedsDisplay = false
+            mtkView.preferredFramesPerSecond = Self.idleFramesPerSecond
             mtkView.framebufferOnly = false
             mtkView.colorPixelFormat = .bgra8Unorm
+            mtkView.presentsWithTransaction = true
+
             metalView = mtkView
             addSubview(mtkView)
             
@@ -64,11 +77,6 @@ struct NftDetailsBackground {
             ])
             
             // Warm-up: pre-compile CI/Metal shaders so the first visible frame is not delayed.
-            // Two passes are needed:
-            //   1. Basic solid-color path (static pages, fallback).
-            //   2. Dissolve-transition path: CIAffineClamp + scale + CIDissolveTransition — the graph used
-            //      for background-pattern transitions. Without this, the first transition triggers a
-            //      Metal shader compilation on the main thread (~10-50 ms) that stalls the drawable pool.
             let desc = MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: .bgra8Unorm,
                 width: 4,
@@ -81,33 +89,24 @@ struct NftDetailsBackground {
 
                 // Pass 1 — solid color.
                 if let commandBuffer = commandQueue?.makeCommandBuffer() {
-                    ciContext.render(makeSolidFallback(extent: bounds), to: texture, commandBuffer: commandBuffer, bounds: bounds, colorSpace: colorSpace)
-                    commandBuffer.commit()
-                    commandBuffer.waitUntilCompleted()
-                }
-
-                // Pass 2 — dissolve between two clamp-scaled dummy images (mirrors prepareSideImage + dissolve path).
-                if let commandBuffer = commandQueue?.makeCommandBuffer() {
-                    let dummyPattern = CIImage(color: CIColor(red: 0.5, green: 0.5, blue: 0.5)).cropped(to: CGRect(x: 0, y: 0, width: 4, height: 1))
-                    let scaled = dummyPattern.clampedToExtent().transformed(by: CGAffineTransform(scaleX: 1, y: 4)).cropped(to: bounds)
-                    let dissolve = CIFilter.dissolveTransition()
-                    dissolve.inputImage = scaled
-                    dissolve.targetImage = scaled
-                    dissolve.time = 0.5
-                    if let output = dissolve.outputImage {
-                        ciContext.render(output, to: texture, commandBuffer: commandBuffer, bounds: bounds, colorSpace: colorSpace)
-                    }
+                    ciContext.render(solidColorImage(extent: bounds, color: nil), to: texture,
+                                     commandBuffer: commandBuffer, bounds: bounds, colorSpace: colorSpace)
                     commandBuffer.commit()
                     commandBuffer.waitUntilCompleted()
                 }
             }
         }
+        
+        // Idle frame-rate while no transition is active. The MTKView still ticks at this rate so the GPU clock, drawable IOSurfaces, and display-link phase stay engaged
+        private static let idleFramesPerSecond: Int = 10
+        
+        // Active frame-rate during a transition. Falls back to the device max (60/120 Hz).
+        private static var activeFramesPerSecond: Int { UIScreen.main.maximumFramesPerSecond }
 
         private func updatePreferredFrameRate(isTransitioning: Bool) {
-            if isTransitionFpsCapActive != isTransitioning {
-                isTransitionFpsCapActive = isTransitioning
-                metalView?.preferredFramesPerSecond = isTransitioning ? 60 : UIScreen.main.maximumFramesPerSecond
-            }
+            guard isTransitionFpsCapActive != isTransitioning else { return }
+            isTransitionFpsCapActive = isTransitioning
+            metalView?.preferredFramesPerSecond = isTransitioning ? Self.activeFramesPerSecond : Self.idleFramesPerSecond
         }
 
         private func updateDrawableResolution(isLowRes: Bool, force: Bool = false) {
@@ -116,15 +115,16 @@ struct NftDetailsBackground {
             let size = bounds.size
             guard size.width > 0, size.height > 0 else { return }
 
-            let k: CGFloat = isLowRes ? 0.5 : 1.0
+            // For now it always has the best resolution. Tune when needed
+            let k = isLowRes ? 0.2 : 1.0
             isLowResDrawableActive = isLowRes
-            metalView?.drawableSize = CGSize(width: size.width * deviceScale * k, height: size.height * deviceScale * k)
+            let newSize = CGSize(width: size.width * deviceScale * k, height: size.height * deviceScale * k)
+            if metalView?.drawableSize != newSize {
+                metalView?.drawableSize = newSize
+            }
         }
                 
         func setModel(_ model: Model) {
-            let perf = NftDetailsPerformance.beginMeasure("bg_setModel")
-            defer { NftDetailsPerformance.endMeasure(perf) }
-
             guard currentModel != model else { return }
             currentModel = model
                         
@@ -144,49 +144,59 @@ struct NftDetailsBackground {
                 render()
             }
         }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            metalView?.isPaused = (window == nil)
+        }
+        
+        private func updateFallbackColor() {
+            fallbackColor = NftDetailsContentPalette.defaultBackgroundColor.resolvedColor(with: traitCollection)
+        }
         
         override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
             super.traitCollectionDidChange(previousTraitCollection)
             
             if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+                updateFallbackColor()
                 render()
             }
         }
         
-        private func makeSolidFallback(extent: CGRect) -> CIImage {
-            let uiColor = NftDetailsContentPalette.defaultBackgroundColor.resolvedColor(with: traitCollection)
+        private func solidColorImage(extent: CGRect, color: UIColor?) -> CIImage {
+            let uiColor = color ?? fallbackColor
             return CIImage(color: CIColor(cgColor: uiColor.cgColor)).cropped(to: extent)
         }
                 
-        private func translateImage(_ image: CIImage, x: CGFloat = 0, y: CGFloat = 0) -> CIImage {
-            let transform = CGAffineTransform(translationX: x, y: y)
-            return image.transformed(by: transform)
-        }
-        
-        private func prepareSideImage(background: CIImage?, image: CIImage?, at extent: CGRect) -> CIImage {
+        private func prepareSideImage(for page: PageModel, extent: CGRect, shouldShowPreview: Bool) -> CIImage {
             var result: CIImage
-            if let background {
-                result = scaleToExtent(background, extent: extent)
-            } else {
-                result = makeSolidFallback(extent: extent)
-            }
-            
-            if let image {
+            result = solidColorImage(extent: extent, color: page.backgroundColor)
+            if shouldShowPreview, let image = page.image {
                 result = scaleToWidthAlignToTop(image, extent: extent).composited(over: result)
             }
-            
             return result
         }
-       
-        private func prepareImageForRender(at extent: CGRect) -> CIImage? {
-            let perfPrepare = NftDetailsPerformance.beginMeasure("bg_prepareForRender")
-            defer { NftDetailsPerformance.endMeasure(perfPrepare) }
+        
+        private func scaleToWidthAlignToTop(_ ciImage: CIImage, extent: CGRect) -> CIImage {
+            let src = ciImage.extent
+            guard src.width > 0, src.height > 0 else { return ciImage }
+            let scaleX = extent.width / src.width
+            let tx = extent.minX - src.minX * scaleX
+            let ty = (extent.minY + extent.height) - (src.minY + src.height) * scaleX
+            return ciImage
+                .transformed(by: CGAffineTransform(a: scaleX, b: 0, c: 0, d: scaleX, tx: tx, ty: ty))
+                .cropped(to: extent)
+        }
 
+        private func prepareImageForRender(at extent: CGRect) -> PreparedRender {
+            var result = PreparedRender()
             
             let shouldShowPreview = currentModel.shouldShowPreview
             switch currentModel.pageState {
             case let .staticPage(page):
-                return  prepareSideImage(background: page.background, image: shouldShowPreview ? page.image : nil, at: extent)
+                result.image = prepareSideImage(for: page, extent: extent, shouldShowPreview: shouldShowPreview)
+                result.isStatic = true
+                result.hasPreview = shouldShowPreview && page.image != nil
                 
             case let .transition(leftPage, rightPage, progress):
                 assert(progress > 0 && progress < 1)
@@ -194,16 +204,18 @@ struct NftDetailsBackground {
                 if !currentModel.isExpanded {
                     effectiveTransition = .dissolve
                 }
-                let leftSideImage = prepareSideImage(background: leftPage.background, image: shouldShowPreview ? leftPage.image: nil, at: extent)
-                let rightSideImage = prepareSideImage(background: rightPage.background, image: shouldShowPreview ? rightPage.image : nil, at: extent)
+                let leftSideImage = prepareSideImage(for: leftPage, extent: extent, shouldShowPreview: shouldShowPreview)
+                let rightSideImage = prepareSideImage(for: rightPage, extent: extent, shouldShowPreview: shouldShowPreview)
+                result.hasPreview = shouldShowPreview && (leftPage.image != nil || rightPage.image != nil)
+                result.isStatic = false
                 switch effectiveTransition {
                 case .dissolve:
                     let filter = CIFilter.dissolveTransition()
                     filter.targetImage = rightSideImage
                     filter.inputImage = leftSideImage
                     filter.time = Float(progress)
-                    return filter.outputImage
-
+                    result.image = filter.outputImage
+                    
                 case .swipe2:
                     let filter = CIFilter.swipeTransition()
                     filter.targetImage = rightSideImage
@@ -213,51 +225,39 @@ struct NftDetailsBackground {
                     filter.width = Float(extent.width * 3)
                     filter.opacity = 0
                     filter.extent = extent
-                    return filter.outputImage
+                    result.image = filter.outputImage
                 }
             }
+            
+            // iOS 16 specifics: coordinate system is upside-down
+            if #unavailable(iOS 17), let image = result.image {
+                result.image = image.transformed(
+                    by: CGAffineTransform(scaleX: 1, y: -1).translatedBy(x: 0, y: -extent.height)
+                )
+            }
+            
+            return result
         }
                 
         private func render() {
             guard let mtkView = metalView else { return }
-            
-            let extent = CGRect(origin: .zero, size: mtkView.drawableSize)
+
+            let extent = CGRect.fromSize(mtkView.drawableSize)
             guard extent.width > 0, extent.height > 0 else { return }
 
-            lastPreparedImage = prepareImageForRender(at: extent)
-            mtkView.setNeedsDisplay()
+            preparedRender = prepareImageForRender(at: extent)
         }
         
-        private func scaleToWidthAlignToTop(_ ciImage: CIImage, extent: CGRect) -> CIImage {
-            let normalized = translateImage(ciImage, x: -ciImage.extent.origin.x, y: -ciImage.extent.origin.y)
-            let src = normalized.extent
-            guard src.width > 0, src.height > 0 else { return ciImage }
-            let scaleX = extent.width / src.width
-            let scaled = normalized.cropped(to: src).transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleX))
-            let sc = scaled.extent
-            let moved = translateImage(scaled, x: extent.minX - sc.minX, y: (extent.minY + extent.height) - (sc.minY + sc.height))
-            let transparent = CIImage.clear.cropped(to: extent)
-            return moved.composited(over: transparent).cropped(to: extent)
-        }
-
-        private func scaleToExtent(_ ciImage: CIImage, extent: CGRect) -> CIImage {
-            let normalized = translateImage(ciImage, x: -ciImage.extent.origin.x, y: -ciImage.extent.origin.y)
-            let src = normalized.extent
-            guard src.width > 0, src.height > 0 else { return ciImage }
-            let scaleX = extent.width / src.width
-            let scaleY = extent.height / src.height
-            let clamped = normalized.clampedToExtent()
-            let scaled = clamped.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
-            return scaled.cropped(to: extent)
-        }
-                
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) { }
         
         func draw(in view: MTKView) {
-            let perf = NftDetailsPerformance.beginMeasure("bg_mtkDraw")
+            let perfName: StaticString = if preparedRender.isStatic == true {
+                preparedRender.hasPreview == true ? "bg_mtkDraw_static_with_preview" : "bg_mtkDraw_static"
+            } else {
+                preparedRender.hasPreview == true ? "bg_mtkDraw_transition_with_preview" : "bg_mtkDraw_transition"
+            }
+            let perf = NftDetailsPerformance.beginMeasure(perfName, tag: "\(view.preferredFramesPerSecond)hz")
             defer { NftDetailsPerformance.endMeasure(perf) }
-
-            NftDetailsPerformance.markMtkBackgroundDraw()
 
             let perfDrawable = NftDetailsPerformance.beginMeasure("bg_mtkDraw_getDrawable")
             guard let drawable = view.currentDrawable else {
@@ -272,13 +272,14 @@ struct NftDetailsBackground {
                 assertionFailure()
                 return
             }
+            commandBuffer.label = "NftDetailsBgTransition"
             
-            let perfRender = NftDetailsPerformance.beginMeasure("bg_mtkDraw_ciRender")
-            let imageToRender = lastPreparedImage ?? makeSolidFallback(extent: destBounds)
+            let imageToRender = preparedRender.image ?? solidColorImage(extent: destBounds, color: nil)
             context.render(imageToRender, to: drawable.texture, commandBuffer: commandBuffer, bounds: destBounds, colorSpace: colorSpace)
-            NftDetailsPerformance.endMeasure(perfRender)
-            commandBuffer.present(drawable)
+            
             commandBuffer.commit()
+            commandBuffer.waitUntilScheduled()
+            drawable.present()
         }
     }
     
@@ -288,10 +289,10 @@ struct NftDetailsBackground {
     }
     
     struct PageModel: CustomStringConvertible, Equatable {
-        let background: CIImage?
+        let backgroundColor: UIColor?
         let image: CIImage?
         let tag: String
-        var description: String { "<'\(tag)' BG: \(background == nil ? "-" : "✓") FG: \(image == nil ? "-" : "✓")>" }
+        var description: String { "<'\(tag)' BG: \(backgroundColor == nil ? "-" : "✓") FG: \(image == nil ? "-" : "✓")>" }
     }
 
     typealias PageState = NftDetailsPageTransitionState<PageModel>

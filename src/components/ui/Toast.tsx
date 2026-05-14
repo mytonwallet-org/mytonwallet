@@ -1,10 +1,11 @@
 import type { FC } from '../../lib/teact/teact';
 import React, {
-  useEffect, useRef, useState,
+  memo, useEffect, useRef, useState,
 } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
+import { stopEvent } from '../../util/domEvents';
 import { IS_ELECTRON } from '../../util/windowEnvironment';
 
 import useLastCallback from '../../hooks/useLastCallback';
@@ -18,14 +19,16 @@ type OwnProps = {
   containerId?: string;
   message: string;
   icon?: string;
-  onDismiss: () => void;
+  actionText?: string;
+  onAction?: NoneToVoidFunction;
+  onDismiss: NoneToVoidFunction;
 };
 
 const DURATION_MS = 5000;
 const ANIMATION_DURATION = 250;
 
 const Toast: FC<OwnProps> = ({
-  icon, message, containerId, onDismiss,
+  icon, message, containerId, actionText, onAction, onDismiss,
 }) => {
   const [isOpen, setIsOpen] = useState(true);
   const timerRef = useRef<number | undefined>();
@@ -61,6 +64,15 @@ const Toast: FC<OwnProps> = ({
     timerRef.current = window.setTimeout(closeAndDismiss, DURATION_MS);
   });
 
+  const handleActionClick = useLastCallback((e: React.MouseEvent) => {
+    stopEvent(e);
+
+    onAction!();
+    closeAndDismiss();
+  });
+
+  const hasAction = Boolean(onAction);
+
   return (
     <Portal
       className={buildClassName(styles.container, IS_ELECTRON && styles.container_electron)}
@@ -73,13 +85,18 @@ const Toast: FC<OwnProps> = ({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div className={styles.content}>
+        <div className={buildClassName(styles.content, hasAction && styles.content_withAction)}>
           {icon && <i className={buildClassName(styles.icon, icon)} aria-hidden />}
           {message}
         </div>
+        {hasAction && (
+          <button type="button" className={styles.action} onClick={handleActionClick}>
+            {actionText}
+          </button>
+        )}
       </div>
     </Portal>
   );
 };
 
-export default Toast;
+export default memo(Toast);

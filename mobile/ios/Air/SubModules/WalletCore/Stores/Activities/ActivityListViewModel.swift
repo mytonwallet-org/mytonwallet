@@ -100,7 +100,7 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
                         return true
                     }
                 case .swap:
-                    return true
+                    return activity.shouldHide != true
                 }
             } else {
                 return false

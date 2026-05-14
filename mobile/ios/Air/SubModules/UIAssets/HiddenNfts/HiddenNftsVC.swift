@@ -168,7 +168,7 @@ public class HiddenNftsVC: WViewController, Sendable {
         var configuration = UICollectionLayoutListConfiguration.init(appearance: .insetGrouped)
         configuration.headerMode = .supplementary
         configuration.footerMode = .supplementary
-        configuration.separatorConfiguration.bottomSeparatorInsets.leading = 60
+        configuration.separatorConfiguration.bottomSeparatorInsets.leading = NftPreviewRow.textLeadingInset
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
         } else {
             configuration.separatorConfiguration.color = .air.separator

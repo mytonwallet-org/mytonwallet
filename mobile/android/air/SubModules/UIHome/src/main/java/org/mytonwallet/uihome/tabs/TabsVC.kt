@@ -539,7 +539,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             val addAccountItem = WMenuPopup.Item(
                 config = WMenuPopup.Item.Config.Item(
                     icon = WMenuPopup.Item.Config.Icon(
-                        icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_add,
+                        iconResId = org.mytonwallet.app_air.uisettings.R.drawable.ic_add,
                         tintColor = WColor.SubtitleText,
                         iconSize = 28.dp,
                         iconMargin = 17.dp
@@ -581,7 +581,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             val showAllItem = if (allAccountsShown) null else WMenuPopup.Item(
                 config = WMenuPopup.Item.Config.Item(
                     icon = WMenuPopup.Item.Config.Icon(
-                        icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_show_all,
+                        iconResId = org.mytonwallet.app_air.uisettings.R.drawable.ic_show_all,
                         tintColor = WColor.SubtitleText,
                         iconSize = 28.dp,
                         iconMargin = 17.dp
@@ -1493,9 +1493,20 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
     override fun onDestroy() {
         super.onDestroy()
+        WalletCore.unregisterObserver(this)
+        minimizedNav?.let { nav ->
+            detachMinimizedShadow(nav)
+            view.removeView(nav)
+            nav.onDestroy()
+        }
+        minimizedNav = null
+        onMaximizeProgress = null
         stackNavigationControllers.values.forEach {
+            it.tabBarController = null
             it.onDestroy()
         }
+        stackNavigationControllers.clear()
         bottomNavigationView.listener = null
+        cachedExploreVC = null
     }
 }

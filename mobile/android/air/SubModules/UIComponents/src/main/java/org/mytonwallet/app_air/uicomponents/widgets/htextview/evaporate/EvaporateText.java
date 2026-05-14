@@ -30,6 +30,7 @@ public class EvaporateText extends HText {
     private List<CharacterDiffResult> differentList = new ArrayList<>();
     private long duration;
     private ValueAnimator animator;
+    private final char[] mCharBuffer = new char[1];
 
     @Override
     public void init(final HTextView hTextView, AttributeSet attrs, int defStyle) {
@@ -130,17 +131,18 @@ public class EvaporateText extends HText {
 
                 mOldPaint.setTextSize(mTextSize);
                 int move = CharacterUtils.needMove(i, differentList);
+                mCharBuffer[0] = mOldText.charAt(i);
                 if (move != -1) {
                     mOldPaint.setAlpha(255);
                     float p = pp * 2f;
                     p = p > 1 ? 1 : p;
                     float distX = CharacterUtils.getOffset(i, move, p, startX, oldStartX, gapList, oldGapList);
-                    canvas.drawText(mOldText.charAt(i) + "", 0, 1, distX, startY, mOldPaint);
+                    canvas.drawText(mCharBuffer, 0, 1, distX, startY, mOldPaint);
                 } else {
                     mOldPaint.setAlpha((int) ((1 - pp) * 255));
                     float y = startY - pp * mTextHeight;
-                    float width = mOldPaint.measureText(mOldText.charAt(i) + "");
-                    canvas.drawText(mOldText.charAt(i) + "", 0, 1, oldOffset + (oldGapList.get(i) - width) / 2, y, mOldPaint);
+                    float width = mOldPaint.measureText(mCharBuffer, 0, 1);
+                    canvas.drawText(mCharBuffer, 0, 1, oldOffset + (oldGapList.get(i) - width) / 2, y, mOldPaint);
                 }
                 oldOffset += oldGapList.get(i);
             }
@@ -159,8 +161,9 @@ public class EvaporateText extends HText {
                     float pp = progress * duration / (charTime + charTime / mostCount * (mText.length() - 1));
                     float y = mTextHeight + startY - pp * mTextHeight;
 
-                    float width = mPaint.measureText(mText.charAt(i) + "");
-                    canvas.drawText(mText.charAt(i) + "", 0, 1, offset + (gapList.get(i) - width) / 2, y, mPaint);
+                    mCharBuffer[0] = mText.charAt(i);
+                    float width = mPaint.measureText(mCharBuffer, 0, 1);
+                    canvas.drawText(mCharBuffer, 0, 1, offset + (gapList.get(i) - width) / 2, y, mPaint);
                 }
 
                 offset += gapList.get(i);

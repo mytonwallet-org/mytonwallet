@@ -75,10 +75,7 @@ struct SignDataView: View {
     @ViewBuilder
     func makeBinary(payload: SignDataPayloadBinary) -> some View {
         InsetSection {
-            InsetCell {
-                Text(verbatim: payload.bytes)
-                    .font17h22()
-            }
+            InsetExpandableCell(content: payload.bytes)
         } header: {
             Text(lang("Binary Data"))
         }

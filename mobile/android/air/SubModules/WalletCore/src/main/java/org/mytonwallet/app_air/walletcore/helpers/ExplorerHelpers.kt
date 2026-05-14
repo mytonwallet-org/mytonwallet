@@ -2,11 +2,14 @@ package org.mytonwallet.app_air.walletcore.helpers
 
 import android.net.Uri
 import androidx.core.net.toUri
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.MTW_CARDS_COLLECTION
 import org.mytonwallet.app_air.walletcore.models.IInAppBrowser
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
+import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MMarketplace
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 
 class ExplorerHelpers {
@@ -73,23 +76,26 @@ class ExplorerHelpers {
         fun mtwScanUrl(network: MBlockchainNetwork, uriBuilder: Uri.Builder): String {
             uriBuilder
                 .scheme("https")
-                .authority("my.tt")
-            if (network == MBlockchainNetwork.TESTNET) {
+                .authority(ApplicationContextHolder.universalShortUrlHost)
+            if (network.isTestnet) {
                 uriBuilder.appendQueryParameter("testnet", "true")
             }
             return uriBuilder.build().toString()
         }
 
         fun getgemsUrl(network: MBlockchainNetwork): String {
-            return if (network == MBlockchainNetwork.MAINNET) {
-                "https://getgems.io/"
-            } else {
-                "https://testnet.getgems.io/"
-            }
+            return MMarketplace.Getgems.homeUrl(network)
         }
 
         fun getMtwCardsUrl(network: MBlockchainNetwork): String {
             return "${getgemsUrl(network)}collection/$MTW_CARDS_COLLECTION"
+        }
+
+        fun defaultNftMarketplace(account: MAccount): MMarketplace {
+            return MMarketplace.defaultForEmptyAssets(
+                account = account,
+                isGramWallet = ApplicationContextHolder.isGramApp
+            )
         }
     }
 }

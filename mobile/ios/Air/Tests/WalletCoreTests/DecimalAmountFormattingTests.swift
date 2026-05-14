@@ -145,6 +145,20 @@ struct DecimalAmountFormattingTests {
         #expect(aboveThreshold.formatted(.compact) == "50 TON")
     }
 
+    @Test
+    func `base currency price uses significant digits for small values`() {
+        let amount = BaseCurrencyAmount(BigInt(22_222), .USD)
+
+        #expect(amount.formatted(.baseCurrencyPrice) == "$0.022")
+    }
+
+    @Test
+    func `base currency price still hides decimals for large values`() {
+        let amount = BaseCurrencyAmount(BigInt(12_345_678_901), .USD)
+
+        #expect(amount.formatted(.baseCurrencyPrice) == "$12 346")
+    }
+
     func makeAmount(_ rawAmount: BigInt) -> AnyDecimalAmount {
         AnyDecimalAmount(
             rawAmount,

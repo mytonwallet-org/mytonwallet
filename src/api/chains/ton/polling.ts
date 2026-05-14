@@ -18,7 +18,7 @@ import { getActivityTokenSlugs } from '../../../util/activities';
 import { areDeepEqual } from '../../../util/areDeepEqual';
 import { focusAwareDelay } from '../../../util/focusAwareDelay';
 import { compact, pick } from '../../../util/iteratees';
-import { logDebugError } from '../../../util/logs';
+import { logDebug, logDebugError } from '../../../util/logs';
 import { pause, throttle } from '../../../util/schedulers';
 import { fetchStoredAccount, fetchStoredWallet, updateStoredWallet } from '../../common/accounts';
 import { getBackendConfigCache, getStakingCommonCache } from '../../common/cache';
@@ -125,17 +125,18 @@ function setupBalancePolling(
 ) {
   const { network } = parseAccountId(accountId);
 
-  const balanceStream = new BalanceStream(
-    'ton',
-    getToncenterSocket(network),
+  const balanceStream = new BalanceStream({
+    chain: 'ton',
+    wsClient: getToncenterSocket(network),
     network,
     address,
-    () => sendUpdateTokens(onUpdate),
-    isActive ? activeWalletTiming : inactiveWalletTiming,
-    fetchBalances,
+    sendUpdateTokens: () => sendUpdateTokens(onUpdate),
+    fallbackPollingOptions: isActive ? activeWalletTiming : inactiveWalletTiming,
+    fetchBalancesCb: fetchBalances,
+    fetchCrosschainBalancesCb: undefined,
     importUnknownTokens,
-    isActive ? undefined : getConcurrencyLimiter('ton', network),
-  );
+    loadingConcurrencyLimiter: isActive ? undefined : getConcurrencyLimiter('ton', network),
+  });
 
   balanceStream.onUpdate((balances) => {
     onUpdate({
@@ -306,6 +307,8 @@ function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
       abortController = new AbortController();
 
       const streamedAddresses: string[] = [];
+      let didComplete = false;
+      let didFail = false;
 
       try {
         await streamAllAccountNfts(accountId, {
@@ -325,9 +328,20 @@ function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
         if (abortController.signal.aborted) return;
 
         nftFromSec = Math.round(Date.now() / 1000);
+        didComplete = true;
       } catch (err) {
+        didFail = true;
         logDebugError('setupNftPolling updateFull', err);
       } finally {
+        logDebug('nftStream.fullLoadFinal', {
+          accountId,
+          chain: 'ton',
+          streamedCount: streamedAddresses.length,
+          didComplete,
+          didFail,
+          aborted: abortController.signal.aborted,
+        });
+
         if (!abortController.signal.aborted) {
           onUpdate({
             type: 'updateNfts',
@@ -335,7 +349,7 @@ function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
             nfts: [],
             chain: 'ton',
             isFullLoading: false,
-            streamedAddresses,
+            streamedAddresses: didComplete ? streamedAddresses : undefined,
           });
         }
       }

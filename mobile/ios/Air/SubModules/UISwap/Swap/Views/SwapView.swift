@@ -3,6 +3,8 @@ import UIComponents
 import WalletCore
 import Perception
 
+private let bottomButtonScrollPadding: CGFloat = 114
+
 struct SwapView: View {
     
     var swapModel: SwapModel
@@ -15,29 +17,33 @@ struct SwapView: View {
                     SwapSelectorsView(model: swapModel.input)
                         .padding(.top, 8)
                     
-                    SwapWarning(displayImpactWarning: swapModel.detailsVM.displayImpactWarning)
+                    SwapWarning(displayImpactWarning: swapModel.displayImpactWarning)
                     
-                    if swapModel.swapType == .onChain {
+                    switch swapModel.detailsSection {
+                    case .onchain:
                         SwapDetailsView(
-                            inputModel: swapModel.input,
-                            model: swapModel.detailsVM
+                            model: swapModel.detailsVM,
+                            slippage: swapModel.slippage,
+                            onSlippageCommit: { swapModel.commitSlippage($0) }
                         )
                         .transition(.opacity)
-                    } else {
+                    case .crosschain(let swapType):
                         SwapChangellyView()
                             .transition(.opacity)
                         SwapCexDetailsView(
                             inputModel: swapModel.input,
-                            crosschainModel: swapModel.crosschain,
-                            swapType: swapModel.swapType
+                            swapEstimate: swapModel.crosschain.cexEstimate,
+                            swapType: swapType
                         )
                     }
-                    
-                    Spacer()
-                        .frame(height: 100)
                 }
                 .padding(.horizontal, 16)
-                .animation(.snappy, value: swapModel.detailsVM.swapEstimate)
+                .animation(.snappy, value: swapModel.onchain.swapEstimate)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear
+                    .frame(height: bottomButtonScrollPadding)
+                    .accessibilityHidden(true)
             }
         }
     }

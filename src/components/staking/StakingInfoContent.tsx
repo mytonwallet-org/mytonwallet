@@ -300,8 +300,7 @@ function StakingInfoContent({
           value={rewardString}
           decimals={decimals}
           suffix={symbol}
-          labelClassName={styles.balanceStakedLabel}
-          valueClassName={styles.balanceResult}
+          className={styles.stakingBalance}
         />
         {!isViewMode && (
           <div className={styles.stakingInfoButtons}>
@@ -339,8 +338,6 @@ function StakingInfoContent({
             value={stakingResult}
             decimals={decimals}
             className={styles.stakingBalance}
-            labelClassName={styles.balanceStakedLabel}
-            valueClassName={styles.balanceStakedResult}
           >
             <div className={styles.stakingInfoLoading}>
               {shouldRenderSpinner && (
@@ -369,8 +366,7 @@ function StakingInfoContent({
                   value={balanceResult}
                   decimals={decimals}
                   suffix={symbol}
-                  labelClassName={styles.balanceStakedLabel}
-                  valueClassName={styles.balanceResult}
+                  className={styles.stakingBalance}
                 />
                 {stakingType === 'ethena' && !canBeClaimed && !!unstakeRequestAmount && renderUnstakeDescription()}
                 {!isViewMode && (

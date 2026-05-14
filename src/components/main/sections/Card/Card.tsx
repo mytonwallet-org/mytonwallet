@@ -28,8 +28,8 @@ import {
 import buildClassName from '../../../../util/buildClassName';
 import { calculateFullBalance } from '../../../../util/calculateFullBalance';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
-import { openDeeplinkOrUrl } from '../../../../util/deeplink';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
+import { openUrl } from '../../../../util/openUrl';
 import { preloadedImageUrls } from '../../../../util/preloadImage';
 import { IS_IOS, IS_SAFARI } from '../../../../util/windowEnvironment';
 import getSensitiveDataMaskSkinFromCardNft from './helpers/getSensitiveDataMaskSkinFromCardNft';
@@ -86,8 +86,6 @@ interface StateProps {
   seasonalTheme?: ApiBackendConfig['seasonalTheme'];
   activePromotion?: ApiPromotion;
 }
-
-const PORTFOLIO_HOST = new URL(PORTFOLIO_DAPP_URL).host;
 
 let mainKey = 0;
 
@@ -327,7 +325,7 @@ function Card({
               className={buildClassName(styles.change, 'rounded-font')}
               role="button"
               tabIndex={0}
-              onClick={() => openDeeplinkOrUrl(`mtw://explore/${PORTFOLIO_HOST}`)}
+              onClick={() => openUrl(PORTFOLIO_DAPP_URL)}
             >
               {!!changePrefix && (
                 <>

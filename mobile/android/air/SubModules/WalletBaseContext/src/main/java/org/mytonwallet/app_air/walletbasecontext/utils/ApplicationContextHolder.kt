@@ -42,6 +42,9 @@ object ApplicationContextHolder {
         applicationContext.packageName.startsWith("io.gramwallet.")
     }
 
+    val universalShortUrlHost: String
+        get() = if (isGramApp) "go.gramwallet.io" else "my.tt"
+
     val packageInfo: PackageInfo
         get() {
             val packageManager = applicationContext.packageManager

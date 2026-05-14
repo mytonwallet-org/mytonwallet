@@ -94,6 +94,66 @@ import UIKit
     }
 }
 
+@MainActor public final class DisplayLinkAlphaAnimator {
+    private weak var view: UIView?
+    private var animator: ValueAnimator?
+
+    public init(view: UIView) {
+        self.view = view
+    }
+
+    public func setAlpha(_ targetAlpha: CGFloat, animated: Bool, duration: TimeInterval = 0.3) {
+        animator?.invalidate()
+
+        let targetAlpha = min(max(targetAlpha, 0), 1)
+        guard let view else { return }
+
+        guard animated else {
+            setAlphaImmediately(targetAlpha)
+            return
+        }
+
+        let currentAlpha = CGFloat(view.layer.presentation()?.opacity ?? view.layer.opacity)
+        guard abs(currentAlpha - targetAlpha) > 0.001 else {
+            setAlphaImmediately(targetAlpha)
+            return
+        }
+
+        setAlphaImmediately(currentAlpha)
+
+        let animator = ValueAnimator(
+            startValue: currentAlpha,
+            endValue: targetAlpha,
+            duration: duration,
+            animationType: .easeInOut
+        )
+        self.animator = animator
+
+        animator.addUpdateBlock { [weak self] _, alpha in
+            self?.setAlphaImmediately(alpha)
+        }
+        animator.addCompletionBlock { [weak self, weak animator] in
+            guard let self, self.animator === animator else { return }
+            self.setAlphaImmediately(targetAlpha)
+            self.animator = nil
+        }
+        animator.start()
+    }
+
+    public func invalidate() {
+        animator?.invalidate()
+        animator = nil
+    }
+
+    private func setAlphaImmediately(_ alpha: CGFloat) {
+        guard let view else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        view.alpha = min(max(alpha, 0), 1)
+        CATransaction.commit()
+    }
+}
+
 private struct SpringCurve {
     private let mass: CGFloat
     private let stiffness: CGFloat

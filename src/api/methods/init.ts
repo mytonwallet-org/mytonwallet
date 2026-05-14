@@ -8,18 +8,23 @@ import { initClientId } from '../common/other';
 import { getProtocolManager, initProtocolManager } from '../dappProtocols';
 import { setEnvironment } from '../environment';
 import { addHooks } from '../hooks';
-import { storage } from '../storages';
+import { configureStorage, createStorage, withStorage } from '../storages';
 import { destroyPolling } from './polling';
 import * as methods from '.';
 
 export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
+  const runtimeStorage = createStorage(args.storage);
+
+  configureStorage(args.storage);
   connectUpdater(onUpdate);
 
   const environment = setEnvironment(args);
   initWindowConnector();
 
-  await initClientId();
-  await tryMigrateStorage(onUpdate, ton, args.accountIds);
+  await withStorage(runtimeStorage, async () => {
+    await initClientId();
+    await tryMigrateStorage(onUpdate, ton, args.accountIds);
+  });
 
   methods.initAccounts(onUpdate);
   methods.initAuth(onUpdate);
@@ -45,10 +50,10 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
   });
 
   if (args.langCode) {
-    void storage.setItem('langCode', args.langCode);
+    void runtimeStorage.setItem('langCode', args.langCode);
   }
 
-  void saveReferrer(args);
+  void saveReferrer(args, runtimeStorage);
 }
 
 export function destroy() {
@@ -56,11 +61,13 @@ export function destroy() {
   disconnectUpdater();
 }
 
-async function saveReferrer(args: ApiInitArgs) {
+async function saveReferrer(args: ApiInitArgs, runtimeStorage: ReturnType<typeof createStorage>) {
   const referrer = args.referrer ?? await fetchBackendReferrer();
 
   if (referrer) {
-    await storage.setItem('referrer', referrer);
-    await initClientId();
+    await runtimeStorage.setItem('referrer', referrer);
+    await withStorage(runtimeStorage, async () => {
+      await initClientId();
+    });
   }
 }

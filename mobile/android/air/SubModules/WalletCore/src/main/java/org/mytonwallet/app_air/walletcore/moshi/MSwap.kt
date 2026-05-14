@@ -215,6 +215,12 @@ data class MApiSwapTransfer(
 )
 
 @JsonClass(generateAdapter = true)
+data class MApiFetchSwapsResult(
+    val nonExistentIds: List<String>,
+    val swaps: List<MApiTransaction.Swap>
+)
+
+@JsonClass(generateAdapter = true)
 data class MApiSwapHistoryItem(
     val id: String,
     val timestamp: Long,

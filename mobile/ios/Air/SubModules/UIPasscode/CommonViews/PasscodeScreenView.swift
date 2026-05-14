@@ -131,6 +131,8 @@ public class PasscodeScreenView: UIView {
                 unlockView.topAnchor.constraint(equalTo: topAnchor, constant: 32),
                 unlockView.bottomAnchor.constraint(equalTo: bottomAnchor),
                 unlockView.centerXAnchor.constraint(equalTo: safeAreaLayoutGuide.centerXAnchor),
+                unlockView.leadingAnchor.constraint(greaterThanOrEqualTo: safeAreaLayoutGuide.leadingAnchor, constant: 16),
+                unlockView.trailingAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.trailingAnchor, constant: -16),
                 unlockView.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -16),
             ])
         } else {
@@ -142,6 +144,8 @@ public class PasscodeScreenView: UIView {
             centerYConstraint.priority = UILayoutPriority(748)
             NSLayoutConstraint.activate([
                 unlockView.centerXAnchor.constraint(equalTo: safeAreaLayoutGuide.centerXAnchor),
+                unlockView.leadingAnchor.constraint(greaterThanOrEqualTo: safeAreaLayoutGuide.leadingAnchor, constant: 16),
+                unlockView.trailingAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.trailingAnchor, constant: -16),
                 unlockView.bottomAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.bottomAnchor, constant: -16),
                 topConstraint,
                 centerYConstraint
@@ -183,6 +187,7 @@ public class PasscodeScreenView: UIView {
         } else {
             enterPasscodeLabel.label.font = .systemFont(ofSize: 20)
             enterPasscodeLabel.label.numberOfLines = 2
+            enterPasscodeLabel.label.lineBreakMode = .byTruncatingTail
             if let subtitle {
                 let attr = NSMutableAttributedString()
                 attr.append(NSAttributedString(string: title, attributes: [

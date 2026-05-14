@@ -310,6 +310,11 @@ export const KnownContracts: Record<ContractName, ContractInfo> = {
     oldHash: '64a42ad66688097422901ae6188670f0d6292ad3bdb4139289666f24187e86cb',
     isSwapAllowed: true,
   },
+  dedustVaultNativeV2: {
+    name: 'dedustVaultNativeV2',
+    hash: '875fac5e08e5062f0f7c5c9f4c989607108e35a9ad88dc563e3e4fc7a3d3e75c',
+    isSwapAllowed: true,
+  },
   // Example: https://tonscan.org/address/EQAYqo4u7VF0fa4DPAebk4g9lBytj2VFny7pzXR0trjtXQaO
   dedustVaultJetton: {
     name: 'dedustVaultJetton',

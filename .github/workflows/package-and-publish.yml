@@ -694,9 +694,6 @@ jobs:
               echo "IOS_WIDGET_SCHEME=GramWalletWidgetExtension" >> "$GITHUB_ENV"
               echo "IOS_PLIST_PATH=../../App/App/Resources/GramWallet/Info.plist" >> "$GITHUB_ENV"
               echo "IOS_TESTFLIGHT_GROUP=${IOS_GRAM_TESTFLIGHT_GROUP:-Gram Wallet external group}" >> "$GITHUB_ENV"
-              # Gram is not published on the App Store yet. Keep reusing 4.8.6 so
-              # public TestFlight uploads avoid a new-version beta review until launch.
-              echo "IOS_VERSION_OVERRIDE=4.8.6" >> "$GITHUB_ENV"
               ;;
             *)
               echo "::error::Unknown APP_VARIANT: $APP_VARIANT"

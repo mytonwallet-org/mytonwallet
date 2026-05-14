@@ -161,7 +161,9 @@ export async function parseTransactionForPreview(
         comment: undefined,
         fromAddress: fromAddr,
         toAddress: toAddr,
-        amount,
+        // Activity preview encodes direction in the sign of `amount`; isIncoming alone
+        // is only consulted for zero-amount activities (see formatCurrencyExtended).
+        amount: -amount,
         slug: nativeSlug,
         isIncoming: false,
         normalizedAddress: toAddr,

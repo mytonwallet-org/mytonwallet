@@ -30,7 +30,7 @@ public struct AccountIcon: View {
                 Text(verbatim: string)
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .fixedSize()
-            case .sixCharaters(let top, let bottom):
+            case .sixCharacters(let top, let bottom):
                 VStack(spacing: -1.333) {
                     Text(verbatim: top)
                     Text(verbatim: bottom)

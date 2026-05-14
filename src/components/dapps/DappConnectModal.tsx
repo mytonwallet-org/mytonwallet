@@ -259,20 +259,12 @@ function DappConnectModal({
       <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
         <div className={styles.dappLargePreviewBlock}>
           <Image
+            forceLoaded
             url={dapp!.iconUrl}
             alt={dapp!.name}
             className={styles.dappLargePreviewLogo}
             imageClassName={styles.dappLargePreviewLogo}
-            fallback={(
-              <i
-                className={buildClassName(
-                  styles.dappLargePreviewLogo,
-                  styles.dappLargePreviewLogo_icon,
-                  'icon-laptop',
-                )}
-                aria-hidden
-              />
-            )}
+            fallback={ICON_FALLBACK}
           />
 
           <span className={styles.dappLargePreviewName}>{lang('$connect_dapp_title', { name: dapp?.name })}</span>
@@ -442,3 +434,10 @@ export default memo(withGlobal((global): StateProps => {
     areTokensWithNoCostHidden,
   };
 })(DappConnectModal));
+
+const ICON_FALLBACK = (
+  <i
+    className={buildClassName(styles.dappLargePreviewLogo, styles.dappLargePreviewLogo_icon, 'icon-laptop')}
+    aria-hidden
+  />
+);

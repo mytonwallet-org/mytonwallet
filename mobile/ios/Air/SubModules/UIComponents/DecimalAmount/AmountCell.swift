@@ -36,7 +36,6 @@ public struct AmountCell: View {
             size: 28,
             chainSize: 12,
             chainBorderWidth: 0.667,
-            chainBorderColor: .air.groupedItem,
             chainHorizontalOffset: 3,
             chainVerticalOffset: 1
         )

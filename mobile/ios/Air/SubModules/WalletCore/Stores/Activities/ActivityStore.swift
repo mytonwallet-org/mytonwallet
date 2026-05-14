@@ -6,6 +6,8 @@ import OrderedCollections
 
 private let log = Log("ActivityStore")
 private let TX_AGE_TO_PLAY_SOUND = 60.0 // 1 min
+private let CEX_SWAP_REFRESH_INTERVAL = 3.0
+private let CEX_SWAP_REFRESH_INTERVAL_NOT_FOCUSED = 15.0
 
 public let ActivityStore = _ActivityStore.shared
 
@@ -65,6 +67,8 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
     
     private var accountIdsObserver: Task<Void, Never>?
+    private var pendingCexSwapRefreshTask: Task<Void, Never>?
+    private var isAppFocused: Bool = true
     
     private var notifiedIds: Set<String> = []
     
@@ -92,6 +96,16 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             handleNewActivities(update: update)
         case .newLocalActivity(let update):
             handleNewLocalActivities(update: update)
+        case .accountChanged:
+            await refreshPendingCexSwapsForCurrentAccount()
+            updatePendingCexSwapRefreshTask()
+        case .applicationWillEnterForeground:
+            lastApplicationWillEnterForeground = .now
+            isAppFocused = true
+            await refreshPendingCexSwapsForCurrentAccount()
+            updatePendingCexSwapRefreshTask()
+        case .applicationDidEnterBackground:
+            isAppFocused = false
         default:
             break
         }
@@ -105,7 +119,9 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         if let chain = update.chain {
             setIsInitialActivitiesLoadedTrue(accountId: update.accountId, chain: chain);
         }
-        WalletCoreData.notify(event: .activitiesChanged(accountId: update.accountId, updatedIds: [], replacedIds: [:]))
+        let hiddenCexTransactionIds = hideTransactionsIncludedInCexSwaps(accountId: update.accountId)
+        WalletCoreData.notify(event: .activitiesChanged(accountId: update.accountId, updatedIds: hiddenCexTransactionIds, replacedIds: [:]))
+        updatePendingCexSwapRefreshTask()
         log.info("handleInitialActivities \(update.accountId, .public) [done] mainIds=\(update.mainActivities.count)")
     }
     
@@ -143,9 +159,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         
         addNewActivities(accountId: accountId, newActivities: newConfirmedActivities, chain: nil)
         updatePoisoningCache(accountId: accountId, activities: newConfirmedActivities)
-        
-        notifyAboutNewActivities(accountId: accountId, newActivities: allNewActivities)
-        
+
         // TODO: Copy from web app: processCardMintingActivity
         // NFT polling is executed at long intervals, so it is more likely that a user will see a new transaction
         // rather than receiving a card in the collection. Therefore, when a new activity occurs,
@@ -155,7 +169,14 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         if let chain = update.chain {
             setIsInitialActivitiesLoadedTrue(accountId: accountId, chain: chain);
         }
-        WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: unique((adjustedPendingActivities ?? []).map(\.id) + newConfirmedActivities.map(\.id)), replacedIds: replacedIds))
+        let hiddenCexTransactionIds = hideTransactionsIncludedInCexSwaps(accountId: accountId)
+        let hiddenCexTransactionIdSet = Set(hiddenCexTransactionIds)
+        let notificationActivities = allNewActivities.filter {
+            $0.shouldHide != true && !hiddenCexTransactionIdSet.contains($0.id)
+        }
+        notifyAboutNewActivities(accountId: accountId, newActivities: notificationActivities)
+        WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: unique((adjustedPendingActivities ?? []).map(\.id) + newConfirmedActivities.map(\.id) + hiddenCexTransactionIds), replacedIds: replacedIds))
+        updatePendingCexSwapRefreshTask()
         log.info("handleNewActivities \(accountId, .public) [done] mainIds=\(getAccountState(accountId).idsMain?.count ?? -1) inUpdate=\(update.activities.count)")
     }
     
@@ -167,7 +188,8 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         let replacedIds = getActivityIdReplacements(prevActivities: activities, nextActivities: chainActivities)
         let updatedPendingIds = updatePendingActivitiesToTrustedByReplacements(accountId: update.accountId, localActivities: activities, replacedIds: replacedIds)
         addNewActivities(accountId: update.accountId, newActivities: activities, chain: nil)
-        WalletCoreData.notify(event: .activitiesChanged(accountId: update.accountId, updatedIds: unique(activities.map(\.id) + updatedPendingIds), replacedIds: [:]))
+        let hiddenCexTransactionIds = hideTransactionsIncludedInCexSwaps(accountId: update.accountId)
+        WalletCoreData.notify(event: .activitiesChanged(accountId: update.accountId, updatedIds: unique(activities.map(\.id) + updatedPendingIds + hiddenCexTransactionIds), replacedIds: [:]))
     }
 
     // MARK: - Fetch methods
@@ -231,8 +253,10 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             $0.idsMain = idsMain
         }
         
+        let hiddenCexTransactionIds = hideTransactionsIncludedInCexSwaps(accountId: accountId)
         log.info("[inf] got new ids: \(newIds.count)")
-        WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: [], replacedIds: [:]))
+        WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: hiddenCexTransactionIds, replacedIds: [:]))
+        updatePendingCexSwapRefreshTask()
         
         if shouldLoadWithBudget {
             await Task.yield()
@@ -301,8 +325,10 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             $0.idsBySlug = idsBySlug
         }
         
+        let hiddenCexTransactionIds = hideTransactionsIncludedInCexSwaps(accountId: accountId)
         log.info("[inf] got new ids \(token.slug): \(newIds.count)")
-        WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: [], replacedIds: [:]))
+        WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: hiddenCexTransactionIds, replacedIds: [:]))
+        updatePendingCexSwapRefreshTask()
         
         if shouldLoadWithBudget {
             await Task.yield()
@@ -370,6 +396,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             log.error("accountStates intial load: \(error, .public)")
         }
         WalletCoreData.add(eventObserver: self)
+        updatePendingCexSwapRefreshTask()
     }
     
     private func updateFromDb(accountStates: [AccountState]) {
@@ -411,6 +438,8 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
     
     func clean() {
+        pendingCexSwapRefreshTask?.cancel()
+        pendingCexSwapRefreshTask = nil
         byAccountId = [:]
         poisoningCacheById = [:]
         do {
@@ -568,7 +597,199 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         return result
     }
 
-    
+    private func updatePendingCexSwapRefreshTask() {
+        guard hasCurrentAccountPendingCexSwaps() else {
+            pendingCexSwapRefreshTask?.cancel()
+            pendingCexSwapRefreshTask = nil
+            return
+        }
+
+        guard pendingCexSwapRefreshTask == nil else {
+            return
+        }
+
+        pendingCexSwapRefreshTask = Task { [weak self] in
+            await self?.pendingCexSwapRefreshLoop()
+        }
+    }
+
+    private func pendingCexSwapRefreshLoop() async {
+        defer {
+            pendingCexSwapRefreshTask = nil
+            updatePendingCexSwapRefreshTask()
+        }
+
+        while !Task.isCancelled {
+            await refreshPendingCexSwapsForCurrentAccount()
+
+            guard hasCurrentAccountPendingCexSwaps() else {
+                return
+            }
+
+            let interval = isAppFocused ? CEX_SWAP_REFRESH_INTERVAL : CEX_SWAP_REFRESH_INTERVAL_NOT_FOCUSED
+            do {
+                try await Task.sleep(for: .seconds(interval))
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func refreshPendingCexSwapsForCurrentAccount() async {
+        guard let accountId = AccountStore.accountId else {
+            return
+        }
+        await refreshPendingCexSwaps(accountId: accountId)
+    }
+
+    private func refreshPendingCexSwaps(accountId: String) async {
+        let ids = pendingCexSwapIds(accountId: accountId)
+        guard !ids.isEmpty else {
+            return
+        }
+
+        do {
+            let result = try await Api.fetchSwaps(accountId: accountId, ids: ids)
+            let updatedIds = unique(
+                applyFetchedCexSwaps(accountId: accountId, result: result)
+                + hideTransactionsIncludedInCexSwaps(accountId: accountId)
+            )
+            if !updatedIds.isEmpty {
+                WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: updatedIds, replacedIds: [:]))
+            }
+        } catch {
+            log.error("refreshPendingCexSwaps: \(error, .public)")
+        }
+    }
+
+    private func hasCurrentAccountPendingCexSwaps() -> Bool {
+        guard let accountId = AccountStore.accountId else {
+            return false
+        }
+        return !pendingCexSwapIds(accountId: accountId).isEmpty
+    }
+
+    private func pendingCexSwapIds(accountId: String) -> [String] {
+        let byId = getAccountState(accountId).byId ?? [:]
+        return unique(byId.values.compactMap { activity in
+            guard case .swap(let swap) = activity,
+                  swap.cex != nil,
+                  getIsActivityPendingForUser(activity)
+            else {
+                return nil
+            }
+            return activity.parsedTxId.hash
+        })
+    }
+
+    private func applyFetchedCexSwaps(accountId: String, result: ApiFetchSwapsResult) -> [String] {
+        var updatedIds: [String] = []
+        var byId = getAccountState(accountId).byId ?? [:]
+
+        for var swap in result.swaps {
+            if swap.isCanceled == true {
+                swap.shouldHide = true
+            }
+
+            let activity = ApiActivity.swap(swap)
+            if byId[swap.id] != activity {
+                byId[swap.id] = activity
+                updatedIds.append(swap.id)
+            }
+        }
+
+        for id in result.nonExistentIds {
+            let existingId = byId[id] != nil
+                ? id
+                : byId.first { _, activity in
+                    activity.swap?.cex != nil && activity.parsedTxId.hash == id
+                }?.key
+
+            guard let existingId,
+                  let existingActivity = byId[existingId],
+                  case .swap(var swap) = existingActivity
+            else {
+                continue
+            }
+
+            swap.status = .expired
+            swap.shouldHide = true
+
+            let activity = ApiActivity.swap(swap)
+            if byId[existingId] != activity {
+                byId[existingId] = activity
+                updatedIds.append(existingId)
+            }
+        }
+
+        guard !updatedIds.isEmpty else {
+            return []
+        }
+
+        withAccountState(accountId) { state in
+            state.byId = byId
+        }
+
+        return unique(updatedIds)
+    }
+
+    private func hideTransactionsIncludedInCexSwaps(accountId: String) -> [String] {
+        var byId = getAccountState(accountId).byId ?? [:]
+        let cexSwapHashes = cexSwapTransactionHashes(activities: byId.values)
+        guard !cexSwapHashes.isEmpty else {
+            return []
+        }
+
+        var updatedIds: [String] = []
+        for (id, activity) in byId {
+            guard case .transaction(var transaction) = activity,
+                  transaction.shouldHide != true,
+                  isActivityMatchedByHashes(activity, cexSwapHashes)
+            else {
+                continue
+            }
+
+            transaction.shouldHide = true
+            byId[id] = .transaction(transaction)
+            updatedIds.append(id)
+        }
+
+        guard !updatedIds.isEmpty else {
+            return []
+        }
+
+        withAccountState(accountId) { state in
+            state.byId = byId
+        }
+
+        return unique(updatedIds)
+    }
+
+    private func cexSwapTransactionHashes(activities: some Collection<ApiActivity>) -> Set<String> {
+        var hashes = Set<String>()
+        for activity in activities {
+            guard case .swap(let swap) = activity,
+                  swap.cex != nil,
+                  let swapHashes = swap.hashes
+            else {
+                continue
+            }
+
+            hashes.formUnion(swapHashes.filter { !$0.isEmpty })
+        }
+        return hashes
+    }
+
+    private func isActivityMatchedByHashes(_ activity: ApiActivity, _ hashes: Set<String>) -> Bool {
+        if hashes.contains(activity.parsedTxId.hash) {
+            return true
+        }
+        if let externalMsgHashNorm = activity.externalMsgHashNorm, hashes.contains(externalMsgHashNorm) {
+            return true
+        }
+        return false
+    }
+
     private func removeActivities(accountId: String, deleteIds: [String]) {
         let currentState = getAccountState(accountId)
         let deleteIds = Set(deleteIds)

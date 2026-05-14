@@ -48,6 +48,99 @@ struct WalletContextNumberFormattingTests {
         )
     }
 
+    struct TokenDecimalsCase: Sendable {
+        let amount: BigInt
+        let tokenDecimals: Int
+        let minimumSignificantDigits: Int
+        let expected: Int
+    }
+
+    static let tokenDecimalsCases: [TokenDecimalsCase] = [
+        .init(
+            amount: BigInt(0),
+            tokenDecimals: 6,
+            minimumSignificantDigits: 2,
+            expected: 0
+        ),
+        .init(
+            amount: BigInt(1),
+            tokenDecimals: 6,
+            minimumSignificantDigits: 2,
+            expected: 6
+        ),
+        .init(
+            amount: BigInt(2_222),
+            tokenDecimals: 6,
+            minimumSignificantDigits: 2,
+            expected: 4
+        ),
+        .init(
+            amount: BigInt(22_222),
+            tokenDecimals: 6,
+            minimumSignificantDigits: 2,
+            expected: 3
+        ),
+        .init(
+            amount: BigInt(222_222),
+            tokenDecimals: 6,
+            minimumSignificantDigits: 2,
+            expected: 2
+        ),
+        .init(
+            amount: BigInt(1_234_567),
+            tokenDecimals: 6,
+            minimumSignificantDigits: 2,
+            expected: 2
+        ),
+        .init(
+            amount: BigInt(12_345_678_901),
+            tokenDecimals: 6,
+            minimumSignificantDigits: 2,
+            expected: 2
+        ),
+        .init(
+            amount: BigInt(-22_222),
+            tokenDecimals: 6,
+            minimumSignificantDigits: 2,
+            expected: 3
+        ),
+        .init(
+            amount: BigInt(22_222),
+            tokenDecimals: 6,
+            minimumSignificantDigits: 4,
+            expected: 5
+        ),
+        .init(
+            amount: BigInt(1_234_567),
+            tokenDecimals: 6,
+            minimumSignificantDigits: 4,
+            expected: 4
+        ),
+        .init(
+            amount: BigInt(22_222),
+            tokenDecimals: 2,
+            minimumSignificantDigits: 4,
+            expected: 2
+        ),
+        .init(
+            amount: BigInt(22_222),
+            tokenDecimals: 0,
+            minimumSignificantDigits: 2,
+            expected: 0
+        ),
+    ]
+
+    @Test(arguments: Self.tokenDecimalsCases)
+    func `tokenDecimals returns adaptive fractional digits`(testCase: TokenDecimalsCase) {
+        #expect(
+            tokenDecimals(
+                for: testCase.amount,
+                tokenDecimals: testCase.tokenDecimals,
+                minimumSignificantDigits: testCase.minimumSignificantDigits
+            ) == testCase.expected
+        )
+    }
+
     struct AmountValueCase: Sendable {
         let input: String
         let decimals: Int

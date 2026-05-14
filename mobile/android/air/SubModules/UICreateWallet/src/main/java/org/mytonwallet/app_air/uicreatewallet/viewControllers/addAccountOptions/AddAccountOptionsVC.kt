@@ -366,15 +366,23 @@ class AddAccountOptionsVC(context: Context, val network: MBlockchainNetwork, val
         presentAsModal: Boolean = !isOnIntro,
         onCompletion: (() -> Unit)? = null
     ) {
-        window?.dismissLastNav {
+        fun afterDismiss() {
+            val window = window ?: return
             if (presentAsModal) {
-                val nav = WNavigationController(window!!)
+                val nav = WNavigationController(window)
                 nav.setRoot(viewController)
-                window?.present(nav, onCompletion = onCompletion)
+                window.present(nav, onCompletion = onCompletion)
+                return
+            }
+            val lastNav = window.navigationControllers.lastOrNull()
+            if (lastNav != null && !lastNav.presentationConfig.isBottomSheet) {
+                lastNav.push(viewController, onCompletion = onCompletion)
             } else {
-                window?.navigationControllers?.lastOrNull()
-                    ?.push(viewController, onCompletion = onCompletion)
+                // Underlying nav is still a bottom-sheet (e.g. a stacked sheet).
+                // Dismiss it and retry.
+                window.dismissLastNav { afterDismiss() }
             }
         }
+        window?.dismissLastNav { afterDismiss() }
     }
 }

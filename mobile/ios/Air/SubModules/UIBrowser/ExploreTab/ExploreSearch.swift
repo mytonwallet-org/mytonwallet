@@ -90,45 +90,48 @@ struct ExploreSearchView: View {
 
     @ViewBuilder
     private var searchField: some View {
-        let prompt = Text(lang("Search app or enter address"))
-            .font(viewModel.isActive ? .system(size: 17, weight: .regular) : .system(size: 15, weight: .medium))
-            .foregroundColor(viewModel.isActive ? .secondary : .air.primaryLabel)
+        WithPerceptionTracking {
+            let prompt = Text(lang("Search app or enter address"))
+                .font(viewModel.isActive ? .system(size: 17, weight: .regular) : .system(size: 15, weight: .medium))
+                .foregroundColor(viewModel.isActive ? .secondary : .air.primaryLabel)
 
-        let searchFieldContent = HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(viewModel.isActive ? .secondary : Color.air.primaryLabel)
-            TextField(
-                text: Binding(
-                    get: { viewModel.string },
-                    set: { viewModel.string = $0 }
-                ),
-                prompt: prompt,
-                label: { EmptyView() }
-            )
-                .fixedSize(horizontal: !viewModel.isActive, vertical: true)
-                .focused($isFocused)
-                .multilineTextAlignment(.leading)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .keyboardType(.webSearch)
-                .submitLabel(.go)
-                .frame(height: 42)
-        }
-        .frame(maxWidth: viewModel.isActive ? .infinity : nil, alignment: .leading)
-        .padding(searchFieldPadding)
-
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            GlassEffectContainer {
-                searchFieldContent
-                    .glassEffect()
-                    .glassEffectID("4", in: ns)
-                    .geometryGroup()
+            @Perception.Bindable var vm = viewModel
+            
+            let searchFieldContent = HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(viewModel.isActive ? .secondary : Color.air.primaryLabel)
+                TextField(
+                    text: $vm.string,
+                    prompt: prompt,
+                    label: { EmptyView() }
+                )
+                    .fixedSize(horizontal: !viewModel.isActive, vertical: true)
+                    .focused($isFocused)
+                    .multilineTextAlignment(.leading)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.webSearch)
+                    .submitLabel(.go)
+                    .frame(height: 42)
             }
-            .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }, action: { viewModel.frame = $0 })
-        } else {
-            searchFieldContent
-                .background(ExploreSearchMaterialBackground())
+            .frame(maxWidth: viewModel.isActive ? .infinity : nil, alignment: .leading)
+            .padding(searchFieldPadding)
+            .contentShape(Rectangle())
+            .onTapGesture { if !isFocused { isFocused = true } }
+
+            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                GlassEffectContainer {
+                    searchFieldContent
+                        .glassEffect()
+                        .glassEffectID("4", in: ns)
+                        .geometryGroup()
+                }
                 .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }, action: { viewModel.frame = $0 })
+            } else {
+                searchFieldContent
+                    .background(ExploreSearchMaterialBackground())
+                    .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }, action: { viewModel.frame = $0 })
+            }
         }
     }
 }

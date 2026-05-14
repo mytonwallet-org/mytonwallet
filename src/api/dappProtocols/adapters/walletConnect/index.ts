@@ -42,6 +42,8 @@ import type {
 import {
   type DappConnectionRequest,
   type DappConnectionResult,
+  type DappEvmRpcProxyRequest,
+  type DappEvmRpcProxyResult,
   type DappMethodResult,
   type DappProtocolAdapter,
   type DappProtocolConfig,
@@ -66,7 +68,7 @@ import {
 } from '../../../../config';
 import { parseAccountId } from '../../../../util/account';
 import { getDappConnectionUniqueId } from '../../../../util/getDappConnectionUniqueId';
-import { logDebugError } from '../../../../util/logs';
+import { logDebug, logDebugError } from '../../../../util/logs';
 import safeExec from '../../../../util/safeExec';
 import chains from '../../../chains';
 import { getEvmProvider } from '../../../chains/evm/util/client';
@@ -88,6 +90,7 @@ import {
   getDappsState,
   updateDapp,
 } from '../../../methods/dapps';
+import { READONLY_EVM_RPC_METHODS } from './readonlyMethods';
 
 // WalletConnect deep link patterns
 const WALLET_CONNECT_DEEP_LINK_PREFIXES = [
@@ -96,6 +99,14 @@ const WALLET_CONNECT_DEEP_LINK_PREFIXES = [
 ];
 
 const WALLET_CONNECT_EVM_FEE_BUMP_PERCENT = 10n;
+const WALLET_CONNECT_EVM_GAS_LIMIT_BUMP_PERCENT = 25n;
+
+// Derive the EVM chain name set from the same EVM_CHAIN_IDS map the rest of the
+// adapter uses; hardcoding here would silently drift when a new chain joins the
+// CAIP map (multichain rule §7: chain enumerations live in declared points only).
+const EVM_CHAIN_NAMES: ReadonlySet<ApiChain> = new Set(
+  Object.values(EVM_CHAIN_IDS).map((entry) => entry.chain),
+);
 
 /**
  * WalletConnect v2 protocol adapter.
@@ -110,6 +121,11 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
   private walletKit!: IWalletKit;
 
   private chainDappSupports: NonNullable<DappProtocolConfig['chainDappSupports']> = {};
+
+  // Worker-side coalescer for concurrent reconnects to the same dapp (multiple tabs/iframes of
+  // one dapp converging on the worker once their per-page TTL caches expire). Page-side and
+  // worker-side dedup are not redundant — they cover different fan-in points.
+  private inFlightReconnects = new Map<string, Promise<DappConnectionResult<typeof this.protocolType>>>();
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -329,7 +345,18 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
             },
           };
 
-          await this.sendTransaction({ url: byTopic.dapp.url }, message);
+          const response = await this.sendTransaction({ url: byTopic.dapp.url }, message);
+
+          if (response?.success) {
+            await this.walletKit.respondSessionRequest({
+              topic,
+              response: {
+                id,
+                jsonrpc: '2.0',
+                result: response.result.result,
+              },
+            });
+          }
         }
         break;
       }
@@ -584,6 +611,11 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       // Note: For WalletConnect, connections are initiated via handleSessionProposal
       // This method would be called if we want to programmatically initiate a connection
 
+      logDebug('walletConnect:connect:enter', {
+        host: safeHost(message.protocolData.params.proposer.metadata.url),
+        transport: message.transport,
+      });
+
       await this.openExtensionPopup(true);
 
       this.onUpdate({
@@ -663,6 +695,8 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         supportedNamespaces: Object.fromEntries(namespaces),
       });
 
+      logDebug('walletConnect:connect:done', { host: safeHost(dapp.url), chains: chains.length });
+
       return {
         success: true,
         session: {
@@ -699,43 +733,72 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     request: ApiDappRequest,
     requestId: number,
   ): Promise<DappConnectionResult<typeof this.protocolType>> {
+    let key: string | undefined;
     try {
       // WalletConnect sessions are automatically restored by the SDK, but injected are not
 
       const { url, accountId } = await ensureRequestParams(request);
-
       const uniqueId = getDappConnectionUniqueId(request);
-      const currentDapp = await getDapp(accountId, url, uniqueId);
+      key = `${accountId} ${url} ${uniqueId}`;
 
-      if (!currentDapp) {
-        return {
-          success: false,
-          error: {
-            code: 0,
-            message: 'No dApp found',
-          },
-        };
+      const inFlight = this.inFlightReconnects.get(key);
+      if (inFlight) {
+        logDebug('walletConnect:reconnect:coalesced', { host: safeHost(url) });
+        return await inFlight;
       }
 
-      await updateDapp(accountId, url, uniqueId, { connectedAt: Date.now() });
-
-      return {
-        success: true,
-        session: {
-          id: String(requestId),
-          protocolType: this.protocolType,
-          accountId,
-          dapp: currentDapp,
-          chains: currentDapp.chains!,
-          connectedAt: new Date().getTime(),
-          // reconnect is used only in injected env, so we need only `chains` field in return object
-          protocolData: undefined as unknown as SessionTypes.Namespaces,
-        },
-      };
+      const promise = this.reconnectInner(url, accountId, uniqueId, requestId);
+      this.inFlightReconnects.set(key, promise);
+      try {
+        return await promise;
+      } finally {
+        this.inFlightReconnects.delete(key);
+      }
     } catch (err) {
+      if (key) this.inFlightReconnects.delete(key);
       logDebugError('walletConnect:reconnect', err);
       return formatConnectError(requestId, err);
     }
+  }
+
+  private async reconnectInner(
+    url: string,
+    accountId: string,
+    uniqueId: string,
+    requestId: number,
+  ): Promise<DappConnectionResult<typeof this.protocolType>> {
+    logDebug('walletConnect:reconnect:enter', { host: safeHost(url) });
+
+    const currentDapp = await getDapp(accountId, url, uniqueId);
+
+    if (!currentDapp) {
+      logDebug('walletConnect:reconnect:nodapp', { host: safeHost(url) });
+      return {
+        success: false,
+        error: {
+          code: 0,
+          message: 'No dApp found',
+        },
+      };
+    }
+
+    await updateDapp(accountId, url, uniqueId, { connectedAt: Date.now() });
+
+    logDebug('walletConnect:reconnect:done', { host: safeHost(url), chains: currentDapp.chains?.length ?? 0 });
+
+    return {
+      success: true,
+      session: {
+        id: String(requestId),
+        protocolType: this.protocolType,
+        accountId,
+        dapp: currentDapp,
+        chains: currentDapp.chains!,
+        connectedAt: new Date().getTime(),
+        // reconnect is used only in injected env, so we need only `chains` field in return object
+        protocolData: undefined as unknown as SessionTypes.Namespaces,
+      },
+    };
   }
 
   async disconnect(
@@ -745,6 +808,15 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     let dapp: StoredDappConnection | undefined = undefined;
 
     const uniqueId = getDappConnectionUniqueId(request);
+
+    logDebug('walletConnect:disconnect:enter', {
+      host: safeHost(request.url),
+      requestId: message.requestId,
+      // Heuristic, not a contract: solanaConnectBridgeApi resets its counter to 0 before
+      // sending disconnect, while the EVM bridge increments from a counter that starts at 0
+      // (so its first disconnect is '1'). Breaks if either bridge's id scheme changes.
+      source: message.requestId === '0' ? 'solana-standard' : 'evm-or-other',
+    });
 
     try {
       const { url, accountId } = await ensureRequestParams(request);
@@ -761,6 +833,12 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     } catch (err) {
       logDebugError('walletConnect:disconnect', err);
     }
+
+    logDebug('walletConnect:disconnect:done', {
+      host: safeHost(request.url),
+      requestId: message.requestId,
+      hadDapp: !!dapp,
+    });
 
     return {
       success: true,
@@ -814,13 +892,21 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         accountAddress = message.payload.address!;
         const uniqueId = getDappConnectionUniqueId(request);
 
-        accountId = await getAccountIdByAddress(
-          chains[message.chain].normalizeAddress(accountAddress),
-          message.chain,
-        );
+        accountId = request.accountId
+          ?? await getAccountIdByAddress(
+            chains[message.chain].normalizeAddress(accountAddress),
+            message.chain,
+          );
 
         dapp = (await getDapp(accountId, message.payload.url!, uniqueId))!;
       }
+
+      logDebug('walletConnect:sendTransaction:enter', {
+        host: safeHost(dapp?.url),
+        chain: message.chain,
+        isSignOnly: !!message.payload.isSignOnly,
+        hasTopic: !!message.payload.topic,
+      });
 
       const { network } = parseAccountId(accountId);
 
@@ -901,6 +987,8 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
           accountId,
         });
 
+        logDebug('walletConnect:sendTransaction:done', { host: safeHost(dapp?.url), chain: message.chain, sent: true });
+
         return {
           success: true,
           result: {
@@ -919,6 +1007,8 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       const toReturn = message.payload.topic && !message.payload.isFullTxRequested
         ? signedTransactions[0].payload.signature
         : signedTransactions[0].payload.signedTx;
+
+      logDebug('walletConnect:sendTransaction:done', { host: safeHost(dapp?.url), chain: message.chain, sent: false });
 
       return {
         success: true,
@@ -970,13 +1060,42 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       } else {
         const uniqueId = getDappConnectionUniqueId(request);
 
-        accountId = await getAccountIdByAddress(
-          chains[message.chain].normalizeAddress(message.payload.address!),
-          message.chain,
-        );
+        // For inApp browser flow, accountId comes from the request (the wallet active in the browser session).
+        // Falling back to getAccountIdByAddress would return the first wallet that owns the address, which
+        // for users with multiple wallets sharing the same EVM key would resolve to the wrong account and
+        // break the dapp lookup below.
+        accountId = request.accountId
+          ?? await getAccountIdByAddress(
+            chains[message.chain].normalizeAddress(message.payload.address!),
+            message.chain,
+          );
 
-        dapp = (await getDapp(accountId, message.payload.url!, uniqueId))!;
+        dapp = await getDapp(accountId, message.payload.url!, uniqueId);
+
+        if (!dapp) {
+          const url = message.payload.url || request.url || '';
+          dapp = {
+            protocolType: this.protocolType,
+            url,
+            name: safeHost(url),
+            iconUrl: '',
+            connectedAt: Date.now(),
+            chains: [],
+          };
+        }
       }
+
+      if (!dapp || !accountId) {
+        throw new Error('walletConnect:signData: no dapp/accountId resolved');
+      }
+
+      logDebug('walletConnect:signData:enter', {
+        host: safeHost(dapp.url),
+        chain: message.chain,
+        isEthSign: message.payload.isEthSign,
+        hasEip712: !!message.payload.eip712,
+        hasTopic: !!message.payload.topic,
+      });
 
       this.onUpdate({
         type: 'dappLoading',
@@ -1013,6 +1132,16 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         }
         : simplePaloadToSign!;
 
+      logDebug('walletConnect:signData:request', {
+        host: safeHost(dapp.url),
+        chain: message.chain,
+        isEthSign: !!message.payload.isEthSign,
+        eip712Domain: message.payload.eip712?.domain?.name,
+        eip712PrimaryType: message.payload.eip712?.primaryType,
+        msgId: message.id,
+        hasTopic: !!message.payload.topic,
+      });
+
       this.onUpdate({
         type: 'dappSignData',
         operationChain: message.chain,
@@ -1023,6 +1152,13 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       });
 
       const result: Parameters<typeof confirmDappRequestSignData<typeof this.protocolType>>[1] = await promise;
+
+      logDebug('walletConnect:signData:signed', {
+        host: safeHost(dapp.url),
+        chain: message.chain,
+        msgId: message.id,
+        signatureLength: result?.result?.signature?.length,
+      });
 
       this.onUpdate({
         type: 'dappSignDataComplete',
@@ -1044,6 +1180,8 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
         await this.walletKit.respondSessionRequest({ topic: message.payload.topic, response });
       }
+
+      logDebug('walletConnect:signData:done', { host: safeHost(dapp.url), chain: message.chain });
 
       return {
         success: true,
@@ -1068,6 +1206,37 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         }
       }
       return formatConnectError(Number(message.id), err);
+    }
+  }
+
+  async proxyEvmRpc(
+    request: ApiDappRequest,
+    message: DappEvmRpcProxyRequest,
+  ): Promise<DappEvmRpcProxyResult> {
+    if (!READONLY_EVM_RPC_METHODS.has(message.method)) {
+      return {
+        success: false,
+        error: { code: -32601, message: `Method not in readonly proxy whitelist: ${message.method}` },
+      };
+    }
+    if (!EVM_CHAIN_NAMES.has(message.chain)) {
+      return {
+        success: false,
+        error: { code: -32602, message: `Not an EVM chain: ${message.chain}` },
+      };
+    }
+    try {
+      const { accountId } = await ensureRequestParams(request);
+      const { network } = parseAccountId(accountId);
+      const provider = getEvmProvider(network, message.chain as EVMChain);
+      const params = Array.isArray(message.params) ? message.params : [];
+      const result = await provider.send(message.method, params);
+      return { success: true, result };
+    } catch (err) {
+      logDebugError('walletConnect:proxyEvmRpc', err);
+      const code = (err as { code?: number })?.code ?? -32603;
+      const errMessage = (err as { message?: string })?.message ?? 'RPC error';
+      return { success: false, error: { code, message: errMessage } };
     }
   }
 
@@ -1201,6 +1370,16 @@ export function getWalletConnectAdapter(): DappProtocolAdapter {
  */
 export function createWalletConnectAdapter(): DappProtocolAdapter {
   return new WalletConnectAdapter();
+}
+
+/** Returns the hostname of `url` for breadcrumb logging without leaking the full URL (which may carry auth tokens). */
+function safeHost(url: string | undefined): string {
+  if (!url) return '<no-url>';
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return '<invalid-url>';
+  }
 }
 
 /**
@@ -1506,6 +1685,23 @@ async function resolveWalletConnectEvmSerializedTx(options: {
       logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:nonce', err);
     }
 
+    if (updated.gasLimit === 0n) {
+      try {
+        provider ??= getEvmProvider(network, chain);
+
+        const estimated = await provider.estimateGas({
+          from: fromAddr,
+          to: updated.to ?? undefined,
+          value: updated.value,
+          data: updated.data,
+        });
+
+        updated.gasLimit = (estimated * (100n + WALLET_CONNECT_EVM_GAS_LIMIT_BUMP_PERCENT)) / 100n;
+      } catch (err) {
+        logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:gas', err);
+      }
+    }
+
     return updated.unsignedSerialized;
   }
 
@@ -1535,6 +1731,26 @@ async function resolveWalletConnectEvmSerializedTx(options: {
       };
     } catch (err) {
       logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:nonce', err);
+    }
+  }
+
+  if (!hasHexValue(txParamsForHex.gas) && !hasHexValue(txParamsForHex.gasLimit)) {
+    try {
+      provider ??= getEvmProvider(network, chain);
+
+      const estimated = await provider.estimateGas({
+        from: txParamsForHex.from,
+        to: txParamsForHex.to && txParamsForHex.to.length > 0 ? txParamsForHex.to : undefined,
+        value: parseOptionalHexBigInt(txParamsForHex.value) ?? 0n,
+        data: txParamsForHex.data && txParamsForHex.data.length > 0 ? txParamsForHex.data : '0x',
+      });
+
+      txParamsForHex = {
+        ...txParamsForHex,
+        gas: bigintToHex((estimated * (100n + WALLET_CONNECT_EVM_GAS_LIMIT_BUMP_PERCENT)) / 100n),
+      };
+    } catch (err) {
+      logDebugError('walletConnect:resolveWalletConnectEvmSerializedTx:gas', err);
     }
   }
 

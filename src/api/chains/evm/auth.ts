@@ -7,8 +7,6 @@ import type {
   ApiDerivation,
   ApiEVMWallet,
   ApiNetwork,
-  ApiWalletByChain,
-  ApiWalletVariant,
   EVMChain,
 } from '../../types';
 import { ApiCommonError } from '../../types';
@@ -26,7 +24,6 @@ import { EVM_DERIVATION_PATHS } from './constants';
 import { getWalletBalance, getWalletLastTransaction } from './wallet';
 
 const MULTIWALLET_BY_PATH_DEFAULT_COUNT = 2;
-const WALLET_DERIVATIONS_BATCH_SIZE = 6;
 const SETTINGS_MULTIWALLET_BY_PATH_COUNT = 4;
 const MAX_NON_EMPTY_WALLETS_TO_SCAN = 20;
 
@@ -285,20 +282,25 @@ async function pickBestWallets(
     return [defaultWallet];
   }
 
-  const withBalances = await Promise.all(
-    variants.map(async (v) => ({
-      ...v,
-      balance: await getWalletBalance(chain, network, v.address),
-    })),
-  );
+  try {
+    const withBalances = await Promise.all(
+      variants.map(async (v) => ({
+        ...v,
+        balance: await getWalletBalance(chain, network, v.address),
+      })),
+    );
 
-  const withPositive = withBalances.filter((v) => v.balance > 0n);
+    const withPositive = withBalances.filter((v) => v.balance > 0n);
 
-  if (withPositive.length > 0) {
-    return withPositive.map(({ balance, ...v }) => v);
+    if (withPositive.length > 0) {
+      return withPositive.map(({ balance, ...v }) => v);
+    }
+
+    return [defaultWallet];
+  } catch (err) {
+    logDebugError(`evm:${chain}:pickBestWallets`, err);
+    return [defaultWallet];
   }
-
-  return [defaultWallet];
 }
 
 function getWalletVariantsByPath(
@@ -321,62 +323,6 @@ function getWalletVariantsByPath(
   });
 }
 
-export async function getWalletVariants<C extends EVMChain>(
-  chain: C,
-  network: ApiNetwork,
-  account: ApiAccountWithChain<C>,
-  page: number,
-  isTestnetSubwalletId?: boolean,
-  mnemonic?: string[],
-): Promise<ApiWalletVariant<C>[] | { error: ApiAnyDisplayError }> {
-  if (!mnemonic?.length) {
-    return { error: ApiCommonError.Unexpected };
-  }
-
-  const mnemonicObj = Mnemonic.fromPhrase(mnemonic.join(' '));
-
-  const offset = page * SETTINGS_MULTIWALLET_BY_PATH_COUNT;
-
-  const variants = getWalletVariantsByPath(mnemonicObj, SETTINGS_MULTIWALLET_BY_PATH_COUNT, offset);
-
-  const addressesWithBalances: (EvmWalletRaw & { balance: bigint })[] = [];
-  const batches = [];
-
-  for (let i = 0; i < variants.length; i += WALLET_DERIVATIONS_BATCH_SIZE) {
-    batches.push(variants.slice(i, i + WALLET_DERIVATIONS_BATCH_SIZE));
-  }
-
-  for (const batch of batches) {
-    const results = await Promise.all(
-      batch.map(async (v) => ({
-        ...v,
-        balance: await getWalletBalance(chain, network, v.address),
-      })),
-    );
-    addressesWithBalances.push(...results);
-    await pause(500);
-  }
-
-  return addressesWithBalances.map((v) => ({
-    chain,
-    wallet: {
-      address: v.address,
-      publicKey: v.publicKey,
-      derivation: {
-        path: v.path,
-        index: v.index,
-        label: v.label,
-      },
-    } as Omit<ApiWalletByChain[C], 'index'>,
-    balance: v.balance,
-    metadata: {
-      type: 'path',
-      path: v.path.replace('{index}', v.index.toString()),
-      label: v.label,
-    },
-  }));
-}
-
 export async function pickBestWallet(
   network: ApiNetwork,
   chain: EVMChain,
@@ -392,39 +338,43 @@ export async function pickBestWallet(
     return defaultWallet;
   }
 
-  const withBalances = await Promise.all(
-    variants.map(async (v) => ({
-      ...v,
-      balance: await getWalletBalance(chain, network, v.address),
-    })),
-  );
+  try {
+    const withBalances = await Promise.all(
+      variants.map(async (v) => ({
+        ...v,
+        balance: await getWalletBalance(chain, network, v.address),
+      })),
+    );
 
-  const bestByBalance = withBalances.reduce<(typeof withBalances)[0] | undefined>(
-    (best, cur) => (cur.balance > (best?.balance ?? 0n) ? cur : best),
-  undefined,
-  );
+    const bestByBalance = withBalances.reduce<(typeof withBalances)[0] | undefined>(
+      (best, cur) => (cur.balance > (best?.balance ?? 0n) ? cur : best),
+    undefined,
+    );
 
-  if (bestByBalance && bestByBalance.balance > 0n) {
-    return bestByBalance;
-  }
+    if (bestByBalance && bestByBalance.balance > 0n) {
+      return bestByBalance;
+    }
 
-  await pause(500);
+    await pause(500);
 
-  const withLastTx = await Promise.all(
-    variants.map(async (v) => {
-      const last = await getWalletLastTransaction(network, v.address) as { blockTime?: number } | undefined;
-      return { ...v, lastTxBlock: last?.blockTime };
-    }),
-  );
+    const withLastTx = await Promise.all(
+      variants.map(async (v) => {
+        const last = await getWalletLastTransaction(network, v.address) as { blockTime?: number } | undefined;
+        return { ...v, lastTxBlock: last?.blockTime };
+      }),
+    );
 
-  const bestByLastTx = withLastTx.reduce<(typeof withLastTx)[0] | undefined>(
-    (best, cur) =>
-      cur.lastTxBlock !== undefined && (best?.lastTxBlock ?? 0) < cur.lastTxBlock ? cur : best,
-  undefined,
-  );
+    const bestByLastTx = withLastTx.reduce<(typeof withLastTx)[0] | undefined>(
+      (best, cur) =>
+        cur.lastTxBlock !== undefined && (best?.lastTxBlock ?? 0) < cur.lastTxBlock ? cur : best,
+    undefined,
+    );
 
-  if (bestByLastTx) {
-    return bestByLastTx;
+    if (bestByLastTx) {
+      return bestByLastTx;
+    }
+  } catch (err) {
+    logDebugError(`evm:${chain}:pickBestWallet`, err);
   }
 
   if (!defaultWallet) {

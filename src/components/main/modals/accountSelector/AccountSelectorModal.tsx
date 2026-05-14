@@ -1,7 +1,9 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import type { ApiBaseCurrency, ApiCurrencyRates, ApiStakingState } from '../../../../api/types';
+import type {
+  ApiBaseCurrency, ApiCurrencyRates, ApiStakingState, ApiWalletWithVersionInfo,
+} from '../../../../api/types';
 import type { Account, AccountSettings, GlobalState } from '../../../../global/types';
 import { AccountSelectorState } from '../../../../global/types';
 import { SettingsState } from '../../../../global/types';
@@ -39,7 +41,6 @@ import Modal from '../../../ui/Modal';
 import TabList from '../../../ui/TabList';
 import Transition from '../../../ui/Transition';
 import LogOutModal from '../LogOutModal';
-import AccountRenameModal from './AccountRenameModal';
 import AccountSelectorFooter from './AccountSelectorFooter';
 import AccountSelectorHeader from './AccountSelectorHeader';
 import AccountsGridView from './AccountsGridView';
@@ -69,7 +70,7 @@ interface AccountSelectorOpenProps {
   isLoading?: boolean;
   error?: string;
   isPasswordPresent: boolean;
-  withOtherWalletVersions?: boolean;
+  accountWalletVersions?: ApiWalletWithVersionInfo[];
   forceAddingTonOnlyAccount?: boolean;
   initialAuthState?: AccountSelectorState;
   shouldHideAddAccountBackButton?: boolean;
@@ -97,7 +98,7 @@ function AccountSelectorModal({
   isLoading,
   error,
   isPasswordPresent = false,
-  withOtherWalletVersions,
+  accountWalletVersions,
   forceAddingTonOnlyAccount,
   initialAuthState,
   shouldHideAddAccountBackButton,
@@ -113,6 +114,7 @@ function AccountSelectorModal({
     openSettingsWithState,
     resetHardwareWalletConnect,
     clearAccountLoading,
+    openWalletRenameModal,
   } = getActions();
 
   const lang = useLang();
@@ -123,12 +125,15 @@ function AccountSelectorModal({
     : AccountSelectorState.Cards;
   const [renderingKey, setRenderingKey] = useState<AccountSelectorState>(initialRenderingKey);
   const skipAnimationToKeyRef = useRef<AccountSelectorState | undefined>();
-  const [renameAccountId, setRenameAccountId] = useState<string | undefined>();
   const [isLogOutModalOpen, openLogOutModal, closeLogOutModal] = useFlag(false);
   const [logOutAccountId, setLogOutAccountId] = useState<string | undefined>();
   const [isNewAccountImporting, setIsNewAccountImporting] = useState<boolean>(false);
   const [previousViewMode, setPreviousViewMode] = useState<AccountSelectorState>(initialRenderingKey);
   const [shouldReturnToStartScreen, setShouldReturnToStartScreen] = useState<boolean>(false);
+
+  const hasOtherWalletVersions = useMemo(() => (
+    (accountWalletVersions?.filter((v) => v.lastTxId || v.version === 'W5').length ?? 0) > 1
+  ), [accountWalletVersions]);
 
   const tabs = useMemo(() => buildTabs(isTestnet ?? false, lang), [isTestnet, lang]);
   const currentTabIndex = useMemo(() => getCurrentTabIndex(tabs, activeTab), [activeTab, tabs]);
@@ -373,11 +378,7 @@ function AccountSelectorModal({
 
   const handleRenameClick = useLastCallback((accountId: string) => {
     void vibrate();
-    setRenameAccountId(accountId);
-  });
-
-  const handleRenameClose = useLastCallback(() => {
-    setRenameAccountId(undefined);
+    openWalletRenameModal({ accountId });
   });
 
   const handleLogOutClick = useLastCallback((accountId: string) => {
@@ -397,7 +398,7 @@ function AccountSelectorModal({
 
   const handleOpenSettingWalletVersion = useLastCallback(() => {
     handleCloseAccountSelectorForced();
-    openSettingsWithState({ state: SettingsState.WalletVariants });
+    openSettingsWithState({ state: SettingsState.WalletVersions });
   });
 
   function renderHeader(renderingState: AccountSelectorState) {
@@ -496,7 +497,7 @@ function AccountSelectorModal({
             isNewAccountImporting={isNewAccountImporting}
             isLoading={isLoading}
             isTestnet={isTestnet}
-            withOtherWalletVersions={withOtherWalletVersions}
+            hasOtherWalletVersions={hasOtherWalletVersions}
             shouldHideBackButton={shouldHideAddAccountBackButton}
             onBack={handleBackFromAddAccount}
             onNewAccountClick={handleNewAccountClick}
@@ -597,12 +598,6 @@ function AccountSelectorModal({
         </Transition>
       </Modal>
 
-      <AccountRenameModal
-        isOpen={!!renameAccountId}
-        accountId={renameAccountId ?? currentAccountId}
-        onClose={handleRenameClose}
-      />
-
       <LogOutModal isOpen={isLogOutModalOpen} onClose={handleLogOutModalClose} targetAccountId={logOutAccountId} />
     </>
   );
@@ -643,7 +638,7 @@ export default memo(withGlobal(
     const currentAccountId = selectCurrentAccountId(global)!;
     const networkAccounts = selectNetworkAccounts(global);
     const isPasswordPresent = selectIsPasswordPresent(global);
-    const withOtherWalletVersions = Boolean(walletVersions?.byId?.[currentAccountId]?.length);
+    const accountWalletVersions = walletVersions?.byId?.[currentAccountId];
     const { isLoading, error } = accounts ?? {};
 
     return {
@@ -665,7 +660,7 @@ export default memo(withGlobal(
       isLoading,
       error,
       isPasswordPresent,
-      withOtherWalletVersions,
+      accountWalletVersions,
       forceAddingTonOnlyAccount,
       initialAuthState,
       shouldHideAddAccountBackButton,

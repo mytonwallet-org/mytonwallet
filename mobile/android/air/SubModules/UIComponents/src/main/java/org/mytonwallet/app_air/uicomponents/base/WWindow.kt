@@ -54,6 +54,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import java.util.function.Consumer
 import kotlin.math.min
@@ -202,6 +203,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         TiltSensorManager.onAppPause()
         super.onPause()
         isPaused = true
+        WalletCore.notifyEvent(WalletEvent.AppBackground)
     }
 
     public override fun onResume() {
@@ -213,7 +215,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             isPaused = false
             navigationControllers.lastOrNull()?.viewWillAppear()
             navigationControllers.lastOrNull()?.viewDidAppear()
-            WalletContextManager.delegate?.appResumed()
+            WalletCore.notifyEvent(WalletEvent.AppForeground)
         }
     }
 
@@ -361,7 +363,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             pendingPresentationNav = navigationController
             return false
         }
-        present(navigationController, true)
+        present(navigationController, animated = true)
         return true
     }
 
@@ -399,14 +401,38 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         pendingTasks = null
     }
 
+    enum class PresentAnimation {
+        DEFAULT,
+        SCALE_IN
+    }
+
     // Called to present a new stack on top of previous ones
     fun present(
         navigationController: WNavigationController,
+        presentAnimation: PresentAnimation = PresentAnimation.DEFAULT,
         animated: Boolean = true,
         onCompletion: (() -> Unit)? = null
     ) {
         if (navAnimation == NavAnimation.PRESENT_WAITING_FOR_LAYOUT) {
-            windowView.doOnLayout { present(navigationController, animated, onCompletion) }
+            windowView.doOnLayout {
+                if (navAnimation == NavAnimation.PRESENT_WAITING_FOR_LAYOUT) {
+                    windowView.post {
+                        present(
+                            navigationController,
+                            presentAnimation,
+                            animated,
+                            onCompletion
+                        )
+                    }
+                } else {
+                    present(
+                        navigationController,
+                        presentAnimation,
+                        animated,
+                        onCompletion
+                    )
+                }
+            }
             return
         }
         if (navAnimation != NavAnimation.NONE)
@@ -439,6 +465,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                 if (navigationController.presentationConfig.isBottomSheet) 0 else MATCH_PARENT
             )
         )
+        navigationController.alpha = 0f
         navigationController.y = windowView.bottom.toFloat()
         val wasAnimating = isAnimating
         navAnimation = NavAnimation.PRESENT_WAITING_FOR_LAYOUT
@@ -453,6 +480,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                 )
             if (!animated || !WGlobalStorage.getAreAnimationsActive() || wasAnimating) {
                 overlayView?.alpha = 1f
+                navigationController.alpha = 1f
                 navigationController.y = finalY.toFloat()
                 navigationController.viewDidAppear()
                 removePrevNavigationControllersFromHierarchy()
@@ -461,42 +489,85 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                 return@doOnLayout
             }
             activeAnimator?.cancel()
-            activeAnimator = ValueAnimator.ofInt(
-                finalY + 48.dp,
-                finalY
-            )
-                .apply {
-                    duration = AnimationConstants.NAV_PRESENT
-                    interpolator = WInterpolator.emphasizedDecelerate
+            when (presentAnimation) {
+                PresentAnimation.DEFAULT -> {
+                    activeAnimator = ValueAnimator.ofInt(
+                        finalY + 48.dp,
+                        finalY
+                    )
+                        .apply {
+                            duration = AnimationConstants.NAV_PRESENT
+                            interpolator = WInterpolator.emphasizedDecelerate
 
-                    addUpdateListener { updatedAnimation ->
-                        overlayView?.alpha = updatedAnimation.animatedFraction
-                        val updatedValue = updatedAnimation.animatedValue as Int
-                        navigationController.y = updatedValue.toFloat()
-                        navigationController.alpha = animatedFraction
-                    }
-                    doOnCancel {
-                        removeAllListeners()
-                        WGlobalStorage.decDoNotSynchronize()
-                        navigationController.viewDidAppear()
-                        activeAnimator = null
-                        navAnimation = NavAnimation.NONE
-                    }
-                    doOnEnd {
-                        WGlobalStorage.decDoNotSynchronize()
-                        navigationController.viewDidAppear()
-                        overlayView?.setOnClickListener {
-                            dismissLastNav()
+                            addUpdateListener { updatedAnimation ->
+                                overlayView?.alpha = updatedAnimation.animatedFraction
+                                val updatedValue = updatedAnimation.animatedValue as Int
+                                navigationController.y = updatedValue.toFloat()
+                                navigationController.alpha = animatedFraction
+                            }
+                            doOnCancel {
+                                removeAllListeners()
+                                WGlobalStorage.decDoNotSynchronize()
+                                navigationController.viewDidAppear()
+                                activeAnimator = null
+                                navAnimation = NavAnimation.NONE
+                            }
+                            doOnEnd {
+                                WGlobalStorage.decDoNotSynchronize()
+                                navigationController.viewDidAppear()
+                                overlayView?.setOnClickListener {
+                                    dismissLastNav()
+                                }
+                                removePrevNavigationControllersFromHierarchy()
+                                activeAnimator = null
+                                navAnimation = NavAnimation.NONE
+                                onCompletion?.invoke()
+                            }
+
+                            WGlobalStorage.incDoNotSynchronize()
+                            start()
                         }
-                        removePrevNavigationControllersFromHierarchy()
-                        activeAnimator = null
-                        navAnimation = NavAnimation.NONE
-                        onCompletion?.invoke()
-                    }
-
-                    WGlobalStorage.incDoNotSynchronize()
-                    start()
                 }
+
+                PresentAnimation.SCALE_IN -> {
+                    navigationController.y = finalY.toFloat()
+                    activeAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+                        duration = AnimationConstants.QUICK_ANIMATION
+
+                        addUpdateListener {
+                            val fraction = animatedFraction
+                            navigationController.let {
+                                it.alpha = fraction
+                                val scale = 1.05f - 0.05f * fraction
+                                it.scaleX = scale
+                                it.scaleY = scale
+                            }
+                        }
+                        doOnCancel {
+                            removeAllListeners()
+                            WGlobalStorage.decDoNotSynchronize()
+                            navigationController.viewDidAppear()
+                            activeAnimator = null
+                            navAnimation = NavAnimation.NONE
+                        }
+                        doOnEnd {
+                            overlayView?.alpha = 1f
+                            WGlobalStorage.decDoNotSynchronize()
+                            navigationController.viewDidAppear()
+                            overlayView?.setOnClickListener {
+                                dismissLastNav()
+                            }
+                            removePrevNavigationControllersFromHierarchy()
+                            activeAnimator = null
+                            navAnimation = NavAnimation.NONE
+                            onCompletion?.invoke()
+                        }
+
+                        WGlobalStorage.incDoNotSynchronize()
+                        start()
+                    }
+                }
+            }
         }
     }
 
@@ -528,7 +599,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
 
     enum class DismissAnimation {
         DEFAULT,
-        SCALE_IN
+        SCALE_OUT
     }
 
     fun dismissLastNav(
@@ -537,7 +608,13 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         onCompletion: (() -> Unit)? = null
     ): Boolean {
         if (navAnimation == NavAnimation.PRESENT_WAITING_FOR_LAYOUT) {
-            windowView.doOnLayout { dismissLastNav(animation, animated, onCompletion) }
+            windowView.doOnLayout {
+                if (navAnimation == NavAnimation.PRESENT_WAITING_FOR_LAYOUT) {
+                    windowView.post { dismissLastNav(animation, animated, onCompletion) }
+                } else {
+                    dismissLastNav(animation, animated, onCompletion)
+                }
+            }
             return true
         }
         if (navigationControllers.size < 2) {
@@ -624,11 +701,11 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                     }
             }
 
-            DismissAnimation.SCALE_IN -> {
+            DismissAnimation.SCALE_OUT -> {
                 val prevNavigationController = navigationControllers[navigationControllers.size - 2]
                 if (!skipPrevNavAnimation) {
-                    prevNavigationController.scaleX = 1.2f
-                    prevNavigationController.scaleY = 1.2f
+                    prevNavigationController.scaleX = 0.95f
+                    prevNavigationController.scaleY = 0.95f
                 }
                 lastOverlay?.alpha = 0f
                 activeAnimator?.cancel()
@@ -637,11 +714,15 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
 
                     addUpdateListener {
                         if (!skipPrevNavAnimation) {
-                            val scale = 1.2f - 0.2f * animatedFraction
+                            val scale = 0.95f + 0.05f * animatedFraction
                             prevNavigationController.scaleX = scale
                             prevNavigationController.scaleY = scale
                         }
-                        navigationController?.alpha = startAlpha * (1 - animatedFraction)
+                        navigationController?.let {
+                            it.alpha = startAlpha * (1 - animatedFraction)
+                            it.scaleX = 1f + 0.05f * (1 - it.alpha)
+                            it.scaleY = it.scaleX
+                        }
                     }
                     addListener(object : AnimatorListenerAdapter() {
                         override fun onAnimationEnd(animation: Animator) {
@@ -754,7 +835,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
 
     // Called after a navigation controller presentation to remove unnecessary views from the hierarchy
     private fun removePrevNavigationControllersFromHierarchy() {
-        val navigationController = navigationControllers.last()
+        val navigationController = navigationControllers.lastOrNull() ?: return
         if (navigationController.presentationConfig.overFullScreen) {
             if (navigationControllers.size >= 2) {
                 fun removePrevNav(i: Int) {

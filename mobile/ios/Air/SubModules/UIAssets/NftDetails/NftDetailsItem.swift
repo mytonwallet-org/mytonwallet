@@ -1,7 +1,7 @@
 import UIKit
 import WalletContext
 
-class NftDetailsItem: @unchecked Sendable {
+final class NftDetailsItem: Sendable {
     
     struct Attribute {
         let traitType: String
@@ -72,15 +72,17 @@ protocol NftDetailsItemModelDelegate: AnyObject {
     func modelDidRequestImage(_  model: NftDetailsItemModel)
 }
 
-class NftDetailsItemModel: Identifiable, Equatable, @unchecked Sendable, CustomStringConvertible {
+final class NftDetailsItemModel: Identifiable, Equatable, @unchecked Sendable, CustomStringConvertible {
 
     enum Action: CaseIterable { case wear, send, share, more, showCollection, renewDomain }
 
-    init(item: NftDetailsItem) {
+    init(item: NftDetailsItem, index: Int) {
         self.item = item
+        self.index = index
     }
 
     let item: NftDetailsItem
+    let index: Int // the list is static so it does make sense to keep it
     var id: String { item.id }
     var name: String { item.name }
     
@@ -103,7 +105,9 @@ class NftDetailsItemModel: Identifiable, Equatable, @unchecked Sendable, CustomS
         delegate?.modelDidRequestImage(self)
     }
     
-    var description: String {  return "<Model '\(name)' \(processedImageState)>" }
+    var description: String {  return "<Model \(shortDescription) \(processedImageState)>" }
+    
+    var shortDescription: String { "\(name)[\(index)]" }
 
     static func == (lhs: NftDetailsItemModel, rhs: NftDetailsItemModel) -> Bool { lhs === rhs } // Reference equality only
     
@@ -115,7 +119,7 @@ class NftDetailsItemModel: Identifiable, Equatable, @unchecked Sendable, CustomS
     }
     
     @MainActor
-    class Subscription {
+    final class Subscription {
         let model: NftDetailsItemModel
         let event: Event
         let token: Int
@@ -161,29 +165,5 @@ class NftDetailsItemModel: Identifiable, Equatable, @unchecked Sendable, CustomS
 
     func notify(_ event: Event) {
         observers[event]?.values.forEach { $0() }
-    }
-}
-
-extension Array where Element == NftDetailsItemModel {
-    func findById(_ id: String) -> Element? {
-        first { $0.id == id }
-    }
-    
-    func getById(_ id: String) -> Element {
-        guard let result = findById(id) else {
-            fatalError("Unable to find NFT model for id: \(id)")
-        }
-        return result
-    }
-    
-    func findIndexById(_ id: String) -> Int? {
-        firstIndex(where: { $0.id == id })
-    }
-
-    /// Prepare a fast lookup dictionary `[id → index]`
-    func indexById() -> [String: Int] {
-        var map = [String: Int](minimumCapacity: count)
-        for (i, model) in enumerated() { map[model.id] = i }
-        return map
     }
 }

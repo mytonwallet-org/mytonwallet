@@ -1,4 +1,6 @@
 .button {
+  // Promote to its own layer to prevent hover flicker in Safari
+  will-change: transform, opacity;
   cursor: var(--custom-cursor, pointer);
 
   position: absolute;

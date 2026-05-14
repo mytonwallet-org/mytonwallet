@@ -38,7 +38,6 @@ public struct TokenPickerButton: View {
                     size: 20,
                     chainSize: 8,
                     chainBorderWidth: 0.667,
-                    chainBorderColor: .air.secondaryFill,
                     chainHorizontalOffset: 3,
                     chainVerticalOffset: 1
                 )

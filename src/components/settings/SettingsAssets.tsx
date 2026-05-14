@@ -244,6 +244,7 @@ function SettingsAssets({
         </div>
 
         <SettingsTokens
+          isActive={isActive}
           isSensitiveDataHidden={isSensitiveDataHidden}
           tokens={tokensWithStaking}
           pinnedSlugs={pinnedSlugs}

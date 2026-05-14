@@ -3,14 +3,14 @@ import UIComponents
 
 protocol NftDetailsPagerDelegate: NftDetailsActionsDelegate {
     func pagerDidSelectModel(_ pager: NftDetailsPagerView, model: NftDetailsItemModel)
-    func pagerDidScroll(_ pager: NftDetailsPagerView, withProgress progress: CGFloat,
-                        fromModel: NftDetailsItemModel, toModel: NftDetailsItemModel?)
+    func pagerDidScroll(_ pager: NftDetailsPagerView, withProgress progress: CGFloat, fromModel: NftDetailsItemModel, toModel: NftDetailsItemModel?)
     func pagerDidRequestFullScreenPreview()
 }
 
 final class NftDetailsPagerView: UIView {
-    private let models: [NftDetailsItemModel]
-
+    typealias ItemModel = NftDetailsItemModel
+    
+    private let models: [ItemModel]
     private weak var delegate: NftDetailsPagerDelegate?
     private(set) var currentIndex: Int
 
@@ -58,7 +58,7 @@ final class NftDetailsPagerView: UIView {
     private enum _Section: Hashable { case main }
 
     init(
-        models: [NftDetailsItemModel],
+        models: [ItemModel],
         currentIndex: Int,
         layoutGeometry: LayoutGeometry,
         delegate: NftDetailsPagerDelegate,
@@ -120,8 +120,9 @@ final class NftDetailsPagerView: UIView {
             heightConstraint,
         ])
         
-        let cellRegistration = UICollectionView.CellRegistration<_PageCell, Int> { [weak self] cell, _, modelIndex in
+        let cellRegistration = UICollectionView.CellRegistration<_PageCell, Int> { [weak self] cell, indexPath, modelIndex in
             guard let self else { return }
+            assert(indexPath.row == modelIndex)
             let pv = self.getOrCreatePageView(for: modelIndex)
             cell.setPageView(pv)
         }
@@ -208,10 +209,9 @@ final class NftDetailsPagerView: UIView {
 
     /// Set the pager's scroll position to match cover flow progress.
     /// progress is in [-0.5, 0.5]: -0.5 = halfway to previous item, 0.5 = halfway to next.
-    func syncPagerWithCoverFlow(_ progress: CGFloat, currentModelId: String) {
+    func syncPagerWithCoverFlow(_ progress: CGFloat, currentModel: ItemModel) {
         guard !isExpanded else { return }
-        guard let itemIndex = models.findIndexById(currentModelId) else { return }
-        let targetOffsetX = (CGFloat(itemIndex) + CGFloat(progress)) * layoutGeometry.pageWidth
+        let targetOffsetX = (CGFloat(currentModel.index) + CGFloat(progress)) * layoutGeometry.pageWidth
         collectionView.setContentOffset(CGPoint(x: targetOffsetX, y: 0), animated: false)
     }
 
@@ -328,7 +328,7 @@ private final class _PageCell: UICollectionViewCell {
     func setPageView(_ pv: NftDetailsPageView) {
         guard pv !== pageView else { return }
 
-        pageView?.removeFromSuperview()
+        clearPageView()
 
         pageView = pv
         pv.translatesAutoresizingMaskIntoConstraints = false
@@ -340,6 +340,22 @@ private final class _PageCell: UICollectionViewCell {
             pageViewTopConstraint,
             pageViewLeadingConstraint
         ])
+    }
+    
+    private func clearPageView() {
+        NSLayoutConstraint.deactivate(
+            [pageViewTopConstraint, pageViewLeadingConstraint].compactMap { $0 }
+        )
+        pageViewTopConstraint = nil
+        pageViewLeadingConstraint = nil
+        pageView?.removeFromSuperview()
+        pageView = nil
+    }
+    
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        
+        clearPageView()
     }
 }
 
@@ -418,7 +434,7 @@ extension NftDetailsPagerView: NftDetailsPageViewDelegate {
         }
     }
     
-    func ntfDetailsOnConfigureAction(forModel model: NftDetailsItemModel, action: NftDetailsItemModel.Action) -> NftDetailsActionConfig? {
+    func ntfDetailsOnConfigureAction(forModel model: ItemModel, action: ItemModel.Action) -> NftDetailsActionConfig? {
         delegate?.ntfDetailsOnConfigureAction(forModel: model, action: action)
     }
 }

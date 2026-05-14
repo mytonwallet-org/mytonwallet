@@ -34,7 +34,7 @@ public extension MAccount {
             let lastSix = firstAddress.suffix(6)
             let first = String(lastSix.prefix(3))
             let last = String(lastSix.suffix(3))
-            return .sixCharaters(first, last)
+            return .sixCharacters(first, last)
         }
     }
     
@@ -257,7 +257,7 @@ public extension AccountContext {
 
 public enum AvatarContent {
     case initial(String)
-    case sixCharaters(String, String)
+    case sixCharacters(String, String)
     case typeIcon(String)
     case image(String)
     // custom images, etc...

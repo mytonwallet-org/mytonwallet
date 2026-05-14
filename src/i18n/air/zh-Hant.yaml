@@ -352,6 +352,10 @@ $subwallets_found:
   oneValue: "已找到：%1$d"
   otherValue: "已找到：%1$d"
 
+$subwallet_scan_no_native_balances: 無原生代幣餘額
+$subwallet_scan_other_tokens_suffix:
+  otherValue: " + 另有 %1$d 種其他代幣"
+
 $subwallets_hint: 使用子錢包可獲取額外地址，無需建立新的密語。
 $subwallets_created_wallets: 如果您之前建立過子錢包，它們將顯示在下面的列表中。
 $subwallets_none: 暫無子錢包。

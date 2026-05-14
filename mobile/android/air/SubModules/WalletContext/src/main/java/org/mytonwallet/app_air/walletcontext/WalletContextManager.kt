@@ -36,7 +36,6 @@ interface WalletContextManagerDelegate {
 
     fun walletIsReady()
     fun isWalletReady(): Boolean
-    fun appResumed()
     fun switchToLegacy()
 
     fun bindQrCodeButton(

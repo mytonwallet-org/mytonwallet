@@ -20,8 +20,8 @@ public class WAmountInput: UITextField {
     public var error = false
     public var isMuted = false
     
-    private let onChange: (BigInt?) -> Void
-    private let onFocusChange: (_ isFocused: Bool) -> ()
+    private var onChange: (BigInt?) -> Void
+    private var onFocusChange: (_ isFocused: Bool) -> ()
     
     private let useSmallerFontAtLength = 15
     private let useEvenSmallerFontAtLength = 18
@@ -43,6 +43,14 @@ public class WAmountInput: UITextField {
     
     public convenience init(maximumFractionDigits: Int, onChange: @escaping () -> Void) {
         self.init(maximumFractionDigits: maximumFractionDigits, onChange: { _ in onChange() })
+    }
+
+    public func updateHandlers(
+        onChange: @escaping (BigInt?) -> Void,
+        onFocusChange: @escaping (_ isFocused: Bool) -> ()
+    ) {
+        self.onChange = onChange
+        self.onFocusChange = onFocusChange
     }
     
     required init?(coder: NSCoder) {
@@ -212,10 +220,11 @@ public struct WUIAmountInput: UIViewRepresentable {
     public let alignment: NSTextAlignment?
     public var error: Bool
     public var muted: Bool
+    public var onUserChange: ((BigInt?) -> Void)?
     
     @State private var cooldown: Date = .distantPast
     
-    public init(amount: Binding<BigInt?>, maximumFractionDigits: Int, font: UIFont? = nil, fractionFont: UIFont? = nil, alignment: NSTextAlignment? = nil, isFocused: Binding<Bool>, error: Bool, muted: Bool = false) {
+    public init(amount: Binding<BigInt?>, maximumFractionDigits: Int, font: UIFont? = nil, fractionFont: UIFont? = nil, alignment: NSTextAlignment? = nil, isFocused: Binding<Bool>, error: Bool, muted: Bool = false, onUserChange: ((BigInt?) -> Void)? = nil) {
         self._amount = amount
         self.maximumFractionDigits = maximumFractionDigits
         self.font = font
@@ -224,6 +233,7 @@ public struct WUIAmountInput: UIViewRepresentable {
         self._isFocused = isFocused
         self.error = error
         self.muted = muted
+        self.onUserChange = onUserChange
     }
     
     public final class Coordinator {
@@ -240,6 +250,7 @@ public struct WUIAmountInput: UIViewRepresentable {
             onChange: { v in
                 DispatchQueue.main.async {
                     amount = v
+                    onUserChange?(v)
                 }
             },
             onFocusChange: { isFocused in
@@ -265,6 +276,22 @@ public struct WUIAmountInput: UIViewRepresentable {
     }
     
     public func updateUIView(_ view: WAmountInput, context: Context) {
+        view.updateHandlers(
+            onChange: { v in
+                DispatchQueue.main.async {
+                    amount = v
+                    onUserChange?(v)
+                }
+            },
+            onFocusChange: { isFocused in
+                DispatchQueue.main.async {
+                    self.isFocused = isFocused
+                    if !isFocused {
+                        cooldown = .now
+                    }
+                }
+            }
+        )
         view.maximumFractionDigits = maximumFractionDigits
         view.error = error
         view.isMuted = muted

@@ -102,7 +102,7 @@ class WAutoCompleteCell(context: Context, val onRemove: () -> Unit) :
         this.isLast = isLast
         titleLabel.text = address.name
         val valueSpan = SpannableStringBuilder()
-        MBlockchain.valueOf(address.chain).symbolIcon?.let {
+        MBlockchain.valueOfOrNull(address.chain)?.symbolIcon?.let {
             val drawable = context.requireDrawableCompat(it)
             drawable.mutate()
             drawable.setTint(WColor.PrimaryLightText.color)

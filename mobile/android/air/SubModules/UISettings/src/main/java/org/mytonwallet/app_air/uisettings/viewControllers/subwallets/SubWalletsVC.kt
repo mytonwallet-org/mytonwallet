@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Rect
 import android.text.SpannableString
 import android.text.Spanned
+import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
@@ -17,8 +18,8 @@ import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
-import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
+import org.mytonwallet.app_air.uicomponents.drawable.GradientShaderDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.helpers.PositionBasedItemDecoration
@@ -43,6 +44,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.MarginImageSpan
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
@@ -87,7 +89,7 @@ class SubWalletsVC(
         val EMPTY_SUBWALLETS_CELL = WCell.Type(6)
 
         private const val MAX_EMPTY_RESULTS_IN_ROW = 5
-        private const val SEARCH_PAUSE_MS = 5000L
+        private const val SEARCH_PAUSE_MS = 1000L
         private val HIDDEN_DERIVATION_LABELS = setOf("default", "phantom")
     }
 
@@ -167,13 +169,21 @@ class SubWalletsVC(
         spannable
     }
 
-    private val bottomReversedCornerViewUpsideDown by lazy {
-        ReversedCornerViewUpsideDown(context, null)
+    private val bottomGradientView = View(context).apply {
+        id = View.generateViewId()
     }
 
     private val createSubwalletButton by lazy {
         WButton(context).apply {
             setOnClickListener { createSubwallet() }
+        }
+    }
+
+    private val addAllFoundSubwalletsButton by lazy {
+        WButton(context, WButton.Type.SECONDARY_WITH_BACKGROUND).apply {
+            text = LocaleController.getString("Add All Found")
+            setOnClickListener { addAllFoundSubwallets() }
+            isEnabled = false
         }
     }
 
@@ -198,8 +208,12 @@ class SubWalletsVC(
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         view.addView(
-            bottomReversedCornerViewUpsideDown,
+            bottomGradientView,
             ViewGroup.LayoutParams(MATCH_PARENT, MATCH_CONSTRAINT)
+        )
+        view.addView(
+            addAllFoundSubwalletsButton,
+            ViewGroup.LayoutParams(MATCH_CONSTRAINT, 50.dp)
         )
         view.addView(
             createSubwalletButton,
@@ -210,7 +224,7 @@ class SubWalletsVC(
             0,
             (navigationController?.getSystemBars()?.top ?: 0) + WNavigationBar.DEFAULT_HEIGHT.dp,
             0,
-            (navigationController?.getSystemBars()?.bottom ?: 0) + 82.dp
+            (navigationController?.getSystemBars()?.bottom ?: 0) + 144.dp
         )
         recyclerView.clipToPadding = false
         recyclerView.addItemDecoration(
@@ -234,12 +248,16 @@ class SubWalletsVC(
                 createSubwalletButton,
                 16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
             )
+            toCenterX(addAllFoundSubwalletsButton, 20f)
+            bottomToTop(addAllFoundSubwalletsButton, createSubwalletButton, 12f)
+            toStart(bottomGradientView)
+            toEnd(bottomGradientView)
+            toBottom(bottomGradientView)
             topToTop(
-                bottomReversedCornerViewUpsideDown,
-                createSubwalletButton,
+                bottomGradientView,
+                addAllFoundSubwalletsButton,
                 -(ViewConstants.GAP + ViewConstants.BLOCK_RADIUS)
             )
-            toBottom(bottomReversedCornerViewUpsideDown)
         }
         navigationBar?.bringToFront()
         createSubwalletButton.post { createSubwalletButton.setText(createButtonSpannable, false) }
@@ -251,7 +269,13 @@ class SubWalletsVC(
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
-        bottomReversedCornerViewUpsideDown.updateTheme()
+        val bgColor = WColor.SecondaryBackground.color
+        val bgColor80 = bgColor.colorWithAlpha(204)
+        val bgColor90 = bgColor.colorWithAlpha(230)
+        bottomGradientView.background = GradientShaderDrawable(
+            intArrayOf(bgColor90 and 0x00FFFFFF, bgColor80, bgColor90),
+            floatArrayOf(0f, 0.1f, 1f)
+        )
     }
 
     override fun scrollToTop() {
@@ -275,11 +299,16 @@ class SubWalletsVC(
     private fun startFetchingVariants() {
         isLoading = true
         seenIndices.clear()
-        rvAdapter.reloadData()
+        refreshList()
         fetchJob?.cancel()
         fetchJob = scope.launch {
             fetchVariantsLoop()
         }
+    }
+
+    private fun refreshList() {
+        rvAdapter.reloadData()
+        addAllFoundSubwalletsButton.isEnabled = groups.isNotEmpty()
     }
 
     private suspend fun fetchVariantsLoop() {
@@ -308,13 +337,15 @@ class SubWalletsVC(
             } catch (_: Exception) {
                 withContext(Dispatchers.Main) {
                     isLoading = false
-                    rvAdapter.reloadData()
+                    refreshList()
                 }
                 return
             }
 
             val hasPositiveBalance = result.any { group ->
-                group.byChain.values.any { it.balance > BigInteger.ZERO }
+                group.byChain.values.any { entry ->
+                    entry.balancesBySlug.any { (_, amt) -> amt > BigInteger.ZERO }
+                }
             }
 
             withContext(Dispatchers.Main) {
@@ -324,7 +355,7 @@ class SubWalletsVC(
                     alreadyShownCells = groups.size
                     groups.addAll(newItems)
                 }
-                rvAdapter.reloadData()
+                refreshList()
             }
 
             emptyResultsInRow = if (hasPositiveBalance) 0 else emptyResultsInRow + 1
@@ -337,7 +368,7 @@ class SubWalletsVC(
 
         withContext(Dispatchers.Main) {
             isLoading = false
-            rvAdapter.reloadData()
+            refreshList()
         }
     }
 
@@ -518,6 +549,78 @@ class SubWalletsVC(
         }
     }
 
+    private fun addAllFoundSubwallets() {
+        if (groups.isEmpty()) return
+        val activeAccount = account ?: return
+
+        val foundWallets: List<Map<String, ApiSubWallet>> = groups.map { group ->
+            group.byChain.mapValues { it.value.wallet }
+        }
+
+        view.lockView()
+        WalletCore.call(
+            ApiMethod.Settings.AddAllFoundSubwallets(accountId, foundWallets)
+        ) { result, error ->
+            if (error != null || result == null) {
+                view.unlockView()
+                showError(error?.parsed)
+                return@call
+            }
+
+            val results = result.results
+            if (results.isEmpty()) {
+                view.unlockView()
+                return@call
+            }
+
+            for ((i, entry) in results.withIndex()) {
+                val group = groups.getOrNull(i)
+                val derivationIndex =
+                    group?.byChain?.values?.firstOrNull()?.wallet?.derivation?.index
+
+                if (entry.isNew) {
+                    val byChain = entry.byChain ?: continue
+                    Logger.d(
+                        Logger.LogTag.ACCOUNT,
+                        LogMessage.Builder()
+                            .append(entry.accountId, LogMessage.MessagePartPrivacy.PUBLIC)
+                            .append("Subwallet Added (batch)", LogMessage.MessagePartPrivacy.PUBLIC)
+                            .build()
+                    )
+                    WGlobalStorage.addAccount(
+                        accountId = entry.accountId,
+                        accountType = activeAccount.accountType.value,
+                        MAccount.byChainToJson(byChain),
+                        name = subwalletTitle(activeAccount.name, derivationIndex),
+                        importedAt = System.currentTimeMillis()
+                    )
+                    AirPushNotifications.subscribe(entry.accountId, ignoreIfLimitReached = true)
+                }
+            }
+
+            val lastAccountId = results.last().accountId
+            WalletCore.activateAccount(
+                accountId = lastAccountId,
+                notifySDK = false
+            ) { _, activateErr ->
+                view.unlockView()
+                if (activateErr != null) {
+                    Logger.e(
+                        Logger.LogTag.ACCOUNT,
+                        LogMessage.Builder()
+                            .append(
+                                "Activation failed in addAllFoundSubwallets: $activateErr",
+                                LogMessage.MessagePartPrivacy.PUBLIC
+                            ).build()
+                    )
+                    return@activateAccount
+                }
+                navigationController?.popToRoot()
+                WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+            }
+        }
+    }
+
     fun createSubwallet() {
         view.lockView()
         WalletCore.call(
@@ -590,6 +693,7 @@ class SubWalletsVC(
             chain.name to AccountChain(address = entry.address, domain = entry.domain)
         }.toMap()
 
+        val display = computeCurrentBalanceDisplay()
         return SubwalletRowData(
             identifier = "current",
             title = ".${currentSubwalletIndex() + 1}",
@@ -597,26 +701,33 @@ class SubWalletsVC(
             network = network ?: MBlockchainNetwork.MAINNET,
             accountId = accountId,
             byChain = displayedByChain,
-            nativeAmount = currentNativeBalancesText(),
-            totalBalance = currentTotalBalanceText()
+            nativeAmount = display.nativeAmount,
+            totalBalance = display.totalBalance
         )
     }
 
     private fun rowData(group: ApiGroupedWalletVariant): SubwalletRowData {
-        val byChain = valueChains.mapNotNull { chain ->
+        val net = network ?: MBlockchainNetwork.MAINNET
+        val orderedChains = displayChains.filter { group.byChain[it.name] != null }
+        val byChain = orderedChains.mapNotNull { chain ->
             val entry = group.byChain[chain.name] ?: return@mapNotNull null
-            chain.name to AccountChain(address = entry.wallet.address)
+            chain.name to AccountChain(
+                address = entry.wallet.address,
+                derivation = entry.wallet.derivation,
+            )
         }.toMap()
+
+        val (nativeAmount, totalBal) = subwalletBalanceDisplay(group)
 
         return SubwalletRowData(
             identifier = group.index.toString(),
             title = ".${group.index + 1}",
             badge = derivationBadge(group),
-            network = network ?: MBlockchainNetwork.MAINNET,
+            network = net,
             accountId = null,
             byChain = byChain,
-            nativeAmount = nativeBalancesText(group),
-            totalBalance = totalBalanceText(group)
+            nativeAmount = nativeAmount,
+            totalBalance = totalBal
         )
     }
 
@@ -646,57 +757,73 @@ class SubWalletsVC(
         return nonEmpty.take(1).uppercase() + nonEmpty.drop(1)
     }
 
-    private fun currentNativeBalancesText(): String {
-        return valueChains.mapNotNull { chain ->
-            val token = TokenStore.getToken(chain.nativeSlug) ?: return@mapNotNull null
-            val balance = currentNativeBalance(chain)
-            balance.doubleAbsRepresentation(token.decimals).toString(
-                token.decimals, token.symbol, 0, true
-            )
-        }.joinToString(", ")
-    }
+    private data class CurrentBalanceDisplay(val nativeAmount: String, val totalBalance: String)
 
-    private fun currentTotalBalanceText(): String {
-        val total = valueChains.fold(0.0) { acc, chain ->
-            val token = TokenStore.getToken(chain.nativeSlug) ?: return@fold acc
-            val balance = currentNativeBalance(chain)
-            acc + balance.doubleAbsRepresentation(token.decimals) * token.priceUsd
+    private fun computeCurrentBalanceDisplay(): CurrentBalanceDisplay {
+        data class AssetItem(val fiat: Double, val part: String)
+
+        val balances = BalanceStore.getBalances(accountId) ?: emptyMap()
+        val valueChainNames = valueChains.map { it.name }.toSet()
+        val items = mutableListOf<AssetItem>()
+        var fiatValue = 0.0
+
+        for ((slug, raw) in balances) {
+            if (raw <= BigInteger.ZERO) continue
+            val token = TokenStore.getToken(slug) ?: continue
+            if (token.chain !in valueChainNames) continue
+            val amountDouble = raw.doubleAbsRepresentation(token.decimals)
+            val rowFiat = amountDouble * token.priceUsd
+            val part = amountDouble.toString(
+                token.decimals, token.symbol, 0, true
+            ) ?: continue
+            items.add(AssetItem(rowFiat, part))
+            fiatValue += rowFiat
         }
-        return total.toString(
+
+        val nativeAmount = items.sortedByDescending { it.fiat }.joinToString(", ") { it.part }
+        val totalBalance = fiatValue.toString(
             WalletCore.baseCurrency.decimalsCount,
             WalletCore.baseCurrency.sign,
             WalletCore.baseCurrency.decimalsCount,
             true
         ) ?: ""
+
+        return CurrentBalanceDisplay(nativeAmount, totalBalance)
     }
 
-    private fun currentNativeBalance(chain: MBlockchain): BigInteger {
-        val balances = BalanceStore.getBalances(accountId) ?: return BigInteger.ZERO
-        return balances[chain.nativeSlug] ?: BigInteger.ZERO
-    }
+    private fun subwalletBalanceDisplay(
+        group: ApiGroupedWalletVariant
+    ): Pair<String, String> {
+        data class AssetItem(val fiat: Double, val part: String)
 
-    private fun nativeBalancesText(group: ApiGroupedWalletVariant): String {
-        return valueChains.mapNotNull { chain ->
-            val entry = group.byChain[chain.name] ?: return@mapNotNull null
-            val token = TokenStore.getToken(chain.nativeSlug) ?: return@mapNotNull null
-            entry.balance.doubleAbsRepresentation(token.decimals).toString(
-                token.decimals, token.symbol, 0, true
-            )
-        }.joinToString(", ")
-    }
+        val items = mutableListOf<AssetItem>()
+        var fiatUsd = 0.0
 
-    private fun totalBalanceText(group: ApiGroupedWalletVariant): String {
-        val total = valueChains.fold(0.0) { acc, chain ->
-            val entry = group.byChain[chain.name] ?: return@fold acc
-            val token = TokenStore.getToken(chain.nativeSlug) ?: return@fold acc
-            acc + entry.balance.doubleAbsRepresentation(token.decimals) * token.priceUsd
+        for (chain in displayChains) {
+            val entry = group.byChain[chain.name] ?: continue
+            for ((slug, raw) in entry.balancesBySlug) {
+                if (raw <= BigInteger.ZERO) continue
+                val token = TokenStore.getToken(slug) ?: continue
+                val amountDouble = raw.doubleAbsRepresentation(token.decimals)
+                val rowFiat = amountDouble * token.priceUsd
+                val part = amountDouble.toString(
+                    token.decimals, token.symbol, 0, true
+                ) ?: continue
+                items.add(AssetItem(rowFiat, part))
+                fiatUsd += rowFiat
+            }
         }
-        return total.toString(
+
+        val nativeAmount = items.sortedByDescending { it.fiat }.joinToString(", ") { it.part }
+
+        val totalBalance = fiatUsd.toString(
             WalletCore.baseCurrency.decimalsCount,
             WalletCore.baseCurrency.sign,
             WalletCore.baseCurrency.decimalsCount,
             true
         ) ?: ""
+
+        return nativeAmount to totalBalance
     }
 
     private fun subwalletTitle(parentName: String, derivationIndex: Int?): String {

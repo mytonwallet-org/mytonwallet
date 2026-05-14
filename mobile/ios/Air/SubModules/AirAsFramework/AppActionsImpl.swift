@@ -232,7 +232,7 @@ private class AppActionsImpl: AppActionsProtocol {
         let add = TokenSelectionVC(
             showMyAssets: false,
             title: lang("Add Token"),
-            delegate: assets,
+            delegate: nil,
             isModal: true,
             onlySupportedChains: true
         )

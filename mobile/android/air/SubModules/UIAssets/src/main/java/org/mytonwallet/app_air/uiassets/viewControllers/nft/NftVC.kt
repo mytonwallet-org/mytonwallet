@@ -1194,7 +1194,7 @@ class NftVC(
                         WMenuPopup.Item(
                             WMenuPopup.Item.Config.Item(
                                 icon = WMenuPopup.Item.Config.Icon(
-                                    icon = org.mytonwallet.app_air.uiassets.R.drawable.ic_burn,
+                                    iconResId = org.mytonwallet.app_air.uiassets.R.drawable.ic_burn,
                                     tintColor = null,
                                     iconSize = 28.dp
                                 ),
@@ -1223,7 +1223,7 @@ class NftVC(
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
-                            icon = org.mytonwallet.app_air.uiassets.R.drawable.ic_card_install,
+                            iconResId = org.mytonwallet.app_air.uiassets.R.drawable.ic_card_install,
                             tintColor = null,
                             iconSize = 28.dp
                         ),
@@ -1256,7 +1256,7 @@ class NftVC(
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
-                            icon = org.mytonwallet.app_air.uiassets.R.drawable.ic_card_pallete,
+                            iconResId = org.mytonwallet.app_air.uiassets.R.drawable.ic_card_pallete,
                             tintColor = null,
                             iconSize = 28.dp
                         ),

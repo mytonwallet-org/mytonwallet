@@ -17,7 +17,7 @@ type OwnProps = {
   isNewAccountImporting?: boolean;
   isLoading?: boolean;
   isTestnet?: boolean;
-  withOtherWalletVersions?: boolean;
+  hasOtherWalletVersions?: boolean;
   shouldHideBackButton?: boolean;
   onBack: NoneToVoidFunction;
   onNewAccountClick: NoneToVoidFunction;
@@ -32,7 +32,7 @@ function AddAccountSelector({
   isNewAccountImporting,
   isLoading,
   isTestnet,
-  withOtherWalletVersions,
+  hasOtherWalletVersions,
   shouldHideBackButton,
   onBack,
   onNewAccountClick,
@@ -90,7 +90,7 @@ function AddAccountSelector({
       )}
 
       <WalletVersionSection
-        isVisible={withOtherWalletVersions}
+        isVisible={hasOtherWalletVersions}
         onClick={onOpenSettingWalletVersion}
       />
     </div>

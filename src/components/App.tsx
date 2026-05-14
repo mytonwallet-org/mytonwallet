@@ -60,6 +60,7 @@ import SignatureModal from './main/modals/SignatureModal';
 import UnhideNftModal from './main/modals/UnhideNftModal';
 import BottomBar from './main/sections/Actions/BottomBar';
 import Toasts from './main/Toasts';
+import WalletRenameModal from './main/WalletRenameModal';
 import MediaViewer from './mediaViewer/MediaViewer';
 import MintCardModal from './mintCard/MintCardModal';
 import Settings from './settings/Settings';
@@ -279,6 +280,7 @@ function App({
             />
           )}
           <Toasts />
+          <WalletRenameModal />
           <Dialogs />
           <ConfettiContainer />
           {IS_CAPACITOR ? <InAppBrowser /> : <IFrameBrowser />}

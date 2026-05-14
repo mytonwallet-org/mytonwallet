@@ -6,6 +6,7 @@ dist-push
 dist-giveaways
 dist-air
 dist-agent
+*.LICENSE.txt
 MyTonWallet-chrome.zip
 MyTonWallet-firefox.zip
 MyTonWallet-firefox-sources.tgz

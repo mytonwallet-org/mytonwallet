@@ -2,6 +2,7 @@
 
 .root {
   --pill-width: 5rem;
+  --drag-offset-px: 0px;
 
   pointer-events: none;
 
@@ -50,6 +51,7 @@
 
 .capsule {
   pointer-events: auto;
+  touch-action: none;
 
   position: relative;
 
@@ -65,6 +67,8 @@
 
   background-color: var(--color-app-background);
   box-shadow: var(--shadow-glass-capsule);
+
+  @include mixins.transition(transform 200ms cubic-bezier(0.32, 0.72, 0, 1));
 
   @supports (backdrop-filter: blur(16px)) {
     background-color: var(--color-background-lock);
@@ -82,29 +86,58 @@
   &::after {
     border-radius: 5rem;
   }
+
+  @include mixins.frostedGlass();
+
+  &.dragging {
+    cursor: grabbing;
+    transform: scale(1.02);
+
+    .pillWrapper {
+      transition: none;
+    }
+  }
 }
 
-.pill {
-  --pill-bg: rgba(44, 146, 240, 0.08);
-
+.pillWrapper {
   pointer-events: none;
 
   position: absolute;
   top: 0.25rem;
   bottom: 0.25rem;
   left: 0.25rem;
-  transform: translateX(calc(var(--active-index, 0) * 100%));
+  transform: translateX(calc(var(--active-index, 0) * 100% + var(--drag-offset-px, 0px)));
 
   width: calc((100% - 0.5rem) / var(--tab-count, 4));
-  border-radius: 5rem;
-
-  background-color: var(--pill-bg);
 
   @include mixins.transition(transform 350ms cubic-bezier(0.32, 0.72, 0, 1));
+}
 
-  :global(html.theme-dark) & {
-    --pill-bg: rgba(70, 156, 236, 0.08);
+.pill {
+  width: 100%;
+  height: 100%;
+  border-radius: 5rem;
+  background-color: var(--color-accent-10o);
+
+  &[data-direction="left"] {
+    transform-origin: left center;
   }
+
+  &[data-direction="right"] {
+    transform-origin: right center;
+  }
+}
+
+/* Two classes reference the same keyframe intentionally: alternating between them forces
+   the browser to restart the animation on every tab switch (same class = no restart) */
+.squeezeA,
+.squeezeB {
+  animation: pillSqueeze 440ms ease;
+}
+
+@keyframes pillSqueeze {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.05, 1); }
 }
 
 .button {

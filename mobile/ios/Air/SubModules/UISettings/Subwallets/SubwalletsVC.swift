@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import SwiftUI
 import UIKit
 import UIComponents
@@ -8,10 +9,12 @@ import WalletContext
 private let segmentedContentTopSpacing: CGFloat = 20
 private let additionalTableContentTopInset: CGFloat = 36
 private let bottomButtonInset: CGFloat = 28
-private let searchPause: Duration = .seconds(5)
+private let bottomActionsContentInset: CGFloat = 160
+private let searchPause: Duration = .seconds(1)
 private let maxEmptyResultsInRow = 5
 private let postHomeToastDelay: TimeInterval = 0.45
 private let hiddenDerivationLabels: Set<String> = ["default", "phantom"]
+private typealias AssetBalanceDisplayItem = (fiat: Double, text: String)
 
 private struct SubwalletAddressData: Hashable {
     let chain: ApiChain
@@ -22,7 +25,7 @@ private struct SubwalletRowData: Hashable {
     let title: String
     let badge: String?
     let addresses: [SubwalletAddressData]
-    let nativeAmount: String
+    let assetAmounts: String
     let totalBalance: String
 }
 
@@ -30,21 +33,28 @@ private final class _NoInsetsCollectionView: UICollectionView {
     override var safeAreaInsets: UIEdgeInsets { .zero }
 }
 
+@MainActor
+private final class SubwalletsActionsState: ObservableObject {
+    @Published var canAddAllFoundSubwallets = false
+}
+
 final class SubwalletsVC: SettingsBaseVC {
     private let variantChains: [ApiChain]
     private let listViewController: SubwalletsListVC
+    private let actionsState: SubwalletsActionsState
 
     init(password: String) {
         let account = AccountStore.account ?? DUMMY_ACCOUNT
         let accountContext = AccountContext(source: .current)
-        let defaultChains = account.orderedChains.map(\.0)
         let displayChains = accountContext.orderedChains.map(\.0)
+        let actionsState = SubwalletsActionsState()
 
         self.variantChains = displayChains.filter { account.supportsSubwallets(on: $0) }
+        self.actionsState = actionsState
         self.listViewController = SubwalletsListVC(
             password: password,
             displayChains: displayChains,
-            defaultChains: defaultChains
+            actionsState: actionsState
         )
 
         super.init(nibName: nil, bundle: nil)
@@ -80,15 +90,22 @@ final class SubwalletsVC: SettingsBaseVC {
         listViewController.didMove(toParent: self)
 
         let bottomButton = HostingView {
-            SubwalletsCreateButton(performCreate: { [weak self] in
-                guard let self else { return }
-                try await self.listViewController.createSubwallet()
-            })
+            SubwalletsBottomActions(
+                actionsState: actionsState,
+                performAddAll: { [weak self] in
+                    guard let self else { return }
+                    try await self.listViewController.addAllFoundSubwallets()
+                },
+                performCreate: { [weak self] in
+                    guard let self else { return }
+                    try await self.listViewController.createSubwallet()
+                }
+            )
         }
         view.addSubview(bottomButton)
         NSLayoutConstraint.activate([
-            bottomButton.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bottomButton.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            bottomButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             bottomButton.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
     }
@@ -126,7 +143,7 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
     private let password: String
     private let accountId: String
     private let displayChains: [ApiChain]
-    private let defaultChains: [ApiChain]
+    private let actionsState: SubwalletsActionsState
 
     private var mnemonic: [String] = []
     private var groups: [ApiGroupedWalletVariant] = []
@@ -136,13 +153,13 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
 
-    init(password: String, displayChains: [ApiChain], defaultChains: [ApiChain]) {
+    fileprivate init(password: String, displayChains: [ApiChain], actionsState: SubwalletsActionsState) {
         let account = AccountStore.account ?? DUMMY_ACCOUNT
 
         self.password = password
         self.accountId = account.id
         self.displayChains = displayChains
-        self.defaultChains = defaultChains
+        self.actionsState = actionsState
 
         super.init(nibName: nil, bundle: nil)
     }
@@ -168,7 +185,7 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
     }
 
     private var visibleGroups: [ApiGroupedWalletVariant] {
-        groups
+        groups.filter { $0.index != currentSubwalletIndex() }
     }
 
     private func setupViews() {
@@ -186,8 +203,8 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
         collectionView.delegate = self
         collectionView.delaysContentTouches = false
         collectionView.contentInsetAdjustmentBehavior = .never
-        collectionView.contentInset = .init(top: 0, left: 0, bottom: 96, right: 0)
-        collectionView.verticalScrollIndicatorInsets = .init(top: 0, left: 0, bottom: 96, right: 0)
+        collectionView.contentInset = .init(top: 0, left: 0, bottom: bottomActionsContentInset, right: 0)
+        collectionView.verticalScrollIndicatorInsets = .init(top: 0, left: 0, bottom: bottomActionsContentInset, right: 0)
 
         view.addSubview(collectionView)
         NSLayoutConstraint.activate([
@@ -222,45 +239,16 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
                 return
             }
 
-            switch section {
-            case .currentWallet:
-                cell.contentConfiguration = UIHostingConfiguration {
-                    VStack(alignment: .leading, spacing: 0) {
-                        SubwalletsExplainerText(text: lang("$subwallets_hint"))
-                        SubwalletsSectionTitle(title: lang("Current Wallet"))
-                    }
-                }
-                .background(Color.clear)
-                .margins(.horizontal, 0)
-                .margins(.vertical, 0)
-            case .subwallets:
-                cell.contentConfiguration = UIHostingConfiguration {
-                    SubwalletsSectionHeader(
-                        isLoading: self.isLoading,
-                        foundCount: self.visibleGroups.count
-                    )
-                }
-                .background(Color.clear)
-                .margins(.horizontal, 0)
-                .margins(.vertical, 0)
-            }
+            self.configureHeaderCell(cell, section: section)
         }
 
         let footerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(
             elementKind: UICollectionView.elementKindSectionFooter
         ) { [weak self] cell, _, indexPath in
             guard let self,
-                  dataSource.sectionIdentifier(for: indexPath.section) == .currentWallet else {
-                cell.contentConfiguration = nil
-                return
-            }
+                  let section = dataSource.sectionIdentifier(for: indexPath.section) else { return }
 
-            cell.contentConfiguration = UIHostingConfiguration {
-                SubwalletsExplainerText(text: lang("$subwallets_created_wallets"), topPadding: 16)
-            }
-            .background(Color.clear)
-            .margins(.horizontal, 0)
-            .margins(.vertical, 0)
+            self.configureFooterCell(cell, section: section)
         }
 
         let currentWalletRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Void> { [weak self] cell, _, _ in
@@ -332,6 +320,73 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
         }
     }
 
+    private func configureHeaderCell(_ cell: UICollectionViewCell, section: Section) {
+        switch section {
+        case .currentWallet:
+            cell.contentConfiguration = UIHostingConfiguration {
+                VStack(alignment: .leading, spacing: 0) {
+                    SubwalletsExplainerText(text: lang("$subwallets_hint"))
+                    SubwalletsSectionTitle(title: lang("Current Wallet"))
+                }
+            }
+            .background(Color.clear)
+            .margins(.horizontal, 0)
+            .margins(.vertical, 0)
+        case .subwallets:
+            cell.contentConfiguration = UIHostingConfiguration {
+                SubwalletsSectionHeader(
+                    isLoading: self.isLoading,
+                    foundCount: self.visibleGroups.count
+                )
+            }
+            .background(Color.clear)
+            .margins(.horizontal, 0)
+            .margins(.vertical, 0)
+        }
+    }
+
+    private func configureFooterCell(_ cell: UICollectionViewCell, section: Section) {
+        switch section {
+        case .currentWallet:
+            cell.contentConfiguration = UIHostingConfiguration {
+                SubwalletsExplainerText(text: lang("$subwallets_created_wallets"), topPadding: 16)
+            }
+            .background(Color.clear)
+            .margins(.horizontal, 0)
+            .margins(.vertical, 0)
+        case .subwallets:
+            cell.contentConfiguration = nil
+        }
+    }
+
+    private func refreshVisibleSupplementaryViews() {
+        for indexPath in collectionView.indexPathsForVisibleSupplementaryElements(ofKind: UICollectionView.elementKindSectionHeader) {
+            guard
+                let section = dataSource.sectionIdentifier(for: indexPath.section),
+                let cell = collectionView.supplementaryView(
+                    forElementKind: UICollectionView.elementKindSectionHeader,
+                    at: indexPath
+                ) as? UICollectionViewCell
+            else {
+                continue
+            }
+            configureHeaderCell(cell, section: section)
+        }
+
+        for indexPath in collectionView.indexPathsForVisibleSupplementaryElements(ofKind: UICollectionView.elementKindSectionFooter) {
+            guard
+                let section = dataSource.sectionIdentifier(for: indexPath.section),
+                let cell = collectionView.supplementaryView(
+                    forElementKind: UICollectionView.elementKindSectionFooter,
+                    at: indexPath
+                ) as? UICollectionViewCell
+            else {
+                continue
+            }
+            configureFooterCell(cell, section: section)
+        }
+    }
+
     private func loadMnemonicAndStartSearch() {
         isLoading = true
         applySnapshot(animated: false)
@@ -377,7 +432,9 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
                 )
 
                 hasPositiveBalance = pageGroups.contains { group in
-                    group.byChain.contains { _, entry in entry.balance > 0 }
+                    group.byChain.contains { _, entry in
+                        entry.balancesBySlug.contains { _, balance in balance > 0 }
+                    }
                 }
 
                 await MainActor.run {
@@ -418,6 +475,8 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
     }
 
     private func applySnapshot(animated: Bool) {
+        actionsState.canAddAllFoundSubwallets = !visibleGroups.isEmpty
+
         guard dataSource != nil else { return }
 
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
@@ -430,11 +489,10 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
         } else if !isLoading {
             snapshot.appendItems([.noSubwallets], toSection: .subwallets)
         }
-        if dataSource.snapshot().sectionIdentifiers.contains(.subwallets) {
-            snapshot.reloadSections([.subwallets])
-        }
 
-        dataSource.apply(snapshot, animatingDifferences: animated)
+        dataSource.apply(snapshot, animatingDifferences: animated) { [weak self] in
+            self?.refreshVisibleSupplementaryViews()
+        }
     }
 
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
@@ -485,6 +543,16 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
         popToRootAfterDelay()
     }
 
+    func addAllFoundSubwallets() async throws {
+        let groups = visibleGroups
+        guard !groups.isEmpty else { return }
+
+        let result = try await AccountStore.addAllFoundSubwallets(groups: groups)
+        AppActions.showHome(popToRoot: true)
+        popToRootAfterDelay()
+        showToastAfterReturningHome(message: lang(result.isNew ? "Subwallet Added" : "Subwallet Switched"))
+    }
+
     private func showToastAfterReturningHome(message: String) {
         DispatchQueue.main.asyncAfter(deadline: .now() + postHomeToastDelay) {
             AppActions.showToast(message: message)
@@ -497,19 +565,20 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
             title: ".\(currentSubwalletIndex() + 1)",
             badge: currentDerivationBadge(),
             addresses: currentAddresses(chains: chains),
-            nativeAmount: currentNativeBalancesText(chains: chains),
+            assetAmounts: currentAssetBalancesText(chains: chains),
             totalBalance: currentTotalBalanceText(chains: chains)
         )
     }
 
     private func rowData(for group: ApiGroupedWalletVariant) -> SubwalletRowData {
         let chains = chains(for: group)
+        let (assetAmounts, totalBalance) = subwalletBalanceDisplay(for: group, chains: chains)
         return SubwalletRowData(
             title: ".\(group.index + 1)",
             badge: derivationBadge(for: group),
             addresses: addresses(for: group, chains: chains),
-            nativeAmount: nativeBalancesText(for: group, chains: chains),
-            totalBalance: totalBalanceText(for: group, chains: chains)
+            assetAmounts: assetAmounts,
+            totalBalance: totalBalance
         )
     }
 
@@ -554,70 +623,74 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
     }
 
     private func chains(for group: ApiGroupedWalletVariant) -> [ApiChain] {
-        let defaultOrder = Dictionary(uniqueKeysWithValues: defaultChains.enumerated().map { offset, chain in
-            (chain, offset)
-        })
+        displayChains.filter { group.entry(for: $0) != nil }
+    }
 
-        return displayChains
-            .filter { group.entry(for: $0) != nil }
-            .sorted { lhs, rhs in
-                let lhsValue = nativeBalanceValue(for: lhs, in: group)
-                let rhsValue = nativeBalanceValue(for: rhs, in: group)
+    private func subwalletBalanceDisplay(
+        for group: ApiGroupedWalletVariant,
+        chains: [ApiChain]
+    ) -> (assetAmounts: String, totalBalance: String) {
+        var items: [AssetBalanceDisplayItem] = []
 
-                if lhsValue != rhsValue {
-                    return lhsValue > rhsValue
-                }
+        for chain in chains {
+            guard let entry = group.entry(for: chain) else { continue }
 
-                return defaultOrder[lhs, default: Int.max] < defaultOrder[rhs, default: Int.max]
+            for (slug, raw) in entry.balancesBySlug where raw > .zero {
+                guard let token = TokenStore.getToken(slug: slug) else { continue }
+
+                let tokenBalance = MTokenBalance(tokenSlug: token.slug, balance: raw, isStaking: false)
+                items.append((
+                    fiat: tokenBalance.toBaseCurrency ?? 0,
+                    text: TokenAmount(raw, token).formatted(.defaultAdaptive)
+                ))
             }
+        }
+
+        return assetBalanceDisplay(from: items)
     }
 
-    private func nativeBalanceValue(for chain: ApiChain, in group: ApiGroupedWalletVariant) -> Double {
-        let balance = group.entry(for: chain)?.balance ?? .zero
-        return MTokenBalance(tokenSlug: chain.nativeToken.slug, balance: balance, isStaking: false).toUsd ?? 0
-    }
-
-    private func currentNativeBalancesText(chains: [ApiChain]) -> String {
-        return chains.prefix(2).map { chain in
-            TokenAmount(currentNativeBalance(for: chain), chain.nativeToken).formatted(.defaultAdaptive)
-        }.joined(separator: ", ")
+    private func currentAssetBalancesText(chains: [ApiChain]) -> String {
+        assetBalanceDisplay(from: currentAssetBalanceItems(chains: chains)).assetAmounts
     }
 
     private func currentTotalBalanceText(chains: [ApiChain]) -> String {
-        let total = chains.reduce(0) { partialResult, chain in
-            let balance = currentNativeBalance(for: chain)
-            return partialResult + (MTokenBalance(tokenSlug: chain.nativeToken.slug, balance: balance, isStaking: false).toBaseCurrency ?? 0)
-        }
-
-        return BaseCurrencyAmount.fromDouble(total, TokenStore.baseCurrency)
-            .formatted(.baseCurrencyEquivalent, roundHalfUp: true)
+        assetBalanceDisplay(from: currentAssetBalanceItems(chains: chains)).totalBalance
     }
 
-    private func currentNativeBalance(for chain: ApiChain) -> BigInt {
-        BalanceDataStore.for(accountId: accountId).walletTokensData?
+    private func currentAssetBalanceItems(chains: [ApiChain]) -> [AssetBalanceDisplayItem] {
+        let chainSet = Set(chains)
+        return BalanceDataStore.for(accountId: accountId).walletTokensData?
             .walletTokens
-            .first(where: { $0.tokenSlug == chain.nativeToken.slug && !$0.isStaking })?
-            .balance ?? .zero
+            .compactMap { tokenBalance in
+                guard
+                    tokenBalance.balance > .zero,
+                    let token = tokenBalance.token,
+                    chainSet.contains(token.chain)
+                else {
+                    return nil
+                }
+
+                return (
+                    fiat: tokenBalance.toBaseCurrency ?? 0,
+                    text: TokenAmount(tokenBalance.balance, token).formatted(.defaultAdaptive)
+                )
+            } ?? []
     }
 
-    private func nativeBalancesText(for group: ApiGroupedWalletVariant, chains: [ApiChain]) -> String {
-        chains.prefix(2).compactMap { chain in
-            guard let entry = group.entry(for: chain) else { return nil }
-            return TokenAmount(entry.balance, chain.nativeToken).formatted(.defaultAdaptive)
-        }.joined(separator: ", ")
-    }
-
-    private func totalBalanceText(for group: ApiGroupedWalletVariant, chains: [ApiChain]) -> String {
-        let total = chains.reduce(0) { partialResult, chain in
-            guard let entry = group.entry(for: chain),
-                  let balance = MTokenBalance(tokenSlug: chain.nativeToken.slug, balance: entry.balance, isStaking: false).toBaseCurrency else {
-                return partialResult
+    private func assetBalanceDisplay(from items: [AssetBalanceDisplayItem]) -> (assetAmounts: String, totalBalance: String) {
+        let sortedItems = items.sorted { lhs, rhs in
+            if lhs.fiat == rhs.fiat {
+                lhs.text < rhs.text
+            } else {
+                lhs.fiat > rhs.fiat
             }
-            return partialResult + balance
         }
-
-        return BaseCurrencyAmount.fromDouble(total, TokenStore.baseCurrency)
+        let assetAmounts = sortedItems.map(\.text).joined(separator: ", ")
+        let total = items.reduce(0) { partialResult, item in partialResult + item.fiat }
+        let totalBalance = BaseCurrencyAmount.fromDouble(total, TokenStore.baseCurrency)
             .formatted(.baseCurrencyEquivalent, roundHalfUp: true)
+
+        return (assetAmounts, totalBalance)
     }
 
     override func scrollToTop(animated: Bool) {
@@ -735,8 +808,6 @@ private struct SubwalletRowView: View {
                 SubwalletAddressesView(addresses: rowData.addresses)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .layoutPriority(1)
-            .clipped()
 
             VStack(alignment: .trailing, spacing: 0) {
                 Text("≥ \(rowData.totalBalance)")
@@ -746,15 +817,14 @@ private struct SubwalletRowView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
 
-                Text(rowData.nativeAmount)
+                Text(rowData.assetAmounts)
                     .font(.system(size: 14, weight: .regular))
                     .tracking(-0.15)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
             }
+            .frame(minWidth: 140, alignment: .trailing)
             .multilineTextAlignment(.trailing)
-            .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, minHeight: 60, alignment: .center)
@@ -801,11 +871,10 @@ private struct SubwalletAddressView: View {
                     .tracking(-0.15)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
+                    .truncationMode(.middle)
             }
         }
         .font(.system(size: 14, weight: .regular))
-        .fixedSize(horizontal: true, vertical: false)
         .frame(height: 18, alignment: .center)
     }
 
@@ -826,9 +895,12 @@ private func subwalletsFoundText(_ count: Int) -> String {
     return String.localizedStringWithFormat(localized, count)
 }
 
-private struct SubwalletsCreateButton: View {
+private struct SubwalletsBottomActions: View {
+    @ObservedObject var actionsState: SubwalletsActionsState
+    let performAddAll: @MainActor () async throws -> Void
     let performCreate: @MainActor () async throws -> Void
 
+    @State private var isAddingAll = false
     @State private var isCreating = false
 
     var body: some View {
@@ -841,23 +913,54 @@ private struct SubwalletsCreateButton: View {
             .padding(.top, -16)
             .ignoresSafeArea()
 
-            Button(action: onCreate) {
-                Label {
-                    Text(lang("Create Subwallet"))
-                } icon: {
-                    Image(systemName: "plus")
+            VStack(spacing: 10) {
+                Button(action: onAddAll) {
+                    Label {
+                        Text(lang("Add All Found"))
+                    } icon: {
+                        Image(systemName: "plus.square.on.square")
+                    }
                 }
+                .buttonStyle(.airSecondary)
+                .environment(\.isLoading, isAddingAll)
+                .disabled(!actionsState.canAddAllFoundSubwallets || isBusy)
+
+                Button(action: onCreate) {
+                    Label {
+                        Text(lang("Create Subwallet"))
+                    } icon: {
+                        Image(systemName: "plus")
+                    }
+                }
+                .buttonStyle(.airPrimary)
+                .environment(\.isLoading, isCreating)
+                .disabled(isBusy)
             }
-            .buttonStyle(.airPrimary)
-            .environment(\.isLoading, isCreating)
             .padding(.horizontal, 30)
             .padding(.top, 16)
             .padding(.bottom, bottomButtonInset)
         }
     }
 
+    private var isBusy: Bool {
+        isAddingAll || isCreating
+    }
+
+    private func onAddAll() {
+        guard actionsState.canAddAllFoundSubwallets, !isBusy else { return }
+        isAddingAll = true
+        Task { @MainActor in
+            do {
+                try await performAddAll()
+            } catch {
+                isAddingAll = false
+                AppActions.showError(error: error)
+            }
+        }
+    }
+
     private func onCreate() {
-        guard !isCreating else { return }
+        guard !isBusy else { return }
         isCreating = true
         Task { @MainActor in
             do {

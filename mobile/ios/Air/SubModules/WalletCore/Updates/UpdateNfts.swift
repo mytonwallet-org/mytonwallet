@@ -9,7 +9,7 @@ extension ApiUpdate {
         public var chain: ApiChain
         public var collectionAddress: String?
         public var isFullLoading: Bool?
-        /** Complete set of addresses seen during a streaming session. Sent with the final `isFullLoading: false` update. */
+        /** Complete set of addresses seen during a successfully completed streaming session. */
         public var streamedAddresses: [String]?
     }
     

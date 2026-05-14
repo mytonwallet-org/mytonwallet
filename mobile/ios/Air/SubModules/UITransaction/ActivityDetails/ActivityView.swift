@@ -19,6 +19,7 @@ struct ActivityView: View {
     @Namespace private var ns
     
     @State private var detailsOpacity: CGFloat = 0
+    @State private var scrollToTopTrigger: UUID? = nil
 
     @State private var collapsedHeight: CGFloat = 0
     @State private var detailsHeight: CGFloat = 0
@@ -42,7 +43,7 @@ struct ActivityView: View {
     var body: some View {
         WithPerceptionTracking {
             @Perception.Bindable var model = model
-            InsetList(spacing: 16) {
+            InsetList(spacing: 16, scrollToTopTrigger: scrollToTopTrigger) {
                 
                 VStack(spacing: 20) {
                     if activity.transaction?.nft != nil {
@@ -83,6 +84,11 @@ struct ActivityView: View {
             .animation(.default, value: decryptedComment)
             .scrollDisabled(model.scrollingDisabled)
             .backportScrollClipDisabled()
+            .onChange(of: model.detailsExpanded) { expanded in
+                if !expanded {
+                    scrollToTopTrigger = UUID()
+                }
+            }
         }
     }
 
@@ -339,9 +345,9 @@ struct ActivityView: View {
                 let exchangeAmount = TokenAmount.fromDouble(ex.price, ex.fromToken)
                 let exchangeRateString = exchangeAmount.formatted(.compact,
                     roundHalfUp: false,
-                    precision: swap.status == .pending || swap.status == .pendingTrusted ? .approximate : .exact
+                    precision: swap.displayStatus().isPending ? .approximate : .exact
                 )
-                Text("\(ex.toToken.symbol) ≈ \(exchangeRateString)")
+                Text("\(ex.toToken.symbol) = \(exchangeRateString)")
             }
         }
     }
@@ -370,7 +376,7 @@ struct ActivityView: View {
                 )
 
                 let fee = MFee(
-                    precision: swap.status == .pending || swap.status == .pendingTrusted ? .approximate : .exact,
+                    precision: swap.displayStatus().isPending ? .approximate : .exact,
                     terms: terms,
                     nativeSum: nil
                 )

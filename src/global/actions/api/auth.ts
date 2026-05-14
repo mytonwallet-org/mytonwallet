@@ -447,6 +447,13 @@ addActionHandler('afterCongratulations', (global, actions, { isImporting }) => {
 
     if (selectIsOneAccount(global)) {
       actions.resetApiSettings();
+    } else {
+      actions.showToast({
+        message: getTranslation('Wallet Created'),
+        icon: 'icon-wallet-add',
+        action: 'openRenameWallet',
+        actionText: getTranslation('Set Name'),
+      });
     }
   }
 });
@@ -477,6 +484,13 @@ addActionHandler('skipCheckMnemonic', (global, actions) => {
   actions.afterSignIn();
   if (selectIsOneAccount(global)) {
     actions.resetApiSettings();
+  } else {
+    actions.showToast({
+      message: getTranslation('Wallet Created'),
+      icon: 'icon-wallet-add',
+      action: 'openRenameWallet',
+      actionText: getTranslation('Set Name'),
+    });
   }
 });
 
@@ -557,6 +571,13 @@ addActionHandler('afterConfirmDisclaimer', (global, actions) => {
   actions.afterSignIn();
   if (selectIsOneAccount(global)) {
     actions.resetApiSettings();
+  } else {
+    actions.showToast({
+      message: getTranslation('Wallet Imported'),
+      icon: 'icon-wallet-add',
+      action: 'openRenameWallet',
+      actionText: getTranslation('Set Name'),
+    });
   }
 });
 
@@ -929,6 +950,12 @@ addActionHandler('createSubWallet', async (global, actions, { password }) => {
 
   if (!result.isNew) {
     actions.switchAccount({ accountId: result.accountId });
+    actions.showToast({
+      message: getTranslation('Subwallet Switched'),
+      icon: 'icon-subwallet-change',
+      action: 'openRenameWallet',
+      actionText: getTranslation('Set Name'),
+    });
     return;
   }
 
@@ -954,6 +981,13 @@ addActionHandler('createSubWallet', async (global, actions, { password }) => {
 
     void actions.tryAddNotificationAccount({ accountId: result.accountId });
   }
+
+  actions.showToast({
+    message: getTranslation('Subwallet Created'),
+    icon: 'icon-subwallet-add',
+    action: 'openRenameWallet',
+    actionText: getTranslation('Set Name'),
+  });
 });
 
 addActionHandler('addSubWallet', async (global, actions, { group }) => {
@@ -987,6 +1021,8 @@ addActionHandler('addSubWallet', async (global, actions, { group }) => {
     actions.showToast({
       message: getTranslation('Subwallet Switched'),
       icon: 'icon-subwallet-change',
+      action: 'openRenameWallet',
+      actionText: getTranslation('Set Name'),
     });
     return;
   }
@@ -1017,7 +1053,90 @@ addActionHandler('addSubWallet', async (global, actions, { group }) => {
   actions.showToast({
     message: getTranslation('Subwallet Added'),
     icon: 'icon-subwallet-add',
+    action: 'openRenameWallet',
+    actionText: getTranslation('Set Name'),
   });
+});
+
+addActionHandler('addAllFoundSubwallets', async (global, actions, { foundSubwallets }) => {
+  const accountId = selectCurrentAccountId(global)!;
+
+  const partialByChainList = foundSubwallets.map((group) => Object.fromEntries(
+    (Object.keys(group.byChain) as ApiChain[]).map((chain) => {
+      const entry = group.byChain[chain]!;
+      return [chain, entry.wallet];
+    }),
+  ));
+
+  const result = await callApi('addAllFoundSubwallets', accountId, partialByChainList);
+
+  global = getGlobal();
+  global = clearIsPinAccepted(global);
+  setGlobal(global);
+
+  if (!result) {
+    actions.showError({ error: ApiCommonError.Unexpected });
+    return;
+  }
+
+  if ('error' in result) {
+    actions.showError({ error: result.error });
+    return;
+  }
+
+  const currentAccount = selectAccount(global, accountId);
+  const baseTitle = currentAccount?.title && currentAccount.title.replace(/\.\d+$/, '');
+  const { results } = result;
+
+  for (let i = 0; i < results.length; i++) {
+    const entry = results[i];
+    if (!entry) continue;
+
+    const isLast = i === results.length - 1;
+
+    if (entry.isNew && baseTitle && currentAccount) {
+      global = getGlobal();
+
+      const accounts = selectNetworkAccounts(global) || {};
+      const title = generateNextSubwalletTitle(baseTitle, accounts);
+
+      global = createAccount({
+        global,
+        accountId: entry.accountId,
+        byChain: entry.byChain,
+        type: currentAccount.type,
+        partial: { title },
+      });
+
+      if (isLast) {
+        global = updateCurrentAccountId(global, entry.accountId);
+      }
+
+      setGlobal(global);
+
+      void actions.tryAddNotificationAccount({ accountId: entry.accountId });
+    } else if (isLast && !entry.isNew) {
+      actions.switchAccount({ accountId: entry.accountId });
+    }
+  }
+
+  const lastEntry = results.at(-1);
+
+  if (lastEntry?.isNew) {
+    actions.showToast({
+      message: getTranslation('Subwallet Added'),
+      icon: 'icon-subwallet-add',
+      action: 'openRenameWallet',
+      actionText: getTranslation('Set Name'),
+    });
+  } else if (lastEntry) {
+    actions.showToast({
+      message: getTranslation('Subwallet Switched'),
+      icon: 'icon-subwallet-change',
+      action: 'openRenameWallet',
+      actionText: getTranslation('Set Name'),
+    });
+  }
 });
 
 addActionHandler('setIsAuthLoading', (global, actions, { isLoading }) => {
@@ -1074,6 +1193,12 @@ addActionHandler('importViewAccount', async (global, actions, { addressByChain }
     actions.requestConfetti();
   } else {
     actions.closeAddAccountModal();
+    actions.showToast({
+      message: getTranslation('View Wallet Added'),
+      icon: 'icon-wallet-view',
+      action: 'openRenameWallet',
+      actionText: getTranslation('Set Name'),
+    });
   }
   void vibrateOnSuccess();
 });

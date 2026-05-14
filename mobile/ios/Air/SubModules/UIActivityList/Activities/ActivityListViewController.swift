@@ -113,6 +113,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         configuration.headerTopPadding = 0
         configuration.headerMode = .supplementary
         configuration.separatorConfiguration.bottomSeparatorInsets.leading = 62
+        configuration.separatorConfiguration.bottomSeparatorInsets.trailing = 12
         if !IOS_26_MODE_ENABLED {
             configuration.separatorConfiguration.color = .air.separator
         }

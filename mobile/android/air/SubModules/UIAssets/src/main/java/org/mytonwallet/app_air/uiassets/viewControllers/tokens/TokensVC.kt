@@ -797,8 +797,8 @@ class TokensVC(
 
     private fun openAdd(token: MToken) {
         val window = this.window ?: return
-        val receiveVC =
-            ReceiveVC.createIfAvailable(context, MBlockchain.valueOf(token.chain)) ?: return
+        val chain = MBlockchain.valueOfOrNull(token.chain) ?: return
+        val receiveVC = ReceiveVC.createIfAvailable(context, chain) ?: return
         val navVC = WNavigationController(window).apply {
             setRoot(receiveVC)
         }

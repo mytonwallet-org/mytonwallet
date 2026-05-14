@@ -5,7 +5,6 @@ import android.graphics.Typeface
 import androidx.core.content.res.ResourcesCompat
 import org.mytonwallet.app_air.walletbasecontext.R
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 enum class WFont {
     Regular,
@@ -15,17 +14,6 @@ enum class WFont {
 
     NunitoSemiBold,
     NunitoExtraBold
-}
-
-enum class FontFamily(val familyName: String, val displayName: String) {
-    ROBOTO("roboto", "Roboto"),
-    MISANS("misans", "Mi Sans");
-
-    companion object {
-        fun fromFamilyName(familyName: String?): FontFamily {
-            return entries.firstOrNull { it.familyName == familyName } ?: MISANS
-        }
-    }
 }
 
 val WFont.typeface: Typeface
@@ -41,26 +29,9 @@ val WFont.typeface: Typeface
         }
     }
 
-val FontFamily.textOffset: Int
-    get() {
-        return 0
-    }
-
-/** Per-font visual size adjustment in sp. Roboto reads larger than Mi Sans at the same size. */
-val FontFamily.sizeOffset: Float
-    get() = when (this) {
-        FontFamily.ROBOTO -> 0f
-        FontFamily.MISANS -> -0.5f
-    }
-
-/**
- * Resolves a font size for the active font and screen size.
- * Regular screens: [base] + font-family offset. Small screens: [base] - 1 + font-family offset.
- * With base=16: Roboto 16/15, Mi Sans 15.5/14.5.
- */
 fun adaptiveFontSize(base: Float = 16f): Float {
     val screenAdjusted = if (ApplicationContextHolder.isSmallScreen) base - 1f else base
-    return screenAdjusted + FontManager.activeFont.sizeOffset
+    return screenAdjusted - 0.5f
 }
 
 object FontManager {
@@ -72,35 +43,13 @@ object FontManager {
     lateinit var nunitoSemiBold: Typeface
     lateinit var nunitoExtraBold: Typeface
 
-    lateinit var activeFont: FontFamily
-        private set
-
     fun init(context: Context) {
-        activeFont = FontFamily.fromFamilyName(WGlobalStorage.getActiveFont())
-
-        when (activeFont) {
-            FontFamily.ROBOTO -> {
-                regular = ResourcesCompat.getFont(context, R.font.roboto_regular)!!
-                medium = ResourcesCompat.getFont(context, R.font.roboto_medium)!!
-                demiBold = ResourcesCompat.getFont(context, R.font.roboto_medium)!!
-                semiBold = ResourcesCompat.getFont(context, R.font.roboto_semi_bold)!!
-            }
-
-            FontFamily.MISANS -> {
-                regular = ResourcesCompat.getFont(context, R.font.misans_regular)!!
-                medium = ResourcesCompat.getFont(context, R.font.misans_medium)!!
-                demiBold = ResourcesCompat.getFont(context, R.font.misans_demi_bold)!!
-                semiBold = ResourcesCompat.getFont(context, R.font.misans_semibold)!!
-            }
-        }
+        regular = ResourcesCompat.getFont(context, R.font.misans_regular)!!
+        medium = ResourcesCompat.getFont(context, R.font.misans_medium)!!
+        demiBold = ResourcesCompat.getFont(context, R.font.misans_demi_bold)!!
+        semiBold = ResourcesCompat.getFont(context, R.font.misans_semibold)!!
 
         nunitoSemiBold = ResourcesCompat.getFont(context, R.font.nunito_semi_bold)!!
         nunitoExtraBold = ResourcesCompat.getFont(context, R.font.nunito_extra_bold)!!
-    }
-
-    fun setActiveFont(context: Context, font: FontFamily) {
-        activeFont = font
-        WGlobalStorage.setActiveFont(font.familyName)
-        init(context)
     }
 }

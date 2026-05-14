@@ -14,6 +14,7 @@ interface OwnProps {
   imageClassName?: string;
   children?: TeactJsx;
   fallback?: TeactJsx;
+  forceLoaded?: boolean;
   onLoad?: NoneToVoidFunction;
   onError?: NoneToVoidFunction;
 }
@@ -27,6 +28,7 @@ function ImageComponent({
   imageClassName,
   children,
   fallback,
+  forceLoaded,
   onLoad,
   onError,
 }: OwnProps) {
@@ -47,7 +49,7 @@ function ImageComponent({
 
   const shouldShowFallback = (hasError || !url) && !!fallback;
 
-  const divRef = useMediaTransition(isLoaded || shouldShowFallback);
+  const divRef = useMediaTransition(forceLoaded || isLoaded || shouldShowFallback);
 
   return (
     <div ref={divRef} className={className} style={isSlow ? 'transition-duration: 0.5s;' : undefined}>

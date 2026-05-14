@@ -19,3 +19,13 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Capacitor
+-keep class com.getcapacitor.PluginHandle { *; }
+-keep @interface com.getcapacitor.annotation.** { *; }
+-keep @interface com.getcapacitor.NativePlugin { *; }
+
+# kotlinx.coroutines: keep Main dispatcher factory so ServiceLoader can resolve
+# Dispatchers.Main. Without it, FilesystemPlugin's lazy CoroutineScope crashes
+# on Bridge.onDestroy with ExceptionInInitializerError.
+-keep class kotlinx.coroutines.android.AndroidDispatcherFactory { <init>(); }

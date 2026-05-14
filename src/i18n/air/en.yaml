@@ -359,6 +359,10 @@ $more_nfts:
 $subwallets_found:
   oneValue: "Found: %1$d"
   otherValue: "Found: %1$d"
+$subwallet_scan_no_native_balances: No native balances
+$subwallet_scan_other_tokens_suffix:
+  oneValue: " + %1$d other token"
+  otherValue: " + %1$d other tokens"
 $subwallets_hint: Use subwallets to get additional addresses without creating a new set of secret words.
 $subwallets_created_wallets: If you have previously created subwallets, they will appear in the list below.
 $subwallets_none: No subwallets yet.

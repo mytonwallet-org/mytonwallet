@@ -92,7 +92,7 @@ final class TokenExpandableContentView: WTouchPassView {
 
     private lazy var iconView: IconView = {
         let v = IconView(size: 60)
-        v.setChainSize(24, borderWidth: 1.5, borderColor: isInModal ? .air.sheetBackground : .air.groupedBackground, horizontalOffset: 5, verticalOffset: 1.5)
+        v.setChainSize(24, borderWidth: 1.5, horizontalOffset: 5, verticalOffset: 1.5)
         v.config(with: token, isStaking: false, isWalletView: false, shouldShowChain: true)
         v.isUserInteractionEnabled = false
         return v

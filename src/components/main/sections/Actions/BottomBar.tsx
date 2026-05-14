@@ -1,4 +1,6 @@
-import React, { memo, useState } from '../../../../lib/teact/teact';
+import React, {
+  memo, useEffect, useRef, useState,
+} from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
 import type { Theme } from '../../../../global/types';
@@ -16,6 +18,7 @@ import useFlag from '../../../../hooks/useFlag';
 import { getIsBottomBarHidden, subscribeToBottomBarVisibility } from '../../../../hooks/useHideBottomBar';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
+import useDraggablePill from './hooks/useDraggablePill';
 
 import AnimatedIconWithPreview from '../../../ui/AnimatedIconWithPreview';
 import Button from '../../../ui/Button';
@@ -30,8 +33,25 @@ interface StateProps {
   accentColorIndex?: number;
 }
 
+type IconKey = 'iconWallet' | 'iconAgent' | 'iconExplore' | 'iconSettings';
+
+interface TabConfig {
+  index: number;
+  label: string;
+  iconKey: IconKey;
+  onClick: NoneToVoidFunction;
+}
+
 const ICON_SIZE_PX = 38;
 const ANIMATED_STICKER_SPEED = 2;
+
+const TAB_WALLET = 0;
+const TAB_AGENT = 1;
+const TAB_EXPLORE = 2;
+const TAB_SETTINGS_FULL = 3;
+
+const TAB_COUNT = IS_CORE_WALLET ? 2 : 4;
+const SETTINGS_INDEX = IS_CORE_WALLET ? 1 : TAB_SETTINGS_FULL;
 
 function BottomBar({
   theme, areSettingsOpen, isAgentOpen, isExploreOpen, accentColorIndex,
@@ -50,11 +70,55 @@ function BottomBar({
     });
   });
 
-  const isWalletTabActive = !isAgentOpen && !isExploreOpen && !areSettingsOpen;
-  const tabCount = IS_CORE_WALLET ? 2 : 4;
   const activeIndex = getActiveIndex({ isAgentOpen, isExploreOpen, areSettingsOpen });
+
+  const tabs: TabConfig[] = IS_CORE_WALLET
+    ? [
+      { index: TAB_WALLET, label: 'Wallet', iconKey: 'iconWallet', onClick: switchToWallet },
+      { index: SETTINGS_INDEX, label: 'Settings', iconKey: 'iconSettings', onClick: switchToSettings },
+    ]
+    : [
+      { index: TAB_WALLET, label: 'Wallet', iconKey: 'iconWallet', onClick: switchToWallet },
+      { index: TAB_AGENT, label: 'Agent', iconKey: 'iconAgent', onClick: switchToAgent },
+      { index: TAB_EXPLORE, label: 'Explore', iconKey: 'iconExplore', onClick: switchToExplore },
+      { index: SETTINGS_INDEX, label: 'Settings', iconKey: 'iconSettings', onClick: switchToSettings },
+    ];
+
+  const switchToTabByIndex = useLastCallback((index: number) => {
+    tabs.find((tab) => tab.index === index)?.onClick();
+  });
+
+  const {
+    capsuleRef,
+    isDragging,
+    previewIndex,
+    pointerHandlers,
+  } = useDraggablePill({
+    tabCount: TAB_COUNT,
+    activeIndex,
+    onCommit: switchToTabByIndex,
+  });
+
+  const prevActiveRef = useRef(activeIndex);
+  // `animationKey` flips between 'a' and 'b' on every tab switch so the matching `.squeezeA` /
+  // `.squeezeB` class swaps - applying the same class twice would not restart the CSS animation
+  const [squeeze, setSqueeze] = useState<{ animationKey: 'a' | 'b'; direction: 'left' | 'right' } | undefined>();
+
+  useEffect(() => {
+    if (prevActiveRef.current === activeIndex) return;
+
+    const direction = activeIndex > prevActiveRef.current ? 'right' : 'left';
+    prevActiveRef.current = activeIndex;
+
+    setSqueeze((prev) => ({
+      animationKey: prev?.animationKey === 'a' ? 'b' : 'a',
+      direction,
+    }));
+  }, [activeIndex]);
+
+  const renderedActiveIndex = previewIndex ?? activeIndex;
   const rootStyle = buildStyle(
-    `--tab-count: ${tabCount}`,
+    `--tab-count: ${TAB_COUNT}`,
     `--active-index: ${activeIndex}`,
   );
 
@@ -63,44 +127,36 @@ function BottomBar({
       className={buildClassName(styles.root, isHidden && styles.hidden)}
       style={rootStyle}
     >
-      <div className={styles.capsule}>
-        <div className={styles.pill} />
-        <TabButton
-          isActive={isWalletTabActive}
-          label={lang('Wallet')}
-          tgsUrl={isWalletTabActive ? stickerPaths.iconWalletSolid : stickerPaths.iconWallet}
-          previewUrl={isWalletTabActive ? stickerPaths.preview.iconWalletSolid : stickerPaths.preview.iconWallet}
-          accentColor={accentColor}
-          onClick={switchToWallet}
-        />
-        {!IS_CORE_WALLET && (
-          <>
+      <div
+        ref={capsuleRef}
+        className={buildClassName(styles.capsule, isDragging && styles.dragging)}
+        {...pointerHandlers}
+      >
+        <div className={styles.pillWrapper}>
+          <div
+            className={buildClassName(
+              styles.pill,
+              squeeze && (squeeze.animationKey === 'a' ? styles.squeezeA : styles.squeezeB),
+            )}
+            data-direction={squeeze?.direction}
+          />
+        </div>
+        {tabs.map(({ index, label, iconKey, onClick }) => {
+          const isActive = renderedActiveIndex === index;
+          const variant = isActive ? `${iconKey}Solid` as const : iconKey;
+
+          return (
             <TabButton
-              isActive={isAgentOpen}
-              label={lang('Agent')}
-              tgsUrl={isAgentOpen ? stickerPaths.iconAgentSolid : stickerPaths.iconAgent}
-              previewUrl={isAgentOpen ? stickerPaths.preview.iconAgentSolid : stickerPaths.preview.iconAgent}
+              key={index}
+              isActive={isActive}
+              label={lang(label)}
+              tgsUrl={stickerPaths[variant]}
+              previewUrl={stickerPaths.preview[variant]}
               accentColor={accentColor}
-              onClick={switchToAgent}
+              onClick={onClick}
             />
-            <TabButton
-              isActive={isExploreOpen}
-              label={lang('Explore')}
-              tgsUrl={isExploreOpen ? stickerPaths.iconExploreSolid : stickerPaths.iconExplore}
-              previewUrl={isExploreOpen ? stickerPaths.preview.iconExploreSolid : stickerPaths.preview.iconExplore}
-              accentColor={accentColor}
-              onClick={switchToExplore}
-            />
-          </>
-        )}
-        <TabButton
-          isActive={areSettingsOpen}
-          label={lang('Settings')}
-          tgsUrl={areSettingsOpen ? stickerPaths.iconSettingsSolid : stickerPaths.iconSettings}
-          previewUrl={areSettingsOpen ? stickerPaths.preview.iconSettingsSolid : stickerPaths.preview.iconSettings}
-          accentColor={accentColor}
-          onClick={switchToSettings}
-        />
+          );
+        })}
       </div>
     </div>
   );
@@ -118,8 +174,8 @@ export default memo(withGlobal((global): StateProps => {
   };
 })(BottomBar));
 
-function TabButton({
-  label, tgsUrl, previewUrl, isActive, accentColor, onClick,
+const TabButton = memo(({
+  isActive, label, tgsUrl, previewUrl, accentColor, onClick,
 }: {
   isActive?: boolean;
   label: string;
@@ -127,7 +183,7 @@ function TabButton({
   previewUrl: string;
   accentColor?: string;
   onClick: NoneToVoidFunction;
-}) {
+}) => {
   const [isAnimating, startAnimation, stopAnimation] = useFlag();
 
   const handleClick = useLastCallback(() => {
@@ -156,18 +212,18 @@ function TabButton({
       <span className={styles.label}>{label}</span>
     </Button>
   );
-}
+});
 
 function getActiveIndex({
   isAgentOpen, isExploreOpen, areSettingsOpen,
 }: Pick<StateProps, 'isAgentOpen' | 'isExploreOpen' | 'areSettingsOpen'>) {
   if (IS_CORE_WALLET) {
-    return areSettingsOpen ? 1 : 0;
+    return areSettingsOpen ? SETTINGS_INDEX : TAB_WALLET;
   }
 
-  if (isAgentOpen) return 1;
-  if (isExploreOpen) return 2;
-  if (areSettingsOpen) return 3;
+  if (isAgentOpen) return TAB_AGENT;
+  if (isExploreOpen) return TAB_EXPLORE;
+  if (areSettingsOpen) return TAB_SETTINGS_FULL;
 
-  return 0;
+  return TAB_WALLET;
 }

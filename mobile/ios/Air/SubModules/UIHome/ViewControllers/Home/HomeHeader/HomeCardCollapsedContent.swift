@@ -58,9 +58,17 @@ private struct _CollapsedDisplayName: View {
     
     var body: some View {
         WithPerceptionTracking {
-            Text(accountContext.account.displayName)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            HStack(spacing: 4) {
+                if accountContext.account.isView {
+                    Image.airBundle("inline_view")
+                        .accessibilityHidden(true)
+                        .padding(.top, 2)
+                }
+                Text(accountContext.account.displayName)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.secondary)
+            .font(.system(size: 17))
         }
     }
 }

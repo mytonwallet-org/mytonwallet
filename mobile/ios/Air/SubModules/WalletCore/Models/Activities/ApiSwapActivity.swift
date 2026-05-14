@@ -37,6 +37,34 @@ public enum ApiSwapStatus: String, Codable, Sendable {
     case expired
 }
 
+public enum SwapDisplayStatus: Sendable, Equatable {
+    case pending
+    case waitingForPayment
+    case hold
+    case expired
+    case refunded
+    case failed
+    case completed
+
+    public var isPending: Bool {
+        switch self {
+        case .pending, .waitingForPayment:
+            true
+        case .hold, .expired, .refunded, .failed, .completed:
+            false
+        }
+    }
+
+    public var isError: Bool {
+        switch self {
+        case .expired, .refunded, .failed:
+            true
+        case .pending, .waitingForPayment, .hold, .completed:
+            false
+        }
+    }
+}
+
 public struct ApiSwapCexTransactionExtras: Codable, Equatable, Hashable, Sendable {
     public let payinAddress: String
     public let payoutAddress: String
@@ -84,6 +112,41 @@ public enum ApiSwapCexTransactionStatus: String, Codable, Sendable {
 }
 
 public extension ApiSwapActivity {
+    func displayStatus(accountChains: Set<ApiChain>? = nil) -> SwapDisplayStatus {
+        if let cexStatus = cex?.status {
+            switch cexStatus {
+            case .expired, .overdue:
+                return .expired
+            case .refunded:
+                return .refunded
+            case .failed:
+                return .failed
+            case .hold:
+                return .hold
+            case .finished, .confirmed:
+                return .completed
+            case .waiting:
+                if let accountChains, !getShouldSkipSwapWaitingStatus(swap: self, accountChains: accountChains) {
+                    return .waitingForPayment
+                }
+                return .pending
+            case .new, .confirming, .exchanging, .sending, .pending:
+                return .pending
+            }
+        }
+
+        switch status {
+        case .failed:
+            return .failed
+        case .expired:
+            return .expired
+        case .pending, .pendingTrusted:
+            return .pending
+        case .completed, .confirmed:
+            return .completed
+        }
+    }
+
     var fromToken: ApiToken? {
         TokenStore.getToken(slugOrAddress: from)
     }
@@ -125,4 +188,15 @@ public func getSwapType(from: String, to: String, accountChains: Set<ApiChain>) 
         return .crosschainFromWallet
     }
     return .crosschainToWallet
+}
+
+public func getShouldSkipSwapWaitingStatus(swap: ApiSwapActivity, accountChains: Set<ApiChain>) -> Bool {
+    getSwapType(from: swap.from, to: swap.to, accountChains: accountChains) != .crosschainToWallet
+}
+
+public func getShouldSkipSwapWaitingStatus(activity: ApiActivity, accountChains: Set<ApiChain>) -> Bool {
+    if let swap = activity.swap {
+        return getShouldSkipSwapWaitingStatus(swap: swap, accountChains: accountChains)
+    }
+    return false
 }

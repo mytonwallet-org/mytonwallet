@@ -68,6 +68,7 @@ final class TokenExpandableChartView: UIView {
     private var onPeriodChange: ((ApiPriceHistoryPeriod) -> Void)? = nil
 
     private var selectedRange: ClosedRange<CGFloat> = 0...1
+    private weak var toggleChartRecognizer: UITapGestureRecognizer?
 
     override func tintColorDidChange() {
         super.tintColorDidChange()
@@ -244,9 +245,6 @@ final class TokenExpandableChartView: UIView {
         translatesAutoresizingMaskIntoConstraints = false
         layer.cornerRadius = S.homeInsetSectionCornerRadius
         layer.masksToBounds = true
-        addSubview(priceTitleLabel)
-        addSubview(priceValueLabel)
-        addSubview(priceChangeLabel)
         addSubview(collapsedChart)
         addSubview(expandedChart)
         addSubview(rangeChart)
@@ -279,21 +277,43 @@ final class TokenExpandableChartView: UIView {
         rangeChart.rangeDidChangeClosure = { [weak self] range in
             self?.rangeChanged(range)
         }
+        
+        let priceContainer = UIView()
+        do {
+            priceContainer.addSubview(priceTitleLabel)
+            priceContainer.addSubview(priceValueLabel)
+            priceContainer.addSubview(priceChangeLabel)
+            
+            let gr = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
+            priceContainer.addGestureRecognizer(gr)
+        }
+        
+        priceContainer.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(priceContainer)
 
         NSLayoutConstraint.activate([
             topBarView.leftAnchor.constraint(equalTo: leftAnchor),
             topBarView.rightAnchor.constraint(equalTo: rightAnchor),
             topBarView.topAnchor.constraint(equalTo: topAnchor),
             topBarView.heightAnchor.constraint(equalToConstant: 60),
+            
+            priceContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
+            priceContainer.topAnchor.constraint(equalTo: topAnchor),
 
-            priceTitleLabel.leftAnchor.constraint(equalTo: leftAnchor, constant: 16),
-            priceTitleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            priceTitleLabel.leftAnchor.constraint(equalTo: priceContainer.leftAnchor, constant: 16),
+            priceTitleLabel.topAnchor.constraint(equalTo: priceContainer.topAnchor, constant: 10),
 
-            priceValueLabel.leftAnchor.constraint(equalTo: leftAnchor, constant: 16),
+            priceValueLabel.leftAnchor.constraint(equalTo: priceContainer.leftAnchor, constant: 16),
             priceValueLabel.topAnchor.constraint(equalTo: priceTitleLabel.bottomAnchor, constant: 1),
+            priceValueLabel.bottomAnchor.constraint(equalTo: priceContainer.bottomAnchor, constant: -10),
 
             priceChangeLabel.firstBaselineAnchor.constraint(equalTo: priceValueLabel.firstBaselineAnchor),
             priceChangeLabel.leadingAnchor.constraint(equalTo: priceValueLabel.trailingAnchor, constant: 6),
+
+            priceContainer.trailingAnchor.constraint(greaterThanOrEqualTo: priceTitleLabel.trailingAnchor, constant: 16),
+            priceContainer.trailingAnchor.constraint(greaterThanOrEqualTo: priceChangeLabel.trailingAnchor, constant: 16),
+            priceContainer.trailingAnchor.constraint(equalTo: priceTitleLabel.trailingAnchor, constant: 16).withPriority(.defaultHigh),
+            priceContainer.trailingAnchor.constraint(equalTo: priceChangeLabel.trailingAnchor, constant: 16).withPriority(.defaultHigh),
 
             collapsedChart.rightAnchor.constraint(equalTo: rightAnchor, constant: -33),
             collapsedChart.topAnchor.constraint(equalTo: topAnchor, constant: 11.33),
@@ -334,8 +354,10 @@ final class TokenExpandableChartView: UIView {
             heightConstraint
         ])
 
-        topBarView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(toggleChart)))
-
+        let tap = UITapGestureRecognizer(target: self, action: #selector(toggleChart))
+        toggleChartRecognizer = tap
+        topBarView.addGestureRecognizer(tap)
+        
         updateTheme()
 
         loadingIndicator.startAnimating(animated: true)
@@ -346,7 +368,7 @@ final class TokenExpandableChartView: UIView {
             }
         }
     }
-
+    
     private func updateTheme() {
         backgroundColor = UIColor.air.groupedItem
         priceTitleLabel.textColor = UIColor.air.secondaryLabel
@@ -581,6 +603,14 @@ final class TokenExpandableChartView: UIView {
                 self._toggleChartImpl(instant: instant)
             }
         }
+    }
+    
+    @objc private func handleLongPress(_ gr: UILongPressGestureRecognizer) {
+        guard gr.state == .began, let price = priceValueLabel.text, !price.isEmpty else { return }
+        
+        UIPasteboard.general.string = price
+        AppActions.showToast(message: lang("Price Copied"))
+        Haptics.play(.lightTap)
     }
 
     private func _toggleChartImpl(instant: Bool) {

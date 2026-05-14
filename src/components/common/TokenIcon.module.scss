@@ -22,7 +22,7 @@
   }
 
   &.large {
-    @include mixins.is-not-mobile() {
+    @include mixins.respond-above(xs) {
       flex-basis: 2.5rem;
       width: 2.5rem !important;
       height: 2.5rem !important;
@@ -39,7 +39,7 @@
     width: 1.0625rem !important;
     height: 1.0625rem !important;
 
-    @include mixins.is-mobile() {
+    @include mixins.respond-below(xs) {
       width: 1.125rem !important;
       height: 1.125rem !important;
     }

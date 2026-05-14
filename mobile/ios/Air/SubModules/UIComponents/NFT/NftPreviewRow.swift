@@ -1,11 +1,16 @@
 
-import Kingfisher
 import SwiftUI
 import WalletCore
 import WalletContext
 
 
 public struct NftPreviewRow: View {
+    
+    public static let thumbnailSize: CGFloat = 64
+    public static let thumbnailCornerRadius: CGFloat = 8
+    public static let contentSpacing: CGFloat = 10
+    public static let defaultHorizontalPadding: CGFloat = 12
+    public static let textLeadingInset: CGFloat = defaultHorizontalPadding + thumbnailSize + contentSpacing
     
     public var nft: ApiNft
     public var horizontalPadding: CGFloat?
@@ -19,7 +24,7 @@ public struct NftPreviewRow: View {
     
     public var body: some View {
         InsetCell(horizontalPadding: horizontalPadding, verticalPadding: verticalPadding) {
-            HStack(spacing: 10) {
+            HStack(spacing: Self.contentSpacing) {
                 image
                 VStack(alignment: .leading, spacing: 0) {
                     Text(nft.displayName)
@@ -36,15 +41,10 @@ public struct NftPreviewRow: View {
         }
     }
     
-    @ViewBuilder
     var image: some View {
-        if let thumbnail = nft.thumbnail {
-            KFImage(URL(string: thumbnail))
-                .resizable()
-                .loadDiskFileSynchronously(false)
-                .aspectRatio(1, contentMode: .fit)
-                .cornerRadius(8)
-                .frame(width: 64, height: 64)
-        }
+        NftImage(nft: nft, animateIfPossible: false)
+            .frame(width: Self.thumbnailSize, height: Self.thumbnailSize)
+            .background(Color.air.thumbBackground)
+            .clipShape(RoundedRectangle(cornerRadius: Self.thumbnailCornerRadius, style: .continuous))
     }
 }

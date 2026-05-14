@@ -52,7 +52,7 @@ export const ELECTRON_HOST_URL = 'https://dumb-host';
 export const INACTIVE_MARKER = '[Inactive]';
 export const PRODUCTION_URL = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mytonwallet.app';
 export const BETA_URL = IS_CORE_WALLET ? 'https://beta.wallet.ton.org' : 'https://beta.mytonwallet.app';
-export const APP_INSTALL_URL = 'https://get.mytonwallet.io/';
+export const APP_INSTALL_URL = IS_GRAM_WALLET ? 'https://get.gramwallet.io/' : 'https://get.mytonwallet.io/';
 export const APP_REPO_URL = 'https://github.com/mytonwallet-org/mytonwallet';
 export const SELF_UNIVERSAL_HOST_URL = 'https://my.tt';
 export const APP_WEBSITE_URL = IS_GRAM_WALLET ? 'https://gramwallet.io' : 'https://mytonwallet.io';
@@ -225,7 +225,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-293';
+export const LANG_CACHE_NAME = 'mtw-lang-302';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',

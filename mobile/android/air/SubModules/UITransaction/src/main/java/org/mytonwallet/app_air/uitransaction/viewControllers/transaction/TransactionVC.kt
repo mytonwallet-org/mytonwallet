@@ -1217,7 +1217,7 @@ class TransactionVC(
                                     val network = MBlockchainNetwork.ofAccountId(showingAccountId)
                                     val token = TokenStore.getToken(transaction.getTxSlug())
                                     val chain =
-                                        if (token?.chain != null) MBlockchain.valueOf(token.chain)
+                                        if (token?.chain != null) MBlockchain.valueOfOrNull(token.chain) ?: return@Item
                                         else if (transaction is Swap) MBlockchain.ton
                                         else return@Item
                                     val txHash = transaction.getTxHash() ?: return@Item

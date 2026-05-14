@@ -453,6 +453,53 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         return SubWalletActivationResult(account: account, isNew: false)
     }
 
+    @discardableResult
+    public func addAllFoundSubwallets(groups: [ApiGroupedWalletVariant]) async throws -> SubWalletActivationResult {
+        let currentAccountId = try self.accountId.orThrow("Can't find current account id")
+        let originalAccount = try accountsById[currentAccountId].orThrow("Can't find the original account")
+        let foundWallets = groups
+            .map { $0.byChain.mapValues(\.wallet) }
+            .filter { !$0.isEmpty }
+
+        guard !foundWallets.isEmpty else {
+            throw DisplayError(text: "Unexpected error")
+        }
+
+        let result = try await Api.addAllFoundSubwallets(accountId: currentAccountId, foundWallets: foundWallets)
+        guard !result.results.isEmpty else {
+            throw DisplayError(text: "Unexpected error")
+        }
+
+        var addedNewAccount = false
+        var lastAccount: MAccount?
+
+        for (offset, item) in result.results.enumerated() {
+            let isLast = offset == result.results.count - 1
+
+            if item.isNew {
+                let byChain = try item.byChain.orThrow("Missing subwallet account data")
+                let account = try await _storeSubwalletAccount(
+                    accountId: item.accountId,
+                    originalAccount: originalAccount,
+                    byChain: byChain,
+                    shouldNumberTitle: true,
+                    shouldActivate: isLast
+                )
+                addedNewAccount = true
+                lastAccount = account
+            } else if isLast {
+                if item.accountId != currentAccountId {
+                    lastAccount = try await activateAccount(accountId: item.accountId)
+                } else {
+                    lastAccount = try accountsById[currentAccountId].orThrow("Can't find current account")
+                }
+            }
+        }
+
+        let account = try lastAccount.orThrow("Can't find current account")
+        return SubWalletActivationResult(account: account, isNew: addedNewAccount)
+    }
+
     public func importViewWallet(network: ApiNetwork, addressByChain: [String: String]) async throws -> MAccount {
         if addressByChain.isEmpty { throw DisplayError(text: "No matching chains") }
 
@@ -524,6 +571,23 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         byChain: [String: AccountChain],
         shouldNumberTitle: Bool
     ) async throws -> MAccount {
+        try await _storeSubwalletAccount(
+            accountId: accountId,
+            originalAccount: originalAccount,
+            byChain: byChain,
+            shouldNumberTitle: shouldNumberTitle,
+            shouldActivate: true
+        )
+    }
+
+    @discardableResult
+    private func _storeSubwalletAccount(
+        accountId: String,
+        originalAccount: MAccount,
+        byChain: [String: AccountChain],
+        shouldNumberTitle: Bool,
+        shouldActivate: Bool
+    ) async throws -> MAccount {
         let account = MAccount(
             id: accountId,
             title: _subwalletAccountTitle(originalAccount: originalAccount, shouldNumberTitle: shouldNumberTitle),
@@ -534,7 +598,9 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         accountsById[account.id] = account
         try await _storeAccount(account: account)
         _appendOrderedAccountIdIfNeeded(account.id)
-        try await _activateStoredAccountLocally(account: account, isNew: true)
+        if shouldActivate {
+            try await _activateStoredAccountLocally(account: account, isNew: true)
+        }
         await subscribeNotificationsIfAvailable(account: account)
         return account
     }

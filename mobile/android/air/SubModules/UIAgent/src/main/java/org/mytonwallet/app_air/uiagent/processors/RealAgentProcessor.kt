@@ -26,7 +26,11 @@ class RealAgentProcessor : AgentProcessor {
         private const val HINTS_ENDPOINT = "$BASE_URL/hints"
         private const val PLATFORM = "android"
         private const val CLIENT = "native"
-        private val DEEPLINK_REGEX by lazy { Regex("""\[([^\]]+)]\(($APP_SCHEME://[^)\s]+)\)\s*$""") }
+        private const val MYTONWALLET_SCHEME = "mytonwallet"
+        private const val MTW_SCHEME = "mtw"
+        private val DEEPLINK_REGEX by lazy {
+            Regex("""\[([^\]]+)]\(((?:$APP_SCHEME|$MYTONWALLET_SCHEME|$MTW_SCHEME)://[^)\s]+)\)\s*$""")
+        }
         private const val TAG = "RealAgentProcessor"
     }
 

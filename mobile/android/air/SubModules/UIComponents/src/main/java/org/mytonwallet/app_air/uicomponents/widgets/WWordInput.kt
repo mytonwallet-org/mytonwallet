@@ -12,6 +12,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.constants.PossibleWords
 import org.mytonwallet.app_air.walletcore.helpers.PrivateKeyHelper
+import org.mytonwallet.app_air.walletcore.helpers.findMnemonicMatches
 
 @SuppressLint("SetTextI18n", "ViewConstructor")
 class WWordInput(
@@ -37,12 +38,21 @@ class WWordInput(
         textField.setImeOptions(EditorInfo.IME_ACTION_NEXT)
         textField.inputType =
             InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        textField.isAutoFillSupported = false
+
         textField.doOnTextChanged { _, _, _, _ ->
             if (textFieldIsLocked)
                 return@doOnTextChanged
+
+            val currentText = textField.text?.toString().orEmpty()
+            val normalizedText = currentText.lowercase()
+            if (currentText == normalizedText) {
+                return@doOnTextChanged
+            }
+
             val currentSelection = textField.selectionStart
             textFieldIsLocked = true
-            textField.setText(textField.text.toString().lowercase())
+            textField.setText(normalizedText)
             textField.setSelection(currentSelection)
             textFieldIsLocked = false
         }
@@ -89,9 +99,7 @@ class WWordInput(
                 inputValue
             )
         ) {
-            val suggestion = if (inputValue.isNotEmpty()) PossibleWords.All.firstOrNull {
-                it.startsWith(inputValue)
-            } else null
+            val suggestion = PossibleWords.All.findMnemonicMatches(inputValue).firstOrNull()
             if (suggestion != null) {
                 textField.setText(suggestion)
                 textField.textIsAcceptable = true

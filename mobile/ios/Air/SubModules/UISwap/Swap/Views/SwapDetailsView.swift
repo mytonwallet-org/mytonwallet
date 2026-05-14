@@ -4,34 +4,16 @@ import UIComponents
 import WalletCore
 import WalletContext
 import Perception
-import SwiftNavigation
 
-let DEFAULT_SLIPPAGE = BigInt(5_0)
-let MAX_SLIPPAGE_VALUE = BigInt(50_0)
-let SLIPPAGE_DECIMALS = 1
 private let slippageFont = UIFont.systemFont(ofSize: 20, weight: .semibold)
 let DEFAULT_OUR_SWAP_FEE = 0.875
 
-@Perceptible
-@MainActor final class SwapDetailsVM {
-    
-    var isExpanded = false
-    var slippageExpanded = false
-    var slippage: BigInt? = DEFAULT_SLIPPAGE
-    
-    @PerceptionIgnored
-    var onSlippageChanged: (Double) -> () = { _ in }
-
+@MainActor struct SwapDetailsVM {
     var fromToken: ApiToken { inputModel.sellingToken }
     var toToken: ApiToken { inputModel.buyingToken }
-    var swapEstimate: ApiSwapEstimateResponse? { onchainModel.swapEstimate }
+    let swapEstimate: ApiSwapEstimateResponse?
     
-    @PerceptionIgnored
-    private var onchainModel: OnchainSwapModel
-    @PerceptionIgnored
     private var inputModel: SwapInputModel
-    @PerceptionIgnored
-    private var observer: ObserveToken?
     
     var displayImpactWarning: Double? {
         if let impact = displayEstimate?.impact, impact > MAX_PRICE_IMPACT_VALUE {
@@ -41,15 +23,10 @@ let DEFAULT_OUR_SWAP_FEE = 0.875
     }
     
     init(onchainModel: OnchainSwapModel, inputModel: SwapInputModel) {
-        self.onchainModel = onchainModel
+        self.swapEstimate = onchainModel.swapEstimate
         self.inputModel = inputModel
-        observer = observe { [weak self] in
-            guard let self, let value = slippage else { return }
-            let doubleValue = value.doubleAbsRepresentation(decimals: SLIPPAGE_DECIMALS)
-            onSlippageChanged(doubleValue)
-        }
     }
-    
+
     var displayEstimate: ApiSwapEstimateResponse? {
         swapEstimate
     }
@@ -86,8 +63,9 @@ let DEFAULT_OUR_SWAP_FEE = 0.875
 
 struct SwapDetailsView: View {
 
-    var inputModel: SwapInputModel
     var model: SwapDetailsVM
+    var slippage: BigInt
+    var onSlippageCommit: (BigInt) -> Void
     var sellingToken: ApiToken { model.fromToken }
     var buyingToken: ApiToken { model.toToken }
     var exchangeRate: SwapRate? { model.displayExchangeRate }
@@ -95,56 +73,27 @@ struct SwapDetailsView: View {
     var displayEstimate: ApiSwapEstimateResponse? { model.displayEstimate }
     
     @State private var slippageFocused: Bool = false
+    @State private var isExpanded = false
+    @State private var slippageExpanded = false
+    @State private var draftSlippage: BigInt? = DEFAULT_SLIPPAGE
     
     private var slippageError: Bool {
-        if let slippage = model.slippage, slippage > MAX_SLIPPAGE_VALUE { return true }
-        return false
+        guard let draftSlippage else { return false }
+        return draftSlippage <= BigInt(0) || draftSlippage > MAX_SLIPPAGE_VALUE
     }
     
     var body: some View {
         WithPerceptionTracking {
-            InsetSection(horizontalPadding: 0) {
-                header
-                    
-                if model.isExpanded {
-                    pricePerCoinRow
-                    slippageRow
-                    blockchainFeeRow
-                    routingFeesRow
-                    priceImpactRow
-                    minimumReceivedRow
-                }
+            SwapDetailsContainer(isExpanded: $isExpanded) {
+                pricePerCoinRow
+                slippageRow
+                blockchainFeeRow
+                routingFeesRow
+                priceImpactRow
+                minimumReceivedRow
             }
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxHeight: model.isExpanded ? nil : 44, alignment: .top)
-            .clipShape(.rect(cornerRadius: S.insetSectionCornerRadius))
-            .frame(height: 400, alignment: .top)
-            .tint(.accentColor)
-            .animation(.spring(duration: model.isExpanded ? 0.45 : 0.3), value: model.isExpanded)
-            .animation(.snappy, value: model.slippageExpanded)
+            .animation(.snappy, value: slippageExpanded)
         }
-    }
-    
-    var header: some View {
-        Button(action: { model.isExpanded.toggle() }) {
-            InsetCell {
-                HStack {
-                    Text(lang("Swap Details"))
-                        .textCase(IOS_26_MODE_ENABLED ? nil : .uppercase)
-                    Spacer()
-                    Image.airBundle("RightArrowIcon")
-                        .renderingMode(.template)
-                        .rotationEffect(model.isExpanded ? .radians(-0.5 * .pi) : .radians(0.5 * .pi))
-                }
-                .font(IOS_26_MODE_ENABLED ? .system(size: 17, weight: .semibold) : .system(size: 13))
-                .tint(.air.secondaryLabel)
-                .foregroundStyle(Color.air.secondaryLabel)
-            }
-            .frame(minHeight: 44)
-            .frame(height: 44)
-            .contentShape(.rect)
-        }
-        .buttonStyle(InsetButtonStyle())
     }
     
     @ViewBuilder
@@ -167,7 +116,6 @@ struct SwapDetailsView: View {
     
     @ViewBuilder
     var slippageRow: some View {
-        @Perception.Bindable var model = model
         VStack(spacing: 0) {
             InsetDetailCell(alignment: .firstTextBaseline) {
                 Text(lang("Slippage"))
@@ -180,22 +128,20 @@ struct SwapDetailsView: View {
                     }
                 
             } value: {
-                if !model.slippageExpanded {
-                    SlippagePickerButton(value: model.slippage ?? DEFAULT_SLIPPAGE) {
+                if !slippageExpanded {
+                    SlippagePickerButton(value: slippage) {
                         topViewController()?.view.endEditing(true)
-                        model.slippageExpanded = true
+                        draftSlippage = slippage
+                        slippageExpanded = true
                     }
                     .transition(.scale.combined(with: .opacity))
                 } else {
                     Button(action: {
                         topViewController()?.view.endEditing(true)
-                        model.slippageExpanded = false
-                        let slippage = model.slippage
-                        if let slippage, slippage <= BigInt(0) || slippage > MAX_SLIPPAGE_VALUE {
-                            model.slippage = DEFAULT_SLIPPAGE
-                        } else if slippage == nil {
-                            model.slippage = DEFAULT_SLIPPAGE
-                        }
+                        let nextSlippage = normalizedSwapSlippage(draftSlippage)
+                        draftSlippage = nextSlippage
+                        onSlippageCommit(nextSlippage)
+                        slippageExpanded = false
                     }) {
                         Text(lang("Done"))
                             .fontWeight(.semibold)
@@ -203,10 +149,10 @@ struct SwapDetailsView: View {
                     .transition(.scale.combined(with: .opacity))
                 }
             }
-            if model.slippageExpanded {
+            if slippageExpanded {
                 HStack(alignment: .firstTextBaseline) {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        WUIAmountInput(amount: $model.slippage, maximumFractionDigits: SLIPPAGE_DECIMALS, font: slippageFont, fractionFont: slippageFont, alignment: .right, isFocused: $slippageFocused, error: slippageError)
+                        WUIAmountInput(amount: $draftSlippage, maximumFractionDigits: SLIPPAGE_DECIMALS, font: slippageFont, fractionFont: slippageFont, alignment: .right, isFocused: $slippageFocused, error: slippageError)
                             .frame(width: 68)
                         Text("%")
                             .font(Font(slippageFont))
@@ -240,7 +186,7 @@ struct SwapDetailsView: View {
     
     func slippageChoice(value: BigInt) -> some View {
         
-        Button(action: { model.slippage = value }) {
+        Button(action: { draftSlippage = value }) {
             Text("\(formatBigIntText(value, tokenDecimals: 1))%")
                 .padding(4)
                 .contentShape(.rect)

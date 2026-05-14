@@ -362,6 +362,26 @@ class TonConnectInjectedInterface(
                 }
             }
 
+            // Silent readonly RPC proxy. No lockTouch — these are read-only forwards
+            // (eth_blockNumber/eth_call/eth_estimateGas/...) to our backend RPC; the
+            // user-facing UI remains responsive.
+            "walletConnect:proxyEvmRpc" -> {
+                val args = invoke.args ?: return
+                val request = args.optJSONObject(0) ?: return
+                WalletCore.call(
+                    ApiMethod.DApp.Inject.WalletConnectProxyEvmRpc(
+                        dApp,
+                        request
+                    )
+                ) { res, _ ->
+                    if (res != null) {
+                        sendInvokeResult(invoke.invocationId, res)
+                    } else {
+                        sendInvokeError(invoke.invocationId)
+                    }
+                }
+            }
+
             "window:open" -> {
                 val url = invoke.args?.optJSONObject(0)?.optString("url") ?: return
                 if (WalletContextManager.delegate?.handleDeeplink(url) != true) {

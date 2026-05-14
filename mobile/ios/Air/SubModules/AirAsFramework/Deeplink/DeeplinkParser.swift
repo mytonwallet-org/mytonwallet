@@ -6,19 +6,19 @@ import WalletContext
 
 extension Deeplink {
     init?(url: URL) {
-        let deeplink: Deeplink? = switch url.scheme {
+        let deeplink: Deeplink? = switch url.scheme?.lowercased() {
         case "ton":
             parseTonInvoiceUrl(url)
         case "tc":
             parseTonConnectUrl(url)
-        case let scheme where scheme == TONCONNECT_PROTOCOL_SCHEME:
+        case let scheme? where scheme == TONCONNECT_PROTOCOL_SCHEME:
             parseTonConnectUrl(url)
         case "wc":
             parseWalletConnectUrl(url)
-        case let scheme where scheme == SELF_PROTOCOL_SCHEME:
+        case let scheme? where compatibleSelfProtocolSchemes.contains(scheme):
             parseMtwUrl(url)
         case "https", "http":
-            switch url.host {
+            switch url.host?.lowercased() {
             case let host? where isTonConnectUniversalUrl(host: host, path: url.path):
                 parseTonConnectUrl(url)
             case "walletconnect.com":
@@ -27,7 +27,7 @@ extension Deeplink {
                 } else {
                     nil
                 }
-            case let host? where SELF_UNIVERSAL_URL_HOSTS.contains(host):
+            case let host? where compatibleSelfUniversalHosts.contains(host):
                 parseMtwUrl(url)
             default:
                 nil
@@ -41,6 +41,59 @@ extension Deeplink {
             return nil
         }
     }
+}
+
+private let gramLegacySelfProtocolScheme = "mtw"
+private let gramLegacySelfUniversalHosts: Set<String> = ["my.tt", "go.mytonwallet.org"]
+
+private var compatibleSelfProtocolSchemes: Set<String> {
+    var schemes: Set<String> = [SELF_PROTOCOL_SCHEME]
+    if IS_GRAM_WALLET {
+        schemes.insert(gramLegacySelfProtocolScheme)
+    }
+    return schemes
+}
+
+private var compatibleSelfUniversalHosts: Set<String> {
+    var hosts = SELF_UNIVERSAL_URL_HOSTS
+    if IS_GRAM_WALLET {
+        hosts.formUnion(gramLegacySelfUniversalHosts)
+    }
+    return hosts
+}
+
+private func normalizeSelfProtocolUrl(_ url: URL) -> URL? {
+    guard let scheme = url.scheme?.lowercased(),
+          scheme != SELF_PROTOCOL_SCHEME,
+          compatibleSelfProtocolSchemes.contains(scheme),
+          var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+        return nil
+    }
+    components.scheme = SELF_PROTOCOL_SCHEME
+    return components.url
+}
+
+private func normalizeSelfUniversalUrl(_ url: URL) -> URL? {
+    guard let scheme = url.scheme?.lowercased(),
+          scheme == "https" || scheme == "http",
+          let host = url.host?.lowercased(),
+          compatibleSelfUniversalHosts.contains(host),
+          let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+        return nil
+    }
+
+    var path = components.percentEncodedPath
+    if path.hasPrefix("/") {
+        path.removeFirst()
+    }
+    var urlString = SELF_PROTOCOL + path
+    if let query = components.percentEncodedQuery {
+        urlString += "?\(query)"
+    }
+    if let fragment = components.percentEncodedFragment {
+        urlString += "#\(fragment)"
+    }
+    return URL(string: urlString)
 }
 
 private func isTonConnectUniversalUrl(host: String, path: String) -> Bool {
@@ -82,29 +135,24 @@ private func parseTonInvoiceUrl(_ url: URL) -> Deeplink? {
 }
 
 private func parseMtwUrl(_ url: URL) -> Deeplink? {
-    
+
     var url = url
-    
+
+    if let normalizedUrl = normalizeSelfProtocolUrl(url) {
+        url = normalizedUrl
+    }
+
     if url.scheme == "http", var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
         components.scheme = "https"
         if let newUrl = components.url {
             url = newUrl
         }
     }
-    
-    if url.scheme == "https" {
-        let urlString = url.absoluteString
-        for universalUrl in SELF_UNIVERSAL_URLS {
-            if urlString.starts(with: universalUrl) {
-                let newUrlString = urlString.replacing(universalUrl, with: SELF_PROTOCOL, maxReplacements: 1)
-                if let newUrl = URL(string: newUrlString) {
-                    url = newUrl
-                }
-                break
-            }
-        }
+
+    if let normalizedUrl = normalizeSelfUniversalUrl(url) {
+        url = normalizedUrl
     }
-    
+
     switch url.host {
     case "agent":
         return .agent

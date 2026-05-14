@@ -47,7 +47,7 @@
   box-shadow: var(--shadow-glass-capsule);
 
   @supports (backdrop-filter: blur(16px)) {
-    background-color: var(--color-background-lock);
+    background-color: var(--color-background-blurred);
     backdrop-filter: blur(var(--blur-glass-capsule));
   }
 }

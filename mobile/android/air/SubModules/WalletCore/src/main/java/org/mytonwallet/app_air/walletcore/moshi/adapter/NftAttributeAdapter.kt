@@ -7,6 +7,36 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNftMetadata
 
 class NftAttributeAdapter {
     @FromJson
+    fun listFromJson(reader: JsonReader): List<ApiNftMetadata.Attribute?>? {
+        return when (reader.peek()) {
+            JsonReader.Token.BEGIN_ARRAY -> {
+                val list = mutableListOf<ApiNftMetadata.Attribute?>()
+                reader.beginArray()
+                while (reader.hasNext()) {
+                    list.add(fromJson(reader))
+                }
+                reader.endArray()
+                list
+            }
+
+            JsonReader.Token.NULL -> {
+                reader.nextNull<Unit>()
+                null
+            }
+
+            else -> {
+                reader.skipValue()
+                null
+            }
+        }
+    }
+
+    @ToJson
+    fun listToJson(list: List<ApiNftMetadata.Attribute?>?): List<Map<String, String?>?>? {
+        return list?.map { it?.let { a -> mapOf("trait_type" to a.traitType, "value" to a.value) } }
+    }
+
+    @FromJson
     fun fromJson(reader: JsonReader): ApiNftMetadata.Attribute? {
         return when (reader.peek()) {
             JsonReader.Token.BEGIN_OBJECT -> {

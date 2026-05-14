@@ -10,5 +10,6 @@ Modifications made by MyTonWallet team:
 - Modified by implementing `stopAnimator` method to make `setProgress` work even if animating
 - Modified HText to fix text width measurement & kerning issues
 - Modified to allow setting text with no animations
+- Modified EvaporateText and ScaleText drawFrame to use a reusable char[] buffer instead of per-character String concatenation, avoiding OOM under frequent redraws
 
 A copy of the original Apache License, Version 2.0 is included in this distribution (see `LICENSE`).

@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.os.Build
+import android.view.View
 import android.view.View.generateViewId
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -14,15 +15,9 @@ import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
-import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.FontFamily
-import org.mytonwallet.app_air.uicomponents.helpers.FontManager
-import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
-import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteAndCardView
@@ -35,8 +30,7 @@ import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
-import org.mytonwallet.app_air.walletbasecontext.utils.max
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -49,24 +43,27 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
 
     override val shouldDisplayBottomBar = true
 
-    private val switchToLegacyCell = SettingsItemCell(context).apply {
-        configure(
-            SettingsItem(
-                identifier = SettingsItem.Identifier.SWITCH_TO_LEGACY,
-                icon = R.drawable.ic_legacy,
-                title = LocaleController.getString("Switch to Legacy Version"),
-                hasTintColor = false
-            ),
-            subtitle = null,
-            isFirst = false,
-            isLast = true,
-            isEnabled = true,
-            onTap = {
-                WalletCore.switchingToLegacy()
-                WalletContextManager.delegate?.switchToLegacy()
-            }
-        )
-    }
+    private val isGramApp = ApplicationContextHolder.isGramApp
+
+    private val switchToLegacyCell: SettingsItemCell? =
+        if (isGramApp) null else SettingsItemCell(context).apply {
+            configure(
+                SettingsItem(
+                    identifier = SettingsItem.Identifier.SWITCH_TO_LEGACY,
+                    icon = R.drawable.ic_legacy,
+                    title = LocaleController.getString("Switch to Legacy Version"),
+                    hasTintColor = false
+                ),
+                subtitle = null,
+                isFirst = false,
+                isLast = true,
+                isEnabled = true,
+                onTap = {
+                    WalletCore.switchingToLegacy()
+                    WalletContextManager.delegate?.switchToLegacy()
+                }
+            )
+        }
 
     private val appThemeView: AppearanceAppThemeView by lazy {
         val v = AppearanceAppThemeView(context)
@@ -84,55 +81,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
                 )
             }
             configure(AccountStore.activeAccount)
-        }
-    }
-
-    private val appFontDropdownView = WEditableItemView(context).apply {
-        id = generateViewId()
-        drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
-        setText(FontManager.activeFont.displayName)
-    }
-    private val appFontView: KeyValueRowView by lazy {
-        KeyValueRowView(
-            context,
-            LocaleController.getString("App Font"),
-            "",
-            KeyValueRowView.Mode.PRIMARY,
-            isLast = true,
-        ).apply {
-            setValueView(appFontDropdownView)
-            setOnClickListener {
-                WMenuPopup.present(
-                    appFontDropdownView,
-                    listOf(
-                        FontFamily.ROBOTO,
-                        FontFamily.MISANS,
-                    ).map {
-                        WMenuPopup.Item(
-                            null,
-                            it.displayName,
-                            false
-                        ) {
-                            if (FontManager.activeFont != it) {
-                                Logger.d(
-                                    Logger.LogTag.SETTINGS,
-                                    "appFontView: fontChanged=${it.displayName}"
-                                )
-                                FontManager.setActiveFont(context, it)
-                                appFontDropdownView.setText(it.displayName)
-                                // Font changes require app restart to refresh all cached typefaces
-                                WalletContextManager.delegate?.restartApp()
-                            }
-                        }
-                    },
-                    popupWidth = WRAP_CONTENT,
-                    positioning = WMenuPopup.Positioning.BELOW,
-                    windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
-                        appFontDropdownView,
-                        roundRadius = 16f.dp
-                    )
-                )
-            }
         }
     }
 
@@ -212,7 +160,8 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
 
                     addUpdateListener { animator ->
                         val radius = animator.animatedValue as Float
-                        switchToLegacyCell.setBackgroundColor(
+                        val topItem: View = switchToLegacyCell ?: appThemeView
+                        topItem.setBackgroundColor(
                             WColor.Background.color,
                             radius,
                             ViewConstants.BLOCK_RADIUS.dp,
@@ -302,7 +251,9 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
 
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
-        v.addView(switchToLegacyCell, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        switchToLegacyCell?.let {
+            v.addView(it, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
         v.addView(appThemeView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(appPaletteView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
         v.addView(gradientNavigationBarRow, ConstraintLayout.LayoutParams(0, 50.dp))
@@ -312,16 +263,19 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         v.addView(blurRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(animationsRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(seasonalThemingRow, ConstraintLayout.LayoutParams(0, 50.dp))
-        v.addView(appFontView, ConstraintLayout.LayoutParams(0, 50.dp))
         // Set initial enabled state based on roundedCornersRow
         if (!roundedCornersRow.isChecked) {
             roundedToolbarsRow.isEnabled = false
             sideGuttersRow.isEnabled = false
         }
         v.setConstraints {
-            toTop(switchToLegacyCell)
-            toCenterX(switchToLegacyCell)
-            topToBottom(appThemeView, switchToLegacyCell, ViewConstants.GAP.toFloat())
+            if (switchToLegacyCell != null) {
+                toTop(switchToLegacyCell)
+                toCenterX(switchToLegacyCell)
+                topToBottom(appThemeView, switchToLegacyCell, ViewConstants.GAP.toFloat())
+            } else {
+                toTop(appThemeView)
+            }
             toCenterX(appThemeView)
             topToBottom(appPaletteView, appThemeView, ViewConstants.GAP.toFloat())
             toCenterX(appPaletteView)
@@ -341,10 +295,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             toCenterX(animationsRow)
             topToBottom(seasonalThemingRow, animationsRow)
             toCenterX(seasonalThemingRow)
-            // Group 3: App Font
-            topToBottom(appFontView, seasonalThemingRow, ViewConstants.GAP.toFloat())
-            toCenterX(appFontView)
-            toBottom(appFontView)
+            toBottom(seasonalThemingRow)
         }
         v.setPadding(0, 0, 0, navigationController?.bottomInset ?: 0)
         v
@@ -396,7 +347,13 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         super.updateTheme()
         bottomReversedCornerView?.resumeBlurring()
 
-        appFontView.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
+        if (switchToLegacyCell == null) {
+            appThemeView.setBackgroundColor(
+                WColor.Background.color,
+                ViewConstants.TOOLBAR_RADIUS.dp,
+                ViewConstants.BLOCK_RADIUS.dp,
+            )
+        }
 
         view.setBackgroundColor(WColor.SecondaryBackground.color)
     }

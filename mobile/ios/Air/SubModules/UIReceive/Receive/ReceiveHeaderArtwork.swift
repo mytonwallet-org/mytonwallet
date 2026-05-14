@@ -11,29 +11,36 @@ struct ReceiveHeaderBackgroundView: View {
         GeometryReader { geometry in
             let scale = max(1, geometry.size.width / Self.referenceSize.width)
             let contentWidth = Self.referenceSize.width * scale
+            let contentHeight = Self.referenceSize.height * scale
+            let blurRadius = Self.blurRadius * scale
+            let overscan = Self.overscan * scale
+            let drawingSize = CGSize(
+                width: contentWidth + 2 * overscan,
+                height: contentHeight + 2 * overscan
+            )
+            let backingScale = max(drawingSize.width / contentWidth, drawingSize.height / contentHeight)
             let xOffset = (geometry.size.width - contentWidth) / 2
 
-            ZStack(alignment: .topLeading) {
-                ZStack(alignment: .topLeading) {
-                    ForEach(Self.polygons.indices, id: \.self) { index in
-                        let polygon = Self.polygons[index]
-
-                        ReceiveHeaderPolygonShape(points: polygon.points, sourceSize: polygon.frame.size)
-                            .fill(palette.colors[polygon.colorIndex])
-                            .frame(
-                                width: polygon.frame.width * scale,
-                                height: polygon.frame.height * scale
-                            )
-                            .position(
-                                x: polygon.frame.midX * scale,
-                                y: polygon.frame.midY * scale
-                            )
-                    }
+            Canvas { context, _ in
+                context.drawLayer { layer in
+                    layer.translateBy(
+                        x: overscan - contentWidth * (backingScale - 1) / 2,
+                        y: overscan - contentHeight * (backingScale - 1) / 2
+                    )
+                    layer.scaleBy(x: scale * backingScale, y: scale * backingScale)
+                    Self.drawPolygons(in: &layer, palette: palette)
                 }
-                .frame(width: contentWidth, height: Self.referenceSize.height * scale, alignment: .topLeading)
-                .blur(radius: 70 * scale)
-                .offset(x: xOffset)
+
+                context.drawLayer { layer in
+                    layer.translateBy(x: overscan, y: overscan)
+                    layer.scaleBy(x: scale, y: scale)
+                    Self.drawPolygons(in: &layer, palette: palette)
+                }
             }
+            .frame(width: drawingSize.width, height: drawingSize.height)
+            .compositingGroup()
+            .blur(radius: blurRadius)
+            .offset(x: xOffset - overscan, y: -overscan)
             .frame(width: geometry.size.width, height: Self.referenceSize.height, alignment: .topLeading)
             .clipped()
         }
@@ -83,34 +90,6 @@ private struct ReceiveHeaderPolygonData {
     let points: [CGPoint]
 }
 
-private struct ReceiveHeaderPolygonShape: Shape {
-    let points: [CGPoint]
-    let sourceSize: CGSize
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        guard let first = points.first else { return path }
-
-        let xScale = rect.width / sourceSize.width
-        let yScale = rect.height / sourceSize.height
-
-        func scaled(_ point: CGPoint) -> CGPoint {
-            CGPoint(
-                x: rect.minX + point.x * xScale,
-                y: rect.minY + point.y * yScale
-            )
-        }
-
-        path.move(to: scaled(first))
-        for point in points.dropFirst() {
-            path.addLine(to: scaled(point))
-        }
-        path.closeSubpath()
-
-        return path
-    }
-}
-
 private struct ReceiveHeaderOrnamentItem: Identifiable {
     let id: Int
     let x: CGFloat
@@ -121,6 +100,14 @@ private struct ReceiveHeaderOrnamentItem: Identifiable {
 
 private extension ReceiveHeaderBackgroundView {
     static let referenceSize = CGSize(width: 402, height: 360)
+    static let blurRadius: CGFloat = 70
+    static let overscan: CGFloat = 140
+
+    static func drawPolygons(in context: inout GraphicsContext, palette: ReceiveHeaderPalette) {
+        for polygon in polygons {
+            context.fill(polygon.path, with: .color(palette.colors[polygon.colorIndex]))
+        }
+    }
 
     static let polygons = [
         ReceiveHeaderPolygonData(
@@ -166,6 +153,21 @@ private extension ReceiveHeaderBackgroundView {
             ]
         ),
     ]
+}
+
+private extension ReceiveHeaderPolygonData {
+    var path: Path {
+        var path = Path()
+        guard let first = points.first else { return path }
+
+        path.move(to: CGPoint(x: frame.minX + first.x, y: frame.minY + first.y))
+        for point in points.dropFirst() {
+            path.addLine(to: CGPoint(x: frame.minX + point.x, y: frame.minY + point.y))
+        }
+        path.closeSubpath()
+
+        return path
+    }
 }
 
 private extension ReceiveHeaderOrnamentView {

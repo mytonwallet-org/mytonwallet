@@ -344,14 +344,12 @@ object NftStore : IStore {
         cacheExecutor.execute {
             if (nftData?.accountId != accountId)
                 return@execute
-            val index = nftData?.cachedNfts?.indexOfFirst { it.address == nft.address } ?: -1
-            if (index > -1) {
-                nftData?.cachedNfts?.set(index, nft)
-            } else {
-                if (nftData?.cachedNfts == null)
-                    nftData?.cachedNfts = mutableListOf(nft)
-                else
-                    nftData?.cachedNfts?.add(0, nft)
+            val current = nftData?.cachedNfts
+            val index = current?.indexOfFirst { it.address == nft.address } ?: -1
+            nftData?.cachedNfts = when {
+                current == null -> mutableListOf(nft)
+                index > -1 -> current.toMutableList().also { it[index] = nft }
+                else -> current.toMutableList().also { it.add(0, nft) }
             }
             WalletCore.notifyEvent(WalletEvent.ReceivedNewNFT)
             writeToCache()

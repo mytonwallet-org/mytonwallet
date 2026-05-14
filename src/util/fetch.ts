@@ -9,6 +9,12 @@ import { ApiServerError } from '../api/errors';
 import { logDebug } from './logs';
 import { pause } from './schedulers';
 
+import {
+  fetchWithThrottledProvider,
+  getProviderFetchRetryPolicy,
+  getRetryAfterMs,
+} from './ThrottledFetcher';
+
 type FetchOptions = {
   retries?: number;
   timeouts?: number | number[];
@@ -52,8 +58,9 @@ export async function fetchJson<T extends AnyLiteral>(
 }
 
 export async function fetchWithRetry(url: string | URL, init?: RequestInit, options?: FetchOptions) {
+  const providerRetryPolicy = getProviderFetchRetryPolicy(url);
   const {
-    retries = DEFAULT_RETRIES,
+    retries = providerRetryPolicy?.retries ?? DEFAULT_RETRIES,
     timeouts = DEFAULT_TIMEOUT,
     shouldSkipRetryFn = isNotTemporaryError,
   } = options ?? {};
@@ -77,13 +84,20 @@ export async function fetchWithRetry(url: string | URL, init?: RequestInit, opti
       statusCode = response.status;
 
       if (statusCode >= 400) {
-        const { error } = await response.json().catch(() => {});
-        throw new Error(error ?? `HTTP Error ${statusCode}`);
+        const { error } = await response.json().catch(() => ({}));
+        const requestError = new Error(error ?? `HTTP Error ${statusCode}`) as Error & {
+          retryAfterMs?: number;
+        };
+        requestError.retryAfterMs = getRetryAfterMs(response.headers) ?? providerRetryPolicy?.fallbackRetryAfterMs;
+        throw requestError;
       }
 
       return response;
     } catch (err: any) {
       message = typeof err === 'string' ? err : err.message ?? message;
+      const retryAfterMs = typeof err === 'string'
+        ? undefined
+        : (err as Error & { retryAfterMs?: number }).retryAfterMs;
 
       const shouldSkipRetry = shouldSkipRetryFn(message, statusCode);
 
@@ -92,7 +106,7 @@ export async function fetchWithRetry(url: string | URL, init?: RequestInit, opti
       }
 
       if (i < retries) {
-        await pause(DEFAULT_ERROR_PAUSE * i);
+        await pause(retryAfterMs ?? DEFAULT_ERROR_PAUSE * i);
       }
     }
   }
@@ -120,10 +134,10 @@ export async function fetchWithTimeout(url: string | URL, init?: RequestInit, ti
   }, timeout);
 
   try {
-    return await fetch(url, {
+    return await fetchWithThrottledProvider(url, {
       ...init,
       signal: controller.signal,
-    });
+    }, timeout);
   } finally {
     clearTimeout(id);
   }

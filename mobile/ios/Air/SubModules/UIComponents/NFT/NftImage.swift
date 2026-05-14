@@ -1,6 +1,7 @@
 
 import Kingfisher
 import SwiftUI
+import UIKit
 import WalletCore
 import WalletContext
 import Lottie
@@ -34,6 +35,8 @@ public struct NftImage: View {
             return URL(string: image)
         } else if let thumbnail = nft.thumbnail {
             return URL(string: thumbnail)
+        } else if let image = nft.image {
+            return URL(string: image)
         }
         return nil
     }
@@ -45,42 +48,50 @@ public struct NftImage: View {
     }
     
     public var body: some View {
-        KFImage(imageUrl)
-            .backgroundDecode()
-            .fade(duration: loadFullSize ? 0 : 0.15)
-            .loadDiskFileSynchronously(false)
-            .placeholder({
-                if loadFullSize {
-                    KFImage(thumbnailUrl)
-                        .resizable()
-                        .loadDiskFileSynchronously(false)
-                        .placeholder {
-                            ProgressView()
+        Group {
+            if let imageUrl {
+                KFImage(imageUrl)
+                    .backgroundDecode()
+                    .fade(duration: loadFullSize ? 0 : 0.15)
+                    .loadDiskFileSynchronously(false)
+                    .placeholder({
+                        if loadFullSize {
+                            KFImage(thumbnailUrl)
+                                .resizable()
+                                .loadDiskFileSynchronously(false)
+                                .placeholder {
+                                    ProgressView()
+                                }
+                                .aspectRatio(contentMode: .fit)
                         }
-                        .aspectRatio(contentMode: .fit)
-                }
-            })
-            .onFailureImage(UIImage.airBundle("NftError"))
-            .resizable()
-            .scaledToFit()
-            .aspectRatio(1, contentMode: .fit)
-            .overlay {
-                if animateIfPossible {
-                    LottieView(animation: lottieAnimation)
-                        .playbackMode(playbackState)
-                }
+                    })
+                    .onFailureImage(UIImage.airBundle("NftError"))
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Image(uiImage: UIImage.airBundle("NoNftImage2"))
+                    .resizable()
+                    .scaledToFit()
             }
-            .task(id: nft.metadata?.lottie?.nilIfEmpty, priority: .medium) {
-                do {
-                    if let lottie = nft.metadata?.lottie?.nilIfEmpty, let url = URL(string: lottie) {
-                        self.lottieAnimation = try await loadAnimation(url: url)
-                    } else {
-                        self.lottieAnimation = nil
-                    }
-                } catch {
-                    log.info("failed to download from \(nft.metadata?.lottie as Any, .public) \(error, .public)")
-                }
+        }
+        .aspectRatio(1, contentMode: .fit)
+        .overlay {
+            if animateIfPossible {
+                LottieView(animation: lottieAnimation)
+                    .playbackMode(playbackState)
             }
+        }
+        .task(id: nft.metadata?.lottie?.nilIfEmpty, priority: .medium) {
+            do {
+                if let lottie = nft.metadata?.lottie?.nilIfEmpty, let url = URL(string: lottie) {
+                    self.lottieAnimation = try await loadAnimation(url: url)
+                } else {
+                    self.lottieAnimation = nil
+                }
+            } catch {
+                log.info("failed to download from \(nft.metadata?.lottie as Any, .public) \(error, .public)")
+            }
+        }
     }
     
     nonisolated func loadAnimation(url: URL) async throws -> LottieAnimation {

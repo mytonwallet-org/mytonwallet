@@ -24,8 +24,10 @@ import getChainNetworkIcon from '../../../../util/swap/getChainNetworkIcon';
 import { getExplorerAddressUrl, getExplorerName } from '../../../../util/url';
 import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
 
+import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
+import useWindowSize from '../../../../hooks/useWindowSize';
 import useAddressMenu from './hooks/useAddressMenu';
 
 import AddressMenu from './AddressMenu';
@@ -80,6 +82,8 @@ interface StateProps {
   selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 }
 
+const TINY_WINDOW_SIZE_PX = 374;
+
 function CardAddress({
   byChain,
   isTestnet,
@@ -93,6 +97,8 @@ function CardAddress({
 
   const ref = useRef<HTMLDivElement>();
   const menuRef = useRef<HTMLDivElement>();
+  const { isLandscape } = useDeviceScreen();
+  const { width: windowWidth } = useWindowSize();
 
   const {
     menuAnchor,
@@ -113,6 +119,7 @@ function CardAddress({
 
   const isHardwareAccount = accountType === 'hardware';
   const isViewAccount = accountType === 'view';
+  const isTinyFormat = isViewAccount && (isLandscape || windowWidth < TINY_WINDOW_SIZE_PX);
   const menuItems = useMemo(() => {
     return chains.map((chain) => {
       const accountChain = byChain.get(chain)!;
@@ -156,6 +163,7 @@ function CardAddress({
         byChain={byChain}
         withTextGradient={withTextGradient}
         isMinimized={isMinimized}
+        isTinyFormat={isTinyFormat}
         openMenu={openMenu}
         onLongPress={handleLongPress}
         onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}

@@ -18,6 +18,8 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers.Companion.isSuitableToGetTimestamp
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapsResult
+import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
@@ -51,12 +53,14 @@ import java.util.concurrent.Executors
  * ## Event Flow:
  * SDK Events → processReceivedActivities() → cache update → WalletCore.notifyEvent() → ActivityLoader
  */
-object ActivityStore : IStore {
+object ActivityStore : IStore, WalletCore.EventObserver {
 
     // Constants ///////////////////////////////////////////////////////////////////////////////////
     private const val DEFAULT_LIMIT = 60
     private const val MAX_ITEMS_TO_CACHE_IN_LIST = 200
     private const val NEW_TRANSACTION_THRESHOLD_SECONDS = 60
+    private const val CEX_SWAP_REFRESH_INTERVAL_MS = 3_000L
+    private const val CEX_SWAP_REFRESH_INTERVAL_NOT_FOCUSED_MS = 15_000L
 
     // Thread management ///////////////////////////////////////////////////////////////////////////
     private val backgroundQueue = Executors.newSingleThreadExecutor()
@@ -69,6 +73,17 @@ object ActivityStore : IStore {
     private fun getOrCreateAccountState(accountId: String): AccountActivityState {
         return _accountStates.getOrPut(accountId) { AccountActivityState() }
     }
+
+    // CEX swap reconciliation state //////////////////////////////////////////////////////////////
+    private val cexSwapRefreshTick = Runnable {
+        backgroundQueue.execute { onCexSwapRefreshTick() }
+    }
+
+    @Volatile
+    private var hasPendingCexSwapTick: Boolean = false
+
+    @Volatile
+    private var isAppFocused: Boolean = true
 
     // IDs of transactions that have already triggered a notification sound
     private val notifiedIds: MutableSet<String> =
@@ -115,10 +130,12 @@ object ActivityStore : IStore {
      * Called during app startup to restore persisted activities.
      */
     fun loadFromCache() {
+        WalletCore.registerObserver(this)
         backgroundQueue.execute {
             for (accountId in WGlobalStorage.accountIds()) {
                 loadAccountFromCache(accountId)
             }
+            scheduleCexSwapRefreshIfNeeded()
         }
     }
 
@@ -150,6 +167,7 @@ object ActivityStore : IStore {
     }
 
     override fun clearCache() {
+        backgroundQueue.execute { cancelCexSwapRefreshTick() }
         _accountStates = ConcurrentHashMap()
     }
 
@@ -511,13 +529,18 @@ object ActivityStore : IStore {
             updateNewestActivitiesBySlug(accountId, newestActivitiesBySlug)
             setNewestActivitiesBySlug(accountId)
 
+            // Reconcile any tx already included in CEX swap hashes so they don't double-show.
+            val hiddenActivities = hideTransactionsIncludedInCexSwaps(accountId)
+
             // Notify observers
             val walletEvent = WalletEvent.ReceivedNewActivities(
                 accountId = accountId,
-                newActivities = allActivities,
+                newActivities = allActivities + hiddenActivities,
                 eventType = WalletEvent.ReceivedNewActivities.EventType.ACCOUNT_INITIALIZE,
             )
             WalletCore.notifyEvent(walletEvent)
+
+            scheduleCexSwapRefreshIfNeeded()
 
             endTransaction()
         }
@@ -583,13 +606,18 @@ object ActivityStore : IStore {
                 }
             }
 
+            // Hide tx that are already covered by a CEX swap (the swap row owns the display).
+            val hiddenActivities = hideTransactionsIncludedInCexSwaps(accountId)
+
             // Notify observers
             val walletEvent = WalletEvent.ReceivedNewActivities(
                 accountId = accountId,
-                newActivities = newLocalTransactions.toList(),
+                newActivities = newLocalTransactions.toList() + hiddenActivities,
                 eventType = WalletEvent.ReceivedNewActivities.EventType.UPDATE,
             )
             WalletCore.notifyEvent(walletEvent)
+
+            scheduleCexSwapRefreshIfNeeded()
         }
     }
 
@@ -678,10 +706,15 @@ object ActivityStore : IStore {
             }
             notifiedIds.addAll(pendingAndNewActivities.map { it.id })
 
+            // Hide tx that are already covered by a CEX swap (the swap row owns the display).
+            val hiddenActivities = hideTransactionsIncludedInCexSwaps(accountId)
+
             // Broadcast event to observers (not for pagination - handled by ActivityLoader)
             if (eventType != WalletEvent.ReceivedNewActivities.EventType.PAGINATE) {
-                notifyActivityEvent(accountId, newActivities, eventType)
+                notifyActivityEvent(accountId, newActivities + hiddenActivities, eventType)
             }
+
+            scheduleCexSwapRefreshIfNeeded()
 
             endTransaction()
         }
@@ -946,5 +979,157 @@ object ActivityStore : IStore {
         backgroundQueue.execute {
             WGlobalStorage.decDoNotSynchronize()
         }
+    }
+
+    // CEX Swap Reconciliation /////////////////////////////////////////////////////////////////////
+    // Periodically calls JS `fetchSwaps` for pending CEX swaps on the active account, then
+    // applies returned status / cancellation and hides on-chain tx covered by a CEX swap's
+    // hashes. All cache reads/writes run on `backgroundQueue`, matching the rest of this store;
+    // `cexSwapScheduler` only posts ticks onto that queue, so no extra locking is needed.
+
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        when (walletEvent) {
+            is WalletEvent.AccountChanged -> backgroundQueue.execute {
+                cancelCexSwapRefreshTick()
+                scheduleCexSwapRefreshIfNeeded(immediate = true)
+            }
+
+            WalletEvent.AppForeground -> {
+                isAppFocused = true
+                backgroundQueue.execute {
+                    cancelCexSwapRefreshTick()
+                    scheduleCexSwapRefreshIfNeeded(immediate = true)
+                }
+            }
+
+            WalletEvent.AppBackground -> {
+                isAppFocused = false
+            }
+
+            else -> {}
+        }
+    }
+
+    private fun cancelCexSwapRefreshTick() {
+        if (!hasPendingCexSwapTick) return
+        mainHandler.removeCallbacks(cexSwapRefreshTick)
+        hasPendingCexSwapTick = false
+    }
+
+    /**
+     * Schedule the next CEX-swap refresh tick if the active account still has pending
+     * CEX swaps. Idempotent — safe to call repeatedly. Must run on `backgroundQueue`.
+     * @param immediate when true, fires the next tick with no delay (e.g. on
+     *   account-switch / app-foreground) instead of waiting for the regular interval.
+     */
+    private fun scheduleCexSwapRefreshIfNeeded(immediate: Boolean = false) {
+        if (hasPendingCexSwapTick) return
+
+        val accountId = AccountStore.activeAccountId
+        if (accountId == null || pendingCexSwapIds(accountId).isEmpty()) return
+
+        val delay = when {
+            immediate -> 0L
+            isAppFocused -> CEX_SWAP_REFRESH_INTERVAL_MS
+            else -> CEX_SWAP_REFRESH_INTERVAL_NOT_FOCUSED_MS
+        }
+
+        hasPendingCexSwapTick = true
+        mainHandler.postDelayed(cexSwapRefreshTick, delay)
+    }
+
+    private fun onCexSwapRefreshTick() {
+        hasPendingCexSwapTick = false
+        refreshPendingCexSwaps()
+        // `refreshPendingCexSwaps/applyCexSwapRefresh` will reschedule when its work completes;
+        // if there's no fetch in-flight (no pending ids) the chain ends here.
+    }
+
+    /** Snapshot pending ids on backgroundQueue, then fire fetchSwaps; apply result on backgroundQueue. */
+    private fun refreshPendingCexSwaps() {
+        val accountId = AccountStore.activeAccountId ?: return
+        val ids = pendingCexSwapIds(accountId)
+        if (ids.isEmpty()) return
+
+        mainHandler.post {
+            WalletCore.call(ApiMethod.Swap.FetchSwaps(accountId, ids)) { result, err ->
+                if (err != null || result == null) {
+                    Logger.e(Logger.LogTag.ACTIVITY_STORE, "refreshPendingCexSwaps: $err")
+                    // Retry at the next regular interval.
+                    backgroundQueue.execute { scheduleCexSwapRefreshIfNeeded() }
+                    return@call
+                }
+                backgroundQueue.execute { applyCexSwapRefresh(accountId, result) }
+            }
+        }
+    }
+
+    private fun applyCexSwapRefresh(accountId: String, result: MApiFetchSwapsResult) {
+        val accountState = _accountStates[accountId] ?: return
+        val byId = accountState.cachedTransactions
+        var changed = false
+
+        for (swap in result.swaps) {
+            val incoming = if (swap.isCanceled == true) swap.copy(shouldHide = true) else swap
+            val existing = byId[incoming.id]
+            if (existing == null ||
+                existing.isChanged(incoming) ||
+                existing.shouldHide != incoming.shouldHide
+            ) {
+                byId[incoming.id] = incoming
+                PoisoningCacheHelper.updatePoisoningCache(accountId, incoming)
+                changed = true
+            }
+        }
+
+        for (id in result.nonExistentIds) {
+            val existingId = if (byId.containsKey(id)) id else byId.entries.firstOrNull { (_, a) ->
+                a is MApiTransaction.Swap && a.cex != null && a.parsedTxId.hash == id
+            }?.key ?: continue
+            val existing = byId[existingId] as? MApiTransaction.Swap ?: continue
+            if (existing.status == ApiSwapStatus.EXPIRED && existing.shouldHide == true) continue
+            byId[existingId] = existing.copy(status = ApiSwapStatus.EXPIRED, shouldHide = true)
+            changed = true
+        }
+
+        if (hideTransactionsIncludedInCexSwaps(accountId).isNotEmpty()) changed = true
+
+        if (changed) {
+            WalletCore.notifyEvent(
+                WalletEvent.ReceivedNewActivities(
+                    accountId = accountId,
+                    newActivities = byId.values.toList(),
+                    eventType = WalletEvent.ReceivedNewActivities.EventType.UPDATE,
+                )
+            )
+        }
+
+        // Continue the refresh cycle if any pending CEX swaps remain.
+        scheduleCexSwapRefreshIfNeeded()
+    }
+
+    private fun pendingCexSwapIds(accountId: String): List<String> {
+        val byId = _accountStates[accountId]?.cachedTransactions ?: return emptyList()
+        return ActivityHelpers.pendingCexSwapHashes(byId.values)
+    }
+
+    /**
+     * Mark transactions whose hash is referenced by a CEX swap's `hashes` list as `shouldHide`.
+     * Must run on `backgroundQueue`. Returns the (post-update) hidden activities, or empty.
+     */
+    fun hideTransactionsIncludedInCexSwaps(accountId: String): List<MApiTransaction> {
+        val byId = _accountStates[accountId]?.cachedTransactions ?: return emptyList()
+        val cexSwapHashes = ActivityHelpers.cexSwapTxHashes(byId.values)
+        if (cexSwapHashes.isEmpty()) return emptyList()
+
+        val hidden = mutableListOf<MApiTransaction>()
+        for ((id, activity) in byId.toMap()) {
+            if (activity !is MApiTransaction.Transaction || activity.shouldHide == true) continue
+            if (!ActivityHelpers.isActivityCoveredByCexSwapHashes(activity, cexSwapHashes)) continue
+            val updated = activity.copy(shouldHide = true)
+            byId[id] = updated
+            hidden.add(updated)
+        }
+        return hidden
     }
 }

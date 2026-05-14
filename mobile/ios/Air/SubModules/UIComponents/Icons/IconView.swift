@@ -17,29 +17,27 @@ public class IconView: UIView {
     private static let tokenPlaceholderBorderColor = UIColor.air.secondaryLabel.withAlphaComponent(0.5)
     private static let tokenLoadingPlaceholderColor = UIColor.air.secondaryLabel.withAlphaComponent(0.08)
     
-    public var imageView: UIImageView!
-    private var borderLayer: CALayer?
-    private var borderWidth: CGFloat?
-    private var borderColor: UIColor?
+    private(set) public var imageView: UIImageView!
+        
+    private var gradientLayer: CAGradientLayer!
     
-    public var gradientLayer: CAGradientLayer!
-    
-    public var largeLabel: UILabel!
+    private var largeLabel: UILabel!
     private var tokenPlaceholderLabel: UILabel!
     private var tokenPlaceholderBorderLayer: CAShapeLayer!
     
-    public var smallLabelTop: UILabel!
-    public var smallLabelBottom: UILabel!
-    public var smallLabelGuide: UILayoutGuide!
-    public var smallLabelTopBottomConstraint: NSLayoutConstraint!
+    private var smallLabelTop: UILabel!
+    private var smallLabelBottom: UILabel!
+    private var smallLabelGuide: UILayoutGuide!
+    private var smallLabelTopBottomConstraint: NSLayoutConstraint!
     
-    public var size: CGFloat = 40
-    public var sizeConstraints: [NSLayoutConstraint] = []
+    private var size: CGFloat = 40
+    private var sizeConstraints: [NSLayoutConstraint] = []
     
-    private var chainAccessoryView: IconAccessoryView!
-    public var chainSize: CGFloat = 16
-    public var chainBorderWidth: CGFloat = 1
-    public var chainBorderColor: UIColor?
+    private var imageViewChainCutoutMask: CAShapeLayer?
+    private var gradientChainCutoutMask: CAShapeLayer?
+    private var chainAccessoryMaskContextIconGeometry: IconAccessoryView.LayoutGeometry? = nil
+    private var chainAccessoryMaskContextSize: CGFloat? = nil
+    private let chainAccessoryView: IconAccessoryView
     
     private var resolveGradientColors: (() -> [CGColor]?)?
     
@@ -55,13 +53,13 @@ public class IconView: UIView {
         case failed
     }
     
-    public init(size: CGFloat, borderWidth: CGFloat? = nil, borderColor: UIColor? = nil) {
-        super.init(frame: CGRect.zero)
+    public init(size: CGFloat, accessoryGeometry: IconAccessoryView.LayoutGeometry? = nil) {
+        chainAccessoryView = IconAccessoryView(layoutGeometry: accessoryGeometry)
+        
+        super.init(frame: CGRect.square(size))
+
         setupView()
         setSize(size)
-        if let borderWidth {
-            setBorder(width: borderWidth, color: borderColor, layout: false)
-        }
     }
     
     required public init?(coder: NSCoder) {
@@ -101,7 +99,7 @@ public class IconView: UIView {
         // add large address name label
         largeLabel = UILabel()
         largeLabel.translatesAutoresizingMaskIntoConstraints = false
-        largeLabel.font = IconView.labelFont
+        largeLabel.font = Self.labelFont
         largeLabel.textColor = .white
         addSubview(largeLabel)
         NSLayoutConstraint.activate([
@@ -156,25 +154,19 @@ public class IconView: UIView {
         smallLabelTop.textColor = .white
         smallLabelBottom.textColor = .white
 
-        chainAccessoryView = IconAccessoryView()
         addSubview(chainAccessoryView)
-        chainAccessoryView.apply(size: chainSize, borderWidth: chainBorderWidth, borderColor: chainBorderColor, horizontalOffset: 3, verticalOffset: 1, in: self)
-        
-        updateTheme()
+        chainAccessoryView.apply(layoutGeometry: chainAccessoryView.layoutGeometry, in: self)
     }
     
     public override func layoutSubviews() {
+        super.layoutSubviews()
+        
         gradientLayer.frame = bounds
         updateTokenPlaceholderAppearance()
-        if let borderLayer {
-            let borderWidth = self.borderWidth ?? 0
-            borderLayer.frame = bounds.insetBy(dx: -borderWidth, dy: -borderWidth)
-            borderLayer.cornerRadius = bounds.width * 0.5 + borderWidth
-        }
+        updateChainAccessoryMask()
     }
     
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        borderLayer?.backgroundColor = borderColor?.cgColor
         gradientLayer.colors = resolveGradientColors?()
         tokenPlaceholderLabel.textColor = Self.tokenPlaceholderTextColor
         tokenPlaceholderBorderLayer.strokeColor = Self.tokenPlaceholderBorderColor.cgColor
@@ -184,12 +176,91 @@ public class IconView: UIView {
         super.traitCollectionDidChange(previousTraitCollection)
     }
     
-    private func updateTheme() {
-        if self.chainBorderColor == nil {
-            chainAccessoryView.backgroundColor = .air.groupedItem
+    private func hideChainAccessoryMask() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        imageView.layer.mask = nil
+        gradientLayer.mask = nil
+        CATransaction.commit()
+        imageViewChainCutoutMask = nil
+        gradientChainCutoutMask = nil
+        chainAccessoryMaskContextIconGeometry = nil
+        chainAccessoryMaskContextSize = nil
+    }
+        
+    private func updateChainAccessoryMask(geometry: IconAccessoryView.LayoutGeometry? = nil,
+                                          animationDuration: CGFloat = 0, onComplete: (() -> Void)? = nil) {
+        guard !chainAccessoryView.isHidden, chainAccessoryView.alpha > 0.01, bounds.width > 0, bounds.height > 0 else {
+            hideChainAccessoryMask()
+            onComplete?()
+            return
+        }
+        
+        let lg = geometry ?? chainAccessoryView.layoutGeometry
+        let shouldUpdateMask = chainAccessoryMaskContextSize != size || chainAccessoryMaskContextIconGeometry != lg
+        chainAccessoryMaskContextIconGeometry = lg
+        chainAccessoryMaskContextSize = size
+        let area = CGRect.square(size)
+        let radius = lg.fullSize / 2
+        let centerIn = CGPoint(x: area.width + lg.horizontalOffset - radius, y: area.height + lg.verticalOffset - radius)
+
+        func buildPath() -> CGPath {
+            let p = UIBezierPath(ovalIn: area)
+            p.append(UIBezierPath(ovalIn: CGRect(
+                x: centerIn.x - radius,
+                y: centerIn.y - radius,
+                width: radius * 2,
+                height: radius * 2
+            )))
+            return p.cgPath
+        }
+
+        func applyMask(_ existing: CAShapeLayer?, parent: CALayer) -> CAShapeLayer {
+            if let m = existing {
+                if shouldUpdateMask {
+                    let newPath = buildPath()
+                    if animationDuration > 0 {
+                        let anim = CABasicAnimation(keyPath: "path")
+                        anim.fromValue = m.presentation()?.path ?? m.path
+                        anim.toValue = newPath
+                        anim.duration = animationDuration
+                        anim.timingFunction = CATransaction.animationTimingFunction() ?? CAMediaTimingFunction(name: .easeInEaseOut)
+                        m.add(anim, forKey: "pathAnim")
+                    }
+                    CATransaction.begin()
+                    CATransaction.setDisableActions(true)
+                    m.path = newPath
+                    CATransaction.commit()
+                }
+                return m
+            } else {
+                let m = CAShapeLayer()
+                m.fillRule = .evenOdd
+                m.path = buildPath()
+                m.frame = area
+                
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                parent.mask = m
+                CATransaction.commit()
+                
+                return m
+            }
+        }
+
+        if let onComplete, animationDuration > 0, shouldUpdateMask {
+            CATransaction.begin()
+            CATransaction.setCompletionBlock(onComplete)
+            imageViewChainCutoutMask = applyMask(imageViewChainCutoutMask, parent: imageView.layer)
+            gradientChainCutoutMask = applyMask(gradientChainCutoutMask, parent: gradientLayer)
+            CATransaction.commit()
+        } else {
+            imageViewChainCutoutMask = applyMask(imageViewChainCutoutMask, parent: imageView.layer)
+            gradientChainCutoutMask = applyMask(gradientChainCutoutMask, parent: gradientLayer)
+            onComplete?()
         }
     }
-    
+
     public func config(with activity: ApiActivity, isTransactionConfirmation: Bool = false) {
         cachedTokenSlug = nil
         cachedTokenImageURL = nil
@@ -210,8 +281,9 @@ public class IconView: UIView {
             imageView.contentMode = .scaleAspectFit
             imageView.image = .airBundle(image)
         }
+        
         if let accessoryStatus = activityAccessoryStatus(for: activity), !isTransactionConfirmation {
-            setChainSize(18, borderWidth: 1.667, borderColor: .air.groupedItem, horizontalOffset: 2 + 1.667, verticalOffset: 2 + 1.667)
+            setChainSize(18, borderWidth: 1.667, horizontalOffset: 2 + 1.667, verticalOffset: 2 + 1.667)
             switch accessoryStatus {
             case .pending:
                 chainAccessoryView.configurePending()
@@ -227,15 +299,40 @@ public class IconView: UIView {
             chainAccessoryView.isHidden = false
             chainAccessoryView.alpha = 1
             chainAccessoryView.transform = .identity
+            updateChainAccessoryMask()
         } else {
-            UIView.animate(withDuration: 0.2) {
-                self.chainAccessoryView.alpha = 0
-                self.chainAccessoryView.transform = .identity.scaledBy(x: 0.2, y: 0.2)
-            }
+            self.hideChainAccessoryViewAnimated()
         }
+    }
+    
+    private func hideChainAccessoryViewAnimated() {
+        guard chainAccessoryView.alpha > 0 else {
+            updateChainAccessoryMask()
+            return
+        }
+        
+        var geometry = self.chainAccessoryView.layoutGeometry
+        let scale = 0.2
+        let duration = 0.2
+        let rx = (geometry.size + geometry.borderWidth) * (1.0 - scale) / 2
+        geometry.size *= scale
+        geometry.borderWidth *= scale
+        geometry.horizontalOffset -= rx
+        geometry.verticalOffset -= rx
+        updateChainAccessoryMask(geometry: geometry, animationDuration: 0.1) {
+            self.hideChainAccessoryMask()
+        }
+        UIView.animate(withDuration: duration, animations: {
+            self.chainAccessoryView.alpha = 0
+            self.chainAccessoryView.transform = .identity.scaledBy(x: scale, y: scale)
+        })
     }
 
     public func config(with token: ApiToken?, isStaking: Bool = false, isWalletView: Bool = false, shouldShowChain: Bool) {
+        defer {
+            updateChainAccessoryMask()
+        }
+        
         let tokenSlug = token?.slug
         let tokenImageURL = token?.image?.nilIfEmpty
         let tokenChanged = cachedTokenSlug != tokenSlug
@@ -261,6 +358,7 @@ public class IconView: UIView {
             imageView.kf.cancelDownloadTask()
             imageView.image = nil
             chainAccessoryView.reset()
+            chainAccessoryView.isHidden = true
             return
         }
         imageView.contentMode = .scaleAspectFill
@@ -276,13 +374,16 @@ public class IconView: UIView {
             let chain = token.chain
             chainAccessoryView.configureChain(chain)
             chainAccessoryView.isHidden = false
-            updateTheme()
         } else {
             chainAccessoryView.isHidden = true
         }
     }
     
     public func config(with account: MAccount?, showIcon: Bool = true) {
+        defer {
+            updateChainAccessoryMask()
+        }
+
         cachedTokenSlug = nil
         cachedTokenImageURL = nil
         tokenImageState = .none
@@ -308,7 +409,7 @@ public class IconView: UIView {
             largeLabel.text = string
             smallLabelTop.text = nil
             smallLabelBottom.text = nil
-        case .sixCharaters(let string, let string2):
+        case .sixCharacters(let string, let string2):
             largeLabel.text = nil
             smallLabelTop.text = string
             smallLabelBottom.text = string2
@@ -378,7 +479,6 @@ public class IconView: UIView {
         } else {
             chainAccessoryView.isHidden = true
         }
-        updateTheme()
     }
 
     public func setSize(_ size: CGFloat) {
@@ -414,37 +514,22 @@ public class IconView: UIView {
             smallLabelBottom.font = UIFont.roundedNative(ofSize: 9, weight: .heavy)
             smallLabelTopBottomConstraint.constant = -1
         }
+        
         updateTokenPlaceholderAppearance()
+        updateChainAccessoryMask()
     }
-    
-    public func setBorder(width: CGFloat?, color: UIColor?, layout: Bool = true) {
-        if width == self.borderWidth {
-            // do nothing
-        } else if let width {
-            self.borderWidth = width
-            if borderLayer == nil {
-                let layer = CALayer()
-                self.layer.insertSublayer(layer, at: 0)
-                layer.masksToBounds = true
-                self.borderLayer = layer
-            }
-            setNeedsLayout()
-        } else {
-            self.borderWidth = nil
-            setNeedsLayout()
+        
+    public func setChainSize(_ size: CGFloat, borderWidth: CGFloat, horizontalOffset: CGFloat, verticalOffset: CGFloat) {
+        let geometry = IconAccessoryView.LayoutGeometry(
+            size: size,
+            borderWidth: borderWidth,
+            horizontalOffset: horizontalOffset,
+            verticalOffset: verticalOffset
+        )
+        if geometry != self.chainAccessoryView.layoutGeometry {
+            chainAccessoryView.apply(layoutGeometry: geometry, in: self)
+            updateChainAccessoryMask()
         }
-        self.borderColor = color
-        self.borderLayer?.backgroundColor = color?.cgColor
-        if layout {
-            layoutIfNeeded()
-        }
-    }
-    
-    public func setChainSize(_ size: CGFloat, borderWidth: CGFloat, borderColor: UIColor? = nil, horizontalOffset: CGFloat = 3, verticalOffset: CGFloat = 1) {
-        self.chainSize = size
-        self.chainBorderWidth = borderWidth
-        self.chainBorderColor = borderColor
-        chainAccessoryView.apply(size: chainSize, borderWidth: chainBorderWidth, borderColor: borderColor, horizontalOffset: horizontalOffset, verticalOffset: verticalOffset, in: self)
     }
 
     private func configureTokenImage(token: ApiToken, tokenChanged: Bool, imageChanged: Bool) {

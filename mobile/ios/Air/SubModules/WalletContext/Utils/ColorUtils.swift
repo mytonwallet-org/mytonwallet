@@ -96,16 +96,18 @@ extension UIColor {
     
     public var isLightColor: Bool {
         guard let colorLum = getRelativeLuminance(self) else { return false }
-        return colorLum > 0.5
+        // Threshold derived from WCAG contrast formula: √(1.05 × 0.05) − 0.05 ≈ 0.179.
+        // We use own approximation - just by experience
+        return colorLum > 0.3
     }
     
     private func getRelativeLuminance(_ color: UIColor) -> CGFloat? {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         guard color.getRed(&r, green: &g, blue: &b, alpha: &a) else { return nil }
         
-        // sRGB → linear RGB → relative luminance (WCAG formula)
+        // sRGB → linear RGB → relative luminance (WCAG 2.1 formula)
         func linear(_ c: CGFloat) -> CGFloat {
-            c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+            c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
         }
         
         let luminance = 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)

@@ -101,7 +101,7 @@ function NftCollectionHeader({
 
   const collectionName = isTelegramGifts
     ? lang('Telegram Gifts')
-    : collectionNfts?.[0]?.collectionName ?? lang('Unnamed Collection');
+    : collectionNfts?.[0]?.collectionName || lang('Unnamed Collection');
 
   const menuItems: DropdownItem<MenuHandler>[] = useMemo(() => {
     const isInTabs = collectionTabs?.some((e) =>

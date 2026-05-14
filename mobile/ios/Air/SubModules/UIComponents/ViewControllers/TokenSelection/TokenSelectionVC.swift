@@ -67,14 +67,6 @@ public class TokenSelectionVC: WViewController {
             }
         }
     }
-
-    private final class DataSource: UITableViewDiffableDataSource<Section, Item> {
-        override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-            let sectionIdentifiers = snapshot().sectionIdentifiers
-            guard section < sectionIdentifiers.count else { return nil }
-            return sectionIdentifiers[section].title
-        }
-    }
     
     // MARK: - Properties
     
@@ -97,9 +89,9 @@ public class TokenSelectionVC: WViewController {
 
     @AccountContext(source: .current) private var account: MAccount
     
-    private var tableView: UITableView!
+    private var collectionView: UICollectionView!
     private var activityIndicatorView: WActivityIndicator!
-    private var dataSource: DataSource!
+    private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
     
     // MARK: - Init
     
@@ -150,7 +142,7 @@ public class TokenSelectionVC: WViewController {
         
         if let otherSymbolOrMinterAddress {
             activityIndicatorView.startAnimating(animated: true)
-            tableView.alpha = 0
+            collectionView.alpha = 0
             Task {
                 do {
                     let pairs = try await Api.swapGetPairs(symbolOrMinter: otherSymbolOrMinterAddress)
@@ -162,7 +154,7 @@ public class TokenSelectionVC: WViewController {
                 applySnapshot()
                 UIView.animate(withDuration: 0.2) { [weak self] in
                     guard let self else { return }
-                    tableView.alpha = 1
+                    collectionView.alpha = 1
                     activityIndicatorView.alpha = 0
                 } completion: { [weak self] _ in
                     guard let self else { return }
@@ -173,6 +165,24 @@ public class TokenSelectionVC: WViewController {
     }
     
     // MARK: - Setup
+    
+    private func makeLayout() -> UICollectionViewLayout {
+        UICollectionViewCompositionalLayout { _, environment in
+            var listConfig = UICollectionLayoutListConfiguration(appearance: .plain)
+            listConfig.showsSeparators = true
+            listConfig.headerMode = .supplementary
+
+            let separatorInsets = NSDirectionalEdgeInsets(top: 0, leading: 62, bottom: 0, trailing: IOS_26_MODE_ENABLED ? 12 : 0)
+            var separatorConfig = UIListSeparatorConfiguration(listAppearance: .plain)
+            separatorConfig.topSeparatorInsets = separatorInsets
+            separatorConfig.bottomSeparatorInsets = separatorInsets
+            listConfig.separatorConfiguration = separatorConfig
+
+            let section = NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
+            section.contentInsets.bottom = 12
+            return section
+        }
+    }
     
     private func setupViews() {
         if isModal {
@@ -198,23 +208,15 @@ public class TokenSelectionVC: WViewController {
         definesPresentationContext = true
         self.searchController = sc
         
-        tableView = UITableView()
-        tableView.allowsSelection = false
-        tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.register(TokenCell.self, forCellReuseIdentifier: "Token")
-        tableView.delegate = self
-        tableView.separatorStyle = .singleLine
-        tableView.separatorInset.left = 68
-        tableView.separatorInset.right = IOS_26_MODE_ENABLED ? 16 : 0
-        tableView.keyboardDismissMode = .onDrag
-        tableView.rowHeight = 60
-        tableView.delaysContentTouches = false
-        tableView.sectionHeaderTopPadding = 0
-        
+        collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        collectionView.keyboardDismissMode = .onDrag
+        collectionView.delaysContentTouches = false
+
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(hideKeyboard))
         tapGesture.cancelsTouchesInView = false
-        tableView.addGestureRecognizer(tapGesture)
-        view.addStretchedToSafeArea(subview: tableView,
+        collectionView.addGestureRecognizer(tapGesture)
+        view.addStretchedToSafeArea(subview: collectionView,
                                     top: \.topAnchor,
                                     bottom: \.bottomAnchor)
         
@@ -222,34 +224,50 @@ public class TokenSelectionVC: WViewController {
         activityIndicatorView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(activityIndicatorView)
         NSLayoutConstraint.activate([
-            activityIndicatorView.centerXAnchor.constraint(equalTo: tableView.centerXAnchor),
-            activityIndicatorView.centerYAnchor.constraint(equalTo: tableView.centerYAnchor),
+            activityIndicatorView.centerXAnchor.constraint(equalTo: collectionView.centerXAnchor),
+            activityIndicatorView.centerYAnchor.constraint(equalTo: collectionView.centerYAnchor),
         ])
 
         updateTheme()
     }
     
     private func configureDataSource() {
-        dataSource = DataSource(tableView: tableView) { [weak self] tableView, indexPath, item in
-            guard let self else { return UITableViewCell() }
-            return self.cell(for: item, at: indexPath)
+        let cellRegistration = UICollectionView.CellRegistration<TokenCell, Item> { [weak self] cell, indexPath, item in
+            guard let self else { return }
+            self.configure(cell: cell, for: item, at: indexPath)
+        }
+
+        let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
+            elementKind: UICollectionView.elementKindSectionHeader
+        ) { [weak self] headerView, _, indexPath in
+            guard let self else { return }
+            let sectionIdentifiers = self.dataSource.snapshot().sectionIdentifiers
+            guard indexPath.section < sectionIdentifiers.count else { return }
+            var content = UIListContentConfiguration.plainHeader()
+            content.text = sectionIdentifiers[indexPath.section].title
+            content.directionalLayoutMargins.leading += 54
+            headerView.contentConfiguration = content
+        }
+
+        dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
+            collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: item)
+        }
+        dataSource.supplementaryViewProvider = { collectionView, _, indexPath in
+            collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
         }
     }
     
-    private func cell(for item: Item, at indexPath: IndexPath) -> UITableViewCell {
+    private func configure(cell: TokenCell, for item: Item, at indexPath: IndexPath) {
         switch item {
         case .walletToken(let token):
-            let cell = tableView.dequeueReusableCell(withIdentifier: "Token", for: indexPath) as! TokenCell
             let isAvailable = isTokenAvailable(slug: token.tokenSlug)
             cell.configure(with: token, isAvailable: isAvailable) { [weak self] in
                 guard let self, isTokenAvailable(slug: token.tokenSlug) else { return }
                 delegate?.didSelect(token: token)
                 navigationController?.popViewController(animated: true)
             }
-            return cell
             
         case .apiToken(let token, _):
-            let cell = tableView.dequeueReusableCell(withIdentifier: "Token", for: indexPath) as! TokenCell
             let isAvailable = isTokenAvailable(slug: token.slug)
             let tokenSlug = token.slug
             cell.configure(with: token, balance: $account.balances[token.slug] ?? 0, isAvailable: isAvailable) { [weak self] in
@@ -260,7 +278,6 @@ public class TokenSelectionVC: WViewController {
                 delegate?.didSelect(token: token)
                 navigationController?.popViewController(animated: true)
             }
-            return cell
         }
     }
     
@@ -274,20 +291,14 @@ public class TokenSelectionVC: WViewController {
         return availablePairs?.contains { $0.slug == slug } ?? false
     }
     
-    // MARK: - Theme
-    
     private func updateTheme() {
-        tableView?.backgroundColor = .air.pickerBackground
+        collectionView?.backgroundColor = .air.pickerBackground
     }
-    
-    // MARK: - Actions
-    
+        
     @objc private func hideKeyboard() {
         view.endEditing(false)
     }
-    
-    // MARK: - Data
-    
+        
     private func updateWalletTokens() {
         walletTokens = showMyAssets ? $account.walletTokens ?? [] : []
         guard showMyAssets else { return }
@@ -369,30 +380,12 @@ public class TokenSelectionVC: WViewController {
     }
 }
 
-// MARK: - UISearchResultsUpdating
-
 extension TokenSelectionVC: UISearchResultsUpdating {
     public func updateSearchResults(for searchController: UISearchController) {
         keyword = searchController.searchBar.text ?? ""
         filterTokens()
     }
 }
-
-// MARK: - UITableViewDelegate
-
-extension TokenSelectionVC: UITableViewDelegate {
-    public func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
-        let spacer = UIView()
-        spacer.backgroundColor = .clear
-        return spacer
-    }
-    
-    public func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
-        12
-    }
-}
-
-// MARK: - WalletCoreData.EventsObserver
 
 extension TokenSelectionVC: WalletCoreData.EventsObserver {
     public func walletCore(event: WalletCoreData.Event) {

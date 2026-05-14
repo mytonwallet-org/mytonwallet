@@ -60,7 +60,7 @@ final class DepositLinkModel: TokenSelectionVCDelegate {
     func onTokenTapped() {
         let tokenSelectionVC = TokenSelectionVC(
             showMyAssets: true,
-            title: "Select Token",
+            title: lang("Select Token"),
             delegate: self,
             isModal: true,
             onlySupportedChains: true

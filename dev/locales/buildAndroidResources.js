@@ -5,6 +5,7 @@ const yaml = require('js-yaml');
 const ROOT_DIR = path.resolve(__dirname, '../..');
 const AIR_I18N_DIR = path.resolve(ROOT_DIR, 'src/i18n/air');
 const APP_RES_DIR = path.resolve(ROOT_DIR, 'mobile/android/app/src/main/res');
+const APP_RES_SHARED_DIR = path.resolve(ROOT_DIR, 'mobile/android/app/src/main/res-shared');
 const AIR_APP_RES_DIR = path.resolve(ROOT_DIR, 'mobile/android/air/app/src/main/res');
 
 const DEFAULT_LOCALE = 'en';
@@ -152,8 +153,11 @@ function renderLocalesConfig(locales) {
 
 function writeLocalesConfig(locales) {
   const xmlContent = renderLocalesConfig(locales);
+  // `locales_config.xml` lives in `res-shared/` so both mytonwallet and gram
+  // flavors pick it up; `res/` is the Capacitor-managed mytonwallet-only
+  // overlay.
   const targetFiles = [
-    path.resolve(APP_RES_DIR, 'xml/locales_config.xml'),
+    path.resolve(APP_RES_SHARED_DIR, 'xml/locales_config.xml'),
     path.resolve(AIR_APP_RES_DIR, 'xml/locales_config.xml'),
   ];
 

@@ -27,6 +27,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.constants.PossibleWords
+import org.mytonwallet.app_air.walletcore.helpers.findMnemonicMatches
 import java.lang.ref.WeakReference
 import kotlin.math.ceil
 
@@ -131,7 +132,11 @@ class WSuggestionView(
 
         currentFilterJob = coroutineScope.launch {
             val filteredSuggestions = withContext(Dispatchers.IO) {
-                PossibleWords.All.filter { it.startsWith(keyword) }
+                PossibleWords.All.findMnemonicMatches(keyword)
+            }
+
+            if (attachedInput?.get()?.textField?.text?.toString() != keyword) {
+                return@launch
             }
 
             suggestions = filteredSuggestions

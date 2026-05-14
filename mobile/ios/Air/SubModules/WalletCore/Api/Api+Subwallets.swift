@@ -29,6 +29,18 @@ extension Api {
     ) async throws -> ApiAddSubWalletResult {
         try await bridge.callApi("addSubWallet", accountId, byChain, decoding: ApiAddSubWalletResult.self)
     }
+
+    internal static func addAllFoundSubwallets(
+        accountId: String,
+        foundWallets: [[String: ApiSubWallet]]
+    ) async throws -> ApiAddAllFoundSubwalletsResult {
+        try await bridge.callApi(
+            "addAllFoundSubwallets",
+            accountId,
+            foundWallets,
+            decoding: ApiAddAllFoundSubwalletsResult.self
+        )
+    }
 }
 
 public struct ApiDerivation: Equatable, Hashable, Codable, Sendable {
@@ -122,23 +134,21 @@ public struct ApiWalletVariant: Equatable, Hashable, Codable, Sendable {
 public struct ApiGroupedWalletVariant: Equatable, Hashable, Codable, Sendable {
     public struct ChainEntry: Equatable, Hashable, Codable, Sendable {
         public var wallet: ApiSubWallet
-        public var balance: BigInt
+        public var balancesBySlug: [String: BigInt]
         public var hasDerivation: Bool
 
-        public init(wallet: ApiSubWallet, balance: BigInt, hasDerivation: Bool) {
+        public init(wallet: ApiSubWallet, balancesBySlug: [String: BigInt], hasDerivation: Bool) {
             self.wallet = wallet
-            self.balance = balance
+            self.balancesBySlug = balancesBySlug
             self.hasDerivation = hasDerivation
         }
     }
 
     public var index: Int
-    public var totalBalance: BigInt
     public var byChain: [String: ChainEntry]
 
-    public init(index: Int, totalBalance: BigInt, byChain: [String: ChainEntry]) {
+    public init(index: Int, byChain: [String: ChainEntry]) {
         self.index = index
-        self.totalBalance = totalBalance
         self.byChain = byChain
     }
 
@@ -160,4 +170,8 @@ public struct ApiAddSubWalletResult: Decodable, Sendable {
     public var address: String?
     public var accountId: String
     public var byChain: [String: AccountChain]?
+}
+
+public struct ApiAddAllFoundSubwalletsResult: Decodable, Sendable {
+    public var results: [ApiAddSubWalletResult]
 }

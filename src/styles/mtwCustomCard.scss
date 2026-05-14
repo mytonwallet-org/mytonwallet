@@ -86,6 +86,10 @@
     > .icon {
       background-color: #989898;
       background-image: none;
+
+      :is(html.is-ios, html.is-safari) & {
+        background-color: transparent;
+      }
     }
   }
 
@@ -95,6 +99,10 @@
     > .icon {
       background-color: #B07D1D;
       background-image: none;
+
+      :is(html.is-ios, html.is-safari) & {
+        background-color: transparent;
+      }
     }
   }
 
@@ -104,6 +112,10 @@
     > .icon {
       background-color: #77777F;
       background-image: none;
+
+      :is(html.is-ios, html.is-safari) & {
+        background-color: transparent;
+      }
     }
   }
 
@@ -113,6 +125,10 @@
     > .icon {
       background-color: #444546;
       background-image: none;
+
+      :is(html.is-ios, html.is-safari) & {
+        background-color: transparent;
+      }
     }
   }
 }

@@ -40,6 +40,7 @@ function DropdownItemContent<T extends string>({
 }: OwnProps<T>) {
   const lang = useLang();
   const displayedName = shouldUseSelectedName ? (item.selectedName ?? item.name) : item.name;
+  const shouldTranslateItem = shouldTranslate && !item.noTranslate;
 
   const fullClassName = buildClassName(
     item.isDisabled && styles.disabled,
@@ -87,10 +88,10 @@ function DropdownItemContent<T extends string>({
         />
       )}
       <span className={buildClassName(styles.itemName, itemClassName)}>
-        {shouldTranslate ? lang(displayedName) : displayedName}
+        {shouldTranslateItem ? lang(displayedName) : displayedName}
         {!!item.description && (
           <span className={buildClassName(styles.itemDescription, itemDescriptionClassName)}>
-            {shouldTranslate && typeof item.description === 'string'
+            {shouldTranslateItem && typeof item.description === 'string'
               ? lang(item.description)
               : item.description}
           </span>

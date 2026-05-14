@@ -6,6 +6,7 @@ import WalletCore
 import WalletContext
 
 private let log = Log("Home-Actions")
+private let actionsRowFadeDuration: TimeInterval = 0.3
 
 @MainActor let actionsRowHeight = WScalableButton.preferredHeight
 
@@ -15,6 +16,7 @@ final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     var actionsView: ActionsView { actionsContainerView.actionsView }
     
     @AccountContext var account: MAccount
+    private lazy var opacityAnimator = DisplayLinkAlphaAnimator(view: view)
     
     init(accountSource: AccountSource) {
         self._account = AccountContext(source: accountSource)
@@ -37,14 +39,15 @@ final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     
     func setAccountId(accountId: String, animated: Bool)  {
         self.$account.accountId = accountId
-        hideUnsupportedActions()
+        hideUnsupportedActions(animated: animated)
     }
     
-    private func hideUnsupportedActions() {
+    private func hideUnsupportedActions(animated: Bool = false) {
         if account.isView {
-            view.alpha = 0
+            view.isUserInteractionEnabled = false
+            setActionButtonsAlpha(0, animated: animated)
         } else {
-            view.alpha = 1
+            view.isUserInteractionEnabled = true
             actionsView.sendButton.isHidden = !account.supportsSend
             actionsView.swapButton.isHidden = !account.supportsSwap
             actionsView.earnButton.isHidden = !account.supportsEarn
@@ -52,7 +55,12 @@ final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
             actionsView.swapButton.alpha = account.supportsSwap ? 1 : 0
             actionsView.earnButton.alpha = account.supportsEarn ? 1 : 0
             actionsView.update()
+            setActionButtonsAlpha(1, animated: animated)
         }
+    }
+
+    private func setActionButtonsAlpha(_ targetAlpha: CGFloat, animated: Bool) {
+        opacityAnimator.setAlpha(targetAlpha, animated: animated, duration: actionsRowFadeDuration)
     }
     
     var calculatedHeight: CGFloat {

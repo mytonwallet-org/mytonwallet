@@ -211,9 +211,15 @@ class NftDetailsItemCoverFlowTile: UIView {
             imageView.alpha = 1
             imageView.image = nil
 
-            let cachedColor = colorCache?.color(forKey: model.id)
-            imageView.backgroundColor = cachedColor ?? .air.groupedItem
-            applySpinnerStyle(for: cachedColor)
+            var color = UIColor.air.groupedItem
+            if let colorCache {
+                let (_, cachedColor) = colorCache.color(forKey: model.id)
+                if let cachedColor {
+                    color = cachedColor
+                }
+            }
+            imageView.backgroundColor = color
+            applySpinnerStyle(for: color)
 
             applySelectionDrivenLottie(for: model)
             selectionSubscription = .init(model: model, event: .selectionStatusChanged, tag: "CoverFlowTile") { [weak self] in

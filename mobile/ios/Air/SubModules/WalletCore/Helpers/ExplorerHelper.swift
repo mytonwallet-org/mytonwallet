@@ -125,6 +125,19 @@ public final class ExplorerHelper {
         }
         return Website(title: marketplace.name, address: url)
     }
+
+    public static func defaultMarketplace(for account: MAccount) -> Website? {
+        let title: String
+        let urlString: String
+        if !IS_GRAM_WALLET && account.isMultichain {
+            title = NFT_MARKETPLACE_TITLE
+            urlString = NFT_MARKETPLACE_URL
+        } else {
+            title = TON_NFT_MARKETPLACE_TITLE
+            urlString = TON_NFT_MARKETPLACE_URL
+        }
+        return Website(title: title, address: URL(string: urlString)!)
+    }
     
     public static func getgemsNftCollectionUrl(collectionAddress: String) -> URL? {
         guard let collectionAddress = collectionAddress.nilIfEmpty else {

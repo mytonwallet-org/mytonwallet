@@ -29,6 +29,32 @@ const VIRTUAL_ADDRESS = '@VIRTUAL';
 
 const SOCKET_THROTTLE_DELAY = 100;
 
+type BalanceStreamOptions = {
+  chain: ApiChain;
+  wsClient: AbstractWebsocketClient<any, any, any, any, any>;
+  network: ApiNetwork;
+  address: string;
+  sendUpdateTokens: NoneToVoidFunction;
+  fallbackPollingOptions: FallbackPollingOptions;
+  fetchBalancesCb: (
+    network: ApiNetwork,
+    address: string,
+    sendUpdateTokens: NoneToVoidFunction,
+  ) => Promise<ApiBalanceBySlug>;
+  fetchCrosschainBalancesCb?: (
+    network: ApiNetwork,
+    address: string,
+    sendUpdateTokens: NoneToVoidFunction,
+  ) => Promise<ApiBalanceBySlug>;
+  importUnknownTokens?: (
+    network: ApiNetwork,
+    tokenAddresses: string[],
+    sendUpdateTokens: NoneToVoidFunction,
+  ) => Promise<void>;
+  loadingConcurrencyLimiter?: ReturnType<typeof createTaskQueue>;
+  ensureIsPollingNeeded?: () => Promise<boolean>;
+};
+
 /**
  * Watches the native/custom token balances of the given wallet.
  * Uses the socket, and fallbacks to HTTP polling when the socket is unavailable.
@@ -56,6 +82,12 @@ export class BalanceStream {
     sendUpdateTokens: NoneToVoidFunction
   ) => Promise<ApiBalanceBySlug>;
 
+  #fetchCrosschainBalancesCb?: (
+    network: ApiNetwork,
+    address: string,
+    sendUpdateTokens: NoneToVoidFunction,
+  ) => Promise<ApiBalanceBySlug>;
+
   #importUnknownTokens?: ((
     network: ApiNetwork,
     tokenAddresses: string[],
@@ -67,33 +99,26 @@ export class BalanceStream {
   #ensureIsPollingNeeded?: () => Promise<boolean>;
   #walletStatus: 'active' | 'inactive' | undefined = undefined;
 
-  constructor(
-    chain: ApiChain,
-    wsClient: AbstractWebsocketClient<any, any, any, any, any>,
-    network: ApiNetwork,
-    address: string,
-    sendUpdateTokens: NoneToVoidFunction,
-    fallbackPollingOptions: FallbackPollingOptions,
-    fetchBalancesCb: (
-      network: ApiNetwork,
-      address: string,
-      sendUpdateTokens: NoneToVoidFunction
-    ) => Promise<ApiBalanceBySlug>,
-    importUnknownTokens?: (
-      network: ApiNetwork,
-      tokenAddresses: string[],
-      sendUpdateTokens: NoneToVoidFunction
-    ) => Promise<void>,
-    /** To prevent too many simultaneous HTTP requests for inactive accounts */
-    loadingConcurrencyLimiter?: ReturnType<typeof createTaskQueue>,
-    ensureIsPollingNeeded?: () => Promise<boolean>,
-  ) {
+  constructor({
+    chain,
+    wsClient,
+    network,
+    address,
+    sendUpdateTokens,
+    fallbackPollingOptions,
+    fetchBalancesCb,
+    fetchCrosschainBalancesCb,
+    importUnknownTokens,
+    loadingConcurrencyLimiter,
+    ensureIsPollingNeeded,
+  }: BalanceStreamOptions) {
     this.#chain = chain;
     this.#network = network;
     this.#address = address;
     this.#sendUpdateTokens = sendUpdateTokens;
     this.#loadingConcurrencyLimiter = loadingConcurrencyLimiter;
     this.#fetchBalancesCb = fetchBalancesCb;
+    this.#fetchCrosschainBalancesCb = fetchCrosschainBalancesCb;
     this.#importUnknownTokens = importUnknownTokens;
     this.#ensureIsPollingNeeded = ensureIsPollingNeeded;
     this.#walletWatcher = wsClient.watchWallets(
@@ -188,7 +213,7 @@ export class BalanceStream {
   };
 
   /** Fetches all balances when the socket is not connected or has just connected */
-  #poll = async () => {
+  #poll = async (isInitial?: boolean) => {
     try {
       this.#loadingListeners.runCallbacks(true);
 
@@ -205,6 +230,23 @@ export class BalanceStream {
       }
 
       if (this.#walletStatus === 'inactive') {
+        return;
+      }
+
+      if (isInitial && this.#fetchCrosschainBalancesCb) {
+        const config = getChainConfig(this.#chain);
+        if (!config.chainStandard || config.chainStandard !== this.#chain) {
+          return;
+        }
+
+        const crosschainBalances
+        = await this.#fetchCrosschainBalancesCb?.(this.#network, this.#address, this.#sendUpdateTokens);
+
+        if (crosschainBalances) {
+          this.#setAllBalances(crosschainBalances);
+          this.#balancesDeferred.resolve();
+        }
+
         return;
       }
 

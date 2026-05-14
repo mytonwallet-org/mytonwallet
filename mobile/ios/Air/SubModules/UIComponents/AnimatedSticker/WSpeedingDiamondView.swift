@@ -10,6 +10,8 @@ public final class WSpeedingDiamondView: UIView {
     private var slowdownStartedAt: CFTimeInterval = 0
     private var lastBurstAt: CFTimeInterval = 0
     private var didSetupAnimation = false
+    private var didMoveDuringTouch = false
+    private var touchStartLocation: CGPoint?
 
     public init(size: CGFloat = 130) {
         self.animationSize = size
@@ -63,22 +65,36 @@ public final class WSpeedingDiamondView: UIView {
 
     public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
+        didMoveDuringTouch = false
+        touchStartLocation = touches.first?.location(in: self)
         animatePressed(true)
         handleMove()
     }
 
     public override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesMoved(touches, with: event)
+        if let touchStartLocation, let location = touches.first?.location(in: self) {
+            let distance = abs(location.x - touchStartLocation.x) + abs(location.y - touchStartLocation.y)
+            if distance > Self.tapMovementTolerance {
+                didMoveDuringTouch = true
+            }
+        }
         handleMove()
     }
 
     public override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesEnded(touches, with: event)
-        animatePressed(false)
+        touchStartLocation = nil
+        if didMoveDuringTouch {
+            animatePressed(false)
+        } else {
+            animateTap()
+        }
     }
 
     public override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesCancelled(touches, with: event)
+        touchStartLocation = nil
         animatePressed(false)
     }
 
@@ -148,6 +164,16 @@ public final class WSpeedingDiamondView: UIView {
         }
     }
 
+    private func animateTap() {
+        UIView.animate(withDuration: Self.tapScaleUpDuration, delay: 0, options: [.beginFromCurrentState, .curveEaseOut]) {
+            self.transform = CGAffineTransform(scaleX: Self.pressedScale, y: Self.pressedScale)
+        } completion: { _ in
+            UIView.animate(withDuration: Self.scaleDuration, delay: 0, options: [.beginFromCurrentState, .curveEaseOut]) {
+                self.transform = .identity
+            }
+        }
+    }
+
     private static let minSpeed = 1.0
     private static let maxSpeed = 5.0
     private static let slowdownDelay = 0.3
@@ -155,6 +181,8 @@ public final class WSpeedingDiamondView: UIView {
     private static let burstMinInterval: CFTimeInterval = 0.008
     private static let pressedScale: CGFloat = 1.1
     private static let scaleDuration = 0.25
+    private static let tapScaleUpDuration = 0.12
+    private static let tapMovementTolerance: CGFloat = 6
 }
 
 public struct WUISpeedingDiamond: UIViewRepresentable {
@@ -179,5 +207,34 @@ public struct WUISpeedingDiamond: UIViewRepresentable {
 
     public func sizeThatFits(_ proposal: ProposedViewSize, uiView: WSpeedingDiamondView, context: Context) -> CGSize? {
         CGSize(width: size, height: size)
+    }
+}
+
+public struct WUISpeedingDiamondWithParticles: View {
+    public var diamondSize: CGFloat
+    public var particleSize: CGSize
+
+    @State private var burstTrigger = 0
+
+    public init(
+        diamondSize: CGFloat = 130,
+        particleSize: CGSize = CGSize(width: 350, height: 230)
+    ) {
+        self.diamondSize = diamondSize
+        self.particleSize = particleSize
+    }
+
+    public var body: some View {
+        ZStack {
+            SparkleParticleBackground(canvasSize: particleSize, burstTrigger: $burstTrigger)
+                .frame(width: particleSize.width, height: particleSize.height)
+                .allowsHitTesting(false)
+            WUISpeedingDiamond(size: diamondSize) {
+                burstTrigger += 1
+            }
+            .frame(width: diamondSize, height: diamondSize)
+        }
+        .frame(width: diamondSize, height: diamondSize)
+        .accessibilityHidden(true)
     }
 }

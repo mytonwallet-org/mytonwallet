@@ -126,6 +126,21 @@ public enum DatabaseBootstrap {
         walletEvidence initialWalletEvidence: StartupWalletEvidence
     ) async throws -> StartupWalletEvidence {
         var walletEvidence = initialWalletEvidence
+        guard walletEvidence.keychainAccountCount > 0 else {
+            log.info("skipping global storage bootstrap because keychain accounts are missing")
+            StartupTrace.mark(
+                "airLauncher.globalStorage.bootstrapDecision",
+                details: "shouldLoad=false reason=noKeychainAccounts \(walletEvidence.traceDetails)"
+            )
+            completeEmptyLegacyGlobalStorageMigration()
+            StartupTrace.mark("airLauncher.languageMigration.end")
+            await markLegacyBootstrapNotNeededIfPossible(db: db)
+            StartupTrace.mark("airLauncher.globalStorage.load.skipped")
+            StartupTrace.mark("airLauncher.storage.switchFromCapacitor.skipped")
+            StartupTrace.mark("airLauncher.legacyMigration.skipped")
+            return walletEvidence.updating(legacyAccountsState: .absent)
+        }
+
         let needsLegacyBootstrap: Bool
         do {
             needsLegacyBootstrap = try await shouldBootstrapGlobalStorage(db: db)
@@ -154,17 +169,31 @@ public enum DatabaseBootstrap {
         let storage = GlobalStorage()
         StartupTrace.mark("airLauncher.globalStorage.load.begin")
         do {
-            try await storage.loadFromWebView()
-            StartupTrace.mark("airLauncher.globalStorage.load.end")
+            switch try await storage.loadFromWebViewIfPresent() {
+            case .missing:
+                completeEmptyLegacyGlobalStorageMigration()
+                return await finishAbsentLegacyGlobalStorageBootstrap(
+                    db: db,
+                    walletEvidence: walletEvidence,
+                    trace: "airLauncher.globalStorage.load.missing"
+                )
+            case .empty:
+                completeEmptyLegacyGlobalStorageMigration()
+                return await finishAbsentLegacyGlobalStorageBootstrap(
+                    db: db,
+                    walletEvidence: walletEvidence,
+                    trace: "airLauncher.globalStorage.load.empty"
+                )
+            case .present:
+                StartupTrace.mark("airLauncher.globalStorage.load.end")
+            }
         } catch GlobalStorageError.localStorageIsNull, GlobalStorageError.localStorageIsEmpty {
-            storage.update { $0[""] = [:] }
-            LocalizationSupport.shared.migrateLanguageFromGlobalStorageIfNeeded(global: storage)
-            StartupTrace.mark("airLauncher.languageMigration.end")
-            StartupTrace.mark("airLauncher.globalStorage.load.empty")
-            await markLegacyBootstrapNotNeededIfPossible(db: db)
-            StartupTrace.mark("airLauncher.storage.switchFromCapacitor.skipped")
-            StartupTrace.mark("airLauncher.legacyMigration.skipped")
-            return walletEvidence.updating(legacyAccountsState: .absent)
+            completeEmptyLegacyGlobalStorageMigration()
+            return await finishAbsentLegacyGlobalStorageBootstrap(
+                db: db,
+                walletEvidence: walletEvidence,
+                trace: "airLauncher.globalStorage.load.empty"
+            )
         } catch {
             if walletEvidence.canContinueWithoutBlockingLegacyFailure {
                 log.fault("failed to load global storage: \(error, .public). will continue without blocking startup")
@@ -180,6 +209,14 @@ public enum DatabaseBootstrap {
         }
 
         walletEvidence = walletEvidence.updating(legacyAccountsState: detectLegacyAccountsState(in: storage))
+        guard walletEvidence.legacyAccountsState == .present else {
+            LocalizationSupport.shared.migrateLanguageFromGlobalStorageIfNeeded(global: storage)
+            return await finishAbsentLegacyGlobalStorageBootstrap(
+                db: db,
+                walletEvidence: walletEvidence,
+                trace: "airLauncher.globalStorage.load.noAccounts"
+            )
+        }
 
         do {
             StartupTrace.mark("airLauncher.globalStorage.migrate.begin")
@@ -226,7 +263,6 @@ public enum DatabaseBootstrap {
         } catch {
             log.fault("failed to migrate legacy assets/activity data: \(error, .public)")
             StartupTrace.mark("airLauncher.legacyAssetsAndActivityMigration.failed")
-            assertionFailure("failed to migrate legacy assets/activity data: \(error)")
         }
 
         await migrateLegacyStorageIfNeeded(global: storage, db: db)
@@ -279,6 +315,27 @@ public enum DatabaseBootstrap {
         }
     }
 
+    @MainActor
+    private static func finishAbsentLegacyGlobalStorageBootstrap(
+        db: any DatabaseWriter,
+        walletEvidence: StartupWalletEvidence,
+        trace: String
+    ) async -> StartupWalletEvidence {
+        StartupTrace.mark("airLauncher.languageMigration.end")
+        StartupTrace.mark(trace)
+        await markLegacyBootstrapNotNeededIfPossible(db: db)
+        StartupTrace.mark("airLauncher.storage.switchFromCapacitor.skipped")
+        StartupTrace.mark("airLauncher.legacyMigration.skipped")
+        return walletEvidence.updating(legacyAccountsState: .absent)
+    }
+
+    @MainActor
+    private static func completeEmptyLegacyGlobalStorageMigration() {
+        let storage = GlobalStorage()
+        storage.update { $0[""] = [:] }
+        LocalizationSupport.shared.migrateLanguageFromGlobalStorageIfNeeded(global: storage)
+    }
+
     private static func fetchDatabaseAccountCount(db: any DatabaseWriter) async throws -> Int {
         try await db.read { db in
             try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM accounts") ?? 0
@@ -287,6 +344,12 @@ public enum DatabaseBootstrap {
 
     @MainActor
     private static func detectLegacyAccountsState(in storage: GlobalStorage) -> StartupLegacyAccountsState {
-        storage.keysIn(key: "accounts")?.isEmpty == false ? .present : .absent
+        if storage.keysIn(key: "accounts.byId")?.isEmpty == false {
+            return .present
+        }
+        if storage.keysIn(key: "addresses.byAccountId")?.isEmpty == false {
+            return .present
+        }
+        return .absent
     }
 }

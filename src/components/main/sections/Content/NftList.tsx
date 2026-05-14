@@ -160,12 +160,12 @@ function NftList({
 
       const nftWidth = Math.floor((containerWidth - INNER_PADDING - (nftsPerRow - 1) * COLUMNS_GAP_SIZE) / nftsPerRow);
       const rowHeight = nftWidth + TEXT_DATA_HEIGHT;
-      const totalRowCount = isWidget ? Math.ceil(addresses.length / nftsPerRow) : 0;
       const safeViewportIndex = Math.max(0, viewportIndex);
       const visibleCount = Math.max(0, viewportNftAddresses?.length ?? 0);
-      const rowCount = isWidget
-        ? totalRowCount
-        : Math.ceil((safeViewportIndex + visibleCount) / nftsPerRow);
+      // Size to the rendered window, not the full collection. For wallets with thousands of NFTs,
+      // sizing to `addresses.length` produced a multi-thousand-rem scroll-host that wrecked
+      // scrollbar precision and Safari smoothness. The height grows as `useInfiniteScroll` loads.
+      const rowCount = Math.ceil((safeViewportIndex + visibleCount) / nftsPerRow);
       const gapCount = Math.max(0, rowCount - 1);
 
       const loadingExtra = !isWidget && isLoading && addresses.length > 0

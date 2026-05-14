@@ -28,6 +28,7 @@ object TonConfig : MBlockchainConfig {
 
     override val isCommentSupported = true
     override val isEncryptedCommentSupported = true
+    override val isNetWorthSupported = true
 
     override val burnAddress = "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ"
     override val multiWalletSupport = MultiWalletSupport.VERSION

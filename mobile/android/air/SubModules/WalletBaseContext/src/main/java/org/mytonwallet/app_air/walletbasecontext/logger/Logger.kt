@@ -38,6 +38,7 @@ object Logger {
         SWAP("Swap"),
         STAKING("Staking"),
         SETTINGS("Settings"),
+        QR_SCAN("QRScan"),
     }
 
     enum class LogLevel(val str: String) {

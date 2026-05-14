@@ -5,7 +5,7 @@ import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import path from 'path';
 import type { Configuration } from 'webpack';
 import {
-  EnvironmentPlugin, NormalModuleReplacementPlugin, ProvidePlugin,
+  EnvironmentPlugin, IgnorePlugin, NormalModuleReplacementPlugin, ProvidePlugin,
 } from 'webpack';
 
 import { APP_ENV, GIVEAWAYS_API_URL } from './src/giveaways/config';
@@ -180,6 +180,11 @@ export default function createConfig(
         /i18n\/en\.json/,
         '../giveaways/utils/mockI18nEn.json',
       ),
+      new IgnorePlugin({
+        checkResource(resource) {
+          return /.*\/wordlists\/(?!english).*\.json/.test(resource);
+        },
+      }),
     ],
     devtool: APP_ENV === 'development' ? 'source-map' : 'hidden-source-map',
   };

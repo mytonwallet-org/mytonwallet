@@ -64,11 +64,7 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
     val isTiny: Boolean = json.optBoolean("isTiny")
     val customPayloadApiUrl: String? = json.optString("customPayloadApiUrl").ifBlank { null }
 
-    override val mBlockchain = try {
-        MBlockchain.valueOf(chain)
-    } catch (_: Throwable) {
-        null
-    }
+    override val mBlockchain = MBlockchain.valueOfOrNull(chain)
     override val isUsdt: Boolean
         get() {
             return symbol == "USDT" || symbol == "USD₮"
@@ -165,7 +161,7 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
             return "https://coinmarketcap.com/currencies/${cmcSlug}/"
 
         val tokenAddress = tokenAddress ?: return null
-        return MBlockchain.valueOf(chain).tokenExplorer()?.tokenUrl(network, tokenAddress)
+        return MBlockchain.valueOfOrNull(chain)?.tokenExplorer()?.tokenUrl(network, tokenAddress)
     }
 
     val isEarnAvailable: Boolean

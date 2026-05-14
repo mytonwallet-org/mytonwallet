@@ -1,13 +1,16 @@
 import type { TronWeb } from 'tronweb';
 
-import type { ApiAddressInfo, ApiNetwork } from '../../types';
+import type { ApiAddressInfo, ApiBalanceBySlug, ApiNetwork } from '../../types';
 import { ApiCommonError } from '../../types';
 
+import { TRX } from '../../../config';
 import isEmptyObject from '../../../util/isEmptyObject';
 import { logDebugError } from '../../../util/logs';
 import { getTronClient } from './util/tronweb';
 import { getKnownAddressInfo } from '../../common/addresses';
+import { buildTokenSlug } from '../../methods';
 import { isValidAddress } from './address';
+import { NETWORK_CONFIG } from './constants';
 
 /*
 * We display unconfirmed balance and transactions to user.
@@ -30,6 +33,25 @@ export async function getTrc20Balance(network: ApiNetwork, tokenAddress: string,
   }
 
   return BigInt(`0x${result[0]}`);
+}
+
+export async function getWalletAssets(
+  network: ApiNetwork,
+  address: string,
+  sendUpdateTokens: NoneToVoidFunction,
+): Promise<ApiBalanceBySlug> {
+  const { usdtAddress } = NETWORK_CONFIG[network];
+  const usdtSlug = buildTokenSlug('tron', usdtAddress);
+
+  const [trxBalance, usdtBalance] = await Promise.all([
+    getWalletBalance(network, address),
+    getTrc20Balance(network, usdtAddress, address),
+  ]);
+
+  return {
+    [TRX.slug]: trxBalance,
+    [usdtSlug]: usdtBalance,
+  };
 }
 
 export async function callContract(

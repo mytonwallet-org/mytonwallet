@@ -29,6 +29,7 @@ interface OwnProps<T, MenuValue extends string = string> {
   menuItems?: DropdownItem<MenuValue>[];
   size?: OverviewCellSize;
   className?: string;
+  bodyClassName?: string;
   children: TeactNode;
   onShowAllClick?: (arg: T) => void;
   onMenuItemClick?: (value: MenuValue, arg: T) => void;
@@ -49,6 +50,7 @@ function OverviewCell<T = undefined, MenuValue extends string = string>({
   menuItems,
   size = 'small',
   className,
+  bodyClassName,
   children,
   onShowAllClick,
   onMenuItemClick,
@@ -103,9 +105,6 @@ function OverviewCell<T = undefined, MenuValue extends string = string>({
   const titleAndBadge = (
     <span className={styles.captionTitleRow}>
       <span className={styles.captionTitle}>{caption}</span>
-      {Boolean(showAllAmount) && (
-        <span className={styles.captionBadge}>{formatNumber(showAllAmount)}</span>
-      )}
     </span>
   );
 
@@ -133,6 +132,7 @@ function OverviewCell<T = undefined, MenuValue extends string = string>({
             OVERVIEW_CELL_BODY_CLASS,
             'custom-scroll',
             onShowAllClick && styles.bodyWithShowAll,
+            bodyClassName,
           )}
         >
           {children}
@@ -141,6 +141,9 @@ function OverviewCell<T = undefined, MenuValue extends string = string>({
           <Button isSimple className={styles.showAll} onClick={handleShowAllClick}>
             <i className={buildClassName(styles.showAllIcon, showAllIcon)} aria-hidden />
             <span className={styles.showAllLabel}>{showAllLabel}</span>
+            {Boolean(showAllAmount) && (
+              <span className={styles.showAllBadge}>{formatNumber(showAllAmount)}</span>
+            )}
           </Button>
         )}
       </div>

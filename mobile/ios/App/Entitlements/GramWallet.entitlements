@@ -6,7 +6,8 @@
 	<string>development</string>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:gramwallet.io</string>
+		<string>applinks:connect.gramwallet.io</string>
+		<string>applinks:go.gramwallet.io</string>
 	</array>
 	<key>com.apple.security.application-groups</key>
 	<array>

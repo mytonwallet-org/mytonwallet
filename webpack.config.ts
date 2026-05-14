@@ -150,6 +150,12 @@ export default function createConfig(
     mode,
     target: 'web',
 
+    ignoreWarnings: [
+      // nodeStorage uses eval('require') to obtain the native Node.js require
+      // without webpack intercepting it. The code is guarded by `isNode` and never runs in browsers.
+      { module: /src[\\/]api[\\/]storages[\\/]index\.ts$/, message: /Critical dependency/ },
+    ],
+
     optimization: {
       minimize: APP_ENV === 'production' && !IS_EXTENSION,
       usedExports: true,

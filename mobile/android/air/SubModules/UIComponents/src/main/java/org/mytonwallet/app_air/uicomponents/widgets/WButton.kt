@@ -53,14 +53,15 @@ class WButton(context: Context) : View(context), WThemedView {
         data object Primary : Type()
         data object Destructive : Type()
         data class Secondary(
-            val withBackground: Boolean = false
+            val backgroundBaseColor: WColor? = null,
         ) : Type()
 
         companion object {
             val PRIMARY: Type = Primary
             val DESTRUCTIVE: Type = Destructive
             val SECONDARY: Type = Secondary()
-            val SECONDARY_WITH_BACKGROUND: Type = Secondary(withBackground = true)
+            val SECONDARY_WITH_BACKGROUND: Type =
+                Secondary(backgroundBaseColor = WColor.SecondaryBackground)
         }
     }
 
@@ -304,9 +305,10 @@ class WButton(context: Context) : View(context), WThemedView {
                 if (isEnabledAnimator.value && clickableError) 0f else 0.5f
             )
 
-            is Type.Secondary -> if (type.withBackground) {
-                alphaColor(.1f, fromToArgb(WColor.Error.color, WColor.Background.color, 0.5f))
-            } else 0
+            is Type.Secondary -> type.backgroundBaseColor?.let { base ->
+                val errorBlend = fromToArgb(WColor.Error.color, WColor.Background.color, 0.5f)
+                fromToArgb(base.color, errorBlend, 0.1f)
+            } ?: 0
         }
 
         val errorTextColor = when (type) {
@@ -317,9 +319,9 @@ class WButton(context: Context) : View(context), WThemedView {
         val backgroundColor = fromToArgb(
             when (type) {
                 is Type.Primary, Type.Destructive -> tintColor
-                is Type.Secondary -> if (type.withBackground) {
-                    alphaColor(.1f, tintColor)
-                } else 0
+                is Type.Secondary -> type.backgroundBaseColor?.let { base ->
+                    fromToArgb(base.color, tintColor, 0.1f)
+                } ?: 0
             }, errorBackgroundColor, isErrorAnimator.floatValue
         )
 
@@ -330,6 +332,7 @@ class WButton(context: Context) : View(context), WThemedView {
                     WColor.TextOnTint.color,
                     isEnabledAnimator.floatValue
                 )
+
                 is Type.Secondary -> tintColor
             }, errorTextColor, isErrorAnimator.floatValue
         )

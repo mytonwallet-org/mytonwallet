@@ -10,7 +10,6 @@ import {
   getWalletFromAddress,
   getWalletFromBip39Mnemonic,
   getWalletFromPrivateKey,
-  getWalletVariants,
 } from './auth';
 import { signDappData, signDappTransfers } from './dapp';
 import { parseTransactionForPreview } from './emulation';
@@ -24,7 +23,7 @@ import {
 import { setupActivePolling, setupInactivePolling } from './polling';
 import { fetchTransactionById } from './transactionInfo';
 import { checkTransactionDraft, sendSignedTransaction, submitGasfullTransfer } from './transfer';
-import { getAddressInfo, getWalletBalance } from './wallet';
+import { fetchAccountAssets, fetchCrosschainAccountAssets, getAddressInfo, getWalletBalance } from './wallet';
 
 type OmitFirstArg<F extends (...args: any) => any> =
   Parameters<F> extends [any, ...infer Rest]
@@ -43,7 +42,12 @@ class EVMChainSdk<T extends EVMChain> implements ChainSdk<T> {
   }
 
   getAddressInfo = this.#bindChain(getAddressInfo);
-  fetchCrossChainActivitySlice = fetchCrossChainActivitySlice;
+
+  crosschain = {
+    fetchCrossChainActivitySlice,
+    fetchCrosschainAccountAssets,
+  };
+
   fetchActivitySlice = this.#bindChain(fetchActivitySlice);
   fetchActivityDetails = fetchActivityDetails;
 
@@ -55,10 +59,9 @@ class EVMChainSdk<T extends EVMChain> implements ChainSdk<T> {
   getWalletFromAddress = getWalletFromAddress;
 
   getWalletBalance = this.#bindChain(getWalletBalance);
+  getWalletAssets = this.#bindChain(fetchAccountAssets);
 
   getWalletsFromLedgerAndLoadBalance = notSupported;
-
-  getWalletVariants = this.#bindChain(getWalletVariants<T>);
 
   createSubWalletFromDerivation = this.#bindChain(createSubWalletFromDerivation<T>);
 

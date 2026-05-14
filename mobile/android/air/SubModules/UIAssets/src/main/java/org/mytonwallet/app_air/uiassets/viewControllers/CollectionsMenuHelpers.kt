@@ -6,6 +6,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.CollectionMode
 import org.mytonwallet.app_air.uiassets.viewControllers.hiddenNFTs.HiddenNFTsVC
+import org.mytonwallet.app_air.uiassets.viewControllers.icons.menuIconRes
 import org.mytonwallet.app_air.uiassets.viewControllers.renew.LinkToWalletVC
 import org.mytonwallet.app_air.uiassets.viewControllers.renew.RenewVC
 import org.mytonwallet.app_air.uicomponents.base.WActionBar
@@ -32,6 +33,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MCollectionTabToShow
+import org.mytonwallet.app_air.walletcore.models.MMarketplace
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -631,14 +633,21 @@ object CollectionsMenuHelpers {
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
                         icon = Icon(
-                            org.mytonwallet.app_air.uiassets.R.drawable.ic_getgems,
+                            MMarketplace.Getgems.menuIconRes,
                             tintColor = null,
                             iconSize = 28.dp
                         ),
-                        title = "Getgems"
+                        title = MMarketplace.Getgems.title
                     )
                 ) {
-                    openLink("https://getgems.io/collection/${nft.collectionAddress}/${nft.address}")
+                    val collectionAddress = nft.collectionAddress ?: return@Item
+                    openLink(
+                        MMarketplace.Getgems.nftUrl(
+                            collectionAddress = collectionAddress,
+                            nftAddress = nft.address,
+                            network = MBlockchainNetwork.ofAccountId(showingAccountId)
+                        )
+                    )
                 }
             )
 
@@ -667,11 +676,11 @@ object CollectionsMenuHelpers {
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
                         icon = Icon(
-                            org.mytonwallet.app_air.uiassets.R.drawable.ic_fragment,
+                            MMarketplace.Fragment.menuIconRes,
                             tintColor = null,
                             iconSize = 28.dp
                         ),
-                        title = "Fragment"
+                        title = MMarketplace.Fragment.title
                     )
                 ) {
                     openLink(nft.fragmentUrl!!)

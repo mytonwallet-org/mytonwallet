@@ -1,8 +1,10 @@
 import axios from 'axios';
-import buildFullPath from 'axios/unsafe/core/buildFullPath';
-import settle from 'axios/unsafe/core/settle';
-import buildURL from 'axios/unsafe/helpers/buildURL';
-import utils from 'axios/unsafe/utils';
+import buildFullPath from 'axios/unsafe/core/buildFullPath.js';
+import settle from 'axios/unsafe/core/settle.js';
+import buildURL from 'axios/unsafe/helpers/buildURL.js';
+import utils from 'axios/unsafe/utils.js';
+
+import { fetchWithThrottledProvider } from '../../util/ThrottledFetcher';
 
 const { isFormData, isStandardBrowserEnv, isUndefined } = utils;
 
@@ -48,7 +50,7 @@ export default async function fetchAdapter(config) {
 async function getResponse(request, config) {
   let stageOne;
   try {
-    stageOne = await fetch(request);
+    stageOne = await fetchWithThrottledProvider(request);
   } catch (e) {
     return createError('Network Error', config, 'ERR_NETWORK', request);
   }

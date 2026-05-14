@@ -144,7 +144,7 @@ async function fetchAndCheckActivitySlice(
   let activities: ApiActivity[] = [];
 
   if (isCrossChain && chainStandard && !options.tokenSlug) {
-    activities = await chains[chain].fetchCrossChainActivitySlice(options);
+    activities = await chains[chain].crosschain!.fetchCrossChainActivitySlice(options);
   } else {
     activities = await chains[chain].fetchActivitySlice(options);
   }

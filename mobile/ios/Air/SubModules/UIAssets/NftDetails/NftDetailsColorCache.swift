@@ -14,6 +14,8 @@ final class NftDetailsColorCache: @unchecked Sendable {
     private let ioQueue = DispatchQueue(label: "NftDetails.colorCache.io")
     private var pendingSaveWorkItem: DispatchWorkItem?
     private let debounceInterval: TimeInterval = 0.5
+    
+    private static let baseCacheFileName = "nft_details_color_cache_v2.bin"
 
     private static let magic: [UInt8] = [0x4E, 0x44, 0x43, 0x43] // "(N)ft(D)etails(C)olor(C)ache"
     private static let fileVersion: UInt8 = 1
@@ -24,7 +26,7 @@ final class NftDetailsColorCache: @unchecked Sendable {
         } else {
             let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
                 ?? FileManager.default.temporaryDirectory
-            self.fileURL = base.appendingPathComponent("nft_details_color_cache.bin", isDirectory: false)
+            self.fileURL = base.appendingPathComponent(Self.baseCacheFileName, isDirectory: false)
         }
     }
 
@@ -42,13 +44,18 @@ final class NftDetailsColorCache: @unchecked Sendable {
         }
     }
 
-    func color(forKey key: String) -> UIColor? {
+    func color(forKey key: String) -> (Bool, UIColor?) {
         ensureLoadedFromDisk()
         lock.lock()
         defer { lock.unlock() }
-        return storage[key]
+        let value = storage[key]
+        
+        guard let value else { return (false, nil) }
+        
+        // (alpha=0) is the sentinel for "processed, no detectable color";
+        return (true, (value.alpha ?? 0) > 0 ? value : nil)
     }
-
+    
     func setColor(_ color: UIColor, forKey key: String) {
         ensureLoadedFromDisk()
         lock.lock()
@@ -271,7 +278,7 @@ final class NftDetailsColorCache: @unchecked Sendable {
 
     private static func atomicWrite(_ data: Data, to dst: URL) -> Bool {
         let dir = dst.deletingLastPathComponent()
-        let temp = dir.appendingPathComponent("nft_details_color_cache.\(UUID().uuidString).tmp", isDirectory: false)
+        let temp = dir.appendingPathComponent("\(baseCacheFileName).\(UUID().uuidString).tmp", isDirectory: false)
         let fm = FileManager.default
         do {
             try data.write(to: temp)

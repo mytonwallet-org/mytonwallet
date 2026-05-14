@@ -6,7 +6,7 @@ import WalletContext
 
 private let log = Log("NftDetails.ImageProcessor")
 
-class NftDetailsImageProcessor {
+class NftDetailsImageProcessor: @unchecked Sendable {
     private let deviceScale: CGFloat
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
     
@@ -225,15 +225,7 @@ class NftDetailsImageProcessor {
         let transform = CGAffineTransform(translationX: x, y: y)
         return image.transformed(by: transform)
     }
-    
-    private func backgroundPattern(cgImage: CGImage) throws (IntError) -> CIImage {
-        let bottomRowHeight = 1.0
-        let bottomRowRect = CGRect(x: 0, y: CGFloat(cgImage.height) - bottomRowHeight, width: CGFloat(cgImage.width), height: bottomRowHeight)
-        guard let bottomRowCGImage = cgImage.cropping(to: bottomRowRect) else { throw IntError("CreateBackgroundPattern.Crop") }
-        let bottomCI = ciImage(from: bottomRowCGImage)
-        return translateImage(bottomCI, x: -bottomCI.extent.origin.x, y: -bottomCI.extent.origin.y)
-    }
-            
+                
     func loadImage(_ image: UIImage, targetWidth: CGFloat, simplifiedProcessing: Bool) -> NftDetailsImage.Processed {
         let layoutBottomBand = 60.0
         let layoutMirroredBandHeight = 45.0
@@ -261,11 +253,6 @@ class NftDetailsImageProcessor {
             if simplifiedProcessing {
                 let baseColor = regionColor(sourceImage.cropped(to: sourceImage.extent.copyWith(height: 1)))
                 result.baseColor = baseColor
-                if let baseColor {
-                    let extent = sourceImage.extent.copyWith(height: 1)
-                    let ciPattern = solidColorImage(color: baseColor, extent: extent)
-                    result.setBackground(ciPattern, try uiImage(from: ciPattern))
-                }
                 result.previewCIImage = ciImageOptional(from: result.previewImage)
                 return result
             }
@@ -311,11 +298,10 @@ class NftDetailsImageProcessor {
 
             // Create final images: large blurred one + stretchable bottom band
             let cgImage = try cgImage(from: tintedBlurred)
+            let ciImage = ciImage(from: cgImage)
             result.previewImage = uiImage(from: cgImage)
-            result.previewCIImage = ciImage(from: cgImage)
-            let ciPattern = try backgroundPattern(cgImage: cgImage)
-            result.setBackground(ciPattern, try uiImage(from: ciPattern))
-            
+            result.previewCIImage = ciImage
+            result.baseColor = regionColor(ciImage.cropped(to: ciImage.extent.copyWith(height: 1)))
         } catch {
             log.error("Unable load image: \(error)")
         }

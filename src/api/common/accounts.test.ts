@@ -6,11 +6,14 @@ jest.mock('../storages', () => ({
   storage: {
     getItem: jest.fn(),
     setItem: jest.fn(),
+    mutateItem: jest.fn(),
   },
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { storage } = require('../storages') as { storage: { getItem: jest.Mock; setItem: jest.Mock } };
+const { storage } = require('../storages') as {
+  storage: { getItem: jest.Mock; setItem: jest.Mock; mutateItem: jest.Mock };
+};
 
 const ACCOUNTS_KEY = 'accounts' as const;
 
@@ -20,6 +23,11 @@ function createIsolatedDb(initial: Record<string, any> = {}) {
   storage.getItem.mockImplementation((key: string) => db[key] ?? undefined);
   storage.setItem.mockImplementation((key: string, value: any) => {
     db[key] = value;
+  });
+  storage.mutateItem.mockImplementation((key: string, mutate: (currentValue: any) => any) => {
+    const nextValue = mutate(db[key] ?? undefined);
+    db[key] = nextValue;
+    return nextValue;
   });
   return db;
 }
@@ -181,6 +189,11 @@ describe('serialization (race-condition fix)', () => {
     storage.setItem.mockImplementation((key: string, value: any) => {
       db[key] = value;
       completed.push(key);
+    });
+    storage.mutateItem.mockImplementation((key: string, mutate: (currentValue: any) => any) => {
+      db[key] = mutate(db[key] ?? undefined);
+      completed.push(key);
+      return db[key];
     });
 
     await Promise.all([

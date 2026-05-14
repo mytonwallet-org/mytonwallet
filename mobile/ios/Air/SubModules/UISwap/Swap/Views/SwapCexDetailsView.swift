@@ -7,13 +7,12 @@ import Perception
 struct SwapCexDetailsView: View {
 
     var inputModel: SwapInputModel
-    var crosschainModel: CrosschainSwapModel
+    var swapEstimate: ApiSwapCexEstimateResponse?
     var swapType: SwapType
     
     var sellingToken: ApiToken { inputModel.sellingToken }
     var buyingToken: ApiToken { inputModel.buyingToken }
     var exchangeRate: SwapRate? { displayExchangeRate }
-    var swapEstimate: ApiSwapCexEstimateResponse? { crosschainModel.cexEstimate }
     var displayEstimate: ApiSwapCexEstimateResponse? { swapEstimate }
 
     var displayExchangeRate: SwapRate? {
@@ -50,41 +49,11 @@ struct SwapCexDetailsView: View {
     
     var body: some View {
         WithPerceptionTracking {
-            InsetSection(horizontalPadding: 0) {
-                header
-                    
-                if isExpanded {
-                    pricePerCoinRow
-                    blockchainFeeRow
-                }
+            SwapDetailsContainer(isExpanded: $isExpanded) {
+                pricePerCoinRow
+                blockchainFeeRow
             }
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxHeight: isExpanded ? nil : 44, alignment: .top)
-            .frame(height: 400, alignment: .top)
-            .tint(.accentColor)
-            .animation(.spring(duration: isExpanded ? 0.45 : 0.3), value: isExpanded)
         }
-    }
-    
-    var header: some View {
-        Button(action: { isExpanded.toggle() }) {
-            InsetCell {
-                HStack {
-                    Text(lang("Swap Details"))
-                        .textCase(IOS_26_MODE_ENABLED ? nil : .uppercase)
-                    Spacer()
-                    Image.airBundle("RightArrowIcon")
-                        .renderingMode(.template)
-                        .rotationEffect(isExpanded ? .radians(-0.5 * .pi) : .radians(0.5 * .pi))
-                }
-                .font(IOS_26_MODE_ENABLED ? .system(size: 17, weight: .semibold) : .system(size: 13))
-                .tint(.air.secondaryLabel)
-                .foregroundStyle(Color.air.secondaryLabel)
-            }
-            .frame(minHeight: 44)
-            .contentShape(.rect)
-        }
-        .buttonStyle(InsetButtonStyle())
     }
     
     @ViewBuilder
@@ -122,7 +91,5 @@ struct SwapCexDetailsView: View {
                 )
             }
         }
-        
-        // TODO: Swap fee
     }
 }

@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import java.math.BigDecimal
 
 enum class MultiWalletSupport {
@@ -139,6 +140,7 @@ enum class MBlockchain(
     val feeCheckAddress get() = config?.feeCheckAddress
     val isCommentSupported get() = config?.isCommentSupported
     val isEncryptedCommentSupported get() = config?.isEncryptedCommentSupported
+    val isNetWorthSupported get() = config?.isNetWorthSupported == true
     val multiWalletSupport get() = config?.multiWalletSupport
 
     fun isValidAddress(address: String) =
@@ -179,12 +181,27 @@ enum class MBlockchain(
 
         const val VIEW_ACCOUNT_EVM_PARAM = "evm"
 
-        val supportedChains = entries.filter { it.isSupported }
-        val supportedChainValues = supportedChains.map { it.name }
-        val evmChains = supportedChains.filter { it.config?.chainStandard == "ethereum" }
-        val evmChainValues = evmChains.map { it.name }
-        val supportedChainIndexes =
+        private val GRAM_CHAIN_ORDER = listOf(
+            ton, ethereum, solana, tron, bnb, hyperliquid, base, arbitrum
+        )
+
+        val supportedChains: List<MBlockchain> by lazy {
+            val supported = entries.filter { it.isSupported }
+            if (ApplicationContextHolder.isGramApp) {
+                supported.sortedBy {
+                    val i = GRAM_CHAIN_ORDER.indexOf(it)
+                    if (i < 0) Int.MAX_VALUE else i
+                }
+            } else supported
+        }
+        val supportedChainValues: List<String> by lazy { supportedChains.map { it.name } }
+        val evmChains: List<MBlockchain> by lazy {
+            supportedChains.filter { it.config?.chainStandard == "ethereum" }
+        }
+        val evmChainValues: List<String> by lazy { evmChains.map { it.name } }
+        val supportedChainIndexes: Map<String, Int> by lazy {
             supportedChains.mapIndexed { index, chain -> chain.name to index }.toMap()
+        }
 
         fun isValidAddressOnAnyChain(address: String): Boolean =
             supportedChains.any { it.isValidAddress(address) }

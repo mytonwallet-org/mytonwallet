@@ -15,7 +15,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
 
     private static let pinIconSideLength: CGFloat = 12
     private static let pinIconSpacing: CGFloat = 4
-    private static let tokenImageToTextSpacing: CGFloat = 12
+    private static let tokenImageToTextSpacing: CGFloat = 10
     private static let badgeLeadingSpacing: CGFloat = 4
     private static let badgeTrailingSpacing: CGFloat = 8
     private static let badgeFadeWidth: CGFloat = 18
@@ -34,7 +34,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     
     public override var safeAreaInsets: UIEdgeInsets { isUIAssets ? super.safeAreaInsets : .zero }
 
-    private let mainView: UIView = UIView()
+    private let mainView = UIView()
     private let tokenNameClipView: UIView = configured(object: UIView()) {
         $0.translatesAutoresizingMaskIntoConstraints = false
         $0.clipsToBounds = true
@@ -94,20 +94,20 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     private func setupViews() {
         isExclusiveTouch = true
         contentView.backgroundColor = .clear
-        contentView.heightAnchor.constraint(equalToConstant: Self.defaultHeight).isActive = true
+        let heightConstraint = contentView.heightAnchor.constraint(equalToConstant: Self.defaultHeight)
+        heightConstraint.priority = .defaultHigh
+        heightConstraint.isActive = true
         
         mainView.backgroundColor = .clear
         contentView.addStretchedToBounds(subview: mainView, insets: UIEdgeInsets(top: 10, left: 12, bottom: 10, right: 12))
         
         // left icon
-        iconView = IconView(size: 40)
+        iconView = IconView(size: 40, accessoryGeometry: .forIcon40)
         mainView.addSubview(iconView)
         NSLayoutConstraint.activate([
             iconView.leadingAnchor.constraint(equalTo: mainView.leadingAnchor),
             iconView.centerYAnchor.constraint(equalTo: mainView.centerYAnchor),
         ])
-        iconView.layer.cornerRadius = 20
-        iconView.setChainSize(14, borderWidth: 1.333, borderColor: .air.background, horizontalOffset: 3, verticalOffset: 1)
 
         // tokenName
         mainView.addSubview(tokenNameClipView)

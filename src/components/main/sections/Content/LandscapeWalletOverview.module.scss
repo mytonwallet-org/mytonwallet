@@ -1,3 +1,5 @@
+@use "../../../../styles/mixins";
+
 @use "../../../../styles/scssVariables" as v;
 
 .wrapper {
@@ -11,6 +13,10 @@
   min-height: 0;
   padding-top: var(--app-padding-top);
   padding-bottom: max(var(--safe-area-bottom), 1rem);
+}
+
+.rowContainer {
+  position: relative;
 }
 
 .row {
@@ -30,6 +36,13 @@
 
 .rowStretched {
   padding-inline-end: 0;
+}
+
+.nftsCell {
+  scrollbar-gutter: stable;
+  padding-inline-end: 0.5rem;
+
+  @include mixins.adapt-padding-to-scrollbar(0.5rem);
 }
 
 .activitiesWrapper {

@@ -272,5 +272,16 @@ func makeMigrator() -> DatabaseMigrator {
         }
     }
 
+    migrator.registerMigration("v14") { db in
+        try db.alter(table: "settings") { t in
+            t.add(column: "autolockValue_new", .text).notNull().defaults(to: "never")
+        }
+        try db.execute(sql: "UPDATE settings SET autolockValue_new = autolockValue")
+        try db.alter(table: "settings") { t in
+            t.drop(column: "autolockValue")
+            t.rename(column: "autolockValue_new", to: "autolockValue")
+        }
+    }
+
     return migrator
 }

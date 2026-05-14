@@ -20,6 +20,7 @@ private let log = Log("AirLauncher")
 
 @MainActor
 public class AirLauncher {
+    private static let startupModePreference = StartupModePreference()
     
     private static var canSwitchToCapacitor: Bool {
         isCapacitorAvailable
@@ -27,20 +28,30 @@ public class AirLauncher {
     
     public static var isOnTheAir: Bool {
         get {
-            if canSwitchToCapacitor {
-                return UserDefaults.standard.object(forKey: "isOnAir") as? Bool ?? DEFAULT_TO_AIR
-            } else {
-                UserDefaults.standard.set(true, forKey: "isOnAir")
-                return true
-            }
+            currentStartupMode.mode.isAir
         }
         set {
-            if canSwitchToCapacitor {
-                UserDefaults.standard.set(newValue, forKey: "isOnAir")
-            } else {
-                UserDefaults.standard.set(true, forKey: "isOnAir")
-            }
+            setStartupMode(StartupMode(isAir: newValue))
         }
+    }
+
+    public static var currentStartupMode: StartupModeDecision {
+        startupModePreference.currentMode(canUseClassic: canSwitchToCapacitor)
+    }
+
+    @discardableResult
+    public static func setStartupMode(_ mode: StartupMode) -> StartupModeDecision {
+        startupModePreference.setMode(mode, canUseClassic: canSwitchToCapacitor)
+    }
+
+    @discardableResult
+    public static func applyMissingFirstLaunchMarkerPolicy() -> StartupModeDecision {
+        startupModePreference.applyMissingFirstLaunchMarkerPolicy(canUseClassic: canSwitchToCapacitor)
+    }
+
+    @discardableResult
+    public static func forceAir() -> StartupModeDecision {
+        startupModePreference.forceAir()
     }
     
     private static var window: WWindow!

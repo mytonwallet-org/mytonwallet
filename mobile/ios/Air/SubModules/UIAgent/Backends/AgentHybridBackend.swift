@@ -323,8 +323,7 @@ final class AgentHybridBackend: AgentBackend {
     }
 
     private static var deeplinkRegex: NSRegularExpression = {
-        let escapedProtocol = NSRegularExpression.escapedPattern(for: SELF_PROTOCOL)
-        return try! NSRegularExpression(pattern: #"\[([^\]]+)\]\s*\((\#(escapedProtocol)[^)\s]+)\)$"#)
+        AgentActionLinkMatcher.deeplinkRegex
     }()
 
     private static func loadOrCreateClientID(from defaults: UserDefaults) -> String {

@@ -1,6 +1,8 @@
 import { beginCell, Cell, storeStateInit } from '@ton/core';
 import type { WalletContractV5R1 } from '@ton/ton';
 
+import type {
+  ApiBalanceBySlug } from '../../types';
 import type { ApiTonWalletVersion, ContractInfo } from './types';
 import type { TonWallet } from './util/tonCore';
 import {
@@ -90,7 +92,11 @@ export async function getWalletInfo(network: ApiNetwork, walletOrAddress: TonWal
   return (await getWalletInfos(network, [address]))[address];
 }
 
-export async function fetchBalances(network: ApiNetwork, address: string, sendUpdateTokens: NoneToVoidFunction) {
+export async function fetchBalances(
+  network: ApiNetwork,
+  address: string,
+  sendUpdateTokens: NoneToVoidFunction,
+): Promise<ApiBalanceBySlug> {
   const [{ balance: tonBalance }, tokenBalances] = await Promise.all([
     getWalletInfo(network, address),
     loadTokenBalances(network, address, sendUpdateTokens),

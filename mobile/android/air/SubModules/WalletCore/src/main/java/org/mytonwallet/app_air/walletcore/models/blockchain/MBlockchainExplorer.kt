@@ -46,50 +46,50 @@ enum class MBlockchainExplorer(val identifier: String) {
         return when (this) {
             TONSCAN -> Uri.Builder()
                 .scheme("https")
-                .authority(if (network == MBlockchainNetwork.MAINNET) "tonscan.org" else "testnet.tonscan.org")
+                .authority(if (network.isMainnet) "tonscan.org" else "testnet.tonscan.org")
 
             TONVIEWER -> Uri.Builder()
                 .scheme("https")
-                .authority(if (network == MBlockchainNetwork.MAINNET) "tonviewer.com" else "testnet.tonviewer.com")
+                .authority(if (network.isMainnet) "tonviewer.com" else "testnet.tonviewer.com")
 
             TRONSCAN -> Uri.Builder()
                 .scheme("https")
-                .authority(if (network == MBlockchainNetwork.MAINNET) "tronscan.org" else "shasta.tronscan.org")
+                .authority(if (network.isMainnet) "tronscan.org" else "shasta.tronscan.org")
 
             SOLSCAN -> Uri.Builder()
                 .scheme("https")
                 .authority("solscan.io").apply {
-                    if (network != MBlockchainNetwork.MAINNET)
+                    if (!network.isMainnet)
                         appendQueryParameter("cluster", "devnet")
                 }
 
             ETHERSCAN -> Uri.Builder()
                 .scheme("https")
-                .authority(if (network == MBlockchainNetwork.MAINNET) "etherscan.io" else "sepolia.etherscan.io")
+                .authority(if (network.isMainnet) "etherscan.io" else "sepolia.etherscan.io")
 
             BASESCAN -> Uri.Builder()
                 .scheme("https")
-                .authority(if (network == MBlockchainNetwork.MAINNET) "basescan.org" else "sepolia.basescan.org")
+                .authority(if (network.isMainnet) "basescan.org" else "sepolia.basescan.org")
 
             BSCTRACE -> Uri.Builder()
                 .scheme("https")
-                .authority(if (network == MBlockchainNetwork.MAINNET) "bscscan.com" else "testnet.bscscan.com")
+                .authority(if (network.isMainnet) "bscscan.com" else "testnet.bscscan.com")
 
             POLYGONSCAN -> Uri.Builder()
                 .scheme("https")
-                .authority(if (network == MBlockchainNetwork.MAINNET) "polygonscan.com" else "testnet.polygonscan.com")
+                .authority(if (network.isMainnet) "polygonscan.com" else "testnet.polygonscan.com")
 
             ARBISCAN -> Uri.Builder()
                 .scheme("https")
-                .authority(if (network == MBlockchainNetwork.MAINNET) "arbiscan.io" else "sepolia.arbiscan.io")
+                .authority(if (network.isMainnet) "arbiscan.io" else "sepolia.arbiscan.io")
 
             MONADSCAN -> Uri.Builder()
                 .scheme("https")
-                .authority(if (network == MBlockchainNetwork.MAINNET) "monadscan.com" else "testnet.monadscan.com")
+                .authority(if (network.isMainnet) "monadscan.com" else "testnet.monadscan.com")
 
             SNOWTRACE -> Uri.Builder()
                 .scheme("https")
-                .authority(if (network == MBlockchainNetwork.MAINNET) "snowtrace.io" else "testnet.snowtrace.io")
+                .authority(if (network.isMainnet) "snowtrace.io" else "testnet.snowtrace.io")
 
             HYPEREVMSCAN -> Uri.Builder()
                 .scheme("https")

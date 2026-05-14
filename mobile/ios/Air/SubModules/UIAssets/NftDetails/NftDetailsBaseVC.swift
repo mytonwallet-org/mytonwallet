@@ -157,9 +157,7 @@ public class NftDetailsBaseVC: UIViewController {
            sheet.configureAllowsInteractiveDismiss(false)
        }
 
-        if #available(iOS 26, *) {
-            
-        } else {
+        if #unavailable(iOS 26) {
             // iOS 17: backButtonDisplayMode alone doesn't suppress the title from the previous VC.
             // Temporarily set an empty backBarButtonItem on the previous VC while this screen is visible.
             if let previousVC = navigationController?.viewControllers.dropLast().last {
@@ -172,14 +170,13 @@ public class NftDetailsBaseVC: UIViewController {
 
     public override func viewWillDisappear(_ animated: Bool) {
        super.viewWillDisappear(animated)
-       manager.saveColorCacheIfNeeded()
+       manager.colorCache.saveIfNeeded()
+       
        if let sheet = self.sheetPresentationController {
            sheet.configureAllowsInteractiveDismiss(true)
        }
 
-        if #available(iOS 26, *) {
-            
-        } else {
+        if #unavailable(iOS 26) {
             previousBackItemOwner?.navigationItem.backBarButtonItem = previousVCBackBarButtonItem
             previousBackItemOwner = nil
             previousVCBackBarButtonItem = nil
@@ -276,10 +273,9 @@ public class NftDetailsBaseVC: UIViewController {
         if let pager {
             pager.layoutGeometry = layoutGeometry
         } else {
-            let idx = manager.models.findIndexById(selectedModel.id) ?? 0
             let newPager = NftDetailsPagerView(
                 models: manager.models,
-                currentIndex: idx,
+                currentIndex: selectedModel.index,
                 layoutGeometry: layoutGeometry,
                 delegate: self,
                 initiallyExpanded: initiallyExpanded
@@ -297,17 +293,20 @@ public class NftDetailsBaseVC: UIViewController {
     }
         
     private func updateBackground() {
-        let perf = NftDetailsPerformance.beginMeasure("vc_updateBackground")
-        defer { NftDetailsPerformance.endMeasure(perf) }
-
+        
         func getPageModel(forModel model: ItemModel) -> Background.PageModel {
-            var backgroundPattern: CIImage?
+            var backgroundColor: UIColor?
             var image: CIImage?
+            
+            // We get loaded (real) value but also look for cache - just to avoid background blink at the very beginning
             if case .loaded(let processed) = model.processedImageState {
-                backgroundPattern = processed.backgroundCIImage
+                backgroundColor = processed.baseColor
                 image = processed.previewCIImage
+            } else {
+                let (_, color) = manager.colorCache.color(forKey: model.id)
+                backgroundColor = color
             }
-            return .init(background: backgroundPattern, image: image, tag: model.name)
+            return .init(backgroundColor: backgroundColor, image: image, tag: model.shortDescription)
         }
         
         let pageState: Background.PageState
@@ -327,6 +326,7 @@ public class NftDetailsBaseVC: UIViewController {
             isExpanded: state.isExpanded,
             shouldShowPreview: state.isPreviewHidden && state.isExpanded
         )
+                
         backgroundView.setModel(model)
     }
         
@@ -367,9 +367,7 @@ public class NftDetailsBaseVC: UIViewController {
         }
         
         if notifyPager {
-            if let idx = manager.models.findIndexById(model.id) {
-                pager?.animateToIndex(idx)
-            }
+            pager?.animateToIndex(model.index)
         }
 
         // Always update background + re-subscribe to updates if necessary
@@ -400,18 +398,16 @@ extension NftDetailsBaseVC: NftDetailsPagerDelegate {
     func pagerDidScroll(_ pager: NftDetailsPagerView, withProgress progress: CGFloat, fromModel: ItemModel, toModel: ItemModel?) {
         state.pageTransition = .init(leftPage: fromModel, rightPage: toModel, progress: progress)
 
-        // permit/deny header to show preview. After operation update the sate
+        // permit/deny header to show preview. After operation update the state.
         let canShowPreview = state.pageTransition.isStatic
         headerView?.setCanShowPreview(canShowPreview)
         state.isPreviewHidden = headerView?.isPreviewHidden ?? true
 
         // Mirror the pager drag to the cover flow so both track each other in real time.
         if pager.isUserDragging {
-            headerView?.syncCoverFlowWithPager(progress: progress, currentItemId: fromModel.id)
+            headerView?.syncCoverFlowWithPager(progress: progress, currentModel: fromModel)
         }
-        
-        NftDetailsPerformance.markPagerScrollEvent()
-        
+                
         // To reduce frame dropping cancels animations on any transitions.
         if state.pageTransition.isTransitioning {
             NotificationCenter.default.post(name: .nftDetailsStopLottieAnimations, object: nil)
@@ -435,8 +431,8 @@ extension NftDetailsBaseVC: NftDetailsMainHeaderViewDelegate {
         selectModel(model, animated: true, forced: false, initiator: .coverFlow)
     }
     
-    func headerCoverFlowDidScroll(withProgress progress: CGFloat, currentModelId: String) {
-        pager?.syncPagerWithCoverFlow(progress, currentModelId: currentModelId)
+    func headerCoverFlowDidScroll(withProgress progress: CGFloat, currentModel: NftDetailsItemModel) {
+        pager?.syncPagerWithCoverFlow(progress, currentModel: currentModel)
     }
     
     func headerDidChangePreviewVisibilityInternaly(_ headerView: NftDetailsMainHeaderView) {

@@ -127,7 +127,7 @@ class ActivityListView<T>(
             return
         assetsShown = false
         isMainnetAccount =
-            accountId != null && MBlockchainNetwork.ofAccountId(accountId) == MBlockchainNetwork.MAINNET
+            accountId != null && MBlockchainNetwork.ofAccountId(accountId).isMainnet
         this.showingAccountId = if (shouldLoadNewWallets) accountId else null
 
         childrenFadeAnimator?.cancel()

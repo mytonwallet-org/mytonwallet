@@ -294,6 +294,7 @@ Logged in with %app_name%: "%app_name% ile oturum açıldı"
 No active connections: Aktif bağlantı yok
 Other: Diğer
 No price data: Fiyat verisi yok
+Price Copied: Fiyat kopyalandı
 Not staked: Stake edilmemiş
 Portfolio: Portföy
 Total Balance: Toplam bakiye
@@ -1133,6 +1134,7 @@ Other addresses for this wallet: Bu cüzdan için diğer adresler
 Current Wallet: Mevcut Cüzdan
 Add Subwallet: Alt cüzdan ekle
 Create Subwallet: Alt cüzdan oluştur
+Add All Found: Bulunanların tümünü ekle
 You have tokens on other subwallets. You can switch to them here.: Diğer alt cüzdanlarda tokenlarınız var. Buradan onlara geçiş yapabilirsiniz.
 Subwallet Created: Alt cüzdan oluşturuldu
 Subwallet Added: Alt cüzdan eklendi
@@ -1169,7 +1171,29 @@ Show Assets: Varlıkları göster
 Top %amount%: En iyi %amount%
 No subwallets yet.: Henüz alt cüzdan yok.
 $subwallets_found: "Bulundu: %1$d"
+$subwallet_scan_no_native_balances: Yerel bakiye yok
+$subwallet_scan_other_tokens_suffix:
+  oneValue: " + %1$d diğer jeton"
+  otherValue: " + %1$d diğer jeton"
 Send, receive, and trade tokens and collectibles.: Tokenleri ve koleksiyon ürünlerini gönderin, alın ve takas edin.
 $overview_cell_size_small: Küçük
 $overview_cell_size_medium: Orta
 $overview_cell_size_big: Büyük
+Set Name: İsim Ver
+Wallet Created: Cüzdan Oluşturuldu
+Wallet Imported: Cüzdan İçe Aktarıldı
+View Wallet Added: Görüntüleme Cüzdanı Eklendi
+Scroll Left: Sola kaydır
+Scroll Right: Sağa kaydır
+Sent NFT: NFT gönderildi
+Sending NFT: NFT gönderiliyor
+$send_nft_action: NFT gönder
+Received NFT: NFT alındı
+Receiving NFT: NFT alınıyor
+$receive_nft_action: NFT al
+Minted NFT: NFT mintlendi
+Minting NFT: NFT mintleniyor
+$mint_nft_action: NFT mintle
+Burned NFT: NFT yakıldı
+Burning NFT: NFT yakılıyor
+$burn_nft_action: NFT yak

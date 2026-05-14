@@ -126,6 +126,10 @@ let package = Package(
             exact: "1.1.4"
         ),
         .package(
+            url: "https://github.com/apple/swift-async-algorithms",
+            exact: "1.1.3"
+        ),
+        .package(
             url: "https://github.com/groue/GRDB.swift",
             exact: "7.9.0"
         ),
@@ -345,6 +349,7 @@ let package = Package(
                 "WalletContext",
                 "UIPasscode",
                 "UIComponents",
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
                 .product(name: "Perception", package: "swift-perception"),
                 .product(name: "SwiftNavigation", package: "swift-navigation"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
@@ -552,6 +557,15 @@ let package = Package(
         airTestTarget(
             "WalletCoreTests",
             dependencies: [
+                "WalletCore",
+                "WalletContext",
+                .product(name: "GRDB", package: "grdb.swift"),
+            ]
+        ),
+        airTestTarget(
+            "UISwapTests",
+            dependencies: [
+                "UISwap",
                 "WalletCore",
                 "WalletContext",
             ]

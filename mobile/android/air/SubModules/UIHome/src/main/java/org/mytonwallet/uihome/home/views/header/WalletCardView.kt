@@ -33,7 +33,6 @@ import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
-import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.NftGradientHelpers
@@ -42,7 +41,6 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WLetterSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
-import org.mytonwallet.app_air.uicomponents.helpers.textOffset
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
@@ -1004,7 +1002,8 @@ class WalletCardView(
 
     fun copyFirstAddress() {
         account?.sortedChains()?.firstOrNull()?.let {
-            copyAccountToClipboard(it.value, MBlockchain.valueOf(it.key))
+            val chain = MBlockchain.valueOfOrNull(it.key) ?: return
+            copyAccountToClipboard(it.value, chain)
         }
     }
 
@@ -1035,11 +1034,11 @@ class WalletCardView(
             setTint(WColor.SecondaryText.color)
             val width = 16.dp
             val height = 16.dp
-            setBounds(0, -FontManager.activeFont.textOffset, width, height)
+            setBounds(0, 0, width, height)
         }
         val items =
-            account?.sortedChains()?.map { accountChain ->
-                val chain = MBlockchain.valueOf(accountChain.key)
+            account?.sortedChains()?.mapNotNull { accountChain ->
+                val chain = MBlockchain.valueOfOrNull(accountChain.key) ?: return@mapNotNull null
                 val accountChainValue = accountChain.value
                 val fullAddress = accountChainValue.address
                 val domain = accountChainValue.domain?.trimDomain(16)

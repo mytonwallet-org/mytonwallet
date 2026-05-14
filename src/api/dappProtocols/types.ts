@@ -246,6 +246,27 @@ export type DappMethodResult<T extends string = any> =
   }
   | { success: false; error: DappProtocolError };
 
+/**
+ * Read-only EVM JSON-RPC proxy request.
+ * The injected provider forwards methods like `eth_blockNumber`, `eth_call`,
+ * `eth_estimateGas`, etc., that aren't sign/send through the wallet's backend
+ * RPC so wagmi/viem-based dApps don't break on `Unsupported method`.
+ */
+export interface DappEvmRpcProxyRequest {
+  chain: ApiChain;
+  method: string;
+  params: unknown[];
+}
+
+/**
+ * Errors here use raw JSON-RPC numeric codes (e.g. -32601, -32602, -32603, plus
+ * any code surfaced by the upstream node). DappProtocolError's enum covers
+ * connect/sendTx codes only and isn't a fit for the broader JSON-RPC space.
+ */
+export type DappEvmRpcProxyResult =
+  | { success: true; result: unknown }
+  | { success: false; error: { code: number; message: string } };
+
 // =============================================================================
 // Protocol Adapter Interface
 // =============================================================================
@@ -357,6 +378,18 @@ export interface DappProtocolAdapter<T extends `${DappProtocolType}` = any> {
     request: ApiDappRequest,
     message: DappSignDataRequest<T>,
   ): Promise<DappMethodResult<T>>;
+
+  /**
+   * Forward a read-only EVM JSON-RPC method through the wallet's backend RPC.
+   * Optional: only applicable to protocols that expose an EIP-1193-compatible
+   * provider to dApps (currently WalletConnect for EVM in InAppBrowser).
+   * Implementations must reject any non-readonly method on the wallet side
+   * to prevent abusing the proxy for sign/send operations.
+   */
+  proxyEvmRpc?(
+    request: ApiDappRequest,
+    message: DappEvmRpcProxyRequest,
+  ): Promise<DappEvmRpcProxyResult>;
 
   // ---------------------------------------------------------------------------
   // Transport-specific Methods

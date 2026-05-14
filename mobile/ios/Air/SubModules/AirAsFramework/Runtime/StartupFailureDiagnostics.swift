@@ -125,6 +125,23 @@ enum StartupFailureDiagnostics {
 
     static func webViewStorageDetails(_ error: any Error) -> String? {
         switch error {
+        case let GlobalStorageError.navigationError(error):
+            return "navigationError=\(String(describing: error))"
+        case let GlobalStorageError.javaScriptError(error):
+            return "javaScriptError=\(String(describing: error))"
+        case GlobalStorageError.localStorageIsNull:
+            return "global state key is missing"
+        case GlobalStorageError.localStorageIsEmpty:
+            return "global state value is empty"
+        case let GlobalStorageError.localStorageIsNotAString(value):
+            return "global state value is not a string type=\(String(reflecting: type(of: value)))"
+        case let GlobalStorageError.localStorageIsInvalidJson(value):
+            if let string = value as? String {
+                return "global state value is invalid JSON length=\(string.count)"
+            }
+            return "global state value is invalid JSON type=\(String(reflecting: type(of: value)))"
+        case let GlobalStorageError.serializedValueIsNotAValidDict(value):
+            return "global state root is not an object type=\(value.map { String(reflecting: type(of: $0)) } ?? "nil")"
         case let GlobalStorageError.localStorageSetItemError(rawMessage):
             guard let data = rawMessage.data(using: .utf8),
                   let payload = try? JSONDecoder().decode(WebViewStorageErrorPayload.self, from: data)

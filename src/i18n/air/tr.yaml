@@ -360,6 +360,11 @@ $subwallets_found:
   oneValue: "Bulundu: %1$d"
   otherValue: "Bulundu: %1$d"
 
+$subwallet_scan_no_native_balances: Yerel bakiye yok
+$subwallet_scan_other_tokens_suffix:
+  oneValue: " + %1$d diğer jeton"
+  otherValue: " + %1$d diğer jeton"
+
 $subwallets_hint: Yeni gizli kelimeler oluşturmadan ek adresler almak için alt cüzdanlar kullanın.
 $subwallets_created_wallets: Daha önce alt cüzdan oluşturduysanız, aşağıdaki listede görünecektir.
 $subwallets_none: Henüz alt cüzdan yok.
