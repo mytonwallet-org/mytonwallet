@@ -50,14 +50,7 @@ extension WalletFilter {
     }
     
     @MainActor func performAddAction() {
-        switch self {
-        case .all, .my:
-            AppActions.showAddWallet(network: .mainnet, showCreateWallet: true, showSwitchToOtherVersion: true)
-        case .ledger:
-            AppActions.showAddWallet(network: .mainnet, showCreateWallet: true, showSwitchToOtherVersion: true)
-        case .view:
-            AppActions.showAddWallet(network: .mainnet, showCreateWallet: true, showSwitchToOtherVersion: true)
-        }
+        AppActions.showAddWallet(network: .mainnet)
     }
     
     var emptyTitle: String {

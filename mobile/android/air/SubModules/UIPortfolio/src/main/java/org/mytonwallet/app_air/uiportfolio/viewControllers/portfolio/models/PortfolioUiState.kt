@@ -1,12 +1,6 @@
-package org.mytonwallet.app_air.uiportfolio
+package org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models
 
 import org.mytonwallet.app_air.uicomponents.widgets.chart.extended.StackLinearChartData
-import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
-
-data class PortfolioHistoryRequest(
-    val wallets: List<String>,
-    val baseCurrency: MBaseCurrency,
-)
 
 sealed class PortfolioUiState {
     data object Idle : PortfolioUiState()
@@ -14,6 +8,9 @@ sealed class PortfolioUiState {
     data class Loaded(
         val request: PortfolioHistoryRequest,
         val chartData: StackLinearChartData?,
+        val overview: PortfolioOverview?,
+        val assetBreakdown: List<PortfolioBreakdownSlice>,
+        val chainBreakdown: List<PortfolioBreakdownSlice>,
     ) : PortfolioUiState()
 
     data object Error : PortfolioUiState()

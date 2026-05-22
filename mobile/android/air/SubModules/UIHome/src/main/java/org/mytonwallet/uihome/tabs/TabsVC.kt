@@ -44,12 +44,14 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController.PresentationConfig
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountItemView
+import org.mytonwallet.app_air.uicomponents.commonViews.toast.ToastHost
 import org.mytonwallet.app_air.uicomponents.drawable.StickyBottomGradientDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
+import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.IPopup
 import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
@@ -174,6 +176,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             )
 
             val newNav = getNavigationStack(itemId)
+            updateToastAvailability(itemId)
             if (newNav.parent != null)
                 return true // switching navigation bottom bar view type
 
@@ -263,6 +266,12 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
     override val bottomNavigationView: IBottomNavigationView =
         FloatingBottomNavigationView(context, contentView).also { it.listener = tabListener }
+
+    private val toastHostView by lazy {
+        ToastHost(context).apply {
+            attachBlurRoot(contentView)
+        }
+    }
 
     var isProcessingSearchKeyword = false
     private val searchBlurryBackgroundView = WBlurryBackgroundView(context, fadeSide = null).apply {
@@ -442,6 +451,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                     BOTTOM_TABS_BOTTOM_MARGIN.dp +
                     minimizedNavHeightPx) +
                 BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp * visibilityFraction)
+        syncToastHostPosition()
 
         stickyBottomGradientDrawable?.setStops(computeGradientStops(visibilityFraction))
 
@@ -492,6 +502,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
         view.addView(contentView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.addView(bottomNavigationView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
+        view.addView(toastHostView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         view.addView(
             searchView,
             FrameLayout.LayoutParams(searchWidth, SEARCH_HEIGHT.dp, Gravity.BOTTOM)
@@ -501,6 +512,8 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         view.setConstraints {
             toCenterX(searchView)
             bottomToTop(searchView, bottomNavigationView)
+            toCenterX(toastHostView)
+            bottomToTop(toastHostView, bottomNavigationView)
             toBottom(bottomNavigationView)
             toCenterX(bottomNavigationView)
             stickyBottomGradientView?.let {
@@ -522,6 +535,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         bottomNavigationView.post {
             setupWalletSwitcherPopup()
         }
+        updateToastAvailability()
         checkForUpdate()
         updateTheme()
         WalletCore.doOnBridgeReady {
@@ -708,11 +722,18 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     override fun viewDidAppear() {
         super.viewDidAppear()
         activeNavigationController?.viewDidAppear()
+        updateToastAvailability()
+    }
+
+    override fun viewDidEnterForeground() {
+        super.viewDidEnterForeground()
+        updateToastAvailability()
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
         activeNavigationController?.viewWillDisappear()
+        toastHostView.setToastEnabled(false)
         clearSearchAutoComplete()
     }
 
@@ -778,6 +799,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         bottomNavigationView.bringToFront()
         searchShadow?.bringToFront()
         searchView.bringToFront()
+        toastHostView.bringToFront()
     }
 
     private fun stickyGradientFullHeight(): Int {
@@ -1082,6 +1104,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
             is WalletEvent.TemporaryAccountSaved -> {
                 navigationController?.popToRoot(false)
+                ToastHelper.notifyViewWalletAdded(this, accountId = walletEvent.accountId)
             }
 
             is WalletEvent.AccountChangedInApp, WalletEvent.AddNewWalletCompletion -> {
@@ -1299,6 +1322,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         updateStickyGradientHeight()
         bottomNavigationView.translationY =
             -(BOTTOM_TABS_BOTTOM_MARGIN.dp + bottomBarHeight + minimizedNavHeight!!) + BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp
+        syncToastHostPosition()
         render()
 
         fun onUpdate(animatedFraction: Float) {
@@ -1380,6 +1404,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             updateStickyGradientHeight()
             bottomNavigationView.translationY =
                 -(BOTTOM_TABS_BOTTOM_MARGIN.dp + bottomBarHeight + minimizedNavHeight!!)
+            syncToastHostPosition()
             render()
             detachMinimizedShadow(nav)
             view.removeView(nav)
@@ -1420,6 +1445,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             updateStickyGradientHeight()
             bottomNavigationView.translationY =
                 -(BOTTOM_TABS_BOTTOM_MARGIN.dp + bottomBarHeight + minimizedNavHeight!!) + BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp * (1 - animatedFraction)
+            syncToastHostPosition()
             render()
             val fadedAlpha = visibilityFraction * (1 - animatedFraction)
             nav?.alpha = fadedAlpha
@@ -1456,6 +1482,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
     override fun pauseBlurring() {
         searchBlurryBackgroundView.pauseBlurring()
+        toastHostView.pauseBlurring()
         bottomNavigationView.pauseBlurring()
         bottomReversedCornerView?.pauseBlurring()
         (minimizedNav?.viewControllers?.lastOrNull() as? WMinimizableBlurHost)
@@ -1464,6 +1491,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
     override fun resumeBlurring() {
         searchBlurryBackgroundView.resumeBlurring()
+        toastHostView.resumeBlurring()
         bottomNavigationView.resumeBlurring()
         bottomReversedCornerView?.resumeBlurring()
         (minimizedNav?.viewControllers?.lastOrNull() as? WMinimizableBlurHost)
@@ -1489,6 +1517,20 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
     override fun showTabBar() {
         bottomNavigationView.fadeIn()
+    }
+
+    private fun updateToastAvailability(selectedItemId: Int = bottomNavigationView.selectedItemId) {
+        val homeNavigationController = stackNavigationControllers[IBottomNavigationView.ID_HOME]
+        val isMainHomeVisible =
+            selectedItemId == IBottomNavigationView.ID_HOME &&
+                window?.topViewController == this &&
+                homeNavigationController?.viewControllers?.size == 1
+
+        toastHostView.setToastEnabled(isMainHomeVisible)
+    }
+
+    private fun syncToastHostPosition() {
+        toastHostView.translationY = bottomNavigationView.translationY + ViewConstants.TOOLBAR_RADIUS.dp
     }
 
     override fun onDestroy() {

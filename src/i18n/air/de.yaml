@@ -221,6 +221,12 @@ Set a passcode: Passcode festlegen
 "Transaction to this smart contract is not yet supported by Ledger.": Transaktionen zu diesem Smart Contract werden von Ledger noch nicht unterstützt.
 Transfer Details: Transferdetails
 "Transferring NFT is not yet supported by Ledger.": Das Übertragen von NFTs wird von Ledger noch nicht unterstützt.
+Connect your Ledger via Bluetooth: Verbinde dein Ledger per Bluetooth
+Discovering wallets: Wallets werden gesucht
+Bluetooth Access Denied: Bluetooth-Zugriff verweigert
+Bluetooth access is needed to connect Ledger.: Zum Verbinden mit Ledger ist Bluetooth-Zugriff erforderlich.
+Address not resolved: Adresse konnte nicht aufgelöst werden
+Sending more than one NFT isn't supported by Ledger: Das Senden von mehr als einem NFT wird von Ledger nicht unterstützt
 Unavailable: Nicht verfügbar
 "Updating…": Wird aktualisiert…
 "Waiting for network…": Warten auf Netzwerk…

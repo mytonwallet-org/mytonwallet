@@ -34,7 +34,7 @@ public struct TotalAmountRow: View {
             if let token = TokenStore.getToken(slug: tokenSlug) {
                 terms.append(TokenAmount(amount, token).formatted(.defaultAdaptive))
             } else {
-                terms.append(AnyDecimalAmount(amount, decimals: 9, symbol: "[Unknown]", forceCurrencyToRight: true).formatted(.defaultAdaptive))
+                terms.append(TokenAmount(amount, .unknown(slug: tokenSlug)).formatted(.defaultAdaptive))
             }
         }
 

@@ -1,8 +1,10 @@
 import Foundation
 
+public typealias ApiPortfolioHistoryList = [[Double?]]
+
 public struct ApiPortfolioHistoryResponse: Codable, Equatable, Sendable {
     public let status: String
-    public let points: ApiHistoryList?
+    public let points: ApiPortfolioHistoryList?
     public let datasets: [ApiPortfolioHistoryDataset]?
     public let base: String
     public let density: String
@@ -11,7 +13,7 @@ public struct ApiPortfolioHistoryResponse: Codable, Equatable, Sendable {
 
     public init(
         status: String,
-        points: ApiHistoryList?,
+        points: ApiPortfolioHistoryList?,
         datasets: [ApiPortfolioHistoryDataset]?,
         base: String,
         density: String,
@@ -33,7 +35,7 @@ public struct ApiPortfolioHistoryDataset: Codable, Equatable, Sendable, Identifi
     public let symbol: String
     public let contractAddress: String
     public let color: String?
-    public let points: ApiHistoryList
+    public let points: ApiPortfolioHistoryList
     public let impact: Double?
 
     public var id: Int { assetId }
@@ -61,7 +63,10 @@ private extension ApiPortfolioHistoryDataset {
             contractAddress: contractAddress,
             color: color,
             points: points.map { point in
-                guard point.count >= 2, point[1] < minimumValue else {
+                guard point.count >= 2,
+                      let value = point[1],
+                      value < minimumValue
+                else {
                     return point
                 }
 

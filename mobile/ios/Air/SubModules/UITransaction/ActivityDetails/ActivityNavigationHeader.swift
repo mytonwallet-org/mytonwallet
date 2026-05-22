@@ -55,7 +55,9 @@ struct ActivityNavigationHeader: View {
                 return .failed
             case .waitingForPayment:
                 return .waitingForPayment
-            case .pending, .completed:
+            case .pending:
+                return .inProgress
+            case .completed:
                 return nil
             }
         }
@@ -84,6 +86,7 @@ struct ActivityStatusBadge: View {
 }
 
 enum DisplayStatus {
+    case inProgress
     case expired
     case refunded
     case failed
@@ -94,6 +97,7 @@ enum DisplayStatus {
 extension DisplayStatus {
     var displayString: String {
         switch self {
+        case .inProgress: lang("In Progress")
         case .expired: lang("Expired")
         case .refunded: lang("Refunded")
         case .failed: lang("Failed")
@@ -106,7 +110,7 @@ extension DisplayStatus {
         switch self {
         case .expired, .refunded, .failed: .red
         case .hold: .orange
-        case .waitingForPayment: .secondary
+        case .inProgress, .waitingForPayment: .secondary
         }
     }
 }

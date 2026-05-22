@@ -22,23 +22,46 @@ export type ApiPortfolioHistoryResponse = {
   assetLimitExceeded?: true;
 };
 
-const PORTFOLIO_HISTORY_DAYS = 365;
-const PORTFOLIO_HISTORY_DENSITY = '1d';
+export type ApiPortfolioHistoryParams = {
+  from?: number | string;
+  to?: number | string;
+  density?: string;
+};
 
-function computePortfolioHistoryParams() {
-  const to = new Date();
-  const from = new Date(to.getTime() - PORTFOLIO_HISTORY_DAYS * 86_400_000);
+const DEFAULT_PORTFOLIO_HISTORY_DAYS = 365;
+const DEFAULT_PORTFOLIO_HISTORY_DENSITY = '1d';
+
+type PortfolioHistoryEndpoint = 'net-worth-history' | 'pnl-cumulative-history' | 'pnl-history';
+
+function toDate(value: number | string) {
+  if (typeof value === 'number') {
+    return new Date(value * 1000);
+  }
+
+  return new Date(value);
+}
+
+function computePortfolioHistoryParams(params: ApiPortfolioHistoryParams = {}) {
+  const to = params.to !== undefined ? toDate(params.to) : new Date();
+  const from = params.from !== undefined
+    ? toDate(params.from)
+    : new Date(to.getTime() - DEFAULT_PORTFOLIO_HISTORY_DAYS * 86_400_000);
 
   return {
     from: from.toISOString(),
     to: to.toISOString(),
-    density: PORTFOLIO_HISTORY_DENSITY,
+    density: params.density ?? DEFAULT_PORTFOLIO_HISTORY_DENSITY,
   };
 }
 
-function buildPortfolioHistoryUrl(wallets: string[], baseCurrency: ApiBaseCurrency) {
-  const { from, to, density } = computePortfolioHistoryParams();
-  const url = new URL(`${PORTFOLIO_API_URL}/net-worth-history`);
+function buildPortfolioHistoryUrl(
+  endpoint: PortfolioHistoryEndpoint,
+  wallets: string[],
+  baseCurrency: ApiBaseCurrency,
+  params?: ApiPortfolioHistoryParams,
+) {
+  const { from, to, density } = computePortfolioHistoryParams(params);
+  const url = new URL(`${PORTFOLIO_API_URL}/${endpoint}`);
 
   url.searchParams.set('wallets', wallets.join(','));
   url.searchParams.set('from', from);
@@ -52,8 +75,29 @@ function buildPortfolioHistoryUrl(wallets: string[], baseCurrency: ApiBaseCurren
 export async function fetchPortfolioNetWorthHistory(
   wallets: string[],
   baseCurrency: ApiBaseCurrency = DEFAULT_PRICE_CURRENCY,
+  params?: ApiPortfolioHistoryParams,
 ): Promise<ApiPortfolioHistoryResponse> {
-  const url = buildPortfolioHistoryUrl(wallets, baseCurrency);
+  const url = buildPortfolioHistoryUrl('net-worth-history', wallets, baseCurrency, params);
+
+  return fetchJson<ApiPortfolioHistoryResponse>(url);
+}
+
+export async function fetchPortfolioPnlCumulativeHistory(
+  wallets: string[],
+  baseCurrency: ApiBaseCurrency = DEFAULT_PRICE_CURRENCY,
+  params?: ApiPortfolioHistoryParams,
+): Promise<ApiPortfolioHistoryResponse> {
+  const url = buildPortfolioHistoryUrl('pnl-cumulative-history', wallets, baseCurrency, params);
+
+  return fetchJson<ApiPortfolioHistoryResponse>(url);
+}
+
+export async function fetchPortfolioPnlHistory(
+  wallets: string[],
+  baseCurrency: ApiBaseCurrency = DEFAULT_PRICE_CURRENCY,
+  params?: ApiPortfolioHistoryParams,
+): Promise<ApiPortfolioHistoryResponse> {
+  const url = buildPortfolioHistoryUrl('pnl-history', wallets, baseCurrency, params);
 
   return fetchJson<ApiPortfolioHistoryResponse>(url);
 }

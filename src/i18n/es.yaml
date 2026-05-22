@@ -270,8 +270,6 @@ Stake Again: Apostar de nuevo
 Earned: Ganado
 Select wallet to use on this app: Seleccione la billetera para usar en esta app
 Connect: Conectar
-App Permissions: Permisos de la App
-$dapp_can_view_balance: "%dappname% podrá ver la dirección y el saldo del monedero."
 Payload: Carga útil
 $many_transactions:
   zeroValue: Sin transferencias
@@ -1202,3 +1200,11 @@ $mint_nft_action: Mintear NFT
 Burned NFT: NFT quemado
 Burning NFT: Quemando NFT
 $burn_nft_action: Quemar NFT
+New Wallet: Nueva Cartera
+From new secret words: A partir de nuevas frases semilla
+New Subwallet: Nueva Subcartera
+From current secret words: A partir de las frases semilla actuales
+$secret_words: Frases Semilla
+Restore wallet from 12 or 24 words: Restaurar cartera con 12 o 24 palabras
+Connect your hardware wallet: Conecta tu cartera de hardware
+Watch wallet in read-only mode: Ver cartera en modo de solo lectura

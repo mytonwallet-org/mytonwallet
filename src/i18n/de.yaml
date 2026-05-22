@@ -271,8 +271,6 @@ Stake Again: Erneut staken
 Earned: Verdient
 Select wallet to use on this app: Wählen Sie die Brieftasche aus, die Sie für diese App verwenden möchten.
 Connect: Verbinden
-App Permissions: App-Berechtigungen
-$dapp_can_view_balance: "%dappname% wird die Wallet adresse und den Kontostand anzeigen können."
 Payload: Nutzlast
 $many_transactions:
   zeroValue: Keine Überweisungen
@@ -1205,3 +1203,11 @@ $mint_nft_action: NFT minten
 Burned NFT: NFT verbrannt
 Burning NFT: NFT wird verbrannt
 $burn_nft_action: NFT verbrennen
+New Wallet: Neue Wallet
+From new secret words: Aus neuen Geheimwörtern
+New Subwallet: Neue Unterwallet
+From current secret words: Aus aktuellen Geheimwörtern
+$secret_words: Geheimwörter
+Restore wallet from 12 or 24 words: Wallet aus 12 oder 24 Wörtern wiederherstellen
+Connect your hardware wallet: Verbinden Sie Ihre Hardware-Wallet
+Watch wallet in read-only mode: Wallet im schreibgeschützten Modus beobachten

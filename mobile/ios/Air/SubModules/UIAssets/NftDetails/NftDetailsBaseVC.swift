@@ -56,21 +56,47 @@ public class NftDetailsBaseVC: UIViewController {
         memoryWarningObserver.map { NotificationCenter.default.removeObserver($0) }
     }
     
+    // True when this VC is the root of a modally-presented navigation controller,
+    // or has been presented directly without a navigation controller.
+    private var isModalRoot: Bool {
+        if let navigationController {
+            return navigationController.viewControllers.first === self
+                && navigationController.presentingViewController?.presentedViewController === navigationController
+        }
+        return presentingViewController != nil
+    }
+
+    private func configureNavigationItems() {
+        if isModalRoot {
+            navigationItem.hidesBackButton = true
+            // Close button exits full-screen preview if active, otherwise dismisses.
+            if navigationItem.rightBarButtonItem == nil {
+                navigationItem.rightBarButtonItem = UIBarButtonItem(
+                    systemItem: .close,
+                    primaryAction: UIAction { [weak self] _ in
+                        guard let self else { return }
+                        if let headerView, headerView.dismissFullScreen() { return }
+                        dismiss(animated: true)
+                    }
+                )
+            }
+        } else {
+            navigationItem.backAction = UIAction { [weak self] _ in
+                guard let self else { return }
+                if let headerView, headerView.dismissFullScreen() { 
+                    return 
+                }
+                self.navigationController?.popViewController(animated: true)
+            }
+        }
+    }
+
     public override func viewDidLoad() {
         super.viewDidLoad()
 
         view.backgroundColor = .air.sheetBackground
 
         navigationItem.backButtonDisplayMode = .minimal
-        navigationItem.backAction = UIAction { [weak self] _ in
-            guard let self else { return }
-            
-            if let headerView, headerView.dismissFullScreen() {
-                return
-            }
-            
-            self.navigationController?.popViewController(animated: true)
-        }
 
         contentContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(contentContainer)
@@ -156,6 +182,7 @@ public class NftDetailsBaseVC: UIViewController {
        if let sheet = self.sheetPresentationController {
            sheet.configureAllowsInteractiveDismiss(false)
        }
+       configureNavigationItems()
 
         if #unavailable(iOS 26) {
             // iOS 17: backButtonDisplayMode alone doesn't suppress the title from the previous VC.

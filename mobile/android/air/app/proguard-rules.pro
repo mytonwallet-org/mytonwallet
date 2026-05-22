@@ -48,3 +48,7 @@
 -keepclassmembers class ** {
     @kotlin.Metadata *;
 }
+
+-keep public class com.facebook.imageutils.** {
+    public *;
+}

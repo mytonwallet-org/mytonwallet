@@ -53,7 +53,7 @@ private class AppActionsImpl: AppActionsProtocol {
                     .expirationDate: Date(timeIntervalSinceNow: 180.0),
                 ]
             )
-            AppActions.showToast(animationName: "Copy", message: toastMessage)
+            AppActions.showToast(icon: .animatedCopy, message: toastMessage)
             Haptics.play(.lightTap)
         }
     }
@@ -75,13 +75,13 @@ private class AppActionsImpl: AppActionsProtocol {
         AirLauncher.lockApp(animated: animated)
     }
     
-    static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool) {
+    static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool, historyTag: String?) {
         let url = url.isSubproject ? url.appendingSubprojectContext() : url
         if IS_DEBUG_OR_TESTFLIGHT, isPortfolioHomeURL(url) {
             showPortfolio(accountContext: AccountContext(source: .current))
             return
         }
-        InAppBrowserSupport.shared.openInBrowser(url, title: title, injectDappConnect: injectDappConnect)
+        InAppBrowserSupport.shared.openInBrowser(url, title: title, injectDappConnect: injectDappConnect, historyTag: historyTag)
     }
     
     static func openTipsChannel() {
@@ -241,16 +241,12 @@ private class AppActionsImpl: AppActionsProtocol {
         topViewController()?.present(nc, animated: true)
     }
     
-    static func showAddWallet(network: ApiNetwork, showCreateWallet: Bool, showSwitchToOtherVersion: Bool) {
-        rootContainerRouter.showAddWallet(
-            network: network,
-            showCreateWallet: showCreateWallet,
-            showSwitchToOtherVersion: showSwitchToOtherVersion
-        )
+    static func showAddWallet(network: ApiNetwork) {
+        rootContainerRouter.showAddWallet(network: network)
     }
     
-    static func showAssets(accountSource: AccountSource, selectedTab index: Int, collectionsFilter: NftCollectionFilter) {
-        rootContainerRouter.showAssets(accountSource: accountSource, selectedTab: index, collectionsFilter: collectionsFilter)
+    static func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter) {
+        rootContainerRouter.showAssets(accountSource: accountSource, selectedTab: selectedTab, collectionsFilter: collectionsFilter)
     }
 
     static func showAssetsAndActivity() {
@@ -353,7 +349,7 @@ private class AppActionsImpl: AppActionsProtocol {
         } else if let vc = topWViewController() as? AssetsAndActivityVC {
             vc.navigationController?.pushViewController(hiddenVC, animated: true)
         } else {
-            let assetsVC = AssetsTabVC(accountSource: accountSource, defaultTabIndex: 1)
+            let assetsVC = AssetsTabVC(accountSource: accountSource, defaultTab: .nfts)
             let nc = WNavigationController()
             nc.viewControllers = [assetsVC, hiddenVC]
             topVC?.present(nc, animated: true)
@@ -364,13 +360,17 @@ private class AppActionsImpl: AppActionsProtocol {
         rootContainerRouter.showHome(popToRoot: popToRoot)
     }
 
-    static func showImportWalletVersion() -> () {
-        rootContainerRouter.showImportWalletVersion()
-    }
-
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) {
         let vc = LinkDomainVC(accountSource: accountSource, nftAddress: nftAddress)
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+    }
+
+    static func showNft(accountContext: AccountContext, nft: ApiNft) {
+        let accountId = accountContext.account.id
+        let nftVC = NftDetailsVC(accountId: accountId, nft: nft, listContext: .none)
+        let nav = WNavigationController(rootViewController: nftVC)
+        nav.modalPresentationStyle = .overFullScreen
+        topViewController()?.present(nav, animated: true)
     }
 
     static func showNftByAddress(_ nftAddress: String) {
@@ -384,8 +384,8 @@ private class AppActionsImpl: AppActionsProtocol {
                     AppActions.showError(error: DisplayError(text: lang("$nft_not_found")))
                     return
                 }
-                let nftVC = NftDetailsVC(accountId: accountId, nft: nft, listContext: .none, fixedNfts: [nft])
-                topViewController()?.present(WNavigationController(rootViewController: nftVC), animated: true)
+                let nftVC = NftDetailsVC(accountId: accountId, nft: nft, listContext: .none)
+                pushIfNeeded(nftVC, push: true)
             } catch {
                 AppActions.showError(error: error)
             }
@@ -492,8 +492,8 @@ private class AppActionsImpl: AppActionsProtocol {
         }
     }
     
-    static func showToast(animationName: String?, message: String, duration: Double, tapAction: (() -> ())?) {
-        topWViewController()?.showToast(animationName: animationName, message: message, duration: duration, tapAction: tapAction)
+    static func showToast(style: ToastStyle, icon: ToastIcon?, message: String, duration: Double, actionTitle: String?, action: (() -> ())?) {
+        topWViewController()?.showToast(style: style, icon: icon, message: message, duration: duration, actionTitle: actionTitle, action: action)
     }
     
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) {

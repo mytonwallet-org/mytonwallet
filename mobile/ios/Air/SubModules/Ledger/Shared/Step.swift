@@ -12,13 +12,13 @@ public enum StepId: Sendable {
     var displayTitlle: String {
         switch self {
         case .connect:
-            "Connect your Ledger via Bluetooth"
+            lang("Connect your Ledger via Bluetooth")
         case .openApp:
-            "Unlock it and open the TON app"
+            lang("Unlock it and open the TON App")
         case .sign:
-            "Please confirm transfer on your Ledger"
+            lang("Please confirm transfer on your Ledger")
         case .discoveringWallets:
-            "Discovering wallets"
+            lang("Discovering wallets")
         }
     }
 }

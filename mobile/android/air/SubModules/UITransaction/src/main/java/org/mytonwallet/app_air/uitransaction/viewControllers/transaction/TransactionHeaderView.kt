@@ -157,6 +157,7 @@ class TransactionHeaderView(
         val transaction = transaction
         if (transaction !is MApiTransaction.Transaction)
             throw Exception()
+        val activeAccount = AccountStore.activeAccount ?: return
         val token = TokenStore.getToken(transaction.slug)
         if (token != null) {
             tokenIconView.config(transaction)
@@ -204,7 +205,7 @@ class TransactionHeaderView(
                     spannedString = spannedString,
                     startIndex = text.length - addressText.length,
                     length = addressText.length,
-                    network = AccountStore.activeAccount!!.network,
+                    network = activeAccount.network,
                     blockchain = TokenStore.getToken(transaction.slug)?.mBlockchain,
                     address = transaction.fromAddress ?: "",
                     popupXOffset = 0,
@@ -223,7 +224,7 @@ class TransactionHeaderView(
                     spannedString = spannedString,
                     startIndex = text.length - addressText.length,
                     length = addressText.length,
-                    network = AccountStore.activeAccount!!.network,
+                    network = activeAccount.network,
                     blockchain = TokenStore.getToken(transaction.slug)?.mBlockchain,
                     address = transaction.toAddress ?: "",
                     popupXOffset = 0,

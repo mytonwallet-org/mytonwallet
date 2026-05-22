@@ -64,7 +64,8 @@ export async function validateDexSwapTransfers(
       const { isSwapAllowed, codeHash } = contractInfos[mainTransfer.toAddress];
       assert(
         !!isSwapAllowed,
-        `Main transfer ${i + 1}/${mainTransfers.length} is not to a swap contract: codeHash=${codeHash}`,
+        `Main transfer ${i + 1}/${mainTransfers.length} is not to a swap contract: `
+        + `toAddress=${mainTransfer.toAddress}, codeHash=${codeHash}`,
       );
     }
 

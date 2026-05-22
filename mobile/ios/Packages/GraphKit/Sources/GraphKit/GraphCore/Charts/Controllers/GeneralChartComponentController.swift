@@ -256,27 +256,33 @@ class GeneralChartComponentController: ChartThemeContainer {
 
 // MARK: - Helpers
     var prevoiusHorizontalStrideInterval: Int = -1
+    var previousHorizontalLabelScaleType: ChartScaleType?
     func updateHorizontalLimitLabels(horizontalScalesRenderer: HorizontalScalesRenderer,
                                      horizontalRange: ClosedRange<CGFloat>,
                                      scaleType: ChartScaleType,
                                      forceUpdate: Bool,
                                      animated: Bool) {
-        let scaleTimeInterval: TimeInterval
-        if chartsCollection.axisValues.count >= 1 {
-            scaleTimeInterval = chartsCollection.axisValues[1].timeIntervalSince1970 - chartsCollection.axisValues[0].timeIntervalSince1970
-        } else {
-            scaleTimeInterval = scaleType.timeInterval
-        }
+        let labelScaleType = ChartScaleType.axisLabelScaleType(
+            requested: scaleType,
+            horizontalRange: horizontalRange,
+            axisValues: chartsCollection.axisValues
+        )
+        let scaleTimeInterval = ChartScaleType.axisScaleTimeInterval(
+            requested: scaleType,
+            axisValues: chartsCollection.axisValues
+        )
             
         let numberOfItems = horizontalRange.distance / CGFloat(scaleTimeInterval)
-        let maximumNumberOfItems = chartFrame().width / scaleType.minimumAxisXDistance
+        let maximumNumberOfItems = max(1, chartFrame().width / labelScaleType.minimumAxisXDistance)
         let tempStride = max(1, Int((numberOfItems / maximumNumberOfItems).rounded(.up)))
         var strideInterval = 1
         while strideInterval < tempStride {
             strideInterval *= 2
         }
         
-        if forceUpdate || (strideInterval != prevoiusHorizontalStrideInterval && strideInterval > 0) {
+        if forceUpdate
+            || ((strideInterval != prevoiusHorizontalStrideInterval || labelScaleType != previousHorizontalLabelScaleType)
+                && strideInterval > 0) {
             var labels: [LinesChartLabel] = []
             for index in stride(from: chartsCollection.axisValues.count - 1, to: -1, by: -strideInterval).reversed() {
                 let date = chartsCollection.axisValues[index]
@@ -286,10 +292,11 @@ class GeneralChartComponentController: ChartThemeContainer {
                                                   text: "\(Int(timestamp)):00"))
                 } else {
                     labels.append(LinesChartLabel(value: CGFloat(timestamp),
-                                                  text: axisLabel(for: date, scaleType: scaleType)))
+                                                  text: axisLabel(for: date, scaleType: labelScaleType)))
                 }
             }
             prevoiusHorizontalStrideInterval = strideInterval
+            previousHorizontalLabelScaleType = labelScaleType
             horizontalScalesRenderer.setup(labels: labels, animated: animated)
         }
     }
@@ -466,7 +473,7 @@ class GeneralChartComponentController: ChartThemeContainer {
 
     func makeDetailsValues(from items: [ChartDetailsItemContext]) -> [ChartDetailsViewModel.Value] {
         let preparedItems = items.map { item in
-            let isVisible = item.isVisible && (!hidesZeroDetailsRows || item.rawValue > 0)
+            let isVisible = item.isVisible && (!hidesZeroDetailsRows || abs(item.rawValue) > Double.ulpOfOne)
             return ChartDetailsItemContext(
                 id: item.id,
                 index: item.index,

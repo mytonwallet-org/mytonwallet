@@ -78,6 +78,7 @@ public class TokenSelectionVC: WViewController {
     private let myAssetsDisplayMode: MyAssetsDisplayMode
     private let isModal: Bool
     private let onlySupportedChains: Bool
+    private let chainFilter: ApiChain?
     private var availablePairs: [MPair]?
     private let log = Log()
     private var walletTokens = [MTokenBalance]()
@@ -103,7 +104,8 @@ public class TokenSelectionVC: WViewController {
                 title: String,
                 delegate: TokenSelectionVCDelegate?,
                 isModal: Bool,
-                onlySupportedChains: Bool) {
+                onlySupportedChains: Bool,
+                chainFilter: ApiChain? = nil) {
         self.forceAvailable = forceAvailable
         self.extraWalletTokenSlugs = extraWalletTokenSlugs
         self.otherSymbolOrMinterAddress = otherSymbolOrMinterAddress
@@ -112,6 +114,7 @@ public class TokenSelectionVC: WViewController {
         self.delegate = delegate
         self.isModal = isModal
         self.onlySupportedChains = onlySupportedChains
+        self.chainFilter = chainFilter
         super.init(nibName: nil, bundle: nil)
         self.title = title
         updateWalletTokens()
@@ -310,8 +313,11 @@ public class TokenSelectionVC: WViewController {
     
     private func filterTokens() {
         let keyword = self.keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let shouldIncludeChain = { [account, onlySupportedChains] (chain: ApiChain) -> Bool in
-            !onlySupportedChains || account.supports(chain: chain)
+        let shouldIncludeChain = { [account, onlySupportedChains, chainFilter] (chain: ApiChain) -> Bool in
+            if let chainFilter, chain != chainFilter {
+                return false
+            }
+            return !onlySupportedChains || account.supports(chain: chain)
         }
         
         showingWalletTokens = walletTokens.filter { token in

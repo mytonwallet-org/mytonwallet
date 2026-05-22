@@ -25,7 +25,7 @@ struct IntroView: View {
                     title
                     shortDescription
                         .gesture(TapGesture(count: 5).onEnded {
-                            introModel.onDone(successKind: .imported, hadExistingAccounts: false)
+                            introModel.onDone(successKind: .imported, hadExistingAccounts: false, accountIds: [])
                         })
                 }
                 moreAbout

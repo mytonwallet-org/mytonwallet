@@ -18,7 +18,6 @@ import { isKeyCountGreater } from '../../util/isEmptyObject';
 import isViewAccount from '../../util/isViewAccount';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 
-import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
@@ -88,7 +87,6 @@ function DappConnectModal({
 
   const lang = useLang();
   const [selectedAccount, setSelectedAccount] = useState<string>(currentAccountId);
-  const [isConfirmOpen, openConfirm, closeConfirm] = useFlag(false);
 
   const isOpen = hasConnectRequest;
 
@@ -132,8 +130,6 @@ function DappConnectModal({
   });
 
   const handleSubmit = useLastCallback(async () => {
-    closeConfirm();
-
     if (isViewAccount(accounts![selectedAccount].type) && requiredProof) return;
 
     const isHardware = accounts![selectedAccount].type === 'hardware';
@@ -283,7 +279,7 @@ function DappConnectModal({
             isPrimary
             isDisabled={isViewMode}
             className={modalStyles.buttonFullWidth}
-            onClick={openConfirm}
+            onClick={handleSubmit}
           >
             {lang('Connect Wallet')}
           </Button>
@@ -352,40 +348,22 @@ function DappConnectModal({
   }
 
   return (
-    <>
-      <Modal
-        isOpen={isOpen}
-        dialogClassName={styles.modalDialog}
-        onClose={cancelDappConnectRequestConfirm}
-        onCloseAnimationEnd={cancelDappConnectRequestConfirm}
+    <Modal
+      isOpen={isOpen}
+      dialogClassName={styles.modalDialog}
+      onClose={cancelDappConnectRequestConfirm}
+      onCloseAnimationEnd={cancelDappConnectRequestConfirm}
+    >
+      <Transition
+        name={resolveSlideTransitionName()}
+        className={buildClassName(modalStyles.transition, 'custom-scroll')}
+        slideClassName={modalStyles.transitionSlide}
+        activeKey={renderingKey}
+        nextKey={nextKey}
       >
-        <Transition
-          name={resolveSlideTransitionName()}
-          className={buildClassName(modalStyles.transition, 'custom-scroll')}
-          slideClassName={modalStyles.transitionSlide}
-          activeKey={renderingKey}
-          nextKey={nextKey}
-        >
-          {renderContent}
-        </Transition>
-      </Modal>
-      <Modal
-        isOpen={isConfirmOpen}
-        isCompact
-        title={lang('App Permissions')}
-        onClose={closeConfirm}
-      >
-        <div className={styles.description}>
-          {lang('$dapp_can_view_balance', {
-            dappname: <strong>{dapp?.name}</strong>,
-          })}
-        </div>
-        <div className={styles.buttons}>
-          <Button onClick={closeConfirm} className={styles.button}>{lang('Cancel')}</Button>
-          <Button isPrimary onClick={handleSubmit} className={styles.button}>{lang('Connect')}</Button>
-        </div>
-      </Modal>
-    </>
+        {renderContent}
+      </Transition>
+    </Modal>
   );
 }
 

@@ -507,7 +507,11 @@ extension LinesChartRenderer.LineData {
             }
             
             if vMin == vMax {
-                return 0...vMax * 2.0
+                if vMax == 0 {
+                    return 0...1
+                }
+
+                return min(0, vMax * 2.0)...max(0, vMax * 2.0)
             }
             
             return vMin...vMax
@@ -523,7 +527,11 @@ extension LinesChartRenderer.LineData {
             }
             
             if vMin == vMax {
-                return 0...vMax * 2.0
+                if vMax == 0 {
+                    return 0...1
+                }
+
+                return min(0, vMax * 2.0)...max(0, vMax * 2.0)
             }
             
             return vMin...vMax

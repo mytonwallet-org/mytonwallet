@@ -11,13 +11,6 @@ import UIComponents
 import UIKit
 import WalletContext
 
-#if DEBUG
-@available(iOS 17.0, *)
-#Preview {
-    ExploreSearch()
-}
-#endif
-
 final class ExploreSearch: HostingView {
     let viewModel: ExploreSearchViewModel
 
@@ -34,7 +27,17 @@ final class ExploreSearch: HostingView {
         if let frame = viewModel.frame, frame.contains(point) {
             return contentView
         }
+        if !viewModel.string.isEmpty,
+           let frame = viewModel.clearButtonFrame,
+           frame.contains(point) {
+            return contentView
+        }
         return nil
+    }
+
+    func close() {
+        viewModel.string = ""
+        endEditing(true)
     }
 }
 
@@ -47,13 +50,19 @@ final class ExploreSearchViewModel {
     var frame: CGRect?
 
     @PerceptionIgnored
+    var clearButtonFrame: CGRect?
+
+    @PerceptionIgnored
     var onChange: (String) -> () = { _ in }
 
     @PerceptionIgnored
     var onSubmit: (String) -> () = { _ in }
+
+    @PerceptionIgnored
+    var onActiveChange: (Bool) -> () = { _ in }
 }
 
-struct ExploreSearchView: View {
+private struct ExploreSearchView: View {
     private enum Metrics {
         static let outerPadding: CGFloat = 16
     }
@@ -62,24 +71,39 @@ struct ExploreSearchView: View {
     @FocusState private var isFocused
     @Namespace private var ns
 
+    private static let textFieldHeight: CGFloat = 42
+    private static let activeVerticalPadding: CGFloat = 4
+
     private var searchFieldPadding: EdgeInsets {
-        EdgeInsets(top: viewModel.isActive ? 4 : 0,
-                   leading: viewModel.isActive ? 16 : 12,
-                   bottom: viewModel.isActive ? 4 : 0,
-                   trailing: viewModel.isActive ? 20 : 16)
+        let v = viewModel.isActive ? Self.activeVerticalPadding : 0
+        return EdgeInsets(top: v,
+                          leading: viewModel.isActive ? 16 : 12,
+                          bottom: v,
+                          trailing: viewModel.isActive ? 20 : 16)
+    }
+
+    private var searchBarHeight: CGFloat {
+        let v = viewModel.isActive ? Self.activeVerticalPadding : 0
+        return Self.textFieldHeight + v * 2
     }
 
     var body: some View {
         WithPerceptionTracking {
-            HStack {
+            HStack(spacing: 6) {
                 searchField
+                if !viewModel.string.isEmpty {
+                    clearButton
+                        .transition(.scale.combined(with: .opacity))
+                }
             }
+            .animation(.smooth(duration: 0.2), value: viewModel.string.isEmpty)
             .frame(maxWidth: .infinity, alignment: viewModel.isActive ? .leading : .center)
             .padding(Metrics.outerPadding)
             .onChange(of: isFocused) { isFocused in
                 withAnimation(.smooth(duration: isFocused ? 0.25 : 0.2)) {
                     viewModel.isActive = isFocused
                 }
+                viewModel.onActiveChange(isFocused)
             }
             .onChange(of: viewModel.string) { string in
                 viewModel.onChange(string)
@@ -131,6 +155,37 @@ struct ExploreSearchView: View {
                 searchFieldContent
                     .background(ExploreSearchMaterialBackground())
                     .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }, action: { viewModel.frame = $0 })
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var clearButton: some View {
+        WithPerceptionTracking {
+            let size = searchBarHeight
+            let buttonContent = Button {
+                viewModel.string = ""
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: size, height: size)
+            }
+            .buttonStyle(.plain)
+            .contentShape(Circle())
+
+            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                GlassEffectContainer {
+                    buttonContent
+                        .glassEffect(.regular, in: .circle)
+                        .glassEffectID("clear", in: ns)
+                }
+                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }, action: { viewModel.clearButtonFrame = $0 })
+            } else {
+                buttonContent
+                    .background(ExploreSearchMaterialBackground())
+                    .clipShape(Circle())
+                    .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }, action: { viewModel.clearButtonFrame = $0 })
             }
         }
     }
@@ -192,3 +247,10 @@ private final class ExploreSearchMaterialBackgroundView: UIView {
         ])
     }
 }
+
+#if DEBUG
+@available(iOS 17.0, *)
+#Preview {
+    ExploreSearch()
+}
+#endif

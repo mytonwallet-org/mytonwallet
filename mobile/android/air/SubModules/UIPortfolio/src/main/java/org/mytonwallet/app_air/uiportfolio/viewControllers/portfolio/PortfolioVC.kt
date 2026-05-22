@@ -1,4 +1,4 @@
-package org.mytonwallet.app_air.uiportfolio
+package org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -54,13 +54,16 @@ import java.text.DecimalFormatSymbols
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.pow
+import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioUiState
+import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.views.BreakdownSectionView
+import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.views.OverviewSectionView
 
 @SuppressLint("ViewConstructor")
 class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     override val TAG = "Portfolio"
 
     private val viewModel by lazy {
-        ViewModelProvider(this)[PortfolioViewModel::class.java]
+        ViewModelProvider(this)[PortfolioVM::class.java]
     }
 
     private val scrollView = ScrollView(context).apply {
@@ -70,11 +73,16 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     }
     private val contentLayout = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(ViewConstants.GAP.dp, 0, ViewConstants.GAP.dp, 0)
     }
     private var chartStyle = ChartStyle.default()
+    private val overviewSection = OverviewSectionView(context)
+    private val breakdownSection = BreakdownSectionView(context)
     private val absoluteSection = createAbsoluteSection()
     private val distributionSection = createDistributionSection()
+    private val sharedSkeletonView = SkeletonView(context).apply {
+        id = ViewGroup.generateViewId()
+        alpha = 0f
+    }
 
     override val shouldDisplayBottomBar: Boolean
         get() = navigationController?.tabBarController == null
@@ -86,18 +94,31 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         setupNavBar(true)
 
         scrollView.addView(contentLayout, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        contentLayout.addView(absoluteSection.container, createChartLayoutParams())
+        contentLayout.addView(overviewSection, createChartLayoutParams())
+        contentLayout.addView(
+            breakdownSection,
+            createChartLayoutParams(topMargin = ViewConstants.GAP.dp, horizontalMargin = 0)
+        )
+        contentLayout.addView(
+            absoluteSection.container,
+            createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
+        )
         contentLayout.addView(
             distributionSection.container,
             createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
         )
 
         view.addView(scrollView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
+        view.addView(
+            sharedSkeletonView,
+            ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT)
+        )
 
         view.setConstraints {
             topToBottom(scrollView, navigationBar!!)
             toCenterX(scrollView)
             bottomToBottom(scrollView, view)
+            allEdges(sharedSkeletonView)
         }
 
         absoluteSection.chartHeaderView.back.setOnClickListener {
@@ -128,10 +149,38 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         chartStyle = ChartStyle.default()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         scrollView.setBackgroundColor(WColor.SecondaryBackground.color)
+        overviewSection.updateTheme()
+        breakdownSection.updateTheme()
+        sharedSkeletonView.updateTheme()
         applySectionStyle(absoluteSection)
         applySectionStyle(distributionSection)
         updateSectionTheme(absoluteSection)
         updateSectionTheme(distributionSection)
+    }
+
+    private fun startSharedSkeleton() {
+        sharedSkeletonView.alpha = 1f
+        val apply = {
+            val targets = buildList {
+                addAll(overviewSection.maskTargets())
+                addAll(breakdownSection.maskTargets())
+                add(absoluteSection.chartSkeletonPlaceholder to ViewConstants.BLOCK_RADIUS.dp)
+                add(distributionSection.chartSkeletonPlaceholder to ViewConstants.BLOCK_RADIUS.dp)
+            }
+            val views = targets.map { it.first }
+            val radii = HashMap<Int, Float>().apply {
+                targets.forEachIndexed { index, pair -> put(index, pair.second) }
+            }
+            sharedSkeletonView.applyMask(views, radii)
+            sharedSkeletonView.startAnimating()
+        }
+        if (sharedSkeletonView.width > 0) apply() else sharedSkeletonView.post(apply)
+    }
+
+    private fun stopSharedSkeleton() {
+        sharedSkeletonView.fadeOut {
+            sharedSkeletonView.stopAnimating()
+        }
     }
 
     private fun observeState(state: PortfolioUiState) {
@@ -142,6 +191,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 renderSeriesControls(null)
                 showSectionLoading(absoluteSection)
                 showSectionLoading(distributionSection)
+                overviewSection.showPlaceholders()
+                breakdownSection.showPlaceholders()
+                startSharedSkeleton()
                 syncSeriesControlsPresentation()
             }
 
@@ -152,6 +204,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 renderSeriesControls(null)
                 showSectionLoading(absoluteSection)
                 showSectionLoading(distributionSection)
+                overviewSection.showPlaceholders()
+                breakdownSection.showPlaceholders()
+                startSharedSkeleton()
                 syncSeriesControlsPresentation()
             }
 
@@ -164,10 +219,33 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 showDistributionLoaded(state.chartData)
                 applyLineEnabledState(absoluteSection)
                 applyLineEnabledState(distributionSection)
+                overviewSection.render(state.overview, state.request.baseCurrency)
+                breakdownSection.render(
+                    chainSlices = state.chainBreakdown,
+                    assetSlices = state.assetBreakdown,
+                )
+                stopSharedSkeleton()
+                overviewSection.hidePlaceholders()
+                breakdownSection.hidePlaceholders()
                 syncSeriesControlsPresentation()
             }
 
-            PortfolioUiState.Error -> Unit
+            PortfolioUiState.Error -> {
+                absoluteSection.lineEnabledById.clear()
+                distributionSection.lineEnabledById.clear()
+                renderSeriesControls(null)
+                showSectionStatus(absoluteSection)
+                showSectionStatus(distributionSection)
+                stopSharedSkeleton()
+                overviewSection.hidePlaceholders()
+                overviewSection.render(null, null)
+                breakdownSection.hidePlaceholders()
+                breakdownSection.render(
+                    chainSlices = emptyList(),
+                    assetSlices = emptyList(),
+                )
+                syncSeriesControlsPresentation()
+            }
         }
     }
 
@@ -257,7 +335,6 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             WColor.SecondaryBackground.color,
             ViewConstants.BLOCK_RADIUS.dp
         )
-        section.skeletonView.updateTheme()
         section.chartHeaderView.updateTheme()
         section.stackChartView.updateTheme()
         section.pieChartView.updateTheme()
@@ -272,95 +349,41 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         section.chartHeaderView.visibility = View.INVISIBLE
         section.chartFrame.alpha = 1f
         section.chartFrame.visibility = View.INVISIBLE
+        section.chartSkeletonPlaceholder.alpha = 1f
         section.chartSkeletonPlaceholder.visibility = View.VISIBLE
         section.chipGroup.alpha = 1f
-        startSectionSkeleton(section)
     }
 
     private fun showStatusSection(section: ChartSection) {
         resetSectionHeightAnimation(section)
-        stopSectionSkeleton(section, animated = false)
         section.chartHeaderView.alpha = 1f
         section.chartHeaderView.visibility = View.VISIBLE
         section.chartFrame.alpha = 1f
         section.chartFrame.visibility = View.VISIBLE
-        section.chartSkeletonPlaceholder.visibility = View.GONE
         section.chipGroup.alpha = 1f
+        if (section.chartSkeletonPlaceholder.isVisible) {
+            section.chartSkeletonPlaceholder.bringToFront()
+            section.chartSkeletonPlaceholder.fadeOut {
+                section.chartSkeletonPlaceholder.visibility = View.GONE
+            }
+        }
     }
 
     private fun showLoadedSection(section: ChartSection) {
-        if (!section.skeletonView.isAnimating) {
-            resetSectionHeightAnimation(section)
-            stopSectionSkeleton(section, animated = false)
-            section.chartHeaderView.alpha = 1f
-            section.chartHeaderView.visibility = View.VISIBLE
-            section.chartFrame.alpha = 1f
-            section.chartFrame.visibility = View.VISIBLE
-            section.chartSkeletonPlaceholder.visibility = View.GONE
-            section.chipGroup.alpha = 1f
-            return
-        }
+        resetSectionHeightAnimation(section)
 
-        val reveal = {
-            section.chartHeaderView.visibility = View.VISIBLE
-            section.chartHeaderView.alpha = 0f
-            section.chartFrame.visibility = View.VISIBLE
-            section.chartFrame.alpha = 0f
-            section.chipGroup.alpha = if (section.chipGroup.isVisible) 0f else 1f
-            animateChipGroupReveal(section)
+        section.chartHeaderView.visibility = View.VISIBLE
+        section.chartHeaderView.alpha = 1f
+        section.chartFrame.visibility = View.VISIBLE
+        section.chartFrame.alpha = 1f
+        section.chipGroup.alpha = 1f
+        animateChipGroupReveal(section)
 
-            buildList {
-                add(section.chartHeaderView)
-                add(section.chartFrame)
-            }.fadeIn()
-
-            stopSectionSkeleton(section, animated = true)
-        }
-
-        if (section.container.width > 0) {
-            reveal()
-        } else {
-            section.container.post(reveal)
-        }
-    }
-
-    private fun startSectionSkeleton(section: ChartSection) {
-        section.skeletonView.animate().cancel()
-        section.skeletonView.alpha = 1f
-        val mask = {
-            section.skeletonView.applyMask(
-                listOf(section.chartSkeletonPlaceholder),
-                hashMapOf(0 to ViewConstants.BLOCK_RADIUS.dp)
-            )
-            section.skeletonView.startAnimating()
-        }
-        if (section.chartSkeletonPlaceholder.width > 0 && section.chartSkeletonPlaceholder.height > 0) {
-            mask()
-        } else {
-            section.container.post(mask)
-        }
-    }
-
-    private fun stopSectionSkeleton(section: ChartSection, animated: Boolean) {
-        section.skeletonView.animate().cancel()
-        if (!section.skeletonView.isAnimating) {
-            section.skeletonView.alpha = 1f
-            section.skeletonView.visibility = View.GONE
-            section.chartSkeletonPlaceholder.visibility = View.GONE
-            return
-        }
-
-        if (!animated) {
-            section.skeletonView.alpha = 1f
-            section.skeletonView.stopAnimating()
-            section.chartSkeletonPlaceholder.visibility = View.GONE
-            return
-        }
-
-        section.skeletonView.fadeOut {
-            section.skeletonView.alpha = 1f
-            section.skeletonView.stopAnimating()
-            section.chartSkeletonPlaceholder.visibility = View.GONE
+        if (section.chartSkeletonPlaceholder.visibility == View.VISIBLE) {
+            section.chartSkeletonPlaceholder.bringToFront()
+            section.chartSkeletonPlaceholder.fadeOut {
+                section.chartSkeletonPlaceholder.visibility = View.GONE
+            }
         }
     }
 
@@ -865,12 +888,11 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         )
         val chartSkeletonPlaceholder = createChartSkeletonPlaceholder()
         val chipGroup = createSeriesChipGroup()
-        val skeletonView = createChartSkeletonView()
 
         return ChartSection(
             container = buildSectionContainer(
                 headerView, descriptionView, chartHeaderView,
-                chartFrame, chartSkeletonPlaceholder, skeletonView, chipGroup,
+                chartFrame, chartSkeletonPlaceholder, chipGroup,
             ),
             chartFrame = chartFrame,
             chartSkeletonPlaceholder = chartSkeletonPlaceholder,
@@ -878,7 +900,6 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             stackChartView = stackChartView,
             pieChartView = pieChartView,
             chipGroup = chipGroup,
-            skeletonView = skeletonView,
         )
     }
 
@@ -934,12 +955,11 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         )
         val chartSkeletonPlaceholder = createChartSkeletonPlaceholder()
         val chipGroup = createSeriesChipGroup()
-        val skeletonView = createChartSkeletonView()
 
         return ChartSection(
             container = buildSectionContainer(
                 headerView, descriptionView, chartHeaderView,
-                chartFrame, chartSkeletonPlaceholder, skeletonView, chipGroup,
+                chartFrame, chartSkeletonPlaceholder, chipGroup,
             ),
             chartFrame = chartFrame,
             chartSkeletonPlaceholder = chartSkeletonPlaceholder,
@@ -947,7 +967,6 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             stackChartView = stackChartView,
             pieChartView = pieChartView,
             chipGroup = chipGroup,
-            skeletonView = skeletonView,
         )
     }
 
@@ -957,14 +976,12 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         chartHeaderView: View,
         chartFrame: View,
         chartSkeletonPlaceholder: View,
-        skeletonView: View,
         chipGroup: View,
     ): WView {
         return WView(context).apply {
             addView(headerView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
             addView(descriptionView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
             addView(chartSkeletonPlaceholder, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, 0))
-            addView(skeletonView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
             addView(chartHeaderView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
             addView(chartFrame, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
             addView(chipGroup, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
@@ -978,14 +995,11 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 topToBottom(chartFrame, chartHeaderView)
                 toCenterX(chartFrame)
                 topToBottom(chipGroup, chartFrame)
-                toCenterX(chipGroup, ViewConstants.GAP.toFloat())
+                toCenterX(chipGroup, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                 toBottom(chipGroup, ViewConstants.GAP.toFloat())
                 topToTop(chartSkeletonPlaceholder, chartHeaderView)
-                toCenterX(chartSkeletonPlaceholder, ViewConstants.GAP.toFloat())
+                toCenterX(chartSkeletonPlaceholder, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                 bottomToBottom(chartSkeletonPlaceholder, chartFrame, ViewConstants.GAP.toFloat())
-                topToTop(skeletonView, chartHeaderView)
-                toCenterX(skeletonView, ViewConstants.GAP.toFloat())
-                bottomToBottom(skeletonView, chartFrame)
             }
         }
     }
@@ -1010,13 +1024,6 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
     }
 
-    private fun createChartSkeletonView(): SkeletonView {
-        return SkeletonView(context).apply {
-            id = ViewGroup.generateViewId()
-            alpha = 0f
-        }
-    }
-
     private fun createChartSkeletonPlaceholder(): WBaseView {
         return WBaseView(context).apply {
             id = ViewGroup.generateViewId()
@@ -1035,9 +1042,14 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
     }
 
-    private fun createChartLayoutParams(topMargin: Int = 0): LinearLayout.LayoutParams {
+    private fun createChartLayoutParams(
+        topMargin: Int = 0,
+        horizontalMargin: Int = ViewConstants.HORIZONTAL_PADDINGS.dp,
+    ): LinearLayout.LayoutParams {
         return LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
             this.topMargin = topMargin
+            marginStart = horizontalMargin
+            marginEnd = horizontalMargin
         }
     }
 
@@ -1113,7 +1125,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     override fun insetsUpdated() {
         super.insetsUpdated()
         contentLayout.setPadding(
-            ViewConstants.GAP.dp, 0, ViewConstants.GAP.dp,
+            0, 0, 0,
             (navigationController?.bottomInset ?: 0) + 24.dp
         )
     }
@@ -1131,7 +1143,6 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         val stackChartView: StackLinearChartView<StackLinearViewData>,
         val pieChartView: PieChartView,
         val chipGroup: ChipGroup,
-        val skeletonView: SkeletonView,
         val checkBoxes: LinkedHashMap<String, FlatCheckBox> = linkedMapOf(),
         val lineEnabledById: LinkedHashMap<String, Boolean> = linkedMapOf(),
         var chartData: StackLinearChartData? = null,

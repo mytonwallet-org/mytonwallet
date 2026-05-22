@@ -225,7 +225,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-302';
+export const LANG_CACHE_NAME = 'mtw-lang-303';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -639,9 +639,9 @@ export const ALL_STAKING_POOLS = [
 export const PRIORITY_TOKENS = [
   ETH,
   SOLANA,
+  TONCOIN,
   TRX,
   BNB,
-  TONCOIN,
   HYPERLIQUID,
 ] as ApiToken[];
 

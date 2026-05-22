@@ -16,6 +16,7 @@ import {
   selectCurrentAccountState,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
+import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
 
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
@@ -71,6 +72,7 @@ function LandscapeWalletOverview({
 
   const lang = useLang();
   const rowRef = useRef<HTMLDivElement>();
+  const rowContainerRef = useRef<HTMLDivElement>();
 
   const {
     items: nftCollectionItems,
@@ -154,16 +156,17 @@ function LandscapeWalletOverview({
     hiddenCheckClassName: styles.hiddenCheck,
   });
 
-  const { canScrollLeft, canScrollRight, scrollByOneCell } = useScrollButtonsVisibility({
+  const { isLeftButtonVisible, isRightButtonVisible, scrollByOneCell } = useScrollButtonsVisibility({
     containerRef: rowRef,
-    isDisabled: shouldStretchCell,
+    viewportRef: rowContainerRef,
+    isDisabled: IS_TOUCH_ENV || shouldStretchCell,
     noAnimation,
   });
 
   return (
     <div className={buildClassName(styles.wrapper, 'custom-scroll', SCROLL_CONTAINER_CLASS)}>
       <LandscapeTopActions />
-      <div className={styles.rowContainer}>
+      <div ref={rowContainerRef} className={styles.rowContainer}>
         <div
           ref={rowRef}
           className={buildClassName(styles.row, shouldStretchCell && styles.rowStretched, 'no-swipe')}
@@ -244,12 +247,12 @@ function LandscapeWalletOverview({
         </div>
         <OverviewScrollButton
           direction="left"
-          isVisible={canScrollLeft}
+          isVisible={isLeftButtonVisible}
           onClick={scrollByOneCell}
         />
         <OverviewScrollButton
           direction="right"
-          isVisible={canScrollRight}
+          isVisible={isRightButtonVisible}
           onClick={scrollByOneCell}
         />
       </div>

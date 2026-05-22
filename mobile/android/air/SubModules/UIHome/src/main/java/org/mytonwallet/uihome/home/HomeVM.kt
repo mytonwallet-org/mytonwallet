@@ -10,7 +10,6 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.api.swapGetAssets
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
@@ -181,23 +180,6 @@ class HomeVM(
         // make sure tokens are loaded
         if (!TokenStore.loadedAllTokens) {
             Logger.d(Logger.LogTag.HomeVM, "dataUpdated: Tokens not loaded yet")
-            return
-        }
-
-        // make sure default event for receiving native tokens of all chains is called
-        val balances = BalanceStore.getBalances(showingAccountId)
-        val account = showingAccount
-
-        val missingNativeTokens = account?.byChain?.keys?.any { chain ->
-            val nativeTokenSlug = MBlockchain.valueOfOrNull(chain)?.nativeSlug
-            nativeTokenSlug != null && balances?.get(nativeTokenSlug) == null
-        } ?: false
-
-        if (missingNativeTokens) {
-            Logger.d(
-                Logger.LogTag.HomeVM,
-                "dataUpdated: Native token balances not loaded yet for all chains"
-            )
             return
         }
 

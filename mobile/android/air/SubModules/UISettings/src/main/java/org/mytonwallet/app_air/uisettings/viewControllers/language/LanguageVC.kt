@@ -13,14 +13,11 @@ import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
-import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations
-import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
@@ -163,12 +160,8 @@ class LanguageVC(context: Context) : WViewController(context),
                     WGlobalStorage.setLangSource(WGlobalStorage.LANG_SOURCE_USER)
                     AirPushNotifications.refreshSubscriptions()
                     switchLanguageIfRequired(language)
-                    if (LocaleController.init(context, language.langCode)) {
-                        LocaleController.setApplicationLocale(language.langCode)
-                        WalletContextManager.delegate?.restartApp()
-                        WBaseStorage.setActiveLanguage(language.langCode)
-                        WidgetsConfigurations.reloadWidgets(context)
-                    }
+                    // Rely on AppCompat flow, avoid restart duplication race
+                    LocaleController.setApplicationLocale(language.langCode)
                 }
             }
         }

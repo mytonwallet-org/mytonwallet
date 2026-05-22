@@ -145,7 +145,7 @@ private extension ApiDappTransfer {
         case .tokensBurn(let payload):
             return lang("$dapp_transfer_tokens_burn", arg1: formattedAmount(
                 payload.amount,
-                token: TokenStore.getToken(slug: payload.slug) ?? unknownToken(chain: .ton),
+                token: TokenStore.getToken(slug: payload.slug) ?? .unknown(slug: payload.slug, chain: .ton),
                 maxDecimals: 2
             ))
         case .dnsChangeRecord(let payload):
@@ -187,15 +187,5 @@ private extension ApiDappTransfer {
 
     private func formattedAmount(_ amount: BigInt, token: ApiToken, maxDecimals: Int) -> String {
         TokenAmount(amount, token).formatted(.defaultAdaptive, maxDecimals: maxDecimals)
-    }
-
-    private func unknownToken(chain: ApiChain) -> ApiToken {
-        .init(
-            slug: "unknown",
-            name: "[Unknown]",
-            symbol: "[Unknown]",
-            decimals: 9,
-            chain: chain
-        )
     }
 }

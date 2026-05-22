@@ -15,18 +15,25 @@ struct AddressSuggestions: View {
     var searchString: String {
         model.textFieldInput.lowercased()
     }
-    var addresses: [SavedAddress] { model.$account.savedAddresses.getMatching(searchString) }
+    var addresses: [SavedAddress] {
+        let addresses = model.$account.savedAddresses.getMatching(searchString)
+        guard let targetChain = model.suggestionFilterChain else { return addresses }
+        return addresses.filter { $0.chain == targetChain }
+    }
     var matchingAccountIds: OrderedSet<String> {
         let isEmpty = searchString.isEmpty
         let regex = Regex<Substring>(verbatim: searchString).ignoresCase()
         let network = model.account.network
+        let targetChain = model.suggestionFilterChain
         let otherAccountIds = accountStore.orderedAccountIds
             .filter { $0 != model.account.id }
         let accountsById = accountStore.accountsById
         return otherAccountIds
             .filter {
                 guard let account = accountsById[$0] else { return false }
-                return account.network == network && (isEmpty || account.matches(regex))
+                guard account.network == network else { return false }
+                if let targetChain, !account.supports(chain: targetChain) { return false }
+                return isEmpty || account.matches(regex)
             }
     }
     

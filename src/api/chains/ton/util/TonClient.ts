@@ -4,6 +4,7 @@ import { TonClient as TonCoreClient } from '@ton/ton/dist/client/TonClient';
 import type { GetAddressInfoResponse } from '../types';
 
 import { fetchWithRetry } from '../../../../util/fetch';
+import { ApiServerError } from '../../../errors';
 
 type Parameters = TonClientParameters & {
   headers?: AnyLiteral;
@@ -53,11 +54,26 @@ export class TonClient extends TonCoreClient {
     });
 
     const data = await response.json();
+    if (data.error) {
+      throw new ApiServerError(getJsonRpcErrorMessage(data.error));
+    }
 
     return data.result;
   }
 }
 
+function getJsonRpcErrorMessage(error: unknown) {
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String(error.message);
+  }
+
+  return JSON.stringify(error);
+}
+
 function isNotTemporaryError(method: string, message?: string, statusCode?: number) {
-  return Boolean(statusCode === 422 || message?.match(/(exit code|exitcode=|duplicate message)/));
+  return Boolean(statusCode === 422 || message?.match(/(exit code|exitcode=|duplicate message|too old seqno)/i));
 }

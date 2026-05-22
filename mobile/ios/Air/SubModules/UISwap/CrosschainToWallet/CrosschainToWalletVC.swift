@@ -156,7 +156,7 @@ public final class CrosschainToWalletVC: WViewController {
     private func updateNavigationTitle(isExpired: Bool) {
         navigationItem.titleView = HostingView {
             NavigationHeader {
-                Text(lang(isExpired ? "Swap Expired" : "Swapping"))
+                Text(lang(isExpired ? "Swap Expired" : "Swap"))
             } subtitle: {
                 if !isExpired && payment.showsPaymentInstructions(at: Date()) {
                     Text(lang("Waiting for Payment").lowercased())

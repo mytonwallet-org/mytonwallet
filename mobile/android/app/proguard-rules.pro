@@ -29,3 +29,7 @@
 # Dispatchers.Main. Without it, FilesystemPlugin's lazy CoroutineScope crashes
 # on Bridge.onDestroy with ExceptionInInitializerError.
 -keep class kotlinx.coroutines.android.AndroidDispatcherFactory { <init>(); }
+
+-keep public class com.facebook.imageutils.** {
+    public *;
+}

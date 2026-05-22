@@ -163,7 +163,7 @@ extension MAccount {
     }
 
     public func supportsSubwallets(on chain: ApiChain) -> Bool {
-        guard supports(chain: chain), let multiWalletSupport = chain.multiWalletSupport else {
+        guard isMultichain, supports(chain: chain), let multiWalletSupport = chain.multiWalletSupport else {
             return false
         }
 

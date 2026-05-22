@@ -10,20 +10,6 @@ private let log = Log("WalletAssetsViewModel")
     func walletAssetModelDidChangeDisplayTabs()
 }
 
-public enum DisplayAssetTab: Hashable, Sendable {
-    case tokens
-    case nfts
-    case nftCollectionFilter(NftCollectionFilter)
-    
-    var debugDescription: String {
-        switch self {
-        case .tokens: return "tokens"
-        case .nfts: return "nfts"
-        case .nftCollectionFilter(let filter): return "nftCollectionFilter(\(filter.displayTitle))"
-        }
-    }
-}
-
 @MainActor
 public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         

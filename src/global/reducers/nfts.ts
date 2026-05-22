@@ -2,6 +2,7 @@ import type { ApiNft } from '../../api/types';
 import type { GlobalState } from '../types';
 
 import isEmptyObject from '../../util/isEmptyObject';
+import { pinMtwCardsFirst } from '../helpers/nfts';
 import { selectAccountState } from '../selectors';
 import { updateAccountSettings, updateAccountState } from './misc';
 
@@ -9,14 +10,18 @@ export function addNft(global: GlobalState, accountId: string, nft: ApiNft, shou
   const nftAddress = nft.address;
   const nfts = selectAccountState(global, accountId)?.nfts;
   const orderedAddresses = (nfts?.orderedAddresses ?? []).filter((address) => address !== nftAddress);
+  const byAddress = { ...nfts?.byAddress, [nftAddress]: nft };
 
   return updateAccountState(global, accountId, {
     nfts: {
       ...nfts,
-      byAddress: { ...nfts?.byAddress, [nftAddress]: nft },
-      orderedAddresses: shouldAppendToEnd
-        ? orderedAddresses.concat(nftAddress)
-        : [nftAddress, ...orderedAddresses],
+      byAddress,
+      orderedAddresses: pinMtwCardsFirst(
+        shouldAppendToEnd
+          ? orderedAddresses.concat(nftAddress)
+          : [nftAddress, ...orderedAddresses],
+        byAddress,
+      ),
     },
   });
 }

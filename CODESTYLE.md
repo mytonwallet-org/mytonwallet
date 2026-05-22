@@ -148,6 +148,21 @@ function someFunc() {
 - Single-sentence comments have no trailing period.
 - Multi-sentence comments end each sentence with a period.
 - Code entities referenced in comments are wrapped in backticks `` ` ``.
+- Comments are **direct assertions about current behavior**. Do not frame them as bug history, change history, or contrast with a previous state. Git history is the record of what changed; comments explain what *is*.
+
+Bad (changes-history-in-comments anti-pattern):
+```ts
+// We no longer fetch this lazily — preloads on mount since #4321 broke scrolling.
+// Previously this used `Math.abs`, but losses should sink, so we keep the sign.
+// Slice GLOBALLY rather than per-wallet, so a tiny jetton can't push out a large position.
+```
+
+Good:
+```ts
+// Preloads on mount so the scroll position is stable on first paint.
+// Sort is signed so losing positions sink below zeros.
+// Cap applies to the user's full asset set across all wallets.
+```
 
 ---
 

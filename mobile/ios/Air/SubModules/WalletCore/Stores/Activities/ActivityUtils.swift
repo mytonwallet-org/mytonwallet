@@ -246,7 +246,7 @@ func getActivityTokenSlugs(_ activity: ApiActivity) -> [String] {
         }
         return [tx.slug]
     case .swap(let swap):
-        return [swap.from, swap.to]
+        return Array(OrderedSet([swap.fromTokenSlug, swap.toTokenSlug]))
     }
 }
 

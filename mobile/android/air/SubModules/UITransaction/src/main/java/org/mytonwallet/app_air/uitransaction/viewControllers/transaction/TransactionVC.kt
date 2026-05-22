@@ -2,8 +2,6 @@ package org.mytonwallet.app_air.uitransaction.viewControllers.transaction
 
 import android.annotation.SuppressLint
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -44,6 +42,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers.Companion.presentMenu
+import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
@@ -1196,19 +1195,19 @@ class TransactionVC(
                                     org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
                                     LocaleController.getString("Copy Transaction ID"),
                                 ) {
-                                    val clipboard =
-                                        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText(
-                                        "",
-                                        transaction.getTxIdentifier()
-                                    )
-                                    clipboard.setPrimaryClip(clip)
-                                    Haptics.play(context, HapticType.LIGHT_TAP)
-                                    Toast.makeText(
-                                        context,
-                                        LocaleController.getString("Transaction ID Copied"),
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    if (ClipboardHelpers.copyToClipboard(
+                                            context,
+                                            "",
+                                            transaction.getTxIdentifier()
+                                        )
+                                    ) {
+                                        Haptics.play(context, HapticType.LIGHT_TAP)
+                                        Toast.makeText(
+                                            context,
+                                            LocaleController.getString("Transaction ID Copied"),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
                                 },
                                 WMenuPopup.Item(
                                     org.mytonwallet.app_air.icons.R.drawable.ic_world_30,
@@ -1281,19 +1280,19 @@ class TransactionVC(
                                     org.mytonwallet.app_air.icons.R.drawable.ic_copy,
                                     LocaleController.getString("Copy Changelly ID"),
                                 ) {
-                                    val clipboard =
-                                        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText(
-                                        "",
-                                        changellyId
-                                    )
-                                    clipboard.setPrimaryClip(clip)
-                                    Haptics.play(context, HapticType.LIGHT_TAP)
-                                    Toast.makeText(
-                                        context,
-                                        LocaleController.getString("Changelly ID Copied!"),
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    if (ClipboardHelpers.copyToClipboard(
+                                            context,
+                                            "",
+                                            changellyId
+                                        )
+                                    ) {
+                                        Haptics.play(context, HapticType.LIGHT_TAP)
+                                        Toast.makeText(
+                                            context,
+                                            LocaleController.getString("Changelly ID Copied!"),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
                                 },
                                 WMenuPopup.Item(
                                     org.mytonwallet.app_air.icons.R.drawable.ic_world,

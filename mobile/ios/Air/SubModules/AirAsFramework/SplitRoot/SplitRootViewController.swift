@@ -163,11 +163,6 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         }
     }
     
-    func showImportWalletVersion() {
-        select(tab: .settings, popToRoot: false)
-        settingsNavigationController.pushViewController(WalletVersionsVC(), animated: true)
-    }
-
     func showSettings(path: [UIViewController]) {
         select(tab: .settings, popToRoot: false)
         (settingsNavigationController as? LazySplitRootNavigationController)?.ensureRootViewControllerInstalled()
@@ -198,13 +193,13 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         homeNavigationController.popToRootViewController(animated: animated)
     }
     
-    func showAssets(accountSource: AccountSource, selectedTab index: Int, collectionsFilter: NftCollectionFilter) {
+    func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter) {
         let nc = currentNavigationController
         if collectionsFilter != .none, (nc.visibleViewController is AssetsTabVC || nc.visibleViewController is NftDetailsVC) {
             nc.pushViewController(NftsFullScreenVC(accountSource: accountSource, filter: collectionsFilter), animated: true)
             return
         }
-        let assetsVC = AssetsTabVC(accountSource: accountSource, defaultTabIndex: index)
+        let assetsVC = AssetsTabVC(accountSource: accountSource, defaultTab: selectedTab)
         nc.pushViewController(assetsVC, animated: true)
         if collectionsFilter != .none {
             nc.pushViewController(NftsFullScreenVC(accountSource: accountSource, filter: collectionsFilter), animated: false)

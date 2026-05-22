@@ -212,8 +212,10 @@ class WRecyclerViewAdapter(
     private var idNum = 1L
     private val idMap = HashMap<String, Long>()
     override fun getItemId(position: Int): Long {
+        val ds = datasource.get() ?: return RecyclerView.NO_ID
+        val rv = recyclerView ?: return RecyclerView.NO_ID
         val stringId =
-            datasource.get()?.recyclerViewCellItemId(recyclerView!!, positionToIndexPath(position))
+            ds.recyclerViewCellItemId(rv, positionToIndexPath(position))
                 ?: return RecyclerView.NO_ID
         idMap[stringId]?.let {
             return it
@@ -224,17 +226,19 @@ class WRecyclerViewAdapter(
     }
 
     override fun getItemViewType(position: Int): Int {
-        return datasource.get()
-            ?.recyclerViewCellType(recyclerView!!, positionToIndexPath(position))?.value ?: 0
+        val ds = datasource.get() ?: return 0
+        val rv = recyclerView ?: return 0
+        return ds.recyclerViewCellType(rv, positionToIndexPath(position)).value
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): WCell.Holder {
-        return WCell.Holder(
-            datasource.get()!!.recyclerViewCellView(
-                recyclerView!!,
-                registeredCellTypesHashmap[viewType]!!
-            )
-        )
+        val ds = datasource.get()
+        val rv = recyclerView
+        val cellType = registeredCellTypesHashmap[viewType]
+        if (ds == null || rv == null || cellType == null) {
+            return WCell.Holder(WCell(parent.context))
+        }
+        return WCell.Holder(ds.recyclerViewCellView(rv, cellType))
     }
 
     override fun getItemCount(): Int {
@@ -242,13 +246,15 @@ class WRecyclerViewAdapter(
         if (_cachedTotalCount != null)
             return _cachedTotalCount!!
         // Not cached, so count the items for all sections
+        val ds = datasource.get() ?: return 0
+        val rv = recyclerView ?: return 0
         if (_cachedNumberOfSections == null)
-            _cachedNumberOfSections = datasource.get()?.recyclerViewNumberOfSections(recyclerView!!)
+            _cachedNumberOfSections = ds.recyclerViewNumberOfSections(rv)
+        val sections = _cachedNumberOfSections ?: return 0
         var totalCount = 0
-        for (i in 0..<_cachedNumberOfSections!!) {
+        for (i in 0..<sections) {
             if (!_cachedSectionItemCount.containsKey(i)) {
-                _cachedSectionItemCount[i] =
-                    datasource.get()?.recyclerViewNumberOfItems(recyclerView!!, i) ?: 0
+                _cachedSectionItemCount[i] = ds.recyclerViewNumberOfItems(rv, i)
             }
             totalCount += _cachedSectionItemCount[i]!!
         }
@@ -257,11 +263,9 @@ class WRecyclerViewAdapter(
     }
 
     override fun onBindViewHolder(holder: WCell.Holder, position: Int) {
-        datasource.get()?.recyclerViewConfigureCell(
-            recyclerView!!,
-            holder,
-            positionToIndexPath(position)
-        )
+        val ds = datasource.get() ?: return
+        val rv = recyclerView ?: return
+        ds.recyclerViewConfigureCell(rv, holder, positionToIndexPath(position))
     }
 
 }

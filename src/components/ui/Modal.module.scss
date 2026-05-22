@@ -72,7 +72,7 @@
     transform: translateY(100%);
 
     max-width: 28rem;
-    max-height: calc(95 * var(--vh, 1vh));
+    max-height: min(calc(95 * var(--vh, 1vh)), calc(100vh - var(--safe-area-top)));
     margin: 0;
     border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
 

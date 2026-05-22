@@ -107,7 +107,9 @@ public final class _TokenStore: Sendable {
     }
     
     public func getToken(slugOrAddress: String) -> ApiToken? {
-        tokens[slugOrAddress] ?? TokenStore.swapAssets?.first(where: { swapAsset in
+        tokens[slugOrAddress] ?? tokens.values.first(where: { token in
+            token.tokenAddress == slugOrAddress
+        }) ?? TokenStore.swapAssets?.first(where: { swapAsset in
             swapAsset.slug == slugOrAddress || swapAsset.tokenAddress == slugOrAddress
         })
     }
@@ -454,16 +456,4 @@ extension AppStorageHelper {
     public static func swapAssetsArray() -> [[String: Any]]? {
         return UserDefaults.standard.value(forKey: AppStorageHelper.swapAssetsArrayKey) as? [[String: Any]]
     }
-}
-
-public extension ApiToken {
-    static var toncoin: ApiToken { TokenStore.tokens[TONCOIN_SLUG]! }
-    static var trx: ApiToken { TokenStore.tokens[TRX_SLUG]! }
-    static var mycoin: ApiToken { TokenStore.tokens[MYCOIN_SLUG]! }
-    static var usde: ApiToken { TokenStore.tokens[TON_USDE_SLUG]! }
-    static var stakedTon: ApiToken { TokenStore.tokens[STAKED_TON_SLUG]! }
-    static var stakedMycoin: ApiToken { TokenStore.tokens[STAKED_MYCOIN_SLUG]! }
-    static var tsUsde: ApiToken { TokenStore.tokens[TON_TSUSDE_SLUG]! }
-    static var tonUsdt: ApiToken { TokenStore.tokens[TON_USDT_SLUG]! }
-    static var tronUsdt: ApiToken { TokenStore.tokens[TRON_USDT_SLUG]! }
 }

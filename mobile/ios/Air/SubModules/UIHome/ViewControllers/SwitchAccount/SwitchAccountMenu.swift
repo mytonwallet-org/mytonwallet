@@ -28,7 +28,7 @@ enum SwitchAccountMenu {
                     title: lang("Add Wallet"),
                     icon: .airBundle("AddAccountIcon"),
                     handler: {
-                        AppActions.showAddWallet(network: .mainnet, showCreateWallet: true, showSwitchToOtherVersion: true)
+                        AppActions.showAddWallet(network: .mainnet)
                     }
                 )
             )

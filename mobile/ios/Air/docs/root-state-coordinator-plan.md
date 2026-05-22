@@ -81,7 +81,6 @@ Date: February 9, 2026
 - Example responsibilities:
   - `showHome(popToRoot:)`
   - `showExplore()`
-  - `showImportWalletVersion()`
   - `showTemporaryViewAccount(accountId:)` or equivalent semantic route
   - Access to active presentation anchor for modal presentation (if needed)
 

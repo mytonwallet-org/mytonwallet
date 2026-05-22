@@ -104,7 +104,9 @@ class ActionsWidget : AppWidgetProvider() {
         val maxHeight = newOptions.getInt("appWidgetMaxHeight")
         if (minWidth == 0 || minHeight == 0)
             return
+        ApplicationContextHolder.update(context.applicationContext)
         WBaseStorage.init(context)
+        LocaleController.init(context, WBaseStorage.getActiveLanguage())
         val config = WBaseStorage.getWidgetConfigurations(appWidgetId) ?: JSONObject()
         WBaseStorage.setWidgetConfigurations(appWidgetId, config.apply {
             put("appWidgetMinWidth", minWidth)

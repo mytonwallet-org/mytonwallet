@@ -11,7 +11,7 @@ import {
   IS_SAFARI,
   IS_WINDOWS,
 } from '../../util/windowEnvironment';
-import { fetchChartData } from '../utils/api';
+import { fetchNetWorthHistory, fetchPnlCumulativeHistory, fetchPnlHistory } from '../utils/api';
 
 import Transition from '../../components/ui/Transition';
 import ChartPage from './ChartPage';
@@ -30,7 +30,9 @@ enum PageKey {
 }
 
 function App({ addresses, baseCurrency = 'USD' }: OwnProps) {
-  const [chartData, setChartData] = useState<any>();
+  const [netWorthData, setNetWorthData] = useState<any>();
+  const [pnlCumulativeData, setPnlCumulativeData] = useState<any>();
+  const [pnlData, setPnlData] = useState<any>();
   const [chartError, setChartError] = useState<string>();
   const [loadingSubtitle, setLoadingSubtitle] = useState<string>();
   const [renderKey, setRenderKey] = useState<PageKey>(PageKey.Loading);
@@ -44,11 +46,19 @@ function App({ addresses, baseCurrency = 'USD' }: OwnProps) {
       return;
     }
 
-    void fetchChartData(addresses, baseCurrency, (attempt, maxRetries) => {
+    const onProgress = (attempt: number, maxRetries: number) => {
       setLoadingSubtitle(`Still loading (${attempt}/${maxRetries})...`);
-    })
-      .then((data) => {
-        setChartData(data);
+    };
+
+    void Promise.all([
+      fetchNetWorthHistory(addresses, baseCurrency, onProgress),
+      fetchPnlCumulativeHistory(addresses, baseCurrency, onProgress),
+      fetchPnlHistory(addresses, baseCurrency, onProgress),
+    ])
+      .then(([netWorth, pnlCumulative, pnl]) => {
+        setNetWorthData(netWorth);
+        setPnlCumulativeData(pnlCumulative);
+        setPnlData(pnl);
         setRenderKey(PageKey.Chart);
       })
       .catch((err: Error) => {
@@ -65,10 +75,15 @@ function App({ addresses, baseCurrency = 'USD' }: OwnProps) {
             <div className={styles.errorTitle}>Error</div>
             <div className={styles.errorSubtitle}>{chartError}</div>
           </div>
-        ) : !chartData ? (
+        ) : !netWorthData || !pnlCumulativeData || !pnlData ? (
           <LoadingPage subtitle={loadingSubtitle} />
         ) : (
-          <ChartPage data={chartData} baseCurrency={baseCurrency} />
+          <ChartPage
+            netWorthData={netWorthData}
+            pnlCumulativeData={pnlCumulativeData}
+            pnlData={pnlData}
+            baseCurrency={baseCurrency}
+          />
         );
 
       default:

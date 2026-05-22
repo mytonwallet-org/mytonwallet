@@ -1,7 +1,9 @@
 import React, { memo } from '../../lib/teact/teact';
-import { getActions } from '../../global';
+import { getActions, withGlobal } from '../../global';
 
 import type { UserSwapToken, UserToken } from '../../global/types';
+
+import { selectTokenInfoUserTokens } from '../../global/selectors';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
@@ -17,10 +19,15 @@ interface OwnProps {
   onBackClick: NoneToVoidFunction;
 }
 
+interface StateProps {
+  searchTokens?: UserToken[];
+}
+
 function SettingsTokenList({
   isActive,
   onBackClick,
-}: OwnProps) {
+  searchTokens,
+}: OwnProps & StateProps) {
   const { addToken } = getActions();
 
   const lang = useLang();
@@ -42,6 +49,7 @@ function SettingsTokenList({
           isActive={isActive}
           shouldHideMyTokens
           shouldHideNotSupportedTokens
+          searchTokens={searchTokens}
           noHeader
           searchClassName={styles.tokenListSearch}
           onTokenSelect={handleTokenSelect}
@@ -53,4 +61,8 @@ function SettingsTokenList({
   );
 }
 
-export default memo(SettingsTokenList);
+export default memo(withGlobal<OwnProps>((global): StateProps => {
+  return {
+    searchTokens: selectTokenInfoUserTokens(global),
+  };
+})(SettingsTokenList));

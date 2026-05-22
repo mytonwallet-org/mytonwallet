@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getTextFromClipboard
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
@@ -403,6 +404,10 @@ class ImportWalletVC(
                     })
                 } else {
                     WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+                    ToastHelper.notifyWalletImported(
+                        viewController = this,
+                        accountId = accountId
+                    )
                     window!!.dismissLastNav()
                 }
             }

@@ -271,8 +271,6 @@ Stake Again: สเต็กอีกครั้ง
 Earned: ได้รับแล้ว
 Select wallet to use on this app: เลือกกระเป๋าเงินที่จะใช้กับแอปนี้
 Connect: เชื่อมต่อ
-App Permissions: สิทธิในการใช้แอป
-$dapp_can_view_balance: "%dappname% จะสามารถดูที่อยู่บัญชีและยอดเงินของวอลเล็ตของคุณได้."
 Payload: เปย์โหลด
 $many_transactions: "%1$d การโอน"
 Total Amount: มูลค่าสุทธิ
@@ -1191,3 +1189,11 @@ $mint_nft_action: การมิ้นท์ NFT
 Burned NFT: เผา NFT แล้ว
 Burning NFT: กำลังเผา NFT
 $burn_nft_action: การเผา NFT
+New Wallet: วอลเล็ตใหม่
+From new secret words: จากคำลับใหม่
+New Subwallet: วอลเล็ตย่อยใหม่
+From current secret words: จากคำลับปัจจุบัน
+$secret_words: คำลับ
+Restore wallet from 12 or 24 words: กู้คืนวอลเล็ตจาก 12 หรือ 24 คำ
+Connect your hardware wallet: เชื่อมต่อฮาร์ดแวร์วอลเล็ตของคุณ
+Watch wallet in read-only mode: ดูวอลเล็ตในโหมดอ่านอย่างเดียว

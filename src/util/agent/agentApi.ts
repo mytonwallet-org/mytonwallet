@@ -168,7 +168,9 @@ export function buildRequestContext(
       [slug, symbol, name, String(decimals), String(priceUsd)]
     )),
     balances: tokens?.filter(({ amount }) => amount > 0n)
-      .map(({ slug, amount }) => `${slug}:${String(amount)}`),
+      .map(({ slug, amount, totalValue }) => (
+        `${slug}:${String(amount)}:${totalValue.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '')}`
+      )),
     theme,
     ...(edit && { isEdit: true, originalText: edit.originalText }),
   };

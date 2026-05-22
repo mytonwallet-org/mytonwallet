@@ -330,10 +330,6 @@ $labelSidePadding: 0.5rem;
   color: var(--color-gray-2);
 }
 
-.description {
-  font-size: 0.9375rem;
-}
-
 .footer {
   display: flex;
   flex-direction: column;
@@ -341,18 +337,6 @@ $labelSidePadding: 0.5rem;
 
   margin-top: auto;
   padding-top: 1rem;
-}
-
-.buttons {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: center;
-  margin-top: 1.5rem;
-}
-
-.button {
-  flex: 1 1 calc(50% - 0.25rem);
-  min-width: 9rem !important;
 }
 
 .rowContainerSkeleton,

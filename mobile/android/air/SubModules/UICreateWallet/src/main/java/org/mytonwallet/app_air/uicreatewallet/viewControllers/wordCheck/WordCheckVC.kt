@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderAndActionsView
 import org.mytonwallet.app_air.uicomponents.commonViews.WordCheckerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
@@ -283,6 +284,10 @@ class WordCheckVC(
             })
         } else {
             WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+            ToastHelper.notifyWalletCreated(
+                viewController = this,
+                account = createdAccount
+            )
             window!!.dismissLastNav()
         }
     }

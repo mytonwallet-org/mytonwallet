@@ -289,7 +289,11 @@ public class NftDetailsVC: NftDetailsBaseVC {
                         assertionFailure()
                         return
                     }
-                    AppActions.showAssets(accountSource: .accountId(accountId), selectedTab: 1, collectionsFilter: .collection(collection))
+                    AppActions.showAssets(
+                        accountSource: .accountId(accountId),
+                        selectedTab: .nftCollectionFilter(.collection(collection)),
+                        collectionsFilter: .collection(collection)
+                    )
                 }
             )
             

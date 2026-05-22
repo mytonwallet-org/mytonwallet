@@ -52,10 +52,12 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
 
     init {
         id = generateViewId()
+        clipChildren = false
     }
 
     private val iconView = IconView(context, ApplicationContextHolder.adaptiveIconSize.dp).apply {
         id = generateViewId()
+        clipChildren = false
     }
 
     private val topLeftLabel = WLabel(context).apply {
@@ -205,6 +207,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         topRightLabel.contentView.updateTheme()
         bottomRightLabel.contentView.updateTheme()
         activitySwapIconsView.updateTheme()
+        iconView.updateTheme()
         (transaction as? MApiTransaction.Transaction)?.let(iconView::config)
     }
 

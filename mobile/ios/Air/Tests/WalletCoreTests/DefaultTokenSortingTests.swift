@@ -27,9 +27,9 @@ struct DefaultTokenSortingTests {
         #expect(sorted.map(\.tokenSlug) == [
             ETH_SLUG,
             SOLANA_SLUG,
+            TONCOIN_SLUG,
             TRX_SLUG,
             BNB_SLUG,
-            TONCOIN_SLUG,
             HYPERLIQUID_SLUG,
         ])
     }

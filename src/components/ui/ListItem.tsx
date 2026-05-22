@@ -10,6 +10,7 @@ import styles from './ListItem.module.scss';
 interface OwnProps {
   icon?: string;
   label: TeactNode;
+  description?: string;
   className?: string;
   isLoading?: boolean;
   onClick: NoneToVoidFunction;
@@ -18,6 +19,7 @@ interface OwnProps {
 function ListItem({
   icon,
   label,
+  description,
   className,
   isLoading,
   onClick,
@@ -25,7 +27,10 @@ function ListItem({
   return (
     <button type="button" className={buildClassName(styles.root, className)} onClick={onClick} disabled={isLoading}>
       <i className={buildClassName(styles.icon, `icon-${icon}`)} aria-hidden />
-      <span className={styles.label}>{label}</span>
+      <span className={styles.label}>
+        {label}
+        {Boolean(description) && <em className={styles.description}>{description}</em>}
+      </span>
       {
         isLoading ? (
           <Spinner className={buildClassName(styles.rightItem, styles.spinner)} />

@@ -10,7 +10,7 @@ To run the Portfolio dapp in development mode:
 npm run portfolio:dev
 ```
 
-This will start the development server on port 4324.
+This will start the development server on port 4325.
 
 ## Building
 

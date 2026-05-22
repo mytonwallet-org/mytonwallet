@@ -195,6 +195,20 @@ extension ApiToken: Identifiable {
     public var id: String { slug }
 }
 
+public extension ApiToken {
+    static func unknown(slug: String = "unknown", chain: ApiChain? = nil, decimals: Int = 9, tokenAddress: String? = nil) -> ApiToken {
+        let slug = slug.isEmpty ? "unknown" : slug
+        return ApiToken(
+            slug: slug,
+            name: "[Unknown]",
+            symbol: "[Unknown]",
+            decimals: decimals,
+            chain: chain ?? getChainBySlug(slug) ?? FALLBACK_CHAIN,
+            tokenAddress: tokenAddress
+        )
+    }
+}
+
 public enum ApiTokenType: String, Equatable, Hashable, Codable, Sendable {
     case lp_token = "lp_token"
 }
@@ -280,9 +294,9 @@ extension ApiToken {
         let slugs: [(ApiChain, String)] = [
             (.ethereum, ETH_SLUG),
             (.solana, SOLANA_SLUG),
+            (.ton, TONCOIN_SLUG),
             (.tron, TRX_SLUG),
             (.bnb, BNB_SLUG),
-            (.ton, TONCOIN_SLUG),
             (.hyperliquid, HYPERLIQUID_SLUG),
         ]
 

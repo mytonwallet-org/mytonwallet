@@ -31,7 +31,6 @@ final class ExploreCategoryVC: WViewController {
         self.exploreVM = exploreVM
         self.categoryId = categoryId
         dataSource = Self.makeDataSource(collectionView: collectionView,
-                                         categoryId: categoryId,
                                          exploreVM: exploreVM,
                                          viewOutput: viewOutput,
                                          backgroundColorSUI: backgroundColorSUI)
@@ -94,7 +93,6 @@ final class ExploreCategoryVC: WViewController {
     }
 
     private static func makeDataSource(collectionView: UICollectionView,
-                                       categoryId _: Int,
                                        exploreVM: ExploreVM,
                                        viewOutput: ViewOutput,
                                        backgroundColorSUI: Color) -> UICollectionViewDiffableDataSource<Section, Item> {

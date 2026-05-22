@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicreatewallet.viewControllers.wordDisplay
 
 import android.annotation.SuppressLint
 import android.content.Context
+import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicreatewallet.WalletCreationVM
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.setPasscode.SetPasscodeVC
@@ -75,6 +76,10 @@ class WordDisplayVC(
             })
         } else {
             WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+            ToastHelper.notifyWalletCreated(
+                viewController = this,
+                account = createdAccount
+            )
             window!!.dismissLastNav()
         }
     }

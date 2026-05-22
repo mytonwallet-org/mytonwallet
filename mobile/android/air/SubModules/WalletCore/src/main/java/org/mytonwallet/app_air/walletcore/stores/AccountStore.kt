@@ -85,6 +85,16 @@ object AccountStore : IStore {
         }
     }
 
+    fun currentAccountSupportsSubWallets(): Boolean {
+        val account = activeAccount ?: return false
+        if (account.accountType != MAccount.AccountType.MNEMONIC) return false
+        if (!account.isMultichain) return false
+        return account.byChain.keys.any { chainName ->
+            val chain = MBlockchain.valueOfOrNull(chainName) ?: return@any false
+            chainSupportsSubWallets(chain)
+        }
+    }
+
     fun accountIdByAddress(tonAddress: String?): String? {
         if (tonAddress == null)
             return null

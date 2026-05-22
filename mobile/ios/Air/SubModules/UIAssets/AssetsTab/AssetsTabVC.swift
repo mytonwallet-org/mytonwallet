@@ -11,20 +11,33 @@ import WalletCore
 import WalletContext
 
 public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
-    public enum Tab: String {
-        case tokens
-        case nfts
-    }
-    
     private let accountIdProvider: AccountIdProvider
+    private var accountSource: AccountSource { accountIdProvider.source }
 
     private var segmentedController: WSegmentedController!
-    private let defaultTabIndex: Int
-    private var nftsVCManager: NftsVCManager?
+    private let defaultTab: DisplayAssetTab
+    private let tabsViewModel: WalletAssetsViewModel
+    private let nftsVCManager: NftsVCManager
+    private var tabViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]
 
-    public init(accountSource: AccountSource, defaultTabIndex: Int) {
+    private lazy var tabContextMenuProviders = WalletAssetsTabContextMenuProviders(
+        accountSource: accountSource,
+        nftsVCManager: nftsVCManager,
+        sourceViewProvider: { [weak self] in
+            self?.segmentedController?.segmentedControl
+        },
+        onReorder: { [weak self] in
+            self?.onSegmentsReorder()
+        },
+        includesTokenLimitActions: false
+    )
+
+    public init(accountSource: AccountSource, defaultTab: DisplayAssetTab) {
+        let tabsViewModel = WalletAssetsViewModel(accountSource: accountSource)
         self.accountIdProvider = AccountIdProvider(source: accountSource)
-        self.defaultTabIndex = defaultTabIndex
+        self.defaultTab = defaultTab
+        self.tabsViewModel = tabsViewModel
+        self.nftsVCManager = NftsVCManager(tabsViewModel: tabsViewModel)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -53,30 +66,13 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
                 sheet.prefersGrabberVisible = true
             }
         }
-        
-        let tokensVC = WalletTokensVC(accountSource: accountIdProvider.source, mode: .expanded)
-        addChild(tokensVC)
-        tokensVC.didMove(toParent: self)
 
-        nftsVCManager = NftsVCManager(tabsViewModel: WalletAssetsViewModel(accountSource:  accountIdProvider.source))
-        let nftsVC = NftsVC(accountSource: accountIdProvider.source, manager: nftsVCManager, layoutMode: .regular, filter: .none)
-        addChild(nftsVC)
-        nftsVC.didMove(toParent: self)
+        nftsVCManager.restoreTabsOnReorderCanceling = true
 
+        let displayTabs = tabsViewModel.displayTabs
         segmentedController = WSegmentedController(
-            items: [
-                SegmentedControlItem(
-                    id: Tab.tokens.rawValue,
-                    title: lang("Assets"),
-                    viewController: tokensVC
-                ),
-                SegmentedControlItem(
-                    id: Tab.nfts.rawValue,
-                    title: lang("Collectibles"),
-                    viewController: nftsVC
-                ),
-           ],
-            defaultItemId: defaultTabIndex == 1 ? Tab.nfts.rawValue : Tab.tokens.rawValue,
+            items: makeSegmentedItems(displayTabs: displayTabs),
+            defaultItemId: defaultItemId(displayTabs: displayTabs),
             barHeight: 0,
             goUnderNavBar: true,
             animationSpeed: .slow,
@@ -99,10 +95,30 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         segmentedController.segmentedControl.embed(in: navigationItem)
         
         view.backgroundColor = .air.pickerBackground
+
+        nftsVCManager.onStateChange = { [weak self] oldState, newState in
+            guard let self, let segmentedController = self.segmentedController else { return }
+            guard oldState.editingState != newState.editingState else { return }
+            if newState.editingState == .reordering {
+                segmentedController.model.startReordering()
+            } else {
+                segmentedController.model.stopReordering()
+            }
+        }
+
+        segmentedController.model.onItemsReorder = { [weak self] items in
+            guard let self else { return }
+            let displayTabs: [DisplayAssetTab] = items.compactMap { item in
+                DisplayAssetTab.fromSegmentedControlItemId(item.id, accountId: self.accountIdProvider.accountId)
+            }
+            try? await self.tabsViewModel.setOrder(displayTabs: displayTabs)
+        }
         
-        nftsVCManager?.editingNavigator.onStateChange = { [weak self] _, _ in
+        nftsVCManager.editingNavigator.onStateChange = { [weak self] _, _ in
             self?.updateState()
         }
+
+        tabsViewModel.delegate = self
     }
 
     public override func viewWillAppear(_ animated: Bool) {
@@ -122,10 +138,80 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         pauseAllNftAnimations()
     }
     
+    private func defaultItemId(displayTabs: [DisplayAssetTab]) -> String? {
+        let requestedItemId = defaultTab.segmentedControlItemId
+        return displayTabs.contains(where: { $0.segmentedControlItemId == requestedItemId })
+            ? requestedItemId
+            : displayTabs.first?.segmentedControlItemId
+    }
+
+    private func makeSegmentedItems(displayTabs: [DisplayAssetTab]) -> [SegmentedControlItem] {
+        displayTabs.map { tab in
+            let viewController = viewController(for: tab)
+            return SegmentedControlItem(
+                id: tab.segmentedControlItemId,
+                title: tab.segmentedControlTitle,
+                contextMenuProvider: tabContextMenuProviders.provider(for: tab),
+                isDeletable: tab.isDeletableSegment,
+                viewController: viewController
+            )
+        }
+    }
+
+    private func viewController(for tab: DisplayAssetTab) -> any WSegmentedControllerContent {
+        if let viewController = tabViewControllers[tab] {
+            return viewController
+        }
+
+        let viewController: any WSegmentedControllerContent
+        switch tab {
+        case .tokens:
+            viewController = WalletTokensVC(accountSource: accountSource, mode: .expanded)
+        case .nfts:
+            viewController = NftsVC(accountSource: accountSource, manager: nftsVCManager, layoutMode: .regular, filter: .none)
+        case let .nftCollectionFilter(filter):
+            viewController = NftsVC(accountSource: accountSource, manager: nftsVCManager, layoutMode: .regular, filter: filter)
+        }
+
+        addChild(viewController)
+        tabViewControllers[tab] = viewController
+        viewController.didMove(toParent: self)
+        return viewController
+    }
+
+    private func displayTabsChanged(force: Bool) {
+        nftsVCManager.beginUpdate()
+        defer {
+            nftsVCManager.endUpdate()
+        }
+
+        let displayTabs = tabsViewModel.displayTabs
+        var tabViewControllersToRemove = tabViewControllers
+        var newTabViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]
+
+        for tab in displayTabs {
+            if let oldVC = tabViewControllersToRemove.removeValue(forKey: tab) {
+                newTabViewControllers[tab] = oldVC
+            } else {
+                newTabViewControllers[tab] = viewController(for: tab)
+            }
+        }
+
+        tabViewControllers = newTabViewControllers
+        segmentedController.replace(items: makeSegmentedItems(displayTabs: displayTabs), force: force)
+        tabViewControllersToRemove.values.forEach { removeChild($0) }
+
+        if view.window != nil {
+            activateNftAnimationForSelectedPage()
+        }
+
+        updateState()
+    }
+
     private func updateState() {
         updateNavigationAppearance()
         
-        guard let navigator = nftsVCManager?.editingNavigator else { return }
+        let navigator = nftsVCManager.editingNavigator
         let state = navigator.state
         if state.editingState == .selection {
             navigator.installToolbar(into: view)
@@ -136,15 +222,16 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
     }
             
     private func updateNavigationAppearance() {
-        if let navigator = nftsVCManager?.editingNavigator, let editingState = navigator.state.editingState {
-            segmentedController.segmentedControl?.isHidden = true
+        let navigator = nftsVCManager.editingNavigator
+        if let editingState = navigator.state.editingState {
             segmentedController.scrollView.isScrollEnabled = false
-            
             navigationItem.rightBarButtonItem = navigator.commitEditingBarButtonItem
             switch editingState {
             case .reordering:
+                segmentedController.segmentedControl?.isHidden = false
                 navigationItem.leftBarButtonItem = navigator.cancelEditingBarButtonItem
             case .selection:
+                segmentedController.segmentedControl?.isHidden = true
                 navigationItem.leftBarButtonItem = navigator.selectAllBarButtonItem
             }
         } else {
@@ -154,6 +241,10 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
             navigationItem.rightBarButtonItem = nil
             addCloseNavigationItemIfNeeded()
         }
+    }
+
+    private func onSegmentsReorder() {
+        nftsVCManager.startReordering()
     }
     
     public override func scrollToTop(animated: Bool) {
@@ -193,6 +284,12 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         forEachNftAnimationController { controller in
             controller.setNftAnimationPlaybackActive(selectedControllerID == ObjectIdentifier(controller as AnyObject))
         }
+    }
+}
+
+extension AssetsTabVC: WalletAssetsViewModelDelegate {
+    public func walletAssetModelDidChangeDisplayTabs() {
+        displayTabsChanged(force: false)
     }
 }
 

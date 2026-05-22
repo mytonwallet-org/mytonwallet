@@ -31,52 +31,28 @@ private let log = Log("Home-WalletAssets")
     private var tabViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]
     private var lastMeasuredWidth: CGFloat = 0
     
-    private var contextMenuProviders: [DisplayAssetTab: SegmentedControlContextMenuProvider] = [:]
-    
-    private func makeSegmentedTabSourcePortal() -> ContextMenuSourcePortal {
-        ContextMenuSourcePortal(
-            sourceViewProvider: { [weak self] in
-                self?.walletAssetsView.tabsContainer.segmentedControl
-            },
-            mask: .roundedAttachmentRect(cornerRadius: 12.0, cornerCurve: .circular),
-            showsBackdropCutout: true
-        )
-    }
-
-    private func getContextMenuProvider(tab: DisplayAssetTab) -> SegmentedControlContextMenuProvider {
-        if let provider = contextMenuProviders[tab] {
-            return provider
+    private lazy var tabContextMenuProviders = WalletAssetsTabContextMenuProviders(
+        accountSource: accountSource,
+        nftsVCManager: nftsVCManager,
+        sourceViewProvider: { [weak self] in
+            self?.walletAssetsView.tabsContainer.segmentedControl
+        },
+        onReorder: { [weak self] in
+            self?.onSegmentsReorder()
         }
+    )
 
-        let configuration: () -> ContextMenuConfiguration
-        switch tab {
-        case .tokens:
-            configuration = makeTokensMenuConfig(onReorder: { [weak self] in
-                self?.onSegmentsReorder()
-            })
-        case .nfts:
-            configuration = makeCollectiblesMenuConfig(accountSource: accountSource, onReorder: { [weak self] in
-                self?.onSegmentsReorder()
-            })
-        case let .nftCollectionFilter(filter):
-            configuration = makeNftCollectionMenuConfig(
-                onReorder: { [weak self] in
-                    self?.onSegmentsReorder()
-                },
-                onHide: { [weak self] in
-                    Task {
-                        try? await self?.nftsVCManager.setIsFavorited(filter: filter, isFavorited: false)
-                    }
-                }
-            )
-        }
-
-        let provider = SegmentedControlContextMenuProvider(
-            sourcePortal: makeSegmentedTabSourcePortal(),
-            configuration: configuration
+    private func makePagerItem(
+        tab: DisplayAssetTab,
+        viewController: any WSegmentedControllerContent
+    ) -> WSegmentedPagerItem {
+        WSegmentedPagerItem(
+            id: tab.segmentedControlItemId,
+            title: tab.segmentedControlTitle,
+            contextMenuProvider: tabContextMenuProviders.provider(for: tab),
+            isDeletable: tab.isDeletableSegment,
+            viewController: viewController
         )
-        contextMenuProviders[tab] = provider
-        return provider
     }
     
     public init(accountSource: AccountSource) {
@@ -138,32 +114,7 @@ private let log = Log("Home-WalletAssets")
                 
         let vcs = displayTabs.map { tabViewControllers[$0]! }
         let items: [WSegmentedPagerItem] = displayTabs.enumerated().map { index, tab in
-            let contextMenuProvider = getContextMenuProvider(tab: tab)
-            return switch tab {
-            case .tokens:
-                WSegmentedPagerItem(
-                    id: "tokens",
-                    title: lang("Assets"),
-                    contextMenuProvider: contextMenuProvider,
-                    isDeletable: false,
-                    viewController: vcs[index],
-                )
-            case .nfts:
-                WSegmentedPagerItem(
-                    id: "nfts",
-                    title: lang("Collectibles"),
-                    contextMenuProvider: contextMenuProvider,
-                    isDeletable: false,
-                    viewController: vcs[index],
-                )
-            case .nftCollectionFilter(let filter):
-                WSegmentedPagerItem(
-                    id: filter.stringValue,
-                    title: filter.displayTitle,
-                    contextMenuProvider: contextMenuProvider,
-                    viewController: vcs[index],
-                )
-            }
+            makePagerItem(tab: tab, viewController: vcs[index])
         }
         walletAssetsView.tabsContainer.replace(
             items: items,
@@ -263,24 +214,8 @@ private let log = Log("Home-WalletAssets")
                 
         walletAssetsView.tabsContainer.model.onItemsReorder = { [weak self] items in
             guard let self else { return }            
-            let collections = NftStore.getCollections(accountId: accountIdProvider.accountId).collections
             let displayTabs: [DisplayAssetTab] = items.compactMap { item in
-                switch item.id {
-                case "tokens": return .tokens
-                case "nfts": return .nfts
-                default:
-                    let giftsFilter =  NftCollectionFilter.telegramGifts
-                    if item.id == giftsFilter.stringValue {
-                        return .nftCollectionFilter(giftsFilter)
-                    }
-                    if let collection = collections.first(where: { $0.id == item.id }) {
-                        let filter = NftCollectionFilter.collection(collection)
-                        assert(filter.stringValue == item.id)
-                        return .nftCollectionFilter(filter)
-                    }
-                    assertionFailure("Unable to find a collection for the tab with id: \(item.id)")
-                    return nil
-                }
+                DisplayAssetTab.fromSegmentedControlItemId(item.id, accountId: self.accountIdProvider.accountId)
             }
             try? await self.tabsViewModel.setOrder(displayTabs: displayTabs)
         }

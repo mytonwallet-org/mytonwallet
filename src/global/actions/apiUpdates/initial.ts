@@ -16,6 +16,7 @@ import { buildCollectionByKey, unique } from '../../../util/iteratees';
 import { openUrl } from '../../../util/openUrl';
 import { getIsActiveStakingState } from '../../../util/staking';
 import { IS_IOS_APP } from '../../../util/windowEnvironment';
+import { pinMtwCardsFirst } from '../../helpers/nfts';
 import { addActionHandler, setGlobal } from '../../index';
 import {
   addNft,
@@ -184,6 +185,8 @@ addActionHandler('apiUpdate', (global, actions, update) => {
           ([] as string[]).concat(newOrderedAddresses, currentNfts?.orderedAddresses ?? []),
         );
       }
+
+      orderedAddresses = pinMtwCardsFirst(orderedAddresses, byAddress);
 
       global = updateAccountState(global, accountId, {
         nfts: {

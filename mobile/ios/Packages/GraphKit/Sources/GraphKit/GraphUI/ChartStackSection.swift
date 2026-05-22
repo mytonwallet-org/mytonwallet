@@ -23,6 +23,7 @@ private enum Constants {
     static let headerVerticalInset: CGFloat = 5.0
     static let headerSpacing: CGFloat = 8.0
     static let headerTitleHeight: CGFloat = 28.0
+    static let visibilityBottomInset: CGFloat = 16.0
 }
 
 private class LeftAlignedIconButton: UIButton {
@@ -58,10 +59,21 @@ class ChartStackSection: UIView, ChartThemeContainer {
     var zoomStateUpdated: ((Bool) -> Void)?
     
     var displayRange: Bool = true
+    var visibilityBottomInset: CGFloat = Constants.visibilityBottomInset {
+        didSet {
+            invalidateIntrinsicContentSize()
+            setNeedsLayout()
+        }
+    }
     
     let hapticFeedback = HapticFeedback()
 
-    static func preferredHeight(for width: CGFloat, controller: BaseChartController?, displayRange: Bool) -> CGFloat {
+    static func preferredHeight(
+        for width: CGFloat,
+        controller: BaseChartController?,
+        displayRange: Bool,
+        visibilityBottomInset: CGFloat = Constants.visibilityBottomInset
+    ) -> CGFloat {
         let resolvedWidth = max(0.0, width)
         let minimumHeight = displayRange ? Constants.minimumHeightWithRange : Constants.minimumHeightWithoutRange
 
@@ -72,7 +84,11 @@ class ChartStackSection: UIView, ChartThemeContainer {
         let items = controller.actualChartsCollection.chartValues.map { value in
             ChartVisibilityItem(title: value.name, color: value.color)
         }
-        let visibilityHeight = calculateVisiblityHeight(width: resolvedWidth, items: items)
+        let visibilityHeight = calculateVisiblityHeight(
+            width: resolvedWidth,
+            items: items,
+            bottomInset: visibilityBottomInset
+        )
         guard visibilityHeight > 0.0 else {
             return minimumHeight
         }
@@ -291,7 +307,15 @@ class ChartStackSection: UIView, ChartThemeContainer {
         super.layoutSubviews()
         
         let bounds = self.bounds
-        let sectionHeight = max(bounds.height, Self.preferredHeight(for: bounds.width, controller: controller, displayRange: displayRange))
+        let sectionHeight = max(
+            bounds.height,
+            Self.preferredHeight(
+                for: bounds.width,
+                controller: controller,
+                displayRange: displayRange,
+                visibilityBottomInset: visibilityBottomInset
+            )
+        )
         let visibilityOriginY = displayRange ? Constants.visibilityOriginYWithRange : Constants.visibilityOriginYWithoutRange
         let visibilityHeight = max(0.0, sectionHeight - visibilityOriginY)
 

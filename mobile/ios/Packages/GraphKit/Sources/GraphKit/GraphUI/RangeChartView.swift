@@ -14,7 +14,8 @@ private enum Constants {
     static let titntAreaWidth: CGFloat = 10
     static let horizontalContentMargin: CGFloat = 16
     static let cornerRadius: CGFloat = 5
-    static let singlePointIndicatorWidth: CGFloat = 4
+    static let singlePointIndicatorWidth: CGFloat = 10
+    static let singlePointHandleSize = CGSize(width: 2, height: 10)
     static let limitedRangeBorderWidth: CGFloat = 2
     static let limitedRangeBorderDashPattern: [NSNumber] = [4, 3]
     static let limitedRangeIconSize: CGFloat = 14
@@ -45,7 +46,10 @@ class RangeChartView: UIControl {
     private let lowerBoundTintView = UIView()
     private let upperBoundTintView = UIView()
     private let cropFrameView = UIImageView()
+    private let singlePointHandleView = UIView()
     private let limitedRangeOverlayView = UIControl()
+    private let limitedRangeBlurView = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+    private let limitedRangeTintView = UIView()
     private let limitedRangeLockImageView = UIImageView()
     private let limitedRangeBorderLayer = CAShapeLayer()
     
@@ -90,7 +94,9 @@ class RangeChartView: UIControl {
         addSubview(upperBoundTintView)
         addSubview(limitedRangeOverlayView)
         addSubview(cropFrameView)
+        cropFrameView.addSubview(singlePointHandleView)
         cropFrameView.isUserInteractionEnabled = false
+        cropFrameView.clipsToBounds = false
         chartView.isUserInteractionEnabled = false
         lowerBoundTintView.isUserInteractionEnabled = false
         upperBoundTintView.isUserInteractionEnabled = false
@@ -105,12 +111,21 @@ class RangeChartView: UIControl {
         lowerBoundTintView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMinXMaxYCorner]
         upperBoundTintView.layer.maskedCorners = [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
 
+        singlePointHandleView.isHidden = true
+        singlePointHandleView.layer.cornerRadius = Constants.singlePointHandleSize.width / 2.0
+        singlePointHandleView.layer.masksToBounds = true
+
         limitedRangeOverlayView.isHidden = true
         limitedRangeOverlayView.clipsToBounds = true
         limitedRangeOverlayView.layer.cornerRadius = Constants.cornerRadius
         limitedRangeOverlayView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMinXMaxYCorner]
         limitedRangeOverlayView.addTarget(self, action: #selector(limitedRangePressed), for: .touchUpInside)
+        limitedRangeOverlayView.addSubview(limitedRangeBlurView)
+        limitedRangeOverlayView.addSubview(limitedRangeTintView)
         limitedRangeOverlayView.addSubview(limitedRangeLockImageView)
+
+        limitedRangeBlurView.isUserInteractionEnabled = false
+        limitedRangeTintView.isUserInteractionEnabled = false
 
         limitedRangeBorderLayer.fillColor = nil
         limitedRangeBorderLayer.lineWidth = Constants.limitedRangeBorderWidth
@@ -420,23 +435,30 @@ private extension RangeChartView {
             )
         }
         cropFrameView.frame = cropFrame
+        singlePointHandleView.frame = CGRect(
+            x: floor((cropFrame.width - Constants.singlePointHandleSize.width) / 2.0),
+            y: floor((cropFrame.height - Constants.singlePointHandleSize.height) / 2.0),
+            width: Constants.singlePointHandleSize.width,
+            height: Constants.singlePointHandleSize.height
+        )
         
         if chartView.frame != contentFrame {
             chartView.frame = contentFrame
         }
 
         if selectionDisplayMode == .singlePoint {
+            let indicatorX = cropFrame.midX
             lowerBoundTintView.frame = CGRect(
                 x: contentFrame.minX,
                 y: contentFrame.minY,
-                width: max(0, cropFrame.minX - contentFrame.minX),
+                width: max(0, indicatorX - contentFrame.minX),
                 height: contentFrame.height
             )
             
             upperBoundTintView.frame = CGRect(
-                x: cropFrame.maxX,
+                x: indicatorX,
                 y: contentFrame.minY,
-                width: max(0, contentFrame.maxX - cropFrame.maxX),
+                width: max(0, contentFrame.maxX - indicatorX),
                 height: contentFrame.height
             )
         } else {
@@ -465,10 +487,13 @@ private extension RangeChartView {
                 self.cropFrameView.backgroundColor = .clear
                 self.cropFrameView.layer.cornerRadius = Constants.cornerRadius
                 self.cropFrameView.setImage(theme.rangeCropImage, animated: false)
+                self.singlePointHandleView.isHidden = true
             case .singlePoint:
                 self.cropFrameView.image = nil
                 self.cropFrameView.backgroundColor = theme.actionButtonColor
                 self.cropFrameView.layer.cornerRadius = Constants.singlePointIndicatorWidth / 2.0
+                self.singlePointHandleView.backgroundColor = theme.rangeViewMarkerColor
+                self.singlePointHandleView.isHidden = false
             }
             self.layoutIfNeeded()
         }
@@ -498,6 +523,8 @@ private extension RangeChartView {
         )
         limitedRangeOverlayView.isHidden = false
         limitedRangeOverlayView.frame = overlayFrame
+        limitedRangeBlurView.frame = limitedRangeOverlayView.bounds
+        limitedRangeTintView.frame = limitedRangeOverlayView.bounds
 
         let borderX = max(
             Constants.limitedRangeBorderWidth / 2.0,
@@ -566,7 +593,8 @@ extension RangeChartView: ChartThemeContainer {
         let closure = {
             self.lowerBoundTintView.backgroundColor = theme.rangeViewTintColor
             self.upperBoundTintView.backgroundColor = theme.rangeViewTintColor
-            self.limitedRangeOverlayView.backgroundColor = limitedRangePalette.overlay
+            self.limitedRangeOverlayView.backgroundColor = .clear
+            self.limitedRangeTintView.backgroundColor = limitedRangePalette.overlay
             self.limitedRangeBorderLayer.strokeColor = limitedRangePalette.stroke.cgColor
             self.limitedRangeLockImageView.tintColor = limitedRangePalette.stroke
         }

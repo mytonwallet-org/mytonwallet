@@ -4,26 +4,6 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-enum PortfolioInsightLegendDisplayMode: Equatable {
-    case amounts
-    case percentages
-
-    var next: Self {
-        switch self {
-        case .amounts:
-            return .percentages
-        case .percentages:
-            return .amounts
-        }
-    }
-}
-
-enum PortfolioInsightCardChrome: Equatable {
-    case plain
-    case plainSecondaryBorder
-    case smart
-}
-
 enum PortfolioInsightCardID: String, Hashable {
     case chainSplit
     case assetClasses
@@ -39,382 +19,329 @@ struct PortfolioInsightSegment: Equatable, Identifiable {
 }
 
 struct PortfolioInsightCardModel: Equatable, Identifiable {
-    struct Action: Equatable {
-        enum Kind: Equatable {
-            case fund
-            case swap
-            case earn
-        }
-
-        let kind: Kind
-        let title: String
-    }
-
     let id: PortfolioInsightCardID
     let title: String
     let segments: [PortfolioInsightSegment]
     let emptyText: String?
-    let action: Action?
-    let chrome: PortfolioInsightCardChrome
 }
 
-struct PortfolioBalanceSummaryView: View {
+struct PortfolioOverviewSectionView: View {
     let accountContext: AccountContext
+    let overview: PortfolioOverviewModel
 
     var body: some View {
         WithPerceptionTracking {
-            HStack(spacing: 16) {
-                PortfolioCardMiniatureView(accountContext: accountContext)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(lang("Total Balance"))
-                        .font(.compactDisplay(size: 13, weight: .medium))
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .bottom, spacing: 12) {
+                    Text(lang("Overview"))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(Color.air.secondaryLabel)
+                        .lineLimit(1)
 
-                    MtwCardBalanceView(
-                        balance: accountContext.balance,
-                        isNumericTranstionEnabled: accountContext.isCurrent,
-                        style: .homeCollaped
-                    )
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Spacer(minLength: 8)
+
+                    if let dateRangeText = overview.dateRangeText {
+                        Text(dateRangeText)
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundStyle(Color(uiColor: .air.secondaryLabel))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 9)
+                .frame(maxWidth: .infinity, minHeight: 39, maxHeight: 39, alignment: .bottom)
+
+                HStack(alignment: .center, spacing: 16) {
+                    overviewColumn(
+                        value: accountContext.balance?.formatted(.baseCurrencyEquivalent, roundHalfUp: true),
+                        title: lang("Total Balance")
+                    )
+
+                    overviewColumn(
+                        value: overview.netChangeText,
+                        title: lang("Net Change"),
+                        trailingText: overview.netChangePercentText,
+                        trailingColor: overview.isNetChangePositive ? .air.positiveAmount : .air.negativeAmount
+                    )
+                }
+                .padding(.horizontal, 16)
+                .frame(maxWidth: .infinity, minHeight: 66, maxHeight: 66)
+                .background(Color.air.groupedItem)
+                .clipShape(.rect(cornerRadius: 26, style: .continuous))
             }
-            .padding(.vertical, 4)
         }
+    }
+
+    private func overviewColumn(
+        value: String?,
+        title: String,
+        trailingText: String? = nil,
+        valueColor: UIColor = .label,
+        trailingColor: UIColor = .air.secondaryLabel
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(value ?? "")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color(uiColor: valueColor))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .contentTransition(accountContext.isCurrent ? .numericText() : .identity)
+
+                if let trailingText {
+                    Text(trailingText)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(Color(uiColor: trailingColor))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .sensitiveData(
+                alignment: .leading,
+                cols: 8,
+                rows: 2,
+                cellSize: 6,
+                theme: .adaptive,
+                cornerRadius: 6
+            )
+
+            Text(title)
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(Color.air.secondaryLabel)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 struct PortfolioInsightCardView: View {
     let card: PortfolioInsightCardModel
-    let legendDisplayMode: PortfolioInsightLegendDisplayMode
-    let onTap: @MainActor @Sendable () -> Void
-    let onAction: @MainActor @Sendable () -> Void
-    @State private var isPressed = false
 
-    private var isInteractive: Bool {
-        !card.segments.isEmpty
+    private var displayedSegments: [PortfolioInsightSegment] {
+        card.segments
+            .filter { $0.value > 0 }
+            .sorted { $0.value < $1.value }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(card.title)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color.air.primaryLabel)
-                    .lineLimit(1)
+        VStack(alignment: .leading, spacing: 0) {
+            Text(card.title)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.air.secondaryLabel)
+                .lineLimit(1)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 9)
+                .frame(maxWidth: .infinity, minHeight: 39, maxHeight: 39, alignment: .bottomLeading)
+
+            HStack(spacing: 24) {
+                if displayedSegments.isEmpty {
+                    Text(card.emptyText ?? lang("No data"))
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundStyle(Color.air.secondaryLabel)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    PortfolioInsightBarrelView(segments: displayedSegments)
+                        .frame(width: 80, height: 160)
+
+                    PortfolioInsightLegendView(
+                        segments: displayedSegments,
+                        totalValue: displayedSegments.reduce(0) { $0 + $1.value }
+                    )
                     .frame(maxWidth: .infinity, alignment: .leading)
-
-                PortfolioInsightBarView(
-                    segments: card.segments,
-                    emptyText: card.emptyText
-                )
-
-                PortfolioInsightLegendView(
-                    segments: card.segments,
-                    emptyText: card.emptyText,
-                    displayMode: legendDisplayMode,
-                    maxRows: 3
-                )
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 190, maxHeight: 190, alignment: .topLeading)
-            .background {
-                PortfolioInsightCardBackground(chrome: card.chrome)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .highlightScale(isPressed, scale: 0.98, isEnabled: isInteractive)
-            .if(isInteractive) {
-                $0.onTap(isPressedBinding: $isPressed, action: onTap)
-            }
-
-            if let action = card.action {
-                PortfolioInsightActionButton(
-                    title: action.title,
-                    onTap: onAction
-                )
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: 230, maxHeight: 230, alignment: .topLeading)
-    }
-}
-
-private struct PortfolioCardMiniatureView: View {
-    let accountContext: AccountContext
-
-    private let size = CGSize(width: 108, height: 68)
-
-    var body: some View {
-        WithPerceptionTracking {
-            MtwCardBackground(nft: accountContext.nft, borderWidthMultiplier: 0.8)
-                .overlay(alignment: .bottom) {
-                    MtwCardMiniPlaceholders()
-                        .sourceAtop {
-                            MtwCardInverseCenteredGradient(nft: accountContext.nft)
-                        }
-                        .padding(.bottom, 15)
-                        .scaleEffect(size.width / 34)
                 }
-                .frame(width: size.width, height: size.height)
-                .clipShape(.containerRelative)
-                .containerShape(.rect(cornerRadius: 16))
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, minHeight: 192, maxHeight: 192, alignment: .leading)
+            .background(Color.air.groupedItem)
+            .clipShape(.rect(cornerRadius: 26, style: .continuous))
         }
+        .frame(maxWidth: .infinity, minHeight: 231, maxHeight: 231, alignment: .topLeading)
     }
 }
 
-private struct PortfolioInsightBarView: View {
+private struct PortfolioInsightBarrelView: View {
     let segments: [PortfolioInsightSegment]
-    let emptyText: String?
+
+    private let preferredWidth = CGFloat(80)
+    private let preferredOvalHeight = CGFloat(40)
+    private let gapHeight = CGFloat(2)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            GeometryReader { geometry in
-                let visibleSegments = segments.filter { $0.value > 0 }
-                let totalValue = visibleSegments.reduce(0) { $0 + $1.value }
-                let spacing = CGFloat(max(visibleSegments.count - 1, 0)) * 3
-                let availableWidth = max(geometry.size.width - spacing, 0)
+        Canvas { context, size in
+            let totalValue = segments.reduce(0) { $0 + $1.value }
+            guard totalValue > 0, !segments.isEmpty else {
+                return
+            }
 
-                if !visibleSegments.isEmpty && totalValue > 0 {
-                    HStack(spacing: 3) {
-                        ForEach(visibleSegments) { segment in
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color(UIColor(hex: segment.colorHex)))
-                                .frame(width: availableWidth * (segment.value / totalValue))
-                        }
-                    }
+            let width = min(size.width, preferredWidth)
+            let x = (size.width - width) / 2
+            let ovalHeight = min(preferredOvalHeight, width / 2, size.height)
+            let bodyHeight = max(size.height - ovalHeight, 0)
+            let totalGapHeight = gapHeight * CGFloat(max(segments.count - 1, 0))
+            let valuesHeight = max(bodyHeight - totalGapHeight, 0)
+            var segmentSlices: [(segment: PortfolioInsightSegment, topY: CGFloat, bottomY: CGFloat)] = []
+            var gapSlices: [(topY: CGFloat, bottomY: CGFloat)] = []
+            var currentY = CGFloat(0)
+
+            for index in segments.indices {
+                let isLast = index == segments.index(before: segments.endIndex)
+                let segment = segments[index]
+                let sliceHeight = isLast
+                    ? max(bodyHeight - currentY, 0)
+                    : valuesHeight * CGFloat(segment.value / totalValue)
+                let bottomY = min(currentY + sliceHeight, bodyHeight)
+                segmentSlices.append((segment, currentY, bottomY))
+                currentY = bottomY
+
+                if !isLast {
+                    let gapBottomY = min(currentY + gapHeight, bodyHeight)
+                    gapSlices.append((currentY, gapBottomY))
+                    currentY = gapBottomY
                 }
             }
-            .frame(height: 56)
 
-            if segments.isEmpty,
-               let emptyText
-            {
-                Text(emptyText)
-                    .font(.compactDisplay(size: 13, weight: .medium))
-                    .foregroundStyle(Color.air.secondaryLabel)
-                    .lineLimit(1)
+            for slice in segmentSlices.reversed() {
+                let path = Self.sidePath(
+                    x: x,
+                    width: width,
+                    topY: slice.topY,
+                    bottomY: slice.bottomY,
+                    ovalHeight: ovalHeight
+                )
+                context.fill(path, with: .color(Color(UIColor(hex: slice.segment.colorHex))))
             }
+
+            for slice in gapSlices {
+                let path = Self.sidePath(
+                    x: x,
+                    width: width,
+                    topY: slice.topY,
+                    bottomY: slice.bottomY,
+                    ovalHeight: ovalHeight
+                )
+                context.fill(path, with: .color(Color.air.groupedItem))
+            }
+
+            if let topSegment = segments.first {
+                let topEllipse = Path(ellipseIn: CGRect(x: x, y: 0, width: width, height: ovalHeight))
+                context.fill(topEllipse, with: .color(Color(UIColor(hex: topSegment.colorHex))))
+                context.fill(topEllipse, with: .color(.white.opacity(0.24)))
+            }
+        }
+    }
+
+    private static func sidePath(
+        x: CGFloat,
+        width: CGFloat,
+        topY: CGFloat,
+        bottomY: CGFloat,
+        ovalHeight: CGFloat
+    ) -> Path {
+        let halfOvalHeight = ovalHeight / 2
+        var path = Path()
+        path.move(to: CGPoint(x: x, y: topY + halfOvalHeight))
+        addBottomHalfOval(to: &path, x: x, y: topY, width: width, height: ovalHeight, leftToRight: true)
+        path.addLine(to: CGPoint(x: x + width, y: bottomY + halfOvalHeight))
+        addBottomHalfOval(to: &path, x: x, y: bottomY, width: width, height: ovalHeight, leftToRight: false)
+        path.closeSubpath()
+        return path
+    }
+
+    private static func addBottomHalfOval(
+        to path: inout Path,
+        x: CGFloat,
+        y: CGFloat,
+        width: CGFloat,
+        height: CGFloat,
+        leftToRight: Bool
+    ) {
+        let kappa = CGFloat(0.5522847498)
+        let radiusX = width / 2
+        let radiusY = height / 2
+        let centerX = x + radiusX
+        let centerY = y + radiusY
+        let left = CGPoint(x: x, y: centerY)
+        let right = CGPoint(x: x + width, y: centerY)
+        let bottom = CGPoint(x: centerX, y: y + height)
+
+        if leftToRight {
+            path.addCurve(
+                to: bottom,
+                control1: CGPoint(x: left.x, y: centerY + kappa * radiusY),
+                control2: CGPoint(x: centerX - kappa * radiusX, y: bottom.y)
+            )
+            path.addCurve(
+                to: right,
+                control1: CGPoint(x: centerX + kappa * radiusX, y: bottom.y),
+                control2: CGPoint(x: right.x, y: centerY + kappa * radiusY)
+            )
+        } else {
+            path.addCurve(
+                to: bottom,
+                control1: CGPoint(x: right.x, y: centerY + kappa * radiusY),
+                control2: CGPoint(x: centerX + kappa * radiusX, y: bottom.y)
+            )
+            path.addCurve(
+                to: left,
+                control1: CGPoint(x: centerX - kappa * radiusX, y: bottom.y),
+                control2: CGPoint(x: left.x, y: centerY + kappa * radiusY)
+            )
         }
     }
 }
 
 private struct PortfolioInsightLegendView: View {
     let segments: [PortfolioInsightSegment]
-    let emptyText: String?
-    let displayMode: PortfolioInsightLegendDisplayMode
-    let maxRows: Int
-
-    private var displayedSegments: [PortfolioInsightSegment] {
-        Array(segments.prefix(maxRows))
-    }
-
-    private var totalValue: Double {
-        segments.reduce(0) { $0 + $1.value }
-    }
+    let totalValue: Double
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if displayedSegments.isEmpty {
-                Text(emptyText ?? lang("No data"))
-                    .font(.compactDisplay(size: 13, weight: .medium))
-                    .foregroundStyle(Color.air.secondaryLabel)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                ForEach(displayedSegments) { segment in
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(Color(UIColor(hex: segment.colorHex)))
-                            .frame(width: 8, height: 8)
+        VStack(alignment: .leading, spacing: rowSpacing) {
+            ForEach(segments) { segment in
+                HStack(spacing: 8) {
+                    Text(segment.title)
+                        .font(titleFont)
+                        .foregroundStyle(Color(UIColor(hex: segment.colorHex)))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                        Text(segment.title)
-                            .font(.compactDisplay(size: 13, weight: .medium))
-                            .foregroundStyle(Color.air.primaryLabel)
-                            .lineLimit(1)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                        Text(valueText(for: segment))
-                            .font(.compactDisplay(size: 13, weight: .medium))
-                            .foregroundStyle(Color.air.secondaryLabel)
-                            .lineLimit(1)
-                    }
+                    Text(valueText(for: segment))
+                        .font(valueFont)
+                        .foregroundStyle(Color.air.secondaryLabel)
+                        .lineLimit(1)
                 }
+                .frame(height: rowHeight)
             }
         }
+    }
+
+    private var rowHeight: CGFloat {
+        segments.count > 4 ? 17 : 20
+    }
+
+    private var rowSpacing: CGFloat {
+        segments.count > 4 ? 3 : 8
+    }
+
+    private var titleFont: Font {
+        .system(size: segments.count > 4 ? 13 : 14, weight: .semibold)
+    }
+
+    private var valueFont: Font {
+        .system(size: segments.count > 4 ? 13 : 14, weight: .regular)
     }
 
     private func valueText(for segment: PortfolioInsightSegment) -> String {
-        switch displayMode {
-        case .amounts:
-            return segment.valueText
-        case .percentages:
-            guard totalValue > 0 else {
-                return "0%"
-            }
-            return portfolioInsightPercentageText(segment.value / totalValue)
+        guard totalValue > 0 else {
+            return "0%"
         }
-    }
-}
-
-private struct PortfolioInsightActionButton: View {
-    let title: String
-    let onTap: @MainActor @Sendable () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            Text(title)
-        }
-        .buttonStyle(PortfolioInsightActionButtonStyle())
-    }
-}
-
-private struct PortfolioInsightActionButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(.tint)
-            .padding(.vertical, 7)
-            .padding(.horizontal, 14)
-            .background {
-                Capsule()
-                    .fill(Color(uiColor: UIColor.tintColor).opacity(configuration.isPressed ? 0.16 : 0.10))
-            }
-            .opacity(configuration.isPressed ? 0.9 : 1)
-            .animation(.smooth(duration: 0.16), value: configuration.isPressed)
-    }
-}
-
-private struct PortfolioInsightCardBackground: View {
-    let chrome: PortfolioInsightCardChrome
-    private static let cornerRadius: CGFloat = 16
-    private static let borderWidth: CGFloat = 1.5
-
-    var body: some View {
-        let cardShape = RoundedRectangle(
-            cornerRadius: Self.cornerRadius,
-            style: .continuous
-        )
-
-        switch chrome {
-        case .plain:
-            cardShape
-                .fill(PortfolioInsightCardBackgroundStyle.baseFill)
-        case .plainSecondaryBorder:
-            cardShape
-                .fill(PortfolioInsightCardBackgroundStyle.baseFill)
-                .overlay {
-                    cardShape
-                        .strokeBorder(
-                            PortfolioInsightCardBackgroundStyle.secondaryBorder,
-                            lineWidth: 1
-                        )
-                }
-        case .smart:
-            TimelineView(.animation) { context in
-                let rotationDegrees = PortfolioInsightCardBackgroundStyle.rotationDegrees(at: context.date)
-
-                cardShape
-                    .fill(PortfolioInsightCardBackgroundStyle.baseFill)
-                    .overlay {
-                        cardShape
-                            .fill(PortfolioInsightCardBackgroundStyle.backgroundGradient(rotatedBy: rotationDegrees))
-                            .opacity(0.1)
-                    }
-                    .overlay {
-                        cardShape
-                            .strokeBorder(
-                                PortfolioInsightCardBackgroundStyle.borderGradient(rotatedBy: rotationDegrees),
-                                lineWidth: Self.borderWidth
-                            )
-                    }
-            }
-        }
-    }
-}
-
-private enum PortfolioInsightCardBackgroundStyle {
-    private static let gradientRotationDuration: TimeInterval = 12
-    private static let backgroundBaseAngleDegrees = 27.194
-    private static let backgroundEndpointRadius = 1.1
-
-    static let baseFill = Color(
-        uiColor: UIColor { traitCollection in
-            if traitCollection.userInterfaceStyle == .dark {
-                UIColor(
-                    red: 35.0 / 255.0,
-                    green: 39.0 / 255.0,
-                    blue: 50.0 / 255.0,
-                    alpha: 0.56
-                )
-            } else {
-                UIColor(
-                    red: 233.0 / 255.0,
-                    green: 233.0 / 255.0,
-                    blue: 234.0 / 255.0,
-                    alpha: 0.16
-                )
-            }
-        }
-    )
-
-    static let secondaryBorder = Color.air.secondaryLabel.opacity(0.2)
-
-    static let backgroundGradientStops = Gradient(stops: [
-        .init(color: Color(.sRGB, red: 0, green: 136.0 / 255.0, blue: 1, opacity: 0.5), location: 0),
-        .init(color: Color(.sRGB, red: 0, green: 190.0 / 255.0, blue: 1, opacity: 0.5), location: 0.13),
-        .init(color: Color(.sRGB, red: 182.0 / 255.0, green: 86.0 / 255.0, blue: 1, opacity: 0.2), location: 0.25),
-        .init(color: Color(.sRGB, red: 0, green: 190.0 / 255.0, blue: 1, opacity: 0.2), location: 0.375),
-        .init(color: Color(.sRGB, red: 0, green: 136.0 / 255.0, blue: 1, opacity: 0.2), location: 0.5),
-        .init(color: Color(.sRGB, red: 0, green: 190.0 / 255.0, blue: 1, opacity: 0.5), location: 0.63),
-        .init(color: Color(.sRGB, red: 182.0 / 255.0, green: 86.0 / 255.0, blue: 1, opacity: 0.2), location: 0.75),
-        .init(color: Color(.sRGB, red: 0, green: 190.0 / 255.0, blue: 1, opacity: 0.5), location: 0.88),
-    ])
-
-    static let borderGradientStops = Gradient(stops: [
-        .init(color: Color(.sRGB, red: 0, green: 136.0 / 255.0, blue: 1, opacity: 1), location: 0),
-        .init(color: Color(.sRGB, red: 0, green: 190.0 / 255.0, blue: 1, opacity: 0.5), location: 0.13),
-        .init(color: Color(.sRGB, red: 182.0 / 255.0, green: 86.0 / 255.0, blue: 1, opacity: 0.1), location: 0.25),
-        .init(color: Color(.sRGB, red: 0, green: 190.0 / 255.0, blue: 1, opacity: 0.1), location: 0.375),
-        .init(color: Color(.sRGB, red: 0, green: 136.0 / 255.0, blue: 1, opacity: 0.1), location: 0.5),
-        .init(color: Color(.sRGB, red: 0, green: 190.0 / 255.0, blue: 1, opacity: 0.5), location: 0.63),
-        .init(color: Color(.sRGB, red: 182.0 / 255.0, green: 86.0 / 255.0, blue: 1, opacity: 1), location: 0.75),
-        .init(color: Color(.sRGB, red: 0, green: 190.0 / 255.0, blue: 1, opacity: 1), location: 0.88),
-        .init(color: Color(.sRGB, red: 0, green: 136.0 / 255.0, blue: 1, opacity: 1), location: 1),
-    ])
-
-    static func rotationDegrees(at date: Date) -> Double {
-        let elapsed = date.timeIntervalSinceReferenceDate
-            .truncatingRemainder(dividingBy: gradientRotationDuration)
-        return elapsed / gradientRotationDuration * 360
-    }
-
-    static func backgroundGradient(rotatedBy degrees: Double) -> LinearGradient {
-        let radians = (degrees + backgroundBaseAngleDegrees) * .pi / 180
-        let dx = cos(radians) * backgroundEndpointRadius
-        let dy = sin(radians) * backgroundEndpointRadius
-
-        return LinearGradient(
-            gradient: backgroundGradientStops,
-            startPoint: UnitPoint(x: 0.5 - dx, y: 0.5 - dy),
-            endPoint: UnitPoint(x: 0.5 + dx, y: 0.5 + dy)
-        )
-    }
-
-    static func borderGradient(rotatedBy degrees: Double) -> AngularGradient {
-        AngularGradient(
-            gradient: borderGradientStops,
-            center: .center,
-            startAngle: .degrees(degrees),
-            endAngle: .degrees(degrees + 360)
-        )
+        return portfolioInsightPercentageText(segment.value / totalValue)
     }
 }
 
 private func portfolioInsightPercentageText(_ value: Double) -> String {
-    let percentage = value * 100
-    let formatter = NumberFormatter()
-    formatter.locale = Locale.current
-    formatter.numberStyle = .decimal
-    formatter.minimumFractionDigits = 0
-    formatter.maximumFractionDigits = 1
-    return "\(formatter.string(from: NSNumber(value: percentage)) ?? "0")%"
+    formatPercent(value, decimals: 0, showPlus: false, showMinus: false)
 }

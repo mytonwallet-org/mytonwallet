@@ -141,9 +141,17 @@ object TokenStore : IStore {
         val snapshot = ArrayList(swapAssets ?: emptyList())
         swapCacheJob?.cancel()
         swapCacheJob = cacheScope.launch {
-            val json = tokensToJsonString(snapshot)
-            ensureActive()
-            WCacheStorage.setSwapAssets(json)
+            try {
+                val json = tokensToJsonString(snapshot)
+                ensureActive()
+                WCacheStorage.setSwapAssets(json)
+            } catch (t: OutOfMemoryError) {
+                Logger.e(
+                    Logger.LogTag.MEMORY,
+                    "TokenStore: OOM serializing swap cache: ${t.message}"
+                )
+                WCacheStorage.setSwapAssets(null)
+            }
         }
     }
 
@@ -151,9 +159,17 @@ object TokenStore : IStore {
         val snapshot = ArrayList(tokens.values)
         tokensCacheJob?.cancel()
         tokensCacheJob = cacheScope.launch {
-            val json = tokensToJsonString(snapshot)
-            ensureActive()
-            WCacheStorage.setTokens(json)
+            try {
+                val json = tokensToJsonString(snapshot)
+                ensureActive()
+                WCacheStorage.setTokens(json)
+            } catch (t: OutOfMemoryError) {
+                Logger.e(
+                    Logger.LogTag.MEMORY,
+                    "TokenStore: OOM serializing tokens cache: ${t.message}"
+                )
+                WCacheStorage.setTokens(null)
+            }
         }
     }
 

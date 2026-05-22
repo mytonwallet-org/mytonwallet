@@ -1,3 +1,4 @@
+import Combine
 import UIKit
 import UIComponents
 import WalletCore
@@ -7,6 +8,24 @@ import UIDapp
 public class ExploreTabVC: WViewController {
     private let exploreVC = ExploreVC()
     private let searchView = ExploreSearch()
+    private var cancelBag = Set<AnyCancellable>()
+
+    private lazy var closeSearchBarButton: UIBarButtonItem = {
+        let config = UIImage.SymbolConfiguration(pointSize: 34, weight: .regular)
+            .applying(UIImage.SymbolConfiguration(paletteColors: [.secondaryLabel, .secondarySystemFill]))
+        let image = UIImage(systemName: "xmark.circle.fill", withConfiguration: config)
+
+        let button = UIButton(type: .custom)
+        button.setImage(image, for: .normal)
+        button.backgroundColor = .clear
+        button.addTarget(self, action: #selector(closeSearchButtonTapped), for: .touchUpInside)
+
+        let item = UIBarButtonItem(customView: button)
+        if #available(iOS 26.0, *) {
+            item.hidesSharedBackground = true
+        }
+        return item
+    }()
 
     private static let deeplinkSchemes: Set<String> = ["ton", "tc", TONCONNECT_PROTOCOL_SCHEME, "wc", SELF_PROTOCOL_SCHEME]
     private static var deeplinkUniversalHosts: Set<String> {
@@ -68,8 +87,31 @@ public class ExploreTabVC: WViewController {
             searchView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             searchView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
+
         searchView.viewModel.onChange = { [weak self] in self?.onChange($0) }
         searchView.viewModel.onSubmit = { [weak self] in self?.onSubmit($0) }
+        searchView.viewModel.onActiveChange = { [weak self] isActive in
+            guard let self else { return }
+            self.navigationItem.title = isActive ? nil : lang("Explore")
+            self.navigationItem.setRightBarButton(isActive ? self.closeSearchBarButton : nil, animated: true)
+            self.exploreVC.searchActiveDidChange(isActive)
+        }
+
+        exploreVC.onRecentSearchDidTap
+            .receive(on: DispatchQueue.main)
+            .sink(withUnretained: self) { uSelf, text in
+                uSelf.onSubmit(text)
+            }
+            .store(in: &cancelBag)
+
+        exploreVC.onClearRecentSearchesDidTap
+            .receive(on: DispatchQueue.main)
+            .sink(withUnretained: self) { uSelf, tag in
+                guard let accountId = AccountStore.accountId else { return }
+                RecentSearchStore.shared.clear(accountId: accountId, tag: tag)
+                uSelf.exploreVC.didUpdateViewModelData()
+            }
+            .store(in: &cancelBag)
         
         updateTheme()
     }
@@ -82,8 +124,12 @@ public class ExploreTabVC: WViewController {
         exploreVC.scrollToTop(animated: animated)
     }
     
-    func onChange(_ text: String) {
+    private func onChange(_ text: String) {
         exploreVC.searchTextDidChange(text)
+    }
+
+    @objc private func closeSearchButtonTapped() {
+        searchView.close()
     }
 
     private static func deeplinkURLCandidate(from text: String) -> URL? {
@@ -120,12 +166,14 @@ public class ExploreTabVC: WViewController {
         }
     }
     
-    func onSubmit(_ text: String) {
+    private func onSubmit(_ text: String) {
         @MainActor func error() {
             Haptics.play(.error)
         }
-        
+
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return }
+
         if let deeplinkURL = Self.deeplinkURLCandidate(from: trimmedText) {
             let deeplinkHandled = WalletContextManager.delegate?.handleDeeplink(url: deeplinkURL, source: .exploreSearchBar) ?? false
             if deeplinkHandled {
@@ -143,7 +191,8 @@ public class ExploreTabVC: WViewController {
             var components = URLComponents(string: "https://www.google.com/search")!
             components.queryItems = [URLQueryItem(name: "q", value: urlString)]
             if let url = components.url {
-                AppActions.openInBrowser(url)
+                saveRecentSearch(trimmedText)
+                AppActions.openInBrowser(url, title: nil, injectDappConnect: false, historyTag: exploreHistoryTag)
             }
         } else {
             if !urlString.contains("://") {
@@ -160,8 +209,14 @@ public class ExploreTabVC: WViewController {
                 error()
                 return
             }
-            AppActions.openInBrowser(url)
+            saveRecentSearch(trimmedText)
+            AppActions.openInBrowser(url, title: nil, injectDappConnect: true, historyTag: exploreHistoryTag)
         }
         clearSearchAfterSubmit()
+    }
+
+    private func saveRecentSearch(_ text: String) {
+        guard let accountId = AccountStore.accountId else { return }
+        RecentSearchStore.shared.saveSearch(accountId: accountId, text: text, tag: exploreHistoryTag)
     }
 }

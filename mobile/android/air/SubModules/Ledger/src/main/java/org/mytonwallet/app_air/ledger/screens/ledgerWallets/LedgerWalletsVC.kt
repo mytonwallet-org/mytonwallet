@@ -6,16 +6,17 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import androidx.core.view.isGone
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.ledger.LedgerManager
 import org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells.LedgerLoadMoreCell
 import org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells.LedgerWalletCell
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
-import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
+import org.mytonwallet.app_air.uicomponents.drawable.GradientShaderDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
+import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -27,6 +28,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -45,6 +47,8 @@ class LedgerWalletsVC(
     WRecyclerViewAdapter.WRecyclerViewDataSource, LedgerWalletsVM.Delegate {
     override val TAG = "LedgerWallets"
 
+    override val shouldDisplayBottomBar = !WGlobalStorage.isGradientNavigationBarActive()
+
     data class Item(
         val title: String?,
         val wallet: MLedgerWalletInfo,
@@ -53,6 +57,8 @@ class LedgerWalletsVC(
     )
 
     var items = mutableListOf<Item>()
+    private var animatedBatchStart = Int.MAX_VALUE
+    private var isLoadingMore = false
     private val ledgerWalletsVM by lazy {
         LedgerWalletsVM(this)
     }
@@ -123,11 +129,9 @@ class LedgerWalletsVC(
         rv
     }
 
-    private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
-        ReversedCornerViewUpsideDown(context, recyclerView).apply {
-            if (ignoreSideGuttering)
-                setHorizontalPadding(0f)
-        }
+    private val bottomGradientView = View(context).apply {
+        id = View.generateViewId()
+    }
 
     override fun setupViews() {
         super.setupViews()
@@ -137,7 +141,7 @@ class LedgerWalletsVC(
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         view.addView(
-            bottomReversedCornerViewUpsideDown,
+            bottomGradientView,
             ConstraintLayout.LayoutParams(
                 MATCH_PARENT,
                 MATCH_CONSTRAINT
@@ -163,12 +167,14 @@ class LedgerWalletsVC(
                 continueButton, 20.dp +
                     (navigationController?.getSystemBars()?.bottom ?: 0)
             )
+            toStart(bottomGradientView)
+            toEnd(bottomGradientView)
+            toBottom(bottomGradientView)
             topToTop(
-                bottomReversedCornerViewUpsideDown,
+                bottomGradientView,
                 continueButton,
                 -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
             )
-            toBottom(bottomReversedCornerViewUpsideDown)
         }
 
         updateTheme()
@@ -196,6 +202,18 @@ class LedgerWalletsVC(
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
+        if (WGlobalStorage.isGradientNavigationBarActive()) {
+            bottomGradientView.isGone = false
+            val bgColor = WColor.SecondaryBackground.color
+            val bgColor80 = bgColor.colorWithAlpha(204)
+            val bgColor90 = bgColor.colorWithAlpha(230)
+            bottomGradientView.background = GradientShaderDrawable(
+                intArrayOf(bgColor90 and 0x00FFFFFF, bgColor80, bgColor90),
+                floatArrayOf(0f, 0.1f, 1f)
+            )
+        } else {
+            bottomGradientView.isGone = true
+        }
     }
 
     override fun onDestroy() {
@@ -215,11 +233,18 @@ class LedgerWalletsVC(
             }
         } else {
             WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+            if (importedAccountsCount == 1) {
+                ToastHelper.notifyWalletImported(
+                    viewController = this,
+                    account = AccountStore.activeAccount
+                )
+            }
             window!!.dismissLastNav()
         }
     }
 
     override fun loaded(wallets: List<MLedgerWalletInfo>) {
+        animatedBatchStart = if (isLoadingMore) items.size else Int.MAX_VALUE
         items.addAll(wallets.map { discoveredWallet ->
             val title = accounts.find { it.tonAddress == discoveredWallet.wallet.address }?.name
             return@map Item(
@@ -229,6 +254,7 @@ class LedgerWalletsVC(
                 isAlreadyImported = title != null
             )
         })
+        isLoadingMore = false
         rvAdapter.reloadData()
     }
 
@@ -278,7 +304,10 @@ class LedgerWalletsVC(
             else -> {
                 LedgerLoadMoreCell(context).apply {
                     onTap = {
-                        ledgerWalletsVM.loadMore(network, items.size)
+                        if (!isLoadingMore) {
+                            isLoadingMore = true
+                            ledgerWalletsVM.loadMore(network, items.size)
+                        }
                     }
                 }
             }
@@ -291,7 +320,15 @@ class LedgerWalletsVC(
         indexPath: IndexPath
     ) {
         if (indexPath.section == 0) {
-            (cellHolder.cell as LedgerWalletCell).configure(items[indexPath.row])
+            val item = items[indexPath.row]
+            val isAdded = indexPath.row >= animatedBatchStart
+            (cellHolder.cell as LedgerWalletCell).configure(
+                item,
+                isAdded = isAdded,
+                animationDelay = if (isAdded) 40L * (indexPath.row - animatedBatchStart) else 0L
+            )
+        } else {
+            (cellHolder.cell as LedgerLoadMoreCell).configure(isLoading = isLoadingMore)
         }
     }
 

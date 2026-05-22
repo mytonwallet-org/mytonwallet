@@ -3,6 +3,185 @@ import Perception
 import WalletCore
 import WalletContext
 
+private let portfolioHistoryDiskCacheMaxAge: TimeInterval = 6 * 60 * 60
+
+struct PortfolioHistoryResponses: Codable, Equatable, Sendable {
+    let netWorth: ApiPortfolioHistoryResponse
+    let pnlCumulative: ApiPortfolioHistoryResponse
+    let pnl: ApiPortfolioHistoryResponse
+
+    var hasHistoryScanCursor: Bool {
+        netWorth.historyScanCursor != nil
+            || pnlCumulative.historyScanCursor != nil
+            || pnl.historyScanCursor != nil
+    }
+
+    func normalizedForPortfolioDisplay() -> PortfolioHistoryResponses {
+        PortfolioHistoryResponses(
+            netWorth: netWorth.normalizedForPortfolioDisplay(),
+            pnlCumulative: pnlCumulative,
+            pnl: pnl
+        )
+    }
+}
+
+struct PortfolioOverviewModel: Equatable {
+    let dateRangeText: String?
+    let netChangeText: String?
+    let netChangePercentText: String?
+    let isNetChangePositive: Bool
+}
+
+enum PortfolioTimeRange: String, CaseIterable, Equatable, Hashable, Sendable {
+    case all = "ALL"
+    case year = "1Y"
+    case threeMonths = "3M"
+    case month = "1M"
+    case week = "7D"
+    case day = "1D"
+
+    static let displayOrder: [PortfolioTimeRange] = [
+        .all,
+        .year,
+        .threeMonths,
+        .month,
+        .week,
+        .day,
+    ]
+
+    var title: String {
+        switch self {
+        case .all:
+            lang("All")
+        case .year:
+            lang("Y")
+        case .threeMonths:
+            lang("3M")
+        case .month:
+            lang("M")
+        case .week:
+            lang("W")
+        case .day:
+            lang("D")
+        }
+    }
+
+    var density: String {
+        switch self {
+        case .day:
+            "15m"
+        case .week:
+            "3h"
+        case .all, .year, .threeMonths, .month:
+            "1d"
+        }
+    }
+
+    var historyRequest: ApiPortfolioHistoryRequest {
+        ApiPortfolioHistoryRequest(from: startDate(), density: density)
+    }
+
+    private func startDate(relativeTo now: Date = Date()) -> Date {
+        switch self {
+        case .all:
+            return Self.allStartDate
+        case .year:
+            return Calendar.current.date(byAdding: .year, value: -1, to: now)
+                ?? now.addingTimeInterval(-365 * 24 * 60 * 60)
+        case .threeMonths:
+            return Calendar.current.date(byAdding: .month, value: -3, to: now)
+                ?? now.addingTimeInterval(-90 * 24 * 60 * 60)
+        case .month:
+            return Calendar.current.date(byAdding: .month, value: -1, to: now)
+                ?? now.addingTimeInterval(-30 * 24 * 60 * 60)
+        case .week:
+            return now.addingTimeInterval(-7 * 24 * 60 * 60)
+        case .day:
+            return now.addingTimeInterval(-24 * 60 * 60)
+        }
+    }
+
+    private static let allStartDate: Date = {
+        var components = DateComponents()
+        components.calendar = Calendar(identifier: .gregorian)
+        components.timeZone = TimeZone(secondsFromGMT: 0)
+        components.year = 2020
+        components.month = 1
+        components.day = 1
+        return components.date ?? Date(timeIntervalSince1970: 1_577_836_800)
+    }()
+}
+
+private struct PortfolioHistoryDiskCacheKey: Sendable {
+    let accountId: String
+    let network: ApiNetwork
+    let baseCurrency: MBaseCurrency
+    let range: PortfolioTimeRange
+    let density: String
+
+    var fileName: String {
+        [
+            "v1",
+            accountId,
+            network.rawValue,
+            baseCurrency.rawValue,
+            range.rawValue,
+            density,
+        ]
+            .map(Self.sanitizedFileNamePart)
+            .joined(separator: "_")
+            + ".json"
+    }
+
+    private static func sanitizedFileNamePart(_ value: String) -> String {
+        let allowedCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        let sanitizedValue = value.unicodeScalars
+            .map { allowedCharacters.contains($0) ? String($0) : "_" }
+            .joined()
+        return sanitizedValue.isEmpty ? "_" : sanitizedValue
+    }
+}
+
+private struct PortfolioHistoryDiskCacheEntry: Codable, Sendable {
+    let storedAt: Date
+    let responses: PortfolioHistoryResponses
+}
+
+private actor PortfolioHistoryDiskCache {
+    static let shared = PortfolioHistoryDiskCache()
+
+    private let directoryURL = URL.cachesDirectory.appending(components: "air", "portfolio-history")
+    private let decoder = JSONDecoder()
+    private let encoder = JSONEncoder()
+
+    func load(key: PortfolioHistoryDiskCacheKey, maxAge: TimeInterval) -> PortfolioHistoryResponses? {
+        let url = directoryURL.appendingPathComponent(key.fileName, isDirectory: false)
+
+        do {
+            let data = try Data(contentsOf: url)
+            let entry = try decoder.decode(PortfolioHistoryDiskCacheEntry.self, from: data)
+            guard abs(entry.storedAt.timeIntervalSinceNow) <= maxAge else {
+                try? FileManager.default.removeItem(at: url)
+                return nil
+            }
+            return entry.responses
+        } catch {
+            try? FileManager.default.removeItem(at: url)
+            return nil
+        }
+    }
+
+    func save(_ responses: PortfolioHistoryResponses, key: PortfolioHistoryDiskCacheKey) {
+        do {
+            try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            let entry = PortfolioHistoryDiskCacheEntry(storedAt: Date(), responses: responses)
+            let data = try encoder.encode(entry)
+            try data.write(to: directoryURL.appendingPathComponent(key.fileName, isDirectory: false), options: .atomic)
+        } catch {
+        }
+    }
+}
+
 @MainActor
 @Perceptible
 final class PortfolioVM: Sendable {
@@ -10,9 +189,11 @@ final class PortfolioVM: Sendable {
     @AccountContext private var account: MAccount
 
     let accountContext: AccountContext
-    private(set) var response: ApiPortfolioHistoryResponse?
+    private(set) var responses: PortfolioHistoryResponses?
+    private(set) var selectedRange: PortfolioTimeRange = .threeMonths
     private(set) var isLoading = false
     private(set) var isRefreshing = false
+    private(set) var isShowingStaleRangeData = false
     private(set) var errorText: String?
     private(set) var chartDataToken = 0
 
@@ -24,7 +205,8 @@ final class PortfolioVM: Sendable {
     private var hasLoaded = false
     @PerceptionIgnored
     private var historyRefreshAttempts = 0
-    private let localInsightChrome: PortfolioInsightCardChrome = .plainSecondaryBorder
+    @PerceptionIgnored
+    private var cachedResponses: [PortfolioTimeRange: PortfolioHistoryResponses] = [:]
 
     init(accountContext: AccountContext) {
         self.accountContext = accountContext
@@ -51,13 +233,61 @@ final class PortfolioVM: Sendable {
         return cards
     }
 
+    var overview: PortfolioOverviewModel {
+        makeOverviewFromHistory()
+            ?? makeOverviewFromBalanceChange()
+            ?? PortfolioOverviewModel(
+                dateRangeText: nil,
+                netChangeText: nil,
+                netChangePercentText: nil,
+                isNetChangePositive: true
+            )
+    }
+
     func loadIfNeeded() {
         guard !hasLoaded else { return }
+        hasLoaded = true
+        load(
+            range: selectedRange,
+            resetHistoryRefreshAttempts: true,
+            useCache: true,
+            readsDiskCache: true
+        )
+    }
+
+    func selectRange(_ range: PortfolioTimeRange) {
+        guard selectedRange != range else { return }
+        let previousRange = selectedRange
+        let shouldDimCurrentData = responses != nil && cachedResponses[range] == nil
+        selectedRange = range
+        load(
+            range: range,
+            resetHistoryRefreshAttempts: true,
+            useCache: true,
+            readsDiskCache: true,
+            fadesCurrentResponsesWhileLoading: shouldDimCurrentData,
+            fallbackRangeOnError: previousRange
+        )
+    }
+
+    func reload(resetHistoryRefreshAttempts: Bool) {
+        load(range: selectedRange, resetHistoryRefreshAttempts: resetHistoryRefreshAttempts, useCache: false)
+    }
+
+    private func reloadAfterDataChange() {
+        cachedResponses.removeAll()
         hasLoaded = true
         reload(resetHistoryRefreshAttempts: true)
     }
 
-    func reload(resetHistoryRefreshAttempts: Bool) {
+    private func load(
+        range: PortfolioTimeRange,
+        resetHistoryRefreshAttempts: Bool,
+        useCache: Bool,
+        readsDiskCache: Bool = false,
+        fadesCurrentResponsesWhileLoading: Bool = false,
+        fallbackRangeOnError: PortfolioTimeRange? = nil
+    ) {
         loadTask?.cancel()
         historyRefreshTask?.cancel()
 
@@ -65,34 +295,110 @@ final class PortfolioVM: Sendable {
             historyRefreshAttempts = 0
         }
 
+        if useCache, let responses = cachedResponses[range] {
+            apply(
+                responses: responses,
+                for: range,
+                resetHistoryRefreshAttempts: resetHistoryRefreshAttempts,
+                scheduleRefresh: false,
+                savesToDiskCache: false,
+                diskCacheKey: nil
+            )
+            return
+        }
+
         let wallets = portfolioWallets
         guard !wallets.isEmpty else {
-            response = nil
+            responses = nil
             isLoading = false
             isRefreshing = false
+            isShowingStaleRangeData = false
             errorText = lang("Unavailable")
             chartDataToken &+= 1
             return
         }
 
-        beginLoading()
+        beginLoading(fadesCurrentResponsesWhileLoading: fadesCurrentResponsesWhileLoading)
+        let historyRequest = range.historyRequest
+        let baseCurrency = TokenStore.baseCurrency
+        let diskCacheKey = makeDiskCacheKey(range: range, baseCurrency: baseCurrency)
 
         loadTask = Task { [weak self] in
             guard let self else { return }
 
+            if readsDiskCache,
+               cachedResponses[range] == nil,
+               let cachedResponses = await PortfolioHistoryDiskCache.shared.load(
+                key: diskCacheKey,
+                maxAge: portfolioHistoryDiskCacheMaxAge
+               ) {
+                guard !Task.isCancelled else { return }
+                apply(
+                    responses: cachedResponses,
+                    for: range,
+                    resetHistoryRefreshAttempts: resetHistoryRefreshAttempts,
+                    scheduleRefresh: false,
+                    savesToDiskCache: false,
+                    diskCacheKey: nil
+                )
+                beginLoading(fadesCurrentResponsesWhileLoading: false)
+            }
+
             do {
-                let response = try await Api.fetchPortfolioNetWorthHistory(
+                async let netWorthResponse = Api.fetchPortfolioNetWorthHistory(
                     wallets: wallets,
-                    baseCurrency: TokenStore.baseCurrency
+                    baseCurrency: baseCurrency,
+                    historyRequest: historyRequest
+                )
+                async let pnlCumulativeResponse = Api.fetchPortfolioPnlCumulativeHistory(
+                    wallets: wallets,
+                    baseCurrency: baseCurrency,
+                    historyRequest: historyRequest
+                )
+                async let pnlResponse = Api.fetchPortfolioPnlHistory(
+                    wallets: wallets,
+                    baseCurrency: baseCurrency,
+                    historyRequest: historyRequest
+                )
+                let (netWorth, pnlCumulative, pnl) = try await (
+                    netWorthResponse,
+                    pnlCumulativeResponse,
+                    pnlResponse
                 )
                 guard !Task.isCancelled else { return }
 
-                apply(response: response, resetHistoryRefreshAttempts: resetHistoryRefreshAttempts)
+                apply(
+                    responses: PortfolioHistoryResponses(
+                        netWorth: netWorth,
+                        pnlCumulative: pnlCumulative,
+                        pnl: pnl
+                    ),
+                    for: range,
+                    resetHistoryRefreshAttempts: resetHistoryRefreshAttempts,
+                    diskCacheKey: diskCacheKey
+                )
             } catch {
                 guard !Task.isCancelled else { return }
-                handleLoadError(error)
+                handleLoadError(
+                    error,
+                    failedRange: range,
+                    fallbackRangeOnError: cachedResponses[range] == nil ? fallbackRangeOnError : nil
+                )
             }
         }
+    }
+
+    private func makeDiskCacheKey(
+        range: PortfolioTimeRange,
+        baseCurrency: MBaseCurrency
+    ) -> PortfolioHistoryDiskCacheKey {
+        PortfolioHistoryDiskCacheKey(
+            accountId: account.id,
+            network: account.network,
+            baseCurrency: baseCurrency,
+            range: range,
+            density: range.density
+        )
     }
 
     private var portfolioWallets: [String] {
@@ -109,8 +415,7 @@ final class PortfolioVM: Sendable {
 
     private var backendSupportedPortfolioChains: [ApiChain] {
         ApiChain.allCases.filter { chain in
-            chain.isNetWorthSupported
-                && account.supports(chain: chain)
+            account.supports(chain: chain)
                 && account.getAddress(chain: chain)?.nilIfEmpty != nil
         }
     }
@@ -132,7 +437,7 @@ final class PortfolioVM: Sendable {
                     title: chain.title,
                     value: value,
                     valueText: formatBaseValue(value),
-                    colorHex: PortfolioPalette.chainColor(for: chain)
+                    colorHex: PortfolioPalette.barrelChainColor(for: chain)
                 )
             }
             .sorted { $0.value > $1.value }
@@ -143,9 +448,7 @@ final class PortfolioVM: Sendable {
             id: .chainSplit,
             title: lang("By Chain"),
             segments: visibleSegments,
-            emptyText: lang("No chain balances"),
-            action: fundAction,
-            chrome: localInsightChrome
+            emptyText: lang("No chain balances")
         )
     }
 
@@ -180,11 +483,11 @@ final class PortfolioVM: Sendable {
             var colorHex: String {
                 switch self {
                 case .native:
-                    return PortfolioPalette.native
+                    return PortfolioPalette.barrelNative
                 case .stablecoins:
-                    return PortfolioPalette.stable
+                    return PortfolioPalette.barrelStable
                 case .altcoins:
-                    return PortfolioPalette.altcoins
+                    return PortfolioPalette.barrelAltcoins
                 }
             }
         }
@@ -228,9 +531,7 @@ final class PortfolioVM: Sendable {
             id: .assetClasses,
             title: lang("Asset Mix"),
             segments: segments,
-            emptyText: lang("No asset balances"),
-            action: swapAction,
-            chrome: localInsightChrome
+            emptyText: lang("No asset balances")
         )
     }
 
@@ -250,14 +551,14 @@ final class PortfolioVM: Sendable {
                 title: lang("Staked"),
                 value: stakedValue,
                 valueText: formatBaseValue(stakedValue),
-                colorHex: PortfolioPalette.stable
+                colorHex: PortfolioPalette.barrelStable
             ),
             PortfolioInsightSegment(
                 id: "unstaked",
                 title: lang("Not staked"),
                 value: unstakedValue,
                 valueText: formatBaseValue(unstakedValue),
-                colorHex: PortfolioPalette.native
+                colorHex: PortfolioPalette.barrelNative
             ),
         ]
         .filter { $0.value > 0 }
@@ -267,34 +568,8 @@ final class PortfolioVM: Sendable {
             id: .staked,
             title: lang("Staked"),
             segments: segments,
-            emptyText: lang("No staked assets"),
-            action: earnAction,
-            chrome: localInsightChrome
+            emptyText: lang("No staked assets")
         )
-    }
-
-    private var fundAction: PortfolioInsightCardModel.Action? {
-        guard !account.isView else {
-            return nil
-        }
-
-        return .init(kind: .fund, title: lang("Fund"))
-    }
-
-    private var swapAction: PortfolioInsightCardModel.Action? {
-        guard account.supportsSwap else {
-            return nil
-        }
-
-        return .init(kind: .swap, title: lang("Swap"))
-    }
-
-    private var earnAction: PortfolioInsightCardModel.Action? {
-        guard account.supportsEarn else {
-            return nil
-        }
-
-        return .init(kind: .earn, title: lang("Earn"))
     }
 
     private func formatBaseValue(_ value: Double) -> String {
@@ -311,21 +586,102 @@ final class PortfolioVM: Sendable {
             .uppercased()
             .replacingOccurrences(of: "₮", with: "T")
 
-        if symbol.contains("USD") {
-            return true
-        }
-
-        if let priceUsd = token.priceUsd,
-           (0.95...1.05).contains(priceUsd)
-        {
-            return true
-        }
-
-        return false
+        return symbol.contains("USD")
+            && token.priceUsd.map { (0.95...1.05).contains($0) } == true
     }
 
-    private func beginLoading() {
-        if response == nil {
+    private func makeOverviewFromHistory() -> PortfolioOverviewModel? {
+        guard let response = responses?.netWorth else {
+            return nil
+        }
+
+        let points = makeTotalHistoryPoints(response)
+        guard let start = points.first,
+              let latest = points.last,
+              start.timestamp < latest.timestamp
+        else {
+            return nil
+        }
+
+        let baseCurrency = MBaseCurrency(rawValue: response.base.uppercased()) ?? TokenStore.baseCurrency
+        let netChange = latest.value - start.value
+        let netChangePercent = start.value > 0 ? netChange / start.value : nil
+        let formatter = MtwChartDateFormatter(
+            rangeAlwaysShowsYear: true,
+            omitsCurrentYearInSingleDate: false
+        )
+
+        return PortfolioOverviewModel(
+            dateRangeText: formatter.rangeString(
+                from: Date(timeIntervalSince1970: start.timestamp),
+                to: Date(timeIntervalSince1970: latest.timestamp)
+            ),
+            netChangeText: BaseCurrencyAmount.fromDouble(netChange, baseCurrency)
+                .formatted(.baseCurrencyEquivalent, showPlus: true, roundHalfUp: true),
+            netChangePercentText: netChangePercent.map {
+                formatPercent($0, decimals: 0, showPlus: false)
+            },
+            isNetChangePositive: netChange >= 0
+        )
+    }
+
+    private func makeOverviewFromBalanceChange() -> PortfolioOverviewModel? {
+        guard let balance = accountContext.balance,
+              let balance24h = accountContext.balance24h,
+              balance.amount > 0,
+              balance24h.amount > 0
+        else {
+            return nil
+        }
+
+        let netChange = BaseCurrencyAmount(balance.amount - balance24h.amount, balance.baseCurrency)
+        let isPositive = netChange.amount >= 0
+
+        return PortfolioOverviewModel(
+            dateRangeText: nil,
+            netChangeText: netChange.formatted(.baseCurrencyEquivalent, showPlus: true, roundHalfUp: true),
+            netChangePercentText: accountContext.balanceChange.map {
+                formatPercent($0, decimals: 0, showPlus: false)
+            },
+            isNetChangePositive: isPositive
+        )
+    }
+
+    private func makeTotalHistoryPoints(_ response: ApiPortfolioHistoryResponse) -> [(timestamp: TimeInterval, value: Double)] {
+        if let points = response.points?.compactMap(Self.historyPoint(from:)), !points.isEmpty {
+            return points.sorted { $0.timestamp < $1.timestamp }
+        }
+
+        var valuesByTimestamp: [TimeInterval: Double] = [:]
+        for dataset in response.datasets ?? [] {
+            for point in dataset.points {
+                guard let point = Self.historyPoint(from: point) else {
+                    continue
+                }
+                valuesByTimestamp[point.timestamp, default: 0] += point.value
+            }
+        }
+
+        return valuesByTimestamp
+            .map { (timestamp: $0.key, value: $0.value) }
+            .sorted { $0.timestamp < $1.timestamp }
+    }
+
+    private static func historyPoint(from point: [Double?]) -> (timestamp: TimeInterval, value: Double)? {
+        guard point.count >= 2,
+              let timestamp = point[0],
+              let value = point[1]
+        else {
+            return nil
+        }
+
+        return (timestamp, value)
+    }
+
+    private func beginLoading(fadesCurrentResponsesWhileLoading: Bool) {
+        isShowingStaleRangeData = responses != nil && fadesCurrentResponsesWhileLoading
+
+        if responses == nil {
             isLoading = true
             errorText = nil
         } else {
@@ -333,11 +689,31 @@ final class PortfolioVM: Sendable {
         }
     }
 
-    private func apply(response: ApiPortfolioHistoryResponse, resetHistoryRefreshAttempts: Bool) {
-        let normalizedResponse = response.normalizedForPortfolioDisplay()
-        self.response = normalizedResponse
+    private func apply(
+        responses: PortfolioHistoryResponses,
+        for range: PortfolioTimeRange,
+        resetHistoryRefreshAttempts: Bool,
+        scheduleRefresh: Bool = true,
+        savesToDiskCache: Bool = true,
+        diskCacheKey: PortfolioHistoryDiskCacheKey? = nil
+    ) {
+        let normalizedResponses = responses.normalizedForPortfolioDisplay()
+        cachedResponses[range] = normalizedResponses
+
+        if savesToDiskCache, let diskCacheKey {
+            Task.detached(priority: .background) {
+                await PortfolioHistoryDiskCache.shared.save(normalizedResponses, key: diskCacheKey)
+            }
+        }
+
+        guard selectedRange == range else {
+            return
+        }
+
+        self.responses = normalizedResponses
         isLoading = false
         isRefreshing = false
+        isShowingStaleRangeData = false
         errorText = nil
         chartDataToken &+= 1
 
@@ -345,22 +721,35 @@ final class PortfolioVM: Sendable {
             historyRefreshAttempts = 0
         }
 
-        scheduleHistoryRefreshIfNeeded()
+        if scheduleRefresh {
+            scheduleHistoryRefreshIfNeeded(for: range)
+        }
     }
 
-    private func handleLoadError(_ error: Error) {
+    private func handleLoadError(
+        _ error: Error,
+        failedRange: PortfolioTimeRange,
+        fallbackRangeOnError: PortfolioTimeRange?
+    ) {
+        if let fallbackRangeOnError,
+           selectedRange == failedRange
+        {
+            selectedRange = fallbackRangeOnError
+        }
+
         isLoading = false
         isRefreshing = false
+        isShowingStaleRangeData = false
 
-        if response == nil {
+        if responses == nil {
             errorText = (error as? DisplayError)?.text ?? error.localizedDescription
         }
     }
 
-    private func scheduleHistoryRefreshIfNeeded() {
+    private func scheduleHistoryRefreshIfNeeded(for range: PortfolioTimeRange) {
         historyRefreshTask?.cancel()
 
-        guard response?.historyScanCursor != nil,
+        guard responses?.hasHistoryScanCursor == true,
               historyRefreshAttempts < 6
         else {
             return
@@ -372,7 +761,7 @@ final class PortfolioVM: Sendable {
             guard let self else { return }
             try? await Task.sleep(for: .seconds(8))
             guard !Task.isCancelled else { return }
-            reload(resetHistoryRefreshAttempts: false)
+            load(range: range, resetHistoryRefreshAttempts: false, useCache: false)
         }
     }
 }
@@ -382,14 +771,14 @@ extension PortfolioVM: WalletCoreData.EventsObserver {
         switch event {
         case .accountChanged:
             if $account.source == .current {
-                reload(resetHistoryRefreshAttempts: true)
+                reloadAfterDataChange()
             }
         case .rawBalancesChanged(let accountId):
             if accountId == $account.accountId {
-                reload(resetHistoryRefreshAttempts: true)
+                reloadAfterDataChange()
             }
         case .baseCurrencyChanged:
-            reload(resetHistoryRefreshAttempts: true)
+            reloadAfterDataChange()
         default:
             break
         }

@@ -144,7 +144,7 @@ class PercentChartComponentController: GeneralChartComponentController {
             title: strings.total,
             rawValue: Double(total),
             color: .white,
-            isVisible: !items.isEmpty && (!hidesZeroDetailsRows || total > 0)
+            isVisible: !items.isEmpty && (!hidesZeroDetailsRows || abs(total) > Double.ulpOfOne)
         ))
         let showPrefixes = values.contains { value in
             guard let prefix = value.prefix else {

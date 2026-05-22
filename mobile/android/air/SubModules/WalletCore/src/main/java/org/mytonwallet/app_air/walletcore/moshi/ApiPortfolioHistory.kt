@@ -2,7 +2,7 @@ package org.mytonwallet.app_air.walletcore.moshi
 
 import com.squareup.moshi.JsonClass
 
-typealias ApiHistoryList = List<List<Double>>
+typealias ApiHistoryList = List<List<Double?>>
 
 @JsonClass(generateAdapter = true)
 data class ApiPortfolioHistoryResponse(
@@ -38,7 +38,8 @@ private fun ApiPortfolioHistoryDataset.normalizedForPortfolioDisplay(
 ): ApiPortfolioHistoryDataset {
     return copy(
         points = points.map { point ->
-            if (point.size < 2 || point[1] >= minimumValue) {
+            val value = point.getOrNull(1)
+            if (point.size < 2 || value == null || value >= minimumValue) {
                 point
             } else {
                 point.toMutableList().apply { this[1] = 0.0 }

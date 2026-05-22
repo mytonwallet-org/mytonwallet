@@ -1,9 +1,3 @@
-//
-//  AccountTypePickerView.swift
-//  AirAsFramework
-//
-//  Created by nikstar on 25.08.2025.
-//
 
 import SwiftUI
 import WalletContext
@@ -11,79 +5,89 @@ import WalletCore
 import UIComponents
 import UIPasscode
 import Ledger
+import Perception
 
 struct AccountTypePickerView: View {
-    
+
     var network: ApiNetwork
-    var showCreateWallet: Bool
-    var showSwitchToOtherVersionIfAvailable: Bool
     var onHeightChange: (CGFloat) -> ()
-    
+
     @Environment(\.dismiss) var dismiss
-    
+
     var body: some View {
-        VStack(spacing: 24) {
-            if network == .testnet {
-                Text("Testnet")
-                    .font(.system(size: 17, weight: .bold))
-                    .frame(maxWidth: .infinity)
-                    .offset(y: -4)
-            }
-            
-            if showCreateWallet {
-                InsetSection(dividersInset: 50) {
-                    Item(icon: "CreateWalletIcon30", text: lang("Create New Wallet"), additionalPadding: true, onTap: onCreate)
-                }
-                HStack(spacing: 12) {
-                    Divider()
-                    Text(lang("or import from"))
-                    Divider()
-                }
-                .frame(height: 22)
-                .foregroundStyle(Color.air.secondaryLabel)
+        WithPerceptionTracking {
+            ScrollView {
+                VStack(spacing: 0) {
+                    InsetSection(addDividers: false) {
+                        WalletPickerOptionRow(
+                            icon: "CreateWalletIcon30",
+                            title: lang("New Wallet"),
+                            subtitle: lang("From new secret words"),
+                            showsDivider: canCreateSubwallet,
+                            onTap: onCreate
+                        )
 
-            }
-
-            InsetSection(dividersInset: 50) {
-                Item(icon: "KeyIcon30", text: lang("%counts% Secret Words", arg1: "12/24"), onTap: onImport)
-                if network == .mainnet {
-                    Item(icon: "LedgerIcon30", text: "Ledger", onTap: onLedger)
-                }
-            }
-
-            InsetSection(dividersInset: 50) {
-                Item(icon: "ViewIcon30", text: lang("View Any Address"), additionalPadding: true, onTap: onView)
-            }
-            
-            if showSwitchToOtherVersionIfAvailable, let count = AccountStore.walletVersionsData?.versions.count, count > 0 {
-                Text(langMd(
-                    "$wallet_switch_version_1", arg1: "[\(lang("$wallet_switch_version_2"))](mock)"
-                ))
-                    .font(.system(size: 14))
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, -16)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(Color.air.secondaryLabel)
-                    .environment(\.openURL, OpenURLAction { _ in
-                        onWalletVersion()
-                        return .handled
-                    })
-                    .padding(.vertical, 10)
-                    .contentShape(.rect)
-                    .onTapGesture {
-                        onWalletVersion()
+                        if canCreateSubwallet {
+                            WalletPickerOptionRow(
+                                icon: "NewSubwalletIcon30",
+                                title: lang("New Subwallet"),
+                                subtitle: lang("From current secret words"),
+                                onTap: onCreateSubwallet
+                            )
+                        }
                     }
-                    .padding(.vertical, -10)
+
+                    WalletPickerSectionTitle()
+
+                    InsetSection(addDividers: false) {
+                        WalletPickerOptionRow(
+                            icon: "KeyIcon30",
+                            title: lang("$secret_words"),
+                            subtitle: lang("Restore wallet from 12 or 24 words"),
+                            showsDivider: network == .mainnet,
+                            onTap: onImport
+                        )
+                        if network == .mainnet {
+                            WalletPickerOptionRow(
+                                icon: "LedgerIcon30",
+                                title: lang("Ledger"),
+                                subtitle: lang("Connect your hardware wallet"),
+                                onTap: onLedger
+                            )
+                        }
+                    }
+
+                    InsetSection(addDividers: false) {
+                        WalletPickerOptionRow(
+                            icon: "ViewIcon30",
+                            title: lang("View Any Address"),
+                            subtitle: lang("Watch wallet in read-only mode"),
+                            onTap: onView
+                        )
+                    }
+                    .padding(.top, 24)
+                }
+                .padding(.top, 20)
+                .padding(.bottom, 24)
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
+                    onHeightChange(height)
+                }
             }
-        }
-        .padding(.top, 8)
-        .padding(.bottom, 32)
-        .fixedSize(horizontal: false, vertical: true)
-        .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
-            onHeightChange(height)
+            .ignoresSafeArea(.container, edges: .bottom)
+            .backportScrollBounceBehaviorBasedOnSize()
         }
     }
-    
+
+    private var canCreateSubwallet: Bool {
+        guard let account = AccountStore.account, account.type == .mnemonic, account.network == network else {
+            return false
+        }
+
+        return account.orderedChains.contains { chain, _ in
+            account.supportsSubwallets(on: chain)
+        }
+    }
+
     func onCreate() {
         dismiss()
         if let vc = topViewController() {
@@ -102,6 +106,34 @@ struct AccountTypePickerView: View {
             }, cancellable: true)
         }
     }
+
+    func onCreateSubwallet() {
+        dismiss()
+        if let vc = topViewController() {
+            UnlockVC.presentAuth(on: vc, onDone: { passcode in
+                Task { @MainActor in
+                    guard let passcode else { return }
+                    do {
+                        let account = try await AccountStore.createSubWallet(password: passcode)
+                        AppActions.showHome(popToRoot: true)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                            AppActions.showToast(
+                                style: .large,
+                                icon: .symbolImage("plus"),
+                                message: lang("Subwallet Created"),
+                                actionTitle: lang("Set Name")
+                            ) {
+                                AppActions.showRenameAccount(accountId: account.id)
+                            }
+                        }
+                    } catch {
+                        AppActions.showError(error: error)
+                    }
+                }
+            }, cancellable: true)
+        }
+    }
+
     func onImport() {
         dismiss()
         if let vc = topViewController() {
@@ -115,6 +147,7 @@ struct AccountTypePickerView: View {
             }, cancellable: true)
         }
     }
+
     func onLedger() {
         dismiss()
         if let vc = topViewController() {
@@ -128,7 +161,7 @@ struct AccountTypePickerView: View {
                         introModel.onDone(
                             successKind: .imported,
                             hadExistingAccounts: hadExistingAccounts,
-                            importedAccountsCount: model.importedAccountsCount
+                            accountIds: model.importedAccountIds
                         )
                     }
                     let navVC = WNavigationController(rootViewController: importWalletVC)
@@ -137,48 +170,11 @@ struct AccountTypePickerView: View {
             }, cancellable: true)
         }
     }
+
     func onView() {
         dismiss()
         let vc = AddViewWalletVC(introModel: IntroModel(network: network, password: nil))
         let navVC = WNavigationController(rootViewController: vc)
         topViewController()?.present(navVC, animated: true)
-    }
-    
-    func onWalletVersion() {
-        dismiss()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            AppActions.showImportWalletVersion()
-        }
-    }
-}
-
-
-private struct Item: View {
-    
-    var icon: String
-    var text: String
-    var additionalPadding: Bool = false
-    var onTap: () -> ()
-    
-    var body: some View {
-        InsetButtonCell(verticalPadding: additionalPadding ? 9 : 7, action: onTap) {
-            HStack(spacing: 16) {
-                Image.airBundle(icon)
-                    .clipShape(.rect(cornerRadius: 8))
-                Text(text)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Image.airBundle("RightArrowIcon")
-            }
-            .foregroundStyle(Color.air.primaryLabel)
-            .backportGeometryGroup()
-        }
-    }
-}
-
-private struct Divider: View {
-    var body: some View {
-        Capsule()
-            .frame(width: 64, height: 0.667)
-            .offset(y: 1.333)
     }
 }

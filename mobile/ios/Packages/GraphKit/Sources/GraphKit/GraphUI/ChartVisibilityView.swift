@@ -15,10 +15,14 @@ private enum Constants {
     static let insets = UIEdgeInsets(top: 0, left: 16, bottom: 16, right: 16)
 }
 
-public func calculateVisiblityHeight(width: CGFloat, items: [ChartVisibilityItem]) -> CGFloat {
+public func calculateVisiblityHeight(
+    width: CGFloat,
+    items: [ChartVisibilityItem],
+    bottomInset: CGFloat = 16
+) -> CGFloat {
     let frames = generateItemsFrames(frame: CGRect(origin: CGPoint(), size: CGSize(width: width, height: CGFloat.greatestFiniteMagnitude)), items: items)
     guard let lastFrame = frames.last else { return .zero }
-    return lastFrame.maxY + Constants.insets.bottom
+    return lastFrame.maxY + bottomInset
 }
 
 private func generateItemsFrames(frame: CGRect, items: [ChartVisibilityItem]) -> [CGRect] {

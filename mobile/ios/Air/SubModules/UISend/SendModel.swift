@@ -112,7 +112,7 @@ public final class SendModel: Sendable {
     
     private static func getBestToken(accountContext: AccountContext) -> String {
         let account = accountContext.account
-        let preferredTokenSlug = ApiToken.defaultSlugs(forNetwork: account.network, account: account).first ?? ApiToken.toncoin.slug
+        let preferredTokenSlug = ApiToken.defaultSlugs(forNetwork: account.network, account: account).first ?? TONCOIN_SLUG
         
         var maxBalance: Double = 0.0
         var tokens: [String: Double] = [:]
@@ -147,7 +147,8 @@ public final class SendModel: Sendable {
         }
         self._token = TokenProvider(tokenSlug: tokenSlug)
 
-        addressInput = AddressInputModel(account: _account, token: _token)
+        let suggestionFilterChain = prefilledValues.mode == .burnNft ? nil : prefilledValues.nfts?.first?.chain
+        addressInput = AddressInputModel(account: _account, token: _token, suggestionFilterChain: suggestionFilterChain)
 
         do {
             if let address = prefilledValues.address {

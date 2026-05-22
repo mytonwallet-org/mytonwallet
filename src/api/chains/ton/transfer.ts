@@ -38,10 +38,10 @@ import { getToncoinAmountForTransfer } from '../../../util/fee/getTonOperationFe
 import { explainApiTransferFee, getDieselTokenAmount, isDieselAvailable } from '../../../util/fee/transferFee';
 import { omit, pick, split } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
-import { pause } from '../../../util/schedulers';
 import { getNativeToken } from '../../../util/tokens';
 import { getMaxMessagesInTransaction } from '../../../util/ton/transfer';
 import { parsePayloadSlice } from './util/metadata';
+import { waitUntilWalletSeqnoChanges } from './util/sendBocRetry';
 import { sendExternal } from './util/sendExternal';
 import { getSigner } from './util/signer';
 import {
@@ -490,7 +490,7 @@ export async function submitGasfullTransfer(
         }
 
         const client = getTonClient(network);
-        const { msgHash, boc, msgHashNormalized } = await sendExternal(
+        const { msgHash, msgHashNormalized } = await sendExternal(
           client,
           wallet,
           transaction,
@@ -500,7 +500,7 @@ export async function submitGasfullTransfer(
 
         finalizeInBackground(async () => {
           try {
-            await retrySendBoc(network, fromAddress, boc, seqno);
+            await waitForWalletSeqnoChange(network, fromAddress, seqno);
           } finally {
             clearTransferInFlight(network, fromAddress);
           }
@@ -919,7 +919,7 @@ export async function submitMultiTransfer({
         if (!isGasless) {
           finalizeInBackground(async () => {
             try {
-              await retrySendBoc(network, fromAddress, boc, seqno);
+              await waitForWalletSeqnoChange(network, fromAddress, seqno);
             } finally {
               clearTransferInFlight(network, fromAddress);
             }
@@ -1079,33 +1079,13 @@ async function signTransactions({
   }));
 }
 
-async function retrySendBoc(
-  network: ApiNetwork,
-  address: string,
-  boc: string,
-  seqno: number,
-) {
-  const tonClient = getTonClient(network);
-  const waitUntil = Date.now() + WAIT_TRANSFER_TIMEOUT;
-
-  while (Date.now() < waitUntil) {
-    const [error, walletInfo] = await Promise.all([
-      tonClient.sendFile(boc).catch((err) => String(err)),
-      getWalletInfo(network, address).catch(() => undefined),
-    ]);
-
-    // Errors mean that `seqno` was changed or not enough of balance
-    if (error?.match(/(exitcode=33|exitcode=133|inbound external message rejected by account)/)) {
-      break;
-    }
-
-    // seqno here may change before exit code appears
-    if (walletInfo && walletInfo.seqno > seqno) {
-      break;
-    }
-
-    await pause(WAIT_PAUSE);
-  }
+async function waitForWalletSeqnoChange(network: ApiNetwork, address: string, seqno: number) {
+  return waitUntilWalletSeqnoChanges({
+    getWalletSeqno: async () => (await getWalletInfo(network, address)).seqno,
+    seqno,
+    waitMs: WAIT_TRANSFER_TIMEOUT,
+    pauseMs: WAIT_PAUSE,
+  });
 }
 
 async function emulateTransactionWithFallback(
@@ -1169,18 +1149,20 @@ export async function sendSignedTransactions(
           );
           sentTransactions.push({ boc, msgHashNormalized });
 
-          const ensureSent = () => retrySendBoc(network, fromAddress, boc, seqno);
-          if (index === transactions.length - 1) {
+          if (index < transactions.length - 1) {
+            const hasSeqnoAdvanced = await waitForWalletSeqnoChange(network, fromAddress, seqno);
+            if (!hasSeqnoAdvanced) {
+              return sentTransactions;
+            }
+          } else {
             finalizeInBackground(async () => {
               try {
-                await ensureSent();
+                await waitForWalletSeqnoChange(network, fromAddress, seqno);
               } finally {
                 clearTransferInFlight(network, fromAddress);
               }
             });
             clearInBackground = true;
-          } else {
-            await ensureSent();
           }
 
           index++;

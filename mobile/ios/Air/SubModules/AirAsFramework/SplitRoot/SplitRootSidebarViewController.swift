@@ -355,7 +355,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         case .walletSettings:
             AppActions.showWalletSettings()
         case .addAccount:
-            AppActions.showAddWallet(network: .mainnet, showCreateWallet: true, showSwitchToOtherVersion: true)
+            AppActions.showAddWallet(network: .mainnet)
         }
         return false
     }

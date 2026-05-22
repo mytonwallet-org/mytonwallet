@@ -98,6 +98,7 @@ struct ActivityView: View {
             VStack(alignment: .leading, spacing: 0) {
                 NftImage(nft: nft, animateIfPossible: true, loadFullSize: true)
                     .padding(.bottom, 12)
+                    .onTapGesture { showNft(nft) }
                 let name: String = if let _name = nft.name, let idx = nft.index, idx > 0 {
                     "\(_name)"
                 } else {
@@ -106,6 +107,7 @@ struct ActivityView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(name)
                         .font(.system(size: 24, weight: .semibold))
+                        .onTapGesture { showNft(nft) }
                     if activity.shouldShowTransactionAddress(in: .details) {
                         HStack(alignment: .firstTextBaseline, spacing: 0) {
                             Text((tx.isIncoming == true ? lang("Received from") : lang("Sent to")) + " ")
@@ -127,6 +129,10 @@ struct ActivityView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
         }
+    }
+    
+    private func showNft(_ nft: ApiNft) {
+        AppActions.showNft(accountContext: model.accountContext, nft: nft)
     }
 
     @ViewBuilder
@@ -286,10 +292,11 @@ struct ActivityView: View {
         let accountId = accountContext.accountId
         if let nft = activity.transaction?.nft, let name = nft.collectionName?.nilIfEmpty, let address = nft.collectionAddress {
             if NftStore.accountOwnsCollection(accountId: accountId, address: address, chain: nft.chain) {
+                let collectionFilter = NftCollectionFilter.collection(.init(chain: nft.chain, address: address, name: name))
                 AppActions.showAssets(
                     accountSource: accountContext.source,
-                    selectedTab: 1,
-                    collectionsFilter: .collection(.init(chain: nft.chain, address: address, name: name))
+                    selectedTab: .nftCollectionFilter(collectionFilter),
+                    collectionsFilter: collectionFilter
                 )
             } else {
                 AppActions.openInBrowser(ExplorerHelper.nftCollectionUrl(nft))
@@ -299,20 +306,16 @@ struct ActivityView: View {
 
     @ViewBuilder
     var changellyAddress: some View {
-        if let swap = activity.swap, swap.fromToken?.isOnChain == false, let payinAddress = swap.cex?.payinAddress.nilIfEmpty {
+        if let swap = activity.swap, let fromToken = swap.fromToken, !fromToken.isOnChain, let payinAddress = swap.cex?.payinAddress.nilIfEmpty {
             InsetDetailCell {
                 Text(lang("Changelly Payment Address"))
                     .font17h22()
                     .foregroundStyle(Color.air.secondaryLabel)
             } value: {
-                let addressFont = UIFont.systemFont(ofSize: 17, weight: .regular)
-                Text(formatAddressAttributed(
-                    payinAddress,
-                    startEnd: true,
-                    primaryFont: addressFont,
-                    secondaryFont: addressFont
-                ))
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                CopyableAddressText(
+                    address: payinAddress,
+                    copyToastMessage: lang("%chain% Address Copied", arg1: fromToken.chain.title)
+                )
             }
         }
     }

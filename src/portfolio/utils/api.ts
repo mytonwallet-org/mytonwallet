@@ -36,7 +36,32 @@ async function fetchWithRetry(url: string, onProgress?: (attempt: number, maxRet
   }
 }
 
-export async function fetchChartData(
+export function fetchNetWorthHistory(
+  wallets: string,
+  baseCurrency: string,
+  onProgress?: (attempt: number, maxRetries: number) => void,
+) {
+  return fetchChartHistory('net-worth-history', wallets, baseCurrency, onProgress);
+}
+
+export function fetchPnlCumulativeHistory(
+  wallets: string,
+  baseCurrency: string,
+  onProgress?: (attempt: number, maxRetries: number) => void,
+) {
+  return fetchChartHistory('pnl-cumulative-history', wallets, baseCurrency, onProgress);
+}
+
+export function fetchPnlHistory(
+  wallets: string,
+  baseCurrency: string,
+  onProgress?: (attempt: number, maxRetries: number) => void,
+) {
+  return fetchChartHistory('pnl-history', wallets, baseCurrency, onProgress);
+}
+
+async function fetchChartHistory(
+  endpoint: string,
   wallets: string,
   baseCurrency: string,
   onProgress?: (attempt: number, maxRetries: number) => void,
@@ -47,7 +72,7 @@ export async function fetchChartData(
   });
 
   return fetchWithRetry(
-    `${PORTFOLIO_API_URL}/net-worth-history?wallets=${wallets}&${params}`,
+    `${PORTFOLIO_API_URL}/${endpoint}?wallets=${wallets}&${params}`,
     onProgress,
   );
 }
