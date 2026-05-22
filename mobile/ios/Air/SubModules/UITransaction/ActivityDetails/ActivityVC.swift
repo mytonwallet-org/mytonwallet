@@ -243,25 +243,37 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
         let hash = activity.parsedTxId.hash
         var newActivity: ApiActivity?
         
-        if let replacementId = replacedIds[id], let replacementActivity = await ActivityStore.getActivity(accountId: accountId, activityId: replacementId) {
+        if let replacementId = replacedIds[id],
+           let replacementActivity = await ActivityStore.getActivity(accountId: accountId, activityId: replacementId),
+           canReplaceDisplayedActivity(with: replacementActivity) {
             newActivity = replacementActivity
         } else if updatedIds.contains(id), let updatedActivity = await ActivityStore.getActivity(accountId: accountId, activityId: id) {
             newActivity = updatedActivity
-        } else if activity.isLocal, let replacementId = replacedIds.first(where: { getParsedTxId(id: $0.key).hash == hash })?.value, let updatedActivity = await ActivityStore.getActivity(accountId: accountId, activityId: replacementId) {
-            newActivity = updatedActivity
+        } else if activity.isLocal {
+            for (oldId, replacementId) in replacedIds where getParsedTxId(id: oldId).hash == hash {
+                if let replacementActivity = await ActivityStore.getActivity(accountId: accountId, activityId: replacementId),
+                   canReplaceDisplayedActivity(with: replacementActivity) {
+                    newActivity = replacementActivity
+                    break
+                }
+            }
         }
         
         // workaround for unstake request getting replaced by excess
         if activity.isLocal && activity.type == .unstakeRequest {
             for updatedId in updatedIds {
-                if let replacementActivity = await ActivityStore.getActivity(accountId: accountId, activityId: updatedId), replacementActivity.type == .unstakeRequest {
+                if let replacementActivity = await ActivityStore.getActivity(accountId: accountId, activityId: updatedId),
+                   canReplaceDisplayedActivity(with: replacementActivity),
+                   replacementActivity.type == .unstakeRequest {
                     newActivity = replacementActivity
                     break
                 }
             }
             // unstake is an even better match than unstakeRequest
             for updatedId in updatedIds {
-                if let replacementActivity = await ActivityStore.getActivity(accountId: accountId, activityId: updatedId), replacementActivity.type == .unstake {
+                if let replacementActivity = await ActivityStore.getActivity(accountId: accountId, activityId: updatedId),
+                   canReplaceDisplayedActivity(with: replacementActivity),
+                   replacementActivity.type == .unstake {
                     newActivity = replacementActivity
                     break
                 }
@@ -274,6 +286,30 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
             }
             fetchDetailsIfNeeded(for: newActivity)
         }
+    }
+
+    private func canReplaceDisplayedActivity(with replacementActivity: ApiActivity) -> Bool {
+        guard replacementActivity.shouldHide != true else {
+            return false
+        }
+
+        switch (activity, replacementActivity) {
+        case (.transaction(let transaction), .transaction(let replacementTransaction)):
+            return transaction.type == replacementTransaction.type
+        case (.swap(let swap), .swap(let replacementSwap)):
+            return isSwapFromAmountCloseEnough(swap.fromAmount, replacementSwap.fromAmount)
+        default:
+            return false
+        }
+    }
+
+    private func isSwapFromAmountCloseEnough(_ originalAmount: MDouble, _ replacementAmount: MDouble) -> Bool {
+        if originalAmount.value == 0 {
+            return replacementAmount.value == 0
+        }
+
+        let difference = abs(replacementAmount.value - originalAmount.value)
+        return difference <= abs(originalAmount.value) * 0.1
     }
 
     private func fetchDetailsIfNeeded(for activity: ApiActivity) {

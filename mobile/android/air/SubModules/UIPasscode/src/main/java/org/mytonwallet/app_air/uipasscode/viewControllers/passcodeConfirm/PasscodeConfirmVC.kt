@@ -50,7 +50,7 @@ class PasscodeConfirmVC(
     override val isSwipeBackAllowed: Boolean
         get() = !isDoingTask
 
-    var isTaskAsync = true
+    var isTaskAsync = passcodeViewState !is PasscodeViewState.Default
     var customPasscodeVerifier: ((String) -> Boolean)? = null
     var onWrongInput: ((() -> Unit)?) = null
 
@@ -180,7 +180,7 @@ class PasscodeConfirmVC(
             isDoingTask = true
             Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "onPasscodeVerified: Running task")
             task(passcode)
-            if (isTaskAsync && passcodeViewState !is PasscodeViewState.Default) {
+            if (isTaskAsync) {
                 navigationBar?.fadeOutActions()
                 passcodeScreenView.showIndicator()
             }

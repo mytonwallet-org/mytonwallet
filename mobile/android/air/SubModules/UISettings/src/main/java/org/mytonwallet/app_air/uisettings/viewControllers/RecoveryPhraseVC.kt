@@ -1,8 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers
 
 import android.annotation.SuppressLint
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -21,6 +19,7 @@ import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.WordListView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -128,16 +127,19 @@ open class RecoveryPhraseVC(
                 text = warningText(if (isShowingPrivateKey) null else "\$copy_mnemonic_warning"),
                 button = LocaleController.getString("Copy Anyway"),
                 buttonPressed = {
-                    val clipboard =
-                        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    val clip = ClipData.newPlainText("Wallet Address", words.joinToString(" "))
-                    clipboard.setPrimaryClip(clip)
-                    Haptics.play(context, HapticType.LIGHT_TAP)
-                    Toast.makeText(
-                        context,
-                        LocaleController.getString("Secret phrase was copied to clipboard"),
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    if (ClipboardHelpers.copyToClipboard(
+                            context,
+                            "Wallet Address",
+                            words.joinToString(" ")
+                        )
+                    ) {
+                        Haptics.play(context, HapticType.LIGHT_TAP)
+                        Toast.makeText(
+                            context,
+                            LocaleController.getString("Secret phrase was copied to clipboard"),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 },
                 primaryIsDanger = true,
                 secondaryButton = LocaleController.getString(if (isShowingPrivateKey) "Cancel" else "See Words")

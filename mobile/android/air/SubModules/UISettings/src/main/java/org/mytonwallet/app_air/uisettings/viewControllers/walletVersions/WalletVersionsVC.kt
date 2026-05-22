@@ -9,6 +9,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
+import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.cells.WalletVersionCell
@@ -127,6 +128,10 @@ class WalletVersionsVC(context: Context) : WViewController(context),
                                 WalletEvent.AccountChangedInApp(
                                     persistedAccountsModified = false
                                 )
+                            )
+                            ToastHelper.notifySubwalletSwitched(
+                                viewController = this,
+                                account = account
                             )
                         }
                     }
@@ -259,6 +264,10 @@ class WalletVersionsVC(context: Context) : WViewController(context),
                 if ((navigationController?.viewControllers?.size ?: 0) > 1)
                     navigationController?.pop(false)
                 WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+                ToastHelper.notifyWalletImported(
+                    viewController = this,
+                    account = importedAccount
+                )
             }
         }
     }

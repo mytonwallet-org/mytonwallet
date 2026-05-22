@@ -1,9 +1,3 @@
-//
-//  AccountTypePickerView.swift
-//  AirAsFramework
-//
-//  Created by nikstar on 25.08.2025.
-//
 
 import SwiftUI
 import WalletContext
@@ -11,63 +5,57 @@ import WalletCore
 import UIComponents
 
 struct ImportExistingPickerView: View {
-    
+
     let introModel: IntroModel
     var onHeightChange: (CGFloat) -> ()
-    
+
     @Environment(\.dismiss) var dismiss
-    
+
     var body: some View {
-        VStack(spacing: 24) {
-            InsetSection(dividersInset: 50) {
-                Item(icon: "KeyIcon30", text: lang("%counts% Secret Words", arg1: "12/24"), onTap: onImport)
-                Item(icon: "LedgerIcon30", text: "Ledger", onTap: onLedger)
+        VStack(spacing: 0) {
+            InsetSection(addDividers: false) {
+                WalletPickerOptionRow(
+                    icon: "KeyIcon30",
+                    title: lang("$secret_words"),
+                    subtitle: lang("Restore wallet from 12 or 24 words"),
+                    showsDivider: true,
+                    onTap: onImport
+                )
+                WalletPickerOptionRow(
+                    icon: "LedgerIcon30",
+                    title: lang("Ledger"),
+                    subtitle: lang("Connect your hardware wallet"),
+                    onTap: onLedger
+                )
             }
 
-            InsetSection(dividersInset: 50) {
-                Item(icon: "ViewIcon30", text: lang("View Any Address"), additionalPadding: true, onTap: onView)
+            InsetSection(addDividers: false) {
+                WalletPickerOptionRow(
+                    icon: "ViewIcon30",
+                    title: lang("View Any Address"),
+                    subtitle: lang("Watch wallet in read-only mode"),
+                    onTap: onView
+                )
             }
+            .padding(.top, 24)
         }
-        .padding(.top, 8)
-        .padding(.bottom, 32)
+        .padding(.top, 20)
+        .padding(.bottom, 24)
         .fixedSize(horizontal: false, vertical: true)
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
             onHeightChange(height)
         }
     }
-    
+
     func onImport() {
         introModel.onImportMnemonic()
     }
-    
+
     func onLedger() {
         introModel.onLedger()
- 
     }
+
     func onView() {
         introModel.onAddViewWallet()
-    }
-}
-
-
-private struct Item: View {
-    
-    var icon: String
-    var text: String
-    var additionalPadding: Bool = false
-    var onTap: () -> ()
-    
-    var body: some View {
-        InsetButtonCell(verticalPadding: additionalPadding ? 9 : 7, action: onTap) {
-            HStack(spacing: 16) {
-                Image.airBundle(icon)
-                    .clipShape(.rect(cornerRadius: 8))
-                Text(text)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Image.airBundle("RightArrowIcon")
-            }
-            .foregroundStyle(Color.air.primaryLabel)
-            .backportGeometryGroup()
-        }
     }
 }

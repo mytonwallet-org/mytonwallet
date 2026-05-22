@@ -1,7 +1,5 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -13,6 +11,7 @@ import android.widget.Toast
 import androidx.appcompat.widget.AppCompatTextView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
@@ -55,9 +54,9 @@ class CopyTextView @JvmOverloads constructor(
 
         background = ripple
         setOnClickListener {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText(clipLabel, originalText)
-            clipboard.setPrimaryClip(clip)
+            if (!ClipboardHelpers.copyToClipboard(context, clipLabel, originalText)) {
+                return@setOnClickListener
+            }
             Haptics.play(this, HapticType.LIGHT_TAP)
             clipToast?.let {
                 Toast.makeText(context, it, Toast.LENGTH_SHORT).show()

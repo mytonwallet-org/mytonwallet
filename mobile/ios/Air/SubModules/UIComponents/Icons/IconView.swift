@@ -312,9 +312,9 @@ public class IconView: UIView {
         }
         
         var geometry = self.chainAccessoryView.layoutGeometry
-        let scale = 0.2
-        let duration = 0.2
-        let rx = (geometry.size + geometry.borderWidth) * (1.0 - scale) / 2
+        let scale: CGFloat = 0.2
+        let duration: CGFloat = 0.2
+        let rx = (geometry.size + geometry.borderWidth) * (1.0 - scale) / 2.0
         geometry.size *= scale
         geometry.borderWidth *= scale
         geometry.horizontalOffset -= rx

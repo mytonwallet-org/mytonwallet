@@ -7,6 +7,9 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.isGone
+import androidx.dynamicanimation.animation.FloatValueHolder
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 import org.mytonwallet.app_air.ledger.screens.ledgerWallets.LedgerWalletsVC
 import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -19,8 +22,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import kotlin.math.roundToInt
 
 class LedgerWalletCell(
     context: Context,
@@ -103,14 +108,20 @@ class LedgerWalletCell(
         checkboxDrawable.uncheckedColor = WColor.SecondaryText.color
     }
 
+    private var heightSpringAnimation: SpringAnimation? = null
+    private var contentAlphaMultiplier: Float = 1f
+    private var pendingInsertRunnable: Runnable? = null
+
     fun configure(
         item: LedgerWalletsVC.Item,
+        isAdded: Boolean = false,
+        animationDelay: Long = 0L,
     ) {
+        pendingInsertRunnable?.let(::removeCallbacks)
+        pendingInsertRunnable = null
+
         val alpha = if (item.isAlreadyImported) 0.4f else 1f
-        imageView.alpha = alpha
-        topLeftLabel.alpha = alpha
-        bottomLeftLabel.alpha = alpha
-        rightLabel.alpha = alpha
+        contentAlphaMultiplier = alpha
         isEnabled = !item.isAlreadyImported
 
         this.item = item
@@ -141,6 +152,57 @@ class LedgerWalletCell(
         }
 
         updateTheme()
+
+        if (isAdded && WGlobalStorage.getAreAnimationsActive()) {
+            heightSpringAnimation?.cancel()
+            heightSpringAnimation = null
+            layoutParams.height = 0
+            setContentAlpha(0f)
+            requestLayout()
+            pendingInsertRunnable = Runnable {
+                pendingInsertRunnable = null
+                startInsertAnimation()
+            }.also { postDelayed(it, animationDelay) }
+        } else {
+            heightSpringAnimation?.cancel()
+            heightSpringAnimation = null
+            layoutParams.height = 60.dp
+            setContentAlpha(1f)
+        }
+    }
+
+    private fun setContentAlpha(alpha: Float) {
+        val a = alpha * contentAlphaMultiplier
+        imageView.alpha = a
+        topLeftLabel.alpha = a
+        bottomLeftLabel.alpha = a
+        rightLabel.alpha = a
+    }
+
+    private fun startInsertAnimation() {
+        val targetHeight = 60.dp.toFloat()
+        layoutParams.height = 0
+        requestLayout()
+        heightSpringAnimation = SpringAnimation(FloatValueHolder()).apply {
+            setStartValue(0f)
+            spring = SpringForce(targetHeight).apply {
+                stiffness = 500f
+                dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
+            }
+            addUpdateListener { _, value, _ ->
+                layoutParams.height = value.roundToInt()
+                requestLayout()
+                val fraction =
+                    ((value - 0.8f * targetHeight) / (0.2f * targetHeight)).coerceIn(0f, 1f)
+                setContentAlpha(fraction)
+            }
+            addEndListener { _, _, _, _ ->
+                layoutParams.height = 60.dp
+                setContentAlpha(1f)
+                heightSpringAnimation = null
+            }
+            start()
+        }
     }
 
 }

@@ -168,15 +168,13 @@ var LovelyChart = function(exports) {
   }
   function getMaxMin(array) {
     const length = array.length;
-    let max = array[0];
-    let min = array[0];
+    let max;
+    let min;
     for (let i = 0; i < length; i++) {
       const value = array[i];
-      if (value > max) {
-        max = value;
-      } else if (value < min) {
-        min = value;
-      }
+      if (value == null) continue;
+      if (max === void 0 || value > max) max = value;
+      if (min === void 0 || value < min) min = value;
     }
     return { max, min };
   }
@@ -393,10 +391,10 @@ var LovelyChart = function(exports) {
     const yAxisScale = calculateYAxisScale(viewportSize.height, yRanges.yMinViewport, yRanges.yMaxViewport);
     const yAxisScaleSecond = data.hasSecondYAxis && calculateYAxisScale(viewportSize.height, yRanges.yMinViewportSecond, yRanges.yMaxViewportSecond);
     const yStep = yScaleLevelToStep(yAxisScale);
-    yRanges.yMinViewport -= yRanges.yMinViewport % yStep;
+    yRanges.yMinViewport = Math.floor(yRanges.yMinViewport / yStep) * yStep;
     if (yAxisScaleSecond) {
       const yStepSecond = yScaleLevelToStep(yAxisScaleSecond);
-      yRanges.yMinViewportSecond -= yRanges.yMinViewportSecond % yStepSecond;
+      yRanges.yMinViewportSecond = Math.floor(yRanges.yMinViewportSecond / yStepSecond) * yStepSecond;
     }
     const datasetsOpacity = {};
     data.datasets.forEach(({ key }) => {
@@ -441,7 +439,7 @@ var LovelyChart = function(exports) {
   }
   function calculateYRangesForGroup(data, labelFromIndex, labelToIndex, prevState, datasets) {
     const { min: yMinMinimapReal = prevState.yMinMinimap, max: yMaxMinimap = prevState.yMaxMinimap } = getMaxMin(mergeArrays(datasets.map(({ yMax, yMin }) => [yMax, yMin])));
-    const yMinMinimap = yMinMinimapReal / yMaxMinimap > Y_AXIS_ZERO_BASED_THRESHOLD ? yMinMinimapReal : 0;
+    const yMinMinimap = yMinMinimapReal < 0 ? yMinMinimapReal : yMinMinimapReal / yMaxMinimap > Y_AXIS_ZERO_BASED_THRESHOLD ? yMinMinimapReal : 0;
     let yMinViewport;
     let yMaxViewport;
     if (labelFromIndex === 0 && labelToIndex === data.xLabels.length - 1) {
@@ -453,7 +451,7 @@ var LovelyChart = function(exports) {
       const viewportMaxMin = getMaxMin(mergeArrays(viewportValues));
       const yMinViewportReal = viewportMaxMin.min !== void 0 ? viewportMaxMin.min : prevState.yMinViewport;
       yMaxViewport = viewportMaxMin.max !== void 0 ? viewportMaxMin.max : prevState.yMaxViewport;
-      yMinViewport = yMinViewportReal / yMaxViewport > Y_AXIS_ZERO_BASED_THRESHOLD ? yMinViewportReal : 0;
+      yMinViewport = yMinViewportReal < 0 ? yMinViewportReal : yMinViewportReal / yMaxViewport > Y_AXIS_ZERO_BASED_THRESHOLD ? yMinViewportReal : 0;
     }
     return {
       yMinViewport,
@@ -465,13 +463,25 @@ var LovelyChart = function(exports) {
   function calculateYRangesStacked(data, filter, labelFromIndex, labelToIndex, prevState) {
     const filteredDatasets = data.datasets.filter((d) => filter[d.key]);
     const filteredValues = filteredDatasets.map(({ values }) => values);
-    const sums = filteredValues.length ? sumArrays(filteredValues) : [];
-    const { max: yMaxMinimap = prevState.yMaxMinimap } = getMaxMin(sums);
-    const { max: yMaxViewport = prevState.yMaxViewport } = getMaxMin(sums.slice(labelFromIndex, labelToIndex + 1));
+    const length = filteredValues[0] ? filteredValues[0].length : 0;
+    const posSums = new Array(length).fill(0);
+    const negSums = new Array(length).fill(0);
+    for (let i = 0; i < filteredValues.length; i++) {
+      for (let j = 0; j < length; j++) {
+        const v = filteredValues[i][j];
+        if (v == null) continue;
+        if (v >= 0) posSums[j] += v;
+        else negSums[j] += v;
+      }
+    }
+    const { max: yMaxMinimap = prevState.yMaxMinimap } = getMaxMin(posSums);
+    const { min: yMinMinimap = prevState.yMinMinimap } = getMaxMin(negSums);
+    const { max: yMaxViewport = prevState.yMaxViewport } = getMaxMin(posSums.slice(labelFromIndex, labelToIndex + 1));
+    const { min: yMinViewport = prevState.yMinViewport } = getMaxMin(negSums.slice(labelFromIndex, labelToIndex + 1));
     return {
-      yMinViewport: 0,
+      yMinViewport,
       yMaxViewport,
-      yMinMinimap: 0,
+      yMinMinimap,
       yMaxMinimap
     };
   }
@@ -500,7 +510,7 @@ var LovelyChart = function(exports) {
     container.classList.add("lovely-chart--transition-container");
     const newElement = createElement(element.tagName);
     newElement.className = `${className} lovely-chart--transition lovely-chart--position-${inverse ? "top" : "bottom"} lovely-chart--state-hidden`;
-    newElement.innerHTML = newText;
+    newElement.textContent = newText;
     const selector = className.length ? `.${className.split(" ").join(".")}` : "";
     const oldElements = container.querySelectorAll(`${selector}.lovely-chart--state-hidden`);
     oldElements.forEach((e) => e.remove());
@@ -534,7 +544,7 @@ var LovelyChart = function(exports) {
       if (_isZooming) {
         return;
       }
-      _captionElement.innerHTML = caption;
+      _captionElement.textContent = caption;
     }
     function zoom(caption) {
       _zoomOutElement = toggleText(_titleElement, zoomOutLabel, "lovely-chart--header-title lovely-chart--header-zoom-out-control");
@@ -551,7 +561,7 @@ var LovelyChart = function(exports) {
       _element.className = "lovely-chart--header";
       _titleElement = createElement();
       _titleElement.className = "lovely-chart--header-title";
-      _titleElement.innerHTML = title;
+      _titleElement.textContent = title;
       _element.appendChild(_titleElement);
       _captionElement = createElement();
       _captionElement.className = "lovely-chart--header-caption lovely-chart--position-right";
@@ -604,10 +614,12 @@ var LovelyChart = function(exports) {
     });
   }
   function humanize(value, decimals = 1) {
-    if (value >= 1e6) {
-      return keepThreeDigits(value / 1e6, decimals) + "M";
-    } else if (value >= 1e3) {
-      return keepThreeDigits(value / 1e3, decimals) + "K";
+    const abs = Math.abs(value);
+    const sign = value < 0 ? "-" : "";
+    if (abs >= 1e6) {
+      return sign + keepThreeDigits(abs / 1e6, decimals) + "M";
+    } else if (abs >= 1e3) {
+      return sign + keepThreeDigits(abs / 1e3, decimals) + "K";
     }
     return value;
   }
@@ -1005,8 +1017,9 @@ var LovelyChart = function(exports) {
       values = prepareSumsByX(values);
     }
     const points = values.map((datasetValues, i) => datasetValues.map((value, j) => {
-      let visibleValue = value;
-      if (data.isStacked) {
+      const isGap = value == null;
+      let visibleValue = isGap ? 0 : value;
+      if (data.isStacked && !isGap) {
         visibleValue *= visibilities[i];
       }
       return {
@@ -1014,7 +1027,8 @@ var LovelyChart = function(exports) {
         value,
         visibleValue,
         stackOffset: 0,
-        stackValue: visibleValue
+        stackValue: visibleValue,
+        gap: isGap
       };
     }));
     if (data.isPercentage) {
@@ -1038,15 +1052,28 @@ var LovelyChart = function(exports) {
     });
   }
   function prepareStacked(points) {
-    const accum = [];
+    const posAccum = [];
+    const negAccum = [];
     points.forEach((datasetPoints) => {
       datasetPoints.forEach((point, j) => {
-        if (accum[j] === void 0) {
-          accum[j] = 0;
+        if (posAccum[j] === void 0) {
+          posAccum[j] = 0;
+          negAccum[j] = 0;
         }
-        point.stackOffset = accum[j];
-        accum[j] += point.visibleValue;
-        point.stackValue = accum[j];
+        if (point.gap) {
+          point.stackOffset = posAccum[j];
+          point.stackValue = posAccum[j];
+          return;
+        }
+        if (point.visibleValue >= 0) {
+          point.stackOffset = posAccum[j];
+          posAccum[j] += point.visibleValue;
+          point.stackValue = posAccum[j];
+        } else {
+          point.stackOffset = negAccum[j];
+          negAccum[j] += point.visibleValue;
+          point.stackValue = negAccum[j];
+        }
       });
     });
   }
@@ -1262,17 +1289,29 @@ var LovelyChart = function(exports) {
   }
   function drawDatasetLine(context, points, projection, options) {
     context.beginPath();
-    let pixels = [];
+    const segments = [];
+    let current = [];
     for (let j = 0, l = points.length; j < l; j++) {
-      const { labelIndex, stackValue } = points[j];
-      pixels.push(toPixels(projection, labelIndex, stackValue));
+      const point = points[j];
+      if (point.gap) {
+        if (current.length) {
+          segments.push(current);
+          current = [];
+        }
+        continue;
+      }
+      current.push(toPixels(projection, point.labelIndex, point.stackValue));
     }
-    if (options.simplification) {
-      const simplifierFn = simplify(pixels);
-      pixels = simplifierFn(options.simplification).points;
-    }
-    pixels.forEach(([x, y]) => {
-      context.lineTo(x, y);
+    if (current.length) segments.push(current);
+    segments.forEach((segment) => {
+      let pixels = segment;
+      if (options.simplification) {
+        pixels = simplify(pixels)(options.simplification).points;
+      }
+      pixels.forEach(([x, y], k) => {
+        if (k === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+      });
     });
     context.save();
     context.strokeStyle = options.color;
@@ -1289,6 +1328,7 @@ var LovelyChart = function(exports) {
     context.globalAlpha = options.opacity;
     context.fillStyle = options.color;
     for (let j = 0, l = points.length; j < l; j++) {
+      if (points[j].gap) continue;
       const { labelIndex, stackValue, stackOffset = 0 } = points[j];
       const [, yFrom] = toPixels(projection, labelIndex, Math.max(stackOffset, yMin));
       const [x, yTo] = toPixels(projection, labelIndex, stackValue);
@@ -1302,16 +1342,28 @@ var LovelyChart = function(exports) {
   }
   function drawDatasetSteps(context, points, projection, options) {
     context.beginPath();
-    let pixels = [];
+    const segments = [];
+    let current = [];
     for (let j = 0, l = points.length; j < l; j++) {
-      const { labelIndex, stackValue } = points[j];
-      pixels.push(
-        toPixels(projection, labelIndex - PLOT_BARS_WIDTH_SHIFT, stackValue),
-        toPixels(projection, labelIndex + PLOT_BARS_WIDTH_SHIFT, stackValue)
+      const point = points[j];
+      if (point.gap) {
+        if (current.length) {
+          segments.push(current);
+          current = [];
+        }
+        continue;
+      }
+      current.push(
+        toPixels(projection, point.labelIndex - PLOT_BARS_WIDTH_SHIFT, point.stackValue),
+        toPixels(projection, point.labelIndex + PLOT_BARS_WIDTH_SHIFT, point.stackValue)
       );
     }
-    pixels.forEach(([x, y]) => {
-      context.lineTo(x, y);
+    if (current.length) segments.push(current);
+    segments.forEach((segment) => {
+      segment.forEach(([x, y], k) => {
+        if (k === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+      });
     });
     context.save();
     context.strokeStyle = options.color;
@@ -1841,6 +1893,7 @@ var LovelyChart = function(exports) {
     }
     function _drawCircles(statistics, labelIndex) {
       statistics.forEach(({ value, key, hasOwnYAxis, originalIndex }) => {
+        if (value == null) return;
         const pointIndex = labelIndex - _state.labelFromIndex;
         const point = hasOwnYAxis ? _secondaryPoints[pointIndex] : _points[originalIndex][pointIndex];
         if (!point) {
@@ -1920,10 +1973,13 @@ var LovelyChart = function(exports) {
           titleContainer.style.display = "";
         }
         const currentTitle = titleContainer.querySelector(":not(.lovely-chart--state-hidden)");
-        if (!titleContainer.innerHTML || !currentTitle) {
-          titleContainer.innerHTML = `<span>${title}</span>`;
+        if (!titleContainer.textContent || !currentTitle) {
+          titleContainer.textContent = "";
+          const newTitle = createElement("span");
+          newTitle.textContent = title;
+          titleContainer.appendChild(newTitle);
         } else {
-          currentTitle.innerHTML = title;
+          currentTitle.textContent = title;
         }
       }
     }
@@ -1935,7 +1991,14 @@ var LovelyChart = function(exports) {
       newDataSet.className = "lovely-chart--tooltip-dataset";
       newDataSet.setAttribute("data-present", "true");
       newDataSet.setAttribute("data-name", name);
-      newDataSet.innerHTML = `<span class="lovely-chart--dataset-title">${name}</span><span class="${className}">${_formatValue(value)}</span>`;
+      const titleElement = createElement("span");
+      titleElement.className = "lovely-chart--dataset-title";
+      titleElement.textContent = name;
+      newDataSet.appendChild(titleElement);
+      const valueElement = createElement("span");
+      valueElement.className = className;
+      valueElement.textContent = _formatValue(value);
+      newDataSet.appendChild(valueElement);
       _renderPercentageValue(newDataSet, value, totalValue);
       dataSetContainer.appendChild(newDataSet);
     }
@@ -1943,7 +2006,7 @@ var LovelyChart = function(exports) {
       currentDataSet.setAttribute("data-present", "true");
       const valueElement = currentDataSet.querySelector(`.lovely-chart--tooltip-dataset-value`);
       if (valueElement) {
-        valueElement.innerHTML = _formatValue(value);
+        valueElement.textContent = _formatValue(value);
       }
       _renderPercentageValue(currentDataSet, value, totalValue);
     }
@@ -1963,10 +2026,10 @@ var LovelyChart = function(exports) {
       if (!percentageElement) {
         const newPercentageTitle = createElement("span");
         newPercentageTitle.className = "lovely-chart--percentage-title lovely-chart--position-left";
-        newPercentageTitle.innerHTML = `${percentageValue}%`;
+        newPercentageTitle.textContent = `${percentageValue}%`;
         dataSet.prepend(newPercentageTitle);
       } else {
-        percentageElement.innerHTML = `${percentageValue}%`;
+        percentageElement.textContent = `${percentageValue}%`;
       }
     }
     function _updateDataSets(statistics) {
@@ -1983,12 +2046,12 @@ var LovelyChart = function(exports) {
       });
       const totalValue = statistics.reduce((a, x) => a + x.value, 0);
       const pointerVector = getPointerVector();
-      const filteredStatistics = statistics.filter(({ value }) => value !== 0);
+      const filteredStatistics = statistics.filter(({ value }) => value !== 0 && value != null);
       const sortedStatistics = filteredStatistics.sort((a, b) => b.value - a.value);
       const limitedStatistics = sortedStatistics.slice(0, MAX_TOOLTIP_ITEMS);
       const finalStatistics = data.isPie ? limitedStatistics.filter(({ value }, index) => _isPieSectorSelected(statistics, value, totalValue, index, pointerVector)) : limitedStatistics;
       finalStatistics.forEach((statItem) => {
-        const currentDataSet = dataSetContainer.querySelector(`[data-name="${statItem.name}"]`);
+        const currentDataSet = Array.from(dataSetContainer.children).find((element) => element.dataset.name === statItem.name);
         if (!currentDataSet) {
           _insertNewDataSet(dataSetContainer, statItem, totalValue);
         } else {
@@ -2019,12 +2082,18 @@ var LovelyChart = function(exports) {
         newTotalText.className = "lovely-chart--tooltip-dataset lovely-chart--tooltip-dataset-total";
         newTotalText.setAttribute("data-present", "true");
         newTotalText.setAttribute("data-total", "true");
-        newTotalText.innerHTML = `<span>Total</span><span class="${className}">${totalValue}</span>`;
+        const titleElement = createElement("span");
+        titleElement.textContent = "Total";
+        newTotalText.appendChild(titleElement);
+        const valueElement = createElement("span");
+        valueElement.className = className;
+        valueElement.textContent = totalValue;
+        newTotalText.appendChild(valueElement);
         dataSetContainer.appendChild(newTotalText);
       } else {
         totalText.setAttribute("data-present", "true");
         const valueElement = totalText.querySelector(`.lovely-chart--tooltip-dataset-value:not(.lovely-chart--state-hidden)`);
-        valueElement.innerHTML = totalValue;
+        valueElement.textContent = totalValue;
       }
     }
     function _renderSecondaryTotal(dataSetContainer, totalValue) {
@@ -2037,12 +2106,18 @@ var LovelyChart = function(exports) {
         newTotalText.className = "lovely-chart--tooltip-dataset lovely-chart--tooltip-dataset-total";
         newTotalText.setAttribute("data-present", "true");
         newTotalText.setAttribute("data-total", "true");
-        newTotalText.innerHTML = `<span>${label}</span><span class="${className}">${prefix}${secondaryValue}${suffix}</span>`;
+        const titleElement = createElement("span");
+        titleElement.textContent = label;
+        newTotalText.appendChild(titleElement);
+        const valueElement = createElement("span");
+        valueElement.className = className;
+        valueElement.textContent = `${prefix}${secondaryValue}${suffix}`;
+        newTotalText.appendChild(valueElement);
         dataSetContainer.appendChild(newTotalText);
       } else {
         totalText.setAttribute("data-present", "true");
         const valueElement = totalText.querySelector(`.lovely-chart--tooltip-dataset-value:not(.lovely-chart--state-hidden)`);
-        valueElement.innerHTML = `${prefix}${secondaryValue}${suffix}`;
+        valueElement.textContent = `${prefix}${secondaryValue}${suffix}`;
       }
     }
     function _hideBalloon() {
@@ -2093,7 +2168,13 @@ var LovelyChart = function(exports) {
         control.dataset.key = key;
         const darkContent = isColorCloseToWhite(data.colors[key]) ? " lovely-chart--dark-content" : "";
         control.className = `lovely-chart--button lovely-chart--color-${data.colors[key].slice(1)} lovely-chart--state-checked${darkContent}`;
-        control.innerHTML = `<span class="lovely-chart--button-check"></span><span class="lovely-chart--button-label">${name}</span>`;
+        const check = createElement("span");
+        check.className = "lovely-chart--button-check";
+        control.appendChild(check);
+        const label = createElement("span");
+        label.className = "lovely-chart--button-label";
+        label.textContent = name;
+        control.appendChild(label);
         control.addEventListener("click", (e) => {
           e.preventDefault();
           if (!control.dataset.clickPrevented) {
@@ -2552,4 +2633,5 @@ var LovelyChart = function(exports) {
   Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
   return exports;
 }({});
+
 export default LovelyChart;

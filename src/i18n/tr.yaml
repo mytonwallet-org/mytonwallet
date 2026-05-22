@@ -271,8 +271,6 @@ Stake Again: Yeniden stake edin
 Earned: Kazanıldı
 Select wallet to use on this app: Bu uygulama üzerinde kullanılacak cüzdanı seçin
 Connect: Bağlan
-App Permissions: Uygulama İzinleri
-$dapp_can_view_balance: "%dappname% cüzdan adresini ve bakiyesini görüntüleyebilecek."
 Payload: Yük
 $many_transactions: "%1$d Transfer"
 Total Amount: Toplam tutar
@@ -1197,3 +1195,11 @@ $mint_nft_action: NFT mintle
 Burned NFT: NFT yakıldı
 Burning NFT: NFT yakılıyor
 $burn_nft_action: NFT yak
+New Wallet: Yeni Cüzdan
+From new secret words: Yeni gizli kelimelerden
+New Subwallet: Yeni Alt Cüzdan
+From current secret words: Mevcut gizli kelimelerden
+$secret_words: Gizli Kelimeler
+Restore wallet from 12 or 24 words: Cüzdanı 12 veya 24 kelimeyle geri yükle
+Connect your hardware wallet: Donanım cüzdanınızı bağlayın
+Watch wallet in read-only mode: Cüzdanı salt okunur modda izle

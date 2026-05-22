@@ -133,6 +133,8 @@ $cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 1rem - 0.75rem) / 2);
 }
 
 .caption {
+  --color-icon: var(--color-gray-2);
+
   display: flex;
   flex-direction: row;
   gap: 0.125rem;
@@ -146,6 +148,36 @@ $cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 1rem - 0.75rem) / 2);
   font-weight: 700;
   line-height: 1.25rem;
   color: var(--color-black);
+
+  @include mixins.transition('color 200ms');
+}
+
+.captionInteractive {
+  cursor: var(--custom-cursor, pointer);
+  user-select: none;
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      --color-icon: var(--color-gray-3);
+
+      color: var(--color-gray-1);
+    }
+  }
+
+  &:active {
+    --color-icon: var(--color-gray-3);
+
+    color: var(--color-gray-1);
+  }
+}
+
+.captionIcon {
+  flex-shrink: 0;
+  font-size: 0.5rem;
+  color: var(--color-icon);
+
+  @include mixins.transition(color 200ms);
 }
 
 .captionTitleRow {
@@ -164,17 +196,6 @@ $cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 1rem - 0.75rem) / 2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.captionInteractive {
-  cursor: var(--custom-cursor, pointer);
-  user-select: none;
-}
-
-.captionIcon {
-  flex-shrink: 0;
-  font-size: 0.5rem;
-  color: var(--color-gray-2);
 }
 
 .menu {

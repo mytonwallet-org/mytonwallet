@@ -19,11 +19,13 @@ enum WalletSetupResult {
     case deferredToPasscode
 }
 
-@MainActor public final class IntroModel {
+@MainActor public final class IntroModel {    
+    private static let postImportToastDelay: TimeInterval = 2.0
     
     public let network: ApiNetwork
     private var password: String?
     private var words: [String]?
+    private var pendingToastWorkItem: DispatchWorkItem?
     
     let allowOpenWithoutChecking: Bool = IS_DEBUG_OR_TESTFLIGHT
     var hasExistingPassword: Bool {
@@ -78,7 +80,7 @@ enum WalletSetupResult {
                     self.onDone(
                         successKind: .imported,
                         hadExistingAccounts: hadExistingAccounts,
-                        importedAccountsCount: model.importedAccountsCount
+                        accountIds: model.importedAccountIds
                     )
                 }
                 push(vc)
@@ -121,11 +123,28 @@ enum WalletSetupResult {
         }
     }
     
-    public func onDone(successKind: SuccessKind, hadExistingAccounts: Bool, importedAccountsCount: Int = 1) {
+    public func onDone(successKind: SuccessKind, hadExistingAccounts: Bool, accountIds: [String]) {
         if hadExistingAccounts {
             onOpenWallet()
+            
+            if let singleAccountId = accountIds.count == 1 ? accountIds.first : nil {
+                pendingToastWorkItem?.cancel()
+                let workItem = DispatchWorkItem {
+                    let message: String
+                    switch successKind {
+                    case .created: message = lang("Wallet Created")
+                    case .imported: message = lang("Wallet Imported")
+                    case .importedView: message = lang("View Wallet Added")
+                    }
+                    AppActions.showToast(style: .large, icon: .symbolImage("plus"), message: message, actionTitle: lang("Set Name")) {
+                        AppActions.showRenameAccount(accountId: singleAccountId)
+                    }
+                }
+                pendingToastWorkItem = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.postImportToastDelay, execute: workItem)
+            }
         } else {
-            let success = ImportSuccessVC(successKind, introModel: self, importedAccountsCount: importedAccountsCount)
+            let success = ImportSuccessVC(successKind, introModel: self, importedAccountsCount: accountIds.count)
             push(success) { nc in
                 nc.viewControllers = [success] // no going back
             }
@@ -171,24 +190,24 @@ enum WalletSetupResult {
         if let biometricsEnabled { // nil if not first wallet
             AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
         }
-        self.onDone(successKind: .created, hadExistingAccounts: hadExistingAccounts, importedAccountsCount: accounts.count)
+        self.onDone(successKind: .created, hadExistingAccounts: hadExistingAccounts, accountIds: accounts.map { $0.id })
     }
     
     private func _importWallet(words: [String], passcode: String, biometricsEnabled: Bool?) async throws {
         let hadExistingAccounts = !AccountStore.accountsById.isEmpty
-        let importedAccountsCount: Int
+        var importedAccountIds: [String] = []
         if let privateKeyWords = normalizeMnemonicPrivateKey(words) {
-            _ = try await AccountStore.importPrivateKey(network: network, privateKey: privateKeyWords[0], passcode: passcode)
-            importedAccountsCount = 1
+            let account = try await AccountStore.importPrivateKey(network: network, privateKey: privateKeyWords[0], passcode: passcode)
+            importedAccountIds.append(account.id)
         } else {
             let accounts = try await AccountStore.importMnemonic(network: network, words: words, passcode: passcode, version: nil)
-            importedAccountsCount = accounts.count
+            importedAccountIds += accounts.map { $0.id }
         }
         KeychainHelper.save(biometricPasscode: passcode)
         if let biometricsEnabled { // nil if not first wallet
             AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
         }
-        self.onDone(successKind: .imported, hadExistingAccounts: hadExistingAccounts, importedAccountsCount: importedAccountsCount)
+        self.onDone(successKind: .imported, hadExistingAccounts: hadExistingAccounts, accountIds: importedAccountIds)
     }
     
     private func _addViewWallet(address: String) async throws {
@@ -199,8 +218,8 @@ enum WalletSetupResult {
                 addressByChain[chain.rawValue] = address
             }
         }
-        _ = try await AccountStore.importViewWallet(network: network, addressByChain: addressByChain)
-        self.onDone(successKind: .importedView, hadExistingAccounts: hadExistingAccounts)
+        let account = try await AccountStore.importViewWallet(network: network, addressByChain: addressByChain)
+        self.onDone(successKind: .importedView, hadExistingAccounts: hadExistingAccounts, accountIds: [account.id])
     }
 }
 

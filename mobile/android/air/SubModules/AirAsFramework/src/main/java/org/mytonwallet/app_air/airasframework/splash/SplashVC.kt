@@ -151,11 +151,6 @@ class SplashVC(context: Context) : WViewController(context),
         view.setBackgroundColor(WColor.Background.color)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        WalletCore.unregisterObserver(this)
-    }
-
     // Presents the view controllers even before bridge becomes ready, to reduce the app start-up time
     var preloadedScreen: WCacheStorage.InitialScreen? = null
     fun preloadScreens() {
@@ -1358,7 +1353,7 @@ class SplashVC(context: Context) : WViewController(context),
             )
         )
         nav.setRoot(RenewVC(context, nft))
-        window?.present(nav)
+        window?.presentOnWalletReady(nav)
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {

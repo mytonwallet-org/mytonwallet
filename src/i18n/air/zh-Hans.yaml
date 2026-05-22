@@ -221,6 +221,12 @@ Set a passcode: 设置 PIN 码
 "Transaction to this smart contract is not yet supported by Ledger.": Ledger 尚未支持向该智能合约发起交易。
 Transfer Details: 转账详情
 "Transferring NFT is not yet supported by Ledger.": Ledger 尚未支持 NFT 转移。
+Connect your Ledger via Bluetooth: 通过蓝牙连接您的 Ledger
+Discovering wallets: 正在发现钱包
+Bluetooth Access Denied: 蓝牙访问被拒绝
+Bluetooth access is needed to connect Ledger.: 需要蓝牙访问权限才能连接 Ledger。
+Address not resolved: 地址无法解析
+Sending more than one NFT isn't supported by Ledger: Ledger 不支持一次发送多个 NFT
 Unavailable: 不可用
 "Updating…": 正在更新…
 "Waiting for network…": 正在等待网络…

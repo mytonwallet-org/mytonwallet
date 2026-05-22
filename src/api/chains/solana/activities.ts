@@ -152,8 +152,8 @@ async function fetchSolTxs(
     limit: queryParams.limit,
     commitment: 'confirmed',
     'token-accounts': withTokens ? 'balanceChanged' : undefined,
-    'gte-time': queryParams.min_timestamp ? queryParams.min_timestamp / 1000 : undefined,
-    'lte-time': queryParams.max_timestamp ? queryParams.max_timestamp / 1000 : undefined,
+    'gte-time': queryParams.min_timestamp ? Math.floor(queryParams.min_timestamp / 1000) : undefined,
+    'lte-time': queryParams.max_timestamp ? Math.ceil(queryParams.max_timestamp / 1000) : undefined,
   };
 
   // Use non-standard Helius API to retrieve parsed txs by 1 call and with timestamp filtering

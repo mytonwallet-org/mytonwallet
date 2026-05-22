@@ -122,7 +122,7 @@ struct AddressesMenuContentRow {
     func onCopy() {
         if let domain = row.accountChain.domain {
             UIPasteboard.general.string = domain
-            AppActions.showToast(animationName: "Copy", message: lang("%chain% Domain Copied", arg1: row.chain.title))
+            AppActions.showToast(icon: .animatedCopy, message: lang("%chain% Domain Copied", arg1: row.chain.title))
             Haptics.play(.lightTap)
             context.dismiss()
         } else {
@@ -132,7 +132,7 @@ struct AddressesMenuContentRow {
     
     func onCopySecondary() {
         UIPasteboard.general.string = row.accountChain.address
-        AppActions.showToast(animationName: "Copy", message: lang("%chain% Address Copied", arg1: row.chain.title))
+        AppActions.showToast(icon: .animatedCopy, message: lang("%chain% Address Copied", arg1: row.chain.title))
         Haptics.play(.lightTap)
         context.dismiss()
     }

@@ -529,7 +529,7 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
                 let result = try await AccountStore.addSubWallet(group: group)
                 AppActions.showHome(popToRoot: true)
                 popToRootAfterDelay()
-                showToastAfterReturningHome(message: lang(result.isNew ? "Subwallet Added" : "Subwallet Switched"))
+                showToastAfterReturningHome(message: lang(result.isNew ? "Subwallet Added" : "Subwallet Switched"), account: result.account)
             } catch {
                 showAlert(error: error)
             }
@@ -537,10 +537,10 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
     }
 
     func createSubwallet() async throws {
-        _ = try await AccountStore.createSubWallet(password: password)
-        AppActions.showToast(message: lang("Subwallet Created"))
+        let account = try await AccountStore.createSubWallet(password: password)
         AppActions.showHome(popToRoot: true)
         popToRootAfterDelay()
+        showToastAfterReturningHome(message: lang("Subwallet Created"), account: account)
     }
 
     func addAllFoundSubwallets() async throws {
@@ -550,12 +550,14 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
         let result = try await AccountStore.addAllFoundSubwallets(groups: groups)
         AppActions.showHome(popToRoot: true)
         popToRootAfterDelay()
-        showToastAfterReturningHome(message: lang(result.isNew ? "Subwallet Added" : "Subwallet Switched"))
+        showToastAfterReturningHome(message: lang(result.isNew ? "Subwallet Added" : "Subwallet Switched"), account: result.account)
     }
 
-    private func showToastAfterReturningHome(message: String) {
+    private func showToastAfterReturningHome(message: String, account: MAccount) {
         DispatchQueue.main.asyncAfter(deadline: .now() + postHomeToastDelay) {
-            AppActions.showToast(message: message)
+            AppActions.showToast(style: .large, icon: .symbolImage("plus"), message: message, actionTitle: lang("Set Name")) {
+                AppActions.showRenameAccount(accountId: account.id)
+            }
         }
     }
 

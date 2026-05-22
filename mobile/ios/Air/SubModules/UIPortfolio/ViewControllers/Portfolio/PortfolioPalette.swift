@@ -16,6 +16,9 @@ enum PortfolioPalette {
     static let native = "#3497ED"
     static let stable = "#5FB641"
     static let altcoins = "#F79E39"
+    static let barrelNative = "#0088FF"
+    static let barrelStable = "#FF8E00"
+    static let barrelAltcoins = "#34C759"
 
     static func color(at index: Int) -> String {
         defaultColors[index % defaultColors.count]
@@ -29,6 +32,29 @@ enum PortfolioPalette {
             return "#E65850"
         case .solana:
             return "#5D5CDC"
+        default:
+            return color(at: 0)
+        }
+    }
+
+    static func barrelChainColor(for chain: ApiChain) -> String {
+        switch chain {
+        case .ton:
+            return "#0088FF"
+        case .tron:
+            return "#FF0D19"
+        case .solana:
+            return "#864BFF"
+        case .bnb:
+            return "#FF8E00"
+        case .hyperliquid:
+            return "#5DCFC3"
+        case .ethereum:
+            return "#5E5CEE"
+        case .base:
+            return "#00CAFF"
+        case .arbitrum:
+            return "#00CA48"
         default:
             return color(at: 0)
         }

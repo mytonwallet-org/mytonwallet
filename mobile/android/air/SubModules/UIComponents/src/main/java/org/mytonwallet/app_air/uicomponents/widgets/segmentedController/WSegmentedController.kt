@@ -667,6 +667,7 @@ class WSegmentedController(
 
     fun updateOnMenuPressed(identifier: String, onMenuPressed: ((v: View) -> Unit)?) {
         val index = items.indexOfFirst { it.identifier == identifier }
+        if (index < 0) return
         items[index].onMenuPressed = onMenuPressed
         clearSegmentedControl.updateOnMenuPressed(index = index, onMenuPressed = onMenuPressed)
     }
@@ -718,14 +719,15 @@ class WSegmentedController(
         cellHolder: WCell.Holder,
         indexPath: IndexPath
     ) {
+        val item = items.getOrNull(indexPath.row) ?: return
         (cellHolder.cell as WSegmentedControllerPageCell).configure(
-            items[indexPath.row].viewController,
+            item.viewController,
             indexPath.row == lastFullyVisible && currentOffset == lastFullyVisible.toFloat()
         )
     }
 
     override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
-        return items[indexPath.row].identifier
+        return items.getOrNull(indexPath.row)?.identifier
     }
 
     override fun onIndexChanged(to: Int, animated: Boolean) {

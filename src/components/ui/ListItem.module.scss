@@ -1,8 +1,9 @@
 @use "../../styles/mixins";
 
-$paddingSize: 0.75rem;
+$hPaddingSize: 0.875rem;
+$vPaddingSize: 0.6875rem;
 $iconSize: 2rem;
-$gapSize: 0.75rem;
+$gapSize: 0.875rem;
 
 .root {
   cursor: var(--custom-cursor, pointer);
@@ -14,7 +15,7 @@ $gapSize: 0.75rem;
   align-items: center;
 
   width: 100%;
-  padding: $paddingSize;
+  padding: $vPaddingSize $hPaddingSize;
   border: none;
 
   font-size: 1rem;
@@ -32,7 +33,7 @@ $gapSize: 0.75rem;
     position: absolute;
     top: 0;
     right: 0;
-    left: $paddingSize + $iconSize + $gapSize;
+    left: $hPaddingSize + $iconSize + $gapSize;
 
     height: 0.0625rem;
 
@@ -74,4 +75,21 @@ $gapSize: 0.75rem;
   --spinner-size: 0.875rem;
 
   margin-right: 0.25rem;
+}
+
+.label {
+  line-height: 1.25rem;
+  text-align: start;
+}
+
+.description {
+  display: block;
+
+  margin-top: 0.125rem;
+
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-style: normal;
+  line-height: 1rem;
+  color: var(--color-gray-2);
 }

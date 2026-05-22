@@ -42,6 +42,8 @@ open class WCustomImageView @JvmOverloads constructor(
             field = value
             hierarchy?.setOnFadeListener(value)
         }
+    var onFinalImageSet: ((ImageInfo?) -> Unit)? = null
+    var onFailure: ((Throwable?) -> Unit)? = null
     var chainOffsetX = 0f.dp
     var chainOffsetY = 0f.dp
 
@@ -146,6 +148,18 @@ open class WCustomImageView @JvmOverloads constructor(
     private val controllerListener = object : BaseControllerListener<ImageInfo>() {
         override fun onRelease(id: String?) {
             fadeListener?.onShownImmediately()
+        }
+
+        override fun onFinalImageSet(
+            id: String?,
+            imageInfo: ImageInfo?,
+            animatable: android.graphics.drawable.Animatable?
+        ) {
+            onFinalImageSet?.invoke(imageInfo)
+        }
+
+        override fun onFailure(id: String?, throwable: Throwable?) {
+            onFailure?.invoke(throwable)
         }
     }
 

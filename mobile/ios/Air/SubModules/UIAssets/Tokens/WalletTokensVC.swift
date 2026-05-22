@@ -705,7 +705,7 @@ extension WalletTokensVC {
     }
 
     private func didSelectSeeAll() {
-        AppActions.showAssets(accountSource: $account.source, selectedTab: 0, collectionsFilter: .none)
+        AppActions.showAssets(accountSource: $account.source, selectedTab: .tokens, collectionsFilter: .none)
     }
 
     private func didTapAddTokens() {

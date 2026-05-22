@@ -1,9 +1,11 @@
 import Combine
+import Kingfisher
 import Perception
 import SwiftUI
 import UIComponents
 import WalletContext
 import WalletCore
+import UIInAppBrowser
 
 extension ExploreVC {
     /// UI events
@@ -14,11 +16,14 @@ extension ExploreVC {
 
         let trendingDappDidTap = PassthroughSubject<ApiSite, Never>()
         let dappFromFolderDidTap = PassthroughSubject<ApiSite, Never>()
-        let searchResultDappDidTap = PassthroughSubject<ApiSite, Never>()
+        let searchResultItemDidTap = PassthroughSubject<ExploreSearchResultItem, Never>()
+        let recentSearchDidTap = PassthroughSubject<String, Never>()
+        let clearRecentSearchesDidTap = PassthroughSubject<String, Never>()
 
         /// category id
         let dappCategoryDidTap = PassthroughSubject<Int, Never>()
-        
+
+
         @available(iOS, deprecated: 26.0, message: "SwiftUI scroll is observed correctly in iOS 26")
         let scrollOffsetDidChange = PassthroughSubject<CGFloat, Never>()
     }
@@ -30,10 +35,14 @@ extension ExploreVC {
         var id: Identity { identity }
 
         enum Identity: Hashable {
-            case connectedDapps // unique single section
-            case trending // unique single section
-            case popularDapps // unique single section
-            case searchResults // unique single section
+            case connectedDapps
+            case trending
+            case popularDapps
+            case searchMatch       
+            case searchSuggestions 
+            case searchResults
+            case searchHistory
+            case recentSearches
         }
     }
 
@@ -42,15 +51,24 @@ extension ExploreVC {
         case connectedDapps(dapps: [ApiDapp], layoutVariant: LayoutSizeVariant)
         case trendingDapps(sites: [ApiSite])
         case dappFolders(folders: [ExploreScreenDappFolderVM])
-        case searchResult(sites: [ApiSite])
+
+        case searchSectionHeader(title: String, hasTopGap: Bool = false)
+        case searchResult(items: [ExploreSearchResultItem])
+        case historyResult(items: [ExploreSearchResultItem])
+        case recentSearchesHeader(title: String, tag: String)
+        case recentSearches(items: [RecentSearchItem])
 
         var id: String {
             switch self {
             case let .sectionHeader(title, _): title
+            case let .searchSectionHeader(title, _): "search_\(title)"
             case .connectedDapps: "connectedDapps_UniqueSingleGroup"
             case .trendingDapps: "trendingDapps_UniqueSingleGroup"
             case .dappFolders: "dappFolders_UniqueSingleGroup"
             case .searchResult: "searchResult_UniqueSingleGroup"
+            case .historyResult: "historyResult_UniqueSingleGroup"
+            case .recentSearchesHeader: "recentSearchesHeader_UniqueSingleGroup"
+            case .recentSearches: "recentSearches_UniqueSingleGroup"
             }
         }
     }
@@ -77,44 +95,132 @@ extension ExploreVC {
 
     static func makeViewStateSnapshot(exploreVM: ExploreVM,
                                       shouldRestrictSites: Bool,
-                                      trimmedSearchString: String)
+                                      isSearchActive: Bool,
+                                      trimmedSearchString: String,
+                                      historyItems: [BrowserHistoryItem],
+                                      recentSearchItems: [RecentSearchItem] = [])
         -> (sections: [SectionItem], shouldShowWhiteBackground: Bool) {
         makeViewStateSnapshot(connectedDapps: Array(exploreVM.connectedDapps.values.apply(Array.init)),
                               featuredTitle: exploreVM.featuredTitle,
                               exploreSites: exploreVM.exploreSites.values.apply(Array.init),
                               siteCategories: exploreVM.exploreCategories.values.apply(Array.init),
                               shouldRestrictSites: shouldRestrictSites,
-                              trimmedSearchString: trimmedSearchString)
+                              isSearchActive: isSearchActive,
+                              trimmedSearchString: trimmedSearchString,
+                              historyItems: historyItems,
+                              recentSearchItems: recentSearchItems)
     }
 
-    fileprivate static func makeViewStateSnapshot(connectedDapps: [ApiDapp],
+    private static func makeViewStateSnapshot(connectedDapps: [ApiDapp],
                                                   featuredTitle: String?,
                                                   exploreSites: [ApiSite],
                                                   siteCategories: [ApiSiteCategory],
                                                   shouldRestrictSites: Bool,
-                                                  trimmedSearchString: String)
+                                                  isSearchActive: Bool,
+                                                  trimmedSearchString: String,
+                                                  historyItems: [BrowserHistoryItem],
+                                                  recentSearchItems: [RecentSearchItem] = [])
         -> (sections: [SectionItem], shouldShowWhiteBackground: Bool) {
         let exploreSites = shouldRestrictSites ? exploreSites.filter { !$0.canBeRestricted } : exploreSites
         var sections: [SectionItem] = []
-        let shouldShowWhiteBackground: Bool
-        if trimmedSearchString.isEmpty { // Idle state:
+
+        // Idle state:
+        if !isSearchActive && trimmedSearchString.isEmpty {
             appendContentItems(to: &sections,
                                connectedDapps: connectedDapps,
                                featuredTitle: featuredTitle,
                                exploreSites: exploreSites,
                                siteCategories: siteCategories)
-            shouldShowWhiteBackground = false
-        } else { // Search state:
-            let foundSites = exploreSites.lazy.filter { $0.matches(trimmedSearchString) }
-                .apply(Array.init)
-
-            if !foundSites.isEmpty {
-                sections.append(SectionItem(identity: .searchResults,
-                                            items: [.searchResult(sites: foundSites)]))
-            }
-            shouldShowWhiteBackground = true
+            return (sections, false)
         }
-        return (sections, shouldShowWhiteBackground)
+
+        // Search active, no query yet — show recent searches:
+        if isSearchActive && trimmedSearchString.isEmpty {
+            if !recentSearchItems.isEmpty {
+                let tag = recentSearchItems.first?.tag ?? exploreHistoryTag
+                sections.append(SectionItem(identity: .recentSearches, items: [
+                    .recentSearchesHeader(title: lang("Recent Searches"), tag: tag),
+                    .recentSearches(items: recentSearchItems),
+                ]))
+            }
+            return (sections, !sections.isEmpty)
+        }
+
+        // Search state with query:
+        let keyword = trimmedSearchString.lowercased()
+
+        // 1. Exact URL match — first history item whose host or URL starts with the keyword.
+        let matchedHistoryItem = historyItems.first { item in
+            URL(string: item.url)?.host?.lowercased().hasPrefix(keyword) == true
+                || item.url.lowercased().hasPrefix(keyword)
+        }
+        if let matched = matchedHistoryItem {
+            let showFavicon = !matched.favicon.isEmpty
+            sections.append(SectionItem(identity: .searchMatch, items: [
+                .historyResult(items: [ExploreSearchResultItem(source: .history(matched), showFavicon: showFavicon)]),
+            ]))
+        }
+
+        // 2. Suggestions — recent searches that contain the keyword, prefix matches ranked first, max 10.
+        let suggestions = Array(
+            recentSearchItems
+                .filter { $0.text.lowercased().contains(keyword) }
+                .sorted { a, b in
+                    a.text.lowercased().hasPrefix(keyword) && !b.text.lowercased().hasPrefix(keyword)
+                }
+                .prefix(10)
+        )
+        if !suggestions.isEmpty {
+            sections.append(SectionItem(identity: .searchSuggestions, items: [
+                .recentSearches(items: suggestions),
+            ]))
+        }
+
+        // 3. Dapps — name/description/url contains keyword, prefix matches ranked first, max 5.
+        let matchingDapps = connectedDapps
+            .filter { $0.matches(trimmedSearchString) }
+            .map { ExploreSearchResultItem(source: .connectedDapp($0)) }
+        let matchingSites = exploreSites
+            .filter { $0.matches(trimmedSearchString) }
+            .map { ExploreSearchResultItem(source: .site($0)) }
+
+        var seen = Set<String>()
+        let combinedResults = Array(
+            (matchingDapps + matchingSites)
+                .filter { seen.insert($0.id).inserted }
+                .sorted { a, b in
+                    prefixMatches(item: a, keyword: keyword) && !prefixMatches(item: b, keyword: keyword)
+                }
+                .prefix(5)
+        )
+        if !combinedResults.isEmpty {
+            sections.append(SectionItem(identity: .searchResults, items: [
+                .searchSectionHeader(title: lang("Popular and connected apps"), hasTopGap: !sections.isEmpty),
+                .searchResult(items: combinedResults),
+            ]))
+        }
+
+        // 4. History — contains match, prefix matches ranked first, max 5.
+        // Exclude the exact-match item (already shown in section 1) to avoid duplication.
+        let matchedURL = matchedHistoryItem?.url
+        let matchingHistory = Array(
+            historyItems
+                .filter { $0.matches(trimmedSearchString) && $0.url != matchedURL }
+                .sorted { a, b in
+                    (a.title.lowercased().hasPrefix(keyword) || a.url.lowercased().hasPrefix(keyword))
+                        && !(b.title.lowercased().hasPrefix(keyword) || b.url.lowercased().hasPrefix(keyword))
+                }
+                .prefix(5)
+                .map { ExploreSearchResultItem(source: .history($0)) }
+        )
+        if !matchingHistory.isEmpty {
+            sections.append(SectionItem(identity: .searchHistory, items: [
+                .searchSectionHeader(title: lang("History"), hasTopGap: !sections.isEmpty),
+                .historyResult(items: matchingHistory),
+            ]))
+        }
+
+        return (sections, true)
     }
 
     private static func appendContentItems(to sections: inout [SectionItem],
@@ -161,6 +267,25 @@ extension ExploreVC {
                 ]))
             }
         }
+    }
+}
+
+// MARK: - Search Helpers
+
+/// Returns true when any primary field of a search result item starts with the given (already-lowercased) keyword.
+/// Used to rank prefix matches above substring matches.
+private func prefixMatches(item: ExploreSearchResultItem, keyword: String) -> Bool {
+    switch item.source {
+    case .site(let s):
+        return s.name.lowercased().hasPrefix(keyword)
+            || s.description.lowercased().hasPrefix(keyword)
+            || s.url.lowercased().hasPrefix(keyword)
+    case .connectedDapp(let d):
+        return d.name.lowercased().hasPrefix(keyword)
+            || d.url.lowercased().hasPrefix(keyword)
+    case .history(let h):
+        return h.title.lowercased().hasPrefix(keyword)
+            || h.url.lowercased().hasPrefix(keyword)
     }
 }
 
@@ -250,7 +375,8 @@ extension ExploreScreenDappFolderVM {
         .previewSnapshot(showConnectedDapps: showConnectedDapps,
                          connectedDappsLayout: connectedDappsLayout,
                          showTrending: showTrending,
-                         searchString: searchState ? "t" : "")
+                         searchString: searchState ? "t" : "",
+                         isSearchActive: searchState)
 
     viewState.update(sections: sections, shouldShowWhiteBackground: shouldShowWhiteBackground)
 
@@ -271,7 +397,8 @@ extension ExploreVC {
     static func previewSnapshot(showConnectedDapps: Bool,
                                 connectedDappsLayout: LayoutSizeVariant,
                                 showTrending: Bool,
-                                searchString: String) -> (sections: [SectionItem], shouldShowWhiteBackground: Bool) {
+                                searchString: String,
+                                isSearchActive: Bool = false) -> (sections: [SectionItem], shouldShowWhiteBackground: Bool) {
         let connectedDapps: [ApiDapp] = if showConnectedDapps {
             switch connectedDappsLayout {
             case .compact: ApiDapp.sampleList.prefix(2).apply(Array.init)
@@ -304,7 +431,9 @@ extension ExploreVC {
                                           exploreSites: exploreSites,
                                           siteCategories: categories,
                                           shouldRestrictSites: false,
-                                          trimmedSearchString: searchString)
+                                          isSearchActive: isSearchActive,
+                                          trimmedSearchString: searchString,
+                                          historyItems: [])
     }
 }
 #endif
@@ -420,8 +549,22 @@ extension ExploreVC {
                                                  viewOutput.dappCategoryDidTap.send(categoryId)
                                              })
 
-            case let .searchResult(sites):
-                searchResultView(sites: sites)
+            case let .searchSectionHeader(title, hasTopGap):
+                SearchSectionHeaderView(title: title, hasTopGap: hasTopGap)
+
+            case let .searchResult(items):
+                searchResultView(items: items)
+
+            case let .historyResult(items):
+                historyResultView(items: items)
+
+            case let .recentSearchesHeader(title, tag):
+                RecentSearchesSectionHeaderView(title: title, clearAction: {
+                    viewOutput.clearRecentSearchesDidTap.send(tag)
+                })
+
+            case let .recentSearches(items):
+                recentSearchesView(items: items)
             }
         }
 
@@ -512,12 +655,30 @@ extension ExploreVC {
 
         // MARK: Search Results Section View
 
-        private func searchResultView(sites: [ApiSite]) -> some View {
-            ForEach(sites, id: \.name, content: { site in
-                ExploreCategoryRow(site: site, openAction: {
-                    viewOutput.searchResultDappDidTap.send(site)
+        private func searchResultView(items: [ExploreSearchResultItem]) -> some View {
+            ForEach(items) { item in
+                SearchResultItemRow(item: item, openAction: {
+                    viewOutput.searchResultItemDidTap.send(item)
                 })
-            })
+            }
+        }
+
+        private func historyResultView(items: [ExploreSearchResultItem]) -> some View {
+            ForEach(items) { item in
+                SearchResultItemRow(item: item, openAction: {
+                    viewOutput.searchResultItemDidTap.send(item)
+                })
+            }
+        }
+
+        // MARK: Recent Searches
+
+        private func recentSearchesView(items: [RecentSearchItem]) -> some View {
+            ForEach(items, id: \.text) { item in
+                RecentSearchItemRow(item: item, tapAction: {
+                    viewOutput.recentSearchDidTap.send(item.text)
+                })
+            }
         }
     }
 }
@@ -590,5 +751,251 @@ private struct AutoScrollingTrendingView: View {
     private func cancelAutoScroll() {
         autoScrollTask?.cancel()
         autoScrollTask = nil
+    }
+}
+
+// MARK: - Search Result Item
+
+struct ExploreSearchResultItem: Equatable, Identifiable {
+    enum Source: Equatable {
+        case site(ApiSite)
+        case connectedDapp(ApiDapp)
+        case history(BrowserHistoryItem)
+    }
+
+    let source: Source
+    var showFavicon: Bool = false
+
+    var id: String {
+        switch source {
+        case .site(let s): s.url
+        case .connectedDapp(let d): d.url
+        // Prefix differs when showFavicon is set so SwiftUI treats the exact-match row
+        // as a distinct identity from any same-URL row in the regular history section.
+        case .history(let h): (showFavicon ? "match_" : "history_") + h.url
+        }
+    }
+
+    var name: String {
+        switch source {
+        case .site(let s): s.name
+        case .connectedDapp(let d): d.name
+        case .history(let h): h.title
+        }
+    }
+
+    var iconURL: String {
+        switch source {
+        case .site(let s): s.icon
+        case .connectedDapp(let d): d.iconUrl
+        case .history(let h): h.favicon
+        }
+    }
+
+    nonisolated(unsafe) private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .full
+        return f
+    }()
+
+    var subtitle: String {
+        switch source {
+        case .site(let s): return s.description
+        case .connectedDapp(let d): return d.displayUrl
+        case .history(let h):
+            let host = URL(string: h.url)?.host ?? h.url
+            let relative = Self.relativeDateFormatter.localizedString(for: h.visitDate, relativeTo: Date())
+            return "\(host) · \(relative)"
+        }
+    }
+
+    var shouldOpenExternally: Bool {
+        switch source {
+        case .site(let s): s.shouldOpenExternally
+        case .connectedDapp, .history: false
+        }
+    }
+
+    var showOpenButton: Bool {
+        switch source {
+        case .site, .connectedDapp: true
+        case .history: false
+        }
+    }
+
+    var url: String {
+        switch source {
+        case .site(let s): s.url
+        case .connectedDapp(let d): d.url
+        case .history(let h): h.url
+        }
+    }
+}
+
+private struct SearchSectionHeaderView: View {
+    let title: String
+    var hasTopGap: Bool = false
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Color.air.secondaryLabel)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(EdgeInsets(top: hasTopGap ? 20 : 0, leading: 12, bottom: 3, trailing: 16))
+            .background(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.air.separator)
+                    .frame(height: 1 / UIScreen.main.scale)
+                    .padding(.leading, 12)
+                    .padding(.trailing, 16)
+            }
+    }
+}
+
+private struct SearchResultItemRow: View {
+    let item: ExploreSearchResultItem
+    let openAction: () -> ()
+
+    private let iconSize: CGFloat = 24
+    private let iconCornerRadius: CGFloat = 6
+
+    var body: some View {
+        HStack(spacing: 8) {
+            leadingIcon
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 2) {
+                    Text(item.name)
+                        .font(.system(size: 17, weight: .medium))
+                        .lineLimit(1)
+                    if item.shouldOpenExternally {
+                        Image.airBundle("TelegramLogo20")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 18)
+                            .foregroundStyle(Color.air.secondaryLabel.opacity(0.5))
+                    }
+                }
+                
+                Text(item.subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.air.secondaryLabel)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 4)
+
+            if item.showOpenButton {
+                Button(action: openAction) {
+                    Text(lang("Open"))
+                    .foregroundStyle(.tint)
+                }
+                .buttonStyle(OpenButtonStyle(size: .small))
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { if !item.showOpenButton { openAction() } }
+        .padding(.vertical, 9)
+        .padding(.horizontal, 12)
+        .background(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.air.separator)
+                .frame(height: 1 / UIScreen.main.scale)
+                .padding(.leading, 48)
+                .padding(.trailing, 12)
+        }
+    }
+
+    @ViewBuilder private var leadingIcon: some View {
+        if case .history = item.source, !item.showFavicon {
+            Image(systemName: "clock")
+                .font(.system(size: 18, weight: .regular))
+                .foregroundStyle(Color.air.primaryLabel)
+                .frame(width: iconSize, height: iconSize)
+        } else {
+            KFImage(URL(string: item.iconURL))
+                .resizable()
+                .loadDiskFileSynchronously(false)
+                .aspectRatio(contentMode: .fill)
+                .clipShape(.rect(cornerRadius: iconCornerRadius))
+                .frame(width: iconSize, height: iconSize)
+                .applyModifierConditionally {
+                    if #available(iOS 26.0, *) {
+                        $0.glassEffect(.regular, in: .rect(cornerRadius: iconCornerRadius))
+                    } else {
+                        $0
+                    }
+                }
+        }
+    }
+}
+
+// MARK: - Recent Searches Section Header
+
+private struct RecentSearchesSectionHeaderView: View {
+    let title: String
+    let clearAction: () -> ()
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.air.secondaryLabel)
+
+            Spacer()
+
+            Button(action: clearAction) {
+                Text(lang("Clear All"))
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(.tint)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(EdgeInsets(top: 0, leading: 12, bottom: 3, trailing: 12))
+        .background(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.air.separator)
+                .frame(height: 1 / UIScreen.main.scale)
+                .padding(.leading, 12)
+                .padding(.trailing, 16)
+        }
+    }
+}
+
+// MARK: - Recent Search Item Row
+
+private struct RecentSearchItemRow: View {
+    let item: RecentSearchItem
+    let tapAction: () -> ()
+
+    private let iconSize: CGFloat = 24
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(Color.air.secondaryLabel)
+                .frame(width: iconSize, height: iconSize)
+
+            Text(item.text)
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(Color.air.primaryLabel)
+                .lineLimit(1)
+
+            Spacer(minLength: 4)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { tapAction() }
+        .padding(.vertical, 9)
+        .padding(.horizontal, 12)
+        .background(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.air.separator)
+                .frame(height: 1 / UIScreen.main.scale)
+                .padding(.leading, 48)
+                .padding(.trailing, 12)
+        }
     }
 }

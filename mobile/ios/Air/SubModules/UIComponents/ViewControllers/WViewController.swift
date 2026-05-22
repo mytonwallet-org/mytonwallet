@@ -247,74 +247,33 @@ open class WViewController: UIViewController {
     }
 
     // MARK: - Toast
-    var toastView: UIView? = nil
+    private var toastView: ToastView? = nil
     private var toastHider: DispatchWorkItem?
-    private var toastAction: (() -> ())?
-    public func showToast(animationName: String? = nil, message: String, duration: Double, tapAction: (() -> ())? = nil) {
+        
+    public func showToast(style: ToastStyle = .standard, icon: ToastIcon? = nil, message: String, duration: Double,
+                          actionTitle: String? = nil, action: (() -> ())? = nil) {
         hideToastView()
-        toastView = UIView()
-        let blurView = WBlurView.attach(to: toastView!, background: .black.withAlphaComponent(0.75))
-        blurView.layer.cornerRadius = 16
-        blurView.layer.masksToBounds = true
-        toastView?.alpha = 0
-        toastView?.translatesAutoresizingMaskIntoConstraints = false
-        toastView?.layer.cornerRadius = 16
-        toastView?.layer.shadowColor = UIColor.black.cgColor
-        toastView?.layer.shadowOpacity = 0.2
-        toastView?.layer.shadowOffset = CGSize(width: 0, height: 1)
-        toastView?.layer.shadowRadius = 16
-        toastView?.backgroundColor = .clear
-        toastView?.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(onToastTap)))
         
-        self.toastAction = tapAction
-        
-        let animatedSticker: WAnimatedSticker?
-        if let animationName {
-            animatedSticker = WAnimatedSticker()
-            animatedSticker!.animationName = animationName
-            animatedSticker!.translatesAutoresizingMaskIntoConstraints = false
-            animatedSticker!.setup(width: 35,
-                                  height: 35,
-                                  playbackMode: .once)
-            toastView!.addSubview(animatedSticker!)
-            NSLayoutConstraint.activate([
-                animatedSticker!.centerYAnchor.constraint(equalTo: toastView!.centerYAnchor),
-                animatedSticker!.leftAnchor.constraint(equalTo: toastView!.leftAnchor, constant: 7),
-                animatedSticker!.widthAnchor.constraint(equalToConstant: CGFloat(35)),
-                animatedSticker!.heightAnchor.constraint(equalToConstant: CGFloat(35))
-            ])
-        } else {
-            animatedSticker = nil
+        let toastView = ToastView(style: style, icon: icon, message: message, actionTitle: actionTitle, action: action) { [weak self] in
+            self?.toastHider?.perform()
         }
-        
-        let lbl = UILabel()
-        lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 13)
-        lbl.textColor = .white
-        lbl.text = message
-        lbl.numberOfLines = 0
-        toastView!.addSubview(lbl)
-        view.addSubview(toastView!)
-        let bottomConstraint = toastView!.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -12)
-        let fallbackBottomConstraint = toastView!.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12)
-        fallbackBottomConstraint.priority = .defaultHigh
+        self.toastView = toastView
+
+        toastView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(toastView)
         NSLayoutConstraint.activate([
-            lbl.topAnchor.constraint(equalTo: toastView!.topAnchor),
-            lbl.leftAnchor.constraint(equalTo: animatedSticker?.rightAnchor ?? toastView!.leftAnchor, constant: animatedSticker?.rightAnchor == nil ? 12 : 8),
-            lbl.rightAnchor.constraint(equalTo: toastView!.rightAnchor, constant: -12),
-            lbl.bottomAnchor.constraint(equalTo: toastView!.bottomAnchor),
-            lbl.heightAnchor.constraint(greaterThanOrEqualToConstant: 49),
-            bottomConstraint,
-            fallbackBottomConstraint,
-            toastView!.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor, constant: 12),
-            toastView!.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor, constant: -12),
+            toastView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -12),
+            toastView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12).withPriority(.defaultHigh),
+            toastView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor, constant: 24),
+            toastView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor, constant: -24),
         ])
-        toastView?.alpha = 0
+        
         view.layoutIfNeeded()
         UIView.animate(withDuration: 0.3) {
             self.toastView?.alpha = 1
             self.view.layoutIfNeeded()
         }
+        
         toastHider?.cancel()
         let toastHider = DispatchWorkItem { [weak self] in
             guard let self else {return}
@@ -334,11 +293,6 @@ open class WViewController: UIViewController {
             toastView.removeFromSuperview()
         }
         self.toastView = nil
-    }
-    
-    @objc private func onToastTap() {
-        toastAction?()
-        toastHider?.perform()
     }
     
     // MARK: - Tip

@@ -6,9 +6,9 @@ import UIComponents
 
 public final class ImportExistingPickerVC: CreateWalletBaseVC {
     
-    let introModel: IntroModel
+    private let introModel: IntroModel
 
-    var hostingController: UIHostingController<ImportExistingPickerView>?
+    private var hostingController: UIHostingController<ImportExistingPickerView>?
     private let navHeight: CGFloat = 60
 
     public init(introModel: IntroModel) {
@@ -27,21 +27,18 @@ public final class ImportExistingPickerVC: CreateWalletBaseVC {
         
         hostingController = addHostingController(makeView(), constraints: .fill)
         
-        updateTheme()
+        configureSheetWithOpaqueBackground(color: .air.sheetBackground)
+        view.backgroundColor = .air.sheetBackground
     }
     
-    func makeView() -> ImportExistingPickerView {
+    private func makeView() -> ImportExistingPickerView {
         ImportExistingPickerView(
             introModel: introModel,
             onHeightChange: { [weak self] height in self?.onHeightChange(height) }
         )
     }
     
-    private func updateTheme() {
-        view.backgroundColor = .air.sheetBackground
-    }
-    
-    func onHeightChange(_ height: CGFloat) {
+    private func onHeightChange(_ height: CGFloat) {
         if let sheet = sheetPresentationController {
             sheet.detents = [.custom(identifier: .content, resolver: { [navHeight] _ in height + navHeight })]
         }
@@ -55,10 +52,6 @@ private extension UISheetPresentationController.Detent.Identifier {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    AccountTypePickerVC(
-        network: .mainnet, 
-        showCreateWallet: true,
-        showSwitchToOtherVersion: true
-    )
+    ImportExistingPickerVC(introModel: IntroModel(network: .mainnet, password: nil))
 }
 #endif

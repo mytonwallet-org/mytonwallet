@@ -24,6 +24,17 @@
   @media (hover: none) {
     display: none;
   }
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      opacity: 0.8;
+    }
+
+    &:active {
+      opacity: 0.8;
+    }
+  }
 }
 
 .buttonLeft {

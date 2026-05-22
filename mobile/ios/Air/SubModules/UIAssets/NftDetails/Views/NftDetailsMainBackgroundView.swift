@@ -65,6 +65,7 @@ struct NftDetailsBackground {
             mtkView.framebufferOnly = false
             mtkView.colorPixelFormat = .bgra8Unorm
             mtkView.presentsWithTransaction = true
+            mtkView.autoResizeDrawable = false
 
             metalView = mtkView
             addSubview(mtkView)

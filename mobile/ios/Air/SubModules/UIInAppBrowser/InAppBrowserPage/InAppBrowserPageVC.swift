@@ -54,6 +54,11 @@ final class InAppBrowserPageVC: WViewController {
         setupViews()
         setupObservers()
     }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        webView?.load(URLRequest(url: config.url))
+    }
     
     private func setupViews() {
         view.backgroundColor = .air.background
@@ -129,7 +134,6 @@ final class InAppBrowserPageVC: WViewController {
             )
             webView.configuration.userContentController.addUserScript(walletConnectScript)
         }
-        webView.load(URLRequest(url: config.url))
         delegate?.inAppBrowserPageStateChanged(self)
         
         updateTheme()
@@ -189,7 +193,31 @@ final class InAppBrowserPageVC: WViewController {
 
 extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
     
+    // Fetches the first declared favicon href from the page, falling back to /favicon.ico.
+    private static let fetchFaviconScript = """
+        (function() {
+            var link = document.querySelector('link[rel~="icon"]') ||
+                    document.querySelector('link[rel="shortcut icon"]');
+            return link ? link.href : (window.location.origin + '/favicon.ico');
+        })()
+    """
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard let tag = config.historyTag,
+              let url = webView.url,
+              url.scheme == "https" || url.scheme == "http" else { return }
+        let title = webView.title?.nilIfEmpty ?? url.host ?? url.absoluteString
+        webView.evaluateJavaScript(Self.fetchFaviconScript) { result, _ in
+            let favicon = (result as? String) ?? ""
+            Task { @MainActor in
+                guard let accountId = AccountStore.accountId else { return }
+                BrowserHistoryStore.shared.saveVisit(accountId: accountId,
+                                                     url: url.absoluteString,
+                                                     title: title,
+                                                     favicon: favicon,
+                                                     tag: tag)
+            }
+        }
     }
     
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {

@@ -18,7 +18,7 @@ public final class LedgerSignVC<HeaderView: View>: WViewController {
         self.model = model
         self.headerView = headerView
         super.init(nibName: nil, bundle: nil)
-        self.title = title ?? lang("Confirm with Ledger")
+        self.title = title ?? lang("Confirm via Ledger")
         model.onDone = { [weak self] in self?.handleOnDone() }
         model.onCancel = { [weak self] in self?.handleOnCancel() }
     }

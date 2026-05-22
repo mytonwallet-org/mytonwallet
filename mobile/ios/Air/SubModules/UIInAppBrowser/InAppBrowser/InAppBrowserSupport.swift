@@ -69,8 +69,8 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
     }
 
     /// Called through AppActions
-    public func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool) {
-        let config = InAppBrowserPageConfig(url: url, title: title, injectDappConnect: injectDappConnect)
+    public func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool, historyTag: String?) {
+        let config = InAppBrowserPageConfig(url: url, title: title, injectDappConnect: injectDappConnect, historyTag: historyTag)
         let browser = ensureBrowser()
         browser.openPage(config: config)
 

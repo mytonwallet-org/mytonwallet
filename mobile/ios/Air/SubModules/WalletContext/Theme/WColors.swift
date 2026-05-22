@@ -82,6 +82,8 @@ public struct WColors: Sendable {
     public let textPurple: UIColor = .airBundle("TextPurple")
     public let activityNftFill: UIColor = .airBundle("ActivityNftFill")
     public let darkCapsule: UIColor = .airBundle("DarkCapsuleColor")
+    public let toastBackground: UIColor = .airBundle("ToastBackgroundColor")
+    public let toastAction: UIColor = .airBundle("ToastActionColor")
 
     public let gradients = [
         [#colorLiteral(red: 1, green: 0.5333333611, blue: 0.3686274588, alpha: 1).cgColor, #colorLiteral(red: 1, green: 0.3176470697, blue: 0.4156863093, alpha: 1).cgColor],

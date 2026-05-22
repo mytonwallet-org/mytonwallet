@@ -226,6 +226,12 @@ Set a passcode: Установіть код
 "Transaction to this smart contract is not yet supported by Ledger.": "Транзакції до цього смартконтракту ще не підтримуються Ledger."
 Transfer Details: Деталі переказу
 "Transferring NFT is not yet supported by Ledger.": "Передавання NFT ще не підтримується Ledger."
+Connect your Ledger via Bluetooth: Підключіть ваш Ledger через Bluetooth
+Discovering wallets: Пошук гаманців
+Bluetooth Access Denied: Доступ до Bluetooth заборонено
+Bluetooth access is needed to connect Ledger.: Для підключення Ledger потрібен доступ до Bluetooth.
+Address not resolved: Не вдалося визначити адресу
+Sending more than one NFT isn't supported by Ledger: Надсилання більше одного NFT не підтримується Ledger
 Unavailable: Недоступно
 "Updating…": "Оновлення…"
 "Waiting for network…": "Очікування мережі…"

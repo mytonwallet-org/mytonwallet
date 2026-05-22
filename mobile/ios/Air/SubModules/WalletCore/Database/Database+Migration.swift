@@ -282,6 +282,27 @@ func makeMigrator() -> DatabaseMigrator {
             t.rename(column: "autolockValue_new", to: "autolockValue")
         }
     }
+    migrator.registerMigration("v15") { db in
+        try db.create(table: "browser_history") { t in
+            t.column("accountId", .text).notNull()
+                .references("accounts", column: "id", onDelete: .cascade)
+            t.column("tag", .text)
+            t.column("url", .text).notNull()
+            t.column("title", .text).notNull()
+            t.column("favicon", .text).notNull().defaults(to: "")
+            t.column("visitDate", .datetime).notNull()
+            t.uniqueKey(["accountId", "url", "tag"])
+        }
+
+        try db.create(table: "recent_searches") { t in
+            t.column("accountId", .text).notNull()
+                .references("accounts", column: "id", onDelete: .cascade)
+            t.column("tag", .text)
+            t.column("text", .text).notNull()
+            t.column("timestamp", .datetime).notNull()
+            t.uniqueKey(["accountId", "text", "tag"])
+        }
+    }
 
     return migrator
 }

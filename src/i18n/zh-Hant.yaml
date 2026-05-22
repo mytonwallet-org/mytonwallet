@@ -268,8 +268,6 @@ Stake Again: 再次質押
 Earned: 獲得
 Select wallet to use on this app: 選擇要在此應用上使用的錢包
 Connect: 連接
-App Permissions: 應用權限
-$dapp_can_view_balance: "%dappname%將能夠查看錢包地址和余額。"
 Payload: 有效載荷
 $many_transactions: "%1$d筆轉賬"
 Total Amount: 總金額
@@ -1191,3 +1189,11 @@ $mint_nft_action: 鑄造 NFT
 Burned NFT: 已銷毀NFT
 Burning NFT: 正在銷毀 NFT
 $burn_nft_action: 銷毀 NFT
+New Wallet: 新錢包
+From new secret words: 來自新的密語
+New Subwallet: 新子錢包
+From current secret words: 來自當前密語
+$secret_words: 密語
+Restore wallet from 12 or 24 words: 使用 12 或 24 個助記詞恢復錢包
+Connect your hardware wallet: 連接您的硬體錢包
+Watch wallet in read-only mode: 以唯讀模式查看錢包

@@ -520,7 +520,7 @@ class InAppBrowserVC(
         }
 
         if (config.topBarColorMode == InAppBrowserConfig.TopBarColorMode.CONTENT_BASED) {
-            webView.addJavascriptInterface(themeColorBridge, "_mtwThemeBridge")
+            webView.addJavascriptInterface(themeColorBridge, THEME_BRIDGE_INTERFACE)
         }
 
         webView.loadUrl(config.url)
@@ -586,8 +586,16 @@ class InAppBrowserVC(
         grantedPermissionsByOrigin.clear()
         webView.apply {
             stopLoading()
+            loadUrl("about:blank")
+            webViewClient = WebViewClient()
             webChromeClient = null
             setDownloadListener(null)
+            if (injectedInterface != null) {
+                removeJavascriptInterface(TonConnectHelper.TON_CONNECT_WALLET_JS_BRIDGE_INTERFACE)
+            }
+            removeJavascriptInterface(THEME_BRIDGE_INTERFACE)
+            clearHistory()
+            (parent as? ViewGroup)?.removeView(this)
             removeAllViews()
             destroy()
         }
@@ -1060,6 +1068,7 @@ class InAppBrowserVC(
 
     companion object {
         const val GOOGLE_SEARCH_URL = "https://www.google.com/search?q="
+        const val THEME_BRIDGE_INTERFACE = "_mtwThemeBridge"
 
         fun convertToUri(input: String): Pair<Boolean, Uri?> {
             try {

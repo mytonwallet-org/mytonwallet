@@ -202,7 +202,7 @@ struct PaletteGrid: View {
                     onTap: { _ in
                         AppActions.showToast(
                             message: lang("Get a unique MyTonWallet Card to unlock new palettes."),
-                            tapAction: AppActions.showUpgradeCard
+                            action: AppActions.showUpgradeCard
                         )
                         Haptics.play(.lightTap)
                     },

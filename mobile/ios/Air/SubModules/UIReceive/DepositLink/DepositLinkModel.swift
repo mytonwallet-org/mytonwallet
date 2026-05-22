@@ -31,14 +31,22 @@ final class DepositLinkModel: TokenSelectionVCDelegate {
     @PerceptionIgnored
     private var tokenAmountObservation: ObserveToken?
     @PerceptionIgnored
+    private var selectedTokenObservation: ObserveToken?
+    @PerceptionIgnored
     private var urlObservation: ObserveToken?
     
     init(accountContext: AccountContext, nativeToken: ApiToken) {
         self.accountContext = accountContext
         self.nativeToken = nativeToken
-        self.tokenAmount = TokenAmount(0, nativeToken)
+        self.tokenAmount = TokenAmount(0, TokenStore.getToken(slug: nativeToken.slug) ?? nativeToken)
         tokenAmount.optionalAmount = nil
         
+        selectedTokenObservation = observe { [weak self] in
+            guard let self else { return }
+            guard let token = TokenStore[tokenAmount.token.slug], token != tokenAmount.token else { return }
+            tokenAmount = tokenAmount.switchKeepingDecimalValue(newType: token)
+        }
+
         tokenAmountObservation = observe { [weak self] in
             guard let self else { return }
             baseCurrencyAmount = tokenAmount
@@ -63,7 +71,8 @@ final class DepositLinkModel: TokenSelectionVCDelegate {
             title: lang("Select Token"),
             delegate: self,
             isModal: true,
-            onlySupportedChains: true
+            onlySupportedChains: true,
+            chainFilter: chain
         )
         let nc = WNavigationController(rootViewController: tokenSelectionVC)
         topViewController()?.present(nc, animated: true)

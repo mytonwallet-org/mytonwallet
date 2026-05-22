@@ -464,9 +464,9 @@ extension HomeTabBarController: WalletCoreData.EventsObserver {
     
     private func handleConfig(_ config: ApiUpdate.UpdateConfig) {
         if config.isAppUpdateRequired == true {
-            AppActions.showToast(message: lang("Update %app_name%", arg1: APP_NAME), duration: nil, tapAction: {
+            AppActions.showToast(message: lang("Update %app_name%", arg1: APP_NAME), duration: nil) {
                 UIApplication.shared.open(URL(string: APP_INSTALL_URL)!)
-            })
+            }
         }
     }
 }

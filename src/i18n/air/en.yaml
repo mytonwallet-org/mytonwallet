@@ -220,6 +220,12 @@ Set a passcode: Set a passcode
 "Transaction to this smart contract is not yet supported by Ledger.": "Transaction to this smart contract is not yet supported by Ledger."
 Transfer Details: Transfer Details
 "Transferring NFT is not yet supported by Ledger.": "Transferring NFT is not yet supported by Ledger."
+Connect your Ledger via Bluetooth: Connect your Ledger via Bluetooth
+Discovering wallets: Discovering wallets
+Bluetooth Access Denied: Bluetooth Access Denied
+Bluetooth access is needed to connect Ledger.: Bluetooth access is needed to connect Ledger.
+Address not resolved: Address not resolved
+Sending more than one NFT isn't supported by Ledger: Sending more than one NFT isn't supported by Ledger
 Unavailable: Unavailable
 "Updating…": "Updating…"
 This is how the TON Blockchain works.: This is how the TON Blockchain works.

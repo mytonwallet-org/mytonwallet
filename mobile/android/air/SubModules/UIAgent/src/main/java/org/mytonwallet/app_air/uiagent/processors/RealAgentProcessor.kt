@@ -11,9 +11,9 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.io.BufferedInputStream
+import java.math.BigDecimal
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
@@ -159,27 +159,27 @@ class RealAgentProcessor : AgentProcessor {
 
             val accountId = AccountStore.activeAccountId
             if (accountId != null) {
-                val balancesMap = BalanceStore.getBalances(accountId)
-                if (balancesMap != null && balancesMap.isNotEmpty()) {
-                    val balancesArray = JSONArray()
-                    for ((slug, balance) in balancesMap.entries.sortedBy { it.key }) {
-                        balancesArray.put("$slug:$balance")
-                    }
-                    put("balances", balancesArray)
-                }
+                val tokenBalances =
+                    AccountStore.assetsAndActivityData.getAllTokens(addVirtualStakingTokens = false)
 
                 val tokensArray = JSONArray()
-                for ((slug, _) in balancesMap?.entries?.sortedBy { it.key } ?: emptyList()) {
+                val balancesArray = JSONArray()
+                for (tokenBalance in tokenBalances) {
+                    val slug = tokenBalance.token ?: continue
                     val token = TokenStore.getToken(slug) ?: continue
+                    val balance = tokenBalance.amountValue
+                    if (balance.signum() <= 0) continue
                     tokensArray.put(JSONArray().apply {
                         put(token.slug)
                         put(token.symbol)
                         put(token.name)
                         put(token.decimals.toString())
-                        put(token.priceUsd.toString())
+                        put(formatDouble(token.priceUsd))
                     })
+                    balancesArray.put("$slug:$balance:${formatDouble(tokenBalance.toBaseCurrency)}")
                 }
-                if (tokensArray.length() > 0) put("walletTokens", tokensArray)
+                put("walletTokens", tokensArray)
+                put("balances", balancesArray)
             }
         }
 
@@ -188,6 +188,11 @@ class RealAgentProcessor : AgentProcessor {
             put("text", message)
             put("context", context)
         }.toString()
+    }
+
+    private fun formatDouble(value: Double?): String {
+        if (value == null || value.isNaN() || value.isInfinite()) return "0"
+        return BigDecimal(value.toString()).stripTrailingZeros().toPlainString()
     }
 
     override suspend fun loadHints(langCode: String?): List<AgentHint> =

@@ -41,7 +41,9 @@ class WalletVersionsHeaderCell(context: Context) :
     private val walletAddressLabel = WLabel(context).apply {
         setStyle(14f)
         text =
-            SpannableStringBuilder(AccountStore.activeAccount?.tonAddress?.formatStartEndAddress()).apply {
+            SpannableStringBuilder(
+                AccountStore.activeAccount?.tonAddress?.formatStartEndAddress() ?: ""
+            ).apply {
                 styleDots()
             }
     }

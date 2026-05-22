@@ -7,7 +7,7 @@ import WalletContext
 @MainActor public protocol AppActionsProtocol {
     static func copyString(_ string: String?, toastMessage: String)
     static func lockApp(animated: Bool)
-    static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool)
+    static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool, historyTag: String?)
     static func openTipsChannel()
     static func repeatActivity(accountContext: AccountContext, _ activity: ApiActivity)
     static func saveTemporaryViewAccount(accountId: String)
@@ -17,10 +17,10 @@ import WalletContext
     static func showActivityDetails(accountId: String, activity: ApiActivity, context: ActivityDetailsContext)
     static func showActivityDetailsById(chain: ApiChain, txId: String, showError: Bool)
     static func showAddToken()
-    static func showAddWallet(network: ApiNetwork, showCreateWallet: Bool, showSwitchToOtherVersion: Bool)
+    static func showAddWallet(network: ApiNetwork)
     static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool)
     static func showAgent()
-    static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter)
+    static func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter)
     static func showAssetsAndActivity()
     static func showBuyWithCard(accountContext: AccountContext, chain: ApiChain?, push: Bool?)
     static func showConnectedDapps(push: Bool)
@@ -33,8 +33,8 @@ import WalletContext
     static func showExploreSite(siteHost: String)
     static func showHiddenNfts(accountSource: AccountSource) -> ()
     static func showHome(popToRoot: Bool)
-    static func showImportWalletVersion() -> ()
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String)
+    static func showNft(accountContext: AccountContext, nft: ApiNft)
     static func showNftByAddress(_ nftAddress: String)
     static func showPromotion(_ promotion: ApiPromotion)
     static func showPortfolio(accountContext: AccountContext)
@@ -47,7 +47,7 @@ import WalletContext
     static func showSell(accountContext: AccountContext, tokenSlug: String?)
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?)
     static func showTemporaryViewAccount(addressOrDomainByChain: [String: String])
-    static func showToast(animationName: String?, message: String, duration: Double, tapAction: (() -> ())?)
+    static func showToast(style: ToastStyle, icon: ToastIcon?, message: String, duration: Double, actionTitle: String?, action: (() -> ())?)
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool)
     static func showTokenByAddress(chain: ApiChain, tokenAddress: String)
     static func showTokenBySlug(_ slug: String)
@@ -60,10 +60,16 @@ import WalletContext
 
 public extension AppActionsProtocol {
     static func openInBrowser(_ url: URL) {
-        Self.openInBrowser(url, title: nil, injectDappConnect: true)
+        Self.openInBrowser(url, title: nil, injectDappConnect: true, historyTag: nil)
     }
-    static func showToast(animationName: String? = nil, message: String, duration: Double? = nil, tapAction: (() -> ())? = nil) {
-        showToast(animationName: animationName, message: message, duration: duration ?? 3, tapAction: tapAction)
+
+    static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool) {
+        Self.openInBrowser(url, title: title, injectDappConnect: injectDappConnect, historyTag: nil)
+    }
+
+    static func showToast(style: ToastStyle = .standard, icon: ToastIcon? = nil, message: String, duration: Double? = nil,
+                          actionTitle: String? = nil, action: (() -> ())? = nil) {
+        showToast(style: style, icon: icon, message: message, duration: duration ?? 3, actionTitle: actionTitle, action: action)
     }
     static func showMultisend() {
         guard let url = URL(string: MYTONWALLET_MULTISEND_DAPP_URL) else {
@@ -77,7 +83,7 @@ public extension AppActionsProtocol {
 private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func copyString(_ string: String?, toastMessage: String) { }
     static func lockApp(animated: Bool) { }
-    static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool) { }
+    static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool, historyTag: String?) { }
     static func openTipsChannel() { }
     static func repeatActivity(accountContext: AccountContext, _ activity: ApiActivity) { }
     static func scanQR() async -> ScanResult? { nil }
@@ -87,10 +93,10 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showActivityDetails(accountId: String, activity: ApiActivity, context: ActivityDetailsContext) { }
     static func showActivityDetailsById(chain: ApiChain, txId: String, showError: Bool) { }
     static func showAddToken() { }
-    static func showAddWallet(network: ApiNetwork, showCreateWallet: Bool, showSwitchToOtherVersion: Bool) { }
+    static func showAddWallet(network: ApiNetwork) { }
     static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool) { }
     static func showAgent() { }
-    static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter) { }
+    static func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter) { }
     static func showAssetsAndActivity() { }
     static func showBuyWithCard(accountContext: AccountContext, chain: ApiChain?, push: Bool?) { }
     static func showConnectedDapps(push: Bool) { }
@@ -103,8 +109,8 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showExploreSite(siteHost: String) { }
     static func showHiddenNfts(accountSource: AccountSource) -> () { }
     static func showHome(popToRoot: Bool) { }
-    static func showImportWalletVersion() -> () { }
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) { }
+    static func showNft(accountContext: AccountContext, nft: ApiNft) { }
     static func showNftByAddress(_ nftAddress: String) { }
     static func showPromotion(_ promotion: ApiPromotion) { }
     static func showPortfolio(accountContext: AccountContext) { }
@@ -117,7 +123,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showSell(accountContext: AccountContext, tokenSlug: String?) { }
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) { }
     static func showTemporaryViewAccount(addressOrDomainByChain: [String: String]) { }
-    static func showToast(animationName: String?, message: String, duration: Double, tapAction: (() -> ())?) { }
+    static func showToast(style: ToastStyle, icon: ToastIcon?, message: String, duration: Double, actionTitle: String?, action: (() -> ())?) { }
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) { }
     static func showTokenByAddress(chain: ApiChain, tokenAddress: String) { }
     static func showTokenBySlug(_ slug: String) { }

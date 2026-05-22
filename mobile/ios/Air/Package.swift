@@ -323,6 +323,7 @@ let package = Package(
                 "WalletCore",
                 "WalletContext",
                 "UIDapp",
+                .product(name: "GRDB", package: "grdb.swift"),
                 .product(name: "Perception", package: "swift-perception"),
             ]
         ),
@@ -457,8 +458,10 @@ let package = Package(
             dependencies: [
                 .product(name: "Kingfisher", package: "kingfisher"),
                 "UIComponents",
+                "UIInAppBrowser",
                 "WalletContext",
                 "WalletCore",
+                .product(name: "GRDB", package: "grdb.swift"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Perception", package: "swift-perception"),
                 "WReachability",

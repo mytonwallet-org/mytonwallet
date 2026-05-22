@@ -49,7 +49,7 @@ struct DebugView: View {
                 Section {
                     Button("Add Testnet account") {
                         dismiss()
-                        AppActions.showAddWallet(network: .testnet, showCreateWallet: true, showSwitchToOtherVersion: false)
+                        AppActions.showAddWallet(network: .testnet)
                     }
                 } header: {
                     Text("Testnet")

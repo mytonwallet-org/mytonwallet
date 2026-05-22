@@ -4,9 +4,9 @@ import UIKit
 import WalletContext
 
 private let portfolioChartHeight = CGFloat(480)
-private let portfolioChartHeaderHorizontalInset = CGFloat(16)
-private let portfolioSectionHeaderFont = UIFont.systemFont(ofSize: 22.5, weight: .bold)
-private let portfolioSectionHeaderKern = CGFloat(-0.25)
+private let portfolioChartPanelInset = CGFloat(16)
+private let portfolioChartPanelHorizontalInset = CGFloat(0)
+private let portfolioSectionHeaderFont = UIFont.systemFont(ofSize: 17, weight: .semibold)
 
 private func makePortfolioChartTheme(for traitCollection: UITraitCollection) -> ChartTheme {
     let baseTheme = ChartTheme.extractedTheme(for: traitCollection.userInterfaceStyle)
@@ -14,14 +14,14 @@ private func makePortfolioChartTheme(for traitCollection: UITraitCollection) -> 
     return ChartTheme(
         chartTitleColor: baseTheme.chartTitleColor,
         actionButtonColor: baseTheme.actionButtonColor,
-        chartBackgroundColor: .air.background,
+        chartBackgroundColor: .air.groupedItem,
         chartLabelsColor: baseTheme.chartLabelsColor,
         chartHelperLinesColor: baseTheme.chartHelperLinesColor,
         chartStrongLinesColor: baseTheme.chartStrongLinesColor,
         barChartStrongLinesColor: baseTheme.barChartStrongLinesColor,
         chartDetailsTextColor: baseTheme.chartDetailsTextColor,
         chartDetailsArrowColor: baseTheme.chartDetailsArrowColor,
-        chartDetailsViewColor: .air.sheetBackground,
+        chartDetailsViewColor: .air.groupedItem,
         rangeViewFrameColor: baseTheme.rangeViewFrameColor,
         rangeViewTintColor: baseTheme.rangeViewTintColor,
         rangeViewMarkerColor: baseTheme.rangeViewMarkerColor,
@@ -61,12 +61,18 @@ private func makePortfolioChartStrings() -> ChartStrings {
 
 enum PortfolioGraphKind: String {
     case totalValue
+    case totalPnl
+    case dailyPnl
     case portfolioShare
 
     var chartType: ChartType {
         switch self {
         case .totalValue:
             return .absoluteArea
+        case .totalPnl:
+            return .lines
+        case .dailyPnl:
+            return .bars
         case .portfolioShare:
             return .pie
         }
@@ -74,7 +80,7 @@ enum PortfolioGraphKind: String {
 
     var keepsFullRangePreviewWhenZoomed: Bool {
         switch self {
-        case .totalValue:
+        case .totalValue, .totalPnl, .dailyPnl:
             return false
         case .portfolioShare:
             return true
@@ -88,13 +94,19 @@ struct PortfolioChartTileCellConfiguration {
         case loading
         case noData
         case chart(presentation: PortfolioGraphKitAdapter.ChartPresentation, kind: PortfolioGraphKind, pieVisible: Bool?)
+
+        var isChart: Bool {
+            if case .chart = self {
+                return true
+            }
+            return false
+        }
     }
 
     let title: String
-    let subtitle: String
     let state: State
-    let showsUpdatingFooter: Bool
     let isRefreshing: Bool
+    let fadesCurrentData: Bool
     let onLimitedHistoryTap: (() -> Void)?
 }
 
@@ -135,10 +147,10 @@ final class PortfolioChartTileCell: PortfolioTileCell {
     private var lastMeasuredChartWidth: CGFloat = 0
 
     private let titleLabel = UILabel()
-    private let subtitleLabel = UILabel()
     private let headerContainer = UIView()
-    private let headerStack = UIStackView()
     private let rootStack = UIStackView()
+    private let panelContainer = UIView()
+    private let panelStack = UIStackView()
     private let stateContainer = UIView()
     private let chartView = ChartContainerView()
     private let loadingStack = UIStackView()
@@ -149,10 +161,6 @@ final class PortfolioChartTileCell: PortfolioTileCell {
     private let errorTitleLabel = UILabel()
     private let errorTextLabel = UILabel()
     private let retryButton = UIButton(type: .system)
-    private let updatingFooterContainer = UIView()
-    private let updatingFooterStack = UIStackView()
-    private let updatingFooterIndicator = UIActivityIndicatorView(style: .medium)
-    private let updatingFooterLabel = UILabel()
     private let refreshIndicator = UIActivityIndicatorView(style: .medium)
     private let stateHeightConstraint: NSLayoutConstraint
 
@@ -175,8 +183,8 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         chartController = nil
         chartView.setLimitedRange(fraction: nil, tapAction: nil)
         refreshIndicator.stopAnimating()
-        updatingFooterIndicator.stopAnimating()
         loadingIndicator.stopAnimating()
+        chartView.alpha = 1
     }
 
     @discardableResult
@@ -191,7 +199,6 @@ final class PortfolioChartTileCell: PortfolioTileCell {
 
         updateLocalizedStrings()
         titleLabel.attributedText = makeSectionHeaderTitle(configuration.title)
-        subtitleLabel.text = configuration.subtitle
 
         if configuration.isRefreshing {
             refreshIndicator.startAnimating()
@@ -199,21 +206,19 @@ final class PortfolioChartTileCell: PortfolioTileCell {
             refreshIndicator.stopAnimating()
         }
 
-        updatingFooterStack.isHidden = !configuration.showsUpdatingFooter
-        if configuration.showsUpdatingFooter {
-            updatingFooterIndicator.startAnimating()
-        } else {
-            updatingFooterIndicator.stopAnimating()
-        }
-
         apply(state: configuration.state)
-        let availableWidth = stateContainer.bounds.width > 0 ? stateContainer.bounds.width : bounds.width
+        updateChartDataAlpha(isDimmed: configuration.fadesCurrentData && configuration.state.isChart)
+        let availableWidth = stateContainer.bounds.width > 0
+            ? stateContainer.bounds.width
+            : bounds.width
         return updateChartHeightIfNeeded(for: availableWidth)
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let availableWidth = stateContainer.bounds.width > 0 ? stateContainer.bounds.width : bounds.width
+        let availableWidth = stateContainer.bounds.width > 0
+            ? stateContainer.bounds.width
+            : bounds.width
         notifyIfPreferredHeightChanged(for: availableWidth)
     }
 
@@ -241,7 +246,6 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         NSAttributedString(
             string: text,
             attributes: [
-                .kern: portfolioSectionHeaderKern,
                 .font: portfolioSectionHeaderFont,
             ]
         )
@@ -250,23 +254,28 @@ final class PortfolioChartTileCell: PortfolioTileCell {
     private func setupViews() {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.font = portfolioSectionHeaderFont
-        titleLabel.textColor = .label
+        titleLabel.textColor = .air.secondaryLabel
         titleLabel.numberOfLines = 0
 
-        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        subtitleLabel.font = .systemFont(ofSize: 15, weight: .regular)
-        subtitleLabel.textColor = .air.secondaryLabel
-        subtitleLabel.numberOfLines = 0
-
-        headerStack.translatesAutoresizingMaskIntoConstraints = false
-        headerStack.axis = .vertical
-        headerStack.alignment = .fill
-        headerStack.spacing = 4
-        headerStack.addArrangedSubview(titleLabel)
-        headerStack.addArrangedSubview(subtitleLabel)
-
         headerContainer.translatesAutoresizingMaskIntoConstraints = false
-        headerContainer.addSubview(headerStack)
+        headerContainer.addSubview(titleLabel)
+
+        panelContainer.translatesAutoresizingMaskIntoConstraints = false
+        panelContainer.backgroundColor = .air.groupedItem
+        panelContainer.layer.cornerRadius = 26
+        panelContainer.layer.cornerCurve = .continuous
+        panelContainer.layer.masksToBounds = true
+        panelContainer.directionalLayoutMargins = .init(
+            top: portfolioChartPanelInset,
+            leading: portfolioChartPanelHorizontalInset,
+            bottom: 0,
+            trailing: portfolioChartPanelHorizontalInset
+        )
+
+        panelStack.translatesAutoresizingMaskIntoConstraints = false
+        panelStack.axis = .vertical
+        panelStack.alignment = .fill
+        panelStack.spacing = 0
 
         stateContainer.translatesAutoresizingMaskIntoConstraints = false
         stateContainer.backgroundColor = .clear
@@ -321,20 +330,6 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         errorStack.addArrangedSubview(retryButton)
         stateContainer.addSubview(errorStack)
 
-        updatingFooterStack.translatesAutoresizingMaskIntoConstraints = false
-        updatingFooterStack.axis = .horizontal
-        updatingFooterStack.alignment = .center
-        updatingFooterStack.spacing = 8
-        updatingFooterIndicator.startAnimating()
-        updatingFooterIndicator.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
-        updatingFooterLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        updatingFooterLabel.textColor = .air.secondaryLabel
-        updatingFooterStack.addArrangedSubview(updatingFooterIndicator)
-        updatingFooterStack.addArrangedSubview(updatingFooterLabel)
-
-        updatingFooterContainer.translatesAutoresizingMaskIntoConstraints = false
-        updatingFooterContainer.addSubview(updatingFooterStack)
-
         refreshIndicator.translatesAutoresizingMaskIntoConstraints = false
         refreshIndicator.hidesWhenStopped = true
         tileContentView.addSubview(refreshIndicator)
@@ -342,10 +337,11 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         rootStack.translatesAutoresizingMaskIntoConstraints = false
         rootStack.axis = .vertical
         rootStack.alignment = .fill
-        rootStack.spacing = 18
+        rootStack.spacing = 0
         rootStack.addArrangedSubview(headerContainer)
-        rootStack.addArrangedSubview(stateContainer)
-        rootStack.addArrangedSubview(updatingFooterContainer)
+        rootStack.addArrangedSubview(panelContainer)
+        panelStack.addArrangedSubview(stateContainer)
+        panelContainer.addSubview(panelStack)
         tileContentView.addSubview(rootStack)
 
         NSLayoutConstraint.activate([
@@ -354,13 +350,18 @@ final class PortfolioChartTileCell: PortfolioTileCell {
             rootStack.trailingAnchor.constraint(equalTo: tileContentView.trailingAnchor),
             rootStack.bottomAnchor.constraint(equalTo: tileContentView.bottomAnchor),
 
-            refreshIndicator.topAnchor.constraint(equalTo: tileContentView.topAnchor),
-            refreshIndicator.trailingAnchor.constraint(equalTo: tileContentView.trailingAnchor, constant: -portfolioChartHeaderHorizontalInset),
+            refreshIndicator.centerYAnchor.constraint(equalTo: headerContainer.centerYAnchor),
+            refreshIndicator.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor, constant: -portfolioChartPanelInset),
 
-            headerStack.topAnchor.constraint(equalTo: headerContainer.topAnchor),
-            headerStack.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor, constant: portfolioChartHeaderHorizontalInset),
-            headerStack.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor, constant: -portfolioChartHeaderHorizontalInset),
-            headerStack.bottomAnchor.constraint(equalTo: headerContainer.bottomAnchor),
+            headerContainer.heightAnchor.constraint(equalToConstant: 39),
+            titleLabel.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor, constant: portfolioChartPanelInset),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: headerContainer.trailingAnchor, constant: -portfolioChartPanelInset),
+            titleLabel.bottomAnchor.constraint(equalTo: headerContainer.bottomAnchor, constant: -9),
+
+            panelStack.topAnchor.constraint(equalTo: panelContainer.layoutMarginsGuide.topAnchor),
+            panelStack.leadingAnchor.constraint(equalTo: panelContainer.layoutMarginsGuide.leadingAnchor),
+            panelStack.trailingAnchor.constraint(equalTo: panelContainer.layoutMarginsGuide.trailingAnchor),
+            panelStack.bottomAnchor.constraint(equalTo: panelContainer.layoutMarginsGuide.bottomAnchor),
 
             chartView.topAnchor.constraint(equalTo: stateContainer.topAnchor),
             chartView.leadingAnchor.constraint(equalTo: stateContainer.leadingAnchor),
@@ -380,11 +381,6 @@ final class PortfolioChartTileCell: PortfolioTileCell {
             errorStack.leadingAnchor.constraint(greaterThanOrEqualTo: stateContainer.leadingAnchor),
             errorStack.trailingAnchor.constraint(lessThanOrEqualTo: stateContainer.trailingAnchor),
             errorTextLabel.widthAnchor.constraint(lessThanOrEqualTo: stateContainer.widthAnchor, multiplier: 0.85),
-
-            updatingFooterStack.topAnchor.constraint(equalTo: updatingFooterContainer.topAnchor),
-            updatingFooterStack.leadingAnchor.constraint(equalTo: updatingFooterContainer.leadingAnchor, constant: portfolioChartHeaderHorizontalInset),
-            updatingFooterStack.trailingAnchor.constraint(lessThanOrEqualTo: updatingFooterContainer.trailingAnchor, constant: -portfolioChartHeaderHorizontalInset),
-            updatingFooterStack.bottomAnchor.constraint(equalTo: updatingFooterContainer.bottomAnchor),
         ])
 
         updateLocalizedStrings()
@@ -394,7 +390,6 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         loadingLabel.text = lang("Loading...")
         noDataLabel.text = lang("No price data")
         errorTitleLabel.text = lang("Error")
-        updatingFooterLabel.text = lang("Updating")
 
         var retryConfiguration = retryButton.configuration
         retryConfiguration?.title = lang("Try Again")
@@ -422,6 +417,21 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         case .chart(let presentation, let kind, let pieVisible):
             chartView.isHidden = false
             configureChart(presentation: presentation, kind: kind, pieVisible: pieVisible)
+        }
+    }
+
+    private func updateChartDataAlpha(isDimmed: Bool) {
+        let targetAlpha: CGFloat = isDimmed ? 0.5 : 1
+        guard abs(chartView.alpha - targetAlpha) > 0.01 else {
+            return
+        }
+
+        UIView.animate(
+            withDuration: 0.2,
+            delay: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            self.chartView.alpha = targetAlpha
         }
     }
 
@@ -507,10 +517,9 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         }
 
         let resolvedWidth = floor(availableWidth)
-        let preferredChartHeight = max(
-            portfolioChartHeight,
-            chartView.isHidden ? portfolioChartHeight : chartView.preferredHeight(for: resolvedWidth)
-        )
+        let preferredChartHeight = chartView.isHidden
+            ? portfolioChartHeight
+            : chartView.preferredHeight(for: resolvedWidth)
 
         guard abs(stateHeightConstraint.constant - preferredChartHeight) > 0.5
                 || abs(lastMeasuredChartWidth - resolvedWidth) > 0.5 else {

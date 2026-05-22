@@ -1,7 +1,5 @@
 package org.mytonwallet.app_air.uicomponents.helpers
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.text.Spannable
 import android.text.SpannableStringBuilder
@@ -108,10 +106,9 @@ class AddressPopupHelpers {
         }
 
         fun copyAddress(context: Context, address: String, blockchain: MBlockchain) {
-            val clipboard =
-                context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText("", address)
-            clipboard.setPrimaryClip(clip)
+            if (!ClipboardHelpers.copyToClipboard(context, "", address)) {
+                return
+            }
             Haptics.play(context, HapticType.LIGHT_TAP)
             Toast.makeText(
                 context,

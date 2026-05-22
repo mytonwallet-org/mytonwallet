@@ -37,6 +37,8 @@ final class AddressInputModel {
     
     var chain: ApiChain { token.chain }
     
+    let suggestionFilterChain: ApiChain?
+
     var source: AddressSource = .constant("")
     
     var onScanResult: (ScanResult) -> () = { _ in }
@@ -59,9 +61,10 @@ final class AddressInputModel {
         textFieldInput.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    init(account: AccountContext, token: TokenProvider) {
+    init(account: AccountContext, token: TokenProvider, suggestionFilterChain: ApiChain? = nil) {
         self._account = account
         self._token = token
+        self.suggestionFilterChain = suggestionFilterChain
         inputObserver = observe { [weak self] in
             guard let self else { return }
             let input = textFieldInput

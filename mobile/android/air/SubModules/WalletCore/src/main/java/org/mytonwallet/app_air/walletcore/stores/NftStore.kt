@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -388,13 +389,22 @@ object NftStore : IStore {
         val nftData = nftData ?: return
         nftData.accountId.let { accountId ->
             nftData.cachedNfts?.let { cachedNfts ->
-                val jsonString = buildString {
-                    append("[")
-                    cachedNfts.forEachIndexed { index, nft ->
-                        append(nft.toDictionary().toString())
-                        if (index != cachedNfts.lastIndex) append(",")
+                val jsonString = try {
+                    buildString {
+                        append("[")
+                        cachedNfts.forEachIndexed { index, nft ->
+                            append(nft.toDictionary().toString())
+                            if (index != cachedNfts.lastIndex) append(",")
+                        }
+                        append("]")
                     }
-                    append("]")
+                } catch (t: OutOfMemoryError) {
+                    Logger.e(
+                        Logger.LogTag.MEMORY,
+                        "NftStore: OOM serializing nfts cache: ${t.message}"
+                    )
+                    WCacheStorage.setNfts(accountId, null)
+                    return
                 }
                 WCacheStorage.setNfts(accountId, jsonString)
                 val collections = getCollectionsFromNfts(cachedNfts)

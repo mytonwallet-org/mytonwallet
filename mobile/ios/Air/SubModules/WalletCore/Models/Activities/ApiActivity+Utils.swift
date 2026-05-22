@@ -109,7 +109,9 @@ public extension ApiActivity {
             switch swap.displayStatus() {
             case .failed, .expired, .refunded, .hold:
                 resolved = displayTitle.future
-            case .pending, .waitingForPayment, .completed:
+            case .pending, .waitingForPayment:
+                resolved = displayTitle.inProgress
+            case .completed:
                 resolved = displayTitle.complete
             }
         } else if transaction?.status == .failed {
@@ -295,7 +297,7 @@ public extension ApiActivity {
             case .transaction(let tx):
                 tx.slug == tokenSlug
             case .swap(let swap):
-                swap.to == tokenSlug || swap.from == tokenSlug
+                swap.toTokenSlug == tokenSlug || swap.fromTokenSlug == tokenSlug
             }
         } else {
             return true

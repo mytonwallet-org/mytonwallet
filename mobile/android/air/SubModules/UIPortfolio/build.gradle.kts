@@ -44,6 +44,7 @@ dependencies {
     implementation(libs.material)
     implementation(project("$airSubModulePath:UIComponents"))
     implementation(project("$airSubModulePath:WalletBaseContext"))
+    implementation(project("$airSubModulePath:WalletContext"))
     implementation(project("$airSubModulePath:WalletCore"))
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

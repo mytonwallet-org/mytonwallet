@@ -952,7 +952,7 @@ addActionHandler('createSubWallet', async (global, actions, { password }) => {
     actions.switchAccount({ accountId: result.accountId });
     actions.showToast({
       message: getTranslation('Subwallet Switched'),
-      icon: 'icon-subwallet-change',
+      icon: 'icon-subwallet-changed',
       action: 'openRenameWallet',
       actionText: getTranslation('Set Name'),
     });
@@ -984,7 +984,7 @@ addActionHandler('createSubWallet', async (global, actions, { password }) => {
 
   actions.showToast({
     message: getTranslation('Subwallet Created'),
-    icon: 'icon-subwallet-add',
+    icon: 'icon-subwallet-added',
     action: 'openRenameWallet',
     actionText: getTranslation('Set Name'),
   });
@@ -1020,7 +1020,7 @@ addActionHandler('addSubWallet', async (global, actions, { group }) => {
     actions.switchAccount({ accountId: result.accountId });
     actions.showToast({
       message: getTranslation('Subwallet Switched'),
-      icon: 'icon-subwallet-change',
+      icon: 'icon-subwallet-changed',
       action: 'openRenameWallet',
       actionText: getTranslation('Set Name'),
     });
@@ -1052,7 +1052,7 @@ addActionHandler('addSubWallet', async (global, actions, { group }) => {
 
   actions.showToast({
     message: getTranslation('Subwallet Added'),
-    icon: 'icon-subwallet-add',
+    icon: 'icon-subwallet-added',
     action: 'openRenameWallet',
     actionText: getTranslation('Set Name'),
   });
@@ -1125,14 +1125,14 @@ addActionHandler('addAllFoundSubwallets', async (global, actions, { foundSubwall
   if (lastEntry?.isNew) {
     actions.showToast({
       message: getTranslation('Subwallet Added'),
-      icon: 'icon-subwallet-add',
+      icon: 'icon-subwallet-added',
       action: 'openRenameWallet',
       actionText: getTranslation('Set Name'),
     });
   } else if (lastEntry) {
     actions.showToast({
       message: getTranslation('Subwallet Switched'),
-      icon: 'icon-subwallet-change',
+      icon: 'icon-subwallet-changed',
       action: 'openRenameWallet',
       actionText: getTranslation('Set Name'),
     });

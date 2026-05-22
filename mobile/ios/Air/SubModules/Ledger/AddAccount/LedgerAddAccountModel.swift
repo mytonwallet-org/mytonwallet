@@ -37,7 +37,7 @@ public final class LedgerAddAccountModel: LedgerBaseModel, Sendable {
     var currentWalletAddresses: Set<String> = []
     var discoveredWallets: [DiscoveredWallet] = []
     var isLoadingMore: Bool = false
-    public private(set) var importedAccountsCount: Int = 0
+    public private(set) var importedAccountIds: [String] = []
     
     var selectedCount: Int { discoveredWallets.count(where: { $0.status == .selected }) }
     var canContinue: Bool { discoveredWallets.any { $0.status == .selected } }
@@ -95,7 +95,7 @@ public final class LedgerAddAccountModel: LedgerBaseModel, Sendable {
     
     func appendDiscoveredWallets(_ newWallets: [ApiLedgerWalletInfo]) throws {
         let startIndex = discoveredWallets.count
-        let toncoin = ApiToken.toncoin
+        let toncoin = TokenStore.getNativeToken(chain: .ton)
         let peripheralID = try self.connectedIdentifier.orThrow()
 
         let newWallets: [DiscoveredWallet] = newWallets.enumerated().map { (idx, walletInfo) in
@@ -125,20 +125,16 @@ public final class LedgerAddAccountModel: LedgerBaseModel, Sendable {
     }
     
     func finalizeImport() async throws {
+        var accountIds: [String] = []
         let walletsToImport = discoveredWallets.filter { $0.status == .selected }
-        var firstId: String?
-        var importedCount = 0
         for discoveredWallet in walletsToImport {
             let accountId = try await AccountStore.importLedgerAccount(accountInfo: discoveredWallet.accountInfo)
-            importedCount += 1
-            if firstId == nil {
-                firstId = accountId
-            }
+            accountIds.append(accountId)
         }
-        if let firstId {
+        if let firstId = accountIds.first {
             _ = try await AccountStore.activateAccount(accountId: firstId)
         }
-        importedAccountsCount = importedCount
+        importedAccountIds = accountIds
         onDone?()
     }
 }

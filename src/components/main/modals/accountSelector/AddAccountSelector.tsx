@@ -18,9 +18,11 @@ type OwnProps = {
   isLoading?: boolean;
   isTestnet?: boolean;
   hasOtherWalletVersions?: boolean;
+  canAddSubwallet?: boolean;
   shouldHideBackButton?: boolean;
   onBack: NoneToVoidFunction;
   onNewAccountClick: NoneToVoidFunction;
+  onNewSubwalletClick: NoneToVoidFunction;
   onImportAccountClick: NoneToVoidFunction;
   onImportHardwareWalletClick: NoneToVoidFunction;
   onViewModeWalletClick: NoneToVoidFunction;
@@ -33,9 +35,11 @@ function AddAccountSelector({
   isLoading,
   isTestnet,
   hasOtherWalletVersions,
+  canAddSubwallet,
   shouldHideBackButton,
   onBack,
   onNewAccountClick,
+  onNewSubwalletClick,
   onImportAccountClick,
   onImportHardwareWalletClick,
   onViewModeWalletClick,
@@ -55,10 +59,19 @@ function AddAccountSelector({
       <div className={buildClassName(styles.actionsSection, styles.actionsSectionShift)}>
         <ListItem
           icon="wallet-add"
-          label={lang('Create New Wallet')}
+          label={lang('New Wallet')}
+          description={lang('From new secret words')}
           isLoading={!isNewAccountImporting && isLoading}
           onClick={onNewAccountClick}
         />
+        {canAddSubwallet && (
+          <ListItem
+            icon="subwallet-add"
+            label={lang('New Subwallet')}
+            description={lang('From current secret words')}
+            onClick={onNewSubwalletClick}
+          />
+        )}
       </div>
 
       <span className={styles.importText}>{lang('or import from')}</span>
@@ -66,7 +79,8 @@ function AddAccountSelector({
       <div className={styles.actionsSection}>
         <ListItem
           icon="key"
-          label={lang('%counts% Secret Words', { counts: IS_CORE_WALLET ? '24' : '12/24' })}
+          label={lang('$secret_words')}
+          description={lang('Restore wallet from 12 or 24 words')}
           onClick={onImportAccountClick}
           isLoading={isNewAccountImporting && isLoading}
         />
@@ -74,6 +88,7 @@ function AddAccountSelector({
           <ListItem
             icon="ledger-alt"
             label={lang('Ledger')}
+            description={lang('Connect your hardware wallet')}
             onClick={onImportHardwareWalletClick}
           />
         )}
@@ -84,6 +99,7 @@ function AddAccountSelector({
           <ListItem
             icon="wallet-view"
             label={lang('View Any Address')}
+            description={lang('Watch wallet in read-only mode')}
             onClick={onViewModeWalletClick}
           />
         </div>

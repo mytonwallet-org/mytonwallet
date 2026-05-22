@@ -221,6 +221,12 @@ Set a passcode: ตั้งรหัสปลดล็อก
 "Transaction to this smart contract is not yet supported by Ledger.": Ledger ยังไม่รองรับการทำธุรกรรมกับสมาร์ตคอนแทรกต์นี้
 Transfer Details: รายละเอียดการโอน
 "Transferring NFT is not yet supported by Ledger.": Ledger ยังไม่รองรับการโอน NFT
+Connect your Ledger via Bluetooth: เชื่อมต่อ Ledger ของคุณผ่าน Bluetooth
+Discovering wallets: กำลังค้นหาวอลเล็ต
+Bluetooth Access Denied: การเข้าถึง Bluetooth ถูกปฏิเสธ
+Bluetooth access is needed to connect Ledger.: ต้องมีสิทธิ์เข้าถึง Bluetooth เพื่อเชื่อมต่อ Ledger
+Address not resolved: ไม่สามารถตรวจสอบที่อยู่ได้
+Sending more than one NFT isn't supported by Ledger: Ledger ยังไม่รองรับการส่ง NFT มากกว่าหนึ่งรายการ
 Unavailable: ไม่พร้อมใช้งาน
 "Updating…": กำลังอัปเดต...
 "Waiting for network…": กำลังรอสัญญาณเครือข่าย...

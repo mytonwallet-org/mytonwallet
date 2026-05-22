@@ -1,8 +1,11 @@
 import Combine
 import SwiftUI
 import UIComponents
+import UIInAppBrowser
 import WalletContext
 import WalletCore
+
+let exploreHistoryTag = "explore"
 
 public final class ExploreVC: WViewController {
     // MARK: Public properties / Dependencies
@@ -17,6 +20,7 @@ public final class ExploreVC: WViewController {
     private let observedViewState = ObservedViewState()
 
     private var trimmedSearchString: String = "" // Improvement: move searchBar to this screen
+    private var isSearchActive: Bool = false
 
     private var cancelBag = Set<AnyCancellable>()
 
@@ -87,6 +91,9 @@ public final class ExploreVC: WViewController {
     private func bind(titleFixingScrollView: NavBarTitleFixingScrollView?) {
         bindViewOutput(titleFixingScrollView: titleFixingScrollView)
 
+        BrowserHistoryStore.shared.onLoaded = { [weak self] in self?.updateViewState() }
+        RecentSearchStore.shared.onLoaded = { [weak self] in self?.updateViewState() }
+
         externalEvents.searchStringDidChange
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .removeDuplicates()
@@ -95,13 +102,20 @@ public final class ExploreVC: WViewController {
                 uSelf.trimmedSearchString = searchText
                 uSelf.updateViewState()
             }.store(in: &cancelBag)
+
+        externalEvents.searchActiveDidChange
+            .removeDuplicates()
+            .sink(withUnretained: self) { uSelf, isActive in
+                uSelf.isSearchActive = isActive
+                uSelf.updateViewState()
+            }.store(in: &cancelBag)
     }
 
     private func bindViewOutput(titleFixingScrollView: NavBarTitleFixingScrollView?) {
         cancelBag.formUnion([
             viewOutput.connectedDappDidTap.sink { [exploreVM] connectedDappURL in
                 if let connected = exploreVM.connectedDapps[connectedDappURL], let url = URL(string: connected.url) {
-                    AppActions.openInBrowser(url, title: connected.name, injectDappConnect: true)
+                    AppActions.openInBrowser(url, title: connected.name, injectDappConnect: true, historyTag: exploreHistoryTag)
                 } else {
                     Log.shared.error("Data is inconsistent for connectedDappURL \(connectedDappURL)")
                 }
@@ -112,7 +126,7 @@ public final class ExploreVC: WViewController {
             },
 
             viewOutput.trendingDappDidTap
-                .merge(with: viewOutput.dappFromFolderDidTap, viewOutput.searchResultDappDidTap)
+                .merge(with: viewOutput.dappFromFolderDidTap)
                 .sink(withUnretained: self) { uSelf, apiSite in
                     uSelf.view.window?.endEditing(true)
                     uSelf.onSelectAny()
@@ -126,13 +140,42 @@ public final class ExploreVC: WViewController {
                     if apiSite.shouldOpenExternally {
                         UIApplication.shared.open(url)
                     } else {
-                        AppActions.openInBrowser(url, title: apiSite.name, injectDappConnect: true)
+                        AppActions.openInBrowser(url, title: apiSite.name, injectDappConnect: true, historyTag: exploreHistoryTag)
+                    }
+                },
+
+            viewOutput.searchResultItemDidTap
+                .sink(withUnretained: self) { uSelf, item in
+                    uSelf.view.window?.endEditing(true)
+                    uSelf.onSelectAny()
+                    guard let url = URL(string: item.url) else {
+                        return Log.shared.error("URL from string failed: \(item.url)")
+                    }
+                    switch item.source {
+                    case .site(let site):
+                        if site.shouldOpenExternally {
+                            UIApplication.shared.open(url)
+                        } else {
+                            AppActions.openInBrowser(url, title: site.name, injectDappConnect: true, historyTag: exploreHistoryTag)
+                        }
+                    case .connectedDapp(let dapp):
+                        AppActions.openInBrowser(url, title: dapp.name, injectDappConnect: true, historyTag: exploreHistoryTag)
+                    case .history(let historyItem):
+                        AppActions.openInBrowser(url, title: historyItem.title, injectDappConnect: true, historyTag: exploreHistoryTag)
                     }
                 },
 
             viewOutput.dappCategoryDidTap.sink(withUnretained: self) { uSelf, categoryId in
                 let exploreVC = ExploreCategoryVC(exploreVM: uSelf.exploreVM, categoryId: categoryId)
                 uSelf.navigationController?.pushViewController(exploreVC, animated: true)
+            },
+
+            viewOutput.recentSearchDidTap.sink(withUnretained: self) { uSelf, text in
+                uSelf.externalEvents.recentSearchDidTap.send(text)
+            },
+
+            viewOutput.clearRecentSearchesDidTap.sink(withUnretained: self) { uSelf, tag in
+                uSelf.externalEvents.clearRecentSearchesDidTap.send(tag)
             },
         ])
 
@@ -147,7 +190,10 @@ public final class ExploreVC: WViewController {
         let (sections, shouldShowWhiteBackground) =
             Self.makeViewStateSnapshot(exploreVM: exploreVM,
                                        shouldRestrictSites: ConfigStore.shared.shouldRestrictSites,
-                                       trimmedSearchString: trimmedSearchString)
+                                       isSearchActive: isSearchActive,
+                                       trimmedSearchString: trimmedSearchString,
+                                       historyItems: BrowserHistoryStore.shared.items.filter { $0.tag == exploreHistoryTag },
+                                       recentSearchItems: RecentSearchStore.shared.items.filter { $0.tag == exploreHistoryTag })
         observedViewState.update(sections: sections, shouldShowWhiteBackground: shouldShowWhiteBackground)
     }
 }
@@ -156,6 +202,10 @@ public final class ExploreVC: WViewController {
 
 extension ExploreVC {
     func searchTextDidChange(_ searchString: String) { externalEvents.searchStringDidChange.send(searchString) }
+    func searchActiveDidChange(_ isActive: Bool) { externalEvents.searchActiveDidChange.send(isActive) }
+
+    var onRecentSearchDidTap: AnyPublisher<String, Never> { externalEvents.recentSearchDidTap.eraseToAnyPublisher() }
+    var onClearRecentSearchesDidTap: AnyPublisher<String, Never> { externalEvents.clearRecentSearchesDidTap.eraseToAnyPublisher() }
 }
 
 extension ExploreVC: ExploreVMDelegate {
@@ -166,6 +216,9 @@ extension ExploreVC {
     /// Events from parent / child screens
     private struct ExternalEvents {
         let searchStringDidChange = PassthroughSubject<String, Never>()
+        let searchActiveDidChange = PassthroughSubject<Bool, Never>()
+        let recentSearchDidTap = PassthroughSubject<String, Never>()
+        let clearRecentSearchesDidTap = PassthroughSubject<String, Never>()
     }
 }
 

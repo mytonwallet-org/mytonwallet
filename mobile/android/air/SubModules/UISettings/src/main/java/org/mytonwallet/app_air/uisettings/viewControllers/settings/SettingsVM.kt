@@ -18,8 +18,6 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
@@ -161,7 +159,7 @@ class SettingsVM {
         val walletConfigSectionIndex =
             settingsSections.indexOfFirst { it.section == SettingsSection.Section.SETTINGS }
         if (walletConfigSectionIndex == -1) return
-        val currentAccountSupportsSubWallets = currentAccountSupportsSubWallets()
+        val currentAccountSupportsSubWallets = AccountStore.currentAccountSupportsSubWallets()
 
         val items = listOfNotNull(
             SettingsItem(
@@ -291,16 +289,6 @@ class SettingsVM {
             return false
         settingsSections[helpSectionIndex].children = newChildren
         return true
-    }
-
-    private fun currentAccountSupportsSubWallets(): Boolean {
-        val account = AccountStore.activeAccount ?: return false
-        if (account.accountType != MAccount.AccountType.MNEMONIC) return false
-        if (!account.isMultichain) return false
-        return account.byChain.keys.any { chainName ->
-            val chain = MBlockchain.valueOfOrNull(chainName) ?: return@any false
-            AccountStore.chainSupportsSubWallets(chain)
-        }
     }
 
     fun contentHeight(): Int {

@@ -67,6 +67,11 @@ class IconView(
         updateTheme()
     }
 
+    override fun setClipChildren(clipChildren: Boolean) {
+        super.setClipChildren(clipChildren)
+        activityImageView.clipChildren = clipChildren
+    }
+
     fun setSize(size: Int) {
         currentSize = size
         activityImageView.setSize(size)
@@ -76,6 +81,7 @@ class IconView(
 
     fun updateTheme() {
         AccountAvatarRenderer.updatePaintTheme(textPaint)
+        activityImageView.updateTheme()
         clearCache()
     }
 

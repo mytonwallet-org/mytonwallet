@@ -1,6 +1,7 @@
 
 import ContextMenuKit
 import SwiftUI
+import UIKit
 import WalletCore
 import WalletContext
 
@@ -41,7 +42,7 @@ public struct TappableTransactionId: View {
                         icon: .airBundle("SendCopy"),
                         handler: {
                             UIPasteboard.general.string = txId
-                            AppActions.showToast(animationName: "Copy", message: lang("Transaction ID Copied"))
+                            AppActions.showToast(icon: .animatedCopy, message: lang("Transaction ID Copied"))
                             Haptics.play(.lightTap)
                         }
                     )
@@ -98,7 +99,7 @@ public struct ChangellyTransactionId: View {
                         icon: .airBundle("SendCopy"),
                         handler: {
                             UIPasteboard.general.string = id
-                            AppActions.showToast(animationName: "Copy", message: lang("Transaction ID Copied"))
+                            AppActions.showToast(icon: .animatedCopy, message: lang("Transaction ID Copied"))
                             Haptics.play(.lightTap)
                         }
                     )
@@ -112,6 +113,58 @@ public struct ChangellyTransactionId: View {
                                let url = URL(string: "https://changelly.com/track/\(encodedId)") {
                                 AppActions.openInBrowser(url)
                             }
+                        }
+                    )
+                ),
+            ]),
+            backdrop: .none
+        )
+    }
+}
+
+public struct CopyableAddressText: View {
+
+    var address: String
+    var copyToastMessage: String
+
+    public init(address: String, copyToastMessage: String) {
+        self.address = address
+        self.copyToastMessage = copyToastMessage
+    }
+
+    public var body: some View {
+        let addressFont = UIFont.systemFont(ofSize: 17, weight: .regular)
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Text(formatAddressAttributed(
+                address,
+                startEnd: true,
+                primaryFont: addressFont,
+                secondaryFont: addressFont
+            ))
+            Image.airBundle("ArrowUpDownSmall")
+                .foregroundColor(Color.air.secondaryLabel)
+                .opacity(0.8)
+                .offset(y: 1)
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .contentShape(.rect)
+        .foregroundStyle(Color.air.primaryLabel)
+        .contextMenuSource {
+            makeMenuConfiguration()
+        }
+    }
+
+    private func makeMenuConfiguration() -> ContextMenuConfiguration {
+        ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: [
+                .action(
+                    ContextMenuAction(
+                        title: lang("Copy Address"),
+                        icon: .airBundle("SendCopy"),
+                        handler: {
+                            UIPasteboard.general.string = address
+                            AppActions.showToast(icon: .animatedCopy, message: copyToastMessage)
+                            Haptics.play(.lightTap)
                         }
                     )
                 ),

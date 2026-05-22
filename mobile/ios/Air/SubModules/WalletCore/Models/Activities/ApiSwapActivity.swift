@@ -155,6 +155,14 @@ public extension ApiSwapActivity {
         TokenStore.getToken(slugOrAddress: to)
     }
     
+    var fromTokenSlug: String {
+        fromToken?.slug ?? from
+    }
+
+    var toTokenSlug: String {
+        toToken?.slug ?? to
+    }
+
     var fromAmountInt64: BigInt? {
         guard let decimals = fromToken?.decimals else { return nil }
         return doubleToBigInt(fromAmount.value, decimals: decimals)

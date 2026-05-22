@@ -221,6 +221,12 @@ Set a passcode: Geçiş kodu ayarla
 "Transaction to this smart contract is not yet supported by Ledger.": Ledger bu akıllı sözleşmeye işlem göndermeyi henüz desteklemiyor.
 Transfer Details: Transfer detayları
 "Transferring NFT is not yet supported by Ledger.": Ledger, NFT transferini henüz desteklemiyor.
+Connect your Ledger via Bluetooth: Ledger'ınızı Bluetooth ile bağlayın
+Discovering wallets: Cüzdanlar aranıyor
+Bluetooth Access Denied: Bluetooth erişimi reddedildi
+Bluetooth access is needed to connect Ledger.: Ledger'a bağlanmak için Bluetooth erişimi gereklidir.
+Address not resolved: Adres çözümlenemedi
+Sending more than one NFT isn't supported by Ledger: Birden fazla NFT göndermek Ledger tarafından desteklenmiyor
 Unavailable: Kullanılamıyor
 "Updating…": Güncelleniyor…
 "Waiting for network…": Ağ bekleniyor…

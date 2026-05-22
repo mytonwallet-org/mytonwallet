@@ -3,7 +3,7 @@ import { useMemo } from '../../../../../lib/teact/teact';
 import type { ApiNft } from '../../../../../api/types';
 import type { DropdownItem } from '../../../../ui/Dropdown';
 
-import { IS_CORE_WALLET, TELEGRAM_GIFTS_SUPER_COLLECTION } from '../../../../../config';
+import { IS_CORE_WALLET, MTW_CARDS_COLLECTION, TELEGRAM_GIFTS_SUPER_COLLECTION } from '../../../../../config';
 import { buildNftCollectionIndex, getCollectionKey } from '../../../../../global/helpers/nfts';
 
 import useLang from '../../../../../hooks/useLang';
@@ -12,6 +12,9 @@ export const HIDDEN_NFTS_VALUE = 'hidden_nfts';
 
 const TELEGRAM_GIFTS_KEY = getCollectionKey('ton', TELEGRAM_GIFTS_SUPER_COLLECTION);
 const TELEGRAM_GIFTS_VALUE = `${TELEGRAM_GIFTS_SUPER_COLLECTION}@ton`;
+
+const MTW_CARDS_KEY = getCollectionKey('ton', MTW_CARDS_COLLECTION);
+const MTW_CARDS_VALUE = `${MTW_CARDS_COLLECTION}@ton`;
 
 export default function useNftCollectionMenuItems({
   nfts,
@@ -30,6 +33,7 @@ export default function useNftCollectionMenuItems({
     );
 
     const hasTelegramGifts = byKey.has(TELEGRAM_GIFTS_KEY);
+    const hasMtwCards = !IS_CORE_WALLET && byKey.has(MTW_CARDS_KEY);
     const telegramGiftsName = lang('Telegram Gifts');
     const unnamedLabel = lang('Unnamed Collection');
 
@@ -43,17 +47,28 @@ export default function useNftCollectionMenuItems({
       }
       const resolvedName = name || unnamedLabel;
       nameByKey.set(key, resolvedName);
+      if (key === MTW_CARDS_KEY && hasMtwCards) continue;
       items.push({ value: `${address}@${chain}`, name: resolvedName, noTranslate: true });
     }
 
     items.sort((a, b) => a.name.localeCompare(b.name));
+
+    if (hasMtwCards) {
+      items.unshift({
+        value: MTW_CARDS_VALUE,
+        name: nameByKey.get(MTW_CARDS_KEY) ?? unnamedLabel,
+        fontIcon: 'card-alt',
+        withDelimiterAfter: true,
+        noTranslate: true,
+      });
+    }
 
     if (hasTelegramGifts) {
       items.unshift({
         value: TELEGRAM_GIFTS_VALUE,
         name: telegramGiftsName,
         fontIcon: 'gift',
-        withDelimiterAfter: true,
+        withDelimiterAfter: !hasMtwCards,
         noTranslate: true,
       });
     }

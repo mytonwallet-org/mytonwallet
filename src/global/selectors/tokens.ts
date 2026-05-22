@@ -1,4 +1,10 @@
-import type { ApiBalanceBySlug, ApiBaseCurrency, ApiChain, ApiCurrencyRates } from '../../api/types';
+import type {
+  ApiBalanceBySlug,
+  ApiBaseCurrency,
+  ApiChain,
+  ApiCurrencyRates,
+  ApiTokenWithPrice,
+} from '../../api/types';
 import type { Account, AccountSettings, AccountState, GlobalState, UserToken } from '../types';
 
 import {
@@ -22,6 +28,8 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountState,
 } from './accounts';
+
+const EMPTY_BALANCES: ApiBalanceBySlug = {};
 
 function getHasConfirmedActivities(activities: AccountState['activities']) {
   const confirmedCount = (activities?.idsMain?.length ?? 0)
@@ -149,16 +157,44 @@ export const selectUserTokenMemoized = memoize((global: GlobalState, slug: strin
   if (!apiToken) return undefined;
 
   const amount = selectCurrentAccountTokenBalance(global, slug);
-  const price = calculateTokenPrice(apiToken.priceUsd ?? 0, global.settings.baseCurrency, global.currencyRates);
 
-  return {
-    ...apiToken,
+  return buildUserTokenFromTokenInfo(
+    apiToken,
     amount,
-    price,
-    change24h: round(apiToken.percentChange24h / 100, 4),
-    totalValue: toBig(amount, apiToken.decimals).mul(price).toString(),
-  };
+    global.settings.baseCurrency,
+    global.currencyRates,
+  );
 });
+
+const selectTokenInfoUserTokensMemoized = memoize((
+  tokensBySlug: GlobalState['tokenInfo']['bySlug'],
+  balancesBySlug: ApiBalanceBySlug,
+  baseCurrency: ApiBaseCurrency,
+  currencyRates: ApiCurrencyRates,
+): UserToken[] => {
+  return Object.values(tokensBySlug)
+    .map((token) => buildUserTokenFromTokenInfo(
+      token,
+      balancesBySlug[token.slug] ?? 0n,
+      baseCurrency,
+      currencyRates,
+    ))
+    .sort(compareTokenInfoUserTokens);
+});
+
+export function selectTokenInfoUserTokens(global: GlobalState) {
+  const accountId = selectCurrentAccountId(global);
+  if (!accountId || !global.tokenInfo) {
+    return undefined;
+  }
+
+  return selectTokenInfoUserTokensMemoized(
+    global.tokenInfo.bySlug,
+    selectCurrentAccountState(global)?.balances?.bySlug ?? EMPTY_BALANCES,
+    global.settings.baseCurrency,
+    global.currencyRates,
+  );
+}
 
 export function selectMycoin(global: GlobalState) {
   const { isTestnet } = global.settings;
@@ -178,6 +214,30 @@ export function selectChainTokenWithMaxBalanceSlow(global: GlobalState, chain: A
 
       return currentBalance > maxBalance ? currentToken : maxToken;
     });
+}
+
+function buildUserTokenFromTokenInfo(
+  token: ApiTokenWithPrice,
+  amount: bigint,
+  baseCurrency: ApiBaseCurrency,
+  currencyRates: ApiCurrencyRates,
+): UserToken {
+  const priceUsd = token.priceUsd ?? 0;
+  const price = calculateTokenPrice(priceUsd, baseCurrency, currencyRates);
+
+  return {
+    ...token,
+    amount,
+    price,
+    priceUsd,
+    change24h: round((token.percentChange24h ?? 0) / 100, 4),
+    totalValue: toBig(amount, token.decimals).mul(price).toString(),
+  };
+}
+
+function compareTokenInfoUserTokens(a: UserToken, b: UserToken) {
+  return a.name.trim().toLowerCase().localeCompare(b.name.trim().toLowerCase())
+    || a.symbol.trim().toLowerCase().localeCompare(b.symbol.trim().toLowerCase());
 }
 
 export function selectMultipleAccountsTokensSlow(

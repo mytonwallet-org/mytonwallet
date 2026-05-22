@@ -453,8 +453,8 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
                 id: "tonscan",
                 name: "Tonscan",
                 baseUrl: [
-                    .mainnet: .init(url: "https://tonscan.org/"),
-                    .testnet: .init(url: "https://testnet.tonscan.org/"),
+                    .mainnet: .init(url: "https://tonscan.org/", param: "?source=mtw"),
+                    .testnet: .init(url: "https://testnet.tonscan.org/", param: "?source=mtw"),
                 ],
                 address: "{base}address/{address}",
                 token: "{base}jetton/{address}",
@@ -482,8 +482,8 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
             id: "tonscan",
             name: "Tonscan",
             baseUrl: [
-                .mainnet: .init(url: "https://tonscan.org/"),
-                .testnet: .init(url: "https://testnet.tonscan.org/"),
+                .mainnet: .init(url: "https://tonscan.org/", param: "?source=mtw"),
+                .testnet: .init(url: "https://testnet.tonscan.org/", param: "?source=mtw"),
             ],
             address: "{base}address/{address}",
             token: "{base}jetton/{address}",
@@ -915,8 +915,8 @@ private func makeOtherChainConfig(for chain: ApiChain) -> ChainConfig {
         explorer: .init(
             name: "Explorer",
             baseUrl: [
-                .mainnet: .init(url: "https://tonscan.org/"),
-                .testnet: .init(url: "https://testnet.tonscan.org/"),
+                .mainnet: .init(url: "https://tonscan.org/", param: "?source=mtw"),
+                .testnet: .init(url: "https://testnet.tonscan.org/", param: "?source=mtw"),
             ],
             address: "{base}address/{address}",
             token: "{base}token/{address}",

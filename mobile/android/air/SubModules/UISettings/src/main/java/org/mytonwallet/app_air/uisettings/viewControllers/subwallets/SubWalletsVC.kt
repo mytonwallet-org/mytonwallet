@@ -4,10 +4,14 @@ import android.content.Context
 import android.graphics.Rect
 import android.text.SpannableString
 import android.text.Spanned
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import androidx.core.view.isGone
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,12 +24,18 @@ import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.drawable.GradientShaderDrawable
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.helpers.PositionBasedItemDecoration
+import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uisettings.viewControllers.subwallets.cells.EmptySubwalletsCell
 import org.mytonwallet.app_air.uisettings.viewControllers.subwallets.cells.SubwalletCell
 import org.mytonwallet.app_air.uisettings.viewControllers.subwallets.cells.SubwalletDescriptionCell
@@ -179,13 +189,35 @@ class SubWalletsVC(
         }
     }
 
+    private val addAllFoundButtonRipple = WRippleDrawable.create(24f.dp)
+
     private val addAllFoundSubwalletsButton by lazy {
-        WButton(context, WButton.Type.SECONDARY_WITH_BACKGROUND).apply {
-            text = LocaleController.getString("Add All Found")
+        WLabel(context).apply {
+            val title = LocaleController.getString("Add All Found")
+            val drawable = context.getDrawableCompat(
+                org.mytonwallet.app_air.uisettings.R.drawable.ic_subwallets_add
+            )?.apply {
+                setTint(WColor.PrimaryText.color)
+                val size = 20.dp
+                setBounds(0, 0, size, size)
+            }
+            val spannable = SpannableString(" $title")
+            drawable?.let {
+                val imageSpan = MarginImageSpan(it, -0.5f.dp.roundToInt(), 8.5f.dp.roundToInt())
+                spannable.setSpan(imageSpan, 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            text = spannable
+            setStyle(16f, WFont.Medium)
+            setTextColor(WColor.PrimaryText)
+            gravity = Gravity.CENTER
+            setPadding(17.dp, 0, 17.dp, 2.dp)
+            background = addAllFoundButtonRipple
             setOnClickListener { addAllFoundSubwallets() }
-            isEnabled = false
+            isVisible = false
         }
     }
+
+    private var addAllFoundShadow: PillShadowView? = null
 
     private val navigationTitle: String
         get() {
@@ -213,8 +245,13 @@ class SubWalletsVC(
         )
         view.addView(
             addAllFoundSubwalletsButton,
-            ViewGroup.LayoutParams(MATCH_CONSTRAINT, 50.dp)
+            ViewGroup.LayoutParams(WRAP_CONTENT, 48.dp)
         )
+        addAllFoundShadow =
+            PillShadowView.attachTo(addAllFoundSubwalletsButton, 24f.dp)
+        addAllFoundSubwalletsButton.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            addAllFoundShadow?.sync()
+        }
         view.addView(
             createSubwalletButton,
             ViewGroup.LayoutParams(MATCH_CONSTRAINT, 50.dp)
@@ -248,8 +285,8 @@ class SubWalletsVC(
                 createSubwalletButton,
                 16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
             )
-            toCenterX(addAllFoundSubwalletsButton, 20f)
-            bottomToTop(addAllFoundSubwalletsButton, createSubwalletButton, 12f)
+            toCenterX(addAllFoundSubwalletsButton)
+            bottomToTop(addAllFoundSubwalletsButton, createSubwalletButton, 16f)
             toStart(bottomGradientView)
             toEnd(bottomGradientView)
             toBottom(bottomGradientView)
@@ -269,13 +306,20 @@ class SubWalletsVC(
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
-        val bgColor = WColor.SecondaryBackground.color
-        val bgColor80 = bgColor.colorWithAlpha(204)
-        val bgColor90 = bgColor.colorWithAlpha(230)
-        bottomGradientView.background = GradientShaderDrawable(
-            intArrayOf(bgColor90 and 0x00FFFFFF, bgColor80, bgColor90),
-            floatArrayOf(0f, 0.1f, 1f)
-        )
+        addAllFoundButtonRipple.backgroundColor = WColor.Background.color
+        addAllFoundButtonRipple.rippleColor = WColor.BackgroundRipple.color
+        if (WGlobalStorage.isGradientNavigationBarActive()) {
+            bottomGradientView.isGone = false
+            val bgColor = WColor.SecondaryBackground.color
+            val bgColor80 = bgColor.colorWithAlpha(204)
+            val bgColor90 = bgColor.colorWithAlpha(230)
+            bottomGradientView.background = GradientShaderDrawable(
+                intArrayOf(bgColor90 and 0x00FFFFFF, bgColor80, bgColor90),
+                floatArrayOf(0f, 0.1f, 1f)
+            )
+        } else {
+            bottomGradientView.isGone = true
+        }
     }
 
     override fun scrollToTop() {
@@ -306,9 +350,20 @@ class SubWalletsVC(
         }
     }
 
+    private val hasPositiveBalance: Boolean
+        get() = groups.any { group ->
+            group.byChain.values.any { entry ->
+                entry.balancesBySlug.any { (_, amt) -> amt > BigInteger.ZERO }
+            }
+        }
+
     private fun refreshList() {
         rvAdapter.reloadData()
-        addAllFoundSubwalletsButton.isEnabled = groups.isNotEmpty()
+        if (hasPositiveBalance &&
+            !addAllFoundSubwalletsButton.isVisible
+        ) {
+            listOfNotNull(addAllFoundSubwalletsButton, addAllFoundShadow).fadeIn()
+        }
     }
 
     private suspend fun fetchVariantsLoop() {
@@ -342,7 +397,7 @@ class SubWalletsVC(
                 return
             }
 
-            val hasPositiveBalance = result.any { group ->
+            val pageHasPositiveBalance = result.any { group ->
                 group.byChain.values.any { entry ->
                     entry.balancesBySlug.any { (_, amt) -> amt > BigInteger.ZERO }
                 }
@@ -358,7 +413,7 @@ class SubWalletsVC(
                 refreshList()
             }
 
-            emptyResultsInRow = if (hasPositiveBalance) 0 else emptyResultsInRow + 1
+            emptyResultsInRow = if (pageHasPositiveBalance) 0 else emptyResultsInRow + 1
             page++
 
             if (emptyResultsInRow >= MAX_EMPTY_RESULTS_IN_ROW) break
@@ -474,6 +529,10 @@ class SubWalletsVC(
                                 persistedAccountsModified = false
                             )
                         )
+                        ToastHelper.notifySubwalletSwitched(
+                            viewController = this,
+                            account = existingAccount
+                        )
                     }
                 }
                 return
@@ -542,6 +601,10 @@ class SubWalletsVC(
                     }
                     navigationController?.popToRoot()
                     WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+                    ToastHelper.notifySubwalletAdded(
+                        viewController = this,
+                        accountId = newAccountId
+                    )
                 }
             } else {
                 view.unlockView()
@@ -598,7 +661,8 @@ class SubWalletsVC(
                 }
             }
 
-            val lastAccountId = results.last().accountId
+            val lastResult = results.last()
+            val lastAccountId = lastResult.accountId
             WalletCore.activateAccount(
                 accountId = lastAccountId,
                 notifySDK = false
@@ -617,6 +681,17 @@ class SubWalletsVC(
                 }
                 navigationController?.popToRoot()
                 WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+                if (lastResult.isNew) {
+                    ToastHelper.notifySubwalletAdded(
+                        viewController = this,
+                        accountId = lastAccountId
+                    )
+                } else {
+                    ToastHelper.notifySubwalletSwitched(
+                        viewController = this,
+                        accountId = lastAccountId
+                    )
+                }
             }
         }
     }
@@ -682,6 +757,10 @@ class SubWalletsVC(
                 }
                 navigationController?.popToRoot()
                 WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+                ToastHelper.notifySubwalletCreated(
+                    viewController = this,
+                    accountId = result.accountId
+                )
             }
         }
     }

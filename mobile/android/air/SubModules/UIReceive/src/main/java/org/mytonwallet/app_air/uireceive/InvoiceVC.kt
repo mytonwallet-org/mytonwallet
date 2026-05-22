@@ -1,8 +1,6 @@
 package org.mytonwallet.app_air.uireceive
 
-import android.content.ClipData
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -28,6 +26,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.TokenAmountInputView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorVC
@@ -290,34 +289,52 @@ class InvoiceVC(context: Context) : WViewController(context) {
     }
 
     private fun updateInputState() {
-        val inputAmountParsed = CoinUtils.fromDecimal(
-            amountInputView.amountEditText.text.toString(),
-            (if (fiatMode) WalletCore.baseCurrency.decimalsCount else token?.decimals) ?: 0
-        )
-        equivalent = TokenEquivalent.from(
-            fiatMode,
-            token!!.price?.toBigDecimal() ?: BigDecimal.ZERO,
-            token!!,
-            inputAmountParsed ?: BigInteger.ZERO,
-            WalletCore.baseCurrency ?: MBaseCurrency.USD
-        )
-        token?.let {
+        val token = token
+        if (token == null) {
+            equivalent = null
             amountInputView.set(
                 state = TokenAmountInputView.State(
                     title = LocaleController.getString("Amount"),
-                    token = token,
+                    token = null,
                     balance = null,
-                    equivalent = equivalent?.getFmt(!fiatMode),
+                    equivalent = null,
                     subtitle = null,
                     fiatMode = fiatMode,
-                    inputDecimal = token!!.decimals,
+                    inputDecimal = 0,
                     inputSymbol = if (fiatMode) WalletCore.baseCurrency.sign else null,
                     inputError = false,
                 ),
                 false
             )
             updateLink()
+            return
         }
+        val inputAmountParsed = CoinUtils.fromDecimal(
+            amountInputView.amountEditText.text.toString(),
+            if (fiatMode) WalletCore.baseCurrency.decimalsCount else token.decimals
+        )
+        equivalent = TokenEquivalent.from(
+            fiatMode,
+            token.price?.toBigDecimal() ?: BigDecimal.ZERO,
+            token,
+            inputAmountParsed ?: BigInteger.ZERO,
+            WalletCore.baseCurrency ?: MBaseCurrency.USD
+        )
+        amountInputView.set(
+            state = TokenAmountInputView.State(
+                title = LocaleController.getString("Amount"),
+                token = token,
+                balance = null,
+                equivalent = equivalent?.getFmt(!fiatMode),
+                subtitle = null,
+                fiatMode = fiatMode,
+                inputDecimal = token.decimals,
+                inputSymbol = if (fiatMode) WalletCore.baseCurrency.sign else null,
+                inputError = false,
+            ),
+            false
+        )
+        updateLink()
     }
 
     private fun updateLink() {
@@ -325,8 +342,13 @@ class InvoiceVC(context: Context) : WViewController(context) {
             LocaleController.getString("Share this URL to receive %token%")
                 .replace("%token%", token?.name ?: "")
         )
+        val tonAddress = AccountStore.activeAccount?.tonAddress
+        if (tonAddress == null) {
+            linkLabel.text = ""
+            return
+        }
         val shareLink = AddressHelpers.walletInvoiceUrl(
-            AccountStore.activeAccount!!.tonAddress!!,
+            tonAddress,
             commentInputView.text.toString(),
             token?.tokenAddress,
             equivalent?.getTokenAmount()?.let {
@@ -357,13 +379,15 @@ class InvoiceVC(context: Context) : WViewController(context) {
                             LocaleController.getString("Copy"),
                             false,
                         ) {
-                            val clipboard =
-                                context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            val clip = ClipData.newPlainText("", shareLink)
-                            clipboard.setPrimaryClip(clip)
-                            Haptics.play(context, HapticType.LIGHT_TAP)
-                            Toast.makeText(context, "Invoice Link Copied", Toast.LENGTH_SHORT)
-                                .show()
+                            if (ClipboardHelpers.copyToClipboard(context, "", shareLink)) {
+                                Haptics.play(context, HapticType.LIGHT_TAP)
+                                Toast.makeText(
+                                    context,
+                                    LocaleController.getString("Invoice Link Copied"),
+                                    Toast.LENGTH_SHORT
+                                )
+                                    .show()
+                            }
                         },
                         WMenuPopup.Item(
                             null,

@@ -189,13 +189,14 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
                     _ = try await AccountStore.activateAccount(accountId: accountId)
                     AppActions.showHome(popToRoot: true)
                 } catch {
-                    fatalError("failed to activate account: \(accountId)")
+                    log.fault("failed to activate account: \(accountId, .public) \(error, .public)")
+                    AppActions.showError(error: error)
                 }
             }
         case .walletSettings:
             AppActions.showWalletSettings()
         case .addAccount:
-            AppActions.showAddWallet(network: .mainnet, showCreateWallet: true, showSwitchToOtherVersion: true)
+            AppActions.showAddWallet(network: .mainnet)
         case .notifications:
             navigationController?.pushViewController(NotificationsSettingsVC(), animated: true)
         case .appearance:

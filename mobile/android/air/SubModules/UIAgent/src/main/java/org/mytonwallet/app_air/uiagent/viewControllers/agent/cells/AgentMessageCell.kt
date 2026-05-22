@@ -1,8 +1,6 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent.cells
 
 import android.annotation.SuppressLint
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
@@ -30,6 +28,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
+import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
@@ -263,16 +262,15 @@ class AgentMessageCell(context: Context) : WCell(
                     org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
                     LocaleController.getString("Copy Text"),
                 ) {
-                    val clipboard =
-                        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    val clip = ClipData.newPlainText("Message", currentMessage?.text ?: return@Item)
-                    clipboard.setPrimaryClip(clip)
-                    Haptics.play(context, HapticType.LIGHT_TAP)
-                    Toast.makeText(
-                        context,
-                        LocaleController.getString("Message Copied"),
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    val text = currentMessage?.text
+                    if (text != null && ClipboardHelpers.copyToClipboard(context, "Message", text)) {
+                        Haptics.play(context, HapticType.LIGHT_TAP)
+                        Toast.makeText(
+                            context,
+                            LocaleController.getString("Message Copied"),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
             ),
             positioning = WMenuPopup.Positioning.BELOW,

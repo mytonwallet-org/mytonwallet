@@ -235,7 +235,7 @@ class BarsComponentController: GeneralChartComponentController {
                 title: strings.total,
                 rawValue: Double(totalSumm),
                 color: .white,
-                isVisible: !step && visibleChartValues.count > 1 && (!hidesZeroDetailsRows || totalSumm > 0)
+                isVisible: !step && visibleChartValues.count > 1 && (!hidesZeroDetailsRows || abs(totalSumm) > CGFloat.ulpOfOne)
             )
             viewModel.values = makeDetailsValues(from: items)
             viewModel.totalValue = makeDetailsValue(from: totalItem)

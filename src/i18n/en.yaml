@@ -267,8 +267,6 @@ Stake Again: Stake Again
 Earned: Earned
 Select wallet to use on this app: Select wallet to use on this app
 Connect: Connect
-App Permissions: App Permissions
-$dapp_can_view_balance: "%dappname% will be able to view wallet address and balance."
 Payload: Payload
 $many_transactions:
   zeroValue: No Transfers
@@ -1196,3 +1194,11 @@ $mint_nft_action: Mint NFT
 Burned NFT: Burned NFT
 Burning NFT: Burning NFT
 $burn_nft_action: Burn NFT
+New Wallet: New Wallet
+From new secret words: From new secret words
+New Subwallet: New Subwallet
+From current secret words: From current secret words
+$secret_words: Secret Words
+Restore wallet from 12 or 24 words: Restore wallet from 12 or 24 words
+Connect your hardware wallet: Connect your hardware wallet
+Watch wallet in read-only mode: Watch wallet in read-only mode

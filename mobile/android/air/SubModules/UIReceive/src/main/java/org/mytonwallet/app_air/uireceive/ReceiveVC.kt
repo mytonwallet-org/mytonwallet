@@ -1,8 +1,6 @@
 package org.mytonwallet.app_air.uireceive
 
 import android.annotation.SuppressLint
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Paint
@@ -22,6 +20,7 @@ import androidx.lifecycle.ViewModelProvider
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -213,10 +212,14 @@ class ReceiveVC private constructor(
             toBottom(copyAddressSeparator)
         }
         v.setOnClickListener {
-
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText("Wallet Address", currentQRCode.walletAddress)
-            clipboard.setPrimaryClip(clip)
+            if (!ClipboardHelpers.copyToClipboard(
+                    context,
+                    "Wallet Address",
+                    currentQRCode.walletAddress
+                )
+            ) {
+                return@setOnClickListener
+            }
             Haptics.play(v, HapticType.LIGHT_TAP)
             Toast.makeText(
                 context,

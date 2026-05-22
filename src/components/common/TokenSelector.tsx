@@ -65,6 +65,7 @@ interface OwnProps {
   shouldHideNotSupportedTokens?: boolean;
   isSwapOut?: boolean;
   selectedChain?: ApiChain | ApiChain[];
+  searchTokens?: TokenType[];
   noHeader?: boolean;
   searchClassName?: string;
   onClose: NoneToVoidFunction;
@@ -118,6 +119,7 @@ function TokenSelector({
   shouldHideNotSupportedTokens = false,
   availableChains = EMPTY_OBJECT,
   selectedChain,
+  searchTokens,
   isSensitiveDataHidden,
   onTokenSelect,
   onBack,
@@ -177,8 +179,13 @@ function TokenSelector({
   );
 
   const allTokens = useMemo(
-    () => filterSupportedTokens(swapTokens, shouldHideNotSupportedTokens, availableChains, selectedChains),
-    [swapTokens, shouldHideNotSupportedTokens, availableChains, selectedChains],
+    () => filterSupportedTokens(
+      searchTokens ?? swapTokens,
+      shouldHideNotSupportedTokens,
+      availableChains,
+      selectedChains,
+    ),
+    [searchTokens, swapTokens, shouldHideNotSupportedTokens, availableChains, selectedChains],
   );
 
   const popularTokens = useMemo(
@@ -200,7 +207,7 @@ function TokenSelector({
     }
 
     const filteredTokens = tokensToFilter.filter(({
-      name, symbol, keywords, isDisabled,
+      name, symbol, keywords, isDisabled, label, chain,
     }) => {
       if (isDisabled) {
         return false;
@@ -208,9 +215,11 @@ function TokenSelector({
 
       const isName = name.toLowerCase().includes(lowerCaseSearchValue);
       const isSymbol = symbol.toLowerCase().includes(lowerCaseSearchValue);
+      const isLabel = label?.toLowerCase().includes(lowerCaseSearchValue);
+      const isChain = getChainNetworkName(chain).toLowerCase().includes(lowerCaseSearchValue);
       const isKeyword = keywords?.some((key) => key.toLowerCase().includes(lowerCaseSearchValue));
 
-      return isName || isSymbol || isKeyword;
+      return isName || isSymbol || isLabel || isChain || isKeyword;
     }) ?? [];
 
     const sortFactors = filteredTokens.reduce((acc, searchResultToken) => {

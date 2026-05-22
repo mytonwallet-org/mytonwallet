@@ -36,6 +36,9 @@ class WNftImageView(
         defaultRounding = Content.Rounding.Radius(cornerRadius)
         defaultPlaceholder = Content.Placeholder.Color(WColor.Transparent)
         layoutParams = LayoutParams(MATCH_PARENT, MATCH_PARENT)
+    }.also {
+        it.onFailure = { _ -> showPlaceholder() }
+        it.onFinalImageSet = { _ -> hidePlaceholderIfShown() }
     }
 
     private val placeholderViewDelegate = lazy {
@@ -106,26 +109,42 @@ class WNftImageView(
             if (placeholderViewDelegate.isInitialized()) placeholderView.isVisible = false
         } else {
             imageView.clear()
-            val placeholder = placeholderView
-            if (placeholder.parent == null) addView(placeholder)
-            placeholder.isVisible = true
+            showPlaceholder()
         }
     }
 
-    fun setCornerRadius(radius: Float) {
-        cornerRadius = radius
-        setRoundedOutline(radius)
-        imageView.hierarchy?.roundingParams = RoundingParams.fromCornersRadius(radius)
+    private fun showPlaceholder() {
+        imageView.isVisible = false
+        val placeholder = placeholderView
+        if (placeholder.parent == null) addView(placeholder)
+        applyPlaceholderTheme()
+        placeholder.isVisible = true
     }
 
-    override fun updateTheme() {
-        if (!placeholderViewDelegate.isInitialized()) return
+    private fun applyPlaceholderTheme() {
         placeholderView.setBackgroundColor(WColor.SecondaryBackground.color)
         placeholderIconView.setImageResource(
             if (ThemeManager.isDark) org.mytonwallet.app_air.icons.R.drawable.img_nft_no_image_dark
             else org.mytonwallet.app_air.icons.R.drawable.img_nft_no_image_light
         )
         placeholderLabelView.setTextColor(WColor.SecondaryText.color)
+    }
+
+    private fun hidePlaceholderIfShown() {
+        imageView.isVisible = true
+        if (placeholderViewDelegate.isInitialized()) placeholderView.isVisible = false
+    }
+
+    fun setCornerRadius(radius: Float) {
+        cornerRadius = radius
+        setRoundedOutline(radius)
+        imageView.defaultRounding = Content.Rounding.Radius(radius)
+        imageView.hierarchy?.roundingParams = RoundingParams.fromCornersRadius(radius)
+    }
+
+    override fun updateTheme() {
+        if (!placeholderViewDelegate.isInitialized()) return
+        applyPlaceholderTheme()
     }
 }
 

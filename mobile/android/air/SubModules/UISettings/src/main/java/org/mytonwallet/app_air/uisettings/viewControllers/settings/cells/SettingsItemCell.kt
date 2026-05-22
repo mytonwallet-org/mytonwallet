@@ -159,6 +159,7 @@ class SettingsItemCell(
         }
         titleLabel.text = item.title
         valueLabel.text = item.value
+        val subtitle = subtitle ?: item.subtitle
         subtitleLabel.text = subtitle
         subtitleLabel.isGone = subtitle.isNullOrEmpty()
 

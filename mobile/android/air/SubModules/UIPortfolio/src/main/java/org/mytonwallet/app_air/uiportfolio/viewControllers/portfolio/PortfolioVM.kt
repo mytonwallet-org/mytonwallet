@@ -1,8 +1,12 @@
-package org.mytonwallet.app_air.uiportfolio
+package org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio
 
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioBreakdownSlice
+import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioHistoryRequest
+import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioOverview
+import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioUiState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,16 +24,18 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.fetchPortfolioNetWorthHistory
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiHistoryList
 import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryDataset
 import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryResponse
 import org.mytonwallet.app_air.walletcore.moshi.normalizedForPortfolioDisplay
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import kotlin.math.pow
 import kotlin.math.roundToLong
 
-class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
+class PortfolioVM : ViewModel(), WalletCore.EventObserver {
     private val _stateFlow = MutableStateFlow<PortfolioUiState>(PortfolioUiState.Idle)
     val stateFlow: StateFlow<PortfolioUiState> = _stateFlow.asStateFlow()
 
@@ -113,14 +119,27 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
             }
             try {
                 val rawData = fetchChartData(request)
-                val chartData = withContext(Dispatchers.Default) {
-                    rawData.normalizedForPortfolioDisplay().toStackChartData(request.baseCurrency)
+                val derived = withContext(Dispatchers.Default) {
+                    val normalized = rawData.normalizedForPortfolioDisplay()
+                    val summaries = normalized.activeDatasetSummaries()
+                    DerivedPortfolio(
+                        chartData = normalized.toStackChartData(request.baseCurrency),
+                        overview = normalized.toOverview(),
+                        assetBreakdown = summaries.toAssetBreakdown(),
+                        chainBreakdown = summaries.toChainBreakdown(),
+                    )
                 }
-                _stateFlow.value = PortfolioUiState.Loaded(request, chartData)
+                _stateFlow.value = PortfolioUiState.Loaded(
+                    request = request,
+                    chartData = derived.chartData,
+                    overview = derived.overview,
+                    assetBreakdown = derived.assetBreakdown,
+                    chainBreakdown = derived.chainBreakdown,
+                )
                 scheduleHistoryRefreshIfNeeded(request, rawData)
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (_: Throwable) {
                 if (showLoadingState || _stateFlow.value !is PortfolioUiState.Loaded) {
                     _stateFlow.value = PortfolioUiState.Error
                 }
@@ -191,6 +210,157 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
         return null
     }
 
+    private fun ApiPortfolioHistoryResponse.toOverview(): PortfolioOverview? {
+        val datasetTotals = datasets?.let { datasetsTotalsByTimestamp(it) }
+        val pointsList = points
+        val totals: List<Pair<Long, Double>> = when {
+            !datasetTotals.isNullOrEmpty() -> datasetTotals
+            !pointsList.isNullOrEmpty() -> pointsList.toHistoryPoints()
+                .sortedBy { it.timestamp }
+                .map { it.timestamp to it.value }
+
+            else -> return null
+        }
+        if (totals.isEmpty()) return null
+
+        val first = totals.first()
+        val last = totals.last()
+        val baseline = totals.firstOrNull { it.second > 0.0 } ?: first
+        val netAbs = last.second - first.second
+        val netPct = if (baseline.second > 0.0) {
+            (last.second - baseline.second) / baseline.second
+        } else null
+
+        return PortfolioOverview(
+            totalValue = last.second,
+            netChangeAbs = netAbs,
+            netChangePct = netPct,
+            startTimestampMs = first.first.toChartTimestampMs(),
+            endTimestampMs = last.first.toChartTimestampMs(),
+        )
+    }
+
+    private fun ApiPortfolioHistoryResponse.activeDatasetSummaries(): List<PortfolioDatasetSummary> {
+        val datasets = datasets ?: return emptyList()
+        return datasets.map { it.toSummary() }
+            .filter { it.latestValue > 0.0 }
+            .sortedWith(
+                compareByDescending<PortfolioDatasetSummary> { it.impact }
+                    .thenByDescending { it.latestValue }
+            )
+    }
+
+    private fun List<PortfolioDatasetSummary>.toAssetBreakdown(): List<PortfolioBreakdownSlice> {
+        val total = sumOf { it.latestValue }
+        if (total <= 0.0) return emptyList()
+        val tokens = TokenStore.tokens
+        val slices = mapIndexed { index, summary ->
+            val tokenColor = summary.tokenColor(tokens)
+            PortfolioBreakdownSlice(
+                id = summary.dataset.contractAddress.takeIf { it.isNotBlank() }
+                    ?: "asset_${summary.dataset.assetId}_$index",
+                label = summary.dataset.symbol,
+                color = (summary.dataset.color ?: tokenColor)?.toChartColor(index)
+                    ?: fallbackChartColors[index % fallbackChartColors.size],
+                ratio = summary.latestValue / total,
+            )
+        }
+        return collapseToMax(slices)
+    }
+
+    private fun PortfolioDatasetSummary.tokenColor(tokens: Map<String, MToken>): String? {
+        val contract = dataset.contractAddress.takeIf { it.isNotBlank() }
+        if (contract != null) {
+            tokens.values.firstOrNull { it.tokenAddress == contract }?.color?.let { return it }
+        }
+        val symbol = dataset.symbol.takeIf { it.isNotBlank() } ?: return null
+        return tokens.values.firstOrNull { it.symbol.equals(symbol, ignoreCase = true) }?.color
+    }
+
+    private fun List<PortfolioDatasetSummary>.toChainBreakdown(): List<PortfolioBreakdownSlice> {
+        if (isEmpty()) return emptyList()
+        val tokens = TokenStore.tokens
+        val totals = LinkedHashMap<String, Double>()
+        for (summary in this) {
+            val chainKey = summary.resolveChain(tokens) ?: UNKNOWN_CHAIN
+            totals[chainKey] = (totals[chainKey] ?: 0.0) + summary.latestValue
+        }
+        val total = totals.values.sum()
+        if (total <= 0.0) return emptyList()
+        val slices = totals.entries
+            .sortedByDescending { it.value }
+            .mapIndexed { index, (chainKey, value) ->
+                PortfolioBreakdownSlice(
+                    id = "chain_$chainKey",
+                    label = chainDisplayName(chainKey),
+                    color = chainColor(chainKey, index),
+                    ratio = value / total,
+                )
+            }
+        return collapseToMax(slices)
+    }
+
+    private fun chainColor(chainKey: String, index: Int): Int {
+        val nativeSlug = MBlockchain.valueOfOrNull(chainKey)?.nativeSlug
+        val nativeColor = nativeSlug?.let { TokenStore.getToken(it)?.color }
+        return nativeColor?.toChartColor(index)
+            ?: fallbackChartColors[index % fallbackChartColors.size]
+    }
+
+    private fun collapseToMax(slices: List<PortfolioBreakdownSlice>): List<PortfolioBreakdownSlice> {
+        if (slices.size <= BREAKDOWN_MAX_SLICES) return slices
+        val kept = slices.take(BREAKDOWN_MAX_SLICES - 1)
+        val rest = slices.drop(BREAKDOWN_MAX_SLICES - 1)
+        val othersRatio = rest.sumOf { it.ratio }
+        return kept + PortfolioBreakdownSlice(
+            id = "_others",
+            label = LocaleController.getString("Other"),
+            color = OTHERS_COLOR,
+            ratio = othersRatio,
+        )
+    }
+
+    private fun PortfolioDatasetSummary.resolveChain(tokens: Map<String, MToken>): String? {
+        val contract = dataset.contractAddress.takeIf { it.isNotBlank() }
+        if (contract != null) {
+            tokens.values.firstOrNull { it.tokenAddress == contract }
+                ?.chain?.takeIf { it.isNotBlank() }
+                ?.let { return it }
+        }
+        val symbol = dataset.symbol.takeIf { it.isNotBlank() } ?: return null
+        return tokens.values.firstOrNull { it.symbol.equals(symbol, ignoreCase = true) }
+            ?.chain?.takeIf { it.isNotBlank() }
+    }
+
+    private fun chainDisplayName(chainKey: String): String {
+        if (chainKey == UNKNOWN_CHAIN) return LocaleController.getString("Others")
+        return MBlockchain.valueOfOrNull(chainKey)?.displayName
+            ?: chainKey.replaceFirstChar { it.uppercase() }
+    }
+
+    private data class DerivedPortfolio(
+        val chartData: StackLinearChartData?,
+        val overview: PortfolioOverview?,
+        val assetBreakdown: List<PortfolioBreakdownSlice>,
+        val chainBreakdown: List<PortfolioBreakdownSlice>,
+    )
+
+    private fun datasetsTotalsByTimestamp(
+        datasets: List<ApiPortfolioHistoryDataset>,
+    ): List<Pair<Long, Double>> {
+        val byTs = sortedMapOf<Long, Double>()
+        for (dataset in datasets) {
+            for (point in dataset.points) {
+                if (point.size < 2) continue
+                val timestamp = point[0] ?: continue
+                val value = point[1] ?: continue
+                val ts = timestamp.toLong()
+                byTs[ts] = (byTs[ts] ?: 0.0) + value
+            }
+        }
+        return byTs.map { it.key to it.value }
+    }
+
     private fun historyPointsToStackChartData(
         points: ApiHistoryList,
         baseCurrency: MBaseCurrency,
@@ -255,7 +425,9 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
                 if (point.size < 2) {
                     continue
                 }
-                add(PortfolioHistoryPoint(timestamp = point[0].toLong(), value = point[1]))
+                val timestamp = point[0] ?: continue
+                val value = point[1] ?: continue
+                add(PortfolioHistoryPoint(timestamp = timestamp.toLong(), value = value))
             }
         }
     }
@@ -375,6 +547,9 @@ class PortfolioViewModel : ViewModel(), WalletCore.EventObserver {
         private const val UNIX_TIMESTAMP_MS_THRESHOLD = 10_000_000_000L
         private const val MAX_HISTORY_REFRESH_ATTEMPTS = 6
         private const val HISTORY_REFRESH_DELAY_MS = 8_000L
+        private const val UNKNOWN_CHAIN = "_unknown"
+        private const val BREAKDOWN_MAX_SLICES = 4
+        private val OTHERS_COLOR = 0xFF8E8E93.toInt()
 
         private val fallbackChartColors = intArrayOf(
             0xFF3497ED.toInt(),

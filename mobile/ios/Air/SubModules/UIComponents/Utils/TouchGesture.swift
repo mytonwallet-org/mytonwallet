@@ -25,7 +25,12 @@ extension View {
                 TouchGesture(
                     onBegan: { binding.wrappedValue = true },
                     onChanged: { _ in },
-                    onEnded: { binding.wrappedValue = false }
+                    onEnded: { binding.wrappedValue = false },
+                    onCancelled: {
+                        var t = Transaction()
+                        t.animation = nil
+                        withTransaction(t) { binding.wrappedValue = false }
+                    }
                 )
             )
         } else {
@@ -43,13 +48,16 @@ struct TouchGesture: UIGestureRecognizerRepresentable {
     let onBegan: () -> Void
     let onChanged: (UILongPressGestureRecognizer) -> Void
     let onEnded: () -> Void
+    let onCancelled: () -> Void
 
     init(onBegan: @escaping () -> Void = {},
          onChanged: @escaping (UILongPressGestureRecognizer) -> Void,
-         onEnded: @escaping () -> Void = {}) {
+         onEnded: @escaping () -> Void = {},
+         onCancelled: (() -> Void)? = nil) {
         self.onBegan = onBegan
         self.onChanged = onChanged
         self.onEnded = onEnded
+        self.onCancelled = onCancelled ?? onEnded
     }
     
     func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
@@ -75,8 +83,10 @@ struct TouchGesture: UIGestureRecognizerRepresentable {
                     gestureRecognizer.state = .cancelled
                 }
             }
-        case .ended, .cancelled:
+        case .ended:
             onEnded()
+        case .cancelled:
+            onCancelled()
         default:
             break
         }

@@ -128,7 +128,7 @@ private func parseTonInvoiceUrl(_ url: URL) -> Deeplink? {
         amount: parsedWalletURL.amount,
         comment: parsedWalletURL.comment,
         binaryPayload: parsedWalletURL.bin,
-        token: parsedWalletURL.token,
+        token: parsedWalletURL.token ?? TONCOIN_SLUG,
         jetton: parsedWalletURL.jetton,
         stateInit: parsedWalletURL.stateInit
     )

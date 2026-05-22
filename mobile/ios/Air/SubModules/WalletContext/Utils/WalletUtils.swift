@@ -275,12 +275,18 @@ private func formatShortenedDouble(_ v: Double,  kThreshold: Double, mThreshold:
 /// Expects value 0...1 (0.42 -> 42%)
 public func formatPercent(_ value: Double, decimals: Int = 2, showPlus: Bool = true, showMinus: Bool = true) -> String {
     let value = (value * 100).rounded(decimals: decimals)
-    return if showPlus && value > 0 {
-        "+\(signSpace)\(value)%"
-    } else if showMinus && value < 0 {
-        "-\(signSpace)\(abs(value))%"
+    let absoluteValue = abs(value)
+    let text = if decimals == 0, absoluteValue.isFinite {
+        "\(Int(absoluteValue))"
     } else {
-        "\(abs(value))%"
+        "\(absoluteValue)"
+    }
+    return if showPlus && value > 0 {
+        "+\(signSpace)\(text)%"
+    } else if showMinus && value < 0 {
+        "-\(signSpace)\(text)%"
+    } else {
+        "\(text)%"
     }
 }
 

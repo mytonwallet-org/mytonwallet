@@ -75,7 +75,7 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
         addChild(tonVC)
         addChild(mycoinVC)
         addChild(ethenaVC)
-        
+                
         segmentedController = WSegmentedController(
             items: segmentedControlItems,
             defaultItemId: tokenSlug,
@@ -115,7 +115,7 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
         addCloseNavigationItemIfNeeded()
         addCustomNavigationBarBackground()
         configureNavigationItemWithTransparentBackground()
-        
+
         updateTheme()
 
         WalletCoreData.add(eventObserver: self)
@@ -124,6 +124,7 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
     private func updateWithStakingState() {
         let items = self.segmentedControlItems
         segmentedController.scrollView.isScrollEnabled = items.count > 1
+        segmentedController.segmentedControl?.isHidden = items.count < 2
         segmentedController.replace(items: items)
     }
     

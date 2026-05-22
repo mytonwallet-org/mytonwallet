@@ -13,21 +13,13 @@ import UIComponents
 
 public final class AccountTypePickerVC: CreateWalletBaseVC {
     
-    var network: ApiNetwork
-    var showCreateWallet: Bool
-    var showSwitchToOtherVersion: Bool
+    private let network: ApiNetwork
     
-    var hostingController: UIHostingController<AccountTypePickerView>?
+    private var hostingController: UIHostingController<AccountTypePickerView>?
     private let navHeight: CGFloat = 60
 
-    public init(
-        network: ApiNetwork,
-        showCreateWallet: Bool,
-        showSwitchToOtherVersion: Bool,
-    ) {
+    public init(network: ApiNetwork) {
         self.network = network
-        self.showCreateWallet = showCreateWallet
-        self.showSwitchToOtherVersion = showSwitchToOtherVersion
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -38,8 +30,7 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
     public override func viewDidLoad() {
         super.viewDidLoad()
         
-        let title = showCreateWallet ? lang("Add Wallet") : lang("Import Wallet")
-        navigationItem.title = title
+        navigationItem.title = network == .testnet ? "\(lang("Add Wallet")) (Testnet)" : lang("Add Wallet")
         addCloseNavigationItemIfNeeded()
         
         hostingController = addHostingController(makeView()) { [view] child in
@@ -55,21 +46,19 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
         view.backgroundColor = .air.sheetBackground
     }
     
-    func makeView() -> AccountTypePickerView {
+    private func makeView() -> AccountTypePickerView {
         AccountTypePickerView(
             network: network,
-            showCreateWallet: showCreateWallet,
-            showSwitchToOtherVersionIfAvailable: showSwitchToOtherVersion,
             onHeightChange: { [weak self] height in self?.onHeightChange(height) }
         )
     }
     
-    func onHeightChange(_ height: CGFloat) {
+    private func onHeightChange(_ height: CGFloat) {
         let size = CGSize(width: maxContentWidth ?? 560, height: height)
         preferredContentSize = size
         navigationController?.preferredContentSize = size
         if let sheet = sheetPresentationController {
-            sheet.detents = [.custom(identifier: .content, resolver: { _ in height + self.navHeight })]
+            sheet.detents = [.custom(identifier: .content, resolver: { [navHeight] _ in height + navHeight })]
         }
     }
 }
@@ -81,10 +70,6 @@ private extension UISheetPresentationController.Detent.Identifier {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    AccountTypePickerVC(
-        network: .mainnet,
-        showCreateWallet: true,
-        showSwitchToOtherVersion: true
-    )
+    AccountTypePickerVC(network: .mainnet)
 }
 #endif

@@ -89,8 +89,8 @@ class PillShadowView(context: Context) : View(context), WThemedView {
     }
 
     /**
-     * Sync shadow size, position, alpha, and visibility from the attached target.
-     * Call after any change to target's bounds, translation, alpha, or visibility.
+     * Sync shadow size, transform, alpha, and visibility from the attached target.
+     * Call after any change to target's bounds, translation, scale, alpha, or visibility.
      */
     fun sync() {
         val t = target ?: return
@@ -133,6 +133,10 @@ class PillShadowView(context: Context) : View(context), WThemedView {
         }
         this.x = target.x - pad
         this.y = target.y - pad
+        pivotX = pad + target.pivotX
+        pivotY = pad + target.pivotY
+        scaleX = target.scaleX
+        scaleY = target.scaleY
         alpha = target.alpha
         visibility = target.visibility
     }

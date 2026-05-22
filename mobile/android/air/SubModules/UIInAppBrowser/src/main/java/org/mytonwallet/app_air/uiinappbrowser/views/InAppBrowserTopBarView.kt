@@ -1,8 +1,6 @@
 package org.mytonwallet.app_air.uiinappbrowser.views
 
 import android.annotation.SuppressLint
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -25,6 +23,7 @@ import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.resize
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
+import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -351,7 +350,7 @@ class InAppBrowserTopBarView(
         backButton.background = backButtonRipple
         backButtonRipple.backgroundColor = Color.TRANSPARENT
         backButtonRipple.rippleColor =
-            WColor.SecondaryBackground.colorForTheme(shouldRenderAsDarkMode)
+            WColor.BackgroundRipple.colorForTheme(shouldRenderAsDarkMode)
     }
 
     fun blendColors(color1: Int, color2: Int, ratio: Float): Int {
@@ -536,15 +535,14 @@ class InAppBrowserTopBarView(
                     null,
                     LocaleController.getString("CopyURL")
                 ) {
-                    val clipboard =
-                        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    val clip =
-                        ClipData.newPlainText(
+                    if (ClipboardHelpers.copyToClipboard(
+                            context,
                             LocaleController.getString("CopyURL"),
                             activeUrl
                         )
-                    clipboard.setPrimaryClip(clip)
-                    Haptics.play(context, HapticType.LIGHT_TAP)
+                    ) {
+                        Haptics.play(context, HapticType.LIGHT_TAP)
+                    }
                 },
                 WMenuPopup.Item(
                     null,

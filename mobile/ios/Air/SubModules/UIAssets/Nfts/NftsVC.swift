@@ -595,7 +595,11 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
             }
         case .action(let actionId):
             if case .showAll = actionId {
-                AppActions.showAssets(accountSource: $account.source, selectedTab: 1, collectionsFilter: filter)
+                AppActions.showAssets(
+                    accountSource: $account.source,
+                    selectedTab: filter == .none ? .nfts : .nftCollectionFilter(filter),
+                    collectionsFilter: filter
+                )
             }
         case .placeholder:
             break
@@ -741,7 +745,11 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
             if let collection = nft.collection, canOpenCollection {
                 let collectionAction = UIAction(title: lang("Collection"), image: .airBundle("MenuCollection26")) { [weak self] _ in
                     guard let self else { return }
-                    AppActions.showAssets(accountSource: self.$account.source, selectedTab: 1, collectionsFilter: .collection(collection))
+                    AppActions.showAssets(
+                        accountSource: self.$account.source,
+                        selectedTab: .nftCollectionFilter(.collection(collection)),
+                        collectionsFilter: .collection(collection)
+                    )
                 }
                 items.append(collectionAction)
             }

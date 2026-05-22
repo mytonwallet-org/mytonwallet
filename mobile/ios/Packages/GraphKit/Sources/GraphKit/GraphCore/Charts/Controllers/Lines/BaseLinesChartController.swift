@@ -23,6 +23,7 @@ public class BaseLinesChartController: BaseChartController {
     
     var initialChartRange: ClosedRange<CGFloat> = BaseConstants.defaultRange
     var zoomedChartRange: ClosedRange<CGFloat> = BaseConstants.defaultRange
+    var previousHorizontalLabelScaleType: ChartScaleType?
     
     override public init(chartsCollection: ChartsCollection) {
         self.chartVisibility = Array(repeating: true, count: chartsCollection.chartValues.count)
@@ -97,14 +98,42 @@ public class BaseLinesChartController: BaseChartController {
     
     
     func chartDetailsViewModel(closestDate: Date, pointIndex: Int, loading: Bool) -> ChartDetailsViewModel {
-        let values: [ChartDetailsViewModel.Value] = actualChartsCollection.chartValues.enumerated().map { arg in
+        let items: [ChartDetailsItemContext] = actualChartsCollection.chartValues.enumerated().map { arg in
             let (index, component) = arg
-            return ChartDetailsViewModel.Value(id: "series-\(index)",
-                                               prefix: nil,
-                                               title: component.name,
-                                               value: BaseConstants.detailsNumberFormatter.string(from: component.values[pointIndex]),
-                                               color: component.color,
-                                               visible: actualChartVisibility[index])
+            let rawValue = Double(component.values[pointIndex])
+            return ChartDetailsItemContext(
+                id: "series-\(index)",
+                index: index,
+                role: .series,
+                prefix: nil,
+                title: component.name,
+                rawValue: rawValue,
+                formattedValue: BaseConstants.detailsNumberFormatter.string(from: component.values[pointIndex]),
+                color: component.color,
+                isVisible: actualChartVisibility[index] && (!hidesZeroDetailsRows || abs(rawValue) > Double.ulpOfOne)
+            )
+        }
+        let orderedItems: [ChartDetailsItemContext]
+        switch detailsRowSortOrder {
+        case .original:
+            orderedItems = items
+        case .descendingValue:
+            orderedItems = items.sorted { lhs, rhs in
+                if lhs.rawValue == rhs.rawValue {
+                    return lhs.index < rhs.index
+                }
+                return lhs.rawValue > rhs.rawValue
+            }
+        }
+        let values = orderedItems.map { item in
+            ChartDetailsViewModel.Value(
+                id: item.id,
+                prefix: item.prefix,
+                title: item.title,
+                value: detailsValueTextProvider?(item) ?? item.formattedValue,
+                color: item.color,
+                visible: item.isVisible
+            )
         }
         let total = actualChartsCollection.chartValues.enumerated().map { $0.element.values[pointIndex] }.reduce(0, +)
         
@@ -146,15 +175,25 @@ public class BaseLinesChartController: BaseChartController {
     func horizontalLimitsLabels(horizontalRange: ClosedRange<CGFloat>,
                                 scaleType: ChartScaleType,
                                 prevoiusHorizontalStrideInterval: Int) -> (Int, [LinesChartLabel])? {
-        let numberOfItems = horizontalRange.distance / CGFloat(scaleType.timeInterval)
-        let maximumNumberOfItems = chartFrame().width / scaleType.minimumAxisXDistance
+        let labelScaleType = ChartScaleType.axisLabelScaleType(
+            requested: scaleType,
+            horizontalRange: horizontalRange,
+            axisValues: initialChartsCollection.axisValues
+        )
+        let scaleTimeInterval = ChartScaleType.axisScaleTimeInterval(
+            requested: scaleType,
+            axisValues: initialChartsCollection.axisValues
+        )
+        let numberOfItems = horizontalRange.distance / CGFloat(scaleTimeInterval)
+        let maximumNumberOfItems = max(1, chartFrame().width / labelScaleType.minimumAxisXDistance)
         let tempStride = max(1, Int((numberOfItems / maximumNumberOfItems).rounded(.up)))
         var strideInterval = 1
         while strideInterval < tempStride {
             strideInterval *= 2
         }
         
-        if strideInterval != prevoiusHorizontalStrideInterval && strideInterval > 0 {
+        if (strideInterval != prevoiusHorizontalStrideInterval || labelScaleType != previousHorizontalLabelScaleType)
+            && strideInterval > 0 {
             var labels: [LinesChartLabel] = []
             for index in stride(from: initialChartsCollection.axisValues.count - 1, to: -1, by: -strideInterval).reversed() {
                 let date = initialChartsCollection.axisValues[index]
@@ -164,9 +203,10 @@ public class BaseLinesChartController: BaseChartController {
                                                   text: "\(Int(timestamp)):00"))
                 } else {
                     labels.append(LinesChartLabel(value: CGFloat(timestamp),
-                                                  text: axisLabel(for: date, scaleType: scaleType)))
+                                                  text: axisLabel(for: date, scaleType: labelScaleType)))
                 }
             }
+            previousHorizontalLabelScaleType = labelScaleType
             return (strideInterval, labels)
         }
         return nil
@@ -248,6 +288,8 @@ enum ChartScaleType {
 }
 
 extension ChartScaleType {
+    private static let intradayRangeThreshold = TimeInterval.day * 2
+
     var timeInterval: TimeInterval {
         switch self {
         case .day: return .day
@@ -269,5 +311,31 @@ extension ChartScaleType {
         case .hour: return BaseConstants.timeDateFormatter
         case .minutes5: return BaseConstants.timeDateFormatter
         }
+    }
+
+    static func axisLabelScaleType(
+        requested scaleType: ChartScaleType,
+        horizontalRange: ClosedRange<CGFloat>,
+        axisValues: [Date]
+    ) -> ChartScaleType {
+        guard scaleType == .day else {
+            return scaleType
+        }
+
+        let visibleRangeIsIntraday = TimeInterval(horizontalRange.distance) <= intradayRangeThreshold
+        let pointIntervalIsIntraday = axisScaleTimeInterval(requested: scaleType, axisValues: axisValues) < .day
+        return visibleRangeIsIntraday && pointIntervalIsIntraday ? .hour : .day
+    }
+
+    static func axisScaleTimeInterval(requested scaleType: ChartScaleType, axisValues: [Date]) -> TimeInterval {
+        guard axisValues.count > 1 else {
+            return scaleType.timeInterval
+        }
+
+        let intervals = zip(axisValues, axisValues.dropFirst())
+            .map { $1.timeIntervalSince1970 - $0.timeIntervalSince1970 }
+            .filter { $0 > 0 }
+
+        return intervals.min() ?? scaleType.timeInterval
     }
 }

@@ -239,6 +239,86 @@ class BarChartRenderer: BaseChartRenderer {
                         )
                         context.restoreGState()
                     }
+                } else if bars.components.contains(where: { component in component.values.contains(where: { $0 < 0 }) }) {
+                    var selectedPaths: [[CGRect]] = bars.components.map { _ in [] }
+                    var unselectedPaths: [[CGRect]] = bars.components.map { _ in [] }
+                    barIndex = max(0, barIndex - 1)
+
+                    var currentLocation = bars.locations[barIndex]
+                    var leftX = transform(toChartCoordinateHorizontal: currentLocation - bars.barWidth, chartFrame: chartFrame)
+                    var rightX: CGFloat = 0
+                    var maxValues: [CGFloat] = bars.components.map { _ in 0 }
+
+                    while barIndex < bars.locations.count {
+                        currentLocation = bars.locations[barIndex]
+                        rightX = transform(toChartCoordinateHorizontal: currentLocation, chartFrame: chartFrame)
+
+                        var positiveBase: CGFloat = 0
+                        var negativeBase: CGFloat = 0
+                        for (index, component) in bars.components.enumerated() {
+                            let visibilityPercent = componentsAnimators[index].current
+                            if visibilityPercent == 0 { continue }
+
+                            let value = component.values[barIndex] * visibilityPercent
+                            if value == 0 { continue }
+
+                            let baseValue: CGFloat
+                            let stackedValue: CGFloat
+                            if value > 0 {
+                                baseValue = positiveBase
+                                positiveBase += value
+                                stackedValue = positiveBase
+                            } else {
+                                baseValue = negativeBase
+                                negativeBase += value
+                                stackedValue = negativeBase
+                            }
+
+                            let baseY = transform(toChartCoordinateVertical: baseValue, chartFrame: chartFrame)
+                            let topY = transform(toChartCoordinateVertical: stackedValue, chartFrame: chartFrame)
+                            let rect = CGRect(
+                                x: leftX,
+                                y: min(baseY, topY),
+                                width: rightX - leftX,
+                                height: abs(baseY - topY)
+                            )
+                            guard rect.width > 0, rect.height > 0 else {
+                                continue
+                            }
+
+                            maxValues[index] = max(maxValues[index], rect.height)
+                            if selectedBarIndex == barIndex {
+                                selectedPaths[index].append(rect)
+                            } else {
+                                unselectedPaths[index].append(rect)
+                            }
+                        }
+
+                        if currentLocation > range.upperBound {
+                            break
+                        }
+                        leftX = rightX
+                        barIndex += 1
+                    }
+
+                    let colorOffset = Double((1.0 - (1.0 - generalUnselectedAlpha) * selectedIndexAnimator.current) * chartsAlpha)
+
+                    for (index, component) in bars.components.enumerated().reversed() {
+                        if maxValues[index] < optimizationLevel {
+                            continue
+                        }
+                        context.saveGState()
+                        context.setFillColor(GColor.valueBetween(start: backgroundColorAnimator.current.color,
+                                                                  end: component.color,
+                                                                  offset: colorOffset).cgColor)
+                        context.fill(unselectedPaths[index])
+                        context.restoreGState()
+                    }
+
+                    for (index, component) in bars.components.enumerated().reversed() {
+                        context.setFillColor(component.color.withAlphaComponent(chartsAlpha * component.color.alphaValue).cgColor)
+                        context.fill(selectedPaths[index])
+                    }
                 } else {
                     var selectedPaths: [[CGRect]] = bars.components.map { _ in [] }
                     barIndex = max(0, barIndex - 1)
@@ -474,23 +554,45 @@ extension BarChartRenderer.BarsData {
         guard bars.components.count > 0 else {
             return nil
         }
+        func resolvedRange(negativeMin: CGFloat, positiveMax: CGFloat) -> ClosedRange<CGFloat> {
+            if negativeMin == positiveMax {
+                if positiveMax == 0 {
+                    return 0...1
+                }
+
+                return min(0, positiveMax * 2)...max(0, positiveMax * 2)
+            }
+
+            return negativeMin...positiveMax
+        }
+
         if let calculatingRange = calculatingRange {
             guard var index = bars.locations.firstIndex(where: { $0 >= calculatingRange.lowerBound && $0 <= calculatingRange.upperBound }) else {
                 return nil
             }
             
-            var vMax: CGFloat = bars.components[0].values[index]
+            var positiveMax: CGFloat = 0
+            var negativeMin: CGFloat = 0
             while index < bars.locations.count {
                 if separate {
                     for component in bars.components {
-                        vMax = max(vMax, component.values[index])
+                        let value = component.values[index]
+                        positiveMax = max(positiveMax, value)
+                        negativeMin = min(negativeMin, value)
                     }
                 } else {
-                    var summ: CGFloat = 0
+                    var positiveSum: CGFloat = 0
+                    var negativeSum: CGFloat = 0
                     for component in bars.components {
-                        summ += component.values[index]
+                        let value = component.values[index]
+                        if value >= 0 {
+                            positiveSum += value
+                        } else {
+                            negativeSum += value
+                        }
                     }
-                    vMax = max(vMax, summ)
+                    positiveMax = max(positiveMax, positiveSum)
+                    negativeMin = min(negativeMin, negativeSum)
                 }
                 
                 if bars.locations[index] > calculatingRange.upperBound {
@@ -498,27 +600,37 @@ extension BarChartRenderer.BarsData {
                 }
                 index += 1
             }
-            return 0...vMax
+            return resolvedRange(negativeMin: negativeMin, positiveMax: positiveMax)
         } else {
             var index = 0
             
-            var vMax: CGFloat = bars.components[0].values[index]
+            var positiveMax: CGFloat = 0
+            var negativeMin: CGFloat = 0
             while index < bars.locations.count {
                 if separate {
                     for component in bars.components {
-                        vMax = max(vMax, component.values[index])
+                        let value = component.values[index]
+                        positiveMax = max(positiveMax, value)
+                        negativeMin = min(negativeMin, value)
                     }
                 } else {
-                    var summ: CGFloat = 0
+                    var positiveSum: CGFloat = 0
+                    var negativeSum: CGFloat = 0
                     for component in bars.components {
-                        summ += component.values[index]
+                        let value = component.values[index]
+                        if value >= 0 {
+                            positiveSum += value
+                        } else {
+                            negativeSum += value
+                        }
                     }
-                    vMax = max(vMax, summ)
+                    positiveMax = max(positiveMax, positiveSum)
+                    negativeMin = min(negativeMin, negativeSum)
                 }
                 
                 index += 1
             }
-            return 0...vMax
+            return resolvedRange(negativeMin: negativeMin, positiveMax: positiveMax)
         }
     }
 }

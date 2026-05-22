@@ -6,16 +6,26 @@ import { requestMeasure } from '../../../../../lib/fasterdom/fasterdom';
 import useLastCallback from '../../../../../hooks/useLastCallback';
 
 const SCROLL_EDGE_TOLERANCE_PX = 5;
+const EDGE_HOVER_ZONE_RATIO = 0.25;
+
+type EdgeHoverZone = 'left' | 'right' | undefined;
 
 interface OwnProps {
   containerRef: ElementRef<HTMLDivElement | undefined>;
+  viewportRef?: ElementRef<HTMLDivElement | undefined>;
   isDisabled?: boolean;
   noAnimation?: boolean;
 }
 
-export default function useScrollButtonsVisibility({ containerRef, isDisabled, noAnimation }: OwnProps) {
+export default function useScrollButtonsVisibility({
+  containerRef,
+  viewportRef,
+  isDisabled,
+  noAnimation,
+}: OwnProps) {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [hoverZone, setHoverZone] = useState<EdgeHoverZone>(undefined);
 
   useEffect(() => {
     if (isDisabled) {
@@ -67,6 +77,70 @@ export default function useScrollButtonsVisibility({ containerRef, isDisabled, n
     };
   }, [containerRef, isDisabled]);
 
+  useEffect(() => {
+    if (isDisabled) {
+      setHoverZone(undefined);
+      return undefined;
+    }
+
+    const targetRef = viewportRef ?? containerRef;
+    const el = targetRef.current;
+    if (!el) return undefined;
+
+    let isScheduled = false;
+    let pendingClientX = 0;
+    let isCancelled = false;
+    let currentHoverZone: EdgeHoverZone;
+
+    function updateHoverZone(next: EdgeHoverZone) {
+      if (next === currentHoverZone) return;
+
+      currentHoverZone = next;
+      setHoverZone(next);
+    }
+
+    function measureHoverZone() {
+      isScheduled = false;
+      if (isCancelled) return;
+
+      const target = targetRef.current;
+      if (!target) return;
+
+      const rect = target.getBoundingClientRect();
+      const x = pendingClientX - rect.left;
+      const edge = rect.width * EDGE_HOVER_ZONE_RATIO;
+
+      if (x < edge) {
+        updateHoverZone('left');
+      } else if (x > rect.width - edge) {
+        updateHoverZone('right');
+      } else {
+        updateHoverZone(undefined);
+      }
+    }
+
+    function handleMove(e: MouseEvent) {
+      pendingClientX = e.clientX;
+      if (isScheduled) return;
+
+      isScheduled = true;
+      requestMeasure(measureHoverZone);
+    }
+
+    function handleLeave() {
+      updateHoverZone(undefined);
+    }
+
+    el.addEventListener('mousemove', handleMove, { passive: true });
+    el.addEventListener('mouseleave', handleLeave);
+
+    return () => {
+      isCancelled = true;
+      el.removeEventListener('mousemove', handleMove);
+      el.removeEventListener('mouseleave', handleLeave);
+    };
+  }, [containerRef, viewportRef, isDisabled]);
+
   const scrollByOneCell = useLastCallback((direction: 'left' | 'right') => {
     const el = containerRef.current;
     if (!el) return;
@@ -80,5 +154,9 @@ export default function useScrollButtonsVisibility({ containerRef, isDisabled, n
     el.scrollBy({ left: direction === 'left' ? -step : step, behavior: noAnimation ? 'auto' : 'smooth' });
   });
 
-  return { canScrollLeft, canScrollRight, scrollByOneCell };
+  return {
+    isLeftButtonVisible: canScrollLeft && hoverZone === 'left',
+    isRightButtonVisible: canScrollRight && hoverZone === 'right',
+    scrollByOneCell,
+  };
 }

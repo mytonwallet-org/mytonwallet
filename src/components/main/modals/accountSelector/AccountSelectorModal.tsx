@@ -10,6 +10,7 @@ import { SettingsState } from '../../../../global/types';
 
 import {
   selectCurrentAccountId,
+  selectIsMnemonicAccount,
   selectIsPasswordPresent,
   selectNetworkAccounts,
   selectOrderedAccounts,
@@ -71,6 +72,7 @@ interface AccountSelectorOpenProps {
   error?: string;
   isPasswordPresent: boolean;
   accountWalletVersions?: ApiWalletWithVersionInfo[];
+  canAddSubwallet: boolean;
   forceAddingTonOnlyAccount?: boolean;
   initialAuthState?: AccountSelectorState;
   shouldHideAddAccountBackButton?: boolean;
@@ -99,6 +101,7 @@ function AccountSelectorModal({
   error,
   isPasswordPresent = false,
   accountWalletVersions,
+  canAddSubwallet = false,
   forceAddingTonOnlyAccount,
   initialAuthState,
   shouldHideAddAccountBackButton,
@@ -110,6 +113,7 @@ function AccountSelectorModal({
     setAccountSelectorViewMode,
     rebuildOrderedAccountIds,
     addAccount,
+    createSubWallet,
     clearAccountError,
     openSettingsWithState,
     resetHardwareWalletConnect,
@@ -128,6 +132,7 @@ function AccountSelectorModal({
   const [isLogOutModalOpen, openLogOutModal, closeLogOutModal] = useFlag(false);
   const [logOutAccountId, setLogOutAccountId] = useState<string | undefined>();
   const [isNewAccountImporting, setIsNewAccountImporting] = useState<boolean>(false);
+  const [isAddingSubwallet, setIsAddingSubwallet] = useState<boolean>(false);
   const [previousViewMode, setPreviousViewMode] = useState<AccountSelectorState>(initialRenderingKey);
   const [shouldReturnToStartScreen, setShouldReturnToStartScreen] = useState<boolean>(false);
 
@@ -244,6 +249,7 @@ function AccountSelectorModal({
   const handleModalClose = useLastCallback(() => {
     setRenderingKey(initialRenderingKey);
     setIsNewAccountImporting(false);
+    setIsAddingSubwallet(false);
     setShouldReturnToStartScreen(false);
     setPreviousViewMode(initialRenderingKey);
     clearAccountLoading();
@@ -253,6 +259,7 @@ function AccountSelectorModal({
     switch (renderingKey) {
       case AccountSelectorState.AddAccountPassword:
         setRenderingKey(AccountSelectorState.AddAccountInitial);
+        setIsAddingSubwallet(false);
         clearAccountError();
         break;
 
@@ -325,6 +332,12 @@ function AccountSelectorModal({
   });
 
   const handleSubmitPassword = useLastCallback((password: string) => {
+    if (isAddingSubwallet) {
+      createSubWallet({ password });
+      handleCloseAccountSelectorForced();
+      return;
+    }
+
     addAccount({ method: isNewAccountImporting ? 'importMnemonic' : 'createAccount', password });
   });
 
@@ -399,6 +412,19 @@ function AccountSelectorModal({
   const handleOpenSettingWalletVersion = useLastCallback(() => {
     handleCloseAccountSelectorForced();
     openSettingsWithState({ state: SettingsState.WalletVersions });
+  });
+
+  const handleNewSubwalletClick = useLastCallback(() => {
+    if (getHasInMemoryPassword()) {
+      void getInMemoryPassword().then((password) => {
+        createSubWallet({ password: password! });
+        handleCloseAccountSelectorForced();
+      });
+      return;
+    }
+
+    setIsAddingSubwallet(true);
+    setRenderingKey(AccountSelectorState.AddAccountPassword);
   });
 
   function renderHeader(renderingState: AccountSelectorState) {
@@ -498,9 +524,11 @@ function AccountSelectorModal({
             isLoading={isLoading}
             isTestnet={isTestnet}
             hasOtherWalletVersions={hasOtherWalletVersions}
+            canAddSubwallet={canAddSubwallet}
             shouldHideBackButton={shouldHideAddAccountBackButton}
             onBack={handleBackFromAddAccount}
             onNewAccountClick={handleNewAccountClick}
+            onNewSubwalletClick={handleNewSubwalletClick}
             onImportAccountClick={handleImportAccountClick}
             onImportHardwareWalletClick={handleImportHardwareWalletClick}
             onViewModeWalletClick={handleViewModeWalletClick}
@@ -638,6 +666,7 @@ export default memo(withGlobal(
     const currentAccountId = selectCurrentAccountId(global)!;
     const networkAccounts = selectNetworkAccounts(global);
     const isPasswordPresent = selectIsPasswordPresent(global);
+    const canAddSubwallet = selectIsMnemonicAccount(global);
     const accountWalletVersions = walletVersions?.byId?.[currentAccountId];
     const { isLoading, error } = accounts ?? {};
 
@@ -661,6 +690,7 @@ export default memo(withGlobal(
       error,
       isPasswordPresent,
       accountWalletVersions,
+      canAddSubwallet,
       forceAddingTonOnlyAccount,
       initialAuthState,
       shouldHideAddAccountBackButton,

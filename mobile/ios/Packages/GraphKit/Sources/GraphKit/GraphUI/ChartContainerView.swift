@@ -311,6 +311,16 @@ public final class ChartContainerView: UIView {
             chartView.zoomStateUpdated = zoomStateChanged
         }
     }
+    public var visibilityBottomInset: CGFloat {
+        get {
+            chartView.visibilityBottomInset
+        }
+        set {
+            chartView.visibilityBottomInset = newValue
+            invalidateIntrinsicContentSize()
+            setNeedsLayout()
+        }
+    }
 
     private var currentExtractedTheme: ChartTheme {
         ChartTheme.extractedTheme(for: traitCollection.userInterfaceStyle)
@@ -426,7 +436,12 @@ public final class ChartContainerView: UIView {
     }
 
     public func preferredHeight(for width: CGFloat) -> CGFloat {
-        ChartStackSection.preferredHeight(for: width, controller: controller, displayRange: displayRange)
+        ChartStackSection.preferredHeight(
+            for: width,
+            controller: controller,
+            displayRange: displayRange,
+            visibilityBottomInset: visibilityBottomInset
+        )
     }
 
     public func resetInteraction() {

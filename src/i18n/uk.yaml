@@ -274,8 +274,6 @@ Stake Again: Повторити депозит
 Earned: Зароблено
 Select wallet to use on this app: Виберіть гаманець для використання в цій програмі
 Connect: Підключити
-App Permissions: Дозволи для програми
-$dapp_can_view_balance: Для %dappname% буде доступна ваша адреса гаманця і баланс.
 Payload: Службові дані
 $many_transactions:
   zeroValue: Немає переказів
@@ -535,7 +533,7 @@ $current_wallet_version: Ваша поточна версія гаманця %ve
 You have tokens on other versions of your wallet. You can import them from here.: У вас є токени на інших версіях вашого гаманця. Ви можете імпортувати їх звідси.
 $wallet_switch_version_1: Ви також можете %action%.
 $wallet_switch_version_2: переключитися на іншу версію гаманця
-or import from: або імпортувати з
+or import from: або імпортувати
 Insufficient fee: Недостатньо для комісії
 $insufficient_fee: "Недостатньо для комісії: %fee%"
 Required: Обов'язково
@@ -1218,3 +1216,11 @@ $mint_nft_action: Мінтинг NFT
 Burned NFT: Спалений NFT
 Burning NFT: Спалювання NFT
 $burn_nft_action: Спалювання NFT
+New Wallet: Новий гаманець
+From new secret words: З нових секретних слів
+New Subwallet: Новий субгаманець
+From current secret words: З поточних секретних слів
+$secret_words: Секретні слова
+Restore wallet from 12 or 24 words: Відновити гаманець з 12 або 24 слів
+Connect your hardware wallet: Підключіти апаратний гаманець
+Watch wallet in read-only mode: Переглянути гаманець у режимі тільки для читання

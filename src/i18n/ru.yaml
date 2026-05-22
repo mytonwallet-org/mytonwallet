@@ -273,8 +273,6 @@ Stake Again: Повторить депозит
 Earned: Всего
 Select wallet to use on this app: Выберите кошелёк для использования с этим приложением
 Connect: Подключить
-App Permissions: Разрешения
-$dapp_can_view_balance: Для %dappname% будет доступен ваш адрес кошелька и баланс.
 Payload: Служебные данные
 $many_transactions:
   zeroValue: Нет переводов
@@ -534,7 +532,7 @@ $current_wallet_version: Ваша текущая версия кошелька %
 You have tokens on other versions of your wallet. You can import them from here.: У вас есть токены на других версиях вашего кошелька. Вы можете импортировать их отсюда.
 $wallet_switch_version_1: Вы также можете %action%.
 $wallet_switch_version_2: переключиться на другую версию кошелька
-or import from: или импортировать из
+or import from: или импортировать
 Insufficient fee: Недостаточно для комиссии
 $insufficient_fee: "Недостаточно для комиссии: %fee%"
 Required: Обязательно
@@ -1213,3 +1211,11 @@ $mint_nft_action: Минтинг NFT
 Burned NFT: Сожжён NFT
 Burning NFT: Сжигание NFT
 $burn_nft_action: Сжигание NFT
+New Wallet: Новый кошелёк
+From new secret words: Из новых секретных слов
+New Subwallet: Новый субкошелёк
+From current secret words: Из текущих секретных слов
+$secret_words: Секретные слова
+Restore wallet from 12 or 24 words: Восстановить кошелёк из 12 или 24 слов
+Connect your hardware wallet: Подключить аппаратный кошелёк
+Watch wallet in read-only mode: Просмотреть кошелёк в режиме только для чтения

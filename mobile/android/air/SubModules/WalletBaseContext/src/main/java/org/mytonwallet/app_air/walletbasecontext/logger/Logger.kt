@@ -39,6 +39,7 @@ object Logger {
         STAKING("Staking"),
         SETTINGS("Settings"),
         QR_SCAN("QRScan"),
+        MEMORY("Memory"),
     }
 
     enum class LogLevel(val str: String) {

@@ -609,7 +609,7 @@ final class TokenExpandableChartView: UIView {
         guard gr.state == .began, let price = priceValueLabel.text, !price.isEmpty else { return }
         
         UIPasteboard.general.string = price
-        AppActions.showToast(message: lang("Price Copied"))
+        AppActions.showToast(icon: .animatedCopy, message: lang("Price Copied"))
         Haptics.play(.lightTap)
     }
 

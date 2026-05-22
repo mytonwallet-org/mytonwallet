@@ -122,12 +122,6 @@ public extension ApiDappTransfer {
             return token
         }
 
-        return .init(
-            slug: slug,
-            name: "[Unknown]",
-            symbol: "[Unknown]",
-            decimals: 9,
-            chain: chain
-        )
+        return .unknown(slug: slug, chain: chain)
     }
 }

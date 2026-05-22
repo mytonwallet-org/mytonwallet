@@ -328,7 +328,7 @@ struct CrosschainToWalletView: View {
 
     private func copy(_ value: String, message: String) {
         UIPasteboard.general.string = value
-        AppActions.showToast(animationName: "Copy", message: message)
+        AppActions.showToast(icon: .animatedCopy, message: message)
         Haptics.play(.lightTap)
     }
 

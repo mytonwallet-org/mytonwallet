@@ -5,7 +5,12 @@ import UIKit
 import WalletCore
 import WalletContext
 
-private let portfolioSectionTopSpacing = CGFloat(20)
+private let portfolioFirstSectionTopSpacing = CGFloat(16)
+private let portfolioSectionTopSpacing = CGFloat(24)
+private let portfolioHorizontalInset = CGFloat(16)
+private let portfolioRangeControlHorizontalInset = CGFloat(21)
+private let portfolioRangeControlHeight = CGFloat(44)
+private let portfolioRangeControlOverlayHeight = CGFloat(77)
 
 private final class PortfolioCollectionView: UICollectionView {
     override func touchesShouldCancel(in view: UIView) -> Bool {
@@ -13,10 +18,143 @@ private final class PortfolioCollectionView: UICollectionView {
     }
 }
 
+private final class PortfolioBottomControlBackgroundView: UIView {
+    override class var layerClass: AnyClass { CAGradientLayer.self }
+
+    private var gradientLayer: CAGradientLayer { layer as! CAGradientLayer }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        translatesAutoresizingMaskIntoConstraints = false
+        isUserInteractionEnabled = false
+        applyTheme()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        applyTheme()
+    }
+
+    private func applyTheme() {
+        let color = UIColor.air.groupedBackground.resolvedColor(with: traitCollection)
+        gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
+        gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
+        gradientLayer.locations = [0, 1]
+        gradientLayer.colors = [
+            color.withAlphaComponent(0).cgColor,
+            color.withAlphaComponent(0.6).cgColor,
+        ]
+    }
+}
+
+private final class PortfolioRangeSegmentedControl: UISegmentedControl {
+    private var isFirstRender = true
+    private var backgroundLayer: CALayer?
+
+    init(titles: [String]) {
+        super.init(items: titles)
+        setup()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        if #available(iOS 26, *) {
+            if isFirstRender {
+                for subview in subviews where subview is UIImageView {
+                    subview.isHidden = true
+                }
+                isFirstRender = false
+            }
+        } else {
+            let imageViews = subviews.compactMap { $0 as? UIImageView }.prefix(numberOfSegments)
+            imageViews.forEach { $0.isHidden = true }
+
+            if let selectorImageView {
+                let inset = CGFloat(5)
+                selectorImageView.bounds = selectorImageView.bounds.insetBy(dx: inset, dy: inset)
+                selectorImageView.image = nil
+                selectorImageView.layer.cornerRadius = selectorImageView.bounds.height / 2
+                selectorImageView.layer.masksToBounds = true
+                selectorImageView.layer.removeAnimation(forKey: "SelectionBounds")
+                selectorImageView.isHidden = false
+            }
+
+            backgroundLayer?.removeFromSuperlayer()
+            let layer = CALayer()
+            layer.frame = bounds
+            self.layer.insertSublayer(layer, at: 0)
+            backgroundLayer = layer
+        }
+
+        layer.cornerRadius = bounds.height / 2
+        layer.masksToBounds = true
+        updateTheme()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        updateTheme()
+    }
+
+    private func setup() {
+        translatesAutoresizingMaskIntoConstraints = false
+        apportionsSegmentWidthsByContent = false
+        setDividerImage(UIImage(), forLeftSegmentState: .normal, rightSegmentState: .normal, barMetrics: .default)
+        setTitleTextAttributes(
+            [
+                .font: UIFont.systemFont(ofSize: 15, weight: .semibold),
+                .foregroundColor: UIColor.air.secondaryLabel,
+            ],
+            for: .normal
+        )
+        setTitleTextAttributes(
+            [
+                .font: UIFont.systemFont(ofSize: 15, weight: .semibold),
+                .foregroundColor: UIColor.label,
+            ],
+            for: .selected
+        )
+        updateTheme()
+    }
+
+    private func updateTheme() {
+        if #available(iOS 26, *) {
+            selectedSegmentTintColor = .air.groupedItem
+            backgroundColor = .air.headerBackground
+        } else {
+            backgroundLayer?.backgroundColor = UIColor.air.headerBackground.resolvedColor(with: traitCollection).cgColor
+            selectorImageView?.layer.backgroundColor = UIColor.air.groupedItem.resolvedColor(with: traitCollection).cgColor
+        }
+    }
+
+    private var selectorImageView: UIImageView? {
+        let selectorIndex = numberOfSegments
+        guard subviews.indices.contains(selectorIndex),
+              let imageView = subviews[selectorIndex] as? UIImageView
+        else {
+            return nil
+        }
+        return imageView
+    }
+}
+
 private enum PortfolioSectionID: Hashable {
     case localSummary
     case localInsights
     case totalValueChart
+    case totalPnlChart
+    case dailyPnlChart
     case portfolioShareChart
 }
 
@@ -24,6 +162,8 @@ private enum PortfolioItemID: Hashable {
     case localSummary
     case localInsight(PortfolioInsightCardID)
     case totalValueChartTile
+    case totalPnlChartTile
+    case dailyPnlChartTile
     case portfolioShareChartTile
 }
 
@@ -77,10 +217,11 @@ private enum PortfolioSectionLayout: Equatable {
 }
 
 public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBackSwipeControlling {
-    private struct ChartViewState {
+    private struct ChartViewState: Equatable {
         let errorText: String?
         let isLoading: Bool
         let isRefreshing: Bool
+        let fadesCurrentData: Bool
     }
 
     private typealias CollectionViewDataSource = UICollectionViewDiffableDataSource<PortfolioSectionID, PortfolioItemID>
@@ -90,23 +231,27 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
         includeOtherSeries: false
     )
     private var registeredChartInteractionBlockers = Set<ObjectIdentifier>()
-    private var insightLegendDisplayModes: [PortfolioInsightCardID: PortfolioInsightLegendDisplayMode] = [:]
     private var isChartLayoutInvalidationScheduled = false
 
     private let viewModel: PortfolioVM
     private var sectionDescriptors: [PortfolioSectionDescriptor] = []
+    private var overview: PortfolioOverviewModel
     private var localInsightCards: [PortfolioInsightCardModel] = []
-    private var chartViewState = ChartViewState(errorText: nil, isLoading: false, isRefreshing: false)
+    private var chartViewState = ChartViewState(errorText: nil, isLoading: false, isRefreshing: false, fadesCurrentData: false)
     private var preparedCharts = PortfolioGraphKitAdapter.PreparedCharts.empty
     private var preparedChartDataToken = -1
     private var preparingChartDataToken: Int?
     private var chartPreparationTask: Task<Void, Never>?
     private var languageObserver: NSObjectProtocol?
     private lazy var collectionView = makeCollectionView()
+    private lazy var bottomControlBackgroundView = PortfolioBottomControlBackgroundView()
+    private lazy var rangeSegmentedControl = makeRangeSegmentedControl()
     private lazy var dataSource = makeDataSource()
 
     public init(accountContext: AccountContext) {
-        self.viewModel = PortfolioVM(accountContext: accountContext)
+        let viewModel = PortfolioVM(accountContext: accountContext)
+        self.viewModel = viewModel
+        self.overview = viewModel.overview
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -125,7 +270,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
         super.viewDidLoad()
 
         navigationItem.title = lang("Portfolio")
-        view.backgroundColor = .air.background
+        view.backgroundColor = .air.groupedBackground
         addCloseNavigationItemIfNeeded()
 
         view.addSubview(collectionView)
@@ -135,8 +280,10 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
+        setupRangeSegmentedControl()
 
         localInsightCards = viewModel.localInsightCards
+        overview = viewModel.overview
         applySnapshot(animated: false)
         observeLanguageChanges()
         bindViewModel()
@@ -153,8 +300,13 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             PortfolioSectionDescriptor(
                 id: .localSummary,
                 items: [.localSummary],
-                layout: .fullWidthTile(estimatedHeight: 108),
-                contentInsets: .init(top: portfolioSectionTopSpacing, leading: 20, bottom: 0, trailing: 20),
+                layout: .fullWidthTile(estimatedHeight: 105),
+                contentInsets: .init(
+                    top: portfolioFirstSectionTopSpacing,
+                    leading: portfolioHorizontalInset,
+                    bottom: 0,
+                    trailing: portfolioHorizontalInset
+                ),
                 interGroupSpacing: 0
             ),
         ]
@@ -165,12 +317,17 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
                         id: .localInsights,
                         items: localInsightCards.map { .localInsight($0.id) },
                         layout: .horizontalTiles(
-                            itemWidth: 238,
-                            estimatedHeight: 230,
+                            itemWidth: 280,
+                            estimatedHeight: 231,
                             orthogonalScrolling: .continuousGroupLeadingBoundary
                         ),
-                        contentInsets: .init(top: portfolioSectionTopSpacing, leading: 20, bottom: 0, trailing: 20),
-                        interGroupSpacing: 12
+                        contentInsets: .init(
+                            top: portfolioSectionTopSpacing,
+                            leading: portfolioHorizontalInset,
+                            bottom: 0,
+                            trailing: portfolioHorizontalInset
+                        ),
+                        interGroupSpacing: 16
                 )
             )
         }
@@ -179,15 +336,49 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             PortfolioSectionDescriptor(
                 id: .totalValueChart,
                 items: [.totalValueChartTile],
-                layout: .fullWidthTile(estimatedHeight: 580),
-                contentInsets: .init(top: portfolioSectionTopSpacing, leading: 0, bottom: 0, trailing: 0),
+                layout: .fullWidthTile(estimatedHeight: 551),
+                contentInsets: .init(
+                    top: portfolioSectionTopSpacing,
+                    leading: portfolioHorizontalInset,
+                    bottom: 0,
+                    trailing: portfolioHorizontalInset
+                ),
+                interGroupSpacing: 0
+            ),
+            PortfolioSectionDescriptor(
+                id: .totalPnlChart,
+                items: [.totalPnlChartTile],
+                layout: .fullWidthTile(estimatedHeight: 551),
+                contentInsets: .init(
+                    top: portfolioSectionTopSpacing,
+                    leading: portfolioHorizontalInset,
+                    bottom: 0,
+                    trailing: portfolioHorizontalInset
+                ),
+                interGroupSpacing: 0
+            ),
+            PortfolioSectionDescriptor(
+                id: .dailyPnlChart,
+                items: [.dailyPnlChartTile],
+                layout: .fullWidthTile(estimatedHeight: 551),
+                contentInsets: .init(
+                    top: portfolioSectionTopSpacing,
+                    leading: portfolioHorizontalInset,
+                    bottom: 0,
+                    trailing: portfolioHorizontalInset
+                ),
                 interGroupSpacing: 0
             ),
             PortfolioSectionDescriptor(
                 id: .portfolioShareChart,
                 items: [.portfolioShareChartTile],
-                layout: .fullWidthTile(estimatedHeight: 560),
-                contentInsets: .init(top: portfolioSectionTopSpacing, leading: 0, bottom: 28, trailing: 0),
+                layout: .fullWidthTile(estimatedHeight: 551),
+                contentInsets: .init(
+                    top: portfolioSectionTopSpacing,
+                    leading: portfolioHorizontalInset,
+                    bottom: 32,
+                    trailing: portfolioHorizontalInset
+                ),
                 interGroupSpacing: 0
             ),
         ])
@@ -198,13 +389,65 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
     private func makeCollectionView() -> UICollectionView {
         let collectionView = PortfolioCollectionView(frame: .zero, collectionViewLayout: makeLayout())
         collectionView.translatesAutoresizingMaskIntoConstraints = false
-        collectionView.backgroundColor = .clear
+        collectionView.backgroundColor = .air.groupedBackground
         collectionView.alwaysBounceVertical = true
         collectionView.showsVerticalScrollIndicator = false
         collectionView.delaysContentTouches = false
+        collectionView.contentInset.bottom = portfolioRangeControlOverlayHeight
+        collectionView.verticalScrollIndicatorInsets.bottom = portfolioRangeControlOverlayHeight
         collectionView.allowsSelection = false
         collectionView.delegate = self
         return collectionView
+    }
+
+    private func makeRangeSegmentedControl() -> UISegmentedControl {
+        let control = PortfolioRangeSegmentedControl(
+            titles: PortfolioTimeRange.displayOrder.map(\.title)
+        )
+        control.selectedSegmentIndex = PortfolioTimeRange.displayOrder.firstIndex(of: viewModel.selectedRange) ?? 0
+        control.addTarget(self, action: #selector(rangeSegmentedControlChanged), for: .valueChanged)
+        return control
+    }
+
+    private func setupRangeSegmentedControl() {
+        view.addSubview(bottomControlBackgroundView)
+        view.addSubview(rangeSegmentedControl)
+
+        NSLayoutConstraint.activate([
+            bottomControlBackgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bottomControlBackgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomControlBackgroundView.topAnchor.constraint(equalTo: rangeSegmentedControl.topAnchor),
+            bottomControlBackgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            rangeSegmentedControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: portfolioRangeControlHorizontalInset),
+            rangeSegmentedControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -portfolioRangeControlHorizontalInset),
+            rangeSegmentedControl.heightAnchor.constraint(equalToConstant: portfolioRangeControlHeight),
+            rangeSegmentedControl.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+        ])
+    }
+
+    private func updateRangeSegmentedControlSelection(_ range: PortfolioTimeRange) {
+        let index = PortfolioTimeRange.displayOrder.firstIndex(of: range) ?? 0
+        guard rangeSegmentedControl.selectedSegmentIndex != index else {
+            return
+        }
+        rangeSegmentedControl.selectedSegmentIndex = index
+    }
+
+    private func updateRangeSegmentedControlTitles() {
+        for (index, range) in PortfolioTimeRange.displayOrder.enumerated() {
+            rangeSegmentedControl.setTitle(range.title, forSegmentAt: index)
+        }
+    }
+
+    @objc
+    private func rangeSegmentedControlChanged(_ sender: UISegmentedControl) {
+        guard PortfolioTimeRange.displayOrder.indices.contains(sender.selectedSegmentIndex) else {
+            return
+        }
+
+        resetVisibleChartInteractions()
+        viewModel.selectRange(PortfolioTimeRange.displayOrder[sender.selectedSegmentIndex])
     }
 
     private func makeLayout() -> UICollectionViewCompositionalLayout {
@@ -246,7 +489,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
                 collectionView.dequeueConfiguredReusableCell(using: summaryRegistration, for: indexPath, item: itemID)
             case .localInsight:
                 collectionView.dequeueConfiguredReusableCell(using: localInsightRegistration, for: indexPath, item: itemID)
-            case .totalValueChartTile, .portfolioShareChartTile:
+            case .totalValueChartTile, .totalPnlChartTile, .dailyPnlChartTile, .portfolioShareChartTile:
                 collectionView.dequeueConfiguredReusableCell(using: chartRegistration, for: indexPath, item: itemID)
             }
         }
@@ -270,12 +513,19 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             guard let self else { return }
 
             let updatedLocalInsightCards = self.viewModel.localInsightCards
+            let updatedOverview = self.viewModel.overview
             let didLocalInsightsChange = updatedLocalInsightCards != self.localInsightCards
+            let didOverviewChange = updatedOverview != self.overview
+            let previousChartViewState = self.chartViewState
+            self.updateRangeSegmentedControlSelection(self.viewModel.selectedRange)
             self.chartViewState = ChartViewState(
                 errorText: self.viewModel.errorText,
                 isLoading: self.viewModel.isLoading,
-                isRefreshing: self.viewModel.isRefreshing
+                isRefreshing: self.viewModel.isRefreshing,
+                fadesCurrentData: self.viewModel.isShowingStaleRangeData
             )
+            let didChartViewStateChange = self.chartViewState != previousChartViewState
+            self.overview = updatedOverview
 
             if didLocalInsightsChange {
                 self.localInsightCards = updatedLocalInsightCards
@@ -284,19 +534,21 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
 
             self.scheduleChartPreparationIfNeeded(
                 token: self.viewModel.chartDataToken,
-                response: self.viewModel.response
+                responses: self.viewModel.responses
             )
             self.refreshVisibleCells(
-                refreshSummary: false,
+                refreshSummary: didOverviewChange,
                 refreshLocalInsights: didLocalInsightsChange,
-                refreshCharts: self.preparedChartDataToken == self.viewModel.chartDataToken || self.viewModel.response == nil
+                refreshCharts: didChartViewStateChange
+                    || self.preparedChartDataToken == self.viewModel.chartDataToken
+                    || self.viewModel.responses == nil
             )
         }
     }
 
     private func scheduleChartPreparationIfNeeded(
         token: Int,
-        response: ApiPortfolioHistoryResponse?
+        responses: PortfolioHistoryResponses?
     ) {
         guard preparedChartDataToken != token,
               preparingChartDataToken != token
@@ -307,7 +559,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
         chartPreparationTask?.cancel()
         preparingChartDataToken = token
 
-        guard let response else {
+        guard let responses else {
             preparedCharts = .empty
             preparedChartDataToken = token
             preparingChartDataToken = nil
@@ -315,9 +567,9 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
         }
 
         let configuration = chartAdapterConfiguration
-        chartPreparationTask = Task.detached(priority: .userInitiated) { [response, configuration] in
+        chartPreparationTask = Task.detached(priority: .userInitiated) { [responses, configuration] in
             let preparedCharts = PortfolioGraphKitAdapter.makePreparedCharts(
-                from: response,
+                from: responses,
                 configuration: configuration
             )
             guard !Task.isCancelled else {
@@ -355,6 +607,10 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             case (.localInsight(let cardID), _) where refreshLocalInsights:
                 configureLocalInsightCell(cell, cardID: cardID)
             case (.totalValueChartTile, let chartCell as PortfolioChartTileCell) where refreshCharts:
+                didUpdateChartHeight = configureChartCell(chartCell, itemID: itemID) || didUpdateChartHeight
+            case (.totalPnlChartTile, let chartCell as PortfolioChartTileCell) where refreshCharts:
+                didUpdateChartHeight = configureChartCell(chartCell, itemID: itemID) || didUpdateChartHeight
+            case (.dailyPnlChartTile, let chartCell as PortfolioChartTileCell) where refreshCharts:
                 didUpdateChartHeight = configureChartCell(chartCell, itemID: itemID) || didUpdateChartHeight
             case (.portfolioShareChartTile, let chartCell as PortfolioChartTileCell) where refreshCharts:
                 didUpdateChartHeight = configureChartCell(chartCell, itemID: itemID) || didUpdateChartHeight
@@ -419,6 +675,26 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
                     self?.scheduleChartLayoutInvalidation()
                 }
             )
+        case .totalPnlChartTile:
+            didUpdatePreferredHeight = cell.configure(
+                configuration: makeTotalPnlChartConfiguration(),
+                onRetry: { [weak self] in
+                    self?.viewModel.reload(resetHistoryRefreshAttempts: true)
+                },
+                onPreferredHeightChanged: { [weak self] in
+                    self?.scheduleChartLayoutInvalidation()
+                }
+            )
+        case .dailyPnlChartTile:
+            didUpdatePreferredHeight = cell.configure(
+                configuration: makeDailyPnlChartConfiguration(),
+                onRetry: { [weak self] in
+                    self?.viewModel.reload(resetHistoryRefreshAttempts: true)
+                },
+                onPreferredHeightChanged: { [weak self] in
+                    self?.scheduleChartLayoutInvalidation()
+                }
+            )
         case .portfolioShareChartTile:
             didUpdatePreferredHeight = cell.configure(
                 configuration: makePortfolioShareChartConfiguration(),
@@ -440,7 +716,10 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
     private func configureSummaryCell(_ cell: UICollectionViewCell) {
         cell.backgroundColor = .clear
         cell.contentConfiguration = UIHostingConfiguration {
-            PortfolioBalanceSummaryView(accountContext: viewModel.accountContext)
+            PortfolioOverviewSectionView(
+                accountContext: viewModel.accountContext,
+                overview: overview
+            )
         }
         .background {
             Color.clear
@@ -456,55 +735,12 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
 
         cell.backgroundColor = .clear
         cell.contentConfiguration = UIHostingConfiguration {
-            PortfolioInsightCardView(
-                card: card,
-                legendDisplayMode: insightLegendDisplayModes[cardID, default: .amounts],
-                onTap: { [weak self] in
-                    self?.toggleInsightLegendDisplayMode(for: cardID)
-                },
-                onAction: { [weak self] in
-                    self?.performAction(for: card)
-                }
-            )
+            PortfolioInsightCardView(card: card)
         }
         .background {
             Color.clear
         }
         .margins(.all, 0)
-    }
-
-    private func performAction(for card: PortfolioInsightCardModel) {
-        guard let action = card.action else {
-            return
-        }
-
-        switch action.kind {
-        case .fund:
-            AppActions.showReceive(accountContext: viewModel.accountContext, chain: nil)
-        case .swap:
-            AppActions.showSwap(
-                accountContext: viewModel.accountContext,
-                defaultSellingToken: nil,
-                defaultBuyingToken: nil,
-                defaultSellingAmount: nil,
-                push: nil
-            )
-        case .earn:
-            AppActions.showEarn(accountContext: viewModel.accountContext, tokenSlug: nil)
-        }
-    }
-
-    private func toggleInsightLegendDisplayMode(for cardID: PortfolioInsightCardID) {
-        let currentMode = insightLegendDisplayModes[cardID, default: .amounts]
-        insightLegendDisplayModes[cardID] = currentMode.next
-
-        guard let indexPath = dataSource.indexPath(for: .localInsight(cardID)),
-              let cell = collectionView.cellForItem(at: indexPath)
-        else {
-            return
-        }
-
-        configureLocalInsightCell(cell, cardID: cardID)
     }
 
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
@@ -545,14 +781,45 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
     private func makeTotalValueChartConfiguration() -> PortfolioChartTileCellConfiguration {
         PortfolioChartTileCellConfiguration(
             title: lang("Total Value"),
-            subtitle: lang("Tracked asset value over time."),
             state: makeChartState(
                 chartPresentation: preparedCharts.totalValuePresentation,
                 chartKind: .totalValue,
                 pieVisible: nil
             ),
-            showsUpdatingFooter: false,
             isRefreshing: chartViewState.isRefreshing,
+            fadesCurrentData: chartViewState.fadesCurrentData,
+            onLimitedHistoryTap: { [weak self] in
+                self?.showLimitedHistoryToast()
+            }
+        )
+    }
+
+    private func makeTotalPnlChartConfiguration() -> PortfolioChartTileCellConfiguration {
+        PortfolioChartTileCellConfiguration(
+            title: lang("Total P&L"),
+            state: makeChartState(
+                chartPresentation: preparedCharts.totalPnlPresentation,
+                chartKind: .totalPnl,
+                pieVisible: nil
+            ),
+            isRefreshing: chartViewState.isRefreshing,
+            fadesCurrentData: chartViewState.fadesCurrentData,
+            onLimitedHistoryTap: { [weak self] in
+                self?.showLimitedHistoryToast()
+            }
+        )
+    }
+
+    private func makeDailyPnlChartConfiguration() -> PortfolioChartTileCellConfiguration {
+        PortfolioChartTileCellConfiguration(
+            title: lang("Daily P&L"),
+            state: makeChartState(
+                chartPresentation: preparedCharts.dailyPnlPresentation,
+                chartKind: .dailyPnl,
+                pieVisible: nil
+            ),
+            isRefreshing: chartViewState.isRefreshing,
+            fadesCurrentData: chartViewState.fadesCurrentData,
             onLimitedHistoryTap: { [weak self] in
                 self?.showLimitedHistoryToast()
             }
@@ -562,14 +829,13 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
     private func makePortfolioShareChartConfiguration() -> PortfolioChartTileCellConfiguration {
         return PortfolioChartTileCellConfiguration(
             title: lang("Portfolio Share"),
-            subtitle: lang("Current allocation across tracked assets."),
             state: makeChartState(
                 chartPresentation: preparedCharts.portfolioSharePresentation,
                 chartKind: .portfolioShare,
                 pieVisible: true
             ),
-            showsUpdatingFooter: false,
             isRefreshing: false,
+            fadesCurrentData: chartViewState.fadesCurrentData,
             onLimitedHistoryTap: { [weak self] in
                 self?.showLimitedHistoryToast()
             }
@@ -620,7 +886,9 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
 
     private func handleLanguageDidChange() {
         navigationItem.title = lang("Portfolio")
+        updateRangeSegmentedControlTitles()
         localInsightCards = viewModel.localInsightCards
+        overview = viewModel.overview
         refreshVisibleCells(refreshSummary: true, refreshLocalInsights: true, refreshCharts: true)
     }
 

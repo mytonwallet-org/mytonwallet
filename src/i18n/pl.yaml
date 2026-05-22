@@ -273,8 +273,6 @@ Stake Again: Zastaw ponownie
 Earned: Zarobione
 Select wallet to use on this app: Wybierz portfel, którego chcesz używać w tej aplikacji
 Connect: Połącz
-App Permissions: Uprawnienia aplikacji
-$dapp_can_view_balance: "%dappname% będzie mógł zobaczyć adres portfela i saldo."
 Payload: Ładunek
 $many_transactions:
   zeroValue: Brak przelewów
@@ -1219,3 +1217,11 @@ $mint_nft_action: Minting NFT
 Burned NFT: NFT spalone
 Burning NFT: Palenie NFT
 $burn_nft_action: Spalenie NFT
+New Wallet: Nowy Portfel
+From new secret words: Z nowych tajnych słów
+New Subwallet: Nowy Subportfel
+From current secret words: Z bieżących tajnych słów
+$secret_words: Tajne Słowa
+Restore wallet from 12 or 24 words: Przywróć portfel z 12 lub 24 słów
+Connect your hardware wallet: Podłącz portfel sprzętowy
+Watch wallet in read-only mode: Obserwuj portfel w trybie tylko do odczytu
