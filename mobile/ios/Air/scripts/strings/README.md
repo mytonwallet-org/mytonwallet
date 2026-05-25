@@ -33,10 +33,6 @@ python3 check_localization_completeness.py \
   --base /Users/nikstar/Developer/mytonwallet-dev/src/i18n/en.yaml \
   --compare /Users/nikstar/Developer/mytonwallet-dev/src/i18n/ru.yaml
 
-# Check air subdirectory localizations
-python3 check_localization_completeness.py \
-  --base /Users/nikstar/Developer/mytonwallet-dev/src/i18n/air/en.yaml \
-  --compare /Users/nikstar/Developer/mytonwallet-dev/src/i18n/air/ru.yaml
 ```
 
 #### Output
@@ -54,7 +50,7 @@ A Python script that scans all Swift files in the iOS folder and finds localizat
 **Features**:
 - Scans all `.swift` files in the iOS directory
 - Uses regex pattern `lang("key"` (no closing paren) to find localization usage
-- Compares against both main and air localization files
+- Compares against the main localization file
 - **Reports missing keys with source file names in parentheses**
 - Shows usage examples with file names and line numbers
 - Helps identify hardcoded strings that should be localized
@@ -98,7 +94,6 @@ A convenience shell script that automatically checks common localizations agains
 
 This script will automatically:
 - Check main localizations (src/i18n/)
-- Check air localizations (src/i18n/air/)
 - Provide colored output for easy reading
 - Show summary of all checks
 
@@ -109,10 +104,7 @@ The scripts work with the following localization structure:
 ```
 src/i18n/
 ├── en.yaml          # Base English localization
-├── ru.yaml          # Russian localization
-└── air/
-    ├── en.yaml      # Base English for air features
-    └── ru.yaml      # Russian for air features
+└── ru.yaml          # Russian localization
 ```
 
 ## Requirements

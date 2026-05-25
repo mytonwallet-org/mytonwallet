@@ -50,6 +50,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
@@ -90,6 +91,7 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappT
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappTransfers.Options
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import java.lang.ref.WeakReference
 import java.math.BigInteger
 import kotlin.math.max
 
@@ -323,15 +325,17 @@ class LedgerConnectVC(
     }
 
     private val scrollView by lazy {
-        ScrollView(context).apply {
+        WScrollView(WeakReference(this)).apply {
             clipToPadding = false
             addView(
                 contentView,
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             )
-            id = View.generateViewId()
-            setOnScrollChangeListener { _, _, scrollY, _, _ ->
-                updateBlurViews(scrollView = this, computedOffset = scrollY)
+            onScrollStateChange = {
+                updateBlurViews(scrollView = this)
+            }
+            setOnScrollChangeListener { _, _, _, _, _ ->
+                updateBlurViews(scrollView = this)
             }
             overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
             isVerticalScrollBarEnabled = false

@@ -14,6 +14,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioBreakdownSlice
@@ -93,15 +94,22 @@ class BreakdownCardView(
     fun maskTarget(): Pair<android.view.View, Float> =
         cardSkeletonPlaceholder to ViewConstants.BLOCK_RADIUS.dp
 
-    fun showPlaceholders() {
+    fun crossFadeTargets(): List<android.view.View> =
+        if (showLegend) listOf(cylinder, legend) else listOf(cylinder)
+
+    fun showPlaceholders(animated: Boolean = false) {
         cylinder.visibility = VISIBLE
         if (showLegend) legend.visibility = VISIBLE
-        cardSkeletonPlaceholder.alpha = 1f
         cardSkeletonPlaceholder.visibility = VISIBLE
+        if (animated) {
+            cardSkeletonPlaceholder.fadeIn()
+        } else {
+            cardSkeletonPlaceholder.alpha = 1f
+        }
     }
 
     fun hidePlaceholders() {
-        cardSkeletonPlaceholder.fadeOut { cardSkeletonPlaceholder.visibility = GONE }
+        cardSkeletonPlaceholder.fadeOut { cardSkeletonPlaceholder.visibility = INVISIBLE }
     }
 
     override fun updateTheme() {

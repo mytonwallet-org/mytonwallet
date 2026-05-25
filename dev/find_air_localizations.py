@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a usage table for Air localizations across iOS and Android codebases."""
+"""Generate a usage table for mobile localization keys across iOS and Android codebases."""
 
 from __future__ import annotations
 
@@ -13,10 +13,10 @@ import yaml
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_YAML_PATH = PROJECT_ROOT / "src/i18n/air/en.yaml"
+DEFAULT_YAML_PATH = PROJECT_ROOT / "src/i18n/en.yaml"
 IOS_ROOT = PROJECT_ROOT / "mobile/ios"
 ANDROID_ROOT = PROJECT_ROOT / "mobile/android"
-DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "dev" / "find_air_localizations_table.md"
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "dev" / "find_mobile_localizations_table.md"
 
 
 @dataclass
@@ -30,13 +30,13 @@ class UsageMatch:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Create a table showing where Air localization keys are used in iOS and Android."
+        description="Create a table showing where mobile localization keys are used in iOS and Android."
     )
     parser.add_argument(
         "--yaml",
         dest="yaml_path",
         default=str(DEFAULT_YAML_PATH),
-        help="Path to the Air English localization YAML file.",
+        help="Path to the English localization YAML file.",
     )
     parser.add_argument(
         "--output",
@@ -175,4 +175,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

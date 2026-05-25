@@ -53,4 +53,4 @@ After implementing, present to the user:
 - Do NOT commit, push, or create PR until the user explicitly approves.
 - If the user requests changes, apply them and re-present.
 - Once approved, commit, push with `-u`, and create the PR using `gh pr create`.
-- Add the "AIR Android" label to the PR: `gh pr edit <number> --add-label "AIR Android"`
+- Add the "Android" label to the PR: `gh pr edit <number> --add-label "Android"`

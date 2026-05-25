@@ -283,9 +283,13 @@ final class TokenExpandableChartView: UIView {
             priceContainer.addSubview(priceTitleLabel)
             priceContainer.addSubview(priceValueLabel)
             priceContainer.addSubview(priceChangeLabel)
-            
-            let gr = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
-            priceContainer.addGestureRecognizer(gr)
+
+            let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
+            priceContainer.addGestureRecognizer(longPress)
+
+            let priceTap = UITapGestureRecognizer(target: self, action: #selector(toggleChart))
+            priceContainer.addGestureRecognizer(priceTap)
+            priceTap.require(toFail: longPress)
         }
         
         priceContainer.translatesAutoresizingMaskIntoConstraints = false

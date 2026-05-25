@@ -33,12 +33,14 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
     private var lastTouchX = 0F
     private var sliderRect = RectF()
     private var sliderPaint = Paint()
+    private var sliderColorOverride: Int? = null
     private var sliderRadius = 0F
     private var sliderShadowRect = RectF()
     private var sliderShadowPaintLeft = Paint()
     private var sliderShadowPaintRight = Paint()
 
     private var dividerPaint = Paint()
+    private var dividerColorOverride: Int? = null
     private var dividerStrokeWidth = 1f
     private var dividerMargin = 0
     private var inset: Float = 0F
@@ -64,7 +66,7 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
 
         orientation = HORIZONTAL
 
-        sliderRadius = 15f.dp
+        sliderRadius = 100f.dp
         sliderPaint.apply {
             flags = ANTI_ALIAS_FLAG
             style = Paint.Style.FILL
@@ -313,10 +315,22 @@ class WSegmentedControlGroup(context: Context) : LinearLayout(context), WThemedV
         )
     }
 
+    fun setSliderColor(color: Int?) {
+        sliderColorOverride = color
+        sliderPaint.color = color ?: WColor.Background.color
+        invalidate()
+    }
+
+    fun setDividerColor(color: Int?) {
+        dividerColorOverride = color
+        dividerPaint.color = color ?: WColor.DIVIDER.color
+        invalidate()
+    }
+
     override fun updateTheme() {
         setBackgroundColor(WColor.SecondaryBackground.color, 15f.dp)
-        sliderPaint.color = WColor.Background.color
-        dividerPaint.color = WColor.DIVIDER.color
+        sliderPaint.color = sliderColorOverride ?: WColor.Background.color
+        dividerPaint.color = dividerColorOverride ?: WColor.DIVIDER.color
         sliderShadowPaintLeft.setShadowLayer(
             sliderRadius,
             1.5F * inset,

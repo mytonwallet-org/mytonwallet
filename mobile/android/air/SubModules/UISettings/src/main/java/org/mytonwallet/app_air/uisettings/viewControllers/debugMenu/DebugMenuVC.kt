@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.ShakeDetector
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
+import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
@@ -37,6 +38,7 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
+import java.lang.ref.WeakReference
 
 class DebugMenuVC(context: Context) : WViewController(context) {
     override val TAG = "DebugMenu"
@@ -262,12 +264,15 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         }
     }
 
-    private val scrollView: ScrollView by lazy {
-        ScrollView(context).apply {
-            id = generateViewId()
-            isVerticalScrollBarEnabled = false
+    private val scrollView: WScrollView by lazy {
+        WScrollView(WeakReference(this)).apply {
             addView(scrollingContentView, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
+            onScrollStateChange = {
+                updateBlurViews(this)
+            }
+            setOnScrollChangeListener { _, _, _, _, _ ->
+                updateBlurViews(this)
+            }
         }
     }
 

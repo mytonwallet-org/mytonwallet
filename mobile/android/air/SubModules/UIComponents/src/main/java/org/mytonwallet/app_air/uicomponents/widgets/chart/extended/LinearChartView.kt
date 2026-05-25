@@ -9,6 +9,8 @@ import kotlin.math.min
 class LinearChartView(
     context: Context
 ) : BaseChartView<ChartData, LineViewData>(context) {
+    var allowNegativeValues = false
+
     override fun init() {
         useMinHeight = true
         super.init()
@@ -35,7 +37,7 @@ class LinearChartView(
             val localStart = max(0, startXIndex - additionalPoints)
             val localEnd = min(data.xPercentage.size - 1, endXIndex + additionalPoints)
             for (i in localStart..localEnd) {
-                if (y[i] < 0) {
+                if (y[i] < 0 && !allowNegativeValues) {
                     continue
                 }
                 val xPoint = data.xPercentage[i] * fullWidth - offset
@@ -109,7 +111,7 @@ class LinearChartView(
             val y = line.line.y
             line.chartPath.reset()
             for (i in 0 until n) {
-                if (y[i] < 0) {
+                if (y[i] < 0 && !allowNegativeValues) {
                     continue
                 }
                 val xPoint = data.xPercentage[i] * pickerWidth

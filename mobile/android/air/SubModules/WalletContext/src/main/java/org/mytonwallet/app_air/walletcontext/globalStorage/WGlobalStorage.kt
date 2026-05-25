@@ -608,6 +608,18 @@ object WGlobalStorage {
         )
     }
 
+    fun currentPortfolioPeriod(accountId: String): String? {
+        return globalStorageProvider.getString("byAccountId.$accountId.currentPortfolioPeriod")
+    }
+
+    fun setCurrentPortfolioPeriod(accountId: String, period: String) {
+        globalStorageProvider.set(
+            "byAccountId.$accountId.currentPortfolioPeriod",
+            value = period,
+            IGlobalStorageProvider.PERSIST_NORMAL
+        )
+    }
+
     fun getCardBackgroundNft(accountId: String): JSONObject? {
         return globalStorageProvider.getDict("settings.byAccountId.$accountId.cardBackgroundNft")
     }
@@ -621,6 +633,27 @@ object WGlobalStorage {
             "settings.byAccountId.$accountId.cardBackgroundNft",
             nft,
             IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    fun getOwnedMtwCardAddresses(accountId: String): Set<String> {
+        val arr = globalStorageProvider.getArray(
+            "byAccountId.$accountId.nfts.ownedMtwCardAddresses"
+        ) ?: return emptySet()
+        val result = LinkedHashSet<String>(arr.length())
+        for (i in 0 until arr.length()) {
+            arr.optString(i, null)?.takeIf { it.isNotEmpty() }?.let(result::add)
+        }
+        return result
+    }
+
+    fun setOwnedMtwCardAddresses(accountId: String, addresses: Collection<String>) {
+        val array = JSONArray()
+        addresses.forEach { array.put(it) }
+        globalStorageProvider.set(
+            "byAccountId.$accountId.nfts.ownedMtwCardAddresses",
+            array,
+            IGlobalStorageProvider.PERSIST_NORMAL
         )
     }
 

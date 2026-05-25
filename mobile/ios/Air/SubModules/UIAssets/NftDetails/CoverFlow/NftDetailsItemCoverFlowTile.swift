@@ -11,7 +11,9 @@ class NftDetailsItemCoverFlowTile: UIView {
     private var model: NftDetailsItemModel?
     private var lottieViewer: NftDetailsLottieViewer?
     private var selectionSubscription: NftDetailsItemModel.Subscription?
-    private var cornerRadius: CGFloat = -1
+    private var cornerRadius: CGFloat?
+    private var shadowCornerRadius: CGFloat?
+    private var shadowSize: CGSize?
     private var retryCount = 0
     private var retryWorkItem: DispatchWorkItem?
     private let maxRetryCount = 20
@@ -31,7 +33,7 @@ class NftDetailsItemCoverFlowTile: UIView {
         s.color = .secondaryLabel
         return s
     }()
-    
+
     weak var delegate: NftDetailsItemCoverFlowTileDelegate?
     weak var thumbnailDownloader: ImageDownloader?
     weak var colorCache: NftDetailsColorCache?
@@ -47,7 +49,7 @@ class NftDetailsItemCoverFlowTile: UIView {
 
         imageView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(imageView)
-        
+
         spinner.translatesAutoresizingMaskIntoConstraints = false
         addSubview(spinner)
 
@@ -62,7 +64,7 @@ class NftDetailsItemCoverFlowTile: UIView {
         ])
 
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap)))
-        
+
         let longTapRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongTap))
         longTapRecognizer.minimumPressDuration = 0.25
         addGestureRecognizer(longTapRecognizer)
@@ -82,7 +84,17 @@ class NftDetailsItemCoverFlowTile: UIView {
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
-    
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        if let cornerRadius, bounds.size != shadowSize || shadowCornerRadius != cornerRadius {
+            shadowSize = bounds.size
+            shadowCornerRadius = cornerRadius
+            layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: cornerRadius).cgPath
+        }
+    }
+
     @objc private func handleTap() {
         guard let model else { return }
         delegate?.nftDetailsItemCoverFlowTile(self, didSelectModel: model, longTap: false)
@@ -104,7 +116,7 @@ class NftDetailsItemCoverFlowTile: UIView {
         imageView.image = nil
         imageView.backgroundColor = .air.groupedItem
     }
-    
+
     private func cancelRetry() {
         retryWorkItem?.cancel()
         retryWorkItem = nil
@@ -123,7 +135,7 @@ class NftDetailsItemCoverFlowTile: UIView {
 
         if let url = model.item.coverflowImageUrl {
             spinner.startAnimating()
-            
+
             var options: KingfisherOptionsInfo = [
                 .targetCache(.default),
                 .originalCache(.default),
@@ -134,7 +146,7 @@ class NftDetailsItemCoverFlowTile: UIView {
             if let d = thumbnailDownloader {
                 options.append(.downloader(d))
             }
-            
+
             imageView.kf.setImage(
                 with: .network(url),
                 placeholder: nil,
@@ -161,7 +173,7 @@ class NftDetailsItemCoverFlowTile: UIView {
             imageView.backgroundColor = nil
         }
     }
-    
+
     private func scheduleRetry(for model: NftDetailsItemModel) {
         guard self.model === model, imageView.image == nil else { return }
         guard retryCount < maxRetryCount else {
@@ -190,13 +202,13 @@ class NftDetailsItemCoverFlowTile: UIView {
             return
         }
         spinner.color = color.isLightColor
-            ? UIColor(white: 0.15, alpha: 0.7)  
+            ? UIColor(white: 0.15, alpha: 0.7)
             : UIColor(white: 1.0,  alpha: 0.8)
     }
 
     func configure(with model: NftDetailsItemModel, tileCornerRadius: CGFloat) {
         if tileCornerRadius != cornerRadius {
-            assert(cornerRadius < 0, "Set it only once: \(cornerRadius)")
+            assert(cornerRadius == nil, "Set it only once")
             cornerRadius = tileCornerRadius
             layer.cornerRadius = tileCornerRadius
             imageView.layer.cornerRadius = tileCornerRadius
@@ -230,7 +242,7 @@ class NftDetailsItemCoverFlowTile: UIView {
             }
             setNeedsLayout()
         }
-        
+
         if window != nil {
             startOrResumeThumbnailLoad(for: model)
         }
@@ -247,7 +259,7 @@ class NftDetailsItemCoverFlowTile: UIView {
         guard self.model === model else { return }
         if model.isSelected, let url = model.item.lottieUrl, delegate?.nftDetailsItemCoverFlowTileGetActiveState(self) == true {
             if lottieViewer == nil {
-                let viewer = NftDetailsLottieViewer(cornerRadius: cornerRadius, frame: imageView.frame)
+                let viewer = NftDetailsLottieViewer(cornerRadius: layer.cornerRadius, frame: imageView.frame)
                 viewer.playbackTransitionDelegate = self
                 viewer.embedAbove(imageView)
                 lottieViewer = viewer

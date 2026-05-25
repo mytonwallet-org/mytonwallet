@@ -53,8 +53,10 @@ private final class PortfolioBottomControlBackgroundView: UIView {
 }
 
 private final class PortfolioRangeSegmentedControl: UISegmentedControl {
-    private var isFirstRender = true
     private var backgroundLayer: CALayer?
+    private var blurView: UIVisualEffectView?
+    private var selectionPillView: UIView?
+    private var isPillAnimating = false
 
     init(titles: [String]) {
         super.init(items: titles)
@@ -70,11 +72,11 @@ private final class PortfolioRangeSegmentedControl: UISegmentedControl {
         super.layoutSubviews()
 
         if #available(iOS 26, *) {
-            if isFirstRender {
-                for subview in subviews where subview is UIImageView {
-                    subview.isHidden = true
-                }
-                isFirstRender = false
+            setupGlassBackgroundIfNeeded()
+            blurView?.frame = bounds
+            blurView?.layer.cornerRadius = bounds.height / 2
+            if !isPillAnimating {
+                UIView.performWithoutAnimation { positionSelectionPill() }
             }
         } else {
             let imageViews = subviews.compactMap { $0 as? UIImageView }.prefix(numberOfSegments)
@@ -91,15 +93,37 @@ private final class PortfolioRangeSegmentedControl: UISegmentedControl {
             }
 
             backgroundLayer?.removeFromSuperlayer()
-            let layer = CALayer()
-            layer.frame = bounds
-            self.layer.insertSublayer(layer, at: 0)
-            backgroundLayer = layer
-        }
+            let bgLayer = CALayer()
+            bgLayer.frame = bounds
+            layer.insertSublayer(bgLayer, at: 0)
+            backgroundLayer = bgLayer
 
-        layer.cornerRadius = bounds.height / 2
-        layer.masksToBounds = true
-        updateTheme()
+            layer.cornerRadius = bounds.height / 2
+            layer.masksToBounds = true
+            updateTheme()
+        }
+    }
+
+    override func sendActions(for controlEvents: UIControl.Event) {
+        super.sendActions(for: controlEvents)
+
+        guard #available(iOS 26, *), controlEvents.contains(.valueChanged) else { return }
+
+        isPillAnimating = true
+        UIView.animate(
+            withDuration: 0.3,
+            delay: 0,
+            usingSpringWithDamping: 0.8,
+            initialSpringVelocity: 0.5,
+            options: [.beginFromCurrentState]
+        ) {
+            self.positionSelectionPill()
+        } completion: { _ in
+            self.isPillAnimating = false
+            UIView.performWithoutAnimation {
+               self.positionSelectionPill()
+            }
+        }
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -111,28 +135,69 @@ private final class PortfolioRangeSegmentedControl: UISegmentedControl {
         translatesAutoresizingMaskIntoConstraints = false
         apportionsSegmentWidthsByContent = false
         setDividerImage(UIImage(), forLeftSegmentState: .normal, rightSegmentState: .normal, barMetrics: .default)
-        setTitleTextAttributes(
-            [
-                .font: UIFont.systemFont(ofSize: 15, weight: .semibold),
-                .foregroundColor: UIColor.air.secondaryLabel,
-            ],
-            for: .normal
+        setTitleTextAttributes([
+            .font: UIFont.systemFont(ofSize: 14, weight: .medium),
+            .foregroundColor: UIColor.label,
+        ], for: .normal)
+        setTitleTextAttributes([
+            .font: UIFont.systemFont(ofSize: 14, weight: .semibold),
+            .foregroundColor: UIColor.label,
+        ], for: .selected)
+    }
+
+    @available(iOS 26, *)
+    private func setupGlassBackgroundIfNeeded() {
+        guard blurView == nil else { return }
+
+        let empty = UIImage()
+        setBackgroundImage(empty, for: .normal, barMetrics: .default)
+        setBackgroundImage(empty, for: .highlighted, barMetrics: .default)
+        setBackgroundImage(empty, for: .selected, barMetrics: .default)
+        setBackgroundImage(empty, for: [.selected, .highlighted], barMetrics: .default)
+        backgroundColor = .clear
+
+        let glassEffect = UIGlassEffect()
+        let effectView = UIVisualEffectView(effect: glassEffect)
+        effectView.backgroundColor = .clear
+        effectView.contentView.backgroundColor = .clear
+        effectView.layer.cornerCurve = .continuous
+        effectView.layer.masksToBounds = true
+        effectView.isUserInteractionEnabled = false
+        insertSubview(effectView, at: 0)
+        blurView = effectView
+    }
+
+    @available(iOS 26, *)
+    private func positionSelectionPill() {
+        guard numberOfSegments > 0, bounds.width > 0, let blurView else { return }
+
+        let segmentWidth = bounds.width / CGFloat(numberOfSegments)
+        let inset = CGFloat(4)
+        let pillFrame = CGRect(
+            x: CGFloat(selectedSegmentIndex) * segmentWidth + inset,
+            y: inset,
+            width: segmentWidth - inset * 2,
+            height: bounds.height - inset * 2
         )
-        setTitleTextAttributes(
-            [
-                .font: UIFont.systemFont(ofSize: 15, weight: .semibold),
-                .foregroundColor: UIColor.label,
-            ],
-            for: .selected
-        )
-        updateTheme()
+        let cornerRadius = pillFrame.height / 2
+
+        if let pill = selectionPillView {
+            pill.frame = pillFrame
+            pill.layer.cornerRadius = cornerRadius
+        } else {
+            let pill = UIView()
+            pill.backgroundColor = .label.withAlphaComponent(0.12)
+            pill.layer.cornerRadius = cornerRadius
+            pill.layer.cornerCurve = .continuous
+            pill.isUserInteractionEnabled = false
+            pill.frame = pillFrame
+            insertSubview(pill, aboveSubview: blurView)
+            selectionPillView = pill
+        }
     }
 
     private func updateTheme() {
-        if #available(iOS 26, *) {
-            selectedSegmentTintColor = .air.groupedItem
-            backgroundColor = .air.headerBackground
-        } else {
+        if #unavailable(iOS 26) {
             backgroundLayer?.backgroundColor = UIColor.air.headerBackground.resolvedColor(with: traitCollection).cgColor
             selectorImageView?.layer.backgroundColor = UIColor.air.groupedItem.resolvedColor(with: traitCollection).cgColor
         }
@@ -419,8 +484,8 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             bottomControlBackgroundView.topAnchor.constraint(equalTo: rangeSegmentedControl.topAnchor),
             bottomControlBackgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            rangeSegmentedControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: portfolioRangeControlHorizontalInset),
-            rangeSegmentedControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -portfolioRangeControlHorizontalInset),
+            rangeSegmentedControl.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: portfolioRangeControlHorizontalInset),
+            rangeSegmentedControl.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -portfolioRangeControlHorizontalInset),
             rangeSegmentedControl.heightAnchor.constraint(equalToConstant: portfolioRangeControlHeight),
             rangeSegmentedControl.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
         ])

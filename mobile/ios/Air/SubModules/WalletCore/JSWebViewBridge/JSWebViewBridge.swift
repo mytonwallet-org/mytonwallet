@@ -638,6 +638,22 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                         log.error("dappLoading: \(error, .public)")
                     }
                     break
+                case "dappAlreadyConnected":
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.DappAlreadyConnected.self, from: data)
+                        WalletCoreData.notify(event: .dappAlreadyConnected(update))
+                    } catch {
+                        log.error("dappAlreadyConnected: \(error, .public)")
+                    }
+                    break
+                case "dappDisconnected":
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.DappDisconnected.self, from: data)
+                        WalletCoreData.notify(event: .dappDisconnected(update))
+                    } catch {
+                        log.error("dappDisconnected: \(error, .public)")
+                    }
+                    break
                 case "dappConnect":
                     do {
                         let dappConnect = try JSONSerialization.decode(ApiUpdate.DappConnect.self, from: data)
@@ -665,7 +681,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                     }
 
                 case "dappDisconnect":
-                    if let accountId = data["acountId"] as? String, let origin = data["origin"] as? String {
+                    if let accountId = data["accountId"] as? String, let origin = data["url"] as? String {
                         WalletCoreData.notify(event: .dappDisconnect(accountId: accountId, origin: origin))
                     }
                 case "updateDapps":

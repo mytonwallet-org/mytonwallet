@@ -168,6 +168,16 @@ export type ApiUpdateDappConnectComplete = {
   type: 'dappConnectComplete';
 };
 
+export type ApiUpdateDappAlreadyConnected = {
+  type: 'dappAlreadyConnected';
+  url?: string;
+};
+
+export type ApiUpdateDappDisconnected = {
+  type: 'dappDisconnected';
+  url?: string;
+};
+
 export type ApiUpdateDappDisconnect = {
   type: 'dappDisconnect';
   accountId: string;
@@ -179,6 +189,9 @@ export type ApiUpdateDappLoading = {
   connectionType: ApiDappConnectionType;
   isSse?: boolean;
   accountId?: string;
+  // Set when a wake deeplink opens the placeholder request modal before the request event arrives
+  isWaitingForRequest?: boolean;
+  returnUrl?: string;
 };
 
 export type ApiUpdateDappCloseLoading = {
@@ -354,6 +367,8 @@ export type ApiUpdate =
   | ApiUpdateTonConnectOnline
   | ApiUpdateDappConnect
   | ApiUpdateDappConnectComplete
+  | ApiUpdateDappAlreadyConnected
+  | ApiUpdateDappDisconnected
   | ApiUpdateDappDisconnect
   | ApiUpdateDappLoading
   | ApiUpdateDappCloseLoading

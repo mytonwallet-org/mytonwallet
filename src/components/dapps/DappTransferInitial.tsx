@@ -36,6 +36,7 @@ import { isNftTransferPayload, isTokenTransferPayload } from '../../util/ton/tra
 import useAppTheme from '../../hooks/useAppTheme';
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useLang from '../../hooks/useLang';
+import useTimeout from '../../hooks/useTimeout';
 
 import Activity from '../main/sections/Content/Activity';
 import Button from '../ui/Button';
@@ -79,6 +80,8 @@ interface StateProps {
   balancesBySlug?: Record<string, bigint>;
   chain: ApiChain | undefined;
   shouldHideTransfers: boolean;
+  isWaitingForRequest?: boolean;
+  returnUrl?: string;
 }
 
 interface SortedDappTransfer extends ApiDappTransfer {
@@ -87,6 +90,7 @@ interface SortedDappTransfer extends ApiDappTransfer {
 }
 
 const NFT_FAKE_COST_USD = 1_000_000_000;
+const NOT_RESPONDING_DELAY_MS = 7000;
 
 const skeletonRows: DappSkeletonRow[] = [
   { isLarge: false, hasFee: false },
@@ -117,8 +121,12 @@ function DappTransferInitial({
   onClose,
   chain,
   shouldHideTransfers,
+  isWaitingForRequest,
+  returnUrl,
 }: OwnProps & StateProps) {
-  const { closeDappTransfer, showDappTransferTransaction, submitDappTransferConfirm } = getActions();
+  const {
+    closeDappTransfer, showDappTransferTransaction, submitDappTransferConfirm, showDialog,
+  } = getActions();
 
   const lang = useLang();
   const appTheme = useAppTheme(theme);
@@ -129,6 +137,23 @@ function DappTransferInitial({
   );
   const isDappLoading = dapp === undefined;
   const hasSufficientBalance = !insufficientTokens;
+
+  // Placeholder modal (opened by a wake deeplink): warn if the request event never arrives.
+  useTimeout(
+    () => {
+      showDialog({
+        title: 'Dapp Not Responding',
+        message: 'You may need to reconnect your wallet from the dapp if this keeps happening.',
+        buttons: {
+          confirm: { title: 'OK', action: returnUrl ? 'openReturnUrl' : undefined },
+          ...(returnUrl && { cancel: { title: 'Cancel' } }),
+        },
+        ...(returnUrl && { entities: { url: returnUrl } }),
+      });
+    },
+    isDappLoading && isWaitingForRequest ? NOT_RESPONDING_DELAY_MS : undefined,
+    [isDappLoading, isWaitingForRequest],
+  );
 
   const tokenToDisplay = useMemo(() => (
     calculateTokenToDisplay(chain || DEFAULT_CHAIN, totalAmountsBySlug, balancesBySlug, tokensBySlug)
@@ -301,7 +326,9 @@ function DappTransferInitial({
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
-  const { isLoading, dapp, transactions, emulation, operationChain, shouldHideTransfers } = global.currentDappTransfer;
+  const {
+    isLoading, dapp, transactions, emulation, operationChain, shouldHideTransfers, isWaitingForRequest, returnUrl,
+  } = global.currentDappTransfer;
 
   const accountId = selectCurrentAccountId(global)!;
   const accountState = selectCurrentAccountState(global);
@@ -337,6 +364,8 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     balancesBySlug: accountState?.balances?.bySlug,
     chain: operationChain,
     shouldHideTransfers: !!shouldHideTransfers,
+    isWaitingForRequest,
+    returnUrl,
   };
 })(DappTransferInitial));
 

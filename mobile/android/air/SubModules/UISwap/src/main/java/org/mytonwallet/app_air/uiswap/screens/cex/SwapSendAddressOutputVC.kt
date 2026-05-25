@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WQRCodeView
+import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.span.InAppBrowserUrlSpan
 import org.mytonwallet.app_air.uiswap.views.SwapConfirmView
@@ -44,8 +45,8 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStrin
 import org.mytonwallet.app_air.walletcontext.helpers.SpanHelpers
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
+import java.lang.ref.WeakReference
 import java.math.BigInteger
-import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
 class SwapSendAddressOutputVC(
@@ -71,15 +72,13 @@ class SwapSendAddressOutputVC(
         backgroundColor = Color.TRANSPARENT
     }
 
-    private val scrollView = ScrollView(context).apply {
-        id = View.generateViewId()
-        overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
-        isVerticalScrollBarEnabled = false
+    private val scrollView = WScrollView(WeakReference(this)).apply {
         layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, 0)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            setOnScrollChangeListener { _, _, scrollY, _, _ ->
-                updateBlurViews(scrollView = this, computedOffset = scrollY)
-            }
+        onScrollStateChange = {
+            updateBlurViews(scrollView = this)
+        }
+        setOnScrollChangeListener { _, _, _, _, _ ->
+            updateBlurViews(scrollView = this)
         }
         setPadding(ViewConstants.HORIZONTAL_PADDINGS.dp, 0, ViewConstants.HORIZONTAL_PADDINGS.dp, 0)
     }

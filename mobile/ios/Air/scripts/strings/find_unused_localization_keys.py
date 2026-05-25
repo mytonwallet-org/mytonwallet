@@ -15,7 +15,7 @@ Usage:
 The script will:
 1. Scan all Swift files in the iOS folder
 2. Extract localization keys from lang(" patterns with source file tracking
-3. Check against src/i18n/en.yaml and src/i18n/air/en.yaml
+3. Check against src/i18n/en.yaml
 4. Report keys used in code but missing from localization files
 5. Show source file names in parentheses for each missing key
 
@@ -142,11 +142,6 @@ def main():
         help="Path to main i18n YAML file (default: src/i18n/en.yaml)"
     )
     parser.add_argument(
-        "--air-i18n",
-        default="src/i18n/air/en.yaml",
-        help="Path to air i18n YAML file (default: src/i18n/air/en.yaml)"
-    )
-    parser.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Show detailed information"
@@ -157,7 +152,6 @@ def main():
     # Convert relative paths to absolute paths
     ios_path = os.path.abspath(args.ios_path)
     main_i18n_path = os.path.join(ios_path, args.main_i18n)
-    air_i18n_path = os.path.join(ios_path, args.air_i18n)
 
     if not os.path.exists(ios_path):
         print(f"Error: iOS path '{ios_path}' does not exist.")
@@ -183,20 +177,17 @@ def main():
     # Load localization files
     print("\n📂 Loading localization files...")
     main_i18n_data = load_yaml_file(main_i18n_path)
-    air_i18n_data = load_yaml_file(air_i18n_path)
 
-    if not main_i18n_data and not air_i18n_data:
+    if not main_i18n_data:
         print("❌ No localization files found.")
         return 1
 
     # Flatten keys from localization files
     main_i18n_keys = flatten_keys(main_i18n_data) if main_i18n_data else set()
-    air_i18n_keys = flatten_keys(air_i18n_data) if air_i18n_data else set()
-    all_localized_keys = main_i18n_keys.union(air_i18n_keys)
+    all_localized_keys = main_i18n_keys
 
     if args.verbose:
         print(f"\nMain i18n file ({main_i18n_path}): {len(main_i18n_keys)} keys")
-        print(f"Air i18n file ({air_i18n_path}): {len(air_i18n_keys)} keys")
         print(f"Total unique localized keys: {len(all_localized_keys)}")
         print(f"Swift keys: {len(swift_keys)}")
 

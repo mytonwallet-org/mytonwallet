@@ -99,7 +99,11 @@ object ImageUtils {
                                 if (bitmap != null && !bitmap.isRecycled) {
                                     val bitmapCopy = bitmap.copy(bitmap.config!!, false)
                                     val finalBitmap = if (isCircular) {
-                                        getCircularBitmap(bitmapCopy)
+                                        try {
+                                            getCircularBitmap(bitmapCopy)
+                                        } finally {
+                                            bitmapCopy.recycle()
+                                        }
                                     } else {
                                         bitmapCopy
                                     }

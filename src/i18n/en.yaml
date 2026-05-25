@@ -267,6 +267,12 @@ Stake Again: Stake Again
 Earned: Earned
 Select wallet to use on this app: Select wallet to use on this app
 Connect: Connect
+Already Connected: Already Connected
+Return to the dapp to proceed, or reconnect.: Return to the dapp to proceed, or reconnect.
+Dapp Disconnected: Dapp Disconnected
+Please reconnect your wallet from the dapp.: Please reconnect your wallet in the dapp.
+Dapp Not Responding: Dapp Not Responding
+You may need to reconnect your wallet from the dapp if this keeps happening.: You may need to reconnect your wallet in the dapp if this keeps happening.
 Payload: Payload
 $many_transactions:
   zeroValue: No Transfers
@@ -295,6 +301,8 @@ Total Balance: Total Balance
 No data: No data
 Total Value: Total Value
 Tracked asset value over time.: Tracked asset value over time.
+Total P&L: Total P&L
+Daily P&L: Daily P&L
 Portfolio Share: Portfolio Share
 Current allocation across tracked assets.: Current allocation across tracked assets.
 Deep history analysis will be available in upcoming updates.: Deep history analysis will be available in upcoming updates.
@@ -330,7 +338,7 @@ Confirm via Ledger: Confirm via Ledger
 Declined: Declined
 Switch to the newly opened tab to connect Ledger.: Switch to the newly opened tab to connect Ledger.
 Once connected, switch back to this window to proceed.: Once connected, switch back to this window to proceed.
-The time on your device is incorrect, sync it and try again: The time on your device is incorrect, sync it and try again
+The time on your device is incorrect, sync it and try again.: The time on your device is incorrect, sync it and try again.
 Name or Address...: Name or Address...
 Such error, many tabs: Such error, many tabs
 $many_tabs_error_description: |
@@ -460,7 +468,7 @@ $max_balance: "Max: %balance%"
 $unstake_information_instantly: You will get your deposit instantly
 Select Token: Select Token
 MY: My
-POPULAR: Popular
+Popular: Popular
 Not Found: Not Found
 Wallet is ready!: Wallet is ready!
 Wallet is imported!: Wallet is imported!
@@ -1014,7 +1022,7 @@ Customize Wallet: Customize Wallet
 This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.
 Get More Cards: Get More Cards
 Browse MyTonWallet Cards available for purchase.: Browse MyTonWallet Cards available for purchase.
-You don't have any cards to customize yet: You don't have any cards to customize yet
+You don’t have any cards to customize yet: You don’t have any cards to customize yet
 MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.
 Get First Card: Get First Card
 Palette and Card: Palette and Card
@@ -1202,3 +1210,314 @@ $secret_words: Secret Words
 Restore wallet from 12 or 24 words: Restore wallet from 12 or 24 words
 Connect your hardware wallet: Connect your hardware wallet
 Watch wallet in read-only mode: Watch wallet in read-only mode
+
+More: More
+at: at
+MyTonWallet: MyTonWallet
+I agree to %term%: I agree to %term%
+See Words: See Words
+Wrong Phrase: Wrong Phrase
+Permission Denied: Permission Denied
+USB: USB
+Bluetooth: Bluetooth
+Locked: Locked
+Enter passcode or use fingerprint: Enter passcode or use fingerprint
+Use PIN: Use PIN
+Try again in %1$@: Try again in %1$@
+Try again in %1$@ and %2$@: Try again in %1$@ and %2$@
+Screen Recording Detected: Screen Recording Detected
+$screen_recording_info: |
+  You're currently recording your screen.
+  This screen may contain sensitive or private information.
+  Please make sure you're aware of what will be shared.
+Screen Recording: Screen Recording
+Disable Screen Record Warning: Disable Screen Record Warning
+I Understand, Proceed: I Understand, Proceed
+Waiting for Network: Waiting for Network
+My Wallet: My Wallet
+$no_activity_history: |
+  There is no activity history in this wallet yet.
+Standalone: Standalone
+"Enter wallet name:": "Enter wallet name:"
+All Telegram Gifts: All Telegram Gifts
+Add Crypto: Add Crypto
+Share QR Code: Share QR Code
+$send_only_ton: Send only Toncoin (TON) or TON-based assets to this address. Sending other tokens will result in loss.
+$send_only_chain: Send only %chain% (%symbol%) or %chain%-based assets to this address. Sending other tokens will result in loss.
+Buying with card is not supported for this account.: Buying with card is not supported for this account.
+Swapped at: Swapped at
+Price per: Price per
+Changelly ID: Changelly ID
+Copy Changelly ID: Copy Changelly ID
+Changelly ID Copied!: Changelly ID Copied!
+from: from
+to: to
+Currency: Currency
+Select Token to Send: Select Token to Send
+Send to: Send to
+Add a message, if needed: Add a message, if needed
+Collapse: Collapse
+Expand: Expand
+Standalone NFT: Standalone NFT
+$nft_select: "Select"
+$nft_batch_on_sale: Selected collectibles are on sale.
+$nft_batch_different_chains: Selected collectibles are in different chains.
+$nft_expired: "Expired"
+Linked Address: Linked Address
+Enter Address: Enter Address
+D: D
+W: W
+M: M
+3M: 3M
+Y: "Y"
+$amount_K: "%amount%K"
+$amount_M: "%amount%M"
+Happening Now: Happening Now
+No Dapps Found!: No Dapps Found!
+Edit Wallet Name: Edit Wallet Name
+Wallet Name: Wallet Name
+App Icon: App Icon
+Rounded Toolbars: Rounded Toolbars
+Side Gutters: Side Gutters
+Gradient Navigation Bar: Gradient Navigation Bar
+Tokens on Home Screen: Tokens on Home Screen
+Current Wallet Version: Current Wallet Version
+Tokens on Other Versions: Tokens on Other Versions
+Show Secret Words: Show Secret Words
+Passcode: Passcode
+Lock the app after: Lock the app after
+Never: Never
+"%1$@ seconds": "%1$@ seconds"
+"%1$@ minutes": "%1$@ minutes"
+Unstake Request: Unstake Request
+History: History
+Earn up to %1$@ per year from your tokens: Earn up to %1$@ per year from your tokens
+Insufficient %1$@ Balance: "Insufficient %1$@ Balance"
+Instant Withdrawal: Instant Withdrawal
+Instantly: Instantly
+Up to %1$@: Up to %1$@
+up to %1$@: up to %1$@
+Current APR: Current APR
+in: in
+Network Error: Network Error
+Enter Amount: Enter Amount
+"Swap %1$@ to %2$@": "Swap %1$@ to %2$@"
+"%1$@ to %2$@": "%1$@ to %2$@"
+"Max %1$@": "Max %1$@"
+"Authorize %1$@ fee": "Authorize %1$@ fee"
+Pending previous fee: Pending previous fee
+AML/KYC: AML/KYC
+Receive to: Receive to
+Enter %1$@ address: Enter %1$@ address
+"Send %1$@ this address:": "Send %1$@ this address:"
+Swap is not supported on this account.: Swap is not supported on this account.
+"%1$@ will be returned": "%1$@ will be returned"
+Connecting your wallet: Connecting your wallet
+Action is not possible on a view-only wallet.: Action is not possible on a view-only wallet.
+Logged in with MyTonWallet: Logged in with MyTonWallet
+You have no apps connected to this wallet.: You have no apps connected to this wallet.
+Asset: Asset
+Sent to: Sent to
+via %agg%: via %agg%
+Switch to Legacy Version: Switch to Classic Version
+Received from: Received from
+Your Secret Words: Your Secret Words
+day:
+  zeroValue: "%1$d day"
+  oneValue: "%1$d day"
+  otherValue: "%1$d days"
+hour:
+  zeroValue: "%1$d hour"
+  oneValue: "%1$d hour"
+  otherValue: "%1$d hours"
+minute:
+  zeroValue: minute
+  oneValue: minute
+  otherValue: "%1$d minutes"
+second:
+  zeroValue: "%1$d second"
+  oneValue: "%1$d second"
+  otherValue: "%1$d seconds"
+transfer:
+  zeroValue: "%1$d Transfer"
+  oneValue: "%1$d Transfer"
+  otherValue: "%1$d Transfers"
+Confirm Actions:
+  zeroValue: "Confirm %1$d Actions"
+  oneValue: Confirm Action
+  otherValue: Confirm Actions
+"A ~ Z": "A ~ Z"
+"Biometric authentication not available.": "Biometric authentication not available."
+"Changelly Payment Address": "Changelly Payment Address"
+"Wallet to use on": "Wallet to use on"
+"Clipboard empty": "Clipboard empty"
+"Confirm Connect": "Confirm Connect"
+"Connected apps can only see your wallet address and will not be able to move your assets without permission.": "Connected apps can only see your wallet address and will not be able to move your assets without permission."
+"Connect to %1$@?": "Connect to %1$@?"
+"Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.": "Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below."
+"Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.": "Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam."
+"Enter your Wallet Passcode": "Enter your Wallet Passcode"
+"Import failed": "Import failed"
+"Install Palette": "Install Palette"
+Ledger: Ledger
+"Moving to staking balance": "Moving to staking balance"
+MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet uses biometric authentication to unlock and authorize transactions
+"Network error": "Network error"
+"No Camera Access": "No Camera Access"
+"Not all transactions were sent successfully.": "Not all transactions were sent successfully."
+OK: OK
+"Open in Explorer": "Open in Explorer"
+"Open in...": "Open in..."
+"Passcode changed": "Passcode changed"
+"Please make sure your internet connection is working and try again.": "Please make sure your internet connection is working and try again."
+"Please set a passcode on your device, and then try to use biometric authentication.": "Please set a passcode on your device, and then try to use biometric authentication."
+Please try again: Please try again
+"Please wait...": "Please wait..."
+"Preview is currently unavailable.": "Preview is currently unavailable."
+Read-only account: Read-only account
+"Request for unstaking": "Request for unstaking"
+Set a passcode: Set a passcode
+"Show All %1$@": "Show All %1$@"
+"TON Wallet Versions": "TON Wallet Versions"
+"Tap to reveal": "Tap to reveal"
+"The current version of Ledger only supports English-language comments without special characters.": "The current version of Ledger only supports English-language comments without special characters."
+"There is no activity history for this wallet yet.": "There is no activity history for this wallet yet."
+"This type of transaction is not yet supported by Ledger.": "This type of transaction is not yet supported by Ledger."
+"Transaction to this smart contract is not yet supported by Ledger.": "Transaction to this smart contract is not yet supported by Ledger."
+"Transferring NFT is not yet supported by Ledger.": "Transferring NFT is not yet supported by Ledger."
+Connect your Ledger via Bluetooth: Connect your Ledger via Bluetooth
+Discovering wallets: Discovering wallets
+Bluetooth Access Denied: Bluetooth Access Denied
+Bluetooth access is needed to connect Ledger.: Bluetooth access is needed to connect Ledger.
+Address not resolved: Address not resolved
+Sending more than one NFT isn't supported by Ledger: Sending more than one NFT isn't supported by Ledger
+"Updating…": "Updating…"
+This is how the TON Blockchain works.: This is how the TON Blockchain works.
+"Waiting for network…": "Waiting for network…"
+Wallet is Locked: Wallet is Locked
+Warning: Warning
+Wear: Wear
+Passcodes don't match. Please try again.: Passcodes don't match. Please try again.
+Secret phrase was copied to clipboard: Secret phrase was copied to clipboard
+Copy Anyway: Copy Anyway
+12 Words: 12 Words
+24 Words: 24 Words
+"Words don’t match, please try again.": Words don’t match, please try again.
+Load 5 More Wallets: Load 5 More Wallets
+$n_wallets_selected:
+  zeroValue: "%1$d selected"
+  oneValue: "%1$d selected"
+  otherValue: "%1$d selected"
+Are you sure you want to unpin %tab%?: Are you sure you want to unpin %tab%?
+add: add
+send: send
+swap: swap
+earn: earn
+Actions: Actions
+$actions_description: Quickly access most common actions.
+Rate: Rate
+$rate_description: View current rate of any selected token.
+Rate with Chart: Rate with Chart
+$rate_with_chart_description: View current rate and track performance of any selected token.
+Style: Style
+Neutral: Neutral
+Vivid: Vivid
+Chart Period: Chart Period
+$period_all: All Time
+$period_day: 1 Day
+$period_week: 1 Week
+$period_month: 1 Month
+$period_3months: 3 Months
+$period_year: 1 Year
+Token: Token
+All Tokens: All Tokens
+Customize Widget: Customize Widget
+Recent Searches: Recent Searches
+Clear All: Clear All
+Suggestions: Suggestions
+Popular and connected apps: Popular and connected apps
+Connected Dapp: Connected Dapp
+$ago: "%1$d ago"
+$visited_ago: Visited %1$d ago
+Notifications are disabled: Notifications are disabled
+Enable in Settings: Enable in Settings
+Search in Google: Search in Google
+$remove_wallets:
+  zeroValue: "Remove Wallet"
+  oneValue: "Remove Wallet"
+  otherValue: "Remove %1$d Wallets"
+Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.
+just now: just now
+"No": "No"
+Search: Search
+State init supplied without message body: State init supplied without message body
+Swap Failed: Swap Failed
+The wallet is ready: The wallet is ready
+Unexpected error. Please let the support know.: Unexpected error. Please let the support know.
+Unlock it and open the TON App: Unlock it and open the TON App
+Use 4-digit Passcode: Use 4-digit Passcode
+Use 6-digit Passcode: Use 6-digit Passcode
+Authorize %token% Fee: Authorize %token% Fee
+Awaiting Previous Fee: Awaiting Previous Fee
+Lock: Lock
+MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.
+Receive: Receive
+Scan: Scan
+
+
+
+$web_permission_prompt: Allow %origin% to use your %permissions%?
+$web_permission_allow: Allow
+$web_permission_deny: "Don't allow"
+$web_permission_camera: camera
+$web_permission_microphone: microphone
+$web_permission_location: location
+$web_permission_device_features: device features
+$web_permission_this_site: this site
+
+push_title_wallet: "%wallet_title%"
+push_activity_token_sent: Sent %amount% %symbol%
+push_activity_token_received: Received %amount% %symbol%
+push_activity_contract_called: Called smart contract
+push_activity_contract_deployed: Deployed smart contract
+push_activity_token_minted: Minted %amount% %symbol%
+push_activity_token_burned: Burned %amount% %symbol%
+push_activity_nft_sent: Sent NFT
+push_activity_nft_sent_named: "Sent NFT: %name%"
+push_activity_nft_received: Received NFT
+push_activity_nft_received_named: "Received NFT: %name%"
+push_activity_nft_minted: Minted NFT
+push_activity_nft_minted_named: "Minted NFT: %name%"
+push_activity_liquidity_deposited: Provided liquidity
+push_activity_liquidity_withdrawn: Withdrew liquidity
+push_activity_stake_deposit: Staked %amount% %symbol%
+push_activity_stake_withdrawal: Unstaked %amount% %symbol%
+push_activity_stake_withdrawal_request: Requested staking withdrawal
+push_activity_auction_bid: Placed auction bid %amount% %symbol%
+push_activity_dns_changed: Updated DNS record
+push_activity_dns_deleted: Deleted DNS record
+push_activity_dns_renewed: Renewed DNS
+push_activity_subscription_started: Started subscription
+push_activity_subscription_payment_received: Received subscription payment %amount% %symbol%
+push_activity_subscription_canceled: Canceled subscription
+push_activity_swap_completed: Swapped %from_symbol% -> %to_symbol%
+push_activity_swap_failed: Swap %from_symbol% -> %to_symbol% failed
+push_activity_swap_expired: Swap %from_symbol% -> %to_symbol% expired
+push_activity_swap_pending: Swap %from_symbol% -> %to_symbol% %status%
+push_activity_staking_profit: Staking profit %amount% TON
+push_activity_staking_loyalty_profit: Staking loyalty profit %amount% TON
+push_domain_title_renew: Renew your domain
+push_domain_expired_yesterday: Your domain %domain% expired yesterday. Please renew it as soon as possible to avoid losing access
+push_domain_expired_days_ago: Your domain %domain% expired %days% days ago. Please renew it as soon as possible to avoid losing access
+push_domain_expires_today: Your domain %domain% will expire today. Please renew it to avoid losing access
+push_domain_expires_tomorrow: Your domain %domain% will expire tomorrow. Please renew it to avoid losing access
+push_domain_expires_in_days: Your domain %domain% will expire in %days% days. Please renew it to avoid losing access
+
+$more_nfts:
+  zeroValue: No NFTs
+  oneValue: "+1 NFT"
+  otherValue: "+%1$d NFTs"
+
+$subwallets_hint: Use subwallets to get additional addresses without creating a new set of secret words.
+$subwallets_created_wallets: If you have previously created subwallets, they will appear in the list below.
+$subwallets_none: No subwallets yet.

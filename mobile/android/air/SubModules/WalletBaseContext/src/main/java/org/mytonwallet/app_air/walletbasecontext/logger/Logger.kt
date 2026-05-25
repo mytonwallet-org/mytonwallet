@@ -55,10 +55,12 @@ object Logger {
         fun composedForFile(): String {
             val relativeTime = (timestamp - appStartTime) / 1000.0
             val messageStr = message.toString().replace("\t", "\\t").replace("\n", "\\n")
-            return String.format(
-                Locale.US, "%.6f\t%s\t%s\t%s\n",
-                relativeTime, level.str, tag, messageStr
-            )
+            val relativeTimeStr = try {
+                String.format(Locale.US, "%.6f", relativeTime)
+            } catch (_: Throwable) {
+                relativeTime.toString()
+            }
+            return "$relativeTimeStr\t${level.str}\t$tag\t$messageStr\n"
         }
     }
 

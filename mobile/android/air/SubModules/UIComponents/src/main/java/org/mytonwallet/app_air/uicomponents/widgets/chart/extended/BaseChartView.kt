@@ -229,6 +229,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
     private var lastHeaderEndDate = Long.MIN_VALUE
     private var rangePickerLeftDrawable: Drawable? = null
     private var rangePickerRightDrawable: Drawable? = null
+    private var singlePickerDrawable: Drawable? = null
 
     protected var canCaptureChartSelection = false
     var animateLegentTo = false
@@ -829,7 +830,13 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
             pickerRect.set(start, top, end, bottom)
             if (isSinglePicker) {
                 val centerX = pickerRect.exactCenterX()
-                val barHalfWidth = max(4f.dp, min(DP_6.toFloat(), pickerRect.width() / 2f))
+                val barHalfWidth = singlePickerDrawable
+                    ?.takeIf { style.useTokenChartPickerResources }
+                    ?.intrinsicWidth
+                    ?.takeIf { it > 0 }
+                    ?.toFloat()
+                    ?.div(2f)
+                    ?: max(4f.dp, min(DP_6.toFloat(), pickerRect.width() / 2f))
                 val barLeft = centerX - barHalfWidth
                 val barRight = centerX + barHalfWidth
                 val touchHalfWidth = max(PICKER_CAPTURE_WIDTH.toFloat(), barHalfWidth + DP_8)
@@ -1033,6 +1040,12 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         alphaFraction: Float,
     ) {
         if (alphaFraction <= 0f) return
+
+        if (style.useTokenChartPickerResources) {
+            drawSinglePickerFrameWithResources(canvas, left, top, right, bottom, alphaFraction)
+            return
+        }
+
         val previousAlpha = pickerSelectorPaint.alpha
         pickerSelectorPaint.alpha = (previousAlpha * alphaFraction).toInt()
         canvas.drawPath(
@@ -1052,6 +1065,27 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
             pickerSelectorPaint
         )
         pickerSelectorPaint.alpha = previousAlpha
+    }
+
+    private fun drawSinglePickerFrameWithResources(
+        canvas: Canvas,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        alphaFraction: Float,
+    ) {
+        val alpha = (255 * alphaFraction).toInt()
+        singlePickerDrawable?.let { drawable ->
+            drawable.alpha = alpha
+            drawable.setBounds(
+                left.toInt(),
+                top.toInt(),
+                right.toInt(),
+                bottom.toInt()
+            )
+            drawable.draw(canvas)
+        }
     }
 
     private fun drawRangePickerFrame(canvas: Canvas, pickerRect: Rect, alphaFraction: Float) {
@@ -1975,7 +2009,15 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         invalidate()
     }
 
-    fun clearSelection() {
+    fun reinitPickerHeight() {
+        pickerMaxHeight = 0f
+        pickerMinHeight = Int.MAX_VALUE.toFloat()
+        initPickerMaxHeight()
+        invalidatePickerChart = true
+        invalidate()
+    }
+
+    open fun clearSelection() {
         selectedIndex = -1
         legendShowing = false
         animateLegentTo = false
@@ -2090,6 +2132,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         if (!style.useTokenChartPickerResources) {
             rangePickerLeftDrawable = null
             rangePickerRightDrawable = null
+            singlePickerDrawable = null
             return
         }
 
@@ -2098,6 +2141,9 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         )?.mutate()
         rangePickerRightDrawable = context.getDrawableCompat(
             if (style.isDark) R.drawable.ic_chart_thumb_right_dark else R.drawable.ic_chart_thumb_right
+        )?.mutate()
+        singlePickerDrawable = context.getDrawableCompat(
+            if (style.isDark) R.drawable.ic_chart_thumb_single_dark else R.drawable.ic_chart_thumb_single
         )?.mutate()
     }
 

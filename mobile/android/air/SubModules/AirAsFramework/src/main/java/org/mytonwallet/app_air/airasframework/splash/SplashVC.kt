@@ -1269,6 +1269,13 @@ class SplashVC(context: Context) : WViewController(context),
 
     private fun presentTonConnectLoading() {
         window?.let { window ->
+            // Don't stack a second request modal if one is already shown (e.g. a connect deeplink tapped twice);
+            // the incoming `dappConnect` update replaces the shown connect modal in place instead.
+            if (window.navigationControllers.any { nav ->
+                    nav.viewControllers.any { it is TonConnectRequestSendVC || it is TonConnectRequestConnectVC }
+                }) {
+                return
+            }
             val tonConnectRequestVC = TonConnectRequestConnectVC(window)
             val isLoadingVCAdded =
                 TonConnectController.setLoadingConnectRequestViewController(
@@ -1290,12 +1297,23 @@ class SplashVC(context: Context) : WViewController(context),
         }
     }
 
-    private fun presentTonSendLoading(connectionType: ApiConnectionType) {
+    private fun presentTonSendLoading(
+        connectionType: ApiConnectionType,
+        isWaitingForRequest: Boolean = false,
+        returnUrl: String? = null,
+    ) {
         window?.let { window ->
+            // Ignore the placeholder open if a request modal is already shown (SSE event arrived before the deeplink)
+            if (isWaitingForRequest && window.navigationControllers.any { nav ->
+                    nav.viewControllers.any { it is TonConnectRequestSendVC || it is TonConnectRequestConnectVC }
+                }) {
+                return
+            }
             if (!window.isAnimating &&
                 window.pendingPresentationNav?.viewControllers?.firstOrNull() !is TonConnectRequestSendVC
             ) {
-                val tonConnectRequestSendVC = TonConnectRequestSendVC(window, connectionType)
+                val tonConnectRequestSendVC =
+                    TonConnectRequestSendVC(window, connectionType, isWaitingForRequest = isWaitingForRequest, returnUrl = returnUrl)
                 val isLoadingVCAdded =
                     TonConnectController.setLoadingSendRequestViewController(
                         tonConnectRequestSendVC
@@ -1384,7 +1402,11 @@ class SplashVC(context: Context) : WViewController(context),
                     }
 
                     ApiConnectionType.SEND_TRANSACTION, ApiConnectionType.SIGN_DATA -> {
-                        presentTonSendLoading(update.connectionType)
+                        presentTonSendLoading(
+                            update.connectionType,
+                            update.isWaitingForRequest == true,
+                            update.returnUrl,
+                        )
                     }
                 }
             }

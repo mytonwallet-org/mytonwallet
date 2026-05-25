@@ -9,6 +9,7 @@ import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MCollectionTab
+import org.mytonwallet.app_air.walletcore.MTW_CARDS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MCollectionTabToShow
@@ -25,6 +26,21 @@ object NftStore : IStore {
     private val cachedNftCollections = ConcurrentHashMap<String, List<MCollectionTabToShow>>()
     private val cachedHasHiddenNfts = ConcurrentHashMap<String, Boolean>()
     private val ignoredExpiringAddressesByAccount = ConcurrentHashMap<String, MutableSet<String>>()
+
+    // Accumulates new MTW cards across the batches of a streamed NFT polling round.
+    // Drained on the round's final batch (`streamedAddresses != null` on `setNfts`).
+    private val pendingNewMtwCardsByAccount = ConcurrentHashMap<String, MutableList<ApiNft>>()
+
+    fun interface PaletteExtractor {
+        fun extract(nft: ApiNft, onResult: (Int?) -> Unit)
+    }
+
+    @Volatile
+    private var paletteExtractor: PaletteExtractor? = null
+
+    fun init(paletteExtractor: PaletteExtractor) {
+        this.paletteExtractor = paletteExtractor
+    }
 
     data class NftData(
         val accountId: String,
@@ -157,6 +173,21 @@ object NftStore : IStore {
         val incomingNfts = if (streamPruneContext == null) nfts.orEmpty() else emptyList()
         val mergeMode = if (shouldAppend) NftsMergeMode.APPEND else NftsMergeMode.PREPEND
 
+        // Streamed NFT polling: accumulate per-batch new MTW cards, then drain on the final
+        // batch (`streamedAddresses != null`) to auto-install the rarest one. Diff against
+        // the persistent `ownedMtwCardAddresses` so cards the user removed are not re-installed
+        // each polling round.
+        if (!isReorder && chain != null && !nfts.isNullOrEmpty()) {
+            val ownedSet = WGlobalStorage.getOwnedMtwCardAddresses(accountId)
+            val newMtwCards = nfts.filter {
+                it.collectionAddress == MTW_CARDS_COLLECTION && !ownedSet.contains(it.address)
+            }
+            if (newMtwCards.isNotEmpty()) {
+                pendingNewMtwCardsByAccount.getOrPut(accountId) { mutableListOf() }
+                    .addAll(newMtwCards)
+            }
+        }
+
         cacheExecutor.execute {
             val currentData = nftData
             val isActiveAccount = accountId == currentData?.accountId
@@ -207,7 +238,29 @@ object NftStore : IStore {
                 }
             }
             writeToCache()
+
+            if (streamedAddresses != null) {
+                drainPendingMtwCardsOnStreamComplete(accountId, currentData.cachedNfts.orEmpty())
+            }
         }
+    }
+
+    // On the final batch of a streamed NFT round: sync the ownership snapshot from the
+    // authoritative cached list and auto-install the rarest just-arrived card if the
+    // account has none set. "Rarest" = lowest `mtwCardId` (earlier mints are typically rarer).
+    private fun drainPendingMtwCardsOnStreamComplete(
+        accountId: String,
+        currentNfts: List<ApiNft>
+    ) {
+        val candidates = pendingNewMtwCardsByAccount.remove(accountId).orEmpty()
+
+        syncOwnedMtwCardAddresses(accountId, currentNfts)
+
+        if (candidates.isEmpty()) return
+        if (WGlobalStorage.getCardBackgroundNft(accountId) != null) return
+
+        val rarest = candidates.minByOrNull { it.metadata?.mtwCardId ?: Int.MAX_VALUE } ?: return
+        installMtwCard(accountId, rarest)
     }
 
     private fun resolveExistingNftsForSetNfts(
@@ -368,6 +421,62 @@ object NftStore : IStore {
         }
     }
 
+    // Auto-install an incoming MTW card on the target account, unless the account already
+    // has one installed or has historically owned this card (see `ownedMtwCardAddresses`).
+    // The `ownedMtwCardAddresses` snapshot is what prevents re-installing a card the user
+    // previously removed if the activity history is replayed after a cache clear.
+    fun applyIncomingMtwCard(accountId: String, nft: ApiNft) {
+        if (nft.collectionAddress != MTW_CARDS_COLLECTION) return
+        val owned = WGlobalStorage.getOwnedMtwCardAddresses(accountId)
+        val alreadyOwned = owned.contains(nft.address)
+        if (!alreadyOwned) {
+            WGlobalStorage.setOwnedMtwCardAddresses(accountId, owned + nft.address)
+        }
+        if (alreadyOwned) return
+        if (WGlobalStorage.getCardBackgroundNft(accountId) != null) return
+
+        installMtwCard(accountId, nft)
+    }
+
+    fun syncOwnedMtwCardAddresses(accountId: String, nfts: List<ApiNft>) {
+        val owned = nfts
+            .filter { it.collectionAddress == MTW_CARDS_COLLECTION }
+            .map { it.address }
+        WGlobalStorage.setOwnedMtwCardAddresses(accountId, owned)
+    }
+
+    fun pruneOwnedMtwCardAddress(accountId: String, nftAddress: String) {
+        val owned = WGlobalStorage.getOwnedMtwCardAddresses(accountId)
+        if (!owned.contains(nftAddress)) return
+        WGlobalStorage.setOwnedMtwCardAddresses(accountId, owned - nftAddress)
+    }
+
+    fun removeAccount(accountId: String) {
+        pendingNewMtwCardsByAccount.remove(accountId)
+        synchronized(checkOwnershipAccountIds) { checkOwnershipAccountIds.remove(accountId) }
+    }
+
+    private fun installMtwCard(accountId: String, nft: ApiNft) {
+        WGlobalStorage.setCardBackgroundNft(accountId, nft.toDictionary())
+        val extractor = paletteExtractor
+        if (extractor != null) {
+            extractor.extract(nft) { colorIndex ->
+                if (WGlobalStorage.getCardBackgroundNftAddress(accountId) != nft.address) {
+                    return@extract
+                }
+                if (colorIndex != null) {
+                    WGlobalStorage.setNftAccentColor(accountId, colorIndex, nft.toDictionary())
+                }
+                if (AccountStore.activeAccountId == accountId) {
+                    WalletContextManager.delegate?.themeChanged()
+                }
+                WalletCore.notifyEvent(WalletEvent.NftCardUpdated)
+            }
+        } else {
+            WalletCore.notifyEvent(WalletEvent.NftCardUpdated)
+        }
+    }
+
     override fun wipeData() {
         clearCache()
     }
@@ -377,6 +486,10 @@ object NftStore : IStore {
         cachedNftCollections.clear()
         cachedHasHiddenNfts.clear()
         ignoredExpiringAddressesByAccount.clear()
+        pendingNewMtwCardsByAccount.clear()
+        checkOwnershipHandler.removeCallbacks(checkOwnershipRunnable)
+        synchronized(checkOwnershipAccountIds) { checkOwnershipAccountIds.clear() }
+        paletteExtractor = null
     }
 
     private fun clearActiveNftData() {
@@ -416,47 +529,74 @@ object NftStore : IStore {
         }
     }
 
+    // NFT update events fire per-account/per-batch, causing a burst of ownership checks.
+    // Debounced to match the web app's 3s coalescing window in `actions/api/cards.ts`.
+    private const val CHECK_OWNERSHIP_DEBOUNCE_MS = 3000L
+    private val checkOwnershipAccountIds = mutableSetOf<String>()
+    private val checkOwnershipHandler = Handler(Looper.getMainLooper())
+    private val checkOwnershipRunnable = Runnable { flushCheckCardNftOwnership() }
+
     fun checkCardNftOwnership(accountId: String) {
+        synchronized(checkOwnershipAccountIds) {
+            checkOwnershipAccountIds.add(accountId)
+        }
+        checkOwnershipHandler.removeCallbacks(checkOwnershipRunnable)
+        checkOwnershipHandler.postDelayed(checkOwnershipRunnable, CHECK_OWNERSHIP_DEBOUNCE_MS)
+    }
+
+    private fun flushCheckCardNftOwnership() {
+        val accountIds = synchronized(checkOwnershipAccountIds) {
+            val snapshot = checkOwnershipAccountIds.toList()
+            checkOwnershipAccountIds.clear()
+            snapshot
+        }
+        accountIds.forEach { checkOwnershipForAccount(it) }
+    }
+
+    private fun checkOwnershipForAccount(accountId: String) {
         val installedCard = WGlobalStorage.getCardBackgroundNft(accountId)
-        installedCard?.let {
-            val installedNft = ApiNft.fromJson(installedCard)!!
+        val installedPalette = WGlobalStorage.getAccentColorNft(accountId)
+        if (installedCard == null && installedPalette == null) return
+
+        val cardNft = installedCard?.let { ApiNft.fromJson(it) }
+        val paletteNft = installedPalette?.let { ApiNft.fromJson(it) }
+
+        cardNft?.let { nft ->
             WalletCore.call(
                 ApiMethod.Nft.CheckNftOwnership(
                     chain = MBlockchain.ton.name,
                     accountId = accountId,
-                    nftAddress = installedNft.address
+                    nftAddress = nft.address
                 )
             ) { res, err ->
-                if (err != null)
-                    return@call
+                if (err != null) return@call
                 if (res == false) {
-                    WGlobalStorage.setCardBackgroundNft(
-                        accountId,
-                        null
-                    )
+                    WGlobalStorage.setCardBackgroundNft(accountId, null)
                     if (AccountStore.activeAccountId == accountId)
                         WalletCore.notifyEvent(WalletEvent.NftCardUpdated)
+                    // If the palette NFT is the same address, the card's `res == false`
+                    // already proves it's gone — clear palette without a second RPC.
+                    if (paletteNft != null && paletteNft.address == nft.address) {
+                        WGlobalStorage.setNftAccentColor(accountId, null, null)
+                        if (AccountStore.activeAccountId == accountId)
+                            WalletContextManager.delegate?.themeChanged()
+                    }
                 }
             }
         }
-        val installedPalette = WGlobalStorage.getAccentColorNft(accountId)
-        installedPalette?.let {
-            val installedPaletteNft = ApiNft.fromJson(installedPalette)!!
+
+        // Only call the palette RPC when it's a different address from the card.
+        if (paletteNft != null && paletteNft.address != cardNft?.address) {
             WalletCore.call(
                 ApiMethod.Nft.CheckNftOwnership(
                     chain = MBlockchain.ton.name,
                     accountId = accountId,
-                    nftAddress = installedPaletteNft.address
+                    nftAddress = paletteNft.address
                 )
             ) { res, err ->
-                if (err != null)
-                    return@call
+                if (err != null) return@call
                 if (res == false) {
-                    WGlobalStorage.setNftAccentColor(
-                        accountId,
-                        null,
-                        null
-                    )
+                    WGlobalStorage.setNftAccentColor(accountId, null, null)
                     if (AccountStore.activeAccountId == accountId)
                         WalletContextManager.delegate?.themeChanged()
                 }

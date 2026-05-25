@@ -33,18 +33,6 @@ data class MTokenBalance(
 
     private val priorityOrder: Int get() = PRIORITY_ORDER.indexOf(token)
 
-    val priorityOnSameBalance: Int
-        get() {
-            return when (token) {
-                TONCOIN_SLUG -> 5
-                TON_USDT_SLUG, TON_USDT_TESTNET_SLUG -> 4
-                TRON_SLUG -> 3
-                TRON_USDT_SLUG, TRON_USDT_TESTNET_SLUG -> 2
-                SOLANA_SLUG -> 1
-                else -> 0
-            }
-        }
-
     fun compareByDisplayOrder(
         other: MTokenBalance,
         ignorePriorities: Boolean = false,
@@ -64,9 +52,9 @@ data class MTokenBalance(
                         else -> if (this.isVirtualStakingRow) -1 else 1
                     }
                 }
-            } else if (thisOrder != -1 && otherOrder == -1) {
+            } else if (thisOrder != -1) {
                 return -1
-            } else if (otherOrder != -1 && thisOrder == -1) {
+            } else if (otherOrder != -1) {
                 return 1
             }
         }
@@ -76,12 +64,10 @@ data class MTokenBalance(
             return valueCompare
         }
 
-        if (!ignorePriorities) {
-            val sameBalanceCompare =
-                other.priorityOnSameBalance.compareTo(this.priorityOnSameBalance)
-            if (sameBalanceCompare != 0) {
-                return sameBalanceCompare
-            }
+        val sameBalancePriorityCompare =
+            other.priorityOrder.compareTo(this.priorityOrder)
+        if (sameBalancePriorityCompare != 0) {
+            return sameBalancePriorityCompare
         }
 
         val thisSlug = this.token ?: ""

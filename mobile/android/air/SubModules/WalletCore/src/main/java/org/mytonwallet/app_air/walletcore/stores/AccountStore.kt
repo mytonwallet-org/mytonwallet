@@ -218,6 +218,7 @@ object AccountStore : IStore {
                 notifyObservers = false,
                 isReorder = false
             )
+            NftStore.removeAccount(removingAccountId)
             WGlobalStorage.removeAccount(removingAccountId)
             if (WCacheStorage.getInitialScreen() == WCacheStorage.InitialScreen.LOCK &&
                 WGlobalStorage.accountIds().isNotEmpty() &&

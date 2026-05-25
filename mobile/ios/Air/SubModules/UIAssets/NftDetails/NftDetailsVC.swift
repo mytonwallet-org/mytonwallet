@@ -14,11 +14,9 @@ public class NftDetailsVC: NftDetailsBaseVC {
     private let nfts: [ApiNft]
     private let accountId: String
     
-    public init(accountId: String, nft selectedNft: ApiNft, listContext: NftCollectionFilter, fixedNfts: [ApiNft]? = nil) {
+    public init(accountId: String, nft selectedNft: ApiNft, filter: NftCollectionFilter = .none, isExpanded: Bool = false) {
 
-        var nfts: [ApiNft] = []
-        
-        nfts = fixedNfts ?? Array(listContext.apply(to: NftStore.getAccountShownNfts(accountId: accountId) ?? [:]).values.map(\.nft))
+        var nfts = Array(filter.apply(to: NftStore.getAccountShownNfts(accountId: accountId) ?? [:]).values.map(\.nft))
         if !nfts.contains(where: { $0.id == selectedNft.id }) {
             nfts.append(selectedNft)
         }
@@ -34,11 +32,6 @@ public class NftDetailsVC: NftDetailsBaseVC {
             
             let attributes: [NftDetailsItem.Attribute]? = nft.metadata?.attributes?.map { .init(traitType: $0.trait_type, value: $0.value) }
             
-            var collection: NftDetailsItem.Collection? = nil
-            if let c = nft.collection {
-                collection = .init(name: c.name)
-            }
-
             let tonDomain = domains.expirationDays(for: nft).map {
                 NftDetailsItem.TonDomain(
                     expirationDays: $0,
@@ -54,13 +47,14 @@ public class NftDetailsVC: NftDetailsBaseVC {
                 imageUrl: nft.image,
                 lottieUrl: nft.metadata?.lottie,
                 attributes: attributes,
-                collection: collection,
+                collection: nft.collection.map { NftDetailsItem.Collection(name: $0.name) },
                 tonDomain: tonDomain,
             )
         }
-        let selectedIndex = nfts.firstIndex(where: { $0 == selectedNft }) ?? 0
+
+        let selectedIndex = nfts.firstIndex(where: { $0.id == selectedNft.id }) ?? 0
         
-        super.init(nfts:  items, selectedIndex: selectedIndex)
+        super.init(nfts: items, selectedIndex: selectedIndex, initiallyExpanded: isExpanded)
     }
     
     @MainActor required init?(coder: NSCoder) {
@@ -289,11 +283,12 @@ public class NftDetailsVC: NftDetailsBaseVC {
                         assertionFailure()
                         return
                     }
-                    AppActions.showAssets(
-                        accountSource: .accountId(accountId),
-                        selectedTab: .nftCollectionFilter(.collection(collection)),
-                        collectionsFilter: .collection(collection)
-                    )
+                    guard let nc = navigationController else {
+                        assertionFailure()
+                        return
+                    }
+                    let vc = NftsFullScreenVC(accountSource: .accountId(accountId), filter: .collection(collection))
+                    nc.pushViewController(vc, animated: true)
                 }
             )
             

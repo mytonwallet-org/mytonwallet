@@ -365,9 +365,9 @@ private class AppActionsImpl: AppActionsProtocol {
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
     }
 
-    static func showNft(accountContext: AccountContext, nft: ApiNft) {
+    static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool) {
         let accountId = accountContext.account.id
-        let nftVC = NftDetailsVC(accountId: accountId, nft: nft, listContext: .none)
+        let nftVC = NftDetailsVC(accountId: accountId, nft: nft, isExpanded: isExpanded)
         let nav = WNavigationController(rootViewController: nftVC)
         nav.modalPresentationStyle = .overFullScreen
         topViewController()?.present(nav, animated: true)
@@ -384,7 +384,7 @@ private class AppActionsImpl: AppActionsProtocol {
                     AppActions.showError(error: DisplayError(text: lang("$nft_not_found")))
                     return
                 }
-                let nftVC = NftDetailsVC(accountId: accountId, nft: nft, listContext: .none)
+                let nftVC = NftDetailsVC(accountId: accountId, nft: nft)
                 pushIfNeeded(nftVC, push: true)
             } catch {
                 AppActions.showError(error: error)

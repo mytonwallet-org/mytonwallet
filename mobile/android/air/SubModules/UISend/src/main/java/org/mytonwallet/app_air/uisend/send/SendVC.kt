@@ -472,7 +472,7 @@ class SendVC(
             )
             id = generateViewId()
             setOnScrollChangeListener { _, _, scrollY, _, _ ->
-                updateBlurViews(scrollView = this, computedOffset = scrollY)
+                updateBlurViews(scrollView = this)
                 if (scrollY > 0) {
                     bottomReversedCornerViewUpsideDown.resumeBlurring()
                 } else {

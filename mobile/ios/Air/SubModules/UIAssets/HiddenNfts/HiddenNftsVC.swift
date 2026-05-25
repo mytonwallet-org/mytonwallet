@@ -245,7 +245,7 @@ extension HiddenNftsVC: UICollectionViewDelegate {
 
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         if let nftId = dataSource.itemIdentifier(for: indexPath)?.stringValue, let nft = displayNfts?[nftId]?.nft {
-            let assetVC = NftDetailsVC(accountId: AccountStore.currentAccountId, nft: nft, listContext: .none)
+            let assetVC = NftDetailsVC(accountId: AccountStore.currentAccountId, nft: nft)
             navigationController?.pushViewController(assetVC, animated: true)
         }
     }

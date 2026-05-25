@@ -145,7 +145,7 @@ def merge_localization_bucket(dst_bucket, lang, unit):
     dst_bucket["extractionState"] = "manual"
 
 def normalize_locale_name(filename: str) -> str:
-    """Normalize locale name by removing common prefixes like 'air_'"""
+    """Normalize locale name from a localization filename."""
     name = os.path.splitext(filename)[0]
     if name.startswith('air_'):
         name = name[4:]  # Remove 'air_' prefix
@@ -264,22 +264,12 @@ def main():
     yaml_files = list(input_dir.glob("*.yaml"))
     yml_files = list(input_dir.glob("*.yml"))
 
-    # Also look in the air subdirectory
-    air_dir = input_dir / "air"
-    if air_dir.exists():
-        air_json_files = list(air_dir.glob("*.json"))
-        air_yaml_files = list(air_dir.glob("*.yaml"))
-        air_yml_files = list(air_dir.glob("*.yml"))
-        json_files.extend(air_json_files)
-        yaml_files.extend(air_yaml_files)
-        yml_files.extend(air_yml_files)
-
     all_files = json_files + yaml_files + yml_files
     
     if not all_files:
         raise SystemExit("No JSON or YAML files found.")
     
-    # Group files by normalized locale name (e.g., 'en' from 'en.yaml' and 'air_en.json')
+    # Group files by normalized locale name (e.g., 'en' from 'en.yaml' and 'en.json')
     locale_files: dict[str, list[Path]] = {}
     for file_path in all_files:
         filename = file_path.name

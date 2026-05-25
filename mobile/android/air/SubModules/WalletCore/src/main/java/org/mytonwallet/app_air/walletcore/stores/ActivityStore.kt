@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.AudioHelpers
+import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
@@ -18,8 +19,9 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers.Companion.isSuitableToGetTimestamp
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
-import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapsResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
+import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapsResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
@@ -700,6 +702,11 @@ object ActivityStore : IStore, WalletCore.EventObserver {
             // Update in-memory cache
             updateInMemoryCache(accountId, filteredActivities, pendingAndNewActivities)
 
+            // Auto-install MTW card from incoming activity that carries an NFT.
+            if (eventType == WalletEvent.ReceivedNewActivities.EventType.UPDATE) {
+                applyMtwCardsFromActivities(accountId, newActivities)
+            }
+
             // Play notification sound for incoming transactions
             if (eventType != WalletEvent.ReceivedNewActivities.EventType.PAGINATE) {
                 playIncomingTransactionSound(context, accountId, pendingAndNewActivities)
@@ -782,6 +789,31 @@ object ActivityStore : IStore, WalletCore.EventObserver {
             // First time - create new cache
             val newCache = HashMap(filteredActivities.associateBy { it.id })
             setCachedTransactions(accountId, newCache)
+        }
+    }
+
+    private fun applyMtwCardsFromActivities(
+        accountId: String,
+        activities: List<MApiTransaction>
+    ) {
+        val incomingNfts = activities.mapNotNull { activity ->
+            if (activity !is MApiTransaction.Transaction) return@mapNotNull null
+            if (activity.isPending() || activity.isLocal()) return@mapNotNull null
+            val nft = activity.nft ?: return@mapNotNull null
+            // `nftTrade` (marketplace buy/sell) reports `isIncoming` for the TONCOIN leg,
+            // not the NFT leg, so it must be inverted.
+            val isNftIncoming = if (activity.type == ApiTransactionType.NFT_TRADE) {
+                !activity.isIncoming
+            } else {
+                activity.isIncoming
+            }
+            if (!isNftIncoming) null else nft
+        }
+        if (incomingNfts.isEmpty()) return
+        ensureMainThread {
+            for (nft in incomingNfts) {
+                NftStore.applyIncomingMtwCard(accountId, nft)
+            }
         }
     }
 

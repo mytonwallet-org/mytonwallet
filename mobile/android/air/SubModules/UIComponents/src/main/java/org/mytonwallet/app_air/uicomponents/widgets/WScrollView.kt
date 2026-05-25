@@ -2,49 +2,103 @@ package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.annotation.SuppressLint
 import android.graphics.Rect
-import android.view.View
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
 import android.widget.ScrollView
-import me.everything.android.ui.overscroll.OverScrollBounceEffectDecoratorBase
-import me.everything.android.ui.overscroll.VerticalOverScrollBounceEffectDecorator
-import me.everything.android.ui.overscroll.adapters.ScrollViewOverScrollDecorAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import java.lang.ref.WeakReference
 import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
-open class WScrollView(private val viewController: WeakReference<WViewController>) :
-    ScrollView(viewController.get()!!.context) {
+open class WScrollView(
+    private val viewController: WeakReference<WViewController>
+) : ScrollView(viewController.get()!!.context) {
+
+    companion object {
+        const val SCROLL_STATE_IDLE = 0
+        const val SCROLL_STATE_DRAGGING = 1
+        const val SCROLL_STATE_SETTLING = 2
+    }
+
     init {
         id = generateViewId()
         isVerticalScrollBarEnabled = false
-    }
-
-    private var verticalOverScrollBounceEffectDecorator: VerticalOverScrollBounceEffectDecorator? =
-        null
-
-    fun setupOverScroll() {
-        verticalOverScrollBounceEffectDecorator = VerticalOverScrollBounceEffectDecorator(
-            ScrollViewOverScrollDecorAdapter(this),
-            OverScrollBounceEffectDecoratorBase.DEFAULT_DECELERATE_FACTOR
-        )
+        overScrollMode = OVER_SCROLL_ALWAYS
     }
 
     var onScrollChange: ((Int) -> Unit)? = null
+    var onScrollStateChange: ((Int) -> Unit)? = null
+
+    var scrollState = SCROLL_STATE_IDLE
+        private set
+
+    private val scrollStateHandler by lazy(LazyThreadSafetyMode.NONE) {
+        Handler(Looper.getMainLooper())
+    }
+
+    private var lastScrollY = 0
+
+    private val scrollStateRunnable = object : Runnable {
+        override fun run() {
+            val currentY = scrollY
+
+            if (currentY == lastScrollY) {
+                setScrollState(SCROLL_STATE_IDLE)
+            } else {
+                lastScrollY = currentY
+                setScrollState(SCROLL_STATE_SETTLING)
+                scrollStateHandler.postDelayed(this, 50)
+            }
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(ev: MotionEvent): Boolean {
+        if (onScrollStateChange != null) {
+
+            when (ev.actionMasked) {
+
+                MotionEvent.ACTION_DOWN -> {
+                    scrollStateHandler.removeCallbacks(scrollStateRunnable)
+                    setScrollState(SCROLL_STATE_DRAGGING)
+                }
+
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+
+                    lastScrollY = scrollY
+
+                    scrollStateHandler.postDelayed(
+                        scrollStateRunnable,
+                        50
+                    )
+                }
+            }
+        }
+
+        return super.onTouchEvent(ev)
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+
+        if (onScrollStateChange != null) {
+            scrollStateHandler.removeCallbacks(scrollStateRunnable)
+        }
+    }
 
     override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
         super.onScrollChanged(l, t, oldl, oldt)
         onScrollChange?.invoke(t)
     }
 
-    fun scrollToBottom() {
-        smoothScrollTo(0, getChildAt(0).bottom);
-    }
+    private fun setScrollState(state: Int) {
+        if (scrollState == state) return
 
-    private fun getDistanceFromViewToScrollViewBottom(view: View): Int {
-        val rect = Rect()
-        view.getGlobalVisibleRect(rect)
-        return height - rect.bottom
+        scrollState = state
+        onScrollStateChange?.invoke(state)
     }
 
     fun makeViewVisible(view: WView) {

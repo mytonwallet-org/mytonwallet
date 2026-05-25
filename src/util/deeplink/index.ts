@@ -591,21 +591,12 @@ async function processDappConnectorDeeplink(
     return false;
   }
 
-  const { openLoadingOverlay, closeLoadingOverlay } = getActions();
-
-  openLoadingOverlay();
-
+  // The wallet shows feedback via the request modal itself: connect/sign/send each open their skeleton on
+  // `dappLoading`, and an SSE wake speculatively opens the Send skeleton while waiting for the request event.
   const returnUrl = await callApi(`${protocol}_handleDeepLink`,
     url,
     isFromInAppBrowser,
   );
-
-  // Workaround for long network connection initialization in the Capacitor version
-  if (returnUrl === 'empty') {
-    return true;
-  }
-
-  closeLoadingOverlay();
 
   if (returnUrl) {
     void openUrl(returnUrl, { isExternal: !isFromInAppBrowser });

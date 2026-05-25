@@ -7,6 +7,7 @@ import type { DialogAction, DialogType } from '../global/types';
 import { IS_CAPACITOR } from '../config';
 import renderText from '../global/helpers/renderText';
 import { pick } from '../util/iteratees';
+import { openUrl } from '../util/openUrl';
 
 import useFlag from '../hooks/useFlag';
 import useLang from '../hooks/useLang';
@@ -38,7 +39,7 @@ const Dialogs: FC<StateProps> = ({ dialogs }) => {
 
   const handleAction = useLastCallback(() => {
     if (buttons.confirm.action) {
-      void executeDialogAction(buttons.confirm.action);
+      void executeDialogAction(buttons.confirm.action, dialog);
     }
 
     if (isNativeDialog) {
@@ -119,7 +120,7 @@ export default memo(withGlobal(
   (global): StateProps => pick(global, ['dialogs']),
 )(Dialogs));
 
-async function executeDialogAction(action: DialogAction) {
+async function executeDialogAction(action: DialogAction, dialog: DialogType) {
   switch (action) {
     case 'openBluetoothSettings': {
       const { openSystemBluetoothSettings } = await import('../util/ledger');
@@ -132,6 +133,14 @@ async function executeDialogAction(action: DialogAction) {
       const { signOut } = getActions();
 
       signOut({ level: 'all' });
+      break;
+    }
+
+    case 'openReturnUrl': {
+      getActions().closeLoadingOverlay();
+      // Close the wake placeholder skeleton (if any) when returning to the dapp.
+      getActions().closeDappTransfer();
+      void openUrl(dialog.entities!.url, { isExternal: true });
       break;
     }
   }

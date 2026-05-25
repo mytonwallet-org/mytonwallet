@@ -508,29 +508,30 @@ class JSWebViewBridge(context: Context) : WebView(context) {
 
                 "nftReceived" -> {
                     val accountId = objectJSONObject.optString("accountId")
+                    val nft = objectJSONObject
+                        .optJSONObject("nft")
+                        ?.let(ApiNft::fromJson)
+                        ?: return
                     ensureMainThread {
                         NftStore.checkCardNftOwnership(accountId)
+                        NftStore.applyIncomingMtwCard(accountId, nft)
                         if (AccountStore.activeAccount?.accountId != accountId) {
                             return@ensureMainThread
                         }
-                        NftStore.add(
-                            accountId,
-                            ApiNft.fromJson(objectJSONObject.optJSONObject("nft")!!)!!
-                        )
+                        NftStore.add(accountId, nft)
                     }
                 }
 
                 "nftSent" -> {
                     val accountId = objectJSONObject.optString("accountId")
+                    val nftAddress = objectJSONObject.optString("nftAddress")
                     ensureMainThread {
                         NftStore.checkCardNftOwnership(accountId)
+                        NftStore.pruneOwnedMtwCardAddress(accountId, nftAddress)
                         if (AccountStore.activeAccount?.accountId != accountId) {
                             return@ensureMainThread
                         }
-                        NftStore.removeByAddress(
-                            accountId,
-                            objectJSONObject.optString("nftAddress")
-                        )
+                        NftStore.removeByAddress(accountId, nftAddress)
                     }
                 }
 

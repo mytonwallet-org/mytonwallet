@@ -258,7 +258,7 @@ func makeNftCollectionMenuConfig(
             items.append(
                 .action(
                     ContextMenuAction(
-                        title: lang("Hide tab"),
+                        title: lang("Hide Tab"),
                         icon: .system("pin.slash"),
                         handler: onHide
                     )

@@ -17,8 +17,31 @@ import {
 
 addActionHandler('apiUpdate', (global, actions, update) => {
   switch (update.type) {
-    case 'tonConnectOnline': {
-      actions.closeLoadingOverlay();
+    case 'dappAlreadyConnected': {
+      const { url } = update;
+      actions.showDialog({
+        title: 'Already Connected',
+        message: 'Return to the dapp to proceed, or reconnect.',
+        buttons: {
+          confirm: { title: 'OK', action: url ? 'openReturnUrl' : undefined },
+          ...(url && { cancel: { title: 'Cancel' } }),
+        },
+        ...(url && { entities: { url } }),
+      });
+      break;
+    }
+
+    case 'dappDisconnected': {
+      const { url } = update;
+      actions.showDialog({
+        title: 'Dapp Disconnected',
+        message: 'Please reconnect your wallet from the dapp.',
+        buttons: {
+          confirm: { title: 'OK', action: url ? 'openReturnUrl' : undefined },
+          ...(url && { cancel: { title: 'Cancel' } }),
+        },
+        ...(url && { entities: { url } }),
+      });
       break;
     }
 

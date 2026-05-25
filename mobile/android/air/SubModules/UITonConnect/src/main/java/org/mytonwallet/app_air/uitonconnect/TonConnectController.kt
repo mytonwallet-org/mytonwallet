@@ -1,8 +1,11 @@
 package org.mytonwallet.app_air.uitonconnect
 
+import android.content.Intent
+import android.net.Uri
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.showAlert
+import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uitonconnect.viewControllers.connect.TonConnectRequestConnectVC
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSend.TonConnectRequestSendVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -49,9 +52,15 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
         when (update) {
             is ApiUpdate.ApiUpdateDappConnect -> {
                 window.doOnWalletReady {
-                    val loadingVC = loadingConnectRequestViewController?.get()
-                    if (loadingVC?.isDisappeared == false) {
-                        loadingVC.setDappUpdate(update)
+                    // Reuse a connect modal that's already shown (e.g. a connect deeplink tapped twice) so a
+                    // second request replaces the first in place instead of stacking a new sheet.
+                    val existingVC = loadingConnectRequestViewController?.get()?.takeIf { !it.isDisappeared }
+                        ?: window.navigationControllers
+                            .flatMap { it.viewControllers }
+                            .lastOrNull { it is TonConnectRequestConnectVC && !it.isDisappeared }
+                                as? TonConnectRequestConnectVC
+                    if (existingVC != null) {
+                        existingVC.setDappUpdate(update)
                         loadingConnectRequestViewController = null
                     } else {
                         val navVC = WNavigationController(
@@ -116,6 +125,28 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
                 }
             }
 
+            is ApiUpdate.ApiUpdateDappAlreadyConnected -> {
+                val url = update.url
+                window.topViewController?.showAlert(
+                    title = LocaleController.getString("Already Connected"),
+                    text = LocaleController.getString("Return to the dapp to proceed, or reconnect."),
+                    button = LocaleController.getString("OK"),
+                    buttonPressed = { url?.let { openExternalUri(Uri.parse(it)) } },
+                    secondaryButton = if (url != null) LocaleController.getString("Cancel") else null
+                )
+            }
+
+            is ApiUpdate.ApiUpdateDappDisconnected -> {
+                val url = update.url
+                window.topViewController?.showAlert(
+                    title = LocaleController.getString("Dapp Disconnected"),
+                    text = LocaleController.getString("Please reconnect your wallet from the dapp."),
+                    button = LocaleController.getString("OK"),
+                    buttonPressed = { url?.let { openExternalUri(Uri.parse(it)) } },
+                    secondaryButton = if (url != null) LocaleController.getString("Cancel") else null
+                )
+            }
+
             else -> {}
         }
     }
@@ -124,6 +155,8 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
         WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateDappConnect::class.java, this)
         WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateDappSendTransactions::class.java, this)
         WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateDappSignData::class.java, this)
+        WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateDappAlreadyConnected::class.java, this)
+        WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateDappDisconnected::class.java, this)
     }
 
     fun onDestroy() {
@@ -136,5 +169,17 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
             ApiUpdate.ApiUpdateDappSignData::class.java,
             this
         )
+        WalletCore.unsubscribeFromApiUpdates(
+            ApiUpdate.ApiUpdateDappAlreadyConnected::class.java,
+            this
+        )
+        WalletCore.unsubscribeFromApiUpdates(
+            ApiUpdate.ApiUpdateDappDisconnected::class.java,
+            this
+        )
+    }
+
+    private fun openExternalUri(uri: Uri) {
+        window.startActivityCatching(Intent(Intent.ACTION_VIEW, uri))
     }
 }

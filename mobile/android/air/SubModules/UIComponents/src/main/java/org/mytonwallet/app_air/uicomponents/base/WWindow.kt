@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.uicomponents.base
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -32,6 +31,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.children
 import androidx.core.view.doOnLayout
 import androidx.core.view.isGone
+import com.facebook.drawee.backends.pipeline.Fresco
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
@@ -216,6 +216,14 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             navigationControllers.lastOrNull()?.viewWillAppear()
             navigationControllers.lastOrNull()?.viewDidAppear()
             WalletCore.notifyEvent(WalletEvent.AppForeground)
+        }
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+
+        if (level >= TRIM_MEMORY_BACKGROUND) {
+            Fresco.getImagePipeline().clearMemoryCaches()
         }
     }
 

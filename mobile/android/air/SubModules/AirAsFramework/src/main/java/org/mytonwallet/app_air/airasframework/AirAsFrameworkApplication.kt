@@ -7,6 +7,7 @@ import android.os.Build
 import android.view.ViewGroup
 import com.facebook.drawee.backends.pipeline.Fresco
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
+import org.mytonwallet.app_air.uicomponents.helpers.palette.ImagePaletteHelpers
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -24,6 +25,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.util.Date
 
@@ -136,6 +138,10 @@ class AirAsFrameworkApplication {
                 Logger.LogTag.AIR_APPLICATION,
                 "TokenStore.loadFromCache: ${System.currentTimeMillis() - t}ms"
             )
+
+            NftStore.init(paletteExtractor = { nft, onResult ->
+                ImagePaletteHelpers.extractPaletteFromNft(nft, onResult)
+            })
 
             t = System.currentTimeMillis()
             ValueAnimator.setFrameDelay(8)

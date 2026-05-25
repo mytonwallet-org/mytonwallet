@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.R
@@ -36,6 +37,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import java.lang.ref.WeakReference
 import kotlin.math.max
 
 class AppearanceVC(context: Context) : WViewController(context), WalletCore.EventObserver {
@@ -73,12 +75,14 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
     private val appPaletteView: AppearancePaletteAndCardView by lazy {
         AppearancePaletteAndCardView(context).apply {
             onCustomizePressed = {
-                navigationController?.push(
-                    WalletCustomizationVC(
-                        context,
-                        AccountStore.activeAccountId!!
+                AccountStore.activeAccountId?.let { accountId ->
+                    navigationController?.push(
+                        WalletCustomizationVC(
+                            context,
+                            accountId
+                        )
                     )
-                )
+                }
             }
             configure(AccountStore.activeAccount)
         }
@@ -301,17 +305,16 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         v
     }
 
-    private val scrollView: ScrollView by lazy {
-        ScrollView(context).apply {
-            id = generateViewId()
+    private val scrollView: WScrollView by lazy {
+        WScrollView(WeakReference(this)).apply {
             isVerticalScrollBarEnabled = false
             addView(scrollingContentView, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                setOnScrollChangeListener { _, _, scrollY, _, _ ->
-                    updateBlurViews(scrollView = this, computedOffset = scrollY)
-                }
+            onScrollStateChange = {
+                updateBlurViews(scrollView = this)
             }
-            overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
+            setOnScrollChangeListener { _, _, _, _, _ ->
+                updateBlurViews(scrollView = this)
+            }
             setPadding(
                 ViewConstants.HORIZONTAL_PADDINGS.dp,
                 0,
@@ -336,11 +339,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
 
         updateTheme()
         WalletCore.registerObserver(this)
-    }
-
-    override fun viewDidAppear() {
-        super.viewDidAppear()
-        updateBlurViews(scrollView, 0)
     }
 
     override fun updateTheme() {

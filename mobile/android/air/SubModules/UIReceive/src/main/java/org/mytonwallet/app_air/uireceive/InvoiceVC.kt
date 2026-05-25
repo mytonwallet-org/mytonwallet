@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorVC
 import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
@@ -51,6 +52,7 @@ import org.mytonwallet.app_air.walletcore.helpers.TokenEquivalent
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import java.lang.ref.WeakReference
 import java.math.BigDecimal
 import java.math.BigInteger
 import kotlin.math.max
@@ -135,20 +137,19 @@ class InvoiceVC(context: Context) : WViewController(context) {
     }
 
     private val scrollView by lazy {
-        ScrollView(context).apply {
+        WScrollView(WeakReference(this)).apply {
             addView(
                 contentLayout,
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             )
             id = View.generateViewId()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                setOnScrollChangeListener { _, _, scrollY, _, _ ->
-                    updateBlurViews(scrollView = this, computedOffset = scrollY)
-                }
+            onScrollStateChange = {
+                updateBlurViews(scrollView = this@apply)
             }
-            overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
+            setOnScrollChangeListener { _, _, _, _, _ ->
+                updateBlurViews(scrollView = this@apply)
+            }
             clipToPadding = false
-            isVerticalScrollBarEnabled = false
         }
     }
 

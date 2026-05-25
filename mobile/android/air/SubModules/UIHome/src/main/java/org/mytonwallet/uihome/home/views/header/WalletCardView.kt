@@ -63,7 +63,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSens
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.PortfolioVC
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations
-import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
@@ -98,6 +97,7 @@ import java.math.BigInteger
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.roundToInt
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 
 @SuppressLint("ViewConstructor")
 class WalletCardView(
@@ -107,7 +107,6 @@ class WalletCardView(
     companion object {
         const val EXPANDED_RADIUS = 26
         const val COLLAPSED_RADIUS = 4.5f
-        private const val RATIO = 208 / 358f
     }
 
     var isInGoneState = false
@@ -269,8 +268,7 @@ class WalletCardView(
             val url = context.getString(BaseR.string.app_portfolio_url)
             if (url.isNotEmpty()) WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
         }
-        // keep limited visibility for now
-        lbl.setOnLongHoldListener(10_000L) {
+        lbl.setOnLongHoldListener(5_000L) {
             if (mode == HomeHeaderView.Mode.Collapsed) return@setOnLongHoldListener
             val tabNav = window.navigationControllers.last().tabBarController?.navigationController
             if (tabNav != null) {

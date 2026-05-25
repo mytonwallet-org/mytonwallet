@@ -94,6 +94,9 @@ class WCoverFlowView @JvmOverloads constructor(
     private var onCoverSelectedListener: ((Int) -> Unit)? = null
     private var onScrollStateChangeListener: ((ScrollState) -> Unit)? = null
 
+    private val pendingDataSources =
+        mutableListOf<DataSource<CloseableReference<CloseableImage>>>()
+
     init {
         createPlaceholderDrawable()
         createNoImageDrawable()
@@ -113,6 +116,12 @@ class WCoverFlowView @JvmOverloads constructor(
     fun onDestroy() {
         onCoverSelectedListener = null
         onScrollStateChangeListener = null
+        cancelPendingLoads()
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        cancelPendingLoads()
     }
 
     private fun createPlaceholderDrawable() {
@@ -201,7 +210,14 @@ class WCoverFlowView @JvmOverloads constructor(
         }
     }
 
+    private fun cancelPendingLoads() {
+        val sources = pendingDataSources.toList()
+        pendingDataSources.clear()
+        sources.forEach { it.close() }
+    }
+
     private fun loadCoverImages() {
+        cancelPendingLoads()
         covers.forEachIndexed { index, cover ->
             when {
                 cover.imageUrl != null -> loadImageFromUrl(cover.imageUrl, index)
@@ -224,10 +240,14 @@ class WCoverFlowView @JvmOverloads constructor(
 
         val imagePipeline = Fresco.getImagePipeline()
         val dataSource = imagePipeline.fetchDecodedImage(imageRequest, this)
+        pendingDataSources.add(dataSource)
 
         dataSource.subscribe(object : DataSubscriber<CloseableReference<CloseableImage>> {
             override fun onNewResult(dataSource: DataSource<CloseableReference<CloseableImage>>) {
                 if (!dataSource.isFinished) {
+                    return
+                }
+                if (!pendingDataSources.remove(dataSource)) {
                     return
                 }
 
@@ -255,6 +275,9 @@ class WCoverFlowView @JvmOverloads constructor(
             }
 
             override fun onFailure(dataSource: DataSource<CloseableReference<CloseableImage>>) {
+                if (!pendingDataSources.remove(dataSource)) {
+                    return
+                }
                 post {
                     val cover = covers.getOrNull(index)
                     coverDrawables[index] = cover?.let {
@@ -265,7 +288,7 @@ class WCoverFlowView @JvmOverloads constructor(
             }
 
             override fun onCancellation(dataSource: DataSource<CloseableReference<CloseableImage>>) {
-                // Handle cancellation if needed
+                pendingDataSources.remove(dataSource)
             }
 
             override fun onProgressUpdate(dataSource: DataSource<CloseableReference<CloseableImage>>) {

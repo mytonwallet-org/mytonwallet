@@ -64,7 +64,7 @@ export type AnimationLevel = 0 | 1 | 2;
 export type Theme = 'light' | 'dark' | 'system';
 export type AppTheme = 'dark' | 'light';
 export type AppLayout = 'portrait' | 'landscape';
-export type DialogAction = 'openBluetoothSettings' | 'signOutAll';
+export type DialogAction = 'openBluetoothSettings' | 'signOutAll' | 'openReturnUrl';
 export type ToastAction = 'openRenameWallet';
 
 export type DeveloperSettingsUndefinedOverride = '__undefined';
@@ -743,6 +743,9 @@ export type GlobalState = {
   currentDappTransfer: {
     state: TransferState;
     isSse?: boolean;
+    // Set while this is a placeholder modal opened by a wake deeplink (no request yet)
+    isWaitingForRequest?: boolean;
+    returnUrl?: string;
     promiseId?: string;
     isLoading?: boolean;
     transactions?: ApiDappTransfer[];

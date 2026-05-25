@@ -4,17 +4,26 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.core.view.isGone
+import androidx.core.view.isVisible
+import androidx.core.widget.doOnTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.commonViews.WEmptyIconTitleSubtitleView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.cells.TokenSelectorCell
+import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -84,19 +93,52 @@ class SendTokenVC(
         rv
     }
 
+    private val emptyView: WEmptyIconTitleSubtitleView by lazy {
+        WEmptyIconTitleSubtitleView(
+            context,
+            animation = R.raw.animation_empty,
+            title = LocaleController.getString("No tokens yet"),
+            subtitle = "",
+        ).apply {
+            isGone = true
+        }
+    }
+
+    private val searchContainer = WFrameLayout(context)
+    private val searchEditText = SwapSearchEditText(context)
+    private var query: String? = null
+
     override fun setupViews() {
         super.setupViews()
 
         WalletCore.registerObserver(this)
         buildTokenItems()
-        setNavTitle(LocaleController.getString("Currency"))
+        setNavTitle(LocaleController.getString("Select Token"))
         setupNavBar(true)
 
+        searchEditText.isSearchIconFixed = true
+        searchEditText.hint = LocaleController.getString("Search...")
+        searchContainer.addView(searchEditText, ViewGroup.LayoutParams(MATCH_PARENT, 48.dp))
+        searchContainer.setPadding(10.dp, 0, 10.dp, 8.dp)
+
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
+        view.addView(emptyView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        navigationBar?.addBottomView(searchContainer, 56.dp)
+
+        searchEditText.doOnTextChanged { text, _, _, _ ->
+            query = text?.toString()
+            buildTokenItems()
+        }
+
         view.setConstraints {
+            topToBottom(searchContainer, navigationBar!!)
+            toCenterX(searchContainer)
+
             toCenterX(recyclerView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
             toTop(recyclerView)
             toBottom(recyclerView)
+            toCenterX(emptyView, 32f)
+            toCenterY(emptyView)
         }
 
         updateTheme()
@@ -107,18 +149,20 @@ class SendTokenVC(
         super.updateTheme()
 
         view.setBackgroundColor(WColor.SecondaryBackground.color)
+        searchEditText.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
     }
 
     override fun insetsUpdated() {
         super.insetsUpdated()
 
         val ime = (window?.imeInsets?.bottom ?: 0)
-        val nav = (navigationController?.getSystemBars()?.bottom ?: 0)
+        val nav = (navigationController?.bottomInset ?: 0)
 
         recyclerView.setPadding(
             0,
             (navigationController?.getSystemBars()?.top ?: 0) +
-                WNavigationBar.DEFAULT_HEIGHT.dp,
+                WNavigationBar.DEFAULT_HEIGHT.dp +
+                56.dp,
             0,
             max(0, nav - ime)
         )
@@ -207,19 +251,26 @@ class SendTokenVC(
 
 
     private fun buildTokenItems() {
-        val balances = AccountStore.assetsAndActivityData.getAllTokens(ignorePriorities = true)
+        val balances = AccountStore.assetsAndActivityData.getAllTokens()
+        val search = query?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
 
         val filteredBalances = balances.filter { balance ->
-            if (balance.amountValue == BigInteger.ZERO) return@filter false
             val token = TokenStore.getToken(balance.token) ?: return@filter false
-            selectedChain == null || token.chain == selectedChain.name
+            if (selectedChain != null && token.chain != selectedChain.name) return@filter false
+            if (search != null) {
+                val isName = token.name?.lowercase()?.contains(search) == true
+                val isSymbol = token.symbol?.lowercase()?.contains(search) == true
+                val isKeyword = token.keywords?.any { it.lowercase().contains(search) } == true
+                if (!isName && !isSymbol && !isKeyword) return@filter false
+            }
+            true
         }
 
         val newSections = mutableMapOf<Int, SectionData>()
 
         // My tokens section (with balance)
         newSections[SECTION_MY] = SectionData(
-            title = LocaleController.getString("Choose Currency to Send"),
+            title = LocaleController.getString("Select Token to Send"),
             tokens = filteredBalances
         )
 
@@ -231,6 +282,15 @@ class SendTokenVC(
 
         sections = newSections
         rvAdapter.reloadData()
+
+        val isEmpty = filteredBalances.isEmpty()
+        emptyView.setTitle(
+            LocaleController.getString(
+                if (search != null) "Token Not Found" else "No tokens yet"
+            )
+        )
+        emptyView.isVisible = isEmpty
+        recyclerView.isGone = isEmpty
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
