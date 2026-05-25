@@ -34,7 +34,7 @@ import WalletContext
     static func showHiddenNfts(accountSource: AccountSource) -> ()
     static func showHome(popToRoot: Bool)
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String)
-    static func showNft(accountContext: AccountContext, nft: ApiNft)
+    static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool)
     static func showNftByAddress(_ nftAddress: String)
     static func showPromotion(_ promotion: ApiPromotion)
     static func showPortfolio(accountContext: AccountContext)
@@ -110,7 +110,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showHiddenNfts(accountSource: AccountSource) -> () { }
     static func showHome(popToRoot: Bool) { }
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) { }
-    static func showNft(accountContext: AccountContext, nft: ApiNft) { }
+    static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool) { }
     static func showNftByAddress(_ nftAddress: String) { }
     static func showPromotion(_ promotion: ApiPromotion) { }
     static func showPortfolio(accountContext: AccountContext) { }

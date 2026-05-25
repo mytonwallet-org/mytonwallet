@@ -7,5 +7,7 @@ extension ApiUpdate {
         public var connectionType: ApiDappConnectionType
         public var isSse: Bool?
         public var accountId: String?
+        public var isWaitingForRequest: Bool?
+        public var returnUrl: String?
     }
 }

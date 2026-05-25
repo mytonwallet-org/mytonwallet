@@ -13,6 +13,7 @@ public final class AccountAssetsAndActivityData: Sendable {
     public final class State: Sendable {
         private let _data: UnfairLock<MAssetsAndActivityData?> = .init(initialState: nil)
         private let _didAutoPinStaking: UnfairLock<Bool> = .init(initialState: false)
+        private let _ownedMtwCardAddresses: UnfairLock<[String]> = .init(initialState: [])
 
         nonisolated init() {}
 
@@ -26,12 +27,24 @@ public final class AccountAssetsAndActivityData: Sendable {
             return _didAutoPinStaking.withLock { $0 }
         }
 
-        fileprivate func replace(data: MAssetsAndActivityData?, didAutoPinStaking: Bool) {
+        public var ownedMtwCardAddresses: [String] {
+            access(keyPath: \._ownedMtwCardAddresses)
+            return _ownedMtwCardAddresses.withLock { $0 }
+        }
+
+        fileprivate func replace(
+            data: MAssetsAndActivityData?,
+            didAutoPinStaking: Bool,
+            ownedMtwCardAddresses: [String]
+        ) {
             withMutation(keyPath: \._data) {
                 _data.withLock { $0 = data }
             }
             withMutation(keyPath: \._didAutoPinStaking) {
                 _didAutoPinStaking.withLock { $0 = didAutoPinStaking }
+            }
+            withMutation(keyPath: \._ownedMtwCardAddresses) {
+                _ownedMtwCardAddresses.withLock { $0 = ownedMtwCardAddresses }
             }
         }
     }
@@ -51,8 +64,16 @@ public final class AccountAssetsAndActivityData: Sendable {
         state.didAutoPinStaking
     }
 
-    func replace(data: MAssetsAndActivityData?, didAutoPinStaking: Bool) {
-        state.replace(data: data, didAutoPinStaking: didAutoPinStaking)
+    public var ownedMtwCardAddresses: [String] {
+        state.ownedMtwCardAddresses
+    }
+
+    func replace(data: MAssetsAndActivityData?, didAutoPinStaking: Bool, ownedMtwCardAddresses: [String]) {
+        state.replace(
+            data: data,
+            didAutoPinStaking: didAutoPinStaking,
+            ownedMtwCardAddresses: ownedMtwCardAddresses
+        )
     }
 }
 
@@ -76,6 +97,10 @@ public actor _AssetsAndActivityDataStore: WalletCoreData.EventsObserver {
         self.for(accountId: accountId).didAutoPinStaking
     }
 
+    public nonisolated func ownedMtwCardAddresses(accountId: String) -> [String] {
+        self.for(accountId: accountId).ownedMtwCardAddresses
+    }
+
     public func use(db: any DatabaseWriter) {
         self.db = db
         loadFromDb()
@@ -94,6 +119,27 @@ public actor _AssetsAndActivityDataStore: WalletCoreData.EventsObserver {
         Task { await self._autoPinStakingIfNeeded(accountId: accountId, slugs: slugs) }
     }
 
+    public func addOwnedMtwCardAddressIfNeeded(accountId: String, address: String) -> Bool {
+        let current = ownedMtwCardAddresses(accountId: accountId)
+        guard !current.contains(address) else {
+            return false
+        }
+        persistOwnedMtwCardAddresses(accountId: accountId, addresses: current + [address])
+        return true
+    }
+
+    public func setOwnedMtwCardAddresses(accountId: String, addresses: [String]) {
+        persistOwnedMtwCardAddresses(accountId: accountId, addresses: unique(addresses))
+    }
+
+    public func pruneOwnedMtwCardAddress(accountId: String, address: String) {
+        let current = ownedMtwCardAddresses(accountId: accountId)
+        guard current.contains(address) else {
+            return
+        }
+        persistOwnedMtwCardAddresses(accountId: accountId, addresses: current.filter { $0 != address })
+    }
+
     @MainActor public func walletCore(event: WalletCoreData.Event) {
         Task {
             await handleEvent(event)
@@ -103,7 +149,11 @@ public actor _AssetsAndActivityDataStore: WalletCoreData.EventsObserver {
     private func handleEvent(_ event: WalletCoreData.Event) {
         switch event {
         case .accountDeleted(let accountId):
-            byAccountId.existing(accountId: accountId)?.replace(data: nil, didAutoPinStaking: false)
+            byAccountId.existing(accountId: accountId)?.replace(
+                data: nil,
+                didAutoPinStaking: false,
+                ownedMtwCardAddresses: []
+            )
             byAccountId.remove(accountId: accountId)
         case .accountsReset:
             clean()
@@ -116,7 +166,12 @@ public actor _AssetsAndActivityDataStore: WalletCoreData.EventsObserver {
         let context = byAccountId.for(accountId: accountId)
         var next = context.data ?? .empty
         update(&next)
-        persist(accountId: accountId, data: next, didAutoPinStaking: context.didAutoPinStaking)
+        persist(
+            accountId: accountId,
+            data: next,
+            didAutoPinStaking: context.didAutoPinStaking,
+            ownedMtwCardAddresses: context.ownedMtwCardAddresses
+        )
     }
 
     private func _autoPinStakingIfNeeded(accountId: String, slugs: [String]) {
@@ -125,29 +180,64 @@ public actor _AssetsAndActivityDataStore: WalletCoreData.EventsObserver {
         guard !context.didAutoPinStaking else { return }
         var next = context.data ?? .empty
         if next.hasPinnedTokens {
-            persist(accountId: accountId, data: next, didAutoPinStaking: true)
+            persist(
+                accountId: accountId,
+                data: next,
+                didAutoPinStaking: true,
+                ownedMtwCardAddresses: context.ownedMtwCardAddresses
+            )
             return
         }
         for slug in slugs {
             next.saveTokenPinning(slug: slug, isStaking: true, isPinned: true)
         }
-        persist(accountId: accountId, data: next, didAutoPinStaking: true)
+        persist(
+            accountId: accountId,
+            data: next,
+            didAutoPinStaking: true,
+            ownedMtwCardAddresses: context.ownedMtwCardAddresses
+        )
     }
 
-    private func persist(accountId: String, data: MAssetsAndActivityData, didAutoPinStaking: Bool) {
+    private func persistOwnedMtwCardAddresses(accountId: String, addresses: [String]) {
+        let context = byAccountId.for(accountId: accountId)
+        persist(
+            accountId: accountId,
+            data: context.data ?? .empty,
+            didAutoPinStaking: context.didAutoPinStaking,
+            ownedMtwCardAddresses: addresses
+        )
+    }
+
+    private func persist(
+        accountId: String,
+        data: MAssetsAndActivityData,
+        didAutoPinStaking: Bool,
+        ownedMtwCardAddresses: [String]
+    ) {
         let context = byAccountId.for(accountId: accountId)
         let dataChanged = context.data != data
         let autoPinChanged = context.didAutoPinStaking != didAutoPinStaking
-        guard dataChanged || autoPinChanged else { return }
+        let ownedMtwCardsChanged = context.ownedMtwCardAddresses != ownedMtwCardAddresses
+        guard dataChanged || autoPinChanged || ownedMtwCardsChanged else { return }
 
-        context.replace(data: data, didAutoPinStaking: didAutoPinStaking)
+        context.replace(
+            data: data,
+            didAutoPinStaking: didAutoPinStaking,
+            ownedMtwCardAddresses: ownedMtwCardAddresses
+        )
 
         do {
             guard let db else {
                 assertionFailure("database not ready")
                 return
             }
-            let row = MAccountAssetsAndActivityData(accountId: accountId, data: data, didAutoPinStaking: didAutoPinStaking)
+            let row = MAccountAssetsAndActivityData(
+                accountId: accountId,
+                data: data,
+                didAutoPinStaking: didAutoPinStaking,
+                ownedMtwCardAddresses: ownedMtwCardAddresses
+            )
             try db.write { db in
                 try row.upsert(db)
             }
@@ -170,7 +260,11 @@ public actor _AssetsAndActivityDataStore: WalletCoreData.EventsObserver {
                 try MAccountAssetsAndActivityData.fetchAll(db)
             }
             for row in rows {
-                byAccountId.for(accountId: row.accountId).replace(data: row.data, didAutoPinStaking: row.didAutoPinStaking)
+                byAccountId.for(accountId: row.accountId).replace(
+                    data: row.data,
+                    didAutoPinStaking: row.didAutoPinStaking,
+                    ownedMtwCardAddresses: row.ownedMtwCardAddresses
+                )
             }
         } catch {
             log.error("initial load failed: \(error, .public)")

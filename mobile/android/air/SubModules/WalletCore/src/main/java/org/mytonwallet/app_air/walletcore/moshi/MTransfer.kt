@@ -280,7 +280,7 @@ enum class MApiAnyDisplayError {
                     INVALID_ADDRESS_FORMAT -> "Invalid address format. Only URL Safe Base64 format is allowed."
                     INACTIVE_CONTRACT -> "\$transfer_inactive_contract_error"
                     PARTIAL_TRANSACTION_FAILURE -> "Not all transactions were sent successfully"
-                    INCORRECT_DEVICE_TIME -> "The time on your device is incorrect, sync it and try again"
+                    INCORRECT_DEVICE_TIME -> "The time on your device is incorrect, sync it and try again."
                     UNSUCCESSFUL_TRANSFER -> "Transfer was unsuccessful. Try again later."
                     NOT_SUPPORTED_HARDWARE_OPERATION -> "\$ledger_outdated" // most likely
                     HARDWARE_BLIND_SIGNING_NOT_ENABLED -> "\$hardware_blind_sign_not_enabled"

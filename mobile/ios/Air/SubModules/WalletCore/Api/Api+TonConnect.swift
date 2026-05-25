@@ -77,7 +77,6 @@ public struct ApiSseConnectionParams: Encodable {
 public enum ReturnStrategy: Equatable, Hashable, Codable, Sendable {
     case none
     case back
-    case empty
     case url(String)
     
     init(string ret: String) {
@@ -86,8 +85,6 @@ public enum ReturnStrategy: Equatable, Hashable, Codable, Sendable {
             self = .back
         case "none":
             self = .none
-        case "empty":
-            self = .empty
         default:
             self = .url(ret.removingPercentEncoding ?? ret)
         }
@@ -106,8 +103,6 @@ public enum ReturnStrategy: Equatable, Hashable, Codable, Sendable {
             try container.encode("none")
         case .back:
             try container.encode("back")
-        case .empty:
-            try container.encode("empty")
         case .url(let url):
             try container.encode(url)
         }

@@ -3,7 +3,7 @@ const path = require('path');
 const yaml = require('js-yaml');
 
 const ROOT_DIR = path.resolve(__dirname, '../..');
-const AIR_I18N_DIR = path.resolve(ROOT_DIR, 'src/i18n/air');
+const I18N_DIR = path.resolve(ROOT_DIR, 'src/i18n');
 const APP_RES_DIR = path.resolve(ROOT_DIR, 'mobile/android/app/src/main/res');
 const APP_RES_SHARED_DIR = path.resolve(ROOT_DIR, 'mobile/android/app/src/main/res-shared');
 const AIR_APP_RES_DIR = path.resolve(ROOT_DIR, 'mobile/android/air/app/src/main/res');
@@ -168,15 +168,15 @@ function writeLocalesConfig(locales) {
 }
 
 function loadLocales() {
-  const localeFiles = fs.readdirSync(AIR_I18N_DIR)
+  const localeFiles = fs.readdirSync(I18N_DIR)
     .filter((fileName) => fileName.endsWith('.yaml') || fileName.endsWith('.yml'))
     .map((fileName) => ({
       locale: fileName.replace(/\.(yaml|yml)$/i, ''),
-      filePath: path.resolve(AIR_I18N_DIR, fileName),
+      filePath: path.resolve(I18N_DIR, fileName),
     }));
 
   if (!localeFiles.length) {
-    throw new Error(`No locale files found in ${AIR_I18N_DIR}`);
+    throw new Error(`No locale files found in ${I18N_DIR}`);
   }
 
   const perLocale = {};

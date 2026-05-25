@@ -340,12 +340,34 @@ async function apiUpdateDappOperation(
   setGlobal(global);
 }
 
-addActionHandler('apiUpdateDappLoading', (global, actions, { connectionType, isSse, accountId }) => {
+// Clears the placeholder transfer modal (opened by a wake deeplink, no request yet) so a `signData`/`connect`
+// event can supersede it.
+function clearPlaceholderDappTransfer(global: GlobalState): GlobalState {
+  const transfer = global.currentDappTransfer;
+  if (transfer.state === TransferState.Initial && transfer.isWaitingForRequest && !transfer.promiseId) {
+    return clearCurrentDappTransfer(global);
+  }
+  return global;
+}
+
+addActionHandler('apiUpdateDappLoading', (global, actions, {
+  connectionType, isSse, accountId, isWaitingForRequest, returnUrl,
+}) => {
+  // If the SSE event already opened a request modal (event arrived before the wake deeplink), ignore the placeholder.
+  if (isWaitingForRequest && (
+    global.currentDappTransfer.state !== TransferState.None
+    || global.currentDappSignData.state !== SignDataState.None
+    || global.dappConnectRequest?.state !== undefined
+  )) {
+    return;
+  }
+
   if (accountId) {
     actions.switchAccount({ accountId });
   }
 
   if (connectionType === 'connect') {
+    global = clearPlaceholderDappTransfer(global);
     global = updateDappConnectRequest(global, {
       state: DappConnectState.Info,
       isSse,
@@ -354,8 +376,11 @@ addActionHandler('apiUpdateDappLoading', (global, actions, { connectionType, isS
     global = updateCurrentDappTransfer(global, {
       state: TransferState.Initial,
       isSse,
+      isWaitingForRequest,
+      returnUrl,
     });
   } else if (connectionType === 'signData') {
+    global = clearPlaceholderDappTransfer(global);
     global = updateCurrentDappSignData(global, {
       state: SignDataState.Initial,
       isSse,

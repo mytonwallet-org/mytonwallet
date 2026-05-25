@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WSwitch
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
@@ -41,6 +42,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import java.lang.ref.WeakReference
 
 class SecurityVC(context: Context, private var currentPasscode: String) : WViewController(context) {
     override val TAG = "Security"
@@ -279,15 +281,14 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         v
     }
 
-    private val scrollView: ScrollView by lazy {
-        ScrollView(context).apply {
-            id = generateViewId()
-            isVerticalScrollBarEnabled = false
+    private val scrollView: WScrollView by lazy {
+        WScrollView(WeakReference(this)).apply {
             addView(scrollingContentView, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                setOnScrollChangeListener { _, _, scrollY, _, _ ->
-                    updateBlurViews(scrollView = this, computedOffset = scrollY)
-                }
+            onScrollStateChange = {
+                updateBlurViews(scrollView = this)
+            }
+            setOnScrollChangeListener { _, _, _, _, _ ->
+                updateBlurViews(scrollView = this)
             }
             overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
         }
@@ -307,11 +308,6 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         }
 
         updateTheme()
-    }
-
-    override fun viewDidAppear() {
-        super.viewDidAppear()
-        updateBlurViews(scrollView, 0)
     }
 
     override fun updateTheme() {

@@ -589,7 +589,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                 if inSelectionMode {
                     toggleSelection(nftId: nftId)
                 } else {
-                    let assetVC = NftDetailsVC(accountId: account.id, nft: nft, listContext: filter)
+                    let assetVC = NftDetailsVC(accountId: account.id, nft: nft, filter: filter)
                     navigationController?.pushViewController(assetVC, animated: true)
                 }
             }
@@ -633,7 +633,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
         do {
             var items: [UIMenuElement] = []
             items += UIAction(title: lang("Details"), image: UIImage(systemName: "info.circle")) { [filter] _ in
-                let assetVC = NftDetailsVC(accountId: accountId, nft: nft, listContext: filter)
+                let assetVC = NftDetailsVC(accountId: accountId, nft: nft, filter: filter)
                 self.navigationController?.pushViewController(assetVC, animated: true)
             }
             detailsSection = UIMenu(title: "", options: .displayInline, children: items)

@@ -71,7 +71,6 @@ data class MAssetsAndActivityData(
 
     fun getAllTokens(
         shouldSort: Boolean = true,
-        ignorePriorities: Boolean = false,
         addVirtualStakingTokens: Boolean = false,
     ): Array<MTokenBalance> {
         val tokensArray =
@@ -154,7 +153,7 @@ data class MAssetsAndActivityData(
                 return@sortedWith 1
             }
 
-            return@sortedWith left.compareByDisplayOrder(right, ignorePriorities)
+            return@sortedWith left.compareByDisplayOrder(right, account?.isNew != true)
         }
 
         return result.toTypedArray()

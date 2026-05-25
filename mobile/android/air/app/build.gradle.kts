@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "org.mytonwallet.app"
-        minSdk = 23
+        minSdk = 24
         targetSdk = 34
         versionCode = 17
         versionName = "0.7.0"

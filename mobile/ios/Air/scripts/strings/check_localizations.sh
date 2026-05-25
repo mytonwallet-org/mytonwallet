@@ -10,7 +10,6 @@ SCRIPT_PATH="$SCRIPT_DIR/check_localization_completeness.py"
 # Base paths (adjust these if your project structure is different)
 BASE_DIR="/Users/nikstar/Developer/mytonwallet-dev"
 MAIN_I18N_DIR="$BASE_DIR/src/i18n"
-AIR_I18N_DIR="$BASE_DIR/src/i18n/air"
 
 # Colors for output
 RED='\033[0;31m'
@@ -64,17 +63,6 @@ if [ -d "$MAIN_I18N_DIR" ]; then
     # Add more languages here as they become available
     # check_localization "$MAIN_I18N_DIR/en.yaml" "$MAIN_I18N_DIR/de.yaml" "German (main)"
     # check_localization "$MAIN_I18N_DIR/en.yaml" "$MAIN_I18N_DIR/fr.yaml" "French (main)"
-fi
-
-# Check air localizations
-if [ -d "$AIR_I18N_DIR" ]; then
-    echo "✈️  Checking air localizations..."
-    echo
-
-    # Check Russian (air)
-    if [ -f "$AIR_I18N_DIR/ru.yaml" ]; then
-        check_localization "$AIR_I18N_DIR/en.yaml" "$AIR_I18N_DIR/ru.yaml" "Russian (air)"
-    fi
 fi
 
 echo "🎯 All localization checks completed!"

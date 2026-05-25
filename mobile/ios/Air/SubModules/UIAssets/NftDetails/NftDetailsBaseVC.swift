@@ -36,11 +36,11 @@ public class NftDetailsBaseVC: UIViewController {
     
     private var state: State
 
-    init(nfts: [NftDetailsItem], selectedIndex: Int) {
+    init(nfts: [NftDetailsItem], selectedIndex: Int, initiallyExpanded: Bool) {
         self.manager = NftDetailsManager(items: nfts)
         self.selectedModel = manager.models[selectedIndex]
         self.state = State(
-            isExpanded: false,
+            isExpanded: initiallyExpanded,
             pageTransition: .staticPage(selectedModel),
             isPreviewHidden: true
         )
@@ -69,7 +69,6 @@ public class NftDetailsBaseVC: UIViewController {
     private func configureNavigationItems() {
         if isModalRoot {
             navigationItem.hidesBackButton = true
-            // Close button exits full-screen preview if active, otherwise dismisses.
             if navigationItem.rightBarButtonItem == nil {
                 navigationItem.rightBarButtonItem = UIBarButtonItem(
                     systemItem: .close,
@@ -241,6 +240,10 @@ public class NftDetailsBaseVC: UIViewController {
         let collapsedHeight = 165.0
         installOrUpdateHeader(pageWidth: pageWidth, collapsedHeight: collapsedHeight)
         installOrUpdatePager(pageWidth: pageWidth, collapsedHeight: collapsedHeight)
+
+        if let pager, state.isExpanded, !pager.isExpanded {
+            pager.simulateUserScrollToExpand(mainScrollView)
+        }
     }
     
     private func installOrUpdateHeader(pageWidth: CGFloat, collapsedHeight: CGFloat) {

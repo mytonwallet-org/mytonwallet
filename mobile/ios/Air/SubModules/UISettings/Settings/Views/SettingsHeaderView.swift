@@ -354,12 +354,10 @@ class SettingsHeaderView: WTouchPassView {
         let scrollRange = layoutGeometry.scrollRange
         let collapseProgress = max(0, min(1, scrollOffset / layoutGeometry.fullScrollRange))
         
-        UIView.animate(withDuration: 0.3) {
-            self.addressLabel.alpha = 1 - collapseProgress
-            let alpha = scrollOffset > self.layoutGeometry.fullScrollRange ? 1.0 : 0.0
-            self.separatorView.alpha = alpha
-            self.blurView.alpha = alpha
-        }
+        self.addressLabel.alpha = 1 - collapseProgress
+        let alpha = scrollOffset > self.layoutGeometry.fullScrollRange ? 1.0 : 0.0
+        self.separatorView.alpha = alpha
+        self.blurView.alpha = alpha
         
         let titleArea = horizontalSpace - layoutGeometry.titleHorMargin * 2
         let titleCollapsedArea = horizontalSpace - 2 * layoutGeometry.titleCollapsedHorMargin
@@ -389,12 +387,12 @@ class SettingsHeaderView: WTouchPassView {
     }
         
     private func applyUpdate(titlePosition: CGFloat, titleTransform: CGAffineTransform, addressTransform: CGAffineTransform) {
-        UIView.animate(withDuration: 0.12, delay: self.isCollapsed ? 0 : 0.12) {
+        UIView.animate(withDuration: 0.06, delay: self.isCollapsed ? 0 : 0.06) {
             self.smallTitleStack.alpha = self.isCollapsed ? 1 : 0
             self.largeTitleStack.alpha = self.isCollapsed ? 0 : 1
         }
         self.titleCenterYConstraint.constant = titlePosition
-        UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState]) {
+        UIView.animate(withDuration: 0.12, delay: 0, options: [.beginFromCurrentState]) {
             self.largeTitleStack.transform = titleTransform
             self.addressLabel.transform = addressTransform
             self.layoutIfNeeded()

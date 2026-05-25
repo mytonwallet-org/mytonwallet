@@ -5,14 +5,15 @@ import WalletCore
 import WalletContext
 
 public final class NftPreviewLarge: UIView {
-    
+
     private let imageView: UIImageView = .init()
     private var labelsStack: UIView = .init()
     private let nameLabel: UILabel = .init()
     private let collectionLabel: UILabel = .init()
     private var collectionConstraints: [NSLayoutConstraint] = []
     private var nft: ApiNft?
-    
+    private var accountContext: AccountContext?
+
     // Store constraints to activate/deactivate them
     private var collectionLabelTopSpacingConstraint: NSLayoutConstraint?
     private var collectionLabelBottomConstraint: NSLayoutConstraint?
@@ -22,23 +23,24 @@ public final class NftPreviewLarge: UIView {
         super.init(frame: .zero)
         setup()
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         layer.cornerRadius = 12
         layer.cornerCurve = .continuous
-        
+
         imageView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(imageView)
+        imageView.isUserInteractionEnabled = true
         imageView.contentMode = .scaleAspectFill
         imageView.layer.cornerRadius = 12
         imageView.layer.cornerCurve = .continuous
         imageView.layer.masksToBounds = true
-        
+
         NSLayoutConstraint.activate([
             imageView.heightAnchor.constraint(equalToConstant: 54),
             imageView.widthAnchor.constraint(equalToConstant: 54),
@@ -71,7 +73,7 @@ public final class NftPreviewLarge: UIView {
             nameLabel.leadingAnchor.constraint(equalTo: labelsStack.leadingAnchor),
             nameLabel.trailingAnchor.constraint(equalTo: labelsStack.trailingAnchor),
         ])
-        
+
         collectionLabelTopSpacingConstraint = collectionLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 1)
         collectionLabelBottomConstraint = collectionLabel.bottomAnchor.constraint(equalTo: labelsStack.bottomAnchor)
         nameLabelBottomConstraint = nameLabel.bottomAnchor.constraint(equalTo: labelsStack.bottomAnchor)
@@ -82,8 +84,27 @@ public final class NftPreviewLarge: UIView {
         ])
 
         updateTheme()
+
+        let cardTap = UITapGestureRecognizer(target: self, action: #selector(onTap))
+        let imageTap = UITapGestureRecognizer(target: self, action: #selector(onImageTap))
+        cardTap.require(toFail: imageTap)
+        addGestureRecognizer(cardTap)
+        imageView.addGestureRecognizer(imageTap)
     }
-    
+
+    @objc private func onTap() {
+        showNft(isExpanded: false)
+    }
+
+    @objc private func onImageTap() {
+        showNft(isExpanded: true)
+    }
+
+    private func showNft(isExpanded: Bool) {
+        guard let accountContext, let nft else { return }
+        AppActions.showNft(accountContext: accountContext, nft: nft, isExpanded: isExpanded)
+    }
+
     private func updateTheme() {
         backgroundColor = .air.activityNftFill
         imageView.backgroundColor = .air.secondaryFill
@@ -91,8 +112,11 @@ public final class NftPreviewLarge: UIView {
         collectionLabel.textColor = .air.secondaryLabel
     }
 
-    public func setNft(_ nft: ApiNft?) {
-        if self.nft == nft { return }
+    public func setNft(_ nft: ApiNft?, accountContext: AccountContext) {
+        self.accountContext = accountContext
+
+        guard self.nft != nft else { return }
+
         self.nft = nft
         if let image = nft?.thumbnail?.nilIfEmpty, let url = URL(string: image) {
             imageView.kf.setImage(
@@ -104,7 +128,7 @@ public final class NftPreviewLarge: UIView {
             imageView.image = nil
         }
         nameLabel.text = nft?.name ?? "NFT"
-        
+
         let hasSubtitle = nft?.collectionName?.nilIfEmpty != nil
 
         if hasSubtitle {

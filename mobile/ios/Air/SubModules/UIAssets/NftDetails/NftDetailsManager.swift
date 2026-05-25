@@ -183,7 +183,7 @@ final class NftDetailsManager {
         let bucket = WidthBucket(targetWidth)
         let modelId = model.id
         
-        let m = NftDetailsPerformance.beginMeasure("kf_load_from_cache", threshold: 10, tag: model.shortDescription)
+        let m = NftDetailsPerformance.beginMeasure("kf_load_from_cache", threshold: 40, tag: model.shortDescription)
         defer { NftDetailsPerformance.endMeasure(m) }
         
         let (hasColor, baseColor) = colorCache.color(forKey: modelId)

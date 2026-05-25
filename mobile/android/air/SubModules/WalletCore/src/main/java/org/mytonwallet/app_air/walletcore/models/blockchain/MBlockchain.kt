@@ -140,7 +140,6 @@ enum class MBlockchain(
     val feeCheckAddress get() = config?.feeCheckAddress
     val isCommentSupported get() = config?.isCommentSupported
     val isEncryptedCommentSupported get() = config?.isEncryptedCommentSupported
-    val isNetWorthSupported get() = config?.isNetWorthSupported == true
     val multiWalletSupport get() = config?.multiWalletSupport
 
     fun isValidAddress(address: String) =

@@ -12,6 +12,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioOverview
@@ -164,6 +165,9 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
         netChangePlaceholder to 4f.dp,
     )
 
+    fun crossFadeTargets(): List<View> =
+        listOf(dateRangeLabel, totalValueLabel, netChangeLabel, netPctLabel)
+
     fun render(overview: PortfolioOverview?, baseCurrency: MBaseCurrency?) {
         if (overview == null || baseCurrency == null) {
             dateRangeLabel.text = ""
@@ -190,17 +194,27 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
         }
     }
 
-    fun showPlaceholders() {
-        dateRangeLabel.text = ""
-        totalValueLabel.text = ""
-        netChangeLabel.text = ""
-        netPctLabel.visibility = GONE
-        datePlaceholder.alpha = 1f
-        totalValuePlaceholder.alpha = 1f
-        netChangePlaceholder.alpha = 1f
-        datePlaceholder.visibility = VISIBLE
-        totalValuePlaceholder.visibility = VISIBLE
-        netChangePlaceholder.visibility = VISIBLE
+    fun showPlaceholders(animated: Boolean = false) {
+        val clearText = {
+            dateRangeLabel.text = ""
+            totalValueLabel.text = ""
+            netChangeLabel.text = ""
+            netPctLabel.visibility = GONE
+        }
+        val targets = listOf(datePlaceholder, totalValuePlaceholder, netChangePlaceholder)
+        targets.forEach { it.visibility = VISIBLE }
+        if (animated) {
+            targets.forEachIndexed { index, placeholder ->
+                if (index == 0) {
+                    placeholder.fadeIn(onCompletion = clearText)
+                } else {
+                    placeholder.fadeIn()
+                }
+            }
+        } else {
+            targets.forEach { it.alpha = 1f }
+            clearText()
+        }
     }
 
     fun hidePlaceholders() {

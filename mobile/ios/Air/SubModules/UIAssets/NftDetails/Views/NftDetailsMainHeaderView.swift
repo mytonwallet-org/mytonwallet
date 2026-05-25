@@ -374,6 +374,10 @@ class NftDetailsMainHeaderView: UIView {
             UIView.animate(withDuration: 0.3, animations: {
                 self.coverFlowView.isActive = true
             })
+            if state.isHidden {
+                state.canShowPreview = true
+                makePreviewVisible()
+            }
         } else {
             preview.selectModel(selectedModel)
             setPreviewAndTileHidden(false)

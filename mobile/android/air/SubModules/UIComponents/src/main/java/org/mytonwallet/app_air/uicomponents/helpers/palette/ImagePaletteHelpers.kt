@@ -29,21 +29,22 @@ class ImagePaletteHelpers {
             val dataSource: DataSource<CloseableReference<CloseableImage>> =
                 Fresco.getImagePipeline().fetchDecodedImage(imageRequest, null)
 
+            var result: CloseableReference<CloseableImage>? = null
             return try {
-                val result: CloseableReference<CloseableImage>? =
-                    DataSources.waitForFinalResult(dataSource)
+                result = DataSources.waitForFinalResult(dataSource)
 
-                val bitmap = result?.get()?.let { image ->
-                    if (image is CloseableBitmap) image.underlyingBitmap else null
+                result?.get()?.let { image ->
+                    if (image is CloseableBitmap) {
+                        val bitmap = image.underlyingBitmap
+                        if (bitmap != null && !bitmap.isRecycled) {
+                            bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, false)
+                        } else null
+                    } else null
                 }
-
-                CloseableReference.closeSafely(result)
-                dataSource.close()
-
-                bitmap
             } catch (_: Exception) {
                 null
             } finally {
+                CloseableReference.closeSafely(result)
                 dataSource.close()
             }
         }
@@ -102,9 +103,13 @@ class ImagePaletteHelpers {
             scope.launch {
                 val closestColorIndex = runCatching {
                     val bitmap = getBitmapFromUri(imageUrl) ?: return@runCatching null
-                    val dominantColor =
-                        BitmapPaletteExtractHelpers.extractAccentColorIndex(bitmap)
-                    findClosestColorIndex(dominantColor)
+                    try {
+                        val dominantColor =
+                            BitmapPaletteExtractHelpers.extractAccentColorIndex(bitmap)
+                        findClosestColorIndex(dominantColor)
+                    } finally {
+                        bitmap.recycle()
+                    }
                 }.getOrNull()
 
                 withContext(Dispatchers.Main) {

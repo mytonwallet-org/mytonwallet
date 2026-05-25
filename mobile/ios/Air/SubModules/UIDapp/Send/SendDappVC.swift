@@ -9,14 +9,19 @@ import WalletContext
 import Perception
 import SwiftNavigation
 
+private let NOT_RESPONDING_DELAY: TimeInterval = 7
+
 public class SendDappVC: WViewController, UISheetPresentationControllerDelegate {
-    
+
     var request: ApiUpdate.DappSendTransactions?
     var onConfirm: ((String?) -> ())?
     var onCancel: (() -> ())?
-    
+
     var placeholderAccountId: String?
-    
+    private var isWaitingForRequest = false
+    private var returnUrl: String?
+    private var notRespondingWorkItem: DispatchWorkItem?
+
     var hostingController: UIHostingController<SendDappViewOrPlaceholder>?
     private var sendButtonObserver: ObserveToken?
     
@@ -33,9 +38,15 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         super.init(nibName: nil, bundle: nil)
     }
     
-    init(placeholderAccountId: String?) {
+    init(placeholderAccountId: String?, isWaitingForRequest: Bool = false, returnUrl: String? = nil) {
         self.placeholderAccountId = placeholderAccountId
+        self.isWaitingForRequest = isWaitingForRequest
+        self.returnUrl = returnUrl
         super.init(nibName: nil, bundle: nil)
+    }
+
+    deinit {
+        notRespondingWorkItem?.cancel()
     }
     
     required init?(coder: NSCoder) {
@@ -47,6 +58,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         onConfirm: @escaping (String?) -> (),
         onCancel: @escaping () -> (),
     ) {
+        cancelNotResponding()
         self.request = request
         self.onConfirm = onConfirm
         self.onCancel = onCancel
@@ -61,6 +73,43 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         super.viewDidLoad()
         setupViews()
         setupObservers()
+        scheduleNotRespondingIfNeeded()
+    }
+
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        cancelNotResponding()
+    }
+
+    // A placeholder opened by a wake deeplink: warn if the request event never arrives.
+    private func scheduleNotRespondingIfNeeded() {
+        guard isWaitingForRequest else { return }
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.showNotResponding()
+        }
+        notRespondingWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + NOT_RESPONDING_DELAY, execute: workItem)
+    }
+
+    private func cancelNotResponding() {
+        notRespondingWorkItem?.cancel()
+        notRespondingWorkItem = nil
+    }
+
+    private func showNotResponding() {
+        let url = returnUrl
+        showAlert(
+            title: lang("Dapp Not Responding"),
+            text: lang("You may need to reconnect your wallet from the dapp if this keeps happening."),
+            button: lang("OK"),
+            buttonPressed: { [weak self] in
+                if let url {
+                    self?.dismiss(animated: true)
+                    TonConnect.shared.openReturnUrl(url)
+                }
+            },
+            secondaryButton: url != nil ? lang("Cancel") : nil
+        )
     }
     
     private lazy var cancelButton = {
@@ -121,6 +170,12 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     private func setupViews() {
         navigationItem.title = makeNavigationTitle()
         addCloseNavigationItemIfNeeded()
+        // Route the close "X" through cancellation so the dapp is notified (otherwise it waits forever).
+        if navigationItem.rightBarButtonItem != nil {
+            navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in
+                self?._onCancel()
+            })
+        }
 
         hostingController = addHostingController(makeView(), constraints: .fill)
         
@@ -135,8 +190,10 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         updateTheme()
         
         updateSendButtonState()
-        
-        sheetPresentationController?.delegate = self
+
+        // This VC is the root of a presented navigation controller, so the sheet (and its swipe-to-dismiss)
+        // belongs to the nav controller — observe that one, otherwise interactive dismissal isn't caught.
+        (navigationController?.sheetPresentationController ?? sheetPresentationController)?.delegate = self
     }
 
     private func setupObservers() {
@@ -279,12 +336,12 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     }
     
     @objc func _onCancel() {
-        if let onCancel {
-            onCancel()
-            onConfirm = nil
-            self.onCancel = nil
-            self.dismiss(animated: true)
-        }
+        // `onCancel` rejects the dapp request; it's nil for the wake placeholder (no request yet),
+        // in which case we still dismiss so the Cancel button / swipe / X always close the modal.
+        onCancel?()
+        onConfirm = nil
+        onCancel = nil
+        dismiss(animated: true)
     }
 
     public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {

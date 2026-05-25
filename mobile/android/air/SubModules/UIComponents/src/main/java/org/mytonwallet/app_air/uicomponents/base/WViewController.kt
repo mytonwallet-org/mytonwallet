@@ -13,6 +13,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
+import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
 import androidx.core.view.children
@@ -25,6 +26,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.ScreenRecordProtectionVi
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
+import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
@@ -655,11 +657,50 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             extra
     }
 
+    private val overScrollSettleHandler by lazy(LazyThreadSafetyMode.NONE) {
+        Handler(Looper.getMainLooper())
+    }
+    private var pendingOverScrollSettle: Runnable? = null
+
     open fun updateBlurViews(recyclerView: RecyclerView) {
-        updateBlurViews(recyclerView, recyclerView.computeVerticalScrollOffset())
+        updateBlurViewsWithSettle(
+            scrollable = recyclerView,
+            isIdle = { recyclerView.scrollState == RecyclerView.SCROLL_STATE_IDLE },
+            offset = { recyclerView.computeVerticalScrollOffset() },
+        )
     }
 
-    fun updateBlurViews(scrollView: ViewGroup, computedOffset: Int) {
+    fun updateBlurViews(scrollView: WScrollView) {
+        updateBlurViewsWithSettle(
+            scrollable = scrollView,
+            isIdle = { scrollView.scrollState == WScrollView.SCROLL_STATE_IDLE },
+            offset = { scrollView.scrollY },
+        )
+    }
+
+    private fun updateBlurViewsWithSettle(
+        scrollable: ViewGroup,
+        isIdle: () -> Boolean,
+        offset: () -> Int,
+    ) {
+        updateBlurViews(scrollable, offset())
+        pendingOverScrollSettle?.let { overScrollSettleHandler.removeCallbacks(it) }
+        if (!isIdle()) return
+        val settle = Runnable {
+            pendingOverScrollSettle = null
+            if (isIdle()) {
+                updateBlurViews(scrollable, offset().coerceAtLeast(1))
+            }
+        }
+        pendingOverScrollSettle = settle
+        overScrollSettleHandler.postDelayed(settle, 500L)
+    }
+
+    fun updateBlurViews(scrollView: ScrollView) {
+        updateBlurViews(scrollView = scrollView, computedOffset = scrollView.scrollY)
+    }
+
+    private fun updateBlurViews(scrollView: ViewGroup, computedOffset: Int) {
         val topOffset =
             if (computedOffset >= 0) computedOffset else computedOffset + scrollView.paddingTop
         val isOnTop = topOffset <= 0

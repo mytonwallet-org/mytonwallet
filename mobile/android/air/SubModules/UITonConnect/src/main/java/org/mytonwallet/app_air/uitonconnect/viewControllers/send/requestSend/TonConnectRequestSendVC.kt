@@ -2,6 +2,10 @@ package org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSend
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -25,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
@@ -53,11 +58,16 @@ import java.lang.ref.WeakReference
 import kotlin.math.max
 import kotlin.math.roundToInt
 
+private const val NOT_RESPONDING_DELAY_MS = 7000L
+
 @SuppressLint("ViewConstructor")
 class TonConnectRequestSendVC(
     context: Context,
     private val connectionType: ApiConnectionType,
-    private var update: ApiUpdate.ApiUpdateDappSignRequest? = null
+    private var update: ApiUpdate.ApiUpdateDappSignRequest? = null,
+    // When opened as a placeholder by a wake deeplink: render no type-specific title and run the not-responding timer.
+    private val isWaitingForRequest: Boolean = false,
+    private val returnUrl: String? = null,
 ) : WViewControllerWithModelStore(context), CustomListAdapter.ItemClickListener, SkeletonContainer {
     override val TAG = "TonConnectRequestSend"
 
@@ -67,6 +77,8 @@ class TonConnectRequestSendVC(
 
     private val skeletonView = SkeletonView(context)
     private var isShowingSkeleton = false
+
+    private val notRespondingHandler = Handler(Looper.getMainLooper())
 
     private val headerIconSkeletonView = WBaseView(context).apply {
         visibility = View.GONE
@@ -121,7 +133,9 @@ class TonConnectRequestSendVC(
         } else {
             showSkeleton()
 
-            title = when (connectionType) {
+            title = if (isWaitingForRequest) {
+                null
+            } else when (connectionType) {
                 ApiConnectionType.SEND_TRANSACTION -> {
                     LocaleController.getPluralWord(
                         1,
@@ -134,6 +148,10 @@ class TonConnectRequestSendVC(
                 }
 
                 else -> null
+            }
+
+            if (isWaitingForRequest) {
+                notRespondingHandler.postDelayed({ showNotResponding() }, NOT_RESPONDING_DELAY_MS)
             }
         }
 
@@ -238,8 +256,12 @@ class TonConnectRequestSendVC(
         }
 
         cancelButtonView.setOnClickListener {
-            update?.let {
-                viewModel?.cancel(it.promiseId, null)
+            val currentUpdate = update
+            if (currentUpdate != null) {
+                viewModel?.cancel(currentUpdate.promiseId, null)
+            } else {
+                // Placeholder (wake deeplink, no request yet): nothing to cancel, just close.
+                window?.dismissLastNav()
             }
         }
 
@@ -300,8 +322,28 @@ class TonConnectRequestSendVC(
     }
 
     fun setUpdate(newUpdate: ApiUpdate.ApiUpdateDappSignRequest) {
+        notRespondingHandler.removeCallbacksAndMessages(null)
         this.update = newUpdate
         initializeWithUpdate()
+    }
+
+    private fun showNotResponding() {
+        val url = returnUrl
+        showAlert(
+            title = LocaleController.getString("Dapp Not Responding"),
+            text = LocaleController.getString("You may need to reconnect your wallet from the dapp if this keeps happening."),
+            button = LocaleController.getString("OK"),
+            buttonPressed = {
+                // With a return URL ("OK"/"Cancel" pair), OK returns to the dapp and dismisses the skeleton;
+                // without one (single "OK"), it just dismisses the alert and keeps waiting.
+                url?.let {
+                    window?.dismissLastNav(onCompletion = {
+                        window?.startActivityCatching(Intent(Intent.ACTION_VIEW, Uri.parse(it)))
+                    })
+                }
+            },
+            secondaryButton = if (url != null) LocaleController.getString("Cancel") else null,
+        )
     }
 
     private fun showSkeleton() {
@@ -407,6 +449,7 @@ class TonConnectRequestSendVC(
     override fun onDestroy() {
         super.onDestroy()
 
+        notRespondingHandler.removeCallbacksAndMessages(null)
         update?.let {
             viewModel?.cancel(it.promiseId, null, window!!.lifecycleScope)
         }

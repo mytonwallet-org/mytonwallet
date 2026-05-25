@@ -135,11 +135,7 @@ import {
 
 const BLANK_GIF_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
-// The `empty` strategy - a trick to solve the problem of long network connection initialization
-// in the Capacitor version of the app when it resumes from the background.
-// In this case, the client should show a loader, and once the real SSE connection starts,
-// the loader will be hidden.
-type ReturnStrategy = 'back' | 'none' | 'empty' | (string & {});
+type ReturnStrategy = 'back' | 'none' | (string & {});
 const ALLOWED_SSE_METHODS = new Set<RpcMethod>(['sendTransaction', 'disconnect', 'signData']);
 
 const TTL_SEC = 300;
@@ -442,6 +438,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
     message: DappTransactionRequest<typeof this.protocolType>,
   ): Promise<DappMethodResult<typeof this.protocolType>> {
     try {
+      await this.assertDappConnected(request);
       const { url, accountId } = await ensureRequestParams(request);
       const { network } = parseAccountId(accountId);
 
@@ -610,6 +607,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
     message: DappSignDataRequest<typeof this.protocolType>,
   ): Promise<DappMethodResult<typeof this.protocolType>> {
     try {
+      await this.assertDappConnected(request);
       const { url, accountId } = await ensureRequestParams(request);
 
       await this.openExtensionPopup(true);
@@ -681,6 +679,12 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
     const r = params.get('r');
 
     if (!r) {
+      if (appClientId && !(await hasStoredSseConnection(appClientId))) {
+        logDebug('tonConnect: Request for a disconnected client', appClientId);
+        this.onUpdate({ type: 'dappDisconnected', url: shouldOpenUrl ? ret : undefined });
+        return undefined;
+      }
+
       if (shouldOpenUrl) {
         this.delayedReturnParams = {
           validUntil: Date.now() + MAX_CONFIRM_DURATION,
@@ -689,7 +693,24 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         };
       }
 
-      return SHOULD_SHOW_LOADER_ON_SSE_START ? 'empty' : undefined;
+      if (SHOULD_SHOW_LOADER_ON_SSE_START) {
+        // Open the placeholder request modal; the SSE request event types it (fill or swap) and clears its timer
+        this.onUpdate({
+          type: 'dappLoading',
+          connectionType: 'sendTransaction',
+          isSse: true,
+          isWaitingForRequest: true,
+          returnUrl: shouldOpenUrl ? ret : undefined,
+        });
+      }
+
+      return undefined;
+    }
+
+    if (await hasStoredSseConnection(appClientId)) {
+      logDebug('tonConnect: Ignoring repeated connect for already connected client', appClientId);
+      this.onUpdate({ type: 'dappAlreadyConnected', url: shouldOpenUrl ? ret : undefined });
+      return undefined;
     }
 
     const connectRequest: ConnectRequest | null = safeExec(() => JSON.parse(r)) || JSON.parse(decodeURIComponent(r));
@@ -700,14 +721,14 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
 
     const { secretKey: secretKeyArray, publicKey: publicKeyArray } = nacl.box.keyPair();
     const secretKey = bytesToHex(secretKeyArray);
-    const clientId = bytesToHex(publicKeyArray);
+    const walletClientId = bytesToHex(publicKeyArray);
 
     const lastOutputId = 0;
     const request: ApiDappRequest = {
       url: undefined,
       identifier: requestId,
       sseOptions: {
-        clientId,
+        clientId: walletClientId,
         appClientId,
         secretKey,
         lastOutputId,
@@ -761,7 +782,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
     await sendMessage(
       transformUnifiedConnectResultToTonConnect(result),
       secretKey,
-      clientId,
+      walletClientId,
       appClientId,
     );
 
@@ -807,13 +828,13 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       return result;
     }, [] as SseDapp[]);
 
-    const clientIds = extractKey(this.sseDapps, 'clientId').filter(Boolean);
-    if (!clientIds.length) {
+    const walletClientIds = extractKey(this.sseDapps, 'clientId').filter(Boolean);
+    if (!walletClientIds.length) {
       return;
     }
 
     await this.destroy();
-    this.sseEventSource = this.openEventSource(clientIds, lastEventId);
+    this.sseEventSource = this.openEventSource(walletClientIds, lastEventId);
     this.initialized = true;
 
     this.sseEventSource.onopen = () => {
@@ -834,12 +855,12 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
 
       const sseDapp = this.sseDapps.find(({ appClientId }) => appClientId === from);
       if (!sseDapp) {
-        logDebug(`tonConnect:resetupRemoteConnection: Dapp with clientId ${from} not found`);
+        logDebug(`tonConnect:resetupRemoteConnection: Dapp with appClientId ${from} not found`);
         return;
       }
 
       const {
-        accountId, clientId, appClientId, secretKey, url, lastOutputId,
+        accountId, clientId: walletClientId, appClientId, secretKey, url, lastOutputId,
       } = sseDapp;
       const message = decryptMessage(encryptedMessage, appClientId, secretKey) as AppRequest<keyof RpcRequests>;
 
@@ -847,7 +868,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
 
       await setSseLastEventId(event.lastEventId);
       const sseOptions = {
-        clientId,
+        clientId: walletClientId,
         appClientId,
         secretKey,
         lastOutputId,
@@ -867,9 +888,9 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       );
 
       await sendMessage(
-        transformUnifiedMethodResponseToTonConnect(result),
+        transformUnifiedMethodResponseToTonConnect(result, message.id),
         secretKey,
-        clientId,
+        walletClientId,
         appClientId,
       );
 
@@ -887,7 +908,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
     const sseDapp = this.sseDapps.find((d) => d.url === dapp.url && d.accountId === accountId);
     if (!sseDapp) return;
 
-    const { secretKey, clientId, appClientId } = sseDapp;
+    const { secretKey, clientId: walletClientId, appClientId } = sseDapp;
     const lastOutputId = sseDapp.lastOutputId + 1;
 
     const response: DisconnectEvent = {
@@ -896,7 +917,29 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       payload: {},
     };
 
-    await sendMessage(response, secretKey, clientId, appClientId);
+    await sendMessage(response, secretKey, walletClientId, appClientId);
+  }
+
+  // Verifies that the dapp issuing the request is still connected. For non-SSE flows (in-app browser and
+  // injected extension) a disconnected dapp must surface the "Dapp Disconnected" dialog rather than a generic
+  // error, mirroring the SSE deeplink handling in `handleDeepLink`.
+  private async assertDappConnected(request: ApiDappRequest) {
+    const { url } = request;
+    let { accountId } = request;
+
+    if (url && !accountId) {
+      const { network } = parseAccountId(await getCurrentAccountIdOrFail());
+      accountId = (await findLastConnectedAccount(network, url)) ?? undefined;
+    }
+
+    const uniqueId = getDappConnectionUniqueId(request);
+    if (url && accountId && (await getDapp(accountId, url, uniqueId))) {
+      return;
+    }
+
+    logDebug('tonConnect: Request for a disconnected dapp', url);
+    this.onUpdate({ type: 'dappDisconnected' });
+    throw new UnknownAppError();
   }
 
   private async openExtensionPopup(force?: boolean) {
@@ -910,9 +953,9 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
     return true;
   }
 
-  private openEventSource(clientIds: string[], lastEventId?: string) {
+  private openEventSource(walletClientIds: string[], lastEventId?: string) {
     const url = new URL(`${SSE_BRIDGE_URL}events`);
-    url.searchParams.set('client_id', clientIds.join(','));
+    url.searchParams.set('client_id', walletClientIds.join(','));
     if (lastEventId) {
       url.searchParams.set('last_event_id', lastEventId);
     }
@@ -1019,6 +1062,25 @@ async function getCurrentAccountOrFail() {
   return accountId;
 }
 
+async function hasStoredSseConnection(appClientId: string): Promise<boolean> {
+  const dappsState = await getDappsState();
+  if (!dappsState) {
+    return false;
+  }
+
+  for (const dappsByUrl of Object.values(dappsState)) {
+    for (const byUniqueId of Object.values(dappsByUrl)) {
+      for (const dapp of Object.values(byUniqueId)) {
+        if (dapp.sse?.appClientId === appClientId) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 async function ensureRequestParams(
   request: ApiDappRequest,
 ): Promise<ApiDappRequest & { url: string; accountId: string }> {
@@ -1087,17 +1149,20 @@ async function checkIsHisVestingWallet(network: ApiNetwork, ownerPublicKey: Uint
 }
 
 function sendMessage(
-  message: AnyLiteral, secretKey: string, clientId: string, toId: string, topic?: 'signTransaction' | 'signData',
+  message: AnyLiteral, secretKey: string, walletClientId: string, appClientId: string,
+  topic?: 'signTransaction' | 'signData',
 ) {
   const buffer = Buffer.from(JSON.stringify(message));
-  const encryptedMessage = encryptMessage(buffer, toId, secretKey);
-  return sendRawMessage(encryptedMessage, clientId, toId, topic);
+  const encryptedMessage = encryptMessage(buffer, appClientId, secretKey);
+  return sendRawMessage(encryptedMessage, walletClientId, appClientId, topic);
 }
 
-async function sendRawMessage(body: string, clientId: string, toId: string, topic?: 'signTransaction' | 'signData') {
+async function sendRawMessage(
+  body: string, walletClientId: string, appClientId: string, topic?: 'signTransaction' | 'signData',
+) {
   const url = new URL(`${SSE_BRIDGE_URL}message`);
-  url.searchParams.set('client_id', clientId);
-  url.searchParams.set('to', toId);
+  url.searchParams.set('client_id', walletClientId);
+  url.searchParams.set('to', appClientId);
   url.searchParams.set('ttl', TTL_SEC.toString());
   if (topic) {
     url.searchParams.set('topic', topic);

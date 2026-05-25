@@ -34,7 +34,7 @@ enum class MBridgeError(val errorName: String? = null, var customMessage: String
             return customMessage ?: when (this) {
                 INVALID_MNEMONIC -> LocaleController.getString("InvalidMnemonic")
                 PARTIAL_TRANSACTION_FAILURE -> LocaleController.getString("Not all transactions were sent successfully")
-                INCORRECT_DEVICE_TIME -> LocaleController.getString("The time on your device is incorrect, sync it and try again")
+                INCORRECT_DEVICE_TIME -> LocaleController.getString("The time on your device is incorrect, sync it and try again.")
                 INSUFFICIENT_BALANCE -> LocaleController.getString("Insufficient balance")
                 PAIR_NOT_FOUND -> LocaleController.getString("Invalid Pair")
                 TOO_SMALL_AMOUNT -> LocaleController.getString("\$swap_too_small_amount")

@@ -182,7 +182,14 @@ fileprivate struct AmountSection: View {
         let walletTokens = model.$account.balances.map { (key: String, value: BigInt) in
             MTokenBalance(tokenSlug: key, balance: value, isStaking: false)
         }
-        let vc = SendCurrencyVC(accountId: model.account.id, isMultichain: model.account.isMultichain, walletTokens: walletTokens, currentTokenSlug: model.token.slug, onSelect: { token in })
+        let vc = SendCurrencyVC(
+            accountId: model.account.id,
+            isMultichain: model.account.isMultichain,
+            walletTokens: walletTokens,
+            defaultTokenSlugs: ApiToken.defaultSlugs(forNetwork: model.account.network, account: model.account),
+            currentTokenSlug: model.token.slug,
+            onSelect: { token in }
+        )
         vc.onSelect = { [weak model] newToken in
             model?.onTokenSelected(newToken: newToken)
             topViewController()?.dismiss(animated: true)

@@ -60,8 +60,14 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     }
     
     private func setupViews() {
-        
+
         addCloseNavigationItemIfNeeded()
+        // Route the close "X" through cancellation so the dapp is notified (otherwise it waits forever).
+        if navigationItem.rightBarButtonItem != nil {
+            navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in
+                self?.closeTapped()
+            })
+        }
         let appearance = UINavigationBarAppearance()
         appearance.configureWithTransparentBackground()
         navigationItem.standardAppearance = appearance
@@ -118,6 +124,13 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
         if !viewModel.didConfirm {
             viewModel.onCancel?()
         }
+    }
+
+    private func closeTapped() {
+        if !viewModel.didConfirm {
+            viewModel.onCancel?()
+        }
+        dismiss(animated: true)
     }
 }
 

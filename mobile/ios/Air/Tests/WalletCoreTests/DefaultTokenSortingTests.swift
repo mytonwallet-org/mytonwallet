@@ -74,6 +74,50 @@ struct DefaultTokenSortingTests {
         #expect(sorted.map(\.tokenSlug) == [ETH_SLUG, SOLANA_SLUG, TONCOIN_SLUG, MYCOIN_SLUG])
     }
 
+    @Test
+    func `token picker sorts by usd value before default priority`() {
+        let account = makeAccount(chains: [.ton])
+        let defaultSlugs = ApiToken.defaultSlugs(forNetwork: .mainnet, account: account)
+        let tokenBalances = [
+            MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: 0, isStaking: false),
+            MTokenBalance(tokenSlug: TON_USDT_SLUG, balance: 1_000_000, isStaking: false),
+            MTokenBalance(tokenSlug: TON_USDT_TESTNET_SLUG, balance: 2_000_000, isStaking: false),
+        ]
+
+        let sorted = MTokenBalance.sortedForTokenPicker(
+            tokenBalances: tokenBalances,
+            defaultTokenSlugs: defaultSlugs
+        )
+
+        #expect(sorted.map(\.tokenSlug) == [TON_USDT_TESTNET_SLUG, TON_USDT_SLUG, TONCOIN_SLUG])
+    }
+
+    @Test
+    func `token picker tie breaks by default priority then name then slug`() {
+        let account = makeAccount(chains: [.ton, .tron])
+        let defaultSlugs = ApiToken.defaultSlugs(forNetwork: .mainnet, account: account)
+        let tokenBalances = [
+            MTokenBalance(tokenSlug: TRON_USDT_SLUG, balance: 0, isStaking: false),
+            MTokenBalance(tokenSlug: TRX_SLUG, balance: 0, isStaking: false),
+            MTokenBalance(tokenSlug: TON_USDT_SLUG, balance: 0, isStaking: false),
+            MTokenBalance(tokenSlug: MYCOIN_SLUG, balance: 0, isStaking: false),
+            MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: 0, isStaking: false),
+        ]
+
+        let sorted = MTokenBalance.sortedForTokenPicker(
+            tokenBalances: tokenBalances,
+            defaultTokenSlugs: defaultSlugs
+        )
+
+        #expect(sorted.map(\.tokenSlug) == [
+            TONCOIN_SLUG,
+            TRX_SLUG,
+            MYCOIN_SLUG,
+            TON_USDT_SLUG,
+            TRON_USDT_SLUG,
+        ])
+    }
+
     private func makeAccount(chains: [ApiChain]) -> MAccount {
         MAccount(
             id: "default-token-sorting-mainnet",

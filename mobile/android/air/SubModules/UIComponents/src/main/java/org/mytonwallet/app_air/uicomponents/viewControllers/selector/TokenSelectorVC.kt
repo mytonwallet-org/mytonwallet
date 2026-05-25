@@ -4,12 +4,17 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.core.view.isGone
+import androidx.core.view.isVisible
 import androidx.core.widget.doOnTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.commonViews.WEmptyIconTitleSubtitleView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.cells.TokenSelectorCell
@@ -106,6 +111,17 @@ class TokenSelectorVC(
     private val searchEditText = SwapSearchEditText(context)
     private var query: String? = null
 
+    private val emptyView: WEmptyIconTitleSubtitleView by lazy {
+        WEmptyIconTitleSubtitleView(
+            context,
+            animation = R.raw.animation_empty,
+            title = LocaleController.getString("No tokens yet"),
+            subtitle = "",
+        ).apply {
+            isGone = true
+        }
+    }
+
     override fun setupViews() {
         super.setupViews()
 
@@ -124,6 +140,7 @@ class TokenSelectorVC(
         searchContainer.setPadding(10.dp, 0, 10.dp, 8.dp)
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
+        view.addView(emptyView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         navigationBar?.addBottomView(searchContainer, 56.dp)
 
         searchEditText.doOnTextChanged { text, _, _, _ ->
@@ -138,6 +155,9 @@ class TokenSelectorVC(
             toCenterX(recyclerView)
             toTop(recyclerView)
             toBottom(recyclerView)
+
+            toCenterX(emptyView, 32f)
+            toCenterY(emptyView)
         }
 
         updateTheme()
@@ -259,22 +279,18 @@ class TokenSelectorVC(
 
     private fun buildTokenItems() {
         val activeAccount = AccountStore.activeAccount
-        val balances = AccountStore.assetsAndActivityData.getAllTokens(ignorePriorities = true)
+        val balances = AccountStore.assetsAndActivityData.getAllTokens()
         val rawSearch = query.orEmpty()
         val search = rawSearch.trim().lowercase().takeIf { it.isNotEmpty() }
-        val assets = if (query?.isBlank() == true) {
-            emptyList()
-        } else {
-            this.assets.filter { token ->
-                search?.let {
-                    val isName = token.name?.lowercase()?.contains(it) == true
-                    val isSymbol = token.symbol?.lowercase()?.contains(it) == true
-                    val isKeyword = token.keywords?.any { keyword ->
-                        keyword.lowercase().contains(it)
-                    } == true
-                    isName || isSymbol || isKeyword
-                } != false
-            }
+        val assets = this.assets.filter { token ->
+            search?.let {
+                val isName = token.name?.lowercase()?.contains(it) == true
+                val isSymbol = token.symbol?.lowercase()?.contains(it) == true
+                val isKeyword = token.keywords?.any { keyword ->
+                    keyword.lowercase().contains(it)
+                } == true
+                isName || isSymbol || isKeyword
+            } != false
         }
         val assetsMap = assets.associateBy { it.slug }
 
@@ -340,6 +356,15 @@ class TokenSelectorVC(
 
         sections = newSections
         rvAdapter.reloadData()
+
+        val isEmpty = newSections.values.all { it.tokens.isEmpty() }
+        emptyView.setTitle(
+            LocaleController.getString(
+                if (rawSearch.isNotEmpty()) "Token Not Found" else "No tokens yet"
+            )
+        )
+        emptyView.isVisible = isEmpty
+        recyclerView.isGone = isEmpty
     }
 
     private fun createTokenBalance(asset: IApiToken, balance: BigInteger? = null): MTokenBalance? {

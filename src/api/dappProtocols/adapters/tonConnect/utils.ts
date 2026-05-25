@@ -74,12 +74,16 @@ export function transformTonConnectMessageToUnified(message: AppRequest<keyof Rp
   }
 }
 
-export function transformUnifiedMethodResponseToTonConnect(payload: DappMethodResult<DappProtocolType.TonConnect>) {
+export function transformUnifiedMethodResponseToTonConnect(
+  payload: DappMethodResult<DappProtocolType.TonConnect>,
+  id: string,
+) {
   if (payload.success) {
     return payload.result;
   }
+  // The error response must echo the request id, otherwise the dapp can't correlate it and keeps waiting.
   return {
-    id: '0',
+    id,
     error: payload.error,
   };
 }

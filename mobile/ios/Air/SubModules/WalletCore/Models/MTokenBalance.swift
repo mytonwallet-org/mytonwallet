@@ -156,6 +156,17 @@ extension MTokenBalance {
                          })
         }
     }
+
+    public static func sortedForTokenPicker(tokenBalances: [MTokenBalance],
+                                            defaultTokenSlugs: OrderedSet<String>) -> [MTokenBalance] {
+        var sortedTokens = tokenBalances
+        sortUnpinned(tokens: &sortedTokens,
+                     tokenName: { $0.displayName ?? $0.tokenSlug },
+                     tokenSlug: \.tokenSlug,
+                     priorityTokenSlugs: defaultTokenSlugs,
+                     amountInBaseCurrency: \.toUsd)
+        return sortedTokens
+    }
     
     /// For new wallet, default tokens order is hardcoded. Imported tokens are sorted by regular rules.
     private static func sortForNewWallet<T>(tokens: [T],
@@ -228,7 +239,10 @@ extension MTokenBalance {
                 let nameB = tokenName(tokenB)
                 // - tokens with equal amount will be sorted by name
                 // - tokens with 0 amount also sorted by name (as they have equal amount according to rule above)
-                return nameA < nameB
+                if nameA != nameB {
+                    return nameA < nameB
+                }
+                return tokenSlug(tokenA) < tokenSlug(tokenB)
             }
         })
     }

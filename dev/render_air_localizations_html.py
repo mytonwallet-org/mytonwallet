@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the Air localization Markdown table as HTML."""
+"""Render the mobile localization Markdown table as HTML."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import List
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Convert the Air localization Markdown table into an HTML file."
+        description="Convert the mobile localization Markdown table into an HTML file."
     )
     parser.add_argument(
         "--input",
@@ -104,7 +104,7 @@ def main() -> None:
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Air Localization Usage</title>
+  <title>Mobile Localization Usage</title>
   <style>
     body {{
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -138,7 +138,7 @@ def main() -> None:
   </style>
 </head>
 <body>
-  <h1>Air Localization Usage</h1>
+  <h1>Mobile Localization Usage</h1>
   {table_html}
 </body>
 </html>
@@ -151,4 +151,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

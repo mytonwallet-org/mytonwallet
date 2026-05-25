@@ -35,13 +35,22 @@ class SpringSnapHelper(
     var onPositionSettled: ((Int) -> Unit)? = null
 
     private val scrollProperty = object : FloatPropertyCompat<RecyclerView>("scrollX") {
+
         override fun getValue(view: RecyclerView): Float {
             animatedScrollOffset = view.computeHorizontalScrollOffset().toFloat()
             return animatedScrollOffset
         }
 
         override fun setValue(view: RecyclerView, value: Float) {
-            val dx = (value - animatedScrollOffset).toInt()
+            val maxScroll =
+                (view.computeHorizontalScrollRange()
+                    - view.computeHorizontalScrollExtent())
+                    .coerceAtLeast(0)
+
+            val clampedValue = value.coerceIn(0f, maxScroll.toFloat())
+
+            val dx = (clampedValue - animatedScrollOffset).toInt()
+
             if (dx != 0) {
                 view.scrollBy(dx, 0)
                 animatedScrollOffset += dx

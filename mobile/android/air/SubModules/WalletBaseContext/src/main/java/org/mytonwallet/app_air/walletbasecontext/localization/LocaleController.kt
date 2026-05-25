@@ -88,18 +88,6 @@ object LocaleController {
             jsonObject = JSONObject()
         }
 
-        try {
-            val jsonStringAir = context.assets.open("i18n/air_${langCode}.json")
-                .bufferedReader()
-                .use { it.readText() }
-            val jsonObjectAir = JSONObject(jsonStringAir)
-            for (key in jsonObjectAir.keys()) {
-                jsonObject.put(key, jsonObjectAir.get(key))
-            }
-        } catch (_: IOException) {
-            Logger.e(Logger.LogTag.LOCALIZATION, "init: Failed to load file=air_$langCode.json")
-        }
-
         dictionary = jsonObject.toHashMapStringNested()
         return true
     }

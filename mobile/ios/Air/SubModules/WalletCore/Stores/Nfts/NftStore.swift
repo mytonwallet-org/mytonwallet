@@ -77,6 +77,9 @@ public final class _NftStore: Sendable {
         let authoritativeAddresses: Set<String>?
         let removedAddress: String?
     }
+
+    @PerceptionIgnored
+    private let _pendingNewMtwCardsByAccount: UnfairLock<[String: [ApiNft]]> = .init(initialState: [:])
     
     private func received(
         accountId: String,
@@ -193,6 +196,7 @@ public final class _NftStore: Sendable {
     
     public func clean() {
         _nfts.withLock { $0 = [:] }
+        _pendingNewMtwCardsByAccount.withLock { $0 = [:] }
         saveToCache()
     }
     
@@ -394,6 +398,77 @@ public final class _NftStore: Sendable {
     public func getAccountMtwCards(accountId: String) -> OrderedDictionary<String, ApiNft> {
         getCollectionItems(accountId: accountId, collectionAddress: MTW_CARDS_COLLECTION, chain: .ton).mapValues(\.nft)
     }
+
+    public func applyIncomingMtwCard(accountId: String, nft: ApiNft) {
+        guard nft.collectionAddress == MTW_CARDS_COLLECTION else {
+            return
+        }
+        Task {
+            let isNewCard = await AssetsAndActivityDataStore.addOwnedMtwCardAddressIfNeeded(
+                accountId: accountId,
+                address: nft.address
+            )
+            guard isNewCard else {
+                return
+            }
+            await installMtwCardIfNeeded(accountId: accountId, nft: nft)
+        }
+    }
+
+    public func pruneOwnedMtwCardAddress(accountId: String, nftAddress: String) {
+        Task {
+            await AssetsAndActivityDataStore.pruneOwnedMtwCardAddress(accountId: accountId, address: nftAddress)
+        }
+    }
+
+    private func appendPendingNewMtwCards(accountId: String, cards: [ApiNft]) {
+        guard !cards.isEmpty else {
+            return
+        }
+        _pendingNewMtwCardsByAccount.withLock {
+            $0[accountId, default: []].append(contentsOf: cards)
+        }
+    }
+
+    private func drainPendingNewMtwCards(accountId: String, currentNfts: some Collection<DisplayNft>) {
+        let candidates = _pendingNewMtwCardsByAccount.withLock {
+            $0.removeValue(forKey: accountId) ?? []
+        }
+        let ownedAddresses = currentNfts
+            .map(\.nft)
+            .filter { $0.collectionAddress == MTW_CARDS_COLLECTION }
+            .map(\.address)
+        let ownedAddressSet = Set(ownedAddresses)
+        Task {
+            await AssetsAndActivityDataStore.setOwnedMtwCardAddresses(
+                accountId: accountId,
+                addresses: ownedAddresses
+            )
+            guard let rarest = candidates
+                .filter({ ownedAddressSet.contains($0.address) })
+                .min(by: { mtwCardRank($0) < mtwCardRank($1) })
+            else {
+                return
+            }
+            await installMtwCardIfNeeded(accountId: accountId, nft: rarest)
+        }
+    }
+
+    private func mtwCardRank(_ nft: ApiNft) -> Int {
+        nft.metadata?.mtwCardId ?? nft.index ?? Int.max
+    }
+
+    @MainActor
+    private func installMtwCardIfNeeded(accountId: String, nft: ApiNft) {
+        @Dependency(\.accountSettings) var accountSettingsStore
+        let accountSettings = accountSettingsStore.for(accountId: accountId)
+        guard accountSettings.backgroundNft == nil else {
+            return
+        }
+        log.info("cardBackground.autoInstall accountId=\(accountId, .public) nftAddress=\(nft.address, .public) nftChain=\(nft.chain.rawValue, .public) nftMtwId=\(nft.metadata?.mtwCardId as Any, .public)")
+        accountSettings.setBackgroundNft(nft)
+        accountSettings.setAccentColorNft(nft)
+    }
     
     // MARK: - Private
     
@@ -530,11 +605,22 @@ extension _NftStore: WalletCoreData.EventsObserver {
         switch event {
         case .accountDeleted(let accountId):
             _nfts.withLock { $0[accountId] = nil }
+            _pendingNewMtwCardsByAccount.withLock { $0[accountId] = nil }
 
         case .updateNfts(let update):
             let shouldAppend = update.collectionAddress != nil || update.isFullLoading == true
             let streamPruneContext = update.streamedAddresses.map {
                 StreamPruneContext(chain: update.chain, addresses: Set($0))
+            }
+            if update.chain == .ton {
+                let ownedMtwCardAddresses = Set(
+                    AssetsAndActivityDataStore.ownedMtwCardAddresses(accountId: update.accountId)
+                )
+                let newMtwCards = update.nfts.filter {
+                    $0.collectionAddress == MTW_CARDS_COLLECTION
+                        && !ownedMtwCardAddresses.contains($0.address)
+                }
+                appendPendingNewMtwCards(accountId: update.accountId, cards: newMtwCards)
             }
             if let streamedAddresses = update.streamedAddresses {
                 log.info("nftStore.streamFinal accountId=\(update.accountId, .public) chain=\(update.chain.rawValue, .public) streamedCount=\(streamedAddresses.count) incomingCount=\(update.nfts.count) shouldAppend=\(shouldAppend)")
@@ -557,9 +643,14 @@ extension _NftStore: WalletCoreData.EventsObserver {
                     )
                 }
             )
+            if streamPruneContext != nil {
+                let currentNfts = nfts[update.accountId].map { Array($0.values) } ?? []
+                drainPendingNewMtwCards(accountId: update.accountId, currentNfts: currentNfts)
+            }
 
         case .nftReceived(let update):
             self.received(accountId: update.accountId, newNfts: [update.nft], removedNftIds: [])
+            applyIncomingMtwCard(accountId: update.accountId, nft: update.nft)
 
         case .nftSent(let update):
             self.received(
@@ -574,6 +665,7 @@ extension _NftStore: WalletCoreData.EventsObserver {
                     removedAddress: update.nftAddress
                 )
             )
+            pruneOwnedMtwCardAddress(accountId: update.accountId, nftAddress: update.nftAddress)
 
         case .nftPutUpForSale(let update):
             markNftAsOnSale(accountId: update.accountId, nftId: update.nftAddress)

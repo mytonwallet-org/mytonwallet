@@ -304,5 +304,13 @@ func makeMigrator() -> DatabaseMigrator {
         }
     }
 
+    migrator.registerMigration("v16") { db in
+        try db.alter(table: "account_assets_and_activity_data") { t in
+            t.add(column: "ownedMtwCardAddresses", .jsonText)
+                .notNull()
+                .defaults(to: "[]")
+        }
+    }
+
     return migrator
 }

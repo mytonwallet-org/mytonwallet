@@ -330,6 +330,14 @@ class PieChartView(
         super.onDraw(canvas)
     }
 
+    override fun clearSelection() {
+        super.clearSelection()
+        val sel = currentSelection
+        if (sel < 0 || sel >= lines.size) return
+        lines[sel].selectionA = 1f
+        pieLegendView.visibility = VISIBLE
+    }
+
     override fun onActionUp() {
         currentSelection = -1
         pieLegendView.visibility = GONE

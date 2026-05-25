@@ -54,7 +54,7 @@ export function errorCodeToMessage(error: ApiAnyDisplayError | string = ApiCommo
       return 'Not all transfers were sent successfully';
 
     case ApiTransactionError.IncorrectDeviceTime:
-      return 'The time on your device is incorrect, sync it and try again';
+      return 'The time on your device is incorrect, sync it and try again.';
 
     case ApiTransactionError.UnsuccesfulTransfer:
       return 'Transfer was unsuccessful. Try again later.';

@@ -562,6 +562,19 @@ fun View.setBackgroundColor(color: Int, topRadius: Float, bottomRadius: Float) {
     background = shapeDrawable
 }
 
+fun View.showImmediately() {
+    animate().cancel()
+    visibility = View.VISIBLE
+    alpha = 1f
+    translationY = 0f
+}
+
+fun View.hideImmediately(finishVisibility: Int = View.INVISIBLE) {
+    animate().cancel()
+    alpha = 0f
+    visibility = finishVisibility
+}
+
 fun View.setRoundedOutline(radius: Float) {
     outlineProvider = object : ViewOutlineProvider() {
         override fun getOutline(view: View, outline: Outline) {

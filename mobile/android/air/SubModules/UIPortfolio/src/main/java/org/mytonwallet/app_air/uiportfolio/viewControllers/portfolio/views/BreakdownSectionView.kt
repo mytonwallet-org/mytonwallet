@@ -95,9 +95,12 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
     fun maskTargets(): List<Pair<View, Float>> =
         listOf(byChainCard.maskTarget(), assetMixCard.maskTarget())
 
-    fun showPlaceholders() {
-        byChainCard.showPlaceholders()
-        assetMixCard.showPlaceholders()
+    fun crossFadeTargets(): List<View> =
+        byChainCard.crossFadeTargets() + assetMixCard.crossFadeTargets()
+
+    fun showPlaceholders(animated: Boolean = false) {
+        byChainCard.showPlaceholders(animated)
+        assetMixCard.showPlaceholders(animated)
     }
 
     fun hidePlaceholders() {

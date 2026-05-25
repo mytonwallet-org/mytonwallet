@@ -81,7 +81,9 @@ public struct WalletCoreData {
         case dappSignData(ApiUpdate.DappSignData)
         case dappDisconnect(accountId: String, origin: String)
         case dappLoading(ApiUpdate.DappLoading)
-        
+        case dappAlreadyConnected(ApiUpdate.DappAlreadyConnected)
+        case dappDisconnected(ApiUpdate.DappDisconnected)
+
         case configChanged
 
         // updates matching api definition

@@ -306,8 +306,12 @@ final class NftDetailsPagerView: UIView {
             let shouldExpand = pendingProgrammaticExpand || (parentScrollView.isDragging && !parentScrollView.isDecelerating)
             if !isAnimating, offsetY < scrollExpandThreshold, shouldExpand {
                 expand(extraScrollDownHeight: -offsetY, scrollView: parentScrollView)
-                pendingProgrammaticExpand = false
-                canBeDraggedToFullScreen = false // prevent further expanding until user lifts a finger
+                if pendingProgrammaticExpand {
+                    pendingProgrammaticExpand = false
+                    canBeDraggedToFullScreen = true // after programmatic expanding we can immediately go to full screen mode
+                } else {
+                    canBeDraggedToFullScreen = false // prevent further expanding until user lifts a finger
+                }
             }
         }
     }

@@ -150,19 +150,6 @@ export function buildTonConnectBridgeApi(pageUrl: string): BrowserTonConnectBrid
     send: async <T extends RpcMethod>(request: AppRequest<T>) => {
       requestId++;
 
-      const global = getGlobal();
-      const isConnected = global.byAccountId[global.currentAccountId!].dapps?.some((dapp) => dapp.url === url);
-
-      if (!isConnected) {
-        return {
-          error: {
-            code: SEND_TRANSACTION_ERROR_CODES.UNKNOWN_APP_ERROR,
-            message: 'Unknown app',
-          },
-          id: request.id.toString(),
-        };
-      }
-
       const dappRequest = buildDappRequest(url);
 
       try {

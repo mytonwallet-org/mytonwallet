@@ -98,7 +98,7 @@ struct ActivityView: View {
             VStack(alignment: .leading, spacing: 0) {
                 NftImage(nft: nft, animateIfPossible: true, loadFullSize: true)
                     .padding(.bottom, 12)
-                    .onTapGesture { showNft(nft) }
+                    .onTapGesture { showNft(nft, isExpanded: true) }
                 let name: String = if let _name = nft.name, let idx = nft.index, idx > 0 {
                     "\(_name)"
                 } else {
@@ -107,7 +107,7 @@ struct ActivityView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(name)
                         .font(.system(size: 24, weight: .semibold))
-                        .onTapGesture { showNft(nft) }
+                        .onTapGesture { showNft(nft, isExpanded: false) }
                     if activity.shouldShowTransactionAddress(in: .details) {
                         HStack(alignment: .firstTextBaseline, spacing: 0) {
                             Text((tx.isIncoming == true ? lang("Received from") : lang("Sent to")) + " ")
@@ -131,8 +131,8 @@ struct ActivityView: View {
         }
     }
     
-    private func showNft(_ nft: ApiNft) {
-        AppActions.showNft(accountContext: model.accountContext, nft: nft)
+    private func showNft(_ nft: ApiNft, isExpanded: Bool) {
+        AppActions.showNft(accountContext: model.accountContext, nft: nft, isExpanded: isExpanded)
     }
 
     @ViewBuilder

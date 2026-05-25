@@ -55,6 +55,14 @@ class MoshiBuilder {
                             "dappDisconnect"
                         )
                         .withSubtype(ApiUpdate.ApiUpdateDappLoading::class.java, "dappLoading")
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateDappAlreadyConnected::class.java,
+                            "dappAlreadyConnected"
+                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateDappDisconnected::class.java,
+                            "dappDisconnected"
+                        )
                         .withSubtype(ApiUpdate.ApiUpdateTokens::class.java, "updateTokens")
                         .withSubtype(
                             ApiUpdate.ApiUpdateDappConnectComplete::class.java,

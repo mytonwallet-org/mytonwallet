@@ -77,6 +77,12 @@ sealed class ApiUpdate {
         )
     }
 
+    @JsonSealedSubtype("dappAlreadyConnected")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateDappAlreadyConnected(
+        val url: String? = null
+    ) : ApiUpdate()
+
     @JsonSealedSubtype("dappDisconnect")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappDisconnect(
@@ -89,7 +95,10 @@ sealed class ApiUpdate {
     data class ApiUpdateDappLoading(
         val connectionType: ApiConnectionType,
         val isSse: Boolean? = null,
-        val accountId: String? = null
+        val accountId: String? = null,
+        // Set when a wake deeplink opens the placeholder request modal before the request event arrives
+        val isWaitingForRequest: Boolean? = null,
+        val returnUrl: String? = null
     ) : ApiUpdate()
 
     @JsonSealedSubtype("updateTokens")
@@ -102,6 +111,12 @@ sealed class ApiUpdate {
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappConnectComplete(
         val type: String? = null
+    ) : ApiUpdate()
+
+    @JsonSealedSubtype("dappDisconnected")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateDappDisconnected(
+        val url: String? = null
     ) : ApiUpdate()
 
     @JsonSealedSubtype("dappCloseLoading")

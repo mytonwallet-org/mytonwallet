@@ -61,12 +61,19 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
     private func setupViews() {
         navigationItem.title = lang("Confirm Actions", arg1: 1)
         addCloseNavigationItemIfNeeded()
+        // Route the close "X" through cancellation so the dapp is notified (otherwise it waits forever).
+        if navigationItem.rightBarButtonItem != nil {
+            navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in
+                self?._onCancel()
+            })
+        }
 
         hostingController = addHostingController(makeView(), constraints: .fill)
-        
+
         updateTheme()
-        
-        sheetPresentationController?.delegate = self
+
+        // The sheet (and its swipe-to-dismiss) belongs to the enclosing nav controller, not this VC.
+        (navigationController?.sheetPresentationController ?? sheetPresentationController)?.delegate = self
     }
     
     private func makeView() -> SignDataViewOrPlaceholder {
@@ -107,12 +114,12 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
     }
 
     func _onCancel() {
-        if let onCancel {
-            navigationController?.presentingViewController?.dismiss(animated: true)
-            onCancel()
-            self.onConfirm = nil
-            self.onCancel = nil
-        }
+        // `onCancel` rejects the dapp request; it's nil for the wake placeholder (no request yet),
+        // in which case we still dismiss so the Cancel button / swipe / X always close the modal.
+        onCancel?()
+        onConfirm = nil
+        onCancel = nil
+        navigationController?.presentingViewController?.dismiss(animated: true)
     }
     
     public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {

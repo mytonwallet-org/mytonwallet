@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OrderedCollections
 import UIKit
 import UIComponents
 import WalletCore
@@ -21,21 +22,23 @@ class SendCurrencyVC: WViewController {
     
     let accountId: String
     let isMultichain: Bool
+    private let defaultTokenSlugs: OrderedSet<String>
     var currentTokenSlug: String
     var onSelect: (ApiToken) -> ()
     
     @Dependency(\.balancesStore) private var balancesStore
     @Dependency(\.tokenStore) private var tokenStore
     
-    public init(accountId: String, isMultichain: Bool, walletTokens: [MTokenBalance], currentTokenSlug: String, onSelect: @escaping (ApiToken) -> ()) {
+    public init(accountId: String, isMultichain: Bool, walletTokens: [MTokenBalance], defaultTokenSlugs: OrderedSet<String>, currentTokenSlug: String, onSelect: @escaping (ApiToken) -> ()) {
         self.accountId = accountId
         self.isMultichain = isMultichain
+        self.defaultTokenSlugs = defaultTokenSlugs
         self.currentTokenSlug = currentTokenSlug
         self.onSelect = onSelect
         super.init(nibName: nil, bundle: nil)
         self.walletTokens = walletTokens
         self.walletTokensBySlug = Dictionary(uniqueKeysWithValues: walletTokens.map { ($0.tokenSlug, $0) })
-        self.showingTokenSlugs = walletTokens.map(\.tokenSlug)
+        self.showingTokenSlugs = sortedForPicker(walletTokens).map(\.tokenSlug)
     }
     
     required init?(coder: NSCoder) {
@@ -85,7 +88,7 @@ class SendCurrencyVC: WViewController {
     }
 
     private func setupViews() {
-        title = lang("Choose Currency")
+        title = lang("Select Token")
         addCloseNavigationItemIfNeeded()
 
         searchController.searchBar.delegate = self
@@ -155,9 +158,7 @@ class SendCurrencyVC: WViewController {
     
     func filterWalletTokens() {
         guard !keyword.isEmpty else {
-            let sorted = walletTokens.sorted { lhs, rhs in
-                return lhs.toBaseCurrency ?? 0 > rhs.toBaseCurrency ?? 0
-            }
+            let sorted = sortedForPicker(walletTokens)
             showingTokenSlugs = sorted.map(\.tokenSlug)
             applySnapshot(animated: false)
             return
@@ -168,11 +169,17 @@ class SendCurrencyVC: WViewController {
                 return true
             }
             return tokenStore.tokens[it.tokenSlug]?.matchesSearch(normalizedKeyword) == true
-        }).sorted { lhs, rhs in
-            return lhs.toBaseCurrency ?? 0 > rhs.toBaseCurrency ?? 0
-        }
-        showingTokenSlugs = filtered.map(\.tokenSlug)
+        })
+        let sorted = sortedForPicker(filtered)
+        showingTokenSlugs = sorted.map(\.tokenSlug)
         applySnapshot(animated: false)
+    }
+
+    private func sortedForPicker(_ tokens: [MTokenBalance]) -> [MTokenBalance] {
+        MTokenBalance.sortedForTokenPicker(
+            tokenBalances: tokens,
+            defaultTokenSlugs: defaultTokenSlugs
+        )
     }
     
     private func applySnapshot(animated: Bool) {

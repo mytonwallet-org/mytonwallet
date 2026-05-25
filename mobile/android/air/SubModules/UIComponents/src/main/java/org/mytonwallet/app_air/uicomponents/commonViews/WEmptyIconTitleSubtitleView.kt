@@ -74,6 +74,10 @@ class WEmptyIconTitleSubtitleView(
         updateTheme()
     }
 
+    fun setTitle(text: String) {
+        titleLabel.text = text
+    }
+
     var startedAnimation = false
         private set
 

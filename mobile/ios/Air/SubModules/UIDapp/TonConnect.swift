@@ -36,7 +36,6 @@ private let log = Log("TonConnect")
     public func handleDeeplink(_ url: String) {
         Task { @MainActor in
             do {
-                showOverlayIfNeeded()
                 let identifier = "\(Date().timeIntervalSince1970)"
                 let returnStrategy = try await Api.startSseConnection(params: ApiSseConnectionParams(
                         url: url,
@@ -44,27 +43,24 @@ private let log = Log("TonConnect")
                         identifier: identifier
                     )
                 )
-                
-                if returnStrategy == .empty {
-                    return
-                }
-                
-                dismissOverlayIfNeeded()
-                if let returnStrategy, case .url(var str) = returnStrategy {
-                    if !str.contains("://") {
-                        str = "https://" + str
-                    }
-                    if let url = URL(string: str) {
-                        DispatchQueue.main.async {
-                            UIApplication.shared.open(url)
-                        }
-                    }
+                if let returnStrategy, case .url(let str) = returnStrategy {
+                    openReturnUrl(str)
                 }
             } catch {
                 log.error("failed to handle deeplink: \(error, .public)")
-                dismissOverlayIfNeeded()
                 AppActions.showError(error: error)
             }
+        }
+    }
+
+    @MainActor func openReturnUrl(_ returnUrl: String) {
+        var str = returnUrl
+        if !str.contains("://") {
+            str = "https://" + str
+        }
+        guard let url = URL(string: str) else { return }
+        DispatchQueue.main.async {
+            UIApplication.shared.open(url)
         }
     }
 
@@ -84,42 +80,48 @@ private let log = Log("TonConnect")
             await handleSendTransactions(update: update)
         case .dappSignData(let update):
             await handleSignData(update: update)
+        case .dappAlreadyConnected(let update):
+            await handleAlreadyConnected(update: update)
+        case .dappDisconnected(let update):
+            await handleDisconnected(update: update)
         default:
             break
         }
     }
-    
-    @MainActor func showOverlayIfNeeded() {
-        guard lastPresented == nil else { return }
-        guard let window = UIApplication.shared.sceneKeyWindow, !window.subviews.any({ $0 is TonConnectOverlayView }) else { return }
-        let overlay = TonConnectOverlayView()
-        window.addSubview(overlay)
-        NSLayoutConstraint.activate([
-            overlay.topAnchor.constraint(equalTo: window.topAnchor),
-            overlay.bottomAnchor.constraint(equalTo: window.bottomAnchor),
-            overlay.leadingAnchor.constraint(equalTo: window.leadingAnchor),
-            overlay.trailingAnchor.constraint(equalTo: window.trailingAnchor),
-        ])
-    }
-    
-    @MainActor func dismissOverlayIfNeeded() {
-        if let window = UIApplication.shared.sceneKeyWindow, let overlay = window.subviews.compactMap({ $0 as? TonConnectOverlayView }).first {
-            overlay.isUserInteractionEnabled = false
-            overlay.dismissSelf()
-        }
-    }
-    
+
     @MainActor func handleLoading(update: ApiUpdate.DappLoading) async {
-        dismissOverlayIfNeeded()
+        // The SSE request event may arrive before the wake deeplink; if a request modal is already shown, ignore the placeholder.
+        if update.isWaitingForRequest == true, lastPresented != nil {
+            return
+        }
         if let accountId = update.accountId {
             await switchAccountIfNeeded(accountId: accountId)
+        }
+        // The real request emits a typed `dappLoading` of its own; keep the matching placeholder, or swap it on a type change.
+        if let nc = placeholderNc, let top = nc.visibleViewController {
+            let matchesType = switch update.connectionType {
+            case .connect: top is ConnectDappVC
+            case .sendTransaction: top is SendDappVC
+            case .signData: top is SignDataVC
+            }
+            if matchesType {
+                return
+            }
+            placeholderNc = nil
+            await withCheckedContinuation { continuation in
+                nc.dismiss(animated: false) { continuation.resume() }
+            }
         }
         let vc: UIViewController
         switch update.connectionType {
         case .connect:
             vc = ConnectDappVC(placeholderAccountId: update.accountId)
         case .sendTransaction:
-            vc = SendDappVC(placeholderAccountId: update.accountId)
+            vc = SendDappVC(
+                placeholderAccountId: update.accountId,
+                isWaitingForRequest: update.isWaitingForRequest == true,
+                returnUrl: update.returnUrl
+            )
         case .signData:
             vc = SignDataVC(placeholderAccountId: update.accountId)
         }
@@ -127,9 +129,38 @@ private let log = Log("TonConnect")
         self.placeholderNc = nc
         presentAndRecord(nc)
     }
-    
+
+    @MainActor func handleAlreadyConnected(update: ApiUpdate.DappAlreadyConnected) async {
+        let url = update.url
+        topViewController()?.showAlert(
+            title: lang("Already Connected"),
+            text: lang("Return to the dapp to proceed, or reconnect."),
+            button: lang("OK"),
+            buttonPressed: { [weak self] in
+                if let url {
+                    self?.openReturnUrl(url)
+                }
+            },
+            secondaryButton: url != nil ? lang("Cancel") : nil
+        )
+    }
+
+    @MainActor func handleDisconnected(update: ApiUpdate.DappDisconnected) async {
+        let url = update.url
+        topViewController()?.showAlert(
+            title: lang("Dapp Disconnected"),
+            text: lang("Please reconnect your wallet from the dapp."),
+            button: lang("OK"),
+            buttonPressed: { [weak self] in
+                if let url {
+                    self?.openReturnUrl(url)
+                }
+            },
+            secondaryButton: url != nil ? lang("Cancel") : nil
+        )
+    }
+
     @MainActor func handleConnect(update: ApiUpdate.DappConnect) async {
-        dismissOverlayIfNeeded()
         await switchAccountIfNeeded(accountId: update.accountId)
         if let vc = placeholderNc?.visibleViewController as? ConnectDappVC {
             vc.replacePlaceholder(
@@ -190,7 +221,6 @@ private let log = Log("TonConnect")
     }
     
     @MainActor  func handleSendTransactions(update: ApiUpdate.DappSendTransactions) async {
-        dismissOverlayIfNeeded()
         await switchAccountIfNeeded(accountId: update.accountId)
         if let vc = placeholderNc?.visibleViewController as? SendDappVC {
             vc.replacePlaceholder(
@@ -252,7 +282,6 @@ private let log = Log("TonConnect")
     }
     
     @MainActor func handleSignData(update: ApiUpdate.DappSignData) async {
-        dismissOverlayIfNeeded()
         await switchAccountIfNeeded(accountId: update.accountId)
         if let vc = placeholderNc?.visibleViewController as? SignDataVC {
             vc.replacePlaceholder(
@@ -314,7 +343,16 @@ private let log = Log("TonConnect")
     }
     
     @MainActor func presentAndRecord(_ vc: UIViewController) {
-        self.lastPresented = vc
-        topViewController()?.present(vc, animated: true)
+        // Only one dapp request modal at a time: if one is still on screen (e.g. a connect deeplink
+        // tapped twice in a row), replace it instead of stacking a second sheet.
+        if let previous = lastPresented, previous.presentingViewController != nil {
+            previous.dismiss(animated: false) { [weak self] in
+                self?.lastPresented = vc
+                topViewController()?.present(vc, animated: true)
+            }
+        } else {
+            lastPresented = vc
+            topViewController()?.present(vc, animated: true)
+        }
     }
 }

@@ -315,7 +315,7 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
     }
 
     private val scrollView: WScrollView by lazy {
-        object : WScrollView(WeakReference(this)) {
+        object : WScrollView(WeakReference(this@WalletCustomizationVC)) {
             override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
                 return touchHandler.dispatchTouch(scrollView, ev) ?: super.dispatchTouchEvent(ev)
             }
@@ -324,8 +324,10 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
                 contentView,
                 ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
             )
-            id = View.generateViewId()
             clipToPadding = false
+            onScrollStateChange = {
+                updateBlurViews(scrollView)
+            }
             setOnScrollChangeListener { _, _, scrollY, _, _ ->
                 if (scrollY > 0) {
                     topReversedCornerView?.resumeBlurring()
@@ -339,8 +341,6 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
                     setTopBlur(false, animated = true)
                 }
             }
-            overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
-            isVerticalScrollBarEnabled = false
         }
     }
 
