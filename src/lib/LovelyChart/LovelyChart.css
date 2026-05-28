@@ -735,3 +735,13 @@ html.theme-dark .lovely-chart--tooltip-balloon {
 
   transition: transform 300ms ease-out, color 300ms ease-out;
 }
+
+html.cursor-grabbing,
+html.cursor-grabbing * {
+  cursor: grabbing !important;
+}
+
+html.cursor-ew-resize,
+html.cursor-ew-resize * {
+  cursor: ew-resize !important;
+}

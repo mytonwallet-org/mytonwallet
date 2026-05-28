@@ -20,7 +20,10 @@ class WidgetConfigurationWindow : WWindow() {
     override fun getKeyNavigationController(): WNavigationController {
         val navigationController = WNavigationController(this)
         val appWidgetManager = AppWidgetManager.getInstance(this)
-        val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 0)
+        val appWidgetId = intent.getIntExtra(
+            AppWidgetManager.EXTRA_APPWIDGET_ID,
+            AppWidgetManager.INVALID_APPWIDGET_ID
+        )
         val appWidgetInfo = appWidgetManager.getAppWidgetInfo(appWidgetId)
         val onResult = { ok: Boolean ->
             val result = Intent()
@@ -28,7 +31,7 @@ class WidgetConfigurationWindow : WWindow() {
             setResult(RESULT_OK, result)
             finish()
         }
-        val configurationVC = when (appWidgetInfo.provider.className) {
+        val configurationVC = when (appWidgetInfo?.provider?.className) {
             "org.mytonwallet.app_air.widgets.actionsWidget.ActionsWidget" -> {
                 ActionsWidgetConfigurationVC(this, appWidgetId, onResult)
             }
@@ -38,7 +41,9 @@ class WidgetConfigurationWindow : WWindow() {
             }
 
             else -> {
-                throw Error()
+                setResult(RESULT_CANCELED)
+                finish()
+                return navigationController
             }
         }
         navigationController.setRoot(configurationVC)

@@ -64,6 +64,7 @@ struct ConnectDappView: View {
                         .padding(.top, -8)
                 }
                 ConnectButton(viewModel: viewModel)
+                    .padding(.bottom, viewModel.extraBottomPadding)
             }
             .ignoresSafeArea(edges: .top)
         }

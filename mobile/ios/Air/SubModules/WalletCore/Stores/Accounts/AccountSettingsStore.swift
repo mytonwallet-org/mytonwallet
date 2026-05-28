@@ -97,6 +97,7 @@ public final class AccountSettings: Sendable {
     public private(set) var accentColorNft: ApiNft?
     public private(set) var accentColorIndex: Int?
     public private(set) var isAllowSuspiciousActions = false
+    public private(set) var portfolioTimeRange: String?
 
     nonisolated init(accountId: String) {
         self.accountId = accountId
@@ -132,6 +133,11 @@ public final class AccountSettings: Sendable {
         persist()
     }
 
+    public func setPortfolioTimeRange(_ range: String?) {
+        portfolioTimeRange = range
+        persist()
+    }
+
     private func setAccentColorIndex(index newValue: Int?) {
         accentColorIndex = newValue
         @Dependency(\.accountStore) var accountStore
@@ -149,6 +155,7 @@ public final class AccountSettings: Sendable {
         accentColorNft = row?.accentColorNft
         accentColorIndex = row?.accentColorIndex
         isAllowSuspiciousActions = row?.isAllowSuspiciousActions ?? false
+        portfolioTimeRange = row?.portfolioTimeRange
     }
 
     private var row: MAccountSettings {
@@ -157,7 +164,8 @@ public final class AccountSettings: Sendable {
             cardBackgroundNft: backgroundNft,
             accentColorNft: accentColorNft,
             accentColorIndex: accentColorIndex,
-            isAllowSuspiciousActions: isAllowSuspiciousActions ? true : nil
+            isAllowSuspiciousActions: isAllowSuspiciousActions ? true : nil,
+            portfolioTimeRange: portfolioTimeRange
         )
     }
 

@@ -748,6 +748,7 @@ function updateCache(force?: boolean) {
       ...global.settings,
       byAccountId: pick(global.settings.byAccountId, Object.keys(accountsById)),
     },
+    portfolio: reducePortfolio(global.portfolio),
   };
 
   const usedTokenSlugs = getUsedTokenSlugs(reducedGlobal);
@@ -811,10 +812,11 @@ function reduceByAccountId(global: GlobalState) {
       'dapps',
     ]);
 
-    if (state.nfts?.collectionTabs) {
+    if (state.nfts?.collectionTabs || state.nfts?.ownedMtwCardAddresses) {
       acc[accountId].nfts = {
         collectionTabs: state.nfts.collectionTabs,
         wasTelegramGiftsAutoAdded: state.nfts.wasTelegramGiftsAutoAdded,
+        ownedMtwCardAddresses: state.nfts.ownedMtwCardAddresses,
       };
     }
 
@@ -828,6 +830,13 @@ function reduceByAccountId(global: GlobalState) {
 
     return acc;
   }, {} as GlobalState['byAccountId']);
+}
+
+// Persist only the selected range; history bundles are reloaded on open
+function reducePortfolio(portfolio?: GlobalState['portfolio']): GlobalState['portfolio'] {
+  if (!portfolio?.activeRange) return undefined;
+
+  return { activeRange: portfolio.activeRange };
 }
 
 function reduceAccountBalances(balances?: AccountState['balances'], tokenSlugs?: string[]) {

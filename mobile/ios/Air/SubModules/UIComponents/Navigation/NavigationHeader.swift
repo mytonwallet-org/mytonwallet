@@ -50,7 +50,7 @@ extension NavigationHeader where Subtitle == EmptyView {
 }
 
 /// Inherits UILabel to make native iOS26 blur work
-public class NavigationHeader2: UILabel {
+open class NavigationHeader2: UILabel {
     private let contentHeight = 44.0
     private var centerXConstraint: NSLayoutConstraint!
     private var centerYConstraint: NSLayoutConstraint!
@@ -68,7 +68,7 @@ public class NavigationHeader2: UILabel {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required public init?(coder: NSCoder) { fatalError() }
 
     public func setContentView(_ view: UIView) {
         guard contentView !== view else { return }
@@ -94,20 +94,20 @@ public class NavigationHeader2: UILabel {
         setNeedsLayout()
     }
             
-    public override var intrinsicContentSize: CGSize {
+    open override var intrinsicContentSize: CGSize {
         CGSize(width: UIView.layoutFittingExpandedSize.width, height: contentHeight)
     }
         
-    public override func sizeThatFits(_ size: CGSize) -> CGSize {
+    open override func sizeThatFits(_ size: CGSize) -> CGSize {
         return CGSize(width: 1000, height: contentHeight)
     }
             
-    public override func didMoveToWindow() {
+    open override func didMoveToWindow() {
         super.didMoveToWindow()
         layoutContent()
     }
 
-    public override func layoutSubviews() {
+    open override func layoutSubviews() {
         super.layoutSubviews()
         layoutContent()
     }

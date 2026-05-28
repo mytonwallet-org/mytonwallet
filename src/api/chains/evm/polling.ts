@@ -288,6 +288,7 @@ function setupBalancePolling(
   if (onUpdatingStatusChange) {
     balanceStream.onLoadingChange(onUpdatingStatusChange);
   }
+  balanceStream.start();
 
   return {
     stop() {

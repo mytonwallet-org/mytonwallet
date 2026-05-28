@@ -9,23 +9,29 @@ import UIKit
 import WalletContext
 
 public protocol WWordInputDelegate: AnyObject {
-    func resignedFirstResponder()
+    func wordInputDidWantToCommitData(_ input: WWordInput)
+    func wordInputDidBeginEditing(_ input: WWordInput)
     func textChanged()
+    func wordInput(_ input: WWordInput, wantsPasteWords words: [String])
 }
 
 public class WWordInput: UIView {
-    private var wordNumber: Int = 0
     private weak var suggestionsView: WSuggestionsView? = nil
     private weak var delegate: WWordInputDelegate? = nil
-    public init(index: Int,
-                wordNumber: Int,
-                suggestionsView: WSuggestionsView?,
-                delegate: WWordInputDelegate?) {
+    
+    public let wordNumber: Int
+    public var advancesOnSuggestionSelection = true
+    public weak var nextInput: WWordInput?
+
+    private let numberLabel = UILabel()
+    
+    public init(wordNumber: Int, suggestionsView: WSuggestionsView?, delegate: WWordInputDelegate?) {
         self.wordNumber = wordNumber
         self.suggestionsView = suggestionsView
         self.delegate = delegate
+        
         super.init(frame: CGRect.zero)
-        self.tag = index
+        
         setup()
     }
     
@@ -33,18 +39,15 @@ public class WWordInput: UIView {
         fatalError("init(coder:) has not been implemented")
     }
     
-    let numberLabel = UILabel()
     public lazy var textField = WWordInputField(input: self)
-    
-    public var nextInput: WWordInput? {
-        return superview?.superview?.viewWithTag(tag + 1) as? WWordInput
-    }
 
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
 
         // corner radius
         layer.cornerRadius = 10
+
+        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(focusTextField)))
 
         // We had to wrap UIStackView inside a UIView to be able to set backgroundColor on WWordInput on older iOS versions;
         //  Because, prior to iOS 14, stack views were "non-rendering" views
@@ -90,7 +93,11 @@ public class WWordInput: UIView {
         numberLabel.textColor = .air.secondaryLabel
     }
     
-    func showSuggestions(for keyword: String?) {
+    @objc private func focusTextField() {
+        textField.becomeFirstResponder()
+    }
+
+    private func showSuggestions(for keyword: String?) {
         guard let keyword, !keyword.isEmpty else {
             suggestionsView?.config(activeInput: nil, suggestions: [])
             return
@@ -102,6 +109,22 @@ public class WWordInput: UIView {
             suggestions = []
         }
         suggestionsView?.config(activeInput: self, suggestions: suggestions)
+    }
+
+    public func setText(_ text: String, notifyDelegate: Bool, goToNextInput: Bool) {
+        textField.text = text
+        if notifyDelegate {
+            delegate?.textChanged()
+        }
+        textFieldDidEndEditing(textField)
+        
+        if goToNextInput {
+            nextInput?.textField.becomeFirstResponder()
+        }
+    }
+        
+    internal func paste(words: [String]) {
+        delegate?.wordInput(self, wantsPasteWords: words)
     }
     
     public var trimmedText: String? {
@@ -115,16 +138,25 @@ extension WWordInput: UITextFieldDelegate {
         if let txt = trimmedText, !txt.isEmpty {
             showSuggestions(for: txt)
         }
+        delegate?.wordInputDidBeginEditing(self)
     }
+    
+    public func textFieldShouldClear(_ textField: UITextField) -> Bool {
+        textField.text = nil
+        showSuggestions(for: nil)
+        delegate?.textChanged()
+        return false
+    }
+
     public func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        if let nextField = superview?.superview?.viewWithTag(tag + 1) as? WWordInput {
-            nextField.textField.becomeFirstResponder()
+        if let nextInput {
+            nextInput.textField.becomeFirstResponder()
         } else {
-            textField.resignFirstResponder()
-            delegate?.resignedFirstResponder()
+            delegate?.wordInputDidWantToCommitData(self)
         }
         return false
     }
+    
     public func textFieldDidEndEditing(_ textField: UITextField) {
         let keyword = trimmedText ?? ""
         if isValidPrivateKeyHex(keyword) {
@@ -146,6 +178,7 @@ extension WWordInput: UITextFieldDelegate {
         }
         showSuggestions(for: nil)
     }
+    
     public func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         defer { delegate?.textChanged() }
         if let text = textField.text,
@@ -171,6 +204,6 @@ extension WWordInput: UITextFieldDelegate {
 #if DEBUG
 @available(iOS 17.0, *)
 #Preview {
-    return WWordInput(index: 0, wordNumber: 2, suggestionsView: nil, delegate: nil)
+    return WWordInput(wordNumber: 2, suggestionsView: nil, delegate: nil)
 }
 #endif

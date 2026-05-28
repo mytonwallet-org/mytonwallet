@@ -50,6 +50,8 @@
     background-color: var(--color-background-blurred);
     backdrop-filter: blur(var(--blur-glass-capsule));
   }
+
+  @include mixins.frostedGlass(0.8);
 }
 
 .inputInnerWrapper {

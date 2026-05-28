@@ -8,8 +8,8 @@
 import UIKit
 
 public class WWordInputField: UITextField {
-    
     private weak var input: WWordInput? = nil
+    
     public init(input: WWordInput) {
         self.input = input
         super.init(frame: .zero)
@@ -28,22 +28,6 @@ public class WWordInputField: UITextField {
         let words = pasteboardString.split { $0 == "," || $0 == " " || $0.isNewline }.map(String.init).filter { it in
             !it.isEmpty
         }
-        distributeWords(words)
-    }
-    
-    public func distributeWords(_ words: [String]) {
-        guard !words.isEmpty else { return }
-        var currentTextField: WWordInputField? = self
-        for (i, word) in words.enumerated() {
-            guard let activeTextField = currentTextField else { break }
-            activeTextField.text = word
-            activeTextField.delegate?.textFieldDidEndEditing?(activeTextField)
-            if i < words.count - 1 {
-                currentTextField = activeTextField.input?.nextInput?.textField
-            }
-        }
-        if let currentTextField {
-            _ = currentTextField.input?.textFieldShouldReturn(currentTextField)
-        }
+        input?.paste(words: words)
     }
 }

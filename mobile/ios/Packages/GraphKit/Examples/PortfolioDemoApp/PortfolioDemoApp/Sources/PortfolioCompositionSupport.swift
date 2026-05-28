@@ -382,7 +382,7 @@ final class PortfolioCompositionDemoViewController: UIViewController {
         do {
             let controller = try PortfolioChartAdapter.makeSampleChartController(type: .absoluteArea)
             absoluteChartView.apply(animated: false)
-            absoluteChartView.setup(controller: controller)
+            absoluteChartView.setup(controller: controller, noInitialZoom: false)
         } catch {
             errors.append("Unable to load total value chart: \(error)")
         }
@@ -391,7 +391,7 @@ final class PortfolioCompositionDemoViewController: UIViewController {
             let controller = try PortfolioChartAdapter.makeSampleChartController(type: .pie)
             (controller as? PercentPieChartController)?.keepsFullRangePreviewWhenZoomed = true
             comparisonChartView.apply(animated: false)
-            comparisonChartView.setup(controller: controller)
+            comparisonChartView.setup(controller: controller, noInitialZoom: false)
         } catch {
             errors.append("Unable to load portfolio share chart: \(error)")
         }

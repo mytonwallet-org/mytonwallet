@@ -18,6 +18,7 @@ import androidx.core.text.inSpans
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import com.facebook.drawee.generic.RoundingParams
 import com.facebook.fresco.ui.common.OnFadeListener
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -265,11 +266,6 @@ class WalletCardView(
         }
         lbl.setOnClickListener {
             if (mode == HomeHeaderView.Mode.Collapsed) return@setOnClickListener
-            val url = context.getString(BaseR.string.app_portfolio_url)
-            if (url.isNotEmpty()) WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
-        }
-        lbl.setOnLongHoldListener(5_000L) {
-            if (mode == HomeHeaderView.Mode.Collapsed) return@setOnLongHoldListener
             val tabNav = window.navigationControllers.last().tabBarController?.navigationController
             if (tabNav != null) {
                 tabNav.push(PortfolioVC(context))
@@ -804,6 +800,7 @@ class WalletCardView(
         this.currentRadius = radius
         clippedContainer.setBackgroundColor(Color.TRANSPARENT, radius, true)
         img.setBackgroundColor(Color.TRANSPARENT, radius, true)
+        img.defaultRounding = Content.Rounding.Radius(radius)
         shiningView.radius = radius
     }
 

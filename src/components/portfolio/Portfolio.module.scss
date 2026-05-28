@@ -1,0 +1,158 @@
+@use "../../styles/mixins";
+
+@use "../../styles/scssVariables" as v;
+
+.root {
+  // Our bottom bar is just the time-range capsule (2.75rem) plus its bottom gap
+  --bottombar-height: calc(2.75rem + max(0.75rem, var(--safe-area-bottom)));
+  --header-height: calc(3rem + var(--safe-area-top));
+
+  position: relative;
+
+  display: flex;
+  flex-direction: column;
+
+  width: 100%;
+  height: 100%;
+
+  background-color: var(--color-background-first);
+
+  :global(html.theme-dark) & {
+    background-color: var(--color-background-window);
+  }
+
+  @include mixins.respond-above(xs) {
+    overflow: hidden;
+    border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+    background-color: var(--color-background-second);
+
+    :global(html.theme-dark) & {
+      background-color: var(--color-background-second);
+    }
+  }
+}
+
+.body {
+  scrollbar-gutter: stable;
+
+  position: relative;
+
+  overflow-y: scroll;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+
+  width: 100%;
+  padding-top: var(--header-height);
+
+  @include mixins.respond-above(xs) {
+    @include mixins.adapt-padding-to-scrollbar(1rem);
+  }
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  gap: 1rem;
+
+  padding: 1rem 1rem calc(var(--bottombar-height) + 1rem);
+
+  @include mixins.respond-above(xs) {
+    width: 100%;
+    max-width: v.$landscapeMainContentMaxWidth;
+    margin: 0 auto;
+    padding: 1.5rem 0 max(1.75rem, var(--safe-area-bottom));
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.insightsRailContainer {
+  position: relative;
+
+  // Bleed to the screen edges so the rail can scroll edge-to-edge; the overlay
+  // scroll buttons stay anchored to this non-scrolling box
+  margin: 0 -1rem;
+
+  @include mixins.respond-above(xs) {
+    margin: 0;
+  }
+}
+
+.insightsRail {
+  scrollbar-width: none;
+  scroll-padding: 0 1rem;
+  scroll-snap-type: x mandatory;
+
+  overflow-x: auto;
+  display: flex;
+  gap: 0.75rem;
+
+  padding: 0 1rem 0.25rem;
+
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  @include mixins.respond-above(xs) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(16rem, 1fr));
+    gap: 1rem;
+    padding: 0 0 0.25rem;
+  }
+}
+
+.insightsCol {
+  scroll-snap-align: start;
+
+  display: flex;
+  flex: 0 0 17rem;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  // The grid tracks size the cards on desktop; let them shrink below their content
+  // width so three cards fit a roomy panel, and the rail only scrolls once cramped
+
+  @include mixins.respond-above(xs) {
+    min-width: 0;
+  }
+}
+
+.bottomBar {
+  @include mixins.bottomBarFade();
+
+  @include mixins.respond-above(xs) {
+    position: sticky;
+    right: auto;
+    bottom: 0;
+    left: auto;
+
+    flex-shrink: 0;
+
+    width: 100%;
+    margin: auto 0 0;
+    padding: 0 1rem max(1.75rem, var(--safe-area-bottom));
+    border-radius: 0;
+
+    background: linear-gradient(
+      180deg,
+      rgba(243, 244, 245, 0) 0%,
+      rgba(243, 244, 245, 0.9) calc(61.11% + var(--safe-area-bottom))
+    );
+
+    :global(html.theme-dark) & {
+      background: linear-gradient(
+        180deg,
+        rgba(0, 0, 0, 0) 0%,
+        rgba(0, 0, 0, 0.9) calc(61.11% + var(--safe-area-bottom))
+      );
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import React, {
-  memo, useEffect, useRef, useState,
+  memo, useState,
 } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
@@ -22,6 +22,7 @@ import useDraggablePill from './hooks/useDraggablePill';
 
 import AnimatedIconWithPreview from '../../../ui/AnimatedIconWithPreview';
 import Button from '../../../ui/Button';
+import Pill from './Pill';
 
 import styles from './BottomBar.module.scss';
 
@@ -91,7 +92,8 @@ function BottomBar({
   const {
     capsuleRef,
     isDragging,
-    previewIndex,
+    squeeze,
+    renderedActiveIndex,
     pointerHandlers,
   } = useDraggablePill({
     tabCount: TAB_COUNT,
@@ -99,24 +101,6 @@ function BottomBar({
     onCommit: switchToTabByIndex,
   });
 
-  const prevActiveRef = useRef(activeIndex);
-  // `animationKey` flips between 'a' and 'b' on every tab switch so the matching `.squeezeA` /
-  // `.squeezeB` class swaps - applying the same class twice would not restart the CSS animation
-  const [squeeze, setSqueeze] = useState<{ animationKey: 'a' | 'b'; direction: 'left' | 'right' } | undefined>();
-
-  useEffect(() => {
-    if (prevActiveRef.current === activeIndex) return;
-
-    const direction = activeIndex > prevActiveRef.current ? 'right' : 'left';
-    prevActiveRef.current = activeIndex;
-
-    setSqueeze((prev) => ({
-      animationKey: prev?.animationKey === 'a' ? 'b' : 'a',
-      direction,
-    }));
-  }, [activeIndex]);
-
-  const renderedActiveIndex = previewIndex ?? activeIndex;
   const rootStyle = buildStyle(
     `--tab-count: ${TAB_COUNT}`,
     `--active-index: ${activeIndex}`,
@@ -132,15 +116,7 @@ function BottomBar({
         className={buildClassName(styles.capsule, isDragging && styles.dragging)}
         {...pointerHandlers}
       >
-        <div className={styles.pillWrapper}>
-          <div
-            className={buildClassName(
-              styles.pill,
-              squeeze && (squeeze.animationKey === 'a' ? styles.squeezeA : styles.squeezeB),
-            )}
-            data-direction={squeeze?.direction}
-          />
-        </div>
+        <Pill isDragging={isDragging} squeeze={squeeze} />
         {tabs.map(({ index, label, iconKey, onClick }) => {
           const isActive = renderedActiveIndex === index;
           const variant = isActive ? `${iconKey}Solid` as const : iconKey;

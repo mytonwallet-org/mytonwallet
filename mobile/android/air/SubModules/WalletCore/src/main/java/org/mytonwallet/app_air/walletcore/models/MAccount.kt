@@ -4,17 +4,13 @@ import android.net.Uri
 import com.squareup.moshi.JsonClass
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
-import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
-import org.mytonwallet.app_air.walletcore.ALL_DEFAULT_TOKENS
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDerivation
 import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.utils.sortedByBalance
-import java.math.BigInteger
 
 @JsonClass(generateAdapter = true)
 class MAccount(
@@ -196,18 +192,7 @@ class MAccount(
         }
 
     val isNew: Boolean
-        get() {
-            val balances = BalanceStore.getBalances(accountId) ?: return false
-            val defaultTokens = ALL_DEFAULT_TOKENS[network]
-            return balances.filter { defaultTokens?.contains(it.key) != true }
-                .isEmpty() && balances.filter {
-                if (it.value == BigInteger.ZERO)
-                    return@filter false
-                val token = TokenStore.getToken(it.key) ?: return@filter false
-                return@filter token.priceUsd *
-                    it.value.doubleAbsRepresentation(token.decimals) >= 0.01
-            }.isEmpty()
-        }
+        get() = BalanceStore.isAccountNew(accountId)
 
     val firstChain: MBlockchain?
         get() {

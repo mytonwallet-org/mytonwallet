@@ -806,10 +806,12 @@ class SendVC(
                 val explainedFee = viewModel.getConfirmationPageConfig()?.explainedFee
                     ?: return@doOnFeeButtonClick
                 if (!explainedFee.supportsLegacyDetailsView) return@doOnFeeButtonClick
+                val feeToken = TokenStore.getToken(viewModel.getTokenSlug())
+                    ?: return@doOnFeeButtonClick
                 lateinit var dialogRef: WDialog
                 dialogRef = FeeDetailsDialog.create(
                     context,
-                    TokenStore.getToken(viewModel.getTokenSlug())!!,
+                    feeToken,
                     explainedFee
                 ) {
                     dialogRef.dismiss()

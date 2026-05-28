@@ -77,7 +77,7 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool, historyTag: String?) {
         let url = url.isSubproject ? url.appendingSubprojectContext() : url
-        if IS_DEBUG_OR_TESTFLIGHT, isPortfolioHomeURL(url) {
+        if isPortfolioHomeURL(url) {
             showPortfolio(accountContext: AccountContext(source: .current))
             return
         }
@@ -406,10 +406,6 @@ private class AppActionsImpl: AppActionsProtocol {
     }
 
     static func showPortfolio(accountContext: AccountContext) {
-        guard IS_DEBUG_OR_TESTFLIGHT else {
-            openInBrowser(portfolioURL, title: nil, injectDappConnect: true)
-            return
-        }
         let vc = PortfolioVC(accountContext: accountContext)
         pushIfNeeded(vc, push: true)
     }

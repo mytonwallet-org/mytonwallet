@@ -1,9 +1,399 @@
 import type { ApiNetwork, ApiSwapActivity, ApiTransactionActivity } from '../../types';
 import type { TracesResponse } from './toncenter/traces';
+import type { AddressBook, AnyAction } from './toncenter/types';
 
+import { TON_TSUSDE } from '../../../config';
 import { makeMockSwapActivity, makeMockTransactionActivity } from '../../../../tests/mocks';
+import * as addressHelpers from '../../common/addresses';
+import { parseActionsToActivities } from './toncenter/actions';
 import { fillActivityDetails } from './activities';
 import { parseTrace } from './traces';
+
+describe('parseActionsToActivities', () => {
+  it('uses the address book domain as the called contract name', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const contractAddress = 'EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ';
+    const addressBook: AddressBook = {
+      '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+        user_friendly: walletAddress,
+        domain: '',
+      },
+      '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708': {
+        user_friendly: contractAddress,
+        domain: 'near-intents-1.ton',
+      },
+    };
+    const action = {
+      type: 'call_contract',
+      action_id: 'tRczXqklp37aJrYeV4ag5ZW9mc6WT391If8A4wuukSo=',
+      trace_id: '4113cf12b2cb98258d91188eeaa14b601260b21d4c8e6acc968fe31592cccd4f',
+      start_lt: '79110006000009',
+      end_lt: '79110006000009',
+      start_utime: 1779626376,
+      end_utime: 1779626376,
+      transactions: ['99231d6a2986f700843b6484e2916341579d0e559de8327b0572a8e38d50ea27'],
+      success: true,
+      trace_end_lt: '79110006000009',
+      trace_end_utime: 1779626376,
+      trace_mc_seqno_end: 47440942,
+      trace_external_hash: '4113cf12b2cb98258d91188eeaa14b601260b21d4c8e6acc968fe31592cccd4f',
+      details: {
+        opcode: '0x205f209a',
+        source: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        destination: '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708',
+        value: '100000070000000',
+      },
+    } satisfies AnyAction;
+
+    const [activity] = parseActionsToActivities([action], {
+      network: 'mainnet',
+      walletAddress,
+      addressBook,
+      metadata: {},
+      nftSuperCollectionsByCollectionAddress: {},
+    });
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      type: 'callContract',
+      toAddress: contractAddress,
+      metadata: {
+        name: 'near-intents-1.ton',
+      },
+    });
+  });
+
+  it('uses the address book domain for a regular transfer counterparty', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const recipientAddress = 'EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ';
+    const addressBook: AddressBook = {
+      '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+        user_friendly: walletAddress,
+        domain: '',
+      },
+      '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708': {
+        user_friendly: recipientAddress,
+        domain: 'near-intents-1.ton',
+      },
+    };
+    const action = {
+      type: 'ton_transfer',
+      action_id: 'transfer-action-id',
+      trace_id: 'transfer-trace-id',
+      start_lt: '79110006000010',
+      end_lt: '79110006000010',
+      start_utime: 1779626377,
+      end_utime: 1779626377,
+      transactions: ['transfer-transaction-hash'],
+      success: true,
+      trace_end_lt: '79110006000010',
+      trace_end_utime: 1779626377,
+      trace_mc_seqno_end: 47440943,
+      trace_external_hash: 'transfer-external-hash',
+      details: {
+        source: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        destination: '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708',
+        value: '1000000000',
+        comment: '',
+        encrypted: false,
+      },
+    } satisfies AnyAction;
+
+    const [activity] = parseActionsToActivities([action], {
+      network: 'mainnet',
+      walletAddress,
+      addressBook,
+      metadata: {},
+      nftSuperCollectionsByCollectionAddress: {},
+    });
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      toAddress: recipientAddress,
+      metadata: {
+        name: 'near-intents-1.ton',
+      },
+    });
+  });
+
+  it('lets backend known addresses override the address book domain', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const recipientAddress = 'EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ';
+    const addressBook: AddressBook = {
+      '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+        user_friendly: walletAddress,
+        domain: '',
+      },
+      '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708': {
+        user_friendly: recipientAddress,
+        domain: 'near-intents-1.ton',
+      },
+    };
+    const action = {
+      type: 'ton_transfer',
+      action_id: 'known-address-action-id',
+      trace_id: 'known-address-trace-id',
+      start_lt: '79110006000010',
+      end_lt: '79110006000010',
+      start_utime: 1779626377,
+      end_utime: 1779626377,
+      transactions: ['known-address-transaction-hash'],
+      success: true,
+      trace_end_lt: '79110006000010',
+      trace_end_utime: 1779626377,
+      trace_mc_seqno_end: 47440943,
+      trace_external_hash: 'known-address-external-hash',
+      details: {
+        source: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        destination: '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708',
+        value: '1000000000',
+        comment: '',
+        encrypted: false,
+      },
+    } satisfies AnyAction;
+
+    const getKnownAddressesMock = jest.spyOn(addressHelpers, 'getKnownAddresses')
+      .mockReturnValue({
+        [recipientAddress]: { name: 'Known Backend Name' },
+      });
+
+    try {
+      const [activity] = parseActionsToActivities([action], {
+        network: 'mainnet',
+        walletAddress,
+        addressBook,
+        metadata: {},
+        nftSuperCollectionsByCollectionAddress: {},
+      });
+
+      expect(activity).toMatchObject({
+        kind: 'transaction',
+        metadata: {
+          name: 'Known Backend Name',
+        },
+      });
+    } finally {
+      getKnownAddressesMock.mockRestore();
+    }
+  });
+
+  it('uses the address book domain for an incoming regular transfer counterparty', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const senderAddress = 'EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ';
+    const addressBook: AddressBook = {
+      '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+        user_friendly: walletAddress,
+        domain: '',
+      },
+      '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708': {
+        user_friendly: senderAddress,
+        domain: 'near-intents-1.ton',
+      },
+    };
+    const action = {
+      type: 'ton_transfer',
+      action_id: 'incoming-transfer-action-id',
+      trace_id: 'incoming-transfer-trace-id',
+      start_lt: '79110006000011',
+      end_lt: '79110006000011',
+      start_utime: 1779626378,
+      end_utime: 1779626378,
+      transactions: ['incoming-transfer-transaction-hash'],
+      success: true,
+      trace_end_lt: '79110006000011',
+      trace_end_utime: 1779626378,
+      trace_mc_seqno_end: 47440944,
+      trace_external_hash: 'incoming-transfer-external-hash',
+      details: {
+        source: '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708',
+        destination: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        value: '1000000000',
+        comment: '',
+        encrypted: false,
+      },
+    } satisfies AnyAction;
+
+    const [activity] = parseActionsToActivities([action], {
+      network: 'mainnet',
+      walletAddress,
+      addressBook,
+      metadata: {},
+      nftSuperCollectionsByCollectionAddress: {},
+    });
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      fromAddress: senderAddress,
+      metadata: {
+        name: 'near-intents-1.ton',
+      },
+    });
+  });
+
+  it('preserves a jetton transfer counterparty domain and token slug', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const recipientAddress = 'EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ';
+    const tokenAddress = 'EQDQ5UUyPHrLcQJlPAczd_fjxn8SLrlNQwolBznxCdSlfQwr';
+    const addressBook: AddressBook = {
+      '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+        user_friendly: walletAddress,
+        domain: '',
+      },
+      '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708': {
+        user_friendly: recipientAddress,
+        domain: 'near-intents-1.ton',
+      },
+      '0:D0E545323C7ACB7102653C073377F7E3C67F122EB94D430A250739F109D4A57D': {
+        user_friendly: tokenAddress,
+        domain: '',
+      },
+    };
+    const action = {
+      type: 'jetton_transfer',
+      action_id: 'jetton-transfer-action-id',
+      trace_id: 'jetton-transfer-trace-id',
+      start_lt: '79110006000012',
+      end_lt: '79110006000012',
+      start_utime: 1779626379,
+      end_utime: 1779626379,
+      transactions: ['jetton-transfer-transaction-hash'],
+      success: true,
+      trace_end_lt: '79110006000012',
+      trace_end_utime: 1779626379,
+      trace_mc_seqno_end: 47440945,
+      trace_external_hash: 'jetton-transfer-external-hash',
+      details: {
+        asset: '0:D0E545323C7ACB7102653C073377F7E3C67F122EB94D430A250739F109D4A57D',
+        sender: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        receiver: '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708',
+        sender_jetton_wallet: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        receiver_jetton_wallet: '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708',
+        amount: '1000000',
+        comment: '',
+        is_encrypted_comment: false,
+        query_id: '0',
+        response_destination: '',
+        custom_payload: '',
+        forward_payload: '',
+        forward_amount: '0',
+      },
+    } satisfies AnyAction;
+
+    const [activity] = parseActionsToActivities([action], {
+      network: 'mainnet',
+      walletAddress,
+      addressBook,
+      metadata: {},
+      nftSuperCollectionsByCollectionAddress: {},
+    });
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      slug: 'ton-eqdq5uuyph',
+      toAddress: recipientAddress,
+      metadata: {
+        name: 'near-intents-1.ton',
+      },
+    });
+  });
+
+  it('does not create metadata when the counterparty domain is empty', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const recipientAddress = 'EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ';
+    const addressBook: AddressBook = {
+      '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+        user_friendly: walletAddress,
+        domain: '',
+      },
+      '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708': {
+        user_friendly: recipientAddress,
+        domain: '',
+      },
+    };
+    const action = {
+      type: 'ton_transfer',
+      action_id: 'empty-domain-action-id',
+      trace_id: 'empty-domain-trace-id',
+      start_lt: '79110006000013',
+      end_lt: '79110006000013',
+      start_utime: 1779626380,
+      end_utime: 1779626380,
+      transactions: ['empty-domain-transaction-hash'],
+      success: true,
+      trace_end_lt: '79110006000013',
+      trace_end_utime: 1779626380,
+      trace_mc_seqno_end: 47440946,
+      trace_external_hash: 'empty-domain-external-hash',
+      details: {
+        source: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        destination: '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708',
+        value: '1000000000',
+        comment: '',
+        encrypted: false,
+      },
+    } satisfies AnyAction;
+
+    const [activity] = parseActionsToActivities([action], {
+      network: 'mainnet',
+      walletAddress,
+      addressBook,
+      metadata: {},
+      nftSuperCollectionsByCollectionAddress: {},
+    });
+
+    expect(activity).not.toHaveProperty('metadata.name');
+  });
+
+  it('clears stale domain metadata when the tsUSDe mint workaround overrides the counterparty', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const addressBook: AddressBook = {
+      '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+        user_friendly: walletAddress,
+        domain: 'wallet-domain.ton',
+      },
+      '0:D0E545323C7ACB7102653C073377F7E3C67F122EB94D430A250739F109D4A57D': {
+        user_friendly: TON_TSUSDE.tokenAddress,
+        domain: '',
+      },
+    };
+    const action = {
+      type: 'jetton_mint',
+      action_id: 'tsusde-mint-action-id',
+      trace_id: 'tsusde-mint-trace-id',
+      start_lt: '79110006000014',
+      end_lt: '79110006000014',
+      start_utime: 1779626381,
+      end_utime: 1779626381,
+      transactions: ['tsusde-mint-transaction-hash'],
+      success: true,
+      trace_end_lt: '79110006000015',
+      trace_end_utime: 1779626381,
+      trace_mc_seqno_end: 47440947,
+      trace_external_hash: 'tsusde-mint-external-hash',
+      details: {
+        asset: '0:D0E545323C7ACB7102653C073377F7E3C67F122EB94D430A250739F109D4A57D',
+        receiver: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        receiver_jetton_wallet: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        amount: '1000000',
+        ton_amount: '0',
+      },
+    } satisfies AnyAction;
+
+    const [activity] = parseActionsToActivities([action], {
+      network: 'mainnet',
+      walletAddress,
+      addressBook,
+      metadata: {},
+      nftSuperCollectionsByCollectionAddress: {},
+    });
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      type: 'unstakeRequest',
+    });
+    expect(activity).not.toHaveProperty('metadata.name');
+  });
+});
 
 describe('parseTrace + calculateActivityDetails', () => {
   // How to get the input data:

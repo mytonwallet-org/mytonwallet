@@ -28,6 +28,7 @@ import type {
   ApiNetwork,
   ApiNft,
   ApiNftCollection,
+  ApiPortfolioHistoryResponse,
   ApiPriceHistoryPeriod,
   ApiSite,
   ApiSiteCategory,
@@ -58,6 +59,24 @@ import type { LedgerTransport } from '../util/ledger/types';
 export type IAnchorPosition = {
   x: number;
   y: number;
+};
+
+export type PortfolioHistoryBundle = {
+  netWorth?: ApiPortfolioHistoryResponse;
+  pnlCumulative?: ApiPortfolioHistoryResponse;
+  pnl?: ApiPortfolioHistoryResponse;
+};
+
+type PortfolioHistoryByRange = Record<ApiPriceHistoryPeriod, PortfolioHistoryBundle>;
+type PortfolioHistoryByBaseCurrency = Record<ApiBaseCurrency, PortfolioHistoryByRange>;
+export type PortfolioHistoryByAccountId = Record<string, PortfolioHistoryByBaseCurrency>;
+
+export type PortfolioState = {
+  historyByAccountId?: PortfolioHistoryByAccountId;
+  activeRange?: ApiPriceHistoryPeriod;
+  isLoading?: boolean;
+  isRefreshing?: boolean;
+  error?: string;
 };
 
 export type AnimationLevel = 0 | 1 | 2;
@@ -140,6 +159,7 @@ export enum AppState {
   Main,
   Agent,
   Explore,
+  Portfolio,
   Settings,
   Ledger,
   Inactive,
@@ -366,6 +386,7 @@ export enum ContentTab {
   Explore,
   Nft,
   Settings,
+  Portfolio,
 }
 
 export enum MediaType {
@@ -492,6 +513,8 @@ export interface AccountState {
     isFullLoadingByChain?: Partial<Record<ApiChain, boolean>>;
     /** Collection address -> last loaded timestamp for cache TTL */
     collectionLoadedTimestamps?: Record<string, number>;
+    /** Snapshot of MTW card NFT addresses currently owned by this account */
+    ownedMtwCardAddresses?: string[];
   };
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
@@ -908,6 +931,9 @@ export type GlobalState = {
   agentMeta?: { messageCount: number; lastTimestamp?: number };
   agentHints?: AgentHint[];
   isExploreOpen?: boolean;
+  isPortfolioOpen?: boolean;
+  portfolioReturnTo?: 'settings';
+  portfolio?: PortfolioState;
   isAppUpdateAvailable?: boolean;
   // Force show the "Update MyTonWallet" pop-up on all platforms
   isAppUpdateRequired?: boolean;
@@ -1176,6 +1202,9 @@ export interface ActionPayloads {
   setAgentHints: { hints: AgentHint[] };
   openExplore: undefined;
   closeExplore: undefined;
+  openPortfolio: { returnTo?: 'settings' } | undefined;
+  closePortfolio: undefined;
+  loadPortfolioHistory: { range?: ApiPriceHistoryPeriod } | undefined;
 
   closeAnyModal: undefined;
   submitSignature: { password: string };
@@ -1207,6 +1236,7 @@ export interface ActionPayloads {
   switchToAgent: undefined;
   switchToExplore: undefined;
   switchToSettings: undefined;
+  switchToPortfolio: undefined;
 
   requestConfetti: undefined;
   setIsPinAccepted: undefined;
@@ -1287,10 +1317,10 @@ export interface ActionPayloads {
   apiUpdateWalletVersions: ApiUpdateWalletVersions;
 
   // Account Settings
-  setCardBackgroundNft: { nft: ApiNft };
+  setCardBackgroundNft: { nft: ApiNft; accountId?: string };
   clearCardBackgroundNft: undefined;
   checkCardNftOwnership: { accountId: string } | undefined;
-  installAccentColorFromNft: { nft: ApiNft };
+  installAccentColorFromNft: { nft: ApiNft; accountId?: string };
   clearAccentColorFromNft: undefined;
 
   // TON Connect common

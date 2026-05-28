@@ -234,6 +234,8 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             navigationController?.pushViewController(vc, animated: true)
         case .useResponsibly:
             navigationController?.pushViewController(UseResponsiblyVC(), animated: true)
+        case .portfolio:
+            AppActions.showPortfolio(accountContext: AccountContext(source: .current))
         }
     }
     
@@ -308,7 +310,11 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             
             snapshot.appendItems([.addAccount])
         }
-        
+
+        // Tabs & Modules
+        snapshot.appendSections([.tabsAndModules])
+        snapshot.appendItems([.portfolio])
+
         // General section
         snapshot.appendSections([.general])
         snapshot.appendItems([.appearance])

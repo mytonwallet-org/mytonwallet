@@ -207,7 +207,7 @@ $logout_confirm: Alle Wallets entfernen
 $tiny_transfers_help: Schalten Sie dies aus, um Transaktionen von weniger als $%value% anzuzeigen. Bitte beachten Sie, dass solche Transaktionen oft für Spam- und Betrugszwecke verwendet werden.
 Today: Heute
 Total: Gesamt
-Zoom Out: Herauszoomen
+Zoom Out: Gesamter Zeitraum
 Yesterday: Gestern
 Now: Jetzt
 $receive_description: Scannen Sie diesen QR-Code oder teilen Sie die Adresse, um das Wallet-Guthaben aufzuladen.
@@ -304,7 +304,10 @@ No price data: Keine Preisdaten
 Price Copied: Preis kopiert
 Not staked: Nicht gestakt
 Portfolio: Portfolio
+Performance, insights and P&L: Dynamik, Einblicke und GuV
+Overview: Übersicht
 Total Balance: Gesamtguthaben
+Net Change: Portfolioänderung
 No data: Keine Daten
 Total Value: Gesamtwert
 Tracked asset value over time.: Wert der verfolgten Vermögenswerte im Zeitverlauf.
@@ -321,6 +324,7 @@ Altcoins: Altcoins
 Asset Mix: Vermögensmix
 No asset balances: Keine Vermögensguthaben
 No staked assets: Keine gestakten Vermögenswerte
+Entire Period: Gesamter Zeitraum
 "Asset %1$@": "Vermögenswert %1$@"
 Error: Fehler
 Unavailable: Nicht verfügbar
@@ -1219,7 +1223,6 @@ $secret_words: Geheimwörter
 Restore wallet from 12 or 24 words: Wallet aus 12 oder 24 Wörtern wiederherstellen
 Connect your hardware wallet: Verbinden Sie Ihre Hardware-Wallet
 Watch wallet in read-only mode: Wallet im schreibgeschützten Modus beobachten
-
 More: Mehr
 at: um
 MyTonWallet: MyTonWallet
@@ -1275,11 +1278,11 @@ $nft_batch_different_chains: Ausgewählte Sammlerstücke befinden sich in versch
 $nft_expired: "Abgelaufen"
 Linked Address: Verknüpfte Adresse
 Enter Address: Adresse eingeben
-D: T
-W: W
-M: M
-3M: 3M
-Y: J
+D: 1 Tag
+W: 1 Wo
+M: 1 Mon
+3M: 3 Mon
+Y: 1 Jahr
 $amount_K: "%amount%K"
 $amount_M: "%amount%M"
 Happening Now: Aktuell im Trend
@@ -1531,3 +1534,8 @@ $more_nfts:
 $subwallets_hint: Verwende Subwallets, um zusätzliche Adressen zu erhalten, ohne neue geheime Wörter zu erstellen.
 $subwallets_created_wallets: Wenn du zuvor Subwallets erstellt hast, werden sie in der Liste unten angezeigt.
 $subwallets_none: Noch keine Subwallets.
+Limited history: Eingeschränkter Verlauf
+Tracked asset value over time: Wert verfolgter Vermögenswerte im Zeitverlauf
+Cumulative profit and loss over time: Kumulierter Gewinn und Verlust im Zeitverlauf
+Day-by-day profit and loss: Tägliche Gewinne und Verluste
+Current allocation across tracked assets: Aktuelle Verteilung der verfolgten Vermögenswerte

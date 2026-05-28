@@ -8,19 +8,22 @@ public struct MAccountSettings: Equatable, Hashable, Codable, Sendable, Fetchabl
     public var accentColorNft: ApiNft?
     public var accentColorIndex: Int?
     public var isAllowSuspiciousActions: Bool?
+    public var portfolioTimeRange: String?
 
     public init(
         accountId: String,
         cardBackgroundNft: ApiNft?,
         accentColorNft: ApiNft?,
         accentColorIndex: Int?,
-        isAllowSuspiciousActions: Bool?
+        isAllowSuspiciousActions: Bool?,
+        portfolioTimeRange: String?
     ) {
         self.accountId = accountId
         self.cardBackgroundNft = cardBackgroundNft
         self.accentColorNft = accentColorNft
         self.accentColorIndex = accentColorIndex
         self.isAllowSuspiciousActions = isAllowSuspiciousActions
+        self.portfolioTimeRange = portfolioTimeRange
     }
 
     public init(accountId: String, settingsDict: [String: Any]) {
@@ -29,7 +32,8 @@ public struct MAccountSettings: Equatable, Hashable, Codable, Sendable, Fetchabl
             cardBackgroundNft: settingsDict["cardBackgroundNft"].flatMap { try? JSONSerialization.decode(ApiNft.self, from: $0) },
             accentColorNft: settingsDict["accentColorNft"].flatMap { try? JSONSerialization.decode(ApiNft.self, from: $0) },
             accentColorIndex: settingsDict["accentColorIndex"] as? Int,
-            isAllowSuspiciousActions: settingsDict["isAllowSuspiciousActions"] as? Bool
+            isAllowSuspiciousActions: settingsDict["isAllowSuspiciousActions"] as? Bool,
+            portfolioTimeRange: nil
         )
     }
 
@@ -38,6 +42,10 @@ public struct MAccountSettings: Equatable, Hashable, Codable, Sendable, Fetchabl
 
 extension MAccountSettings {
     public var hasData: Bool {
-        cardBackgroundNft != nil || accentColorNft != nil || accentColorIndex != nil || isAllowSuspiciousActions != nil
+        cardBackgroundNft != nil
+            || accentColorNft != nil
+            || accentColorIndex != nil
+            || isAllowSuspiciousActions != nil
+            || portfolioTimeRange != nil
     }
 }

@@ -29,6 +29,15 @@
   padding-bottom: max(var(--safe-area-bottom), 1rem);
 }
 
+// Portfolio manages its own edge insets: the sticky time-range bar sits flush with the
+// bottom edge, and the scroll area spans the full panel width - the scrollbar gutter is
+// absorbed inside `.body` via `adapt-padding-to-scrollbar` (like Settings), so the cards
+// stay as wide as the Agent/Settings panels instead of losing the scrollbar's width.
+.portfolioWrapper {
+  padding-right: 0;
+  padding-bottom: 0;
+}
+
 .settingsWrapper {
   display: flex;
   flex-direction: column;

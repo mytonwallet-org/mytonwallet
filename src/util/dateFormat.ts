@@ -102,6 +102,10 @@ export function formatChartDate(langCode: LangCode, datetime: string | number | 
   return formatShortDay(langCode, datetime, isCurrentYear, isCurrentYear);
 }
 
+export function formatDateRange(langCode: LangCode, startTs: number, endTs: number) {
+  return `${formatShortDay(langCode, startTs)} – ${formatShortDay(langCode, endTs)}`;
+}
+
 export function formatTime(datetime: string | number) {
   const date = new Date(datetime);
 

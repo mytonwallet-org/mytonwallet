@@ -205,7 +205,7 @@ $logout_confirm: 登出**所有**钱包
 $tiny_transfers_help: 关闭此功能以显示少于 $%value% 的交易。 请注意，此类交易通常用于垃圾信息和诈骗目的。
 Today: 今天
 Total: 总计
-Zoom Out: 缩小
+Zoom Out: 全部时间
 Yesterday: 昨天
 Now: 现在
 $receive_description: 扫描此二维码或分享地址以充值钱包余额。
@@ -299,7 +299,10 @@ No price data: 暂无价格数据
 Price Copied: 价格已复制
 Not staked: 未质押
 Portfolio: 投资组合
+Performance, insights and P&L: 动态、洞察与盈亏
+Overview: 概览
 Total Balance: 总余额
+Net Change: 组合净变动
 No data: 暂无数据
 Total Value: 总价值
 Tracked asset value over time.: 跟踪资产价值随时间的变化。
@@ -316,6 +319,7 @@ Altcoins: 替代币
 Asset Mix: 资产构成
 No asset balances: 暂无资产余额
 No staked assets: 暂无质押资产
+Entire Period: 全部时间
 "Asset %1$@": "资产 %1$@"
 Error: 错误
 Unavailable: 不可用
@@ -1206,7 +1210,6 @@ $secret_words: 密语
 Restore wallet from 12 or 24 words: 使用 12 或 24 个助记词恢复钱包
 Connect your hardware wallet: 连接您的硬件钱包
 Watch wallet in read-only mode: 以只读模式查看钱包
-
 More: 更多
 at: 于
 MyTonWallet: MyTonWallet
@@ -1262,11 +1265,11 @@ $nft_batch_different_chains: 所选藏品位于不同的链上。
 $nft_expired: "已到期"
 Linked Address: 已绑定地址
 Enter Address: 输入地址
-D: 日
-W: 周
-M: 月
-3M: 3 月
-Y: 年
+D: 1天
+W: 1周
+M: 1个月
+3M: 3个月
+Y: 1年
 $amount_K: "%amount%万"
 $amount_M: "%amount%亿"
 Happening Now: 正在流行
@@ -1518,3 +1521,8 @@ $more_nfts:
 $subwallets_hint: 使用子钱包可获取额外地址，无需创建新的密语。
 $subwallets_created_wallets: 如果您之前创建过子钱包，它们将显示在下面的列表中。
 $subwallets_none: 暂无子钱包。
+Limited history: 历史数据有限
+Tracked asset value over time: 追踪资产价值变化
+Cumulative profit and loss over time: 累计盈亏走势
+Day-by-day profit and loss: 逐日盈亏
+Current allocation across tracked assets: 当前资产分配

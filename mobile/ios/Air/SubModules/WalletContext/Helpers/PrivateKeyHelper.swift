@@ -7,7 +7,7 @@ public func isValidPrivateKeyHex(_ privateKey: String) -> Bool {
     privateKey.count == PRIVATE_KEY_HEX_LENGTH || privateKey.count == PRIVATE_KEY_WITH_PUBLIC_KEY_HEX_LENGTH
 }
 
-public func normalizePrivateKeyHex(_ privateKey: String) -> String? {
+private func normalizePrivateKeyHex(_ privateKey: String) -> String? {
     guard isValidPrivateKeyHex(privateKey) else { return nil }
     return privateKey.count == PRIVATE_KEY_HEX_LENGTH
         ? privateKey
@@ -19,8 +19,4 @@ public func normalizeMnemonicPrivateKey(_ mnemonic: [String]) -> [String]? {
         return nil
     }
     return [privateKey]
-}
-
-public func isMnemonicPrivateKey(_ mnemonic: [String]) -> Bool {
-    normalizeMnemonicPrivateKey(mnemonic) != nil
 }

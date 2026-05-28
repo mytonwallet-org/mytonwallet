@@ -88,6 +88,10 @@ public class TokenSelectionVC: WViewController {
     private var keyword = String()
     private var searchController: UISearchController?
 
+    private var secondaryAmountMode: TokenCell.SecondaryAmountMode {
+        myAssetsDisplayMode == .swap ? .tokenPrice : .balanceValue
+    }
+
     @AccountContext(source: .current) private var account: MAccount
     
     private var collectionView: UICollectionView!
@@ -264,7 +268,11 @@ public class TokenSelectionVC: WViewController {
         switch item {
         case .walletToken(let token):
             let isAvailable = isTokenAvailable(slug: token.tokenSlug)
-            cell.configure(with: token, isAvailable: isAvailable) { [weak self] in
+            cell.configure(
+                with: token,
+                isAvailable: isAvailable,
+                secondaryAmountMode: secondaryAmountMode
+            ) { [weak self] in
                 guard let self, isTokenAvailable(slug: token.tokenSlug) else { return }
                 delegate?.didSelect(token: token)
                 navigationController?.popViewController(animated: true)
@@ -273,7 +281,12 @@ public class TokenSelectionVC: WViewController {
         case .apiToken(let token, _):
             let isAvailable = isTokenAvailable(slug: token.slug)
             let tokenSlug = token.slug
-            cell.configure(with: token, balance: $account.balances[token.slug] ?? 0, isAvailable: isAvailable) { [weak self] in
+            cell.configure(
+                with: token,
+                balance: $account.balances[token.slug] ?? 0,
+                isAvailable: isAvailable,
+                secondaryAmountMode: secondaryAmountMode
+            ) { [weak self] in
                 guard let self, isTokenAvailable(slug: token.slug) else { return }
                 AssetsAndActivityDataStore.update(accountId: account.id, update: { settings in
                     settings.saveImportedToken(slug: tokenSlug)

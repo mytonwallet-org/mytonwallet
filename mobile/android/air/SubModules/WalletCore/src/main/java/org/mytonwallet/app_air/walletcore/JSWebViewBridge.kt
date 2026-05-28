@@ -296,10 +296,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 } catch (_: Throwable) {
                 }
             }
-            TokenStore.swapAssets2 = tokens.map { MApiSwapAsset.from(it) }
-            TokenStore.swapAssetsMap = TokenStore.swapAssets2?.associateBy { it.slug }
-            TokenStore._swapAssetsFlow.value = TokenStore.swapAssets2
-            TokenStore.swapAssets = tokens
+            TokenStore.setSwapAssets(tokens)
             TokenStore.updateSwapCache()
             Handler(Looper.getMainLooper()).post {
                 TokenStore.isLoadingSwapAssets = false

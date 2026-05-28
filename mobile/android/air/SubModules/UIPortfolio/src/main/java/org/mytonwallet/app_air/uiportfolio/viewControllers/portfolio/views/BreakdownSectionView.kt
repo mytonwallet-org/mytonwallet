@@ -9,6 +9,10 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import androidx.core.view.updateLayoutParams
+import androidx.dynamicanimation.animation.FloatValueHolder
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -19,6 +23,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioBreakdownSlice
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import kotlin.math.abs
 
 @SuppressLint("ViewConstructor")
@@ -30,14 +35,37 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
         context = context,
         titleText = LocaleController.getString("By Chain"),
         showLegend = true,
+        emptyText = LocaleController.getString("No chain balances"),
     )
     private val assetMixCard = BreakdownCardView(
         context = context,
         titleText = LocaleController.getString("Asset Mix"),
         showLegend = true,
+        emptyText = LocaleController.getString("No asset balances"),
+    )
+    private val stakedCard = BreakdownCardView(
+        context = context,
+        titleText = LocaleController.getString("Staked"),
+        showLegend = true,
+        emptyText = LocaleController.getString("No staked assets"),
     )
 
-    private val cards = listOf(byChainCard, assetMixCard)
+    // By Chain is only shown for multichain accounts. Default to the active
+    // account's multichain value so the carousel matches before the first render.
+    private var cards = buildVisibleCards(
+        showByChain = AccountStore.activeAccount?.isMultichain == true,
+    )
+
+    private val allCards = listOf(byChainCard, assetMixCard, stakedCard)
+
+    private fun buildVisibleCards(showByChain: Boolean): List<BreakdownCardView> = buildList {
+        if (showByChain) add(byChainCard)
+        add(assetMixCard)
+        add(stakedCard)
+    }
+
+    private var heightAnimator: SpringAnimation? = null
+    private var currentSectionHeight = SECTION_HEIGHT_DP.dp
 
     private val springSnap = SpringSnapHelper()
 
@@ -87,33 +115,78 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
     fun render(
         chainSlices: List<PortfolioBreakdownSlice>,
         assetSlices: List<PortfolioBreakdownSlice>,
+        stakedSlices: List<PortfolioBreakdownSlice>,
+        animated: Boolean,
     ) {
+        val newCards = buildVisibleCards(
+            showByChain = AccountStore.activeAccount?.isMultichain == true,
+        )
+        if (newCards != cards) {
+            cards = newCards
+            adapter.notifyDataSetChanged()
+        }
         byChainCard.render(chainSlices)
         assetMixCard.render(assetSlices)
+        stakedCard.render(stakedSlices)
+
+        fun rowsOf(card: BreakdownCardView) = when (card) {
+            byChainCard -> chainSlices.size
+            assetMixCard -> assetSlices.size
+            else -> stakedSlices.size
+        }
+
+        val targetHeight = sectionHeightForRows(newCards.maxOf { rowsOf(it) }).dp
+        if (animated && targetHeight > currentSectionHeight) {
+            newCards.forEach { card ->
+                if (sectionHeightForRows(rowsOf(card)).dp > currentSectionHeight) {
+                    card.fadeInLegend()
+                }
+            }
+        }
+        if (animated)
+            animateSectionHeight(targetHeight)
+        else
+            recyclerView.updateLayoutParams { this.height = targetHeight }
+    }
+
+    private fun animateSectionHeight(targetHeight: Int) {
+        if (targetHeight == currentSectionHeight && heightAnimator?.isRunning != true) return
+        heightAnimator?.cancel()
+        heightAnimator = SpringAnimation(FloatValueHolder()).apply {
+            setStartValue(currentSectionHeight.toFloat())
+            spring = SpringForce(targetHeight.toFloat()).apply {
+                stiffness = SpringForce.STIFFNESS_LOW
+                dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
+            }
+            addUpdateListener { _, value, _ ->
+                val height = value.toInt()
+                currentSectionHeight = height
+                recyclerView.updateLayoutParams { this.height = height }
+            }
+            start()
+        }
     }
 
     fun maskTargets(): List<Pair<View, Float>> =
-        listOf(byChainCard.maskTarget(), assetMixCard.maskTarget())
+        cards.map { it.maskTarget() }
 
     fun crossFadeTargets(): List<View> =
-        byChainCard.crossFadeTargets() + assetMixCard.crossFadeTargets()
+        cards.flatMap { it.crossFadeTargets() }
 
     fun showPlaceholders(animated: Boolean = false) {
-        byChainCard.showPlaceholders(animated)
-        assetMixCard.showPlaceholders(animated)
+        allCards.forEach { it.showPlaceholders(animated) }
     }
 
     fun hidePlaceholders() {
-        byChainCard.hidePlaceholders()
-        assetMixCard.hidePlaceholders()
+        allCards.forEach { it.hidePlaceholders() }
     }
 
     override fun updateTheme() {
-        byChainCard.updateTheme()
-        assetMixCard.updateTheme()
+        allCards.forEach { it.updateTheme() }
     }
 
     override fun onDetachedFromWindow() {
+        heightAnimator?.cancel()
         springSnap.cancel()
         super.onDetachedFromWindow()
     }
@@ -164,5 +237,14 @@ class BreakdownSectionView(context: Context) : WView(context), WThemedView {
         const val SECTION_HEIGHT_DP = 228
         const val NON_CYLINDER_HEIGHT_DP = 68
         const val CYLINDER_HEIGHT_DP = SECTION_HEIGHT_DP - NON_CYLINDER_HEIGHT_DP
+        private const val LEGEND_ROW_HEIGHT_DP = 22
+        private const val LEGEND_ROW_GAP_DP = 4
+
+        fun sectionHeightForRows(maxRows: Int): Int {
+            if (maxRows <= 0) return SECTION_HEIGHT_DP
+            val legendHeight =
+                maxRows * LEGEND_ROW_HEIGHT_DP + (maxRows - 1).coerceAtLeast(0) * LEGEND_ROW_GAP_DP
+            return (NON_CYLINDER_HEIGHT_DP + legendHeight).coerceAtLeast(SECTION_HEIGHT_DP)
+        }
     }
 }

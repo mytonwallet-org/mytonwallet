@@ -3,7 +3,7 @@ import UIComponents
 import UIKit
 import WalletContext
 
-private let portfolioChartHeight = CGFloat(480)
+private let portfolioChartHeight = CGFloat(400)
 private let portfolioChartPanelInset = CGFloat(16)
 private let portfolioChartPanelHorizontalInset = CGFloat(0)
 private let portfolioSectionHeaderFont = UIFont.systemFont(ofSize: 17, weight: .semibold)
@@ -90,6 +90,7 @@ enum PortfolioGraphKind: String {
 
 struct PortfolioChartTileCellConfiguration {
     enum State {
+        case idle
         case error(String)
         case loading
         case noData
@@ -144,7 +145,11 @@ final class PortfolioChartTileCell: PortfolioTileCell {
     private var chartSignature: String?
     private var chartPieVisible: Bool?
     private var chartController: BaseChartController?
+    private var pendingRangeReset = false
+    private var isShowingChart = false
+    private var pendingChartFadeIn = false
     private var lastMeasuredChartWidth: CGFloat = 0
+    private var lastKnownChartHeight: CGFloat = portfolioChartHeight
 
     private let titleLabel = UILabel()
     private let headerContainer = UIView()
@@ -166,6 +171,7 @@ final class PortfolioChartTileCell: PortfolioTileCell {
 
     override init(frame: CGRect) {
         self.stateHeightConstraint = stateContainer.heightAnchor.constraint(equalToConstant: portfolioChartHeight)
+        self.stateHeightConstraint.priority = UILayoutPriority(999)
         super.init(frame: frame)
         setupViews()
     }
@@ -181,6 +187,10 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         chartSignature = nil
         chartPieVisible = nil
         chartController = nil
+        pendingRangeReset = false
+        isShowingChart = false
+        pendingChartFadeIn = false
+        lastKnownChartHeight = portfolioChartHeight
         chartView.setLimitedRange(fraction: nil, tapAction: nil)
         refreshIndicator.stopAnimating()
         loadingIndicator.stopAnimating()
@@ -206,8 +216,21 @@ final class PortfolioChartTileCell: PortfolioTileCell {
             refreshIndicator.stopAnimating()
         }
 
+        let wasShowingChart = isShowingChart
+        isShowingChart = configuration.state.isChart
+
         apply(state: configuration.state)
-        updateChartDataAlpha(isDimmed: configuration.fadesCurrentData && configuration.state.isChart)
+
+        if isShowingChart && (!wasShowingChart || pendingChartFadeIn) {
+            pendingChartFadeIn = false
+            chartView.alpha = 0
+            UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
+                self.chartView.alpha = 1
+            }
+        } else {
+            updateChartDataAlpha(isDimmed: configuration.fadesCurrentData && isShowingChart)
+        }
+
         let availableWidth = stateContainer.bounds.width > 0
             ? stateContainer.bounds.width
             : bounds.width
@@ -403,6 +426,8 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         noDataLabel.isHidden = true
 
         switch state {
+        case .idle:
+            break
         case .error(let errorText):
             chartView.setLimitedRange(fraction: nil, tapAction: nil)
             errorTextLabel.text = errorText
@@ -437,21 +462,29 @@ final class PortfolioChartTileCell: PortfolioTileCell {
 
     private func configureChart(presentation: PortfolioGraphKitAdapter.ChartPresentation, kind: PortfolioGraphKind, pieVisible: Bool?) {
         let signature = "\(kind.rawValue):\(presentation.json)"
-
-        if chartSignature != signature,
+        
+        let isNewSignature = chartSignature != signature
+        let isRangeSwitch = pendingRangeReset && isNewSignature
+        if isNewSignature,
            let controller = createChartController(presentation.json, type: kind.chartType) {
+            if isRangeSwitch {
+                pendingChartFadeIn = true
+            }
+            pendingRangeReset = false
             let chartStrings = makePortfolioChartStrings()
             if let pieController = controller as? PercentPieChartController {
                 pieController.keepsFullRangePreviewWhenZoomed = kind.keepsFullRangePreviewWhenZoomed
             }
             applyDetailsPresentation(presentation, to: controller)
 
-            chartView.apply(
-                themeProvider: makePortfolioChartTheme(for:),
-                strings: chartStrings,
-                animated: false
-            )
-            chartView.setup(controller: controller)
+            UIView.performWithoutAnimation {
+                chartView.apply(
+                    themeProvider: makePortfolioChartTheme(for:),
+                    strings: chartStrings,
+                    animated: false
+                )
+                chartView.setup(controller: controller, noInitialZoom: true)
+            }
             chartController = controller
             chartSignature = signature
             chartPieVisible = nil
@@ -467,10 +500,16 @@ final class PortfolioChartTileCell: PortfolioTileCell {
             )
         }
 
-        chartView.setLimitedRange(
-            fraction: presentation.limitedHistoryFraction.map { CGFloat($0) },
-            tapAction: onLimitedHistoryTap
-        )
+        if !pendingRangeReset || isNewSignature {
+            UIView.performWithoutAnimation {
+                chartView.setLimitedRange(
+                    fraction: presentation.limitedHistoryFraction.map { CGFloat($0) },
+                    tapAction: onLimitedHistoryTap
+                )
+                chartView.expandRange()
+            }
+        }
+        pendingRangeReset = false
 
         if let pieVisible,
            chartPieVisible != pieVisible {
@@ -481,6 +520,10 @@ final class PortfolioChartTileCell: PortfolioTileCell {
 
     func resetInteraction() {
         chartView.resetInteraction()
+    }
+
+    func resetRange() {
+        pendingRangeReset = true
     }
 
     func blocksBackSwipe(at point: CGPoint, mainChartLeftSafeInset: CGFloat = 30.0) -> Bool {
@@ -517,9 +560,13 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         }
 
         let resolvedWidth = floor(availableWidth)
-        let preferredChartHeight = chartView.isHidden
-            ? portfolioChartHeight
-            : chartView.preferredHeight(for: resolvedWidth)
+        let preferredChartHeight: CGFloat
+        if chartView.isHidden {
+            preferredChartHeight = lastKnownChartHeight
+        } else {
+            preferredChartHeight = chartView.preferredHeight(for: resolvedWidth)
+            lastKnownChartHeight = preferredChartHeight
+        }
 
         guard abs(stateHeightConstraint.constant - preferredChartHeight) > 0.5
                 || abs(lastMeasuredChartWidth - resolvedWidth) > 0.5 else {

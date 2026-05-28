@@ -54,6 +54,9 @@ class SkeletonView(
 
         canvas.save()
         for ((index, view) in maskViews.withIndex()) {
+            if (!view.isShown)
+                continue
+
             view.getLocationOnScreen(location)
 
             if (location.x == 0 && location.y == 0)

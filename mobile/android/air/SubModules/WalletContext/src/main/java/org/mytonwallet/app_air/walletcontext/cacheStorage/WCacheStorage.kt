@@ -16,6 +16,7 @@ object WCacheStorage {
     private const val CACHE_PREF_NFT_COLLECTIONS = "nftCollections."
     private const val CACHE_PREF_HAS_HIDDEN_NFT = "hasHiddenNFT."
     private const val CACHE_PREF_EXPLORE = "exploreHistory."
+    private const val CACHE_PREF_PORTFOLIO = "portfolio."
     private const val CACHE_INITIAL_SCREEN = "initialScreen"
     private const val CACHE_AGENT_CLIENT_ID = "agentClientId"
 
@@ -120,6 +121,41 @@ object WCacheStorage {
         }
     }
 
+    fun getPortfolio(key: String): String? {
+        return sharedPreferences.getString(CACHE_PREF_PORTFOLIO + key, null)
+    }
+
+    fun setPortfolio(key: String, value: String?) {
+        sharedPreferences.edit {
+            value?.let {
+                putString(CACHE_PREF_PORTFOLIO + key, value)
+            } ?: run {
+                remove(CACHE_PREF_PORTFOLIO + key)
+            }
+        }
+    }
+
+    private fun removePortfolioByKeyPrefix(keyPrefix: String) {
+        val fullPrefix = CACHE_PREF_PORTFOLIO + keyPrefix
+        val toRemove = sharedPreferences.all.keys.filter { it.startsWith(fullPrefix) }
+        if (toRemove.isEmpty()) return
+        sharedPreferences.edit {
+            toRemove.forEach { remove(it) }
+        }
+    }
+
+    fun cleanPortfolio(accountId: String) {
+        removePortfolioByKeyPrefix(PortfolioCacheKey.accountPrefix(accountId))
+    }
+
+    // Drops the prior cached entries for one chart of an account+period (all currencies/buckets);
+    // called right before persisting a fresh response so each chart keeps a single entry.
+    fun cleanPortfolioChart(accountId: String, methodName: String, periodValue: String) {
+        removePortfolioByKeyPrefix(
+            PortfolioCacheKey.chartPrefix(accountId, methodName, periodValue)
+        )
+    }
+
     enum class InitialScreen(val value: Int) {
         INTRO(0),
         HOME(1),
@@ -171,5 +207,6 @@ object WCacheStorage {
         setHasHiddenNft(accountId, null)
         setStakingData(accountId, null)
         setExploreHistory(accountId, null)
+        cleanPortfolio(accountId)
     }
 }

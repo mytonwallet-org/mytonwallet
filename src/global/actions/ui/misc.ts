@@ -49,6 +49,7 @@ import {
   clearCurrentSwap,
   clearCurrentTransfer,
   clearIsPinAccepted,
+  openSection,
   renameAccount,
   setCurrentTransferAddress,
   setIsPinAccepted,
@@ -369,12 +370,12 @@ addActionHandler('changeNetwork', (global, actions, { network }) => {
 addActionHandler('openSettings', (global) => {
   global = updateSettings(global, { state: SettingsState.Initial });
 
-  return { ...global, areSettingsOpen: true };
+  return openSection(global, 'settings');
 });
 
 addActionHandler('openSettingsWithState', (global, actions, { state }) => {
   global = updateSettings(global, { state });
-  setGlobal({ ...global, areSettingsOpen: true });
+  setGlobal(openSection(global, 'settings'));
 });
 
 addActionHandler('setSettingsState', (global, actions, { state }) => {
@@ -743,7 +744,7 @@ addActionHandler('closeAnyModal', () => {
 });
 
 addActionHandler('openAgent', (global) => {
-  return { ...global, isAgentOpen: true };
+  return openSection(global, 'agent');
 });
 
 addActionHandler('closeAgent', (global) => {
@@ -759,11 +760,25 @@ addActionHandler('setAgentHints', (global, actions, { hints }) => {
 });
 
 addActionHandler('openExplore', (global) => {
-  return { ...global, isExploreOpen: true };
+  return openSection(global, 'explore');
 });
 
 addActionHandler('closeExplore', (global) => {
   return { ...global, isExploreOpen: undefined };
+});
+
+addActionHandler('openPortfolio', (global, actions, payload) => {
+  return { ...openSection(global, 'portfolio'), portfolioReturnTo: payload?.returnTo };
+});
+
+addActionHandler('closePortfolio', (global, actions) => {
+  const { portfolioReturnTo } = global;
+
+  if (portfolioReturnTo === 'settings') {
+    actions.openSettings();
+  }
+
+  return { ...global, isPortfolioOpen: undefined, portfolioReturnTo: undefined };
 });
 
 addActionHandler('openFullscreen', (global) => {
@@ -801,14 +816,19 @@ addActionHandler('switchAccountAndOpenUrl', async (global, actions, payload) => 
 });
 
 addActionHandler('switchToWallet', (global: GlobalState, actions) => {
-  const { areSettingsOpen, isAgentOpen, isExploreOpen } = global;
+  const {
+    areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen,
+  } = global;
   const accountState = selectCurrentAccountState(global);
   const areAssetsActive = accountState?.activeContentTab === ContentTab.Assets;
-  const isWalletTabActive = !isAgentOpen && !isExploreOpen && !areSettingsOpen;
+  const isWalletTabActive = !isAgentOpen && !isExploreOpen && !areSettingsOpen && !isPortfolioOpen;
+
+  setGlobal({ ...global, portfolioReturnTo: undefined });
 
   actions.closeAgent(undefined, { forceOnHeavyAnimation: true });
   actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
   actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
+  actions.closePortfolio(undefined, { forceOnHeavyAnimation: true });
 
   if (!areAssetsActive && isWalletTabActive) {
     actions.selectToken({ slug: undefined }, { forceOnHeavyAnimation: true });
@@ -821,8 +841,11 @@ addActionHandler('switchToAgent', (global: GlobalState, actions) => {
 
   if (isAgentOpen) return;
 
+  setGlobal({ ...global, portfolioReturnTo: undefined });
+
   actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
   actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
+  actions.closePortfolio(undefined, { forceOnHeavyAnimation: true });
   actions.openAgent(undefined, { forceOnHeavyAnimation: true });
   actions.setActiveContentTab({ tab: ContentTab.Agent }, { forceOnHeavyAnimation: true });
 });
@@ -834,15 +857,31 @@ addActionHandler('switchToExplore', (global: GlobalState, actions) => {
     actions.closeSiteCategory(undefined, { forceOnHeavyAnimation: true });
   }
 
+  setGlobal({ ...global, portfolioReturnTo: undefined });
+
   actions.closeAgent(undefined, { forceOnHeavyAnimation: true });
   actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
+  actions.closePortfolio(undefined, { forceOnHeavyAnimation: true });
   actions.openExplore(undefined, { forceOnHeavyAnimation: true });
 });
 
 addActionHandler('switchToSettings', (global: GlobalState, actions) => {
   actions.closeAgent(undefined, { forceOnHeavyAnimation: true });
   actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
+  actions.closePortfolio(undefined, { forceOnHeavyAnimation: true });
   actions.openSettings(undefined, { forceOnHeavyAnimation: true });
+});
+
+addActionHandler('switchToPortfolio', (global: GlobalState, actions) => {
+  const { isPortfolioOpen } = global;
+
+  if (isPortfolioOpen) return;
+
+  actions.closeAgent(undefined, { forceOnHeavyAnimation: true });
+  actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
+  actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
+  actions.openPortfolio(undefined, { forceOnHeavyAnimation: true });
+  actions.setActiveContentTab({ tab: ContentTab.Portfolio }, { forceOnHeavyAnimation: true });
 });
 
 addActionHandler('openPromotionModal', (global) => {

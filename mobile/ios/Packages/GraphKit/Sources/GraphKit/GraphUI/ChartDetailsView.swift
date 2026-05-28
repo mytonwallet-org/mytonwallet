@@ -79,7 +79,10 @@ class ChartDetailsView: UIControl {
         super.init(frame: frame)
 
         layer.cornerRadius = cornerRadius
-        clipsToBounds = true
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOpacity = 0.2
+        layer.shadowRadius = 32
+        layer.shadowOffset = .zero
 
         addTarget(self, action: #selector(didTapWhole), for: .touchUpInside)
         titleLabel.font = UIFont.systemFont(ofSize: 12, weight: .bold)
@@ -96,6 +99,11 @@ class ChartDetailsView: UIControl {
 
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: cornerRadius).cgPath
     }
 
     func setup(viewModel: ChartDetailsViewModel, animated: Bool) {
@@ -246,9 +254,11 @@ class ChartDetailsView: UIControl {
         rowView.valueLabel.setTextColor(isTotal ? theme.chartDetailsTextColor : value.color, animated: false)
         rowView.valueLabel.setText(value.value, animated: false)
 
+        let topOffset = labelSpacing
+        
         var x: CGFloat = margin
         if showPrefixes {
-            rowView.prefixLabel.frame = CGRect(x: x, y: 0.0, width: prefixLabelWidth, height: labelHeight)
+            rowView.prefixLabel.frame = CGRect(x: x, y: topOffset, width: prefixLabelWidth, height: labelHeight)
             x += prefixLabelWidth + margin
         } else {
             rowView.prefixLabel.frame = .zero
@@ -259,10 +269,10 @@ class ChartDetailsView: UIControl {
             ceil(rowView.titleLabel.sizeThatFits(CGSize(width: layoutMetrics.contentWidth, height: CGFloat.greatestFiniteMagnitude)).height)
         )
         let rowHeight = max(labelHeight, titleHeight + labelSpacing * 2.0)
-        rowView.titleLabel.frame = CGRect(x: x, y: labelSpacing, width: layoutMetrics.contentWidth, height: titleHeight)
+        rowView.titleLabel.frame = CGRect(x: x, y: topOffset, width: layoutMetrics.contentWidth, height: titleHeight)
         x += layoutMetrics.contentWidth
 
-        rowView.valueLabel.frame = CGRect(x: x, y: 0.0, width: layoutMetrics.valueLabelWidth, height: labelHeight)
+        rowView.valueLabel.frame = CGRect(x: x, y: topOffset, width: layoutMetrics.valueLabelWidth, height: labelHeight)
 
         return rowHeight
     }

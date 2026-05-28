@@ -1,5 +1,5 @@
 import type React from '../../../../../lib/teact/teact';
-import { useRef, useState } from '../../../../../lib/teact/teact';
+import { useEffect, useRef, useState } from '../../../../../lib/teact/teact';
 
 import { requestMutation } from '../../../../../lib/fasterdom/fasterdom';
 import { vibrate } from '../../../../../util/haptics';
@@ -16,6 +16,11 @@ interface DragState {
   startX: number;
   fromIndex: number;
   isDragStarted: boolean;
+}
+
+export interface SqueezeState {
+  animationKey: 'a' | 'b';
+  direction: 'left' | 'right';
 }
 
 export default function useDraggablePill({
@@ -38,7 +43,24 @@ export default function useDraggablePill({
   const [previewIndex, setPreviewIndex] = useState<number | undefined>(undefined);
   const [isDragging, setIsDragging] = useState(false);
 
+  const prevActiveRef = useRef(activeIndex);
+  // `animationKey` flips between 'a' and 'b' on every tab switch so the matching `.squeezeA` /
+  // `.squeezeB` class swaps - applying the same class twice would not restart the CSS animation
+  const [squeeze, setSqueeze] = useState<SqueezeState | undefined>();
+
   useEffectOnce(() => () => detachAbortRef.current?.());
+
+  useEffect(() => {
+    if (prevActiveRef.current === activeIndex) return;
+
+    const direction = activeIndex > prevActiveRef.current ? 'right' : 'left';
+    prevActiveRef.current = activeIndex;
+
+    setSqueeze((prev) => ({
+      animationKey: prev?.animationKey === 'a' ? 'b' : 'a',
+      direction,
+    }));
+  }, [activeIndex]);
 
   const handlePointerDown = useLastCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -158,7 +180,8 @@ export default function useDraggablePill({
   return {
     capsuleRef,
     isDragging,
-    previewIndex,
+    squeeze,
+    renderedActiveIndex: previewIndex ?? activeIndex,
     pointerHandlers: {
       onPointerDown: handlePointerDown,
       onPointerMove: handlePointerMove,

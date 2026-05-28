@@ -33,7 +33,7 @@ class NftDetailsItemCoverFlowTile: UIView {
         s.color = .secondaryLabel
         return s
     }()
-
+    
     weak var delegate: NftDetailsItemCoverFlowTileDelegate?
     weak var thumbnailDownloader: ImageDownloader?
     weak var colorCache: NftDetailsColorCache?
@@ -49,7 +49,7 @@ class NftDetailsItemCoverFlowTile: UIView {
 
         imageView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(imageView)
-
+        
         spinner.translatesAutoresizingMaskIntoConstraints = false
         addSubview(spinner)
 
@@ -64,7 +64,7 @@ class NftDetailsItemCoverFlowTile: UIView {
         ])
 
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap)))
-
+        
         let longTapRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongTap))
         longTapRecognizer.minimumPressDuration = 0.25
         addGestureRecognizer(longTapRecognizer)
@@ -84,7 +84,7 @@ class NftDetailsItemCoverFlowTile: UIView {
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
-
+    
     override func layoutSubviews() {
         super.layoutSubviews()
 
@@ -94,7 +94,7 @@ class NftDetailsItemCoverFlowTile: UIView {
             layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: cornerRadius).cgPath
         }
     }
-
+    
     @objc private func handleTap() {
         guard let model else { return }
         delegate?.nftDetailsItemCoverFlowTile(self, didSelectModel: model, longTap: false)
@@ -116,7 +116,7 @@ class NftDetailsItemCoverFlowTile: UIView {
         imageView.image = nil
         imageView.backgroundColor = .air.groupedItem
     }
-
+    
     private func cancelRetry() {
         retryWorkItem?.cancel()
         retryWorkItem = nil
@@ -135,7 +135,7 @@ class NftDetailsItemCoverFlowTile: UIView {
 
         if let url = model.item.coverflowImageUrl {
             spinner.startAnimating()
-
+            
             var options: KingfisherOptionsInfo = [
                 .targetCache(.default),
                 .originalCache(.default),
@@ -146,7 +146,7 @@ class NftDetailsItemCoverFlowTile: UIView {
             if let d = thumbnailDownloader {
                 options.append(.downloader(d))
             }
-
+            
             imageView.kf.setImage(
                 with: .network(url),
                 placeholder: nil,
@@ -173,7 +173,7 @@ class NftDetailsItemCoverFlowTile: UIView {
             imageView.backgroundColor = nil
         }
     }
-
+    
     private func scheduleRetry(for model: NftDetailsItemModel) {
         guard self.model === model, imageView.image == nil else { return }
         guard retryCount < maxRetryCount else {
@@ -202,7 +202,7 @@ class NftDetailsItemCoverFlowTile: UIView {
             return
         }
         spinner.color = color.isLightColor
-            ? UIColor(white: 0.15, alpha: 0.7)
+            ? UIColor(white: 0.15, alpha: 0.7)  
             : UIColor(white: 1.0,  alpha: 0.8)
     }
 
@@ -242,7 +242,7 @@ class NftDetailsItemCoverFlowTile: UIView {
             }
             setNeedsLayout()
         }
-
+        
         if window != nil {
             startOrResumeThumbnailLoad(for: model)
         }

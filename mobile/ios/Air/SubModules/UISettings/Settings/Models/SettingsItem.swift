@@ -29,6 +29,7 @@ struct SettingsItem: Equatable, Identifiable {
         case support
         case about
         case useResponsibly
+        case portfolio
     }
     
     let id: Identifier
@@ -48,7 +49,7 @@ extension SettingsItem.Identifier {
         switch self {
         case .editWalletName:
             return SettingsItem(
-                id: .editWalletName,
+                id: self,
                 icon: UIImage.airBundle("EditWalletNameIcon").withRenderingMode(.alwaysTemplate),
                 highlightIcon: false,
                 title: lang("Edit Wallet Name"),
@@ -56,9 +57,9 @@ extension SettingsItem.Identifier {
                 hasChild: false,
                 isDangerous: false
             )
-        case .account(let accountId):
+        case .account:
             return SettingsItem(
-                id: .account(accountId: accountId),
+                id: self,
                 icon: nil,
                 title: "",
                 subtitle: "",
@@ -68,7 +69,7 @@ extension SettingsItem.Identifier {
             )
         case .walletSettings:
             return SettingsItem(
-                id: .walletSettings,
+                id: self,
                 icon: UIImage(systemName: "ellipsis"),
                 highlightIcon: false,
                 title: lang("Show All Wallets"),
@@ -78,7 +79,7 @@ extension SettingsItem.Identifier {
             )
         case .addAccount:
             return SettingsItem(
-                id: .addAccount,
+                id: self,
                 icon: UIImage.airBundle("AddAccountIcon").withRenderingMode(.alwaysTemplate),
                 highlightIcon: false,
                 title: lang("Add Wallet"),
@@ -88,7 +89,7 @@ extension SettingsItem.Identifier {
             )
         case .notifications:
             return SettingsItem(
-                id: .notifications,
+                id: self,
                 icon: UIImage.airBundle("NotificationsSettingsIcon"),
                 title: lang("Notifications & Sounds"),
                 hasPrimaryColor: false,
@@ -97,7 +98,7 @@ extension SettingsItem.Identifier {
             )
         case .appearance:
             return SettingsItem(
-                id: .appearance,
+                id: self,
                 icon: UIImage.airBundle("AppearanceIcon"),
                 title: lang("Appearance"),
                 hasPrimaryColor: false,
@@ -106,7 +107,7 @@ extension SettingsItem.Identifier {
             )
         case .assetsAndActivity:
             return SettingsItem(
-                id: .assetsAndActivity,
+                id: self,
                 icon: UIImage.airBundle("AssetsAndActivityIcon"),
                 title: lang("Assets & Activity"),
                 hasPrimaryColor: false,
@@ -115,7 +116,7 @@ extension SettingsItem.Identifier {
             )
         case .subwallets:
             return SettingsItem(
-                id: .subwallets,
+                id: self,
                 icon: UIImage.airBundle("SubwalletsIcon"),
                 title: lang("Subwallets"),
                 hasPrimaryColor: false,
@@ -124,7 +125,7 @@ extension SettingsItem.Identifier {
             )
         case .connectedApps:
             return SettingsItem(
-                id: .connectedApps,
+                id: self,
                 icon: UIImage.airBundle("DappsIcon"),
                 title: lang("Connected Sites"),
                 hasPrimaryColor: false,
@@ -133,7 +134,7 @@ extension SettingsItem.Identifier {
             )
         case .language:
             return SettingsItem(
-                id: .language,
+                id: self,
                 icon: .airBundle("LanguageIcon"),
                 title: lang("Language"),
                 value: Language.current.nativeName,
@@ -143,7 +144,7 @@ extension SettingsItem.Identifier {
             )
         case .security:
             return SettingsItem(
-                id: .security,
+                id: self,
                 icon: .airBundle("SecurityIcon"),
                 title: lang("Security"),
                 hasPrimaryColor: false,
@@ -152,7 +153,7 @@ extension SettingsItem.Identifier {
             )
         case .walletVersions:
             return SettingsItem(
-                id: .walletVersions,
+                id: self,
                 icon: UIImage.airBundle("WalletVersionsIcon"),
                 title: lang("Wallet Versions"),
                 hasPrimaryColor: false,
@@ -161,7 +162,7 @@ extension SettingsItem.Identifier {
             )
         case .tips:
             return SettingsItem(
-                id: .tips,
+                id: self,
                 icon: UIImage.airBundle("TipsIcon30"),
                 title: lang("MyTonWallet Tips"),
                 hasPrimaryColor: false,
@@ -170,7 +171,7 @@ extension SettingsItem.Identifier {
             )
         case .helpCenter:
             return SettingsItem(
-                id: .helpCenter,
+                id: self,
                 icon: UIImage.airBundle("BookIcon"),
                 title: lang("Help Center"),
                 hasPrimaryColor: false,
@@ -179,7 +180,7 @@ extension SettingsItem.Identifier {
             )
         case .support:
             return SettingsItem(
-                id: .support,
+                id: self,
                 icon: UIImage.airBundle("SupportIcon30"),
                 title: lang("Get Support"),
                 hasPrimaryColor: false,
@@ -188,7 +189,7 @@ extension SettingsItem.Identifier {
             )
         case .about:
             return SettingsItem(
-                id: .about,
+                id: self,
                 icon: UIImage.airBundle("AboutIcon"),
                 title: lang("About %app_name%", arg1: APP_NAME),
                 hasPrimaryColor: false,
@@ -198,9 +199,19 @@ extension SettingsItem.Identifier {
             
         case .useResponsibly:
             return SettingsItem(
-                id: .useResponsibly,
+                id: self,
                 icon: UIImage.airBundle("ResponsibilityIcon30"),
                 title: lang("Use Responsibly"),
+                hasPrimaryColor: false,
+                hasChild: true,
+                isDangerous: false
+            )
+        case .portfolio:
+            return SettingsItem(
+                id: self,
+                icon: UIImage.airBundle("PortfolioIcon"),
+                title: lang("Portfolio"),
+                subtitle: lang("Performance, insights and P&L"),
                 hasPrimaryColor: false,
                 hasChild: true,
                 isDangerous: false

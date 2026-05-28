@@ -54,12 +54,6 @@ class TokenAmountInputView(
         textSize = 14f.dp
     }
 
-    private val separatorBackgroundDrawable: SeparatorBackgroundDrawable by lazy {
-        SeparatorBackgroundDrawable().apply {
-            backgroundWColor = WColor.Background
-        }
-    }
-
     private val titleTextView = HeaderCell(context, 20f).apply {
         id = generateViewId()
         configure(

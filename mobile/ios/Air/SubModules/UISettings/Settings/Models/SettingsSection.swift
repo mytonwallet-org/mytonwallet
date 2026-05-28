@@ -11,6 +11,7 @@ struct SettingsSection: Identifiable {
     enum Section: String, CaseIterable, Equatable, Hashable {
         case header
         case accounts
+        case tabsAndModules
         case general
         case questionAndAnswers
         case about

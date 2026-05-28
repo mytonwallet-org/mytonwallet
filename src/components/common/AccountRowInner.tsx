@@ -47,7 +47,7 @@ function AccountRowInner({
 }: AccountRowInnerProps) {
   const isHardware = accountType === 'hardware';
   const isView = isViewAccount(accountType);
-  const formattedAddress = formatAccountAddresses(byChain);
+  const formattedAddress = formatAccountAddresses(byChain, 'small');
 
   return (
     <>

@@ -14,6 +14,7 @@ import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcore.TESTNET_SLUGS
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.fetchPriceHistory
@@ -57,14 +58,14 @@ object TokenStore : IStore {
                     val token = MToken(tokensJsonArray.get(item) as JSONObject)
                     setToken(token.slug, token)
                 }
-                swapAssets2 = tokens.values.map { MApiSwapAsset.from(it) }
+                setSwapAssets(tokens.values.toList())
             } catch (t: Throwable) {
                 Logger.e(
                     Logger.LogTag.AIR_APPLICATION,
                     "TokenStore: bad tokens cache: ${t.message}"
                 )
                 tokens.clear()
-                swapAssets2 = null
+                setSwapAssets(null)
                 WCacheStorage.setTokens(null)
             }
         }
@@ -76,28 +77,23 @@ object TokenStore : IStore {
                     assetsArray.add(MToken(swapAssetsArray.get(item) as JSONObject))
                 }
                 if (assetsArray.isNotEmpty()) {
-                    swapAssets = assetsArray
-                    _swapAssetsFlow.value = assetsArray.map { MApiSwapAsset.from(it) }
+                    setSwapAssets(assetsArray)
                 }
             } catch (t: Throwable) {
                 Logger.e(
                     Logger.LogTag.AIR_APPLICATION,
                     "TokenStore: bad swapAssets cache: ${t.message}"
                 )
-                swapAssets = null
-                _swapAssetsFlow.value = null
                 WCacheStorage.setSwapAssets(null)
             }
         }
+        seedDefaultTokensIfRequired()
         BalanceStore.resetBalanceInBaseCurrency()
     }
 
     @Volatile
     var tokens = ConcurrentHashMap<String, MToken>()
         private set
-
-    @Volatile
-    var swapAssets: ArrayList<MToken>? = null
 
     @Volatile
     var currencyRates: Map<String, Double>? = null
@@ -109,9 +105,34 @@ object TokenStore : IStore {
     internal val _swapAssetsFlow = MutableStateFlow<List<MApiSwapAsset>?>(null)
     val swapAssetsFlow = _swapAssetsFlow.asStateFlow()
 
-    var swapAssets2: List<MApiSwapAsset>? = null
+    // List of swap assets, as MToken to query
+    @Volatile
+    private var swapAssetTokens: List<MToken>? = null
+
+    @Volatile
+    var swapAssets: List<MApiSwapAsset>? = null
+        private set
+
+    @Volatile
     var swapAssetsMap: Map<String, MApiSwapAsset>? = null
+        private set
+
+    @Volatile
     var isLoadingSwapAssets = false
+
+    @Volatile
+    var swapAssetsLoaded = false
+        private set
+
+    fun setSwapAssets(tokens: List<MToken>?, isDefault: Boolean = false) {
+        swapAssetTokens = tokens
+        swapAssets = tokens?.map { MApiSwapAsset.from(it) }
+        swapAssetsMap = swapAssets?.associateBy { it.slug }
+        _swapAssetsFlow.value = swapAssets
+        if (!isDefault) {
+            swapAssetsLoaded = !tokens.isNullOrEmpty()
+        }
+    }
 
     val loadedAllTokens: Boolean
         get() {
@@ -122,15 +143,51 @@ object TokenStore : IStore {
         val key = slug ?: return null
 
         return tokens[key]
-            ?: swapAssets?.find { it.slug == key || (searchMinterAddress && it.tokenAddress == key) }
+            ?: swapAssetTokens?.find { it.slug == key || (searchMinterAddress && it.tokenAddress == key) }
     }
 
     fun setToken(slug: String, token: MToken) {
         tokens[slug] = token
     }
 
+    private fun seedDefaultTokensIfRequired() {
+        if (tokens.isEmpty()) {
+            for ((slug, token) in DefaultTokens.tokens) {
+                tokens.putIfAbsent(slug, token)
+            }
+        }
+        if (_tokensFlow.value == null && tokens.isNotEmpty()) {
+            setFlowValue(Tokens(tokens.mapValues { it.value.toApiTokenWithPrice() }))
+        }
+        if (swapAssets.isNullOrEmpty() && DefaultTokens.tokens.isNotEmpty()) {
+            setSwapAssets(
+                DefaultTokens.tokens.values
+                    .filter { it.slug !in TESTNET_SLUGS },
+                isDefault = true
+            )
+        }
+    }
+
+    private fun MToken.toApiTokenWithPrice() = ApiTokenWithPrice(
+        name = name,
+        symbol = symbol,
+        slug = slug,
+        decimals = decimals,
+        chain = chain,
+        tokenAddress = tokenAddress,
+        image = image,
+        isPopular = isPopular,
+        keywords = keywords,
+        cmcSlug = cmcSlug,
+        color = color,
+        codeHash = codeHash,
+        priceUsd = priceUsd,
+        percentChange24h = percentChange24h,
+    )
+
     private val cacheScope =
         CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+
     @Volatile
     private var tokensCacheJob: Job? = null
 
@@ -138,7 +195,7 @@ object TokenStore : IStore {
     private var swapCacheJob: Job? = null
 
     fun updateSwapCache() {
-        val snapshot = ArrayList(swapAssets ?: emptyList())
+        val snapshot = ArrayList(swapAssetTokens ?: emptyList())
         swapCacheJob?.cancel()
         swapCacheJob = cacheScope.launch {
             try {

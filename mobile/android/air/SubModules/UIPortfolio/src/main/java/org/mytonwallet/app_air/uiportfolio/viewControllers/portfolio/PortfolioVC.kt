@@ -7,6 +7,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.text.TextPaint
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -33,6 +34,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
+import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -67,6 +69,7 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.pow
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioChartKind
+import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioOverview
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioUiState
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.views.BreakdownSectionView
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.views.OverviewSectionView
@@ -87,11 +90,20 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private val scrollView = WScrollView(WeakReference(this)).apply {
         overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
         isVerticalScrollBarEnabled = false
-        onScrollStateChange = {
+        onScrollStateChange = { state ->
             updateBlurViews(this)
+            if (state == WScrollView.SCROLL_STATE_IDLE)
+                periodSelectorBlurView.pauseBlurring()
+            else
+                periodSelectorBlurView.resumeBlurring()
         }
-        setOnScrollChangeListener { _, _, _, _, _ ->
+        setOnScrollChangeListener { _, _, scrollY, _, _ ->
             updateBlurViews(this)
+            clearChartSelections()
+            if (scrollY == 0)
+                periodSelectorBlurView.pauseBlurring()
+            else
+                periodSelectorBlurView.resumeBlurring()
         }
     }
     private val contentLayout = LinearLayout(context).apply {
@@ -112,17 +124,35 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         BarChartView(context),
         PortfolioChartKind.DAILY_PNL,
     )
+    private val selectableCharts: List<BaseChartView<*, *>>
+        get() = listOf(
+            absoluteSection.stackChartView,
+            absoluteSection.pieChartView,
+            distributionSection.stackChartView,
+            distributionSection.pieChartView,
+            totalPnlSection.chartView,
+            dailyPnlSection.chartView,
+        )
     private val sharedSkeletonView = SkeletonView(context).apply {
         id = ViewGroup.generateViewId()
         alpha = 0f
     }
     private val periodSelector = createPeriodSelector()
+    private val periodSelectorBlurView = WBlurryBackgroundView(context, fadeSide = null).apply {
+        setOverlayColor(WColor.SearchFieldBackground, 204)
+    }
+    private val periodSelectorPill = WFrameLayout(context).apply {
+        id = ViewGroup.generateViewId()
+        addView(periodSelectorBlurView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        setBackgroundColor(Color.TRANSPARENT, 24f.dp, clipToBounds = true)
+        addView(periodSelector, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+    }
     private val periodSelectorContainer = WFrameLayout(context).apply {
         id = ViewGroup.generateViewId()
         clipChildren = false
         clipToPadding = false
         setPaddingDp(8, 4, 8, 8)
-        addView(periodSelector, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        addView(periodSelectorPill, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         setOnClickListener {}
     }
     private var periodSelectorShadow: PillShadowView? = null
@@ -132,6 +162,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private var placeholdersReady = true
     private var pendingLoaded: PortfolioUiState.Loaded? = null
     private var lastObservedState: PortfolioUiState = PortfolioUiState.Idle
+    private var animateDateAndHeightOnLoad = false
 
     override val shouldDisplayBottomBar: Boolean
         get() = navigationController?.tabBarController == null
@@ -141,6 +172,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
 
         title = LocaleController.getString("Portfolio")
         setupNavBar(true)
+        if (navigationController?.viewControllers?.size == 1) {
+            navigationBar?.addCloseButton()
+        }
 
         scrollView.addView(contentLayout, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         contentLayout.addView(overviewSection, createChartLayoutParams())
@@ -153,15 +187,15 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
         )
         contentLayout.addView(
-            distributionSection.container,
-            createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
-        )
-        contentLayout.addView(
             totalPnlSection.container,
             createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
         )
         contentLayout.addView(
             dailyPnlSection.container,
+            createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
+        )
+        contentLayout.addView(
+            distributionSection.container,
             createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
         )
 
@@ -174,10 +208,11 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             periodSelectorContainer,
             ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, PERIOD_SELECTOR_SECTION_HEIGHT.dp)
         )
-        periodSelectorShadow = PillShadowView.attachTo(periodSelector, 24f.dp)
-        periodSelector.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+        periodSelectorShadow = PillShadowView.attachTo(periodSelectorPill, 24f.dp)
+        periodSelectorPill.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             periodSelectorShadow?.sync()
         }
+        periodSelectorBlurView.setupWith(view)
 
         view.setConstraints {
             topToBottom(scrollView, navigationBar!!)
@@ -208,6 +243,21 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             setOnClickListener { zoomIntoPieFromLegend(distributionSection) }
         }
 
+        selectableCharts.forEach { chart ->
+            chart.selectOnTapOnly = true
+            chart.setDateSelectionListener(object : BaseChartView.DateSelectionListener {
+                override fun onDateSelected(date: Long) {
+                    if (date >= 0) clearChartSelections(except = chart)
+                }
+            })
+        }
+
+        @SuppressLint("ClickableViewAccessibility")
+        contentLayout.setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) clearChartSelections()
+            false
+        }
+
         updateTheme()
 
         collectFlow(viewModel.stateFlow, ::observeState)
@@ -231,8 +281,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         updateSimpleSectionTheme(totalPnlSection)
         updateSimpleSectionTheme(dailyPnlSection)
         periodSelector.updateTheme()
-        periodSelector.setBackgroundColor(WColor.Background.color, 24f.dp)
+        periodSelector.setBackgroundColor(Color.TRANSPARENT, 24f.dp)
         periodSelector.setSliderColor(WColor.SecondaryBackground.color)
+        periodSelectorBlurView.updateTheme()
     }
 
     private fun startSharedSkeleton(
@@ -254,10 +305,6 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 add(distributionSection.chartSkeletonPlaceholder to ViewConstants.BLOCK_RADIUS.dp)
                 add(totalPnlSection.chartSkeletonPlaceholder to ViewConstants.BLOCK_RADIUS.dp)
                 add(dailyPnlSection.chartSkeletonPlaceholder to ViewConstants.BLOCK_RADIUS.dp)
-                add(absoluteSection.chartHeaderView.datesPlaceholder to 4f.dp)
-                add(distributionSection.chartHeaderView.datesPlaceholder to 4f.dp)
-                add(totalPnlSection.chartHeaderView.datesPlaceholder to 4f.dp)
-                add(dailyPnlSection.chartHeaderView.datesPlaceholder to 4f.dp)
             }
             val views = targets.map { it.first }
             val radii = HashMap<Int, Float>().apply {
@@ -281,13 +328,6 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 absoluteSection.lineEnabledById.clear()
                 distributionSection.lineEnabledById.clear()
                 renderSeriesControls(null)
-                showSectionLoading(absoluteSection)
-                showSectionLoading(distributionSection)
-                showSimpleSectionLoading(totalPnlSection)
-                showSimpleSectionLoading(dailyPnlSection)
-                overviewSection.showPlaceholders()
-                breakdownSection.showPlaceholders()
-                startSharedSkeleton(animated = false)
                 syncSeriesControlsPresentation()
             }
 
@@ -302,6 +342,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 } else {
                     placeholdersReady = false
                 }
+                animateDateAndHeightOnLoad = true
+                setDatesSuppressed(true)
+                setDatesVisible(visible = false, animated = state.animated)
                 showSectionLoading(absoluteSection, animated = state.animated)
                 showSectionLoading(distributionSection, animated = state.animated)
                 showSimpleSectionLoading(totalPnlSection, animated = state.animated)
@@ -314,7 +357,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                     placeholdersReady = true
                     pendingLoaded?.let {
                         pendingLoaded = null
-                        applyLoaded(it)
+                        applyLoaded(it, fadeInDates = animateDateAndHeightOnLoad)
                     }
                 }
                 syncSeriesControlsPresentation()
@@ -326,7 +369,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 } else if (!state.silent && lastObservedState is PortfolioUiState.Loaded) {
                     crossFadeToLoaded(state)
                 } else {
-                    applyLoaded(state)
+                    applyLoaded(state, fadeInDates = animateDateAndHeightOnLoad)
                 }
             }
         }
@@ -373,7 +416,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             }
     }
 
-    private fun applyLoaded(state: PortfolioUiState.Loaded) {
+    private fun applyLoaded(state: PortfolioUiState.Loaded, fadeInDates: Boolean = false) {
         crossFadeContentViews().forEach {
             it.animate().cancel()
             it.alpha = 1f
@@ -391,6 +434,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         // the PnL charts — while the VM auto-retries every 5s. Only once net worth is present do
         // the charts render (PnL then handling their own failures with a Try Again button).
         if (state.netWorthFailed) {
+            setDatesSuppressed(true)
             showSectionLoading(absoluteSection, animated = true)
             showSectionLoading(distributionSection, animated = true)
             overviewSection.showPlaceholders(animated = true)
@@ -401,6 +445,17 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             return
         }
 
+        setDatesSuppressed(false)
+
+        overviewSection.hidePlaceholders()
+        breakdownSection.render(
+            chainSlices = state.chainBreakdown,
+            assetSlices = state.assetBreakdown,
+            stakedSlices = state.stakedBreakdown,
+            animated = animateDateAndHeightOnLoad,
+        )
+        breakdownSection.hidePlaceholders()
+
         syncLineEnabledState(absoluteSection, state.chartData)
         syncLineEnabledState(distributionSection, state.chartData)
         renderSeriesControls(state.chartData)
@@ -408,33 +463,68 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         showDistributionLoaded(state.chartData)
         applyLineEnabledState(absoluteSection)
         applyLineEnabledState(distributionSection)
-        overviewSection.render(state.overview, state.request.baseCurrency)
-        breakdownSection.render(
-            chainSlices = state.chainBreakdown,
-            assetSlices = state.assetBreakdown,
+        overviewSection.render(
+            if (state.chartData == null) PortfolioOverview.EMPTY else state.overview,
+            state.request.baseCurrency,
         )
-        overviewSection.hidePlaceholders()
-        breakdownSection.hidePlaceholders()
-        absoluteSection.chartHeaderView.hideDatesPlaceholder()
-        distributionSection.chartHeaderView.hideDatesPlaceholder()
 
         showSimpleLoaded(totalPnlSection, state.totalPnlChartData)
         showSimpleLoaded(dailyPnlSection, state.dailyPnlChartData)
-        applySectionError(
-            totalPnlSection.errorView,
-            totalPnlSection.chartView,
-            totalPnlSection.chartFrame,
-            state.totalPnlFailed,
-        )
-        applySectionError(
-            dailyPnlSection.errorView,
-            dailyPnlSection.chartView,
-            dailyPnlSection.chartFrame,
-            state.dailyPnlFailed,
-        )
-        totalPnlSection.chartHeaderView.hideDatesPlaceholder()
-        dailyPnlSection.chartHeaderView.hideDatesPlaceholder()
+        // showSimpleLoaded already shows the "No data" caption for an empty (but not failed)
+        // section; only drive the error overlay when there is data or an actual failure, so the
+        // caption isn't clobbered.
+        if (state.totalPnlFailed || state.totalPnlChartData != null) {
+            applySectionError(
+                totalPnlSection.errorView,
+                totalPnlSection.chartView,
+                totalPnlSection.chartFrame,
+                state.totalPnlFailed,
+            )
+        }
+        if (state.dailyPnlFailed || state.dailyPnlChartData != null) {
+            applySectionError(
+                dailyPnlSection.errorView,
+                dailyPnlSection.chartView,
+                dailyPnlSection.chartFrame,
+                state.dailyPnlFailed,
+            )
+        }
         syncSeriesControlsPresentation()
+        setDatesVisible(visible = true, animated = fadeInDates)
+    }
+
+    private fun setDatesSuppressed(suppressed: Boolean) {
+        listOf(
+            absoluteSection.chartHeaderView,
+            distributionSection.chartHeaderView,
+            totalPnlSection.chartHeaderView,
+            dailyPnlSection.chartHeaderView,
+        ).forEach { it.datesSuppressed = suppressed }
+    }
+
+    private fun setDatesVisible(visible: Boolean, animated: Boolean) {
+        val targetAlpha = if (visible) 1f else 0f
+        listOf(
+            absoluteSection.chartHeaderView.dates,
+            distributionSection.chartHeaderView.dates,
+            totalPnlSection.chartHeaderView.dates,
+            dailyPnlSection.chartHeaderView.dates,
+        ).forEach {
+            it.animate().cancel()
+            if (animated) {
+                if (visible) {
+                    it.alpha = 0f
+                    it.fadeIn()
+                } else {
+                    it.fadeOut {
+                        it.text = null
+                    }
+                }
+            } else {
+                it.alpha = targetAlpha
+            }
+        }
+        overviewSection.setDateVisible(visible = visible, animated = animated)
     }
 
     private fun showAbsoluteLoaded(data: StackLinearChartData?) {
@@ -482,6 +572,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         absoluteSection.stackChartView.legendSignatureView.visibility = View.GONE
         absoluteSection.pieChartView.visibility = View.GONE
         absoluteSection.pieChartView.legendSignatureView.visibility = View.GONE
+        if (shouldUseDefaultMode) {
+            absoluteSection.stackChartView.setPickerToFullRange()
+        }
         absoluteSection.chartHeaderView.zoomOut(absoluteSection.stackChartView, false)
         updateChartInteractivity(
             absoluteSection.stackChartView,
@@ -518,18 +611,24 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             if (shouldUseDefaultMode) ChartMode.PIE else distributionSection.mode
 
         if (targetMode == ChartMode.PIE) {
-            if (shouldUseDefaultMode) {
-                distributionSection.lastStackPickerSpan =
-                    distributionSection.stackChartView.getPickerWindowSpan()
+            val defaultToLast = shouldUseDefaultMode && data.x.isNotEmpty()
+            if (defaultToLast) {
+                distributionSection.lastStackPickerSpan = data.x.lastIndex
             }
-            val pieDate = resolvePieDate(distributionSection, data)
+            val pieDate =
+                if (defaultToLast) data.x.last()
+                else resolvePieDate(distributionSection, data)
             distributionSection.pieChartView.setData(data)
             distributionSection.pieChartView.updateTheme()
             syncLineEnabledState(
                 distributionSection.pieChartView,
                 distributionSection.lineEnabledById
             )
-            distributionSection.pieChartView.updatePicker(data, pieDate)
+            if (defaultToLast) {
+                distributionSection.pieChartView.updatePickerToIndex(data, data.x.lastIndex)
+            } else {
+                distributionSection.pieChartView.updatePicker(data, pieDate)
+            }
             distributionSection.mode = ChartMode.PIE
             distributionSection.stackChartView.visibility = View.GONE
             distributionSection.stackChartView.legendSignatureView.visibility = View.GONE
@@ -625,6 +724,8 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
         section.chartCoverView.visibility = View.VISIBLE
         section.chartSkeletonPlaceholder.visibility = View.VISIBLE
+        section.chartCoverView.bringToFront()
+        section.chartSkeletonPlaceholder.bringToFront()
         if (animated) {
             section.chartCoverView.fadeIn()
             section.chartSkeletonPlaceholder.fadeIn()
@@ -632,7 +733,6 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             section.chartCoverView.alpha = 1f
             section.chartSkeletonPlaceholder.alpha = 1f
         }
-        section.chartHeaderView.showDatesPlaceholder(animated = animated)
         section.chipGroup.alpha = 1f
     }
 
@@ -643,6 +743,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         section.chartFrame.alpha = 1f
         section.chartFrame.visibility = View.VISIBLE
         section.chipGroup.alpha = 1f
+        section.stackChartView.visibility = View.INVISIBLE
+        section.pieChartView.visibility = View.INVISIBLE
+        showSectionEmptyCaption(section.errorView)
         if (section.chartCoverView.isVisible) {
             section.chartCoverView.bringToFront()
             section.chartCoverView.fadeOut {
@@ -660,6 +763,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private fun showLoadedSection(section: ChartSection) {
         resetSectionHeightAnimation(section)
 
+        section.errorView.container.visibility = View.GONE
         section.chartHeaderView.visibility = View.VISIBLE
         section.chartHeaderView.alpha = 1f
         section.chartFrame.visibility = View.VISIBLE
@@ -755,6 +859,15 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         layoutParams.height = WRAP_CONTENT
         section.chipGroup.layoutParams = layoutParams
         section.chipGroup.alpha = 1f
+    }
+
+    private fun clearChartSelections(except: BaseChartView<*, *>? = null) {
+        selectableCharts.forEach { chart ->
+            if (chart !== except && chart.getSelectedDate() >= 0) {
+                chart.clearSelection()
+                chart.invalidate()
+            }
+        }
     }
 
     private fun zoomIntoPieFromLegend(section: ChartSection) {
@@ -1338,6 +1451,15 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         viewModel.retry(kind)
     }
 
+    // Shown when a chart has loaded successfully but holds no data: reuse the inline overlay
+    // with a "No data" caption and no Try Again button, matching the empty breakdown cards.
+    private fun showSectionEmptyCaption(errorView: SectionErrorView) {
+        errorView.titleLabel.text = LocaleController.getString("No data")
+        errorView.retryButton.visibility = View.GONE
+        errorView.container.visibility = View.VISIBLE
+        errorView.container.bringToFront()
+    }
+
     // Drives the error overlay in sync with the chart. `failed` => error title + Try Again;
     // otherwise hidden. Returns whether the overlay is showing so callers keep the chart and
     // overlay mutually exclusive.
@@ -1429,6 +1551,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private fun createChartSkeletonPlaceholder(): WBaseView {
         return WBaseView(context).apply {
             id = ViewGroup.generateViewId()
+            alpha = 0f
             visibility = View.GONE
             setBackgroundColor(WColor.SecondaryBackground.color, ViewConstants.BLOCK_RADIUS.dp)
         }
@@ -1437,7 +1560,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private fun createChartCoverView(): WBaseView {
         return WBaseView(context).apply {
             id = ViewGroup.generateViewId()
+            alpha = 0f
             visibility = View.GONE
+            setOnClickListener { }
             setBackgroundColor(WColor.Background.color)
         }
     }
@@ -1448,6 +1573,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             isSingleLine = false
             chipSpacingHorizontal = 8.dp
             chipSpacingVertical = 8.dp
+            alpha = 0f
             visibility = View.GONE
         }
     }
@@ -1603,6 +1729,16 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         private const val PERIOD_SELECTOR_SECTION_HEIGHT = 64
     }
 
+    override fun viewWillAppear() {
+        super.viewWillAppear()
+        periodSelectorBlurView.resumeBlurring()
+    }
+
+    override fun viewWillDisappear() {
+        super.viewWillDisappear()
+        periodSelectorBlurView.pauseBlurring()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         viewModel.onDestroy()
@@ -1637,6 +1773,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
         val chartSkeletonPlaceholder = createChartSkeletonPlaceholder()
         val chartCoverView = createChartCoverView()
+        val chipGroup = createSeriesChipGroup()
         val container = WView(context).apply {
             addView(
                 chartCoverView,
@@ -1648,6 +1785,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             )
             addView(chartHeaderView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
             addView(chartFrame, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
+            addView(chipGroup, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
             addView(
                 errorView.container,
                 ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT)
@@ -1657,10 +1795,12 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 toCenterX(chartHeaderView)
                 topToBottom(chartFrame, chartHeaderView)
                 toCenterX(chartFrame)
-                toBottom(chartFrame, ViewConstants.GAP.toFloat())
+                topToBottom(chipGroup, chartFrame)
+                toCenterX(chipGroup, ViewConstants.GAP.toFloat())
+                toBottom(chipGroup, ViewConstants.GAP.toFloat())
                 topToTop(chartSkeletonPlaceholder, chartHeaderView, 48f)
                 toCenterX(chartSkeletonPlaceholder, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
-                bottomToBottom(chartSkeletonPlaceholder, chartFrame, ViewConstants.GAP.toFloat())
+                bottomToBottom(chartSkeletonPlaceholder, chipGroup, ViewConstants.GAP.toFloat())
                 topToTop(chartCoverView, chartSkeletonPlaceholder)
                 toCenterX(chartCoverView)
                 toBottom(chartCoverView)
@@ -1676,6 +1816,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             chartCoverView = chartCoverView,
             chartHeaderView = chartHeaderView,
             chartView = chartView,
+            chipGroup = chipGroup,
             errorView = errorView,
         )
     }
@@ -1705,6 +1846,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         section.chartHeaderView.updateTheme()
         section.chartView.updateTheme()
         section.chartView.legendSignatureView.recolor()
+        updateCheckBoxColors(section.chartView, section.checkBoxes)
         updateSectionErrorTheme(section.errorView)
     }
 
@@ -1713,6 +1855,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         if (!animated) {
             section.chartHeaderView.showTitleOnly()
             section.chartView.setData(null)
+            section.chipGroup.visibility = View.GONE
         }
         section.chartHeaderView.alpha = 1f
         section.chartHeaderView.visibility = View.VISIBLE
@@ -1722,6 +1865,8 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
         section.chartCoverView.visibility = View.VISIBLE
         section.chartSkeletonPlaceholder.visibility = View.VISIBLE
+        section.chartCoverView.bringToFront()
+        section.chartSkeletonPlaceholder.bringToFront()
         if (animated) {
             section.chartCoverView.fadeIn()
             section.chartSkeletonPlaceholder.fadeIn()
@@ -1729,17 +1874,21 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             section.chartCoverView.alpha = 1f
             section.chartSkeletonPlaceholder.alpha = 1f
         }
-        section.chartHeaderView.showDatesPlaceholder(animated = animated)
     }
 
     private fun showSimpleSectionStatus(section: SimpleChartSection) {
         section.chartHeaderView.showTitleOnly()
         section.chartData = null
         section.chartView.setData(null)
+        section.chipGroup.removeAllViews()
+        section.checkBoxes.clear()
+        section.chipGroup.visibility = View.GONE
         section.chartHeaderView.alpha = 1f
         section.chartHeaderView.visibility = View.VISIBLE
         section.chartFrame.alpha = 1f
         section.chartFrame.visibility = View.VISIBLE
+        section.chartView.visibility = View.INVISIBLE
+        showSectionEmptyCaption(section.errorView)
         fadeOutSimpleOverlays(section)
         updateSimpleSectionTheme(section)
     }
@@ -1752,13 +1901,71 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
         @Suppress("UNCHECKED_CAST")
         (section.chartView as BaseChartView<ChartData, *>).setData(data)
+        section.chartView.setPickerToFullRange()
+        renderSimpleSeriesControls(section, data)
+        syncLineEnabledState(section.chartView, section.lineEnabledById)
         section.chartView.updateTheme()
         section.chartView.visibility = View.VISIBLE
         section.chartHeaderView.alpha = 1f
         section.chartHeaderView.visibility = View.VISIBLE
         section.chartFrame.alpha = 1f
         section.chartFrame.visibility = View.VISIBLE
+        updateCheckBoxColors(section.chartView, section.checkBoxes)
         fadeOutSimpleOverlays(section)
+    }
+
+    private fun renderSimpleSeriesControls(section: SimpleChartSection, data: ChartData?) {
+        section.chipGroup.removeAllViews()
+        section.checkBoxes.clear()
+
+        val lines = data?.lines?.takeIf { it.size > 1 } ?: run {
+            section.lineEnabledById.clear()
+            section.chipGroup.visibility = View.GONE
+            return
+        }
+
+        val previousState = section.lineEnabledById.toMap()
+        section.lineEnabledById.clear()
+        lines.forEach { line ->
+            section.lineEnabledById[line.id] = previousState[line.id] ?: true
+        }
+
+        lines.forEach { line ->
+            val checkBox = FlatCheckBox(context).apply {
+                setText(line.name)
+                recolor(line.color)
+                setChecked(section.lineEnabledById[line.id] != false, false)
+                setOnClickListener { toggleSimpleDataset(section, line.id) }
+            }
+            section.checkBoxes[line.id] = checkBox
+            section.chipGroup.addView(checkBox, ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        }
+        section.chipGroup.alpha = 1f
+        section.chipGroup.visibility = View.VISIBLE
+    }
+
+    private fun toggleSimpleDataset(section: SimpleChartSection, id: String) {
+        val lineEnabledById = section.lineEnabledById
+        val currentlyEnabled = lineEnabledById[id] != false
+        val enabledCount = lineEnabledById.values.count { it }
+        if (currentlyEnabled && enabledCount <= 1) {
+            section.checkBoxes[id]?.denied()
+            refreshCheckBoxState(section.checkBoxes, lineEnabledById, animate = false)
+            return
+        }
+
+        lineEnabledById[id] = !currentlyEnabled
+        refreshCheckBoxState(section.checkBoxes, lineEnabledById)
+        applySimpleLineEnabledState(section)
+    }
+
+    private fun applySimpleLineEnabledState(section: SimpleChartSection) {
+        val chartView = section.chartView
+        if (chartView.lines.isEmpty()) return
+        chartView.lines.forEach { lineViewData ->
+            lineViewData.enabled = section.lineEnabledById[lineViewData.line.id] != false
+        }
+        chartView.onCheckChanged()
     }
 
     private fun fadeOutSimpleOverlays(section: SimpleChartSection) {
@@ -1783,7 +1990,10 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         val chartCoverView: WBaseView,
         val chartHeaderView: ChartHeaderView,
         val chartView: BaseChartView<*, *>,
+        val chipGroup: ChipGroup,
         val errorView: SectionErrorView,
+        val checkBoxes: LinkedHashMap<String, FlatCheckBox> = linkedMapOf(),
+        val lineEnabledById: LinkedHashMap<String, Boolean> = linkedMapOf(),
         var chartData: ChartData? = null,
     )
 

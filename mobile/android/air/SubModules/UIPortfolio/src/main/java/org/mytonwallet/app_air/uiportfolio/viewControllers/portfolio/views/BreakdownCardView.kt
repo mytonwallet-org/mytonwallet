@@ -28,7 +28,8 @@ class BreakdownCardView(
     context: Context,
     titleText: String,
     private val showLegend: Boolean,
-    private val legendRowCount: Int = 4,
+    private val legendRowCount: Int = 10,
+    private val emptyText: String? = null,
 ) : WView(context), WThemedView {
 
     private val titleLabel = WLabel(context).apply {
@@ -44,8 +45,18 @@ class BreakdownCardView(
         id = generateViewId()
         orientation = LinearLayout.VERTICAL
     }
+    private val emptyLabel = WLabel(context).apply {
+        id = generateViewId()
+        text = emptyText
+        setStyle(14f, WFont.Regular)
+        setTextColor(WColor.SecondaryText)
+        gravity = Gravity.CENTER
+        maxLines = 2
+        visibility = GONE
+    }
     val cardSkeletonPlaceholder = WBaseView(context).apply {
         id = generateViewId()
+        alpha = 0f
         visibility = GONE
     }
 
@@ -56,6 +67,9 @@ class BreakdownCardView(
         addView(cylinder, LayoutParams(80.dp, cylH))
         if (showLegend) {
             addView(legend, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
+        }
+        if (emptyText != null) {
+            addView(emptyLabel, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         }
         addView(cardSkeletonPlaceholder, LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
         setConstraints {
@@ -71,6 +85,12 @@ class BreakdownCardView(
                 topToTop(legend, cylinder)
                 bottomToBottom(legend, cylinder)
             }
+            if (emptyText != null) {
+                toStart(emptyLabel, 16f)
+                toEnd(emptyLabel, 16f)
+                topToBottom(emptyLabel, titleLabel, 15f)
+                toBottom(emptyLabel)
+            }
             toTop(cardSkeletonPlaceholder, 36f)
             toCenterX(cardSkeletonPlaceholder)
             toBottom(cardSkeletonPlaceholder)
@@ -81,14 +101,22 @@ class BreakdownCardView(
         if (slices.isEmpty()) {
             cylinder.visibility = INVISIBLE
             if (showLegend) legend.visibility = INVISIBLE
+            if (emptyText != null) emptyLabel.visibility = VISIBLE
             return
         }
+        if (emptyText != null) emptyLabel.visibility = GONE
         cylinder.visibility = VISIBLE
         cylinder.setSlices(slices)
         if (showLegend) {
             legend.visibility = VISIBLE
             renderLegend(slices)
         }
+    }
+
+    fun fadeInLegend() {
+        if (!showLegend || legend.visibility != VISIBLE) return
+        legend.alpha = 0f
+        legend.fadeIn()
     }
 
     fun maskTarget(): Pair<android.view.View, Float> =
@@ -114,6 +142,7 @@ class BreakdownCardView(
 
     override fun updateTheme() {
         setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
+        cylinder.updateTheme()
         cardSkeletonPlaceholder.setBackgroundColor(
             WColor.SecondaryBackground.color,
             ViewConstants.BLOCK_RADIUS.dp,

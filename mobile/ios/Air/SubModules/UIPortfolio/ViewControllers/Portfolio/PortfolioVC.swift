@@ -97,7 +97,7 @@ private final class PortfolioRangeSegmentedControl: UISegmentedControl {
             bgLayer.frame = bounds
             layer.insertSublayer(bgLayer, at: 0)
             backgroundLayer = bgLayer
-
+            
             layer.cornerRadius = bounds.height / 2
             layer.masksToBounds = true
             updateTheme()
@@ -106,9 +106,9 @@ private final class PortfolioRangeSegmentedControl: UISegmentedControl {
 
     override func sendActions(for controlEvents: UIControl.Event) {
         super.sendActions(for: controlEvents)
-
+        
         guard #available(iOS 26, *), controlEvents.contains(.valueChanged) else { return }
-
+        
         isPillAnimating = true
         UIView.animate(
             withDuration: 0.3,
@@ -297,6 +297,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
     )
     private var registeredChartInteractionBlockers = Set<ObjectIdentifier>()
     private var isChartLayoutInvalidationScheduled = false
+    private var hasEverStartedLoading = false
 
     private let viewModel: PortfolioVM
     private var sectionDescriptors: [PortfolioSectionDescriptor] = []
@@ -401,7 +402,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             PortfolioSectionDescriptor(
                 id: .totalValueChart,
                 items: [.totalValueChartTile],
-                layout: .fullWidthTile(estimatedHeight: 551),
+                layout: .fullWidthTile(estimatedHeight: 535),
                 contentInsets: .init(
                     top: portfolioSectionTopSpacing,
                     leading: portfolioHorizontalInset,
@@ -413,7 +414,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             PortfolioSectionDescriptor(
                 id: .totalPnlChart,
                 items: [.totalPnlChartTile],
-                layout: .fullWidthTile(estimatedHeight: 551),
+                layout: .fullWidthTile(estimatedHeight: 535),
                 contentInsets: .init(
                     top: portfolioSectionTopSpacing,
                     leading: portfolioHorizontalInset,
@@ -425,7 +426,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             PortfolioSectionDescriptor(
                 id: .dailyPnlChart,
                 items: [.dailyPnlChartTile],
-                layout: .fullWidthTile(estimatedHeight: 551),
+                layout: .fullWidthTile(estimatedHeight: 535),
                 contentInsets: .init(
                     top: portfolioSectionTopSpacing,
                     leading: portfolioHorizontalInset,
@@ -437,7 +438,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             PortfolioSectionDescriptor(
                 id: .portfolioShareChart,
                 items: [.portfolioShareChartTile],
-                layout: .fullWidthTile(estimatedHeight: 551),
+                layout: .fullWidthTile(estimatedHeight: 535),
                 contentInsets: .init(
                     top: portfolioSectionTopSpacing,
                     leading: portfolioHorizontalInset,
@@ -512,6 +513,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
         }
 
         resetVisibleChartInteractions()
+        resetVisibleChartRanges()
         viewModel.selectRange(PortfolioTimeRange.displayOrder[sender.selectedSegmentIndex])
     }
 
@@ -590,6 +592,10 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
                 fadesCurrentData: self.viewModel.isShowingStaleRangeData
             )
             let didChartViewStateChange = self.chartViewState != previousChartViewState
+            if !self.hasEverStartedLoading,
+               self.chartViewState.isLoading || self.viewModel.responses != nil || self.viewModel.errorText != nil {
+                self.hasEverStartedLoading = true
+            }
             self.overview = updatedOverview
 
             if didLocalInsightsChange {
@@ -696,6 +702,12 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
     private func resetVisibleChartInteractions() {
         for cell in visibleChartCells {
             cell.resetInteraction()
+        }
+    }
+
+    private func resetVisibleChartRanges() {
+        for cell in visibleChartCells {
+            cell.resetRange()
         }
     }
 
@@ -912,12 +924,20 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
         chartKind: PortfolioGraphKind,
         pieVisible: Bool?
     ) -> PortfolioChartTileCellConfiguration.State {
+        guard hasEverStartedLoading || preparedCharts.hasChartData else {
+            return .idle
+        }
+
         if let errorText = chartViewState.errorText,
            !preparedCharts.hasChartData {
             return .error(errorText)
         }
 
-        if chartViewState.isLoading && !preparedCharts.hasChartData {
+        if (chartViewState.isLoading || preparingChartDataToken != nil) && !preparedCharts.hasChartData {
+            return .loading
+        }
+
+        if chartViewState.fadesCurrentData {
             return .loading
         }
 
@@ -959,8 +979,10 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
 
     private func invalidateChartLayoutImmediately() {
         isChartLayoutInvalidationScheduled = false
-        collectionView.collectionViewLayout.invalidateLayout()
-        collectionView.layoutIfNeeded()
+        UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseOut, .allowUserInteraction, .beginFromCurrentState]) {
+            self.collectionView.collectionViewLayout.invalidateLayout()
+            self.collectionView.layoutIfNeeded()
+        }
     }
 
     private func scheduleChartLayoutInvalidation() {

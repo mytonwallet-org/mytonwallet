@@ -15,12 +15,8 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setMarginsDp
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
-import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.hideImmediately
 import org.mytonwallet.app_air.uicomponents.widgets.showImmediately
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -59,25 +55,25 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
         }
     }
 
-    val datesPlaceholder: WBaseView by lazy {
-        WBaseView(context).apply {
-            id = generateViewId()
-            visibility = GONE
-        }
-    }
-
     private val title: WLabel by lazy {
         WLabel(context).apply {
             setStyle(14f, WFont.DemiBold)
             setTextColor(WColor.Tint)
             lineHeight = 24.dp
+            setLineSpacing(0f, 0.85f)
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            setSingleLine()
+            maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
         }
     }
 
-    val back: WLabel by lazy {
+    var zoomOutText: CharSequence = LocaleController.getString("Zoom Out")
+        set(value) {
+            field = value
+            if (backLazy.isInitialized()) backLazy.value.text = value
+        }
+
+    private val backLazy = lazy {
         object : WLabel(context) {
             private val ripple = WRippleDrawable.create(20f.dp)
 
@@ -95,7 +91,7 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
             setStyle(16f, WFont.DemiBold)
             setTextColor(WColor.Tint)
-            text = LocaleController.getString("Zoom Out")
+            text = zoomOutText
             setCompoundDrawablesWithIntrinsicBounds(zoomIcon, null, null, null)
             compoundDrawablePadding = 4.dp
             setPadding(8.dp, 2.dp, 8.dp, 2.dp)
@@ -104,6 +100,7 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
             isInvisible = true
         }
     }
+    val back: WLabel by backLazy
 
     private val zoomIcon: Drawable? by lazy {
         context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_zoom_out_22)
@@ -112,6 +109,9 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
     private var leadingContentMode = LeadingContentMode.TITLE
     private var datesAnimationTarget: CharSequence? = null
     private var deferredDatesText: CharSequence? = null
+    private var lastMeasuredTotalWidth = -1
+
+    var datesSuppressed = false
 
     init {
         minimumHeight = 40.dp
@@ -132,13 +132,6 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
         )
         addView(dates, datesLayoutParams())
         addView(datesTmp, datesLayoutParams())
-        addView(
-            datesPlaceholder,
-            LayoutParams(200.dp, 16.dp).apply {
-                gravity = Gravity.END
-                setMarginsDp(16, 18, 20, 0)
-            }
-        )
 
         datesTmp.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             datesTmp.pivotX = datesTmp.measuredWidth * 0.7f
@@ -148,27 +141,37 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
         updateTheme()
     }
 
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val total = MeasureSpec.getSize(widthMeasureSpec)
+        if (total > 0) {
+            val screenSizeChanged = total != lastMeasuredTotalWidth
+            lastMeasuredTotalWidth = total
+            val trailing = when {
+                datesTmp.isVisible -> datesTmp
+                dates.isVisible -> dates
+                else -> null
+            }
+            val trailingWidth = if (trailing != null) {
+                measureChildWithMargins(trailing, widthMeasureSpec, 0, heightMeasureSpec, 0)
+                val lp = trailing.layoutParams as MarginLayoutParams
+                trailing.measuredWidth + lp.leftMargin + lp.rightMargin
+            } else 0
+            val titleLp = title.layoutParams as MarginLayoutParams
+            val maxTitleWidth =
+                (total - paddingLeft - paddingRight - titleLp.leftMargin - trailingWidth)
+                    .coerceAtLeast(0)
+            if (maxTitleWidth != title.maxWidth && (screenSizeChanged || maxTitleWidth < title.maxWidth)) {
+                title.maxWidth = maxTitleWidth
+            }
+        }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+    }
+
     override fun updateTheme() {
         dates.updateTheme()
         datesTmp.updateTheme()
         title.updateTheme()
         back.updateTheme()
-        datesPlaceholder.setBackgroundColor(WColor.SecondaryBackground.color, 4f.dp)
-    }
-
-    fun showDatesPlaceholder(animated: Boolean = false) {
-        datesPlaceholder.visibility = VISIBLE
-        if (animated) {
-            datesPlaceholder.animate().cancel()
-            datesPlaceholder.alpha = 0f
-            datesPlaceholder.fadeIn()
-        } else {
-            datesPlaceholder.alpha = 1f
-        }
-    }
-
-    fun hideDatesPlaceholder() {
-        datesPlaceholder.fadeOut { datesPlaceholder.visibility = GONE }
     }
 
     fun setTitle(text: CharSequence) {
@@ -203,6 +206,9 @@ class ChartHeaderView(context: Context) : FrameLayout(context), WThemedView {
         animated: Boolean,
         direction: DatesAnimationDirection,
     ) {
+        if (datesSuppressed || start <= 0)
+            return
+
         val newText = if (end - start >= 86400000L) {
             ChartFormatters.formatDate("d MMM yyyy", start) +
                 " — " +

@@ -209,7 +209,7 @@ $logout_confirm: Usuń wszystkie portfele
 $tiny_transfers_help: Wyłącz to, aby wyświetlać transakcje o wartości mniejszej niż $%value%. Proszę pamiętaj, że tego typu transakcje często są wykorzystywane w celach spamowych i oszustw.
 Today: Dzisiaj
 Total: Razem
-Zoom Out: Pomniejsz
+Zoom Out: Cały okres
 Yesterday: Wczoraj
 Now: Teraz
 $receive_description: Zeskanuj ten kod QR lub udostępnij adres, aby doładować saldo portfela.
@@ -307,7 +307,10 @@ No price data: Brak danych o cenie
 Price Copied: Cena skopiowana
 Not staked: Nie w stakingu
 Portfolio: Portfolio
+Performance, insights and P&L: Dynamika, spostrzeżenia i P&L
+Overview: Przegląd
 Total Balance: Łączne saldo
+Net Change: Zmiana wartości portfela
 No data: Brak danych
 Total Value: Łączna wartość
 Tracked asset value over time.: Wartość śledzonych aktywów w czasie.
@@ -324,6 +327,7 @@ Altcoins: Altcoiny
 Asset Mix: Skład aktywów
 No asset balances: Brak sald aktywów
 No staked assets: Brak aktywów w stakingu
+Entire Period: Cały okres
 "Asset %1$@": "Aktyw %1$@"
 Error: Błąd
 Unavailable: Niedostępne
@@ -1233,7 +1237,6 @@ $secret_words: Tajne Słowa
 Restore wallet from 12 or 24 words: Przywróć portfel z 12 lub 24 słów
 Connect your hardware wallet: Podłącz portfel sprzętowy
 Watch wallet in read-only mode: Obserwuj portfel w trybie tylko do odczytu
-
 More: Więcej
 at: o
 MyTonWallet: MyTonWallet
@@ -1289,11 +1292,11 @@ $nft_batch_different_chains: Wybrane kolekcjonerskie znajdują się w różnych 
 $nft_expired: "Wygasł"
 Linked Address: Powiązany adres
 Enter Address: Wpisz adres
-D: D
-W: T
-M: M
-3M: 3M
-Y: R
+D: 1 dz
+W: 1 tydz
+M: 1 mies
+3M: 3 mies
+Y: 1 rok
 $amount_K: "%amount%K"
 $amount_M: "%amount%M"
 Happening Now: Na czasie
@@ -1551,3 +1554,8 @@ $more_nfts:
 $subwallets_hint: Używaj subportfeli, aby uzyskać dodatkowe adresy bez tworzenia nowych tajnych słów.
 $subwallets_created_wallets: Jeśli wcześniej tworzyłeś subportfele, pojawią się na poniższej liście.
 $subwallets_none: Brak subportfeli.
+Limited history: Ograniczona historia
+Tracked asset value over time: Wartość śledzonych aktywów w czasie
+Cumulative profit and loss over time: Skumulowane zyski i straty w czasie
+Day-by-day profit and loss: Zyski i straty z dnia na dzień
+Current allocation across tracked assets: Bieżąca alokacja śledzonych aktywów

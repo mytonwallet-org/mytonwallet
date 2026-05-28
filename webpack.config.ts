@@ -37,6 +37,7 @@ import {
   IS_PACKAGED_ELECTRON,
   IS_TELEGRAM_APP,
   MTW_STATIC_BASE_URL,
+  PORTFOLIO_API_URL,
   PROXY_API_BASE_URL,
   SOLANA_MAINNET_API_URL,
   SOLANA_MAINNET_RPC_URL,
@@ -101,6 +102,7 @@ const cspConnectSrcHosts = Array.from(new Set([
   EVM_TESTNET_RPC_URL.replace(/^http(s?):/, 'ws$1:'),
   ensureTrailingSlash(IPFS_GATEWAY_BASE_URL),
   ensureTrailingSlash(SSE_BRIDGE_URL),
+  ensureTrailingSlash(PORTFOLIO_API_URL),
 ])).join(' ');
 
 const cspImageSrcHosts = [
@@ -351,6 +353,7 @@ export default function createConfig(
         title: APP_NAME,
         homepage: IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mytonwallet.io',
         assets_prefix: IS_CORE_WALLET ? 'coreWallet/' : '',
+        base_href: IS_EXPLORER ? '/' : undefined,
       }),
       new PreloadWebpackPlugin({
         include: 'allAssets',

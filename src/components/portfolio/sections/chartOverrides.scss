@@ -1,0 +1,92 @@
+@use "../../../styles/scssVariables" as v;
+
+// LovelyChart renders its own DOM, so these rules restyle its `.lovely-chart--*` classes
+// inside the portfolio chart cards (`.portfolio-chart-card` / `.portfolio-chart-card-pie`)
+
+.portfolio-chart-card-pie .lovely-chart--minimap,
+.portfolio-chart-card .lovely-chart--header {
+  display: none;
+}
+
+.portfolio-chart-card {
+  .lovely-chart--container {
+    font-family: v.$fontFamily;
+  }
+
+  .lovely-chart--tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+
+    // Collapses with the minimap's 16px bottom margin to the 24px gap from the design
+    margin-top: 1.5rem;
+    padding: 0 1rem;
+  }
+
+  .lovely-chart--button {
+    display: inline-flex;
+    gap: 0.25rem;
+    align-items: center;
+
+    margin: 0;
+    padding: 0.3125rem 0.75rem;
+    border: 1px solid var(--color-separator);
+    border-radius: 6.25rem;
+
+    font-size: 0.875rem;
+    color: var(--color-gray-1);
+    text-decoration: none;
+
+    &.lovely-chart--state-checked {
+      border-color: transparent;
+      color: #FFFFFF;
+    }
+
+    &.lovely-chart--state-checked.lovely-chart--dark-content {
+      color: #1F2933;
+    }
+  }
+
+  .lovely-chart--button .lovely-chart--button-label {
+    padding: 0;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .lovely-chart--button.lovely-chart--state-checked .lovely-chart--button-label {
+    transform: none;
+    color: inherit;
+  }
+
+  .lovely-chart--button .lovely-chart--button-check {
+    position: static;
+
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 0;
+    height: 0.875rem;
+
+    transition: opacity 200ms ease;
+
+    &::after {
+      position: static;
+      margin: 0;
+    }
+  }
+
+  .lovely-chart--button.lovely-chart--state-checked .lovely-chart--button-check {
+    width: 0.875rem;
+    margin-right: 0.25rem;
+  }
+
+  .lovely-chart--tooltip {
+    top: 0;
+
+    & > canvas {
+      margin-top: 0;
+    }
+  }
+}

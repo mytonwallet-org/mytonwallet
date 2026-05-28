@@ -1,0 +1,25 @@
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+
+  @media (min-width: 1100px) {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem 1rem;
+  }
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 12rem;
+  padding: 2rem 1rem;
+  border-radius: var(--border-radius-default);
+
+  font-size: 0.9375rem;
+  color: var(--color-gray-2);
+
+  background-color: var(--color-background-first);
+}

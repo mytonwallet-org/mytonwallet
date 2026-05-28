@@ -1,103 +1,73 @@
-import type { ApiBaseCurrency, ApiHistoryList } from '../types';
+import type { ApiBaseCurrency, ApiPortfolioHistoryParams, ApiPortfolioHistoryResponse } from '../types';
 
 import { DEFAULT_PRICE_CURRENCY, PORTFOLIO_API_URL } from '../../config';
+import { DAY } from '../../util/dateFormat';
 import { fetchJson } from '../../util/fetch';
-
-export type ApiPortfolioHistoryDataset = {
-  assetId: number;
-  symbol: string;
-  contractAddress: string;
-  color?: string;
-  points: ApiHistoryList;
-  impact?: number;
-};
-
-export type ApiPortfolioHistoryResponse = {
-  status: string;
-  points?: ApiHistoryList;
-  datasets?: ApiPortfolioHistoryDataset[];
-  base: string;
-  density: string;
-  historyScanCursor?: number;
-  assetLimitExceeded?: true;
-};
-
-export type ApiPortfolioHistoryParams = {
-  from?: number | string;
-  to?: number | string;
-  density?: string;
-};
 
 const DEFAULT_PORTFOLIO_HISTORY_DAYS = 365;
 const DEFAULT_PORTFOLIO_HISTORY_DENSITY = '1d';
+const ALLOWED_DENSITIES = new Set(['5m', '1h', '4h', '1d']);
 
 type PortfolioHistoryEndpoint = 'net-worth-history' | 'pnl-cumulative-history' | 'pnl-history';
-
-function toDate(value: number | string) {
-  if (typeof value === 'number') {
-    return new Date(value * 1000);
-  }
-
-  return new Date(value);
-}
-
-function computePortfolioHistoryParams(params: ApiPortfolioHistoryParams = {}) {
-  const to = params.to !== undefined ? toDate(params.to) : new Date();
-  const from = params.from !== undefined
-    ? toDate(params.from)
-    : new Date(to.getTime() - DEFAULT_PORTFOLIO_HISTORY_DAYS * 86_400_000);
-
-  return {
-    from: from.toISOString(),
-    to: to.toISOString(),
-    density: params.density ?? DEFAULT_PORTFOLIO_HISTORY_DENSITY,
-  };
-}
-
-function buildPortfolioHistoryUrl(
-  endpoint: PortfolioHistoryEndpoint,
-  wallets: string[],
-  baseCurrency: ApiBaseCurrency,
-  params?: ApiPortfolioHistoryParams,
-) {
-  const { from, to, density } = computePortfolioHistoryParams(params);
-  const url = new URL(`${PORTFOLIO_API_URL}/${endpoint}`);
-
-  url.searchParams.set('wallets', wallets.join(','));
-  url.searchParams.set('from', from);
-  url.searchParams.set('to', to);
-  url.searchParams.set('density', density);
-  url.searchParams.set('base', baseCurrency.toLowerCase());
-
-  return url.toString();
-}
 
 export async function fetchPortfolioNetWorthHistory(
   wallets: string[],
   baseCurrency: ApiBaseCurrency = DEFAULT_PRICE_CURRENCY,
   params?: ApiPortfolioHistoryParams,
-): Promise<ApiPortfolioHistoryResponse> {
-  const url = buildPortfolioHistoryUrl('net-worth-history', wallets, baseCurrency, params);
-
-  return fetchJson<ApiPortfolioHistoryResponse>(url);
+) {
+  return fetchJson<ApiPortfolioHistoryResponse>(
+    buildPortfolioHistoryUrl('net-worth-history', wallets, baseCurrency, params),
+  );
 }
 
 export async function fetchPortfolioPnlCumulativeHistory(
   wallets: string[],
   baseCurrency: ApiBaseCurrency = DEFAULT_PRICE_CURRENCY,
   params?: ApiPortfolioHistoryParams,
-): Promise<ApiPortfolioHistoryResponse> {
-  const url = buildPortfolioHistoryUrl('pnl-cumulative-history', wallets, baseCurrency, params);
-
-  return fetchJson<ApiPortfolioHistoryResponse>(url);
+) {
+  return fetchJson<ApiPortfolioHistoryResponse>(
+    buildPortfolioHistoryUrl('pnl-cumulative-history', wallets, baseCurrency, params),
+  );
 }
 
 export async function fetchPortfolioPnlHistory(
   wallets: string[],
   baseCurrency: ApiBaseCurrency = DEFAULT_PRICE_CURRENCY,
   params?: ApiPortfolioHistoryParams,
-): Promise<ApiPortfolioHistoryResponse> {
-  const url = buildPortfolioHistoryUrl('pnl-history', wallets, baseCurrency, params);
+) {
+  return fetchJson<ApiPortfolioHistoryResponse>(
+    buildPortfolioHistoryUrl('pnl-history', wallets, baseCurrency, params),
+  );
+}
 
-  return fetchJson<ApiPortfolioHistoryResponse>(url);
+function buildPortfolioHistoryUrl(
+  endpoint: PortfolioHistoryEndpoint,
+  wallets: string[],
+  baseCurrency: ApiBaseCurrency,
+  params: ApiPortfolioHistoryParams = {},
+) {
+  const to = (params.to !== undefined ? parseDate(params.to) : undefined) ?? new Date();
+  const from = (params.from !== undefined ? parseDate(params.from) : undefined)
+    ?? new Date(to.getTime() - DEFAULT_PORTFOLIO_HISTORY_DAYS * DAY);
+  const density = params.density && ALLOWED_DENSITIES.has(params.density)
+    ? params.density
+    : DEFAULT_PORTFOLIO_HISTORY_DENSITY;
+
+  const url = new URL(`${PORTFOLIO_API_URL}/${endpoint}`);
+  url.searchParams.set('wallets', wallets.join(','));
+  url.searchParams.set('base', baseCurrency.toLowerCase());
+  url.searchParams.set('from', from.toISOString());
+  url.searchParams.set('to', to.toISOString());
+  url.searchParams.set('density', density);
+
+  return url.toString();
+}
+
+// Native iOS sends `from` as unix seconds; web and Android send an ISO string
+function parseDate(value: number | string) {
+  const date = typeof value === 'number'
+    ? new Date(value * 1000)
+    : new Date(value);
+
+  return Number.isNaN(date.getTime()) ? undefined : date;
 }

@@ -312,5 +312,11 @@ func makeMigrator() -> DatabaseMigrator {
         }
     }
 
+    migrator.registerMigration("v17") { db in
+        try db.alter(table: "account_settings") { t in
+            t.add(column: "portfolioTimeRange", .text)
+        }
+    }
+
     return migrator
 }

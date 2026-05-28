@@ -895,6 +895,15 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         }
     }
 
+    val isOnHomeScreen: Boolean
+        get() {
+            val homeNavigationController =
+                stackNavigationControllers[IBottomNavigationView.ID_HOME] ?: return false
+            return bottomNavigationView.selectedItemId == IBottomNavigationView.ID_HOME &&
+                window?.topViewController == this &&
+                homeNavigationController.viewControllers.size == 1
+        }
+
     private var cachedExploreVC: ExploreVC? = null
         set(value) {
             field = value

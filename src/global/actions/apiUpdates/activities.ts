@@ -19,6 +19,8 @@ import {
   addInitialActivities,
   addNewActivities,
   addNft,
+  applyIncomingNftFromActivity,
+  applyOutgoingNftFromActivity,
   removeActivities,
   replaceCurrentActivityId,
   replaceCurrentDomainLinkingId,
@@ -30,6 +32,7 @@ import {
   updatePendingActivitiesWithTrustedStatus,
 } from '../../reducers';
 import {
+  selectAccountSettings,
   selectAccountState,
   selectAccountTokens,
   selectLocalActivitiesSlow,
@@ -110,9 +113,36 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       updatePoisoningCacheFromActivities(newConfirmedActivities);
 
       if (!IS_CORE_WALLET) {
-        // NFT polling is executed at long intervals, so it is more likely that a user will see a new transaction
-        // rather than receiving a card in the collection. Therefore, when a new activity occurs,
-        // we check for a card from the MyTonWallet collection and apply it.
+        // NFT polling is executed at long intervals, so a transaction-event with an NFT can arrive
+        // long before the next polling round. Apply the change to local NFT state immediately so the UI
+        // reflects new ownership (incl. MTW-card auto-install) without waiting for polling.
+        // A subsequent `nftReceived`/`nftSent` socket update or polling round is idempotent here.
+        for (const activity of newConfirmedActivities) {
+          if (activity.kind !== 'transaction' || !activity.nft) continue;
+
+          // For `nftTrade` (marketplace buy/sell) `isIncoming` reflects the `TONCOIN` direction,
+          // not the NFT direction - so it must be inverted here
+          const isNftIncoming = activity.type === 'nftTrade' ? !activity.isIncoming : activity.isIncoming;
+
+          if (isNftIncoming) {
+            global = applyIncomingNftFromActivity(global, accountId, activity.nft);
+
+            if (activity.nft.collectionAddress === MTW_CARDS_COLLECTION) {
+              const settings = selectAccountSettings(global, accountId);
+
+              if (!settings?.cardBackgroundNft) {
+                getActions().setCardBackgroundNft({ nft: activity.nft, accountId });
+                getActions().installAccentColorFromNft({ nft: activity.nft, accountId });
+              }
+            }
+          } else {
+            // `newOwnerAddress` is `unknown` from the sender's activity; `ownedSet` pruning is the meaningful effect
+            global = applyOutgoingNftFromActivity(global, accountId, activity.nft);
+          }
+        }
+
+        // Left intact: handles the `isCardMinting` flag reset and refund branch. `addNft`/`setCardBackgroundNft`
+        // are idempotent, so the small overlap with the loop above is harmless.
         global = processCardMintingActivity(global, accountId, newConfirmedActivities);
       }
 
@@ -169,8 +199,8 @@ function processCardMintingActivity(global: GlobalState, accountId: string, acti
 
     global = updateAccountState(global, accountId, { isCardMinting: undefined });
     global = addNft(global, accountId, nft);
-    getActions().setCardBackgroundNft({ nft });
-    getActions().installAccentColorFromNft({ nft });
+    getActions().setCardBackgroundNft({ nft, accountId });
+    getActions().installAccentColorFromNft({ nft, accountId });
   } else if (refundActivity) {
     global = updateAccountState(global, accountId, { isCardMinting: undefined });
   }

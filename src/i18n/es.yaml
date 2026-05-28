@@ -206,7 +206,7 @@ $logout_confirm: Cerrar sesión en **todos** los monederos
 $tiny_transfers_help: Desactive esta opción para mostrar transacciones de menos de $%value%. Tenga en cuenta que tales transacciones se utilizan a menudo con fines de spam y estafa.
 Today: Hoy
 Total: Total
-Zoom Out: Alejar
+Zoom Out: Todo el tiempo
 Yesterday: Ayer
 Now: Ahora
 $receive_description: Escanea este código QR o comparte la dirección para recargar el saldo de la billetera.
@@ -304,7 +304,10 @@ No price data: Sin datos de precio
 Price Copied: Precio copiado
 Not staked: No en staking
 Portfolio: Portafolio
+Performance, insights and P&L: Dinámica, perspectivas y P&L
+Overview: Resumen
 Total Balance: Saldo total
+Net Change: Variación de cartera
 No data: Sin datos
 Total Value: Valor total
 Tracked asset value over time.: Valor de los activos seguidos a lo largo del tiempo.
@@ -321,6 +324,7 @@ Altcoins: Altcoins
 Asset Mix: Composición de activos
 No asset balances: Sin balances de activos
 No staked assets: Sin activos en staking
+Entire Period: Periodo completo
 "Asset %1$@": "Activo %1$@"
 Error: Error
 Unavailable: No disponible
@@ -1216,7 +1220,6 @@ $secret_words: Frases Semilla
 Restore wallet from 12 or 24 words: Restaurar cartera con 12 o 24 palabras
 Connect your hardware wallet: Conecta tu cartera de hardware
 Watch wallet in read-only mode: Ver cartera en modo de solo lectura
-
 More: Más
 at: en
 MyTonWallet: MyTonWallet
@@ -1272,11 +1275,11 @@ $nft_batch_different_chains: Los coleccionables seleccionados están en cadenas 
 $nft_expired: "Vencido"
 Linked Address: Dirección vinculada
 Enter Address: Introduce la dirección
-D: D
-W: S
-M: M
-3M: 3M
-Y: A
+D: 1 d
+W: 1 sem
+M: 1 mes
+3M: 3 meses
+Y: 1 año
 $amount_K: "%amount%K"
 $amount_M: "%amount%M"
 Happening Now: Tendencias ahora
@@ -1528,3 +1531,8 @@ $more_nfts:
 $subwallets_hint: Usa subwallets para obtener direcciones adicionales sin crear nuevas palabras secretas.
 $subwallets_created_wallets: Si has creado subwallets anteriormente, aparecerán en la lista de abajo.
 $subwallets_none: Aún no hay subwallets.
+Limited history: Historial limitado
+Tracked asset value over time: Valor de activos rastreados a lo largo del tiempo
+Cumulative profit and loss over time: Pérdidas y ganancias acumuladas a lo largo del tiempo
+Day-by-day profit and loss: Pérdidas y ganancias día a día
+Current allocation across tracked assets: Asignación actual entre activos rastreados

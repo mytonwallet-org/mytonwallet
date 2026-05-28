@@ -5,6 +5,7 @@ import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryResponse
+import org.mytonwallet.app_air.walletcore.stores.PortfolioStore
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -12,40 +13,57 @@ import java.util.Locale
 import java.util.TimeZone
 
 suspend fun WalletCore.fetchPortfolioNetWorthHistory(
+    accountId: String,
     wallets: List<String>,
     baseCurrency: MBaseCurrency,
     period: MHistoryTimePeriod,
-): ApiPortfolioHistoryResponse {
-    return fetchPortfolioHistory("fetchPortfolioNetWorthHistory", wallets, baseCurrency, period)
+    cacheOnly: Boolean = false,
+): ApiPortfolioHistoryResponse? {
+    return fetchPortfolioHistory(
+        "fetchPortfolioNetWorthHistory", accountId, wallets, baseCurrency, period, cacheOnly
+    )
 }
 
 suspend fun WalletCore.fetchPortfolioPnlCumulativeHistory(
+    accountId: String,
     wallets: List<String>,
     baseCurrency: MBaseCurrency,
     period: MHistoryTimePeriod,
-): ApiPortfolioHistoryResponse {
-    return fetchPortfolioHistory("fetchPortfolioPnlCumulativeHistory", wallets, baseCurrency, period)
+    cacheOnly: Boolean = false,
+): ApiPortfolioHistoryResponse? {
+    return fetchPortfolioHistory(
+        "fetchPortfolioPnlCumulativeHistory", accountId, wallets, baseCurrency, period, cacheOnly
+    )
 }
 
 suspend fun WalletCore.fetchPortfolioPnlHistory(
+    accountId: String,
     wallets: List<String>,
     baseCurrency: MBaseCurrency,
     period: MHistoryTimePeriod,
-): ApiPortfolioHistoryResponse {
-    return fetchPortfolioHistory("fetchPortfolioPnlHistory", wallets, baseCurrency, period)
+    cacheOnly: Boolean = false,
+): ApiPortfolioHistoryResponse? {
+    return fetchPortfolioHistory(
+        "fetchPortfolioPnlHistory", accountId, wallets, baseCurrency, period, cacheOnly
+    )
 }
 
 private suspend fun WalletCore.fetchPortfolioHistory(
     methodName: String,
+    accountId: String,
     wallets: List<String>,
     baseCurrency: MBaseCurrency,
     period: MHistoryTimePeriod,
-): ApiPortfolioHistoryResponse {
+    cacheOnly: Boolean,
+): ApiPortfolioHistoryResponse? {
+    PortfolioStore.get(methodName, accountId, baseCurrency, period)?.let { return it }
+    if (cacheOnly) return null
+
     val params = JSONObject().apply {
         put("from", period.toFromIsoString())
         put("density", period.toDensity())
     }
-    return bridge!!.callApiAsync(
+    val response: ApiPortfolioHistoryResponse = bridge!!.callApiAsync(
         methodName,
         ArgumentsBuilder()
             .jsArray(wallets, String::class.java)
@@ -54,12 +72,14 @@ private suspend fun WalletCore.fetchPortfolioHistory(
             .build(),
         ApiPortfolioHistoryResponse::class.java
     )
+    PortfolioStore.put(methodName, accountId, baseCurrency, period, response)
+    return response
 }
 
 private fun MHistoryTimePeriod.toDensity(): String = when (this) {
-    MHistoryTimePeriod.DAY -> "15m"
-    MHistoryTimePeriod.WEEK -> "3h"
-    MHistoryTimePeriod.MONTH,
+    MHistoryTimePeriod.DAY -> "5m"
+    MHistoryTimePeriod.WEEK -> "1h"
+    MHistoryTimePeriod.MONTH -> "4h"
     MHistoryTimePeriod.THREE_MONTHS,
     MHistoryTimePeriod.YEAR,
     MHistoryTimePeriod.ALL -> "1d"

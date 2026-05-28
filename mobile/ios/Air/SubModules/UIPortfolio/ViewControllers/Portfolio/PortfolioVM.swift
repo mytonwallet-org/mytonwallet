@@ -1,3 +1,4 @@
+import Dependencies
 import Foundation
 import Perception
 import WalletCore
@@ -69,10 +70,12 @@ enum PortfolioTimeRange: String, CaseIterable, Equatable, Hashable, Sendable {
     var density: String {
         switch self {
         case .day:
-            "15m"
+            "5m"
         case .week:
-            "3h"
-        case .all, .year, .threeMonths, .month:
+            "1h"
+        case .month:
+            "4h"
+        case .all, .year, .threeMonths:
             "1d"
         }
     }
@@ -189,6 +192,7 @@ final class PortfolioVM: Sendable {
     @AccountContext private var account: MAccount
 
     let accountContext: AccountContext
+
     private(set) var responses: PortfolioHistoryResponses?
     private(set) var selectedRange: PortfolioTimeRange = .threeMonths
     private(set) var isLoading = false
@@ -211,6 +215,7 @@ final class PortfolioVM: Sendable {
     init(accountContext: AccountContext) {
         self.accountContext = accountContext
         self._account = accountContext
+        selectedRange = savedRange()
         WalletCoreData.add(eventObserver: self)
     }
 
@@ -260,6 +265,7 @@ final class PortfolioVM: Sendable {
         let previousRange = selectedRange
         let shouldDimCurrentData = responses != nil && cachedResponses[range] == nil
         selectedRange = range
+        persistRange(range)
         load(
             range: range,
             resetHistoryRefreshAttempts: true,
@@ -277,6 +283,7 @@ final class PortfolioVM: Sendable {
     private func reloadAfterDataChange() {
         cachedResponses.removeAll()
         hasLoaded = true
+        selectedRange = savedRange()
         reload(resetHistoryRefreshAttempts: true)
     }
 
@@ -744,6 +751,18 @@ final class PortfolioVM: Sendable {
         if responses == nil {
             errorText = (error as? DisplayError)?.text ?? error.localizedDescription
         }
+    }
+
+    private func savedRange() -> PortfolioTimeRange {
+        guard let raw = accountContext.settings.portfolioTimeRange,
+              let result = PortfolioTimeRange(rawValue: raw) else {
+             return .threeMonths
+        }
+        return result
+    }
+
+    private func persistRange(_ range: PortfolioTimeRange) {
+        accountContext.settings.setPortfolioTimeRange(range.rawValue)
     }
 
     private func scheduleHistoryRefreshIfNeeded(for range: PortfolioTimeRange) {

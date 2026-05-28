@@ -523,6 +523,7 @@ function SettingsWalletVariants({
               <div className={styles.addAllFoundSubwalletsContainer}>
                 <Button
                   isSecondary
+                  className={styles.addAllFoundButton}
                   onClick={handleAddAllFoundSubwallets}
                 >
                   {lang('Add All Found')}

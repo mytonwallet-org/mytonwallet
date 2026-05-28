@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicomponents.widgets.coverFlow
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Camera
 import android.graphics.Canvas
 import android.graphics.LinearGradient
@@ -94,8 +95,24 @@ class WCoverFlowView @JvmOverloads constructor(
     private var onCoverSelectedListener: ((Int) -> Unit)? = null
     private var onScrollStateChangeListener: ((ScrollState) -> Unit)? = null
 
+    private val pendingDataSourcesLock = Any()
     private val pendingDataSources =
         mutableListOf<DataSource<CloseableReference<CloseableImage>>>()
+
+    private fun trackPendingLoad(dataSource: DataSource<CloseableReference<CloseableImage>>) {
+        synchronized(pendingDataSourcesLock) { pendingDataSources.add(dataSource) }
+    }
+
+    private fun untrackPendingLoad(
+        dataSource: DataSource<CloseableReference<CloseableImage>>,
+    ): Boolean = synchronized(pendingDataSourcesLock) { pendingDataSources.remove(dataSource) }
+
+    private fun takePendingLoads(): List<DataSource<CloseableReference<CloseableImage>>> =
+        synchronized(pendingDataSourcesLock) {
+            val snapshot = pendingDataSources.toList()
+            pendingDataSources.clear()
+            snapshot
+        }
 
     init {
         createPlaceholderDrawable()
@@ -211,9 +228,7 @@ class WCoverFlowView @JvmOverloads constructor(
     }
 
     private fun cancelPendingLoads() {
-        val sources = pendingDataSources.toList()
-        pendingDataSources.clear()
-        sources.forEach { it.close() }
+        takePendingLoads().forEach { it.close() }
     }
 
     private fun loadCoverImages() {
@@ -240,42 +255,40 @@ class WCoverFlowView @JvmOverloads constructor(
 
         val imagePipeline = Fresco.getImagePipeline()
         val dataSource = imagePipeline.fetchDecodedImage(imageRequest, this)
-        pendingDataSources.add(dataSource)
+        trackPendingLoad(dataSource)
 
         dataSource.subscribe(object : DataSubscriber<CloseableReference<CloseableImage>> {
             override fun onNewResult(dataSource: DataSource<CloseableReference<CloseableImage>>) {
                 if (!dataSource.isFinished) {
                     return
                 }
-                if (!pendingDataSources.remove(dataSource)) {
+                if (!untrackPendingLoad(dataSource)) {
                     return
                 }
 
                 val result = dataSource.result
-                if (result != null) {
-                    try {
-                        val closeableImage = result.get()
-                        if (closeableImage is CloseableBitmap) {
-                            val bitmap = closeableImage.underlyingBitmap
-                            if (bitmap != null && !bitmap.isRecycled) {
-                                // Create a copy of the bitmap since the original will be recycled
-                                val bitmapCopy = bitmap.copy(bitmap.config!!, false)
-                                val drawable = bitmapCopy.toDrawable(context.resources)
+                result.use { result ->
+                    val closeableImage = result?.get()
+                    if (closeableImage is CloseableBitmap) {
+                        val bitmap = closeableImage.underlyingBitmap
+                        if (bitmap != null && !bitmap.isRecycled) {
+                            // Create a copy of the bitmap since the original will be recycled
+                            val bitmapCopy =
+                                bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, false)
+                            val drawable = bitmapCopy.toDrawable(context.resources)
 
-                                post {
-                                    coverDrawables[index] = drawable
-                                    invalidate()
-                                }
+                            post {
+                                if (covers.getOrNull(index)?.imageUrl != url) return@post
+                                coverDrawables[index] = drawable
+                                invalidate()
                             }
                         }
-                    } finally {
-                        result.close()
                     }
                 }
             }
 
             override fun onFailure(dataSource: DataSource<CloseableReference<CloseableImage>>) {
-                if (!pendingDataSources.remove(dataSource)) {
+                if (!untrackPendingLoad(dataSource)) {
                     return
                 }
                 post {
@@ -288,7 +301,7 @@ class WCoverFlowView @JvmOverloads constructor(
             }
 
             override fun onCancellation(dataSource: DataSource<CloseableReference<CloseableImage>>) {
-                pendingDataSources.remove(dataSource)
+                untrackPendingLoad(dataSource)
             }
 
             override fun onProgressUpdate(dataSource: DataSource<CloseableReference<CloseableImage>>) {

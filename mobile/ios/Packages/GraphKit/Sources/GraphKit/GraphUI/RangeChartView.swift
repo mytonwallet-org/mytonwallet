@@ -168,6 +168,15 @@ class RangeChartView: UIControl {
         }
     }
 
+    func resetRange(animated: Bool) {
+        lowerBound = 0
+        upperBound = 1
+        UIView.perform(animated: animated) {
+            self.layoutIfNeeded()
+        }
+        rangeDidChangeClosure?(0...1)
+    }
+
     func applySelection(
         range: ClosedRange<CGFloat>,
         displayMode: ChartRangeSelectionDisplayMode,

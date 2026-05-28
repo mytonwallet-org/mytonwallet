@@ -232,6 +232,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
     private var singlePickerDrawable: Drawable? = null
 
     protected var canCaptureChartSelection = false
+    var selectOnTapOnly = false
     var animateLegentTo = false
     private var chartHeaderView: ChartHeaderView? = null
 
@@ -1396,8 +1397,9 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 capturedTime = System.currentTimeMillis()
-                parent.requestDisallowInterceptTouchEvent(true)
+                if (!selectOnTapOnly) parent.requestDisallowInterceptTouchEvent(true)
                 if (pickerDelegate.capture(x, y, pointerIndex)) {
+                    parent.requestDisallowInterceptTouchEvent(true)
                     return true
                 }
                 capturedX = x
@@ -1405,6 +1407,10 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                 capturedY = y
                 lastY = y
                 if (chartArea.contains(x.toFloat(), y.toFloat())) {
+                    if (selectOnTapOnly) {
+                        parent.requestDisallowInterceptTouchEvent(true)
+                        return true
+                    }
                     if (selectedIndex < 0 || !animateLegentTo) {
                         chartCaptured = true
                         selectXOnChart(x, y)
@@ -1445,7 +1451,15 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                 } else if (chartArea.contains(capturedX.toFloat(), capturedY.toFloat())) {
                     val dxCaptured = capturedX - x
                     val dyCaptured = capturedY - y
-                    if (sqrt((dxCaptured * dxCaptured + dyCaptured * dyCaptured).toDouble()) > touchSlop || System.currentTimeMillis() - capturedTime > 200) {
+                    if (selectOnTapOnly) {
+                        if (abs(dxCaptured) > touchSlop && abs(dxCaptured) > abs(dyCaptured)) {
+                            chartCaptured = true
+                            parent.requestDisallowInterceptTouchEvent(true)
+                            selectXOnChart(x, y)
+                        } else if (abs(dyCaptured) > touchSlop && abs(dyCaptured) > abs(dxCaptured)) {
+                            parent.requestDisallowInterceptTouchEvent(false)
+                        }
+                    } else if (sqrt((dxCaptured * dxCaptured + dyCaptured * dyCaptured).toDouble()) > touchSlop || System.currentTimeMillis() - capturedTime > 200) {
                         chartCaptured = true
                         selectXOnChart(x, y)
                     }
@@ -1467,7 +1481,15 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
                         capturedY.toFloat()
                     ) && !chartCaptured
                 ) {
-                    animateLegend(false)
+                    val isTap = abs(x - capturedX) <= touchSlop && abs(y - capturedY) <= touchSlop
+                    if (selectOnTapOnly && isTap && event.actionMasked == MotionEvent.ACTION_UP) {
+                        selectXOnChart(capturedX, capturedY)
+                    } else if (selectOnTapOnly) {
+                        clearSelection()
+                        invalidate()
+                    } else {
+                        animateLegend(false)
+                    }
                 }
                 pickerDelegate.uncapture()
                 updateLineSignature()
@@ -1949,7 +1971,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         this.chartHeaderView = chartHeaderView
     }
 
-    fun getSelectedDate(): Long {
+    open fun getSelectedDate(): Long {
         val data = chartData ?: return -1
         if (selectedIndex < 0) {
             return -1
@@ -2007,6 +2029,12 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(
         pickerDelegate.pickerEnd = data.xPercentage[safeEnd]
         onPickerDataChanged(animated, true, false)
         invalidate()
+    }
+
+    fun setPickerToFullRange(animated: Boolean = false) {
+        val data = chartData ?: return
+        if (data.xPercentage.isEmpty()) return
+        setPickerByIndices(0, data.xPercentage.lastIndex, animated)
     }
 
     fun reinitPickerHeight() {

@@ -75,7 +75,7 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
 
     private fun createWalletState(): SwapWalletState? {
         val account = AccountStore.activeAccount ?: return null
-        val assets = TokenStore.swapAssets2 ?: return null
+        val assets = TokenStore.swapAssets ?: return null
         return SwapWalletState(
             accountId = account.accountId,
             addressByChain = account.addressByChain,
@@ -768,7 +768,8 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                 if (needEstFee) { // Must call even when balance is 0 for proper fee estimation
                     val estFeeAddress = when (request.tokenToSend.mBlockchain) {
                         MBlockchain.ton -> request.wallet.tonAddress
-                        else -> request.tokenToSend.mBlockchain?.feeCheckAddress ?: throw NotImplementedError()
+                        else -> request.tokenToSend.mBlockchain?.feeCheckAddress
+                            ?: throw NotImplementedError()
                     }
 
                     val estAmount = BigInteger.ONE

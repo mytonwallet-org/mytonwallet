@@ -14,7 +14,6 @@ import {
   GIVEAWAY_CHECKIN_URL,
   IS_CAPACITOR,
   IS_EXPLORER,
-  PORTFOLIO_DAPP_URL,
   TONCOIN,
   TRC20_USDT_MAINNET,
   TRX,
@@ -299,7 +298,7 @@ async function processSendDeeplink(
   const target = pathParts[1];
 
   if (!target) {
-    // mtw://send with no address — open empty transfer modal
+    // mtw://send with no address - open empty transfer modal
     getActions().startTransfer();
     return true;
   }
@@ -972,7 +971,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
       }
 
       case DeeplinkCommand.Portfolio: {
-        void openUrl(PORTFOLIO_DAPP_URL);
+        getActions().switchToPortfolio();
         return true;
       }
 

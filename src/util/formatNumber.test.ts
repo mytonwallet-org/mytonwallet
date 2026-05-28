@@ -1,5 +1,5 @@
 import { WHOLE_PART_DELIMITER } from '../config';
-import { formatCurrencyExtended, formatNumber } from './formatNumber';
+import { formatCurrencyExtended, formatNumber, formatPercent } from './formatNumber';
 
 describe('formatNumber', () => {
   const testCasesTruncate = [
@@ -72,8 +72,10 @@ describe('formatCurrencyExtended', () => {
   });
 
   test('long integer part', () => {
-    expect(formatCurrencyExtended(1234567.89, 'TON')).toBe('+ 1 234 567.89 TON');
-    expect(formatCurrencyExtended(-1234.56789, 'USDT')).toBe('− 1 234.56 USDT');
+    expect(formatCurrencyExtended(1234567.89, 'TON'))
+      .toBe(`+\u202F1${WHOLE_PART_DELIMITER}234${WHOLE_PART_DELIMITER}567.89 TON`);
+    expect(formatCurrencyExtended(-1234.56789, 'USDT'))
+      .toBe(`−\u202F1${WHOLE_PART_DELIMITER}234.56 USDT`);
   });
 
   test('modulo < 1', () => {
@@ -106,5 +108,42 @@ describe('formatCurrencyExtended', () => {
     expect(formatCurrencyExtended(0, 'TON', false, undefined, true)).toBe('− 0 TON');
     expect(formatCurrencyExtended(1, 'TON', false, undefined, true)).toBe('+ 1 TON');
     expect(formatCurrencyExtended(-1, 'TON', false, undefined, true)).toBe('− 1 TON');
+  });
+});
+
+describe('formatPercent', () => {
+  test('below 10 keeps one decimal', () => {
+    expect(formatPercent(0)).toBe('0%');
+    expect(formatPercent(0.1)).toBe('0.1%');
+    expect(formatPercent(1.23)).toBe('1.2%');
+    expect(formatPercent(5.55)).toBe('5.6%');
+    expect(formatPercent(9.94)).toBe('9.9%');
+  });
+
+  test('at or above 10 rounds to integer', () => {
+    expect(formatPercent(10)).toBe('10%');
+    expect(formatPercent(15.7)).toBe('16%');
+    expect(formatPercent(99.4)).toBe('99%');
+    expect(formatPercent(100)).toBe('100%');
+    expect(formatPercent(1234.5)).toBe('1235%');
+  });
+
+  test('boundary at 10', () => {
+    expect(formatPercent(9.95)).toBe('10%');
+    expect(formatPercent(9.99)).toBe('10%');
+  });
+
+  test('preserves sign for negative values', () => {
+    expect(formatPercent(-0.5)).toBe('-0.5%');
+    expect(formatPercent(-9.94)).toBe('-9.9%');
+    expect(formatPercent(-10)).toBe('-10%');
+    expect(formatPercent(-15.7)).toBe('-16%');
+  });
+
+  test('rounds .5 ties away from zero symmetrically', () => {
+    expect(formatPercent(9.95)).toBe('10%');
+    expect(formatPercent(-9.95)).toBe('-10%');
+    expect(formatPercent(5.55)).toBe('5.6%');
+    expect(formatPercent(-5.55)).toBe('-5.6%');
   });
 });

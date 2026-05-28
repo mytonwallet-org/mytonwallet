@@ -1,0 +1,60 @@
+.root {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+
+  min-height: 4rem;
+  padding: 0 1rem;
+  border-radius: 1.5rem;
+
+  background-color: var(--color-background-first);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.value {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  color: var(--color-black);
+  white-space: nowrap;
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1rem;
+  color: var(--color-gray-2);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 0.1875rem 0.1875rem 0.125rem;
+  border-radius: 0.25rem;
+
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pillPositive {
+  color: var(--color-activity-green-text);
+  background-color: var(--color-activity-green-background);
+}
+
+.pillNegative {
+  color: var(--color-activity-red-text);
+  background-color: var(--color-activity-red-background);
+}

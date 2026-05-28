@@ -55,6 +55,7 @@ dependencies {
     implementation(project("$airSubModulePath:UIInAppBrowser"))
     implementation(project("$airSubModulePath:UIPasscode"))
     implementation(project("$airSubModulePath:UIReceive"))
+    implementation(project("$airSubModulePath:UIPortfolio"))
     implementation(project("$airSubModulePath:UIWidgetsConfigurations"))
     implementation(project("$airSubModulePath:vkryl:core"))
     implementation(project("$airSubModulePath:vkryl:android"))

@@ -572,7 +572,7 @@ $createSubwalletPaddingBottom: 1rem;
   &_small {
     grid-template-areas: "content action";
     grid-template-columns: 1fr min-content;
-    height: 3rem;
+    min-height: 3rem;
     padding: 0.875rem 1rem;
 
     @include mixins.separatorBottomSettings(1rem, 0);
@@ -1427,6 +1427,10 @@ $externalRadius: $internalRadius + $borderWidth;
 
 .createSubwalletButton {
   width: 100%;
+  max-width: 100% !important;
+}
+
+.addAllFoundButton {
   max-width: 100% !important;
 }
 

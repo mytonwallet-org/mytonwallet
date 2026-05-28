@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useLayoutEffect, useState } from '../../lib/teact/teact';
 
+import { MULTICHAIN_ENABLED, NEW_CHARTS_ENABLED } from '../config';
 import buildClassName from '../../util/buildClassName';
 import {
   IS_ANDROID,
@@ -39,6 +40,14 @@ function App({ addresses, baseCurrency = 'USD' }: OwnProps) {
 
   useLayoutEffect(applyDocumentClasses, []);
 
+  if (!MULTICHAIN_ENABLED) {
+    // Only request TON wallets, strip out other chains
+    addresses = addresses
+      ?.split(',')
+      .filter((wallet) => wallet.startsWith('ton:'))
+      .join(',');
+  }
+
   useEffect(() => {
     if (!addresses) {
       setChartError('No wallet addresses provided');
@@ -52,8 +61,8 @@ function App({ addresses, baseCurrency = 'USD' }: OwnProps) {
 
     void Promise.all([
       fetchNetWorthHistory(addresses, baseCurrency, onProgress),
-      fetchPnlCumulativeHistory(addresses, baseCurrency, onProgress),
-      fetchPnlHistory(addresses, baseCurrency, onProgress),
+      NEW_CHARTS_ENABLED ? fetchPnlCumulativeHistory(addresses, baseCurrency, onProgress) : undefined,
+      NEW_CHARTS_ENABLED ? fetchPnlHistory(addresses, baseCurrency, onProgress) : undefined,
     ])
       .then(([netWorth, pnlCumulative, pnl]) => {
         setNetWorthData(netWorth);
@@ -75,7 +84,7 @@ function App({ addresses, baseCurrency = 'USD' }: OwnProps) {
             <div className={styles.errorTitle}>Error</div>
             <div className={styles.errorSubtitle}>{chartError}</div>
           </div>
-        ) : !netWorthData || !pnlCumulativeData || !pnlData ? (
+        ) : !netWorthData || (NEW_CHARTS_ENABLED && (!pnlCumulativeData || !pnlData)) ? (
           <LoadingPage subtitle={loadingSubtitle} />
         ) : (
           <ChartPage

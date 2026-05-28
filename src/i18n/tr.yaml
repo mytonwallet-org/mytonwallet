@@ -207,7 +207,7 @@ $logout_confirm: "**Tüm** cüzdanları kaldırın"
 $tiny_transfers_help: Tutarı $%value%'den az olan işlemleri görüntülemek için bu düğmeyi kapalı konuma getirin. Lütfen bu tür işlemlerin genellikle spam ve dolandırıcılık amacıyla kullanıldığını unutmayın.
 Today: Bugün
 Total: Toplam
-Zoom Out: Uzaklaştır
+Zoom Out: Tüm Zamanlar
 Yesterday: Dün
 Now: Şimdi
 $receive_description: Cüzdan bakiyesini artırmak için bu QR'yi tarayın veya adresi paylaşın.
@@ -301,7 +301,10 @@ No price data: Fiyat verisi yok
 Price Copied: Fiyat kopyalandı
 Not staked: Stake edilmemiş
 Portfolio: Portföy
+Performance, insights and P&L: Performans, içgörüler ve K/Z
+Overview: Genel bakış
 Total Balance: Toplam bakiye
+Net Change: Portföy değişimi
 No data: Veri yok
 Total Value: Toplam değer
 Tracked asset value over time.: İzlenen varlıkların zaman içindeki değeri.
@@ -318,6 +321,7 @@ Altcoins: Altcoinler
 Asset Mix: Varlık dağılımı
 No asset balances: Varlık bakiyesi yok
 No staked assets: Stake edilmiş varlık yok
+Entire Period: Tüm Dönem
 "Asset %1$@": "Varlık %1$@"
 Error: Hata
 Unavailable: Kullanılamıyor
@@ -1211,7 +1215,6 @@ $secret_words: Gizli Kelimeler
 Restore wallet from 12 or 24 words: Cüzdanı 12 veya 24 kelimeyle geri yükle
 Connect your hardware wallet: Donanım cüzdanınızı bağlayın
 Watch wallet in read-only mode: Cüzdanı salt okunur modda izle
-
 More: Daha Fazla
 at: tarihinde
 MyTonWallet: MyTonWallet
@@ -1267,11 +1270,11 @@ $nft_batch_different_chains: Seçilen koleksiyonlar farklı zincirlerde.
 $nft_expired: "Süresi doldu"
 Linked Address: Bağlı adres
 Enter Address: Adres girin
-D: G
-W: H
-M: A
-3M: 3A
-Y: Y
+D: 1 gün
+W: 1 hafta
+M: 1 ay
+3M: 3 ay
+Y: 1 yıl
 $amount_K: "%amount%B"
 $amount_M: "%amount%M"
 Happening Now: Şu anda trend
@@ -1523,3 +1526,8 @@ $more_nfts:
 $subwallets_hint: Yeni gizli kelimeler oluşturmadan ek adresler almak için alt cüzdanlar kullanın.
 $subwallets_created_wallets: Daha önce alt cüzdan oluşturduysanız, aşağıdaki listede görünecektir.
 $subwallets_none: Henüz alt cüzdan yok.
+Limited history: Sınırlı geçmiş
+Tracked asset value over time: Zaman içinde izlenen varlık değeri
+Cumulative profit and loss over time: Zaman içinde kümülatif kâr ve zarar
+Day-by-day profit and loss: Günden güne kâr ve zarar
+Current allocation across tracked assets: İzlenen varlıklar arasındaki mevcut dağılım

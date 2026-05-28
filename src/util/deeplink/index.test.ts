@@ -7,7 +7,6 @@ import {
   DEFAULT_SWAP_AMOUNT,
   DEFAULT_SWAP_FIRST_TOKEN_SLUG,
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
-  PORTFOLIO_DAPP_URL,
   TON_USDT_MAINNET,
   TONCOIN,
   TRC20_USDT_MAINNET,
@@ -293,6 +292,7 @@ describe('processSelfDeeplink', () => {
       setActiveContentTab: jest.fn(),
       openReceiveModal: jest.fn(),
       openTemporaryViewAccount: jest.fn(),
+      switchToPortfolio: jest.fn(),
     };
 
     // Setup mock global state
@@ -525,11 +525,11 @@ describe('processSelfDeeplink', () => {
   });
 
   describe('Portfolio command', () => {
-    it('should open portfolio URL', async () => {
+    it('should switch to portfolio screen', async () => {
       const result = await processSelfDeeplink('mtw://portfolio');
 
       expect(result).toBe(true);
-      expect(openUrl).toHaveBeenCalledWith(PORTFOLIO_DAPP_URL);
+      expect(mockActions.switchToPortfolio).toHaveBeenCalled();
     });
   });
 

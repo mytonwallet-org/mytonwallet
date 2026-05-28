@@ -109,7 +109,7 @@ struct PortfolioOverviewSectionView: View {
             Text(title)
                 .font(.system(size: 13, weight: .regular))
                 .foregroundStyle(Color.air.secondaryLabel)
-                .lineLimit(1)
+                .lineLimit(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -212,6 +212,24 @@ private struct PortfolioInsightBarrelView: View {
                     ovalHeight: ovalHeight
                 )
                 context.fill(path, with: .color(Color(UIColor(hex: slice.segment.colorHex))))
+
+                // Classic-matching glossy highlight: vertical white gradient from 24% at
+                // 16.8% of body height to 0% at 94.5%
+                let halfOvalHeight = ovalHeight / 2
+                let bodyTop = slice.topY + halfOvalHeight
+                let bodyBottom = slice.bottomY + ovalHeight
+                let bodyExtent = bodyBottom - bodyTop
+                context.fill(
+                    path,
+                    with: .linearGradient(
+                        Gradient(stops: [
+                            .init(color: .white.opacity(0.24), location: 0),
+                            .init(color: .white.opacity(0), location: 1),
+                        ]),
+                        startPoint: CGPoint(x: 0, y: bodyTop + 0.168 * bodyExtent),
+                        endPoint: CGPoint(x: 0, y: bodyTop + 0.945 * bodyExtent)
+                    )
+                )
             }
 
             for slice in gapSlices {
@@ -228,7 +246,7 @@ private struct PortfolioInsightBarrelView: View {
             if let topSegment = segments.first {
                 let topEllipse = Path(ellipseIn: CGRect(x: x, y: 0, width: width, height: ovalHeight))
                 context.fill(topEllipse, with: .color(Color(UIColor(hex: topSegment.colorHex))))
-                context.fill(topEllipse, with: .color(.white.opacity(0.24)))
+                context.fill(topEllipse, with: .color(.white.opacity(0.4)))
             }
         }
     }

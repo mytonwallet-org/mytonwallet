@@ -12,6 +12,7 @@ import './api/cards';
 import './api/notifications';
 import './api/activities';
 import './api/domains';
+import './api/portfolio';
 import './apiUpdates/initial';
 import './apiUpdates/activities';
 import './apiUpdates/dapp';

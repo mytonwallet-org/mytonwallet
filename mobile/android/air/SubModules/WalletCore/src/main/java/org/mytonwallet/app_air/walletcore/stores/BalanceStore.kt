@@ -12,6 +12,9 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import java.math.BigInteger
+import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcore.ALL_DEFAULT_TOKENS
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
@@ -80,6 +83,20 @@ object BalanceStore : IStore {
     fun hasTokenInBalances(accountId: String?, vararg slugs: String): Boolean {
         val balances = getBalances(accountId) ?: return false
         return slugs.any { balances.get(it) != null }
+    }
+
+    fun isAccountNew(accountId: String?): Boolean {
+        val balances = getBalances(accountId) ?: return false
+        val network = MBlockchainNetwork.ofAccountId(accountId ?: return false)
+        val defaultTokens = ALL_DEFAULT_TOKENS[network]
+        return balances.filter { defaultTokens?.contains(it.key) != true }.isEmpty() &&
+            balances.filter {
+                if (it.value == BigInteger.ZERO)
+                    return@filter false
+                val token = TokenStore.getToken(it.key) ?: return@filter false
+                return@filter token.priceUsd *
+                    it.value.doubleAbsRepresentation(token.decimals) >= 0.01
+            }.isEmpty()
     }
 
     fun setBalances(
@@ -165,6 +182,9 @@ object BalanceStore : IStore {
         accountId: String,
         baseCurrency: MBaseCurrency = WalletCore.baseCurrency
     ): TotalBalanceResult? {
+        if (isAccountNew(accountId)) {
+            return TotalBalanceResult(total = 0.0, perChain = emptyMap())
+        }
         val currencyRate = TokenStore.currencyRates?.get(baseCurrency.currencyCode) ?: return null
         val accountBalances = balances[accountId] ?: return null
 

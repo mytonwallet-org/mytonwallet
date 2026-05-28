@@ -192,7 +192,7 @@ class PieChartComponentController: GeneralChartComponentController {
     }
     
     override func updateChartRangeTitle(animated: Bool) {
-        let fromDate = Date(timeIntervalSince1970: TimeInterval(currentHorizontalMainChartRange.lowerBound) + .day + 1)
+        let fromDate = Date(timeIntervalSince1970: TimeInterval(currentHorizontalMainChartRange.lowerBound) + 1)
         let toDate = Date(timeIntervalSince1970: TimeInterval(currentHorizontalMainChartRange.upperBound))
         let string = formattedRangeTitle(from: fromDate, to: toDate)
         self.setChartTitleClosure?(string, animated)

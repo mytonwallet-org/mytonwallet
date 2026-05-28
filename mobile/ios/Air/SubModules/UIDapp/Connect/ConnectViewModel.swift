@@ -25,6 +25,7 @@ import Dependencies
     @PerceptionIgnored
     var onCancel: (() -> ())?
     var didConfirm: Bool = false
+    var extraBottomPadding: CGFloat = 16
 
     @PerceptionIgnored
     @Dependency(\.accountStore) private var accountStore

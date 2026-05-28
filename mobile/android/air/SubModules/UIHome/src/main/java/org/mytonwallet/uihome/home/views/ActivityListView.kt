@@ -271,7 +271,9 @@ class ActivityListView<T>(
 
     val isGeneralDataAvailable: Boolean
         get() {
-            return TokenStore.swapAssets != null &&
+            if (BalanceStore.isAccountNew(showingAccountId))
+                return true
+            return TokenStore.swapAssetsLoaded &&
                 TokenStore.loadedAllTokens &&
                 !BalanceStore.getBalances(showingAccountId).isNullOrEmpty() &&
                 (

@@ -5,6 +5,7 @@ import android.content.Context
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.Barrier
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.constraintlayout.widget.Guideline
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -68,20 +69,20 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
     private val netCaptionLabel = WLabel(context).apply {
         id = generateViewId()
         text = LocaleController.getString("Net Change")
+        maxLines = 2
         setStyle(13f)
+        setLineSpacing(0f, 0.9f)
         setTextColor(WColor.SecondaryText)
     }
 
-    private val datePlaceholder = WBaseView(context).apply {
-        id = generateViewId()
-        visibility = GONE
-    }
     private val totalValuePlaceholder = WBaseView(context).apply {
         id = generateViewId()
+        alpha = 0f
         visibility = GONE
     }
     private val netChangePlaceholder = WBaseView(context).apply {
         id = generateViewId()
+        alpha = 0f
         visibility = GONE
     }
 
@@ -89,7 +90,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
         id = generateViewId()
         addView(netChangeLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(netPctLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        addView(netCaptionLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(netCaptionLabel, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         addView(netChangePlaceholder, LayoutParams(140.dp, 22.dp))
         setConstraints {
             toTop(netChangeLabel)
@@ -99,7 +100,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
             toEnd(netPctLabel)
             setHorizontalBias(netPctLabel.id, 0f)
             topToBottom(netCaptionLabel, netChangeLabel, 1f)
-            toStart(netCaptionLabel)
+            toCenterX(netCaptionLabel)
             toBottom(netCaptionLabel)
             topToTop(netChangePlaceholder, netChangeLabel)
             startToStart(netChangePlaceholder, netChangeLabel)
@@ -124,8 +125,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
         addView(dateRangeLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(totalValueLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(totalCaptionLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        addView(netChangeBox, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        addView(datePlaceholder, LayoutParams(180.dp, 20.dp))
+        addView(netChangeBox, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         addView(totalValuePlaceholder, LayoutParams(120.dp, 22.dp))
         addVerticalGuideline(centerGuideline)
         addView(centerAnchor, LayoutParams(0, 0))
@@ -152,15 +152,12 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
             toBottom(netChangeBox)
             setHorizontalBias(netChangeBox.id, 0f)
 
-            topToTop(datePlaceholder, dateRangeLabel)
-            endToEnd(datePlaceholder, dateRangeLabel)
             topToTop(totalValuePlaceholder, totalValueLabel)
             startToStart(totalValuePlaceholder, totalValueLabel)
         }
     }
 
     fun maskTargets(): List<Pair<View, Float>> = listOf(
-        datePlaceholder to 4f.dp,
         totalValuePlaceholder to 4f.dp,
         netChangePlaceholder to 4f.dp,
     )
@@ -176,7 +173,9 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
             netPctLabel.visibility = GONE
             return
         }
-        dateRangeLabel.text = formatDateRange(overview.startTimestampMs, overview.endTimestampMs)
+        dateRangeLabel.text =
+            if (overview.startTimestampMs <= 0L || overview.endTimestampMs <= 0L) ""
+            else formatDateRange(overview.startTimestampMs, overview.endTimestampMs)
         totalValueLabel.text =
             formatOverviewCurrency(overview.totalValue, baseCurrency, showSign = false)
         netChangeLabel.text =
@@ -201,7 +200,7 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
             netChangeLabel.text = ""
             netPctLabel.visibility = GONE
         }
-        val targets = listOf(datePlaceholder, totalValuePlaceholder, netChangePlaceholder)
+        val targets = listOf(totalValuePlaceholder, netChangePlaceholder)
         targets.forEach { it.visibility = VISIBLE }
         if (animated) {
             targets.forEachIndexed { index, placeholder ->
@@ -218,16 +217,28 @@ class OverviewSectionView(context: Context) : WView(context), WThemedView {
     }
 
     fun hidePlaceholders() {
-        datePlaceholder.fadeOut { datePlaceholder.visibility = GONE }
         totalValuePlaceholder.fadeOut { totalValuePlaceholder.visibility = GONE }
         netChangePlaceholder.fadeOut { netChangePlaceholder.visibility = GONE }
+    }
+
+    fun setDateVisible(visible: Boolean, animated: Boolean) {
+        dateRangeLabel.animate().cancel()
+        if (animated) {
+            if (visible) {
+                dateRangeLabel.alpha = 0f
+                dateRangeLabel.fadeIn()
+            } else {
+                dateRangeLabel.fadeOut()
+            }
+        } else {
+            dateRangeLabel.alpha = if (visible) 1f else 0f
+        }
     }
 
     override fun updateTheme() {
         setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp)
         totalValueLabel.setTextColor(WColor.PrimaryText)
         val placeholderBg = WColor.SecondaryBackground.color
-        datePlaceholder.setBackgroundColor(placeholderBg, 4f.dp)
         totalValuePlaceholder.setBackgroundColor(placeholderBg, 4f.dp)
         netChangePlaceholder.setBackgroundColor(placeholderBg, 4f.dp)
     }
