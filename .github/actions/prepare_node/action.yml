@@ -32,3 +32,39 @@ runs:
       if: inputs.dont-install-npm-packages != 'true' && steps.npm-cache.outputs.cache-hit != 'true'
       run: npm ci
       shell: bash
+
+
+name: Prepare the Node environment
+
+description: Shared steps to prepare the Node environment and the NPM packages
+
+inputs:
+  dont-install-npm-packages:
+    description: 'If true, the NPM packages will not be installed'
+    default: 'false'
+  node-version:
+    description: 'The Node.js version to use'
+    default: '24'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Cache Node modules
+      if: inputs.dont-install-npm-packages != 'true'
+      id: npm-cache
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-build-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-build-
+
+    - name: Install dependencies
+      if: inputs.dont-install-npm-packages != 'true' && steps.npm-cache.outputs.cache-hit != 'true'
+      run: npm ci
+      shell: bash
