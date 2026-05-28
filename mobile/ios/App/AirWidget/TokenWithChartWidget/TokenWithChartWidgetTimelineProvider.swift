@@ -35,7 +35,7 @@ struct TokenWithChartWidgetTimelineProvider: AppIntentTimelineProvider {
         let selectedSlug = configuration.token.slug
         let token = await tokens[selectedSlug] ?? configuration.token
         
-        let currencyRate = await DisplayCurrencyAmount.fromDouble((token.priceUsd ?? 0) * (rates[displayCurrency.rawValue]?.value ?? 1), displayCurrency)
+        let currencyRate = await BaseCurrencyAmount.fromDouble((token.priceUsd ?? 0) * (rates[displayCurrency.rawValue]?.value ?? 1), displayCurrency)
         
         var image: UIImage?
         do {

@@ -8,7 +8,6 @@
 import UIKit
 import SwiftUI
 import UIComponents
-import WalletCore
 import WalletContext
 
 final class DepositLinkVC: WViewController {

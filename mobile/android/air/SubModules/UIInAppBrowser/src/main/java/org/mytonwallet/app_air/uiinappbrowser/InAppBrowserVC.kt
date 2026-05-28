@@ -317,6 +317,10 @@ class InAppBrowserVC(
             webView.visibility = View.VISIBLE
             webView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
         }
+    }
+
+    override fun viewDidEnterForeground() {
+        super.viewDidEnterForeground()
 
         webView.visibility = View.VISIBLE
         webView.post {

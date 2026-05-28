@@ -118,6 +118,7 @@ class WTokenMaxButton(context: Context) : View(context), Counter.Callback, WThem
         )
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         textPaintSecondary.color = WColor.SecondaryText.color
         textPaintTint.color = WColor.Tint.color

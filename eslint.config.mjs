@@ -15,6 +15,7 @@ export default tseslint.config(
     'src/lib/dexie/',
     'src/lib/axios-retry/',
     'src/lib/is-retry-allowed/',
+    'src/push/lib/zk-email-helpers/',
     '.github/',
     'babel.config.js',
     'jest.config.js',

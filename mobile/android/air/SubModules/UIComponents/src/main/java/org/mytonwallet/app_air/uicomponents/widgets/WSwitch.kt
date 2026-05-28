@@ -19,6 +19,7 @@ class WSwitch(context: Context) : SwitchCompat(context), WThemedView {
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         val selectedThumb = GradientDrawable().apply {
             shape = GradientDrawable.OVAL

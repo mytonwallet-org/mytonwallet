@@ -7,14 +7,12 @@
 
 import UIKit
 import UIComponents
-import WalletCore
 import WalletContext
 
 private let log = Log("BalanceHeaderView")
 
 @MainActor protocol BalanceHeaderViewDelegate: AnyObject {
     func headerIsAnimating()
-    func expandHeader()
     var isTracking: Bool { get }
 }
 
@@ -40,14 +38,9 @@ final class BalanceHeaderView: WTouchPassView, WThemedView, Sendable {
         }
     }
     
-    var isShowingSkeleton = true
-    var isShowingSkeletonCompletely = true
-    var isAnimatingHeight = false
-
     weak var delegate: BalanceHeaderViewDelegate?
     
     var heightConstraint: NSLayoutConstraint!
-    var walletNameLeadingConstraint: NSLayoutConstraint!
     
     // MARK: - Views
     var updateStatusViewContainer: UIView!

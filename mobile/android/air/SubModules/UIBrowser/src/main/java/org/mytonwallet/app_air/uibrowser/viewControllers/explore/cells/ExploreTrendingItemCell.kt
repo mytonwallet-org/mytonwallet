@@ -121,8 +121,8 @@ class ExploreTrendingItemCell(
 
     private val badgeLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(12f, WFont.Medium)
-            setPadding(2.dp, 0, 2.dp, 2)
+            setStyle(10f, WFont.SemiBold)
+            setPadding(4.dp, 2.dp, 4.dp, 2.dp)
             text = site.badgeText
         }
     }
@@ -149,12 +149,12 @@ class ExploreTrendingItemCell(
         if (site.badgeText.isNotBlank())
             addView(badgeLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         setConstraints {
-            toTop(contentView, 3f)
+            toTop(contentView, 6f)
             toBottom(contentView)
             toStart(contentView)
             toEnd(contentView, 6f)
             if (site.badgeText.isNotBlank()) {
-                toEnd(badgeLabel, 3f)
+                toEnd(badgeLabel, 27f)
                 toTop(badgeLabel, 0f)
             }
         }
@@ -166,6 +166,7 @@ class ExploreTrendingItemCell(
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         titleLabel.setTextColor(Color.WHITE)
         subtitleLabel.setTextColor(Color.WHITE.colorWithAlpha(153))
@@ -177,7 +178,7 @@ class ExploreTrendingItemCell(
             contentView.background = border
         }
         if (site.badgeText.isNotBlank()) {
-            badgeLabel.setBackgroundColor(WColor.Tint.color, 4f.dp, true)
+            badgeLabel.setBackgroundColor(WColor.Tint.color, 6f.dp, true)
             badgeLabel.setTextColor(WColor.TextOnTint.color)
         }
     }

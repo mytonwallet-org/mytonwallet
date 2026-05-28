@@ -227,7 +227,7 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
         guard let account = AccountStore.account else {
             return
         }
-        let formattedAddress = formatStartEndAddress(account.tonAddress ?? "")
+        let formattedAddress = formatStartEndAddress(account.firstAddress)
         
         addressLabel.text = formattedAddress
         
@@ -292,7 +292,7 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
     }
     
     @objc private func qrPressed() {
-        AppActions.showReceive(chain: nil, showBuyOptions: false, title: lang("Your Address"))
+        AppActions.showReceive(chain: nil, title: lang("Your Address"))
     }
 }
 

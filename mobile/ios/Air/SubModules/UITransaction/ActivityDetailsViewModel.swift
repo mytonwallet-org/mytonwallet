@@ -2,20 +2,27 @@
 import SwiftUI
 import WalletContext
 import WalletCore
+import Perception
 
+@Perceptible
 final class ActivityDetailsViewModel: ObservableObject {
-    @Published var activity: ApiActivity
-    @Published var detailsExpanded: Bool
-    @Published var scrollingDisabled: Bool = true
-    @Published var collapsedHeight: CGFloat = 0
-    @Published var expandedHeight: CGFloat = 0
-    @Published var progressiveRevealEnabled = true
+    var activity: ApiActivity
+    var detailsExpanded: Bool
+    var scrollingDisabled: Bool = true
+    var collapsedHeight: CGFloat = 0
+    var expandedHeight: CGFloat = 0
+    var progressiveRevealEnabled = true
     
+    @PerceptionIgnored
     var onHeightChange: () -> () = { }
+    @PerceptionIgnored
     var onDetailsExpandedChanged: () -> () = { }
+    
+    let accountViewModel: AccountViewModel
 
-    init(activity: ApiActivity, detailsExpanded: Bool, scrollingDisabled: Bool) {
+    init(activity: ApiActivity, accountId: String?, detailsExpanded: Bool, scrollingDisabled: Bool) {
         self.activity = activity
+        self.accountViewModel = AccountViewModel(accountId: accountId)
         self.detailsExpanded = detailsExpanded
         self.scrollingDisabled = scrollingDisabled
     }

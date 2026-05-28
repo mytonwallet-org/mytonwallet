@@ -562,13 +562,6 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         }
     }
     
-    private func selectAccountTxTokenSlugs(accountId: String, chain: ApiChain) -> [String]? {
-        if let idsBySlug = getAccountState(accountId).idsBySlug {
-            return idsBySlug.keys.filter { $0.hasPrefix(chain.rawValue)}
-        }
-        return nil
-    }
-    
     private func selectLastMainTxTimestamp(accountId: String) -> Int64? {
         let activities = getAccountState(accountId)
         let txId = activities.idsMain?.last(where: { getIsIdSuitableForFetchingTimestamp($0) })

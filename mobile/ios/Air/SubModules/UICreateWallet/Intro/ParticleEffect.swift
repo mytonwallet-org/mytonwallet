@@ -8,7 +8,6 @@
 import UIKit
 import SwiftUI
 import WalletContext
-import WalletCore
 
 private let emitterSize: CGFloat = 100
 

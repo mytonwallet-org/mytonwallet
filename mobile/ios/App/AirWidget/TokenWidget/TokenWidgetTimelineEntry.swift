@@ -13,8 +13,8 @@ public struct TokenWidgetTimelineEntry: TimelineEntry {
     public var date: Date
     public var token: ApiToken
     public var image: UIImage?
-    public var currencyRate: DisplayCurrencyAmount
-    public var changeInCurrency: DisplayCurrencyAmount
+    public var currencyRate: BaseCurrencyAmount
+    public var changeInCurrency: BaseCurrencyAmount
 }
 
 public extension TokenWidgetTimelineEntry {
@@ -25,8 +25,8 @@ public extension TokenWidgetTimelineEntry {
             date: .now,
             token: token,
             image: nil, 
-            currencyRate: DisplayCurrencyAmount.fromDouble(4.2, .USD),
-            changeInCurrency: DisplayCurrencyAmount.fromDouble(0.2, .USD)
+            currencyRate: BaseCurrencyAmount.fromDouble(4.2, .USD),
+            changeInCurrency: BaseCurrencyAmount.fromDouble(0.2, .USD)
         )
     }
 }   

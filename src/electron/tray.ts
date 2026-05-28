@@ -1,10 +1,8 @@
 import type { BrowserWindow } from 'electron';
-import {
-  app, Menu, nativeImage, Tray,
-} from 'electron';
+import { app, Menu, nativeImage, Tray } from 'electron';
 import path from 'path';
 
-import { forceQuit, mainWindow, store } from './utils';
+import { forceQuit, IS_WINDOWS, mainWindow, store } from './utils';
 
 const TRAY_ICON_SETTINGS_KEY = 'trayIcon';
 const WINDOW_BLUR_TIMEOUT = 800;
@@ -65,7 +63,12 @@ const tray: TrayHelper = {
 
     this.setupListeners();
 
-    const icon = nativeImage.createFromPath(path.resolve(__dirname, '../public/icon-electron-windows.ico'));
+    let defaultIconPath = path.resolve(__dirname, '../public/icon-32x32.png');
+    if (IS_WINDOWS) {
+      defaultIconPath = path.resolve(__dirname, '../public/icon-electron-windows.ico');
+    }
+
+    const icon = nativeImage.createFromPath(defaultIconPath);
     const title = app.getName();
 
     this.instance = new Tray(icon);

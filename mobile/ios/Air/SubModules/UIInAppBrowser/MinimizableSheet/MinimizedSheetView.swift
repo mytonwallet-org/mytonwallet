@@ -2,7 +2,6 @@
 import SwiftUI
 import UIComponents
 import WalletContext
-import WalletCore
 import Kingfisher
 
 private let extraPadding: CGFloat = 10

@@ -287,8 +287,7 @@ class WNavigationBar(
     fun fadeInActions() {
         backButton.isEnabled = true
         backButton.visibility = VISIBLE
-        backButton.fadeIn {
-        }
+        backButton.fadeIn()
         trailingView?.fadeIn()
     }
 

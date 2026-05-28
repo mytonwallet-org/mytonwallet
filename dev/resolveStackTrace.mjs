@@ -16,7 +16,7 @@ Then run any of these commands:
 Where <error> is an error string from a log file exported by the application,
 and <dist-directory> is the path to a directory with the application's sourcemaps (default: dist).
 Examples:
-
+my_TONwallet
   npm run resolve-stacktrace ${JSON.stringify('{"name":"Error","message":"Test","stack":"Error: Test\n    at t.BitBuilder.writeVarUint (https://mytonwallet.local/941.c17ba5754ec7f174fec2.js:2:25840)\n    at t.BitBuilder.writeCoins (https://mytonwallet.local/941.c17ba5754ec7f174fec2.js:2:26382)"}')}
 
   npm run resolve-stacktrace "Error: Test\n    at t.BitBuilder.writeVarUint (https://mytonwallet.local/941.c17ba5754ec7f174fec2.js:2:25840)\n    at t.BitBuilder.writeCoins (https://mytonwallet.local/941.c17ba5754ec7f174fec2.js:2:26382)"`;

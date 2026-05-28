@@ -27,6 +27,7 @@ import android.widget.ScrollView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
@@ -218,6 +219,7 @@ class LedgerConnectVC(
                 )
             )
             ledgerImage.setPaddingDp(16)
+            setPadding(0, 0, 0, 16.dp)
             addView(stepsView, ViewGroup.LayoutParams(0, WRAP_CONTENT))
             addView(connectionTypeView, ViewGroup.LayoutParams(0, 48.dp))
             setConstraints {
@@ -228,7 +230,7 @@ class LedgerConnectVC(
                 toCenterX(stepsView, 48f)
                 toCenterX(connectionTypeView, 40f)
                 topToBottom(connectionTypeView, stepsView, 16f)
-                toBottom(connectionTypeView, 16f)
+                toBottom(connectionTypeView)
             }
         }
     }

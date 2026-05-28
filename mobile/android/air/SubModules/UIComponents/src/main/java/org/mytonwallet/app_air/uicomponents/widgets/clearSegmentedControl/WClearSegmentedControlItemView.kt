@@ -31,7 +31,7 @@ open class WClearSegmentedControlItemView(context: Context) :
 
     internal val textView: WLabel
     internal val trailingImageView: AppCompatImageView
-    private val arrowDrawable = ContextCompat.getDrawable(context, R.drawable.ic_arrow_bottom_24)
+    private val arrowDrawable = ContextCompat.getDrawable(context, R.drawable.ic_arrows_14)
     private val removeDrawable = ContextCompat.getDrawable(context, R.drawable.ic_collection_remove)
     private var shakeAnimator: ObjectAnimator? = null
 
@@ -64,8 +64,8 @@ open class WClearSegmentedControlItemView(context: Context) :
         trailingImageView = AppCompatImageView(context).apply {
             id = generateViewId()
             layoutParams = LayoutParams(
-                20.dp,
-                20.dp
+                7.dp,
+                14.dp
             )
             setImageDrawable(arrowDrawable)
             alpha = 0f
@@ -77,7 +77,7 @@ open class WClearSegmentedControlItemView(context: Context) :
 
         setConstraints {
             toCenterX(textView)
-            toEnd(trailingImageView, 8f)
+            toEnd(trailingImageView, 16f)
             toCenterY(trailingImageView)
         }
 

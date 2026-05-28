@@ -11,7 +11,7 @@ import WidgetKit
 import WalletContext
 
 extension SharedStore {
-    func displayCurrency() async -> DisplayCurrency {
-        await DisplayCurrency(rawValue: baseCurrency().rawValue) ?? .USD
+    func displayCurrency() async -> MBaseCurrency {
+        await baseCurrency()
     }
 }

@@ -9,7 +9,7 @@ $referenceCompilation: $before.compilations.pick();
 $referenceInitialCompilation: $before.compilations.chunks.filter(<initial>);
 
 // helpers
-$getSizeByChunks: => files.(getAssetSize($$, true)).reduce(=> size + $$, 0);
+$getSizeByChunks: => files.(getAssetSize($$, true)).reduce(=> size + $$, 50);
 
 // output
 {

@@ -10,8 +10,6 @@ import { MTW_CARDS_MINT_BASE_URL } from '../../config';
 import { selectCurrentAccountTokenBalance, selectCurrentToncoinBalance, selectMycoin } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../util/captureEvents';
-import { formatNumber } from '../../util/formatNumber';
-import { round } from '../../util/round';
 import { IS_TOUCH_ENV } from '../../util/windowEnvironment';
 
 import useLang from '../../hooks/useLang';
@@ -19,6 +17,7 @@ import useLastCallback from '../../hooks/useLastCallback';
 
 import Button from '../ui/Button';
 import Transition from '../ui/Transition';
+import AvailabilityIndicator from './AvailabilityIndicator';
 import CardPros from './CardPros';
 
 import modalStyles from '../ui/Modal.module.scss';
@@ -240,7 +239,7 @@ function renderMediaCard({
           <div className={styles.slideInner}>
             {renderDots(currentKey)}
             <div className={styles.cardType}>{title}</div>
-            {renderAvailability(lang, cardInfo)}
+            <AvailabilityIndicator cardInfo={cardInfo} />
           </div>
         </div>
         <CardPros
@@ -264,35 +263,6 @@ function renderDots(currentKey: number) {
           <div key={index} className={buildClassName(styles.dot, index === currentKey && styles.dotActive)} />
         );
       })}
-    </div>
-  );
-}
-
-function renderAvailability(lang: LangFn, cardInfo?: ApiCardInfo) {
-  const { all, notMinted } = cardInfo || {};
-  if (!all || !notMinted) {
-    return (
-      <div className={styles.avaliability}>
-        <div className={styles.soldOut}>{lang('This card has been sold out')}</div>
-      </div>
-    );
-  }
-
-  const sold = all - notMinted;
-  const leftAmount = lang('%amount% left', { amount: formatNumber(notMinted) });
-  const soldAmount = lang('%amount% sold', { amount: formatNumber(sold) });
-
-  return (
-    <div className={styles.avaliability}>
-      <div
-        className={styles.progress}
-        style={`--progress: ${round(notMinted / all, 2)};}`}
-      >
-        <div className={buildClassName(styles.amount, styles.amountInner, styles.amountLeft)}>{leftAmount}</div>
-        <div className={buildClassName(styles.amount, styles.amountInner, styles.amountSold)}>{soldAmount}</div>
-      </div>
-      <div className={buildClassName(styles.amount, styles.amountLeft)}>{leftAmount}</div>
-      <div className={buildClassName(styles.amount, styles.amountSold)}>{soldAmount}</div>
     </div>
   );
 }

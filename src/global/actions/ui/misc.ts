@@ -456,6 +456,16 @@ addActionHandler('toggleCanPlaySounds', (global, actions, { isEnabled } = {}) =>
   };
 });
 
+addActionHandler('toggleSeasonalTheming', (global, actions, { isEnabled }) => {
+  return {
+    ...global,
+    settings: {
+      ...global.settings,
+      isSeasonalThemingDisabled: !isEnabled || undefined,
+    },
+  };
+});
+
 addActionHandler('setLandscapeActionsActiveTabIndex', (global, actions, { index }) => {
   return updateCurrentAccountState(global, {
     landscapeActionsActiveTabIndex: index,
@@ -922,6 +932,24 @@ addActionHandler('switchToExplore', (global: GlobalState, actions) => {
 addActionHandler('switchToSettings', (global: GlobalState, actions) => {
   actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
   actions.openSettings(undefined, { forceOnHeavyAnimation: true });
+});
+
+addActionHandler('openPromotionModal', (global) => {
+  if (IS_DELEGATED_BOTTOM_SHEET) {
+    callActionInMain('openPromotionModal');
+    return global;
+  }
+
+  return { ...global, isPromotionModalOpen: true };
+});
+
+addActionHandler('closePromotionModal', (global) => {
+  if (IS_DELEGATED_BOTTOM_SHEET) {
+    callActionInMain('closePromotionModal');
+    return global;
+  }
+
+  return { ...global, isPromotionModalOpen: undefined };
 });
 
 addActionHandler('setAppLayout', (global, actions, { layout }) => {

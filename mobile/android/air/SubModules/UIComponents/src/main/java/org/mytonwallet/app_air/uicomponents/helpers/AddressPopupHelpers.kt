@@ -39,6 +39,7 @@ import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
+import kotlin.math.roundToInt
 
 class AddressPopupHelpers {
     companion object {
@@ -59,13 +60,14 @@ class AddressPopupHelpers {
             val context = viewController.get()!!.view.context
             ContextCompat.getDrawable(
                 context,
-                org.mytonwallet.app_air.icons.R.drawable.ic_arrow_bottom_24
+                org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
             )?.let { drawable ->
                 drawable.mutate()
                 drawable.setTint(color ?: WColor.SecondaryText.color)
-                val width = 12.dp
-                val height = 12.dp
-                drawable.setBounds(0, 0, width, height)
+                val left = 4.5f.dp.roundToInt()
+                val width = 7.dp
+                val height = 14.dp
+                drawable.setBounds(left, 0, left + width, height)
                 val imageSpan = VerticalImageSpan(drawable)
                 spannedString.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }

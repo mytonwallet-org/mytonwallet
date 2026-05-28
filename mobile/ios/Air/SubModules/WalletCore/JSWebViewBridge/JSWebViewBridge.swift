@@ -109,8 +109,6 @@ class JSWebViewBridge: UIViewController {
     private var webView: WKWebView?
     private let start = Date()
 
-    let webViewQueue = DispatchQueue(label: "org.mytonwallet.app.webViewBridge_background", attributes: .concurrent)
-    
     private let updateQueue = DispatchQueue(label: "onUpdate", qos: .background, attributes: [.concurrent])
 
     override func viewDidLoad() {
@@ -224,19 +222,6 @@ class JSWebViewBridge: UIViewController {
             }
         }
         throw BridgeCallError(message: error.localizedDescription, payload: error)
-    }
-    
-    func callApi(methodName: String, args: [AnyEncodable?], callback: @escaping (Result<Any?, BridgeCallError>) -> Void) {
-        Task {
-            do {
-                let result = try await _callApiImpl(methodName: methodName, args: args)
-                callback(.success(result))
-            } catch let error as BridgeCallError {
-                callback(.failure(error))
-            } catch {
-                callback(.failure(.unknown(baseError: error)))
-            }
-        }
     }
     
     func callApiRaw<each E: Encodable>(_ methodName: String, _ args: repeat each E) async throws -> Any? {

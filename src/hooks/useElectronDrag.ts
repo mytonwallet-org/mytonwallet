@@ -58,7 +58,7 @@ const useElectronDrag = (ref: ElementRef<HTMLDivElement>) => {
 
     return () => {
       element.removeEventListener('click', handleClick);
-      element.removeEventListener('mouseup', handleMousedown);
+      element.removeEventListener('mousedown', handleMousedown);
       element.removeEventListener('mousemove', handleDrag);
       element.removeEventListener('dblclick', handleDoubleClick);
     };

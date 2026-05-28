@@ -63,6 +63,9 @@ class SendNftVC(
 ) : WViewController(context), SendNftVM.Delegate, WalletCore.EventObserver {
     override val TAG = "SendNft"
 
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+
     private val viewModel = SendNftVM(this, nft)
 
     private val separatorBackgroundDrawable = SeparatorBackgroundDrawable().apply {

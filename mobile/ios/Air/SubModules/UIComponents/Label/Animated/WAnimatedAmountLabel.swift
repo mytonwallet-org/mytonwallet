@@ -165,7 +165,6 @@ public class WAnimatedAmountLabel: UIView, WThemedView {
         let formattedString = amt.formatAttributed(
             format: .init(
                 maxDecimals: decimalsCount,
-                showPlus: false,
                 showMinus: false,
                 roundUp: false,
                 precision: .exact
@@ -254,7 +253,6 @@ public class WAnimatedAmountLabel: UIView, WThemedView {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    let _ = UIFont.registerAirFonts()
     let view = {
         let view = BalanceView(config: .balanceHeader)
         view.set(balanceInBaseCurrency: 223.92, baseCurrency: .USD, animated: true)

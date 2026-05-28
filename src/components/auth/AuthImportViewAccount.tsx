@@ -7,11 +7,12 @@ import type { ApiImportAddressByChain } from '../../api/types';
 
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
-import { getChainTitle, getSupportedChains } from '../../util/chain';
+import { getChainConfig, getChainTitle, getSupportedChains } from '../../util/chain';
 import { stopEvent } from '../../util/domEvents';
 import isEmptyObject from '../../util/isEmptyObject';
-import { isValidAddressOrDomain } from '../../util/isValidAddress';
+import { isTonsiteAddress, isValidAddressOrDomain } from '../../util/isValidAddress';
 import { formatEnumeration } from '../../util/langProvider';
+import { getHostnameFromUrl } from '../../util/url';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useFocusAfterAnimation from '../../hooks/useFocusAfterAnimation';
@@ -66,8 +67,11 @@ function AuthImportViewAccount({
     const addresses = value.trim().split(/\s+/);
     const addressByChain: ApiImportAddressByChain = {};
 
-    for (const address of addresses) {
+    for (let address of addresses) {
       for (const chain of getSupportedChains()) {
+        if (getChainConfig(chain).isDnsSupported && isTonsiteAddress(address)) {
+          address = getHostnameFromUrl(address);
+        }
         if (isValidAddressOrDomain(address, chain)) {
           addressByChain[chain] = address;
           // Continuing the loop, because addresses can be valid in multiple chains, for example in Ethereum blockchain

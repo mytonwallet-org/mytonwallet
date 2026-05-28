@@ -157,7 +157,7 @@ private struct _BalanceChangeContent: View {
                 return nil
             } else {
                 let change = BaseCurrencyAmount(balance.amount - balance24h.amount, balance.baseCurrency)
-                let string = change.formatted(showPlus: false, showMinus: false)
+                let string = change.formatted(.baseCurrencyEquivalent, showMinus: false)
                 let percentString = if let balanceChange {
                     "\(formatPercent(balanceChange)) · "
                 } else {

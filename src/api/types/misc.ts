@@ -1,5 +1,6 @@
 import type { NftItem } from 'tonapi-sdk-js';
 
+import type { LangCode } from '../../global/types';
 import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type { ApiTransactionActivity } from './activities';
 import type { ApiParsedPayload } from './payload';
@@ -22,6 +23,7 @@ export interface ApiInitArgs {
   isNativeBottomSheet?: boolean;
   isIosApp?: boolean;
   isAndroidApp?: boolean;
+  langCode?: LangCode;
   referrer?: string;
   accountIds?: string[];
 }

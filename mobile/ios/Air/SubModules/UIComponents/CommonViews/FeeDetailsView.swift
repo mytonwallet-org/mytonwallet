@@ -18,7 +18,7 @@ public struct FeeDetailsView: View {
     }
     
     private var excessAmount: TokenAmount {
-        TokenAmount(fee.excessFee, nativeToken)
+        TokenAmount(fee.excessFee ?? 0, nativeToken)
     }
     
     private var showExcess: Bool {

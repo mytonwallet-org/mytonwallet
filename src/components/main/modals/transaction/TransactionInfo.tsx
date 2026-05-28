@@ -75,6 +75,7 @@ interface OwnProps {
   onSendClick?: NoneToVoidFunction;
   onStartStakingClick?: NoneToVoidFunction;
   onUnstakeMoreClick?: NoneToVoidFunction;
+  onTokenClick?: (slug: string) => void;
 }
 
 function TransactionInfo({
@@ -107,6 +108,7 @@ function TransactionInfo({
   onSendClick,
   onStartStakingClick,
   onUnstakeMoreClick,
+  onTokenClick,
 }: OwnProps) {
   const lang = useLang();
   const appTheme = useAppTheme(theme);
@@ -342,6 +344,7 @@ function TransactionInfo({
           noSign={amountDisplayMode === 'noSign'}
           baseCurrency={baseCurrency}
           currencyRates={currencyRates}
+          onTokenClick={onTokenClick}
         />
       )}
 

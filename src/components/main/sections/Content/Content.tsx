@@ -111,6 +111,7 @@ function Content({
 
   const lang = useLang();
   const { isPortrait, isLandscape } = useDeviceScreen();
+  const containerRef = useRef<HTMLDivElement>();
   const tabsRef = useRef<HTMLDivElement>();
   const hasNftSelection = Boolean(selectedAddresses?.length);
 
@@ -322,7 +323,7 @@ function Content({
 
     onTabsStuck?.(isStuck);
     requestMutation(() => {
-      e.target.classList.toggle(styles.tabsContainerStuck, isStuck);
+      containerRef.current?.classList.toggle(styles.portraitContainerIsStuck, isStuck);
     });
   });
 
@@ -525,7 +526,7 @@ function Content({
   }
 
   return (
-    <div className={containerClassName}>
+    <div ref={containerRef} className={containerClassName}>
       {shouldShowSeparateAssetsPanel && (
         <div className={styles.assetsPanel}>
           <Assets

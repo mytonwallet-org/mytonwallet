@@ -40,11 +40,7 @@ function AddressBook({
       {items.map((item, index) => (
         <AddressBookItem
           key={`${item.isSavedAddress ? 'saved' : 'address'}-${item.address}-${item.chain || ''}`}
-          address={item.address}
-          name={item.name}
-          chain={item.chain}
-          isHardware={item.isHardware}
-          isSavedAddress={item.isSavedAddress}
+          item={item}
           isSelected={activeIndex === index}
           onClick={onAddressSelect}
           onDeleteClick={item.isSavedAddress ? onSavedAddressDelete : undefined}

@@ -7,7 +7,7 @@ import { updateAccountSettings, updateAccountState } from './misc';
 
 export function addNft(global: GlobalState, accountId: string, nft: ApiNft, shouldAppendToEnd?: boolean) {
   const nftAddress = nft.address;
-  const nfts = selectAccountState(global, accountId)!.nfts;
+  const nfts = selectAccountState(global, accountId)?.nfts;
   const orderedAddresses = (nfts?.orderedAddresses ?? []).filter((address) => address !== nftAddress);
 
   return updateAccountState(global, accountId, {

@@ -21,8 +21,9 @@ import buildClassName from '../../util/buildClassName';
 import { readClipboardContent } from '../../util/clipboard';
 import { isTonChainDns } from '../../util/dns';
 import { getLocalAddressName } from '../../util/getLocalAddressName';
-import { isValidAddressOrDomain } from '../../util/isValidAddress';
+import { isTonsiteAddress, isValidAddressOrDomain } from '../../util/isValidAddress';
 import { shortenAddress } from '../../util/shortenAddress';
+import { getHostnameFromUrl } from '../../util/url';
 import {
   getIsMobileTelegramApp,
   IS_ANDROID,
@@ -215,7 +216,7 @@ function AddressInput({
       const { type, text } = await readClipboardContent();
 
       if (type === 'text/plain') {
-        const newValue = text.trim();
+        const newValue = cleanTonsiteAddress(text.trim());
         onInput(newValue, true);
         onPaste?.(newValue);
 
@@ -240,6 +241,10 @@ function AddressInput({
 
   const handleAddressValidate = useLastCallback((address?: string) => {
     if (!validateAddress) return;
+
+    if (address) {
+      address = cleanTonsiteAddress(address);
+    }
 
     if ((address && chain && isValidAddressOrDomain(address, chain)) || !address) {
       validateAddress({ address, chain });
@@ -283,7 +288,7 @@ function AddressInput({
       return;
     }
 
-    let addressToCheck = value;
+    let addressToCheck = cleanTonsiteAddress(value);
     if (isTonChainDns(value) && value !== value.toLowerCase()) {
       addressToCheck = value.toLowerCase().trim();
       onInput(addressToCheck);
@@ -306,7 +311,8 @@ function AddressInput({
 
   const handleAddressPaste = useLastCallback((event: ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     event.preventDefault();
-    const value = event.clipboardData.getData('text');
+    let value = event.clipboardData.getData('text');
+    value = cleanTonsiteAddress(value);
     onInput(value, false);
     onPaste?.(value);
     handleAddressErrorCheck(value);
@@ -442,3 +448,11 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     orderedAccountIds: global.settings.orderedAccountIds,
   };
 })(AddressInput));
+
+function cleanTonsiteAddress(address: string) {
+  if (isTonsiteAddress(address)) {
+    return getHostnameFromUrl(address);
+  } else {
+    return address;
+  }
+}

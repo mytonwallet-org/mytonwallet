@@ -26,6 +26,9 @@ class EarnRootVC(context: Context, private val tokenSlug: String = TONCOIN_SLUG)
     WViewController(context), WalletCore.EventObserver {
     override val TAG = "EarnRoot"
 
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+
     override val shouldDisplayTopBar = false
 
     private val tonVC = EarnVC(context, TONCOIN_SLUG, onScroll = { recyclerView ->

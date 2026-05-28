@@ -68,7 +68,7 @@ class _CoverFlowView: UIView, UICollectionViewDelegate {
         if #available(iOS 17.0, *) {
             section.orthogonalScrollingProperties.decelerationRate = .fast
         }
-        let inset: CGFloat = (UIScreen.main.bounds.width - itemSpacing - 2 * negativeHorizontalInset)/2
+        let inset: CGFloat = (screenWidth - itemSpacing - 2 * negativeHorizontalInset)/2
         section.contentInsets = .init(top: 0, leading: inset, bottom: inset, trailing: inset)
         
         section.visibleItemsInvalidationHandler = { [unowned self] items, scrollOffset, env in

@@ -5,7 +5,6 @@ import UIComponents
 import WalletContext
 import WalletCore
 import Kingfisher
-import UIPasscode
 import Perception
 
 struct ActionsRow: View {

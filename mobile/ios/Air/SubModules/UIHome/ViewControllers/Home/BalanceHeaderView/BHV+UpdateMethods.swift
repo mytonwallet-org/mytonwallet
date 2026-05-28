@@ -8,7 +8,6 @@
 import Foundation
 import UIKit
 import UIComponents
-import WalletCore
 import WalletContext
 
 private let log = Log("BalanceHeaderView+update")

@@ -155,7 +155,10 @@ class AccountDialogHelpers {
                 if (switchInstantly) accountIds.find { it !== AccountStore.activeAccountId }!! else null
             if (nextAccountId == null && WGlobalStorage.getActiveAccountId() == removingAccountId) {
                 // Permanent active account is being removed with no replacement, replace it!
-                WGlobalStorage.setActiveAccountId(accountIds.find { it !== AccountStore.activeAccountId })
+                WGlobalStorage.setActiveAccountId(
+                    accountIds.find { it !== AccountStore.activeAccountId },
+                    true
+                )
             }
             AccountStore.removeAccount(
                 removingAccountId,

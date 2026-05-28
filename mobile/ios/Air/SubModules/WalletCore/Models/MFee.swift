@@ -64,34 +64,26 @@ public struct MFee: Equatable, Hashable, Codable, Sendable {
     ) -> String {
         var result = ""
         if let native = terms.native, native > 0 {
-            result += formatBigIntText(native,
-                                      currency: nativeToken.symbol,
-                                      tokenDecimals: nativeToken.decimals,
-                                      decimalsCount: tokenDecimals(for: native, tokenDecimals: nativeToken.decimals))
+            let nativeAmount = TokenAmount(native, nativeToken)
+            result += nativeAmount.formatted(.defaultAdaptive)
         }
         if let tokenAmount = terms.token, tokenAmount > 0 {
             if !result.isEmpty {
                 result += " + "
             }
-            result += formatBigIntText(tokenAmount,
-                                      currency: token.symbol,
-                                      tokenDecimals: token.decimals,
-                                      decimalsCount: tokenDecimals(for: tokenAmount, tokenDecimals: token.decimals))
+            let tokenAmount = TokenAmount(tokenAmount, token)
+            result += tokenAmount.formatted(.defaultAdaptive)
         }
         if let stars = terms.stars, stars > 0 {
             if !result.isEmpty {
                 result += " + "
             }
-            result += formatBigIntText(stars,
-                                      currency: "⭐️",
-                                      tokenDecimals: 1,
-                                      decimalsCount: tokenDecimals(for: stars, tokenDecimals: 1))
+            let starsAmount = AnyDecimalAmount(stars, decimals: 0, symbol: "⭐️", forceCurrencyToRight: true)
+            result += starsAmount.formatted()
         }
         if result.isEmpty {
-            result += formatBigIntText(0,
-                                      currency: nativeToken.symbol,
-                                      tokenDecimals: 0,
-                                      decimalsCount: 0)
+            let zero = AnyDecimalAmount(0, decimals: 0, symbol: nativeToken.symbol, forceCurrencyToRight: true)
+            result += zero.formatted()
         }
         return precision.prefix + result
     }

@@ -1,7 +1,6 @@
 
 import UIComponents
 import WalletContext
-import WalletCore
 import SwiftUI
 
 

@@ -43,6 +43,7 @@ dependencies {
     implementation(libs.lottie)
     implementation(libs.fresco)
     implementation(libs.fresco.middleware)
+    implementation(libs.fresco.ui.common)
     implementation(libs.zxing)
     implementation(libs.charts)
     implementation(libs.blurview)

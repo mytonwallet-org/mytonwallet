@@ -20,7 +20,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSens
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.thinSpace
+import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -28,7 +28,8 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 @SuppressLint("ViewConstructor")
 class SwapHeaderView(
     context: Context,
-    var transaction: MApiTransaction
+    var transaction: MApiTransaction,
+    private val onTokenClick: ((String) -> Unit)? = null
 ) : WView(context, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)),
     WThemedView {
     private val sizeSpan = RelativeSizeSpan(28f / 36f)
@@ -105,6 +106,40 @@ class SwapHeaderView(
             toCenterX(tokenToReceiveTextView, 8f)
         }
 
+        if (onTokenClick != null) {
+            fun setupTouchFeedback(view: android.view.View, getSlug: () -> String?) {
+                view.isClickable = true
+                view.isFocusable = true
+                view.setOnTouchListener { v, event ->
+                    when (event.action) {
+                        android.view.MotionEvent.ACTION_DOWN -> {
+                            v.alpha = 0.6f
+                        }
+                        android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                            v.alpha = 1f
+                            if (event.action == android.view.MotionEvent.ACTION_UP) {
+                                getSlug()?.let { slug -> onTokenClick.invoke(slug) }
+                            }
+                        }
+                    }
+                    true
+                }
+            }
+
+            setupTouchFeedback(tokenToSendIconView) {
+                (transaction as? MApiTransaction.Swap)?.fromToken?.slug
+            }
+            setupTouchFeedback(tokenToReceiveIconView) {
+                (transaction as? MApiTransaction.Swap)?.toToken?.slug
+            }
+            setupTouchFeedback(tokenToSendTextView.contentView) {
+                (transaction as? MApiTransaction.Swap)?.fromToken?.slug
+            }
+            setupTouchFeedback(tokenToReceiveTextView.contentView) {
+                (transaction as? MApiTransaction.Swap)?.toToken?.slug
+            }
+        }
+
         updateTheme()
     }
 
@@ -127,7 +162,7 @@ class SwapHeaderView(
                 forceCurrencyToRight = true
             )
             tokenToSendTextView.contentView.text = sendAmount.let {
-                val ssb = SpannableStringBuilder("-$thinSpace$it")
+                val ssb = SpannableStringBuilder("-$signSpace$it")
                 CoinUtils.setSpanToFractionalPart(ssb, colorSpan)
                 ssb
             }

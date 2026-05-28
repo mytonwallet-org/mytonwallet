@@ -1,6 +1,6 @@
 import { NativeBiometric } from '@capgo/capacitor-native-biometric';
 
-import type { ApiNetwork } from '../../../api/types';
+import type { ApiChain, ApiNetwork } from '../../../api/types';
 import type { Account, GlobalState } from '../../types';
 import { ApiAuthError, ApiCommonError } from '../../../api/types';
 import { AppState, AuthState, BiometricsState } from '../../types';
@@ -1030,12 +1030,29 @@ addActionHandler('openTemporaryViewAccount', async (global, actions, { addressBy
     return;
   }
 
+  // Check if an account with these addresses already exists
+  const network = selectCurrentNetwork(global);
+  const accounts = selectNetworkAccounts(global);
+  const existingAccountId = accounts ? Object.keys(accounts).find((accountId) => {
+    const account = accounts[accountId];
+    if (account.isTemporary) return false;
+
+    // Check if all requested addresses match this account
+    return (Object.keys(addressByChain) as ApiChain[]).every((chain) => {
+      return account.byChain[chain]?.address === addressByChain[chain];
+    });
+  }) : undefined;
+
   if (global.currentTemporaryViewAccountId) {
     await removeTemporaryAccount(global.currentTemporaryViewAccountId);
     global = getGlobal();
   }
 
-  const network = selectCurrentNetwork(global);
+  if (existingAccountId) {
+    actions.switchAccount({ accountId: existingAccountId });
+    return;
+  }
+
   global = updateAccounts(global, { isLoading: true });
   setGlobal(global);
 

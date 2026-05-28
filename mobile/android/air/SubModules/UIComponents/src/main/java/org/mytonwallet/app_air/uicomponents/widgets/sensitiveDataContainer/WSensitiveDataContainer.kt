@@ -92,6 +92,7 @@ class WSensitiveDataContainer<V : View>(
                 // View is not attached to the window yet, wait...
                 return
             }
+            maskView.initMask()
             isShowingMask = true
             maskView.setIntersecting(true)
             maskView.visibility = VISIBLE
@@ -154,16 +155,14 @@ class WSensitiveDataContainer<V : View>(
 
     fun setMaskCols(cols: Int) {
         maskView.cols = cols
+        if (!isShowingMask)
+            return
         val changed = maskView.initMask()
-        if (changed) {
-            if (maskConfig.protectContentLayoutSize &&
-                isSensitiveData &&
-                contentView.visibility == GONE
-            ) {
-                setMaskedLayoutParams()
-            }
-            requestLayout()
-        }
+        if (!changed)
+            return
+        if (maskConfig.protectContentLayoutSize)
+            setMaskedLayoutParams()
+        requestLayout()
     }
 
     private var _maskPivotYPercent = 0f

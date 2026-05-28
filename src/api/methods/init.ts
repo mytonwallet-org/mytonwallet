@@ -21,6 +21,10 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
   connectUpdater(onUpdate);
   const environment = setEnvironment(args);
 
+  if (args.langCode) {
+    void storage.setItem('langCode', args.langCode);
+  }
+
   initWindowConnector();
 
   methods.initAccounts(onUpdate);

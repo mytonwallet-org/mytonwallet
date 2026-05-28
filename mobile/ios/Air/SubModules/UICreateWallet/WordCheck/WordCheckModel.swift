@@ -7,7 +7,6 @@
 
 import SwiftUI
 import WalletContext
-import WalletCore
 import UIComponents
 
 final class WordCheckModel: ObservableObject {

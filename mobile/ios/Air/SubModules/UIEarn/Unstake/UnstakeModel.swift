@@ -12,7 +12,6 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-import UIPasscode
 
 private let log = Log("StakeUnstakeModel")
 
@@ -92,7 +91,7 @@ final class UnstakeModel: ObservableObject, WalletCoreData.EventsObserver {
         return MFee(precision: .exact, terms: .init(token: nil, native: stakeOperationFee, stars: nil), nativeSum: stakeOperationFee)
     }
     
-    var tokenChain: ApiChain? { availableChain(slug: baseToken.chain) }
+    var tokenChain: ApiChain? { baseToken.chainValue }
     
     // Validation
 
@@ -131,13 +130,13 @@ final class UnstakeModel: ObservableObject, WalletCoreData.EventsObserver {
     func updateBaseCurrencyAmount(_ amount: BigInt?) {
         guard let amount else { return }
         let price = config.baseToken.price ?? 0
-        self.amountInBaseCurrency = convertAmount(amount, price: price, tokenDecimals: baseToken.decimals, baseCurrencyDecimals: TokenStore.baseCurrency.decimalsCount)
+        self.amountInBaseCurrency = convertAmount(amount, price: price, tokenDecimals: baseToken.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
         onAmountChanged?(amount)
     }
     
     func updateAmountFromBaseCurrency(_ baseCurrency: BigInt) {
         let price = config.baseToken.price ?? 0
-        let baseCurrencyDecimals = TokenStore.baseCurrency.decimalsCount
+        let baseCurrencyDecimals = self.baseCurrency.decimalsCount
         if price > 0 {
             self.amount = convertAmountReverse(baseCurrency, price: price, tokenDecimals: baseToken.decimals, baseCurrencyDecimals: baseCurrencyDecimals)
         } else {
@@ -161,7 +160,7 @@ final class UnstakeModel: ObservableObject, WalletCoreData.EventsObserver {
                 self.draft = draft
             } catch {
                 if !Task.isCancelled {
-                    topViewController()?.showAlert(error: error)
+                    AppActions.showError(error: error)
                 }
                 log.info("\(error)")
             }

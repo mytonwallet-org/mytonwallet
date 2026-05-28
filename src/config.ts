@@ -143,7 +143,7 @@ export const NFT_MARKETPLACE_TITLES: Record<ApiNftMarketplace, string> = {
   fragment: 'Fragment',
 };
 export const MTW_STATIC_BASE_URL = 'https://static.mytonwallet.org';
-export const MTW_CARDS_BASE_URL = `${MTW_STATIC_BASE_URL}/cards/`;
+export const MTW_CARDS_BASE_URL = `${MTW_STATIC_BASE_URL}/cards/v2/cards/`;
 export const MTW_CARDS_MINT_BASE_URL = `${MTW_STATIC_BASE_URL}/mint-cards/`;
 export const MYTONWALLET_PROMO_URL = 'https://mytonwallet.io/';
 export const MYTONWALLET_MULTISEND_DAPP_URL = 'https://multisend.mytonwallet.io/';
@@ -178,7 +178,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-262';
+export const LANG_CACHE_NAME = 'mtw-lang-263';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',

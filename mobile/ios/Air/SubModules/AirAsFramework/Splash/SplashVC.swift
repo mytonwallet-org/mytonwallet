@@ -134,13 +134,6 @@ extension SplashVC: SplashVMDelegate {
             self?.replaceVC(with: HomeTabBarController(), animationDuration: 0.2)
         }
     }
-    
-    func errorOccured() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            self?.splashVM.startApp()
-        }
-    }
-
 }
 
 extension SplashVC: WalletContextDelegate {
@@ -278,7 +271,7 @@ extension SplashVC: DeeplinkNavigator {
                 AppActions.showSend(prefilledValues: nil)
                 
             case .receive:
-                AppActions.showReceive(chain: nil, showBuyOptions: nil, title: nil)
+                AppActions.showReceive(chain: nil, title: nil)
 
             case .explore:
                 AppActions.showExplore()

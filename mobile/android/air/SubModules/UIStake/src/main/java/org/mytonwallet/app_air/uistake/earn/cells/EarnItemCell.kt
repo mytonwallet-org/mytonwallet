@@ -22,7 +22,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.DateUtils
-import org.mytonwallet.app_air.walletbasecontext.utils.thinSpace
+import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import kotlin.math.abs
 
 class EarnItemCell(context: Context) : WCell(context), WThemedView {
@@ -222,7 +222,7 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
 
         titleLabel.setTextIfChanged(item.getTitle())
         if (item is EarnItem.Profit || item is EarnItem.ProfitGroup || item is EarnItem.Unstaked) {
-            amountLabel.contentView.text = "+$thinSpace${item.formattedAmount} $tokenSymbol"
+            amountLabel.contentView.text = "+$signSpace${item.formattedAmount} $tokenSymbol"
             amountLabel.contentView.setTextColor(WColor.Green.color)
             amountLabel.maskView.skin = SensitiveDataMaskView.Skin.GREEN
         } else {

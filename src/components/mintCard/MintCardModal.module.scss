@@ -136,7 +136,7 @@
   }
 }
 
-.avaliability {
+.availability {
   position: absolute;
   right: 1rem;
   bottom: 0;
@@ -205,6 +205,11 @@
     right: calc(-100% * var(--multiplier) + 0.375rem);
 
   }
+}
+
+.center {
+  width: 100%;
+  text-align: center;
 }
 
 .dots {

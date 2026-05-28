@@ -62,14 +62,14 @@ struct NftDetailsView: View {
     
     @ViewBuilder
     var fullscreenViewerTarget: some View {
-        let frame = UIScreen.main.bounds
+        let screenSize = screenSize
         GeometryReader { geom in
             Color.red
                 .opacity(0.2)
                 .opacity(0)
                 .matchedGeometryEffect(id: "fullScreenTarget", in: ns, anchor: .top, isSource: true)
-                .frame(width: frame.width, height: frame.width)
-                .offset(y: (frame.height - frame.width)/2)
+                .frame(width: screenSize.width, height: screenSize.width)
+                .offset(y: (screenSize.height - screenSize.width)/2)
                 .offset(y: viewModel.isFullscreenPreviewOpen ? 0 : viewModel.y)
                 .allowsHitTesting(false)
         }

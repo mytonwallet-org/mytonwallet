@@ -53,6 +53,7 @@ object Haptics {
                     HapticFeedbackConstants.CLOCK_TICK
                 }
             }
+
             HapticType.LIGHT_TAP -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     HapticFeedbackConstants.CONFIRM
@@ -60,6 +61,7 @@ object Haptics {
                     HapticFeedbackConstants.KEYBOARD_TAP
                 }
             }
+
             HapticType.TRANSITION -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     HapticFeedbackConstants.CONTEXT_CLICK
@@ -67,6 +69,7 @@ object Haptics {
                     HapticFeedbackConstants.VIRTUAL_KEY
                 }
             }
+
             HapticType.DRAG -> HapticFeedbackConstants.LONG_PRESS
             HapticType.SUCCESS -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -75,6 +78,7 @@ object Haptics {
                     HapticFeedbackConstants.VIRTUAL_KEY
                 }
             }
+
             HapticType.ERROR -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     HapticFeedbackConstants.REJECT
@@ -165,7 +169,8 @@ object Haptics {
 
     private fun getVibrator(context: Context): Vibrator? {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+            val vibratorManager =
+                context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
             vibratorManager?.defaultVibrator
         } else {
             @Suppress("DEPRECATION")
@@ -173,4 +178,6 @@ object Haptics {
         }
     }
 }
+
+
 

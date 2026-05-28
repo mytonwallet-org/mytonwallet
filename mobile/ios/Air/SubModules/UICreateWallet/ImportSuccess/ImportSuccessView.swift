@@ -7,10 +7,8 @@
 
 import SwiftUI
 import WalletContext
-import WalletCore
 import UIComponents
 import Flow
-import UIHome
 
 struct ImportSuccessView: View {
     

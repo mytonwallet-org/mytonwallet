@@ -37,7 +37,7 @@ public struct ExplainedTransferFee: Equatable, Hashable, Codable, Sendable {
     public var realFee: FeeDetails?
     
     /** The excess fee. Measured in the native token. It's always approximate. Undefined means that it's unknown. */
-    public var excessFee: BigInt
+    public var excessFee: BigInt?
 }
 
 struct MaxTransferAmountInput {
@@ -144,7 +144,7 @@ private func explainGasfullTransferFee(_ input: ApiFee, tokenSlug: String) -> Ex
         canTransferFullBalance: tokenSlug == TONCOIN_SLUG,
         fullFee: nil,
         realFee: nil,
-        excessFee: .zero
+        excessFee: nil
     )
     
     if let inputFee = input.fee {

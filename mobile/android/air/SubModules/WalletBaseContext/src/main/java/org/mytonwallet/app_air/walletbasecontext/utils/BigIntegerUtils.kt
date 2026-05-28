@@ -5,6 +5,7 @@ import java.math.BigInteger
 
 const val decimalSeparator = '.'
 const val thinSpace = '\u2009'
+const val signSpace = '\u200A'
 
 fun max(a: BigInteger, b: BigInteger): BigInteger {
     return if (a > b) a else b
@@ -36,12 +37,14 @@ fun BigInteger.toString(
     roundUp: Boolean = true
 ): String {
     val scale = BigInteger.TEN.pow(decimals)
-    var integerPart = this.abs().divide(scale)
-    var decimalPart = this.abs().remainder(scale).toString().padStart(decimals, '0')
+    val absValue = abs()
+    var integerPart = absValue.divide(scale)
+    var decimalPart = absValue.remainder(scale).toString().padStart(decimals, '0')
 
+    // Handle rounding
     if (decimalPart.length > currencyDecimals) {
-        val extraDigit = decimalPart.getOrNull(currencyDecimals)?.digitToInt() ?: 0
-        decimalPart = decimalPart.take(currencyDecimals)
+        val extraDigit = decimalPart[currencyDecimals].digitToInt()
+        decimalPart = decimalPart.substring(0, currencyDecimals)
 
         if (roundUp && extraDigit >= 5) {
             val rounded = decimalPart.toBigInteger() + BigInteger.ONE
@@ -54,45 +57,40 @@ fun BigInteger.toString(
         }
     }
 
-    var result = integerPart.toString()
+    // Build result string
+    val sb = StringBuilder(integerPart.toString())
     if (decimalPart.isNotEmpty()) {
-        result += "$decimalSeparator$decimalPart"
+        sb.append(decimalSeparator).append(decimalPart)
     }
 
     // Remove trailing zeros after rounding
-    if (result.contains(decimalSeparator))
-        while (result.endsWith("0")) {
-            if (result.endsWith("${decimalSeparator}0")) {
-                result = result.dropLast(2)
-                break
-            } else {
-                result = result.dropLast(1)
-            }
-        }
-
-    if (result.endsWith(decimalSeparator)) {
-        result = result.dropLast(1)
+    if (decimalSeparator in sb) {
+        var i = sb.length - 1
+        while (i >= 0 && sb[i] == '0') i--
+        if (sb[i] == decimalSeparator) i--
+        sb.setLength(i + 1)
     }
 
-    result = result.insertGroupingSeparator()
+    var result = sb.toString().insertGroupingSeparator()
 
-    // Add negative sign if needed
-    if (this < BigInteger.valueOf(0)) {
-        result = "-$thinSpace$result"
+    // Add sign
+    val isNegative = this < BigInteger.ZERO
+    if (isNegative) {
+        result = "-$signSpace$result"
     }
 
     // Add currency symbol
     if (currency.isNotEmpty()) {
-        result = if (currency.length > 1 || forceCurrencyToRight || MBaseCurrency.forcedToRight.contains(currency)) {
-            "$result $currency"
-        } else {
-            "$currency$result"
-        }
+        result =
+            if (currency.length > 1 || forceCurrencyToRight || currency in MBaseCurrency.forcedToRight) {
+                "$result $currency"
+            } else {
+                "$currency$result"
+            }
     }
 
-    // Add positive sign if needed
-    if (showPositiveSign && this >= BigInteger.valueOf(0)) {
-        result = "+$thinSpace$result"
+    if (showPositiveSign && !isNegative) {
+        result = "+$signSpace$result"
     }
 
     return result

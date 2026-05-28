@@ -35,8 +35,8 @@ struct TokenWidgetTimelineProvider: AppIntentTimelineProvider {
         let selectedSlug = configuration.token.slug
         let token = tokens[selectedSlug] ?? configuration.token
         
-        let currencyRate = DisplayCurrencyAmount.fromDouble((token.priceUsd ?? 0) * (rates[displayCurrency.rawValue]?.value ?? 1), displayCurrency)
-        let changeInCurrency = DisplayCurrencyAmount.fromDouble((token.percentChange24hRounded ?? 0) * 0.01 * currencyRate.doubleValue, displayCurrency)
+        let currencyRate = BaseCurrencyAmount.fromDouble((token.priceUsd ?? 0) * (rates[displayCurrency.rawValue]?.value ?? 1), displayCurrency)
+        let changeInCurrency = BaseCurrencyAmount.fromDouble((token.percentChange24hRounded ?? 0) * 0.01 * currencyRate.doubleValue, displayCurrency)
         
         var image: UIImage?
         do {

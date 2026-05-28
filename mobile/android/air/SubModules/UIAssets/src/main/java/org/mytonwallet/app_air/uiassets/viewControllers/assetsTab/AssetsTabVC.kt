@@ -16,7 +16,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
@@ -25,7 +24,7 @@ import java.util.concurrent.Executors
 @SuppressLint("ViewConstructor")
 class AssetsTabVC(
     context: Context,
-    val screenMode: MScreenMode,
+    val showingAccountId: String,
     defaultSelectedIdentifier: String?
 ) :
     WViewController(context),
@@ -58,13 +57,13 @@ class AssetsTabVC(
     override val isSwipeBackAllowed = false
 
     private val tokensVC: TokensVC by lazy {
-        TokensVC(context, screenMode, TokensVC.Mode.ALL)
+        TokensVC(context, showingAccountId, TokensVC.Mode.ALL)
     }
 
     private val collectiblesVC: AssetsVC by lazy {
         AssetsVC(
             context,
-            screenMode,
+            showingAccountId,
             AssetsVC.Mode.COMPLETE,
             injectedWindow = window,
             isShowingSingleCollection = false
@@ -95,7 +94,7 @@ class AssetsTabVC(
                         onMenuPressed = if (showCollectionsMenu) {
                             { v ->
                                 CollectionsMenuHelpers.presentCollectionsMenuOn(
-                                    screenMode,
+                                    showingAccountId,
                                     v,
                                     navigationController!!,
                                     null
@@ -121,7 +120,7 @@ class AssetsTabVC(
                                 identifier = TAB_COLLECTIBLES,
                                 onMenuPressed = if (showCollectionsMenu) { v ->
                                     CollectionsMenuHelpers.presentCollectionsMenuOn(
-                                        screenMode,
+                                        showingAccountId,
                                         v,
                                         navigationController!!,
                                         null
@@ -140,7 +139,7 @@ class AssetsTabVC(
                             if (collectionMode != null) {
                                 val vc = AssetsVC(
                                     context,
-                                    screenMode,
+                                    showingAccountId,
                                     AssetsVC.Mode.COMPLETE,
                                     injectedWindow = window,
                                     collectionMode = collectionMode,
@@ -233,7 +232,7 @@ class AssetsTabVC(
                 onMenuPressed = if (showCollectionsMenu) {
                     { v ->
                         CollectionsMenuHelpers.presentCollectionsMenuOn(
-                            screenMode,
+                            showingAccountId,
                             v,
                             navigationController!!,
                             onReorderTapped = null

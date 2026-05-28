@@ -43,13 +43,3 @@ public struct ApiSubmitNftTransfersResult: Decodable, Sendable {
     public var activityIds: [String]?
     public var error: String?
 }
-
-public struct TonTransferParams: Equatable, Hashable, Codable, Sendable {
-    public var toAddress: String
-    public var amount: BigInt
-    public var isBase64Payload: Bool?
-    // Not implemented:
-    //    public var payload: AnyPayload?
-    //    public var stateInit: Cell?
-    //    public var hints: TonTransferHints?
-}

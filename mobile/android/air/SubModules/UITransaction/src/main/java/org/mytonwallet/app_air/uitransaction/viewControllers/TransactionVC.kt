@@ -311,12 +311,16 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                 nftHeaderView = NftHeaderView(WeakReference(this), transaction)
                 v.addView(nftHeaderView)
             } else {
-                transactionHeaderView = TransactionHeaderView(WeakReference(this), transaction)
+                transactionHeaderView = TransactionHeaderView(WeakReference(this), transaction) { slug ->
+                    navigateToToken(slug)
+                }
                 v.addView(transactionHeaderView)
             }
         }
         if (transaction is MApiTransaction.Swap) {
-            swapHeaderView = SwapHeaderView(context, transaction)
+            swapHeaderView = SwapHeaderView(context, transaction) { slug ->
+                navigateToToken(slug)
+            }
             v.addView(swapHeaderView)
         }
         if (transaction is MApiTransaction.Transaction && transaction.hasComment) {
@@ -450,6 +454,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                             setValueView(WLabel(context).apply {
                                 setStyle(16f)
                                 setTextColor(WColor.Tint)
+                                isTinted = true
                                 setOnClickListener {
                                     WalletCore.notifyEvent(
                                         WalletEvent.OpenUrl(
@@ -1092,6 +1097,12 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                 LocaleController.getString("Share")
             )
         )
+    }
+
+    private fun navigateToToken(slug: String) {
+        window?.dismissLastNav {
+            WalletCore.notifyEvent(WalletEvent.OpenToken(slug))
+        }
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {

@@ -53,6 +53,7 @@ import UpdateAvailable from '../ui/UpdateAvailable';
 import VestingModal from '../vesting/VestingModal';
 import VestingPasswordModal from '../vesting/VestingPasswordModal';
 import AccountSelectorModal from './modals/accountSelector/AccountSelectorModal';
+import PromotionModal from './modals/PromotionModal';
 import { LandscapeActions, PortraitActions } from './sections/Actions';
 import Card from './sections/Card';
 import Content from './sections/Content';
@@ -302,6 +303,7 @@ function Main({
       <VestingPasswordModal />
       <RenewDomainModal />
       <LinkingDomainModal />
+      <PromotionModal />
       {!IS_ELECTRON && !IS_DELEGATED_BOTTOM_SHEET && <UpdateAvailable />}
       {!IS_CORE_WALLET && <AccountSelectorModal />}
     </>

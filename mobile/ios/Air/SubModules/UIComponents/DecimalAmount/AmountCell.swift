@@ -10,7 +10,7 @@ public struct AmountCell: View {
     var token: ApiToken
     var format: DecimalAmountFormatStyle<ApiToken>
     
-    public init(amount: BigInt, token: ApiToken, format: DecimalAmountFormatStyle<ApiToken> = .init(showMinus: true)) {
+    public init(amount: BigInt, token: ApiToken, format: DecimalAmountFormatStyle<ApiToken> = .init()) {
         self.amount = amount
         self.token = token
         self.format = format

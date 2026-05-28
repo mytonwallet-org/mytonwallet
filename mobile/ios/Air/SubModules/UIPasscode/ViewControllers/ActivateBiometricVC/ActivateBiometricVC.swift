@@ -7,7 +7,6 @@
 
 import UIKit
 import UIComponents
-import WalletCore
 import WalletContext
 import LocalAuthentication
 
@@ -95,7 +94,6 @@ public class ActivateBiometricVC: WViewController {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    let _ = UIFont.registerAirFonts()
     UINavigationController(rootViewController: ActivateBiometricVC(onCompletion: { _, _ in }, selectedPasscode: ""))
 }
 #endif

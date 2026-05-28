@@ -1,5 +1,5 @@
 import Foundation
-import SwiftSignalKit
+import Dispatch
 
 enum AnimationRendererFrameType {
     case argb
@@ -7,5 +7,5 @@ enum AnimationRendererFrameType {
 }
 
 protocol AnimationRenderer {
-    func render(queue: Queue, width: Int, height: Int, bytesPerRow: Int, data: Data, type: AnimationRendererFrameType, completion: @escaping () -> Void)
+    func render(queue: DispatchQueue, width: Int, height: Int, bytesPerRow: Int, data: Data, type: AnimationRendererFrameType, completion: @escaping () -> Void)
 }

@@ -289,6 +289,7 @@ class AddressInputLayout(
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         qrScanImageViewRipple.rippleColor = WColor.TintRipple.color
         pasteTextViewRipple.rippleColor = WColor.TintRipple.color

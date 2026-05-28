@@ -1,6 +1,5 @@
 
 import UIKit
-import WalletCore
 import WalletContext
 import UIComponents
 

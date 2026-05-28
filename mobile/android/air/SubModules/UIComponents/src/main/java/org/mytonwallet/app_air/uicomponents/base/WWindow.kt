@@ -165,6 +165,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     override fun onStop() {
         super.onStop()
         stopScreenRecordListener()
+        Logger.forceSynchronize()
     }
 
     public override fun onPause() {
@@ -188,14 +189,20 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         }
     }
 
+    private var _isDarkThemeApplied: Boolean? = null
     override fun updateTheme() {
+        navigationControllers.forEach {
+            it.updateTheme()
+        }
+
+        val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
+        if (!darkModeChanged)
+            return
+        _isDarkThemeApplied = ThemeManager.isDark
         forceStatusBarLight = null
         forceBottomBarLight = null
         updateStatusBarColors()
         updateBottomBarColors()
-        navigationControllers.forEach {
-            it.updateTheme()
-        }
     }
 
     override fun attachBaseContext(newBase: Context?) {

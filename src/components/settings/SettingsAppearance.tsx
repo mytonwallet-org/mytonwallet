@@ -50,6 +50,7 @@ interface OwnProps {
 interface StateProps {
   cardBackgroundNft?: ApiNft;
   isNftBuyingDisabled: boolean;
+  isSeasonalThemingDisabled?: boolean;
 }
 
 const SWITCH_THEME_DURATION_MS = 300;
@@ -76,6 +77,7 @@ function SettingsAppearance({
   isInsideModal,
   isTrayIconEnabled,
   isNftBuyingDisabled,
+  isSeasonalThemingDisabled,
   onTrayIconEnabledToggle,
   handleBackClick,
 }: OwnProps & StateProps) {
@@ -83,6 +85,7 @@ function SettingsAppearance({
     setTheme,
     setAnimationLevel,
     openCustomizeWalletModal,
+    toggleSeasonalTheming,
   } = getActions();
 
   const lang = useLang();
@@ -119,6 +122,10 @@ function SettingsAppearance({
     const level = animationLevel === ANIMATION_LEVEL_MIN ? ANIMATION_LEVEL_MAX : ANIMATION_LEVEL_MIN;
     setAnimationLevel({ level });
     switchAnimationLevel(level);
+  });
+
+  const handleSeasonalThemingToggle = useLastCallback(() => {
+    toggleSeasonalTheming({ isEnabled: isSeasonalThemingDisabled });
   });
 
   const handleCustomizeWalletClick = useLastCallback(() => {
@@ -240,6 +247,15 @@ function SettingsAppearance({
               checked={animationLevel !== ANIMATION_LEVEL_MIN}
             />
           </div>
+          <div className={buildClassName(styles.item, styles.item_small)} onClick={handleSeasonalThemingToggle}>
+            {lang('Enable Seasonal Theming')}
+
+            <Switcher
+              className={styles.menuSwitcher}
+              label={lang('Enable Seasonal Theming')}
+              checked={!isSeasonalThemingDisabled}
+            />
+          </div>
           {IS_ELECTRON && IS_WINDOWS && (
             <div className={buildClassName(styles.item, styles.item_small)} onClick={onTrayIconEnabledToggle}>
               {lang('Display Tray Icon')}
@@ -263,5 +279,6 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   return {
     cardBackgroundNft: accountSettings?.cardBackgroundNft,
     isNftBuyingDisabled: global.restrictions.isNftBuyingDisabled,
+    isSeasonalThemingDisabled: global.settings.isSeasonalThemingDisabled,
   };
 })(SettingsAppearance));

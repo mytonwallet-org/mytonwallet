@@ -69,7 +69,6 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -79,14 +78,14 @@ import kotlin.math.max
 
 class NftVC(
     context: Context,
-    val screenMode: MScreenMode,
+    val showingAccountId: String,
     var nft: ApiNft,
     val collectionNFTs: List<ApiNft>
 ) : WViewController(context), NftHeaderView.Delegate {
     override val TAG = "Nft"
 
     override val displayedAccount =
-        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+        DisplayedAccount(showingAccountId, AccountStore.isPushedTemporary)
 
     override val shouldDisplayBottomBar = true
     override val isSwipeBackAllowed: Boolean
@@ -141,6 +140,7 @@ class NftVC(
         WLabel(context).apply {
             setStyle(16f, WFont.Medium)
             setTextColor(WColor.Tint)
+            isTinted = true
             text = LocaleController.getString("Description")
         }
     }
@@ -171,6 +171,7 @@ class NftVC(
         WLabel(context).apply {
             setStyle(16f, WFont.Medium)
             setTextColor(WColor.Tint)
+            isTinted = true
             text = LocaleController.getString("Attributes")
         }
     }
@@ -179,6 +180,7 @@ class NftVC(
         WLabel(context).apply {
             setStyle(15f, WFont.Medium)
             setTextColor(WColor.Tint)
+            isTinted = true
         }
     }
     private var arrowDrawable: RotatableDrawable? = null
@@ -367,13 +369,13 @@ class NftVC(
 
     private val touchHandler by lazy {
         DirectionalTouchHandler(
-            recyclerView,
-            headerView.avatarCoverFlowView,
-            listOf(headerView.avatarImageView),
-            listOf(headerView.avatarCoverFlowView)
-        ) {
-            !nft.description.isNullOrEmpty() || !nft.metadata?.attributes.isNullOrEmpty()
-        }
+            verticalView = recyclerView,
+            horizontalView = headerView.avatarCoverFlowView,
+            interceptedViews = listOf(headerView.avatarImageView),
+            interceptedByVerticalScrollViews = listOf(headerView.avatarCoverFlowView),
+            isDirectionalScrollAllowed = { isVertical, _ ->
+                !isVertical || (!nft.description.isNullOrEmpty() || !nft.metadata?.attributes.isNullOrEmpty())
+            })
     }
 
     private var shouldLimitFling = false
@@ -614,6 +616,7 @@ class NftVC(
             )
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         super.updateTheme()
 
@@ -844,7 +847,7 @@ class NftVC(
             push(
                 AssetsVC(
                     context,
-                    screenMode,
+                    showingAccountId,
                     AssetsVC.Mode.COMPLETE,
                     collectionMode = AssetsVC.CollectionMode.SingleCollection(
                         NftCollection(collectionAddress, nft.collectionName ?: "")
@@ -1055,13 +1058,13 @@ class NftVC(
                 ) {
                     if (nft.isInstalledMtwCard) {
                         WGlobalStorage.setCardBackgroundNft(
-                            AccountStore.activeAccountId!!,
+                            showingAccountId,
                             null
                         )
                         resetPalette()
                     } else {
                         WGlobalStorage.setCardBackgroundNft(
-                            AccountStore.activeAccountId!!,
+                            showingAccountId,
                             nft.toDictionary()
                         )
                         if (!nft.isInstalledMtwCardPalette) {
@@ -1110,7 +1113,7 @@ class NftVC(
             isInstallingPaletteColor = false
             if (colorIndex != null) {
                 WGlobalStorage.setNftAccentColor(
-                    AccountStore.activeAccountId!!,
+                    showingAccountId,
                     colorIndex,
                     nft.toDictionary()
                 )
@@ -1121,7 +1124,7 @@ class NftVC(
 
     private fun resetPalette() {
         WGlobalStorage.setNftAccentColor(
-            AccountStore.activeAccountId!!,
+            showingAccountId,
             null,
             null
         )

@@ -126,11 +126,6 @@ public class RangeChartView: UIControl, WThemedView, UIGestureRecognizerDelegate
         super.init(coder: aDecoder)
     }
     
-    public func setRangePaging(enabled: Bool, minimumSize: CGFloat) {
-        isRangePagingEnabled = enabled
-        minimumRangeDistance = minimumSize
-    }
-    
     public func setRange(_ range: ClosedRange<CGFloat>, animated: Bool) {
         let closure = {
             self.lowerBound = range.lowerBound
@@ -244,10 +239,6 @@ private extension RangeChartView {
     
     func locationInView(for fraction: CGFloat) -> CGFloat {
         return contentFrame.minX + contentFrame.width * fraction
-    }
-    
-    func locationInView(for fraction: Double) -> CGFloat {
-        return locationInView(for: CGFloat(fraction))
     }
     
     func fractionFor(offsetX: CGFloat) -> CGFloat {

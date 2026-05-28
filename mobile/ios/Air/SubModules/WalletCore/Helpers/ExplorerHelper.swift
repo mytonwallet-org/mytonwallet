@@ -9,28 +9,22 @@ public final class ExplorerHelper {
     
     
     public static func addressUrl(chain: ApiChain, address: String) -> URL {
-        let isMainnet = AccountStore.activeNetwork == .mainnet
-        let str: String
-        switch chain {
-        case .ton:
-            let domain = isMainnet ? "tonscan.org" : "testnet.tonscan.org"
-            str = "https://\(domain)/address/\(address)"
-        case .tron:
-            str = "\(isMainnet ? "https://tronscan.org/#/address/" : "https://shasta.tronscan.org/#/address/")\(address)"
-        }
+        let network = AccountStore.activeNetwork
+        let str = chain.explorer.address
+            .replacing("{base}", with: chain.explorer.baseUrl[network]!)
+            .replacing("{address}", with: address)
         return URL(string: str)!
     }
     
     public static func txUrl(chain: ApiChain, txHash: String) -> URL {
-        let isMainnet = AccountStore.activeNetwork == .mainnet
-        let str: String
-        switch chain {
-        case .ton:
-            let domain = isMainnet ? "tonscan.org" : "testnet.tonscan.org"
-            str = "https://\(domain)/tx/\(txHash.base64ToHex ?? "")"
-        case .tron:
-            str = "\(isMainnet ? "https://tronscan.org/#/transaction/" : "https://shasta.tronscan.org/#/transaction/")\(txHash)"
+        let network = AccountStore.activeNetwork
+        var txHash = txHash
+        if chain.explorer.doConvertHashFromBase64 {
+            txHash = txHash.base64ToHex
         }
+        let str = chain.explorer.transaction
+            .replacing("{base}", with: chain.explorer.baseUrl[network]!)
+            .replacing("{hash}", with: txHash)
         return URL(string: str)!
     }
 
@@ -53,21 +47,16 @@ public final class ExplorerHelper {
         return nil
     }
     
-    public static func explorerUrlForToken(_ token: ApiToken) -> URL {
-        if token.tokenAddress?.isEmpty ?? true {
-            return URL(string: "https://coinmarketcap.com/currencies/\(token.cmcSlug!)/")!
+    public static func tokenUrl(token: ApiToken) -> URL {
+        guard let tokenAddress = token.tokenAddress?.nilIfEmpty else {
+            return URL(string: "https://coinmarketcap.com/currencies/\(token.cmcSlug ?? "")/")!
         }
-
-        let isMainnet = AccountStore.activeNetwork == .mainnet
-        let chain = ApiChain(rawValue: token.chain) ?? ApiChain.ton
-        switch chain {
-        case .ton:
-            let domain = isMainnet ? "https://tonscan.org" : "https://testnet.tonscan.org"
-            return URL(string: "\(domain)/jetton/\(token.tokenAddress ?? "")")!
-        case .tron:
-            let domain = isMainnet ? "https://tronscan.org/#" : "https://shasta.tronscan.org/#"
-            return URL(string: "\(domain)/token20/\(token.tokenAddress ?? "")")!
-        }
+        let network = AccountStore.activeNetwork
+        let chain = token.chainValue
+        let str = chain.explorer.token
+            .replacing("{base}", with: chain.explorer.baseUrl[network]!)
+            .replacing("{address}", with: tokenAddress)
+        return URL(string: str)!
     }
     
     public struct Website {

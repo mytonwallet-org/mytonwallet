@@ -71,7 +71,7 @@ private let log = Log("LedgerAddAccountModel")
     func _discoverAccountsImpl() async throws {
         
         currentWalletAddresses = Set(
-            AccountStore.accountsById.values.filter(\.isHardware).compactMap(\.tonAddress)
+            AccountStore.accountsById.values.filter(\.isHardware).compactMap { $0.addressByChain[TON_CHAIN] }
         )
         await requestMoreWallets() // request first batch before pushing
     }
@@ -95,7 +95,7 @@ private let log = Log("LedgerAddAccountModel")
 
         let newWallets: [DiscoveredWallet] = newWallets.enumerated().map { (idx, walletInfo) in
             let alreadyImported = currentWalletAddresses.contains(walletInfo.wallet.address)
-            let title = AccountStore.accountsById.values.first(where: { $0.tonAddress == walletInfo.wallet.address })?.title
+            let title = AccountStore.accountsById.values.first(where: { $0.addressByChain[TON_CHAIN] == walletInfo.wallet.address })?.title
             return DiscoveredWallet(
                 id: startIndex + walletInfo.wallet.index,
                 displayName: title,

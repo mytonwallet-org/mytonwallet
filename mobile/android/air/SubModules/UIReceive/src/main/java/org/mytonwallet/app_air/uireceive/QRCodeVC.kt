@@ -39,6 +39,9 @@ class QRCodeVC(
 ) : WViewController(context) {
     override val TAG = "QRCode"
 
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+
     override val shouldDisplayTopBar = false
 
     private val tonIcon = MBlockchain.ton.icon

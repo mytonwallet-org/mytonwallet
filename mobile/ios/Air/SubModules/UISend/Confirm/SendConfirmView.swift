@@ -6,83 +6,89 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-
+import Perception
+import Dependencies
 
 struct SendConfirmView: View {
     
-    @ObservedObject var model: SendModel
+    let model: SendModel
     
     var body: some View {
-        InsetList {
-            ToSection()
-            NftSection()
-            AmountSection()
-            CommentSection()
+        WithPerceptionTracking {
+            InsetList {
+                ToSection(model: model)
+                NftSection(model: model)
+                AmountSection(model: model)
+                CommentSection(model: model)
+            }
         }
-        .environmentObject(model)
     }
 }
 
 
 fileprivate struct ToSection: View {
-    @EnvironmentObject private var model: SendModel
+    let model: SendModel
     
     var body: some View {
-        InsetSection {
-            AddressCellView()
-        } header: {
-            Text(lang("Recipient Address"))
-        } footer: {}
+        WithPerceptionTracking {
+            InsetSection {
+                AddressCellView(model: model)
+            } header: {
+                Text(lang("Recipient Address"))
+            } footer: {}
+        }
     }
 }
 
 
 fileprivate struct AddressCellView: View {
     
-    @EnvironmentObject private var model: SendModel
+    let model: SendModel
     
     @State private var menuContext = MenuContext()
     
     var body: some View {
-        InsetCell {
-            let more: Text = Text(
-                Image(systemName: "chevron.down")
-            )
-                .font(.system(size: 14))
-                .foregroundColor(Color(WTheme.secondaryLabel))
-            
-            Group {
-                if let resolvedAddress = model.resolvedAddress, resolvedAddress != model.addressOrDomain {
-                    let addr = Text(model.addressOrDomain).foregroundColor(Color(WTheme.primaryLabel))
-                    let resolvedAddress = Text(
-                        formatAddressAttributed(
-                            resolvedAddress,
-                            startEnd: false,
-                            primaryColor: WTheme.secondaryLabel
+        WithPerceptionTracking {
+            InsetCell {
+                let more: Text = Text(
+                    Image(systemName: "chevron.down")
+                )
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(WTheme.secondaryLabel))
+                
+                Group {
+                    if let resolvedAddress = model.resolvedAddress, resolvedAddress != model.addressOrDomain {
+                        let addr = Text(model.addressOrDomain).foregroundColor(Color(WTheme.primaryLabel))
+                        let resolvedAddress = Text(
+                            formatAddressAttributed(
+                                resolvedAddress,
+                                startEnd: false,
+                                primaryColor: WTheme.secondaryLabel
+                            )
                         )
-                    )
-                    
-                    Text("\(addr)\u{A0}·\u{A0}\(resolvedAddress) \(more)") // non-breaking spaces
-                    
-                } else {
-                    let addr = Text(
-                        formatAddressAttributed(
-                            model.addressOrDomain,
-                            startEnd: false
+                        
+                        Text("\(addr)\u{A0}·\u{A0}\(resolvedAddress) \(more)") // non-breaking spaces
+                        
+                    } else {
+                        let addr = Text(
+                            formatAddressAttributed(
+                                model.addressOrDomain,
+                                startEnd: false
+                            )
                         )
-                    )
-                    
-                    Text("\(addr) \(more)")
+                        
+                        Text("\(addr) \(more)")
+                    }
                 }
+                .multilineTextAlignment(.leading)
+                .font16h22()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .multilineTextAlignment(.leading)
-            .font16h22()
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .contentShape(.rect)
-        .menuSource(menuContext: menuContext)
-        .task {
-            menuContext.makeConfig = makeTappableAddressMenu(displayName: nil, chain: model.tokenChain?.rawValue ?? "ton", address: model.resolvedAddress ?? model.addressOrDomain)
+            .contentShape(.rect)
+            .menuSource(menuContext: menuContext)
+            .task {
+                menuContext.makeConfig = makeTappableAddressMenu(displayName: nil, chain: model.token.chain, address: model.resolvedAddress ?? model.addressOrDomain)
+            }
         }
     }
 }
@@ -90,25 +96,27 @@ fileprivate struct AddressCellView: View {
 
 fileprivate struct AmountSection: View {
     
-    @EnvironmentObject private var model: SendModel
+    let model: SendModel
+    
+    @Dependency(\.tokenStore) private var tokenStore
     
     var body: some View {
-        if let amount = model.amount {
-            InsetSection {
-                AmountCell(amount: amount, token: model.token!)
-            } header: {
-                Text(lang("Amount"))
-            } footer: {
-                HStack(alignment: .firstTextBaseline) {
-                    if let amount = model.amountInBaseCurrency {
-                        Text(
-                            amount: DecimalAmount(amount, TokenStore.baseCurrency),
-                            format: .init()
-                        )
-                    }
-                    Spacer()
-                    if let token = model.token, let nativeToken = model.nativeToken {
-                        FeeView(token: token, nativeToken: nativeToken, fee: model.showingFee, explainedTransferFee: nil, includeLabel: true)
+        WithPerceptionTracking {
+            if let amount = model.amount {
+                InsetSection {
+                    AmountCell(amount: amount, token: model.token)
+                } header: {
+                    Text(lang("Amount"))
+                } footer: {
+                    HStack(alignment: .firstTextBaseline) {
+                        if let amount = model.amountInBaseCurrency {
+                            Text(
+                            amount: DecimalAmount(amount, model.baseCurrency),
+                                format: .init()
+                            )
+                        }
+                        Spacer()
+                        FeeView(token: model.token, nativeToken: tokenStore.getNativeToken(chain: model.token.chainValue), fee: model.showingFee, explainedTransferFee: nil, includeLabel: true)
                     }
                 }
             }
@@ -120,13 +128,15 @@ fileprivate struct AmountSection: View {
 
 fileprivate struct CommentSection: View {
     
-    @EnvironmentObject private var model: SendModel
+    let model: SendModel
     
     var body: some View {
-        if model.binaryPayload?.nilIfEmpty != nil {
-            binaryPayloadSection
-        } else {
-            commentSection
+        WithPerceptionTracking {
+            if model.binaryPayload?.nilIfEmpty != nil {
+                binaryPayloadSection
+            } else {
+                commentSection
+            }
         }
     }
     

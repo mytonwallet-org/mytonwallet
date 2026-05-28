@@ -4,11 +4,11 @@
 <dict>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Nunito-ExtraBold.ttf</string>
-		<string>SFCompactDisplayMedium.otf</string>
-		<string>SFCompactRoundedBold.otf</string>
-		<string>SFCompactRoundedMedium.otf</string>
-		<string>SFCompactRoundedSemibold.otf</string>
+		<string>../../Frameworks/WalletContext.framework/Nunito-ExtraBold.ttf</string>
+		<string>../../Frameworks/WalletContext.framework/SFCompactDisplayMedium.otf</string>
+		<string>../../Frameworks/WalletContext.framework/SFCompactRoundedBold.otf</string>
+		<string>../../Frameworks/WalletContext.framework/SFCompactRoundedMedium.otf</string>
+		<string>../../Frameworks/WalletContext.framework/SFCompactRoundedSemibold.otf</string>
 	</array>
 	<key>NSExtension</key>
 	<dict>

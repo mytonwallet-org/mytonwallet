@@ -1,7 +1,6 @@
 
 import UIComponents
 import WalletContext
-import WalletCore
 import UIKit
 import SwiftUI
 
@@ -62,13 +61,7 @@ public final class LedgerAddAccountVC: WViewController {
     }
     
     private func handleOnDone() {
-        if let onDone = self.onDone {
-            onDone(self)
-        } else {
-            Task { @MainActor in
-                topViewController()?.showAlert(title: "Done", text: "Done", button: "OK")
-            }
-        }
+        onDone?(self)
     }
     
     private func handleOnCancel() {

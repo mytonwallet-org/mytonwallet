@@ -181,6 +181,7 @@ class TokenHeaderView(
     }
 
     override fun updateTheme() {
+        balanceContentView.updateTheme()
         updateBackgroundColor()
         balanceContentView.apply {
             typeface = WFont.NunitoExtraBold.typeface
@@ -261,6 +262,7 @@ class TokenHeaderView(
                 token.decimals,
                 token.symbol,
                 prevBalance != null,
+                setInstantly = false,
                 forceCurrencyToRight = true
             )
         )
@@ -272,7 +274,7 @@ class TokenHeaderView(
                 }
             }
         equivalentLabel.contentView.text = balanceInBaseCurrency?.toString(
-            WalletCore.baseCurrency.decimalsCount,
+            9,
             WalletCore.baseCurrency.sign,
             WalletCore.baseCurrency.decimalsCount,
             true

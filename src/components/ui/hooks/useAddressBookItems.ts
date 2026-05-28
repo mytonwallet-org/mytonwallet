@@ -68,7 +68,7 @@ export default function useAddressBookItems({
         if (!account) return;
 
         getOrderedAccountChains(account.byChain).forEach((accountChain) => {
-          const address = account.byChain[accountChain]!.address;
+          const { address, domain } = account.byChain[accountChain]!;
           const key = `${accountChain}:${address}`;
 
           if (
@@ -83,6 +83,7 @@ export default function useAddressBookItems({
               address,
               name: account.title || shortenAddress(address)!,
               chain: isMultichainAccount ? accountChain : undefined,
+              domain,
               isHardware: account.type === 'hardware',
               isSavedAddress: false,
             });

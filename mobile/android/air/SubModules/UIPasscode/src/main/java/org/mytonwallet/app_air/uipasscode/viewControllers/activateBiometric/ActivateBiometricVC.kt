@@ -140,12 +140,12 @@ class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -
             particlesCleaner = greenParticlesView.addParticleSystem(particleParams)
             greenParticlesView.isGone = false
         }
-        greenParticlesView.fadeIn { }
+        greenParticlesView.fadeIn()
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
-        greenParticlesView.fadeOut { }
+        greenParticlesView.fadeOut()
     }
 
     override fun onDestroy() {

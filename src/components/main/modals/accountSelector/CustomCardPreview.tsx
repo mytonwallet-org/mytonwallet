@@ -21,7 +21,7 @@ interface OwnProps {
 }
 
 function CustomCardPreview({ nft, className }: OwnProps) {
-  const imageUrl = nft ? getCardNftImageUrl(nft, true) : cardDefaultImg;
+  const imageUrl = nft ? getCardNftImageUrl(nft) : cardDefaultImg;
   const skeletonUrl = getSkeletonUrl(nft);
 
   const [isImageLoaded, markImageLoaded] = useFlag(false);

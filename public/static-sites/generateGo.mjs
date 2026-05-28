@@ -15,6 +15,8 @@ const REDIRECTS = [
   ['/get/*', 'https://mytonwallet.app/get/:splat', '302'],
 ];
 
+fs.mkdirSync(path.join(__dirname, 'go', 'generated'), { recursive: true });
+
 for (const [key, actionData] of Object.entries(goData)) {
   const template = templateContent
     .replaceAll('!{{TITLE}}', actionData.title)
@@ -22,6 +24,7 @@ for (const [key, actionData] of Object.entries(goData)) {
     .replaceAll('!{{ICON}}', actionData.icon);
   
   REDIRECTS.push([`/${key}`, `/generated/${key}.html`, '200']);
+  REDIRECTS.push([`/${key}/*`, `/generated/${key}.html`, '200']);
 
   fs.writeFileSync(path.join(__dirname, 'go', 'generated', `${key}.html`), template);
 }

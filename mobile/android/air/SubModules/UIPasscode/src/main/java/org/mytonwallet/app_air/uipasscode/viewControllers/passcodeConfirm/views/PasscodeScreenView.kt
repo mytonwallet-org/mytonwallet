@@ -14,6 +14,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.constraintlayout.widget.ConstraintSet
+import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat
 import androidx.core.view.children
 import androidx.fragment.app.FragmentActivity
@@ -347,6 +348,14 @@ class PasscodeScreenView(
                     titleTextView.alpha = alpha
                     subTitleTextView.alpha = alpha
                 }
+            }
+            doOnEnd {
+                passcodeInputView.scaleX = 1f
+                passcodeInputView.scaleY = 1f
+                titleTextView.translationX = 0f
+                subTitleTextView.translationX = 0f
+                titleTextView.alpha = 1f
+                subTitleTextView.alpha = 1f
             }
 
             start()

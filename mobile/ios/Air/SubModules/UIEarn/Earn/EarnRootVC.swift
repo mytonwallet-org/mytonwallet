@@ -136,15 +136,6 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
     public override func scrollToTop(animated: Bool) {
         segmentedController?.scrollToTop(animated: animated)
     }
-    
-    public func segmentedController(scrollOffsetChangedTo progress: CGFloat) {
-    }
-    
-    public func segmentedControllerDidStartDragging() {
-    }
-    
-    public func segmentedControllerDidEndScrolling() {
-    }
 }
 
 extension EarnRootVC: WalletCoreData.EventsObserver {

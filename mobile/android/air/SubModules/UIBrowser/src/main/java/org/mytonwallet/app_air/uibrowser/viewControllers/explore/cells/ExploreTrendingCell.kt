@@ -42,7 +42,7 @@ class ExploreTrendingCell(
         horizontalScrollView.addView(container)
         addView(horizontalScrollView)
         setConstraints {
-            toTop(horizontalScrollView, 3f)
+            toTop(horizontalScrollView, 0f)
             toBottom(horizontalScrollView)
             toCenterX(horizontalScrollView)
         }

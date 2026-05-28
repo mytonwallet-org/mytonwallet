@@ -38,28 +38,6 @@ public extension UIViewController {
         return alert
     }
     
-    // show attributed string alert view error message
-    @MainActor func showAlert(title: String?, textAttr: NSAttributedString,
-                   button: String, buttonPressed: (() -> ())? = nil, buttonStyle: UIAlertAction.Style = .default,
-                   secondaryButton: String? = nil, secondaryButtonPressed: (() -> ())? = nil,
-                   preferPrimary: Bool = true) {
-        if self is UIAlertController || self.presentedViewController is UIAlertController || topViewController() is UIAlertController {
-            return
-        }
-        let alert = alert(
-            title: title,
-            text: " ",
-            button: button,
-            buttonStyle: buttonStyle,
-            buttonPressed: buttonPressed,
-            secondaryButton: secondaryButton,
-            secondaryButtonPressed: secondaryButtonPressed,
-            preferPrimary: preferPrimary
-        )
-        alert.setValue(textAttr, forKey: "attributedMessage")
-        present(alert, animated: true, completion: nil)
-    }
-    
     // show alert view error message
     @MainActor func showAlert(title: String?, text: String,
                    button: String, buttonStyle: UIAlertAction.Style = .default, buttonPressed: (() -> ())? = nil,

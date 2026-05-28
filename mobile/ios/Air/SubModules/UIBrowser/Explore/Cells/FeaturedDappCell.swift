@@ -32,15 +32,32 @@ struct FeaturedDappCell: View {
                     .zIndex(-1)
             }
         }
-        .frame(height: 220, alignment: .top)
+        .frame(height: 190, alignment: .top)
         .overlay(alignment: .bottom) {
             overlayContent
         }
-//        .border(Color.red, width: 4)
         .contentShape(.containerRelative)
         .highlightOverlay(isHighlighted)
         .clipShape(.containerRelative)
         .containerShape(.rect(cornerRadius: S.featuredDappCornerRadius))
+        .overlay {
+            if item.withBorder == true {
+                RoundedRectangle(cornerRadius: S.featuredDappCornerRadius)
+                    .stroke(Color(WTheme.tint), lineWidth: 2)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if let badgeText = item.badgeText, !badgeText.isEmpty {
+                Text(badgeText)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Color(WTheme.tint), in: .rect(cornerRadius: 6))
+                    .padding(.top, -6)
+                    .padding(.trailing, 20)
+            }
+        }
     }
     
     @ViewBuilder
@@ -87,58 +104,16 @@ struct FeaturedDappCell: View {
                         .foregroundStyle(.white)
                         .lineLimit(2)
                     Text(item.description)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 13, weight: .regular))
                         .foregroundStyle(Material.thin)
                         .lineLimit(2)
                 }
-                .padding(.trailing, 8)
-                
-                Spacer(minLength: 0)
-                
-                Button(action: openAction) {
-                    Text(lang("Open"))
-                }
-                .buttonStyle(OpenButtonStyle())
             }
                 
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .background {
-            Rectangle()
-                .fill(Material.thin)
-                .environment(\.colorScheme, .dark)
-        }
-    }
-}
-
-fileprivate struct OpenButtonStyle: PrimitiveButtonStyle {
-    @State private var isHighlighted: Bool = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 16, weight: .bold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .opacity(isHighlighted ? 0.5 : 1)
-            .foregroundStyle(Color(WTheme.tint))
-            .background(.white.opacity(0.5).blendMode(.overlay), in: .containerRelative)
-            .contentShape(.containerRelative.inset(by: -10))
-            .onTapGesture {
-                configuration.trigger()
-            }
-            .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
-                withAnimation(.spring(duration: 0.1)) {
-                    isHighlighted = true
-                }
-            }.onEnded { _ in
-                withAnimation(.spring(duration: 0.5)) {
-                    isHighlighted = false
-                }
-            })
-            .containerShape(.capsule)
     }
 }
 

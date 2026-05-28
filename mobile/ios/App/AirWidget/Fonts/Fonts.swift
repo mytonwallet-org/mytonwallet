@@ -16,7 +16,4 @@ extension Font {
     static func compactRoundedSemibold(size: CGFloat) -> Font {
         .custom("SFCompactRounded-Semibold", size: size)
     }
-    static func compactRoundedBold(size: CGFloat) -> Font {
-        .custom("SFCompactRounded-Bold", size: size)
-    }
 }

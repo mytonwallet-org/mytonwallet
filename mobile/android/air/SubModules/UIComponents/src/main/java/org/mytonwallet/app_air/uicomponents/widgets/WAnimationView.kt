@@ -32,12 +32,13 @@ class WAnimationView(context: Context) : LottieAnimationView(context) {
         }
     }
 
-    fun playFromUrl(url: String, repeat: Boolean = true, onStart: () -> Unit) {
+    fun playFromUrl(url: String, repeat: Boolean = true, play: Boolean, onStart: () -> Unit) {
         try {
             setAnimatorListener(onStart)
             if (repeat) repeatCount = LottieDrawable.INFINITE
             setAnimationFromUrl(url)
-            playAnimation()
+            if (play)
+                playAnimation()
         } catch (_: Exception) {
             visibility = GONE
         }

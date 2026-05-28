@@ -1,8 +1,5 @@
 
 import UIKit
-import WalletCore
-import WalletContext
-
 
 public final class ActivitiesTableView: UITableView, UIGestureRecognizerDelegate {
 
@@ -23,10 +20,6 @@ public final class ActivitiesTableView: UITableView, UIGestureRecognizerDelegate
         return hitView
     }
 
-    @objc func _parentScrollView() -> UIScrollView? {
-        return nil
-    }
-    
     public override func endUpdates() {
         super.endUpdates()
     }

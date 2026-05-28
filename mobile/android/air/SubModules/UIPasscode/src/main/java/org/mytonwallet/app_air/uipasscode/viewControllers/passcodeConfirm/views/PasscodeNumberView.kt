@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.Drawable
+import androidx.core.animation.doOnCancel
+import androidx.core.animation.doOnEnd
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -12,7 +14,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOutObjectAnimator
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -130,12 +132,18 @@ class PasscodeNumberView(
         isEnabled = customDrawable != null
         if (customDrawable == null) {
             if (isVisible && animated) {
-                imageView.fadeOut {
-                    if (customDrawable == null) {
+                imageView.fadeOutObjectAnimator()?.apply {
+                    fun cleanup() {
+                        if (customDrawable != null) return
                         imageView.setImageDrawable(null)
-                        visibility = INVISIBLE
+                        imageView.visibility = INVISIBLE
                         imageView.alpha = 1f
                     }
+
+                    doOnCancel { cleanup() }
+                    doOnEnd { cleanup() }
+
+                    start()
                 }
             } else {
                 visibility = INVISIBLE

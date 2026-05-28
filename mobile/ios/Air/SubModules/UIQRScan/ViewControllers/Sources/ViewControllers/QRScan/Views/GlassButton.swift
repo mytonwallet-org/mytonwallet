@@ -1,7 +1,6 @@
 import Foundation
 import UIKit
 import UIComponents
-import SwiftSignalKit
 
 private let largeButtonSize = CGSize(width: 72.0, height: 72.0)
 

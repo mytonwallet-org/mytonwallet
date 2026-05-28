@@ -52,20 +52,26 @@ function Site({
     : undefined;
 
   return (
-    <div className={styles.itemWrapper} style={borderStyle}>
+    <div
+      className={buildClassName(
+        styles.itemWrapper,
+        className,
+        isInList && styles.itemWrapperInList,
+      )}
+      style={borderStyle}
+      tabIndex={isSelected ? 0 : -1}
+      role={role || 'button'}
+      aria-selected={isSelected}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+    >
       <div
         className={buildClassName(
           styles.item,
           (extendedIcon && isFeatured) && styles.extended,
           isFeatured && styles.featured,
           !isInList && withBorder && styles.withBorder,
-          className,
         )}
-        tabIndex={isSelected ? 0 : -1}
-        role={role || 'button'}
-        aria-selected={isSelected}
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
       >
         <Image
           url={extendedIcon && isFeatured ? extendedIcon : icon}

@@ -21,13 +21,20 @@ interface OwnProps {
   tokenOut?: UserSwapToken | ApiSwapAsset;
   amountOut?: string;
   isError?: boolean;
+  onTokenClick?: (slug: string) => void;
 }
 
 function SwapTokensInfo({
-  isSensitiveDataHidden, tokenIn, amountIn, tokenOut, amountOut, isError = false,
+  isSensitiveDataHidden, tokenIn, amountIn, tokenOut, amountOut, isError = false, onTokenClick,
 }: OwnProps) {
   const amountInCols = useMemo(() => getPseudoRandomNumber(5, 13, amountIn ?? ''), [amountIn]);
   const amountOutCols = useMemo(() => getPseudoRandomNumber(5, 13, amountOut ?? ''), [amountOut]);
+
+  function handleTokenClick(token?: UserSwapToken | ApiSwapAsset) {
+    if (onTokenClick && token?.slug) {
+      onTokenClick(token.slug);
+    }
+  }
 
   function renderTokenInfo(
     amountCols: number,
@@ -37,9 +44,18 @@ function SwapTokensInfo({
   ) {
     const amountWithSign = isReceived ? amount : `-${amount}`;
     const withLabel = Boolean(token && token.label);
+    const isClickable = Boolean(onTokenClick && token?.slug);
 
     return (
-      <div className={buildClassName(styles.infoRow, !token && styles.noIcon, isReceived && styles.noCurrency)}>
+      <div
+        className={buildClassName(
+          styles.infoRow,
+          !token && styles.noIcon,
+          isReceived && styles.noCurrency,
+          isClickable && styles.clickable,
+        )}
+        onClick={isClickable ? () => handleTokenClick(token) : undefined}
+      >
         {Boolean(token) && (
           <TokenIcon
             token={token}

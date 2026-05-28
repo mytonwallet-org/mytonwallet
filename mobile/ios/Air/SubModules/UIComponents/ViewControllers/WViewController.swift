@@ -320,7 +320,7 @@ open class WViewController: UIViewController, WThemedView {
     var toastView: UIView? = nil
     private var toastHider: DispatchWorkItem?
     private var toastAction: (() -> ())?
-    public func showToast(animationName: String? = nil, message: String, duration: Double? = 3, tapAction: (() -> ())? = nil) {
+    public func showToast(animationName: String? = nil, message: String, duration: Double, tapAction: (() -> ())? = nil) {
         hideToastView()
         toastView = UIView()
         let blurView = WBlurView.attach(to: toastView!, background: .black.withAlphaComponent(0.75))
@@ -383,13 +383,12 @@ open class WViewController: UIViewController, WThemedView {
             self.view.layoutIfNeeded()
         }
         toastHider?.cancel()
-        toastHider = DispatchWorkItem { [weak self] in
+        let toastHider = DispatchWorkItem { [weak self] in
             guard let self else {return}
             hideToastView()
         }
-        if let duration {
-            DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: toastHider!)
-        }
+        self.toastHider = toastHider
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: toastHider)
     }
     
     private func hideToastView() {

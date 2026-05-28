@@ -103,8 +103,6 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
         return expandableNavigationView
     }()
 
-    private var tokenHeaderCell: TokenHeaderCell? = nil
-
     public override func loadView() {
         super.loadView()
         setupViews()
@@ -235,7 +233,7 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
         let token = self.token
 
         let openInExplorer = UIAction(title: lang("Open in Explorer"), image: UIImage(named: "SendGlobe", in: AirBundle, with: nil)) { _ in
-            openUrl(ExplorerHelper.explorerUrlForToken(token))
+            openUrl(ExplorerHelper.tokenUrl(token: token))
         }
         let explorerSection = UIMenu(options: .displayInline, children: [openInExplorer])
 
@@ -270,8 +268,6 @@ extension TokenVC: TokenVMDelegate {
             self.tokenVM = TokenVM(accountId: newAccountId, selectedToken: token, tokenVMDelegate: self)
             self.tokenVM.refreshTransactions()
         }
-    }
-    func cacheNotFound() {
     }
 }
 

@@ -94,11 +94,12 @@ class TokenCell: UITableViewCell, WThemedView {
         iconView.config(with: token, isStaking: false, isWalletView: false, shouldShowChain: AccountStore.account?.isMultichain == true || token?.chain != "ton")
         nameLabel.text = token?.name
         if isAvailable {
-            amountLabel.text = formatBigIntText(walletToken.balance,
-                                                 currency: token?.symbol,
-                                                 tokenDecimals: token?.decimals ?? 9,
-                                                 decimalsCount: token?.decimals,
-                                                 forceCurrencyToRight: true)
+            if let token {
+                let amount = TokenAmount(walletToken.balance, token)
+                amountLabel.text = amount.formatted(
+                    maxDecimals: token.decimals,
+                )
+            }
         } else {
             amountLabel.text = lang("Unavailable")
         }

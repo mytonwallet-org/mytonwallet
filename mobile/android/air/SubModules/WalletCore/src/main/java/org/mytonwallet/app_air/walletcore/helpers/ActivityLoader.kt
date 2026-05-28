@@ -232,7 +232,9 @@ class ActivityLoader(
                 currentAllTransactions.removeAll {
                     pendingIds.contains(it.id)
                 }
-                currentAllTransactions.addAll(pendingTransactions)
+                currentAllTransactions.addAll(pendingTransactions.filter {
+                    ActivityHelpers.activityBelongsToSlug(it, selectedSlug)
+                })
             }
 
             allTransactions = currentAllTransactions.sortedWith(::sorter)

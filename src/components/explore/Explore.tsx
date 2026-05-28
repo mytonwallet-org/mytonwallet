@@ -13,12 +13,14 @@ import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { captureControlledSwipe } from '../../util/swipeController';
 import useTelegramMiniAppSwipeToClose from '../../util/telegram/hooks/useTelegramMiniAppSwipeToClose';
 import { IS_ANDROID_APP, IS_IOS_APP, IS_TOUCH_ENV } from '../../util/windowEnvironment';
+import { SEC } from '../../api/constants';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 import {
   filterSites,
   processSites,
 } from './helpers/utils';
 
+import useAutoScroll from '../../hooks/useAutoScroll';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useHorizontalScroll from '../../hooks/useHorizontalScroll';
 import useLang from '../../hooks/useLang';
@@ -55,6 +57,8 @@ const enum SLIDES {
   main,
   category,
 }
+
+const SLIDE_DURATION = 4 * SEC;
 
 function Explore({
   isActive,
@@ -123,6 +127,13 @@ function Explore({
     contentSelector: `.${styles.featuredList}`,
   });
 
+  useAutoScroll({
+    containerRef: featuredContainerRef,
+    itemSelector: `.${styles.featuredItem}`,
+    interval: SLIDE_DURATION,
+    isDisabled: !isActive || featuredSites.length === 0,
+  });
+
   const filteredCategories = useMemo(() => {
     return categories?.filter((category) => allSites[category.id]?.length > 0);
   }, [categories, allSites]);
@@ -136,13 +147,13 @@ function Explore({
 
   function renderFeatured() {
     return (
-      <div ref={featuredContainerRef} className={styles.featuredSection}>
+      <div className={styles.featuredSection}>
         <h2 className={buildClassName(styles.sectionHeader, styles.sectionHeaderFeatured)}>
           {lang(featuredTitle || 'Trending')}
         </h2>
-        <div className={styles.featuredList}>
+        <div className={styles.featuredList} ref={featuredContainerRef}>
           {featuredSites.map((site) => (
-            <Site key={`${site.url}-${site.name}`} site={site} isFeatured />
+            <Site key={`${site.url}-${site.name}`} site={site} isFeatured className={styles.featuredItem} />
           ))}
         </div>
       </div>

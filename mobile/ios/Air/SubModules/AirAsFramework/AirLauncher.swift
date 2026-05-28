@@ -55,7 +55,6 @@ public class AirLauncher {
     }
     static var pendingDeeplinkURL: URL? = nil
     static var appUnlocked = false
-    static var registeredFonts = false
     
     public static func set(window: WWindow) {
         AirLauncher.window = window
@@ -94,11 +93,6 @@ public class AirLauncher {
         AppStorageHelper.reset()
         await WalletCoreData.start(db: db)
 
-        if !registeredFonts {
-            registeredFonts = true
-            UIFont.registerAirFonts()
-        }
-        
         // Load theme
         let accountId = AccountStore.accountId ?? ""
         @Dependency(\.accountSettings) var _accountSettings

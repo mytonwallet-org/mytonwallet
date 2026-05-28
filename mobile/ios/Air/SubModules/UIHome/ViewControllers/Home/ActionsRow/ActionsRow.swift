@@ -117,7 +117,7 @@ let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
         addButton = WScalableButton(
             title: IOS_26_MODE_ENABLED ? lang("Add / Buy") : lang("Add").lowercased(),
             image: IOS_26_MODE_ENABLED ? .airBundle("AddIconBold") : .airBundle("AddIcon"),
-            onTap: { AppActions.showReceive(chain: nil, showBuyOptions: nil, title: nil) }
+            onTap: { AppActions.showReceive(chain: nil, title: nil) }
         )
         addArrangedSubview(addButton)
         

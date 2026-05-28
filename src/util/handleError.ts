@@ -34,6 +34,10 @@ export function handleError(err: Error | string) {
     return;
   }
 
+  if (APP_ENV === 'staging' && message === 'Failed to fetch') {
+    return;
+  }
+
   if (shouldShowAlert) {
     throttledAlert(`${DEBUG_ALERT_MSG}\n\n${(message) || err}\n${stack}`);
   }

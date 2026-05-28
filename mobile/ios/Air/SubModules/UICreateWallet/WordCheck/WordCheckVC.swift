@@ -6,11 +6,9 @@
 //
 
 import UIKit
-import UIHome
 import UIPasscode
 import UIComponents
 import SwiftUI
-import WalletCore
 import WalletContext
 
 class WordCheckVC: WViewController {

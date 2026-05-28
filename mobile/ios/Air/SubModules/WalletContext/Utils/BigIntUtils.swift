@@ -17,14 +17,4 @@ extension BigInt {
         str.insert(contentsOf: ".", at: str.index(str.endIndex, offsetBy: -(decimals ?? 9)))
         return Double(str)!
     }
-
-    public init?(bigint: String) {
-        if bigint == "" {
-            self = 0
-        } else if let string = bigint.split(separator: ":").last, let value = BigInt(string) {
-            self = value
-        } else {
-            return nil
-        }
-    }
 }

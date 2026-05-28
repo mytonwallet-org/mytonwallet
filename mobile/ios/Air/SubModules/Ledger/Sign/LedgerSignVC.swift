@@ -3,7 +3,6 @@ import UIKit
 import SwiftUI
 import UIComponents
 import WalletContext
-import WalletCore
 
 
 public final class LedgerSignVC<HeaderView: View>: WViewController {
@@ -61,13 +60,7 @@ public final class LedgerSignVC<HeaderView: View>: WViewController {
     }
     
     private func handleOnDone() {
-        if let onDone = self.onDone {
-            onDone(self)
-        } else {
-            Task { @MainActor in
-                topViewController()?.showAlert(title: nil, text: "Done", button: "OK")
-            }
-        }
+        onDone?(self)
     }
     
     private func handleOnCancel() {

@@ -15,7 +15,7 @@ public class FeeEstimationHelpers {
             return nil
         }
         let tokenInChain = ApiChain(rawValue: sellToken.chain)
-        let nativeUserTokenIn = sellToken.isOnChain == true ? TokenStore.tokens[tokenInChain?.tokenSlug ?? ""] : nil
+        let nativeUserTokenIn = sellToken.isOnChain == true ? TokenStore.tokens[tokenInChain?.nativeToken.slug ?? ""] : nil
         let isNativeIn = sellToken.slug == nativeUserTokenIn?.slug
         let chainConfigIn = tokenInChain?.gas
         let fee = {

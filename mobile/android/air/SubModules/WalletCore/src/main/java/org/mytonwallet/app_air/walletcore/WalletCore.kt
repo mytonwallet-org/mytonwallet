@@ -167,7 +167,7 @@ object WalletCore {
         if (nextAccountIsPushedTemporary == true)
             WGlobalStorage.setTemporaryAccountId(accountId)
         else
-            WGlobalStorage.setActiveAccountId(accountId)
+            WGlobalStorage.setActiveAccountId(accountId, persistInstantly = !fromHome)
         nextAccountIsPushedTemporary = null
         nextAccountId = null
         AccountStore.updateActiveAccount(accountId)
@@ -176,9 +176,18 @@ object WalletCore {
         NftStore.loadCachedNfts(accountId)
         ExploreHistoryStore.loadBrowserHistory(accountId)
         AccountStore.walletVersionsData = null
-        AccountStore.updateAssetsAndActivityData(MAssetsAndActivityData(accountId), notify = false)
+        AccountStore.updateAssetsAndActivityData(
+            MAssetsAndActivityData(accountId),
+            notify = false,
+            saveToStorage = false
+        )
         //WalletContextManager.delegate?.protectedModeChanged()
-        notifyEvent(WalletEvent.AccountChanged(accountId = accountId, fromHome = fromHome))
+        notifyEvent(
+            WalletEvent.AccountChanged(
+                accountId = accountId,
+                fromHome = fromHome
+            )
+        )
     }
 
     fun updateAccentColor(accountId: String?) {

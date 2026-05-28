@@ -9,11 +9,8 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.view.View
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.firstGrapheme
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -36,19 +33,16 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
         style = Paint.Style.FILL
     }
 
-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = when (usage) {
+    private val textPaint = AccountAvatarRenderer.createTextPaint(
+        when (usage) {
             Usage.SELECTABLE_ITEM -> 18f.dp
             Usage.VIEW_ITEM -> 14f.dp
             else -> 11f.dp
         }
-        typeface = WFont.Bold.typeface
-        color = WColor.White.color
-        textAlign = Paint.Align.CENTER
-    }
+    )
 
     private var gradientColors: IntArray? = null
-    private var titleText: String = ""
+    private var abbreviationText: String = ""
     private var currentPadding: Float = 1.5f.dp
     private val ovalRect = RectF()
 
@@ -64,7 +58,7 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
             Usage.SELECTABLE_ITEM -> WColor.Tint.color
             else -> WColor.Background.color
         }
-        textPaint.color = WColor.White.color
+        AccountAvatarRenderer.updatePaintTheme(textPaint)
         invalidate()
     }
 
@@ -76,15 +70,7 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
 
     fun config(title: CharSequence?, address: String) {
         gradientColors = address.gradientColors
-
-        titleText = title?.let { title ->
-            title
-                .trim()
-                .split("\\s+".toRegex())
-                .filter { it.isNotEmpty() }
-                .take(2)
-                .joinToString("") { part -> part.firstGrapheme().uppercase() }
-        } ?: address.take(2)
+        abbreviationText = generateAbbreviation(title?.toString(), address)
 
         currentPadding = when (usage) {
             Usage.SELECTABLE_ITEM -> {
@@ -94,9 +80,7 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
                     1.5f.dp
                 }
             }
-
             Usage.VIEW_ITEM -> 0f
-
             else -> 1.5f.dp
         }
 
@@ -135,11 +119,13 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
     }
 
     private fun drawText(canvas: Canvas) {
-        if (titleText.isEmpty()) return
-
-        val centerX = width / 2f
-        val centerY = height / 2f - (textPaint.descent() + textPaint.ascent()) / 2f
-        canvas.drawText(titleText, centerX, centerY, textPaint)
+        AccountAvatarRenderer.drawCenteredText(
+            canvas,
+            abbreviationText,
+            width / 2f,
+            height / 2f,
+            textPaint
+        )
     }
 
     private fun drawBorderIfNeeded(canvas: Canvas) {

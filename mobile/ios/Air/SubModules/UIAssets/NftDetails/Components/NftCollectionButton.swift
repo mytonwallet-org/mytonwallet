@@ -3,7 +3,6 @@ import SwiftUI
 import UIKit
 import UIComponents
 import WalletContext
-import WalletCore
 
 struct NftCollectionButton: View {
     

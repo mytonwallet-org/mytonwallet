@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletbasecontext.utils
 
+import java.math.BigDecimal
 import java.math.BigInteger
 import java.math.RoundingMode
 import kotlin.math.abs
@@ -25,21 +26,13 @@ fun Double.toString(
 }
 
 fun Double.toBigInteger(digits: Int): BigInteger? {
-    if (!this.isFinite())
-        return null
-    val scaledValue = toBigDecimal().setScale(digits, RoundingMode.FLOOR)
-    val formattedString = scaledValue.stripTrailingZeros().toPlainString()
-    val (integralPart, fractionalPart) = if (formattedString.contains(".")) {
-        val (integral, fractional) = formattedString.split(".", limit = 2)
-        Pair(integral, fractional)
-    } else {
-        Pair(formattedString, "")
-    }
+    if (!isFinite()) return null
 
-    val fractionalPartPadded = fractionalPart.take(digits).padEnd(digits, '0')
-    val finalString = integralPart + fractionalPartPadded
-
-    return finalString.toBigInteger()
+    val scaleFactor = BigDecimal.TEN.pow(digits)
+    return BigDecimal.valueOf(this)
+        .multiply(scaleFactor)
+        .setScale(0, RoundingMode.FLOOR)
+        .toBigInteger()
 }
 
 fun Double.smartDecimalsCount(tokenDecimals: Int): Int {

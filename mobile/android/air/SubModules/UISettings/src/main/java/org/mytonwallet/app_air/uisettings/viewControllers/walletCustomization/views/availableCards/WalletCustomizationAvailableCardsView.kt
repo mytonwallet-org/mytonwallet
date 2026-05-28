@@ -117,7 +117,7 @@ open class WalletCustomizationAvailableCardsView(
     }
 
     private val roundDrawable by lazy {
-        RoundProgressDrawable(context, 13.dp, 1f.dp).apply {
+        RoundProgressDrawable(13.dp, 1f.dp).apply {
             color = WColor.SecondaryText.color
         }
     }
@@ -273,7 +273,7 @@ open class WalletCustomizationAvailableCardsView(
                     recyclerView.fadeIn()
                     emptyView.fadeOut()
                 }
-                progressView.fadeOut { }
+                progressView.fadeOut()
             }
         } ?: run {
             progressView.alpha = 1f

@@ -2,7 +2,6 @@
 import SwiftUI
 import UIComponents
 import WalletContext
-import WalletCore
 
 
 struct StepView: View {

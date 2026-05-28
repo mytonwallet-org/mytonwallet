@@ -49,7 +49,7 @@ class CrossChainSwapVM {
         let cexFromTonSwapParams = ApiSwapCexCreateTransactionParams(
             from: sellingToken.0?.swapIdentifier ?? "",
             fromAmount: MDouble(sellingToken.1.doubleAbsRepresentation(decimals: sellingToken.0?.decimals ?? 9)),
-            fromAddress: AccountStore.account?.tonAddress ?? "",
+            fromAddress: AccountStore.account?.addressByChain[TON_CHAIN] ?? "",
             to: buyingToken.0?.swapIdentifier ?? "",
             toAddress: toAddress,
             swapFee: swapFee,

@@ -28,3 +28,9 @@ export function getChainFromAddress(
       : isValidAddress(address, chain)
   ));
 }
+
+export function isTonsiteAddress(address: string) {
+  address = address.trim().toLowerCase();
+
+  return address.startsWith('tonsite://') || address.startsWith('ton://');
+}

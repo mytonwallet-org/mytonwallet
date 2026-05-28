@@ -8,7 +8,7 @@ public extension MAccount {
         let displayName = if let walletName = self.title?.nilIfEmpty {
             walletName
         } else {
-            formatStartEndAddress(firstAddress ?? "")
+            formatStartEndAddress(firstAddress)
         }
         #if DEBUG
 //        let id = id.split(separator: "-")[0]
@@ -23,8 +23,7 @@ public extension MAccount {
         if let walletName = self.title?.nilIfEmpty, let initial = walletName.first {
             return .initial(String(initial))
         } else {
-            let address = tonAddress ?? "      "
-            let lastSix = address.suffix(6)
+            let lastSix = firstAddress.suffix(6)
             let first = String(lastSix.prefix(3))
             let last = String(lastSix.suffix(3))
             return .sixCharaters(first, last)

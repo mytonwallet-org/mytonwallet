@@ -23,13 +23,9 @@ public class ActivityCell: WHighlightCell {
     static let regular14Font = UIFont.systemFont(ofSize: 14, weight: .regular)
     static let regular16Font = UIFont.systemFont(ofSize: 16, weight: .regular)
     static let medium16Font = UIFont.systemFont(ofSize: 16, weight: .medium)
-    static let rightArrowImage = UIImage(systemName: "chevron.right", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold))!
-        .withRenderingMode(.alwaysTemplate)
     
     var skeletonView: ActivityCell.Skeleton? = nil
 
-    let dateFormatter = DateFormatter()
-    
     let mainView = UIView()
     let firstTwoRows: UIView = .init()
     
@@ -331,8 +327,7 @@ public class ActivityCell: WHighlightCell {
                 } else {
                     attr.append(NSAttributedString(string: lang("$transaction_to", arg1: "")))
                 }
-                if AccountStore.account?.isMultichain == true {
-                    let chain = activity.slug.starts(with: "ton") ? "ton" : "tron"
+                if AccountStore.account?.isMultichain == true, let chain = getChainBySlug(activity.slug) {
                     let image = NSTextAttachment(image: .airBundle("ActivityAddress-\(chain)"))
                     image.bounds = .init(x: 0, y: -1.5, width: 13, height: 13)
                     attr.append(NSAttributedString(attachment: image))
@@ -404,7 +399,7 @@ public class ActivityCell: WHighlightCell {
                 let color: UIColor = transaction.type == .stake ? .air.textPurple : transaction.isIncoming ? WTheme.positiveAmount : WTheme.primaryLabel
                 let amountString = amount.formatAttributed(
                     format: .init(
-                        maxDecimals: amount.defaultDisplayDecimals,
+                        preset: .defaultAdaptive,
                         showPlus: displayMode == .noSign ? false : true,
                         showMinus: displayMode == .noSign ? false : true,
                         roundUp: false
@@ -433,14 +428,8 @@ public class ActivityCell: WHighlightCell {
                 
                 let attr = NSMutableAttributedString()
                 
-                let from = formatAmountText(
-                    amount: fromAmount,
-                    currency: fromToken.symbol,
-                    negativeSign: false,
-                    positiveSign: false,
-                    decimalsCount: fromAmount < 0.0002 ? 6 : fromAmount < 0.02 ? 4 : fromAmount < 50 ? 2 : 0,
-                    forceCurrencyToRight: true
-                )
+                let fromDecimalAmount = DecimalAmount.fromDouble(fromAmount, fromToken)
+                let from = fromDecimalAmount.formatted(.compact, showMinus: false)
                 attr.append(NSAttributedString(string: from, attributes: [
                     .foregroundColor: swapFailed ? WTheme.error : WTheme.secondaryLabel,
                 ]))
@@ -457,14 +446,8 @@ public class ActivityCell: WHighlightCell {
                 }
                 attr.append(chevronString)
                 
-                let to = formatAmountText(
-                    amount: toAmount,
-                    currency: toToken.symbol,
-                    negativeSign: false,
-                    positiveSign: false,
-                    decimalsCount: toAmount < 0.0002 ? 6 : toAmount < 0.02 ? 4 : toAmount < 50 ? 2 : 0,
-                    forceCurrencyToRight: true
-                )
+                let toDecimalAmount = DecimalAmount.fromDouble(toAmount, toToken)
+                let to = toDecimalAmount.formatted(.compact, showMinus: false)
                 attr.append(NSAttributedString(string: to, attributes: [
                     .foregroundColor: swapFailed ? WTheme.error : swapInProgress ? WTheme.secondaryLabel : WTheme.positiveAmount,
                 ]))
@@ -508,8 +491,7 @@ public class ActivityCell: WHighlightCell {
                 let color = WTheme.secondaryLabel
                 let amountString = amount.formatAttributed(
                     format: .init(
-                        maxDecimals: doubleValue < 0.0002 ? 6 : doubleValue < 0.02 ? 4 : doubleValue < 50 ? 2 : 0,
-                        showPlus: false,
+                        preset: .compact,
                         showMinus: false,
                         roundUp: false
                     ),
@@ -542,7 +524,7 @@ public class ActivityCell: WHighlightCell {
                 let exchangeAmount = TokenAmount.fromDouble(ex.price, ex.fromToken)
                 let exchangeRateString = exchangeAmount.formatAttributed(
                     format: .init(
-                        maxDecimals: ex.price < 0.001 ? 6 : ex.price < 0.1 ? 4 : ex.price < 50 ? 2 : 0,
+                        preset: .compact,
                         roundUp: false
                     ),
                     integerFont: .systemFont(ofSize: 14, weight: .semibold),
@@ -597,12 +579,13 @@ public class ActivityCell: WHighlightCell {
         
         let hasComment: Bool
         let shouldShowComment = activity?.shouldShowTransactionComment == true
+        let isIncoming = activity?.transaction?.isIncoming == true
         
-        if shouldShowComment, let commment = activity?.transaction?.comment?.nilIfEmpty {
-            commentView.setComment(commment)
+        if shouldShowComment, let tx = activity?.transaction, let commment = tx.comment?.nilIfEmpty {
+            commentView.setComment(commment, direction: isIncoming ? .incoming : .outgoing, isError: tx.status == .failed)
             hasComment = true
-        } else if shouldShowComment, activity?.transaction?.encryptedComment != nil {
-            commentView.setEncryptedComment()
+        } else if shouldShowComment, let tx = activity?.transaction, tx.encryptedComment != nil {
+            commentView.setEncryptedComment(direction: isIncoming ? .incoming : .outgoing, isError: tx.status == .failed)
             hasComment = true
         } else {
             hasComment = false
@@ -611,8 +594,6 @@ public class ActivityCell: WHighlightCell {
         commentView.isHidden = !hasComment
         if hasComment {
             NSLayoutConstraint.activate(commentViewConstraints)
-            let isIncoming = activity?.transaction?.isIncoming == true
-            commentView.setDirection(isIncoming ? .incoming : .outgoing)
             commentViewLeadingConstraint.isActive = isIncoming
             commentViewTrailingConstraint.isActive = !isIncoming
         } else {

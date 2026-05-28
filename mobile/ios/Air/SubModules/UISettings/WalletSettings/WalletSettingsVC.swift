@@ -109,8 +109,8 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
             segmentedControl.topAnchor.constraint(equalTo: segmentedControlContainer.topAnchor, constant: 12),
             segmentedControl.centerXAnchor.constraint(equalTo: segmentedControlContainer.centerXAnchor),
             segmentedControl.widthAnchor.constraint(equalTo: segmentedControlContainer.widthAnchor),
-            segmentedControlContainer.widthAnchor.constraint(equalToConstant: UIScreen.main.bounds.width),
-            segmentedControl.widthAnchor.constraint(equalToConstant: UIScreen.main.bounds.width),
+            segmentedControlContainer.widthAnchor.constraint(equalToConstant: screenWidth),
+            segmentedControl.widthAnchor.constraint(equalToConstant: screenWidth),
         ])
         segmentedControlContainer.frame.size.height = 42
         
@@ -195,9 +195,6 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
         }
     }
     
-    public func segmentedControllerDidStartDragging() {
-    }
-    
     public func segmentedControllerDidEndScrolling() {
         viewModel.segmentedControllerDidSwitchTrigger += 1
     }
@@ -205,6 +202,5 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
 
 @available(iOS 26, *)
 #Preview {
-    let _ = UIFont.registerAirFonts()
-    sheetPreview(WalletSettingsVC())
+    previewSheet(WalletSettingsVC())
 }

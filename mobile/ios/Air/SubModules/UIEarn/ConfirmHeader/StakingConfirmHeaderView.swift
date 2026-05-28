@@ -50,7 +50,7 @@ struct StakingConfirmHeaderView: View {
         let isLargeAmount = abs(tokenAmount.doubleValue) >= 10
         AmountText(
             amount: tokenAmount,
-            format: .init(maxDecimals: tokenAmount.defaultDisplayDecimals, showPlus: showPlus, showMinus: false),
+            format: .init(preset: .defaultAdaptive, showPlus: showPlus, showMinus: false),
             integerFont: .rounded(ofSize: 34, weight: .bold),
             fractionFont: .rounded(ofSize: 28, weight: .bold),
             symbolFont: .rounded(ofSize: 28, weight: .bold),

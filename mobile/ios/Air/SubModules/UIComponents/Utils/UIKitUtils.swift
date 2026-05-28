@@ -26,14 +26,6 @@ public extension UIView {
             return c / 2 * (t2 * t2 * t2 + 2) + b
         }
     }
-    static func easeIn(_ t: Float, _ b: Float, _ c: Float, _ d: Float = 1.0) -> Float {
-        let t2 = t / d
-        return c * t2 * t2 + b
-   }
-    static func easeOut(_ t: Float, _ b: Float, _ c: Float, _ d: Float = 1.0) -> Float {
-        let t2 = t / d
-        return -c * t2 * (t2 - 2) + b
-    }
 }
 
 public func makeSpringAnimation(_ keyPath: String, initialVelocity: CGFloat = 0) -> CASpringAnimation {

@@ -71,7 +71,7 @@ function ExploreSearchSuggestions({
         return (
           <MenuItem<string>
             key={`history-${url}`}
-            className={styles.suggestion}
+            className={buildClassName(styles.suggestion, styles.suggestionWithSeparator)}
             role="option"
             isSelected={isActive}
             onClick={onSiteClick}
@@ -105,7 +105,7 @@ function ExploreSearchSuggestions({
             role="option"
             isSelected={isSelected}
             isInList
-            className={styles.suggestion}
+            className={buildClassName(styles.suggestion, index === 0 && styles.siteWithSeparator)}
             site={site}
           />
         );
@@ -121,7 +121,11 @@ function ExploreSearchSuggestions({
         return (
           <MenuItem<WalletSuggestion>
             key={`wallet-${chain}-${address}-${walletTitle ?? ''}`}
-            className={styles.suggestion}
+            className={buildClassName(
+              styles.suggestion,
+              styles.suggestionWithSeparator,
+              index === 0 && sitesLength + historyLength > 0 && styles.suggestionWithSeparatorFullWidth,
+            )}
             role="option"
             isSelected={isSelected}
             onClick={handleWalletClick}

@@ -1,9 +1,7 @@
 
-
 import Foundation
 import SwiftUI
 import WalletContext
-import WalletCore
 
 public struct AddressTextField: UIViewRepresentable {
     

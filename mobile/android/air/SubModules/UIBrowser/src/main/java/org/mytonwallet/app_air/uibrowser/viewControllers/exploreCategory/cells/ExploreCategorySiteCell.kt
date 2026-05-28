@@ -82,6 +82,7 @@ class ExploreCategorySiteCell(
         text = LocaleController.getString("Open")
         gravity = Gravity.CENTER
         setTextColor(WColor.Tint)
+        isTinted = true
         setPadding(12.dp, 0, 12.dp, 0)
         setOnClickListener {
             site?.let {
@@ -152,6 +153,7 @@ class ExploreCategorySiteCell(
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         setBackgroundColor(
             WColor.Background.color,

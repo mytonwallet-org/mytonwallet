@@ -10,8 +10,6 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-private let screenWidth = UIScreen.main.bounds.size.width
-
 struct NftDetailsImage: View {
     
     @ObservedObject var viewModel: NftDetailsViewModel
@@ -103,20 +101,5 @@ struct NftDetailsImage: View {
         .onPreferenceChange(CoverFlowIsScrollingPreference.self) { isScrolling in
             self.hideImage = isScrolling
         }
-    }
-}
-
-
-struct NftCoverFlowItem: View {
-    
-    var nft: ApiNft
-    var hideImage: Bool
-    
-    @Environment(\.coverFlowIsCurrent) private var isCurrent
-    
-    var body: some View {
-        NftImage(nft: nft, animateIfPossible: false)
-//            .opacity(isCurrent && !hideImage ? 0 : 1)
-            .contentShape(.containerRelative)
     }
 }

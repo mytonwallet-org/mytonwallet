@@ -15,7 +15,6 @@ import WReachability
     func priceDataUpdated()
     func stateChanged()
     func accountChanged()
-    func cacheNotFound()
 }
 
 class TokenVM: @unchecked Sendable {

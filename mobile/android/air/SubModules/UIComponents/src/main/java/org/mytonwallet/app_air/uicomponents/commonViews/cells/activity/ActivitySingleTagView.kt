@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -18,7 +19,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 
-class ActivitySingleTagView(context: Context) : WFrameLayout(context) {
+class ActivitySingleTagView(context: Context) : WFrameLayout(context), WThemedView {
 
     val imageView = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(12f.dp)
@@ -58,6 +59,9 @@ class ActivitySingleTagView(context: Context) : WFrameLayout(context) {
         }
         titleLabel.text = nft.name
         subtitleLabel.text = nft.collectionName
+    }
+
+    override fun updateTheme() {
         setBackgroundColor(
             WColor.TrinaryBackground.color,
             12f.dp,

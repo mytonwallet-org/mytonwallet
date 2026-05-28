@@ -83,7 +83,7 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
         AutoScaleContainerView(balanceView).apply {
             clipChildren = false
             clipToPadding = false
-            minPadding = 12.dp
+            minPadding = 16.dp
             maxAllowedWidth = cellWidth
         },
         WSensitiveDataContainer.MaskConfig(
@@ -229,11 +229,12 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
         val balance = BalanceStore.totalBalanceInBaseCurrency(accountId)
         balanceView.animateText(
             WBalanceView.AnimateConfig(
-                balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
-                WalletCore.baseCurrency.decimalsCount,
-                WalletCore.baseCurrency.sign,
-                false,
-                LocaleController.isRTL
+                amount = balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
+                decimals = WalletCore.baseCurrency.decimalsCount,
+                currency = WalletCore.baseCurrency.sign,
+                animated = false,
+                setInstantly = true,
+                forceCurrencyToRight = LocaleController.isRTL
             )
         )
     }

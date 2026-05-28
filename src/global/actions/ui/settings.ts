@@ -9,6 +9,7 @@ import { setLanguage } from '../../../util/langProvider';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import switchTheme from '../../../util/switchTheme';
 import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET } from '../../../util/windowEnvironment';
+import { callApi } from '../../../api';
 import { addActionHandler, setGlobal } from '../..';
 import { resetHardware, updateAccountSettings, updateSettings } from '../../reducers';
 import { selectCurrentAccountId, selectIsBiometricAuthEnabled } from '../../selectors';
@@ -30,6 +31,7 @@ addCallback((global: GlobalState) => {
 
   if (settings.langCode !== prevSettings.langCode) {
     void setLanguage(settings.langCode);
+    void callApi('setLangCode', settings.langCode);
   }
 
   prevGlobal = global;

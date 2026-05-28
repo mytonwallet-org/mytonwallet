@@ -158,7 +158,8 @@ struct SwapDetailsView: View {
                         Text(lang("Exchange Rate"))
                             .foregroundStyle(Color(WTheme.secondaryLabel))
                         Spacer(minLength: 4)
-                        Text("\(exchangeRate.toToken.symbol) ≈ \(formatAmountText(amount: exchangeRate.price, decimalsCount: min(6, sellingToken.decimals))) \(exchangeRate.fromToken.symbol)")
+                        let priceAmount = DecimalAmount.fromDouble(exchangeRate.price, exchangeRate.fromToken)
+                        Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(maxDecimals: min(6, sellingToken.decimals)))")
                     }
                     selectDexButton
                 }
@@ -315,7 +316,11 @@ struct SwapDetailsView: View {
                     .foregroundStyle(Color(WTheme.secondaryLabel))
             } value: {
                 let fee = sellingToken.chain == "ton" ? displayEstimate.realNetworkFee : displayEstimate.networkFee
-                Text("~\(formatAmountText(amount: fee.value, currency: "TON", decimalsCount: 6))")
+                if let tonToken = TokenStore.tokens[TONCOIN_SLUG] {
+                    let feeAmountString = DecimalAmount.fromDouble(fee.value, tonToken).formatted(.defaultAdaptive)
+                    Text("~\(feeAmountString)")
+                }
+                
             }
         }
     }
@@ -366,9 +371,8 @@ struct SwapDetailsView: View {
                         InfoButton(title: lang("Minimum Received"), message: lang("$swap_minimum_received_tooltip2"))
                     }
             } value: {
-                Text(formatAmountText(amount: displayEstimate.toMinAmount.value,
-                                      currency: buyingToken.symbol,
-                                      decimalsCount: tokenDecimals(for: displayEstimate.toMinAmount.value, tokenDecimals: buyingToken.decimals)))
+                let minAmount = DecimalAmount.fromDouble(displayEstimate.toMinAmount.value, buyingToken)
+                Text(minAmount.formatted(.defaultAdaptive))
             }
         }
     }

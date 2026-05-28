@@ -8,7 +8,6 @@
 import Foundation
 import UIKit
 import UIComponents
-import WalletCore
 import WalletContext
 import UIAssets
 import SwiftUI

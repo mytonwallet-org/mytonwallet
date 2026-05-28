@@ -50,6 +50,7 @@ open class WEditText(
         setTextSize(TypedValue.COMPLEX_UNIT_SP, size)
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         setTextColor(if (textIsAcceptable) WColor.PrimaryText.color else WColor.Error.color)
         highlightColor = WColor.Tint.color.colorWithAlpha(51)

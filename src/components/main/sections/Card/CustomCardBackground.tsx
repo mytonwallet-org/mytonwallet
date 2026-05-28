@@ -58,8 +58,6 @@ function CustomCardBackground({
     shouldHide && styles.hide,
   );
 
-  const withShadow = nft.metadata?.mtwCardType === 'standard';
-
   return (
     <div ref={ref} className={buildClassName(rootClassName, className)} onTransitionEnd={onTransitionEnd}>
       {imageUrl && (
@@ -70,7 +68,6 @@ function CustomCardBackground({
           onLoad={handleLoad}
         />
       )}
-      {withShadow && <div className={buildClassName(styles.shadow, shadowClassName)} />}
     </div>
   );
 }

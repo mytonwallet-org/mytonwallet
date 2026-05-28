@@ -1,3 +1,5 @@
+@use "../../styles/mixins";
+
 $amountBottomMargin: 1rem;
 
 .amountSensitiveData,
@@ -44,6 +46,16 @@ $amountBottomMargin: 1rem;
     margin-bottom: 0.25rem;
     border-bottom-right-radius: var(--border-radius-mini);
     border-bottom-left-radius: var(--border-radius-mini);
+  }
+
+  &.clickable {
+    cursor: var(--custom-cursor, pointer);
+
+    @include mixins.transition(opacity 150ms);
+
+    &:hover {
+      opacity: 0.85;
+    }
   }
 }
 

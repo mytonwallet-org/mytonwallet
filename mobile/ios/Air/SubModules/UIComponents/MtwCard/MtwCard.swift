@@ -99,7 +99,6 @@ private struct _Card: View {
 }
 
 #Preview {
-    let _ = UIFont.registerAirFonts()
     ScrollView {
         VStack(spacing: 24) {
             _Card(nft: black)

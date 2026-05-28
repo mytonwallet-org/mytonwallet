@@ -615,6 +615,7 @@ function updateCache(force?: boolean) {
       'stakingDefault',
       'currencyRates',
       'accountSelectorViewMode',
+      'seasonalTheme',
     ]),
     accounts: {
       byId: accountsById,

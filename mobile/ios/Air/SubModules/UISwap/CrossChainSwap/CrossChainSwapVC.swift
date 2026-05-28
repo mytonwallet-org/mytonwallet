@@ -17,17 +17,18 @@ public class CrossChainSwapVC: WViewController {
 
     var crossChainSwapVM: CrossChainSwapVM!
     
-    public convenience init(transaction: ApiActivity) {
-        let swapType = transaction.swap?.swapType ?? .crosschainToWallet
+    public convenience init(swap: ApiSwapActivity, accountId: String?) {
+        let account = AccountStore.get(accountIdOrCurrent: accountId)
+        let swapType = getSwapType(from: swap.from, to: swap.to, accountChains: account.supportedChains)
 
-        self.init(sellingToken: (transaction.swap?.fromToken, transaction.swap?.fromAmountInt64 ?? 0),
-                  buyingToken: (transaction.swap?.toToken, transaction.swap?.toAmountInt64 ?? 0),
+        self.init(sellingToken: (swap.fromToken, swap.fromAmountInt64 ?? 0),
+                  buyingToken: (swap.toToken, swap.toAmountInt64 ?? 0),
                   swapType: swapType,
-                  swapFee: transaction.swap?.swapFee ?? 0,
-                  networkFee: transaction.swap?.networkFee ?? 0,
-                  payinAddress: transaction.swap?.cex?.payinAddress ?? "",
-                  exchangerTxId: transaction.swap?.cex?.transactionId ?? "",
-                  dt: Date(timeIntervalSince1970: TimeInterval(transaction.timestamp / 1000)))
+                  swapFee: swap.swapFee ?? 0,
+                  networkFee: swap.networkFee ?? 0,
+                  payinAddress: swap.cex?.payinAddress ?? "",
+                  exchangerTxId: swap.cex?.transactionId ?? "",
+                  dt: Date(timeIntervalSince1970: TimeInterval(swap.timestamp / 1000)))
     }
     
     init(sellingToken: (ApiToken?, BigInt),

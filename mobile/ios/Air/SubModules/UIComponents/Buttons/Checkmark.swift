@@ -7,7 +7,6 @@
 
 import SwiftUI
 import WalletContext
-import WalletCore
 
 public struct Checkmark: View {
     

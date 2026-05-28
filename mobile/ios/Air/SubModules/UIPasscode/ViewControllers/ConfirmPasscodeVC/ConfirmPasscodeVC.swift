@@ -8,7 +8,6 @@
 import UIKit
 import UIComponents
 import WalletContext
-import WalletCore
 
 public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
     func animateSuccess() {
@@ -153,7 +152,6 @@ extension ConfirmPasscodeVC: PasscodeInputViewDelegate {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    let _ = UIFont.registerAirFonts()
     let setVC = SetPasscodeVC(onCompletion: { _, _, _ in})
     UINavigationController(
         rootViewController: ConfirmPasscodeVC(

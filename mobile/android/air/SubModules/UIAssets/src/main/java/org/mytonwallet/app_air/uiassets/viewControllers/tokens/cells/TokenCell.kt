@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uiassets.viewControllers.tokens.cells
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.TextUtils
@@ -25,10 +26,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.thinSpace
+import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
@@ -38,7 +41,7 @@ import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.math.BigInteger
 import kotlin.math.abs
@@ -149,11 +152,20 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
                 onTap?.invoke(it)
             }
         }
-
-        updateTheme()
     }
 
+    private var _isDarkThemeApplied: Boolean? = null
     override fun updateTheme() {
+        updateTheme(forceUpdate = false)
+    }
+
+    private fun updateTheme(forceUpdate: Boolean) {
+        val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
+        if (!forceUpdate && !darkModeChanged)
+            return
+        _isDarkThemeApplied = ThemeManager.isDark
+        cachedStakingTagDrawable = null
+        cachedNotStakingTagDrawable = null
         setBackgroundColor(
             if (mode == TokensVC.Mode.HOME) Color.TRANSPARENT else WColor.Background.color,
             0f,
@@ -165,6 +177,9 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
         )
         topLeftLabel.setTextColor(WColor.PrimaryText.color)
+        topLeftTagLabel.updateTheme()
+        if (isShowingStaticTag)
+            topLeftTagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
         topRightLabel.contentView.setTextColor(WColor.PrimaryText.color)
         bottomRightLabel.contentView.setTextColor(WColor.SecondaryText.color)
         separator.setBackgroundColor(WColor.Separator.color)
@@ -173,13 +188,34 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         }
     }
 
+    private var accountId: String? = null
     private var tokenBalance: MTokenBalance? = null
+    private var baseCurrency: MBaseCurrency? = null
     private var isLast = false
+    private var isShowingStaticTag = false
 
-    fun configure(tokenBalance: MTokenBalance, isLast: Boolean) {
-        this.tokenBalance = tokenBalance
+    fun configure(
+        accountId: String,
+        isMultichain: Boolean,
+        tokenBalance: MTokenBalance,
+        isLast: Boolean
+    ) {
+        val lastChanged = this.isLast != isLast
+        val baseCurrency = WalletCore.baseCurrency
         this.isLast = isLast
-        updateTheme()
+
+        if (this.accountId == accountId &&
+            this.tokenBalance == tokenBalance &&
+            this.baseCurrency == baseCurrency) {
+            updateTheme(forceUpdate = lastChanged)
+            separator.visibility = if (isLast) INVISIBLE else VISIBLE
+            return
+        }
+
+        this.accountId = accountId
+        this.tokenBalance = tokenBalance
+        this.baseCurrency = baseCurrency
+        updateTheme(forceUpdate = lastChanged)
 
         val amountCols = 4 + abs(tokenBalance.token.hashCode() % 8)
         topRightLabel.setMaskCols(amountCols)
@@ -191,7 +227,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         val token = TokenStore.getToken(tokenBalance.token)
         iconView.config(
             tokenBalance,
-            alwaysShowChain = WalletCore.isMultichain,
+            alwaysShowChain = isMultichain,
             showPercentBadge = (tokenBalance.isVirtualStakingRow && tokenBalance.amountValue > BigInteger.ZERO)
         )
         val tokenName = if (tokenBalance.isVirtualStakingRow) {
@@ -220,79 +256,89 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         bottomRightLabel.contentView.setAmount(
             tokenBalance.toBaseCurrency,
             token?.decimals ?: 9,
-            WalletCore.baseCurrency.sign,
-            WalletCore.baseCurrency.decimalsCount,
+            baseCurrency.sign,
+            baseCurrency.decimalsCount,
             true
         )
 
-        configureTagLabelAndSpacing(token)
+        configureTagLabelAndSpacing(accountId, token)
 
         separator.visibility = if (isLast) INVISIBLE else VISIBLE
     }
 
-    private fun configureTagLabelAndSpacing(token: MToken?) {
-        var shouldShowTagLabel = false
-
-        when {
-            token?.slug == TRON_USDT_SLUG -> {
-                topLeftTagLabel.setAmount("TRC-20")
-                topLeftTagLabel.setGradientColor(
-                    intArrayOf(
-                        WColor.SecondaryText.color,
-                        WColor.SecondaryText.color
-                    )
-                )
-                topLeftTagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
-                shouldShowTagLabel = true
+    private fun configureTagLabelAndSpacing(accountId: String, token: MToken?) {
+        val shouldShowTagLabel = when (token?.slug) {
+            TRON_USDT_SLUG -> {
+                configureStaticTag("TRC-20")
+                true
             }
 
-            token?.slug == TON_USDT_SLUG -> {
-                topLeftTagLabel.setAmount("TON")
-                topLeftTagLabel.setGradientColor(
-                    intArrayOf(
-                        WColor.SecondaryText.color,
-                        WColor.SecondaryText.color
-                    )
-                )
-                topLeftTagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
-                shouldShowTagLabel = true
+            TON_USDT_SLUG -> {
+                configureStaticTag("TON")
+                true
             }
 
-            tokenBalance?.isVirtualStakingRow == true || token?.isEarnAvailable == true -> {
-                val stakingState = AccountStore.stakingData?.stakingState(token?.slug ?: "")
-                val apy = stakingState?.annualYield
-                val hasStakingAmount = (stakingState?.balance ?: BigInteger.ZERO) > BigInteger.ZERO
-                if (apy != null) {
-                    shouldShowTagLabel =
-                        tokenBalance?.isVirtualStakingRow == true || !hasStakingAmount
-                    if (shouldShowTagLabel) {
-                        if (hasStakingAmount) {
-                            topLeftTagLabel.setGradientColor(
-                                intArrayOf(
-                                    Color.WHITE,
-                                    Color.WHITE
-                                )
-                            )
-                        } else {
-                            topLeftTagLabel.setGradientColor(
-                                intArrayOf(
-                                    WColor.EarnGradientLeft.color,
-                                    WColor.EarnGradientRight.color
-                                )
-                            )
-                        }
-                        topLeftTagLabel.setAmount("${stakingState.yieldType} ${apy}%")
-                        topLeftTagLabel.background =
-                            HighlightGradientBackgroundDrawable(
-                                hasStakingAmount,
-                                8f.dp
-                            )
-                    }
-                }
-            }
+            else -> configureStakingTag(accountId, token)
         }
 
         updateLabelSpacing(shouldShowTagLabel)
+    }
+
+    private fun configureStaticTag(text: String) {
+        isShowingStaticTag = true
+        topLeftTagLabel.setAmount(text)
+        topLeftTagLabel.setGradientColor(
+            arrayOf(WColor.SecondaryText, WColor.SecondaryText)
+        )
+        topLeftTagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
+    }
+
+    private var cachedStakingTagDrawable: GradientDrawable? = null
+    private var cachedNotStakingTagDrawable: GradientDrawable? = null
+    fun getTagDrawable(hasStaking: Boolean, cornerRadius: Float = 8f): GradientDrawable {
+        return if (hasStaking) {
+            cachedStakingTagDrawable ?: createAndCacheTagDrawable(true, cornerRadius)
+        } else {
+            cachedNotStakingTagDrawable ?: createAndCacheTagDrawable(false, cornerRadius)
+        }
+    }
+
+    private fun createAndCacheTagDrawable(hasStaking: Boolean, radius: Float): GradientDrawable {
+        val drawable = HighlightGradientBackgroundDrawable(hasStaking, radius)
+        if (hasStaking) {
+            cachedStakingTagDrawable = drawable
+        } else {
+            cachedNotStakingTagDrawable = drawable
+        }
+        return drawable
+    }
+
+    private fun configureStakingTag(accountId: String, token: MToken?): Boolean {
+        isShowingStaticTag = false
+        if (tokenBalance?.isVirtualStakingRow != true && token?.isEarnAvailable != true) {
+            return false
+        }
+
+        val stakingState = StakingStore.getStakingState(accountId)?.stakingState(token?.slug ?: "")
+        val apy = stakingState?.annualYield ?: return false
+
+        val hasStakingAmount = stakingState.balance > BigInteger.ZERO
+        val shouldShow = tokenBalance?.isVirtualStakingRow == true || !hasStakingAmount
+
+        if (shouldShow) {
+            val gradientColors = if (hasStakingAmount) {
+                arrayOf(WColor.White, WColor.White)
+            } else {
+                arrayOf(WColor.EarnGradientLeft, WColor.EarnGradientRight)
+            }
+
+            topLeftTagLabel.setGradientColor(gradientColors)
+            topLeftTagLabel.setAmount("${stakingState.yieldType} $apy%")
+            topLeftTagLabel.background =
+                getTagDrawable(hasStakingAmount, 8f.dp)
+        }
+
+        return shouldShow
     }
 
     private var wasShowingTagLabel: Boolean? = null
@@ -303,11 +349,12 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             return
 
         wasShowingTagLabel = showTagLabel
-        if (showTagLabel) {
-            topLeftLabel.layoutParams = topLeftLabel.layoutParams.apply {
-                width = MATCH_CONSTRAINT
-            }
 
+        topLeftLabel.layoutParams = topLeftLabel.layoutParams.apply {
+            width = MATCH_CONSTRAINT
+        }
+
+        if (showTagLabel) {
             setConstraints {
                 clear(topLeftLabel.id, ConstraintSet.END)
 
@@ -322,10 +369,6 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         } else {
             topLeftTagLabel.visibility = GONE
 
-            topLeftLabel.layoutParams = topLeftLabel.layoutParams.apply {
-                width = MATCH_CONSTRAINT
-            }
-
             setConstraints {
                 clear(topLeftLabel.id, ConstraintSet.END)
 
@@ -339,59 +382,56 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
     private fun updateBottomLeftLabel(tokenBalance: MTokenBalance, token: MToken?) {
         this.tokenBalance = tokenBalance
 
-        val token = token ?: TokenStore.getToken(tokenBalance.token)
-
-        val pricedToken = if (token?.slug == STAKE_SLUG) {
+        val resolvedToken = token ?: TokenStore.getToken(tokenBalance.token)
+        val pricedToken = if (resolvedToken?.slug == STAKE_SLUG) {
             TokenStore.getToken(TONCOIN_SLUG)
         } else {
-            token
+            resolvedToken
         }
 
-        if (pricedToken?.price != null) {
-            val amountText = pricedToken.price!!.toString(
-                token?.decimals ?: 9,
-                WalletCore.baseCurrency.sign,
-                token?.decimals ?: 9,
-                true
-            ) ?: ""
-
-            val percentChangeText =
-                when {
-                    pricedToken.percentChange24h < 0 -> {
-                        " -$thinSpace${kotlin.math.abs(pricedToken.percentChange24h)}%"
-                    }
-
-                    pricedToken.percentChange24h.isFinite() -> {
-                        " +$thinSpace${pricedToken.percentChange24h}%"
-                    }
-
-                    else -> ""
-                }
-
-            val formattedText = amountText + percentChangeText
-
-            val spannableString = SpannableString(formattedText)
-            val color =
-                if (pricedToken.percentChange24h < 0) WColor.Red.color else (if (pricedToken.percentChange24h > 0) WColor.Green.color else WColor.SecondaryText.color)
-            val startIndex = amountText.length
-            val endIndex = formattedText.length
-
-            spannableString.setSpan(
-                ForegroundColorSpan(WColor.SecondaryText.color),
-                0,
-                amountText.length,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            spannableString.setSpan(
-                ForegroundColorSpan(color),
-                startIndex,
-                endIndex,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            bottomLeftLabel.text = spannableString
-        } else {
+        val price = pricedToken?.price
+        if (price == null) {
             bottomLeftLabel.text = null
+            return
         }
+
+        val decimals = resolvedToken?.decimals ?: 9
+        val amountText =
+            price.toString(decimals, WalletCore.baseCurrency.sign, decimals, true) ?: ""
+
+        val percentChange = pricedToken.percentChange24h
+        val percentChangeText = when {
+            percentChange < 0 -> " -$signSpace${abs(percentChange)}%"
+            percentChange > 0 && percentChange.isFinite() -> " +$signSpace$percentChange%"
+            else -> ""
+        }
+
+        if (percentChangeText.isEmpty()) {
+            bottomLeftLabel.text = amountText
+            return
+        }
+
+        val formattedText = amountText + percentChangeText
+        val spannableString = SpannableString(formattedText)
+        val amountLength = amountText.length
+
+        spannableString.setSpan(
+            ForegroundColorSpan(WColor.SecondaryText.color),
+            0,
+            amountLength,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        val color = if (percentChange < 0) WColor.Red.color else WColor.Green.color
+
+        spannableString.setSpan(
+            ForegroundColorSpan(color),
+            amountLength,
+            formattedText.length,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        bottomLeftLabel.text = spannableString
     }
 
 }

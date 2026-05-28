@@ -87,7 +87,7 @@ struct AccountTypePickerView: View {
                         let navVC = WNavigationController(rootViewController: addAccountVC)
                         topViewController()?.present(navVC, animated: true)
                     } catch {
-                        topViewController()?.showAlert(error: error)
+                        AppActions.showError(error: error)
                     }
                 }
             }, cancellable: true)

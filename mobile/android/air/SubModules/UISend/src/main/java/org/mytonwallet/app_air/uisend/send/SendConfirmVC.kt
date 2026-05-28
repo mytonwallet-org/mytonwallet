@@ -57,6 +57,9 @@ class SendConfirmVC(
 ) : WViewController(context) {
     override val TAG = "SendConfirm"
 
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+
     private var task: ((passcode: String?) -> Unit)? = null
 
     fun setNextTask(task: (passcode: String?) -> Unit) {

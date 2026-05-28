@@ -9,7 +9,6 @@ import UIKit
 import SwiftUI
 import UIComponents
 import WalletContext
-import WalletCore
 
 class WalletAssetsView: WTouchPassView, WThemedView {
     
@@ -92,9 +91,5 @@ extension WalletAssetsView: WSegmentedController.Delegate {
     func segmentedController(scrollOffsetChangedTo progress: CGFloat) {
         self.scrollProgress = progress
         onScrollingOffsetChanged?(progress)
-    }
-    func segmentedControllerDidStartDragging() {
-    }
-    func segmentedControllerDidEndScrolling() {
     }
 }

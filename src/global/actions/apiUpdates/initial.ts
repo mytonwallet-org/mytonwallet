@@ -237,6 +237,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         countryCode,
         isAppUpdateRequired,
         swapVersion,
+        seasonalTheme,
       } = update;
 
       const shouldRestrictSwapsAndOnOffRamp = (IS_IOS_APP && isLimitedRegion) || IS_CORE_WALLET;
@@ -254,6 +255,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         ...global,
         isAppUpdateRequired: IS_CORE_WALLET ? undefined : isAppUpdateRequired,
         swapVersion: swapVersion ?? SWAP_API_VERSION,
+        seasonalTheme,
       };
       setGlobal(global);
       break;

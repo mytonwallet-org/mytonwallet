@@ -50,11 +50,16 @@ object AccountStore : IStore {
         private set
 
     @Synchronized
-    fun updateAssetsAndActivityData(newValue: MAssetsAndActivityData, notify: Boolean) {
+    fun updateAssetsAndActivityData(
+        newValue: MAssetsAndActivityData,
+        notify: Boolean,
+        saveToStorage: Boolean
+    ) {
         assetsAndActivityData = newValue
-        activeAccountId?.let { activeAccountId ->
-            WGlobalStorage.setAssetsAndActivityData(activeAccountId, newValue.toJSON)
-        }
+        if (saveToStorage)
+            activeAccountId?.let { activeAccountId ->
+                WGlobalStorage.setAssetsAndActivityData(activeAccountId, newValue.toJSON)
+            }
         if (notify)
             notifyEvent(WalletEvent.AssetsAndActivityDataUpdated)
     }
@@ -169,11 +174,10 @@ object AccountStore : IStore {
         if (activeAccountId != account.accountId)
             return
         if (account.name == LocaleController.getString("Wallet")) {
-            val newName = WGlobalStorage.getSuggestedName(
-                WGlobalStorage.accountIds().size
-            )
+            val newName = WGlobalStorage.getSuggestedName(account.accountType.value)
             renameAccount(account, newName)
         }
+        activeAccount?.isTemporary = false
         account.isTemporary = false
         WGlobalStorage.saveTemporaryAccount(account.accountId)
         AirPushNotifications.subscribe(account, ignoreIfLimitReached = true)
@@ -189,9 +193,7 @@ object AccountStore : IStore {
 
     fun updateAccountByChain(accountId: String, byChain: Map<String, AccountChain>) {
         WGlobalStorage.saveAccountByChain(accountId, MAccount.byChainToJson(byChain))
-        Handler(Looper.getMainLooper()).post {
-            notifyEvent(WalletEvent.ByChainUpdated)
-        }
+        notifyEvent(WalletEvent.ByChainUpdated(accountId))
     }
 
     override fun wipeData() {
@@ -202,7 +204,7 @@ object AccountStore : IStore {
 
     override fun clearCache() {
         updateActiveAccount(null)
-        updateAssetsAndActivityData(MAssetsAndActivityData(), notify = false)
+        updateAssetsAndActivityData(MAssetsAndActivityData(), notify = false, saveToStorage = false)
         walletVersionsData = null
     }
 }

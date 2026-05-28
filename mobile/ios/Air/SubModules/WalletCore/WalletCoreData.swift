@@ -77,8 +77,6 @@ public struct WalletCoreData {
     }
 
     private init() {}
-    static let queue = DispatchQueue(label: "org.mytonwallet.app.wallet_core_background", attributes: .concurrent)
-    static let processorQueue = DispatchQueue(label: "org.mytonwallet.app.wallet_core_background_processor", attributes: .concurrent)
 
     // ability to observe events
     class WeakEventsObserver {

@@ -73,6 +73,7 @@ class EmptyCollectionsView(window: WWindow) : WView(window), WThemedView {
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         setExploreText()
         titleLabel.setTextColor(WColor.PrimaryText.color)

@@ -188,7 +188,7 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
             let tokenAmount = TokenAmount(stakingBalance, token)
             let isLargeAmount = abs(tokenAmount.doubleValue) >= 10
             amountLabel.attributedText = tokenAmount.formatAttributed(
-                format: .init(maxDecimals: tokenAmount.defaultDisplayDecimals),
+                format: .init(preset: .defaultAdaptive),
                 integerFont: .rounded(ofSize: 48, weight: .bold),
                 fractionFont: .rounded(ofSize: 32, weight: .bold),
                 symbolFont: .rounded(ofSize: 32, weight: .bold),

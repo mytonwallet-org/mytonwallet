@@ -7,10 +7,7 @@
 
 import UIKit
 import SwiftUI
-import WalletCore
 import WalletContext
-import UIHome
-import UISettings
 import UIComponents
 
 public class WordDisplayVC: WViewController {
@@ -56,7 +53,6 @@ public class WordDisplayVC: WViewController {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    UIFont.registerAirFonts()
     LocalizationSupport.shared.setLanguageCode("ru")
     return WordDisplayVC(
         introModel: IntroModel(password: nil),

@@ -7,10 +7,8 @@
 
 import SwiftUI
 import UIKit
-import WalletCore
 import WalletContext
 import UIPasscode
-import UIHome
 import UIComponents
 
 public enum SuccessKind {

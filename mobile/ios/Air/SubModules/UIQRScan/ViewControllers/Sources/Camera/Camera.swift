@@ -1,31 +1,25 @@
 import Foundation
-import SwiftSignalKit
 import AVFoundation
 
-private final class CameraContext {
-    private let queue: Queue
+private final class CameraContext: @unchecked Sendable {
+    private let queue: DispatchQueue
     private let session = AVCaptureSession()
     private let device: CameraDevice
     private let input = CameraInput()
     private let output = CameraOutput()
-    
     private let initialConfiguration: Camera.Configuration
-    private var invalidated = false
-    
-    private var previousSampleBuffer: CMSampleBuffer?
-    var processSampleBuffer: ((CMSampleBuffer) -> Void)?
-    
-    private let detectedCodesPipe = ValuePipe<[CameraCode]>()
+    private let onCodes: ([CameraCode]) -> Void
     
     var previewNode: CameraPreviewNode? {
         didSet {
-            self.previewNode?.prepare()
+            previewNode?.prepare()
         }
     }
     
-    init(queue: Queue, configuration: Camera.Configuration) {
+    init(queue: DispatchQueue, configuration: Camera.Configuration, onCodes: @escaping ([CameraCode]) -> Void) {
         self.queue = queue
         self.initialConfiguration = configuration
+        self.onCodes = onCodes
         
         self.device = CameraDevice()
         self.device.configure(for: self.session, position: configuration.position)
@@ -36,19 +30,23 @@ private final class CameraContext {
         self.output.configure(for: self.session)
         self.session.commitConfiguration()
         
-        self.output.processSampleBuffer = { [weak self] sampleBuffer, connection in
-            if let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer), CMFormatDescriptionGetMediaType(formatDescription) == kCMMediaType_Video {
-                self?.previousSampleBuffer = sampleBuffer
-                self?.previewNode?.enqueue(sampleBuffer)
+        self.output.processSampleBuffer = { [weak self] sampleBuffer, _ in
+            guard let self else {
+                return
             }
-            
-            self?.queue.async {
-                self?.processSampleBuffer?(sampleBuffer)
+            if let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer),
+               CMFormatDescriptionGetMediaType(formatDescription) == kCMMediaType_Video {
+                self.previewNode?.enqueue(sampleBuffer)
             }
         }
         
         self.output.processCodes = { [weak self] codes in
-            self?.detectedCodesPipe.putNext(codes)
+            guard let self else {
+                return
+            }
+            queue.async { [weak self] in
+                self?.onCodes(codes)
+            }
         }
     }
     
@@ -96,13 +94,9 @@ private final class CameraContext {
     func setTorchActive(_ active: Bool) {
         self.device.setTorchActive(active)
     }
-    
-    var detectedCodes: Signal<[CameraCode], NoError> {
-        return self.detectedCodesPipe.signal()
-    }
 }
 
-public final class Camera {
+public final class Camera: @unchecked Sendable {
     public typealias Preset = AVCaptureSession.Preset
     public typealias Position = AVCaptureDevice.Position
     public typealias FocusMode = AVCaptureDevice.FocusMode
@@ -120,108 +114,83 @@ public final class Camera {
         }
     }
     
-    private let queue = Queue()
-    private var contextRef: Unmanaged<CameraContext>?
+    private let queue = DispatchQueue(label: "org.mytonwallet.camera.queue", qos: .userInitiated)
+    private let context: CameraContext
+    private let detectedCodesStream: AsyncStream<[CameraCode]>
+    private let detectedCodesContinuation: AsyncStream<[CameraCode]>.Continuation
     
     public init(configuration: Camera.Configuration = Configuration(preset: .hd1920x1080, position: .back, audio: true)) {
-        self.queue.async {
-            let context = CameraContext(queue: self.queue, configuration: configuration)
-            self.contextRef = Unmanaged.passRetained(context)
+        let streamParts = Camera.makeCodesStream()
+        self.detectedCodesStream = streamParts.stream
+        self.detectedCodesContinuation = streamParts.continuation
+        let codesContinuation = self.detectedCodesContinuation
+        self.context = CameraContext(queue: self.queue, configuration: configuration) { codes in
+            codesContinuation.yield(codes)
         }
     }
     
     deinit {
-        let contextRef = self.contextRef
-        self.queue.async {
-            contextRef?.release()
+        let detectedCodesContinuation = self.detectedCodesContinuation
+        queue.sync { [context, detectedCodesContinuation] in
+            context.stopCapture(invalidate: true)
+            detectedCodesContinuation.finish()
         }
     }
     
     public func startCapture() {
-        self.queue.async {
-            if let context = self.contextRef?.takeUnretainedValue() {
-                context.startCapture()
-            }
+        queue.async { [context] in
+            context.startCapture()
         }
     }
     
     public func stopCapture(invalidate: Bool = false) {
-        self.queue.async {
-            if let context = self.contextRef?.takeUnretainedValue() {
-                context.stopCapture(invalidate: invalidate)
-            }
+        queue.async { [context] in
+            context.stopCapture(invalidate: invalidate)
         }
     }
     
     public func togglePosition() {
-        self.queue.async {
-            if let context = self.contextRef?.takeUnretainedValue() {
-                context.togglePosition()
-            }
+        queue.async { [context] in
+            context.togglePosition()
         }
     }
     
-    public func takePhoto() -> Signal<Void, NoError> {
-        return .never()
-    }
-    
     public func focus(at point: CGPoint) {
-        self.queue.async {
-            if let context = self.contextRef?.takeUnretainedValue() {
-                context.focus(at: point)
-            }
+        queue.async { [context] in
+            context.focus(at: point)
         }
     }
     
     public func setFPS(_ fps: Double) {
-        self.queue.async {
-            if let context = self.contextRef?.takeUnretainedValue() {
-                context.setFPS(fps)
-            }
+        queue.async { [context] in
+            context.setFPS(fps)
         }
     }
     
     public func setTorchActive(_ active: Bool) {
-        self.queue.async {
-            if let context = self.contextRef?.takeUnretainedValue() {
-                context.setTorchActive(active)
-            }
+        queue.async { [context] in
+            context.setTorchActive(active)
         }
     }
     
     public func attachPreviewNode(_ node: CameraPreviewNode) {
-        let nodeRef: Unmanaged<CameraPreviewNode> = Unmanaged.passRetained(node)
-        self.queue.async {
-            if let context = self.contextRef?.takeUnretainedValue() {
-                context.previewNode = nodeRef.takeUnretainedValue()
-                nodeRef.release()
-            } else {
-                Queue.mainQueue().async {
-                    nodeRef.release()
-                }
-            }
+        queue.async { [context] in
+            context.previewNode = node
         }
     }
     
-    public func setProcessSampleBuffer(_ block: ((CMSampleBuffer) -> Void)?) {
-        self.queue.async {
-            if let context = self.contextRef?.takeUnretainedValue() {
-                context.processSampleBuffer = block
-            }
-        }
+    public var detectedCodes: AsyncStream<[CameraCode]> {
+        return self.detectedCodesStream
     }
     
-    public var detectedCodes: Signal<[CameraCode], NoError> {
-        return Signal { subscriber in
-            let disposable = MetaDisposable()
-            self.queue.async {
-                if let context = self.contextRef?.takeUnretainedValue() {
-                    disposable.set(context.detectedCodes.start(next: { codes in
-                        subscriber.putNext(codes)
-                    }))
-                }
-            }
-            return disposable
+    private static func makeCodesStream() -> (stream: AsyncStream<[CameraCode]>, continuation: AsyncStream<[CameraCode]>.Continuation) {
+        var continuation: AsyncStream<[CameraCode]>.Continuation?
+        let stream = AsyncStream<[CameraCode]> { createdContinuation in
+            continuation = createdContinuation
         }
+        guard let continuation else {
+            fatalError("Failed to create detected codes stream")
+        }
+        return (stream: stream, continuation: continuation)
     }
 }

@@ -62,7 +62,7 @@
   }
 }
 
-:global(html.is-electron:not(.is-linux)) .transitionContainer {
+:global(html.is-electron) .transitionContainer {
   height: calc(100% - var(--electron-header-height));
 }
 

@@ -90,7 +90,7 @@ function NftCollectionHeader({
 
   const collectionName = isTelegramGifts
     ? lang('Telegram Gifts')
-    : collectionNfts[0]?.collectionName ?? lang('Unnamed Collection');
+    : collectionNfts?.[0]?.collectionName ?? lang('Unnamed Collection');
 
   const menuItems: DropdownItem<MenuHandler>[] = useMemo(() => {
     const isInTabs = collectionTabs?.includes(currentCollectionAddress!);
@@ -100,7 +100,7 @@ function NftCollectionHeader({
         name: 'Send All',
         value: 'sendAll',
       } satisfies DropdownItem<MenuHandler>,
-      collectionNfts[0]?.isOnFragment && {
+      collectionNfts?.[0]?.isOnFragment && {
         name: 'Fragment',
         value: 'fragment',
         fontIcon: 'external',

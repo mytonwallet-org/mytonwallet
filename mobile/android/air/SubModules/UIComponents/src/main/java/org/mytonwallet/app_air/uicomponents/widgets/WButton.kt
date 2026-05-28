@@ -31,7 +31,7 @@ import kotlin.math.roundToInt
 
 class WButton(context: Context) : View(context), WThemedView {
     private val ripple = WRippleDrawable.create(120f.dp)
-    private val progressDrawable = RoundProgressDrawable(context)
+    private val progressDrawable = RoundProgressDrawable()
     var buttonHeight = 50.dp
     var clickableError = false
 
@@ -284,6 +284,7 @@ class WButton(context: Context) : View(context), WThemedView {
         updateColors()
     }
 
+    override val isTinted = true
     private fun updateColors() {
         val tint = if (type == Type.DESTRUCTIVE) WColor.Error.color else WColor.Tint.color
         val tintColor = fromToArgb(

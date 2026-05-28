@@ -454,7 +454,6 @@ public class WAnimatedLabel: UILabel {
     let formattedString = amt.formatAttributed(
         format: .init(
             maxDecimals: 2,
-            showPlus: false,
             showMinus: false,
             roundUp: false,
             precision: .exact

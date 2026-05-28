@@ -9,7 +9,6 @@ import Foundation
 import UIKit
 import UIComponents
 import WalletContext
-import WalletCore
 
 
 class SettingsItemCell: UICollectionViewCell, WThemedView {

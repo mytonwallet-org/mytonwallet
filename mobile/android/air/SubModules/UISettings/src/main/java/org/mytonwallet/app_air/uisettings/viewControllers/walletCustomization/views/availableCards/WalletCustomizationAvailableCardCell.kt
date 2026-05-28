@@ -163,11 +163,12 @@ class WalletCustomizationAvailableCardCell(context: Context, val cellWidth: Int)
 
         balanceView.animateText(
             WBalanceView.AnimateConfig(
-                balance,
-                WalletCore.baseCurrency.decimalsCount,
-                WalletCore.baseCurrency.sign,
-                false,
-                LocaleController.isRTL
+                amount = balance,
+                decimals = WalletCore.baseCurrency.decimalsCount,
+                currency = WalletCore.baseCurrency.sign,
+                animated = false,
+                setInstantly = true,
+                forceCurrencyToRight = LocaleController.isRTL
             )
         )
         setPaddingDp(if (isSelectedCard) 3.5f else 2f)

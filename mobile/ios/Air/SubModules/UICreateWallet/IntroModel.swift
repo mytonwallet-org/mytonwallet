@@ -193,10 +193,13 @@ private let log = Log("IntroActions")
     
     private func _addViewWallet(address: String) async {
         do {
-            let chain: ApiChain = address.starts(with: "T") ? .tron : .ton
-            let ton = chain == .ton ? address : nil
-            let tron = chain == .tron ? address : nil
-            _ = try await AccountStore.importViewWallet(network: .mainnet, tonAddress: ton, tronAddress: tron)
+            var addressByChain: [String: String] = [:]
+            for chain in ApiChain.allCases {
+                if chain.isValidAddressOrDomain(address) {
+                    addressByChain[chain.rawValue] = address
+                }
+            }
+            _ = try await AccountStore.importViewWallet(network: .mainnet, addressByChain: addressByChain)
             self.onDone(successKind: .importedView)
         } catch {
             topWViewController()?.showAlert(error: error)

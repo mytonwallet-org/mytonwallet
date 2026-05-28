@@ -12,23 +12,36 @@ import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 @SuppressLint("ViewConstructor")
-class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
-    WCell(parentView.context) {
+class ActivityCell(
+    val parentView: View,
+    val withoutTagAndComment: Boolean,
+    val isFirstInDay: Boolean?
+) :
+    WCell(parentView.context), WThemedView {
+
+    companion object {
+        const val FIRST_DAY_MAIN_CONTENT_HEIGHT = 112
+        const val MAIN_CONTENT_HEIGHT = 64
+    }
 
     private val dateView = ActivityDateLabel(context)
     private val mainContentView = ActivityMainContentView(context)
@@ -52,14 +65,29 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
     private var transaction: MApiTransaction? = null
     private var isFirst = false
     private var isLast = false
+    private var isLastInDay = false
+    private var baseCurrency: MBaseCurrency? = null
+    private var baseCurrencyRate: Double? = null
 
     override fun setupViews() {
         super.setupViews()
 
-        layoutParams = layoutParams.apply { height = WRAP_CONTENT }
+        val cellHeight = cellHeight
+        layoutParams = layoutParams.apply {
+            height = if (cellHeight > 0)
+                cellHeight
+            else
+                WRAP_CONTENT
+        }
 
         addView(dateView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        addView(mainContentView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        addView(
+            mainContentView,
+            LayoutParams(
+                MATCH_PARENT,
+                if (withoutTagAndComment) MAIN_CONTENT_HEIGHT.dp else WRAP_CONTENT
+            )
+        )
         addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
@@ -70,6 +98,13 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
             toBottom(separator)
             toStart(separator, 72f)
             toEnd(separator, 16f)
+        }
+
+        if (withoutTagAndComment && isFirstInDay != null) {
+            layoutParams.height =
+                if (isFirstInDay) FIRST_DAY_MAIN_CONTENT_HEIGHT.dp else MAIN_CONTENT_HEIGHT.dp
+        } else {
+            layoutParams.height = WRAP_CONTENT
         }
 
         setOnClickListener { onTap?.let { onTap -> transaction?.let(onTap) } }
@@ -83,9 +118,28 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
         isLastInDay: Boolean,
         isLast: Boolean
     ) {
+        if (this.transaction?.isChanged(transaction) == false &&
+            WalletCore.baseCurrency == baseCurrency &&
+            TokenStore.baseCurrencyRate == baseCurrencyRate &&
+            this.isFirst == isFirst &&
+            this.isLast == isLast &&
+            this.isLastInDay == isLastInDay
+        ) {
+            // Nothing changed, just update theme
+            updateTheme()
+            if (!withoutTagAndComment) {
+                configureComment(transaction)
+            }
+            return
+        }
         this.transaction = transaction
+        this.baseCurrency = WalletCore.baseCurrency
+        this.baseCurrencyRate = TokenStore.baseCurrencyRate
+        val firstChanged = this.isFirst != isFirst
+        val lastChanged = this.isLast != isLast
         this.isFirst = isFirst
         this.isLast = isLast
+        this.isLastInDay = isLastInDay
 
         dateView.visibility = if (isFirstInDay) VISIBLE else GONE
         if (isFirstInDay) dateView.configure(transaction.dt, isFirst)
@@ -98,7 +152,7 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
         }
 
         separator.visibility = if (isLastInDay) INVISIBLE else VISIBLE
-        updateTheme()
+        updateTheme(forceUpdate = firstChanged || lastChanged)
     }
 
     private fun configureTags(transaction: MApiTransaction) {
@@ -205,7 +259,18 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
         }
     }
 
-    private fun updateTheme() {
+    override fun updateTheme() {
+        updateTheme(forceUpdate = false)
+    }
+
+    private var _isDarkThemeApplied: Boolean? = null
+    private fun updateTheme(forceUpdate: Boolean) {
+        if (!forceUpdate) {
+            val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
+            if (!darkModeChanged)
+                return
+        }
+        _isDarkThemeApplied = ThemeManager.isDark
         separator.setBackgroundColor(WColor.Separator.color)
         setBackgroundColor(
             WColor.Background.color,
@@ -217,27 +282,34 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
             0f,
             if (isLast) bigRadius else 0f
         )
+        dateView.updateTheme()
+        mainContentView.updateTheme()
+        if (!withoutTagAndComment) {
+            singleTagView?.updateTheme()
+        }
     }
 
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(
-            widthMeasureSpec,
-            if (withoutTagAndComment) {
-                val height = if (dateView.isVisible) 112.dp else 64.dp
-                height.exactly
+    private val cellHeight: Int
+        get() {
+            return if (withoutTagAndComment) {
+                val height = if (dateView.isVisible) 112.dp else MAIN_CONTENT_HEIGHT.dp
+                height
             } else {
-                heightMeasureSpec
+                0
             }
-        )
-    }
+        }
 
     // Used in recycler-views not using custom rvAdapter
     class Holder(parentView: View) :
         BaseListHolder<Item.Activity>(
-            ActivityCell(parentView, false).apply {
+            ActivityCell(parentView, false, null).apply {
+                val cellHeight = cellHeight
                 layoutParams = ViewGroup.LayoutParams(
                     MATCH_PARENT,
-                    WRAP_CONTENT
+                    if (cellHeight > 0)
+                        cellHeight
+                    else
+                        WRAP_CONTENT
                 )
             }) {
         private val view: ActivityCell = itemView as ActivityCell

@@ -1,6 +1,5 @@
 
 import SwiftUI
-import WalletCore
 import WalletContext
 
 

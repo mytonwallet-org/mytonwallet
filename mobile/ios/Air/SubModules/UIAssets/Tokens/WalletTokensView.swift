@@ -96,7 +96,7 @@ public class WalletTokensView: UITableView, WSegmentedControllerContent, WThemed
                     log.fault("inconsistent state")
                     return cell
                 }
-                let badgeContent = badgeContent(accountId: accountId, slug: slug, isStaking: walletToken.isStaking)
+                let badgeContent = getBadgeContent(accountId: accountId, slug: slug, isStaking: isStaked)
                 
                 let walletTokensCount = walletTokens?.count ?? 0
                 cell.configure(with: walletToken,
@@ -163,7 +163,7 @@ public class WalletTokensView: UITableView, WSegmentedControllerContent, WThemed
     func reloadStakeCells(animated: Bool) {
         for cell in visibleCells {
             if let cell = cell as? WalletTokenCell, let walletToken = cell.walletToken {
-                let badgeContent = badgeContent(accountId: accountId, slug: walletToken.tokenSlug, isStaking: walletToken.isStaking)
+                let badgeContent = getBadgeContent(accountId: accountId, slug: walletToken.tokenSlug, isStaking: walletToken.isStaking)
                 cell.configureBadge(badgeContent: badgeContent)
             }
         }

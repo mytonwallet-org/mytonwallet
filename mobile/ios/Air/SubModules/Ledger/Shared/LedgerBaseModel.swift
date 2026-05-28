@@ -74,11 +74,11 @@ public class LedgerBaseModel: @unchecked Sendable {
                 await updateStep(.connect, status: .done)
             } handleError: { @MainActor error in
                 if CBManager.authorization == .denied {
-                    topViewController()?.showAlert(title: "Bluetooth Access Denied", text: "Bluetooth access is needed to connect Ledger.", button: "Open Settings", buttonPressed: {
+                    topViewController()?.showAlert(title: lang("Bluetooth Access Denied"), text: lang("Bluetooth access is needed to connect Ledger."), button: lang("Open Settings"), buttonPressed: {
                         DispatchQueue.main.async {
                             UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
                         }
-                    }, secondaryButton: "Cancel", preferPrimary: true)
+                    }, secondaryButton: lang("Cancel"), preferPrimary: true)
                     throw error
                 }
             }
@@ -106,19 +106,6 @@ public class LedgerBaseModel: @unchecked Sendable {
             throw error
         }
     }
-    
-    func handleError(_ error: any Error) throws {
-        if let bridge = error as? BridgeCallError {
-            if case .customMessage(_, let any) = bridge {
-                if (any as? [String: Any])?["name"] as? String == "ApiUserRejectsError" {
-                    // do not retry
-                    log.info("signAndSend retry handle error triggered")
-                    throw error
-                }
-            }
-        }
-    }
-    
     
     // MARK: - View model
     

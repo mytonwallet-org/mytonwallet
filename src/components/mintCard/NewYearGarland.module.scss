@@ -1,0 +1,38 @@
+.garland {
+  pointer-events: auto;
+  cursor: pointer;
+
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  right: 0;
+  left: 0;
+
+  overflow: hidden;
+
+  width: 100%;
+  border-radius: inherit;
+}
+
+.garlandImage {
+  user-select: none;
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.garlandGlow {
+  pointer-events: none;
+
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 100%;
+}
+
+.garlandCircle {
+  opacity: 0;
+  transition: opacity 10ms linear;
+}

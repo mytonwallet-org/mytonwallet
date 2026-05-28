@@ -192,7 +192,11 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
                         val oldHiddenTokens = oldHiddenTokens
                         data.hiddenTokens.clear()
                         data.visibleTokens.clear()
-                        AccountStore.updateAssetsAndActivityData(data, notify = true)
+                        AccountStore.updateAssetsAndActivityData(
+                            data,
+                            notify = true,
+                            saveToStorage = true
+                        )
                         val indexes = ArrayList<Int>()
                         scope.launch {
                             this@AssetsAndActivitiesVC.oldHiddenTokens =
@@ -242,7 +246,8 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
                             }
                             AccountStore.updateAssetsAndActivityData(
                                 assetsAndActivityData,
-                                notify = true
+                                notify = true,
+                                saveToStorage = true
                             )
 
                             cell.closeSwipe()

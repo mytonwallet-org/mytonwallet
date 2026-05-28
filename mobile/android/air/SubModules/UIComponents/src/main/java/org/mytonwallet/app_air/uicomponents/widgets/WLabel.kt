@@ -35,6 +35,8 @@ open class WLabel(context: Context) : AppCompatTextView(context), WThemedView {
         gravity = if (LocaleController.isRTL) Gravity.RIGHT else Gravity.LEFT
     }
 
+    override var isTinted = false
+
     private val datePattern by lazy {
         when (WGlobalStorage.getLangCode()) {
             "ru" -> "d MMMM"

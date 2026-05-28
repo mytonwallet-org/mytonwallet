@@ -15,13 +15,13 @@ import UIPasscode
 @MainActor
 public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData.EventsObserver {
     
-    private var model: ActivityDetailsViewModel
+    private var viewModel: ActivityDetailsViewModel
     
-    public init(activity: ApiActivity) {
-        self.model = ActivityDetailsViewModel(activity: activity, detailsExpanded: false, scrollingDisabled: true)
+    public init(activity: ApiActivity, accountId: String?) {
+        self.viewModel = ActivityDetailsViewModel(activity: activity, accountId: accountId, detailsExpanded: false, scrollingDisabled: true)
         super.init(nibName: nil, bundle: nil)
-        model.onHeightChange = { [weak self] in self?.onHeightChange() }
-        model.onDetailsExpandedChanged = { [weak self] in self?.onDetailsExpandedChanged() }
+        viewModel.onHeightChange = { [weak self] in self?.onHeightChange() }
+        viewModel.onDetailsExpandedChanged = { [weak self] in self?.onDetailsExpandedChanged() }
     }
 
     required init?(coder: NSCoder) {
@@ -31,7 +31,7 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     private var hostingController: UIHostingController<ActivityView>?
     private var decryptedComment: String? = nil
     private var contentHeight: CGFloat? = nil
-    private var activity: ApiActivity { model.activity }
+    private var activity: ApiActivity { viewModel.activity }
     private var detentChange: Date = .distantPast
     private var scrollOffset: CGFloat = 0
     
@@ -46,32 +46,14 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
             p.delegate = self
         }
         
-        let (title, titleIsRed) = makeTitle()
-        let subtitle = activity.timestamp.dateTimeString
-        
-        navigationItem.title = title
-        if #available(iOS 26, *) {
-            navigationItem.subtitle = subtitle
+        navigationItem.titleView = HostingView {
+            ActivityNavigationHeader(viewModel: viewModel)
         }
         addCloseNavigationItemIfNeeded()
-        
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            let appearance = UINavigationBarAppearance()
-            appearance.titleTextAttributes = [
-                .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
-            ]
-            let style = NSMutableParagraphStyle()
-            style.minimumLineHeight = 19
-            appearance.subtitleTextAttributes = [
-                .font: UIFont.systemFont(ofSize: 13, weight: .regular),
-                .paragraphStyle: style,
-            ]
-            navigationItem.standardAppearance = appearance
-            if let sheet = sheetPresentationController {
-                sheet.prefersGrabberVisible = true
-                if #available(iOS 26.1, *) {
-                    sheet.backgroundEffect = UIColorEffect(color: WTheme.sheetBackground)
-                }
+        if let sheet = sheetPresentationController {
+            sheet.prefersGrabberVisible = true
+            if #available(iOS 26.1, *) {
+                sheet.backgroundEffect = UIColorEffect(color: WTheme.sheetBackground)
             }
         }
         
@@ -89,35 +71,12 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
                 do {
                     let tx = try await ActivityStore.fetchActivityDetails(accountId: accountId, activity: activity)
                     if let self {
-                        self.model.activity = tx
+                        self.viewModel.activity = tx
                     }
                 } catch {
                 }
             }
         }
-    }
-
-    func makeTitle() -> (String, Bool) {
-
-        let title = activity.displayTitleResolved
-
-        var titleIsRed: Bool = false
-
-        switch activity {
-        case .transaction:
-            break
-        case .swap(let swap):
-            switch swap.status {
-            case .pending, .pendingTrusted, .completed:
-                break
-            case .failed:
-                titleIsRed = true
-            case .expired:
-                titleIsRed = true
-            }
-        }
-
-        return (title, titleIsRed)
     }
 
     public override func updateTheme() {
@@ -127,8 +86,13 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
 
     func makeView() -> ActivityView {
         ActivityView(
-            model: self.model,
+            model: self.viewModel,
             onDecryptComment: decryptMessage,
+            onTokenTapped: { [weak self] token in
+                self?.dismiss(animated: true) {
+                    AppActions.showToken(token: token, isInModal: false)
+                }
+            },
             decryptedComment: decryptedComment,
             isSensitiveDataHidden: AppStorageHelper.isSensitiveDataHidden
         )
@@ -136,13 +100,13 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     
     func onHeightChange() {
         
-        guard model.collapsedHeight > 0 else { return }
+        guard viewModel.collapsedHeight > 0 else { return }
         
-        let expandedHeight = model.expandedHeight + 34
+        let expandedHeight = viewModel.expandedHeight + 34
         
         if let p = sheetPresentationController {
 
-            guard model.detailsExpanded == false || p.selectedDetentIdentifier != .large else { return }
+            guard viewModel.detailsExpanded == false || p.selectedDetentIdentifier != .large else { return }
 
             if let sv = view.superview?.bounds.size, expandedHeight >= sv.height * 0.85 {
                 updateScrollingDisabled(false)
@@ -157,11 +121,11 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     }
     
     func makeDetents() -> [UISheetPresentationController.Detent] {
-        let collapsedHeight = model.collapsedHeight + 34
-        let expandedHeight = model.expandedHeight + 34
+        let collapsedHeight = viewModel.collapsedHeight + 34
+        let expandedHeight = viewModel.expandedHeight + 34
         
         var detents: [UISheetPresentationController.Detent] = []
-        if model.activity.transaction?.nft == nil || !model.detailsExpanded {
+        if viewModel.activity.transaction?.nft == nil || !viewModel.detailsExpanded {
             detents.append(.custom(identifier: .detailsCollapsed) { context in
                 if collapsedHeight >= 0.95 * context.maximumDetentValue { // not worth it
                     return nil
@@ -169,7 +133,7 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
                 return collapsedHeight
             })
         }
-        if model.activity.transaction?.nft == nil {
+        if viewModel.activity.transaction?.nft == nil {
             detents.append(.custom(identifier: .detailsExpanded) { context in
                 if expandedHeight >= 0.95 * context.maximumDetentValue { // not worth it
                     return nil
@@ -187,16 +151,16 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     }
     
     func onDetailsExpandedChanged() {
-        let detailsExpanded = model.detailsExpanded
+        let detailsExpanded = viewModel.detailsExpanded
         
         if let p = sheetPresentationController {
             p.animateChanges {
-                if detailsExpanded && model.activity.transaction?.nft != nil {
+                if detailsExpanded && viewModel.activity.transaction?.nft != nil {
                     p.selectedDetentIdentifier = .large
-                } else if detailsExpanded && (p.selectedDetentIdentifier == .detailsCollapsed || p.selectedDetentIdentifier == nil) && model.activity.transaction?.nft == nil {
+                } else if detailsExpanded && (p.selectedDetentIdentifier == .detailsCollapsed || p.selectedDetentIdentifier == nil) && viewModel.activity.transaction?.nft == nil {
                     p.selectedDetentIdentifier = .detailsExpanded
                 } else if !detailsExpanded && p.selectedDetentIdentifier != .detailsCollapsed {
-                    if model.activity.transaction?.nft != nil {
+                    if viewModel.activity.transaction?.nft != nil {
                         p.detents = makeDetents()
                     }
                     p.selectedDetentIdentifier = .detailsCollapsed
@@ -253,13 +217,7 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
 
         if let newActivity {
             withAnimation {
-                model.activity = newActivity
-                let (title, titleIsRed) = makeTitle()
-                navigationBar?.set(title: title, titleColor: titleIsRed ? WTheme.error : .label)
-                if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-                    navigationItem.title = title
-                    navigationItem.subtitle = activity.timestamp.dateTimeString
-                }
+                viewModel.activity = newActivity
             }
         }
     }
@@ -271,17 +229,17 @@ extension ActivityVC: UISheetPresentationControllerDelegate {
     public func sheetPresentationControllerDidChangeSelectedDetentIdentifier(_ sheetPresentationController: UISheetPresentationController) {
         if sheetPresentationController.selectedDetentIdentifier == .detailsCollapsed || sheetPresentationController.selectedDetentIdentifier == .detailsExpanded {
             updateScrollingDisabled(true)
-            model.progressiveRevealEnabled = true
+            viewModel.progressiveRevealEnabled = true
         } else {
             updateScrollingDisabled(false)
-            model.progressiveRevealEnabled = false
+            viewModel.progressiveRevealEnabled = false
         }
         if sheetPresentationController.selectedDetentIdentifier == .large || sheetPresentationController.selectedDetentIdentifier == .detailsExpanded {
             detentChange = .now
-            model.detailsExpanded = true
+            viewModel.detailsExpanded = true
         } else if sheetPresentationController.selectedDetentIdentifier == .detailsCollapsed {
             detentChange = .now
-            model.detailsExpanded = false
+            viewModel.detailsExpanded = false
         }
         if sheetPresentationController.selectedDetentIdentifier == .large && activity.transaction?.nft != nil {
             sheetPresentationController.detents = makeDetents()
@@ -290,8 +248,8 @@ extension ActivityVC: UISheetPresentationControllerDelegate {
     
     func updateScrollingDisabled(_ scrollingDisabled: Bool) {
         DispatchQueue.main.async { [self] in
-            if scrollingDisabled != model.scrollingDisabled {
-                model.scrollingDisabled = scrollingDisabled
+            if scrollingDisabled != viewModel.scrollingDisabled {
+                viewModel.scrollingDisabled = scrollingDisabled
             }
         }
     }
@@ -303,7 +261,6 @@ extension ActivityVC: UISheetPresentationControllerDelegate {
 #if DEBUG
 //@available(iOS 18, *)
 //#Preview {
-//    let _ = UIFont.registerAirFonts()
 //    ActivityVC(
 //        activity: .transaction(
 //            .init(

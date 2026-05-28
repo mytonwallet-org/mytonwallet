@@ -1,7 +1,6 @@
 
 import SwiftUI
 import UIKit
-import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
@@ -29,7 +28,7 @@ struct TransactionFeeRow: View {
         let amount = TokenAmount(transfer.networkFee, .TONCOIN)
         AmountText(
             amount: amount,
-            format: .init(maxDecimals: 4, showMinus: true),
+            format: .init(maxDecimals: 4),
             integerFont: .systemFont(ofSize: 16, weight: .medium),
             fractionFont: .systemFont(ofSize: 16, weight: .medium),
             symbolFont: .systemFont(ofSize: 16, weight: .medium),
@@ -47,7 +46,7 @@ struct TransactionFeeRow: View {
         let amount = TokenAmount(transfer.networkFee, .toncoin).convertTo(baseCurrency, exchangeRate: toncoin.price ?? 0)
         AmountText(
             amount: amount,
-            format: .init(maxDecimals: 4, showMinus: true),
+            format: .init(maxDecimals: 4),
             integerFont: .systemFont(ofSize: 14, weight: .regular),
             fractionFont: .systemFont(ofSize: 14, weight: .regular),
             symbolFont: .systemFont(ofSize: 14, weight: .regular),

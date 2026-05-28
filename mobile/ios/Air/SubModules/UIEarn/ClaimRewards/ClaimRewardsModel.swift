@@ -93,13 +93,12 @@ import Combine
     func confirmLedger(account: MAccount, title: String, headerView: StakingConfirmHeaderView, onDone: @escaping () -> ()) async throws {
         guard
             let account = AccountStore.account,
-            let fromAddress = account.tonAddress?.nilIfEmpty,
             let viewController
         else { return }
         
         let signModel = try await LedgerSignModel(
             accountId: account.id,
-            fromAddress: fromAddress,
+            fromAddress: account.firstAddress,
             signData: SignData.submitStakingClaimOrUnlock(
                 accountId: account.id,
                 state: stakingState.orThrow(),
