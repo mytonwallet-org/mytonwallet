@@ -202,7 +202,7 @@ $logout_confirm: Remove **all** wallets
 $tiny_transfers_help: "Hide transfers worth less than $%value%. Keep in mind: small amounts are often sent by spammers and scammers."
 Today: Today
 Total: Total
-Zoom Out: Zoom Out
+Zoom Out: All Time
 Yesterday: Yesterday
 Now: Now
 $receive_description: Scan this QR or share the address to top up wallet balance.
@@ -297,7 +297,10 @@ Logged in with %app_name%: Logged in with %app_name%
 No active connections: No active connections
 Other: Other
 Portfolio: Portfolio
+Performance, insights and P&L: Performance, insights and P&L
+Overview: Overview
 Total Balance: Total Balance
+Net Change: Net Change
 No data: No data
 Total Value: Total Value
 Tracked asset value over time.: Tracked asset value over time.
@@ -314,6 +317,7 @@ Altcoins: Altcoins
 Asset Mix: Asset Mix
 No asset balances: No asset balances
 No staked assets: No staked assets
+Entire Period: Entire Period
 "Asset %1$@": "Asset %1$@"
 Assets & Activity: Assets & Activity
 Token Settings: Token Settings
@@ -1210,7 +1214,6 @@ $secret_words: Secret Words
 Restore wallet from 12 or 24 words: Restore wallet from 12 or 24 words
 Connect your hardware wallet: Connect your hardware wallet
 Watch wallet in read-only mode: Watch wallet in read-only mode
-
 More: More
 at: at
 MyTonWallet: MyTonWallet
@@ -1521,3 +1524,8 @@ $more_nfts:
 $subwallets_hint: Use subwallets to get additional addresses without creating a new set of secret words.
 $subwallets_created_wallets: If you have previously created subwallets, they will appear in the list below.
 $subwallets_none: No subwallets yet.
+Tracked asset value over time: Tracked asset value over time
+Current allocation across tracked assets: Current allocation across tracked assets
+Limited history: Limited history
+Cumulative profit and loss over time: Cumulative profit and loss over time
+Day-by-day profit and loss: Day-by-day profit and loss

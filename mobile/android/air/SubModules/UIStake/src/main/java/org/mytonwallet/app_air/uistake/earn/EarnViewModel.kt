@@ -666,7 +666,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
 
             WalletEvent.TokensChanged,
             WalletEvent.BaseCurrencyChanged -> {
-                token = TokenStore.getToken(tokenSlug)!!
+                token = TokenStore.getToken(tokenSlug) ?: token
                 viewModelScope.launch {
                     historyItemsMutex.withLock {
                         val updatedItems = withContext(Dispatchers.Default) {

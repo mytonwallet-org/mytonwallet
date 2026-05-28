@@ -1,0 +1,79 @@
+@use "../../styles/mixins";
+
+.root {
+  display: grid;
+  grid-template-columns: 1fr max-content 1fr;
+  flex-shrink: 0;
+  align-items: center;
+
+  height: 3rem;
+  padding-right: var(--scrollbar-width);
+  border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+
+  background: var(--color-background-first);
+
+  @include mixins.transition(background-color 300ms);
+
+  @include mixins.respond-below(xs) {
+    border-radius: 0;
+  }
+
+  &:global(.with-notch-on-scroll) {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    right: 0;
+    left: 0;
+
+    // Full-screen header sits under the device notch; reserve the top inset
+    // (resolves to 0 in landscape panels and on desktop)
+    height: calc(3rem + var(--safe-area-top));
+    padding-top: var(--safe-area-top);
+
+    background: transparent;
+
+    &:global(.is-scrolled) {
+      background-color: var(--color-background-tab-bar);
+      backdrop-filter: var(--filter-blur-bar);
+    }
+
+    @include mixins.respond-above(xs) {
+      border-radius: 0;
+    }
+  }
+}
+
+.backButton {
+  cursor: var(--custom-cursor, pointer);
+
+  display: flex;
+  align-items: center;
+
+  height: 3rem;
+  padding: 0.125rem 0.5rem 0;
+
+  font-size: 0.9375rem;
+  color: var(--color-accent);
+}
+
+.backButtonNoPadding {
+  @include mixins.respond-above(xs) {
+    padding-inline-start: 0 !important;
+  }
+}
+
+.backIcon {
+  font-size: 1.5rem;
+}
+
+.title {
+  overflow: hidden;
+
+  margin: 0;
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-black);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

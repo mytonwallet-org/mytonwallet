@@ -76,7 +76,7 @@ function AccountWalletCard({
   const screenWidthDep = isPortrait ? screenWidth : 0;
   const isHardware = accountType === 'hardware';
   const isViewMode = accountType === 'view';
-  const formattedAddress = formatAccountAddresses(byChain, 'small');
+  const formattedAddress = formatAccountAddresses(byChain, 'x-small');
 
   const {
     backgroundImageUrl,

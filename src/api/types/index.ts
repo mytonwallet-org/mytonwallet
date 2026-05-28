@@ -12,3 +12,4 @@ export * from './emulation';
 export * from './ledger';
 export * from './transfer';
 export * from './wallet';
+export * from './portfolio';

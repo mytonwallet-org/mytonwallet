@@ -22,7 +22,8 @@ extension UILabel {
         }
     }
     
-    func setText(_ title: String?, animated: Bool) {
+    @discardableResult
+    func setText(_ title: String?, animated: Bool) -> Bool {
         if self.text != title {
             if animated {
                 let animation = CATransition()
@@ -32,6 +33,8 @@ extension UILabel {
                 self.layer.add(animation, forKey: "kCATransitionTextFade")
             }
             self.text = title
+            return true
         }
+        return false
     }
 }

@@ -1,0 +1,27 @@
+@use "../../../styles/mixins";
+
+.root {
+  position: relative;
+
+  flex-shrink: 0;
+  align-self: stretch;
+
+  min-height: 10rem;
+
+  color: var(--color-background-first);
+}
+
+// Absolute so the SVG fills the card-driven height without dictating it back (avoids a measure loop)
+.svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.layer {
+  @include mixins.transition(opacity 150ms ease-out);
+}
+
+.layerFaded {
+  opacity: 0.25;
+}

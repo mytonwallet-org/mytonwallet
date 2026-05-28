@@ -81,7 +81,7 @@ class SettingsHeaderView: WTouchPassView {
         
     lazy var headerTouchTarget: UIView = {
         
-        class HeaderTouchTarget: UILabel {
+        class HeaderTouchTarget: NavigationHeader2 {
             var onWindowMoved: (() -> Void)?
             var onSizeChanged: (() -> Void)?
             var prevSize: CGSize?
@@ -103,11 +103,6 @@ class SettingsHeaderView: WTouchPassView {
         }
         
         let view = HeaderTouchTarget()
-        view.text = lang("Settings")
-        view.textColor = .clear
-        view.font = .systemFont(ofSize: 24)
-        view.isUserInteractionEnabled = true
-        view.accessibilityElementsHidden = true
         view.onWindowMoved = { [weak self] in
             guard let self else { return }
             self.updateWithLastScrollOffset()
@@ -116,6 +111,7 @@ class SettingsHeaderView: WTouchPassView {
             guard let self else { return }
             self.updateWithLastScrollOffset()
         }
+        
         view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(headerTouched)))
         return view
     }()
@@ -171,18 +167,11 @@ class SettingsHeaderView: WTouchPassView {
     
     let layoutGeometry: LayoutGeometry = .init()
         
-    private let largeTitleStack = TitleStackView(fontSize: 24)
-    private let smallTitleStack = TitleStackView(fontSize: 17)
+    private let titleStack = TitleStackView(fontSize: 24)
     private let titleContainer = WTouchPassView()
     private var titleCenterYConstraint: NSLayoutConstraint!
 
-    private var isCollapsed = false {
-        didSet {
-            if isCollapsed != oldValue {
-                Haptics.play(.transition)
-            }
-        }
-    }
+    private var isCollapsed = false
     
     private var lastScrollOffset: CGFloat = 0
     private var hasPerformedInitialLayout = false
@@ -206,10 +195,8 @@ class SettingsHeaderView: WTouchPassView {
         moreButton.menu = moreMenu
         moreButton.showsMenuAsPrimaryAction = true
         
-        largeTitleStack.translatesAutoresizingMaskIntoConstraints = false
-        smallTitleStack.translatesAutoresizingMaskIntoConstraints = false
-        titleContainer.addSubview(largeTitleStack)
-        titleContainer.addSubview(smallTitleStack)
+        titleStack.translatesAutoresizingMaskIntoConstraints = false
+        titleContainer.addSubview(titleStack)
 
         translatesAutoresizingMaskIntoConstraints = false
         titleContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -222,7 +209,7 @@ class SettingsHeaderView: WTouchPassView {
         addSubview(addressLabel)
         addLayoutGuide(navigationLayoutGuide)
                 
-        avatarCenterYConstraint = avatarImageView.centerYAnchor.constraint(equalTo: largeTitleStack.centerYAnchor)
+        avatarCenterYConstraint = avatarImageView.centerYAnchor.constraint(equalTo: titleStack.centerYAnchor)
         navBarViewHeightConstraint = navBarView.heightAnchor.constraint(equalToConstant: 0)
         navigationLayoutGuideCenterYConstraint = navigationLayoutGuide.centerYAnchor.constraint(equalTo: topAnchor)
         titleCenterYConstraint = titleContainer.centerYAnchor.constraint(equalTo: navigationLayoutGuide.centerYAnchor)
@@ -245,21 +232,17 @@ class SettingsHeaderView: WTouchPassView {
             navBarView.leftAnchor.constraint(equalTo: leftAnchor),
             navBarView.rightAnchor.constraint(equalTo: rightAnchor),
             navBarViewHeightConstraint,
-
-            smallTitleStack.centerYAnchor.constraint(equalTo: titleContainer.centerYAnchor),
-            smallTitleStack.leadingAnchor.constraint(equalTo: titleContainer.leadingAnchor, constant: layoutGeometry.titleHorMarginCollapsedInset),
-            smallTitleStack.trailingAnchor.constraint(equalTo: titleContainer.trailingAnchor, constant: -layoutGeometry.titleHorMarginCollapsedInset),
             
-            largeTitleStack.topAnchor.constraint(equalTo: titleContainer.topAnchor),
-            largeTitleStack.leadingAnchor.constraint(equalTo: titleContainer.leadingAnchor),
-            largeTitleStack.trailingAnchor.constraint(equalTo: titleContainer.trailingAnchor),
-            largeTitleStack.bottomAnchor.constraint(equalTo: titleContainer.bottomAnchor),
+            titleStack.topAnchor.constraint(equalTo: titleContainer.topAnchor),
+            titleStack.leadingAnchor.constraint(equalTo: titleContainer.leadingAnchor),
+            titleStack.trailingAnchor.constraint(equalTo: titleContainer.trailingAnchor),
+            titleStack.bottomAnchor.constraint(equalTo: titleContainer.bottomAnchor),
 
             titleCenterYConstraint,
             titleContainer.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: layoutGeometry.titleHorMargin),
             titleContainer.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -layoutGeometry.titleHorMargin),
             
-            addressLabel.topAnchor.constraint(equalTo: largeTitleStack.bottomAnchor, constant: 4),
+            addressLabel.topAnchor.constraint(equalTo: titleStack.bottomAnchor, constant: 4),
             addressLabel.leadingAnchor.constraint(equalTo: titleContainer.leadingAnchor),
             addressLabel.trailingAnchor.constraint(equalTo: titleContainer.trailingAnchor),
                         
@@ -303,8 +286,7 @@ class SettingsHeaderView: WTouchPassView {
         guard let account = AccountStore.account else {
             return
         }
-        largeTitleStack.updateWithAccount(account)
-        smallTitleStack.updateWithAccount(account)
+        titleStack.updateWithAccount(account)
     }
     
     private func updateAddresses() {
@@ -323,9 +305,9 @@ class SettingsHeaderView: WTouchPassView {
     }
     
     @objc private func headerTouched(recognizer: UIGestureRecognizer) {
-        if isCollapsed && smallTitleStack.alpha > 0 {
-            let location = recognizer.location(in: smallTitleStack)
-            smallTitleStack.handleTouchAt(location: location)
+        if isCollapsed {
+            let location = recognizer.location(in: titleStack)
+            titleStack.handleTouchAt(location: location)
         }
     }
     
@@ -359,44 +341,26 @@ class SettingsHeaderView: WTouchPassView {
         self.separatorView.alpha = alpha
         self.blurView.alpha = alpha
         
-        let titleArea = horizontalSpace - layoutGeometry.titleHorMargin * 2
-        let titleCollapsedArea = horizontalSpace - 2 * layoutGeometry.titleCollapsedHorMargin
-        let titleMinScale = titleCollapsedArea / titleArea
-        let easeOutProgress = 1 - pow(1 - collapseProgress, 3)
-        let titleScale = interpolate(from: 1.0, to: titleMinScale, progress: easeOutProgress)
-
-        let collapseThreshold = layoutGeometry.collapseThreshold
-
+        let titleMinScale = 17.0 / 24.0
+        let titleScale = interpolate(from: 1.0, to: titleMinScale, progress: collapseProgress)
         let titleTransform = CGAffineTransform.identity.scaledBy(x: titleScale, y: titleScale)
-        let titlePosition = interpolate(from: scrollRange, to: 0, progress: collapseProgress >= collapseThreshold ? 1.0 : collapseProgress)
+        let titlePosition = interpolate(from: scrollRange, to: 0, progress: collapseProgress)
                 
         let addressTransform = CGAffineTransform.identity
             .scaledBy(x: titleScale, y: titleScale)
             .translatedBy(x: 0, y: layoutGeometry.addressLabelShift * collapseProgress)
         
-        isCollapsed = collapseProgress >= collapseThreshold
+        isCollapsed = collapseProgress >= layoutGeometry.collapseThreshold
+        hasPerformedInitialLayout = true
         
-        if !hasPerformedInitialLayout {
-            hasPerformedInitialLayout = true
-            UIView.performWithoutAnimation {
-                applyUpdate(titlePosition: titlePosition, titleTransform: titleTransform, addressTransform: addressTransform)
-            }
-        } else {
-            applyUpdate(titlePosition: titlePosition, titleTransform: titleTransform, addressTransform: addressTransform)
-        }
+        applyUpdate(titlePosition: titlePosition, titleTransform: titleTransform, addressTransform: addressTransform)
     }
-        
+    
     private func applyUpdate(titlePosition: CGFloat, titleTransform: CGAffineTransform, addressTransform: CGAffineTransform) {
-        UIView.animate(withDuration: 0.06, delay: self.isCollapsed ? 0 : 0.06) {
-            self.smallTitleStack.alpha = self.isCollapsed ? 1 : 0
-            self.largeTitleStack.alpha = self.isCollapsed ? 0 : 1
-        }
         self.titleCenterYConstraint.constant = titlePosition
-        UIView.animate(withDuration: 0.12, delay: 0, options: [.beginFromCurrentState]) {
-            self.largeTitleStack.transform = titleTransform
-            self.addressLabel.transform = addressTransform
-            self.layoutIfNeeded()
-        }
+        self.titleStack.transform = titleTransform
+        self.addressLabel.transform = addressTransform
+        self.layoutIfNeeded()
     }
                 
     @objc private func qrPressed() {
@@ -540,18 +504,18 @@ private class TitleStackView: UIView {
     }
     
     func handleTouchAt(location: CGPoint)  {
-        if shortenedBalance.container.alpha > 0 {
-            if shortenedBalance.container.frame.contains(location) {
-                shortenedBalance.container.performTap()
+        
+        func check(_ balance: BalanceViewContext) -> Bool {
+            if balance.container.alpha > 0, let shyMask = balance.container.shyMask {
+                if shyMask.bounds.contains(convert(location, to: shyMask)) {
+                    balance.container.performTap()
+                    return true
+                }
             }
-            return
+            return false
         }
-        if fullBalance.container.alpha > 0 {
-            if fullBalance.container.frame.contains(location) {
-                fullBalance.container.performTap()
-            }
-            return
-        }
+        
+        _ = check(shortenedBalance) || check(fullBalance)
     }
     
     private func layoutIfNeededAnimated() {

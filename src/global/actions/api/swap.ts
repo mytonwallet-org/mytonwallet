@@ -608,9 +608,14 @@ async function estimateCexSwap(global: GlobalState, shouldStop: () => boolean): 
       return 'rateLimited';
     }
 
+    const errorType = SERVER_ERRORS_MAP[error as keyof typeof SERVER_ERRORS_MAP]
+      ?? SwapErrorType.UnexpectedError;
+
+    logDebugError('estimateCexSwap', error, estimate);
+
     return {
       ...getSwapEstimateResetParams(global),
-      errorType: SwapErrorType.UnexpectedError,
+      errorType,
     };
   }
 

@@ -85,6 +85,12 @@ function applyThousandsGrouping(str: string) {
   return [groupedWhole, fractionPart].filter(Boolean).join('.');
 }
 
+// Round to integer at ≥10%, keep one decimal below. `roundHalfUp` keeps negative ties symmetric with positives
+export function formatPercent(value: number): string {
+  const dp = Math.abs(value) >= 10 ? 0 : 1;
+  return `${new Big(value).round(dp, Big.roundHalfUp).toString()}%`;
+}
+
 export function formatBaseCurrencyAmount(
   amount: bigint,
   baseCurrency: ApiBaseCurrency,

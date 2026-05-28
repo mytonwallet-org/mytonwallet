@@ -147,6 +147,8 @@ export interface ChainConfig {
   nftBatchPauseMs?: number;
   /** Whether the chain supports net worth details */
   isNetWorthSupported: boolean;
+  /** Brand color used to represent the chain in charts and other multichain visualizations */
+  displayColor: string;
   /** Builds a link to transfer assets in this chain. If not set, the chain won't have the Deposit Link modal. */
   formatTransferUrl?(address: string, amount?: bigint, text?: string, jettonAddress?: string): string;
 }
@@ -183,6 +185,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     addressRegex: /^([-\w_]{48}|0:[\da-h]{64})$/i,
     addressPrefixRegex: /^([-\w_]{1,48}|0:[\da-h]{0,64})$/i,
     nativeToken: TONCOIN,
+    displayColor: '#2C92F0',
     doesBackendSocketSupport: true,
     canImportTokens: true,
     shouldShowScamWarningIfNotEnoughGas: false,
@@ -271,6 +274,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     addressRegex: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
     addressPrefixRegex: /^T[1-9A-HJ-NP-Za-km-z]{0,33}$/,
     nativeToken: TRX,
+    displayColor: '#E65850',
     doesBackendSocketSupport: true,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: true,
@@ -327,6 +331,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     addressRegex: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/,
     addressPrefixRegex: /^[1-9A-HJ-NP-Za-km-z]{0,44}$/,
     nativeToken: SOLANA,
+    displayColor: '#864BFF',
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
@@ -401,6 +406,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     addressRegex: /^0x[a-fA-F0-9]{40}$/,
     addressPrefixRegex: /^0x[a-fA-F0-9]{0,40}$/,
     nativeToken: ETH,
+    displayColor: '#627EEA',
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
@@ -469,6 +475,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     addressRegex: /^0x[a-fA-F0-9]{40}$/,
     addressPrefixRegex: /^0x[a-fA-F0-9]{0,40}$/,
     nativeToken: BASE,
+    displayColor: '#0052FF',
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
@@ -533,6 +540,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     addressRegex: /^0x[a-fA-F0-9]{40}$/,
     addressPrefixRegex: /^0x[a-fA-F0-9]{0,40}$/,
     nativeToken: BNB,
+    displayColor: '#F39D08',
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
@@ -648,6 +656,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     addressRegex: /^0x[a-fA-F0-9]{40}$/,
     addressPrefixRegex: /^0x[a-fA-F0-9]{0,40}$/,
     nativeToken: ARBITRUM,
+    displayColor: '#28A0F0',
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
@@ -824,6 +833,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     addressRegex: /^0x[a-fA-F0-9]{40}$/,
     addressPrefixRegex: /^0x[a-fA-F0-9]{0,40}$/,
     nativeToken: HYPERLIQUID,
+    displayColor: '#00AF98',
     doesBackendSocketSupport: false,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
@@ -887,8 +897,8 @@ if (DEBUG) {
 
 export function getChainConfig(chain: ApiChain): ChainConfig {
   // The `ApiChain` parameter type is statically narrow, but persisted storage can hold chain
-  // keys from older schemas — guard here so callers see the chain name instead of an opaque
-  // `undefined.<prop>` further down the stack.
+  // keys from older schemas, so guard here so callers see the chain name instead of an opaque
+  // `undefined.<prop>` further down the stack
   const config = CHAIN_CONFIG[chain];
   if (!config) {
     throw new Error(`Unsupported chain "${chain}" — not present in CHAIN_CONFIG`);

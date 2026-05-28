@@ -1,13 +1,13 @@
-import React, { memo } from '../../../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
 
-import buildClassName from '../../../../util/buildClassName';
+import buildClassName from '../../util/buildClassName';
 
-import useLang from '../../../../hooks/useLang';
-import useLastCallback from '../../../../hooks/useLastCallback';
+import useLang from '../../hooks/useLang';
+import useLastCallback from '../../hooks/useLastCallback';
 
-import Button from '../../../ui/Button';
+import Button from '../ui/Button';
 
-import styles from './OverviewScrollButton.module.scss';
+import styles from './EdgeScrollButton.module.scss';
 
 interface OwnProps {
   isVisible: boolean;
@@ -15,7 +15,7 @@ interface OwnProps {
   onClick: (direction: 'left' | 'right') => void;
 }
 
-function OverviewScrollButton({ isVisible, direction, onClick }: OwnProps) {
+function EdgeScrollButton({ isVisible, direction, onClick }: OwnProps) {
   const lang = useLang();
 
   const isLeft = direction === 'left';
@@ -43,4 +43,4 @@ function OverviewScrollButton({ isVisible, direction, onClick }: OwnProps) {
   );
 }
 
-export default memo(OverviewScrollButton);
+export default memo(EdgeScrollButton);

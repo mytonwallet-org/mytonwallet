@@ -260,26 +260,17 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       }
 
       let accountId = await getCurrentAccountOrFail();
-      const { network } = parseAccountId(accountId);
-      const account = await fetchStoredChainAccount(accountId, 'ton');
-
       const { promiseId, promise } = createDappPromise();
 
-      const dapp: StoredDappConnection = {
-        ...dappMetadata,
-        protocolType: this.protocolType,
-        chains: [{
-          chain: 'ton',
-          network,
-          address: account.byChain.ton.address,
-        }],
+      let account = await fetchStoredChainAccount(accountId, 'ton');
+      let dapp = buildDappConnection(
+        this.protocolType,
+        dappMetadata,
         url,
-        connectedAt: Date.now(),
-        ...(request.isUrlEnsured && { isUrlEnsured: true }),
-        ...('sseOptions' in request && {
-          sse: request.sseOptions,
-        }),
-      };
+        accountId,
+        account.byChain.ton.address,
+        request,
+      );
 
       const uniqueId = getDappConnectionUniqueId(dapp);
 
@@ -298,8 +289,22 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
 
       const promiseResult: Parameters<typeof confirmDappRequestConnect>[1] = await promise;
 
-      accountId = promiseResult.accountId;
-      request.accountId = accountId;
+      if (promiseResult.accountId !== accountId) {
+        accountId = promiseResult.accountId;
+        request.accountId = accountId;
+        account = await fetchStoredChainAccount(accountId, 'ton');
+        dapp = buildDappConnection(
+          this.protocolType,
+          dappMetadata,
+          url,
+          accountId,
+          account.byChain.ton.address,
+          request,
+        );
+      } else {
+        request.accountId = accountId;
+      }
+
       await addDapp(accountId, dapp, uniqueId);
 
       const deviceInfo = tonConnectGetDeviceInfo(account);
@@ -323,8 +328,8 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
           dapp,
           chains: [{
             chain: 'ton',
-            address: accountId,
-            network,
+            address: account.byChain.ton.address,
+            network: parseAccountId(accountId).network,
           }],
           connectedAt: new Date().getTime(),
           protocolData: {
@@ -384,7 +389,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
           dapp: currentDapp,
           chains: [{
             chain: 'ton',
-            address: accountId,
+            address: account.byChain.ton.address,
             network,
           }],
           connectedAt: new Date().getTime(),
@@ -1031,6 +1036,33 @@ export function getTonConnectAdapter(): DappProtocolAdapter {
  */
 export function createTonConnectAdapter(): DappProtocolAdapter {
   return new TonConnectAdapter();
+}
+
+function buildDappConnection(
+  protocolType: DappProtocolType.TonConnect,
+  dappMetadata: DappMetadata,
+  url: string,
+  accountId: string,
+  address: string,
+  request: ApiDappRequest,
+): StoredDappConnection {
+  const { network } = parseAccountId(accountId);
+
+  return {
+    ...dappMetadata,
+    protocolType,
+    chains: [{
+      chain: 'ton',
+      network,
+      address,
+    }],
+    url,
+    connectedAt: Date.now(),
+    ...(request.isUrlEnsured && { isUrlEnsured: true }),
+    ...('sseOptions' in request && {
+      sse: request.sseOptions,
+    }),
+  };
 }
 
 async function fetchDappMetadata(manifestUrl: string): Promise<DappMetadata> {

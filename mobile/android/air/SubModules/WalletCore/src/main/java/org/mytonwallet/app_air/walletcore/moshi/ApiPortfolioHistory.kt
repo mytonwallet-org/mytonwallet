@@ -12,7 +12,7 @@ data class ApiPortfolioHistoryResponse(
     val base: String,
     val density: String,
     val historyScanCursor: Double?,
-    val assetLimitExceeded: Boolean?,
+    val isAssetLimitExceeded: Boolean?,
 )
 
 @JsonClass(generateAdapter = true)

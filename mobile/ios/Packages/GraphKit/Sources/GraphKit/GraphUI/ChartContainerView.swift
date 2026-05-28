@@ -406,7 +406,7 @@ public final class ChartContainerView: UIView {
         chartView.apply(theme: theme, strings: strings, animated: animated)
     }
 
-    public func setup(controller: BaseChartController, noInitialZoom: Bool = false) {
+    public func setup(controller: BaseChartController, noInitialZoom: Bool) {
         self.controller = controller
 
         var displayRange = true
@@ -446,6 +446,16 @@ public final class ChartContainerView: UIView {
 
     public func resetInteraction() {
         chartView.resetDetailsView()
+    }
+
+    public func resetRange(animated: Bool = false) {
+        limitedRangeFraction = nil
+        limitedRangeTapAction = nil
+        chartView.resetRange(animated: animated)
+    }
+
+    public func expandRange(animated: Bool = false) {
+        chartView.expandRange(lowerBound: limitedRangeFraction ?? 0, animated: animated)
     }
 
     public func blocksBackSwipe(at point: CGPoint, mainChartLeftSafeInset: CGFloat = 30.0) -> Bool {

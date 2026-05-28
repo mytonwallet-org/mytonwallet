@@ -13,7 +13,7 @@ object TokenSelectorHelper {
         context: Context,
         account: MAccount
     ): TokenSelectorVC {
-        val assets = TokenStore.swapAssets2?.filter {
+        val assets = TokenStore.swapAssets?.filter {
             val chain = it.chain
             chain != null
                 && MBlockchain.supportedChainValues.contains(chain)

@@ -351,9 +351,9 @@ class StakingVC(
                 when (state) {
                     is StakingState.Liquid -> {
                         show()
-                        val token = TokenStore.getToken(TONCOIN_SLUG)!!
+                        val token = TokenStore.getToken(TONCOIN_SLUG)
                         val instantAvailableAmount = state.instantAvailable
-                        if (stakingViewModel.amount <= instantAvailableAmount) {
+                        if (token != null && stakingViewModel.amount <= instantAvailableAmount) {
                             unstakingDetailView.setInstantWithdrawDetails(
                                 instantAvailableAmount.toString(
                                     token.decimals,

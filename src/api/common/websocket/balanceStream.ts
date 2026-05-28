@@ -71,7 +71,8 @@ export class BalanceStream {
   #balancesDeferred = new Deferred();
 
   #walletWatcher: WalletWatcher;
-  #fallbackPollingScheduler: FallbackPollingScheduler;
+  #fallbackPollingOptions: FallbackPollingOptions;
+  #fallbackPollingScheduler?: FallbackPollingScheduler;
 
   #updateListeners = createCallbackManager<OnBalancesUpdate>();
   #loadingListeners = createCallbackManager<OnLoadingChange>();
@@ -121,6 +122,7 @@ export class BalanceStream {
     this.#fetchCrosschainBalancesCb = fetchCrosschainBalancesCb;
     this.#importUnknownTokens = importUnknownTokens;
     this.#ensureIsPollingNeeded = ensureIsPollingNeeded;
+    this.#fallbackPollingOptions = fallbackPollingOptions;
     this.#walletWatcher = wsClient.watchWallets(
       [{ address, chain }],
       {
@@ -134,11 +136,15 @@ export class BalanceStream {
     if (!ensureIsPollingNeeded) {
       this.#walletStatus = 'active';
     }
+  }
+
+  public start() {
+    if (this.#isDestroyed || this.#fallbackPollingScheduler) return;
 
     this.#fallbackPollingScheduler = new FallbackPollingScheduler(
       this.#poll,
       this.#walletWatcher.isConnected,
-      fallbackPollingOptions,
+      this.#fallbackPollingOptions,
     );
   }
 
@@ -169,15 +175,15 @@ export class BalanceStream {
   public destroy() {
     this.#isDestroyed = true;
     this.#walletWatcher.destroy();
-    this.#fallbackPollingScheduler.destroy();
+    this.#fallbackPollingScheduler?.destroy();
   }
 
   #handleSocketConnect = () => {
-    this.#fallbackPollingScheduler.onSocketConnect();
+    this.#fallbackPollingScheduler?.onSocketConnect();
   };
 
   #handleSocketDisconnect = () => {
-    this.#fallbackPollingScheduler.onSocketDisconnect();
+    this.#fallbackPollingScheduler?.onSocketDisconnect();
   };
 
   /**
@@ -186,11 +192,13 @@ export class BalanceStream {
    */
   #handleTraceInvalidated = () => {
     logDebug('toncenter: trace invalidated, forcing balance re-poll', { address: this.#address });
-    this.#fallbackPollingScheduler.forceImmediatePoll();
+    this.#fallbackPollingScheduler?.forceImmediatePoll();
   };
 
   #handleSocketBalanceUpdate: OnSocketBalancesUpdate = async (newBalances) => {
     if (this.#isDestroyed) return;
+    if (!this.#fallbackPollingScheduler) return;
+
     this.#fallbackPollingScheduler.onSocketMessage();
 
     const wasInactive = this.#walletStatus === 'inactive';

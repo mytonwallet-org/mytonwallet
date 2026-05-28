@@ -4,22 +4,30 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.Shader
 import android.view.View
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioBreakdownSlice
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class CylinderStackView(context: Context) : View(context) {
+class CylinderStackView(context: Context) : View(context), WThemedView {
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
+    private val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = Color.WHITE
+        color = WColor.Background.color
         strokeWidth = 3f.dp
     }
     private val capPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -33,6 +41,11 @@ class CylinderStackView(context: Context) : View(context) {
 
     fun setSlices(slices: List<PortfolioBreakdownSlice>) {
         this.slices = slices
+        invalidate()
+    }
+
+    override fun updateTheme() {
+        strokePaint.color = WColor.Background.color
         invalidate()
     }
 
@@ -73,14 +86,25 @@ class CylinderStackView(context: Context) : View(context) {
             bodyPath.close()
             canvas.drawPath(bodyPath, fillPaint)
 
-            // top cap: full ellipse, lighter shade
-            capPaint.color = lighten(color, 0.18f)
+            // Classic-matching glossy highlight: vertical white gradient from 24% at 16.8% of
+            // body height to 0% at 94.5%
+            val bodyHeight = (topY + rY) - segTopY
+            highlightPaint.shader = LinearGradient(
+                0f, segTopY + 0.168f * bodyHeight,
+                0f, segTopY + 0.945f * bodyHeight,
+                Color.argb((255 * 0.24f).toInt(), 255, 255, 255),
+                Color.argb(0, 255, 255, 255),
+                Shader.TileMode.CLAMP,
+            )
+            canvas.drawPath(bodyPath, highlightPaint)
+
+            // top cap: full ellipse with 40% white overlay (matches Classic's topmost cap)
+            capPaint.color = lighten(color, 0.4f)
             ellipseRect.set(0f, segTopY - rY, w, segTopY + rY)
             canvas.drawOval(ellipseRect, capPaint)
 
             // white seam between cap and segment below (skip for topmost — no segment above it)
             if (i > 0) {
-                strokePaint.color = Color.WHITE
                 canvas.drawOval(ellipseRect, strokePaint)
             }
 

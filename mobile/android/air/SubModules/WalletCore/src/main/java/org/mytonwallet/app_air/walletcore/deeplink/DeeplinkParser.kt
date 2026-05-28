@@ -70,6 +70,7 @@ sealed class Deeplink {
     ) : Deeplink()
 
     data class Stake(override val accountAddress: String?) : Deeplink()
+    data class Portfolio(override val accountAddress: String?) : Deeplink()
     data class Explore(
         override val accountAddress: String?,
         val targetUri: Uri?
@@ -301,6 +302,7 @@ class DeeplinkParser {
                 )
 
                 "stake" -> Deeplink.Stake(accountAddress = null)
+                "portfolio" -> Deeplink.Portfolio(accountAddress = null)
                 "explore" -> Deeplink.Explore(
                     accountAddress = null,
                     targetUri = uri.extractSubUri()

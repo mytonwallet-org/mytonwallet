@@ -31,6 +31,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState.Default
+import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.PortfolioVC
 import org.mytonwallet.app_air.uireceive.ReceiveVC
 import org.mytonwallet.app_air.uisettings.viewControllers.appInfo.AppInfoVC
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.AppearanceVC
@@ -46,6 +47,7 @@ import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.Setting
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsSpaceCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsVersionCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
+import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsSection
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.views.SettingsHeaderView
 import org.mytonwallet.app_air.uisettings.viewControllers.subwallets.SubWalletsVC
 import org.mytonwallet.app_air.uisettings.viewControllers.userResponsibility.UserResponsibilityVC
@@ -456,6 +458,12 @@ class SettingsVC(context: Context) : WViewController(context),
                 )
             }
 
+            SettingsItem.Identifier.PORTFOLIO -> {
+                navigationController?.tabBarController?.navigationController?.push(
+                    PortfolioVC(context)
+                )
+            }
+
             SettingsItem.Identifier.APPEARANCE -> {
                 navigationController?.tabBarController?.navigationController?.push(
                     AppearanceVC(context)
@@ -620,11 +628,19 @@ class SettingsVC(context: Context) : WViewController(context),
         return settingsVM.settingsSections.size + 2
     }
 
+    private fun sectionHasHeader(section: SettingsSection): Boolean {
+        return section.title.isNotEmpty()
+    }
+
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
         return when (section) {
             0 -> 1
             settingsVM.settingsSections.size + 1 -> 1
-            else -> 1 + settingsVM.settingsSections[section - 1].children.size
+            else -> {
+                val settingsSection = settingsVM.settingsSections[section - 1]
+                val headerCount = if (sectionHasHeader(settingsSection)) 1 else 0
+                headerCount + settingsSection.children.size
+            }
         }
     }
 
@@ -633,13 +649,16 @@ class SettingsVC(context: Context) : WViewController(context),
             0 -> HEADER_CELL
             settingsVM.settingsSections.size + 1 -> VERSION_CELL
             else -> {
-                if (indexPath.row == 0)
+                val settingsSection = settingsVM.settingsSections[indexPath.section - 1]
+                val hasHeader = sectionHasHeader(settingsSection)
+                if (hasHeader && indexPath.row == 0)
                     SECTION_HEADER_CELL
-                else when (settingsVM.settingsSections.getOrNull(indexPath.section - 1)?.children?.getOrNull(
-                    indexPath.row - 1
-                )?.identifier) {
-                    SettingsItem.Identifier.ACCOUNT -> ACCOUNT_CELL
-                    else -> ITEMS_CELL
+                else {
+                    val itemIndex = if (hasHeader) indexPath.row - 1 else indexPath.row
+                    when (settingsSection.children.getOrNull(itemIndex)?.identifier) {
+                        SettingsItem.Identifier.ACCOUNT -> ACCOUNT_CELL
+                        else -> ITEMS_CELL
+                    }
                 }
             }
         }
@@ -699,9 +718,8 @@ class SettingsVC(context: Context) : WViewController(context),
 
             else -> {
                 val section = settingsVM.settingsSections.getOrNull(indexPath.section - 1) ?: return
-                if (indexPath.row > section.children.size)
-                    return
-                if (indexPath.row == 0) {
+                val hasHeader = sectionHasHeader(section)
+                if (hasHeader && indexPath.row == 0) {
                     val cell = cellHolder.cell as HeaderCell
                     cell.configure(
                         section.title,
@@ -710,14 +728,16 @@ class SettingsVC(context: Context) : WViewController(context),
                     )
                     return
                 }
-                val itemIndex = indexPath.row - 1
+                val itemIndex = if (hasHeader) indexPath.row - 1 else indexPath.row
+                if (itemIndex > section.children.size - 1)
+                    return
                 val item =
                     section.children[itemIndex]
                 val cell = (cellHolder.cell as ISettingsItemCell)
                 cell.configure(
                     item,
                     settingsVM.subtitleFor(item),
-                    false,
+                    !hasHeader && itemIndex == 0,
                     itemIndex == section.children.size - 1,
                     true
                 ) {
@@ -733,12 +753,12 @@ class SettingsVC(context: Context) : WViewController(context),
             0, settingsVM.settingsSections.size + 1 -> null
 
             else -> {
-                if (indexPath.row == 0)
-                    return settingsVM.settingsSections.getOrNull(indexPath.section - 1)?.title
-                val item =
-                    settingsVM.settingsSections.getOrNull(indexPath.section - 1)?.children?.getOrNull(
-                        indexPath.row - 1
-                    )
+                val section = settingsVM.settingsSections.getOrNull(indexPath.section - 1)
+                val hasHeader = section != null && sectionHasHeader(section)
+                if (hasHeader && indexPath.row == 0)
+                    return section.title
+                val itemIndex = if (hasHeader) indexPath.row - 1 else indexPath.row
+                val item = section?.children?.getOrNull(itemIndex)
                 when (item?.identifier) {
                     SettingsItem.Identifier.ACCOUNT -> {
                         item.account?.accountId

@@ -53,6 +53,14 @@ open class WCustomImageView @JvmOverloads constructor(
     private val path = Path()
 
     var defaultRounding: Content.Rounding = Content.Rounding.Round
+        set(value) {
+            if (field == value) return
+            field = value
+            val current = content
+            if (current != null && current.rounding is Content.Rounding.Default) {
+                hierarchy?.roundingParams = getRoundingParams(current)
+            }
+        }
     var defaultPlaceholder: Content.Placeholder = Content.Placeholder.Color(WColor.BackgroundRipple)
     var chainSize: Int = CHAIN_SIZE.dp
     var chainSizeGap: Float = 1.5f.dp

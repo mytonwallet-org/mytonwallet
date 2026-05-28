@@ -12,12 +12,12 @@ import WalletCore
 import WalletContext
 
 public class ImportWalletVC: CreateWalletBaseVC {
-
     private let introModel: IntroModel
     private let scrollView = UIScrollView()
     private var wordInputs: [WWordInput] = []
     private let suggestionsView = WSuggestionsView()
     private var isSubmitting = false
+    
     private lazy var headerView = HeaderView(
         animationName: "animation_snitch",
         animationPlaybackMode: .once,
@@ -29,7 +29,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
         primaryAction: BottomAction(
             title: lang("Continue"),
             onPress: { [weak self] in
-                self?.continuePressed(scrollToBottom: false)
+                self?.continuePressed()
             }
         ),
         reserveSecondaryActionHeight: false
@@ -57,7 +57,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
         }
     }
 
-    func setupViews() {
+    private func setupViews() {
         navigationItem.title = nil
         if AccountStore.accountsById.count > 0 {
             addCloseNavigationItemIfNeeded()
@@ -79,6 +79,9 @@ public class ImportWalletVC: CreateWalletBaseVC {
             // contentLayout
             scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: view.widthAnchor),
         ])
+
+        headerView.isUserInteractionEnabled = true
+        headerView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard)))
 
         scrollView.addSubview(headerView)
         NSLayoutConstraint.activate([
@@ -120,97 +123,115 @@ public class ImportWalletVC: CreateWalletBaseVC {
             wordsStackView2.leadingAnchor.constraint(equalTo: wordsStackView1.trailingAnchor, constant: 16),
             wordsStackView2.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -32),
             wordsStackView1.widthAnchor.constraint(equalTo: wordsStackView2.widthAnchor),
-            
-            wordsStackView1.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -90),
+            wordsStackView2.bottomAnchor.constraint(equalTo: wordsStackView1.bottomAnchor),
         ])
-        let fieldsCount = 24
         
+        let fieldsCount = 24
+        var previousWorkInput: WWordInput?
         for i in 0 ..< fieldsCount {
-            let wordInput = WWordInput(
-                index: i,
-                wordNumber: i + 1,
-                suggestionsView: suggestionsView,
-                delegate: self
-            )
-            if i < fieldsCount - 1 {
-                wordInput.textField.returnKeyType = .next
-            } else {
+            let wordInput = WWordInput(wordNumber: i + 1, suggestionsView: suggestionsView, delegate: self)
+            
+            if wordInput.wordNumber == fieldsCount {
                 wordInput.textField.returnKeyType = .done
+            } else {
+                wordInput.textField.returnKeyType = .next
             }
+            
+            // We allow user to submit after entering 12 words (no auto-switching to 13th text field)
+            if wordInput.wordNumber == fieldsCount / 2 {
+                wordInput.advancesOnSuggestionSelection = false
+            }
+            
             if i < fieldsCount / 2 {
                 wordsStackView1.addArrangedSubview(wordInput)
             } else {
                 wordsStackView2.addArrangedSubview(wordInput)
             }
-            // add word input to word inputs array to have a refrence
+            
+            if let previousWorkInput {
+                previousWorkInput.nextInput = wordInput
+            }
             wordInputs.append(wordInput)
+            previousWorkInput = wordInput
         }
         
-        view.addSubview(bottomActionsView)
+        scrollView.addSubview(bottomActionsView)
         NSLayoutConstraint.activate([
-            bottomActionsView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            bottomActionsView.topAnchor.constraint(equalTo: wordsStackView1.bottomAnchor, constant: 24),
+            bottomActionsView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -8),
             bottomActionsView.leftAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.leftAnchor, constant: 32),
             bottomActionsView.rightAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.rightAnchor, constant: -32),
         ])
 
-        let blurView = WBlurView()
-        view.addSubview(blurView)
-        NSLayoutConstraint.activate([
-            blurView.topAnchor.constraint(equalTo: bottomActionsView.topAnchor, constant: -16),
-            blurView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            blurView.leftAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.leftAnchor),
-            blurView.rightAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.rightAnchor),
-        ])
-        
-        let separatorView = UIView()
-        separatorView.translatesAutoresizingMaskIntoConstraints = false
-        separatorView.backgroundColor = UIColor.separator
-        view.addSubview(separatorView)
-        NSLayoutConstraint.activate([
-            separatorView.topAnchor.constraint(equalTo: blurView.topAnchor),
-            separatorView.leftAnchor.constraint(equalTo: blurView.leftAnchor),
-            separatorView.rightAnchor.constraint(equalTo: blurView.rightAnchor),
-            separatorView.heightAnchor.constraint(equalToConstant: 0.33)
-        ])
+        textChanged()
 
+        WKeyboardObserver.observeKeyboard(delegate: self)
+    }
+    
+    private func pasteWords(_ words: [String], startingInput input: WWordInput) -> Bool {
+        guard !words.isEmpty else { return false }
         
-        view.bringSubviewToFront(bottomActionsView)
+        var input = input
+        var lastInput = input
+        for word in words {
+            input.setText(word, notifyDelegate: false, goToNextInput: false)
+            lastInput = input
+            guard let i = input.nextInput else { break }
+            input = i
+        }
 
         textChanged()
+
+        if #available(iOS 17.0, *), let target = lastInput.frame(in: scrollView) {
+            scrollView.scrollRectToVisible(target, animated: true)
+        }
         
-        // listen for keyboard
-        WKeyboardObserver.observeKeyboard(delegate: self)
+        if enteredWords() != nil {
+            continuePressedAsync()
+            return true
+        }
+        return false
+    }
+
+    @objc func dismissKeyboard() {
+        view.endEditing(true)
     }
 
     @objc func pasteFromClipboard() {
+        guard let firstInput = wordInputs.first else { return }
+        
         if UIPasteboard.general.hasStrings, let value = UIPasteboard.general.string, !value.isEmpty {
             let words = value.split(omittingEmptySubsequences: true, whereSeparator: { $0.isWhitespace }).map(String.init)
-            if !isValidImportWords(words) {
-                Haptics.play(.error)
-                if #available(iOS 17.0, *), let target = wordInputs.first?.frame(in: scrollView) {
-                     scrollView.scrollRectToVisible(target, animated: true)
-                }
+            
+            // clean everything pasted so far
+            for input in wordInputs {
+                input.setText("", notifyDelegate: false, goToNextInput: false)
             }
-            wordInputs.first?.textField.distributeWords(words)
-            textChanged()
+            
+            if !pasteWords(words, startingInput: firstInput) {
+                view.endEditing(true)
+                Haptics.play(.error)
+            }
         } else {
             Haptics.play(.lightTap)
             AppActions.showToast(message: lang("Clipboard empty"))
         }
-        
+    }
+    
+    private func continuePressedAsync() {
+        DispatchQueue.main.async { [weak self] in
+            self?.continuePressed()
+        }
     }
 
-    func continuePressed(scrollToBottom: Bool = true) {
+    private func continuePressed() {
         guard !isSubmitting, !isLoading else { return }
+        
         isSubmitting = true
         view.endEditing(true)
-        if scrollToBottom {
-            scrollView.scrollToBottom(animated: true)
-        }
+        scrollToBottomAction()
 
-        let words = enteredWords()
-        
-        if !isValidImportWords(words) {
+        guard let words = enteredWords() else {
             isSubmitting = false
             showMnemonicAlert()
             return
@@ -246,17 +267,18 @@ public class ImportWalletVC: CreateWalletBaseVC {
     
     // MARK: Validate words
     
-    func validateWords(enteredWords: [String]) {
+    private func validateWords(enteredWords: EnteredWords) {
         Task { @MainActor in
             do {
                 isLoading = true
                 let wordsToImport: [String]
-                if let privateKeyWords = normalizeMnemonicPrivateKey(enteredWords) {
-                    wordsToImport = privateKeyWords
-                } else {
-                    let ok = try await Api.validateMnemonic(mnemonic: enteredWords)
+                switch enteredWords {
+                case .privateKey(let words):
+                    wordsToImport = words
+                case .words12(let words), .words24(let words):
+                    let ok = try await Api.validateMnemonic(mnemonic: words)
                     if ok {
-                        wordsToImport = enteredWords
+                        wordsToImport = words
                     } else {
                         throw BridgeCallError.message(.invalidMnemonic, nil)
                     }
@@ -303,23 +325,51 @@ public class ImportWalletVC: CreateWalletBaseVC {
         isSubmitting = false
     }
     
-    private func enteredWords() -> [String] {
+    private enum EnteredWords {
+        case words12([String])
+        case words24([String])
+        case privateKey([String])
+    }
+
+    private func enteredWords() -> EnteredWords? {
         var words = [String]()
         for wordInput in wordInputs {
             guard let word = wordInput.trimmedText else { break }
             words.append(word)
         }
-        return words
+        
+        if let w = normalizeMnemonicPrivateKey(words) {
+            return .privateKey(w)
+        }
+            
+        return switch words.count {
+        case 12:
+            .words12(words)
+        case 24:
+            .words24(words)
+        default:
+            nil
+        }
     }
     
-    private func isValidImportWords(_ words: [String]) -> Bool {
-        words.count == 12 || words.count == 24 || isMnemonicPrivateKey(words)
+    private func scrollToBottomAction() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let buttonFrame = self.scrollView.convert(self.bottomActionsView.bounds, from: self.bottomActionsView)
+            self.scrollView.scrollRectToVisible(buttonFrame, animated: true)
+        }
     }
 }
 
 extension ImportWalletVC: WKeyboardObserverDelegate {
     public func keyboardWillShow(info: WKeyboardDisplayInfo) {
-        scrollView.contentInset.bottom = info.height
+        // info.endFrame is in screen coordinates; only count the portion that
+        // actually overlaps this view so iPad modal/floating keyboards don't
+        // add phantom inset.
+        let viewFrameInScreen = view.convert(view.bounds, to: nil)
+        let overlap = viewFrameInScreen.intersection(info.endFrame)
+        let height = overlap.isNull ? 0 : overlap.height
+        scrollView.contentInset.bottom = height + 16
     }
 
     public func keyboardWillHide(info: WKeyboardDisplayInfo) {
@@ -328,15 +378,30 @@ extension ImportWalletVC: WKeyboardObserverDelegate {
 }
 
 extension ImportWalletVC: WWordInputDelegate {
-    public func resignedFirstResponder() {
-        DispatchQueue.main.async { [weak self] in
-            self?.continuePressed(scrollToBottom: false)
+    
+    public func wordInputDidBeginEditing(_ input: WWordInput) {
+        guard input.wordNumber == 12 || input.wordNumber == 24 else { return }
+        scrollToBottomAction()
+    }
+
+    public func wordInputDidWantToCommitData(_ input: WWordInput) {
+        if enteredWords() == nil {
+            if let input = wordInputs.first(where: { $0.trimmedText?.isEmpty ?? true }) {
+                input.textField.becomeFirstResponder()
+            } else {
+                dismissKeyboard()
+            }
+        } else {
+            continuePressedAsync()
         }
     }
     
     public func textChanged() {
-        let enteredWords = enteredWords()
-        bottomActionsView.primaryButton.isEnabled = isValidImportWords(enteredWords)
+        bottomActionsView.primaryButton.isEnabled = enteredWords() != nil
+    }
+    
+    public func wordInput(_ input: WWordInput, wantsPasteWords words: [String]) {
+        _ = pasteWords(words, startingInput: input)
     }
 }
 

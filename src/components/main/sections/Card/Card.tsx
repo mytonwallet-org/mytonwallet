@@ -15,7 +15,7 @@ import type {
 import type { LangFn } from '../../../../hooks/useLang';
 import type { DropdownItem } from '../../../ui/Dropdown';
 
-import { IS_CORE_WALLET, PORTFOLIO_DAPP_URL } from '../../../../config';
+import { IS_CORE_WALLET } from '../../../../config';
 import {
   selectAccountStakingStates, selectCurrentAccount,
   selectCurrentAccountId,
@@ -29,7 +29,6 @@ import buildClassName from '../../../../util/buildClassName';
 import { calculateFullBalance } from '../../../../util/calculateFullBalance';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
-import { openUrl } from '../../../../util/openUrl';
 import { preloadedImageUrls } from '../../../../util/preloadImage';
 import { IS_IOS, IS_SAFARI } from '../../../../util/windowEnvironment';
 import getSensitiveDataMaskSkinFromCardNft from './helpers/getSensitiveDataMaskSkinFromCardNft';
@@ -145,7 +144,9 @@ function Card({
   seasonalTheme,
   activePromotion,
 }: OwnProps & StateProps) {
-  const { toggleSeasonalTheming, showToast, openPromotionModal, openMintCardModal } = getActions();
+  const {
+    toggleSeasonalTheming, showToast, openPromotionModal, openMintCardModal, switchToPortfolio,
+  } = getActions();
   const lang = useLang();
   const amountRef = useRef<HTMLDivElement>();
   const cardRef = useRef<HTMLDivElement>();
@@ -325,7 +326,7 @@ function Card({
               className={buildClassName(styles.change, 'rounded-font')}
               role="button"
               tabIndex={0}
-              onClick={() => openUrl(PORTFOLIO_DAPP_URL)}
+              onClick={() => switchToPortfolio()}
             >
               {!!changePrefix && (
                 <>

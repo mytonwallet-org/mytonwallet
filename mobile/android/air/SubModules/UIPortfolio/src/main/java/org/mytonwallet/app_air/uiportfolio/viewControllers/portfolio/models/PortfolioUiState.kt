@@ -20,6 +20,7 @@ sealed class PortfolioUiState {
         val overview: PortfolioOverview?,
         val assetBreakdown: List<PortfolioBreakdownSlice>,
         val chainBreakdown: List<PortfolioBreakdownSlice>,
+        val stakedBreakdown: List<PortfolioBreakdownSlice>,
         // Per-chart fetch failures. A failed chart shows an inline error + Try Again,
         // independently of the others (e.g. a 503 on Daily PnL leaves the rest intact).
         val netWorthFailed: Boolean = false,

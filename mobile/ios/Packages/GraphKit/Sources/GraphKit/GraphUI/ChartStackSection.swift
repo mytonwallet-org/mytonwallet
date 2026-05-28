@@ -26,39 +26,59 @@ private enum Constants {
     static let visibilityBottomInset: CGFloat = 16.0
 }
 
-private class LeftAlignedIconButton: UIButton {
-    private let iconTitleSpacing: CGFloat = 6.0
+private class ChartHeaderButton: UIButton {
 
-    override func titleRect(forContentRect contentRect: CGRect) -> CGRect {
-        var titleRect = super.titleRect(forContentRect: contentRect)
-        let imageSize = currentImage?.size ?? .zero
-        titleRect.origin.x = imageSize.width + iconTitleSpacing
-        return titleRect
+    init(title: String, image: UIImage? = nil) {
+        super.init(frame: .zero)
+        var config = UIButton.Configuration.plain()
+        config.title = title
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { _ in
+            AttributeContainer([.font: UIFont.systemFont(ofSize: 14, weight: .regular)])
+        }
+        if let image {
+            config.image = image
+            config.imagePlacement = .leading
+            config.imagePadding = 6
+        }
+        config.contentInsets = NSDirectionalEdgeInsets(
+            top: 0, leading: Constants.headerHorizontalInset,
+            bottom: 0, trailing: Constants.headerHorizontalInset
+        )
+        config.baseForegroundColor = UIColor.systemBlue
+        configuration = config
+        adjustsImageWhenHighlighted = false
+        isExclusiveTouch = true
     }
-    
-    override func imageRect(forContentRect contentRect: CGRect) -> CGRect {
-        var imageRect = super.imageRect(forContentRect: contentRect)
-        imageRect.origin.x = 0.0
-        return imageRect
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var intrinsicContentSize: CGSize {
+        var size = super.intrinsicContentSize
+        size.height = Constants.headerButtonHeight
+        return size
     }
 }
 
 class ChartStackSection: UIView, ChartThemeContainer {
-    var chartView: ChartView
-    var rangeView: RangeChartView
-    var visibilityView: ChartVisibilityView
-    var sectionContainerView: UIView
+    private let chartView = ChartView()
+    private let rangeView = RangeChartView()
+    private let visibilityView = ChartVisibilityView()
+    private let sectionContainerView = UIView()
     
-    var titleLabel: UILabel!
-    var backButton: UIButton!
-    var todayButton: UIButton!
+    private let titleLabel = UILabel()
+    private var backButton: ChartHeaderButton!
+    private var todayButton: ChartHeaderButton!
     
-    var controller: BaseChartController?
-    var theme: ChartTheme?
-    var strings: ChartStrings?
+    private var controller: BaseChartController?
+    private var theme: ChartTheme?
+    private var strings: ChartStrings?
+    
     var zoomStateUpdated: ((Bool) -> Void)?
     
-    var displayRange: Bool = true
+    private var displayRange: Bool = true
+    
     var visibilityBottomInset: CGFloat = Constants.visibilityBottomInset {
         didSet {
             invalidateIntrinsicContentSize()
@@ -66,7 +86,7 @@ class ChartStackSection: UIView, ChartThemeContainer {
         }
     }
     
-    let hapticFeedback = HapticFeedback()
+    private let hapticFeedback = HapticFeedback()
 
     static func preferredHeight(
         for width: CGFloat,
@@ -97,17 +117,18 @@ class ChartStackSection: UIView, ChartThemeContainer {
         return visibilityOriginY + visibilityHeight
     }
     
-    init() {
-        sectionContainerView = UIView()
-        chartView = ChartView()
-        rangeView = RangeChartView()
-        visibilityView = ChartVisibilityView()
-        titleLabel = UILabel()
-        backButton = LeftAlignedIconButton()
-        todayButton = UIButton(type: .system)
-        
+    init() {        
+        backButton = ChartHeaderButton(
+            title: "Zoom Out",
+            image: UIImage(
+                systemName: "minus.magnifyingglass",
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+            )?.withRenderingMode(.alwaysTemplate)
+        )
+        todayButton = ChartHeaderButton(title: "Today")
+
         super.init(frame: CGRect())
-        
+
         self.addSubview(sectionContainerView)
         sectionContainerView.addSubview(chartView)
         chartView.detailsSuperview = sectionContainerView
@@ -116,37 +137,18 @@ class ChartStackSection: UIView, ChartThemeContainer {
         sectionContainerView.addSubview(titleLabel)
         sectionContainerView.addSubview(backButton)
         sectionContainerView.addSubview(todayButton)
-        
+
         titleLabel.font = UIFont.systemFont(ofSize: 14, weight: .bold)
         titleLabel.textAlignment = .center
         titleLabel.adjustsFontSizeToFitWidth = true
         titleLabel.minimumScaleFactor = 0.75
         titleLabel.numberOfLines = 1
-        visibilityView.clipsToBounds = true
-        backButton.isExclusiveTouch = true
-        todayButton.isExclusiveTouch = true
-        
-        backButton.addTarget(self, action: #selector(self.didTapBackButton), for: .touchUpInside)
-        backButton.setTitle("Zoom Out", for: .normal)
-        backButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .regular)
-        backButton.setTitleColor(UIColor(rgb: 0x0088ff), for: .normal)
-        backButton.setImage(
-            UIImage(
-                systemName: "minus.magnifyingglass",
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-            )?.withRenderingMode(.alwaysTemplate),
-            for: .normal
-        )
-        backButton.imageEdgeInsets = UIEdgeInsets(top: 0.0, left: 6.0, bottom: 0.0, right: 3.0)
-        backButton.imageView?.tintColor = UIColor(rgb: 0x0088ff)
-        backButton.adjustsImageWhenHighlighted = false
 
+        visibilityView.clipsToBounds = true
+
+        backButton.addTarget(self, action: #selector(self.didTapBackButton), for: .touchUpInside)
         todayButton.addTarget(self, action: #selector(self.didTapTodayButton), for: .touchUpInside)
-        todayButton.setTitle("Today", for: .normal)
-        todayButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .regular)
-        todayButton.contentHorizontalAlignment = .right
-        todayButton.adjustsImageWhenHighlighted = false
-        
+
         backButton.setVisible(false, animated: false)
         todayButton.setVisible(false, animated: false)
     }
@@ -195,19 +197,16 @@ class ChartStackSection: UIView, ChartThemeContainer {
         self.theme = theme
         self.strings = strings
         
-        self.backButton.setTitle(strings.zoomOut, for: .normal)
-        self.todayButton.setTitle(strings.today, for: .normal)
+        self.backButton.configuration?.title = strings.zoomOut
+        self.todayButton.configuration?.title = strings.today
         
         UIView.perform(animated: animated && self.isVisibleInWindow) {            
             self.sectionContainerView.backgroundColor = theme.chartBackgroundColor
             self.rangeView.backgroundColor = theme.chartBackgroundColor
             self.visibilityView.backgroundColor = theme.chartBackgroundColor
             
-            self.backButton.tintColor = theme.actionButtonColor
-            self.backButton.setTitleColor(theme.actionButtonColor, for: .normal)
-            self.backButton.imageView?.tintColor = theme.actionButtonColor
-            self.todayButton.tintColor = theme.actionButtonColor
-            self.todayButton.setTitleColor(theme.actionButtonColor, for: .normal)
+            self.backButton.configuration?.baseForegroundColor = theme.actionButtonColor
+            self.todayButton.configuration?.baseForegroundColor = theme.actionButtonColor
         }
         
         if rangeView.isVisibleInWindow || chartView.isVisibleInWindow {
@@ -253,14 +252,7 @@ class ChartStackSection: UIView, ChartThemeContainer {
 
         let isVisible = controller.showsTodayButton
         let isEnabled = controller.isTodayButtonEnabled
-        let targetAlpha: CGFloat
-        if !isVisible {
-            targetAlpha = 0.0
-        } else if isEnabled {
-            targetAlpha = 1.0
-        } else {
-            targetAlpha = 0.35
-        }
+        let targetAlpha = isVisible ? 1.0 : 0.0
 
         todayButton.isEnabled = isVisible && isEnabled
         todayButton.isUserInteractionEnabled = isVisible && isEnabled
@@ -326,25 +318,19 @@ class ChartStackSection: UIView, ChartThemeContainer {
         
         self.rangeView.frame = CGRect(origin: CGPoint(x: 0.0, y: Constants.rangeOriginY), size: CGSize(width: bounds.width, height: Constants.rangeHeight))
         self.visibilityView.frame = CGRect(origin: CGPoint(x: 0.0, y: visibilityOriginY), size: CGSize(width: bounds.width, height: visibilityHeight))
-        self.backButton.frame = CGRect(
-            x: Constants.headerHorizontalInset,
-            y: 0.0,
-            width: Constants.headerButtonWidth,
-            height: Constants.headerButtonHeight
-        )
-        self.todayButton.frame = CGRect(
-            x: bounds.width - Constants.headerHorizontalInset - Constants.headerButtonWidth,
-            y: 0.0,
-            width: Constants.headerButtonWidth,
-            height: Constants.headerButtonHeight
-        )
-        self.titleLabel.frame = headerTitleFrame(in: bounds)
-        self.titleLabel.textAlignment = titleAlignment
+        
+        backButton.frame = .init(origin: .zero, size: backButton.intrinsicContentSize)
+        
+        var todayButtonFrame = CGRect(origin: .zero, size: todayButton.intrinsicContentSize)
+        todayButtonFrame.origin.x = bounds.width - todayButtonFrame.width
+        todayButton.frame = todayButtonFrame
+        
+        layoutTitleLabel(in: bounds)
         
         self.chartView.setNeedsDisplay()
     }
     
-    func setup(controller: BaseChartController, displayRange: Bool = true, zoomToEnding: Bool = true) {
+    func setup(controller: BaseChartController, displayRange: Bool = true, zoomToEnding: Bool) {
         self.controller = controller
         self.displayRange = displayRange
         
@@ -378,7 +364,9 @@ class ChartStackSection: UIView, ChartThemeContainer {
             self.chartView.detailsViewPosition = position
         }
         controller.setChartTitleClosure = { [unowned self] title, animated in
-            self.titleLabel.setText(title, animated: animated)
+            if self.titleLabel.setText(title, animated: animated) {
+                setNeedsLayout()
+            }
         }
         controller.setBackButtonVisibilityClosure = { [unowned self] visible, animated in
             self.setNeedsLayout()
@@ -425,41 +413,45 @@ class ChartStackSection: UIView, ChartThemeContainer {
         
         self.setNeedsLayout()
     }
-}
 
-private extension ChartStackSection {
-    var titleAlignment: NSTextAlignment {
-        if todayButton.alpha > 0.0, backButton.alpha <= 0.0 {
-            return .left
-        } else {
-            return .center
-        }
+    func resetRange(animated: Bool) {
+        guard controller?.rangeSelectionDisplayMode == .range else { return }
+        rangeView.resetRange(animated: animated)
     }
 
-    func headerTitleFrame(in bounds: CGRect) -> CGRect {
+    func expandRange(lowerBound: CGFloat = 0, animated: Bool = false) {
+        guard controller?.rangeSelectionDisplayMode == .range else { return }
+        let range = lowerBound...CGFloat(1)
+        rangeView.setRange(range, animated: animated)
+        controller?.updateChartRange(range, animated: false)
+    }
+    
+    private func layoutTitleLabel(in bounds: CGRect) {
         let hasBackButton = backButton.alpha > 0.0
         let hasTodayButton = todayButton.alpha > 0.0
 
-        let minX: CGFloat
-        if hasBackButton {
-            minX = backButton.frame.maxX + Constants.headerSpacing
-        } else if hasTodayButton {
-            minX = Constants.headerHorizontalInset
-        } else {
-            minX = 0.0
+        if !hasBackButton && hasTodayButton {
+            titleLabel.textAlignment = .left
+            titleLabel.frame = CGRect(
+                x: Constants.headerHorizontalInset,
+                y: Constants.headerVerticalInset,
+                width: max(0.0, todayButton.frame.minX - Constants.headerSpacing - Constants.headerHorizontalInset),
+                height: Constants.headerTitleHeight
+            )
+            return
         }
 
-        let maxX: CGFloat
-        if hasTodayButton {
-            maxX = todayButton.frame.minX - Constants.headerSpacing
-        } else {
-            maxX = bounds.width
-        }
-
-        return CGRect(
-            x: minX,
+        let minX = hasBackButton ? backButton.frame.maxX : Constants.headerHorizontalInset
+        let maxX = hasTodayButton ? todayButton.frame.minX : bounds.width - Constants.headerHorizontalInset
+        let availableWidth = max(0.0, maxX - minX)
+        let textWidth = min(titleLabel.intrinsicContentSize.width, availableWidth)
+        let idealX = bounds.midX - textWidth / 2
+        let labelX = max(minX, min(idealX, maxX - textWidth))
+        titleLabel.textAlignment = .center
+        titleLabel.frame = CGRect(
+            x: labelX,
             y: Constants.headerVerticalInset,
-            width: max(0.0, maxX - minX),
+            width: textWidth,
             height: Constants.headerTitleHeight
         )
     }

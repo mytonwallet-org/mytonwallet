@@ -4,7 +4,6 @@ import android.os.Handler
 import android.os.Looper
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
@@ -67,7 +66,7 @@ class HomeVM(
     // Tokens, Balance and Staking data are loaded or not
     val isGeneralDataAvailable: Boolean
         get() {
-            return TokenStore.swapAssets != null &&
+            return TokenStore.swapAssetsLoaded &&
                 TokenStore.loadedAllTokens &&
                 !BalanceStore.getBalances(showingAccountId).isNullOrEmpty() &&
                 (showingAccount?.isMainnet != true ||
@@ -184,11 +183,11 @@ class HomeVM(
         }
 
         // make sure assets are loaded
-        if (TokenStore.swapAssets == null) {
+        if (!TokenStore.swapAssetsLoaded) {
             Logger.d(Logger.LogTag.HomeVM, "dataUpdated: Swap assets not loaded yet")
             Handler(Looper.getMainLooper()).postDelayed({
-                if (TokenStore.swapAssets == null) {
-                    WalletCore.swapGetAssets(true) { assets, err ->
+                if (!TokenStore.swapAssetsLoaded) {
+                    WalletCore.swapGetAssets(true) { _, _ ->
                         dataUpdated(updateBalance)
                     }
                 }

@@ -4,9 +4,11 @@ import { withGlobal } from '../../../../global';
 import { ContentTab } from '../../../../global/types';
 
 import { selectCurrentAccountId } from '../../../../global/selectors';
+import buildClassName from '../../../../util/buildClassName';
 
 import Agent from '../../../agent/Agent';
 import Explore from '../../../explore/Explore';
+import Portfolio from '../../../portfolio/Portfolio';
 import Settings from '../../../settings/Settings';
 import Transition from '../../../ui/Transition';
 import LandscapeContent from '../Content/LandscapeContent';
@@ -21,10 +23,11 @@ interface StateProps {
   areSettingsOpen?: boolean;
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
+  isPortfolioOpen?: boolean;
 }
 
 function LandscapeLayout({
-  onStakedTokenClick, areSettingsOpen, isAgentOpen, isExploreOpen,
+  onStakedTokenClick, areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen,
 }: OwnProps & StateProps) {
   function renderSlide(isActive: boolean, _isFrom: boolean, currentKey: ContentTab) {
     switch (currentKey) {
@@ -46,18 +49,27 @@ function LandscapeLayout({
             <Settings isActive={isActive} />
           </div>
         );
+      case ContentTab.Portfolio:
+        return (
+          <div className={buildClassName(styles.standaloneWrapper, styles.portfolioWrapper)}>
+            <Portfolio isActive={isActive} />
+          </div>
+        );
       default:
         return <LandscapeContent onStakedTokenClick={onStakedTokenClick} />;
     }
   }
 
-  const activeKey = areSettingsOpen
-    ? ContentTab.Settings
-    : isAgentOpen
-      ? ContentTab.Agent
-      : isExploreOpen
-        ? ContentTab.Explore
-        : ContentTab.Overview;
+  function getActiveKey() {
+    if (areSettingsOpen) return ContentTab.Settings;
+    if (isAgentOpen) return ContentTab.Agent;
+    if (isExploreOpen) return ContentTab.Explore;
+    if (isPortfolioOpen) return ContentTab.Portfolio;
+
+    return ContentTab.Overview;
+  }
+
+  const activeKey = getActiveKey();
 
   return (
     <Transition
@@ -74,8 +86,13 @@ function LandscapeLayout({
 export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
-      const { areSettingsOpen, isAgentOpen, isExploreOpen } = global;
-      return { areSettingsOpen, isAgentOpen, isExploreOpen };
+      const {
+        areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen,
+      } = global;
+
+      return {
+        areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen,
+      };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(LandscapeLayout),

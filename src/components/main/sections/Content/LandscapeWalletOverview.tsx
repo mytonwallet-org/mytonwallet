@@ -20,18 +20,18 @@ import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
 
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
+import useScrollButtonsVisibility from '../../../../hooks/useScrollButtonsVisibility';
 import useAssetsOverviewMenu from './hooks/useAssetsOverviewMenu';
 import useCollectiblesOverviewMenu from './hooks/useCollectiblesOverviewMenu';
 import useCollectionOverviewMenu from './hooks/useCollectionOverviewMenu';
 import useNftCollectionMenuItems from './hooks/useNftCollectionMenuItems';
-import useScrollButtonsVisibility from './hooks/useScrollButtonsVisibility';
 
+import EdgeScrollButton from '../../../common/EdgeScrollButton';
 import LandscapeTopActions from '../Actions/LandscapeTopActions';
 import Activities from './Activities';
 import Assets from './Assets';
 import Nfts from './Nfts';
 import OverviewCell from './OverviewCell';
-import OverviewScrollButton from './OverviewScrollButton';
 
 import styles from './LandscapeWalletOverview.module.scss';
 
@@ -245,12 +245,12 @@ function LandscapeWalletOverview({
             );
           })}
         </div>
-        <OverviewScrollButton
+        <EdgeScrollButton
           direction="left"
           isVisible={isLeftButtonVisible}
           onClick={scrollByOneCell}
         />
-        <OverviewScrollButton
+        <EdgeScrollButton
           direction="right"
           isVisible={isRightButtonVisible}
           onClick={scrollByOneCell}

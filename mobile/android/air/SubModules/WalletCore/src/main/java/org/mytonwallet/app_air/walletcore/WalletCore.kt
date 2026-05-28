@@ -44,9 +44,12 @@ import org.mytonwallet.app_air.walletcore.stores.DappsStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.app_air.walletcore.stores.IStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
+import org.mytonwallet.app_air.walletcore.stores.PortfolioStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
+
+val TESTNET_SLUGS = setOf(TON_USDT_TESTNET_SLUG, TRON_USDT_TESTNET_SLUG)
 
 const val TON_CHAIN = "ton"
 
@@ -236,7 +239,8 @@ object WalletCore {
 
     val stores = listOf<IStore>(
         AccountStore, ActivityStore, AddressStore, AgentMessageStore, AuthStore, BalanceStore,
-        ConfigStore, DappsStore, ExploreHistoryStore, NftStore, StakingStore, TokenStore
+        ConfigStore, DappsStore, ExploreHistoryStore, NftStore, PortfolioStore, StakingStore,
+        TokenStore
     )
 
     var bridge: JSWebViewBridge? = null

@@ -207,7 +207,7 @@ $logout_confirm: ลบวอลเล็ต *ทั้งหมด**
 $tiny_transfers_help: ปิดการแสดงรายการที่มีมูลค่าไม่เกิน $%value%. โปรดทราบว่าธุรกรรมดังกล่าวมักมีวัตถุประสงค์ในการสแปมและการหลอกลวง.
 Today: วันนี้
 Total: รวม
-Zoom Out: ซูมออก
+Zoom Out: ช่วงเวลาทั้งหมด
 Yesterday: เมื่อวาน
 Now: ตอนนี้
 $receive_description: สแกนรหัส QR นี้หรือแชร์ที่อยู่เพื่อเติมยอดเงินในกระเป๋าเงิน
@@ -301,7 +301,10 @@ No price data: ไม่มีข้อมูลราคา
 Price Copied: คัดลอกราคาแล้ว
 Not staked: ยังไม่ได้สเตก
 Portfolio: พอร์ตโฟลิโอ
+Performance, insights and P&L: ประสิทธิภาพ ข้อมูลเชิงลึก และ P&L
+Overview: ภาพรวม
 Total Balance: ยอดคงเหลือรวม
+Net Change: การเปลี่ยนแปลงมูลค่าพอร์ต
 No data: ไม่มีข้อมูล
 Total Value: มูลค่ารวม
 Tracked asset value over time.: มูลค่าของสินทรัพย์ที่ติดตามตามช่วงเวลา
@@ -318,6 +321,7 @@ Altcoins: อัลต์คอยน์
 Asset Mix: สัดส่วนสินทรัพย์
 No asset balances: ไม่มียอดคงเหลือของสินทรัพย์
 No staked assets: ไม่มีสินทรัพย์ที่สเตก
+Entire Period: ทั้งช่วงเวลา
 "Asset %1$@": "สินทรัพย์ %1$@"
 Error: ข้อผิดพลาด
 Unavailable: ไม่พร้อมใช้งาน
@@ -1205,7 +1209,6 @@ $secret_words: คำลับ
 Restore wallet from 12 or 24 words: กู้คืนวอลเล็ตจาก 12 หรือ 24 คำ
 Connect your hardware wallet: เชื่อมต่อฮาร์ดแวร์วอลเล็ตของคุณ
 Watch wallet in read-only mode: ดูวอลเล็ตในโหมดอ่านอย่างเดียว
-
 More: เพิ่มเติม
 at: เวลา
 MyTonWallet: MyTonWallet
@@ -1261,11 +1264,11 @@ $nft_batch_different_chains: สินค้าสะสมที่เลือ
 $nft_expired: "หมดอายุแล้ว"
 Linked Address: ที่อยู่ที่เชื่อมโยง
 Enter Address: ใส่ที่อยู่
-D: วัน
-W: สัปดาห์
-M: เดือน
+D: 1 วัน
+W: 1 สัปดาห์
+M: 1 เดือน
 3M: 3 เดือน
-Y: ปี
+Y: 1 ปี
 $amount_K: "%amount%K"
 $amount_M: "%amount%M"
 Happening Now: กำลังเป็นกระแส
@@ -1517,3 +1520,8 @@ $more_nfts:
 $subwallets_hint: ใช้ subwallet เพื่อรับที่อยู่เพิ่มเติมโดยไม่ต้องสร้างคำลับใหม่
 $subwallets_created_wallets: หากคุณเคยสร้าง subwallet ไว้ก่อนหน้านี้ จะปรากฏในรายการด้านล่าง
 $subwallets_none: ยังไม่มี subwallet
+Limited history: ประวัติจำกัด
+Tracked asset value over time: มูลค่าสินทรัพย์ที่ติดตามเมื่อเวลาผ่านไป
+Cumulative profit and loss over time: กำไรขาดทุนสะสมเมื่อเวลาผ่านไป
+Day-by-day profit and loss: กำไรขาดทุนรายวัน
+Current allocation across tracked assets: การจัดสรรปัจจุบันในสินทรัพย์ที่ติดตาม

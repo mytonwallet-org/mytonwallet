@@ -101,12 +101,11 @@ extension WSuggestionsView: UICollectionViewDelegate, UICollectionViewDataSource
         guard suggestions.indices.contains(indexPath.row), let activeInput else {
             return
         }
-        activeInput.textField.text = suggestions[indexPath.row]
-        _ = activeInput.textFieldShouldReturn(activeInput.textField)
+        activeInput.setText(suggestions[indexPath.row], notifyDelegate: true, goToNextInput: activeInput.advancesOnSuggestionSelection)
     }
 }
 
-fileprivate class SuggestionCell: UICollectionViewCell {
+private class SuggestionCell: UICollectionViewCell {
     static let identifier = "SuggestionCell"
     
     private let suggestionLabel = {

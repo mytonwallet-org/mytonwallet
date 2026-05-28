@@ -307,6 +307,7 @@ class PieChartView(
             pieLegendView.translationX = xl.toFloat()
             pieLegendView.translationY = yl.toFloat()
             performHapticFeedback(HapticFeedbackConstants.TEXT_HANDLE_MOVE)
+            notifyDateSelectionChanged()
         }
         moveLegend()
     }
@@ -330,15 +331,19 @@ class PieChartView(
         super.onDraw(canvas)
     }
 
+    override fun getSelectedDate(): Long {
+        return if (currentSelection >= 0) currentSelection.toLong() else -1
+    }
+
     override fun clearSelection() {
         super.clearSelection()
-        val sel = currentSelection
-        if (sel < 0 || sel >= lines.size) return
-        lines[sel].selectionA = 1f
-        pieLegendView.visibility = VISIBLE
+        currentSelection = -1
+        pieLegendView.visibility = GONE
+        invalidate()
     }
 
     override fun onActionUp() {
+        if (selectOnTapOnly) return
         currentSelection = -1
         pieLegendView.visibility = GONE
         invalidate()
@@ -361,22 +366,24 @@ class PieChartView(
         for (i in 0 until n) {
             if (startOfDay >= chartData.x[i]) startIndex = i
         }
+        updatePickerToIndex(chartData, startIndex)
+    }
+
+    fun updatePickerToIndex(chartData: ChartData, index: Int) {
         val p = if (chartData.xPercentage.size < 2) 0.5f else 1f / chartData.x.size
         when {
-            startIndex == 0 -> {
+            index <= 0 -> {
                 pickerDelegate.pickerStart = 0f
                 pickerDelegate.pickerEnd = p
-                return
             }
 
-            startIndex >= chartData.x.size - 1 -> {
+            index >= chartData.x.size - 1 -> {
                 pickerDelegate.pickerStart = 1f - p
                 pickerDelegate.pickerEnd = 1f
-                return
             }
 
             else -> {
-                pickerDelegate.pickerStart = p * startIndex
+                pickerDelegate.pickerStart = p * index
                 pickerDelegate.pickerEnd = pickerDelegate.pickerStart + p
                 if (pickerDelegate.pickerEnd > 1f) pickerDelegate.pickerEnd = 1f
             }

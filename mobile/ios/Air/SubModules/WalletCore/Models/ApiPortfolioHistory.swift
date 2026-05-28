@@ -9,7 +9,7 @@ public struct ApiPortfolioHistoryResponse: Codable, Equatable, Sendable {
     public let base: String
     public let density: String
     public let historyScanCursor: Double?
-    public let assetLimitExceeded: Bool?
+    public let isAssetLimitExceeded: Bool?
 
     public init(
         status: String,
@@ -18,7 +18,7 @@ public struct ApiPortfolioHistoryResponse: Codable, Equatable, Sendable {
         base: String,
         density: String,
         historyScanCursor: Double?,
-        assetLimitExceeded: Bool?
+        isAssetLimitExceeded: Bool?
     ) {
         self.status = status
         self.points = points
@@ -26,7 +26,7 @@ public struct ApiPortfolioHistoryResponse: Codable, Equatable, Sendable {
         self.base = base
         self.density = density
         self.historyScanCursor = historyScanCursor
-        self.assetLimitExceeded = assetLimitExceeded
+        self.isAssetLimitExceeded = isAssetLimitExceeded
     }
 }
 
@@ -50,7 +50,7 @@ public extension ApiPortfolioHistoryResponse {
             base: base,
             density: density,
             historyScanCursor: historyScanCursor,
-            assetLimitExceeded: assetLimitExceeded
+            isAssetLimitExceeded: isAssetLimitExceeded
         )
     }
 }

@@ -1,0 +1,19 @@
+.root {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 0.5rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-gray-2);
+}
+
+.range {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-gray-2);
+}

@@ -106,10 +106,10 @@
 // surfaces (agent input pill, explore search). Skipped on Android, where
 // the effect looks out of place visually.
 
-@mixin frostedGlass() {
+@mixin frostedGlass($bgAlpha: 0.65) {
   @supports (backdrop-filter: blur(25px)) {
     :global(html:not(.is-android)) & {
-      background-color: rgba(255, 255, 255, 0.4);
+      background-color: rgba(255, 255, 255, $bgAlpha);
       backdrop-filter: blur(25px);
       box-shadow:
         inset 1px 2px 1px -1px rgba(0, 0, 0, 0.07),
@@ -118,12 +118,82 @@
     }
 
     :global(html:not(.is-android).theme-dark) & {
-      background-color: rgba(28, 28, 30, 0.4);
+      background-color: rgba(28, 28, 30, $bgAlpha);
       box-shadow:
         inset 1px 2px 1px -1px rgba(255, 255, 255, 0.05),
         inset -1px -2px 1px -1px rgba(0, 0, 0, 0.2),
         0 4px 12px 0 rgba(0, 0, 0, 0.25);
     }
+  }
+}
+
+// Fixed bottom bar with a fade-out gradient (light/dark) so scrolled content dissolves under it.
+// Consumers add their own positioning and responsive overrides around this include.
+
+@mixin bottomBarFade() {
+  pointer-events: none;
+
+  position: fixed;
+  z-index: var(--z-bottom-bar);
+  right: 0;
+  bottom: 0;
+  left: 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+
+  height: var(--bottombar-height);
+  padding: 0 1rem;
+
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.9) 66.65%);
+
+  :global(html.theme-dark) & {
+    background: linear-gradient(180deg, rgba(28, 28, 30, 0) 0%, rgba(28, 28, 30, 0.9) calc(66.65% + var(--safe-area-bottom)));
+  }
+}
+
+// Shared container for the draggable segmented "pill" controls (bottom bar, time-range selector).
+// Holds the glass capsule look + drag feedback; pair with `useDraggablePill` and the `Pill` component.
+// Per-component specifics (margin, max-width, responsive overrides) are added by the consumer -
+// place them before this include so they stay ahead of the nested rules it emits.
+
+@mixin glass-capsule() {
+  pointer-events: auto;
+  touch-action: none;
+
+  position: relative;
+
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+
+  width: 100%;
+  padding: 0.25rem;
+  border-radius: 5rem;
+
+  background-color: var(--color-app-background);
+  box-shadow: var(--shadow-glass-capsule);
+
+  @include t.transition(transform 200ms cubic-bezier(0.32, 0.72, 0, 1));
+
+  @supports (backdrop-filter: blur(16px)) {
+    background-color: var(--color-background-lock);
+    backdrop-filter: blur(var(--blur-glass-capsule));
+  }
+
+  @include backdropPatch();
+
+  &::after {
+    border-radius: 5rem;
+  }
+
+  @include frostedGlass();
+
+  &.dragging {
+    cursor: grabbing;
+    transform: scale(1.02);
   }
 }
 

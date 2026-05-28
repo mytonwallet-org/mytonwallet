@@ -47,6 +47,7 @@ import org.mytonwallet.app_air.uisettings.viewControllers.userResponsibility.Use
 import org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.WalletVersionsVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
+import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.PortfolioVC
 import org.mytonwallet.app_air.uireceive.ReceiveVC
 import org.mytonwallet.app_air.uisend.send.SendVC
 import org.mytonwallet.app_air.uisend.send.SendVC.InitialValues
@@ -953,6 +954,18 @@ class SplashVC(context: Context) : WViewController(context),
                 val navVC = WNavigationController(window!!)
                 navVC.setRoot(EarnRootVC(context))
                 window?.present(navVC)
+            }
+
+            is Deeplink.Portfolio -> {
+                val tabsVC = tabsVC
+                val homeNav = tabsVC?.navigationController
+                if (tabsVC?.isOnHomeScreen == true && homeNav != null) {
+                    homeNav.push(PortfolioVC(context))
+                } else {
+                    val nav = WNavigationController(window!!)
+                    nav.setRoot(PortfolioVC(context))
+                    window?.present(nav)
+                }
             }
 
             is Deeplink.Explore -> {

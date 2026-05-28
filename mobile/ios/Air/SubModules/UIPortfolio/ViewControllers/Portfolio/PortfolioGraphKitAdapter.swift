@@ -368,7 +368,7 @@ enum PortfolioGraphKitAdapter {
             base: response.base,
             density: response.density,
             historyScanCursor: response.historyScanCursor,
-            assetLimitExceeded: response.assetLimitExceeded
+            isAssetLimitExceeded: response.isAssetLimitExceeded
         )
     }
 
@@ -461,7 +461,9 @@ enum PortfolioGraphKitAdapter {
         baseCurrency: MBaseCurrency,
         valueFormat: ValueFormat
     ) -> String {
-        let amount = BaseCurrencyAmount.fromDouble(value, baseCurrency)
+        let rate = TokenStore.baseCurrencyRate
+        let displayValue = rate.isNormal && abs(value) / rate >= 1_000 ? value.rounded() : value
+        let amount = BaseCurrencyAmount.fromDouble(displayValue, baseCurrency)
 
         switch valueFormat {
         case .currency:

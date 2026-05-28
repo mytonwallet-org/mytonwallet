@@ -1,6 +1,7 @@
 import type { ApiNft } from '../../api/types';
 import type { GlobalState } from '../types';
 
+import { MTW_CARDS_COLLECTION } from '../../config';
 import isEmptyObject from '../../util/isEmptyObject';
 import { pinMtwCardsFirst } from '../helpers/nfts';
 import { selectAccountState } from '../selectors';
@@ -84,6 +85,65 @@ export function removeFromSelectedNfts(global: GlobalState, accountId: string, n
       selectedNfts: selectedNfts.length ? selectedNfts : undefined,
     },
   });
+}
+
+export function updateAccountOwnedMtwCards(
+  global: GlobalState,
+  accountId: string,
+  ownedMtwCardAddresses: string[],
+): GlobalState {
+  const accountState = selectAccountState(global, accountId);
+  if (!accountState?.nfts) return global;
+
+  return updateAccountState(global, accountId, {
+    nfts: {
+      ...accountState.nfts,
+      ownedMtwCardAddresses,
+    },
+  });
+}
+
+// Mirrors the `nftReceived` socket update from the activities pipeline so a freshly received NFT
+// (and the MTW-card ownership snapshot) is applied immediately, without waiting for NFT polling
+export function applyIncomingNftFromActivity(
+  global: GlobalState,
+  accountId: string,
+  nft: ApiNft,
+): GlobalState {
+  global = addNft(global, accountId, nft);
+
+  if (nft.collectionAddress === MTW_CARDS_COLLECTION) {
+    const owned = selectAccountState(global, accountId)?.nfts?.ownedMtwCardAddresses ?? [];
+    if (!owned.includes(nft.address)) {
+      global = updateAccountOwnedMtwCards(global, accountId, [...owned, nft.address]);
+    }
+  }
+
+  return global;
+}
+
+// Mirrors the `nftSent` socket update; `newOwnerAddress` may be `unknown` when applied from an outgoing
+// activity - `updateAccountSettingsBackgroundNft` only rewrites the persisted owner field
+export function applyOutgoingNftFromActivity(
+  global: GlobalState,
+  accountId: string,
+  nft: ApiNft,
+  newOwnerAddress?: string,
+): GlobalState {
+  global = removeNft(global, accountId, nft.address);
+
+  if (nft.collectionAddress === MTW_CARDS_COLLECTION) {
+    // Sync owner snapshot in `settings.cardBackgroundNft`; final clear is done by `checkCardNftOwnership`
+    const sentNft = { ...nft, ownerAddress: newOwnerAddress };
+    global = updateAccountSettingsBackgroundNft(global, sentNft);
+
+    const owned = selectAccountState(global, accountId)?.nfts?.ownedMtwCardAddresses;
+    if (owned?.includes(nft.address)) {
+      global = updateAccountOwnedMtwCards(global, accountId, owned.filter((a) => a !== nft.address));
+    }
+  }
+
+  return global;
 }
 
 // Updates the account settings to ensure the specified NFT is up-to-date.

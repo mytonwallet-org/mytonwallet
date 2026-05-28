@@ -108,7 +108,7 @@ sealed class StakingState {
             is Ethena -> {
                 if (unstakeRequestAmount == BigInteger.ZERO)
                     return null
-                val token = TokenStore.getToken(USDE_SLUG)!!
+                val token = TokenStore.getToken(USDE_SLUG) ?: return null
                 unstakeRequestAmount?.toString(
                     decimals = token.decimals,
                     currency = token.symbol,
@@ -126,7 +126,7 @@ sealed class StakingState {
                 if (unstakeRequestAmount == BigInteger.ZERO)
                     return null
                 else {
-                    val token = TokenStore.getToken(TONCOIN_SLUG)!!
+                    val token = TokenStore.getToken(TONCOIN_SLUG) ?: return null
                     unstakeRequestAmount?.toString(
                         decimals = token.decimals,
                         currency = token.symbol,
@@ -140,7 +140,7 @@ sealed class StakingState {
                 if (unstakeRequestAmount == BigInteger.ZERO)
                     return null
                 else {
-                    val token = TokenStore.getToken(TONCOIN_SLUG)!!
+                    val token = TokenStore.getToken(TONCOIN_SLUG) ?: return null
                     unstakeRequestAmount?.toString(
                         decimals = token.decimals,
                         currency = token.symbol,

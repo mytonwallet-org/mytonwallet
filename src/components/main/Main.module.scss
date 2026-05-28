@@ -80,7 +80,7 @@ $landscapeSidebarWidth: 21.375rem;
   .sidebar {
     margin-right: #{$scrollOffset};
     padding-top: var(--app-padding-top);
-    padding-right: calc(0.75rem - var(--scrollbar-width) - #{$scrollOffset});
+    padding-right: calc(1rem - var(--scrollbar-width) - #{$scrollOffset});
     padding-bottom: max(var(--safe-area-bottom), 1rem);
   }
 

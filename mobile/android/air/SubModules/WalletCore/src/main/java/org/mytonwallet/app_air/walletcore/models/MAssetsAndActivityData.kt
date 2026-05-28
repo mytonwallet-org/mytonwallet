@@ -137,6 +137,8 @@ data class MAssetsAndActivityData(
         }
         val pinnedIndexBySlug = pinnedTokens.withIndex().associate { it.value to it.index }
 
+        val ignorePriorities = account?.isNew != true
+
         val result = tokenBalances.sortedWith { left, right ->
             val leftSlug = left.virtualStakingToken ?: ""
             val rightSlug = right.virtualStakingToken ?: ""
@@ -153,7 +155,7 @@ data class MAssetsAndActivityData(
                 return@sortedWith 1
             }
 
-            return@sortedWith left.compareByDisplayOrder(right, account?.isNew != true)
+            return@sortedWith left.compareByDisplayOrder(right, ignorePriorities)
         }
 
         return result.toTypedArray()

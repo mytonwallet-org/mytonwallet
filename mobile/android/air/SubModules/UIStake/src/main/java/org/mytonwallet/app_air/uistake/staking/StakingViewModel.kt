@@ -28,7 +28,6 @@ import org.mytonwallet.app_air.walletcore.api.submitStake
 import org.mytonwallet.app_air.walletcore.api.submitUnstake
 import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 import org.mytonwallet.app_air.walletcore.models.MToken
-import org.mytonwallet.app_air.walletcore.moshi.Liquid
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -64,7 +63,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
         if (AccountStore.stakingData?.stakingState(tokenSlug) is StakingState.Nominators) {
             BigInteger.valueOf(10001) * ONE_TON
         } else {
-            1.0.toBigInteger(TokenStore.getToken(tokenSlug)!!.decimals)!!
+            1.0.toBigInteger(TokenStore.getToken(tokenSlug)?.decimals ?: 9)!!
         }
 
     //
@@ -97,7 +96,9 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
 
     private fun commonTotalStakers(): Long? = liquidState()?.totalStakers?.toLong()
 
-    var currentToken = TokenStore.getToken(if (mode == Mode.STAKE) tokenSlug else stakedTokenSlug)!!
+    var currentToken =
+        TokenStore.getToken(if (mode == Mode.STAKE) tokenSlug else stakedTokenSlug)
+            ?: TokenStore.getToken(TONCOIN_SLUG)!!
     private val stakedTokenSlug: String
         get() = tokenSlugToStakingSlug(tokenSlug) ?: throw Exception()
     private val tonOperationFees = getTonStakingFees(stakingState?.stakingType).run {
@@ -375,7 +376,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
 
     private fun createWalletState(): WalletState? {
         val account = AccountStore.activeAccount ?: return null
-        val assets = TokenStore.swapAssets2 ?: return null
+        val assets = TokenStore.swapAssets ?: return null
         return WalletState(
             accountId = account.accountId,
             accountName = account.name,
@@ -528,7 +529,8 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                 accountId = AccountStore.activeAccountId
                 updateBalance()
                 currentToken =
-                    TokenStore.getToken(if (mode == Mode.STAKE) tokenSlug else stakedTokenSlug)!!
+                    TokenStore.getToken(if (mode == Mode.STAKE) tokenSlug else stakedTokenSlug)
+                        ?: currentToken
                 tokenPrice = TokenStore.getToken(tokenSlug)?.price
                 _walletStateFlow.value = createWalletState()
 

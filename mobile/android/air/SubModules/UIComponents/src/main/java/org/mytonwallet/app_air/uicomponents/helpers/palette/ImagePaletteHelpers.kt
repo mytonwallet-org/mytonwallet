@@ -16,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.walletbasecontext.theme.NftAccentColors
+import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardBorderShineType
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
@@ -119,19 +120,21 @@ class ImagePaletteHelpers {
         }
 
         fun extractPaletteFromNft(nft: ApiNft, onPaletteExtracted: (Int?) -> Unit) {
+            val deliver =
+                { colorIndex: Int? -> ensureMainThread { onPaletteExtracted(colorIndex) } }
             if (nft.metadata?.mtwCardBorderShineType == ApiMtwCardBorderShineType.RADIOACTIVE)
-                return onPaletteExtracted(NftAccentColors.ACCENT_RADIOACTIVE_INDEX)
+                return deliver(NftAccentColors.ACCENT_RADIOACTIVE_INDEX)
             when (nft.metadata?.mtwCardType) {
                 ApiMtwCardType.SILVER -> {
-                    onPaletteExtracted(NftAccentColors.ACCENT_SILVER_INDEX)
+                    deliver(NftAccentColors.ACCENT_SILVER_INDEX)
                 }
 
                 ApiMtwCardType.GOLD -> {
-                    onPaletteExtracted(NftAccentColors.ACCENT_GOLD_INDEX)
+                    deliver(NftAccentColors.ACCENT_GOLD_INDEX)
                 }
 
                 ApiMtwCardType.PLATINUM, ApiMtwCardType.BLACK -> {
-                    onPaletteExtracted(NftAccentColors.ACCENT_BNW_INDEX)
+                    deliver(NftAccentColors.ACCENT_BNW_INDEX)
                 }
 
                 else -> {

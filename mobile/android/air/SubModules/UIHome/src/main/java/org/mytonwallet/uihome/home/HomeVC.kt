@@ -384,7 +384,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
 
             HeaderActionsView.Identifier.EARN -> {
-                if (!homeVM.isGeneralDataAvailable) return
+                val canShowEarn =
+                    homeVM.isGeneralDataAvailable || AccountStore.activeAccount?.isNew == true
+                if (!canShowEarn) return
 
                 val activeStakingTokenSlug = AccountStore.stakingData?.activeStakingTokenSlug()
                 val navVC = WNavigationController(window!!)
@@ -861,7 +863,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     }
 
     override fun updateBalance(accountChangedFromOtherScreens: Boolean) {
-        if (!homeVM.isGeneralDataAvailable && headerView.isShowingSkeletons) {
+        val canShowBalance =
+            homeVM.isGeneralDataAvailable || AccountStore.activeAccount?.isNew == true
+        if (!canShowBalance && headerView.isShowingSkeletons) {
             return
         }
         headerView.updateBalance(!accountChangedFromOtherScreens)

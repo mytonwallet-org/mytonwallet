@@ -3,7 +3,7 @@ import { getActions, withGlobal } from '../../global';
 
 import type { ApiTonWalletVersion } from '../../api/chains/ton/types';
 import type { StoredDappConnection } from '../../api/dappProtocols/storage';
-import type { ApiChain, ApiWalletWithVersionInfo } from '../../api/types';
+import type { ApiChain, ApiStakingState, ApiWalletWithVersionInfo } from '../../api/types';
 import type { AccountChain, AccountType, GlobalState, UserToken } from '../../global/types';
 import type { Wallet } from './wallets/SettingsWalletVariants';
 import { SettingsState } from '../../global/types';
@@ -26,6 +26,7 @@ import {
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
 import {
   selectAccount,
+  selectAccountStakingStates,
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
@@ -34,6 +35,7 @@ import {
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
+import { calculateFullBalance } from '../../util/calculateFullBalance';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
 import { toBig, toDecimal } from '../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
@@ -102,6 +104,7 @@ import languageImg from '../../assets/settings/settings_language.svg';
 import mtwCardsImg from '../../assets/settings/settings_mtw-cards.svg';
 import upgradeImg from '../../assets/settings/settings_mytonwallet.svg';
 import notifications from '../../assets/settings/settings_notifications.svg';
+import portfolioImg from '../../assets/settings/settings_portfolio.svg';
 import securityImg from '../../assets/settings/settings_security.svg';
 import supportImg from '../../assets/settings/settings_support.svg';
 import tipsImg from '../../assets/settings/settings_tips.svg';
@@ -130,6 +133,8 @@ type StateProps = {
   accountType?: AccountType;
   isMultichain: boolean;
   accountChains?: Partial<Record<ApiChain, AccountChain>>;
+  stakingStates?: ApiStakingState[];
+  currencyRates: GlobalState['currencyRates'];
 };
 
 const AMOUNT_OF_CLICKS_FOR_DEVELOPERS_MODE = 5;
@@ -161,6 +166,8 @@ function Settings({
   accountType,
   isMultichain,
   accountChains,
+  stakingStates,
+  currencyRates,
 }: OwnProps & StateProps) {
   const {
     setSettingsState,
@@ -169,6 +176,7 @@ function Settings({
     toggleTonProxy,
     getDapps,
     clearIsPinAccepted,
+    openPortfolio,
   } = getActions();
 
   const lang = useLang();
@@ -193,6 +201,11 @@ function Settings({
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
 
   const tonToken = useMemo(() => tokens?.find(({ slug }) => slug === TONCOIN.slug), [tokens]);
+
+  const isPortfolioAvailable = useMemo(() => {
+    if (!tokens) return false;
+    return calculateFullBalance(tokens, stakingStates, currencyRates[baseCurrency]).primaryValue !== '0';
+  }, [tokens, stakingStates, currencyRates, baseCurrency]);
 
   const wallets = useMemo(() => {
     return versions
@@ -245,6 +258,11 @@ function Settings({
   const handleConnectedDappsOpen = useLastCallback(() => {
     getDapps();
     setSettingsState({ state: SettingsState.Dapps });
+  });
+
+  const handleOpenPortfolio = useLastCallback(() => {
+    closeSettings(undefined, { forceOnHeavyAnimation: true });
+    openPortfolio({ returnTo: 'settings' });
   });
 
   function handleAppearanceOpen() {
@@ -479,6 +497,20 @@ function Settings({
           {IS_ELECTRON && (
             <div className={styles.block}>
               {renderHandleDeeplinkButton()}
+            </div>
+          )}
+
+          {isPortfolioAvailable && (
+            <div className={styles.block}>
+              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleOpenPortfolio}>
+                <img className={styles.menuIcon} src={portfolioImg} alt={lang('Portfolio')} />
+                <div className={styles.itemContent}>
+                  <span className={styles.itemTitle}>{lang('Portfolio')}</span>
+                  <span className={styles.itemSubtitle}>{lang('Performance, insights and P&L')}</span>
+                </div>
+
+                <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
+              </div>
             </div>
           )}
 
@@ -902,5 +934,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     accountType: account?.type,
     isMultichain: Object.keys(account?.byChain ?? {}).length > 1,
     accountChains: account?.byChain,
+    stakingStates: currentAccountId ? selectAccountStakingStates(global, currentAccountId) : undefined,
+    currencyRates: global.currencyRates,
   };
 })(Settings));

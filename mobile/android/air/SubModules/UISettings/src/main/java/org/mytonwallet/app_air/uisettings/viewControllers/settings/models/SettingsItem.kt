@@ -15,6 +15,7 @@ data class SettingsItem(
         ACCOUNT,
         SHOW_ALL_WALLETS,
         ADD_ACCOUNT,
+        PORTFOLIO,
         NOTIFICATION_SETTINGS,
         APPEARANCE,
         ASSETS_AND_ACTIVITY,

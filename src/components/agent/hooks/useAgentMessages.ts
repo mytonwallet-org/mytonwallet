@@ -225,10 +225,11 @@ export default function useAgentMessages({ lang, agentMessageCount }: UseAgentMe
           flushPendingRaf();
           let finalMessages!: AgentMessage[];
           setMessages((prev) => {
-            const base = prev.filter((msg) => !msg.isTyping);
-            finalMessages = [...base, {
-              id: inId, text: lang(error), isOutgoing: false, timestamp: Date.now(),
-            }];
+            finalMessages = prev
+              .filter((msg) => !msg.isTyping || msg.id === inId)
+              .map((msg) => (msg.id === inId
+                ? { ...msg, text: lang(error), isTyping: undefined }
+                : msg));
             return finalMessages;
           });
           finalize(finalMessages);

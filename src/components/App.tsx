@@ -63,6 +63,7 @@ import Toasts from './main/Toasts';
 import WalletRenameModal from './main/WalletRenameModal';
 import MediaViewer from './mediaViewer/MediaViewer';
 import MintCardModal from './mintCard/MintCardModal';
+import Portfolio from './portfolio/Portfolio';
 import Settings from './settings/Settings';
 import SwapModal from './swap/SwapModal';
 import TransferModal from './transfer/TransferModal';
@@ -83,6 +84,7 @@ interface StateProps {
   isCustomizeWalletModalOpen?: boolean;
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
+  isPortfolioOpen?: boolean;
   isFullscreen: boolean;
   areSettingsOpen?: boolean;
   theme: Theme;
@@ -108,6 +110,7 @@ function App({
   isQrScannerOpen,
   isAgentOpen,
   isExploreOpen,
+  isPortfolioOpen,
   isFullscreen,
   areSettingsOpen,
   theme,
@@ -129,7 +132,7 @@ function App({
   const [canPrerenderMain, prerenderMain] = useFlag();
 
   const renderingKey = resolveRenderingKey({
-    isInactive, areSettingsOpen, isAgentOpen, isExploreOpen, isPortrait, appState,
+    isInactive, areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen, isPortrait, appState,
   });
   const withBottomBar = isPortrait && (!IS_EXPLORER || isAppReady) && APP_STATES_WITH_BOTTOM_BAR.has(renderingKey);
   const transitionName = withBottomBar
@@ -218,6 +221,8 @@ function App({
         return <Explore isActive={isActive} />;
       case AppState.Settings:
         return <Settings isActive={isActive} />;
+      case AppState.Portfolio:
+        return <Portfolio isActive={isActive} />;
       case AppState.Ledger:
         return <LedgerModal isOpen noBackdropClose onClose={closeThisTab} />;
       case AppState.Inactive:
@@ -301,6 +306,7 @@ export default memo(withGlobal((global): StateProps => {
     isCustomizeWalletModalOpen: global.isCustomizeWalletModalOpen,
     isAgentOpen: global.isAgentOpen,
     isExploreOpen: global.isExploreOpen,
+    isPortfolioOpen: global.isPortfolioOpen,
     areSettingsOpen: global.areSettingsOpen,
     isQrScannerOpen: global.isQrScannerOpen,
     isFullscreen: Boolean(global.isFullscreen),
@@ -311,12 +317,13 @@ export default memo(withGlobal((global): StateProps => {
 })(App));
 
 function resolveRenderingKey({
-  isInactive, areSettingsOpen, isAgentOpen, isExploreOpen, isPortrait, appState,
+  isInactive, areSettingsOpen, isAgentOpen, isExploreOpen, isPortfolioOpen, isPortrait, appState,
 }: {
   isInactive: boolean;
   areSettingsOpen?: boolean;
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
+  isPortfolioOpen?: boolean;
   isPortrait: boolean;
   appState: AppState;
 }) {
@@ -324,5 +331,6 @@ function resolveRenderingKey({
   if (areSettingsOpen && isPortrait) return AppState.Settings;
   if (isAgentOpen && isPortrait) return AppState.Agent;
   if (isExploreOpen && isPortrait) return AppState.Explore;
+  if (isPortfolioOpen && isPortrait) return AppState.Portfolio;
   return appState;
 }

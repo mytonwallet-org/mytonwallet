@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef } from '../../lib/teact/teact';
 
-import { SHORT_CURRENCY_SYMBOL_MAP } from '../config';
+import { NEW_CHARTS_ENABLED, SHORT_CURRENCY_SYMBOL_MAP } from '../config';
 import LovelyChart from '../../lib/LovelyChart/LovelyChart';
 
 import '../../lib/LovelyChart/LovelyChart.css';
@@ -47,10 +47,10 @@ function ChartPage({ netWorthData, pnlCumulativeData, pnlData, baseCurrency }: O
     if (netWorthRef.current) {
       renderChart(netWorthRef.current, netWorthData, baseCurrency, 'Portfolio Value', 'area', assignColor);
     }
-    if (pnlCumulativeRef.current) {
+    if (NEW_CHARTS_ENABLED && pnlCumulativeRef.current) {
       renderChart(pnlCumulativeRef.current, pnlCumulativeData, baseCurrency, 'Total P&L', 'line', assignColor);
     }
-    if (pnlRef.current) {
+    if (NEW_CHARTS_ENABLED && pnlRef.current) {
       renderChart(pnlRef.current, pnlData, baseCurrency, 'Daily P&L', 'bar', assignColor);
     }
   }, [netWorthData, pnlCumulativeData, pnlData, baseCurrency]);
@@ -58,8 +58,12 @@ function ChartPage({ netWorthData, pnlCumulativeData, pnlData, baseCurrency }: O
   return (
     <>
       <div ref={netWorthRef} className={styles.chartContainer} data-stricterdom-ignore />
-      <div ref={pnlCumulativeRef} className={styles.chartContainer} data-stricterdom-ignore />
-      <div ref={pnlRef} className={styles.chartContainer} data-stricterdom-ignore />
+      {NEW_CHARTS_ENABLED && (
+        <>
+          <div ref={pnlCumulativeRef} className={styles.chartContainer} data-stricterdom-ignore />
+          <div ref={pnlRef} className={styles.chartContainer} data-stricterdom-ignore />
+        </>
+      )}
     </>
   );
 }

@@ -1,9 +1,8 @@
-import type { ElementRef } from '../../../../../lib/teact/teact';
-import { useEffect, useState } from '../../../../../lib/teact/teact';
+import type { ElementRef } from '../lib/teact/teact';
+import { useEffect, useState } from '../lib/teact/teact';
 
-import { requestMeasure } from '../../../../../lib/fasterdom/fasterdom';
-
-import useLastCallback from '../../../../../hooks/useLastCallback';
+import { requestMeasure } from '../lib/fasterdom/fasterdom';
+import useLastCallback from './useLastCallback';
 
 const SCROLL_EDGE_TOLERANCE_PX = 5;
 const EDGE_HOVER_ZONE_RATIO = 0.25;
@@ -65,8 +64,8 @@ export default function useScrollButtonsVisibility({
     const resizeObserver = new ResizeObserver(schedule);
     resizeObserver.observe(container);
 
-    // Children added/removed (e.g. NFTs load and new collection cells appear) change `scrollWidth`
-    // without changing the container's bounding box, so `ResizeObserver` alone misses them.
+    // Children added/removed (e.g. async content loads in) change `scrollWidth`
+    // without changing the container's bounding box, so `ResizeObserver` alone misses them
     const mutationObserver = new MutationObserver(schedule);
     mutationObserver.observe(container, { childList: true });
 

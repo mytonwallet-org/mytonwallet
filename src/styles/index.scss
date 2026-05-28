@@ -8,6 +8,8 @@
 
 @use "mtwCustomCard";
 
+@use "scssVariables" as v;
+
 html, body {
   overflow: hidden;
   overscroll-behavior: none;
@@ -38,8 +40,7 @@ html, body {
 body {
   user-select: none;
 
-  font-family: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Apple Color Emoji", "Segoe UI", Oxygen, Ubuntu, Cantarell,
-  "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  font-family: v.$fontFamily;
   font-size: 16px;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;

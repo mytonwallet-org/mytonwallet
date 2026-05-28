@@ -2,9 +2,9 @@
 
 @use "../../../../styles/scssVariables" as v;
 
-/* Two cells + a single 0.75rem gap span the Activities `.activitiesWrapper` content width
+/* Two cells + a single 1rem gap span the Activities `.activitiesWrapper` content width
    (= `$landscapeMainContentMaxWidth − padding-right`). */
-$cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 1rem - 0.75rem) / 2);
+$cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 2rem) / 2);
 
 .wrapper {
   display: flex;

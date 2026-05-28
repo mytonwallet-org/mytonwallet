@@ -11,6 +11,10 @@ import WalletCore
 import WalletContext
 
 public final class TokenCell: UICollectionViewCell {
+    public enum SecondaryAmountMode: Equatable {
+        case balanceValue
+        case tokenPrice
+    }
     
     private static let horizontalInset: CGFloat = 12
     private static let tokenImageToTextSpacing: CGFloat = 10
@@ -160,12 +164,17 @@ public final class TokenCell: UICollectionViewCell {
         onSelect?()
     }
     
-    public func configure(with walletToken: MTokenBalance, isAvailable: Bool, isCurrentSelection: Bool = false, onSelect: @escaping () -> Void) {
+    public func configure(with walletToken: MTokenBalance,
+                          isAvailable: Bool,
+                          secondaryAmountMode: SecondaryAmountMode = .balanceValue,
+                          isCurrentSelection: Bool = false,
+                          onSelect: @escaping () -> Void) {
         let token = TokenStore.tokens[walletToken.tokenSlug]
         configure(
             token: token,
             balance: walletToken.balance,
             isAvailable: isAvailable,
+            secondaryAmountMode: secondaryAmountMode,
             isStaking: walletToken.isStaking,
             fallbackName: walletToken.tokenSlug,
             isCurrentSelection: isCurrentSelection,
@@ -173,11 +182,17 @@ public final class TokenCell: UICollectionViewCell {
         )
     }
 
-    public func configure(with token: ApiToken, balance: BigInt, isAvailable: Bool, isCurrentSelection: Bool = false, onSelect: @escaping () -> Void) {
+    public func configure(with token: ApiToken,
+                          balance: BigInt,
+                          isAvailable: Bool,
+                          secondaryAmountMode: SecondaryAmountMode = .balanceValue,
+                          isCurrentSelection: Bool = false,
+                          onSelect: @escaping () -> Void) {
         configure(
             token: token,
             balance: balance,
             isAvailable: isAvailable,
+            secondaryAmountMode: secondaryAmountMode,
             isStaking: false,
             fallbackName: token.name,
             isCurrentSelection: isCurrentSelection,
@@ -185,7 +200,14 @@ public final class TokenCell: UICollectionViewCell {
         )
     }
     
-    private func configure(token: ApiToken?, balance: BigInt, isAvailable: Bool, isStaking: Bool, fallbackName: String, isCurrentSelection: Bool, onSelect: @escaping () -> Void) {
+    private func configure(token: ApiToken?,
+                           balance: BigInt,
+                           isAvailable: Bool,
+                           secondaryAmountMode: SecondaryAmountMode,
+                           isStaking: Bool,
+                           fallbackName: String,
+                           isCurrentSelection: Bool,
+                           onSelect: @escaping () -> Void) {
         self.onSelect = onSelect
         iconView.config(with: token, isStaking: isStaking, isWalletView: false, shouldShowChain: AccountStore.account?.isMultichain == true || token?.chain != .ton)
         titleLabel.text = if let token {
@@ -204,7 +226,7 @@ public final class TokenCell: UICollectionViewCell {
         }
         descriptionLabel.text = isAvailable ? token?.chain.title : lang("Unavailable")
         amountLabel.text = formatAmount(balance: balance, token: token)
-        secondaryAmountLabel.text = formatSecondaryAmount(balance: balance, token: token)
+        secondaryAmountLabel.text = formatSecondaryAmount(balance: balance, token: token, mode: secondaryAmountMode)
         stackView.alpha = isAvailable ? 1 : 0.5
         selectionIndicatorView.isHidden = !isCurrentSelection
     }
@@ -214,13 +236,16 @@ public final class TokenCell: UICollectionViewCell {
         return TokenAmount(balance, token).formatted(.defaultAdaptive, roundHalfUp: false)
     }
     
-    private func formatSecondaryAmount(balance: BigInt, token: ApiToken?) -> String {
+    private func formatSecondaryAmount(balance: BigInt, token: ApiToken?, mode: SecondaryAmountMode) -> String {
         guard let price = token?.price, price != 0 else {
             return lang("No Price")
+        }
+        if mode == .tokenPrice {
+            let tokenPrice = BaseCurrencyAmount.fromDouble(price, TokenStore.baseCurrency)
+            return tokenPrice.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
         }
         let amount = balance.doubleAbsRepresentation(decimals: token?.decimals ?? 0)
         let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(amount * price, TokenStore.baseCurrency)
         return baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
     }
 }
-

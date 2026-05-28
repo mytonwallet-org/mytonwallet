@@ -90,6 +90,11 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
         super.viewDidAppear(animated)
         updateSheetHeight(animated: false)
     }
+
+    public override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        viewModel.extraBottomPadding = max(0, 16 - view.safeAreaInsets.bottom)
+    }
     
     private func onHeightChange(_ height: CGFloat) {
         guard height > 0 else { return }

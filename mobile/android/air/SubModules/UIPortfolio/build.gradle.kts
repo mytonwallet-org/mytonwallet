@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
+    implementation(libs.blurview)
     implementation(project("$airSubModulePath:UIComponents"))
     implementation(project("$airSubModulePath:WalletBaseContext"))
     implementation(project("$airSubModulePath:WalletContext"))

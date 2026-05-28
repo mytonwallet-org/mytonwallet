@@ -470,8 +470,11 @@ function parseJettonMint(action: JettonMintAction, options: ParseOptions): Parse
   ) {
     // TODO After fix on Toncenter's side, move it to transfer parsing (currently it's mistakenly detected as mint)
     type = 'unstakeRequest';
+    const { metadata: _metadata, ...commonFieldsWithoutMetadata } = parseCommonFields(
+      action, options, receiver, receiver, 0,
+    );
     commonFields = {
-      ...parseCommonFields(action, options, receiver, receiver, 0),
+      ...commonFieldsWithoutMetadata,
       toAddress: ETHENA_STAKING_VAULT,
       isIncoming: false,
       normalizedAddress: ETHENA_STAKING_VAULT,
@@ -925,6 +928,7 @@ function parseCommonFields(
   const isIncoming = toAddress === walletAddress;
   const normalizedAddress = toBase64Address(isIncoming ? fromAddress : toAddress, true, network);
   const amount = isIncoming ? BigInt(amountString) : -BigInt(amountString);
+  const domain = addressBook[isIncoming ? rawFromAddress : rawToAddress]?.domain;
   return {
     kind: 'transaction',
     id,
@@ -936,6 +940,7 @@ function parseCommonFields(
     isIncoming,
     normalizedAddress,
     amount,
+    ...(domain && { metadata: { name: domain } }),
     // Pending actions from Toncenter are not trusted
     status: resolveActivityStatus(isPending, action.success, finality),
   } satisfies Partial<ApiTransactionActivity>;

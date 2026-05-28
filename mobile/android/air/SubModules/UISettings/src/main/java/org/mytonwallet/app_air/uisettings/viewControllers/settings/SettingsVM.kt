@@ -33,6 +33,19 @@ class SettingsVM {
             children = emptyList()
         ),
         SettingsSection(
+            section = SettingsSection.Section.PORTFOLIO,
+            title = "",
+            children = listOf(
+                SettingsItem(
+                    identifier = SettingsItem.Identifier.PORTFOLIO,
+                    icon = R.drawable.ic_portfolio,
+                    title = LocaleController.getString("Portfolio"),
+                    subtitle = LocaleController.getString("Performance, insights and P&L"),
+                    hasTintColor = false
+                )
+            )
+        ),
+        SettingsSection(
             section = SettingsSection.Section.SETTINGS,
             title = LocaleController.getString("Settings"),
             children = emptyList()

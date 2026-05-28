@@ -26,6 +26,7 @@ import useScrolledState from '../../../../hooks/useScrolledState';
 import useContentSwipe from './hooks/useContentSwipe';
 import useContentTabs from './hooks/useContentTabs';
 
+import BackHeader from '../../../common/BackHeader';
 import Transition from '../../../ui/Transition';
 import HideNftModal from '../../modals/HideNftModal';
 import LandscapeTopActions from '../Actions/LandscapeTopActions';
@@ -33,7 +34,6 @@ import ContentSlide from './ContentSlide';
 import LandscapeWalletOverview from './LandscapeWalletOverview';
 import NftCollectionHeader from './NftCollectionHeader';
 import NftSelectionHeader from './NftSelectionHeader';
-import OverviewBackHeader from './OverviewBackHeader';
 
 import styles from './Content.module.scss';
 
@@ -145,7 +145,8 @@ function LandscapeContent({
   // change during the open/close animation; once the overlay is gone the inner key updates normally.
   const isCoveredByLandscapeOverlay = activeContentTab === ContentTab.Settings
     || activeContentTab === ContentTab.Agent
-    || activeContentTab === ContentTab.Explore;
+    || activeContentTab === ContentTab.Explore
+    || activeContentTab === ContentTab.Portfolio;
 
   const shouldShowLandscapeOverview = !currentCollection
     && !hasNftSelection
@@ -192,7 +193,7 @@ function LandscapeContent({
     }
 
     return (
-      <OverviewBackHeader
+      <BackHeader
         title={lang(getOverviewBackHeaderTitle(activeContentTab))}
         onBackClick={handleHeaderBackClick}
       />
