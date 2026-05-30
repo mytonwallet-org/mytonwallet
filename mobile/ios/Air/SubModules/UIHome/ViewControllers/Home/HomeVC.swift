@@ -28,7 +28,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private var calledReady = false
 
     var popRecognizer: InteractivePopRecognizer?
-    /// `headerContainerView` is used to set colored background under safe area and also under tableView when scrolling down. (bounce mode)
+    /// `headerContainerView` is used to set colored background under safe area and also under the collection view when scrolling down. (bounce mode)
     private var headerContainerView: WTouchPassView!
     /// `headerContainerViewHeightConstraint` is used to animate the header background on the first load's animation.
     private var headerContainerViewHeightConstraint: NSLayoutConstraint? = nil
@@ -158,7 +158,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         windowSafeAreaGuideContraint = windowSafeAreaGuide.topAnchor.constraint(equalTo: view.topAnchor, constant: 0)
         windowSafeAreaGuideContraint.isActive = true
         
-        super.setupTableViews(tableViewBottomConstraint: homeBottomInset)
+        super.setupCollectionView(collectionViewBottomConstraint: homeBottomInset)
 
         // header container view (used to make animating views on start, possible)
         headerContainerView = WTouchPassView()
@@ -404,7 +404,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     func contentOffsetChanged() {
-        // `tableView.contentInset` is not be applied until `scrollViewWillEndDragging` so inset is calculated here based on expansion state
+        // `contentInset` is not applied until `scrollViewWillEndDragging` so inset is calculated here based on expansion state
         let topContentInset = (collectionView.adjustedContentInset.top - collectionView.contentInset.top) + (headerViewModel.state == .expanded ? expansionInset : 0.0)
         balanceHeaderView.updateHeight(scrollOffset: collectionView.contentOffset.y + topContentInset, isExpandingProgrammatically: isExpandingProgrammatically)
         updateHeaderBlur(y: collectionView.contentOffset.y + collectionView.contentInset.top)

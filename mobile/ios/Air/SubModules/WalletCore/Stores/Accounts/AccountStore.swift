@@ -666,7 +666,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     // MARK: - Temporary wallets
     
     public func importTemporaryViewAccountOrActivateFirstMatching(network: ApiNetwork, addressOrDomainByChain: [String: String]) async throws -> MAccount {
-        if let account = firstAccountContainingChainAddresses(addressOrDomainByChain) {
+        if let account = firstAccountContainingChainAddresses(addressOrDomainByChain, network: network) {
             try await activateAccount(accountId: account.id, updateCurrentAccountId: false)
             return account
         } else {
@@ -707,8 +707,11 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         }
     }
     
-    private func firstAccountContainingChainAddresses(_ addressOrDomainByChain: [String: String]) -> MAccount? {
+    private func firstAccountContainingChainAddresses(_ addressOrDomainByChain: [String: String], network: ApiNetwork) -> MAccount? {
         accountLoop: for account in orderedAccounts {
+            guard account.network == network else {
+                continue
+            }
             for (chain, addressOrDomain) in addressOrDomainByChain {
                 if account.byChain[chain]?.address != addressOrDomain && account.byChain[chain]?.domain != addressOrDomain {
                     continue accountLoop

@@ -14,11 +14,29 @@ public class NftDetailsVC: NftDetailsBaseVC {
     private let nfts: [ApiNft]
     private let accountId: String
     
-    public init(accountId: String, nft selectedNft: ApiNft, filter: NftCollectionFilter = .none, isExpanded: Bool = false) {
+    public init(
+        accountId: String,
+        nft selectedNft: ApiNft,
+        filter: NftCollectionFilter = .none,
+        isExpanded: Bool = false,
+        showOnlySelectedIfMissingFromAccount: Bool = false
+    ) {
 
-        var nfts = Array(filter.apply(to: NftStore.getAccountShownNfts(accountId: accountId) ?? [:]).values.map(\.nft))
-        if !nfts.contains(where: { $0.id == selectedNft.id }) {
-            nfts.append(selectedNft)
+        let accountNfts = NftStore.getAccountNfts(accountId: accountId) ?? [:]
+        let isSelectedInAccount = accountNfts.values.contains { displayNft in
+            displayNft.nft.id == selectedNft.id
+                || (displayNft.nft.chain == selectedNft.chain && displayNft.nft.address == selectedNft.address)
+        }
+
+        let nfts: [ApiNft]
+        if showOnlySelectedIfMissingFromAccount && !isSelectedInAccount {
+            nfts = [selectedNft]
+        } else {
+            var accountShownNfts = Array(filter.apply(to: NftStore.getAccountShownNfts(accountId: accountId) ?? [:]).values.map(\.nft))
+            if !accountShownNfts.contains(where: { $0.id == selectedNft.id }) {
+                accountShownNfts.append(selectedNft)
+            }
+            nfts = accountShownNfts
         }
 
         self.nfts = nfts

@@ -56,6 +56,21 @@ public final class _NftStore: Sendable {
     public func getNft(accountId: String, nftId: String) -> DisplayNft? {
         _nfts.withLock { $0[accountId]?[nftId] }
     }
+    public func nftWithStoredTelegramGiftLottie(accountId: String, nft: ApiNft) -> ApiNft {
+        guard nft.metadata?.lottie?.nilIfEmpty == nil else {
+            return nft
+        }
+        guard let storedNft = getNft(accountId: accountId, nftId: nft.id)?.nft else {
+            return nft
+        }
+        guard nft.isTelegramGift == true || storedNft.isTelegramGift == true else {
+            return nft
+        }
+        guard storedNft.metadata?.lottie?.nilIfEmpty != nil else {
+            return nft
+        }
+        return storedNft
+    }
     
     private let cacheUrl = URL.cachesDirectory.appending(components: "air", "nfts", "nfts.json")
     

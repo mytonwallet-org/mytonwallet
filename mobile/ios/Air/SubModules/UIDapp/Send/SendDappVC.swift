@@ -45,7 +45,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         super.init(nibName: nil, bundle: nil)
     }
 
-    deinit {
+    isolated deinit {
         notRespondingWorkItem?.cancel()
     }
     

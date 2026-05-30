@@ -178,6 +178,13 @@ export class BalanceStream {
     this.#fallbackPollingScheduler?.destroy();
   }
 
+  public markWalletActiveAndForcePoll() {
+    if (this.#isDestroyed) return;
+
+    this.#walletStatus = 'active';
+    this.#fallbackPollingScheduler?.forceImmediatePoll();
+  }
+
   #handleSocketConnect = () => {
     this.#fallbackPollingScheduler?.onSocketConnect();
   };
@@ -185,6 +192,10 @@ export class BalanceStream {
   #handleSocketDisconnect = () => {
     this.#fallbackPollingScheduler?.onSocketDisconnect();
   };
+
+  #isWalletActive() {
+    return this.#walletStatus === 'active';
+  }
 
   /**
    * Called when a trace is invalidated. Balance updates received from `confirmed` finality level
@@ -228,10 +239,9 @@ export class BalanceStream {
       if (!this.#walletStatus) {
         const isEnsured = await this.#ensureIsPollingNeeded!();
 
-        if (!isEnsured && this.#walletStatus !== 'active') {
+        if (!isEnsured && !this.#isWalletActive()) {
           logDebug('balanceStream: wallet is inactive, skip polling', this.#chain, this.#address);
           this.#walletStatus = 'inactive';
-
           return;
         }
         this.#walletStatus = 'active';

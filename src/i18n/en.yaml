@@ -519,6 +519,8 @@ Buy with Crypto: Buy with Crypto
 Cannot load widget: Cannot load widget
 Error: Error
 Explore: Explore
+$lockdown_mode_enabled_title: Lockdown Mode Enabled
+$lockdown_mode_walletconnect_unavailable: "WalletConnect is not available in Lockdown Mode. To use it, disable Lockdown Mode for %app_name% in Settings > Privacy & Security > Lockdown Mode > Configure Web Browsing."
 No partners yet: No partners yet
 Clear: Clear
 Unavailable: Unavailable

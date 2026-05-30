@@ -183,6 +183,10 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             createChartLayoutParams(topMargin = ViewConstants.GAP.dp, horizontalMargin = 0)
         )
         contentLayout.addView(
+            distributionSection.container,
+            createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
+        )
+        contentLayout.addView(
             absoluteSection.container,
             createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
         )
@@ -192,10 +196,6 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         )
         contentLayout.addView(
             dailyPnlSection.container,
-            createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
-        )
-        contentLayout.addView(
-            distributionSection.container,
             createChartLayoutParams(topMargin = ViewConstants.GAP.dp)
         )
 

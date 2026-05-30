@@ -1,17 +1,18 @@
 import WalletContext
 import WalletCore
 import SwiftUI
+import ContextMenuKit
 import Dependencies
 import UIComponents
 import Perception
 import OrderedCollections
 
 struct AddressSuggestions: View {
-    
+
     let model: AddressInputModel
-    
+
     @Dependency(\.accountStore) var accountStore
-    
+
     var searchString: String {
         model.textFieldInput.lowercased()
     }
@@ -36,7 +37,7 @@ struct AddressSuggestions: View {
                 return isEmpty || account.matches(regex)
             }
     }
-    
+
     var body: some View {
         WithPerceptionTracking {
             savedAddressesSection
@@ -85,35 +86,75 @@ struct SavedAddressButton: View {
     @State var account: AccountContext
 
     var body: some View {
-        InsetButtonCell(horizontalPadding: 12, verticalPadding: 10, action: onTap) {
-            AccountListCell(accountContext: account, isReordering: false, showCurrentAccountHighlight: false)
-        }
-        .contextMenu {
-            Button(role: .destructive) {
-                accountContext.savedAddresses.delete(savedAddress)
-            } label: {
-                Label(lang("Remove"), systemImage: "trash")
-            }
+        if IOS_26_MODE_ENABLED {
+            _content
+        } else {
+            _content
+                .contextMenu {
+                    Button(role: .destructive) {
+                        accountContext.savedAddresses.delete(savedAddress)
+                    } label: {
+                        Label(lang("Remove"), systemImage: "trash")
+                    }
+                }
         }
     }
-    
+
+    var _content: some View {
+        InsetButtonCell(horizontalPadding: 0, verticalPadding: 0, action: onTap) {
+            AccountListCell(accountContext: account, isReordering: false, showCurrentAccountHighlight: false)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .contextMenuSource(
+                    triggers: IOS_26_MODE_ENABLED ? [.longPress] : [],
+                    sourcePortal: ContextMenuSourcePortal(
+                        mask: .roundedAttachmentRect(cornerRadius: S.insetSectionCornerRadius, cornerCurve: .continuous),
+                        showsBackdropCutout: true
+                    )
+                ) {
+                    makeMenuConfiguration()
+                }
+        }
+    }
+
     func onTap() {
         model.source = .savedAccount(account.wrappedValue, saveKey: savedAddress.address)
         endEditing()
     }
+
+    private func makeMenuConfiguration() -> ContextMenuConfiguration {
+        ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: [
+                .action(
+                    ContextMenuAction(
+                        title: lang("Remove"),
+                        icon: .system("trash"),
+                        role: .destructive,
+                        handler: {
+                            withAnimation {
+                                accountContext.savedAddresses.delete(savedAddress)
+                            }
+                        }
+                    )
+                )
+            ]),
+            backdrop: .dimmed(alpha: 0.18),
+            style: ContextMenuStyle(minWidth: 180.0)
+        )
+    }
 }
 
 struct AccountButton: View {
-    
+
     let model: AddressInputModel
     @State var account: AccountContext
-    
+
     var body: some View {
         InsetButtonCell(horizontalPadding: 12, verticalPadding: 10, action: onTap) {
             AccountListCell(accountContext: account, isReordering: false, showCurrentAccountHighlight: false)
         }
     }
-    
+
     func onTap() {
         model.source = .myAccount(account.wrappedValue)
         endEditing()

@@ -235,15 +235,6 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
         }
     }
 
-    func playAnimationOnce(renderingConfiguration: NftMediaView.AnimationRenderingConfiguration) {
-        self.mediaView.animationRenderingConfiguration = renderingConfiguration
-        self.mediaView.playAnimationOnce()
-    }
-
-    func stopAnimationPlayback() {
-        self.mediaView.stopAnimationPlayback()
-    }
-
     private func applyImageState(_ state: NftMediaView.ImageState) {
         switch state {
         case .loading, .loaded:
@@ -280,5 +271,20 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
             wiggle.isWiggling = reorderingState.contains(.reordering)
             updateDraggingState()
         }
+    }
+}
+
+extension NftCell: NftAnimationPlaybackTarget {
+    var nftAnimationPlaybackID: String? {
+        self.nftId
+    }
+
+    func playNftAnimationOnce() {
+        self.mediaView.animationRenderingConfiguration = .nftGridDefault
+        self.mediaView.playAnimationOnce()
+    }
+
+    func stopNftAnimationPlayback() {
+        self.mediaView.stopAnimationPlayback()
     }
 }

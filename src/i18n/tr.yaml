@@ -525,6 +525,8 @@ Buy with Card: Kart ile Satın Al
 Buy with Crypto: Kripto ile Satın Al
 Cannot load widget: Widget yüklenemiyor
 Explore: Keşfetmek
+$lockdown_mode_enabled_title: Kilit Modu Etkin
+$lockdown_mode_walletconnect_unavailable: "WalletConnect Kilit Modu'nda kullanılamaz. Kullanmak için Ayarlar > Gizlilik ve Güvenlik > Kilit Modu > Web Gezintisini Yapılandır bölümünde %app_name% için Kilit Modu'nu devre dışı bırakın."
 No partners yet: Henüz ortak yok
 Clear: Temizle
 $unstake_up_to_information: Anında – en fazla %value%

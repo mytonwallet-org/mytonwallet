@@ -55,8 +55,8 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         earnVM.setScreenVisible(false)
     }
 
-    private var tableView: UITableView?
-    private var dataSource: UITableViewDiffableDataSource<Section, Row>?
+    private var collectionView: UICollectionView!
+    private var dataSource: UICollectionViewDiffableDataSource<Section, Row>?
     private var emptyView: EmptyEarnView!
     private var indicatorView: WActivityIndicator!
     private var belowSafeAreaView: UIView!
@@ -78,94 +78,100 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         let tokenSlug = self.tokenSlug
         title = config.displayTitle
 
-        let tableView = UITableView(frame: .zero, style: .grouped)
-        self.tableView = tableView
-        tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.register(EarnHeaderCell.self, forCellReuseIdentifier: "EarnHeader")
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "EarnHistoryHeader")
-        tableView.register(EarnHistoryCell.self, forCellReuseIdentifier: "EarnHistory")
-        tableView.delegate = self
-        tableView.separatorStyle = .none
-        tableView.allowsSelection = true
-        tableView.delaysContentTouches = false
-        view.addSubview(tableView)
+        let collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeCollectionViewLayout())
+        self.collectionView = collectionView
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        collectionView.delegate = self
+        collectionView.alwaysBounceVertical = true
+        collectionView.allowsSelection = true
+        collectionView.delaysContentTouches = false
+        collectionView.backgroundColor = .air.groupedItem
+        view.addSubview(collectionView)
         NSLayoutConstraint.activate([
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            collectionView.topAnchor.constraint(equalTo: view.topAnchor),
+            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
-        
-        dataSource = UITableViewDiffableDataSource<Section, Row>(tableView: tableView) { [weak self] tableView, indexPath, itemIdentifier in
-            guard let self else { fatalError() }
-            switch itemIdentifier {
-            case .header:
-                let cell = tableView.dequeueReusableCell(withIdentifier: "EarnHeader", for: indexPath) as! EarnHeaderCell
-                cell.configure(config: config, stakingData: stakingData, supportsEarn: accountContext.account.supportsEarn, delegate: self)
-                return cell
 
-            case .historyHeader:
-                let cell = tableView.dequeueReusableCell(withIdentifier: "EarnHistoryHeader", for: indexPath)
-                let earnedAmount: BigInt?
-                let earnedDecimals: Int
-                let earnedSymbol: String
-                if tokenSlug == TONCOIN_SLUG {
-                    earnedAmount = stakingData?.totalProfit
-                    earnedDecimals = 9
-                    earnedSymbol = "TON"
-                } else if case .jetton(let jetton) = self.stakingState {
-                    earnedAmount = jetton.unclaimedRewards
-                    earnedDecimals = self.token.decimals
-                    earnedSymbol = self.token.symbol
-                } else {
-                    earnedAmount = nil
-                    earnedDecimals = 9
-                    earnedSymbol = ""
-                }
-                cell.contentConfiguration = UIHostingConfiguration {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(lang("History"))
-                            .font(.system(size: 20, weight: .bold))
-                        Spacer()
-                        if let earnedAmount, earnedAmount > 0 {
-                            let amount = AnyDecimalAmount(earnedAmount, decimals: earnedDecimals, symbol: earnedSymbol, forceCurrencyToRight: true)
-                            Text("\(lang("Earned")): \(amount.formatted(.defaultAdaptive))")
-                                .font(.system(size: 16))
-                                .foregroundStyle(Color.air.secondaryLabel)
-                                .sensitiveData(alignment: .trailing, cols: 14, rows: 2, cellSize: 8, theme: .adaptive, cornerRadius: 4)
-                        }
+        let headerCellRegistration = UICollectionView.CellRegistration<EarnHeaderCell, Row> { [unowned self] cell, _, _ in
+            cell.configure(config: config, stakingData: stakingData, supportsEarn: accountContext.account.supportsEarn, delegate: self)
+        }
+        let historyHeaderCellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, Row> { [unowned self] cell, _, _ in
+            let earnedAmount: BigInt?
+            let earnedDecimals: Int
+            let earnedSymbol: String
+            if tokenSlug == TONCOIN_SLUG {
+                earnedAmount = stakingData?.totalProfit
+                earnedDecimals = 9
+                earnedSymbol = "TON"
+            } else if case .jetton(let jetton) = self.stakingState {
+                earnedAmount = jetton.unclaimedRewards
+                earnedDecimals = self.token.decimals
+                earnedSymbol = self.token.symbol
+            } else {
+                earnedAmount = nil
+                earnedDecimals = 9
+                earnedSymbol = ""
+            }
+            cell.backgroundColor = .clear
+            cell.contentConfiguration = UIHostingConfiguration {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(lang("History"))
+                        .font(.system(size: 20, weight: .bold))
+                    Spacer()
+                    if let earnedAmount, earnedAmount > 0 {
+                        let amount = AnyDecimalAmount(earnedAmount, decimals: earnedDecimals, symbol: earnedSymbol, forceCurrencyToRight: true)
+                        Text("\(lang("Earned")): \(amount.formatted(.defaultAdaptive))")
+                            .font(.system(size: 16))
+                            .foregroundStyle(Color.air.secondaryLabel)
+                            .sensitiveData(alignment: .trailing, cols: 14, rows: 2, cellSize: 8, theme: .adaptive, cornerRadius: 4)
                     }
-                    .padding(.bottom, 2)
                 }
-                .background(Color.clear)
-                // FIXME: Margins are not working
-                return cell
-                
+                .padding(.bottom, 2)
+            }
+            .background(Color.clear)
+            .margins(.horizontal, 16)
+            .margins(.vertical, 0)
+        }
+        let historyCellRegistration = UICollectionView.CellRegistration<EarnHistoryCell, Row> { [unowned self] cell, indexPath, itemIdentifier in
+            switch itemIdentifier {
             case .historyItem(let historyItem):
-                let cell = tableView.dequeueReusableCell(withIdentifier: "EarnHistory", for: indexPath) as! EarnHistoryCell
                 cell.configure(earnHistoryItem: historyItem, token: token)
-                let isLastInSection = indexPath.row == tableView.numberOfRows(inSection: indexPath.section) - 1
+                let isLastInSection = indexPath.item == collectionView.numberOfItems(inSection: indexPath.section) - 1
                 cell.setSeparatorHidden(isLastInSection)
-                return cell
-                
+
             case .stackedProfits(let profits, let startTimestamp, let count):
-                let cell = tableView.dequeueReusableCell(withIdentifier: "EarnHistory", for: indexPath) as! EarnHistoryCell
                 cell.configure(stackedProfits: profits, startTimestamp: startTimestamp, count: count, token: token)
-                let isLastInSection = indexPath.row == tableView.numberOfRows(inSection: indexPath.section) - 1
+                let isLastInSection = indexPath.item == collectionView.numberOfItems(inSection: indexPath.section) - 1
                 cell.setSeparatorHidden(isLastInSection)
-                return cell
+
+            case .header, .historyHeader:
+                break
             }
         }
-        dataSource?.defaultRowAnimation = .fade
+
+        dataSource = UICollectionViewDiffableDataSource<Section, Row>(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
+            switch itemIdentifier {
+            case .header:
+                return collectionView.dequeueConfiguredReusableCell(using: headerCellRegistration, for: indexPath, item: itemIdentifier)
+
+            case .historyHeader:
+                return collectionView.dequeueConfiguredReusableCell(using: historyHeaderCellRegistration, for: indexPath, item: itemIdentifier)
+
+            case .historyItem, .stackedProfits:
+                return collectionView.dequeueConfiguredReusableCell(using: historyCellRegistration, for: indexPath, item: itemIdentifier)
+            }
+        }
         dataSource?.apply(makeSnapshot(), animatingDifferences: false)
-        
+
         belowSafeAreaView = UIView()
         belowSafeAreaView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.addSubview(belowSafeAreaView)
+        collectionView.addSubview(belowSafeAreaView)
         NSLayoutConstraint.activate([
             belowSafeAreaView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             belowSafeAreaView.widthAnchor.constraint(equalTo: view.widthAnchor),
-            belowSafeAreaView.bottomAnchor.constraint(equalTo: tableView.contentLayoutGuide.topAnchor),
+            belowSafeAreaView.bottomAnchor.constraint(equalTo: collectionView.contentLayoutGuide.topAnchor),
             belowSafeAreaView.heightAnchor.constraint(equalToConstant: 500),
         ])
 
@@ -220,10 +226,25 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         
         updateTheme()
     }
+
+    private func makeCollectionViewLayout() -> UICollectionViewLayout {
+        UICollectionViewCompositionalLayout { sectionIndex, _ in
+            let estimatedHeight: CGFloat = sectionIndex == 0 ? 360 : 56
+            let size = NSCollectionLayoutSize(
+                widthDimension: .fractionalWidth(1),
+                heightDimension: .estimated(estimatedHeight)
+            )
+            let item = NSCollectionLayoutItem(layoutSize: size)
+            let group = NSCollectionLayoutGroup.vertical(layoutSize: size, subitems: [item])
+            let section = NSCollectionLayoutSection(group: group)
+            section.interGroupSpacing = 0
+            return section
+        }
+    }
     
     private func updateTheme() {
         belowSafeAreaView.backgroundColor = .air.sheetBackground
-        tableView?.backgroundColor = .air.groupedItem
+        collectionView.backgroundColor = .air.groupedItem
     }
     
     func updateClaimRewardsButton() {
@@ -231,10 +252,10 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         claimRewardsViewModel.stakingState = stakingState
         if case let .jetton(jetton) = stakingState {
             claimRewardsView.alpha = jetton.unclaimedRewards > 0 ? 1 : 0
-            tableView?.contentInset.bottom = 56
+            collectionView.contentInset.bottom = 56
         } else {
             claimRewardsView.alpha = 0
-            tableView?.contentInset.bottom = 0
+            collectionView.contentInset.bottom = 0
         }
     }
     
@@ -300,12 +321,12 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
     }
     
     public var onScroll: ((CGFloat) -> Void)?
-    public var scrollingView: UIScrollView? { tableView }
+    public var scrollingView: UIScrollView? { collectionView }
     public func calculateHeight(isHosted: Bool) -> CGFloat { 0 }
 }
 
 
-extension EarnVC: UITableViewDelegate {
+extension EarnVC: UICollectionViewDelegate {
     
     private func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Row> {
         
@@ -378,33 +399,18 @@ extension EarnVC: UITableViewDelegate {
         dataSource?.apply(snapshot, animatingDifferences: animated)
     }
     
-    public func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        return nil
-    }
-    
-    public func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        return 0
-    }
-    
-    public func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        if let id = dataSource?.itemIdentifier(for: indexPath), case .historyHeader = id {
-            return 26 // FIXME: This is unnecessary but margins on UIContentConfiguration were not working
-        }
-        return UITableView.automaticDimension
-    }
-
-    public func tableView(_: UITableView, willSelectRowAt indexPath: IndexPath) -> IndexPath? {
+    public func collectionView(_: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         switch dataSource?.itemIdentifier(for: indexPath) {
         case .stackedProfits?:
-            return areProfitsCollapsed ? indexPath : nil
+            return areProfitsCollapsed
         default:
-            return nil
+            return false
         }
     }
 
-    public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         defer {
-            tableView.deselectRow(at: indexPath, animated: true)
+            collectionView.deselectItem(at: indexPath, animated: true)
         }
 
         guard case .stackedProfits = dataSource?.itemIdentifier(for: indexPath),
@@ -416,7 +422,7 @@ extension EarnVC: UITableViewDelegate {
         applySnapshot(animated: true)
     }
     
-    public func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+    public func collectionView(_: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
         if let id = dataSource?.itemIdentifier(for: indexPath) {
             switch id {
             case .historyItem(let historyItem), .stackedProfits(let historyItem, _, _):
@@ -437,7 +443,7 @@ extension EarnVC: UITableViewDelegate {
         return nil
     }
     
-    public func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+    public func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
         let identifier = dataSource?.itemIdentifier(for: indexPath)
         if case .historyItem(let showingItem) = identifier {
             if let lastStakingItem = earnVM.lastStakingItem,

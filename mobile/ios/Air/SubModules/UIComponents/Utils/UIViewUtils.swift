@@ -10,7 +10,7 @@ import UIKit
 public extension UIView {
     /// Uses spring animation on iOS 26+ for smoother transitions,
     /// and falls back to linear animation on earlier versions to match
-    /// UITableView's default behavior.
+    /// UICollectionView's default behavior.
     static func animateAdaptive(
         duration: TimeInterval,
         animations: @escaping () -> Void,

@@ -400,6 +400,18 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
 
         sections.append(contentsOf: [
             PortfolioSectionDescriptor(
+                id: .portfolioShareChart,
+                items: [.portfolioShareChartTile],
+                layout: .fullWidthTile(estimatedHeight: 535),
+                contentInsets: .init(
+                    top: portfolioSectionTopSpacing,
+                    leading: portfolioHorizontalInset,
+                    bottom: 0,
+                    trailing: portfolioHorizontalInset
+                ),
+                interGroupSpacing: 0
+            ),
+            PortfolioSectionDescriptor(
                 id: .totalValueChart,
                 items: [.totalValueChartTile],
                 layout: .fullWidthTile(estimatedHeight: 535),
@@ -426,18 +438,6 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             PortfolioSectionDescriptor(
                 id: .dailyPnlChart,
                 items: [.dailyPnlChartTile],
-                layout: .fullWidthTile(estimatedHeight: 535),
-                contentInsets: .init(
-                    top: portfolioSectionTopSpacing,
-                    leading: portfolioHorizontalInset,
-                    bottom: 0,
-                    trailing: portfolioHorizontalInset
-                ),
-                interGroupSpacing: 0
-            ),
-            PortfolioSectionDescriptor(
-                id: .portfolioShareChart,
-                items: [.portfolioShareChartTile],
                 layout: .fullWidthTile(estimatedHeight: 535),
                 contentInsets: .init(
                     top: portfolioSectionTopSpacing,

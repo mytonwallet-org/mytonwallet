@@ -83,7 +83,9 @@ final class ContextMenuSwiftUISourceBridge: ObservableObject {
         }
 
         switch value {
-        case .first(true):
+        case .first:
+            break
+        case let .second(true, nil):
             self.presentMenuIfNeeded(triggeredByLongPress: true)
         case let .second(true, drag?):
             self.presentMenuIfNeeded(triggeredByLongPress: true)

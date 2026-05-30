@@ -232,9 +232,26 @@ public final class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCo
             Task {
                 await handleActivitiesChanged(accountId: accountId, updatedIds: updatedIds, replacedIds: replacedIds)
             }
+        case .nftsChanged(let accountId):
+            handleNftsChanged(accountId: accountId)
         default:
             break
         }
+    }
+
+    private func handleNftsChanged(accountId: String) {
+        guard accountId == viewModel.accountContext.accountId else {
+            return
+        }
+        guard let nft = activity.transaction?.nft,
+              nft.metadata?.lottie?.nilIfEmpty == nil else {
+            return
+        }
+        let resolvedNft = NftStore.nftWithStoredTelegramGiftLottie(accountId: accountId, nft: nft)
+        guard resolvedNft.metadata?.lottie?.nilIfEmpty != nil else {
+            return
+        }
+        hostingController?.rootView = makeView()
     }
     
     func handleActivitiesChanged(accountId: String, updatedIds: [String], replacedIds: [String: String]) async {

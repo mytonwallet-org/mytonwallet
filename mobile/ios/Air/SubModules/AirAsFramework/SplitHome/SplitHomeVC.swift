@@ -182,7 +182,7 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
             configureNavigationItemWithTransparentBackground()
         }
         
-        super.setupTableViews(tableViewBottomConstraint: 0)
+        super.setupCollectionView(collectionViewBottomConstraint: 0)
         additionalSafeAreaInsets = UIEdgeInsets(top: 0, left: 4, bottom: 0, right: 4)
         
         applySnapshot(makeSnapshot(), animatingDifferences: false)

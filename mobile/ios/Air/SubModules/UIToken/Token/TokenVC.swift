@@ -116,7 +116,7 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
         
         navigationController?.setNavigationBarHidden(false, animated: false)
 
-        super.setupTableViews(tableViewBottomConstraint: 0)
+        super.setupCollectionView(collectionViewBottomConstraint: 0)
         UIView.performWithoutAnimation {
             applySnapshot(makeSnapshot(), animatingDifferences: false)
             updateSkeletonState()
@@ -210,6 +210,7 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
         let scrollOffset = scrollOffset(for: scrollView)
         expandableContentView.update(scrollOffset: scrollOffset)
         updateNavigationBarChrome(scrollOffset: scrollOffset)
+        updateVisibleActivityNftAnimationPlayback()
     }
 
     public func scrollViewWillEndDragging(_ scrollView: UIScrollView,

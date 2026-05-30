@@ -35,6 +35,7 @@ extension ExploreVC {
         var id: Identity { identity }
 
         enum Identity: Hashable {
+            case lockdownModeWarning
             case connectedDapps
             case trending
             case popularDapps
@@ -47,6 +48,7 @@ extension ExploreVC {
     }
 
     enum ContentItem: Equatable, Identifiable {
+        case lockdownModeWarning
         case sectionHeader(title: String, isFirstHeader: Bool)
         case connectedDapps(dapps: [ApiDapp], layoutVariant: LayoutSizeVariant)
         case trendingDapps(sites: [ApiSite])
@@ -60,6 +62,7 @@ extension ExploreVC {
 
         var id: String {
             switch self {
+            case .lockdownModeWarning: "lockdownModeWarning_UniqueSingleGroup"
             case let .sectionHeader(title, _): title
             case let .searchSectionHeader(title, _): "search_\(title)"
             case .connectedDapps: "connectedDapps_UniqueSingleGroup"
@@ -97,6 +100,7 @@ extension ExploreVC {
                                       shouldRestrictSites: Bool,
                                       isSearchActive: Bool,
                                       trimmedSearchString: String,
+                                      isLockdownModeEnabled: Bool,
                                       historyItems: [BrowserHistoryItem],
                                       recentSearchItems: [RecentSearchItem] = [])
         -> (sections: [SectionItem], shouldShowWhiteBackground: Bool) {
@@ -107,6 +111,7 @@ extension ExploreVC {
                               shouldRestrictSites: shouldRestrictSites,
                               isSearchActive: isSearchActive,
                               trimmedSearchString: trimmedSearchString,
+                              isLockdownModeEnabled: isLockdownModeEnabled,
                               historyItems: historyItems,
                               recentSearchItems: recentSearchItems)
     }
@@ -118,6 +123,7 @@ extension ExploreVC {
                                                   shouldRestrictSites: Bool,
                                                   isSearchActive: Bool,
                                                   trimmedSearchString: String,
+                                                  isLockdownModeEnabled: Bool,
                                                   historyItems: [BrowserHistoryItem],
                                                   recentSearchItems: [RecentSearchItem] = [])
         -> (sections: [SectionItem], shouldShowWhiteBackground: Bool) {
@@ -126,6 +132,9 @@ extension ExploreVC {
 
         // Idle state:
         if !isSearchActive && trimmedSearchString.isEmpty {
+            if isLockdownModeEnabled {
+                sections.append(SectionItem(identity: .lockdownModeWarning, items: [.lockdownModeWarning]))
+            }
             appendContentItems(to: &sections,
                                connectedDapps: connectedDapps,
                                featuredTitle: featuredTitle,
@@ -433,6 +442,7 @@ extension ExploreVC {
                                           shouldRestrictSites: false,
                                           isSearchActive: isSearchActive,
                                           trimmedSearchString: searchString,
+                                          isLockdownModeEnabled: false,
                                           historyItems: [])
     }
 }
@@ -528,6 +538,9 @@ extension ExploreVC {
 
         @ViewBuilder private func viewForItem(_ contentItem: ContentItem, screenGeometryProxy: GeometryProxy) -> some View {
             switch contentItem {
+            case .lockdownModeWarning:
+                lockdownModeWarningView()
+
             case let .sectionHeader(title, isFirstHeader):
                 sectionHeaderView(title: title, isFirstHeader: isFirstHeader)
 
@@ -569,6 +582,15 @@ extension ExploreVC {
         }
 
         // MARK: Section Header View
+
+        private func lockdownModeWarningView() -> some View {
+            WarningView(
+                header: lang("$lockdown_mode_enabled_title"),
+                text: lang("$lockdown_mode_walletconnect_unavailable", arg1: APP_NAME),
+                kind: .info
+            )
+            .padding(.top, 14)
+        }
 
         private func sectionHeaderView(title: String, isFirstHeader: Bool) -> some View {
             HStack(spacing: 0) {

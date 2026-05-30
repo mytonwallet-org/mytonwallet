@@ -24,7 +24,7 @@ enum Deeplink {
     case tokenAddress(chain: ApiChain, tokenAddress: String)
     case transaction(chain: ApiChain, txId: String)
     case nftAddress(nftAddress: String)
-    case view(addressOrDomainByChain: [String: String])
+    case view(network: ApiNetwork, addressOrDomainByChain: [String: String])
     case settings(section: AppSettingsSection?)
 }
 

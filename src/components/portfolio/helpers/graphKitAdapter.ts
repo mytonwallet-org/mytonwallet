@@ -3,13 +3,9 @@ import type {
 } from '../../../api/types';
 import type { LangFn } from '../../../hooks/useLang';
 
-import { DEFAULT_COLORS } from './portfolioPalette';
-
 // Values smaller than this (in absolute terms) are clamped to 0 to avoid
 // chart noise from rounding-dust amounts. Matches iOS `normalizedForPortfolioDisplay`.
 const MIN_VISIBLE_VALUE = 0.01;
-
-const HEX_COLOR_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 // Backend density (point spacing) drives the x-axis label format.
 // LovelyChart renders `'5min'/'hour'` as HH:mm and `'day'` as date
@@ -22,7 +18,8 @@ const LABEL_TYPE_BY_DENSITY: Record<string, GraphKitParams['labelType']> = {
 
 export type GraphKitDataset = {
   name: string;
-  color: string;
+  // Omitted when the backend provides no color; LovelyChart then assigns one from its default palette
+  color?: string;
   values: number[];
 };
 
@@ -154,7 +151,7 @@ function buildChart(options: ChartOptions) {
 
   const datasets: GraphKitDataset[] = activeSummaries.map((summary) => ({
     name: summary.displayName,
-    color: pickDatasetColor(summary.dataset, summary.displayName),
+    color: summary.dataset.color,
     values: allTimestamps.map((t) => summary.valueByTimestamp.get(t) ?? 0),
   }));
 
@@ -197,7 +194,7 @@ function buildPieChartParams(
 
   const datasets: GraphKitDataset[] = pieSummaries.map((summary) => ({
     name: summary.displayName,
-    color: pickDatasetColor(summary.dataset, summary.displayName),
+    color: summary.dataset.color,
     values: [summary.latestValue],
   }));
 
@@ -333,18 +330,4 @@ function getDisplayName(lang: LangFn, dataset: ApiPortfolioHistoryDataset) {
   if (contract) return contract;
 
   return lang('Asset %1$@').replace('%1$@', String(dataset.assetId));
-}
-
-function pickDatasetColor(dataset: ApiPortfolioHistoryDataset, displayName: string) {
-  if (dataset.color && HEX_COLOR_RE.test(dataset.color)) return dataset.color;
-  return pickDeterministicColor(displayName);
-}
-
-function pickDeterministicColor(key: string) {
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) {
-    hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0;
-  }
-
-  return DEFAULT_COLORS[Math.abs(hash) % DEFAULT_COLORS.length];
 }

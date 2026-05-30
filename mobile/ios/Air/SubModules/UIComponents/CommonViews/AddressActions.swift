@@ -22,7 +22,7 @@ import WalletContext
                     interaction: .selectable(handler: {
                         topViewController()?.dismiss(animated: true) {
                             let address = addressModel.address ?? "?"
-                            AppActions.showTemporaryViewAccount(addressOrDomainByChain: [chain.rawValue: address])
+                            AppActions.showTemporaryViewAccount(network: accountContext.account.network, addressOrDomainByChain: [chain.rawValue: address])
                         }
                     })
                 ) { _ in

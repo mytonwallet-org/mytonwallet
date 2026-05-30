@@ -252,12 +252,6 @@ private struct TokenHeaderBalanceView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, bottomPadding)
             .frame(maxHeight: .infinity, alignment: .bottom)
-            .contentShape(.rect)
-            .onTapGesture {
-                if AppStorageHelper.isSensitiveDataHidden {
-                    AppActions.setSensitiveDataIsHidden(false)
-                }
-            }
         }
     }
 

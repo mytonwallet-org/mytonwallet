@@ -527,6 +527,8 @@ Buy with Card: Comprar con Tarjeta
 Buy with Crypto: Comprar con Cripto
 Cannot load widget: No se puede cargar el widget
 Explore: Explorar
+$lockdown_mode_enabled_title: Modo de aislamiento activado
+$lockdown_mode_walletconnect_unavailable: "WalletConnect no está disponible en el modo de aislamiento. Para usarlo, desactiva el modo de aislamiento para %app_name% en Ajustes > Privacidad y seguridad > Modo de aislamiento > Configurar navegación web."
 No partners yet: No hay socios todavía
 Clear: Borrar
 $unstake_up_to_information: Al instante – hasta %value%

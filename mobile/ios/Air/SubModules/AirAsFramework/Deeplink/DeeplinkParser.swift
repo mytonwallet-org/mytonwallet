@@ -293,6 +293,7 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
     case "view":
         var addressOrDomainByChain: [String: String] = [:]
         let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let network: ApiNetwork = queryItems.contains { $0.name == "testnet" && $0.value?.lowercased() == "true" } ? .testnet : .mainnet
         for queryItem in queryItems {
             if let chain = ApiChain(rawValue: queryItem.name),
                chain.isSupported,
@@ -307,7 +308,7 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
                 addressOrDomainByChain[chain.rawValue] = evmAddress
             }
         }
-        return .view(addressOrDomainByChain: addressOrDomainByChain)
+        return .view(network: network, addressOrDomainByChain: addressOrDomainByChain)
 
     default:
         return nil

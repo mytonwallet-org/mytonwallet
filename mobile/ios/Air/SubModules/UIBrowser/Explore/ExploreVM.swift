@@ -67,6 +67,7 @@ private let log = Log("ExploreVM")
         case .accountChanged: loadDapps()
         case .dappsCountUpdated: loadDapps()
         case .configChanged: updateRestricted()
+        case .lockdownModeChanged: delegate?.didUpdateViewModelData()
         default: break
         }
     }

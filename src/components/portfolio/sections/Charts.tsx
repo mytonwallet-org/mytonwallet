@@ -57,6 +57,15 @@ function Charts({
     return (
       <div className={styles.grid}>
         {netWorth && (
+          <Chart
+            title={lang('Portfolio Share')}
+            dateRange={dateRange}
+            data={shareData}
+            cardClassName="portfolio-chart-card-pie"
+          />
+        )}
+
+        {netWorth && (
           <Chart title={lang('Total Value')} dateRange={dateRange} data={netWorthData} isRefreshing={isRefreshing} />
         )}
 
@@ -66,15 +75,6 @@ function Charts({
 
         {pnl && (
           <Chart title={lang('Daily P&L')} dateRange={dateRange} data={dailyPnlData} isRefreshing={isRefreshing} />
-        )}
-
-        {netWorth && (
-          <Chart
-            title={lang('Portfolio Share')}
-            dateRange={dateRange}
-            data={shareData}
-            cardClassName="portfolio-chart-card-pie"
-          />
         )}
       </div>
     );

@@ -42,11 +42,32 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     public var activityViewModel: ActivityListViewModel?
 
     private var reconfigureTokensWhenStopped: Bool = false
+    private let nftAnimationPlaybackCoordinator = NftAnimationPlaybackCoordinator()
+    private var isViewVisibleForNftAnimationPlayback = false
+    private var nftAnimationPlaybackEligibleIDs = Set<String>()
 
 
     private let queue = DispatchQueue(label: "ActivitiesTableView", qos: .userInteractive)
 
     // MARK: - Misc
+
+    open override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        self.isViewVisibleForNftAnimationPlayback = true
+        self.updateNftAnimationPlaybackActivity()
+        self.updateVisibleActivityNftAnimationPlayback()
+    }
+
+    open override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        self.isViewVisibleForNftAnimationPlayback = false
+        self.updateNftAnimationPlaybackActivity()
+    }
+
+    open override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        self.updateVisibleActivityNftAnimationPlayback()
+    }
 
     public func onSelect(transaction: ApiActivity) {
         guard let account = activityViewModel?.accountContext.account else { return }
@@ -60,16 +81,16 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         }
     }
 
-    // MARK: - Table views
+    // MARK: - Collection View
 
-    public func setupTableViews(tableViewBottomConstraint: CGFloat) {
+    public func setupCollectionView(collectionViewBottomConstraint: CGFloat) {
 
         view.addSubview(collectionView)
         NSLayoutConstraint.activate([
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
             collectionView.leftAnchor.constraint(equalTo: view.leftAnchor),
             collectionView.rightAnchor.constraint(equalTo: view.rightAnchor),
-            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: tableViewBottomConstraint)
+            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: collectionViewBottomConstraint)
         ])
         dataSource = makeDataSource()
 
@@ -81,7 +102,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         collectionView.allowsSelection = false
         collectionView.isScrollEnabled = false
         collectionView.delaysContentTouches = false
-        collectionView.accessibilityIdentifier = "tableView"
+        collectionView.accessibilityIdentifier = "collectionView"
 
         skeletonView.translatesAutoresizingMaskIntoConstraints = false
         skeletonView.backgroundColor = .clear
@@ -278,6 +299,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             dataSource.apply(snapshot, animatingDifferences: animatingDifferences) {
                 DispatchQueue.main.async {
                     self.updateSkeletonViewsIfNeeded(animateAlondside: nil)
+                    self.updateVisibleActivityNftAnimationPlayback()
                 }
             }
         }
@@ -303,6 +325,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             dataSource.apply(snapshot, animatingDifferences: true) {
                 DispatchQueue.main.async {
                     self.updateSkeletonViewsIfNeeded(animateAlondside: nil)
+                    self.updateVisibleActivityNftAnimationPlayback()
                 }
             }
         }
@@ -343,6 +366,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             self.updateTokensInVisibleRows()
         }
         unloadRowsIfNeededAfterScrollingStops()
+        updateVisibleActivityNftAnimationPlayback()
     }
     
     open dynamic func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
@@ -352,11 +376,87 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                 self.updateTokensInVisibleRows()
             }
             unloadRowsIfNeededAfterScrollingStops()
+            updateVisibleActivityNftAnimationPlayback()
         }
     }
 
     open func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
         requestMoreRowsIfNeeded(indexPath: indexPath)
+        updateVisibleActivityNftAnimationPlayback()
+    }
+
+    open func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        updateVisibleActivityNftAnimationPlayback()
+    }
+
+    public func updateVisibleActivityNftAnimationPlayback() {
+        guard isViewLoaded, dataSource != nil else {
+            return
+        }
+
+        collectionView.layoutIfNeeded()
+        var nextEligibleIDs = Set<String>()
+        let visibleItems = collectionView.indexPathsForVisibleItems
+            .sorted { lhs, rhs in
+                if lhs.section != rhs.section {
+                    return lhs.section < rhs.section
+                }
+                return lhs.item < rhs.item
+            }
+            .compactMap { indexPath -> NftAnimationPlaybackCoordinator.VisibleItem? in
+                guard case .transaction = dataSource?.itemIdentifier(for: indexPath),
+                      let cell = collectionView.cellForItem(at: indexPath) as? ActivityCell,
+                      let id = cell.nftAnimationPlaybackID,
+                      cell.hasPlayableNftAnimation else {
+                    return nil
+                }
+                guard self.isEligibleForNftAnimationPlayback(
+                    id: id,
+                    cell: cell,
+                    in: collectionView
+                ) else {
+                    return nil
+                }
+                nextEligibleIDs.insert(id)
+                return .init(id: id, target: cell)
+            }
+        self.nftAnimationPlaybackEligibleIDs = nextEligibleIDs
+        self.nftAnimationPlaybackCoordinator.updateVisibleItems(visibleItems)
+        self.updateNftAnimationPlaybackActivity()
+    }
+
+    private var isNftAnimationPlaybackActive: Bool {
+        self.isViewVisibleForNftAnimationPlayback && self.viewIfLoaded?.window != nil
+    }
+
+    private func updateNftAnimationPlaybackActivity() {
+        self.nftAnimationPlaybackCoordinator.setActive(self.isNftAnimationPlaybackActive)
+    }
+
+    private func isEligibleForNftAnimationPlayback(
+        id: String,
+        cell: ActivityCell,
+        in collectionView: UICollectionView
+    ) -> Bool {
+        let cellFrame = cell.convert(cell.bounds, to: collectionView)
+        let visibleFrame = cellFrame.intersection(collectionView.bounds)
+        guard !visibleFrame.isNull, !visibleFrame.isEmpty else {
+            return false
+        }
+
+        let cellArea = cellFrame.width * cellFrame.height
+        guard cellArea > 0 else {
+            return false
+        }
+
+        let visibleAreaFraction = (visibleFrame.width * visibleFrame.height) / cellArea
+        if visibleAreaFraction >= 0.75 {
+            return true
+        }
+        if visibleAreaFraction <= 0.25 {
+            return false
+        }
+        return self.nftAnimationPlaybackEligibleIDs.contains(id)
     }
     
     // MARK: - Skeleton

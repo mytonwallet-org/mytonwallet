@@ -135,7 +135,12 @@ func makeCollectiblesMenuConfig(
         let accountId = accountStore.resolveAccountId(source: accountSource)
         let collections = NftStore.getCollections(accountId: accountId)
         let gifts = collections.telegramGiftsCollections
-        let notGifts = collections.notTelegramGiftsCollections
+        let mtwCards = collections.notTelegramGiftsCollections.first {
+            $0.chain == .ton && $0.address == MTW_CARDS_COLLECTION
+        }
+        let notGifts = collections.notTelegramGiftsCollections.filter {
+            $0.chain != .ton || $0.address != MTW_CARDS_COLLECTION
+        }
         let hasHidden = NftStore.getAccountHasHiddenNfts(accountId: accountId)
 
         var items: [ContextMenuItem] = []
@@ -191,6 +196,27 @@ func makeCollectiblesMenuConfig(
                     )
                 )
             )
+        }
+
+        if let mtwCards {
+            items.append(
+                .action(
+                    ContextMenuAction(
+                        title: mtwCards.name,
+                        icon: .airBundle("MenuInstallCard26"),
+                        handler: {
+                            AppActions.showAssets(
+                                accountSource: accountSource,
+                                selectedTab: .nftCollectionFilter(.collection(mtwCards)),
+                                collectionsFilter: .collection(mtwCards)
+                            )
+                        }
+                    )
+                )
+            )
+        }
+
+        if !gifts.isEmpty || mtwCards != nil {
             items.append(.separator)
         }
 

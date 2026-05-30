@@ -8,6 +8,7 @@ $listHorizontalPadding: 1rem;
   cursor: var(--custom-cursor, pointer);
   position: relative;
   max-width: max-content;
+  border-radius: var(--border-radius-default);
 
   @include mixins.transition('background-color 150ms, color 150ms');
 

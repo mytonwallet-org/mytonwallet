@@ -121,14 +121,14 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
 
         let listCellRegistration = AccountListCell.makeRegistration()
         
-        dataSource = UICollectionViewDiffableDataSource<Section, Row>(collectionView: collectionView) { [weak self] (tableView, indexPath, itemIdentifier) -> UICollectionViewCell? in
+        dataSource = UICollectionViewDiffableDataSource<Section, Row>(collectionView: collectionView) { [weak self] (collectionView, indexPath, itemIdentifier) -> UICollectionViewCell? in
             guard let self else { fatalError() }
             let settingsItem = itemIdentifier.content
             switch itemIdentifier {
             case .account(accountId: let accountId):
-                return tableView.dequeueConfiguredReusableCell(using: listCellRegistration, for: indexPath, item: accountId)
+                return collectionView.dequeueConfiguredReusableCell(using: listCellRegistration, for: indexPath, item: accountId)
             default:
-                guard let cell = tableView.dequeueReusableCell(withReuseIdentifier: "settingsItem", for: indexPath) as? SettingsItemCell else { return nil }
+                guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "settingsItem", for: indexPath) as? SettingsItemCell else { return nil }
                 cell.configure(
                     with: settingsItem,
                     value: value(for: settingsItem)

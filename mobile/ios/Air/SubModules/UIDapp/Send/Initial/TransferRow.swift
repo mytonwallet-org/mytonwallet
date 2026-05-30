@@ -4,14 +4,28 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
+import Dependencies
 
 struct TransferRow: View {
-    
+
     var transfer: ApiDappTransfer
     var chain: ApiChain
+    var accountContext: AccountContext
     var action: (ApiDappTransfer) -> ()
-    
+
+    @Dependency(\.nftStore) private var nftStore
+
     private var transferToken: ApiToken { transfer.getToken(chain: chain) }
+    private var nft: ApiNft? {
+        guard let payload = transfer.nftTransferPayload else { return nil }
+        if let nft = payload.nft {
+            return nft
+        }
+        return nftStore.getNft(
+            accountId: accountContext.accountId,
+            nftId: ApiNft.id(chain: chain, address: payload.nftAddress)
+        )?.nft
+    }
     private var amountsText: String {
         var items: [String] = []
 
@@ -45,7 +59,7 @@ struct TransferRow: View {
     
     @ViewBuilder
     var icon: some View {
-        if let nft = transfer.nftTransferPayload?.nft {
+        if let nft {
             NftImage(nft: nft, animateIfPossible: false)
                 .frame(width: 40, height: 40, alignment: .leading)
                 .clipShape(.rect(cornerRadius: 8))
