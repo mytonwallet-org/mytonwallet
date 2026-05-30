@@ -63,7 +63,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     private let layoutMode: LayoutMode
     private let canOpenCollection: Bool
     private weak var manager: NftsVCManager?
-    private let animationPlaybackCoordinator = NftGridAnimationPlaybackCoordinator()
+    private let animationPlaybackCoordinator = NftAnimationPlaybackCoordinator()
 
     private var layoutChangeID: LayoutGeometry.LayoutChangeID?
     private let layoutGeometry: LayoutGeometry
@@ -876,7 +876,7 @@ extension NftsVC {
                 }
                 return lhs.item < rhs.item
             }
-            .compactMap { indexPath -> NftGridAnimationPlaybackCoordinator.VisibleItem? in
+            .compactMap { indexPath -> NftAnimationPlaybackCoordinator.VisibleItem? in
             guard case .nft(let id) = dataSource?.itemIdentifier(for: indexPath),
                   let cell = collectionView.cellForItem(at: indexPath) as? NftCell,
                   cell.hasPlayableAnimation else {
@@ -890,7 +890,7 @@ extension NftsVC {
                 return nil
             }
             nextEligibleIDs.insert(id)
-            return .init(id: id, cell: cell)
+            return .init(id: id, target: cell)
         }
         self.nftAnimationPlaybackEligibleIDs = nextEligibleIDs
         self.animationPlaybackCoordinator.updateVisibleItems(visibleItems)

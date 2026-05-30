@@ -226,8 +226,8 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
             case .nftAddress(let nftAddress):
                 AppActions.showNftByAddress(nftAddress)
 
-            case .view(let addressOrDomainByChain):
-                AppActions.showTemporaryViewAccount(addressOrDomainByChain: addressOrDomainByChain)
+            case .view(let network, let addressOrDomainByChain):
+                AppActions.showTemporaryViewAccount(network: network, addressOrDomainByChain: addressOrDomainByChain)
 
             case .settings(let section):
                 AppActions.showSettings(section: section)
@@ -334,7 +334,9 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
             }
         case "expiringDns":
             try await AccountStore.activateAccount(accountId: accountId)
-            _ = userInfo["domainAddress"] as? String
+            if let domainAddress = userInfo["domainAddress"] as? String {
+                AppActions.showRenewDomain(accountSource: .accountId(accountId), nftsToRenew: [domainAddress])
+            }
         default:
             break
         }

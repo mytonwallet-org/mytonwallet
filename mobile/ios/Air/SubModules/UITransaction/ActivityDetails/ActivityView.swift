@@ -4,7 +4,6 @@ import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
-import Kingfisher
 import Dependencies
 import Perception
 
@@ -94,11 +93,21 @@ struct ActivityView: View {
 
     @ViewBuilder
     var nftHeader: some View {
-        if let tx = activity.transaction, let nft = tx.nft {
+        if let tx = activity.transaction, let activityNft = tx.nft {
+            let nft = nftWithStoredTelegramGiftLottie(activityNft)
             VStack(alignment: .leading, spacing: 0) {
-                NftImage(nft: nft, animateIfPossible: true, loadFullSize: true)
-                    .padding(.bottom, 12)
-                    .onTapGesture { showNft(nft, isExpanded: true) }
+                GeometryReader { proxy in
+                    NftMedia(
+                        nft: nft,
+                        playAnimationOnce: true,
+                        animationRenderingConfiguration: .nftDetailsHeaderDefault
+                    )
+                    .frame(width: proxy.size.width, height: proxy.size.width)
+                    .clipped()
+                }
+                .aspectRatio(1, contentMode: .fit)
+                .padding(.bottom, 12)
+                .onTapGesture { showNft(nft, isExpanded: true) }
                 let name: String = if let _name = nft.name, let idx = nft.index, idx > 0 {
                     "\(_name)"
                 } else {
@@ -129,6 +138,10 @@ struct ActivityView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
         }
+    }
+
+    private func nftWithStoredTelegramGiftLottie(_ nft: ApiNft) -> ApiNft {
+        NftStore.nftWithStoredTelegramGiftLottie(accountId: model.accountContext.accountId, nft: nft)
     }
     
     private func showNft(_ nft: ApiNft, isExpanded: Bool) {

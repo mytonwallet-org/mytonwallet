@@ -83,6 +83,7 @@ public struct WalletCoreData {
         case dappLoading(ApiUpdate.DappLoading)
         case dappAlreadyConnected(ApiUpdate.DappAlreadyConnected)
         case dappDisconnected(ApiUpdate.DappDisconnected)
+        case lockdownModeChanged(isEnabled: Bool)
 
         case configChanged
 
@@ -117,6 +118,7 @@ public struct WalletCoreData {
     
     @MainActor private static var hasStartedMinimal = false
     @MainActor private static var hasStartedRemaining = false
+    @MainActor public private(set) static var isLockdownModeEnabled = false
 
     // ability to observe events
     final class WeakEventsObserver {
@@ -153,6 +155,12 @@ public struct WalletCoreData {
         }
     }
 
+    @MainActor public static func setLockdownModeEnabled(_ isEnabled: Bool) {
+        guard isLockdownModeEnabled != isEnabled else { return }
+        isLockdownModeEnabled = isEnabled
+        notify(event: .lockdownModeChanged(isEnabled: isEnabled))
+    }
+
     public static func notifyAccountChanged(to account: MAccount, isNew: Bool) {
         Task { @MainActor in
             @Dependency(\.accountSettings) var _accountSettings
@@ -161,6 +169,7 @@ public struct WalletCoreData {
             DappsStore.updateDappCount()
             changeThemeColors(to: accountSettings.accentColorIndex)
             UIApplication.shared.sceneKeyWindow?.updateTheme()
+            UIApplication.shared.sceneKeyWindow?.updateSensitiveData()
             for observer in WalletCoreData.eventObservers {
                 observer.value?.walletCore(event: .accountChanged(accountId: account.id, isNew: isNew))
             }

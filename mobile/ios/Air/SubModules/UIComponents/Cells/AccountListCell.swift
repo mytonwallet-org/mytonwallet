@@ -121,6 +121,7 @@ private struct ListBalanceView: View {
                     .foregroundStyle(Color.air.secondaryLabel)
                     .font(.system(size: 16, weight: .regular))
                     .sensitiveDataInPlace(cols: cols, rows: 2, cellSize: 8, theme: .adaptive, cornerRadius: 4)
+                    .id(viewModel.accountId)
             }
         }
     }

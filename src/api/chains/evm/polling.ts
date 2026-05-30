@@ -48,6 +48,7 @@ export function setupActivePolling<C extends EVMChain>(
   newestActivityTimestamps: ApiActivityTimestamps,
 ): NoneToVoidFunction {
   const { address } = account.byChain[chain];
+  let markWalletActiveForBalancePolling: NoneToVoidFunction = () => {};
 
   const {
     scheduleCrossApiActivityCatchUp,
@@ -55,6 +56,7 @@ export function setupActivePolling<C extends EVMChain>(
   } = setupActivityPolling(
     chain, accountId, newestActivityTimestamps, onUpdate,
     onUpdatingStatusChange.bind(undefined, 'activities'),
+    () => markWalletActiveForBalancePolling(),
   );
 
   const nftPolling = setupNftPolling(chain, accountId, address, scheduleCrossApiActivityCatchUp, onUpdate);
@@ -69,6 +71,7 @@ export function setupActivePolling<C extends EVMChain>(
     onUpdate,
     onUpdatingStatusChange.bind(undefined, 'balance'),
   );
+  markWalletActiveForBalancePolling = balancePolling.markWalletActiveAndForcePoll;
 
   return () => {
     nftPolling.stop();
@@ -84,6 +87,7 @@ function setupActivityPolling(
   newestActivityTimestamps: ApiActivityTimestamps,
   onUpdate: OnApiUpdate,
   onUpdatingStatusChange: (isUpdating: boolean) => void,
+  onActivityDetected: NoneToVoidFunction,
 ): {
     scheduleCrossApiActivityCatchUp: (source: 'socket' | 'poll') => void;
     cancelCrossApiActivityCatchUp: NoneToVoidFunction;
@@ -107,6 +111,9 @@ function setupActivityPolling(
         const timestamps = compact(Object.values(result));
 
         newestConfirmedActivityTimestamp = timestamps.length ? Math.max(...timestamps) : undefined;
+        if (timestamps.length) {
+          onActivityDetected();
+        }
 
         return timestamps.length > 0;
       } else {
@@ -115,6 +122,7 @@ function setupActivityPolling(
 
         if (newTimestamps.length && Math.max(...newTimestamps) > newestConfirmedActivityTimestamp) {
           newestConfirmedActivityTimestamp = Math.max(newestConfirmedActivityTimestamp, Math.max(...newTimestamps));
+          onActivityDetected();
           return true;
         }
 
@@ -294,6 +302,9 @@ function setupBalancePolling(
     stop() {
       cancelCrossApiActivityCatchUp();
       balanceStream.destroy();
+    },
+    markWalletActiveAndForcePoll() {
+      balanceStream.markWalletActiveAndForcePoll();
     },
   };
 }

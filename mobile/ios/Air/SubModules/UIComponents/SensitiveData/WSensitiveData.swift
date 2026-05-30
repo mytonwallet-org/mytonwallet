@@ -26,6 +26,7 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     private let _alignment: Alignment
     
     private var _isDisabled: Bool = false
+    private var isRevealed = false
     private nonisolated(unsafe) var observationToken: NSObjectProtocol?
 
     public init(cols: Int, rows: Int, cellSize: CGFloat, cornerRadius: CGFloat, theme: ShyMask.Theme, alignment: Alignment) {
@@ -48,7 +49,7 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
             queue: .main,
             using: { [weak self]  _ in
                 MainActor.assumeIsolated {
-                    self?.updateSensitiveData()
+                    self?.resetRevealAndUpdateSensitiveData()
                 }
             }
         )
@@ -108,6 +109,7 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     public func addContent(_ content: Content) {
         assert(!content.translatesAutoresizingMaskIntoConstraints)
         self.content = content
+        isRevealed = false
         contentContainer.addSubview(content)
         NSLayoutConstraint.activate([
             content.topAnchor.constraint(equalTo: topAnchor),
@@ -117,13 +119,26 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
         ])
         updateSensitiveData()
     }
+
+    private func resetRevealAndUpdateSensitiveData() {
+        isRevealed = false
+        updateSensitiveData()
+    }
+
+    public func resetReveal() {
+        resetRevealAndUpdateSensitiveData()
+    }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
     private func updateSensitiveData() {
-        let isSensitiveDataHidden = isDisabled == false && AppStorageHelper.isSensitiveDataHidden
+        let isGloballyHidden = isDisabled == false && AppStorageHelper.isSensitiveDataHidden
+        if !isGloballyHidden {
+            isRevealed = false
+        }
+        let isSensitiveDataHidden = isGloballyHidden && !isRevealed
         setupMaskIfNeeded(isSensitiveDataHidden: isSensitiveDataHidden)
         if isSensitiveDataHidden {
             self.shyMask?.startUpdates()
@@ -145,7 +160,7 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     public func contentSizeThatFits(_ size: CGSize) -> CGSize {
         var result = content?.sizeThatFits(size)
         
-        let isSensitiveDataHidden = isDisabled == false && AppStorageHelper.isSensitiveDataHidden
+        let isSensitiveDataHidden = isDisabled == false && AppStorageHelper.isSensitiveDataHidden && !isRevealed
         if isSensitiveDataHidden {
             let maskSize = CGSize(width: CGFloat(_cols) * _cellSize, height: CGFloat(_rows) * _cellSize)
             if result == nil {
@@ -161,11 +176,13 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     public func setCols(_ newCols: Int) {
         self._cols = newCols
         shyMask?.setCols(newCols)
+        resetReveal()
     }
 
     public func setTheme(_ newTheme: ShyMask.Theme) {
         self._theme = newTheme
         shyMask?.setTheme(newTheme)
+        resetReveal()
     }
     
     private func setupTapGesture() {
@@ -180,7 +197,8 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     }
     
     @objc private func onMaskTap() {
-        AppActions.setSensitiveDataIsHidden(false)
+        isRevealed = true
+        updateSensitiveData()
     }
     
     public var isDisabled: Bool {
@@ -188,8 +206,8 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
         set {
             if _isDisabled != newValue {
                 _isDisabled = newValue
-                updateSensitiveData()
             }
+            resetReveal()
         }
     }
     
@@ -213,6 +231,11 @@ public struct SensitiveDataViewModifier: ViewModifier {
     private var cornerRadius: CGFloat
     
     @Dependency(\.sensitiveData.isHidden) private var isSensitiveDataHidden
+    @State private var isRevealed = false
+
+    private var shouldHideSensitiveData: Bool {
+        isSensitiveDataHidden && !isRevealed
+    }
     
     public init(alignment: Alignment, cols: Int, rows: Int, cellSize: CGFloat?, theme: ShyMask.Theme = .adaptive, cornerRadius: CGFloat) {
         self.alignment = alignment
@@ -227,7 +250,7 @@ public struct SensitiveDataViewModifier: ViewModifier {
     public func body(content: Content) -> some View {
         WithPerceptionTracking {
             HStack {
-                if isSensitiveDataHidden {
+                if shouldHideSensitiveData {
                     content
                         .opacity(0)
                         .overlay {
@@ -237,7 +260,7 @@ public struct SensitiveDataViewModifier: ViewModifier {
                                         .fixedSize()
                                         .clipShape(.rect(cornerRadius: cornerRadius))
                                         .onTapGesture {
-                                            AppActions.setSensitiveDataIsHidden(false)
+                                            isRevealed = true
                                         }
                                 }
                             }
@@ -246,7 +269,15 @@ public struct SensitiveDataViewModifier: ViewModifier {
                     content
                 }
             }
-            .animation(.default, value: isSensitiveDataHidden)
+            .animation(.default, value: shouldHideSensitiveData)
+            .onChange(of: isSensitiveDataHidden) { newValue in
+                if !newValue {
+                    isRevealed = false
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .updateSensitiveData)) { _ in
+                isRevealed = false
+            }
         }
     }
     
@@ -261,6 +292,11 @@ public struct SensitiveDataInPlaceViewModifier: ViewModifier {
     private var cornerRadius: CGFloat
     
     @Dependency(\.sensitiveData.isHidden) private var isSensitiveDataHidden
+    @State private var isRevealed = false
+
+    private var shouldHideSensitiveData: Bool {
+        isSensitiveDataHidden && !isRevealed
+    }
     
     public init(cols: Int, rows: Int, cellSize: CGFloat, theme: ShyMask.Theme = .adaptive, cornerRadius: CGFloat) {
         self.cols = cols
@@ -274,18 +310,26 @@ public struct SensitiveDataInPlaceViewModifier: ViewModifier {
     public func body(content: Content) -> some View {
         WithPerceptionTracking {
             HStack {
-                if isSensitiveDataHidden {
+                if shouldHideSensitiveData {
                     WUIShyMask(cols: cols, rows: rows, cellSize: cellSize, theme: theme)
                         .fixedSize()
                         .clipShape(.rect(cornerRadius: cornerRadius))
                         .onTapGesture {
-                            AppActions.setSensitiveDataIsHidden(false)
+                            isRevealed = true
                         }
                 } else {
                     content
                 }
             }
-            .animation(.default, value: isSensitiveDataHidden)
+            .animation(.default, value: shouldHideSensitiveData)
+            .onChange(of: isSensitiveDataHidden) { newValue in
+                if !newValue {
+                    isRevealed = false
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .updateSensitiveData)) { _ in
+                isRevealed = false
+            }
         }
     }
     

@@ -532,6 +532,8 @@ Buy with Card: Kup za pomocą karty
 Buy with Crypto: Kup za pomocą kryptowalut
 Cannot load widget: Nie można załadować widżetu
 Explore: Badaj
+$lockdown_mode_enabled_title: Tryb blokady włączony
+$lockdown_mode_walletconnect_unavailable: "WalletConnect jest niedostępny w trybie blokady. Aby go użyć, wyłącz tryb blokady dla %app_name% w Ustawienia > Prywatność i ochrona > Tryb blokady > Skonfiguruj przeglądanie internetu."
 No partners yet: Jeszcze brak partnerów
 Clear: Wyczyść
 $unstake_up_to_information: Natychmiastowo – do %value%

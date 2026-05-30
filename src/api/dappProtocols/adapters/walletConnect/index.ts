@@ -144,6 +144,10 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       return;
     }
 
+    if (typeof globalThis.indexedDB === 'undefined') {
+      throw new Error('WalletConnect is unavailable: indexedDB is not supported');
+    }
+
     //
     // See: https://docs.walletconnect.network/wallet-sdk/web/usage
     //

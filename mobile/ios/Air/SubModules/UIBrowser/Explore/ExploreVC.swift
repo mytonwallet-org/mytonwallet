@@ -192,6 +192,7 @@ public final class ExploreVC: WViewController {
                                        shouldRestrictSites: ConfigStore.shared.shouldRestrictSites,
                                        isSearchActive: isSearchActive,
                                        trimmedSearchString: trimmedSearchString,
+                                       isLockdownModeEnabled: WalletCoreData.isLockdownModeEnabled,
                                        historyItems: BrowserHistoryStore.shared.items.filter { $0.tag == exploreHistoryTag },
                                        recentSearchItems: RecentSearchStore.shared.items.filter { $0.tag == exploreHistoryTag })
         observedViewState.update(sections: sections, shouldShowWhiteBackground: shouldShowWhiteBackground)

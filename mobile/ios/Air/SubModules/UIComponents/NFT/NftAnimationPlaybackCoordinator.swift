@@ -2,30 +2,57 @@ import Foundation
 import QuartzCore
 
 @MainActor
-final class NftGridAnimationPlaybackCoordinator {
-    struct Configuration: Equatable, Sendable {
-        var averageAnimationDuration: TimeInterval
-        var staggerWindowFraction: Double
-        var staggerDelayDecay: Double
-        var incomingBatchCoalescingDelay: TimeInterval
-        var minimumInterItemDelay: TimeInterval
-        var maximumLeadingInterItemDelay: TimeInterval
-        var renderingConfiguration: NftMediaView.AnimationRenderingConfiguration
+public protocol NftAnimationPlaybackTarget: AnyObject {
+    var nftAnimationPlaybackID: String? { get }
 
-        static let nftGridDefault = Self(
+    func playNftAnimationOnce()
+    func stopNftAnimationPlayback()
+}
+
+@MainActor
+public final class NftAnimationPlaybackCoordinator {
+    public struct Configuration: Equatable, Sendable {
+        public var averageAnimationDuration: TimeInterval
+        public var staggerWindowFraction: Double
+        public var staggerDelayDecay: Double
+        public var incomingBatchCoalescingDelay: TimeInterval
+        public var minimumInterItemDelay: TimeInterval
+        public var maximumLeadingInterItemDelay: TimeInterval
+
+        public static let nftDefault = Self(
             averageAnimationDuration: 3.0,
             staggerWindowFraction: 0.45,
             staggerDelayDecay: 0.7,
             incomingBatchCoalescingDelay: 0.04,
             minimumInterItemDelay: 0.08,
-            maximumLeadingInterItemDelay: 0.35,
-            renderingConfiguration: .nftGridDefault
+            maximumLeadingInterItemDelay: 0.35
         )
+
+        public init(
+            averageAnimationDuration: TimeInterval,
+            staggerWindowFraction: Double,
+            staggerDelayDecay: Double,
+            incomingBatchCoalescingDelay: TimeInterval,
+            minimumInterItemDelay: TimeInterval,
+            maximumLeadingInterItemDelay: TimeInterval
+        ) {
+            self.averageAnimationDuration = averageAnimationDuration
+            self.staggerWindowFraction = staggerWindowFraction
+            self.staggerDelayDecay = staggerDelayDecay
+            self.incomingBatchCoalescingDelay = incomingBatchCoalescingDelay
+            self.minimumInterItemDelay = minimumInterItemDelay
+            self.maximumLeadingInterItemDelay = maximumLeadingInterItemDelay
+        }
     }
 
-    struct VisibleItem {
-        let id: String
-        weak var cell: NftCell?
+    public struct VisibleItem {
+        public let id: String
+        public weak var target: (any NftAnimationPlaybackTarget)?
+
+        public init(id: String, target: any NftAnimationPlaybackTarget) {
+            self.id = id
+            self.target = target
+        }
     }
 
     private struct PendingEntry {
@@ -34,7 +61,7 @@ final class NftGridAnimationPlaybackCoordinator {
         let delayFromPrevious: TimeInterval
     }
 
-    var configuration: Configuration
+    public var configuration: Configuration
 
     private var isActive = false
     private var activationSessionID: UInt64 = 0
@@ -46,11 +73,11 @@ final class NftGridAnimationPlaybackCoordinator {
     private var scheduledTasks: [String: Task<Void, Never>] = [:]
     private var schedulingPassTask: Task<Void, Never>?
 
-    init(configuration: Configuration = .nftGridDefault) {
+    public init(configuration: Configuration = .nftDefault) {
         self.configuration = configuration
     }
 
-    func setActive(_ isActive: Bool) {
+    public func setActive(_ isActive: Bool) {
         guard self.isActive != isActive else {
             return
         }
@@ -72,7 +99,7 @@ final class NftGridAnimationPlaybackCoordinator {
         self.requestSchedulingPass(activationSessionID: self.activationSessionID)
     }
 
-    func updateVisibleItems(_ visibleItems: [VisibleItem]) {
+    public func updateVisibleItems(_ visibleItems: [VisibleItem]) {
         let updatedVisibleItemsByID = Dictionary(uniqueKeysWithValues: visibleItems.map { ($0.id, $0) })
         let updatedVisibleItemOrder = visibleItems.map(\.id)
         var needsSchedulingPass = false
@@ -81,7 +108,7 @@ final class NftGridAnimationPlaybackCoordinator {
         let removedIDs = Set(self.visibleItemsByID.keys).subtracting(updatedVisibleItemsByID.keys)
         for removedID in removedIDs {
             self.cancelScheduledTask(for: removedID)
-            self.visibleItemsByID[removedID]?.cell?.stopAnimationPlayback()
+            self.visibleItemsByID[removedID]?.target?.stopNftAnimationPlayback()
             self.visibleItemsByID.removeValue(forKey: removedID)
             self.playedVisibleIDs.remove(removedID)
             let pendingCount = self.pendingQueue.count
@@ -260,7 +287,8 @@ final class NftGridAnimationPlaybackCoordinator {
                 self.scheduledTasks[entry.id] = nil
                 return
             }
-            guard let cell = visibleItem.cell, cell.nftId == entry.id else {
+            guard let target = visibleItem.target,
+                  target.nftAnimationPlaybackID == entry.id else {
                 self.pendingQueue.removeAll { $0.id == entry.id }
                 self.scheduledTasks[entry.id] = nil
                 if !self.playedVisibleIDs.contains(entry.id),
@@ -274,7 +302,7 @@ final class NftGridAnimationPlaybackCoordinator {
 
             self.pendingQueue.removeAll { $0.id == entry.id }
             self.playedVisibleIDs.insert(entry.id)
-            cell.playAnimationOnce(renderingConfiguration: self.configuration.renderingConfiguration)
+            target.playNftAnimationOnce()
             self.scheduledTasks[entry.id] = nil
         }
         self.scheduledTasks[entry.id] = task
@@ -342,7 +370,7 @@ final class NftGridAnimationPlaybackCoordinator {
 
     private func stopPlaybackForVisibleItems() {
         for visibleItem in self.visibleItemsByID.values {
-            visibleItem.cell?.stopAnimationPlayback()
+            visibleItem.target?.stopNftAnimationPlayback()
         }
     }
 

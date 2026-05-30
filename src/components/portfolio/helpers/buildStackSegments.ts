@@ -7,10 +7,20 @@ import { toBig } from '../../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../../util/formatNumber';
 import { clamp } from '../../../util/math';
 import { getIsNativeToken } from '../../../util/tokens';
-import { STAKED_COLORS, TOKEN_TYPE_COLORS } from './portfolioPalette';
 
 const STABLECOIN_PRICE_MIN = 0.95;
 const STABLECOIN_PRICE_MAX = 1.05;
+
+const TOKEN_TYPE_COLORS = {
+  native: '#2C92F0',
+  stablecoins: '#E49329',
+  altcoins: '#10B853',
+} as const;
+
+const STAKED_COLORS = {
+  staked: '#6875E9',
+  notStaked: '#2C92F0',
+} as const;
 
 export type PortfolioStackSegment = {
   id: string;

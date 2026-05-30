@@ -526,6 +526,8 @@ Buy with Card: ซื้อด้วยบัตร
 Buy with Crypto: ซื้อด้วยคริปโต
 Cannot load widget: ไม่สามารถโหลดวิดเจ็ตได้
 Explore: สำรวจ
+$lockdown_mode_enabled_title: เปิดใช้งานโหมดล็อกดาวน์แล้ว
+$lockdown_mode_walletconnect_unavailable: "WalletConnect ไม่พร้อมใช้งานในโหมดล็อกดาวน์ หากต้องการใช้งาน ให้ปิดโหมดล็อกดาวน์สำหรับ %app_name% ใน การตั้งค่า > ความเป็นส่วนตัวและความปลอดภัย > โหมดล็อกดาวน์ > กำหนดค่าการท่องเว็บ"
 No partners yet: ยังไม่มีพาร์ทเนอร์
 Clear: ล้าง
 $unstake_up_to_information: ทันที – ถึง %value%

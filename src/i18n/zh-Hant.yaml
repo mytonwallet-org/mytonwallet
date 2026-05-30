@@ -522,6 +522,8 @@ Buy with Card: 用卡購買
 Buy with Crypto: 用加密貨幣購買
 Cannot load widget: 無法加載小部件
 Explore: 探索
+$lockdown_mode_enabled_title: 鎖定模式已啟用
+$lockdown_mode_walletconnect_unavailable: "WalletConnect 在鎖定模式下無法使用。若要使用它，請在 設定 > 隱私權與安全性 > 鎖定模式 > 設定網頁瀏覽 中為 %app_name% 關閉鎖定模式。"
 No partners yet: 還沒有伴侶
 Clear: 清除
 $unstake_up_to_information: 即時 – 高達 %value%

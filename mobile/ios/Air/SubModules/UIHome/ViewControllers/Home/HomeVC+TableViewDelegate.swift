@@ -17,6 +17,7 @@ extension HomeVC {
             return
         }
         contentOffsetChanged()
+        updateVisibleActivityNftAnimationPlayback()
     }
     
     public func scrollViewWillEndDragging(_ scrollView: UIScrollView,

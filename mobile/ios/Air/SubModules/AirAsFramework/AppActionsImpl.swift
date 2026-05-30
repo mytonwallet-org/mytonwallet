@@ -344,10 +344,12 @@ private class AppActionsImpl: AppActionsProtocol {
     static func showHiddenNfts(accountSource: AccountSource) {
         let hiddenVC = HiddenNftsVC()
         let topVC = topViewController()
-        if let nc = topVC as? WNavigationController, (nc.visibleViewController is AssetsTabVC || nc.visibleViewController is NftDetailsVC || nc.visibleViewController is AssetsAndActivityVC) {
+        if let nc = topVC as? WNavigationController {
             nc.pushViewController(hiddenVC, animated: true)
-        } else if let vc = topWViewController() as? AssetsAndActivityVC {
-            vc.navigationController?.pushViewController(hiddenVC, animated: true)
+        } else if let vc = topWViewController(), let nc = vc.navigationController {
+            nc.pushViewController(hiddenVC, animated: true)
+        } else if rootContainerRouter.pushOnHome(hiddenVC) {
+            return
         } else {
             let assetsVC = AssetsTabVC(accountSource: accountSource, defaultTab: .nfts)
             let nc = WNavigationController()
@@ -384,7 +386,12 @@ private class AppActionsImpl: AppActionsProtocol {
                     AppActions.showError(error: DisplayError(text: lang("$nft_not_found")))
                     return
                 }
-                let nftVC = NftDetailsVC(accountId: accountId, nft: nft)
+                let nftVC = NftDetailsVC(
+                    accountId: accountId,
+                    nft: nft,
+                    isExpanded: true,
+                    showOnlySelectedIfMissingFromAccount: true
+                )
                 pushIfNeeded(nftVC, push: true)
             } catch {
                 AppActions.showError(error: error)
@@ -473,15 +480,18 @@ private class AppActionsImpl: AppActionsProtocol {
         pushIfNeeded(swapVC, push: push)
     }
     
-    static func showTemporaryViewAccount(addressOrDomainByChain: [String: String]) {
+    static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String]) {
         Task { @MainActor in
             do {
                 if addressOrDomainByChain.isEmpty {
                     throw DisplayError(text: lang("$no_valid_view_addresses"))
                 }
                 // TODO: Show loading indicator
-                let account = try await AccountStore.importTemporaryViewAccountOrActivateFirstMatching(network: .mainnet, addressOrDomainByChain: addressOrDomainByChain)
+                let account = try await AccountStore.importTemporaryViewAccountOrActivateFirstMatching(network: network, addressOrDomainByChain: addressOrDomainByChain)
                 rootContainerRouter.showTemporaryViewAccount(accountId: account.id)
+                if network == .testnet {
+                    AppActions.showToast(message: lang("Testnet Version"))
+                }
             } catch {
                 AppActions.showError(error: error)
             }

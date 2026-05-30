@@ -1,0 +1,11 @@
+What's New in v4.10:
+
+· Advanced Portfolio Charts · Explore your portfolio with more useful insights: asset composition, daily P&L, and support for all networks.
+
+· Improved Subwallets Flow · Create and manage subwallets easily.
+
+· Quick Wallet Naming · Set a name for a new wallet during creation to keep everything clear from the start.
+
+· Offline Wallet Creation · Create a new wallet without an internet connection to use it as air-gapped cold wallet.
+
+· UI Improvements · Enjoy small interface updates that make crypto simpler and easier to navigate.

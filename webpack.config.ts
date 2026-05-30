@@ -126,7 +126,7 @@ const CSP = `
   img-src 'self' data: blob: https: ${cspImageSrcHosts};
   media-src 'self' data: https://static.mytonwallet.org/;
   object-src 'none';
-  base-uri ${IS_EXPLORER ? '\'self\'' : '\'none\''};
+  base-uri 'none';
   font-src 'self' https://fonts.gstatic.com/;
   form-action 'none';
   frame-src 'self' https: ${cspFrameSrcExtra};`
@@ -353,7 +353,6 @@ export default function createConfig(
         title: APP_NAME,
         homepage: IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mytonwallet.io',
         assets_prefix: IS_CORE_WALLET ? 'coreWallet/' : '',
-        base_href: IS_EXPLORER ? '/' : undefined,
       }),
       new PreloadWebpackPlugin({
         include: 'allAssets',

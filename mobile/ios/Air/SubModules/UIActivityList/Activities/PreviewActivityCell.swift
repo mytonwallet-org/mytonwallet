@@ -10,96 +10,39 @@ import WalletCore
 import WalletContext
 import SwiftUI
 
-public class PreviewActivityCell: ActivityCell {
-    
-    var centeredLabel = UILabel()
-    
-    override func setupViews() {
-        super.setupViews()
-        
-        centeredLabel.translatesAutoresizingMaskIntoConstraints = false
-        mainView.addSubview(centeredLabel)
-        centeredLabel.font = ActivityCell.medium16Font
-        NSLayoutConstraint.activate([
-            centeredLabel.centerYAnchor.constraint(equalTo: iconView.centerYAnchor),
-            centeredLabel.leadingAnchor.constraint(equalTo: firstTwoRows.leadingAnchor),
-        ])
-    }
-    
+public struct WPreviewActivityCell: UIViewRepresentable {
+
     @MainActor public struct ConfigureOptions {
-        var detailsOptions: ConfigureDetailsOptions
-        var amountOptions: ConfigureAmountOptions
+        var activity: ApiActivity
+        var accountContext: AccountContext
+        var tokenStore: _TokenStore
 
         public init(activity: ApiActivity, accountContext: AccountContext, tokenStore: _TokenStore) {
-            self.detailsOptions = .init(activity: activity, accountContext: accountContext, isEmulation: true)
-            self.amountOptions = .init(activity: activity, tokenStore: tokenStore)
+            self.activity = activity
+            self.accountContext = accountContext
+            self.tokenStore = tokenStore
         }
     }
-    
-    fileprivate func configure(_ options: ConfigureOptions) {
-        let activity = options.detailsOptions.activity
-        
-        if skeletonView?.alpha ?? 0 > 0 {
-            skeletonView?.alpha = 0
-            mainView.alpha = 1
-        }
-        self.activity = activity
-        self.delegate = nil
 
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-                        
-        iconView.config(with: activity)
-        
-        let shouldShowCenteredTitle = activity.shouldShowCenteredTitle
-        if shouldShowCenteredTitle {
-            configureCenteredLabel(activity: activity)
-        }
-        configureTitle(activity: activity, isEmulation: options.detailsOptions.isEmulation)
-        configureDetails(options.detailsOptions)
-        centeredLabel.isHidden = !shouldShowCenteredTitle
-        titleLabel.isHidden = shouldShowCenteredTitle
-        detailsLabel.isHidden = shouldShowCenteredTitle
-                
-        configureAmount(options.amountOptions)
-        configureAmount2(options.amountOptions)
-        configureSensitiveData(activity: activity)
-        configureNft(activity: activity)
-        configureComment(activity: activity)
-        
-        nftAndCommentConstraint.isActive = !nftView.isHidden && !commentView.isHidden
-        
-        UIView.performWithoutAnimation {
-            setNeedsLayout()
-            layoutIfNeeded()
-        }
-        
-        CATransaction.commit()
-    }
-    
-    func configureCenteredLabel(activity: ApiActivity) {
-        centeredLabel.text = activity.displayTitle.future
-    }
-}
+    public var configureOptions: ConfigureOptions
 
-public struct WPreviewActivityCell: UIViewRepresentable {
-    public var configureOptions: PreviewActivityCell.ConfigureOptions
-    
-    public init(_ configureOptions: PreviewActivityCell.ConfigureOptions) {
+    public init(_ configureOptions: ConfigureOptions) {
         self.configureOptions = configureOptions
     }
-    
-    public func makeUIView(context: Context) -> PreviewActivityCell {
-        let cell =  PreviewActivityCell()
-        cell.configure(configureOptions)
+
+    public func makeUIView(context: Context) -> ActivityCell {
+        let cell = ActivityCell()
+        configure(cell)
         return cell
     }
-    
-    public func updateUIView(_ cell: PreviewActivityCell, context: Context) {
-        Task { @MainActor in cell.configure(configureOptions) }
+
+    public func updateUIView(_ cell: ActivityCell, context: Context) {
+        Task { @MainActor in
+            configure(cell)
+        }
     }
-    
-    public func sizeThatFits(_ proposal: ProposedViewSize, uiView cell: PreviewActivityCell, context: Context) -> CGSize? {
+
+    public func sizeThatFits(_ proposal: ProposedViewSize, uiView cell: ActivityCell, context: Context) -> CGSize? {
         if let proposedWidth = proposal.width, proposedWidth.isFinite {
             let targetSize = CGSize(width: proposedWidth, height: UIView.layoutFittingCompressedSize.height)
             let fitting = cell.systemLayoutSizeFitting(
@@ -112,15 +55,13 @@ public struct WPreviewActivityCell: UIViewRepresentable {
 
         return cell.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
     }
-}
 
-#if DEBUG
-//@available(iOS 18, *)
-//#Preview {
-//    let activity = ApiActivity.transaction(ApiTransactionActivity(id: "d", kind: "transaction", timestamp: 0, amount: 123456789, fromAddress: "foo", toAddress: "bar", comment: nil, encryptedComment: nil, fee: 12345, slug: TON_USDT_SLUG, isIncoming: false, normalizedAddress: nil, externalMsgHashNorm: nil, shouldHide: nil, type: nil, metadata: nil, nft: nil, status: .pending))
-//
-//    WPreviewActivityCell(activity: activity)
-//        .padding()
-//        .background(Color.blue)
-//}
-#endif
+    @MainActor
+    private func configure(_ cell: ActivityCell) {
+        cell.configurePreview(
+            with: configureOptions.activity,
+            accountContext: configureOptions.accountContext,
+            tokenStore: configureOptions.tokenStore
+        )
+    }
+}

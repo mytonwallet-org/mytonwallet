@@ -92,7 +92,12 @@ struct SendDappContentView: View {
     var transfersSection: some View {
         InsetSection {
             ForEach(sortedTransactions, id: \.self) { tx in
-                TransferRow(transfer: tx, chain: operationChain, action: onShowDetail)
+                TransferRow(
+                    transfer: tx,
+                    chain: operationChain,
+                    accountContext: accountContext,
+                    action: onShowDetail
+                )
             }
         } header: {
             Text(lang("$many_transactions", arg1: transactionsCount))

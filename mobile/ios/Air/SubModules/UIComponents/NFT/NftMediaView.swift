@@ -4,30 +4,45 @@ import UIKit
 import WalletCore
 
 @MainActor
-final class NftMediaView: UIView {
-    enum ImageState {
+public final class NftMediaView: UIView {
+    public enum ImageState {
         case loading
         case loaded
         case unavailable
     }
 
-    struct AnimationRenderingConfiguration: Equatable, Sendable {
-        var preferredScale: CGFloat
-        var maxRenderPixelDimension: CGFloat
+    public struct AnimationRenderingConfiguration: Equatable, Sendable {
+        public var preferredScale: CGFloat
+        public var maxRenderPixelDimension: CGFloat
 
-        static let nftGridDefault = Self(
+        public static let nftGridDefault = Self(
             preferredScale: 2.0,
             maxRenderPixelDimension: 500.0
         )
+
+        public static let activityPreviewDefault = Self(
+            preferredScale: 3.0,
+            maxRenderPixelDimension: 180.0
+        )
+
+        public static let nftDetailsHeaderDefault = Self(
+            preferredScale: 2.0,
+            maxRenderPixelDimension: 900.0
+        )
+
+        public init(preferredScale: CGFloat, maxRenderPixelDimension: CGFloat) {
+            self.preferredScale = preferredScale
+            self.maxRenderPixelDimension = maxRenderPixelDimension
+        }
     }
 
     private let imageView = UIImageView()
     private let animationView = LottieAnimationView()
 
-    var nft: ApiNft?
-    var onStateChange: ((ImageState) -> Void)?
+    public private(set) var nft: ApiNft?
+    public var onStateChange: ((ImageState) -> Void)?
 
-    var animationRenderingConfiguration = AnimationRenderingConfiguration.nftGridDefault {
+    public var animationRenderingConfiguration = AnimationRenderingConfiguration.nftGridDefault {
         didSet {
             guard self.animationRenderingConfiguration != oldValue else {
                 return
@@ -36,7 +51,14 @@ final class NftMediaView: UIView {
         }
     }
 
-    var hasPlayableAnimation: Bool {
+    public var mediaContentMode: UIView.ContentMode = .scaleAspectFit {
+        didSet {
+            self.imageView.contentMode = self.mediaContentMode
+            self.animationView.contentMode = self.mediaContentMode
+        }
+    }
+
+    public var hasPlayableAnimation: Bool {
         self.animationURL != nil
     }
 
@@ -50,16 +72,16 @@ final class NftMediaView: UIView {
     private var isAnimationAvailable = false
     private var isAnimationPlaybackInFlight = false
 
-    convenience init() {
+    public convenience init() {
         self.init(frame: .zero)
     }
 
-    override init(frame: CGRect) {
+    public override init(frame: CGRect) {
         super.init(frame: frame)
         self.setup()
     }
 
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
@@ -67,12 +89,12 @@ final class NftMediaView: UIView {
         self.animationLoadTask?.cancel()
     }
 
-    override func layoutSubviews() {
+    public override func layoutSubviews() {
         super.layoutSubviews()
         self.updateAnimationRenderingScale()
     }
 
-    func reset() {
+    public func reset() {
         self.currentRequestID = UUID()
         self.nft = nil
         self.animationURL = nil
@@ -90,8 +112,8 @@ final class NftMediaView: UIView {
         self.updateAnimationVisibility()
     }
 
-    func configure(nft: ApiNft?) {
-        guard nft != self.nft else {
+    public func configure(nft: ApiNft?) {
+        guard needsUpdate(for: nft) else {
             return
         }
 
@@ -121,7 +143,14 @@ final class NftMediaView: UIView {
         self.emitStateChange()
     }
 
-    func playAnimationOnce() {
+    private func needsUpdate(for nft: ApiNft?) -> Bool {
+        self.nft?.id != nft?.id
+            || self.nft?.thumbnail != nft?.thumbnail
+            || self.nft?.image != nft?.image
+            || self.nft?.metadata?.lottie != nft?.metadata?.lottie
+    }
+
+    public func playAnimationOnce() {
         guard self.hasPlayableAnimation else {
             return
         }
@@ -147,7 +176,7 @@ final class NftMediaView: UIView {
         }
     }
 
-    func stopAnimationPlayback() {
+    public func stopAnimationPlayback() {
         self.shouldPlayAnimationWhenReady = false
         self.isAnimationPlaybackInFlight = false
         self.animationView.pause()
@@ -162,12 +191,12 @@ final class NftMediaView: UIView {
         self.clipsToBounds = true
 
         self.imageView.translatesAutoresizingMaskIntoConstraints = false
-        self.imageView.contentMode = .scaleAspectFit
+        self.imageView.contentMode = self.mediaContentMode
         self.imageView.isUserInteractionEnabled = false
         self.addSubview(self.imageView)
 
         self.animationView.translatesAutoresizingMaskIntoConstraints = false
-        self.animationView.contentMode = .scaleAspectFit
+        self.animationView.contentMode = self.mediaContentMode
         self.animationView.isUserInteractionEnabled = false
         self.animationView.isHidden = true
         self.addSubview(self.animationView)
@@ -317,7 +346,8 @@ final class NftMediaView: UIView {
         let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedValue.isEmpty,
               let url = URL(string: trimmedValue),
-              url.scheme?.isEmpty == false else {
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme) else {
             return nil
         }
 

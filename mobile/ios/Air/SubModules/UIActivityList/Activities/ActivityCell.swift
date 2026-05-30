@@ -10,18 +10,21 @@ import SwiftNavigation
 
 @Perceptible @MainActor
 public class ActivityCellViewModel {
-    
+
     @PerceptionIgnored
     var activity: ApiActivity
-    
+
     @PerceptionIgnored
     var tokenStore: _TokenStore
     @PerceptionIgnored
+    var isEmulation: Bool
+    @PerceptionIgnored
     @AccountContext var account: MAccount
-    
-    init(accountId: String?, activity: ApiActivity) {
-        @Dependency(\.tokenStore) var tokenStore
-        self.tokenStore = tokenStore
+
+    init(accountId: String?, activity: ApiActivity, tokenStore providedTokenStore: _TokenStore? = nil, isEmulation: Bool = false) {
+        @Dependency(\.tokenStore) var defaultTokenStore
+        self.tokenStore = providedTokenStore ?? defaultTokenStore
+        self.isEmulation = isEmulation
         self._account = AccountContext(accountId: accountId)
         self.activity = activity
     }
@@ -33,7 +36,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
     public protocol Delegate: AnyObject {
         func onSelect(transaction: ApiActivity)
     }
-    
+
     class Layer: CALayer {
         override var cornerRadius: CGFloat {
             get { S.homeInsetSectionCornerRadius }
@@ -45,19 +48,33 @@ public class ActivityCell: WHighlightCollectionViewCell {
     static let regular14Font = UIFont.systemFont(ofSize: 14, weight: .regular)
     static let regular16Font = UIFont.systemFont(ofSize: 16, weight: .regular)
     static let medium16Font = UIFont.systemFont(ofSize: 16, weight: .medium)
-    
+
     var skeletonView: ActivitySkeletonView? = nil
 
     let mainView = UIView()
     let firstTwoRows: UIView = .init()
-    
+
     let iconView: IconView = .init(size: 40, accessoryGeometry: .forIcon40)
-    
+
     let titleLabel: UILabel = .init()
+    private weak var centeredLabelIfLoaded: UILabel?
+    private lazy var centeredLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = ActivityCell.medium16Font
+        label.isHidden = true
+        mainView.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerYAnchor.constraint(equalTo: iconView.centerYAnchor),
+            label.leadingAnchor.constraint(equalTo: firstTwoRows.leadingAnchor),
+        ])
+        centeredLabelIfLoaded = label
+        return label
+    }()
     private let scamBadge: UIImageView = .init()
-    
+
     let detailsLabel: UILabel = .init()
-    
+
     private let rightChevron: UIImageView = {
         let imageView = UIImageView(image: .airBundle("RightArrowIcon"))
         imageView.translatesAutoresizingMaskIntoConstraints = false
@@ -71,7 +88,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
 
     private(set) var nftView: NftPreviewLarge = .init()
     private var nftViewConstraints: [NSLayoutConstraint] = []
-    
+
     var commentView: BubbleView = .init()
     private var commentViewConstraints: [NSLayoutConstraint] = []
     private var commentViewLeadingConstraint: NSLayoutConstraint!
@@ -80,15 +97,15 @@ public class ActivityCell: WHighlightCollectionViewCell {
     private var firstTwoRowsTrailingToChevronConstraint: NSLayoutConstraint!
 
     var nftAndCommentConstraint: NSLayoutConstraint!
-    
+
     weak var delegate: Delegate? = nil
     var activity: ApiActivity?
     private var trackedValue: Double?
 
-    private var viewModel: ActivityCellViewModel!
-    
+    private var viewModel: ActivityCellViewModel?
+
     private var observeAccountAndActivity: ObserveToken?
-    
+
     public override init(frame: CGRect) {
         super.init(frame: frame)
         setupViews()
@@ -96,13 +113,17 @@ public class ActivityCell: WHighlightCollectionViewCell {
 
     @available(*, unavailable)
     public required init?(coder: NSCoder) { nil }
-    
+
     public override func prepareForReuse() {
         super.prepareForReuse()
         contentView.alpha = 1
         setShowsRightChevron(false)
+        resetTitleVisibility()
+        amountContainer.resetReveal()
+        amount2Container.resetReveal()
+        nftView.stopNftAnimationPlayback()
     }
-    
+
     @objc private func itemSelected() {
         if let activity, let delegate {
             delegate.onSelect(transaction: activity)
@@ -112,12 +133,12 @@ public class ActivityCell: WHighlightCollectionViewCell {
     func setupViews() {
         isExclusiveTouch = true
         layer.cornerRadius = 20
-        
+
         contentView.isUserInteractionEnabled = true
         contentView.backgroundColor = .clear
         contentView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(itemSelected)))
         // setup whole cell as a vertical stack view
-        
+
         mainView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(mainView)
         NSLayoutConstraint.activate([
@@ -133,13 +154,13 @@ public class ActivityCell: WHighlightCollectionViewCell {
             iconView.topAnchor.constraint(equalTo: mainView.topAnchor),
             iconView.leadingAnchor.constraint(equalTo: mainView.leadingAnchor),
         ])
-        
+
         firstTwoRows.accessibilityIdentifier = "firstTwoRows"
         firstTwoRows.translatesAutoresizingMaskIntoConstraints = false
         mainView.addSubview(firstTwoRows)
         mainView.addSubview(rightChevron)
         rightChevron.isHidden = true
-        
+
         firstTwoRowsTrailingConstraint = firstTwoRows.trailingAnchor.constraint(equalTo: mainView.trailingAnchor)
         firstTwoRowsTrailingToChevronConstraint = firstTwoRows.trailingAnchor.constraint(equalTo: rightChevron.leadingAnchor, constant: -10)
         firstTwoRowsTrailingToChevronConstraint.isActive = false
@@ -148,7 +169,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
             firstTwoRows.bottomAnchor.constraint(equalTo: mainView.bottomAnchor).withPriority(.init(500)),
             firstTwoRowsTrailingConstraint,
             firstTwoRows.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
-            
+
             rightChevron.trailingAnchor.constraint(equalTo: mainView.trailingAnchor),
             rightChevron.centerYAnchor.constraint(equalTo: firstTwoRows.centerYAnchor),
         ])
@@ -163,7 +184,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
             titleLabel.leadingAnchor.constraint(equalTo: firstTwoRows.leadingAnchor),
             titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: firstTwoRows.trailingAnchor)
         ])
-        
+
         scamBadge.translatesAutoresizingMaskIntoConstraints = false
         firstTwoRows.addSubview(scamBadge)
         scamBadge.contentMode = .center
@@ -172,7 +193,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
             scamBadge.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 4.333),
         ])
         scamBadge.isHidden = true
-        
+
         // MARK: type + time
         detailsLabel.translatesAutoresizingMaskIntoConstraints = false
         firstTwoRows.addSubview(detailsLabel)
@@ -184,7 +205,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         detailsLabel.font = ActivityCell.regular14Font
         detailsLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         detailsLabel.lineBreakMode = .byTruncatingMiddle
-        
+
         // MARK: amount1
         amountLabel.font = Self.regular16Font
         amountLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -194,7 +215,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
             amountLabel.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: 8),
             amountLabel.firstBaselineAnchor.constraint(equalTo: titleLabel.firstBaselineAnchor),
         ])
-        
+
         // MARK: amount2
         amount2Label.font = Self.regular14Font
         amount2Label.textColor = .air.secondaryLabel
@@ -228,12 +249,12 @@ public class ActivityCell: WHighlightCollectionViewCell {
             amountLabelBaselineAnchor: amountLabel.firstBaselineAnchor,
             amount2LabelTrailingConstraint: amount2LabelTrailingConstraint
         )
-        
+
         amountContainer.isTapToRevealEnabled = false
         amount2Container.isTapToRevealEnabled = false
-        
+
         // MARK: Nft
-        
+
         nftView.translatesAutoresizingMaskIntoConstraints = false
         mainView.addSubview(nftView)
         nftViewConstraints = [
@@ -242,24 +263,24 @@ public class ActivityCell: WHighlightCollectionViewCell {
             nftView.leadingAnchor.constraint(equalTo: firstTwoRows.leadingAnchor),
             nftView.trailingAnchor.constraint(lessThanOrEqualTo: mainView.trailingAnchor),
         ]
-        
+
         // MARK: Comment
-        
+
         commentView.translatesAutoresizingMaskIntoConstraints = false
         mainView.addSubview(commentView)
         commentViewConstraints = [
             commentView.topAnchor.constraint(equalTo: firstTwoRows.bottomAnchor, constant: 6).withPriority(.init(910)),
             commentView.bottomAnchor.constraint(equalTo: mainView.bottomAnchor),
-            
+
             commentView.leadingAnchor.constraint(greaterThanOrEqualTo: firstTwoRows.leadingAnchor),
             commentView.trailingAnchor.constraint(lessThanOrEqualTo: mainView.trailingAnchor),
         ]
         commentViewLeadingConstraint = commentView.leadingAnchor.constraint(equalTo: firstTwoRows.leadingAnchor)
         commentViewTrailingConstraint = commentView.trailingAnchor.constraint(equalTo: mainView.trailingAnchor)
-        
+
         // MARK: Shared constraints
         nftAndCommentConstraint = commentView.topAnchor.constraint(equalTo: nftView.bottomAnchor, constant: 6).withPriority(.init(920))
-        
+
         updateTheme()
     }
 
@@ -271,87 +292,144 @@ public class ActivityCell: WHighlightCollectionViewCell {
         detailsLabel.textColor = UIColor.air.secondaryLabel
         amount2Label.textColor = UIColor.air.secondaryLabel
     }
-    
+
     private func setShowsRightChevron(_ shows: Bool) {
         rightChevron.isHidden = !shows
         firstTwoRowsTrailingConstraint.isActive = !shows
         firstTwoRowsTrailingToChevronConstraint.isActive = shows
     }
 
-    
-    // MARK: - Configure
-    
-    public func configure(with activity: ApiActivity, accountContext: AccountContext, delegate: Delegate, showsRightChevron: Bool = false) {
+    private func showMainContent() {
         if skeletonView?.alpha ?? 0 > 0 {
             skeletonView?.alpha = 0
             mainView.alpha = 1
         }
-        self.activity = activity
-        self.delegate = delegate
-        setShowsRightChevron(showsRightChevron)
+    }
 
-        self.configureViewModel(accountId: accountContext.accountId, activity: activity)
-        
-        iconView.config(with: activity)
-        
+    private func resetTitleVisibility() {
+        centeredLabelIfLoaded?.isHidden = true
+        titleLabel.isHidden = false
+        detailsLabel.isHidden = false
+    }
+
+    private func configureWithoutAnimation(_ configure: () -> Void) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        
-        configureTitle(activity: activity)
-        configureDetails(.init(activity: activity, accountContext: accountContext, isEmulation: false))
-        configureAmount(.init(activity: activity, tokenStore: viewModel.tokenStore))
-        configureAmount2(.init(activity: activity, tokenStore: viewModel.tokenStore))
-        configureSensitiveData(activity: activity)
-        configureNft(activity: activity)
-        configureComment(activity: activity)
-        
-        nftAndCommentConstraint.isActive = !nftView.isHidden && !commentView.isHidden
-        
+
+        configure()
+
         UIView.performWithoutAnimation {
             setNeedsLayout()
             layoutIfNeeded()
         }
-        
+
         CATransaction.commit()
     }
-    
-    private func configureViewModel(accountId: String, activity: ApiActivity) {
-        if viewModel == nil {
-            viewModel = ActivityCellViewModel(accountId: accountId, activity: activity)
+
+    // MARK: - Configure
+
+    public func configure(with activity: ApiActivity, accountContext: AccountContext, delegate: Delegate, showsRightChevron: Bool = false) {
+        showMainContent()
+        self.activity = activity
+        self.delegate = delegate
+        setShowsRightChevron(showsRightChevron)
+        resetTitleVisibility()
+
+        let viewModel = configureViewModel(accountId: accountContext.accountId, activity: activity, isEmulation: false)
+
+        iconView.config(with: activity)
+
+        configureWithoutAnimation {
+            configureTitle(activity: activity)
+            configureDetails(.init(activity: activity, accountContext: accountContext, isEmulation: false))
+            configureAmount(.init(activity: activity, tokenStore: viewModel.tokenStore))
+            configureAmount2(.init(activity: activity, tokenStore: viewModel.tokenStore))
+            configureSensitiveData(activity: activity)
+            configureNft(activity: activity, accountContext: accountContext)
+            configureComment(activity: activity)
+
+            nftAndCommentConstraint.isActive = !nftView.isHidden && !commentView.isHidden
+        }
+    }
+
+    public func configurePreview(with activity: ApiActivity, accountContext: AccountContext, tokenStore: _TokenStore) {
+        showMainContent()
+        self.activity = activity
+        self.delegate = nil
+        setShowsRightChevron(false)
+        configureViewModel(accountId: accountContext.accountId, activity: activity, tokenStore: tokenStore, isEmulation: true)
+
+        iconView.config(with: activity)
+
+        configureWithoutAnimation {
+            let shouldShowCenteredTitle = activity.shouldShowCenteredTitle
+            if shouldShowCenteredTitle {
+                configureCenteredLabel(activity: activity)
+            }
+            configureTitle(activity: activity, isEmulation: true)
+            configureDetails(.init(activity: activity, accountContext: accountContext, isEmulation: true))
+            centeredLabelIfLoaded?.isHidden = !shouldShowCenteredTitle
+            titleLabel.isHidden = shouldShowCenteredTitle
+            detailsLabel.isHidden = shouldShowCenteredTitle
+
+            configureAmount(.init(activity: activity, tokenStore: tokenStore))
+            configureAmount2(.init(activity: activity, tokenStore: tokenStore))
+            configureSensitiveData(activity: activity)
+            configureNft(activity: activity, accountContext: accountContext)
+            configureComment(activity: activity)
+
+            nftAndCommentConstraint.isActive = !nftView.isHidden && !commentView.isHidden
+        }
+    }
+
+    @discardableResult
+    private func configureViewModel(accountId: String, activity: ApiActivity, tokenStore: _TokenStore? = nil, isEmulation: Bool) -> ActivityCellViewModel {
+        if let viewModel {
+            viewModel.activity = activity
+            if let tokenStore {
+                viewModel.tokenStore = tokenStore
+            }
+            viewModel.isEmulation = isEmulation
+            viewModel.$account.accountId = accountId
+            return viewModel
+        } else {
+            let viewModel = ActivityCellViewModel(accountId: accountId, activity: activity, tokenStore: tokenStore, isEmulation: isEmulation)
+            self.viewModel = viewModel
             observeAccountAndActivity = observe { [weak self] in
-                guard let self else { return }
+                guard let self, let viewModel = self.viewModel else { return }
                 let activity = viewModel.activity
                 if let chain = getChainBySlug(activity.slug), let peerAddress = activity.peerAddress {
                     _ = viewModel.$account.getLocalName(chain: chain, address: peerAddress)
                 }
-                configureDetails(.init(activity: activity, accountContext: viewModel.$account, isEmulation: false))
+                configureDetails(.init(activity: activity, accountContext: viewModel.$account, isEmulation: viewModel.isEmulation))
                 configureAmount(.init(activity: activity, tokenStore: viewModel.tokenStore))
                 configureAmount2(.init(activity: activity, tokenStore: viewModel.tokenStore))
             }
-        } else {
-            viewModel.$account.accountId = accountId
-            viewModel.activity = activity
+            return viewModel
         }
     }
-    
+
     public func updateToken() {
-        if let activity {
-            if amountIcons.hasUnloadedIcons {
-                configureAmount(.init(activity: activity, tokenStore: viewModel.tokenStore))
-            }
-            if !amount2Label.isHidden, case .transaction(let tx) = activity, let token = viewModel.tokenStore[tx.slug], token.price != self.trackedValue {
-                configureAmount2(.init(activity: activity, tokenStore: viewModel.tokenStore))
-            }
+        guard let activity, let viewModel else { return }
+        if amountIcons.hasUnloadedIcons {
+            configureAmount(.init(activity: activity, tokenStore: viewModel.tokenStore))
+        }
+        if !amount2Label.isHidden, case .transaction(let tx) = activity, let token = viewModel.tokenStore[tx.slug], token.price != self.trackedValue {
+            configureAmount2(.init(activity: activity, tokenStore: viewModel.tokenStore))
         }
     }
-    
+
+    private func configureCenteredLabel(activity: ApiActivity) {
+        centeredLabel.text = activity.displayTitle.future
+    }
+
     func configureTitle(activity: ApiActivity, isEmulation: Bool = false) {
         if isEmulation {
             titleLabel.text = activity.displayTitle.future
         } else {
             titleLabel.text = activity.displayTitleResolvedOptimistic
         }
-        
+
         if activity.isScamTransaction {
             if scamBadge.image == nil {
                 scamBadge.image = .airBundle("ScamBadge")
@@ -361,7 +439,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
             scamBadge.isHidden = true
         }
     }
-    
+
     @MainActor struct ConfigureDetailsOptions {
         var activity: ApiActivity
         var isMultichain = false
@@ -370,7 +448,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         var isEmulation: Bool
         var address: String = ""
         var addressLabelKey: String = "$transaction_to"
-        
+
         init(activity: ApiActivity, accountContext: AccountContext, isEmulation: Bool) {
             self.activity = activity
             self.isEmulation = isEmulation
@@ -396,42 +474,42 @@ public class ActivityCell: WHighlightCollectionViewCell {
             }
         }
     }
-            
+
     func configureDetails(_ options: ConfigureDetailsOptions) {
         let activity = options.activity
         let attr = NSMutableAttributedString()
         let detailsAttributes: [NSAttributedString.Key: Any] = [
             .font: Self.regular14Font
         ]
-        
+
         switch activity {
         case .transaction(let transaction):
             if transaction.status == .failed {
                 attr.append(NSAttributedString(string: lang("Failed"), attributes: detailsAttributes))
             }
-            
+
             if activity.shouldShowTransactionAddress(in: .list) {
                 if !attr.string.isEmpty {
                     attr.append(NSAttributedString(string: " · ", attributes: detailsAttributes))
                 }
-                
+
                 let addressFont = UIFont.systemFont(ofSize: 14, weight: .semibold)
                 var address = NSAttributedString(string: options.address, attributes: [
                     .font: addressFont
                 ])
-                
+
                 if let chain = getChainBySlug(activity.slug) {
                     address = ChainIcon(chain).prepended(to: options.address, font: addressFont, separator: .hairline)
                 }
-                
+
                 attr.append(attributedLang(
                     options.addressLabelKey,
                     attributes: detailsAttributes,
                     arg1: address
                 ))
-                
+
             }
-            
+
             if activity.shouldShowTransactionAnnualYield, let stakingState = options.stakingState {
                 if !attr.string.isEmpty {
                     attr.append(NSAttributedString(string: " · ", attributes: detailsAttributes))
@@ -479,12 +557,12 @@ public class ActivityCell: WHighlightCollectionViewCell {
         detailsLabel.textColor = UIColor.air.secondaryLabel
         detailsLabel.attributedText = attr
     }
-    
+
     struct ConfigureAmountOptions {
         var activity: ApiActivity
         var transactionToken: ApiToken?
         var baseCurrency: MBaseCurrency
-        
+
         init(activity: ApiActivity, tokenStore: _TokenStore) {
             if case .transaction(let transaction) = activity {
                 transactionToken = tokenStore[transaction.slug]
@@ -493,7 +571,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
             self.activity = activity
         }
     }
-        
+
     func configureAmount(_ options: ConfigureAmountOptions) {
         let activity = options.activity
         let displayMode = activity.amountDisplayMode
@@ -527,7 +605,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
                 amountLabel.text = nil
                 amountIcons.setHideMode()
             }
-            
+
         case .swap(let swap):
             if let fromToken = swap.fromToken, let toToken = swap.toToken {
                 let fromDecimalAmount = DecimalAmount.fromDouble(-swap.fromAmount.value, fromToken)
@@ -539,10 +617,10 @@ public class ActivityCell: WHighlightCollectionViewCell {
                 amountIcons.setHideMode()
             }
         }
-        
+
         amountLabel.isHidden = displayMode == .hide
     }
-    
+
     private func swapAmountText(text: String, swap: ApiSwapActivity, isFrom: Bool) -> NSAttributedString {
         var color: UIColor
         if swap.cex?.status == .hold {
@@ -555,22 +633,22 @@ public class ActivityCell: WHighlightCollectionViewCell {
                 color = isFrom ? .air.secondaryLabel : .air.positiveAmount
             }
         }
-        
+
         return NSAttributedString(string: text, attributes: [
             .foregroundColor: color,
             .font: isFrom ? Self.regular14Font : Self.regular16Font
         ])
     }
-        
+
     func configureAmount2(_ options: ConfigureAmountOptions) {
         let activity = options.activity
-        
+
         amount2Label.font = .systemFont(ofSize: 14)
         amount2Label.textColor = UIColor.air.secondaryLabel
-        
+
         let displayMode = activity.amountDisplayMode
         amount2Label.isHidden = displayMode == .hide
-        
+
         switch activity {
         case .transaction(let transaction):
             if displayMode != .hide, let token = options.transactionToken, let price = token.price {
@@ -606,8 +684,8 @@ public class ActivityCell: WHighlightCollectionViewCell {
             self.trackedValue = nil
         }
     }
-    
-    
+
+
     func configureSensitiveData(activity: ApiActivity?) {
         if let activity, activity.amountDisplayMode != .hide {
             let amountCols = 4 + abs(activity.id.hash % 8)
@@ -626,19 +704,38 @@ public class ActivityCell: WHighlightCollectionViewCell {
             amount2Container.isDisabled = true
         }
     }
-    
-    func configureNft(activity: ApiActivity?) {
-        
+
+    func configureNft(activity: ApiActivity?, accountContext: AccountContext? = nil) {
+
         if activity?.isScamTransaction != true, let nft = activity?.transaction?.nft {
-            nftView.setNft(nft, accountContext: viewModel.$account)
+            guard let accountContext = accountContext ?? viewModelAccountContext else {
+                nftView.stopNftAnimationPlayback()
+                nftView.isHidden = true
+                NSLayoutConstraint.deactivate(nftViewConstraints)
+                return
+            }
+            nftView.setNft(resolvedNftForActivityPreview(nft, accountContext: accountContext), accountContext: accountContext)
             nftView.isHidden = false
             NSLayoutConstraint.activate(nftViewConstraints)
         } else {
+            if let accountContext = accountContext ?? viewModelAccountContext {
+                nftView.setNft(nil, accountContext: accountContext)
+            }
+            nftView.stopNftAnimationPlayback()
             nftView.isHidden = true
             NSLayoutConstraint.deactivate(nftViewConstraints)
         }
     }
-    
+
+    private var viewModelAccountContext: AccountContext? {
+        guard let viewModel else { return nil }
+        return viewModel.$account
+    }
+
+    private func resolvedNftForActivityPreview(_ nft: ApiNft, accountContext: AccountContext) -> ApiNft {
+        NftStore.nftWithStoredTelegramGiftLottie(accountId: accountContext.accountId, nft: nft)
+    }
+
     public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
         let location = touch.location(in: mainView)
@@ -646,13 +743,13 @@ public class ActivityCell: WHighlightCollectionViewCell {
             super.touchesBegan(touches, with: event)
         }
     }
-    
+
     func configureComment(activity: ApiActivity?) {
-        
+
         let hasComment: Bool
         let shouldShowComment = activity?.shouldShowTransactionComment == true
         let isIncoming = activity?.transaction?.isIncoming == true
-        
+
         if shouldShowComment, let tx = activity?.transaction, let commment = tx.comment?.nilIfEmpty {
             commentView.setComment(commment, direction: isIncoming ? .incoming : .outgoing, isError: tx.status == .failed)
             hasComment = true
@@ -662,7 +759,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         } else {
             hasComment = false
         }
-        
+
         commentView.isHidden = !hasComment
         if hasComment {
             NSLayoutConstraint.activate(commentViewConstraints)
@@ -671,6 +768,24 @@ public class ActivityCell: WHighlightCollectionViewCell {
         } else {
             NSLayoutConstraint.deactivate(commentViewConstraints)
         }
+    }
+}
+
+extension ActivityCell: NftAnimationPlaybackTarget {
+    public var nftAnimationPlaybackID: String? {
+        self.activity?.id
+    }
+
+    public var hasPlayableNftAnimation: Bool {
+        !self.nftView.isHidden && self.nftView.hasPlayableAnimation
+    }
+
+    public func playNftAnimationOnce() {
+        self.nftView.playNftAnimationOnce()
+    }
+
+    public func stopNftAnimationPlayback() {
+        self.nftView.stopNftAnimationPlayback()
     }
 }
 
@@ -693,13 +808,13 @@ private class AmountIcons: UIView {
         case transaction
         case swap
     }
-    
+
     private(set) var mode: Mode = .hide
-    
+
     private lazy var icon1MaskLayer: CALayer = {
         let mask = CAShapeLayer()
         mask.fillRule = .evenOdd
-        
+
         let b = CGRect.square(Self.iconSize)
         let outerPath = UIBezierPath(ovalIn: b)
         let oval = CGRect(origin: .init(x: 0, y: Self.iconSize - Self.centerVOffset * 2), size: b.size).insetBy(dx: -1, dy: -1)
@@ -708,26 +823,26 @@ private class AmountIcons: UIView {
         mask.frame = b
         return mask
     }()
-    
+
     override init(frame: CGRect) {
         icon1 = IconView(size: Self.iconSize)
-        
+
         super.init(frame: .zero)
-        
+
         icon1.isHidden = true
         icon1.translatesAutoresizingMaskIntoConstraints = false
         addSubview(icon1)
-                
+
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: Self.iconSize),
             icon1.centerXAnchor.constraint(equalTo: centerXAnchor),
         ])
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     func attachTo(
         amountLabelTrailingConstraint: NSLayoutConstraint,
         amountLabelBaselineAnchor: NSLayoutYAxisAnchor,
@@ -739,7 +854,7 @@ private class AmountIcons: UIView {
         icon1BaselineConstraint = icon1.bottomAnchor.constraint(equalTo: amountLabelBaselineAnchor, constant: 3)
         icon1CenterYConstraint = icon1.bottomAnchor.constraint(equalTo: centerYAnchor, constant: Self.centerVOffset)
     }
-    
+
     var hasUnloadedIcons: Bool {
         switch mode {
         case .hide: false
@@ -747,7 +862,7 @@ private class AmountIcons: UIView {
         case .swap: icon1.imageView.image == nil || icon2?.imageView.image == nil
         }
     }
-    
+
     func setHideMode() {
         mode = .hide
         icon1.isHidden = true
@@ -755,14 +870,14 @@ private class AmountIcons: UIView {
         amountLabelTrailingConstraint.constant = 0
         amount2LabelTrailingConstraint.constant = 0
     }
-    
+
     private func setIcon1Mask(_ maskLayer: CALayer?) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         icon1.layer.mask = maskLayer
         CATransaction.commit()
     }
-    
+
     func setSwapMode(fromToken: ApiToken, toToken: ApiToken) {
         mode = .swap
         icon1.config(with: fromToken, shouldShowChain: false)
@@ -777,7 +892,7 @@ private class AmountIcons: UIView {
             self.icon2 = icon2
             icon2.translatesAutoresizingMaskIntoConstraints = false
             addSubview(icon2)
-            
+
             icon2CenterYConstraint = icon2.topAnchor.constraint(equalTo: centerYAnchor, constant: -Self.centerVOffset)
             NSLayoutConstraint.activate([
                 icon2.centerXAnchor.constraint(equalTo: centerXAnchor),
@@ -788,7 +903,7 @@ private class AmountIcons: UIView {
         icon2?.isHidden = false
         amount2LabelTrailingConstraint.constant = -Self.iconedLabelTrailingOffset
     }
-    
+
     func setTransactionMode(token: ApiToken) {
         mode = .transaction
         icon1.config(with: token, shouldShowChain: false)

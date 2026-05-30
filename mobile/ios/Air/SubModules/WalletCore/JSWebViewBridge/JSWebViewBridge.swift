@@ -747,6 +747,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
 
 extension JSWebViewBridge: WKNavigationDelegate, WKUIDelegate {
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        WalletCoreData.setLockdownModeEnabled(webView.configuration.defaultWebpagePreferences.isLockdownModeEnabled)
         injectIfNeeded()
     }
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {

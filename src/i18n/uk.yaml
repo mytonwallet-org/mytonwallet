@@ -531,6 +531,8 @@ Buy with Card: Купівля з картки
 Buy with Crypto: Купівля за криптовалюту
 Cannot load widget: Неможливо завантажити віджет
 Explore: Огляд
+$lockdown_mode_enabled_title: Режим блокування ввімкнено
+$lockdown_mode_walletconnect_unavailable: "WalletConnect недоступний у режимі блокування. Щоб використовувати його, вимкніть режим блокування для %app_name% у Параметри > Приватність і безпека > Режим блокування > Налаштувати веб-перегляд."
 No partners yet: Ще немає партнерів
 Clear: Очистити
 $unstake_up_to_information: Миттєво - до %value%

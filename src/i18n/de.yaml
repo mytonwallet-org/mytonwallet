@@ -529,6 +529,8 @@ Buy with Card: Mit Karte kaufen
 Buy with Crypto: Mit Krypto kaufen
 Cannot load widget: Widget kann nicht geladen werden
 Explore: Erkunden
+$lockdown_mode_enabled_title: Blockierungsmodus aktiviert
+$lockdown_mode_walletconnect_unavailable: "WalletConnect ist im Blockierungsmodus nicht verfügbar. Um es zu verwenden, deaktivieren Sie den Blockierungsmodus für %app_name% unter Einstellungen > Datenschutz & Sicherheit > Blockierungsmodus > Web-Browsing konfigurieren."
 No partners yet: Noch keine Partner
 Clear: Löschen
 $unstake_up_to_information: Sofort – bis zu %value%

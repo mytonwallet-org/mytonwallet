@@ -531,6 +531,8 @@ Buy with Card: Покупка с карты
 Buy with Crypto: Покупка за криптовалюту
 Cannot load widget: Невозможно загрузить виджет
 Explore: Обзор
+$lockdown_mode_enabled_title: Режим изоляции включён
+$lockdown_mode_walletconnect_unavailable: "WalletConnect недоступен в режиме изоляции. Чтобы использовать его, отключите режим изоляции для %app_name% в Настройки > Конфиденциальность и безопасность > Режим изоляции > Настроить веб-браузинг."
 No partners yet: Ещё нет партнеров
 Clear: Очистить
 Biometric confirmation failed: Ошибка авторизации

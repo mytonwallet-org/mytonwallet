@@ -20,8 +20,8 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
         case activity(String)
     }
     
-    var tableView: UITableView!
-    private var dataSource: UITableViewDiffableDataSource<Section, Row>!
+    var collectionView: ActivitiesCollectionView!
+    private var dataSource: UICollectionViewDiffableDataSource<Section, Row>!
     
     public init(accountContext: AccountContext, activities: [ApiActivity], context: ActivityDetailsContext) {
         self.activityIds = activities.map(\.id)
@@ -44,43 +44,57 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
         navigationItem.title = lang("Transfer Info")
         addCloseNavigationItemIfNeeded()
         
-        tableView = UITableView(frame: .zero, style: .insetGrouped)
-        tableView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(tableView)
+        collectionView = ActivitiesCollectionView(frame: .zero, collectionViewLayout: makeLayout())
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(collectionView)
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            collectionView.topAnchor.constraint(equalTo: view.topAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
-        tableView.showsVerticalScrollIndicator = false
-        tableView.register(ActivityDetailsListRowCell.self, forCellReuseIdentifier: "Transaction")
-        tableView.rowHeight = UITableView.automaticDimension
-        tableView.allowsSelection = false
-        tableView.delaysContentTouches = false
-        tableView.contentInset.top = IOS_26_MODE_ENABLED ? -20 : 0
-        if IOS_26_MODE_ENABLED {
-            tableView.separatorInset = UIEdgeInsets(top: 0, left: 62, bottom: 0, right: 12)
-        } else {
-            tableView.separatorColor = .air.separator
-            tableView.separatorInset.left = 62
-        }
+        collectionView.showsVerticalScrollIndicator = false
+        collectionView.allowsSelection = false
+        collectionView.delaysContentTouches = false
+        collectionView.backgroundColor = .clear
         
         self.dataSource = makeDataSource()
         dataSource.apply(makeSnapshot(), animatingDifferences: false)
 
-        tableView.backgroundColor = .clear
         view.backgroundColor = .air.sheetBackground
     }
     
-    private func makeDataSource() -> UITableViewDiffableDataSource<Section, Row> {
-        let dataSource = UITableViewDiffableDataSource<Section, Row>(tableView: tableView) { [unowned self] tableView, indexPath, item in
+    private func makeLayout() -> UICollectionViewLayout {
+        UICollectionViewCompositionalLayout { _, layoutEnvironment in
+            var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
+            configuration.backgroundColor = .clear
+            configuration.headerTopPadding = 8
+            configuration.separatorConfiguration.bottomSeparatorInsets.leading = 62
+            configuration.separatorConfiguration.bottomSeparatorInsets.trailing = 12
+            if !IOS_26_MODE_ENABLED {
+                configuration.separatorConfiguration.color = .air.separator
+            }
+            return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
+        }
+    }
+
+    private func makeDataSource() -> UICollectionViewDiffableDataSource<Section, Row> {
+        let activityCellRegistration = UICollectionView.CellRegistration<ActivityCell, Row> { [unowned self] cell, _, item in
             switch item {
             case .activity(let activityId):
-                let cell = tableView.dequeueReusableCell(withIdentifier: "Transaction", for: indexPath) as! ActivityDetailsListRowCell
                 let activity = self.activitiesById[activityId]!
-                cell.configure(with: activity, accountContext: _account, delegate: self)
-                return cell
+                cell.configure(
+                    with: activity,
+                    accountContext: _account,
+                    delegate: self,
+                    showsRightChevron: true
+                )
+            }
+        }
+        let dataSource = UICollectionViewDiffableDataSource<Section, Row>(collectionView: collectionView) { collectionView, indexPath, item in
+            switch item {
+            case .activity:
+                return collectionView.dequeueConfiguredReusableCell(using: activityCellRegistration, for: indexPath, item: item)
             }
         }
         return dataSource
@@ -95,36 +109,5 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
 
     public func onSelect(transaction: ApiActivity) {
         AppActions.showActivityDetails(accountId: account.id, activity: transaction, context: context)
-    }
-}
-
-private final class ActivityDetailsListRowCell: UITableViewCell {
-    private let activityCell = ActivityCell(frame: .zero)
-
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-        selectionStyle = .none
-        backgroundColor = .clear
-        contentView.backgroundColor = .clear
-        activityCell.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(activityCell)
-        NSLayoutConstraint.activate([
-            activityCell.topAnchor.constraint(equalTo: contentView.topAnchor),
-            activityCell.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            activityCell.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            activityCell.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-        ])
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { nil }
-
-    func configure(with activity: ApiActivity, accountContext: AccountContext, delegate: ActivityCell.Delegate) {
-        activityCell.configure(
-            with: activity,
-            accountContext: accountContext,
-            delegate: delegate,
-            showsRightChevron: true
-        )
     }
 }

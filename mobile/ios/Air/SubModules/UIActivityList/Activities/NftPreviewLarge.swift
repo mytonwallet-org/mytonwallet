@@ -1,16 +1,14 @@
-
-import SwiftUI
 import UIKit
+import UIComponents
 import WalletCore
 import WalletContext
 
 public final class NftPreviewLarge: UIView {
     
-    private let imageView: UIImageView = .init()
+    private let mediaView = NftMediaView()
     private var labelsStack: UIView = .init()
     private let nameLabel: UILabel = .init()
     private let collectionLabel: UILabel = .init()
-    private var collectionConstraints: [NSLayoutConstraint] = []
     private var nft: ApiNft?
     private var accountContext: AccountContext?
     
@@ -33,21 +31,22 @@ public final class NftPreviewLarge: UIView {
         layer.cornerRadius = 12
         layer.cornerCurve = .continuous
         
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(imageView)
-        imageView.isUserInteractionEnabled = true 
-        imageView.contentMode = .scaleAspectFill
-        imageView.layer.cornerRadius = 12
-        imageView.layer.cornerCurve = .continuous
-        imageView.layer.masksToBounds = true
+        mediaView.translatesAutoresizingMaskIntoConstraints = false
+        mediaView.isUserInteractionEnabled = true
+        mediaView.mediaContentMode = .scaleAspectFill
+        mediaView.animationRenderingConfiguration = .activityPreviewDefault
+        mediaView.layer.cornerRadius = 12
+        mediaView.layer.cornerCurve = .continuous
+        mediaView.layer.masksToBounds = true
+        addSubview(mediaView)
         
         NSLayoutConstraint.activate([
-            imageView.heightAnchor.constraint(equalToConstant: 54),
-            imageView.widthAnchor.constraint(equalToConstant: 54),
-            imageView.topAnchor.constraint(equalTo: topAnchor),
-            imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            imageView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
-            imageView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            mediaView.heightAnchor.constraint(equalToConstant: 54),
+            mediaView.widthAnchor.constraint(equalToConstant: 54),
+            mediaView.topAnchor.constraint(equalTo: topAnchor),
+            mediaView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            mediaView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
+            mediaView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
         labelsStack.translatesAutoresizingMaskIntoConstraints = false
@@ -55,7 +54,7 @@ public final class NftPreviewLarge: UIView {
         addSubview(labelsStack)
         NSLayoutConstraint.activate([
             labelsStack.centerYAnchor.constraint(equalTo: centerYAnchor),
-            labelsStack.leadingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: 10),
+            labelsStack.leadingAnchor.constraint(equalTo: mediaView.trailingAnchor, constant: 10),
             labelsStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
         ])
 
@@ -89,7 +88,7 @@ public final class NftPreviewLarge: UIView {
         let imageTap = UITapGestureRecognizer(target: self, action: #selector(onImageTap))
         cardTap.require(toFail: imageTap)
         addGestureRecognizer(cardTap)
-        imageView.addGestureRecognizer(imageTap)
+        mediaView.addGestureRecognizer(imageTap)
     }
         
     @objc private func onTap() {
@@ -107,7 +106,7 @@ public final class NftPreviewLarge: UIView {
     
     private func updateTheme() {
         backgroundColor = .air.activityNftFill
-        imageView.backgroundColor = .air.secondaryFill
+        mediaView.backgroundColor = .air.secondaryFill
         nameLabel.textColor = UIColor.label
         collectionLabel.textColor = .air.secondaryLabel
     }
@@ -115,18 +114,10 @@ public final class NftPreviewLarge: UIView {
     public func setNft(_ nft: ApiNft?, accountContext: AccountContext) {
         self.accountContext = accountContext
         
-        guard self.nft != nft else { return }
+        guard needsUpdate(for: nft) else { return }
         
         self.nft = nft
-        if let image = nft?.thumbnail?.nilIfEmpty, let url = URL(string: image) {
-            imageView.kf.setImage(
-                with: url,
-                options: [.transition(.fade(0.2))]
-            )
-            imageView.kf.indicatorType = .activity
-        } else {
-            imageView.image = nil
-        }
+        mediaView.configure(nft: nft)
         nameLabel.text = nft?.name ?? "NFT"
         
         let hasSubtitle = nft?.collectionName?.nilIfEmpty != nil
@@ -144,5 +135,33 @@ public final class NftPreviewLarge: UIView {
             collectionLabelBottomConstraint?.isActive = false
             nameLabelBottomConstraint?.isActive = true
         }
+    }
+
+    private func needsUpdate(for nft: ApiNft?) -> Bool {
+        self.nft?.id != nft?.id
+            || self.nft?.thumbnail != nft?.thumbnail
+            || self.nft?.image != nft?.image
+            || self.nft?.metadata?.lottie != nft?.metadata?.lottie
+            || self.nft?.name != nft?.name
+            || self.nft?.collectionName != nft?.collectionName
+    }
+}
+
+extension NftPreviewLarge: NftAnimationPlaybackTarget {
+    public var nftAnimationPlaybackID: String? {
+        self.nft?.id
+    }
+
+    public var hasPlayableAnimation: Bool {
+        self.mediaView.hasPlayableAnimation
+    }
+
+    public func playNftAnimationOnce() {
+        self.mediaView.animationRenderingConfiguration = .activityPreviewDefault
+        self.mediaView.playAnimationOnce()
+    }
+
+    public func stopNftAnimationPlayback() {
+        self.mediaView.stopAnimationPlayback()
     }
 }

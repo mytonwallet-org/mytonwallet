@@ -46,6 +46,16 @@ struct SendFlowDraftResult {
     static let noResult = SendFlowDraftResult(draftData: .init(status: .none), explainedFee: nil, requiresMemo: false)
 }
 
+private func isAddressDraftError(_ error: ApiAnyDisplayError?) -> Bool {
+    guard let error else { return false }
+    return [
+        .domainNotResolved,
+        .invalidAddress,
+        .invalidAddressFormat,
+        .invalidToAddress,
+    ].contains(error)
+}
+
 // MARK: - Token
 
 struct TokenSendFlow: SendFlow {
@@ -93,12 +103,7 @@ struct TokenSendFlow: SendFlow {
             throw BridgeCallError.message(.walletNotInitialized, nil)
         }
 
-        if let error = draft.error, [
-            .domainNotResolved,
-            .invalidAddress,
-            .invalidAddressFormat,
-            .invalidToAddress,
-        ].contains(error) {
+        if isAddressDraftError(draft.error) {
             return SendFlowDraftResult(
                 draftData: DraftData(
                     status: .invalid,
@@ -156,6 +161,17 @@ struct NftSendFlow: SendFlow {
             isNftBurn: isNftBurn
         ))
         try handleDraftError(draft)
+
+        if isAddressDraftError(draft.error) {
+            return SendFlowDraftResult(
+                draftData: DraftData(
+                    status: .invalid,
+                    transactionDraft: draft
+                ),
+                explainedFee: draft.explainedFee,
+                requiresMemo: false
+            )
+        }
                 
         return SendFlowDraftResult(
             draftData: DraftData(

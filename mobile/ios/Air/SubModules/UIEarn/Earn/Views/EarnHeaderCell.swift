@@ -10,13 +10,14 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-class EarnHeaderCell: UITableViewCell {
+class EarnHeaderCell: UICollectionViewCell {
 
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
+    override init(frame: CGRect) {
+        super.init(frame: frame)
         setupViews()
     }
     
+    @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -117,7 +118,6 @@ class EarnHeaderCell: UITableViewCell {
     
     private func setupViews() {
         backgroundColor = .air.sheetBackground
-        selectionStyle = .none
         
         contentView.addSubview(stackView)
         NSLayoutConstraint.activate([

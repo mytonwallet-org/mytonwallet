@@ -89,6 +89,8 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     public override func prepareForReuse() {
         super.prepareForReuse()
         underNavigationBarColorView.isHidden = true
+        amountContainer.resetReveal()
+        amount2Container.resetReveal()
     }
     
     private func setupViews() {

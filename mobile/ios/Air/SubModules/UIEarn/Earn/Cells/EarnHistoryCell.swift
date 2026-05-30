@@ -11,12 +11,13 @@ import WalletContext
 import WalletCore
 
 
-class EarnHistoryCell: WHighlightCell {
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
+class EarnHistoryCell: WHighlightCollectionViewCell {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
         setupViews()
     }
 
+    @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -34,8 +35,6 @@ class EarnHistoryCell: WHighlightCell {
     private var separatorView: UIView!
 
     private func setupViews() {
-        selectionStyle = .none
-        
         // MARK: left icon
         iconStackView = IconStackView()
         iconStackView.translatesAutoresizingMaskIntoConstraints = false
@@ -66,7 +65,6 @@ class EarnHistoryCell: WHighlightCell {
         amount2Container.addContent(amount2Label)
         contentView.addSubview(amount2Container)
         
-        // TODO: Migrate to system separators (tableView.separatorStyle)
         separatorView = UIView()
         separatorView.translatesAutoresizingMaskIntoConstraints = false
         separatorView.backgroundColor = .air.separator

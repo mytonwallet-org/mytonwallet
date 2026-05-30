@@ -7,7 +7,6 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryResponse
 import org.mytonwallet.app_air.walletcore.stores.PortfolioStore
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
@@ -59,8 +58,10 @@ private suspend fun WalletCore.fetchPortfolioHistory(
     PortfolioStore.get(methodName, accountId, baseCurrency, period)?.let { return it }
     if (cacheOnly) return null
 
+    val nowMs = System.currentTimeMillis()
     val params = JSONObject().apply {
-        put("from", period.toFromIsoString())
+        put("from", period.fromIsoString(nowMs))
+        put("to", toIsoString(nowMs))
         put("density", period.toDensity())
     }
     val response: ApiPortfolioHistoryResponse = bridge!!.callApiAsync(
@@ -85,26 +86,30 @@ private fun MHistoryTimePeriod.toDensity(): String = when (this) {
     MHistoryTimePeriod.ALL -> "1d"
 }
 
-private fun MHistoryTimePeriod.toFromIsoString(): String {
-    val now = Date()
-    val from = when (this) {
-        MHistoryTimePeriod.DAY -> Date(now.time - 24L * 60 * 60 * 1000)
-        MHistoryTimePeriod.WEEK -> Date(now.time - 7L * 24 * 60 * 60 * 1000)
-        MHistoryTimePeriod.MONTH -> calendarMinus(now, Calendar.MONTH, 1)
-        MHistoryTimePeriod.THREE_MONTHS -> calendarMinus(now, Calendar.MONTH, 3)
-        MHistoryTimePeriod.YEAR -> calendarMinus(now, Calendar.YEAR, 1)
-        MHistoryTimePeriod.ALL -> Date(PORTFOLIO_ALL_START_EPOCH_MS)
-    }
-    return ISO_DATE_FORMAT.get()!!.format(from)
+private fun MHistoryTimePeriod.durationMs(): Long? = when (this) {
+    MHistoryTimePeriod.DAY -> DAY_MS
+    MHistoryTimePeriod.WEEK -> 7 * DAY_MS
+    MHistoryTimePeriod.MONTH -> 30 * DAY_MS
+    MHistoryTimePeriod.THREE_MONTHS -> 90 * DAY_MS
+    MHistoryTimePeriod.YEAR -> 365 * DAY_MS
+    MHistoryTimePeriod.ALL -> null
 }
 
-private fun calendarMinus(base: Date, field: Int, amount: Int): Date {
-    val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-    cal.time = base
-    cal.add(field, -amount)
-    return cal.time
+// `from` is the start of the UTC day of (now − period length); ALL is anchored at 2020-01-01.
+private fun MHistoryTimePeriod.fromIsoString(nowMs: Long): String {
+    val fromMs = durationMs()?.let { startOfUtcDay(nowMs - it) } ?: PORTFOLIO_ALL_START_EPOCH_MS
+    return ISO_DATE_FORMAT.get()!!.format(Date(fromMs))
 }
 
+// `to` is the end of the UTC day of now (23:59:59.000).
+private fun toIsoString(nowMs: Long): String {
+    return ISO_DATE_FORMAT.get()!!.format(Date(startOfUtcDay(nowMs) + DAY_MS - 1000L))
+}
+
+// The epoch is aligned to UTC midnight, so flooring by whole days yields start-of-day UTC.
+private fun startOfUtcDay(ms: Long): Long = ms - (ms % DAY_MS)
+
+private const val DAY_MS: Long = 24L * 60 * 60 * 1000
 private const val PORTFOLIO_ALL_START_EPOCH_MS: Long = 1_577_836_800_000L // 2020-01-01 UTC
 
 private val ISO_DATE_FORMAT: ThreadLocal<SimpleDateFormat> = object : ThreadLocal<SimpleDateFormat>() {

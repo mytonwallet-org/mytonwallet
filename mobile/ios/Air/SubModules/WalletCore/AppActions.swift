@@ -46,7 +46,7 @@ import WalletContext
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues)
     static func showSell(accountContext: AccountContext, tokenSlug: String?)
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?)
-    static func showTemporaryViewAccount(addressOrDomainByChain: [String: String])
+    static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String])
     static func showToast(style: ToastStyle, icon: ToastIcon?, message: String, duration: Double, actionTitle: String?, action: (() -> ())?)
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool)
     static func showTokenByAddress(chain: ApiChain, tokenAddress: String)
@@ -122,7 +122,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues) { }
     static func showSell(accountContext: AccountContext, tokenSlug: String?) { }
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) { }
-    static func showTemporaryViewAccount(addressOrDomainByChain: [String: String]) { }
+    static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String]) { }
     static func showToast(style: ToastStyle, icon: ToastIcon?, message: String, duration: Double, actionTitle: String?, action: (() -> ())?) { }
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) { }
     static func showTokenByAddress(chain: ApiChain, tokenAddress: String) { }

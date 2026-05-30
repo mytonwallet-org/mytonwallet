@@ -558,14 +558,14 @@ final class PortfolioVM: Sendable {
                 title: lang("Staked"),
                 value: stakedValue,
                 valueText: formatBaseValue(stakedValue),
-                colorHex: PortfolioPalette.barrelStable
+                colorHex: PortfolioPalette.barrelStaked
             ),
             PortfolioInsightSegment(
                 id: "unstaked",
                 title: lang("Not staked"),
                 value: unstakedValue,
                 valueText: formatBaseValue(unstakedValue),
-                colorHex: PortfolioPalette.barrelNative
+                colorHex: PortfolioPalette.barrelNotStaked
             ),
         ]
         .filter { $0.value > 0 }

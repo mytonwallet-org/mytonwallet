@@ -25,10 +25,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PLACEHOLDER_TYPE_OVERRIDES = {
     "$domains_expire": {
         "days": "@",
-    },
-    "push_domain_expires_in_days": {
-        "days": "lld",
-    },
+    }
 }
 
 
