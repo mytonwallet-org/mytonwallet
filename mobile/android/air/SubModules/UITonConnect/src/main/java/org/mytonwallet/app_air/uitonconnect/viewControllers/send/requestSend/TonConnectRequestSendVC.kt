@@ -49,7 +49,10 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import kotlinx.coroutines.launch
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.ApiConnectionType
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
@@ -441,6 +444,36 @@ class TonConnectRequestSendVC(
                 activeDialog?.dismiss()
                 window?.dismissLastNav(onCompletion = {
                     WalletCore.notifyEvent(WalletEvent.OpenUrl(event.url))
+                })
+            }
+
+            is TonConnectRequestSendViewModel.Event.MfaRequested -> {
+                val promiseId = event.promiseId
+                val mfaVC = org.mytonwallet.app_air.uicomponents.viewControllers
+                    .MfaActionConfirmVC(
+                        context,
+                        requestHash = event.requestHash,
+                        onConfirmed = { _ ->
+                            WalletCore.scope.launch {
+                                try {
+                                    WalletCore.call(
+                                        ApiMethod.DApp.ConfirmDappRequestSendTransactionMfa(
+                                            promiseId,
+                                            event.requestHash,
+                                        )
+                                    )
+                                } catch (t: Throwable) {
+                                    Logger.e(
+                                        Logger.LogTag.SEND,
+                                        "confirmDappRequestSendTransaction MFA failed " +
+                                            "for promiseId=$promiseId: $t",
+                                    )
+                                }
+                            }
+                        },
+                    )
+                navigationController?.push(mfaVC, onCompletion = {
+                    navigationController?.removePrevViewControllerOnly()
                 })
             }
         }

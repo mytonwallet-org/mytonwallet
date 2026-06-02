@@ -10,10 +10,23 @@ type ApiBaseWallet = {
   derivation?: ApiDerivation;
 };
 
+export type ApiMfaUser = {
+  id: string;
+  name: string;
+  username?: string;
+  avatarUrl?: string;
+};
+
+export type ApiMfa = {
+  address: string;
+  user?: ApiMfaUser;
+};
+
 export type ApiTonWallet = ApiBaseWallet & {
   version: ApiTonWalletVersion;
   isInitialized?: boolean;
   authToken?: string;
+  mfa?: ApiMfa;
 };
 
 export type ApiTronWallet = ApiBaseWallet;

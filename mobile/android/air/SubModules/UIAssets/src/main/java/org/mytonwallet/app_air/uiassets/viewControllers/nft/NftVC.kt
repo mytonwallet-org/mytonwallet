@@ -1157,7 +1157,7 @@ class NftVC(
                         WMenuPopup.Item(
                             org.mytonwallet.app_air.uiassets.R.drawable.ic_link,
                             LocaleController.getString(
-                                if (linkedAddress.isNullOrBlank()) "Link to Wallet" else "Change Wallet"
+                                if (linkedAddress.isNullOrBlank()) "Link to Wallet" else "Change Linked Wallet"
                             ),
                             false,
                         ) {

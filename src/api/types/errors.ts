@@ -20,6 +20,7 @@ export enum ApiTransactionDraftError {
   WalletNotInitialized = 'WalletNotInitialized',
   InvalidAddressFormat = 'InvalidAddressFormat',
   InactiveContract = 'InactiveContract',
+  MfaNftBatchLimit = 'MfaNftBatchLimit',
 }
 
 export enum ApiTransactionError {

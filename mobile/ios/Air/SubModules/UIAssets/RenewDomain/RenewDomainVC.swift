@@ -3,7 +3,6 @@ import SwiftUI
 import UIComponents
 import WalletContext
 import WalletCore
-import UIPasscode
 import Perception
 
 public final class RenewDomainVC: WViewController {
@@ -47,42 +46,30 @@ public final class RenewDomainVC: WViewController {
             AppActions.showError(error: BridgeCallError.message(.unsupportedHardwareContract, nil))
             return
         }
-        var renewalSuccessful = false
-        var renewalError: (any Error)?
-        let headerVC = UIHostingController(rootView: RenewDomainAuthHeader(viewModel: viewModel))
-        headerVC.view.backgroundColor = .clear
-        UnlockVC.pushAuth(
-            on: self,
-            title: lang("Confirm Renewing"),
-            customHeaderVC: headerVC,
-            onAuthTask: { [weak self] passcode, onTaskDone in
-                guard let self else { return }
-                Task {
-                    do {
-                        try await self.viewModel.submit(password: passcode)
-                        renewalSuccessful = true
-                    } catch {
-                        renewalSuccessful = false
-                        renewalError = error
-                    }
-                    onTaskDone()
+        Task {
+            do {
+                _ = try await AppActions.authorizeProtectedAction(
+                    on: self,
+                    account: viewModel.account,
+                    title: lang("Confirm Renewing"),
+                    headerView: RenewDomainAuthHeader(viewModel: viewModel),
+                    passwordAction: { [weak self] passcode in
+                        guard let self else { return ApiMfaProtectedResult() }
+                        return try await self.viewModel.submit(password: passcode)
+                    },
+                    mfaTitle: lang("Confirm Renewing")
+                )
+                let message = viewModel.nfts.count > 1
+                    ? lang("Domains have been renewed!")
+                    : lang("Domain has been renewed!")
+                dismiss(animated: true) {
+                    AppActions.showToast(message: message)
                 }
-            },
-            onDone: { [weak self] _ in
-                guard let self else { return }
-                if renewalSuccessful {
-                    let message = self.viewModel.nfts.count > 1
-                        ? lang("Domains have been renewed!")
-                        : lang("Domain has been renewed!")
-                    self.dismiss(animated: true) {
-                        AppActions.showToast(message: message)
-                    }
-                } else if let renewalError {
-                    self.navigationController?.popViewController(animated: true)
-                    self.showAlert(error: renewalError)
-                }
+            } catch is CancellationError {
+            } catch {
+                showAlert(error: error)
             }
-        )
+        }
     }
 }
 

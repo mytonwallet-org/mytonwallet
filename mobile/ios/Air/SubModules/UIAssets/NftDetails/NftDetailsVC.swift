@@ -183,8 +183,10 @@ public class NftDetailsVC: NftDetailsBaseVC {
             
         case .share:
             return .init(
-                onTap: {
-                    AppActions.shareUrl(ExplorerHelper.nftUrl(nft))
+                onTap: { [weak self] in
+                    guard let self else { return }
+                    let network = AccountContext(accountId: self.accountId).account.network
+                    AppActions.shareUrl(ExplorerHelper.viewNftUrl(network: network, nftAddress: nft.address))
                 }
             )
                 
@@ -202,8 +204,9 @@ public class NftDetailsVC: NftDetailsBaseVC {
                     let accountContext = AccountContext(accountId: accountId)
                     let accountType = accountContext.account.type
                     let accountId = self.accountId
+                    let displayNft = NftStore.getNft(accountId: accountId, nftId: nft.id)
                     var items: [ContextMenuItem] = []
-                    if nft.isTonDns && !nft.isOnSale && accountType == .mnemonic {
+                    if nft.isLinkableDns && !nft.isOnSale && accountType == .mnemonic {
                         let linkedAddress = accountContext.domains.linkedAddressByAddress[nft.address]?.nilIfEmpty
                         let title = linkedAddress == nil ? lang("Link to Wallet") : lang("Change Linked Wallet")
                         items.append(
@@ -212,23 +215,49 @@ public class NftDetailsVC: NftDetailsBaseVC {
                                     title: title,
                                     icon: .system("link"),
                                     handler: {
-                                        AppActions.showLinkDomain(accountSource: .accountId(accountId), nftAddress: nft.address)
+                                        AppActions.showLinkDomain(accountSource: .accountId(accountId), nftAddress: nft.address, nft: nft)
                                     }
                                 )
                             )
                         )
                     }
-                    items.append(
-                        .action(
-                            ContextMenuAction(
-                                title: lang("Hide"),
-                                icon: .airBundle("MenuHide26"),
-                                handler: {
-                                    NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
-                                }
+                    if displayNft?.isHiddenByUser == true {
+                        items.append(
+                            .action(
+                                ContextMenuAction(
+                                    title: lang("Unhide"),
+                                    icon: .system("eye"),
+                                    handler: {
+                                        NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: false)
+                                    }
+                                )
                             )
                         )
-                    )
+                    } else if nft.isScam == true, displayNft?.isUnhiddenByUser != true {
+                        items.append(
+                            .action(
+                                ContextMenuAction(
+                                    title: lang("Not Scam"),
+                                    icon: .system("checkmark.shield"),
+                                    handler: {
+                                        NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: false)
+                                    }
+                                )
+                            )
+                        )
+                    } else {
+                        items.append(
+                            .action(
+                                ContextMenuAction(
+                                    title: lang("Hide"),
+                                    icon: .airBundle("MenuHide26"),
+                                    handler: {
+                                        NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
+                                    }
+                                )
+                            )
+                        )
+                    }
                     if nft.chain.isNftBurnSupported && !nft.isOnSale {
                         items.append(
                             .action(
@@ -244,6 +273,19 @@ public class NftDetailsVC: NftDetailsBaseVC {
                         )
                     }
                     items.append(.separator)
+                    if let url = nft.fragmentUrl {
+                        items.append(
+                            .action(
+                                ContextMenuAction(
+                                    title: "Fragment",
+                                    icon: .airBundle("MenuFragment26", renderingMode: .original),
+                                    handler: {
+                                        AppActions.openInBrowser(url)
+                                    }
+                                )
+                            )
+                        )
+                    }
                     if nft.chain == .ton, !ConfigStore.shared.shouldRestrictBuyNfts {
                         items.append(
                                 .action(
@@ -265,6 +307,19 @@ public class NftDetailsVC: NftDetailsBaseVC {
                                     icon: .airBundle("SendGlobe"),
                                     handler: {
                                         AppActions.openInBrowser(marketplace.address)
+                                    }
+                                )
+                            )
+                        )
+                    }
+                    if let url = ExplorerHelper.tonDnsManagementUrl(nft) {
+                        items.append(
+                            .action(
+                                ContextMenuAction(
+                                    title: "TON Domains",
+                                    icon: .airBundle("MenuTonDomains26"),
+                                    handler: {
+                                        AppActions.openInBrowser(url)
                                     }
                                 )
                             )

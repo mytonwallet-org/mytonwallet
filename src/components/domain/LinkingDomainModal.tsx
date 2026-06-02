@@ -18,11 +18,13 @@ import { isValidAddressOrDomain } from '../../util/isValidAddress';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
+import useInterval from '../../hooks/useInterval';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 import useSyncEffectWithPrevDeps from '../../hooks/useSyncEffectWithPrevDeps';
 
+import MfaConfirm from '../common/MfaConfirm';
 import TransactionBanner from '../common/TransactionBanner';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
 import LedgerConnect from '../ledger/LedgerConnect';
@@ -60,6 +62,7 @@ function LinkingDomainModal({
     walletAddressName = '',
     resolvedWalletAddress,
     txId,
+    mfaRequestHash,
   },
   isMediaViewerOpen,
   byAddress,
@@ -77,6 +80,7 @@ function LinkingDomainModal({
     checkLinkingAddress,
     setDomainLinkingWalletAddress,
     showActivityInfo,
+    updateDomainLinkingMfaRequestStatus,
   } = getActions();
 
   const lang = useLang();
@@ -95,6 +99,12 @@ function LinkingDomainModal({
 
   const canSubmit = isAddressValid && walletAddress !== currentLinkedWalletAddress
     && !isInsufficientBalance && !isLoading;
+
+  useInterval(() => {
+    if (isOpen && state === DomainLinkingState.ConfirmMfa && mfaRequestHash) {
+      updateDomainLinkingMfaRequestStatus();
+    }
+  }, isOpen && state === DomainLinkingState.ConfirmMfa ? 1000 : undefined);
 
   useSyncEffectWithPrevDeps(([prevIsOpen]) => {
     if (!prevIsOpen && isOpen) {
@@ -251,6 +261,17 @@ function LinkingDomainModal({
             onClose={cancelDomainLinking}
             onTryAgain={handleHardwareSubmit}
           />
+        );
+
+      case DomainLinkingState.ConfirmMfa:
+        return (
+          <>
+            <ModalHeader onClose={cancelDomainLinking} />
+            <MfaConfirm
+              onClose={cancelDomainLinking}
+              mfaRequestHash={mfaRequestHash}
+            />
+          </>
         );
 
       case DomainLinkingState.Complete:

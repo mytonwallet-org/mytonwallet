@@ -38,6 +38,7 @@ import kotlin.math.abs
 
 class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell, WThemedView {
     private var account: MAccount? = null
+    private var accountAvatarUrl: String? = null
     private var isFirst = false
     private var isLast = false
 
@@ -161,7 +162,9 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
     ) {
         val account = item.account!!
         val accountChanged = this.account != account
+        val avatarUrlChanged = accountAvatarUrl != account.telegramAvatarUrl
         if (!accountChanged &&
+            !avatarUrlChanged &&
             titleLabel.text == account.name &&
             this.isFirst == isFirst &&
             this.isLast == isLast
@@ -172,6 +175,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         }
 
         this.account = account
+        accountAvatarUrl = account.telegramAvatarUrl
         this.isFirst = isFirst
         this.isLast = isLast
 

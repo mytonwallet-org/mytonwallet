@@ -21,6 +21,7 @@ export {
   deleteAllDapps,
   loadExploreSites,
   signDappProof,
+  createDappConnectMfaRequest,
   signDappTransfers,
   signDappData,
 } from './dapps';
@@ -30,3 +31,4 @@ export * from './portfolio';
 export * from './prices';
 export * from './preload';
 export * from './notifications';
+export * from './mfa';

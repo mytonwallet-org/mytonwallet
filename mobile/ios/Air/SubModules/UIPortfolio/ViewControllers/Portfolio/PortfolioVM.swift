@@ -81,7 +81,8 @@ enum PortfolioTimeRange: String, CaseIterable, Equatable, Hashable, Sendable {
     }
 
     var historyRequest: ApiPortfolioHistoryRequest {
-        ApiPortfolioHistoryRequest(from: startDate(), density: density)
+        let now = Date()
+        return ApiPortfolioHistoryRequest(from: startDate(relativeTo: now), to: Self.endOfUtcDay(now), density: density)
     }
 
     private func startDate(relativeTo now: Date = Date()) -> Date {
@@ -89,19 +90,29 @@ enum PortfolioTimeRange: String, CaseIterable, Equatable, Hashable, Sendable {
         case .all:
             return Self.allStartDate
         case .year:
-            return Calendar.current.date(byAdding: .year, value: -1, to: now)
-                ?? now.addingTimeInterval(-365 * 24 * 60 * 60)
+            return Self.startOfUtcDay(now.addingTimeInterval(-365 * 24 * 60 * 60))
         case .threeMonths:
-            return Calendar.current.date(byAdding: .month, value: -3, to: now)
-                ?? now.addingTimeInterval(-90 * 24 * 60 * 60)
+            return Self.startOfUtcDay(now.addingTimeInterval(-90 * 24 * 60 * 60))
         case .month:
-            return Calendar.current.date(byAdding: .month, value: -1, to: now)
-                ?? now.addingTimeInterval(-30 * 24 * 60 * 60)
+            return Self.startOfUtcDay(now.addingTimeInterval(-30 * 24 * 60 * 60))
         case .week:
-            return now.addingTimeInterval(-7 * 24 * 60 * 60)
+            return Self.startOfUtcDay(now.addingTimeInterval(-7 * 24 * 60 * 60))
         case .day:
-            return now.addingTimeInterval(-24 * 60 * 60)
+            return Self.startOfUtcDay(now.addingTimeInterval(-24 * 60 * 60))
         }
+    }
+
+    private static let secondsInDay: TimeInterval = 24 * 60 * 60
+
+    // Start of the UTC day containing `date` (the epoch is UTC-midnight aligned).
+    private static func startOfUtcDay(_ date: Date) -> Date {
+        let day = (date.timeIntervalSince1970 / secondsInDay).rounded(.down) * secondsInDay
+        return Date(timeIntervalSince1970: day)
+    }
+
+    // End of the UTC day containing `date` (23:59:59).
+    private static func endOfUtcDay(_ date: Date) -> Date {
+        return startOfUtcDay(date).addingTimeInterval(secondsInDay - 1)
     }
 
     private static let allStartDate: Date = {

@@ -70,7 +70,7 @@ export async function sendExternal(
   };
 }
 
-function getExternalMsgHashNormalized(message: Message): string {
+export function getExternalMsgHashNormalized(message: Message): string {
   const cell = beginCell()
     .storeUint(2, 2) // Message type: external-in
     .storeUint(0, 2) // No sender address for external messages

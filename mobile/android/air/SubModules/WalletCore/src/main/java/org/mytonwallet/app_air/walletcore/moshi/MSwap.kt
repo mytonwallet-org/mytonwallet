@@ -124,8 +124,8 @@ data class MApiSwapBuildRequest(
 
 @JsonClass(generateAdapter = true)
 data class MApiSwapBuildResponse(
-    val id: String,
-    val transfers: List<MApiSwapTransfer>
+    val id: String? = null,
+    val transfers: List<MApiSwapTransfer>? = null,
 )
 
 @JsonClass(generateAdapter = true)

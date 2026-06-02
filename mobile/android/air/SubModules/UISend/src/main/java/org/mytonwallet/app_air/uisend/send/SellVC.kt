@@ -321,7 +321,7 @@ class SellVC(
         val tokenSymbol = when (val input = uiState.inputState) {
             is SendViewModel.InputStateFull.Complete -> input.token.symbol
             is SendViewModel.InputStateFull.Incomplete -> input.token?.symbol
-        } ?: MBaseCurrency.TON.currencyCode
+        } ?: MBaseCurrency.TON.sign
         val sellButtonTitle = LocaleController.getStringWithKeyValues(
             "Sell %symbol%",
             listOf("%symbol%" to tokenSymbol)
@@ -446,7 +446,7 @@ class SellVC(
             val password = passcode ?: return@launch
             try {
                 val id = viewModel.callSend(config, password).activityId
-                sentActivityId = ActivityHelpers.getTxIdFromId(id)
+                sentActivityId = id?.let { ActivityHelpers.getTxIdFromId(it) }
                 receivedLocalActivities?.firstOrNull { it.getTxHash() == sentActivityId }?.let {
                     checkReceivedActivity(it)
                 }

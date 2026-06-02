@@ -49,6 +49,7 @@ open class WCustomImageView @JvmOverloads constructor(
 
     private var chainDrawable: Drawable? = null
     private var content: Content? = null
+    private var currentControllerId: String? = null
     private var lowResUrl: String? = null
     private val path = Path()
 
@@ -155,6 +156,7 @@ open class WCustomImageView @JvmOverloads constructor(
     /* Private */
     private val controllerListener = object : BaseControllerListener<ImageInfo>() {
         override fun onRelease(id: String?) {
+            if (id != null && currentControllerId != null && id != currentControllerId) return
             fadeListener?.onShownImmediately()
         }
 
@@ -163,16 +165,18 @@ open class WCustomImageView @JvmOverloads constructor(
             imageInfo: ImageInfo?,
             animatable: android.graphics.drawable.Animatable?
         ) {
+            if (id != null && currentControllerId != null && id != currentControllerId) return
             onFinalImageSet?.invoke(imageInfo)
         }
 
         override fun onFailure(id: String?, throwable: Throwable?) {
+            if (id != null && currentControllerId != null && id != currentControllerId) return
             onFailure?.invoke(throwable)
         }
     }
 
     private fun buildController(content: Content?, lowResUrl: String?) {
-        controller = when (val image = content?.image) {
+        val nextController = when (val image = content?.image) {
             is Content.Image.Empty,
             is Content.Image.Res,
             is Content.Image.Gradient,
@@ -189,6 +193,8 @@ open class WCustomImageView @JvmOverloads constructor(
                 .setControllerListener(controllerListener)
                 .build()
         }
+        currentControllerId = nextController.id
+        controller = nextController
     }
 
     private fun buildHierarchy(content: Content) {

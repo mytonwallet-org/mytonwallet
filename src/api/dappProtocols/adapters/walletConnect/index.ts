@@ -980,6 +980,10 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
             typeof confirmDappRequestSendTransaction<typeof this.protocolType>
       >[1] = await promise;
 
+      if (!Array.isArray(signedTransactions)) {
+        throw new Error('MFA confirmation is not supported for WalletConnect transactions');
+      }
+
       if (!message.payload.isSignOnly) {
         const sentTransaction = await this.chainDappSupports[message.chain]!.sendSignedTransaction!(
           signedTransactions[0].payload.signedTx,

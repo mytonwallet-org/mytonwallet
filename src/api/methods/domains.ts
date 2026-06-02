@@ -4,6 +4,7 @@ import { TONCOIN } from '../../config';
 import { buildCollectionByKey, extractKey } from '../../util/iteratees';
 import * as ton from '../chains/ton';
 import { fetchStoredWallet } from '../common/accounts';
+import { publishSignedMfaRequest } from './mfa';
 import { createLocalTransactions } from './transfer';
 
 export function checkDnsRenewalDraft(accountId: string, nfts: ApiNft[]) {
@@ -15,12 +16,20 @@ export async function submitDnsRenewal(accountId: string, password: string | und
   const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
 
   const nftByAddress = buildCollectionByKey(nfts, 'address');
-  const results: ({ activityIds: string[] } | { error: string })[] = [];
+  const results: (
+    { activityIds: string[] }
+    | { mfaRequestHash: string }
+    | { error: string }
+  )[] = [];
 
   for await (const { addresses, result } of ton.submitDnsRenewal(accountId, password, Object.keys(nftByAddress))) {
     if ('error' in result) {
       results.push(result);
       continue;
+    }
+
+    if ('mfaRequest' in result) {
+      return [await publishSignedMfaRequest(accountId, 'ton', result.mfaRequest)];
     }
 
     const localActivities = createLocalTransactions(accountId, 'ton', addresses.map((address) => {
@@ -63,6 +72,10 @@ export async function submitDnsChangeWallet(
 
   if ('error' in result) {
     return result;
+  }
+
+  if ('mfaRequest' in result) {
+    return publishSignedMfaRequest(accountId, 'ton', result.mfaRequest);
   }
 
   const [activity] = createLocalTransactions(accountId, 'ton', [{

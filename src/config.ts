@@ -16,7 +16,7 @@ import type { AutolockValueType, LangCode, LangItem, TokenPeriod } from './globa
 export const APP_ENV = process.env.APP_ENV || 'production';
 
 export const IS_CORE_WALLET = process.env.IS_CORE_WALLET === '1';
-export const IS_GRAM_WALLET = process.env.IS_AIR_APP === '1' && process.env.IS_GRAM_WALLET === '1';
+export const IS_GRAM_WALLET = process.env.IS_GRAM_WALLET === '1';
 export const APP_NAME = process.env.APP_NAME
   || (IS_CORE_WALLET ? 'TON Wallet' : IS_GRAM_WALLET ? 'Gram Wallet' : 'MyTonWallet');
 export const APP_VERSION = process.env.APP_VERSION!;
@@ -41,9 +41,9 @@ export const IS_EXTENSION = process.env.IS_EXTENSION === '1';
 export const IS_FIREFOX_EXTENSION = process.env.IS_FIREFOX_EXTENSION === '1';
 export const IS_OPERA_EXTENSION = process.env.IS_OPERA_EXTENSION === '1';
 export const IS_PACKAGED_ELECTRON = process.env.IS_PACKAGED_ELECTRON === '1';
-export const IS_ANDROID = process.env.PLATFORM_ENV === 'Android';
 export const IS_CAPACITOR = process.env.IS_CAPACITOR === '1';
 export const IS_ANDROID_DIRECT = process.env.IS_ANDROID_DIRECT === '1';
+export const IS_ANDROID = IS_ANDROID_DIRECT || process.env.CAP_PLATFORM === 'android';
 export const IS_AIR_APP = process.env.IS_AIR_APP === '1';
 export const IS_TELEGRAM_APP = process.env.IS_TELEGRAM_APP === '1';
 export const IS_EXPLORER = process.env.IS_EXPLORER === '1';
@@ -208,7 +208,6 @@ export const IFRAME_WHITELIST = [
   'https://testnet.tonscan.org',
   'https://tonviewer.com',
   'https://testnet.tonviewer.com',
-  PORTFOLIO_DAPP_URL,
 ];
 export const SUBPROJECT_URL_MASK = 'https://*.mytonwallet.io';
 
@@ -225,7 +224,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-306';
+export const LANG_CACHE_NAME = 'mtw-lang-308';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -285,7 +284,16 @@ export const ONE_TON = 1_000_000_000n;
 export const DEFAULT_FEE = 15_000_000n; // 0.015 TON
 export const UNSTAKE_TON_GRACE_PERIOD = 20 * 60 * 1000; // 20 m.
 
-export const STAKING_POOLS = process.env.STAKING_POOLS ? process.env.STAKING_POOLS.split(' ') : [];
+const DEFAULT_NOMINATORS_STAKING_POOL = 'Ef84o4VJRnlp1wsqSHov1QttqSTQda2Z1vGK-b7EaPQoeJMx';
+
+const DEFAULT_STAKING_POOLS = [
+  DEFAULT_NOMINATORS_STAKING_POOL,
+];
+
+export const STAKING_POOLS = [
+  ...(process.env.STAKING_POOLS ? process.env.STAKING_POOLS.split(' ') : []),
+  ...DEFAULT_STAKING_POOLS,
+].filter(Boolean);
 export const LIQUID_POOL = process.env.LIQUID_POOL || 'EQD2_4d91M4TVbEBVyBF8J1UwpMJc361LKVCz6bBlffMW05o';
 export const LIQUID_JETTON = process.env.LIQUID_JETTON || 'EQCqC6EhRJ_tpWngKxL6dV0k6DSnRUrs9GSVkLbfdCqsj6TE';
 export const STAKING_MIN_AMOUNT = ONE_TON;
@@ -312,8 +320,8 @@ export const TON_DNS_RENEWAL_WARNING_DAYS = 14;
 export const TON_DNS_RENEWAL_NFT_WARNING_DAYS = 30;
 
 export const TONCOIN = {
-  name: 'Toncoin',
-  symbol: 'TON',
+  name: 'Gram',
+  symbol: 'GRAM',
   slug: 'toncoin',
   decimals: 9,
   chain: 'ton',
@@ -563,6 +571,18 @@ export const BASE_USDC_MAINNET = {
   priceUsd: 1,
 } as const;
 
+export const ARBITRUM_USDC_MAINNET = {
+  name: 'USD Coin',
+  symbol: 'USDC',
+  decimals: 6,
+  chain: 'arbitrum',
+  slug: 'arbitrum-0xaf88d065',
+  tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  label: 'ERC-20',
+  image: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
+  priceUsd: 1,
+} as const;
+
 export const BSC_USDT_MAINNET = {
   name: 'Tether USD',
   symbol: 'USDT',
@@ -631,6 +651,7 @@ export const TOKEN_CUSTOM_STYLES: Partial<Record<string, {
 
 export const ALL_STAKING_POOLS = [
   LIQUID_POOL,
+  DEFAULT_NOMINATORS_STAKING_POOL,
   MYCOIN_STAKING_POOL,
   ETHENA_STAKING_VAULT,
   TON_TSUSDE.tokenAddress,
@@ -685,7 +706,7 @@ export const DEFAULT_PRICE_CURRENCY = 'USD';
 export const CURRENCIES: Record<
   ApiBaseCurrency,
   // Get the fallback rates at https://api.mytonwallet.org/currency-rates
-  { name: string; decimals: number; shortSymbol?: string; fallbackRate: string }
+  { name: string; decimals: number; shortSymbol?: string; shortSymbolPosition?: 'start' | 'end'; fallbackRate: string }
 > = {
   USD: {
     name: 'US Dollar',
@@ -716,9 +737,11 @@ export const CURRENCIES: Record<
     decimals: 9,
     fallbackRate: '0.00000866',
   },
-  [TONCOIN.symbol]: {
-    name: 'Toncoin',
+  TON: {
+    name: 'Gram',
     decimals: 9,
+    shortSymbol: 'GRAM',
+    shortSymbolPosition: 'end',
     fallbackRate: '0.31360000',
   },
 };
@@ -941,3 +964,9 @@ export const UNKNOWN_TOKEN = {
 } as const;
 
 export const DEFAULT_CHAIN: ApiChain = 'ton';
+
+export const MFA_BOT_URL = process.env.MFA_BOT_URL || 'https://t.me/myapp/mfa';
+export const MFA_API_BASE_URL = process.env.MFA_API_BASE_URL || 'https://mfa-server.mytonwallet.org';
+export const MFA_MASTER_ADDRESS = 'UQCIoyc951J4hQwboW1-Gbt0kK0z920N2y8GbNXqCzWqe2ds';
+export const MFA_EXTENSION_CODE_HASH = '965842606d7687512b10d41677b4fef3fc8260fe3f2346174661f47fcded3067';
+export const DEFAULT_ACCENT_COLOR_INDEX = IS_GRAM_WALLET ? 5 : undefined;

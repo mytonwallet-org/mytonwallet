@@ -11,6 +11,24 @@ struct SwapExecutionContext {
     let passcode: String
 }
 
+struct SwapExecutionResult: Sendable, MfaProtectedActionResult {
+    let activity: ApiActivity?
+    let swapId: String?
+    let mfaRequestHash: String?
+
+    static let submitted = SwapExecutionResult(activity: nil, swapId: nil, mfaRequestHash: nil)
+
+    func handleMfaConfirmation(accountId: String, request: ApiMfaRequest) async throws {
+        guard let swapId else {
+            return
+        }
+        guard !request.txHash.isEmpty else {
+            throw BridgeCallError.customMessage("Missing MFA transaction hash", request)
+        }
+        try await Api.confirmSwapMfaRequest(accountId: accountId, swapId: swapId, txHash: request.txHash)
+    }
+}
+
 struct SwapMaxAmountContext {
     let swapType: SwapType
     let fullNetworkFee: MFee.FeeTerms?
@@ -48,7 +66,7 @@ enum SwapDetailsSection: Equatable {
     ) -> SwapMaxAmountContext
     func buttonState(context: SwapPresentationContext, state: SwapFlowState) -> SwapButtonState
     func route(context: SwapPresentationContext, state: SwapFlowState) -> SwapRoute?
-    func performSwap(context: SwapExecutionContext, state: SwapFlowState) async throws -> ApiActivity?
+    func performSwap(context: SwapExecutionContext, state: SwapFlowState) async throws -> SwapExecutionResult
 }
 
 @MainActor struct SwapFlowRouter {

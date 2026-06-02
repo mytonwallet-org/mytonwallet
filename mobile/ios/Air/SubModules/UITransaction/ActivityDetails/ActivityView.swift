@@ -100,6 +100,7 @@ struct ActivityView: View {
                     NftMedia(
                         nft: nft,
                         playAnimationOnce: true,
+                        mediaContentMode: .scaleAspectFill,
                         animationRenderingConfiguration: .nftDetailsHeaderDefault
                     )
                     .frame(width: proxy.size.width, height: proxy.size.width)
@@ -163,14 +164,12 @@ struct ActivityView: View {
                 )
             }
         case .swap(let swap):
-            if let fromAmount = swap.fromAmountInt64, let toAmount = swap.toAmountInt64, let fromToken = swap.fromToken, let toToken = swap.toToken {
-                SwapOverviewView(
-                    fromAmount: TokenAmount(fromAmount, fromToken),
-                    toAmount: TokenAmount(toAmount, toToken),
-                    onTokenTapped: onTokenTapped
-                )
-                .padding(.top, 16)
-            }
+            SwapOverviewView(
+                fromAmount: swap.displayFromAmount,
+                toAmount: swap.displayToAmount,
+                onTokenTapped: onTokenTapped
+            )
+            .padding(.top, 16)
         }
     }
 

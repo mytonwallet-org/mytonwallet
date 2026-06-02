@@ -9,7 +9,6 @@ import Foundation
 import SwiftUI
 import UIComponents
 import UIKit
-import UIPasscode
 import WalletContext
 import WalletCore
 
@@ -172,11 +171,13 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
         do {
             awaitingActivity = true
             pendingActivityId = nil
-            try await pushAuthUsingPasswordOrLedger(
+            let result = try await AppActions.authorizeProtectedAction(
+                on: self,
+                account: account,
                 title: lang("Confirm Staking"),
                 headerView: headerView,
                 passwordAction: { [weak self] password in
-                    let activityId = try await Api.submitStake(
+                    let result = try await Api.submitStakeProtected(
                         accountId: account.id,
                         password: password,
                         amount: amount,
@@ -184,17 +185,22 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
                         realFee: realFee
                     )
                     await MainActor.run {
-                        self?.pendingActivityId = activityId
+                        self?.pendingActivityId = result.activityId
                     }
+                    return result
                 },
-                ledgerSignData: .staking(
-                    isStaking: true,
-                    accountId: account.id,
-                    amount: amount,
-                    stakingState: model.stakingState,
-                    realFee: realFee
-                )
+                ledgerSignData: {
+                    .staking(
+                        isStaking: true,
+                        accountId: account.id,
+                        amount: amount,
+                        stakingState: self.model.stakingState,
+                        realFee: realFee
+                    )
+                },
+                mfaTitle: lang("Confirm Staking")
             )
+            pendingActivityId = result?.activityId
             // from user perspective staked token is automatically pinned to be shown in UI at top of tokens list
             AssetsAndActivityDataStore.update(accountId: account.id, update: { [slug = model.baseToken.slug] settings in
                 settings.saveTokenPinning(slug: slug, isStaking: true, isPinned: true)

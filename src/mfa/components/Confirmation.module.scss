@@ -1,0 +1,26 @@
+.container {
+  min-height: 0;
+}
+
+.title {
+  margin: 1.25rem 1rem 1rem;
+
+  font-size: 1.875rem;
+  font-weight: 800;
+  line-height: 2.5rem;
+  color: var(--mfa-text-primary);
+  text-align: center;
+}
+
+.content {
+  padding-top: 0;
+}
+
+.footer {
+  padding-inline: 1rem;
+}
+
+.preview {
+  width: 100%;
+  padding: 0 1rem;
+}

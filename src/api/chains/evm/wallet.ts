@@ -115,7 +115,10 @@ export async function fetchAccountAssets(
     .filter((e) =>
       e.attributes.fungible_info.name
       && e.attributes.fungible_info.symbol
-      && !isNativeZerionAsset(chain, zerionChain, e),
+      && !isNativeZerionAsset(
+        getApiChainByZerionChain(e.relationships.chain.data.id),
+        e.relationships.chain.data.id,
+        e),
     )
     .forEach((e) => {
       const assetChain = getApiChainByZerionChain(e.relationships.chain.data.id);

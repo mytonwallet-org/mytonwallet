@@ -135,7 +135,7 @@ class PriceWidgetConfigurationVC(
             }, selectedPeriod)
             val baseCurrency = (WBaseStorage.getBaseCurrency() ?: MBaseCurrency.USD).currencyCode
             SDKApiMethod.Token.PriceChart(
-                config.assetId ?: PriceWidget.DEFAULT_TOKEN,
+                config.assetId ?: PriceWidget.DEFAULT_TOKEN_ASSET_ID,
                 selectedPeriod.value,
                 baseCurrency
             )
@@ -290,7 +290,7 @@ class PriceWidgetConfigurationVC(
         )
         val baseCurrency = (WBaseStorage.getBaseCurrency() ?: MBaseCurrency.USD).currencyCode
         SDKApiMethod.Token.PriceChart(
-            config.assetId ?: PriceWidget.DEFAULT_TOKEN,
+            config.assetId ?: PriceWidget.DEFAULT_TOKEN_ASSET_ID,
             selectedPeriod.value,
             baseCurrency
         )

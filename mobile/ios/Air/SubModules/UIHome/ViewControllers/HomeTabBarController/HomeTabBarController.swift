@@ -47,6 +47,11 @@ private final class LazyRootNavigationController: WNavigationController {
         viewControllers = [makeRootViewController()]
     }
 
+    func setPreservedViewControllers(_ viewControllers: [UIViewController]) {
+        didInstallRootViewController = true
+        self.viewControllers = viewControllers
+    }
+
     func containsRootViewController<T: UIViewController>(of type: T.Type) -> Bool {
         if let rootViewController = viewControllers.first {
             return rootViewController is T
@@ -56,7 +61,7 @@ private final class LazyRootNavigationController: WNavigationController {
 }
 
 public class HomeTabBarController: UITabBarController {
-    
+
     public enum Tab: Int {
         case home
         case agent
@@ -65,7 +70,7 @@ public class HomeTabBarController: UITabBarController {
     }
 
     private(set) public var homeVC: HomeVC!
-    
+
     private var highlightView: UIImageView? { view.subviews.first(where: { $0 is UIImageView }) as? UIImageView }
     private var settingsTabContextMenuInteraction: ContextMenuInteraction?
     private var isSwitchAccountMenuPresented = false
@@ -74,11 +79,11 @@ public class HomeTabBarController: UITabBarController {
         self.homeVC = HomeVC()
         super.init(nibName: nil, bundle: nil)
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     public override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -88,9 +93,9 @@ public class HomeTabBarController: UITabBarController {
         if !IOS_26_MODE_ENABLED {
             applyTabBarAppearance()
         }
-        
+
         WalletCoreData.add(eventObserver: self)
-        
+
         let homeNav = WNavigationController(rootViewController: homeVC)
         let settingsViewController = LazyRootNavigationController(rootViewControllerType: SettingsVC.self) {
             SettingsVC()
@@ -101,16 +106,16 @@ public class HomeTabBarController: UITabBarController {
         let agentViewController = LazyRootNavigationController(rootViewControllerType: AgentVC.self) {
             AgentEntryPoint.makeRootViewController()
         }
-        
+
         homeNav.tabBarItem.image = UIImage(named: "tab_home", in: AirBundle, compatibleWith: nil)
         homeNav.title = lang("Wallet")
 
         agentViewController.tabBarItem.image = UIImage(named: "tab_agent", in: AirBundle, compatibleWith: nil)
         agentViewController.title = lang("Agent")
-        
+
         browserViewController.tabBarItem.image = UIImage(named: "tab_explore", in: AirBundle, compatibleWith: nil)
         browserViewController.title = lang("Explore")
-        
+
         settingsViewController.tabBarItem.image = UIImage(named: "tab_settings", in: AirBundle, compatibleWith: nil)
         settingsViewController.title = lang("Settings")
 
@@ -124,7 +129,7 @@ public class HomeTabBarController: UITabBarController {
         if #available(iOS 18.0, *), UIDevice.current.userInterfaceIdiom == .pad {
             traitOverrides.horizontalSizeClass = .compact
         }
-        
+
         updateTheme()
     }
 
@@ -133,12 +138,12 @@ public class HomeTabBarController: UITabBarController {
 
         // Make window background black. It was groupedBackground until home appearance!
         UIApplication.shared.delegate?.window??.backgroundColor = .black
-        
+
         if let config = ConfigStore.shared.config {
             handleConfig(config)
         }
     }
-    
+
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         updateTheme()
@@ -147,7 +152,7 @@ public class HomeTabBarController: UITabBarController {
     @objc private func handleThemeUpdated(_ notification: Notification) {
         updateTheme()
     }
-    
+
     private func updateTheme() {
         tabBar.tintColor = UIColor.tintColor
         tabBar.unselectedItemTintColor = .air.secondaryLabel
@@ -158,7 +163,36 @@ public class HomeTabBarController: UITabBarController {
     public var currentTab: Tab {
         tab(at: selectedIndex)
     }
-    
+
+    public func takeNavigationStack(for tab: Tab, keepingRoot: Bool) -> [UIViewController]? {
+        guard let navigationController = navigationController(for: tab) else { return nil }
+        if navigationController.viewControllers.isEmpty,
+           currentTab == tab,
+           let lazyNavigationController = navigationController as? LazyRootNavigationController {
+            lazyNavigationController.ensureRootViewControllerInstalled()
+        }
+        let stack = navigationController.viewControllers
+        guard !stack.isEmpty else { return nil }
+        if keepingRoot, let rootViewController = stack.first {
+            navigationController.setViewControllers([rootViewController], animated: false)
+        } else {
+            navigationController.setViewControllers([Self.makeNavigationStackPlaceholder()], animated: false)
+        }
+        return stack
+    }
+
+    public func setNavigationStack(_ stack: [UIViewController], for tab: Tab) {
+        guard !stack.isEmpty, let navigationController = navigationController(for: tab) else { return }
+        if tab == .home, let homeVC = stack.first as? HomeVC {
+            self.homeVC = homeVC
+        }
+        if let lazyNavigationController = navigationController as? LazyRootNavigationController {
+            lazyNavigationController.setPreservedViewControllers(stack)
+        } else {
+            navigationController.setViewControllers(stack, animated: false)
+        }
+    }
+
     public func scrollToTop(tabVC: UIViewController) {
         if let navController = tabVC as? UINavigationController {
             _ = navController.tabItemTapped()
@@ -168,7 +202,7 @@ public class HomeTabBarController: UITabBarController {
             topWViewController()?.scrollToTop(animated: true)
         }
     }
-    
+
     public func switchToHome(popToRoot: Bool) {
         selectedIndex = tabIndex(for: .home)
         if popToRoot {
@@ -192,7 +226,7 @@ public class HomeTabBarController: UITabBarController {
         }
         agentNavigationController.resetRootViewController()
     }
-    
+
     public func switchToExplore() {
         selectedIndex = tabIndex(for: .explore)
     }
@@ -219,6 +253,20 @@ public class HomeTabBarController: UITabBarController {
         Tab(rawValue: index) ?? .home
     }
 
+    private func navigationController(for tab: Tab) -> UINavigationController? {
+        loadViewIfNeeded()
+        guard let viewControllers else { return nil }
+        let index = tabIndex(for: tab)
+        guard viewControllers.indices.contains(index) else { return nil }
+        return viewControllers[index] as? UINavigationController
+    }
+
+    private static func makeNavigationStackPlaceholder() -> UIViewController {
+        let viewController = UIViewController()
+        viewController.view.backgroundColor = .black
+        return viewController
+    }
+
     private func applyTabBarAppearance() {
         guard !IOS_26_MODE_ENABLED else { return }
 
@@ -238,7 +286,7 @@ public class HomeTabBarController: UITabBarController {
         itemAppearance.selected.iconColor = UIColor.tintColor
         itemAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.tintColor]
     }
-    
+
     func addGestureRecognizer() {
         for (index, view) in tabViews().enumerated() {
             let isSettingsTab = if let viewControllers, index < viewControllers.count {
@@ -246,7 +294,7 @@ public class HomeTabBarController: UITabBarController {
             } else {
                 false
             }
-            
+
             if !IOS_26_MODE_ENABLED {
                 if !isSettingsTab {
                     let highlightGesture = UILongPressGestureRecognizer()
@@ -256,13 +304,13 @@ public class HomeTabBarController: UITabBarController {
                     highlightGesture.allowableMovement = 100
                     view.addGestureRecognizer(highlightGesture)
                 }
-                
+
                 let tapGesture = UITapGestureRecognizer()
                 tapGesture.addTarget(self, action: #selector(onSelect))
                 tapGesture.delegate = self
                 view.addGestureRecognizer(tapGesture)
             }
-            
+
             if isSettingsTab {
                 let interaction = ContextMenuInteraction(
                     triggers: [.longPress],
@@ -296,7 +344,7 @@ public class HomeTabBarController: UITabBarController {
 #endif
         }
     }
-    
+
 #if DEBUG
     @objc private func onExploreLongTap(_ gesture: UIGestureRecognizer) {
         if gesture.state == .began {
@@ -304,7 +352,7 @@ public class HomeTabBarController: UITabBarController {
         }
     }
 #endif
-    
+
     @objc func onTouch(_ gesture: UIGestureRecognizer) {
         guard !UIAccessibility.buttonShapesEnabled else { return }
         if gesture.state == .began {
@@ -344,7 +392,7 @@ public class HomeTabBarController: UITabBarController {
             }
         }
     }
-    
+
     @objc func onSelect(_ gesture: UIGestureRecognizer) {
         if self.isSwitchAccountMenuPresented {
             return
@@ -362,14 +410,14 @@ public class HomeTabBarController: UITabBarController {
             }
         }
     }
-        
+
     private func tabViews() -> [UIView] {
         guard let tabBarItems = tabBar.items else { return [] }
         return tabBarItems.compactMap { item in
             item.value(forKey: "view") as? UIView
         }
     }
-    
+
     private func cancelTabSelectionInteraction(on view: UIView) {
         self.resetTabHighlight(on: view)
         let wasViewInteractionEnabled = view.isUserInteractionEnabled
@@ -430,7 +478,7 @@ extension HomeTabBarController: UIGestureRecognizerDelegate {
     public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         true
     }
-    
+
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         true
     }
@@ -438,7 +486,7 @@ extension HomeTabBarController: UIGestureRecognizerDelegate {
 
 
 extension HomeTabBarController: UITabBarControllerDelegate {
-    
+
     public func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
         if self.isSwitchAccountMenuPresented {
             return false
@@ -461,7 +509,7 @@ extension HomeTabBarController: WalletCoreData.EventsObserver {
             break
         }
     }
-    
+
     private func handleConfig(_ config: ApiUpdate.UpdateConfig) {
         if config.isAppUpdateRequired == true {
             AppActions.showToast(message: lang("Update %app_name%", arg1: APP_NAME), duration: nil) {

@@ -1,0 +1,15 @@
+.app {
+  max-width: 40rem;
+  height: 100%;
+  margin: 0 auto;
+
+  font-size: 1.0625rem;
+  color: var(--mfa-gray);
+
+  background-color: var(--mfa-background);
+
+  // Allow Telegram to animate background on launch
+  :global(html.force-transparent-bg) & {
+    background-color: transparent;
+  }
+}

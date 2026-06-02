@@ -2,6 +2,11 @@ import type { CapacitorConfig } from '@capacitor/cli';
 import type { KeyboardResize } from '@capacitor/keyboard';
 
 const { APP_ENV = 'production' } = process.env;
+const IS_GRAM_WALLET = ['1', 'true', 'yes'].includes(
+  (process.env.IS_GRAM_WALLET ?? '').toLowerCase(),
+);
+const APP_ID = IS_GRAM_WALLET ? 'org.mytonwallet.gram' : 'org.mytonwallet.app';
+const APP_NAME = IS_GRAM_WALLET ? 'GramWallet' : 'MyTonWallet';
 
 const COMMON_PLUGINS = [
   '@capacitor-community/bluetooth-le',
@@ -28,8 +33,8 @@ const COMMON_PLUGINS = [
 ];
 
 const config: CapacitorConfig = {
-  appId: 'org.mytonwallet.app',
-  appName: 'MyTonWallet',
+  appId: APP_ID,
+  appName: APP_NAME,
   webDir: 'dist',
   server: {
     androidScheme: 'https',
@@ -50,6 +55,9 @@ const config: CapacitorConfig = {
     CapacitorHttp: {
       enabled: true,
     },
+    NativeAudio: {
+      hls: false,
+    },
     PushNotifications: {
       presentationOptions: [],
     },
@@ -64,9 +72,6 @@ const config: CapacitorConfig = {
       // https://capacitorjs.com/docs/apis/keyboard#configuration
       // This is necessary since Cap7, otherwise input will be hidden by the keyboard.
       resizeOnFullScreen: true,
-    },
-    NativeAudio: {
-      hls: false,
     },
   },
 };

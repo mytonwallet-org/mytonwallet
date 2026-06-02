@@ -1,7 +1,6 @@
 
 import SwiftUI
 import UIKit
-import UIPasscode
 import UIActivityList
 import UIComponents
 import WalletCore

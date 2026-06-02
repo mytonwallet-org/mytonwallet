@@ -6,6 +6,7 @@ import { AppState } from '../global/types';
 
 import {
   APP_NAME,
+  DEFAULT_ACCENT_COLOR_INDEX,
   INACTIVE_MARKER,
   IS_ANDROID_DIRECT,
   IS_CAPACITOR,
@@ -311,7 +312,7 @@ export default memo(withGlobal((global): StateProps => {
     isQrScannerOpen: global.isQrScannerOpen,
     isFullscreen: Boolean(global.isFullscreen),
     theme: global.settings.theme,
-    accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
+    accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex ?? DEFAULT_ACCENT_COLOR_INDEX,
     isAppReady: selectCurrentAccountState(global)?.isAppReady,
   };
 })(App));

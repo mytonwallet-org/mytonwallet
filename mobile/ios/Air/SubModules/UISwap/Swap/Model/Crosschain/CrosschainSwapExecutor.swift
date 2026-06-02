@@ -9,7 +9,7 @@ import WalletCore
         account: SwapAccountSnapshot,
         payoutAddress: String? = nil,
         passcode: String
-    ) async throws -> ApiActivity? {
+    ) async throws -> SwapExecutionResult {
         guard let swapEstimate else {
             throw BridgeCallError.customMessage("Missing swap estimate", nil)
         }
@@ -42,7 +42,7 @@ import WalletCore
         buyingToken: ApiToken,
         account: SwapAccountSnapshot,
         passcode: String
-    ) async throws -> ApiActivity? {
+    ) async throws -> SwapExecutionResult {
         guard let toAddress = account.getAddress(chain: buyingToken.chain) else {
             throw BridgeCallError.customMessage("Missing payout address", nil)
         }
@@ -64,7 +64,7 @@ import WalletCore
         account: SwapAccountSnapshot,
         payoutAddress: String?,
         passcode: String
-    ) async throws -> ApiActivity? {
+    ) async throws -> SwapExecutionResult {
         guard let payoutAddress, !payoutAddress.isEmpty else {
             throw BridgeCallError.customMessage("Missing payout address", nil)
         }
@@ -87,7 +87,7 @@ import WalletCore
         account: SwapAccountSnapshot,
         shouldTransfer: Bool,
         passcode: String
-    ) async throws -> ApiActivity? {
+    ) async throws -> SwapExecutionResult {
         guard let fromAddress = account.crosschainIdentifyingFromAddress else {
             throw BridgeCallError.customMessage("Missing account address", nil)
         }

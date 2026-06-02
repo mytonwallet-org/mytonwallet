@@ -1,6 +1,7 @@
 import type { ApiNft } from '../api/types';
 
 import {
+  IS_GRAM_WALLET,
   TON_DNS_RENEWAL_WARNING_DAYS,
   TON_DNS_ZONES,
 } from '../config';
@@ -43,6 +44,19 @@ export function getDnsDomainZone(domain: string) {
   }
 
   return undefined;
+}
+
+export function getTelegramAvatarUrlFromDomain(domain?: string) {
+  if (!IS_GRAM_WALLET || !domain) {
+    return undefined;
+  }
+
+  const match = getDnsDomainZone(domain.trim().toLowerCase());
+  if (match?.zone.collectionName !== 'Telegram Usernames' || match.base.includes('.')) {
+    return undefined;
+  }
+
+  return `https://t.me/i/userpic/320/${match.base}.jpg`;
 }
 
 export function getDnsZoneByCollection(collectionAddress: string) {

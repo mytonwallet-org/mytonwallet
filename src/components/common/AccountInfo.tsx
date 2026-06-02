@@ -7,6 +7,7 @@ import type { AccountBalance } from '../../hooks/useAccountsBalances';
 
 import { selectAccountSettings, selectCurrentAccount, selectCurrentAccountId } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import { getTelegramAvatarUrlFromDomain } from '../../util/dns';
 import { formatAccountAddresses } from '../../util/formatAccountAddress';
 import { formatCurrency } from '../../util/formatNumber';
 import isViewAccount from '../../util/isViewAccount';
@@ -23,6 +24,7 @@ interface StateProps {
   cardBackgroundNft?: ApiNft;
   isSensitiveDataHidden?: boolean;
   isTestnet?: boolean;
+  avatarUrl?: string;
 }
 
 interface OwnProps {
@@ -35,6 +37,7 @@ function AccountInfo({
   cardBackgroundNft,
   isSensitiveDataHidden,
   isTestnet,
+  avatarUrl,
   balanceData,
 }: StateProps & OwnProps) {
   if (!currentAccount) return;
@@ -49,6 +52,7 @@ function AccountInfo({
         title={currentAccount.title}
         accountId={currentAccountId}
         className={styles.avatar}
+        imageUrl={avatarUrl}
       />
 
       <div className={styles.titleRow}>
@@ -98,5 +102,6 @@ export default memo(withGlobal((global): StateProps => {
     cardBackgroundNft: accountSettings?.cardBackgroundNft,
     isSensitiveDataHidden,
     isTestnet,
+    avatarUrl: getTelegramAvatarUrlFromDomain(currentAccount?.byChain.ton?.domain),
   };
 })(AccountInfo));

@@ -261,14 +261,6 @@ addActionHandler('submitSwap', async (global, actions, { password }) => {
     hashes: [],
   };
 
-  setGlobal(updateCurrentSwap(getGlobal(), {
-    tokenInSlug: undefined,
-    tokenOutSlug: undefined,
-    amountIn: undefined,
-    amountOut: undefined,
-    state: SwapState.Complete,
-  }));
-
   const result = await callApi(
     'swapSubmit',
     selectCurrentAccountId(global)!,
@@ -283,7 +275,12 @@ addActionHandler('submitSwap', async (global, actions, { password }) => {
     return;
   }
 
-  setGlobal(updateCurrentSwap(getGlobal(), { activityId: result.activityId }));
+  setGlobal(updateCurrentSwap(getGlobal(), {
+    state: result.mfaRequestHash ? SwapState.ConfirmMfa : SwapState.Complete,
+    activityId: result.activityId,
+    swapId: result.swapId,
+    mfaRequestHash: result.mfaRequestHash,
+  }));
 });
 
 addActionHandler('submitSwapCex', async (global, actions, { password }) => {
@@ -359,6 +356,30 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
       return;
     }
   }
+});
+
+addActionHandler('updateSwapMfaRequestStatus', async (global) => {
+  const { mfaRequestHash, swapId } = global.currentSwap;
+  if (!mfaRequestHash || !swapId) return;
+
+  const result = await callApi('fetchMfaRequest', mfaRequestHash);
+  if (!result?.isConfirmed) return;
+
+  const accountId = selectCurrentAccountId(getGlobal());
+  if (!accountId) return;
+
+  try {
+    await callApi('confirmSwapMfaRequest', accountId, swapId, result.txHash);
+  } catch (err) {
+    logDebugError('updateSwapMfaRequestStatus:confirmSwapMfaRequest', err);
+  }
+
+  global = getGlobal();
+  global = updateCurrentSwap(global, {
+    state: SwapState.Complete,
+    mfaRequestHash: undefined,
+  });
+  setGlobal(global);
 });
 
 addActionHandler('switchSwapTokens', (global) => {

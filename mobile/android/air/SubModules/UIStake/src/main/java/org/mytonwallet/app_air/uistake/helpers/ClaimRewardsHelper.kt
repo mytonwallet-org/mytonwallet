@@ -153,8 +153,19 @@ object ClaimRewardsHelper {
                 state = stakingState,
                 realFee = fee
             )
-        ) { _, err ->
+        ) { result, err ->
             logClaimResult(tokenSlug, err)
+            val mfaHash = result?.mfaRequestHash
+            if (err == null && mfaHash != null) {
+                window.dismissLastNav {
+                    val mfaVC = org.mytonwallet.app_air.uicomponents.viewControllers
+                        .MfaActionConfirmVC(window.applicationContext, requestHash = mfaHash)
+                    val mfaNav = WNavigationController(window)
+                    mfaNav.setRoot(mfaVC)
+                    window.present(mfaNav)
+                }
+                return@call
+            }
             if (stakingState is StakingState.Ethena) {
                 window.dismissLastNav {
                     window.dismissLastNav()

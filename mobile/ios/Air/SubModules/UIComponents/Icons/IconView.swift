@@ -42,9 +42,21 @@ public class IconView: UIView {
     private var resolveGradientColors: (() -> [CGColor]?)?
     
     private var cachedActivityId: String?
+    private var cachedAccountAvatarURL: URL?
+    private var currentAccountPlaceholder: MAccount?
+    private var accountAvatarState: AccountAvatarState = .none
+    private var accountAvatarRetryWorkItem: DispatchWorkItem?
     private var cachedTokenSlug: String?
     private var cachedTokenImageURL: String?
     private var tokenImageState: TokenImageState = .none
+
+    private enum AccountAvatarState {
+        case none
+        case loading
+        case loaded
+        case failed
+        case unavailable
+    }
 
     private enum TokenImageState {
         case none
@@ -262,6 +274,7 @@ public class IconView: UIView {
     }
 
     public func config(with activity: ApiActivity, isTransactionConfirmation: Bool = false) {
+        resetAccountAvatarState()
         cachedTokenSlug = nil
         cachedTokenImageURL = nil
         tokenImageState = .none
@@ -333,6 +346,7 @@ public class IconView: UIView {
             updateChainAccessoryMask()
         }
         
+        resetAccountAvatarState()
         let tokenSlug = token?.slug
         let tokenImageURL = token?.image?.nilIfEmpty
         let tokenChanged = cachedTokenSlug != tokenSlug
@@ -386,11 +400,23 @@ public class IconView: UIView {
 
         cachedTokenSlug = nil
         cachedTokenImageURL = nil
+        currentAccountPlaceholder = account
+        let avatarURL = account?.telegramAvatarUrl
+        let avatarURLChanged = cachedAccountAvatarURL != avatarURL
+        if avatarURLChanged {
+            resetAccountAvatarState()
+            cachedAccountAvatarURL = avatarURL
+            currentAccountPlaceholder = account
+        }
         tokenImageState = .none
         hideTokenLoadingPlaceholder()
         hideTokenPlaceholder()
         imageView.contentMode = .center
         chainAccessoryView.isHidden = true
+        if avatarURLChanged {
+            imageView.kf.cancelDownloadTask()
+            imageView.image = nil
+        }
         guard let account else {
             resolveGradientColors = nil
             gradientLayer.colors = resolveGradientColors?()
@@ -403,28 +429,20 @@ public class IconView: UIView {
             return
         }
         imageView.tintColor = nil
-        let content = account.avatarContent
-        switch content {
-        case .initial(let string):
-            largeLabel.text = string
-            smallLabelTop.text = nil
-            smallLabelBottom.text = nil
-        case .sixCharacters(let string, let string2):
-            largeLabel.text = nil
-            smallLabelTop.text = string
-            smallLabelBottom.text = string2
-        case .typeIcon:
-            break
-        case .image(_):
-            break
-        }
+        configureAccountPlaceholder(account)
         resolveGradientColors = { account.firstAddress.gradientColors }
         gradientLayer.colors = resolveGradientColors?()
         gradientLayer.isHidden = false
-        imageView.image = nil
+        if let avatarURL {
+            configureAccountAvatarImage(avatarURL, fallbackAccount: account)
+        } else {
+            imageView.kf.cancelDownloadTask()
+            imageView.image = nil
+        }
     }
     
     public func config(with earnHistoryItem: MStakingHistoryItem) {
+        resetAccountAvatarState()
         cachedTokenSlug = nil
         cachedTokenImageURL = nil
         tokenImageState = .none
@@ -440,6 +458,7 @@ public class IconView: UIView {
     }
     
     public func config(with image: UIImage?, tintColor: UIColor? = nil) {
+        resetAccountAvatarState()
         cachedTokenSlug = nil
         cachedTokenImageURL = nil
         tokenImageState = .none
@@ -530,6 +549,116 @@ public class IconView: UIView {
             chainAccessoryView.apply(layoutGeometry: geometry, in: self)
             updateChainAccessoryMask()
         }
+    }
+
+    private func configureAccountPlaceholder(_ account: MAccount) {
+        let content = account.avatarContent
+        switch content {
+        case .initial(let string):
+            largeLabel.text = string
+            smallLabelTop.text = nil
+            smallLabelBottom.text = nil
+        case .sixCharacters(let string, let string2):
+            largeLabel.text = nil
+            smallLabelTop.text = string
+            smallLabelBottom.text = string2
+        case .typeIcon:
+            largeLabel.text = nil
+            smallLabelTop.text = nil
+            smallLabelBottom.text = nil
+        case .image(_):
+            largeLabel.text = nil
+            smallLabelTop.text = nil
+            smallLabelBottom.text = nil
+        }
+    }
+
+    private func hideAccountPlaceholder() {
+        largeLabel.text = nil
+        smallLabelTop.text = nil
+        smallLabelBottom.text = nil
+    }
+
+    private func configureAccountAvatarImage(_ avatarURL: URL, fallbackAccount account: MAccount) {
+        imageView.contentMode = .scaleAspectFill
+        switch accountAvatarState {
+        case .loaded:
+            guard imageView.image != nil else {
+                accountAvatarState = .none
+                break
+            }
+            hideAccountPlaceholder()
+            return
+        case .loading:
+            return
+        case .failed, .unavailable:
+            imageView.image = nil
+            configureCurrentAccountPlaceholder(fallback: account)
+            return
+        case .none:
+            break
+        }
+
+        accountAvatarState = .loading
+        if imageView.image != nil {
+            hideAccountPlaceholder()
+        }
+
+        imageView.kf.setImage(
+            with: avatarURL,
+            placeholder: nil,
+            options: [.transition(.fade(0.2)), .keepCurrentImageWhileLoading, .alsoPrefetchToMemory, .cacheOriginalImage]
+        ) { [weak self] result in
+            guard let self, self.cachedAccountAvatarURL == avatarURL else { return }
+            switch result {
+            case .success(let value):
+                if value.image.size.width <= 1, value.image.size.height <= 1 {
+                    self.accountAvatarRetryWorkItem?.cancel()
+                    self.accountAvatarRetryWorkItem = nil
+                    self.accountAvatarState = .unavailable
+                    self.imageView.image = nil
+                    self.configureCurrentAccountPlaceholder(fallback: account)
+                } else {
+                    self.accountAvatarRetryWorkItem?.cancel()
+                    self.accountAvatarRetryWorkItem = nil
+                    self.accountAvatarState = .loaded
+                    self.hideAccountPlaceholder()
+                }
+            case .failure(let error):
+                guard !error.isTaskCancelled else { return }
+                self.accountAvatarState = .failed
+                self.imageView.image = nil
+                self.configureCurrentAccountPlaceholder(fallback: account)
+                self.scheduleAccountAvatarRetry(for: avatarURL, fallbackAccount: account)
+            }
+        }
+    }
+
+    private func scheduleAccountAvatarRetry(for avatarURL: URL, fallbackAccount account: MAccount) {
+        accountAvatarRetryWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self, self.cachedAccountAvatarURL == avatarURL, self.accountAvatarState == .failed else { return }
+
+            self.accountAvatarRetryWorkItem = nil
+            self.accountAvatarState = .none
+            self.configureAccountAvatarImage(avatarURL, fallbackAccount: self.currentAccountPlaceholder ?? account)
+        }
+
+        accountAvatarRetryWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: workItem)
+    }
+
+    private func resetAccountAvatarState() {
+        imageView.kf.cancelDownloadTask()
+        currentAccountPlaceholder = nil
+        cachedAccountAvatarURL = nil
+        accountAvatarState = .none
+        accountAvatarRetryWorkItem?.cancel()
+        accountAvatarRetryWorkItem = nil
+    }
+
+    private func configureCurrentAccountPlaceholder(fallback account: MAccount) {
+        configureAccountPlaceholder(currentAccountPlaceholder ?? account)
     }
 
     private func configureTokenImage(token: ApiToken, tokenChanged: Bool, imageChanged: Bool) {

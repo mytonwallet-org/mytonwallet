@@ -4,8 +4,8 @@ import type { ApiPriceHistoryPeriod } from '../../../api/types';
 
 import buildClassName from '../../../util/buildClassName';
 import buildStyle from '../../../util/buildStyle';
+import { PORTFOLIO_TIME_RANGES } from '../../../util/portfolio/timeRange';
 import { SWIPE_DISABLED_CLASS_NAME } from '../../../util/swipeController';
-import { PORTFOLIO_TIME_RANGES } from '../helpers/timeRange';
 
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';

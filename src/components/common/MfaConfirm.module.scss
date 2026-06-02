@@ -1,0 +1,68 @@
+.infoBlock {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
+  padding: 1rem 0.5rem;
+  border-radius: 1rem;
+
+  background: var(--color-background-first);
+}
+
+.icon::before {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.infoIcon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-default-accent);
+}
+
+.infoText {
+  text-wrap: wrap;
+  margin-bottom: 0;
+  text-align: left;
+
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.25rem;
+}
+
+.title {
+  margin: 1.5rem 0;
+
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 2.5rem;
+  color: var(--color-black);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.title span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.avatars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar {
+  border-radius: 6.25rem;
+  height: 5rem;
+  width: 5rem;
+  font-size: 2.1875rem;
+}
+
+.avatar:nth-child(2) {
+  margin-left: -1.6875rem;
+}

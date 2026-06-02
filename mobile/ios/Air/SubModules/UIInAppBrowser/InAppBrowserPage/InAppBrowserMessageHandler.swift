@@ -1,3 +1,4 @@
+import UIKit
 import WebKit
 import UIDapp
 import WalletCore
@@ -5,6 +6,7 @@ import WalletContext
 
 private let log = Log("DappMessageHandler")
 private let badRequestMessage = "Bad request"
+private let externalUrlSchemes = Set(["itms-appss", "itms-apps", "tel", "sms", "mailto", "geo", "tg", SELF_PROTOCOL_SCHEME])
 
 private enum InAppBrowserFunctionResponseStatus: String, Encodable {
     case fulfilled
@@ -22,6 +24,8 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
     
     var config: InAppBrowserPageConfig
     weak var webView: WKWebView?
+    var onOpenWindow: ((URL) -> Void)?
+    var onCloseWindow: (() -> Void)?
     
     init(config: InAppBrowserPageConfig) {
         self.config = config
@@ -85,15 +89,16 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
             try await handleWalletConnectProxyEvmRpc(dict: dict)
 
         case "window:open":
-            if let args = dict["args"] as? [String: Any], let urlString = args["url"] as? String, let url = URL(string: urlString) {
-                if WalletContextManager.delegate?.handleDeeplink(url: url) ?? false {
-                    return
-                }
-                AppActions.openInBrowser(url, title: nil, injectDappConnect: true)
+            await acknowledgeInvocation(dict: dict)
+            if let args = dict["args"] as? [String: Any],
+               let urlString = args["url"] as? String,
+               let url = URL(string: urlString, relativeTo: config.url)?.absoluteURL {
+                handleWindowOpen(url)
             }
             
         case "window:close":
-            log.error("window:close not implemented")
+            await acknowledgeInvocation(dict: dict)
+            onCloseWindow?()
             
         default:
             assertionFailure("Unexpected invokeFunc: name=\(dict["name"] as Any)")
@@ -111,6 +116,21 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
         guard let accountId, let origin = config.url.origin else { return nil }
         let isUrlEnsured = webView?.hasOnlySecureContent
         return ApiDappRequest(url: origin, isUrlEnsured: isUrlEnsured, accountId: accountId, identifier: JSBRIDGE_IDENTIFIER, sseOptions: nil)
+    }
+
+    private func handleWindowOpen(_ url: URL) {
+        if WalletContextManager.delegate?.handleDeeplink(url: url) ?? false {
+            return
+        }
+        if let scheme = url.scheme?.lowercased(), externalUrlSchemes.contains(scheme) {
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url, options: [:])
+            }
+            return
+        }
+        let scheme = url.scheme?.lowercased()
+        guard scheme == "http" || scheme == "https" else { return }
+        onOpenWindow?(url)
     }
     
     // MARK: - TonConnect
@@ -325,6 +345,15 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
         } else {
             let message = response.error?.message ?? badRequestMessage
             try await injectDappConnectError(invocationId: invocationId, message: message)
+        }
+    }
+
+    private func acknowledgeInvocation(dict: [String: Any]) async {
+        guard let invocationId = dict["invocationId"] as? String else { return }
+        do {
+            try await injectDappConnectResult(invocationId: invocationId, result: true)
+        } catch {
+            log.error("failed to acknowledge invocation: \(error, .public)")
         }
     }
 

@@ -1,4 +1,4 @@
-import type { Cell } from '@ton/core';
+import type { Address, Cell, StateInit } from '@ton/core';
 import { beginCell, external, storeMessage } from '@ton/core';
 
 import type {
@@ -28,6 +28,19 @@ export async function emulateTransaction(
   const emulation = await fetchEmulateTrace(network, boc);
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
   const walletAddress = toBase64Address(wallet.address, false, network);
+  return parseEmulation(network, walletAddress, emulation, nftSuperCollectionsByCollectionAddress);
+}
+
+export async function emulateExternalMessage(
+  network: ApiNetwork,
+  walletAddress: string,
+  toAddress: Address,
+  body: Cell,
+  init?: StateInit,
+) {
+  const boc = buildExternalBocTo(toAddress, body, init);
+  const emulation = await fetchEmulateTrace(network, boc);
+  const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
   return parseEmulation(network, walletAddress, emulation, nftSuperCollectionsByCollectionAddress);
 }
 
@@ -104,12 +117,17 @@ function addOrUpdateExcessActivity(walletAddress: string, activities: ApiActivit
 }
 
 function buildExternalBoc(wallet: TonWallet, body: Cell, isInitialized?: boolean) {
+  const init = !isInitialized ? {
+    code: wallet.init.code,
+    data: wallet.init.data,
+  } : undefined;
+  return buildExternalBocTo(wallet.address, body, init);
+}
+
+function buildExternalBocTo(to: Address, body: Cell, init?: StateInit) {
   const externalMessage = external({
-    to: wallet.address,
-    init: !isInitialized ? {
-      code: wallet.init.code,
-      data: wallet.init.data,
-    } : undefined,
+    to,
+    init,
     body,
   });
 

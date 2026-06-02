@@ -48,9 +48,7 @@ const CLOSE_MAX_DURATION = 900;
 // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 let inAppBrowser: Cordova['InAppBrowser'] | undefined;
 
-function InAppBrowser({
-  title, subtitle, url, theme, animationLevel, selectedExplorerIds, isTestnet,
-}: StateProps) {
+function InAppBrowser({ title, subtitle, url, theme, animationLevel, selectedExplorerIds, isTestnet }: StateProps) {
   const { closeBrowser, setSelectedExplorerId } = getActions();
 
   const lang = useLang();
@@ -68,7 +66,6 @@ function InAppBrowser({
 
   const { setupDappBridge, cleanupDappBridge } = useInAppBrowserBridgeProvider(currentUrl);
   const bridgeInjectionCode = useMemo(() => buildInAppBrowserBridgeConnectorCode(), []);
-
   const menu = useMemo(() => {
     if (!explorers || explorers.length <= 1 || !currentUrl) {
       return undefined;

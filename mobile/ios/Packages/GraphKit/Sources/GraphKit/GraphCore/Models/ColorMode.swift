@@ -114,7 +114,7 @@ public class ChartStrings {
         zoomOut: "Zoom Out",
         today: "Today",
         total: "Total",
-        revenueInTon: "Revenue in TON",
+        revenueInTon: "Revenue in GRAM",
         revenueInStars: "Revenue in Stars",
         revenueInUsd: "Revenue in USD"
     )

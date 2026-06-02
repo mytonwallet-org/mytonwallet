@@ -9,6 +9,22 @@ Creating Wallet...: Creando monedero...
 On the count of three...: A la cuenta de tres...
 $back_up_auth: Siguiente
 $back_up_security: Copia de seguridad
+$2fa_security: 2FA con Telegram
+2FA with Telegram: 2FA con Telegram
+Confirm operations in Telegram as a second step.: Confirma las operaciones en Telegram como segundo paso.
+Confirm with: Confirmar con
+Add an extra layer of security for your wallet in TON network.: Añade una capa adicional de seguridad para tu monedero en la red TON.
+Sign transfers and important actions with your passcode, then confirm them in Telegram.: Firma transferencias y acciones importantes con tu código de acceso y luego confírmalas en Telegram.
+This helps protect your funds even if your recovery phrase or keys are compromised.: Esto ayuda a proteger tus fondos incluso si tu frase de recuperación o tus claves se ven comprometidas.
+"Connection Fee:": "Comisión de conexión:"
+Connect Telegram: Conectar Telegram
+Telegram will be used to confirm transfers and important actions.: Telegram se usará para confirmar transferencias y acciones importantes.
+My Telegram Account: Mi cuenta de Telegram
+Without username: Sin nombre de usuario
+Unlink Account: Desvincular cuenta
+An extra security layer requires confirming actions in Telegram after signing.: Una capa adicional de seguridad requiere confirmar las acciones en Telegram después de firmarlas.
+Confirm Connection: Confirmar conexión
+Confirm Disconnection: Confirmar desconexión
 Passwords must be equal.: Las contraseñas deben coincidir.
 To protect your wallet as much as possible, use a password with: Para la máxima protección de su monedero, use una contraseña con
 $auth_password_rule_8chars: al menos 8 caracteres
@@ -880,6 +896,10 @@ $domain_expire: "**%domain%** expira %days%"
 "%token% Staking": Staking de %token%
 Add Tab: Añadir pestaña
 Remove Tab: Eliminar pestaña
+$iab_tabs_count:
+  zeroValue: "%1$d pestañas"
+  oneValue: "%1$d pestaña"
+  otherValue: "%1$d pestañas"
 Link Domain: Vincular dominio
 Domain Linked!: ¡Dominio vinculado!
 $domains_amount %1$d:
@@ -1254,7 +1274,7 @@ Standalone: Independiente
 All Telegram Gifts: Todos los regalos de Telegram
 Add Crypto: Añadir cripto
 Share QR Code: Compartir código QR
-$send_only_ton: Envía solo Toncoin (TON) o activos de la red TON a esta dirección. Enviar otros tokens ocasionará su pérdida.
+$send_only_ton: Envía solo Gram (GRAM) o activos de la red TON a esta dirección. Enviar otros tokens ocasionará su pérdida.
 $send_only_chain: Envía solo %chain% (%symbol%) o activos de la red %chain% a esta dirección. Enviar otros tokens ocasionará su pérdida.
 Buying with card is not supported for this account.: Esta cuenta no admite compras con tarjeta.
 Swapped at: Intercambiado a las
@@ -1516,8 +1536,8 @@ push_activity_swap_completed: Intercambiado %from_symbol% -> %to_symbol%
 push_activity_swap_failed: Intercambio %from_symbol% -> %to_symbol% fallido
 push_activity_swap_expired: Intercambio %from_symbol% -> %to_symbol% caducado
 push_activity_swap_pending: Intercambio %from_symbol% -> %to_symbol% %status%
-push_activity_staking_profit: Recompensa de staking %amount% TON
-push_activity_staking_loyalty_profit: Recompensa de lealtad de staking %amount% TON
+push_activity_staking_profit: Recompensa de staking %amount% GRAM
+push_activity_staking_loyalty_profit: Recompensa de lealtad de staking %amount% GRAM
 push_domain_title_renew: Renueva tu dominio
 push_domain_expired_yesterday: Tu dominio %domain% venció ayer. Renuévalo lo antes posible para evitar perder el acceso
 push_domain_expired_days_ago: Tu dominio %domain% venció hace %days% días. Renuévalo lo antes posible para evitar perder el acceso
@@ -1538,3 +1558,4 @@ Tracked asset value over time: Valor de activos rastreados a lo largo del tiempo
 Cumulative profit and loss over time: Pérdidas y ganancias acumuladas a lo largo del tiempo
 Day-by-day profit and loss: Pérdidas y ganancias día a día
 Current allocation across tracked assets: Asignación actual entre activos rastreados
+This action is not supported in explorer mode.: Esta acción no es compatible en modo explorador.

@@ -113,6 +113,10 @@ public final class _TokenStore: Sendable {
             swapAsset.slug == slugOrAddress || swapAsset.tokenAddress == slugOrAddress
         })
     }
+
+    public func getDisplayToken(slugOrAddress: String) -> ApiToken {
+        getToken(slugOrAddress: slugOrAddress) ?? .unknown(slug: slugOrAddress)
+    }
     
     public func getNativeToken(chain: ApiChain) -> ApiToken {
         tokens[chain.nativeToken.slug]!
@@ -268,11 +272,11 @@ public final class _TokenStore: Sendable {
         BASE_USDC_MAINNET_SLUG: .BASE_USDC_MAINNET,
         BNB_SLUG: .BNB,
         BSC_USDT_MAINNET_SLUG: .BSC_USDT_MAINNET,
-//        POLYGON_SLUG: .POLYGON,
+        POLYGON_SLUG: .POLYGON,
         ARBITRUM_SLUG: .ARBITRUM,
-//        MONAD_SLUG: .MONAD,
-//        AVALANCHE_SLUG: .AVALANCHE,
-//        AVALANCHE_USDT_MAINNET_SLUG: .AVALANCHE_USDT_MAINNET,
+        MONAD_SLUG: .MONAD,
+        AVALANCHE_SLUG: .AVALANCHE,
+        AVALANCHE_USDT_MAINNET_SLUG: .AVALANCHE_USDT_MAINNET,
         HYPERLIQUID_SLUG: .HYPERLIQUID,
         HYPERLIQUID_USDC_MAINNET_SLUG: .HYPERLIQUID_USDC_MAINNET,
     ]
@@ -295,10 +299,10 @@ public final class _TokenStore: Sendable {
         BASE_USDC_MAINNET_SLUG,
         BNB_SLUG,
         BSC_USDT_MAINNET_SLUG,
-//        POLYGON_SLUG,
+        POLYGON_SLUG,
         ARBITRUM_SLUG,
-//        MONAD_SLUG,
-//        AVALANCHE_SLUG,
+        MONAD_SLUG,
+        AVALANCHE_SLUG,
         AVALANCHE_USDT_MAINNET_SLUG,
         HYPERLIQUID_SLUG,
         HYPERLIQUID_USDC_MAINNET_SLUG,

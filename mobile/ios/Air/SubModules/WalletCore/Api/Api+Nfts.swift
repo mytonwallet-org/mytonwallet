@@ -47,5 +47,10 @@ public struct ApiCheckNftTransferDraftOptions: Encodable, Sendable {
 
 public struct ApiSubmitNftTransfersResult: Decodable, Sendable {
     public var activityIds: [String]?
+    public var mfaRequestHash: String?
     public var error: String?
+}
+
+extension ApiSubmitNftTransfersResult: MfaProtectedActionResult {
+    public var protectedActionError: String? { error }
 }

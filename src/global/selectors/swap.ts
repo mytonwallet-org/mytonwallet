@@ -18,6 +18,7 @@ import { selectAccountTokensMemoizedFor } from './tokens';
 
 function createTokenList(
   swapTokenInfo: GlobalState['swapTokenInfo'],
+  tokenInfo: GlobalState['tokenInfo'],
   balancesBySlug: ApiBalanceBySlug,
   baseCurrency: ApiBaseCurrency,
   currencyRates: ApiCurrencyRates,
@@ -31,6 +32,7 @@ function createTokenList(
       decimals, keywords, chain,
       tokenAddress, isPopular, color, priceUsd = 0, label,
     }]): UserSwapToken => {
+      const fallbackToken = tokenInfo.bySlug[slug];
       const amount = balancesBySlug[slug] ?? 0n;
       const price = calculateTokenPrice(priceUsd, baseCurrency, currencyRates);
       const totalValue = toBig(amount, decimals).mul(price).toString();
@@ -42,7 +44,7 @@ function createTokenList(
         price,
         priceUsd,
         name,
-        image,
+        image: image || fallbackToken?.image,
         decimals,
         isDisabled: false,
         canSwap: true,
@@ -60,6 +62,7 @@ function createTokenList(
 
 const selectPopularTokensMemoizedFor = withCache((accountId: string) => memoize((
   balancesBySlug: ApiBalanceBySlug,
+  tokenInfo: GlobalState['tokenInfo'],
   swapTokenInfo: GlobalState['swapTokenInfo'],
   baseCurrency: ApiBaseCurrency,
   currencyRates: ApiCurrencyRates,
@@ -86,11 +89,12 @@ const selectPopularTokensMemoizedFor = withCache((accountId: string) => memoize(
 
     return orderIndexA - orderIndexB;
   };
-  return createTokenList(swapTokenInfo, balancesBySlug, baseCurrency, currencyRates, sortFn, filterFn);
+  return createTokenList(swapTokenInfo, tokenInfo, balancesBySlug, baseCurrency, currencyRates, sortFn, filterFn);
 }));
 
 const selectSwapTokensMemoizedFor = withCache((accountId: string) => memoize((
   balancesBySlug: ApiBalanceBySlug,
+  tokenInfo: GlobalState['tokenInfo'],
   swapTokenInfo: GlobalState['swapTokenInfo'],
   baseCurrency: ApiBaseCurrency,
   currencyRates: ApiCurrencyRates,
@@ -98,7 +102,7 @@ const selectSwapTokensMemoizedFor = withCache((accountId: string) => memoize((
   const sortFn = (tokenA: ApiSwapAsset, tokenB: ApiSwapAsset) => (
     tokenA.name.trim().toLowerCase().localeCompare(tokenB.name.trim().toLowerCase())
   );
-  return createTokenList(swapTokenInfo, balancesBySlug, baseCurrency, currencyRates, sortFn);
+  return createTokenList(swapTokenInfo, tokenInfo, balancesBySlug, baseCurrency, currencyRates, sortFn);
 }));
 
 const selectAccountTokensForSwapInMemoizedFor = withCache((accountId: string) => memoize((
@@ -177,6 +181,7 @@ export function selectPopularTokens(global: GlobalState) {
 
   return selectPopularTokensMemoizedFor(accountId)(
     balancesBySlug,
+    global.tokenInfo,
     global.swapTokenInfo,
     global.settings.baseCurrency,
     global.currencyRates,
@@ -193,6 +198,7 @@ export function selectSwapTokens(global: GlobalState) {
 
   return selectSwapTokensMemoizedFor(accountId)(
     balancesBySlug,
+    global.tokenInfo,
     global.swapTokenInfo,
     global.settings.baseCurrency,
     global.currencyRates,

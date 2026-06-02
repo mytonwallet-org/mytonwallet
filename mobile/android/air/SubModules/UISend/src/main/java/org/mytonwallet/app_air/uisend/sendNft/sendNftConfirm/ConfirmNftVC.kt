@@ -652,10 +652,35 @@ class ConfirmNftVC(
                             nfts,
                             mode is Mode.Burn,
                             comment,
-                            passcode
-                        ) {
-                            // Wait for Pending Activity event...
-                        }
+                            passcode,
+                            onSent = {
+                                // Wait for Pending Activity event...
+                            },
+                            onMfaRequested = { hash ->
+                                val recipient = viewModel.resolvedAddress.orEmpty()
+                                val chipText = LocaleController.getString(
+                                    "%amount% to %address%"
+                                )
+                                    .replace("%amount%", "${nfts.size} NFT")
+                                    .replace(
+                                        "%address%",
+                                        recipient.formatStartEndAddress(),
+                                    )
+                                val mfaVC = org.mytonwallet.app_air.uicomponents
+                                    .viewControllers.MfaActionConfirmVC(
+                                        context,
+                                        requestHash = hash,
+                                        chip = org.mytonwallet.app_air.uicomponents
+                                            .viewControllers.MfaActionConfirmVC.Chip(
+                                            leading = null,
+                                            text = chipText,
+                                        ),
+                                    )
+                                navigationController?.push(mfaVC, onCompletion = {
+                                    navigationController?.removePrevViewControllerOnly()
+                                })
+                            },
+                        )
                     }
                 )
             )

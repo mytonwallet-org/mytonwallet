@@ -3,7 +3,6 @@ import SwiftUI
 import UIComponents
 import WalletContext
 import WalletCore
-import UIPasscode
 import Perception
 
 public final class LinkDomainVC: WViewController {
@@ -11,8 +10,8 @@ public final class LinkDomainVC: WViewController {
     private let viewModel: LinkDomainViewModel
     private var hostingController: UIHostingController<LinkDomainView>!
 
-    public init(accountSource: AccountSource, nftAddress: String) {
-        self.viewModel = LinkDomainViewModel(accountSource: accountSource, nftAddress: nftAddress)
+    public init(accountSource: AccountSource, nftAddress: String, nft: ApiNft? = nil) {
+        self.viewModel = LinkDomainViewModel(accountSource: accountSource, nftAddress: nftAddress, nft: nft)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -47,39 +46,27 @@ public final class LinkDomainVC: WViewController {
             AppActions.showError(error: BridgeCallError.message(.unsupportedHardwareContract, nil))
             return
         }
-        var linkingSuccessful = false
-        var linkingError: (any Error)?
-        let headerVC = UIHostingController(rootView: LinkDomainAuthHeader(viewModel: viewModel))
-        headerVC.view.backgroundColor = .clear
-        UnlockVC.pushAuth(
-            on: self,
-            title: lang("Confirm Linking"),
-            customHeaderVC: headerVC,
-            onAuthTask: { [weak self] passcode, onTaskDone in
-                guard let self else { return }
-                Task {
-                    do {
-                        try await self.viewModel.submit(password: passcode)
-                        linkingSuccessful = true
-                    } catch {
-                        linkingSuccessful = false
-                        linkingError = error
-                    }
-                    onTaskDone()
+        Task {
+            do {
+                _ = try await AppActions.authorizeProtectedAction(
+                    on: self,
+                    account: viewModel.account,
+                    title: lang("Confirm Linking"),
+                    headerView: LinkDomainAuthHeader(viewModel: viewModel),
+                    passwordAction: { [weak self] passcode in
+                        guard let self else { return ApiMfaProtectedResult() }
+                        return try await self.viewModel.submit(password: passcode)
+                    },
+                    mfaTitle: lang("Confirm Linking")
+                )
+                self.dismiss(animated: true) {
+                    AppActions.showToast(message: lang("Domain Linked"))
                 }
-            },
-            onDone: { [weak self] _ in
-                guard let self else { return }
-                if linkingSuccessful {
-                    self.dismiss(animated: true) {
-                        AppActions.showToast(message: lang("Domain Linked"))
-                    }
-                } else if let linkingError {
-                    self.navigationController?.popViewController(animated: true)
-                    self.showAlert(error: linkingError)
-                }
+            } catch is CancellationError {
+            } catch {
+                showAlert(error: error)
             }
-        )
+        }
     }
 }
 

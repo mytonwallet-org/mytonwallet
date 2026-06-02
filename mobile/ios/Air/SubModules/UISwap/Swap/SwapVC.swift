@@ -1,6 +1,5 @@
 import SwiftUI
 import UIKit
-import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
@@ -170,11 +169,6 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
             navigationController?.pushViewController(crosschainSwapVC, animated: true)
         }
     }
-    private enum SwapResult {
-        case success(ApiActivity?)
-        case failure(BridgeCallError)
-    }
-
     private func startSwapFlow(
         presentCrosschain: Bool,
         payoutAddress: String? = nil,
@@ -191,69 +185,66 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         ))
         headerVC.view.backgroundColor = .clear
 
-        var swapResult: SwapResult?
         swapModel.setStage(.confirming)
-        UnlockVC.pushAuth(
-            on: presentingViewController ?? self,
-            title: lang("Confirm Swap"),
-            customHeaderVC: headerVC,
-            onAuthTask: { [weak self] passcode, onTaskDone in
-                guard let self else { return }
-                awaitingActivity = !presentCrosschain
-                Task {
-                    swapResult = await self.performSwap(
-                        passcode: passcode,
-                        confirmation: confirmationAmounts,
-                        payoutAddress: payoutAddress
-                    )
-                    onTaskDone()
-                }
-            },
-            onDone: { [weak self] _ in
-                guard let self, let swapResult else { return }
-                handleSwapResult(swapResult, presentCrosschain: presentCrosschain, failureStage: failureStage)
-            })
-    }
-
-    private func performSwap(
-        passcode: String,
-        confirmation: SwapConfirmationAmounts,
-        payoutAddress: String? = nil
-    ) async -> SwapResult {
-        do {
-            let activity = try await swapModel.swapNow(
-                confirmation: confirmation,
-                passcode: passcode,
-                payoutAddress: payoutAddress
-            )
-            return .success(activity)
-        } catch {
-            let bridgeError = (error as? BridgeCallError) ?? .unknown(baseError: error)
-            return .failure(bridgeError)
-        }
-    }
-
-    private func handleSwapResult(_ result: SwapResult, presentCrosschain: Bool, failureStage: SwapStage = .editing) {
-        switch result {
-        case .success(let activity):
-            swapModel.setStage(.complete)
-            if presentCrosschain {
+        Task {
+            do {
+                let result: SwapExecutionResult? = try await AppActions.authorizeProtectedAction(
+                    on: self,
+                    account: account,
+                    title: lang("Confirm Swap"),
+                    headerView: headerVC.rootView,
+                    passwordAction: { [weak self] passcode in
+                        guard let self else { throw CancellationError() }
+                        awaitingActivity = !presentCrosschain
+                        return try await swapModel.swapNow(
+                            confirmation: confirmationAmounts,
+                            passcode: passcode,
+                            payoutAddress: payoutAddress
+                        )
+                    },
+                    mfaTitle: lang("Confirm Swap")
+                )
+                guard let result else { return }
+                handleSwapSuccess(result.activity, presentCrosschain: presentCrosschain)
+            } catch is CancellationError {
                 awaitingActivity = false
-                if let swap = activity?.swap {
-                    let crosschainSwapVC = CrosschainToWalletVC(swap: swap, accountId: nil)
-                    navigationController?.pushViewController(crosschainSwapVC, animated: true)
-                }
-            }
-        case .failure(let error):
-            awaitingActivity = false
-            swapModel.setStage(failureStage)
-            showAlert(error: error) { [weak self] in
-                guard let self else { return }
-                dismiss(animated: true)
+                swapModel.setStage(failureStage)
+            } catch {
+                let bridgeError = (error as? BridgeCallError) ?? .unknown(baseError: error)
+                handleSwapFailure(bridgeError, failureStage: failureStage)
             }
         }
     }
-    
+
+    private func handleSwapSuccess(_ activity: ApiActivity?, presentCrosschain: Bool) {
+        swapModel.setStage(.complete)
+        if presentCrosschain {
+            awaitingActivity = false
+            if let swap = activity?.swap {
+                let crosschainSwapVC = CrosschainToWalletVC(swap: swap, accountId: nil)
+                navigationController?.pushViewController(crosschainSwapVC, animated: true)
+            }
+        }
+    }
+
+    private func handleSwapFailure(_ error: BridgeCallError, failureStage: SwapStage = .editing) {
+        awaitingActivity = false
+        swapModel.setStage(failureStage)
+        showAlert(error: error) { [weak self] in
+            guard let self else { return }
+            dismiss(animated: true)
+        }
+    }
+
+    private func handleSwapResult(_ result: Result<SwapExecutionResult, BridgeCallError>, presentCrosschain: Bool, failureStage: SwapStage = .editing) {
+        switch result {
+        case .success(let result):
+            handleSwapSuccess(result.activity, presentCrosschain: presentCrosschain)
+        case .failure(let error):
+            handleSwapFailure(error, failureStage: failureStage)
+        }
+    }
+
     func authorizeDiesel() {
         if let telegramURL = account.dieselAuthLink {
             if UIApplication.shared.canOpenURL(telegramURL) {

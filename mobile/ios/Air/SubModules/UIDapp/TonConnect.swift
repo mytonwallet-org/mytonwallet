@@ -17,6 +17,13 @@ public let TonConnectErrorCodes: [Int: String] = [
 
 private let log = Log("TonConnect")
 
+struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
+    let promiseId: String
+    let accountId: String
+    let proofSignatures: [String]?
+    let mfaRequestHash: String?
+    let didConfirmImmediately: Bool
+}
 
 @MainActor public final class TonConnect: WalletCoreData.EventsObserver {
     
@@ -165,48 +172,81 @@ private let log = Log("TonConnect")
         if let vc = placeholderNc?.visibleViewController as? ConnectDappVC {
             vc.replacePlaceholder(
                 request: update,
-                onConfirm: { [weak self] accountId, password in self?.confirmConnect(request: update, accountId: accountId, passcode: password) },
                 onCancel: { [weak self] in self?.cancelConnect(request: update) }
             )
             self.placeholderNc = nil
         } else {
             let vc = ConnectDappVC(
                 request: update,
-                onConfirm: { [weak self] accountId, password in self?.confirmConnect(request: update, accountId: accountId, passcode: password) },
                 onCancel: { [weak self] in self?.cancelConnect(request: update) }
             )
-            presentAndRecord(vc)
+            presentAndRecord(WNavigationController(rootViewController: vc))
         }
     }
     
-    func confirmConnect(request: ApiUpdate.DappConnect, accountId: String, passcode: String) {
-        Task {
-            do {
-                var signatures: [String]? = nil
-                if let proof = request.proof {
-                    let account = AccountStore.get(accountId: accountId)
-                    let tonAddress = account.getAddress(chain: .ton) ?? ""
-                    let dappChains = [
-                        ApiDappSessionChain(chain: .ton, address: tonAddress, network: account.network),
-                    ]
-                    let result = try await Api.signDappProof(
-                        dappChains: dappChains,
-                        accountId: accountId,
-                        proof: proof,
-                        password: passcode
-                    )
-                    signatures = result.signatures
-                }
-                try await Api.confirmDappRequestConnect(
-                    promiseId: request.promiseId,
-                    data: .init(
-                        accountId: accountId,
-                        proofSignatures: signatures
-                    )
-                )
-            } catch {
-                log.error("confirmConnect \(error, .public)")
+    func submitConnect(request: ApiUpdate.DappConnect, accountId: String, passcode: String) async throws -> DappConnectSubmitResult {
+        var signatures: [String]? = nil
+        let account = AccountStore.get(accountId: accountId)
+        if let proof = request.proof {
+            let tonAddress = account.getAddress(chain: .ton) ?? ""
+            let dappChains = [
+                ApiDappSessionChain(chain: .ton, address: tonAddress, network: account.network),
+            ]
+            let result = try await Api.signDappProof(
+                dappChains: dappChains,
+                accountId: accountId,
+                proof: proof,
+                password: passcode
+            )
+            signatures = result.signatures
+        }
+        if account.getChainInfo(chain: .ton)?.mfa != nil {
+            let result = try await Api.createDappConnectMfaRequest(accountId: accountId, password: passcode)
+            if let error = result.error {
+                throw BridgeCallError(message: error, payload: result)
             }
+            guard let mfaRequestHash = result.mfaRequestHash else {
+                throw BridgeCallError.unknown(baseError: result)
+            }
+            return DappConnectSubmitResult(
+                promiseId: request.promiseId,
+                accountId: accountId,
+                proofSignatures: signatures,
+                mfaRequestHash: mfaRequestHash,
+                didConfirmImmediately: false
+            )
+        }
+        try await Api.confirmDappRequestConnect(
+            promiseId: request.promiseId,
+            data: .init(
+                accountId: accountId,
+                proofSignatures: signatures
+            )
+        )
+        return DappConnectSubmitResult(
+            promiseId: request.promiseId,
+            accountId: accountId,
+            proofSignatures: signatures,
+            mfaRequestHash: nil,
+            didConfirmImmediately: true
+        )
+    }
+
+    func finishConnect(_ result: DappConnectSubmitResult) async throws {
+        guard !result.didConfirmImmediately else {
+            return
+        }
+        do {
+            try await Api.confirmDappRequestConnect(
+                promiseId: result.promiseId,
+                data: .init(
+                    accountId: result.accountId,
+                    proofSignatures: result.proofSignatures
+                )
+            )
+        } catch {
+            log.error("finishConnect MFA confirmation failed: \(error, .public)")
+            throw error
         }
     }
     
@@ -225,14 +265,12 @@ private let log = Log("TonConnect")
         if let vc = placeholderNc?.visibleViewController as? SendDappVC {
             vc.replacePlaceholder(
                 request: update,
-                onConfirm: { password in self.confirmSendTransactions(request: update, password: password) },
                 onCancel: { self.cancelSendTransactions(request: update) }
             )
             self.placeholderNc = nil
         } else {
             let vc = SendDappVC(
                 request: update,
-                onConfirm: { password in self.confirmSendTransactions(request: update, password: password) },
                 onCancel: { self.cancelSendTransactions(request: update) }
             )
             let nc = WNavigationController(rootViewController: vc)
@@ -243,32 +281,39 @@ private let log = Log("TonConnect")
         }
     }
     
-    func confirmSendTransactions(request: ApiUpdate.DappSendTransactions, password: String?) {
-        Task {
+    func submitSendTransactions(request: ApiUpdate.DappSendTransactions, password: String?) async throws -> ApiSignDappTransfersResult {
+        let account = AccountStore.get(accountId: request.accountId)
+        let chain = request.operationChain
+        let address = account.getAddress(chain: chain) ?? ""
+        let dappChain = ApiDappSessionChain(chain: chain, address: address, network: account.network)
+        let result = try await Api.signDappTransfersProtected(
+            dappChain: dappChain,
+            accountId: request.accountId,
+            messages: request.transactions.map(ApiTransferToSign.init),
+            options: .init(
+                password: password,
+                vestingAddress: request.vestingAddress,
+                validUntil: request.validUntil,
+                isLegacyOutput: request.isLegacyOutput,
+            )
+        )
+        if let signedTransfers = result.signedTransfers {
+            try await Api.confirmDappRequestSendTransaction(
+                promiseId: request.promiseId,
+                data: signedTransfers
+            )
+        } else if let mfaRequestHash = result.mfaRequestHash {
             do {
-                let account = AccountStore.get(accountId: request.accountId)
-                let chain = request.operationChain
-                let address = account.getAddress(chain: chain) ?? ""
-                let dappChain = ApiDappSessionChain(chain: chain, address: address, network: account.network)
-                let signedMessages = try await Api.signDappTransfers(
-                    dappChain: dappChain,
-                    accountId: request.accountId,
-                    messages: request.transactions.map(ApiTransferToSign.init),
-                    options: .init(
-                        password: password,
-                        vestingAddress: request.vestingAddress,
-                        validUntil: request.validUntil,
-                        isLegacyOutput: request.isLegacyOutput,
-                    )
-                )
-                try await Api.confirmDappRequestSendTransaction(
+                try await Api.confirmDappRequestSendTransactionMfa(
                     promiseId: request.promiseId,
-                    data: signedMessages
+                    mfaRequestHash: mfaRequestHash
                 )
             } catch {
-                log.error("confirmSendTransactions \(error, .public)")
+                log.error("submitSendTransactions MFA confirmation handoff failed: \(error, .public)")
+                throw error
             }
         }
+        return result
     }
     
     func cancelSendTransactions(request: ApiUpdate.DappSendTransactions) {
@@ -286,14 +331,12 @@ private let log = Log("TonConnect")
         if let vc = placeholderNc?.visibleViewController as? SignDataVC {
             vc.replacePlaceholder(
                 update: update,
-                onConfirm: { password in self.confirmSignData(update: update, password: password) },
                 onCancel: { self.cancelSignData(update: update) }
             )
             self.placeholderNc = nil
         } else {
             let vc = SignDataVC(
                 update: update,
-                onConfirm: { password in self.confirmSignData(update: update, password: password) },
                 onCancel: { self.cancelSignData(update: update) }
             )
             let nc = WNavigationController(rootViewController: vc)
@@ -301,25 +344,20 @@ private let log = Log("TonConnect")
         }
     }
     
-    func confirmSignData(update: ApiUpdate.DappSignData, password: String?) {
-        Task {
-            do {
-                let account = AccountStore.get(accountId: update.accountId)
-                let chain = update.operationChain
-                let address = account.getAddress(chain: chain) ?? ""
-                let dappChain = ApiDappSessionChain(chain: chain, address: address, network: account.network)
-                let result = try await Api.signDappData(
-                    dappChain: dappChain,
-                    accountId: update.accountId,
-                    dappUrl: update.dapp.url,
-                    payloadToSign: update.payloadToSign,
-                    password: password
-                )
-                try await Api.confirmDappRequestSignData(promiseId: update.promiseId, data: AnyEncodable(result))
-            } catch {
-                log.error("confirmSignData: \(error)")
-            }
-        }
+    func submitSignData(update: ApiUpdate.DappSignData, password: String?) async throws -> ApiMfaProtectedResult {
+        let account = AccountStore.get(accountId: update.accountId)
+        let chain = update.operationChain
+        let address = account.getAddress(chain: chain) ?? ""
+        let dappChain = ApiDappSessionChain(chain: chain, address: address, network: account.network)
+        let result = try await Api.signDappData(
+            dappChain: dappChain,
+            accountId: update.accountId,
+            dappUrl: update.dapp.url,
+            payloadToSign: update.payloadToSign,
+            password: password
+        )
+        try await Api.confirmDappRequestSignData(promiseId: update.promiseId, data: AnyEncodable(result))
+        return ApiMfaProtectedResult()
     }
     
     func cancelSignData(update: ApiUpdate.DappSignData) {

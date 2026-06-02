@@ -1,15 +1,18 @@
 import type { ApiPortfolioHistoryResponse, ApiPriceHistoryPeriod } from '../../../api/types';
-import type { PortfolioHistoryBundle } from '../../types';
+import type { GlobalState, PortfolioHistoryBundle } from '../../types';
 
 import { areDeepEqual } from '../../../util/areDeepEqual';
+import { computeNetChange } from '../../../util/portfolio/computeNetChange';
+import { DEFAULT_PORTFOLIO_TIME_RANGE, getTimeRangeStartTs } from '../../../util/portfolio/timeRange';
 import { callApi } from '../../../api';
-import { DEFAULT_PORTFOLIO_TIME_RANGE, getTimeRangeStartTs } from '../../../components/portfolio/helpers/timeRange';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
-import { updatePortfolio, writeHistoryBundle } from '../../reducers';
+import { updateHistoryBundle, updateNetChangeByAccountId, updatePortfolio } from '../../reducers';
 import { selectCurrentAccountId, selectPortfolioMainnetWalletKeys } from '../../selectors';
 
 const HISTORY_REFRESH_DELAY_MS = 8000;
 const HISTORY_REFRESH_MAX_ATTEMPTS = 6;
+// Throttle window for the card's per-tick net-change refresh (see `runLoadPortfolioNetChange`)
+const NET_CHANGE_THROTTLE_MS = 30_000;
 const PORTFOLIO_UNAVAILABLE_ERROR = 'Unavailable';
 const ALL_TIME_START_ISO = '2020-01-01T00:00:00.000Z';
 const DAY_START_SUFFIX = 'T00:00:00.000Z';
@@ -30,6 +33,10 @@ let historyRefreshTimerId: number | undefined;
 let historyRefreshAttempts = 0;
 let historyRefreshAccountId: string | undefined;
 let activeRequestId = 0;
+let activeNetChangeRequestId = 0;
+// Single-slot throttle for the card's net-change refresh: only the current (account, currency, range)
+// is ever checked, so the latest key/time is all we keep - it self-evicts when the key changes
+let lastNetChangeFetch: { key: string; at: number } | undefined;
 
 addActionHandler('loadPortfolioHistory', (global, actions, payload) => {
   const { range } = payload || {};
@@ -49,6 +56,12 @@ addActionHandler('closePortfolio', () => {
   historyRefreshAttempts = 0;
   // Invalidate any in-flight `runLoadPortfolioHistory` so its post-await `setGlobal` is dropped
   activeRequestId += 1;
+});
+
+// Lightweight counterpart of `loadPortfolioHistory` for the wallet card: fetches only the net-worth series
+// for the active range and stores the computed net change, without keeping the full history bundle in memory
+addActionHandler('loadPortfolioNetChange', (global) => {
+  void runLoadPortfolioNetChange(global);
 });
 
 async function runLoadPortfolioHistory() {
@@ -72,7 +85,8 @@ async function runLoadPortfolioHistory() {
 
   if (wallets.length === 0) {
     setGlobal(updatePortfolio(global, {
-      historyByAccountId: writeHistoryBundle(baseSlice, accountId, baseCurrency, range, {}),
+      historyByAccountId: updateHistoryBundle(baseSlice, accountId, baseCurrency, range, {}),
+      netChangeByAccountId: updateNetChangeByAccountId(global.portfolio?.netChangeByAccountId, accountId),
       activeRange: range,
       isLoading: false,
       isRefreshing: false,
@@ -118,6 +132,9 @@ async function runLoadPortfolioHistory() {
 
     setGlobal(updatePortfolio(global, {
       historyByAccountId: updatedSlice,
+      netChangeByAccountId: hasExistingBundle
+        ? global.portfolio?.netChangeByAccountId
+        : updateNetChangeByAccountId(global.portfolio?.netChangeByAccountId, accountId),
       activeRange: range,
       isLoading: false,
       isRefreshing: false,
@@ -137,10 +154,20 @@ async function runLoadPortfolioHistory() {
   const mergedBundle: PortfolioHistoryBundle = { ...prevBundle, ...bundle };
   const isSameBundle = prevBundle !== undefined && areDeepEqual(prevBundle, mergedBundle);
 
+  const netChange = mergedBundle.netWorth ? computeNetChange(mergedBundle.netWorth, range) : undefined;
+
   setGlobal(updatePortfolio(global, {
     historyByAccountId: isSameBundle
       ? updatedSlice
-      : writeHistoryBundle(updatedSlice, accountId, baseCurrency, range, mergedBundle),
+      : updateHistoryBundle(updatedSlice, accountId, baseCurrency, range, mergedBundle),
+    netChangeByAccountId: netChange
+      ? updateNetChangeByAccountId(global.portfolio?.netChangeByAccountId, accountId, {
+        range,
+        baseCurrency,
+        amount: netChange.amount,
+        percent: netChange.percent,
+      })
+      : global.portfolio?.netChangeByAccountId,
     activeRange: range,
     isLoading: false,
     isRefreshing: false,
@@ -148,6 +175,56 @@ async function runLoadPortfolioHistory() {
   }));
 
   scheduleHistoryRefreshIfNeeded(netWorth, pnlCumulative, pnl);
+}
+
+async function runLoadPortfolioNetChange(global: GlobalState) {
+  const accountId = selectCurrentAccountId(global);
+  if (!accountId) return;
+
+  const wallets = selectPortfolioMainnetWalletKeys(global);
+  // Portfolio history is mainnet-only; leave the card on its 24h fallback otherwise
+  if (wallets.length === 0) return;
+
+  const { baseCurrency } = global.settings;
+  const range = global.portfolio?.activeRange ?? DEFAULT_PORTFOLIO_TIME_RANGE;
+
+  // The card re-requests on every balance tick; skip if this (account, currency, range) was fetched
+  // within the throttle window. Stamped before the request so rapid ticks neither spam nor pile up
+  // parallel in-flight calls
+  const throttleKey = `${accountId}_${baseCurrency}_${range}`;
+  if (lastNetChangeFetch?.key === throttleKey && Date.now() - lastNetChangeFetch.at < NET_CHANGE_THROTTLE_MS) {
+    return;
+  }
+  lastNetChangeFetch = { key: throttleKey, at: Date.now() };
+
+  const requestId = ++activeNetChangeRequestId;
+  const netWorth = await callApi('fetchPortfolioNetWorthHistory', wallets, baseCurrency, buildRangeParams(range));
+
+  if (requestId !== activeNetChangeRequestId) return;
+
+  const netChange = netWorth ? computeNetChange(netWorth, range) : undefined;
+  // Keep the previously cached value on a transient failure rather than clearing it
+  if (!netChange) return;
+
+  global = getGlobal();
+  // Drop the result if the account, range or currency changed while awaiting
+  if (
+    selectCurrentAccountId(global) !== accountId
+    || (global.portfolio?.activeRange ?? DEFAULT_PORTFOLIO_TIME_RANGE) !== range
+    || global.settings.baseCurrency !== baseCurrency
+  ) {
+    return;
+  }
+
+  const netChangeByAccountId = updateNetChangeByAccountId(global.portfolio?.netChangeByAccountId, accountId, {
+    range,
+    baseCurrency,
+    amount: netChange.amount,
+    percent: netChange.percent,
+  });
+  global = updatePortfolio(global, { netChangeByAccountId });
+
+  setGlobal(global);
 }
 
 function buildRangeParams(range: ApiPriceHistoryPeriod) {

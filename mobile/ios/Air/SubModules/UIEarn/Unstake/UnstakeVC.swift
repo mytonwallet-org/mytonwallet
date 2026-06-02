@@ -11,7 +11,6 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-import UIPasscode
 
 private let DAYS: Double = 24 * 3600
 
@@ -180,11 +179,13 @@ public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
         do {
             awaitingActivity = true
             pendingActivityId = nil
-            try await self.pushAuthUsingPasswordOrLedger(
+            let result = try await AppActions.authorizeProtectedAction(
+                on: self,
+                account: account,
                 title: lang("Confirm Unstaking"),
                 headerView: headerView,
                 passwordAction: { [weak self] password in
-                    let activityId = try await Api.submitUnstake(
+                    let result = try await Api.submitUnstakeProtected(
                         accountId: account.id,
                         password: password,
                         amount: submitAmount,
@@ -192,17 +193,22 @@ public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
                         realFee: realFee
                     )
                     await MainActor.run {
-                        self?.pendingActivityId = activityId
+                        self?.pendingActivityId = result.activityId
                     }
+                    return result
                 },
-                ledgerSignData: .staking(
-                    isStaking: false,
-                    accountId: account.id,
-                    amount: submitAmount,
-                    stakingState: stakingState,
-                    realFee: realFee
-                )
+                ledgerSignData: {
+                    .staking(
+                        isStaking: false,
+                        accountId: account.id,
+                        amount: submitAmount,
+                        stakingState: stakingState,
+                        realFee: realFee
+                    )
+                },
+                mfaTitle: lang("Confirm Unstaking")
             )
+            pendingActivityId = result?.activityId
         } catch {
             awaitingActivity = false
             pendingActivityId = nil

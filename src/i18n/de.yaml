@@ -9,6 +9,22 @@ Creating Wallet...: Wallet erstellen...
 On the count of three...: Auf drei zählen...
 $back_up_auth: Sicherung
 $back_up_security: Sicherung
+$2fa_security: 2FA mit Telegram
+2FA with Telegram: 2FA mit Telegram
+Confirm operations in Telegram as a second step.: Bestätigen Sie Vorgänge als zweiten Schritt in Telegram.
+Confirm with: Bestätigen mit
+Add an extra layer of security for your wallet in TON network.: Fügen Sie Ihrer Wallet im TON-Netzwerk eine zusätzliche Sicherheitsebene hinzu.
+Sign transfers and important actions with your passcode, then confirm them in Telegram.: Signieren Sie Überweisungen und wichtige Aktionen mit Ihrem Passcode und bestätigen Sie sie anschließend in Telegram.
+This helps protect your funds even if your recovery phrase or keys are compromised.: Dies hilft, Ihre Gelder zu schützen, selbst wenn Ihre Wiederherstellungsphrase oder Schlüssel kompromittiert wurden.
+"Connection Fee:": "Verbindungsgebühr:"
+Connect Telegram: Telegram verbinden
+Telegram will be used to confirm transfers and important actions.: Telegram wird verwendet, um Überweisungen und wichtige Aktionen zu bestätigen.
+My Telegram Account: Mein Telegram-Konto
+Without username: Ohne Benutzernamen
+Unlink Account: Konto trennen
+An extra security layer requires confirming actions in Telegram after signing.: Eine zusätzliche Sicherheitsebene erfordert, Aktionen nach dem Signieren in Telegram zu bestätigen.
+Confirm Connection: Verbindung bestätigen
+Confirm Disconnection: Trennung bestätigen
 Passwords must be equal.: Die Passwörter müssen gleich sein.
 To protect your wallet as much as possible, use a password with: Um Ihre Wallet so gut wie möglich zu schützen, verwenden Sie ein Passwort mit
 $auth_password_rule_8chars: mindestens 8 Zeichen
@@ -882,6 +898,10 @@ $domain_expire: "**%domain%** läuft %days% ab"
 "%token% Staking": "%token% Staking"
 Add Tab: Tab hinzufügen
 Remove Tab: Tab entfernen
+$iab_tabs_count:
+  zeroValue: "%1$d Tabs"
+  oneValue: "%1$d Tab"
+  otherValue: "%1$d Tabs"
 Link Domain: Domain verknüpfen
 Domain Linked!: Domain verknüpft!
 $domains_amount %1$d:
@@ -1257,7 +1277,7 @@ Standalone: Eigenständig
 All Telegram Gifts: Alle Telegram-Geschenke
 Add Crypto: Krypto hinzufügen
 Share QR Code: QR-Code teilen
-$send_only_ton: Sende an diese Adresse nur Toncoin (TON) oder TON-basierte Assets. Andere Token gehen verloren.
+$send_only_ton: Sende an diese Adresse nur Gram (GRAM) oder TON-basierte Assets. Andere Token gehen verloren.
 $send_only_chain: Sende an diese Adresse nur %chain% (%symbol%) oder %chain%-basierte Assets. Andere Token gehen verloren.
 Buying with card is not supported for this account.: Für dieses Konto wird Kartenzahlung nicht unterstützt.
 Swapped at: Getauscht am
@@ -1519,8 +1539,8 @@ push_activity_swap_completed: Tausch %from_symbol% -> %to_symbol% abgeschlossen
 push_activity_swap_failed: Tausch %from_symbol% -> %to_symbol% fehlgeschlagen
 push_activity_swap_expired: Tausch %from_symbol% -> %to_symbol% abgelaufen
 push_activity_swap_pending: Tausch %from_symbol% -> %to_symbol% %status%
-push_activity_staking_profit: Staking-Ertrag %amount% TON
-push_activity_staking_loyalty_profit: Staking-Treueertrag %amount% TON
+push_activity_staking_profit: Staking-Ertrag %amount% GRAM
+push_activity_staking_loyalty_profit: Staking-Treueertrag %amount% GRAM
 push_domain_title_renew: Erneuern Sie Ihre Domain
 push_domain_expired_yesterday: Ihre Domain %domain% ist gestern abgelaufen. Bitte erneuern Sie sie so bald wie möglich, um den Zugriff nicht zu verlieren
 push_domain_expired_days_ago: Ihre Domain %domain% ist vor %days% Tagen abgelaufen. Bitte erneuern Sie sie so bald wie möglich, um den Zugriff nicht zu verlieren
@@ -1541,3 +1561,4 @@ Tracked asset value over time: Wert verfolgter Vermögenswerte im Zeitverlauf
 Cumulative profit and loss over time: Kumulierter Gewinn und Verlust im Zeitverlauf
 Day-by-day profit and loss: Tägliche Gewinne und Verluste
 Current allocation across tracked assets: Aktuelle Verteilung der verfolgten Vermögenswerte
+This action is not supported in explorer mode.: Diese Aktion wird im Explorer-Modus nicht unterstützt.

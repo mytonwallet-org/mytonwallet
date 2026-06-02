@@ -328,6 +328,7 @@ export type ApiCardsInfo = Record<ApiMtwCardType, ApiCardInfo>;
 export type ApiAccountConfig = {
   cardsInfo?: ApiCardsInfo;
   activePromotion?: ApiPromotion;
+  isMfaEnabled?: boolean;
 };
 
 export type ApiSwapVersion = 2 | 3;

@@ -32,6 +32,7 @@ interface OwnProps {
   accounts: Record<string, Account> | undefined;
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
+  shouldHideStakingAnnualYield?: boolean;
   onClick?: (id: string) => void;
 }
 
@@ -53,6 +54,7 @@ export default function Activity({
   accounts,
   baseCurrency,
   currencyRates,
+  shouldHideStakingAnnualYield,
   onClick,
 }: OwnProps) {
   if (activity.kind === 'swap') {
@@ -94,6 +96,7 @@ export default function Activity({
         accounts={accounts}
         baseCurrency={baseCurrency}
         currencyRates={currencyRates}
+        shouldHideStakingAnnualYield={shouldHideStakingAnnualYield}
         onClick={onClick}
       />
     );

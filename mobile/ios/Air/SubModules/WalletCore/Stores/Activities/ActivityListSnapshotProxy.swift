@@ -43,7 +43,7 @@ struct ActivityListSnapshotProxy {
         let wasShowingAllLoadedActivities = previousVisibleCount > 0 && previousVisibleCount == previousLoadedCount
         let nextLoadedIds = idsByDate?.values.flatMap { $0 } ?? []
         loadedActivityIds = nextLoadedIds
-        loadedIndexByStableId = Dictionary(uniqueKeysWithValues: nextLoadedIds.enumerated().map { ($1, $0) })
+        loadedIndexByStableId = Dictionary(nextLoadedIds.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
 
         guard idsByDate != nil else {
             visibleActivityCount = 0

@@ -6,6 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.api.ArgumentsBuilder
+import org.mytonwallet.app_air.walletcore.models.AccountMfa
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
@@ -437,7 +438,7 @@ sealed class ApiMethod<T> {
             accountId: String,
             transactions: List<ApiDappTransfer>,
             options: Options
-        ) : ApiMethod<JSONArray>() {
+        ) : ApiMethod<Any>() {
 
             @JsonClass(generateAdapter = true)
             data class Options(
@@ -448,7 +449,7 @@ sealed class ApiMethod<T> {
             )
 
             override val name: String = "signDappTransfers"
-            override val type: Type = JSONArray::class.java
+            override val type: Type = Any::class.java
             override val arguments: String = ArgumentsBuilder()
                 .jsObject(dappChain, ApiDappSessionChain::class.java)
                 .string(accountId)
@@ -504,6 +505,20 @@ sealed class ApiMethod<T> {
                 .jsArray(ids, String::class.java)
                 .build()
         }
+
+        class ConfirmSwapMfaRequest(
+            accountId: String,
+            swapId: String,
+            txHash: String,
+        ) : ApiMethod<Unit>() {
+            override val name: String = "confirmSwapMfaRequest"
+            override val type: Type = Unit::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(swapId)
+                .string(txHash)
+                .build()
+        }
     }
 
 
@@ -544,6 +559,21 @@ sealed class ApiMethod<T> {
             override val arguments: String = ArgumentsBuilder()
                 .string(promiseId)
                 .jsObject(signedMessages, JSONArray::class.java)
+                .build()
+        }
+
+        class ConfirmDappRequestSendTransactionMfa(
+            promiseId: String,
+            mfaRequestHash: String,
+        ) : ApiMethod<Unit>() {
+            @JsonClass(generateAdapter = true)
+            data class Payload(val mfaRequestHash: String)
+
+            override val name: String = "confirmDappRequestSendTransaction"
+            override val type: Type = Unit::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(promiseId)
+                .jsObject(Payload(mfaRequestHash), Payload::class.java)
                 .build()
         }
 
@@ -594,6 +624,24 @@ sealed class ApiMethod<T> {
             data class Request(
                 val accountId: String? = null,
                 val proofSignatures: List<String>? = null
+            )
+        }
+
+        class CreateDappConnectMfaRequest(
+            accountId: String,
+            password: String?,
+        ) : ApiMethod<CreateDappConnectMfaRequest.Response>() {
+            override val name: String = "createDappConnectMfaRequest"
+            override val type: Type = Response::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .apply { password?.let { string(it) } }
+                .build()
+
+            @JsonClass(generateAdapter = true)
+            data class Response(
+                val mfaRequestHash: String? = null,
+                val error: String? = null,
             )
         }
 
@@ -812,9 +860,9 @@ sealed class ApiMethod<T> {
             password: String,
             nfts: List<ApiNft>,
             realFee: BigInteger
-        ) : ApiMethod<Any>() {
+        ) : ApiMethod<ApiSubmitTransferResult>() {
             override val name: String = "submitDnsRenewal"
-            override val type: Type = Any::class.java
+            override val type: Type = ApiSubmitTransferResult::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
                 .string(password)
@@ -847,10 +895,10 @@ sealed class ApiMethod<T> {
             nft: ApiNft,
             address: String,
             realFee: BigInteger,
-        ) : ApiMethod<Any>() {
+        ) : ApiMethod<ApiSubmitTransferResult>() {
 
             override val name: String = "submitDnsChangeWallet"
-            override val type: Type = Any::class.java
+            override val type: Type = ApiSubmitTransferResult::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
                 .string(password)
@@ -983,9 +1031,9 @@ sealed class ApiMethod<T> {
             password: String,
             state: StakingState,
             realFee: BigInteger
-        ) : ApiMethod<Any>() {
+        ) : ApiMethod<ApiSubmitTransferResult>() {
             override val name: String = "submitStakingClaimOrUnlock"
-            override val type: Type = Any::class.java
+            override val type: Type = ApiSubmitTransferResult::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
                 .string(password)
@@ -1026,6 +1074,108 @@ sealed class ApiMethod<T> {
             override val type: Type = Any::class.java
             override val arguments: String = ArgumentsBuilder()
                 .jsObject(props, Props::class.java)
+                .build()
+        }
+    }
+
+    /* MFA */
+    object Mfa {
+        @JsonClass(generateAdapter = true)
+        data class ApiMfaRequestCreated(
+            val reqId: String,
+        )
+
+        class FetchMfaRequest(hash: String) : ApiMethod<FetchMfaRequest.ApiMfaRequest>() {
+            @JsonClass(generateAdapter = true)
+            data class ApiMfaRequest(
+                val payload: String,
+                val signature: String,
+                val isConfirmed: Boolean,
+                val txHash: String,
+            )
+
+            override val name: String = "fetchMfaRequest"
+            override val type: Type = ApiMfaRequest::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(hash)
+                .build()
+        }
+
+        class FetchInstallMfaRequest(reqId: String) :
+            ApiMethod<FetchInstallMfaRequest.ApiInstallMfaRequest>() {
+            @JsonClass(generateAdapter = true)
+            data class ApiInstallMfaRequest(
+                val address: String,
+                val user: AccountMfa.User? = null,
+            )
+
+            override val name: String = "fetchInstallMfaRequest"
+            override val type: Type = ApiInstallMfaRequest::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(reqId)
+                .build()
+        }
+
+        class PublishInstallMfaRequest(accountId: String) : ApiMethod<ApiMfaRequestCreated>() {
+            override val name: String = "publishInstallMfaRequest"
+            override val type: Type = ApiMfaRequestCreated::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .build()
+        }
+
+        class InstallMfaFromRequest(
+            accountId: String,
+            user: AccountMfa.User,
+            password: String?,
+        ) : ApiMethod<String>() {
+            override val name: String = "installMfaFromRequest"
+            override val type: Type = String::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .jsObject(
+                    user,
+                    AccountMfa.User::class.java
+                )
+                .string(password)
+                .build()
+        }
+
+        class PublishRemoveMfaRequest(
+            accountId: String,
+            password: String?,
+        ) : ApiMethod<ApiMfaRequestCreated>() {
+            override val name: String = "publishRemoveMfaRequest"
+            override val type: Type = ApiMfaRequestCreated::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(password)
+                .build()
+        }
+
+        class ConfirmMfaRemovalRequest(accountId: String) : ApiMethod<Any>() {
+            override val name: String = "confirmMfaRemovalRequest"
+            override val type: Type = Any::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .build()
+        }
+
+        class RefreshMfaState(
+            accountId: String,
+            password: String?,
+        ) : ApiMethod<RefreshMfaState.Response>() {
+            @JsonClass(generateAdapter = true)
+            data class Response(
+                val changed: Boolean = false,
+                val mfa: AccountMfa? = null,
+            )
+
+            override val name: String = "refreshMfaState"
+            override val type: Type = Response::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(password)
                 .build()
         }
     }

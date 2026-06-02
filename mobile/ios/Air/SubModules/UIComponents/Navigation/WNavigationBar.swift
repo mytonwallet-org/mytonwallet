@@ -14,6 +14,7 @@ public final class WNavigationBar: WTouchPassView {
     public let subtitleLabel = UILabel()
     public let leadingButton: WNavigationBarButton
     public let backButton = UIButton(type: .system)
+    private let trailingButtons: [WNavigationBarButton]
 
     private let onBackPressed: () -> Void
     private let blurView = WBlurView()
@@ -33,17 +34,31 @@ public final class WNavigationBar: WTouchPassView {
         onBackPressed: @escaping () -> Void
     ) {
         self.leadingButton = leadingButton
+        self.trailingButtons = [trailingButton]
         self.onBackPressed = onBackPressed
         super.init(frame: .zero)
         shouldPassTouches = false
-        setupViews(trailingButton: trailingButton)
+        setupViews(trailingButtons: self.trailingButtons)
+    }
+
+    public init(
+        leadingButton: WNavigationBarButton,
+        trailingButtons: [WNavigationBarButton],
+        onBackPressed: @escaping () -> Void
+    ) {
+        self.leadingButton = leadingButton
+        self.trailingButtons = trailingButtons
+        self.onBackPressed = onBackPressed
+        super.init(frame: .zero)
+        shouldPassTouches = false
+        setupViews(trailingButtons: self.trailingButtons)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private func setupViews(trailingButton: WNavigationBarButton) {
+    private func setupViews(trailingButtons: [WNavigationBarButton]) {
         translatesAutoresizingMaskIntoConstraints = false
 
         backgroundColor = .clear
@@ -123,20 +138,7 @@ public final class WNavigationBar: WTouchPassView {
         }
         leadingButton.view.setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        contentView.addSubview(trailingButton.view)
-        NSLayoutConstraint.activate([
-            trailingButton.view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: IOS_26_MODE_ENABLED ? -12 : -8),
-            trailingButton.view.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            trailingButton.view.leadingAnchor.constraint(greaterThanOrEqualTo: titleStackView.trailingAnchor, constant: 4),
-            trailingButton.view.widthAnchor.constraint(greaterThanOrEqualTo: trailingButton.view.heightAnchor),
-        ])
-        if IOS_26_MODE_ENABLED {
-            NSLayoutConstraint.activate([
-                trailingButton.view.widthAnchor.constraint(equalToConstant: 44),
-                trailingButton.view.heightAnchor.constraint(equalToConstant: 44),
-            ])
-        }
-        trailingButton.view.setContentCompressionResistancePriority(.required, for: .horizontal)
+        setupTrailingButtons(trailingButtons)
 
         let attributedString = NSMutableAttributedString()
         let backArrowImage = UIImage(systemName: "chevron.backward")!
@@ -166,6 +168,33 @@ public final class WNavigationBar: WTouchPassView {
         ])
 
         updateTitleMenu()
+    }
+
+    private func setupTrailingButtons(_ trailingButtons: [WNavigationBarButton]) {
+        guard !trailingButtons.isEmpty else { return }
+        let trailingButtonsStackView = UIStackView()
+        trailingButtonsStackView.translatesAutoresizingMaskIntoConstraints = false
+        trailingButtonsStackView.axis = .horizontal
+        trailingButtonsStackView.alignment = .center
+        trailingButtonsStackView.spacing = IOS_26_MODE_ENABLED ? 8 : 0
+        contentView.addSubview(trailingButtonsStackView)
+        for trailingButton in trailingButtons {
+            trailingButtonsStackView.addArrangedSubview(trailingButton.view)
+            trailingButton.view.widthAnchor.constraint(greaterThanOrEqualTo: trailingButton.view.heightAnchor).isActive = true
+            if IOS_26_MODE_ENABLED {
+                NSLayoutConstraint.activate([
+                    trailingButton.view.widthAnchor.constraint(equalToConstant: 44),
+                    trailingButton.view.heightAnchor.constraint(equalToConstant: 44),
+                ])
+            }
+            trailingButton.view.setContentCompressionResistancePriority(.required, for: .horizontal)
+        }
+        NSLayoutConstraint.activate([
+            trailingButtonsStackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: IOS_26_MODE_ENABLED ? -12 : -8),
+            trailingButtonsStackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            trailingButtonsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: titleStackView.trailingAnchor, constant: 4),
+        ])
+        trailingButtonsStackView.setContentCompressionResistancePriority(.required, for: .horizontal)
     }
 
     @objc private func backButtonPressed() {

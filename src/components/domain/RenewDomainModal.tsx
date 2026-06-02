@@ -19,6 +19,7 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 
+import MfaConfirm from '../common/MfaConfirm';
 import TransactionBanner from '../common/TransactionBanner';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
 import LedgerConnect from '../ledger/LedgerConnect';
@@ -52,6 +53,7 @@ function RenewDomainModal({
     isLoading,
     realFee,
     txId,
+    mfaRequestHash,
   },
   isMediaViewerOpen,
   byAddress,
@@ -64,6 +66,7 @@ function RenewDomainModal({
     submitDomainsRenewal,
     checkDomainsRenewalDraft,
     showActivityInfo,
+    updateDomainsRenewalMfaRequestStatus,
   } = getActions();
 
   const lang = useLang();
@@ -82,6 +85,11 @@ function RenewDomainModal({
   }, [domainNfts]);
 
   useInterval(forceUpdate, isOpen ? MINUTE : undefined, true);
+  useInterval(() => {
+    if (isOpen && state === DomainRenewalState.ConfirmMfa && mfaRequestHash) {
+      updateDomainsRenewalMfaRequestStatus();
+    }
+  }, isOpen && state === DomainRenewalState.ConfirmMfa ? 1000 : undefined);
   useEffect(() => {
     if (isOpen) {
       checkDomainsRenewalDraft({ nfts: domainNfts });
@@ -248,6 +256,17 @@ function RenewDomainModal({
             onClose={cancelDomainsRenewal}
             onTryAgain={handleHardwareSubmit}
           />
+        );
+
+      case DomainRenewalState.ConfirmMfa:
+        return (
+          <>
+            <ModalHeader onClose={cancelDomainsRenewal} />
+            <MfaConfirm
+              onClose={cancelDomainsRenewal}
+              mfaRequestHash={mfaRequestHash}
+            />
+          </>
         );
 
       case DomainRenewalState.Complete:

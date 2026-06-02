@@ -19,11 +19,19 @@ extension Api {
     }
 
     public static func submitStake(accountId: String, password: String?, amount: BigInt, state: ApiStakingState, realFee: BigInt?) async throws -> String {
-        try await bridge.callApi("submitStake", accountId, password, amount, state, realFee, decoding: ActivityIdResult.self).activityId
+        try await submitStakeProtected(accountId: accountId, password: password, amount: amount, state: state, realFee: realFee).activityId.orThrow()
+    }
+
+    public static func submitStakeProtected(accountId: String, password: String?, amount: BigInt, state: ApiStakingState, realFee: BigInt?) async throws -> ApiMfaProtectedResult {
+        try await bridge.callApi("submitStake", accountId, password, amount, state, realFee, decoding: ApiMfaProtectedResult.self)
     }
     
     public static func submitUnstake(accountId: String, password: String?, amount: BigInt, state: ApiStakingState, realFee: BigInt?) async throws -> String {
-        try await bridge.callApi("submitUnstake", accountId, password, amount, state, realFee, decoding: ActivityIdResult.self).activityId
+        try await submitUnstakeProtected(accountId: accountId, password: password, amount: amount, state: state, realFee: realFee).activityId.orThrow()
+    }
+
+    public static func submitUnstakeProtected(accountId: String, password: String?, amount: BigInt, state: ApiStakingState, realFee: BigInt?) async throws -> ApiMfaProtectedResult {
+        try await bridge.callApi("submitUnstake", accountId, password, amount, state, realFee, decoding: ApiMfaProtectedResult.self)
     }
 
     public static func getStakingHistory(accountId: String) async throws -> [ApiStakingHistory] {
@@ -31,14 +39,10 @@ extension Api {
     }
     
     public static func submitStakingClaimOrUnlock(accountId: String, password: String?, state: ApiStakingState, realFee: BigInt?) async throws -> String {
-        try await bridge.callApi("submitStakingClaimOrUnlock", accountId, password, state, realFee, decoding: ActivityIdResult.self).activityId
+        try await submitStakingClaimOrUnlockProtected(accountId: accountId, password: password, state: state, realFee: realFee).activityId.orThrow()
+    }
+
+    public static func submitStakingClaimOrUnlockProtected(accountId: String, password: String?, state: ApiStakingState, realFee: BigInt?) async throws -> ApiMfaProtectedResult {
+        try await bridge.callApi("submitStakingClaimOrUnlock", accountId, password, state, realFee, decoding: ApiMfaProtectedResult.self)
     }
 }
-
-
-// MARK: - Types
-
-fileprivate struct ActivityIdResult: Decodable {
-    let activityId: String
-}
-

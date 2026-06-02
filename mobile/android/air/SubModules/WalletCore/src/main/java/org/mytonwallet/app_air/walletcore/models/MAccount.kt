@@ -5,6 +5,7 @@ import com.squareup.moshi.JsonClass
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.DNSHelpers
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDerivation
@@ -34,6 +35,7 @@ class MAccount(
         val domain: String? = null,
         val isMultisig: Boolean? = null,
         val derivation: ApiDerivation? = null,
+        val mfa: AccountMfa? = null,
     ) {
         val jsonObject: JSONObject
             get() {
@@ -42,6 +44,7 @@ class MAccount(
                     put("domain", domain)
                     put("isMultisig", isMultisig)
                     derivation?.let { put("derivation", it.toJSONObject()) }
+                    mfa?.let { put("mfa", it.jsonObject) }
                 }
             }
     }
@@ -105,6 +108,7 @@ class MAccount(
                     derivation = chainData.optJSONObject("derivation")?.let {
                         ApiDerivation.fromJSONObject(it)
                     },
+                    mfa = chainData.optJSONObject("mfa")?.let { AccountMfa.fromJson(it) },
                 )
             }
             return result
@@ -118,6 +122,7 @@ class MAccount(
                     accountChain.domain?.let { put("domain", it) }
                     accountChain.isMultisig?.let { put("isMultisig", it) }
                     accountChain.derivation?.let { put("derivation", it.toJSONObject()) }
+                    accountChain.mfa?.let { put("mfa", it.jsonObject) }
                 }
                 json.put(chainName, chain)
             }
@@ -133,6 +138,13 @@ class MAccount(
     val tonAddress: String?
         get() {
             return byChain["ton"]?.address
+        }
+
+    val telegramAvatarUrl: String?
+        get() {
+            val tonChain = byChain["ton"]
+            return DNSHelpers.telegramAvatarUrl(tonChain?.domain)
+                ?: DNSHelpers.telegramAvatarUrl(tonChain?.address)
         }
 
     val tronAddress: String?

@@ -435,8 +435,22 @@ class StakingVC(
                 showError(event.error?.parsed)
             }
 
+            is StakingViewModel.VmToVcEvents.MfaRequested -> {
+                presentMfaConfirm(event)
+            }
+
             else -> {}
         }
+    }
+
+    private fun presentMfaConfirm(event: StakingViewModel.VmToVcEvents.MfaRequested) {
+        val mfaVC = org.mytonwallet.app_air.uicomponents.viewControllers.MfaActionConfirmVC(
+            context,
+            requestHash = event.requestHash,
+        )
+        navigationController?.push(mfaVC, onCompletion = {
+            navigationController?.removePrevViewControllerOnly()
+        })
     }
 
     private fun pushConfirmView() {

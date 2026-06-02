@@ -82,8 +82,8 @@ import Dependencies
         isLoadingDraft = false
     }
     
-    func submit(password: String?) async throws {
-        guard !isSubmitting else { return }
+    func submit(password: String?) async throws -> ApiMfaProtectedResult {
+        guard !isSubmitting else { return ApiMfaProtectedResult() }
         isSubmitting = true
         defer { isSubmitting = false }
         let result = try await Api.submitDnsRenewal(
@@ -92,12 +92,16 @@ import Dependencies
             nfts: nfts,
             realFee: realFee
         )
-        if let results = result as? [Any] {
-            for entry in results {
-                if let dict = entry as? [String: Any], let error = dict["error"] as? String {
-                    throw BridgeCallError(message: error, payload: nil)
-                }
+        var activityIds: [String] = []
+        for entry in result {
+            if let error = entry.error {
+                throw BridgeCallError(message: error, payload: result)
             }
+            if let mfaRequestHash = entry.mfaRequestHash {
+                return ApiMfaProtectedResult(mfaRequestHash: mfaRequestHash)
+            }
+            activityIds.append(contentsOf: entry.activityIds ?? [])
         }
+        return ApiMfaProtectedResult(activityIds: activityIds)
     }
 }

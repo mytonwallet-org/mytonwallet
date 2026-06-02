@@ -186,7 +186,7 @@ private enum SwapModelIntent: Sendable {
         confirmation: SwapConfirmationAmounts,
         passcode: String,
         payoutAddress: String? = nil
-    ) async throws -> ApiActivity? {
+    ) async throws -> SwapExecutionResult {
         guard confirmation == confirmationAmounts() else {
             throw BridgeCallError.customMessage("Swap input changed", nil)
         }

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.appcompat.widget.AppCompatImageView
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -14,21 +15,37 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 
 @SuppressLint("ViewConstructor")
 class SwitchCell(
     context: Context,
     title: String,
     isChecked: Boolean,
-    val isFirst: Boolean = false,
-    val isLast: Boolean = false,
+    var isFirst: Boolean = false,
+    var isLast: Boolean = false,
+    private val leadingIconRes: Int? = null,
     onChange: (checked: Boolean) -> Unit
 ) : WCell(context), WThemedView {
+
+    fun setIsLast(value: Boolean) {
+        isLast = value
+        updateTheme()
+    }
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
             setStyle(adaptiveFontSize())
             text = title
+        }
+    }
+
+    private val leadingIconView: AppCompatImageView? by lazy {
+        leadingIconRes?.let {
+            AppCompatImageView(context).apply {
+                id = generateViewId()
+                setImageDrawable(context.getDrawableCompat(it))
+            }
         }
     }
 
@@ -65,8 +82,16 @@ class SwitchCell(
 
         addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(switchView)
+        leadingIconView?.let { addView(it, LayoutParams(28.dp, 28.dp)) }
         setConstraints {
-            toStart(titleLabel, 20f)
+            val icon = leadingIconView
+            if (icon != null) {
+                toStart(icon, 18f)
+                toCenterY(icon)
+                startToEnd(titleLabel, icon, 14f)
+            } else {
+                toStart(titleLabel, 20f)
+            }
             toCenterY(titleLabel)
             endToStart(titleLabel, switchView, 4f)
             toEnd(switchView, 20f)

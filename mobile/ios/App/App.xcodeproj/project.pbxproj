@@ -1194,7 +1194,7 @@
 				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet_Preview.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3517;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = "App/Resources/MyTonWallet/MyTonWallet_Preview-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1203,7 +1203,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 4.8.6;
+				MARKETING_VERSION = 4.9.4;
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app.preview;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1732,7 +1732,7 @@
 				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet_Preview.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3517;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = "App/Resources/MyTonWallet/MyTonWallet_Preview-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1741,7 +1741,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 4.8.6;
+				MARKETING_VERSION = 4.9.4;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app.preview;
 				PRODUCT_NAME = "$(TARGET_NAME)";

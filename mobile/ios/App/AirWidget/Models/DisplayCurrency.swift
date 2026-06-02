@@ -14,7 +14,7 @@ extension MBaseCurrency {
         case .BTC:
             return "Bitcoin"
         case .TON:
-            return "Toncoin"
+            return "Gram"
         }
     }
 }

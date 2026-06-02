@@ -482,7 +482,7 @@ open class LegendSignatureView(
                 }
                 formatterTON!!.maximumFractionDigits = if (v > 1_000_000_000) 2 else 6
                 return ChannelMonetizationLayout.replaceTON(
-                    "TON " + formatterTON!!.format(v / 1_000_000_000.0),
+                    "GRAM " + formatterTON!!.format(v / 1_000_000_000.0),
                     textView.paint,
                     .82f,
                     plain = false,

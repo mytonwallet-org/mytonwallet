@@ -556,9 +556,9 @@ public final class SendModel: Sendable {
     
     // MARK: - Send flow
     
-    func submit(password: String?) async throws {
+    func submit(password: String?) async throws -> SendFlowSubmitResult {
         let context = makeSubmitContext()
-        try await flow.submit(context: context, password: password, explainedFee: explainedFee)
+        return try await flow.submit(context: context, password: password, explainedFee: explainedFee)
     }
     
     func makeLedgerPayload() async throws -> SignData {

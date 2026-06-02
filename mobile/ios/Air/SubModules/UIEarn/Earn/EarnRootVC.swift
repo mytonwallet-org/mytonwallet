@@ -22,7 +22,7 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
     private lazy var _allSegmentedControlItems: [String: SegmentedControlItem] = [
         TONCOIN_SLUG: SegmentedControlItem(
             id: TONCOIN_SLUG,
-            title: "TON",
+            title: ApiToken.TONCOIN.symbol,
             viewController: tonVC,
         ),
         MYCOIN_SLUG: SegmentedControlItem(

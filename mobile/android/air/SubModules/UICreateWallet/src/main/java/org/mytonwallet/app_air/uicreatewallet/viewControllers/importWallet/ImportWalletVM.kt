@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.importPrivateKey
 import org.mytonwallet.app_air.walletcore.api.importWallet
+import org.mytonwallet.app_air.walletcore.api.refreshStoredMfaIfPossible
 import org.mytonwallet.app_air.walletcore.api.validateMnemonic
 import org.mytonwallet.app_air.walletcore.helpers.PrivateKeyHelper
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -99,6 +100,10 @@ class ImportWalletVM(delegate: Delegate) {
                 )
                 AirPushNotifications.subscribe(account, ignoreIfLimitReached = true)
             }
+            WalletCore.refreshStoredMfaIfPossible(
+                importedAccounts.map { it.accountId },
+                passcode,
+            )
             if (biometricsActivated != null) {
                 if (biometricsActivated) {
                     val activated = WSecureStorage.setBiometricPasscode(window, passcode)

@@ -7,11 +7,9 @@
 
 import SwiftUI
 import UIKit
-import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
-import Ledger
 import Perception
 import Dependencies
 
@@ -21,25 +19,25 @@ import Dependencies
     var update: ApiUpdate.DappConnect?
     var accountContext: AccountContext
     @PerceptionIgnored
-    var onConfirm: ((_ accountId: String, _ password: String) -> ())?
-    @PerceptionIgnored
     var onCancel: (() -> ())?
+    @PerceptionIgnored
+    weak var presenter: WViewController?
     var didConfirm: Bool = false
     var extraBottomPadding: CGFloat = 16
 
     @PerceptionIgnored
     @Dependency(\.accountStore) private var accountStore
     
-    init(accountId: String, update: ApiUpdate.DappConnect?, onConfirm: ((_ accountId: String, _ password: String) -> ())?, onCancel: (() -> ())?) {
+    init(accountId: String, update: ApiUpdate.DappConnect?, onCancel: (() -> ())?) {
         self.accountContext = AccountContext(accountId: accountId)
         self.update = update
-        self.onConfirm = onConfirm
         self.onCancel = onCancel
     }
     
     var isDisabled: Bool {
         if let update {
-            return update.proof != nil && accountContext.account.isView
+            let requiresSigning = update.proof != nil || accountContext.account.getChainInfo(chain: .ton)?.mfa != nil
+            return requiresSigning && accountContext.account.isView
         }
         return true
     }
@@ -52,7 +50,7 @@ import Dependencies
             onSelect: { [weak self] in self?.onWalletSelected(accountId: $0) }
         )
         let nc = WNavigationController(rootViewController: vc)
-        topViewController()?.present(nc, animated: true)
+        presenter?.present(nc, animated: true)
     }
     
     func onWalletSelected(accountId: String) {
@@ -63,58 +61,49 @@ import Dependencies
     }
     
     func onConnectWallet() {
-        if accountContext.account.isHardware {
-            Task {
-                await confirmLedger()
-            }
-        } else {
-            confirmMnemonic()
-        }
-    }
-    
-    private func confirmMnemonic() {
-        guard let update, let topVC = topViewController() else { return }
-        UnlockVC.presentAuth(on: topVC,
-                             title: lang("Confirm Connect"),
-                             subtitle: URL(string: update.dapp.url)?.host, onDone: { [weak self] passcode in
-            guard let self, let passcode else { return }
-            didConfirm = true
-            onConfirm?(accountContext.accountId, passcode)
-            topVC.dismiss(animated: true)
-        }, cancellable: true)
-    }
-    
-    private func confirmLedger() async {
         guard
-            let update
+            let update,
+            let presenter
         else { return }
-        
-        let signModel = await LedgerSignModel(
-            accountId: accountContext.accountId,
-            fromAddress: accountContext.account.firstAddress,
-            signData: .signLedgerProof(
-                promiseId: update.promiseId,
-                proof: update.proof
-            )
-        )
-        let vc = LedgerSignVC(
-            model: signModel,
-            title: lang("Confirm Sending"),
-            headerView: EmptyView()
-        )
-        vc.onDone = { [weak self] _ in
-            guard let self else { return }
-            self.didConfirm = true
-            onConfirm?(accountContext.accountId, "")
-            topViewController()?.dismiss(animated: true, completion: {
-                topViewController()?.dismiss(animated: true)
-            })
+
+        Task {
+            do {
+                let account = accountContext.account
+                let requiresSigning = update.proof != nil || account.getChainInfo(chain: .ton)?.mfa != nil
+                guard !(requiresSigning && account.isView) else {
+                    return
+                }
+                let result = try await AppActions.authorizeProtectedAction(
+                    on: presenter,
+                    account: account,
+                    title: lang("Confirm Connect"),
+                    headerView: DappHeaderView(dapp: update.dapp, accountContext: accountContext),
+                    passwordAction: { passcode in
+                        return try await TonConnect.shared.submitConnect(
+                            request: update,
+                            accountId: account.id,
+                            passcode: passcode
+                        )
+                    },
+                    ledgerSignData: {
+                        .signLedgerProof(
+                            promiseId: update.promiseId,
+                            proof: update.proof
+                        )
+                    },
+                    ledgerFromAddress: account.getAddress(chain: .ton),
+                    presentationStyle: .sheet,
+                    mfaTitle: lang("Confirm Connect")
+                )
+                if let result {
+                    try await TonConnect.shared.finishConnect(result)
+                }
+                didConfirm = true
+                presenter.dismiss(animated: true)
+            } catch is CancellationError {
+            } catch {
+                presenter.showAlert(error: error)
+            }
         }
-        vc.onCancel = { _ in
-            topViewController()?.dismiss(animated: true, completion: {
-                topViewController()?.dismiss(animated: true)
-            })
-        }
-        topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
     }
 }

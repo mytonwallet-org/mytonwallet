@@ -1,8 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.security
 
 import android.content.Context
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
-import android.os.Build
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -10,17 +8,17 @@ import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.generateViewId
 import androidx.core.view.isGone
+import androidx.core.view.updateLayoutParams
+import me.vkryl.android.AnimatorUtils
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
-import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
-import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
-import org.mytonwallet.app_air.uicomponents.widgets.WSwitch
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
@@ -28,6 +26,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uisettings.viewControllers.RecoveryPhraseVC
+import org.mytonwallet.app_air.uisettings.viewControllers.mfa.MfaVC
+import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
+import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
+import org.mytonwallet.app_air.uicomponents.helpers.spans.ChainBadgeSpan
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -38,11 +40,31 @@ import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
+
+private fun buildMfaRowTitle(): CharSequence {
+    val title = LocaleController.getString("2FA with Telegram")
+    return android.text.SpannableStringBuilder(title).apply {
+        append("  ")
+        val start = length
+        append("TON")
+        setSpan(
+            ChainBadgeSpan(
+                text = "TON",
+                textColorInt = WColor.SecondaryText.color,
+                backgroundColorInt = WColor.SecondaryBackground.color,
+            ),
+            start,
+            length,
+            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
+    }
+}
 
 class SecurityVC(context: Context, private var currentPasscode: String) : WViewController(context) {
     override val TAG = "Security"
@@ -52,42 +74,48 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
 
     override val shouldDisplayBottomBar = true
 
-    private val separatorBackgroundDrawable = SeparatorBackgroundDrawable().apply {
-        backgroundWColor = WColor.Background
-        offsetStart = 20f.dp
-        offsetEnd = 20f.dp
-        forceSeparator = true
-    }
-
-    private val backupTitleLabel = HeaderCell(context).apply {
-        configure(
-            LocaleController.getString("\$back_up_security"),
-            titleColor = WColor.Tint,
-            HeaderCell.TopRounding.FIRST_ITEM
-        )
-    }
-
-    private val backupRow = KeyValueRowView(
-        context,
-        LocaleController.getString("Show Secret Words"),
-        "",
-        KeyValueRowView.Mode.PRIMARY,
-        isLast = true,
-    ).apply {
-        setOnClickListener {
-            WalletCore.call(
-                ApiMethod.Settings.FetchMnemonic(
-                    AccountStore.activeAccountId!!,
-                    currentPasscode
-                ), callback = { words, err ->
-                    if (words == null || err != null) {
-                        return@call
-                    }
-                    navigationController?.push(
-                        RecoveryPhraseVC(context, displayedAccount.network, words)
-                    )
-                })
+    private val shouldShowMfa: Boolean
+        get() {
+            val account = AccountStore.activeAccount ?: return false
+            if (!account.isChainSupported(org.mytonwallet.app_air.walletcore.TON_CHAIN) ||
+                account.isViewOnly ||
+                account.accountType != MAccount.AccountType.MNEMONIC ||
+                !AccountStore.isCurrentVersionW5
+            ) {
+                return false
+            }
+            return WGlobalStorage.getAccountConfigIsMfaEnabled(account.accountId) ||
+                account.byChain[org.mytonwallet.app_air.walletcore.TON_CHAIN]?.mfa != null
         }
+
+    private val backupRow = SettingsItemCell(context).apply {
+        configure(
+            SettingsItem(
+                identifier = SettingsItem.Identifier.NONE,
+                icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_export,
+                title = LocaleController.getString("Back Up & Export"),
+                value = null,
+                hasTintColor = false,
+            ),
+            subtitle = null,
+            isFirst = true,
+            isLast = true,
+            isEnabled = true,
+            onTap = {
+                WalletCore.call(
+                    ApiMethod.Settings.FetchMnemonic(
+                        AccountStore.activeAccountId!!,
+                        currentPasscode
+                    ), callback = { words, err ->
+                        if (words == null || err != null) {
+                            return@call
+                        }
+                        navigationController?.push(
+                            RecoveryPhraseVC(context, displayedAccount.network, words)
+                        )
+                    })
+            }
+        )
     }
 
     private val spacer1: WBaseView by lazy {
@@ -95,55 +123,28 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         v
     }
 
-    private val passcodeTitleLabel = HeaderCell(context).apply {
-        configure(
-            LocaleController.getString("Passcode"),
-            titleColor = WColor.Tint,
-            HeaderCell.TopRounding.NORMAL
-        )
-    }
-
-    private val biometricLabel: WLabel by lazy {
-        val lbl = WLabel(context)
-        lbl.setStyle(adaptiveFontSize())
-        lbl.text = LocaleController.getString("Biometric Authentication")
-        lbl
-    }
-
-    private val biometricSwitch: WSwitch by lazy {
-        val switchView = WSwitch(context)
-        switchView.isChecked = WGlobalStorage.isBiometricActivated()
-        switchView.setOnCheckedChangeListener { _, isChecked ->
-            if (WGlobalStorage.isBiometricActivated() == isChecked)
-                return@setOnCheckedChangeListener
-            if (isChecked) {
-                val activated = WSecureStorage.setBiometricPasscode(window!!, currentPasscode)
-                WGlobalStorage.setIsBiometricActivated(activated)
-                if (!activated)
-                    switchView.isChecked = false
-            } else {
-                WSecureStorage.deleteBiometricPasscode(window!!)
-                WGlobalStorage.setIsBiometricActivated(false)
+    private val biometricAuthRow: SwitchCell by lazy {
+        SwitchCell(
+            context,
+            title = LocaleController.getString("Biometric Authentication"),
+            isChecked = WGlobalStorage.isBiometricActivated(),
+            isFirst = true,
+            isLast = false,
+            leadingIconRes = org.mytonwallet.app_air.uisettings.R.drawable.ic_biometric_auth,
+            onChange = { isChecked ->
+                if (WGlobalStorage.isBiometricActivated() == isChecked) return@SwitchCell
+                if (isChecked) {
+                    val activated = WSecureStorage.setBiometricPasscode(window!!, currentPasscode)
+                    WGlobalStorage.setIsBiometricActivated(activated)
+                    if (!activated) biometricAuthRow.isChecked = false
+                } else {
+                    WSecureStorage.deleteBiometricPasscode(window!!)
+                    WGlobalStorage.setIsBiometricActivated(false)
+                }
             }
+        ).apply {
+            isGone = !BiometricHelpers.canAuthenticate(context)
         }
-        switchView
-    }
-
-    private val biometricAuthRow: WView by lazy {
-        val v = WView(context)
-        v.addView(biometricLabel)
-        v.addView(biometricSwitch)
-        v.setConstraints {
-            toStart(biometricLabel, 20f)
-            toCenterY(biometricLabel)
-            toEnd(biometricSwitch, 20f)
-            toCenterY(biometricSwitch)
-        }
-        v.setOnClickListener {
-            biometricSwitch.isChecked = !biometricSwitch.isChecked
-        }
-        v.isGone = !BiometricHelpers.canAuthenticate(context)
-        v
     }
 
     private val changePasscodeRow =
@@ -151,21 +152,75 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             context,
             LocaleController.getString("Change Passcode"),
             "",
-            KeyValueRowView.Mode.PRIMARY,
+            KeyValueRowView.Mode.LINK,
             isLast = true,
         ).apply {
+            if (biometricAuthRow.isGone)
+                setTopRadius(ViewConstants.BLOCK_RADIUS.dp)
             setOnClickListener {
                 changePasscodePressed()
             }
         }
 
+    private val changePasscodeFooterLabel: WLabel by lazy {
+        WLabel(context).apply {
+            setStyle(13f)
+            text = LocaleController.getString("The passcode will be changed for all your wallets.")
+            gravity = android.view.Gravity.START
+            setTextColor(WColor.SecondaryText)
+        }
+    }
+
     private val spacer2 = WBaseView(context)
 
-    private val appLockLabel = HeaderCell(context).apply {
-        configure(
-            LocaleController.getString("App Lock"),
-            titleColor = WColor.Tint,
-            HeaderCell.TopRounding.NORMAL
+    private val mfaRow: SettingsItemCell by lazy {
+        SettingsItemCell(context).apply {
+            configure(
+                SettingsItem(
+                    identifier = SettingsItem.Identifier.MFA,
+                    icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_mfa,
+                    title = buildMfaRowTitle(),
+                    value = null,
+                    hasTintColor = false,
+                ),
+                subtitle = null,
+                isFirst = true,
+                isLast = true,
+                isEnabled = true,
+                onTap = {
+                    navigationController?.push(MfaVC(context))
+                }
+            )
+        }
+    }
+
+    private val mfaFooterLabel: WLabel by lazy {
+        WLabel(context).apply {
+            setStyle(13f)
+            text = LocaleController.getString("Approve sign-in in Telegram as a second step.")
+            gravity = android.view.Gravity.START
+            setTextColor(WColor.SecondaryText)
+        }
+    }
+
+    private val mfaSpacer: WBaseView by lazy { WBaseView(context) }
+
+    private val allowAppLockRow: SwitchCell by lazy {
+        SwitchCell(
+            context,
+            title = LocaleController.getString("Allow App Lock"),
+            isChecked = WGlobalStorage.isAppLockEnabled(),
+            isFirst = false,
+            isLast = false,
+            onChange = { isChecked ->
+                WGlobalStorage.setIsAppLockEnabled(isChecked)
+                if (isChecked) {
+                    AutoLockHelper.start(WGlobalStorage.getAppLock().period)
+                } else {
+                    AutoLockHelper.stop()
+                }
+                animateAutoLockRow(visible = isChecked)
+            }
         )
     }
 
@@ -181,8 +236,9 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             LocaleController.getString("Lock the app after"),
             "",
             KeyValueRowView.Mode.PRIMARY,
-            isLast = true,
+            isLast = false,
         ).apply {
+            isGone = !WGlobalStorage.isAppLockEnabled()
             setValueView(lockTimeView)
             setOnClickListener {
                 WMenuPopup.present(
@@ -213,20 +269,48 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             }
         }
 
-    private val spacer3 = WBaseView(context)
-
-    private val screenRecordTitleLabel = HeaderCell(context).apply {
-        configure(
-            LocaleController.getString("Screen Recording"),
-            titleColor = WColor.Tint,
-            HeaderCell.TopRounding.NORMAL
-        )
+    private val appLockContainerView: WView by lazy {
+        WView(context).apply {
+            id = generateViewId()
+            addView(
+                allowAppLockRow,
+                ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            )
+            addView(
+                autoLockRow,
+                ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp)
+            )
+            setConstraints {
+                toTop(allowAppLockRow)
+                toCenterX(allowAppLockRow)
+                topToBottom(autoLockRow, allowAppLockRow)
+                toCenterX(autoLockRow)
+            }
+            clipToOutline = true
+            clipChildren = true
+        }
     }
+
+    private val appLockFooterLabel: WLabel by lazy {
+        WLabel(context).apply {
+            setStyle(13f)
+            text = LocaleController.getString("\$app_lock_description")
+                .replace(
+                    "%app_name%",
+                    context.getString(org.mytonwallet.app_air.walletbasecontext.R.string.app_name)
+                )
+            gravity = android.view.Gravity.START
+            setTextColor(WColor.SecondaryText)
+        }
+    }
+
+    private val spacer3 = WBaseView(context)
 
     private val disableScreenRecordWarningRow = SwitchCell(
         context,
         title = LocaleController.getString("Disable Screen Record Warning"),
         isChecked = WGlobalStorage.getIsScreenRecordWarningDisabled(),
+        isFirst = true,
         isLast = true,
         onChange = { isChecked ->
             WGlobalStorage.setIsScreenRecordWarningDisabled(isChecked)
@@ -242,37 +326,49 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             0
         )
         if (AccountStore.activeAccount?.accountType == MAccount.AccountType.MNEMONIC) {
-            v.addView(backupTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             v.addView(backupRow)
             v.addView(spacer1, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
         }
-        v.addView(passcodeTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        v.addView(biometricAuthRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
+        v.addView(biometricAuthRow, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(changePasscodeRow)
+        v.addView(changePasscodeFooterLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(spacer2, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
-        v.addView(appLockLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        v.addView(autoLockRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
+        if (shouldShowMfa) {
+            v.addView(mfaRow, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            v.addView(mfaFooterLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            v.addView(mfaSpacer, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+        }
+        v.addView(appLockContainerView, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(appLockFooterLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(spacer3, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
-        v.addView(screenRecordTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(disableScreenRecordWarningRow)
         v.setConstraints {
             if (AccountStore.activeAccount?.isViewOnly != true) {
-                toTop(backupTitleLabel)
-                topToBottom(backupRow, backupTitleLabel)
+                toTop(backupRow)
                 toCenterX(backupRow)
                 topToBottom(spacer1, backupRow)
-                topToBottom(passcodeTitleLabel, spacer1)
+                topToBottom(biometricAuthRow, spacer1)
             } else {
-                toTop(passcodeTitleLabel)
+                toTop(biometricAuthRow)
             }
-            topToBottom(biometricAuthRow, passcodeTitleLabel)
             topToBottom(changePasscodeRow, biometricAuthRow)
-            topToBottom(spacer2, changePasscodeRow)
-            topToBottom(appLockLabel, spacer2)
-            topToBottom(autoLockRow, appLockLabel)
-            topToBottom(spacer3, autoLockRow)
-            topToBottom(screenRecordTitleLabel, spacer3)
-            topToBottom(disableScreenRecordWarningRow, screenRecordTitleLabel)
+            topToBottom(changePasscodeFooterLabel, changePasscodeRow, 8f)
+            toCenterX(changePasscodeFooterLabel, 16f)
+            topToBottom(spacer2, changePasscodeFooterLabel, 4f)
+            if (shouldShowMfa) {
+                topToBottom(mfaRow, spacer2)
+                topToBottom(mfaFooterLabel, mfaRow, 8f)
+                toCenterX(mfaFooterLabel, 16f)
+                topToBottom(mfaSpacer, mfaFooterLabel, 4f)
+                topToBottom(appLockContainerView, mfaSpacer)
+            } else {
+                topToBottom(appLockContainerView, spacer2)
+            }
+            toCenterX(appLockContainerView)
+            topToBottom(appLockFooterLabel, appLockContainerView, 8f)
+            toCenterX(appLockFooterLabel, 16f)
+            topToBottom(spacer3, appLockFooterLabel, 4f)
+            topToBottom(disableScreenRecordWarningRow, spacer3)
             toBottomPx(
                 disableScreenRecordWarningRow,
                 (navigationController?.bottomInset ?: 0)
@@ -314,48 +410,17 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         super.updateTheme()
 
         view.setBackgroundColor(WColor.SecondaryBackground.color)
-        if (AccountStore.activeAccount?.isViewOnly != true) {
-            backupTitleLabel.setBackgroundColor(
-                WColor.Background.color,
-                ViewConstants.TOOLBAR_RADIUS.dp,
-                0f,
-            )
-            backupRow.setBackgroundColor(WColor.Background.color)
-            passcodeTitleLabel.setBackgroundColor(
-                WColor.Background.color,
-                ViewConstants.BLOCK_RADIUS.dp,
-                0f,
-            )
-        } else {
-            passcodeTitleLabel.setBackgroundColor(
-                WColor.Background.color,
-                ViewConstants.TOOLBAR_RADIUS.dp,
-                0f,
-            )
-        }
-        biometricAuthRow.background = separatorBackgroundDrawable
-        biometricAuthRow.addRippleEffect(WColor.SecondaryBackground.color)
-        biometricLabel.setTextColor(WColor.PrimaryText.color)
         changePasscodeRow.setBackgroundColor(WColor.Background.color)
-        appLockLabel.setBackgroundColor(
+        autoLockRow.setBackgroundColor(WColor.Background.color, 0f, 0f)
+        appLockContainerView.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp,
-            0f,
-        )
-        autoLockRow.setBackgroundColor(WColor.Background.color)
-        screenRecordTitleLabel.setBackgroundColor(
-            WColor.Background.color,
-            ViewConstants.BLOCK_RADIUS.dp,
-            0f,
         )
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            scrollView.setOnScrollChangeListener(null)
-        }
-        biometricAuthRow.setOnClickListener(null)
+        scrollView.setOnScrollChangeListener(null)
     }
 
     private fun changePasscodePressed() {
@@ -426,5 +491,48 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         navigationController?.push(confirmPasscodeVC, onCompletion = {
             changePasscodeVC.restartAuth()
         })
+    }
+
+    private var autoLockHeightAnim: android.animation.ValueAnimator? = null
+
+    private fun animateAutoLockRow(visible: Boolean) {
+        autoLockHeightAnim?.cancel()
+        autoLockHeightAnim = null
+
+        val autoLockHeight = 50.dp
+        val allowRowHeight = allowAppLockRow.height.takeIf { it > 0 } ?: autoLockHeight
+        val expandedHeight = allowRowHeight + autoLockHeight
+
+        autoLockRow.isGone = false
+
+        if (!WGlobalStorage.getAreAnimationsActive()) {
+            appLockContainerView.layoutParams.height =
+                if (visible) expandedHeight else allowRowHeight
+            appLockContainerView.requestLayout()
+            return
+        }
+
+        val startHeight = appLockContainerView.height.takeIf { it > 0 } ?: allowRowHeight
+        val targetHeight = if (visible) expandedHeight else allowRowHeight
+
+        autoLockHeightAnim =
+            android.animation.ValueAnimator.ofInt(startHeight, targetHeight).apply {
+                duration = AnimationConstants.VERY_QUICK_ANIMATION
+                interpolator = AnimatorUtils.ACCELERATE_DECELERATE_INTERPOLATOR
+                addUpdateListener { animator ->
+                    appLockContainerView.updateLayoutParams {
+                        height = animator.animatedValue as Int
+                    }
+                }
+                addListener(object : android.animation.AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: android.animation.Animator) {
+                        appLockContainerView.updateLayoutParams {
+                            height = targetHeight
+                        }
+                        autoLockHeightAnim = null
+                    }
+                })
+                start()
+            }
     }
 }

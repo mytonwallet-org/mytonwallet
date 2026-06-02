@@ -17,13 +17,13 @@ import captureEscKeyListener from '../../util/captureEscKeyListener';
 import { formatDateRange } from '../../util/dateFormat';
 import { toBig } from '../../util/decimals';
 import { getShortCurrencySymbol } from '../../util/formatNumber';
+import { computeNetChange } from '../../util/portfolio/computeNetChange';
+import { DEFAULT_PORTFOLIO_TIME_RANGE } from '../../util/portfolio/timeRange';
 import { getFullStakingBalance } from '../../util/staking';
 import { captureControlledSwipe, SWIPE_DISABLED_CLASS_NAME } from '../../util/swipeController';
 import useTelegramMiniAppSwipeToClose from '../../util/telegram/hooks/useTelegramMiniAppSwipeToClose';
 import { IS_TOUCH_ENV } from '../../util/windowEnvironment';
 import { buildSegmentsByChain, buildSegmentsByStacked, buildSegmentsByTokenKind } from './helpers/buildStackSegments';
-import { computeNetChange } from './helpers/computeNetChange';
-import { DEFAULT_PORTFOLIO_TIME_RANGE } from './helpers/timeRange';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';

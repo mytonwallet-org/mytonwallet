@@ -38,10 +38,8 @@ import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useLang from '../../hooks/useLang';
 import useTimeout from '../../hooks/useTimeout';
 
-import Activity from '../main/sections/Content/Activity';
+import ActivityPreview from '../common/ActivityPreview';
 import Button from '../ui/Button';
-import FeeLine from '../ui/FeeLine';
-import IconWithTooltip from '../ui/IconWithTooltip';
 import ModalHeader from '../ui/ModalHeader';
 import Transition from '../ui/Transition';
 import DappAmountField from './DappAmountField';
@@ -265,46 +263,23 @@ function DappTransferInitial({
       return undefined;
     }
 
-    const { activities, realFee } = emulation;
-
-    const visibleActivities = activities.filter((activity) => !activity.shouldHide);
-
     return (
-      <>
-        <p className={styles.label}>
-          {lang('Preview')}
-          {' '}
-          <IconWithTooltip message={renderText(lang('$preview_not_guaranteed'))} type="warning" size="small" />
-        </p>
-        <div className={buildClassName(styles.transactionList, styles.emulation)}>
-          {visibleActivities.map((activity, index) => (
-            <Activity
-              key={activity.id}
-              activity={activity}
-              isFuture
-              isLast={index === visibleActivities.length - 1}
-              tokensBySlug={tokensBySlug}
-              swapTokensBySlug={swapTokensBySlug}
-              appTheme={appTheme}
-              nftsByAddress={nftsByAddress}
-              currentAccountId={currentAccountId}
-              stakingStateBySlug={stakingStateBySlug}
-              savedAddresses={savedAddresses}
-              accounts={accounts}
-              baseCurrency={baseCurrency}
-              currencyRates={currencyRates}
-            />
-          ))}
-        </div>
-        {realFee !== 0n && (
-          <FeeLine
-            terms={{ native: realFee }}
-            token={getChainConfig(chain || DEFAULT_CHAIN).nativeToken}
-            precision="approximate"
-            className={styles.emulationFee}
-          />
-        )}
-      </>
+      <ActivityPreview
+        className={styles.emulation}
+        activities={emulation.activities}
+        realFee={emulation.realFee}
+        feeToken={getChainConfig(chain || DEFAULT_CHAIN).nativeToken}
+        tokensBySlug={tokensBySlug}
+        swapTokensBySlug={swapTokensBySlug}
+        appTheme={appTheme}
+        nftsByAddress={nftsByAddress}
+        currentAccountId={currentAccountId}
+        stakingStateBySlug={stakingStateBySlug}
+        savedAddresses={savedAddresses}
+        accounts={accounts}
+        baseCurrency={baseCurrency}
+        currencyRates={currencyRates}
+      />
     );
   }
 

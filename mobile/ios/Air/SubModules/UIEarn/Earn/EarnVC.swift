@@ -104,7 +104,7 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
             if tokenSlug == TONCOIN_SLUG {
                 earnedAmount = stakingData?.totalProfit
                 earnedDecimals = 9
-                earnedSymbol = "TON"
+                earnedSymbol = ApiToken.TONCOIN.symbol
             } else if case .jetton(let jetton) = self.stakingState {
                 earnedAmount = jetton.unclaimedRewards
                 earnedDecimals = self.token.decimals

@@ -85,10 +85,12 @@ public typealias ApiHistoryList = [[Double]]
 
 public struct ApiPortfolioHistoryRequest: Encodable, Equatable, Hashable, Sendable {
     public let from: Double
+    public let to: Double
     public let density: String
 
-    public init(from: Date, density: String) {
+    public init(from: Date, to: Date, density: String) {
         self.from = from.timeIntervalSince1970
+        self.to = to.timeIntervalSince1970
         self.density = density
     }
 }

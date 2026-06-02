@@ -9,6 +9,22 @@ Creating Wallet...: Cüzdan oluşturuluyor...
 On the count of three...: Üçe kadar saydığınızda...
 $back_up_auth: Yedekle
 $back_up_security: Yedekleme güvenliği
+$2fa_security: Telegram ile 2FA
+2FA with Telegram: Telegram ile 2FA
+Confirm operations in Telegram as a second step.: İşlemleri ikinci adım olarak Telegram’da onaylayın.
+Confirm with: Şununla onayla
+Add an extra layer of security for your wallet in TON network.: TON ağındaki cüzdanınız için ekstra bir güvenlik katmanı ekleyin.
+Sign transfers and important actions with your passcode, then confirm them in Telegram.: Transferleri ve önemli işlemleri şifrenizle imzalayın, ardından Telegram’da onaylayın.
+This helps protect your funds even if your recovery phrase or keys are compromised.: Bu, kurtarma ifadeniz veya anahtarlarınız ele geçirilse bile fonlarınızı korumaya yardımcı olur.
+"Connection Fee:": "Bağlantı Ücreti:"
+Connect Telegram: Telegram’ı Bağla
+Telegram will be used to confirm transfers and important actions.: Telegram, transferleri ve önemli işlemleri onaylamak için kullanılacak.
+My Telegram Account: Telegram Hesabım
+Without username: Kullanıcı adı yok
+Unlink Account: Hesabın Bağlantısını Kaldır
+An extra security layer requires confirming actions in Telegram after signing.: Ek güvenlik katmanı, imzalamadan sonra işlemleri Telegram’da onaylamayı gerektirir.
+Confirm Connection: Bağlantıyı Onayla
+Confirm Disconnection: Bağlantıyı Kesmesini Onayla
 Passwords must be equal.: Parolalar eşleşmelidir.
 To protect your wallet as much as possible, use a password with: Cüzdanınızı mümkün olduğunca korumak için en az
 $auth_password_rule_8chars: 8 karakterli bir şifre kullanın
@@ -878,6 +894,10 @@ $domain_expire: "**%domain%** %days% sona eriyor"
 "%token% Staking": "%token% Stake Etme"
 Add Tab: Sekme Ekle
 Remove Tab: Sekmeyi Kaldır
+$iab_tabs_count:
+  zeroValue: "%1$d sekme"
+  oneValue: "%1$d sekme"
+  otherValue: "%1$d sekme"
 Link Domain: Alan adını bağla
 Domain Linked!: Alan adı bağlandı!
 $domains_amount %1$d:
@@ -1249,7 +1269,7 @@ Standalone: Bağımsız
 All Telegram Gifts: Tüm Telegram hediyeleri
 Add Crypto: Kripto ekle
 Share QR Code: QR kodu paylaş
-$send_only_ton: Bu adrese yalnızca Toncoin (TON) veya TON tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
+$send_only_ton: Bu adrese yalnızca Gram (GRAM) veya TON tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
 $send_only_chain: Bu adrese yalnızca %chain% (%symbol%) veya %chain% tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
 Buying with card is not supported for this account.: Bu hesap kartla satın almayı desteklemiyor.
 Swapped at: Takas zamanı
@@ -1511,8 +1531,8 @@ push_activity_swap_completed: Takas %from_symbol% -> %to_symbol% tamamlandı
 push_activity_swap_failed: Takas %from_symbol% -> %to_symbol% başarısız oldu
 push_activity_swap_expired: Takas %from_symbol% -> %to_symbol% süresi doldu
 push_activity_swap_pending: Takas %from_symbol% -> %to_symbol% %status%
-push_activity_staking_profit: Staking karı %amount% TON
-push_activity_staking_loyalty_profit: Staking sadakat karı %amount% TON
+push_activity_staking_profit: Staking karı %amount% GRAM
+push_activity_staking_loyalty_profit: Staking sadakat karı %amount% GRAM
 push_domain_title_renew: Alan adınızı yenileyin
 push_domain_expired_yesterday: Alan adınız %domain% dün süresi doldu. Erişimi kaybetmemek için lütfen en kısa sürede yenileyin
 push_domain_expired_days_ago: Alan adınız %domain% %days% gün önce süresi doldu. Erişimi kaybetmemek için lütfen en kısa sürede yenileyin
@@ -1533,3 +1553,4 @@ Tracked asset value over time: Zaman içinde izlenen varlık değeri
 Cumulative profit and loss over time: Zaman içinde kümülatif kâr ve zarar
 Day-by-day profit and loss: Günden güne kâr ve zarar
 Current allocation across tracked assets: İzlenen varlıklar arasındaki mevcut dağılım
+This action is not supported in explorer mode.: Bu işlem kaşif modunda desteklenmiyor.

@@ -36,10 +36,11 @@ final class BalanceHeaderView: WTouchPassView, Sendable {
     var prevWalletCardViewState: HomeHeaderState = .expanded
     
     var lastStateChange: Date = .distantPast
+    var cardLayoutMetrics: HomeCardLayoutMetrics = .screen
     
     var calculatedHeight: CGFloat {
         if headerViewModel.state == .expanded {
-            itemHeight - expansionInset + additionalSpacingToNavigationBar
+            cardLayoutMetrics.itemHeight - expansionInset + additionalSpacingToNavigationBar
         } else {
             collapsedHeight + (IOS_26_MODE_ENABLED ? 0.0 : 12.0)
         }

@@ -20,7 +20,9 @@ jest.mock('../chains', () => {
         if (!stubsByChain.has(chain)) {
           stubsByChain.set(chain, {
             fetchActivitySlice: jest.fn().mockResolvedValue([]),
-            fetchCrossChainActivitySlice: jest.fn().mockResolvedValue([]),
+            crosschain: {
+              fetchCrossChainActivitySlice: jest.fn().mockResolvedValue([]),
+            },
           });
         }
         return stubsByChain.get(chain);

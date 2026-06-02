@@ -8,6 +8,7 @@
 import Foundation
 import WalletContext
 
+private let apiSwapLog = Log("Api+Swap")
 
 extension Api {
 
@@ -53,6 +54,15 @@ extension Api {
         try await bridge.callApi("swapCexSubmit", chain, options, swapId, decoding: ApiSubmitTransferResult.self)
     }
 
+    public static func confirmSwapMfaRequest(accountId: String, swapId: String, txHash: String) async throws {
+        do {
+            try await bridge.callApiVoid("confirmSwapMfaRequest", accountId, swapId, txHash)
+        } catch {
+            apiSwapLog.error("confirmSwapMfaRequest failed: \(error, .public)")
+            throw error
+        }
+    }
+
     public static func fetchSwaps(accountId: String, ids: [String]) async throws -> ApiFetchSwapsResult {
         try await bridge.callApi("fetchSwaps", accountId, ids, decoding: ApiFetchSwapsResult.self)
     }
@@ -68,8 +78,14 @@ public struct ApiSwapBuildResponse: Codable, Sendable {
 
 public struct ApiSwapSubmitResult: Codable, Sendable {
     public let activityId: String?
+    public let swapId: String?
+    public let mfaRequestHash: String?
     public let error: String?
     public let paymentLink: String?
+}
+
+extension ApiSwapSubmitResult: MfaProtectedActionResult {
+    public var protectedActionError: String? { error }
 }
 
 public struct ApiSwapCexValidateAddressParams: Encodable, Sendable {

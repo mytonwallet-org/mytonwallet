@@ -97,7 +97,7 @@ import WalletContext
         presenter.route(context: context, state: state.crosschain)
     }
 
-    func performSwap(context: SwapExecutionContext, state: SwapFlowState) async throws -> ApiActivity? {
+    func performSwap(context: SwapExecutionContext, state: SwapFlowState) async throws -> SwapExecutionResult {
         try await executor.performSwap(
             swapType: context.swapType,
             swapEstimate: state.crosschain.cexEstimate,

@@ -8,6 +8,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -156,7 +157,7 @@ class TonConnectRequestConnectVC(
                 connectConfirm(
                     update.promiseId,
                     passcode = ""
-                ) { success ->
+                ) { success, _ ->
                     if (success) {
                         window!!.dismissLastNav()
                     }
@@ -223,26 +224,45 @@ class TonConnectRequestConnectVC(
     private fun confirmPasscode() {
         val update = update ?: return
         val window = window ?: return
+        lateinit var navVC: WNavigationController
         val passcodeVC = PasscodeConfirmVC(
             context,
             PasscodeViewState.CustomHeader(
                 ConnectRequestConfirmView(context).apply { configure(update.dapp) },
                 LocaleController.getString("Confirm")
             ), task = { passcode ->
+                val accountHasMfa = AccountStore.accountById(update.accountId)
+                    ?.byChain?.get(TON_CHAIN)?.mfa != null
                 connectConfirm(
                     update.promiseId,
                     passcode,
-                    { success ->
-                        if (success) {
-                            window.dismissLastNav()
+                    { success, mfaHash ->
+                        if (!success) return@connectConfirm
+                        if (mfaHash != null) {
+                            val mfaVC = org.mytonwallet.app_air.uicomponents
+                                .viewControllers.MfaActionConfirmVC(
+                                    context,
+                                    requestHash = mfaHash,
+                                    forceCloseButton = true,
+                                    onConfirmed = { _ ->
+                                        finalizeMfaDappConnect()
+                                    },
+                                )
+                            navVC.push(mfaVC, onCompletion = {
+                                navVC.removePrevViewControllerOnly()
+                            })
+                            return@connectConfirm
                         }
+                        window.dismissLastNav()
                     }
                 )
-                window.dismissLastNav {
-                    window.dismissLastNav()
+                if (!accountHasMfa) {
+                    window.dismissLastNav {
+                        window.dismissLastNav()
+                    }
                 }
             })
-        val navVC = WNavigationController(window)
+        navVC = WNavigationController(window)
         navVC.setRoot(passcodeVC)
         window.present(navVC)
     }
@@ -251,7 +271,7 @@ class TonConnectRequestConnectVC(
     private fun connectConfirm(
         promiseId: String,
         passcode: String,
-        onCompletion: (success: Boolean) -> Unit
+        onCompletion: (success: Boolean, mfaRequestHash: String?) -> Unit
     ) {
         val update = update ?: return
         isConfirmed = true
@@ -268,6 +288,33 @@ class TonConnectRequestConnectVC(
                             passcode
                         )
                     ) else null
+
+                    val accountMfa = account.byChain[TON_CHAIN]?.mfa
+                    if (accountMfa != null) {
+                        val mfaResult = WalletCore.call(
+                            ApiMethod.DApp.CreateDappConnectMfaRequest(
+                                accountId = account.accountId,
+                                password = passcode,
+                            )
+                        )
+                        val hash = mfaResult.mfaRequestHash
+                        if (hash == null) {
+                            isConfirmed = false
+                            onCompletion(false, null)
+                            return@launch
+                        }
+                        // Stash proofSignatures + accountId so the MFA confirm path
+                        // can complete the dapp connect once Telegram approval lands.
+                        pendingMfaConnect = PendingMfaConnect(
+                            promiseId = promiseId,
+                            accountId = account.accountId,
+                            proofSignatures = signResult?.signatures,
+                            hash = hash,
+                        )
+                        onCompletion(true, hash)
+                        return@launch
+                    }
+
                     WalletCore.call(
                         ApiMethod.DApp.ConfirmDappRequestConnect(
                             promiseId,
@@ -277,10 +324,10 @@ class TonConnectRequestConnectVC(
                             )
                         )
                     )
-                    onCompletion(true)
+                    onCompletion(true, null)
                 } catch (err: JSWebViewBridge.ApiError) {
                     isConfirmed = false
-                    onCompletion(false)
+                    onCompletion(false, null)
                 }
             }
         }
@@ -295,6 +342,36 @@ class TonConnectRequestConnectVC(
                 val activatedAccount = activatedAccount ?: return@activateAccount
                 callback(activatedAccount);
             }
+        }
+    }
+
+    private data class PendingMfaConnect(
+        val promiseId: String,
+        val accountId: String,
+        val proofSignatures: List<String>?,
+        val hash: String,
+    )
+
+    private var pendingMfaConnect: PendingMfaConnect? = null
+
+    private fun finalizeMfaDappConnect() {
+        val pending = pendingMfaConnect ?: return
+        pendingMfaConnect = null
+        val window = window ?: return
+        window.lifecycleScope.launch {
+            try {
+                WalletCore.call(
+                    ApiMethod.DApp.ConfirmDappRequestConnect(
+                        pending.promiseId,
+                        ApiMethod.DApp.ConfirmDappRequestConnect.Request(
+                            pending.accountId,
+                            pending.proofSignatures,
+                        ),
+                    )
+                )
+            } catch (_: Throwable) {
+            }
+            navigationController?.let { window.dismissNav(it) }
         }
     }
 
@@ -391,7 +468,12 @@ class TonConnectRequestConnectVC(
         val update = update ?: return false
         val account = AccountStore.accountById(update.accountId) ?: return false
         val hasTonWallet = account.tonAddress != null
+        if (!hasTonWallet) return false
         val requiresProof = update.proof != null
-        return hasTonWallet && (!requiresProof || !account.isViewOnly)
+        val accountHasMfa = account.byChain[TON_CHAIN]?.mfa != null
+        if (account.isViewOnly && (requiresProof || accountHasMfa)) {
+            return false
+        }
+        return true
     }
 }

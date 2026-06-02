@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsAccountCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -208,7 +209,15 @@ class WalletSelectionVC(
 
     private fun isWalletSelectable(account: MAccount): Boolean {
         val hasTonWallet = account.tonAddress != null
-        return hasTonWallet && (!requiresProof || !account.isViewOnly)
+        if (!hasTonWallet) return false
+        // View-only accounts can't sign. Block them whenever the dapp needs a
+        // signature: either a TON Connect proof OR a Telegram MFA approval.
+        if (account.isViewOnly &&
+            (requiresProof || account.byChain[TON_CHAIN]?.mfa != null)
+        ) {
+            return false
+        }
+        return true
     }
 
     override fun scrollToTop() {

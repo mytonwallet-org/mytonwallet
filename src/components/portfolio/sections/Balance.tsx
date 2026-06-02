@@ -1,7 +1,7 @@
 import React, { memo } from '../../../lib/teact/teact';
 
 import type { ApiBaseCurrency } from '../../../api/types';
-import type { NetChange } from '../helpers/computeNetChange';
+import type { NetChange } from '../../../util/portfolio/computeNetChange';
 
 import buildClassName from '../../../util/buildClassName';
 import {
@@ -22,9 +22,9 @@ function Balance({ totalAmount, baseCurrency, netChange }: OwnProps) {
   const lang = useLang();
   const shortSymbol = getShortCurrencySymbol(baseCurrency);
 
-  const hasNetChange = netChange !== undefined && Number.isFinite(netChange.absolute);
-  const isPositive = hasNetChange && netChange.absolute > 0;
-  const isNegative = hasNetChange && netChange.absolute < 0;
+  const hasNetChange = netChange !== undefined && Number.isFinite(netChange.amount);
+  const isPositive = hasNetChange && netChange.amount > 0;
+  const isNegative = hasNetChange && netChange.amount < 0;
 
   return (
     <section className={styles.root}>
@@ -36,7 +36,7 @@ function Balance({ totalAmount, baseCurrency, netChange }: OwnProps) {
       <div className={styles.column}>
         {hasNetChange ? (
           <div className={styles.value}>
-            <span>{formatCurrencyExtended(netChange.absolute, shortSymbol)}</span>
+            <span>{formatCurrencyExtended(netChange.amount, shortSymbol)}</span>
             {netChange.percent !== undefined && (
               <span
                 className={buildClassName(

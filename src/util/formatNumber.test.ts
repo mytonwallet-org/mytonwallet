@@ -93,6 +93,12 @@ describe('formatCurrencyExtended', () => {
     expect(formatCurrencyExtended(-99.999, '₽')).toBe('− ₽99.99');
   });
 
+  test('suffix short symbol (Gram)', () => {
+    expect(formatCurrencyExtended(123.45678, 'GRAM')).toBe(`+\u202F123.45 GRAM`);
+    expect(formatCurrencyExtended(-1234.56789, 'GRAM'))
+      .toBe(`−\u202F1${WHOLE_PART_DELIMITER}234.56 GRAM`);
+  });
+
   test('noSign', () => {
     expect(formatCurrencyExtended(123.456, 'TON', true)).toBe('123.45 TON');
     expect(formatCurrencyExtended(-123.456, 'USDT', true)).toBe('-123.45 USDT');

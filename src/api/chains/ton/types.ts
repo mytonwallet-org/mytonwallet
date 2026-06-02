@@ -11,6 +11,7 @@ import type {
 } from '../../types';
 import type { ContractType } from './constants';
 import type { AddressBook, AnyAction, TraceDetail } from './toncenter/types';
+import type { SignedMfaRequest } from './util/signer';
 
 export type ApiTonWalletVersion = 'simpleR1'
   | 'simpleR2'
@@ -128,6 +129,8 @@ export type ApiSubmitMultiTransferResult = {
   msgHashNormalized: string;
   paymentLink?: string;
   withW5Gasless?: boolean;
+} | {
+  mfaRequest: SignedMfaRequest;
 } | {
   error: string;
 };

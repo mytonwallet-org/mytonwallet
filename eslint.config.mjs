@@ -19,6 +19,7 @@ export default tseslint.config(
     'src/lib/is-retry-allowed/',
     'src/push/lib/zk-email-helpers/',
     '.github/',
+    '.claude/',
     'babel.config.js',
     'jest.config.js',
     'playwright.config.ts',

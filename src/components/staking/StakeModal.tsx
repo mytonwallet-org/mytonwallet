@@ -16,10 +16,12 @@ import { toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 
+import useInterval from '../../hooks/useInterval';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 
+import MfaConfirm from '../common/MfaConfirm';
 import TransactionBanner from '../common/TransactionBanner';
 import TransferResult from '../common/TransferResult';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
@@ -44,6 +46,7 @@ const IS_OPEN_STATES = new Set([
   StakingState.StakePassword,
   StakingState.StakeConnectHardware,
   StakingState.StakeConfirmHardware,
+  StakingState.StakeConfirmMfa,
   StakingState.StakeComplete,
 ]);
 
@@ -54,6 +57,7 @@ function StakeModal({
   amount,
   error,
   tokenBySlug,
+  mfaRequestHash,
 }: StateProps) {
   const {
     startStaking,
@@ -62,6 +66,7 @@ function StakeModal({
     clearStakingError,
     submitStaking,
     openStakingInfo,
+    updateStakingMfaRequestStatus,
   } = getActions();
 
   const { tokenSlug } = stakingState ?? {};
@@ -73,6 +78,12 @@ function StakeModal({
   const [renderedStakingAmount, setRenderedStakingAmount] = useState(amount);
 
   const { renderingKey, nextKey, updateNextKey } = useModalTransitionKeys(state, isOpen);
+
+  useInterval(() => {
+    if (state === StakingState.StakeConfirmMfa && mfaRequestHash) {
+      updateStakingMfaRequestStatus();
+    }
+  }, state === StakingState.StakeConfirmMfa ? 1000 : undefined);
 
   const handleBackClick = useLastCallback(() => {
     if (state === StakingState.StakePassword) {
@@ -200,6 +211,17 @@ function StakeModal({
             onClose={cancelStaking}
             onTryAgain={handleLedgerConnect}
           />
+        );
+
+      case StakingState.StakeConfirmMfa:
+        return (
+          <>
+            <ModalHeader onClose={cancelStaking} />
+            <MfaConfirm
+              onClose={cancelStaking}
+              mfaRequestHash={mfaRequestHash}
+            />
+          </>
         );
 
       case StakingState.StakeComplete:

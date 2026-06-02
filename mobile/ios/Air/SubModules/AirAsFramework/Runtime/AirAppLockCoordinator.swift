@@ -65,12 +65,8 @@ final class AirAppLockCoordinator: NSObject {
         rootStateCoordinator.transition(to: .unlock, animationDuration: nil)
         lockMode = .launch
 
-        let unlockVC = UnlockVC(
-            title: lang("Wallet is Locked"),
-            replacedTitle: lang("Enter your Wallet Passcode"),
-            animatedPresentation: true,
-            dissmissWhenAuthorized: false,
-            shouldBeThemedLikeHeader: true,
+        let unlockVC = AppLockUnlockVC(
+            mode: .launch,
             onDone: { [weak self] _ in
                 guard let self else { return }
                 self.didAuthorizeLaunchUnlock = true
@@ -80,7 +76,6 @@ final class AirAppLockCoordinator: NSObject {
                 guard let self else { return }
                 try await self.removeAllWalletsFromLockScreen()
             },
-            successCompletionDelay: 0
         )
         unlockVC.modalPresentationStyle = .overFullScreen
         unlockVC.modalTransitionStyle = .crossDissolve
@@ -136,12 +131,8 @@ final class AirAppLockCoordinator: NSObject {
         lockMode = .app
         rootStateCoordinator.transition(to: .unlock, animationDuration: nil)
 
-        let unlockVC = UnlockVC(
-            title: lang("Wallet is Locked"),
-            replacedTitle: lang("Enter your Wallet Passcode"),
-            animatedPresentation: true,
-            dissmissWhenAuthorized: true,
-            shouldBeThemedLikeHeader: true,
+        let unlockVC = AppLockUnlockVC(
+            mode: .app,
             onDone: { [weak self] _ in
                 guard let self else { return }
                 self.unlockViewController = nil

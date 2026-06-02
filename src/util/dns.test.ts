@@ -115,3 +115,49 @@ describe('getDnsZoneByCollection', () => {
     },
   );
 });
+
+describe('getTelegramAvatarUrlFromDomain', () => {
+  async function withTelegramAvatarHelper(
+    isGramWallet: boolean,
+    run: (getTelegramAvatarUrlFromDomain: typeof import('./dns').getTelegramAvatarUrlFromDomain) => void,
+  ) {
+    const previousIsGramWallet = process.env.IS_GRAM_WALLET;
+    process.env.IS_GRAM_WALLET = isGramWallet ? '1' : '0';
+
+    try {
+      await jest.isolateModulesAsync(async () => {
+        const { getTelegramAvatarUrlFromDomain } = await import('./dns');
+        run(getTelegramAvatarUrlFromDomain);
+      });
+    } finally {
+      if (previousIsGramWallet === undefined) {
+        delete process.env.IS_GRAM_WALLET;
+      } else {
+        process.env.IS_GRAM_WALLET = previousIsGramWallet;
+      }
+    }
+  }
+
+  it('returns undefined outside Gram Wallet', async () => {
+    await withTelegramAvatarHelper(false, (getTelegramAvatarUrlFromDomain) => {
+      expect(getTelegramAvatarUrlFromDomain('tonsbid.t.me')).toBeUndefined();
+    });
+  });
+
+  it('returns a Telegram avatar URL for direct .t.me domains in Gram Wallet', async () => {
+    await withTelegramAvatarHelper(true, (getTelegramAvatarUrlFromDomain) => {
+      expect(getTelegramAvatarUrlFromDomain('tonsbid.t.me')).toBe('https://t.me/i/userpic/320/tonsbid.jpg');
+      expect(getTelegramAvatarUrlFromDomain('  Foo-Bar_Baz.t.me  ')).toBe(
+        'https://t.me/i/userpic/320/foo-bar_baz.jpg',
+      );
+    });
+  });
+
+  it('returns undefined for non-Telegram and Telegram subdomains in Gram Wallet', async () => {
+    await withTelegramAvatarHelper(true, (getTelegramAvatarUrlFromDomain) => {
+      expect(getTelegramAvatarUrlFromDomain('tonsbid.ton')).toBeUndefined();
+      expect(getTelegramAvatarUrlFromDomain('sub.tonsbid.t.me')).toBeUndefined();
+      expect(getTelegramAvatarUrlFromDomain()).toBeUndefined();
+    });
+  });
+});

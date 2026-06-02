@@ -493,7 +493,7 @@ object CollectionsMenuHelpers {
                             WColor.PrimaryLightText
                         ),
                         title = LocaleController.getString(
-                            if (linkedAddress.isNullOrBlank()) "Link to Wallet" else "Change Wallet"
+                            if (linkedAddress.isNullOrBlank()) "Link to Wallet" else "Change Linked Wallet"
                         )
                     )
                 ) {

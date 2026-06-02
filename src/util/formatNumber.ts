@@ -7,10 +7,13 @@ import { calculateTokenPrice } from './calculatePrice';
 import { toDecimal } from './decimals';
 import withCache from './withCache';
 
-const SHORT_SYMBOLS = new Set(
+// Short symbols sit before the amount by default (e.g. `$100`); a currency can opt into the end (e.g. `100 GRAM`)
+const DEFAULT_SHORT_SYMBOL_POSITION = 'start' as const;
+
+const SHORT_SYMBOL_POSITIONS = new Map(
   Object.values(CURRENCIES)
-    .map((currency) => currency.shortSymbol)
-    .filter(Boolean),
+    .filter((currency) => currency.shortSymbol)
+    .map((currency) => [currency.shortSymbol!, currency.shortSymbolPosition ?? DEFAULT_SHORT_SYMBOL_POSITION] as const),
 );
 
 export const formatNumber = withCache((
@@ -68,7 +71,7 @@ export function formatCurrencySimple(value: number | bigint | string, currency: 
 }
 
 function addCurrency(value: number | string, currency: string) {
-  return SHORT_SYMBOLS.has(currency)
+  return SHORT_SYMBOL_POSITIONS.get(currency) === 'start'
     ? `${currency}${value}`.replace(`${currency}-`, `-${currency}`)
     : `${value} ${currency}`;
 }

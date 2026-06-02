@@ -100,7 +100,7 @@ class ChartHorizontalLinesData(
                 }
             }
             formatterTON!!.maximumFractionDigits = if (v > 1_000_000_000L) 2 else 6
-            return ChannelMonetizationLayout.replaceTON("TON " + formatterTON!!.format(v / 1_000_000_000.0), paint, .8f, -0.66f.dp, false)
+            return ChannelMonetizationLayout.replaceTON("GRAM " + formatterTON!!.format(v / 1_000_000_000.0), paint, .8f, -0.66f.dp, false)
         } else if (formatter == ChartData.FORMATTER_XTR) {
             if (a == 1) return "≈" + ChartFormatters.formatCurrency(v, "USD")
             return "XTR " + ChartFormatters.formatNumber(v)

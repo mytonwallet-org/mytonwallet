@@ -506,6 +506,12 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
             val error: MBridgeError? = null
         ) : Event()
 
+        data class MfaRequested(
+            val requestHash: String,
+            val swapId: String?,
+            val estimate: SwapEstimateResponse,
+        ) : Event()
+
         data object ClearEstimateLayout : Event()
     }
 
@@ -913,14 +919,26 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                         routes = dex.routes
                     )
                 )
+                val buildId = build.id
+                val buildTransfers = build.transfers
+                if (buildId == null || buildTransfers == null) {
+                    swappedEstimateConfig = null
+                    _eventsFlow.tryEmit(
+                        Event.SwapComplete(
+                            success = false,
+                            error = MBridgeError.UNKNOWN
+                        )
+                    )
+                    return
+                }
 
                 swappedEstimateConfig = estimate
-                WalletCore.Swap.swapSubmit(
+                val submitResult = WalletCore.Swap.swapSubmit(
                     accountId,
                     passcode,
-                    build.transfers,
+                    buildTransfers,
                     MApiSwapHistoryItem(
-                        id = build.id,
+                        id = buildId,
                         timestamp = System.currentTimeMillis(),
                         lt = null,
                         from = dex.from,
@@ -936,6 +954,11 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                     ),
                     estimate.request.isDiesel
                 )
+                submitResult.mfaRequestHash?.let { hash ->
+                    _eventsFlow.tryEmit(
+                        Event.MfaRequested(hash, submitResult.swapId, estimate)
+                    )
+                }
             }
 
             estimate.cex?.let { cex ->
@@ -970,7 +993,7 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                 )
 
                 if (estimate.request.tokenToSendIsSupported) {
-                    WalletCore.Transfer.swapCexSubmit(
+                    val cexSubmit = WalletCore.Transfer.swapCexSubmit(
                         tokenToSend.mBlockchain!!, MApiSubmitTransferOptions(
                             accountId = accountId,
                             password = passcode,
@@ -983,6 +1006,11 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                         ),
                         result.swap.id
                     )
+                    cexSubmit.mfaRequestHash?.let { hash ->
+                        _eventsFlow.tryEmit(
+                            Event.MfaRequested(hash, result.swap.id, estimate)
+                        )
+                    }
                 } else {
                     _eventsFlow.tryEmit(
                         Event.ShowAddressToSend(

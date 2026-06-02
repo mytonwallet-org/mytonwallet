@@ -1,6 +1,6 @@
 {
   "name": "mytonwallet",
-  "version": "4.10.1",
+  "version": "4.10.2",
   "description": "The most feature-rich web wallet and browser extension for TON – with support of multi-accounts, tokens (jettons), NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.",
   "main": "index.js",
   "scripts": {
@@ -10,6 +10,7 @@
     "build:staging": "cross-env APP_ENV=staging npm run build",
     "build:production": "npm run build",
     "core:dev": "cross-env IS_CORE_WALLET=1 npm run dev",
+    "gram:dev": "cross-env IS_GRAM_WALLET=1 npm run dev",
     "core:build": "cross-env IS_CORE_WALLET=1 npm run build",
     "core:build:dev": "cross-env IS_CORE_WALLET=1 npm run build:dev",
     "core:build:staging": "cross-env IS_CORE_WALLET=1 npm run build:staging",
@@ -78,7 +79,10 @@
     "i18n:build:default": "node ./dev/locales/buildDefault.js",
     "i18n:build:android": "node ./dev/locales/buildAndroidResources.js",
     "i18n:update": "node ./dev/locales/updateLocales.js",
-    "i18n:find-missing": "node ./dev/locales/findMissingKeys.js"
+    "i18n:find-missing": "node ./dev/locales/findMissingKeys.js",
+    "mfa:build": "IS_TELEGRAM_APP=1 webpack --config webpack-mfa.config.ts && bash ./deploy/copy_to_dist.sh dist-mfa src/mfa/public",
+    "mfa:build:dev": "APP_ENV=development IS_TELEGRAM_APP=1 webpack --mode development --config webpack-mfa.config.ts",
+    "mfa:dev": "APP_ENV=development IS_TELEGRAM_APP=1 webpack serve --mode development --config webpack-mfa.config.ts"
   },
   "engines": {
     "node": "^22.6 || ^24",

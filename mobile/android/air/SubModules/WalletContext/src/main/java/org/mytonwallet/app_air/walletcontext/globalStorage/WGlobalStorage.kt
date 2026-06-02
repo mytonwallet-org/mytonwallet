@@ -726,6 +726,18 @@ object WGlobalStorage {
         )
     }
 
+    fun isAppLockEnabled(): Boolean {
+        return globalStorageProvider.getBool(IS_APP_LOCK_ENABLED) != false
+    }
+
+    fun setIsAppLockEnabled(value: Boolean) {
+        globalStorageProvider.set(
+            IS_APP_LOCK_ENABLED,
+            value,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
     fun toggleSensitiveDataHidden() {
         _isSensitiveDataProtectionOn = !_isSensitiveDataProtectionOn
         globalStorageProvider.set(
@@ -948,6 +960,10 @@ object WGlobalStorage {
 
     fun getActivePromotion(accountId: String): JSONObject? {
         return globalStorageProvider.getDict("byAccountId.$accountId.config.activePromotion")
+    }
+
+    fun getAccountConfigIsMfaEnabled(accountId: String): Boolean {
+        return globalStorageProvider.getBool("byAccountId.$accountId.config.isMfaEnabled") == true
     }
 
     fun isCardMinting(accountId: String): Boolean {
@@ -1414,7 +1430,7 @@ object WGlobalStorage {
 
     fun getSuggestedName(network: MBlockchainNetwork, type: String): String {
         val baseNameKey = when (type) {
-            "mnemonic" -> "My Wallet"
+            "mnemonic" -> if (ApplicationContextHolder.isGramApp) "Wallet" else "My Wallet"
             "hardware" -> "Ledger"
             else -> "Wallet"
         }

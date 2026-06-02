@@ -466,7 +466,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                         defaultReceivingToken =
                             if (token.slug == "toncoin") null else MApiSwapAsset(
                                 slug = MBlockchain.ton.nativeSlug,
-                                symbol = "TON",
+                                symbol = "GRAM",
                                 chain = MBlockchain.ton.name,
                                 decimals = 9
                             )

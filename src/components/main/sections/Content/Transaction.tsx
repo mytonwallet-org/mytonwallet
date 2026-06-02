@@ -76,6 +76,7 @@ type OwnProps = {
   currentAccountId: string;
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
+  shouldHideStakingAnnualYield?: boolean;
   onClick?: (id: string) => void;
 };
 
@@ -107,6 +108,7 @@ function Transaction({
   currentAccountId,
   baseCurrency,
   currencyRates,
+  shouldHideStakingAnnualYield,
   onClick,
 }: OwnProps) {
   const { openNftAttributesModal } = getActions();
@@ -148,8 +150,14 @@ function Transaction({
   }, [accounts, address, chain, currentAccountId, savedAddresses]);
   const addressName = localAddressName || metadata?.name;
   const dnsIconText = useMemo(() => isDnsOperation ? getDnsIconText(nft) : '', [isDnsOperation, nft]);
-  const attachmentsTakeSubheader = shouldAttachmentTakeSubheader(transaction, isFuture);
-  const isNoSubheaderLeft = getIsNoSubheaderLeft(transaction, isFuture);
+  const shouldRenderAnnualYield = Boolean(
+    !shouldHideStakingAnnualYield
+    && shouldShowTransactionAnnualYield(transaction)
+    && yieldType
+    && annualYield !== undefined,
+  );
+  const attachmentsTakeSubheader = shouldAttachmentTakeSubheader(transaction, isFuture, shouldRenderAnnualYield);
+  const isNoSubheaderLeft = getIsNoSubheaderLeft(transaction, isFuture, shouldRenderAnnualYield);
   const titleTense = isFuture || status === 'failed' ? 'future' : 'past';
 
   let operationColorClass: string | undefined;
@@ -344,7 +352,7 @@ function Transaction({
       ));
     }
 
-    if (shouldShowTransactionAnnualYield(transaction)) {
+    if (shouldRenderAnnualYield) {
       children.push(delimiter, lang('at %annual_yield%', {
         annual_yield: <span className={styles.subheaderHighlight}>{yieldType} {annualYield}%</span>,
       }));
@@ -412,12 +420,13 @@ export function getTransactionHeight(transaction: ApiTransactionActivity, isFutu
 function shouldAttachmentTakeSubheader(
   transaction: ApiTransactionActivity,
   isFuture?: boolean,
+  shouldRenderAnnualYield = shouldShowTransactionAnnualYield(transaction),
 ): 'none' | 'left' | 'full' {
   if (!transaction.nft && !shouldShowTransactionComment(transaction)) {
     return 'none';
   }
 
-  if (!getIsNoSubheaderLeft(transaction, isFuture)) {
+  if (!getIsNoSubheaderLeft(transaction, isFuture, shouldRenderAnnualYield)) {
     return 'none'; // The attachment won't fit in the right slot, because the left subheader is too wide
   }
 
@@ -429,11 +438,15 @@ function shouldAttachmentTakeSubheader(
   return isAttachmentOnTheLeft ? 'left' : 'none';
 }
 
-function getIsNoSubheaderLeft(transaction: ApiTransactionActivity, isFuture?: boolean) {
+function getIsNoSubheaderLeft(
+  transaction: ApiTransactionActivity,
+  isFuture: boolean | undefined,
+  shouldRenderAnnualYield: boolean,
+) {
   return isFuture
     && transaction.status !== 'failed'
     && !shouldShowTransactionAddress(transaction).includes('list')
-    && !shouldShowTransactionAnnualYield(transaction);
+    && !shouldRenderAnnualYield;
 }
 
 function getIsNoSubheaderRight(transaction: ApiTransactionActivity) {

@@ -24,7 +24,9 @@ data class MApiSubmitMultiTransferResult(
     val seqno: Int?,
     val boc: String?,
     val msgHash: String?,
-    val paymentLink: String?
+    val paymentLink: String?,
+    val swapId: String? = null,
+    val mfaRequestHash: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

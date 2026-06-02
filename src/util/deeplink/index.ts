@@ -81,6 +81,7 @@ const EXPLORER_ALLOWED_COMMANDS = new Set([
   DeeplinkCommand.View,
   DeeplinkCommand.Transaction,
   DeeplinkCommand.Nft,
+  DeeplinkCommand.Portfolio,
 ]);
 
 const SETTINGS_SECTION_MAP: Record<string, SettingsState> = {
@@ -626,9 +627,9 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
 
     logDebug('Processing deeplink', deeplink);
 
-    // In explorer mode, only allow `View` and `Transaction` commands
+    // In explorer mode, only allow `View`, `Nft`, `Portfolio` and `Transaction` commands
     if (IS_EXPLORER && !EXPLORER_ALLOWED_COMMANDS.has(command as DeeplinkCommand)) {
-      actions.showError({ error: 'This command is not supported in explorer mode' });
+      actions.showError({ error: 'This action is not supported in explorer mode.' });
       return false;
     }
 

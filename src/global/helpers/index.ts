@@ -16,8 +16,9 @@ export function getIsTinyOrScamTransaction(transaction: ApiTransaction, token?: 
   return cost.lt(TINY_TRANSFER_MAX_COST);
 }
 
+// FIXME: TON renaming
 export function resolveSwapAssetId(asset: ApiSwapAsset) {
-  return asset.slug === TONCOIN.slug ? asset.symbol : (asset.tokenAddress ?? asset.slug);
+  return asset.slug === TONCOIN.slug ? 'TON' : (asset.tokenAddress ?? asset.slug);
 }
 
 export function resolveSwapAsset(

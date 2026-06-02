@@ -6,7 +6,7 @@ import { getActions, withGlobal } from '../../global';
 import type { ApiStakingState, ApiTokenWithPrice } from '../../api/types';
 import { ContentTab, type Theme, type TokenChartMode } from '../../global/types';
 
-import { IS_CORE_WALLET, IS_EXPLORER } from '../../config';
+import { DEFAULT_ACCENT_COLOR_INDEX, IS_CORE_WALLET, IS_EXPLORER } from '../../config';
 import {
   selectAccountStakingState,
   selectCurrentAccountId,
@@ -346,7 +346,7 @@ export default memo(
         isOffRampAllowed: selectIsOffRampAllowed(global),
         isAppReady,
         theme: global.settings.theme,
-        accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
+        accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex ?? DEFAULT_ACCENT_COLOR_INDEX,
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

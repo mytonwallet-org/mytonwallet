@@ -29,8 +29,8 @@
   <string name="push_activity_swap_failed">兑换 %1$s -> %2$s 失败</string>
   <string name="push_activity_swap_expired">兑换 %1$s -> %2$s 已过期</string>
   <string name="push_activity_swap_pending">兑换 %1$s -> %2$s %3$s</string>
-  <string name="push_activity_staking_profit">质押收益 %1$s TON</string>
-  <string name="push_activity_staking_loyalty_profit">质押忠诚度收益 %1$s TON</string>
+  <string name="push_activity_staking_profit">质押收益 %1$s GRAM</string>
+  <string name="push_activity_staking_loyalty_profit">质押忠诚度收益 %1$s GRAM</string>
   <string name="push_domain_title_renew">续订您的域名</string>
   <string name="push_domain_expired_yesterday">您的域名 %1$s 昨天已过期。请尽快续订，以免失去访问权限</string>
   <string name="push_domain_expired_days_ago">您的域名 %1$s 已于 %2$s 天前过期。请尽快续订，以免失去访问权限</string>

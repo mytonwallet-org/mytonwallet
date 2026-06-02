@@ -27,7 +27,7 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
     private weak var observedSheetController: MinimizableSheetController?
     private var state: BrowserState = .closed
     private var systemSheetDismissBehavior: SystemSheetDismissBehavior = .minimizeToMinimizableSheet
-    private var hasPendingDisconnectReload = false
+    private var pendingDisconnectReloadOrigins: Set<String> = []
 
     private var sheetContainerViewController: MinimizableSheetContainerViewController? {
         UIApplication.shared.sceneKeyWindow?.rootViewController?
@@ -60,15 +60,15 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
         case .dappDisconnect(accountId: let accountId, origin: let origin):
             guard accountId == AccountStore.accountId,
                   let browser,
-                  origin == browser.currentPage?.config.url.origin else {
+                  browser.hasPage(origin: origin) else {
                 break
             }
             // Reloading a minimized (offscreen) web view has no effect, so defer the reload
             // until the browser is brought back to the foreground.
             if state == .minimizableSheetPresented || state == .systemSheetPresented {
-                browser.reload()
+                browser.reloadPages(origin: origin)
             } else {
-                hasPendingDisconnectReload = true
+                pendingDisconnectReloadOrigins.insert(origin)
             }
         default:
             break
@@ -261,9 +261,12 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
     }
 
     private func performPendingDisconnectReloadIfNeeded() {
-        guard hasPendingDisconnectReload, let browser else { return }
-        hasPendingDisconnectReload = false
-        browser.reload()
+        guard let browser, !pendingDisconnectReloadOrigins.isEmpty else { return }
+        let origins = pendingDisconnectReloadOrigins
+        pendingDisconnectReloadOrigins.removeAll()
+        for origin in origins {
+            browser.reloadPages(origin: origin)
+        }
     }
 
     private func finalizeClosedState() {
@@ -277,6 +280,6 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
         browser = nil
         state = .closed
         systemSheetDismissBehavior = .minimizeToMinimizableSheet
-        hasPendingDisconnectReload = false
+        pendingDisconnectReloadOrigins.removeAll()
     }
 }

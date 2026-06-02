@@ -9,6 +9,22 @@ Creating Wallet...: Tworzenie portfela...
 On the count of three...: Na trzy, ruszamy...
 $back_up_auth: Kopia zapasowa
 $back_up_security: Kopia zapasowa
+$2fa_security: 2FA z Telegramem
+2FA with Telegram: 2FA z Telegramem
+Confirm operations in Telegram as a second step.: Potwierdzaj operacje w Telegramie jako drugi krok.
+Confirm with: Potwierdź przez
+Add an extra layer of security for your wallet in TON network.: Dodaj dodatkową warstwę zabezpieczeń dla swojego portfela w sieci TON.
+Sign transfers and important actions with your passcode, then confirm them in Telegram.: Podpisuj przelewy i ważne działania kodem dostępu, a następnie potwierdzaj je w Telegramie.
+This helps protect your funds even if your recovery phrase or keys are compromised.: To pomaga chronić środki nawet wtedy, gdy fraza odzyskiwania lub klucze zostaną przejęte.
+"Connection Fee:": "Opłata za połączenie:"
+Connect Telegram: Połącz Telegram
+Telegram will be used to confirm transfers and important actions.: Telegram będzie używany do potwierdzania przelewów i ważnych działań.
+My Telegram Account: Moje konto Telegram
+Without username: Bez nazwy użytkownika
+Unlink Account: Odłącz konto
+An extra security layer requires confirming actions in Telegram after signing.: Dodatkowa warstwa zabezpieczeń wymaga potwierdzania działań w Telegramie po podpisaniu.
+Confirm Connection: Potwierdź połączenie
+Confirm Disconnection: Potwierdź rozłączenie
 Passwords must be equal.: Hasła muszą być równe.
 To protect your wallet as much as possible, use a password with: Aby chronić swój portfel w jak największym stopniu, używaj hasła z
 $auth_password_rule_8chars: co najmniej 8 znaków
@@ -888,6 +904,12 @@ $domain_expire: "**%domain%** wygasa %days%"
 "%token% Staking": Stakowanie %token%
 Add Tab: Dodaj kartę
 Remove Tab: Usuń kartę
+$iab_tabs_count:
+  zeroValue: "%1$d kart"
+  oneValue: "%1$d karta"
+  fewValue: "%1$d karty"
+  manyValue: "%1$d kart"
+  otherValue: "%1$d karty"
 Link Domain: Połącz domenę
 Domain Linked!: Domenę połączono!
 $domains_amount %1$d:
@@ -1271,7 +1293,7 @@ Standalone: Samodzielny
 All Telegram Gifts: Wszystkie prezenty Telegramu
 Add Crypto: Dodaj kryptowalutę
 Share QR Code: Udostępnij kod QR
-$send_only_ton: Wysyłaj na ten adres wyłącznie Toncoin (TON) lub aktywa sieci TON. Wysłanie innych tokenów spowoduje ich utratę.
+$send_only_ton: Wysyłaj na ten adres wyłącznie Gram (GRAM) lub aktywa sieci TON. Wysłanie innych tokenów spowoduje ich utratę.
 $send_only_chain: Wysyłaj na ten adres wyłącznie %chain% (%symbol%) lub aktywa sieci %chain%. Wysłanie innych tokenów spowoduje ich utratę.
 Buying with card is not supported for this account.: Zakup kartą nie jest obsługiwany dla tego konta.
 Swapped at: Zamieniono o
@@ -1539,8 +1561,8 @@ push_activity_swap_completed: Zamieniono %from_symbol% -> %to_symbol%
 push_activity_swap_failed: Wymiana %from_symbol% -> %to_symbol% nie powiodła się
 push_activity_swap_expired: Wymiana %from_symbol% -> %to_symbol% wygasła
 push_activity_swap_pending: Wymiana %from_symbol% -> %to_symbol% %status%
-push_activity_staking_profit: Zysk ze stakingu %amount% TON
-push_activity_staking_loyalty_profit: Zysk lojalnościowy ze stakingu %amount% TON
+push_activity_staking_profit: Zysk ze stakingu %amount% GRAM
+push_activity_staking_loyalty_profit: Zysk lojalnościowy ze stakingu %amount% GRAM
 push_domain_title_renew: Odnów swoją domenę
 push_domain_expired_yesterday: Twoja domena %domain% wygasła wczoraj. Odnów ją jak najszybciej, aby nie utracić dostępu
 push_domain_expired_days_ago: Twoja domena %domain% wygasła %days% dni temu. Odnów ją jak najszybciej, aby nie utracić dostępu
@@ -1561,3 +1583,4 @@ Tracked asset value over time: Wartość śledzonych aktywów w czasie
 Cumulative profit and loss over time: Skumulowane zyski i straty w czasie
 Day-by-day profit and loss: Zyski i straty z dnia na dzień
 Current allocation across tracked assets: Bieżąca alokacja śledzonych aktywów
+This action is not supported in explorer mode.: Ta akcja nie jest obsługiwana w trybie eksplorera.

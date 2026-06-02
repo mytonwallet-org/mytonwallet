@@ -30,6 +30,7 @@ import Transition from '../ui/Transition';
 import SwapBlockchain from './SwapBlockchain';
 import SwapComplete from './SwapComplete';
 import SwapInitial from './SwapInitial';
+import SwapMfaConfirm from './SwapMfaConfirm';
 import SwapPassword from './SwapPassword';
 import SwapWaitTokens from './SwapWaitTokens';
 
@@ -179,16 +180,21 @@ function SwapModal({
     });
   });
 
-  function renderSwapShortInfo() {
-    if (!tokenIn || !tokenOut || !amountIn || !amountOut) return undefined;
+  function renderSwapShortInfo(
+    bannerTokenIn = tokenIn,
+    bannerTokenOut = tokenOut,
+    bannerAmountIn = amountIn,
+    bannerAmountOut = amountOut,
+  ) {
+    if (!bannerTokenIn || !bannerTokenOut || !bannerAmountIn || !bannerAmountOut) return undefined;
 
     return (
       <TransactionBanner
-        tokenIn={tokenIn}
+        tokenIn={bannerTokenIn}
         withChainIcon
-        tokenOut={tokenOut}
-        text={formatCurrencyExtended(amountIn, tokenIn.symbol ?? '', true)}
-        secondText={formatCurrencyExtended(amountOut, tokenOut.symbol ?? '', true)}
+        tokenOut={bannerTokenOut}
+        text={formatCurrencyExtended(bannerAmountIn, bannerTokenIn.symbol ?? '', true)}
+        secondText={formatCurrencyExtended(bannerAmountOut, bannerTokenOut.symbol ?? '', true)}
         className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
       />
     );
@@ -243,6 +249,20 @@ function SwapModal({
           >
             {renderSwapShortInfo()}
           </SwapPassword>
+        );
+      case SwapState.ConfirmMfa:
+        return (
+          <SwapMfaConfirm
+            isActive={isActive}
+            onClose={handleModalCloseWithReset}
+          >
+            {renderSwapShortInfo(
+              renderedTransactionTokenIn,
+              renderedTransactionTokenOut,
+              renderedTransactionAmountIn,
+              renderedTransactionAmountOut,
+            )}
+          </SwapMfaConfirm>
         );
       case SwapState.Complete: {
         return (

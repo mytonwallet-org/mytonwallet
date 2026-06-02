@@ -11,10 +11,10 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
     case ethereum
     case base
     case bnb
-//    case polygon
+    case polygon
     case arbitrum
-//    case monad
-//    case avalanche
+    case monad
+    case avalanche
     case hyperliquid
     case other(String)
 
@@ -34,14 +34,14 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
             self = .base
         case "bnb":
             self = .bnb
-//        case "polygon":
-//            self = .polygon
+       case "polygon":
+           self = .polygon
         case "arbitrum":
             self = .arbitrum
-//        case "monad":
-//            self = .monad
-//        case "avalanche":
-//            self = .avalanche
+       case "monad":
+           self = .monad
+       case "avalanche":
+           self = .avalanche
         case "hyperliquid":
             self = .hyperliquid
         default:
@@ -63,14 +63,14 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
             "base"
         case .bnb:
             "bnb"
-//        case .polygon:
-//            "polygon"
+       case .polygon:
+           "polygon"
         case .arbitrum:
             "arbitrum"
-//        case .monad:
-//            "monad"
-//        case .avalanche:
-//            "avalanche"
+       case .monad:
+           "monad"
+       case .avalanche:
+           "avalanche"
         case .hyperliquid:
             "hyperliquid"
         case .other(let rawValue):
@@ -174,7 +174,7 @@ public extension ApiChain {
             "BEP-20"
         case .ethereum, .base:
             "ERC-20"
-        case /*.polygon,*/ .arbitrum, /*.monad, .avalanche,*/ .hyperliquid:
+        case .polygon, .arbitrum, .monad, .avalanche, .hyperliquid:
             "ERC-20"
         case .other(let chain):
             chain.uppercased()

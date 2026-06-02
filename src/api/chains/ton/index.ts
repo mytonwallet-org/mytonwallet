@@ -91,6 +91,7 @@ export {
   submitGasfullTransfer,
   checkMultiTransactionDraft,
   submitMultiTransfer,
+  submitMultiTransferWithMfa,
   signTransfers,
 } from './transfer';
 export {

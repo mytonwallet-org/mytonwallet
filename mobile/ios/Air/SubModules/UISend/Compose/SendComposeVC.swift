@@ -11,7 +11,6 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-import UIPasscode
 
 class SendComposeVC: WViewController, WSensitiveDataProtocol {
 

@@ -618,7 +618,7 @@ class LedgerConnectVC(
                                 options = signData.transferOptions
                             )
                         ).activityId
-                        signedActivityId = ActivityHelpers.getTxIdFromId(id)
+                        signedActivityId = id?.let { ActivityHelpers.getTxIdFromId(it) }
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                             receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }
@@ -639,7 +639,7 @@ class LedgerConnectVC(
                             AccountStore.accountById(signData.update.accountId) ?: return@launch
                         val dappChain =
                             account.dappChain(signData.update.operationChain) ?: return@launch
-                        val signedMessages = WalletCore.call(
+                        val signResult = WalletCore.call(
                             SignDappTransfers(
                                 dappChain = dappChain,
                                 accountId = signData.update.accountId,
@@ -652,6 +652,14 @@ class LedgerConnectVC(
                                 )
                             )
                         )
+                        // Ledger flow never produces an MFA request — the device sign
+                        // is the second factor — so we only have to handle the array
+                        // shape here.
+                        val signedMessages = when (signResult) {
+                            is org.json.JSONArray -> signResult
+                            is List<*> -> org.json.JSONArray(signResult)
+                            else -> org.json.JSONArray(signResult?.toString().orEmpty())
+                        }
                         WalletCore.call(
                             ConfirmDappRequestSendTransaction(
                                 signData.update.promiseId,
@@ -718,7 +726,7 @@ class LedgerConnectVC(
                             )
                         )
                         signedActivityId =
-                            MBlockchain.ton.idToTxHash(result.activityIds.lastOrNull())
+                            MBlockchain.ton.idToTxHash(result.activityIds?.lastOrNull())
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                             receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }
@@ -751,7 +759,7 @@ class LedgerConnectVC(
                                 stakingState = signData.stakingState,
                                 realFee = signData.realFee,
                             )
-                        signedActivityId = ActivityHelpers.getTxIdFromId(result.activityId)
+                        signedActivityId = result.activityId?.let { ActivityHelpers.getTxIdFromId(it) }
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                             receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }

@@ -9,6 +9,8 @@ import styles from './Dapp.module.scss';
 
 interface OwnProps {
   rows?: DappSkeletonRow[];
+  shouldRenderHeader?: boolean;
+  shouldRenderOuterPadding?: boolean;
 }
 
 export type DappSkeletonRow = {
@@ -16,22 +18,33 @@ export type DappSkeletonRow = {
   hasFee?: boolean;
 };
 
-function DappSkeletonWithContent({ rows }: OwnProps) {
+function DappSkeletonWithContent({
+  rows,
+  shouldRenderHeader = true,
+  shouldRenderOuterPadding = true,
+}: OwnProps) {
   return (
-    <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
-      <div className={styles.transactionDirection}>
-        <div className={styles.transactionDirectionLeftSkeleton}>
-          <Skeleton className={buildClassName(styles.nameSkeleton, styles.accountTitleSkeleton)} />
-          <Skeleton className={buildClassName(styles.descSkeleton, styles.accountBalanceSkeleton)} />
-        </div>
-        <div className={styles.transactionDirectionRightSkeleton}>
-          <Skeleton className={styles.dappInfoIconSkeleton} />
-          <div className={styles.dappInfoDataSkeleton}>
-            <Skeleton className={buildClassName(styles.nameSkeleton, styles.nameDappSkeleton)} />
-            <Skeleton className={buildClassName(styles.descSkeleton, styles.descDappSkeleton)} />
+    <div
+      className={buildClassName(
+        shouldRenderOuterPadding && modalStyles.transitionContent,
+        styles.skeletonBackground,
+      )}
+    >
+      {shouldRenderHeader && (
+        <div className={styles.transactionDirection}>
+          <div className={styles.transactionDirectionLeftSkeleton}>
+            <Skeleton className={buildClassName(styles.nameSkeleton, styles.accountTitleSkeleton)} />
+            <Skeleton className={buildClassName(styles.descSkeleton, styles.accountBalanceSkeleton)} />
+          </div>
+          <div className={styles.transactionDirectionRightSkeleton}>
+            <Skeleton className={styles.dappInfoIconSkeleton} />
+            <div className={styles.dappInfoDataSkeleton}>
+              <Skeleton className={buildClassName(styles.nameSkeleton, styles.nameDappSkeleton)} />
+              <Skeleton className={buildClassName(styles.descSkeleton, styles.descDappSkeleton)} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
       {rows?.map(renderRow)}
     </div>
   );

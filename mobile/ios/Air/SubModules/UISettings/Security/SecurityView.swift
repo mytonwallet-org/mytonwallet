@@ -9,9 +9,11 @@ import Perception
 
 
 struct SecurityView: View {
-    
+
     var password: String
-    
+
+    private let accountContext = AccountContext(source: .current)
+
     @State private var biometrics: Bool = AppStorageHelper.isBiometricActivated()
     @State private var autolockOption: MAutolockOption = AutolockStore.shared.autolockOption
     
@@ -20,6 +22,7 @@ struct SecurityView: View {
             InsetList(topPadding: 8, spacing: 24) {
                 backupSection
                 passcodeSection
+                mfaSection
                 autolockSection
             }
         }
@@ -111,6 +114,54 @@ struct SecurityView: View {
                 vc.navigationController?.pushViewController(ChangePasscodeVC(step: .newPasscode(prevPasscode: passcode)), animated: true)
             }
         }, cancellable: true)
+    }
+
+    // MARK: - MFA
+
+    @ViewBuilder
+    var mfaSection: some View {
+        if shouldShowMfa {
+            InsetSection {
+                InsetButtonCell(alignment: .leading, verticalPadding: 0, action: onMfa) {
+                    HStack(spacing: 16) {
+                        MfaSettingsRowIcon()
+
+                        HStack(spacing: 6) {
+                            Text(lang("2FA with Telegram"))
+
+                            Text("TON")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Color.air.secondaryLabel)
+                                .padding(.horizontal, 3)
+                                .padding(.bottom, 1)
+                                .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        }
+
+                        Spacer(minLength: 0)
+
+                        Image.airBundle("RightArrowIcon")
+                            .foregroundStyle(Color.air.secondaryLabel)
+                    }
+                    .foregroundStyle(Color.air.primaryLabel)
+                    .frame(height: 52)
+                }
+            } footer: {
+                Text(lang("Confirm operations in Telegram as a second step."))
+            }
+        }
+    }
+
+    var shouldShowMfa: Bool {
+        guard let account = AccountStore.account, account.supports(chain: .ton) else {
+            return false
+        }
+        return (IS_GRAM_WALLET && accountContext.isMfaEnabled)
+            || account.getChainInfo(chain: .ton)?.mfa != nil
+    }
+
+    func onMfa() {
+        guard let vc = topWViewController() else { return }
+        vc.navigationController?.pushViewController(MfaVC(), animated: true)
     }
     
     

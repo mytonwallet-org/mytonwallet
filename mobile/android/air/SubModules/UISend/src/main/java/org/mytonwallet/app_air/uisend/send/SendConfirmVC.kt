@@ -328,7 +328,7 @@ class SendConfirmVC(
         }
 
         if (isSell) {
-            val tokenSymbol = config.request.token.symbol ?: MBaseCurrency.TON.currencyCode
+            val tokenSymbol = config.request.token.symbol ?: MBaseCurrency.TON.sign
             confirmButton.text = LocaleController.getStringWithKeyValues(
                 "Sell %symbol%",
                 listOf("%symbol%" to tokenSymbol)

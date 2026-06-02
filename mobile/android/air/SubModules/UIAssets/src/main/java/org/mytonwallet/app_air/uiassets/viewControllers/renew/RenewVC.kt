@@ -229,6 +229,18 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
                             showError(err.parsed)
                             return@call
                         }
+                        val mfaHash = res?.mfaRequestHash
+                        if (mfaHash != null) {
+                            val mfaVC = org.mytonwallet.app_air.uicomponents
+                                .viewControllers.MfaActionConfirmVC(
+                                    context,
+                                    requestHash = mfaHash,
+                                )
+                            navigationController?.push(mfaVC, onCompletion = {
+                                navigationController?.removePrevViewControllerOnly()
+                            })
+                            return@call
+                        }
                         window?.dismissLastNav {
                             window?.dismissLastNav { }
                         }

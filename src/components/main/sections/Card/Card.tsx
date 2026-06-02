@@ -4,18 +4,21 @@ import React, {
 } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft, ApiStakingState } from '../../../../api/types';
+import type {
+  ApiBaseCurrency, ApiCurrencyRates, ApiNft, ApiPriceHistoryPeriod, ApiStakingState,
+} from '../../../../api/types';
 import type { ApiBackendConfig } from '../../../../api/types/backend';
 import type { ApiPromotion } from '../../../../api/types/backend';
 import type {
   IAnchorPosition,
+  PortfolioNetChange,
   TokenChartMode,
   UserToken,
 } from '../../../../global/types';
 import type { LangFn } from '../../../../hooks/useLang';
 import type { DropdownItem } from '../../../ui/Dropdown';
 
-import { IS_CORE_WALLET } from '../../../../config';
+import { IS_CORE_WALLET, IS_GRAM_WALLET } from '../../../../config';
 import {
   selectAccountStakingStates, selectCurrentAccount,
   selectCurrentAccountId,
@@ -23,12 +26,15 @@ import {
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
+  selectPortfolioMainnetWalletKeys,
   selectSeasonalTheme,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import { calculateFullBalance } from '../../../../util/calculateFullBalance';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
+import { round } from '../../../../util/math';
+import { DEFAULT_PORTFOLIO_TIME_RANGE } from '../../../../util/portfolio/timeRange';
 import { preloadedImageUrls } from '../../../../util/preloadImage';
 import { IS_IOS, IS_SAFARI } from '../../../../util/windowEnvironment';
 import getSensitiveDataMaskSkinFromCardNft from './helpers/getSensitiveDataMaskSkinFromCardNft';
@@ -84,6 +90,10 @@ interface StateProps {
   isSeasonalThemingDisabled?: boolean;
   seasonalTheme?: ApiBackendConfig['seasonalTheme'];
   activePromotion?: ApiPromotion;
+  portfolioActiveRange?: ApiPriceHistoryPeriod;
+  portfolioNetChange?: PortfolioNetChange;
+  isNetChangeUpdating?: boolean;
+  isPortfolioOpen?: boolean;
 }
 
 let mainKey = 0;
@@ -143,9 +153,14 @@ function Card({
   isSeasonalThemingDisabled,
   seasonalTheme,
   activePromotion,
+  portfolioActiveRange,
+  portfolioNetChange,
+  isNetChangeUpdating,
+  isPortfolioOpen,
 }: OwnProps & StateProps) {
   const {
     toggleSeasonalTheming, showToast, openPromotionModal, openMintCardModal, switchToPortfolio,
+    loadPortfolioNetChange,
   } = getActions();
   const lang = useLang();
   const amountRef = useRef<HTMLDivElement>();
@@ -220,6 +235,14 @@ function Card({
     return tokens ? calculateFullBalance(tokens, stakingStates, currencyRates[baseCurrency]) : undefined;
   }, [tokens, stakingStates, currencyRates, baseCurrency]);
 
+  // Refresh the card's range change while the Portfolio screen is closed (it keeps it updated on its own
+  // while open), and whenever the total balance changes, so the value tracks the live net worth
+  useEffect(() => {
+    if (portfolioActiveRange && !isPortfolioOpen) {
+      loadPortfolioNetChange();
+    }
+  }, [currentAccountId, baseCurrency, portfolioActiveRange, isPortfolioOpen, values?.primaryValue]);
+
   useHistoryBack({
     isActive: Boolean(currentTokenSlug),
     onBack: onChartCardClose,
@@ -230,9 +253,15 @@ function Card({
     [shouldRenderChartCard, onChartCardClose],
   );
 
-  const {
-    primaryValue, primaryWholePart, primaryFractionPart, changePrefix, changePercent, changeValue,
-  } = values || {};
+  const { primaryValue, primaryWholePart, primaryFractionPart } = values || {};
+
+  const changeValue = portfolioNetChange ? portfolioNetChange.amount : values?.changeValue;
+  const changePercent = portfolioNetChange
+    ? (portfolioNetChange.percent !== undefined ? round(portfolioNetChange.percent, 2) : undefined)
+    : values?.changePercent;
+  const changePrefix = portfolioNetChange
+    ? (portfolioNetChange.amount > 0 ? 'up' : portfolioNetChange.amount < 0 ? 'down' : undefined)
+    : values?.changePrefix;
 
   useLayoutEffect(() => {
     if (primaryValue !== undefined) {
@@ -328,21 +357,23 @@ function Card({
               tabIndex={0}
               onClick={() => switchToPortfolio()}
             >
-              {!!changePrefix && (
-                <>
-                  <i
-                    className={buildClassName(
-                      styles.changePrefix,
-                      changePrefix === 'up' ? 'icon-arrow-up' : 'icon-arrow-down',
-                    )}
-                    aria-hidden
-                  />
-                  <AnimatedCounter text={`${Math.abs(changePercent!)}%`} />
-                  {' · '}
-                </>
-              )}
-              <AnimatedCounter text={formatCurrency(Math.abs(changeValue!), shortBaseSymbol)} />
-              <i className={buildClassName(styles.changeChevron, 'icon-chevron-right')} aria-hidden />
+              <span className={buildClassName(styles.changeValue, isNetChangeUpdating && 'glare-text')}>
+                {!!changePrefix && changePercent !== undefined && (
+                  <>
+                    <i
+                      className={buildClassName(
+                        styles.changePrefix,
+                        changePrefix === 'up' ? 'icon-arrow-up' : 'icon-arrow-down',
+                      )}
+                      aria-hidden
+                    />
+                    <AnimatedCounter text={`${Math.abs(changePercent)}%`} />
+                    {' · '}
+                  </>
+                )}
+                <AnimatedCounter text={formatCurrency(Math.abs(changeValue!), shortBaseSymbol)} />
+                <i className={buildClassName(styles.changeChevron, 'icon-chevron-right')} aria-hidden />
+              </span>
             </div>
           </SensitiveData>
         )}
@@ -364,7 +395,16 @@ function Card({
         {isUpdating ? <LoadingDots isActive isDoubled /> : undefined}
       </Transition>
 
-      <div className={buildClassName(styles.container, currentTokenSlug && styles.backstage, customCardClassName)}>
+      <div
+        className={
+          buildClassName(
+            styles.container,
+            currentTokenSlug && styles.backstage,
+            customCardClassName,
+            IS_GRAM_WALLET && 'gram',
+          )
+        }
+      >
         <CustomCardManager nft={cardNft} onCardChange={handleCardChange} />
         <SeasonalTheming
           animationLevel={animationLevel}
@@ -446,13 +486,29 @@ export default memo(
       const stakingStates = selectAccountStakingStates(global, currentAccountId);
       const { cardBackgroundNft: cardNft } = selectCurrentAccountSettings(global) || {};
 
+      const { baseCurrency } = global.settings;
+      // Portfolio history exists only for mainnet accounts; elsewhere the card keeps the 24h change
+      const isPortfolioSupported = selectPortfolioMainnetWalletKeys(global).length > 0;
+      const portfolioActiveRange = isPortfolioSupported ? global.portfolio?.activeRange : DEFAULT_PORTFOLIO_TIME_RANGE;
+      // The cached net change is reused only while it matches the current range and currency
+      const cachedNetChange = global.portfolio?.netChangeByAccountId?.[currentAccountId];
+      const isNetChangeCurrencyMatch = cachedNetChange?.baseCurrency === baseCurrency;
+      const isNetChangeFresh = isNetChangeCurrencyMatch && cachedNetChange?.range === portfolioActiveRange;
+      const isPortfolioLoading = Boolean(global.portfolio?.isLoading || global.portfolio?.isRefreshing);
+      // Show the up-to-date range value, or keep the previous same-currency value (shimmering) while a new range
+      // is still loading, instead of flashing back to the 24h change
+      const portfolioNetChange = isNetChangeCurrencyMatch && (isNetChangeFresh || isPortfolioLoading)
+        ? cachedNetChange
+        : undefined;
+      const isNetChangeUpdating = portfolioNetChange !== undefined && !isNetChangeFresh;
+
       return {
         currentAccountId,
         isTemporaryAccount: selectCurrentAccount(global)?.isTemporary,
         isViewMode: selectIsCurrentAccountViewMode(global),
         tokens: selectCurrentAccountTokens(global),
         currentTokenSlug: accountState?.currentTokenSlug,
-        baseCurrency: global.settings.baseCurrency,
+        baseCurrency,
         currencyRates: global.currencyRates,
         stakingStates,
         cardNft,
@@ -462,6 +518,10 @@ export default memo(
         isSeasonalThemingDisabled: global.settings.isSeasonalThemingDisabled,
         seasonalTheme: selectSeasonalTheme(global),
         activePromotion: accountState?.config?.activePromotion,
+        portfolioActiveRange,
+        portfolioNetChange,
+        isNetChangeUpdating,
+        isPortfolioOpen: global.isPortfolioOpen,
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

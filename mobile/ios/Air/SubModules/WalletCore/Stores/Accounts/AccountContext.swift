@@ -141,6 +141,9 @@ public final class AccountContext: Sendable {
     public var activePromotion: ApiPromotion? {
         config.activePromotion
     }
+    public var isMfaEnabled: Bool {
+        config.isMfaEnabled
+    }
     public func getLocalName(chain: ApiChain, address: String) -> String? {
         getMyAccountName(chain: chain, address: address) ?? getSavedAddressName(chain: chain, saveKey: address)
     }

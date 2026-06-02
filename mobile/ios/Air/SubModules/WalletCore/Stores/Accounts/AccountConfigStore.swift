@@ -1,6 +1,7 @@
 import Dependencies
 import Foundation
 import Perception
+import WalletContext
 
 public actor AccountConfigStore: WalletCoreData.EventsObserver {
     @MainActor private var byAccountId: MainActorByAccountIdStore<AccountConfig> = .init(initialValue: AccountConfig.init(accountId:))
@@ -19,20 +20,22 @@ public actor AccountConfigStore: WalletCoreData.EventsObserver {
     @MainActor public func `for`(accountId: String) -> AccountConfig {
         let value = byAccountId.for(accountId: accountId)
 #if DEBUG
-        if DebugPromotionPreset.isEnabled {
+        if DebugPromotionPreset.isEnabled || isMfaEnabledOverrideActive {
+            value.refreshDebugOverrides()
+        }
+#else
+        if isMfaEnabledOverrideActive {
             value.refreshDebugOverrides()
         }
 #endif
         return value
     }
 
-#if DEBUG
     @MainActor public func refreshDebugOverrides() {
         for accountId in byAccountId.accountIds() {
             byAccountId.for(accountId: accountId).refreshDebugOverrides()
         }
     }
-#endif
 
     @MainActor public func walletCore(event: WalletCoreData.Event) {
         switch event {
@@ -64,11 +67,14 @@ public final class AccountConfig: Sendable {
     public let accountId: String
     public private(set) var cardsInfo: ApiCardsInfo?
     public private(set) var activePromotion: ApiPromotion?
+    public private(set) var isMfaEnabled: Bool = false
 
     @PerceptionIgnored
     private var serverCardsInfo: ApiCardsInfo?
     @PerceptionIgnored
     private var serverActivePromotion: ApiPromotion?
+    @PerceptionIgnored
+    private var serverIsMfaEnabled: Bool = false
 
     nonisolated init(accountId: String) {
         self.accountId = accountId
@@ -77,21 +83,25 @@ public final class AccountConfig: Sendable {
     fileprivate func replace(config: ApiAccountConfig?) {
         serverCardsInfo = config?.cardsInfo
         serverActivePromotion = config?.activePromotion
+        serverIsMfaEnabled = config?.isMfaEnabled ?? false
         applyResolvedConfig()
     }
 
-#if DEBUG
     fileprivate func refreshDebugOverrides() {
         applyResolvedConfig()
     }
-#endif
 
     private func applyResolvedConfig() {
         cardsInfo = serverCardsInfo
+        isMfaEnabled = serverIsMfaEnabled || isMfaEnabledOverrideActive
 #if DEBUG
         activePromotion = DebugPromotionPreset.isEnabled ? DebugPromotionPreset.airPromotion : serverActivePromotion
 #else
         activePromotion = serverActivePromotion
 #endif
     }
+}
+
+private var isMfaEnabledOverrideActive: Bool {
+    IS_DEBUG_OR_TESTFLIGHT_DEFAULT && DebugMfaEnabledOverride.isEnabled
 }

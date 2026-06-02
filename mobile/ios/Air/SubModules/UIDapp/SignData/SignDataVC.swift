@@ -1,7 +1,6 @@
 
 import SwiftUI
 import UIKit
-import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
@@ -9,7 +8,6 @@ import WalletContext
 class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
     
     var update: ApiUpdate.DappSignData?
-    var onConfirm: ((String?) -> ())?
     var onCancel: (() -> ())?
     
     var placeholderAccountId: String?
@@ -20,12 +18,10 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
     
     init(
         update: ApiUpdate.DappSignData,
-        onConfirm: @escaping (String?) -> (),
         onCancel: @escaping () -> ()
     ) {
         self._account = AccountContext(accountId: update.accountId)
         self.update = update
-        self.onConfirm = onConfirm
         self.onCancel = onCancel
         super.init(nibName: nil, bundle: nil)
     }
@@ -41,11 +37,9 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
 
     func replacePlaceholder(
         update: ApiUpdate.DappSignData,
-        onConfirm: @escaping (String?) -> (),
         onCancel: @escaping () -> ()
     ) {
         self.update = update
-        self.onConfirm = onConfirm
         self.onCancel = onCancel
         withAnimation {
             self.$account.accountId = update.accountId
@@ -97,19 +91,28 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
     }
 
     func _onConfirm() {
-        if let update, let onConfirm {
-            UnlockVC.presentAuth(
-                on: self,
-                title: lang("Sign Data"),
-                subtitle: update.dapp.name,
-                onDone: { passcode in
-                    onConfirm(passcode)
-                    self.onConfirm = nil
-                    self.onCancel = nil
-                    self.dismiss(animated: true)
-                },
-                cancellable: true
-            )
+        guard let update else { return }
+        Task {
+            do {
+                _ = try await AppActions.authorizeProtectedAction(
+                    on: self,
+                    account: account,
+                    title: lang("Sign Data"),
+                    headerView: DappHeaderView(dapp: update.dapp, accountContext: _account),
+                    passwordAction: { password in
+                        try await TonConnect.shared.submitSignData(
+                            update: update,
+                            password: password
+                        )
+                    },
+                    mfaTitle: lang("Sign Data")
+                )
+                self.onCancel = nil
+                self.dismiss(animated: true)
+            } catch is CancellationError {
+            } catch {
+                showAlert(error: error)
+            }
         }
     }
 
@@ -117,7 +120,6 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
         // `onCancel` rejects the dapp request; it's nil for the wake placeholder (no request yet),
         // in which case we still dismiss so the Cancel button / swipe / X always close the modal.
         onCancel?()
-        onConfirm = nil
         onCancel = nil
         navigationController?.presentingViewController?.dismiss(animated: true)
     }

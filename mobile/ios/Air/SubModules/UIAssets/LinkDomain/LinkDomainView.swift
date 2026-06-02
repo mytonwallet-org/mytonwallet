@@ -23,17 +23,6 @@ struct LinkDomainView: View {
                     LinkDomainAddressInput(viewModel: viewModel)
                 } header: {
                     Text(viewModel.addressLabel)
-                } footer: {
-                    if let fee = viewModel.fee, let chain = viewModel.nft?.chain {
-                        FeeView(
-                            token: tokenStore.getNativeToken(chain: chain),
-                            nativeToken: tokenStore.getNativeToken(chain: chain),
-                            fee: fee,
-                            explainedTransferFee: nil,
-                            includeLabel: true
-                        )
-                        .transition(.opacity.animation(.default))
-                    }
                 }
                 if let error = viewModel.errorMessage {
                     WarningView(text: error, kind: .error)
@@ -50,14 +39,28 @@ struct LinkDomainView: View {
     }
 
     private var bottomBar: some View {
-        Button(action: { viewModel.onLink?() }) {
-            Text(viewModel.linkButtonTitle)
+        VStack(spacing: 10) {
+            if let fee = viewModel.fee, let chain = viewModel.nft?.chain {
+                FeeView(
+                    token: tokenStore.getNativeToken(chain: chain),
+                    nativeToken: tokenStore.getNativeToken(chain: chain),
+                    fee: fee,
+                    explainedTransferFee: nil,
+                    includeLabel: true
+                )
+                .foregroundStyle(Color.air.secondaryLabel)
+                .transition(.opacity.animation(.default))
+            }
+            Button(action: { viewModel.onLink?() }) {
+                Text(viewModel.linkButtonTitle)
+            }
+            .buttonStyle(.airPrimary)
+            .disabled(!viewModel.canLink)
+            .environment(\.isLoading, viewModel.isButtonLoading)
         }
-        .buttonStyle(.airPrimary)
-        .disabled(!viewModel.canLink)
-        .environment(\.isLoading, viewModel.isButtonLoading)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
         .background(Color.air.sheetBackground)
     }
 }

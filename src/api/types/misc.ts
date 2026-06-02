@@ -14,10 +14,10 @@ export type EVMChain =
   'ethereum'
   | 'base'
   | 'bnb'
-  // | 'polygon'
+  | 'polygon'
   | 'arbitrum'
-  // | 'monad'
-  // | 'avalanche'
+  | 'monad'
+  | 'avalanche'
   | 'hyperliquid';
 export type ApiChain = 'ton' | 'tron' | 'solana' | EVMChain;
 export type ApiNetwork = 'mainnet' | 'testnet';

@@ -10,6 +10,7 @@ import type {
   ApiNftUpdate,
   ApiSubmitNftTransferResult,
 } from '../../types';
+import { ApiTransactionDraftError } from '../../types';
 
 import {
   BURN_ADDRESS,
@@ -24,6 +25,7 @@ import { bigintMultiplyToNumber } from '../../../util/bigint';
 import { getChainConfig } from '../../../util/chain';
 import { explainApiTransferFee } from '../../../util/fee/transferFee';
 import { compact } from '../../../util/iteratees';
+import { logDebug, logDebugError } from '../../../util/logs';
 import { getNativeToken } from '../../../util/tokens';
 import { generateQueryId } from './util';
 import { parseTonapiioNft } from './util/metadata';
@@ -41,7 +43,7 @@ import {
   NFT_TRANSFER_REAL_AMOUNT,
   NftOpCode,
 } from './constants';
-import { checkMultiTransactionDraft, checkToAddress, submitMultiTransfer } from './transfer';
+import { checkMultiTransactionDraft, checkToAddress, submitMultiTransferWithMfa } from './transfer';
 import { isActiveSmartContract } from './wallet';
 
 function parseNfts(
@@ -220,6 +222,22 @@ export async function checkNftTransferDraft(options: {
     .slice(0, account.type === 'ledger' ? 1 : NFT_BATCH_SIZE) // We only need to check the first batch of a multi-transaction
     .map((nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment, account.type === 'ledger'));
 
+  logDebug('checkNftTransferDraft', 'Checking NFT transfer draft', {
+    accountId,
+    fromAddress,
+    toAddress,
+    nftsCount: nfts.length,
+    hasComment: Boolean(comment),
+    isNftBurn: Boolean(isNftBurn),
+  });
+
+  if (account.byChain.ton.mfa && nfts.length > NFT_BATCH_SIZE) {
+    return {
+      ...result,
+      error: ApiTransactionDraftError.MfaNftBatchLimit,
+    };
+  }
+
   const checkResult = await checkMultiTransactionDraft(accountId, messages);
 
   let fee: bigint | undefined;
@@ -276,10 +294,46 @@ export async function submitNftTransfers(options: {
     (nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment, account.type === 'ledger'),
   );
 
-  const sentTx = await submitMultiTransfer({ accountId, password, messages });
+  logDebug('submitNftTransfers', 'Submitting NFT transfers', {
+    accountId,
+    fromAddress,
+    toAddress,
+    nftsCount: nfts.length,
+    hasComment: Boolean(comment),
+    hasStoredMfa: Boolean(account.byChain.ton.mfa),
+    mfaAddress: account.byChain.ton.mfa?.address,
+  });
+
+  if (account.byChain.ton.mfa && nfts.length > NFT_BATCH_SIZE) {
+    return { error: ApiTransactionDraftError.MfaNftBatchLimit };
+  }
+
+  const sentTx = await submitMultiTransferWithMfa({ accountId, password, messages });
 
   if ('error' in sentTx) {
+    logDebugError('submitNftTransfers', {
+      error: sentTx.error,
+      accountId,
+      fromAddress,
+      toAddress,
+      nftsCount: nfts.length,
+      hasStoredMfa: Boolean(account.byChain.ton.mfa),
+      mfaAddress: account.byChain.ton.mfa?.address,
+    });
     return sentTx;
+  }
+
+  if ('mfaRequest' in sentTx) {
+    logDebug('submitNftTransfers', 'Returning MFA request for NFT transfer', {
+      accountId,
+      fromAddress,
+      nftsCount: nfts.length,
+      mfaAddress: account.byChain.ton.mfa?.address,
+    });
+
+    return {
+      mfaRequest: sentTx.mfaRequest,
+    };
   }
 
   return {

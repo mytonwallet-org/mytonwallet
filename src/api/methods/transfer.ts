@@ -20,6 +20,7 @@ import { fetchStoredAddress } from '../common/accounts';
 import { buildLocalTransaction } from '../common/helpers';
 import { bytesToBase64 } from '../common/utils';
 import { FAKE_TX_ID } from '../constants';
+import { publishSignedMfaRequest, registerMfaConfirmationHandler } from './mfa';
 import { buildTokenSlug } from './tokens';
 
 let onUpdate: OnApiUpdate;
@@ -130,7 +131,7 @@ export async function checkTransactionDraft(chain: ApiChain, options: ApiCheckTr
 export async function submitTransfer(
   chain: ApiChain,
   options: ApiSubmitTransferOptions,
-): Promise<{ activityId: string } | { error: string }> {
+): Promise<{ activityId?: string; mfaRequestHash?: string } | { error: string }> {
   const {
     realFee,
     isGasless,
@@ -176,9 +177,26 @@ export async function submitTransfer(
     : getNativeToken(chain).slug;
   const comment = payload?.type === 'comment' && !payload.shouldEncrypt ? payload.text : undefined;
 
+  if (result.mfaRequest) {
+    const mfaResult = await publishSignedMfaRequest(accountId, chain, result.mfaRequest);
+    registerMfaConfirmationHandler(mfaResult.mfaRequestHash, (txHash) => {
+      createLocalTransactions(accountId, chain, [{
+        id: txHash,
+        amount,
+        fromAddress,
+        toAddress,
+        comment,
+        fee: realFee ?? 0n,
+        slug,
+        externalMsgHashNorm: txHash,
+      }]);
+    });
+    return mfaResult;
+  }
+
   const [localActivity] = createLocalTransactions(accountId, chain, [{
     ...result.localActivityParams,
-    id: result.txId,
+    id: result.txId!,
     amount,
     fromAddress,
     toAddress,

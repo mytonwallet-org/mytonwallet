@@ -28,6 +28,8 @@ public class WAnimatedSticker: UIView {
     }
     
     private(set) var animationView: LottieAnimationView? = nil
+    private var animationViewWidthConstraint: NSLayoutConstraint?
+    private var animationViewHeightConstraint: NSLayoutConstraint?
     private var toggleState: Bool? = nil
 
     override open func awakeFromNib() {
@@ -48,16 +50,22 @@ public class WAnimatedSticker: UIView {
             createdAnimationView.renderingScale = renderingScale
             createdAnimationView.playbackSpeed = playbackSpeed
             addSubview(createdAnimationView)
+            let widthConstraint = createdAnimationView.widthAnchor.constraint(equalToConstant: size.width)
+            let heightConstraint = createdAnimationView.heightAnchor.constraint(equalToConstant: size.height)
             NSLayoutConstraint.activate([
-                createdAnimationView.leadingAnchor.constraint(equalTo: leadingAnchor),
-                createdAnimationView.trailingAnchor.constraint(equalTo: trailingAnchor),
-                createdAnimationView.topAnchor.constraint(equalTo: topAnchor),
-                createdAnimationView.bottomAnchor.constraint(equalTo: bottomAnchor),
+                createdAnimationView.centerXAnchor.constraint(equalTo: centerXAnchor),
+                createdAnimationView.centerYAnchor.constraint(equalTo: centerYAnchor),
+                widthConstraint,
+                heightConstraint,
             ])
+            self.animationViewWidthConstraint = widthConstraint
+            self.animationViewHeightConstraint = heightConstraint
             self.animationView = createdAnimationView
             animationView = createdAnimationView
         }
 
+        animationViewWidthConstraint?.constant = size.width
+        animationViewHeightConstraint?.constant = size.height
         animationView.frame = CGRect(origin: .zero, size: size)
         animationView.renderingScale = renderingScale
         animationView.layoutIfNeeded()

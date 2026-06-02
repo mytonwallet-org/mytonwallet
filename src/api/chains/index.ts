@@ -20,10 +20,10 @@ export const chains: { [K in ApiChain]: ChainSdk<K> } = {
   ethereum: new EVMSdk('ethereum'),
   base: new EVMSdk('base'),
   bnb: new EVMSdk('bnb'),
-  // polygon: new EVMSdk('polygon'),
+  polygon: new EVMSdk('polygon'),
   arbitrum: new EVMSdk('arbitrum'),
-  // monad: new EVMSdk('monad'),
-  // avalanche: new EVMSdk('avalanche'),
+  monad: new EVMSdk('monad'),
+  avalanche: new EVMSdk('avalanche'),
   hyperliquid: new EVMSdk('hyperliquid'),
 };
 

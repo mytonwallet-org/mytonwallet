@@ -8,10 +8,10 @@ class MockAgentProcessor : AgentProcessor {
 
     private val replies = listOf(
         "I can help with balances, swaps, staking, and recent activity.",
-        "TON is currently trading around \$3.45, up 2.3% in the last 24 hours.",
-        "Your main wallet balance is 125.5 TON. Would you like to see a breakdown of your tokens?",
+        "GRAM is currently trading around \$3.45, up 2.3% in the last 24 hours.",
+        "Your main wallet balance is 125.5 GRAM. Would you like to see a breakdown of your tokens?",
         "Staking rewards are distributed every 18 hours. Your current APY is approximately 4.2%.",
-        "I found 3 recent transactions: a swap of 10 TON for USDT, a staking deposit, and an incoming transfer of 5 TON."
+        "I found 3 recent transactions: a swap of 10 GRAM for USDT, a staking deposit, and an incoming transfer of 5 GRAM."
     )
 
     private var replyIndex = 0
@@ -53,7 +53,7 @@ class MockAgentProcessor : AgentProcessor {
                                 type = "action",
                                 message = null,
                                 deeplinks = listOf(
-                                    AgentResultDeeplink("Swap 10 TON → USDT", "ton://swap?from=TON&to=USDT&amount=10"),
+                                    AgentResultDeeplink("Swap 10 GRAM → USDT", "ton://swap?from=TON&to=USDT&amount=10"),
                                     AgentResultDeeplink("View Balance", "ton://wallet")
                                 ),
                                 raw = org.json.JSONObject()

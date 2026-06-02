@@ -44,7 +44,7 @@ public struct TokenPickerButton: View {
                     .frame(width: 20, height: 20)
                     
                 HStack(spacing: 2) {
-                    Text(token?.symbol ?? "TON")
+                    Text(token?.symbol ?? ApiToken.TONCOIN.symbol)
                         .font(.body.weight(.semibold))
                     
                     if onTap != nil {
@@ -67,4 +67,3 @@ public struct TokenPickerButton: View {
         .animation(.snappy, value: token)
     }
 }
-

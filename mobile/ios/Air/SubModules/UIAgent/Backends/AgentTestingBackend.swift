@@ -131,17 +131,17 @@ final class AgentTestingBackend: AgentBackend {
         .message(
             AgentMessage(
                 role: .user,
-                text: "Show me TON details and price context.",
+                text: "Show me GRAM details and price context.",
                 isStreaming: false
             )
         ),
         .message(
             AgentMessage(
                 role: .assistant,
-                text: "TON remains one of the core assets in this wallet. I can open the token screen directly from here.",
+                text: "GRAM remains one of the core assets in this wallet. I can open the token screen directly from here.",
                 isStreaming: false,
                 action: AgentMessageAction(
-                    title: "Open TON",
+                    title: "Open GRAM",
                     url: URL(string: "\(SELF_PROTOCOL)token/\(TONCOIN_SLUG)")!
                 )
             )
@@ -171,9 +171,9 @@ final class AgentTestingBackend: AgentBackend {
 
     private static func simulatedAction(for input: String) -> AgentMessageAction? {
         let lowercasedInput = input.lowercased()
-        if lowercasedInput.contains("ton") {
+        if lowercasedInput.contains("gram") || lowercasedInput.contains("ton") {
             return AgentMessageAction(
-                title: "Open TON",
+                title: "Open GRAM",
                 url: URL(string: "\(SELF_PROTOCOL)token/\(TONCOIN_SLUG)")!
             )
         }
@@ -223,8 +223,8 @@ final class AgentTestingBackend: AgentBackend {
                 AgentHint(
                     id: "ru-0",
                     title: "Проверь крипторынок",
-                    subtitle: "включая TON и основные токены",
-                    prompt: "Дай мне краткий обзор крипторынка с фокусом на TON, BTC, ETH и главные тренды сегодня."
+                    subtitle: "включая GRAM и основные токены",
+                    prompt: "Дай мне краткий обзор крипторынка с фокусом на GRAM, BTC, ETH и главные тренды сегодня."
                 ),
                 AgentHint(
                     id: "ru-1",
@@ -241,8 +241,8 @@ final class AgentTestingBackend: AgentBackend {
                 AgentHint(
                     id: "ru-3",
                     title: "Покажи варианты стейкинга",
-                    subtitle: "для наград в TON и MY",
-                    prompt: "Объясни стейкинг в MyTonWallet, включая стейкинг TON и MY, награды и риски."
+                    subtitle: "для наград в GRAM и MY",
+                    prompt: "Объясни стейкинг в MyTonWallet, включая стейкинг GRAM и MY, награды и риски."
                 )
             ]
         }
@@ -251,8 +251,8 @@ final class AgentTestingBackend: AgentBackend {
             AgentHint(
                 id: "en-0",
                 title: "Check the crypto market",
-                subtitle: "including TON and major tokens",
-                prompt: "Give me a quick crypto market overview, with focus on TON, BTC, ETH and major trends today."
+                subtitle: "including GRAM and major tokens",
+                prompt: "Give me a quick crypto market overview, with focus on GRAM, BTC, ETH and major trends today."
             ),
             AgentHint(
                 id: "en-1",
@@ -269,8 +269,8 @@ final class AgentTestingBackend: AgentBackend {
             AgentHint(
                 id: "en-3",
                 title: "Show me staking options",
-                subtitle: "for TON and MY rewards",
-                prompt: "Explain staking in MyTonWallet, including how TON and MY staking works, rewards and risks."
+                subtitle: "for GRAM and MY rewards",
+                prompt: "Explain staking in MyTonWallet, including how GRAM and MY staking works, rewards and risks."
             )
         ]
     }

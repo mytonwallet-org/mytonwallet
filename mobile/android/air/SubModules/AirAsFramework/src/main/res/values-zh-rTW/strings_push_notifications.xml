@@ -29,8 +29,8 @@
   <string name="push_activity_swap_failed">兌換 %1$s -> %2$s 失敗</string>
   <string name="push_activity_swap_expired">兌換 %1$s -> %2$s 已過期</string>
   <string name="push_activity_swap_pending">兌換 %1$s -> %2$s %3$s</string>
-  <string name="push_activity_staking_profit">質押收益 %1$s TON</string>
-  <string name="push_activity_staking_loyalty_profit">質押忠誠度收益 %1$s TON</string>
+  <string name="push_activity_staking_profit">質押收益 %1$s GRAM</string>
+  <string name="push_activity_staking_loyalty_profit">質押忠誠度收益 %1$s GRAM</string>
   <string name="push_domain_title_renew">續訂您的網域</string>
   <string name="push_domain_expired_yesterday">您的網域 %1$s 昨天已過期。請盡快續訂，以免失去存取權限</string>
   <string name="push_domain_expired_days_ago">您的網域 %1$s 已於 %2$s 天前過期。請盡快續訂，以免失去存取權限</string>

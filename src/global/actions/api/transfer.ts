@@ -257,7 +257,8 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
   const fullNativeFee = explainedFee?.fullFee?.nativeSum;
   const realNativeFee = explainedFee?.realFee?.nativeSum;
 
-  let result: { activityId: string } | { activityIds: string[] } | { error: string } | undefined;
+  let result: { activityId?: string; mfaRequestHash?: string }
+    | { activityIds: string[] } | { error: string } | undefined;
 
   if (nfts?.length) {
     const chain = nfts?.[0]?.chain || DEFAULT_CHAIN;
@@ -276,13 +277,19 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
         isNftBurn,
       );
 
-      global = getGlobal();
-      global = updateCurrentTransfer(global, {
-        sentNftsCount: (global.currentTransfer.sentNftsCount || 0) + chunk.length,
-      });
-      setGlobal(global);
+      if (batchResult && 'activityIds' in batchResult) {
+        global = getGlobal();
+        global = updateCurrentTransfer(global, {
+          sentNftsCount: (global.currentTransfer.sentNftsCount || 0) + chunk.length,
+        });
+        setGlobal(global);
+      }
       // TODO - process all responses from the API
       result = batchResult;
+
+      if (!batchResult || 'error' in batchResult || 'mfaRequestHash' in batchResult) {
+        break;
+      }
     }
   } else {
     const { tokenAddress, chain } = selectToken(global, tokenSlug);
@@ -312,10 +319,11 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
   }
 
   setGlobal(updateCurrentTransfer(getGlobal(), {
-    state: TransferState.Complete,
+    state: ('mfaRequestHash' in result) ? TransferState.ConfirmMfa : TransferState.Complete,
     txId: ('activityIds' in result && result.activityIds[0])
       || ('activityId' in result && result.activityId)
       || undefined,
+    mfaRequestHash: ('mfaRequestHash' in result && result.mfaRequestHash) || undefined,
   }));
 
   actions.fetchTransferDieselState({ tokenSlug });
@@ -385,6 +393,19 @@ addActionHandler('checkTransferAddress', async (global, actions, { address, chai
     });
   }
   setGlobal(global);
+});
+
+addActionHandler('updateMfaRequestStatus', async (global) => {
+  const hash = global.currentTransfer.mfaRequestHash;
+  if (!hash) return;
+
+  const result = await callApi('fetchMfaRequest', hash);
+
+  if (result?.isConfirmed) {
+    global = getGlobal();
+    global = updateCurrentTransfer(global, { state: TransferState.Complete });
+    setGlobal(global);
+  }
 });
 
 function getTransferPayload(

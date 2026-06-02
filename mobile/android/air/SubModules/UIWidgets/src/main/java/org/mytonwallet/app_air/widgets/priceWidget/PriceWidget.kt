@@ -42,7 +42,8 @@ import kotlin.math.absoluteValue
 
 class PriceWidget : AppWidgetProvider() {
     companion object {
-        const val DEFAULT_TOKEN = "TON"
+        const val DEFAULT_TOKEN_ASSET_ID = "TON"
+        const val DEFAULT_TOKEN_SYMBOL = "GRAM"
         const val DEFAULT_COLOR = "#0088cc"
     }
 
@@ -125,7 +126,7 @@ class PriceWidget : AppWidgetProvider() {
             }
         val tokenSymbol: String?
             get() {
-                return token?.optString("symbol") ?: DEFAULT_TOKEN
+                return token?.optString("symbol") ?: DEFAULT_TOKEN_SYMBOL
             }
         val tokenSlug: String?
             get() {
@@ -139,7 +140,7 @@ class PriceWidget : AppWidgetProvider() {
                             return it
                     }
                 }
-                return token?.optString("symbol") ?: DEFAULT_TOKEN
+                return token?.optString("symbol") ?: DEFAULT_TOKEN_ASSET_ID
             }
     }
 
@@ -279,7 +280,7 @@ class PriceWidget : AppWidgetProvider() {
                     processNextWidget()
                     return
                 }
-                val assetId = config.assetId ?: DEFAULT_TOKEN
+                val assetId = config.assetId ?: DEFAULT_TOKEN_ASSET_ID
                 SDKApiMethod.Token.PriceChart(
                     assetId,
                     period,

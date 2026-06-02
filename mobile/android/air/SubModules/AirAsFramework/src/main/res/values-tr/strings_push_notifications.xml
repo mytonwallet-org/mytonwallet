@@ -29,8 +29,8 @@
   <string name="push_activity_swap_failed">Takas %1$s -> %2$s başarısız oldu</string>
   <string name="push_activity_swap_expired">Takas %1$s -> %2$s süresi doldu</string>
   <string name="push_activity_swap_pending">Takas %1$s -> %2$s %3$s</string>
-  <string name="push_activity_staking_profit">Staking karı %1$s TON</string>
-  <string name="push_activity_staking_loyalty_profit">Staking sadakat karı %1$s TON</string>
+  <string name="push_activity_staking_profit">Staking karı %1$s GRAM</string>
+  <string name="push_activity_staking_loyalty_profit">Staking sadakat karı %1$s GRAM</string>
   <string name="push_domain_title_renew">Alan adınızı yenileyin</string>
   <string name="push_domain_expired_yesterday">Alan adınız %1$s dün süresi doldu. Erişimi kaybetmemek için lütfen en kısa sürede yenileyin</string>
   <string name="push_domain_expired_days_ago">Alan adınız %1$s %2$s gün önce süresi doldu. Erişimi kaybetmemek için lütfen en kısa sürede yenileyin</string>
