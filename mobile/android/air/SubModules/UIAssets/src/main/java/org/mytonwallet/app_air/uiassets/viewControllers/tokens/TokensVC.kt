@@ -826,7 +826,7 @@ class TokensVC(
                     } else {
                         MApiSwapAsset(
                             slug = MBlockchain.ton.nativeSlug,
-                            symbol = "TON",
+                            symbol = "GRAM",
                             chain = MBlockchain.ton.name,
                             decimals = 9
                         )

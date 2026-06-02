@@ -1,8 +1,6 @@
 
 import SwiftUI
 import UIKit
-import Ledger
-import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
@@ -14,7 +12,6 @@ private let NOT_RESPONDING_DELAY: TimeInterval = 7
 public class SendDappVC: WViewController, UISheetPresentationControllerDelegate {
 
     var request: ApiUpdate.DappSendTransactions?
-    var onConfirm: ((String?) -> ())?
     var onCancel: (() -> ())?
 
     var placeholderAccountId: String?
@@ -29,11 +26,9 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     
     public init(
         request: ApiUpdate.DappSendTransactions,
-        onConfirm: @escaping (String?) -> (),
         onCancel: @escaping () -> (),
     ) {
         self.request = request
-        self.onConfirm = onConfirm
         self.onCancel = onCancel
         super.init(nibName: nil, bundle: nil)
     }
@@ -55,12 +50,10 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     
     func replacePlaceholder(
         request: ApiUpdate.DappSendTransactions,
-        onConfirm: @escaping (String?) -> (),
         onCancel: @escaping () -> (),
     ) {
         cancelNotResponding()
         self.request = request
-        self.onConfirm = onConfirm
         self.onCancel = onCancel
         navigationItem.title = makeNavigationTitle()
         withAnimation {
@@ -278,68 +271,43 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     }
     
     @objc func onSend() {
-        if account.isHardware {
-            Task {
-                await confirmLedger()
+        guard let request else { return }
+        Task {
+            do {
+                _ = try await AppActions.authorizeProtectedAction(
+                    on: self,
+                    account: account,
+                    title: lang("Confirm Sending"),
+                    headerView: DappHeaderView(dapp: request.dapp, accountContext: _account),
+                    passwordAction: { password in
+                        try await TonConnect.shared.submitSendTransactions(
+                            request: request,
+                            password: password
+                        )
+                    },
+                    ledgerSignData: {
+                        .signDappTransfers(update: request)
+                    },
+                    ledgerFromAddress: account.getAddress(chain: request.operationChain),
+                    mfaTitle: lang("Confirm Sending")
+                )
+                finishConfirm()
+            } catch is CancellationError {
+            } catch {
+                showAlert(error: error)
             }
-        } else {
-            confirmMnemonic()
         }
     }
     
-    private func confirmMnemonic() {
-        guard let request else { return }
-        UnlockVC.presentAuth(
-            on: self,
-            title: lang("Confirm Sending"),
-            subtitle: request.dapp.url,
-            onDone: { [weak self] passcode in
-                self?._onConfirm(passcode)
-                self?.dismiss(animated: true)
-            },
-            cancellable: true
-        )
-    }
-    
-    private func confirmLedger() async {
-        guard let request else { return }
-        
-        let signModel = await LedgerSignModel(
-            accountId: account.id,
-            fromAddress: account.firstAddress,
-            signData: .signDappTransfers(update: request)
-        )
-        let vc = LedgerSignVC(
-            model: signModel,
-            title: lang("Confirm Sending"),
-            headerView: EmptyView()
-        )
-        vc.onDone = { vc in
-            self._onConfirm("ledger")
-            self.dismiss(animated: true, completion: {
-                self.presentingViewController?.dismiss(animated: true)
-            })
-        }
-        vc.onCancel = { vc in
-            self._onCancel()
-            self.dismiss(animated: true, completion: {
-                self.presentingViewController?.dismiss(animated: true)
-            })
-        }
-        present(WNavigationController(rootViewController: vc), animated: true)
-    }
-    
-    func _onConfirm(_ password: String?) {
-        onConfirm?(password)
-        onConfirm = nil
+    private func finishConfirm() {
         onCancel = nil
+        dismiss(animated: true)
     }
     
     @objc func _onCancel() {
         // `onCancel` rejects the dapp request; it's nil for the wake placeholder (no request yet),
         // in which case we still dismiss so the Cancel button / swipe / X always close the modal.
         onCancel?()
-        onConfirm = nil
         onCancel = nil
         dismiss(animated: true)
     }
@@ -388,7 +356,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
 //        )
 //    )
 //    
-//    let vc = SendDappVC(request: request, onConfirm: { _ in })
+//    let vc = SendDappVC(request: request, onCancel: {})
 //    let nc = WNavigationController(rootViewController: vc)
 //    nc
 //}

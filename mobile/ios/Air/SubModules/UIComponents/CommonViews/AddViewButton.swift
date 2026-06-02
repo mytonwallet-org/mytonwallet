@@ -48,6 +48,7 @@ public struct AddViewButton<S: ShapeStyle>: View {
     var sharedContent: some View {
         HStack(spacing: 2) {
             Image.airBundle("AddView")
+                .renderingMode(.template)
             Text(lang("$view_mode"))
         }
         .frame(height: 14)

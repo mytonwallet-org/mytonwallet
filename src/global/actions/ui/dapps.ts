@@ -61,9 +61,7 @@ addActionHandler('clearDappTransferError', (global) => {
   setGlobal(global);
 });
 
-addActionHandler('openBrowser', (global, actions, {
-  url, title, subtitle,
-}) => {
+addActionHandler('openBrowser', (global, actions, { url, title, subtitle }) => {
   global = {
     ...global,
     currentBrowserOptions: {
@@ -74,7 +72,10 @@ addActionHandler('openBrowser', (global, actions, {
 });
 
 addActionHandler('closeBrowser', (global) => {
-  global = { ...global, currentBrowserOptions: undefined };
+  global = {
+    ...global,
+    currentBrowserOptions: undefined,
+  };
   setGlobal(global);
 });
 

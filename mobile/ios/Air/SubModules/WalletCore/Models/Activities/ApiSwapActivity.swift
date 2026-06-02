@@ -154,6 +154,14 @@ public extension ApiSwapActivity {
     var toToken: ApiToken? {
         TokenStore.getToken(slugOrAddress: to)
     }
+
+    var displayFromToken: ApiToken {
+        TokenStore.getDisplayToken(slugOrAddress: from)
+    }
+
+    var displayToToken: ApiToken {
+        TokenStore.getDisplayToken(slugOrAddress: to)
+    }
     
     var fromTokenSlug: String {
         fromToken?.slug ?? from
@@ -171,6 +179,14 @@ public extension ApiSwapActivity {
     var toAmountInt64: BigInt? {
         guard let decimals = toToken?.decimals else { return nil }
         return doubleToBigInt(toAmount.value, decimals: decimals)
+    }
+
+    var displayFromAmount: TokenAmount {
+        TokenAmount.fromDouble(fromAmount.value, displayFromToken)
+    }
+
+    var displayToAmount: TokenAmount {
+        TokenAmount.fromDouble(toAmount.value, displayToToken)
     }
     
     var fromSymbolName: String {

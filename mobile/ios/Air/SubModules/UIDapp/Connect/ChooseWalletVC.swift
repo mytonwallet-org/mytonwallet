@@ -72,7 +72,8 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
             cell.configurationUpdateHandler = { cell, state in
                 cell.contentConfiguration = UIHostingConfiguration {
                     WithPerceptionTracking {
-                        let isDisabled = allowViewAccounts ? false : accountContext.account.isView
+                        let account = accountContext.account
+                        let isDisabled = account.isView && (!allowViewAccounts || account.getChainInfo(chain: .ton)?.mfa != nil)
                         AccountListCell(accountContext: accountContext, isReordering: state.isEditing, showCurrentAccountHighlight: true)
                             .allowsHitTesting(!isDisabled)
                             .opacity(isDisabled ? 0.4 : 1)
@@ -112,11 +113,12 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
     }
     
     private func isAccountSelectable(indexPath: IndexPath) -> Bool {
-        if allowViewAccounts {
-            return true
-        }
         if let accountId = dataSource?.itemIdentifier(for: indexPath) {
-            return !accountStore.get(accountId: accountId).isView
+            let account = accountStore.get(accountId: accountId)
+            if account.isView && account.getChainInfo(chain: .ton)?.mfa != nil {
+                return false
+            }
+            return allowViewAccounts || !account.isView
         }
         return false
     }

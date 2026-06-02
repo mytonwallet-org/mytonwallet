@@ -59,6 +59,20 @@ function Chart({
     });
   }, [data]);
 
+  // LovelyChart replaces its root element on every teardown/redraw (resize, orientation, data change),
+  // wiping the lock chip. Observe only the direct child — that's the only thing the library swaps,
+  // and it skips noisy nested mutations like tooltip updates on hover
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !data?.isAssetLimitExceeded) return undefined;
+
+    appendLockedChip(container);
+    const observer = new MutationObserver(() => appendLockedChip(container));
+    observer.observe(container, { childList: true });
+
+    return () => observer.disconnect();
+  }, [data]);
+
   useEffect(() => {
     return () => {
       instanceRef.current?.destroy();
@@ -74,14 +88,7 @@ function Chart({
         {isRefreshing && <Spinner className={styles.refreshIndicator} />}
         {data
           ? (
-            <>
-              <div ref={containerRef} className={styles.chartContainer} data-stricterdom-ignore />
-              {data.isAssetLimitExceeded && (
-                <span className={styles.lockedChip}>
-                  <i className={buildClassName(styles.lockedChipIcon, 'icon-lock')} aria-hidden />
-                </span>
-              )}
-            </>
+            <div ref={containerRef} className={styles.chartContainer} data-stricterdom-ignore />
           )
           : <div className={styles.empty}>{lang('No data')}</div>}
       </div>
@@ -90,3 +97,18 @@ function Chart({
 }
 
 export default memo(Chart);
+
+// LovelyChart owns its legend DOM, so the lock chip is injected as the last legend item rather than
+// rendered by Teact. The chip removes itself with the chart container on teardown
+function appendLockedChip(container: HTMLElement) {
+  const tools = container.querySelector('.lovely-chart--tools');
+  if (!tools || tools.querySelector(`.${styles.lockedChip}`)) return;
+
+  const chip = document.createElement('span');
+  chip.className = styles.lockedChip;
+  const icon = document.createElement('i');
+  icon.className = 'icon-lock';
+  icon.setAttribute('aria-hidden', 'true');
+  chip.appendChild(icon);
+  tools.appendChild(chip);
+}

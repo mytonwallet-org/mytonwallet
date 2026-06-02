@@ -8,6 +8,22 @@ Creating Wallet...: 正在创建钱包...
 On the count of three...: 倒数三个数···
 $back_up_auth: 备份
 $back_up_security: 备份安全
+$2fa_security: Telegram 2FA
+2FA with Telegram: Telegram 2FA
+Confirm operations in Telegram as a second step.: 在 Telegram 中作为第二步确认操作。
+Confirm with: 通过以下方式确认
+Add an extra layer of security for your wallet in TON network.: 为你在 TON 网络中的钱包添加额外安全层。
+Sign transfers and important actions with your passcode, then confirm them in Telegram.: 使用密码签署转账和重要操作，然后在 Telegram 中确认。
+This helps protect your funds even if your recovery phrase or keys are compromised.: 即使你的助记词或密钥泄露，这也有助于保护你的资金。
+"Connection Fee:": "连接费用："
+Connect Telegram: 连接 Telegram
+Telegram will be used to confirm transfers and important actions.: Telegram 将用于确认转账和重要操作。
+My Telegram Account: 我的 Telegram 账户
+Without username: 无用户名
+Unlink Account: 解绑账户
+An extra security layer requires confirming actions in Telegram after signing.: 额外安全层要求在签名后于 Telegram 中确认操作。
+Confirm Connection: 确认连接
+Confirm Disconnection: 确认断开连接
 Passwords must be equal.: 密码必须相同。
 To protect your wallet as much as possible, use a password with: 为了尽可能的保障您钱包的安全，密码请遵循下列规则
 $auth_password_rule_8chars: 至少8位字符
@@ -221,9 +237,9 @@ Current APY: 当前年化收益率
 Est. Yearly Earnings: 预计年收益
 Staking Details: 质押详情
 Why this is safe: 为什么这很安全
-$safe_staking_description1: TON 质押是**完全去中心化的**，由官方 TON Liquid Staking 智能合约运营。
-$safe_staking_description2: 作为其 **权益证明** 的一部分，您存入的 TON 将用于 %chain% 区块网络验证。
-$safe_staking_description3: 您可以在 **任何时候** 解除您 TON 的质押，它会在 **36小时** 内存入您的账户。
+$safe_staking_description1: GRAM 质押是**完全去中心化的**，由官方 TON Liquid Staking 智能合约运营。
+$safe_staking_description2: 作为其 **权益证明** 的一部分，您存入的 GRAM 将用于 %chain% 区块网络验证。
+$safe_staking_description3: 您可以在 **任何时候** 解除您 GRAM 的质押，它会在 **36小时** 内存入您的账户。
 $safe_staking_description_jetton1: 代币质押是 **完全去中心化的**，由 %jvault_link% 开发的 **开源** 智能合约操作，并已通过 **安全审计**。
 $safe_staking_description_jetton2: 您可以在 **任何时候** 提取您的质押，并会 **立即** 存入您的账户。
 $min_value: 最小 %value%
@@ -874,6 +890,10 @@ $domain_expire: "**%domain%** 将于%days%到期"
 "%token% Staking": "%token% 质押"
 Add Tab: 添加标签页
 Remove Tab: 移除标签页
+$iab_tabs_count:
+  zeroValue: "%1$d 个标签页"
+  oneValue: "%1$d 个标签页"
+  otherValue: "%1$d 个标签页"
 Link Domain: 链接域名
 Domain Linked!: 域名已链接!
 $domains_amount %1$d:
@@ -1244,7 +1264,7 @@ Standalone: 独立模式
 All Telegram Gifts: 所有 Telegram 礼物
 Add Crypto: 充值加密货币
 Share QR Code: 分享二维码
-$send_only_ton: 仅向此地址发送 Toncoin (TON) 或 TON 网络资产。发送其他代币会导致丢失。
+$send_only_ton: 仅向此地址发送 Gram (GRAM) 或 TON 网络资产。发送其他代币会导致丢失。
 $send_only_chain: 仅向此地址发送 %chain% (%symbol%) 或 %chain% 网络资产。发送其他代币会导致丢失。
 Buying with card is not supported for this account.: 此账户不支持银行卡购买。
 Swapped at: 兑换时间
@@ -1506,8 +1526,8 @@ push_activity_swap_completed: 兑换 %from_symbol% -> %to_symbol% 已完成
 push_activity_swap_failed: 兑换 %from_symbol% -> %to_symbol% 失败
 push_activity_swap_expired: 兑换 %from_symbol% -> %to_symbol% 已过期
 push_activity_swap_pending: 兑换 %from_symbol% -> %to_symbol% %status%
-push_activity_staking_profit: 质押收益 %amount% TON
-push_activity_staking_loyalty_profit: 质押忠诚度收益 %amount% TON
+push_activity_staking_profit: 质押收益 %amount% GRAM
+push_activity_staking_loyalty_profit: 质押忠诚度收益 %amount% GRAM
 push_domain_title_renew: 续订您的域名
 push_domain_expired_yesterday: 您的域名 %domain% 昨天已过期。请尽快续订，以免失去访问权限
 push_domain_expired_days_ago: 您的域名 %domain% 已于 %days% 天前过期。请尽快续订，以免失去访问权限
@@ -1528,3 +1548,4 @@ Tracked asset value over time: 追踪资产价值变化
 Cumulative profit and loss over time: 累计盈亏走势
 Day-by-day profit and loss: 逐日盈亏
 Current allocation across tracked assets: 当前资产分配
+This action is not supported in explorer mode.: 此操作在浏览器模式下不受支持。

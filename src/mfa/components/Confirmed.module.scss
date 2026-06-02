@@ -1,0 +1,17 @@
+.container {
+  padding: 0 2rem;
+}
+
+.title {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.description {
+  margin-top: 1.25rem;
+  text-align: center;
+
+  display: flex;
+  flex-direction: column;
+  gap: 1.375rem;
+}

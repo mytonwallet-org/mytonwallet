@@ -18,12 +18,14 @@ import { isKeyCountGreater } from '../../util/isEmptyObject';
 import isViewAccount from '../../util/isViewAccount';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 
+import useInterval from '../../hooks/useInterval';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 import { useMultipleAccountsBalances } from '../../hooks/useMultipleAccountsBalances';
 
 import AccountRowContent from '../common/AccountRowContent';
+import MfaConfirm from '../common/MfaConfirm';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
 import LedgerConnect from '../ledger/LedgerConnect';
 import Button from '../ui/Button';
@@ -45,6 +47,7 @@ interface DappConnectOpenProps {
   error?: string;
   requiredPermissions?: ApiDappPermissions;
   requiredProof?: TonConnectProof;
+  mfaRequestHash?: string;
   currentAccountId: string;
   accounts?: Record<string, Account>;
   orderedAccounts: Array<[string, Account]>;
@@ -67,6 +70,7 @@ function DappConnectModal({
   error,
   requiredPermissions,
   requiredProof,
+  mfaRequestHash,
   accounts,
   orderedAccounts,
   currentAccountId,
@@ -83,6 +87,7 @@ function DappConnectModal({
     cancelDappConnectRequestConfirm,
     setDappConnectRequestState,
     resetHardwareWalletConnect,
+    updateDappConnectMfaRequestStatus,
   } = getActions();
 
   const lang = useLang();
@@ -114,6 +119,14 @@ function DappConnectModal({
     setSelectedAccount(currentAccountId);
   }, [currentAccountId]);
 
+  const isMfaEnabled = Boolean(accounts?.[selectedAccount]?.byChain?.ton?.mfa);
+
+  useInterval(() => {
+    if (isOpen && state === DappConnectState.ConfirmMfa && mfaRequestHash) {
+      updateDappConnectMfaRequestStatus();
+    }
+  }, isOpen && state === DappConnectState.ConfirmMfa ? 1000 : undefined);
+
   const shouldRenderAccountSelector = accounts && isKeyCountGreater(accounts, 1);
 
   const handleOpenAccountSelector = useLastCallback((_accountId: string) => {
@@ -130,17 +143,17 @@ function DappConnectModal({
   });
 
   const handleSubmit = useLastCallback(async () => {
-    if (isViewAccount(accounts![selectedAccount].type) && requiredProof) return;
+    if (isViewAccount(accounts![selectedAccount].type) && (requiredProof || isMfaEnabled)) return;
 
     const isHardware = accounts![selectedAccount].type === 'hardware';
     const { isPasswordRequired, isAddressRequired } = requiredPermissions || {};
+    const doesNeedSigning = Boolean(requiredProof || isMfaEnabled);
 
-    if (!requiredProof || (!isHardware && isAddressRequired && !isPasswordRequired)) {
+    if (!doesNeedSigning || (!isMfaEnabled && !isHardware && isAddressRequired && !isPasswordRequired)) {
       submitDappConnectRequestConfirm({
         accountId: selectedAccount,
       });
 
-      // Closing the modal is delayed in order to `submitDappConnectRequestConfirm` cause the "confirmed" effect first
       requestAnimationFrame(() => {
         cancelDappConnectRequestConfirm();
       });
@@ -221,7 +234,8 @@ function DappConnectModal({
           <div className={styles.accountList}>
             {(orderedAccounts ?? []).map(([accountId, { title, byChain, type }]) => {
               const hasTonWallet = Boolean(byChain.ton);
-              const isDisabled = !hasTonWallet || (!!requiredProof && isViewAccount(type));
+              const accountHasMfa = Boolean(byChain.ton?.mfa);
+              const isDisabled = !hasTonWallet || ((!!requiredProof || accountHasMfa) && isViewAccount(type));
               const isSelected = accountId === selectedAccount;
               const { cardBackgroundNft } = settingsByAccountId?.[accountId] || {};
               const balanceData = balancesByAccountId?.[accountId];
@@ -249,7 +263,11 @@ function DappConnectModal({
   }
 
   function renderDappInfo() {
-    const isViewMode = Boolean(selectedAccount && requiredProof && isViewAccount(accounts?.[selectedAccount]?.type));
+    const isViewMode = Boolean(
+      selectedAccount
+      && isViewAccount(accounts?.[selectedAccount]?.type)
+      && (requiredProof || isMfaEnabled),
+    );
 
     return (
       <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
@@ -344,6 +362,16 @@ function DappConnectModal({
             onClose={handlePasswordCancel}
           />
         );
+      case DappConnectState.ConfirmMfa:
+        return (
+          <>
+            <ModalHeader onClose={cancelDappConnectRequestConfirm} />
+            <MfaConfirm
+              onClose={cancelDappConnectRequestConfirm}
+              mfaRequestHash={mfaRequestHash}
+            />
+          </>
+        );
     }
   }
 
@@ -369,7 +397,7 @@ function DappConnectModal({
 
 export default memo(withGlobal((global): StateProps => {
   const {
-    state, dapp, error, accountId, permissions, proof,
+    state, dapp, error, accountId, permissions, proof, mfaRequestHash,
   } = global.dappConnectRequest || {};
   const currentAccountId = accountId || selectCurrentAccountId(global)!;
   const hasConnectRequest = state !== undefined;
@@ -400,6 +428,7 @@ export default memo(withGlobal((global): StateProps => {
     error,
     requiredPermissions: permissions,
     requiredProof: proof,
+    mfaRequestHash,
     currentAccountId,
     accounts,
     orderedAccounts,

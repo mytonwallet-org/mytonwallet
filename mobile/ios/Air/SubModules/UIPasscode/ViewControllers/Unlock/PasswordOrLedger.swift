@@ -6,80 +6,347 @@
 //
 
 import SwiftUI
+import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
 import Ledger
 
+private let passwordOrLedgerLog = Log("PasswordOrLedger")
 
-extension WViewController {
-    
-    public func pushAuthUsingPasswordOrLedger<HeaderView: View>(
+@MainActor
+public enum ProtectedActionPresenter {
+    public static func authorizeProtectedAction<HeaderView: View, Result: MfaProtectedActionResult>(
+        on viewController: UIViewController,
+        account: MAccount,
         title: String,
         headerView: HeaderView,
-        passwordAction: @escaping (String) async throws -> (),
-        ledgerSignData: SignData,
-    ) async throws {
-        let account = try AccountStore.account.orThrow("no active account")
+        passwordAction: @escaping (String) async throws -> Result,
+        ledgerSignData: (() async throws -> SignData)? = nil,
+        ledgerFromAddress: String? = nil,
+        presentationStyle: ProtectedActionPresentationStyle = .push,
+        useBioOnPresent: Bool = true,
+        completionBehavior: ProtectedActionCompletionBehavior = .popAuth,
+        mfaTitle: String? = nil
+    ) async throws -> Result? {
+        try await viewController._authorizeProtectedAction(
+            account: account,
+            title: title,
+            headerView: headerView,
+            passwordAction: passwordAction,
+            ledgerSignData: ledgerSignData,
+            ledgerFromAddress: ledgerFromAddress,
+            presentationStyle: presentationStyle,
+            useBioOnPresent: useBioOnPresent,
+            completionBehavior: completionBehavior,
+            mfaTitle: mfaTitle
+        )
+    }
+}
+
+private extension UIViewController {
+    func _authorizeProtectedAction<HeaderView: View, Result: MfaProtectedActionResult>(
+        account: MAccount,
+        title: String,
+        headerView: HeaderView,
+        passwordAction: @escaping (String) async throws -> Result,
+        ledgerSignData: (() async throws -> SignData)? = nil,
+        ledgerFromAddress: String? = nil,
+        presentationStyle: ProtectedActionPresentationStyle = .push,
+        useBioOnPresent: Bool = true,
+        completionBehavior: ProtectedActionCompletionBehavior = .popAuth,
+        mfaTitle: String? = nil
+    ) async throws -> Result? {
         if account.isHardware {
-            let fromAddress = account.firstAddress
-            try await _pushLedger(
+            guard let ledgerSignData else {
+                throw BridgeCallError.message(.unsupportedHardwareContract, nil)
+            }
+            let signData = try await ledgerSignData()
+            let fromAddress = ledgerFromAddress ?? account.firstAddress
+            guard !fromAddress.isEmpty else {
+                throw BridgeCallError.customMessage("No account address", nil)
+            }
+            try await _authorizeLedger(
                 title: title,
                 headerView: headerView,
                 accountId: account.id,
                 fromAddress: fromAddress,
-                ledgerSignData: ledgerSignData
+                ledgerSignData: signData,
+                presentationStyle: presentationStyle,
+                completionBehavior: completionBehavior
             )
-        } else {
-            try await _pushPassword(
+            return nil
+        }
+
+        switch presentationStyle {
+        case .push:
+            return try await _pushPasswordProtected(
                 title: title,
                 headerView: headerView,
+                account: account,
                 passwordAction: passwordAction,
+                useBioOnPresent: useBioOnPresent,
+                completionBehavior: completionBehavior,
+                mfaTitle: mfaTitle ?? title
+            )
+        case .sheet:
+            return try await _presentPasswordProtected(
+                title: title,
+                headerView: headerView,
+                account: account,
+                passwordAction: passwordAction,
+                useBioOnPresent: useBioOnPresent,
+                completionBehavior: completionBehavior,
+                mfaTitle: mfaTitle ?? title
             )
         }
     }
-    
-    private func _pushPassword<HeaderView: View>(
+
+    private func runPasswordAction<Result: MfaProtectedActionResult>(
+        account: MAccount,
+        passwordAction: @escaping (String) async throws -> Result,
+        password: String
+    ) async throws -> Result {
+        do {
+            try await AccountStore.refreshStoredMfa(accountId: account.id, password: password)
+        } catch {
+            passwordOrLedgerLog.error("Failed to refresh MFA state before protected action: \(error, .public)")
+        }
+
+        let result: Result
+        do {
+            result = try await passwordAction(password)
+        } catch {
+            passwordOrLedgerLog.error("Protected action failed before MFA confirmation: \(error, .public)")
+            throw error
+        }
+        if let error = result.protectedActionError {
+            let bridgeError = BridgeCallError(message: error, payload: result)
+            passwordOrLedgerLog.error("Protected action returned MFA error: \(bridgeError, .public)")
+            throw bridgeError
+        }
+        return result
+    }
+
+    private func biometricPasscodeIfAvailable(useBioOnPresent: Bool) async -> String? {
+        guard useBioOnPresent,
+              AppStorageHelper.isBiometricActivated(),
+              BiometricHelper.biometryType != nil
+        else {
+            return nil
+        }
+
+        guard case .success = await BiometricHelper.authenticate() else {
+            return nil
+        }
+
+        let passcode = KeychainHelper.biometricPasscode()
+        do {
+            return try await AuthSupport.verifyPassword(password: passcode) ? passcode : nil
+        } catch {
+            return nil
+        }
+    }
+
+    private func _presentPasswordProtected<HeaderView: View, Result: MfaProtectedActionResult>(
         title: String,
         headerView: HeaderView,
-        passwordAction: @escaping (String) async throws -> (),
-    ) async throws {
+        account: MAccount,
+        passwordAction: @escaping (String) async throws -> Result,
+        useBioOnPresent: Bool,
+        completionBehavior: ProtectedActionCompletionBehavior,
+        mfaTitle: String
+    ) async throws -> Result {
+        if let passcode = await biometricPasscodeIfAvailable(useBioOnPresent: useBioOnPresent) {
+            let result = try await runPasswordAction(account: account, passwordAction: passwordAction, password: passcode)
+            if let hash = result.mfaRequestHash {
+                return try await presentMfaConfirmation(
+                    account: account,
+                    requestHash: hash,
+                    title: mfaTitle,
+                    result: result,
+                    completionBehavior: completionBehavior
+                )
+            }
+            return result
+        }
+
         let vc = self
         let headerVC = UIHostingController(rootView: headerView)
         headerVC.view.backgroundColor = .clear
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Result, any Error>) in
             var _error: (any Error)?
-            UnlockVC.pushAuth(
-                on: vc,
+            var _result: Result?
+            var didResume = false
+            weak var sheetNavigationController: UINavigationController?
+
+            func resumeOnce(_ body: @escaping () -> Void) {
+                guard !didResume else { return }
+                didResume = true
+                body()
+            }
+
+            let unlockVC = UnlockVC(
                 title: title,
+                replacedTitle: nil,
+                subtitle: nil,
                 customHeaderVC: headerVC,
+                animatedPresentation: false,
+                dissmissWhenAuthorized: false,
+                shouldBeThemedLikeHeader: false,
                 onAuthTask: { password, onTaskDone in
                     Task {
                         do {
-                            try await passwordAction(password)
+                            _result = try await vc.runPasswordAction(
+                                account: account,
+                                passwordAction: passwordAction,
+                                password: password
+                            )
                         } catch {
                             _error = error
                         }
                         onTaskDone()
                     }
                 },
-                onDone: { _ in
+                onDone: { [weak vc] _ in
                     if let _error {
-                        continuation.resume(throwing: _error)
+                        sheetNavigationController?.dismiss(animated: true) {
+                            resumeOnce {
+                                continuation.resume(throwing: _error)
+                            }
+                        }
+                    } else if let _result, let hash = _result.mfaRequestHash, let sheetNavigationController {
+                        vc?.showMfaConfirmationInSheet(
+                            navigationController: sheetNavigationController,
+                            account: account,
+                            requestHash: hash,
+                            title: mfaTitle,
+                            continuation: continuation,
+                            result: _result,
+                            completionBehavior: completionBehavior
+                        )
+                    } else if let _result {
+                        if completionBehavior == .popAuth {
+                            sheetNavigationController?.dismiss(animated: true) {
+                                resumeOnce {
+                                    continuation.resume(returning: _result)
+                                }
+                            }
+                        } else {
+                            resumeOnce {
+                                continuation.resume(returning: _result)
+                            }
+                        }
                     } else {
-                        continuation.resume()
+                        sheetNavigationController?.dismiss(animated: true) {
+                            resumeOnce {
+                                continuation.resume(throwing: CancellationError())
+                            }
+                        }
+                    }
+                },
+                cancellable: true,
+                onCancel: {
+                    sheetNavigationController?.dismiss(animated: true) {
+                        resumeOnce {
+                            continuation.resume(throwing: CancellationError())
+                        }
+                    }
+                },
+                useBioOnPresent: false
+            )
+            let navigationController = WNavigationController(rootViewController: unlockVC)
+            navigationController.navigationBar.tintColor = AirTintColor
+            sheetNavigationController = navigationController
+            vc.present(navigationController, animated: true)
+        }
+    }
+
+    private func _pushPasswordProtected<HeaderView: View, Result: MfaProtectedActionResult>(
+        title: String,
+        headerView: HeaderView,
+        account: MAccount,
+        passwordAction: @escaping (String) async throws -> Result,
+        useBioOnPresent: Bool,
+        completionBehavior: ProtectedActionCompletionBehavior,
+        mfaTitle: String
+    ) async throws -> Result {
+        guard navigationController != nil else {
+            throw BridgeCallError.customMessage("No navigation controller", nil)
+        }
+        let vc = self
+        let headerVC = UIHostingController(rootView: headerView)
+        headerVC.view.backgroundColor = .clear
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Result, any Error>) in
+            var _error: (any Error)?
+            var _result: Result?
+            UnlockVC.pushAuth(
+                on: vc,
+                title: title,
+                customHeaderVC: headerVC,
+                useBioOnPresent: useBioOnPresent,
+                onAuthTask: { password, onTaskDone in
+                    Task {
+                        do {
+                            _result = try await vc.runPasswordAction(
+                                account: account,
+                                passwordAction: passwordAction,
+                                password: password
+                            )
+                        } catch {
+                            _error = error
+                        }
+                        onTaskDone()
+                    }
+                },
+                onDone: { [weak vc] _ in
+                    if let _error {
+                        vc?.popPushedUnlockIfStillOnTop()
+                        continuation.resume(throwing: _error)
+                    } else if let _result, let hash = _result.mfaRequestHash {
+                        vc?.pushMfaConfirmation(
+                            account: account,
+                            requestHash: hash,
+                            title: mfaTitle,
+                            continuation: continuation,
+                            result: _result,
+                            completionBehavior: completionBehavior
+                        )
+                    } else if let _result {
+                        if completionBehavior == .popAuth {
+                            vc?.popPushedUnlockIfStillOnTop()
+                        }
+                        continuation.resume(returning: _result)
+                    } else {
+                        vc?.popPushedUnlockIfStillOnTop()
+                        continuation.resume(throwing: CancellationError())
                     }
                 }
             )
         }
     }
 
-    private func _pushLedger<HeaderView: View>(
+    private func popPushedUnlockIfStillOnTop() {
+        guard navigationController?.topViewController is UnlockVC else { return }
+        navigationController?.popViewController(animated: true)
+    }
+
+    private func removePushedUnlock(_ unlockVC: UnlockVC?, from navigationController: UINavigationController) {
+        guard let unlockVC else { return }
+        var viewControllers = navigationController.viewControllers
+        guard let index = viewControllers.firstIndex(where: { $0 === unlockVC }) else { return }
+        viewControllers.remove(at: index)
+        navigationController.setViewControllers(viewControllers, animated: false)
+    }
+
+    private func _authorizeLedger<HeaderView: View>(
         title: String,
         headerView: HeaderView,
         accountId: String,
         fromAddress: String,
         ledgerSignData: SignData,
+        presentationStyle: ProtectedActionPresentationStyle,
+        completionBehavior: ProtectedActionCompletionBehavior,
     ) async throws {
         let signModel = await LedgerSignModel(
             accountId: accountId,
@@ -93,25 +360,187 @@ extension WViewController {
                 headerView: headerView
             )
             vc.onDone = { [weak vc] _ in
-                if vc?.canGoBack == true {
-                    vc?.navigationController?.popViewController(animated: true)
-                } else {
-                    vc?.dismiss(animated: true)
+                if completionBehavior == .popAuth {
+                    if let navigationController = vc?.navigationController {
+                        if navigationController.topViewController === vc {
+                            if vc?.canGoBack == true {
+                                navigationController.popViewController(animated: true)
+                            } else {
+                                vc?.dismiss(animated: true)
+                            }
+                        }
+                    } else {
+                        vc?.dismiss(animated: true)
+                    }
                 }
                 continuation.resume()
             }
             vc.onCancel = { [weak vc] _ in
-                if vc?.canGoBack == true {
-                    vc?.navigationController?.popViewController(animated: true)
+                if let navigationController = vc?.navigationController {
+                    if navigationController.topViewController === vc {
+                        if vc?.canGoBack == true {
+                            navigationController.popViewController(animated: true)
+                        } else {
+                            vc?.dismiss(animated: true)
+                        }
+                    }
                 } else {
                     vc?.dismiss(animated: true)
                 }
                 continuation.resume(throwing: CancellationError())
             }
-            if let navigationController = navigationController {
+            if presentationStyle == .push, let navigationController = navigationController {
                 navigationController.pushViewController(vc, animated: true)
             } else {
                 present(WNavigationController(rootViewController: vc), animated: true)
+            }
+        }
+    }
+
+    private func pushMfaConfirmation<Result: MfaProtectedActionResult>(
+        account: MAccount,
+        requestHash: String,
+        title: String,
+        continuation: CheckedContinuation<Result, any Error>,
+        result: Result,
+        completionBehavior: ProtectedActionCompletionBehavior
+    ) {
+        guard let navigationController else {
+            continuation.resume(throwing: CancellationError())
+            return
+        }
+        let mfaVC = MfaConfirmationVC(account: account, requestHash: requestHash, title: title)
+        var didResume = false
+        func resumeOnce(_ body: () -> Void) {
+            guard !didResume else { return }
+            didResume = true
+            body()
+        }
+        mfaVC.onDone = { [weak self, weak mfaVC] request in
+            do {
+                try await result.handleMfaConfirmation(accountId: account.id, request: request)
+                if completionBehavior == .popAuth {
+                    mfaVC?.navigationController?.popViewController(animated: true)
+                }
+                resumeOnce {
+                    continuation.resume(returning: result)
+                }
+            } catch {
+                passwordOrLedgerLog.error("MFA confirmation completion failed: \(error, .public)")
+                if completionBehavior == .popAuth {
+                    mfaVC?.navigationController?.popViewController(animated: true)
+                }
+                resumeOnce {
+                    continuation.resume(throwing: error)
+                }
+            }
+            self?.view.endEditing(true)
+        }
+        mfaVC.onCancel = { [weak mfaVC] in
+            mfaVC?.navigationController?.popViewController(animated: true)
+            resumeOnce {
+                continuation.resume(throwing: CancellationError())
+            }
+        }
+        navigationController.pushViewController(mfaVC, animated: true)
+        let unlockVC = navigationController.viewControllers.dropLast().last as? UnlockVC
+        if let transitionCoordinator = navigationController.transitionCoordinator {
+            transitionCoordinator.animate(alongsideTransition: nil) { [weak self, weak navigationController] context in
+                guard !context.isCancelled, let navigationController else { return }
+                self?.removePushedUnlock(unlockVC, from: navigationController)
+            }
+        } else {
+            removePushedUnlock(unlockVC, from: navigationController)
+        }
+    }
+
+    private func presentMfaConfirmation<Result: MfaProtectedActionResult>(
+        account: MAccount,
+        requestHash: String,
+        title: String,
+        result: Result,
+        completionBehavior: ProtectedActionCompletionBehavior
+    ) async throws -> Result {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Result, any Error>) in
+            let mfaVC = MfaConfirmationVC(account: account, requestHash: requestHash, title: title)
+            let navigationController = WNavigationController(rootViewController: mfaVC)
+            navigationController.isModalInPresentation = true
+            configureMfaConfirmation(
+                mfaVC,
+                accountId: account.id,
+                continuation: continuation,
+                result: result,
+                completionBehavior: completionBehavior,
+                dismiss: { [weak navigationController] in
+                    navigationController?.dismiss(animated: true)
+                }
+            )
+            present(navigationController, animated: true)
+        }
+    }
+
+    private func showMfaConfirmationInSheet<Result: MfaProtectedActionResult>(
+        navigationController: UINavigationController,
+        account: MAccount,
+        requestHash: String,
+        title: String,
+        continuation: CheckedContinuation<Result, any Error>,
+        result: Result,
+        completionBehavior: ProtectedActionCompletionBehavior
+    ) {
+        let mfaVC = MfaConfirmationVC(account: account, requestHash: requestHash, title: title)
+        navigationController.isModalInPresentation = true
+        configureMfaConfirmation(
+            mfaVC,
+            accountId: account.id,
+            continuation: continuation,
+            result: result,
+            completionBehavior: completionBehavior,
+            dismiss: { [weak navigationController] in
+                navigationController?.dismiss(animated: true)
+            }
+        )
+        navigationController.setViewControllers([mfaVC], animated: false)
+    }
+
+    private func configureMfaConfirmation<Result: MfaProtectedActionResult>(
+        _ mfaVC: MfaConfirmationVC,
+        accountId: String,
+        continuation: CheckedContinuation<Result, any Error>,
+        result: Result,
+        completionBehavior: ProtectedActionCompletionBehavior,
+        dismiss: @escaping () -> Void
+    ) {
+        var didResume = false
+        func resumeOnce(_ body: () -> Void) {
+            guard !didResume else { return }
+            didResume = true
+            body()
+        }
+        mfaVC.onDone = { [weak self] request in
+            do {
+                try await result.handleMfaConfirmation(accountId: accountId, request: request)
+                if completionBehavior == .popAuth {
+                    dismiss()
+                }
+                resumeOnce {
+                    continuation.resume(returning: result)
+                }
+            } catch {
+                passwordOrLedgerLog.error("MFA confirmation completion failed: \(error, .public)")
+                if completionBehavior == .popAuth {
+                    dismiss()
+                }
+                resumeOnce {
+                    continuation.resume(throwing: error)
+                }
+            }
+            self?.view.endEditing(true)
+        }
+        mfaVC.onCancel = {
+            dismiss()
+            resumeOnce {
+                continuation.resume(throwing: CancellationError())
             }
         }
     }

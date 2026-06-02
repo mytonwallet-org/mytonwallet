@@ -29,8 +29,8 @@
   <string name="push_activity_swap_failed">Swap %1$s -> %2$s failed</string>
   <string name="push_activity_swap_expired">Swap %1$s -> %2$s expired</string>
   <string name="push_activity_swap_pending">Swap %1$s -> %2$s %3$s</string>
-  <string name="push_activity_staking_profit">Staking profit %1$s TON</string>
-  <string name="push_activity_staking_loyalty_profit">Staking loyalty profit %1$s TON</string>
+  <string name="push_activity_staking_profit">Staking profit %1$s GRAM</string>
+  <string name="push_activity_staking_loyalty_profit">Staking loyalty profit %1$s GRAM</string>
   <string name="push_domain_title_renew">Renew your domain</string>
   <string name="push_domain_expired_yesterday">Your domain %1$s expired yesterday. Please renew it as soon as possible to avoid losing access</string>
   <string name="push_domain_expired_days_ago">Your domain %1$s expired %2$s days ago. Please renew it as soon as possible to avoid losing access</string>

@@ -8,7 +8,7 @@ import styles from './TokenInfo.module.scss';
 
 import DEFAULT_TOKEN_IMAGE_URL from '../../assets/coins/coin_ton.svg';
 
-const DEFAULT_TOKEN_SYMBOL = 'Toncoin';
+const DEFAULT_TOKEN_SYMBOL = 'Gram';
 
 interface OwnProps {
   amount: string;

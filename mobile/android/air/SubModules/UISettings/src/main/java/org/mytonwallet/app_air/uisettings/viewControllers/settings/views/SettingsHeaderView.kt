@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.uisettings.viewControllers.settings.views
 import android.annotation.SuppressLint
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import org.mytonwallet.app_air.uicomponents.commonViews.IconView
+import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -51,10 +51,8 @@ class SettingsHeaderView(
     private val px74 = 74.dp
     private val px98 = 98.dp
 
-    private val walletIcon: IconView by lazy {
-        val iconView = IconView(context)
-        iconView.setSize(80.dp)
-        iconView
+    private val walletIcon: AccountIconView by lazy {
+        AccountIconView(context, AccountIconView.Usage.ViewItem(28f.dp))
     }
 
     private val walletNameLabel: WLabel by lazy {
@@ -90,7 +88,7 @@ class SettingsHeaderView(
     override fun setupViews() {
         super.setupViews()
 
-        addView(walletIcon, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(walletIcon, LayoutParams(80.dp, 80.dp))
         addView(walletNameLabel, LayoutParams(LayoutParams.MATCH_CONSTRAINT, WRAP_CONTENT))
         addView(walletBalanceLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(addressLabel, LayoutParams(LayoutParams.MATCH_CONSTRAINT, WRAP_CONTENT))
@@ -132,10 +130,6 @@ class SettingsHeaderView(
         if (parent == null)
             return
 
-        AccountStore.activeAccount?.let {
-            walletIcon.config(it, 28f.dp)
-        }
-
         configureDescriptionLabel(updateUILayoutParamsIfRequired = false)
         updateScroll(
             lastY,
@@ -148,6 +142,9 @@ class SettingsHeaderView(
             return
 
         val account = AccountStore.activeAccount
+        account?.let {
+            walletIcon.config(it)
+        }
         account?.name?.let {
             if (walletNameLabel.text != it)
                 walletNameLabel.text = it

@@ -144,17 +144,50 @@ private func presentAddWalletModally(network: ApiNetwork) {
 
 @MainActor
 private func presentAssetsModally(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter) {
-    let assetsVC = AssetsTabVC(accountSource: accountSource, defaultTab: selectedTab)
     let topVC = topViewController()
-    if collectionsFilter != .none, let nc = topVC as? WNavigationController, (nc.visibleViewController is AssetsTabVC || nc.visibleViewController is NftDetailsVC) {
+    if let nc = topVC as? WNavigationController, nc.showExistingAssetsTab(accountSource: accountSource, selectedTab: selectedTab, animated: true) {
+        return
+    }
+
+    let shouldPushCollection = shouldPushNftCollectionFullscreen(
+        accountSource: accountSource,
+        selectedTab: selectedTab,
+        collectionsFilter: collectionsFilter
+    )
+
+    if shouldPushCollection, let nc = topVC as? WNavigationController, (nc.visibleViewController is AssetsTabVC || nc.visibleViewController is NftDetailsVC) {
         nc.pushViewController(NftsFullScreenVC(accountSource: accountSource, filter: collectionsFilter), animated: true)
-    } else if collectionsFilter != .none {
+    } else if shouldPushCollection {
+        let assetsVC = AssetsTabVC(accountSource: accountSource, defaultTab: selectedTab)
         let nc = WNavigationController(rootViewController: assetsVC)
         nc.pushViewController(NftsFullScreenVC(accountSource: accountSource, filter: collectionsFilter), animated: false)
         topVC?.present(nc, animated: true)
         assetsVC.view.layoutIfNeeded()
     } else {
+        let assetsVC = AssetsTabVC(accountSource: accountSource, defaultTab: selectedTab)
         let nc = WNavigationController(rootViewController: assetsVC)
         topVC?.present(nc, animated: true)
+    }
+}
+
+@MainActor
+func shouldPushNftCollectionFullscreen(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter) -> Bool {
+    guard collectionsFilter != .none else { return false }
+    guard case .nftCollectionFilter = selectedTab else { return true }
+    return !AssetsTabVC.canShow(accountSource: accountSource, tab: selectedTab)
+}
+
+extension WNavigationController {
+    @MainActor
+    @discardableResult
+    func showExistingAssetsTab(accountSource: AccountSource, selectedTab: DisplayAssetTab, animated: Bool) -> Bool {
+        guard let assetsVC = viewControllers.compactMap({ $0 as? AssetsTabVC }).last,
+              assetsVC.show(accountSource: accountSource, tab: selectedTab, animated: animated) else {
+            return false
+        }
+        if topViewController !== assetsVC {
+            popToViewController(assetsVC, animated: animated)
+        }
+        return true
     }
 }

@@ -1,6 +1,6 @@
 import type { ApiBaseCurrency, ApiPriceHistoryPeriod } from '../../api/types';
 import type {
-  GlobalState, PortfolioHistoryBundle, PortfolioHistoryByAccountId, PortfolioState,
+  GlobalState, PortfolioHistoryBundle, PortfolioHistoryByAccountId, PortfolioNetChange, PortfolioState,
 } from '../types';
 
 export function updatePortfolio(global: GlobalState, partial: Partial<PortfolioState>): GlobalState {
@@ -13,7 +13,7 @@ export function updatePortfolio(global: GlobalState, partial: Partial<PortfolioS
   };
 }
 
-export function writeHistoryBundle(
+export function updateHistoryBundle(
   slice: PortfolioHistoryByAccountId,
   accountId: string,
   baseCurrency: ApiBaseCurrency,
@@ -33,4 +33,20 @@ export function writeHistoryBundle(
       },
     },
   };
+}
+
+export function updateNetChangeByAccountId(
+  byAccountId: Record<string, PortfolioNetChange> | undefined,
+  accountId: string,
+  netChange?: PortfolioNetChange,
+): Record<string, PortfolioNetChange> {
+  if (!netChange) {
+    if (!byAccountId?.[accountId]) return byAccountId ?? {};
+
+    const next = { ...byAccountId };
+    delete next[accountId];
+    return next;
+  }
+
+  return { ...byAccountId, [accountId]: netChange };
 }

@@ -15,7 +15,7 @@ final class Container {
     var accountContext: AccountContext?
     var layout: HomeCardLayoutMetrics
     var minimumHomeCardFontScale: CGFloat
-    
+
     init(headerViewModel: HomeHeaderViewModel? = nil, accountContext: AccountContext? = nil, layout: HomeCardLayoutMetrics = .screen, minimumHomeCardFontScale: CGFloat = 1) {
         self.headerViewModel = headerViewModel
         self.accountContext = accountContext
@@ -25,9 +25,9 @@ final class Container {
 }
 
 final class HomeCard: UICollectionViewCell {
-    
+
     let container = Container()
-    
+
     var cardBackground: UIView!
     var cardPromotion: UIView!
     var cardContentMaskingContainer: UIView!
@@ -37,27 +37,27 @@ final class HomeCard: UICollectionViewCell {
     var miniatureContent: UIView!
     private var widthConstraint: NSLayoutConstraint!
     private var heightConstraint: NSLayoutConstraint!
-    
+
     var observeToken: ObserveToken?
-    
+
     override init(frame: CGRect) {
         super.init(frame: .zero)
         setup()
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     func setup() {
-        
-        widthConstraint = contentView.widthAnchor.constraint(equalToConstant: itemWidth)
-        heightConstraint = contentView.heightAnchor.constraint(equalToConstant: itemHeight).withPriority(.defaultHigh)
+        let layout = container.layout
+        widthConstraint = contentView.widthAnchor.constraint(equalToConstant: layout.itemWidth)
+        heightConstraint = contentView.heightAnchor.constraint(equalToConstant: layout.itemHeight).withPriority(.defaultHigh)
         NSLayoutConstraint.activate([
             widthConstraint,
             heightConstraint,
         ])
-        
+
         collapsedContent = HostingView { [container] in
             CollapsedContentContainer(container: container)
         }
@@ -105,7 +105,7 @@ final class HomeCard: UICollectionViewCell {
              cardContentMaskingContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
              cardContentMaskingContainer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
         ])
-        
+
         cardContentMask = UIView()
         cardContentMask.backgroundColor = .white
         cardContentMask.translatesAutoresizingMaskIntoConstraints = false
@@ -124,7 +124,7 @@ final class HomeCard: UICollectionViewCell {
             cardContent.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             cardContent.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
         ])
-        
+
         miniatureContent = HostingView {
             CardMiniatureContainer(container: container)
         }
@@ -138,26 +138,23 @@ final class HomeCard: UICollectionViewCell {
             miniatureContent.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             miniatureContent.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
         ])
-        
+
         cardContentMaskingContainer.mask = cardContentMask
 //        cardBackground.alpha = 0.1
     }
-    
+
     func configure(
         headerViewModel: HomeHeaderViewModel,
         accountContext: AccountContext,
         layout: HomeCardLayoutMetrics = .screen,
         minimumHomeCardFontScale: CGFloat = 1
     ) {
+        observeToken?.cancel()
+        observeToken = nil
         self.container.headerViewModel = headerViewModel
         self.container.accountContext = accountContext
-        self.container.layout = layout
-        self.container.minimumHomeCardFontScale = minimumHomeCardFontScale
-        updateLayout(layout)
-        cardContentMask.bounds = CGRect(x: 0, y: 0, width: layout.itemWidth, height: layout.itemHeight)
-        cardContentMask.center = CGPoint(x: layout.itemWidth/2, y: layout.itemHeight/2)
+        applyLayoutMetrics(layout, minimumHomeCardFontScale: minimumHomeCardFontScale, force: true)
         updateAccessibilityState(headerViewModel: headerViewModel)
-        observeToken?.cancel()
         observeToken = observe { [weak self] in
             guard let self else { return }
             let isCollapsed = headerViewModel.isCollapsed
@@ -170,7 +167,7 @@ final class HomeCard: UICollectionViewCell {
             }
         }
     }
-    
+
     private func applyTransform(headerViewModel: HomeHeaderViewModel) {
         let layout = container.layout
         // background
@@ -180,7 +177,7 @@ final class HomeCard: UICollectionViewCell {
         let r: CGFloat = homeCardFontSize(for: layout.itemWidth)/homeCollapsedFontSize
         let dx: CGFloat = 8
         let dy: CGFloat = 0.2667*layout.itemHeight + (layout.itemWidth > 400 ? 6 : 0) // TODO: this is not correct for all devices - there must be a fixed factor based on vertical size of content
-        
+
         switch headerViewModel.state {
         case .expanded:
             self.cardBackground.transform = .identity
@@ -205,21 +202,54 @@ final class HomeCard: UICollectionViewCell {
             self.collapsedContent.transform = .identity
         }
     }
-    
+
     override func prepareForReuse() {
         super.prepareForReuse()
+        observeToken?.cancel()
+        observeToken = nil
     }
-    
+
     override func layoutSubviews() {
         super.layoutSubviews()
-        let layout = container.layout
-        cardContentMask.bounds = CGRect(x: 0, y: 0, width: layout.itemWidth, height: layout.itemHeight)
-        cardContentMask.center = CGPoint(x: layout.itemWidth/2, y: layout.itemHeight/2)
+        updateCardContentMask(container.layout)
     }
-    
+
     private func updateLayout(_ layout: HomeCardLayoutMetrics) {
         widthConstraint.constant = layout.itemWidth
         heightConstraint.constant = layout.itemHeight
+    }
+
+    func updateLayoutMetrics(
+        _ layout: HomeCardLayoutMetrics,
+        minimumHomeCardFontScale: CGFloat
+    ) {
+        applyLayoutMetrics(layout, minimumHomeCardFontScale: minimumHomeCardFontScale)
+    }
+
+    private func applyLayoutMetrics(
+        _ layout: HomeCardLayoutMetrics,
+        minimumHomeCardFontScale: CGFloat,
+        force: Bool = false
+    ) {
+        let didChange = force ||
+            container.layout != layout ||
+            container.minimumHomeCardFontScale != minimumHomeCardFontScale
+        container.layout = layout
+        container.minimumHomeCardFontScale = minimumHomeCardFontScale
+        guard didChange else { return }
+        updateLayout(layout)
+        updateCardContentMask(layout)
+        guard let headerViewModel = container.headerViewModel else { return }
+        UIView.performWithoutAnimation {
+            applyTransform(headerViewModel: headerViewModel)
+            miniatureContent.alpha = headerViewModel.isCollapsed ? 1 : 0
+            contentView.layoutIfNeeded()
+        }
+    }
+
+    private func updateCardContentMask(_ layout: HomeCardLayoutMetrics) {
+        cardContentMask.bounds = CGRect(x: 0, y: 0, width: layout.itemWidth, height: layout.itemHeight)
+        cardContentMask.center = CGPoint(x: layout.itemWidth/2, y: layout.itemHeight/2)
     }
 
     private func updateAccessibilityState(headerViewModel: HomeHeaderViewModel) {
@@ -232,7 +262,7 @@ final class HomeCard: UICollectionViewCell {
 
 private struct CollapsedContentContainer: View {
     var container: Container
-    
+
     var body: some View {
         WithPerceptionTracking {
             if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
@@ -243,9 +273,9 @@ private struct CollapsedContentContainer: View {
 }
 
 private struct BackgroundContainer: View {
-    
+
     var container: Container
-    
+
     var body: some View {
         WithPerceptionTracking {
             if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
@@ -270,7 +300,7 @@ private struct PromotionContainer: View {
 
 private struct CardContentContainer: View {
     var container: Container
-    
+
     var body: some View {
         WithPerceptionTracking {
             if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
@@ -287,7 +317,7 @@ private struct CardContentContainer: View {
 
 private struct CardMiniatureContainer: View {
     var container: Container
-    
+
     var body: some View {
         WithPerceptionTracking {
             if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
@@ -307,8 +337,8 @@ private struct CardMiniatureContainer: View {
 //    let _ = cell.contentView.layer.borderColor = UIColor.red.cgColor
     let _ = cell.contentView.layer.borderWidth = 1
     let _ = cell.configure(headerViewModel: headerViewModel, accountContext: accountContext)
-    let _ = cell.heightAnchor.constraint(equalToConstant: itemHeight).isActive = true
-    let _ = cell.widthAnchor.constraint(equalToConstant: itemWidth).isActive = true
+    let _ = cell.heightAnchor.constraint(equalToConstant: HomeCardLayoutMetrics.screen.itemHeight).isActive = true
+    let _ = cell.widthAnchor.constraint(equalToConstant: HomeCardLayoutMetrics.screen.itemWidth).isActive = true
     cell
 //    let _ = DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
 //        headerViewModel.state = .collapsed

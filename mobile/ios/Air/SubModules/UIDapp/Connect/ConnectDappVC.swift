@@ -7,7 +7,6 @@
 
 import SwiftUI
 import UIKit
-import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
@@ -25,16 +24,15 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     
     public init(
         request: ApiUpdate.DappConnect,
-        onConfirm: @escaping (_ accountId: String, _ password: String) -> (),
         onCancel: @escaping () -> ()
     ) {
-        self.viewModel = ConnectViewModel(accountId: request.accountId, update: request, onConfirm: onConfirm, onCancel: onCancel)
+        self.viewModel = ConnectViewModel(accountId: request.accountId, update: request, onCancel: onCancel)
         super.init(nibName: nil, bundle: nil)
     }
     
     init(placeholderAccountId: String?) {
         @Dependency(\.accountStore.currentAccountId) var currentAccountId
-        self.viewModel = ConnectViewModel(accountId: placeholderAccountId ?? currentAccountId, update: nil, onConfirm: nil, onCancel: nil)
+        self.viewModel = ConnectViewModel(accountId: placeholderAccountId ?? currentAccountId, update: nil, onCancel: nil)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -44,18 +42,17 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     
     func replacePlaceholder(
         request: ApiUpdate.DappConnect,
-        onConfirm: @escaping (_ accountId: String, _ password: String) -> (),
         onCancel: @escaping () -> ()
     ) {
         withAnimation(.smooth(duration: 0.2)) {
             self.viewModel.update = request
         }
-        self.viewModel.onConfirm = onConfirm
         self.viewModel.onCancel = onCancel
     }
     
     public override func viewDidLoad() {
         super.viewDidLoad()
+        viewModel.presenter = self
         setupViews()
     }
     
@@ -147,7 +144,7 @@ private extension UISheetPresentationController.Detent.Identifier {
 @available(iOS 26, *)
 #Preview {
 //    let vc = ConnectDappVC(placeholderAccountId: "0-maiinet")
-    let vc = ConnectDappVC(request: .sample, onConfirm: { _, _ in }, onCancel: {})
+    let vc = ConnectDappVC(request: .sample, onCancel: {})
     previewSheet(vc)
 }
 #endif

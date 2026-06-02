@@ -1,7 +1,7 @@
 import { NativeBiometric } from '@capgo/capacitor-native-biometric';
 
 import type { ApiChain, ApiNetwork } from '../../../api/types';
-import type { GlobalState } from '../../types';
+import type { Account, GlobalState } from '../../types';
 import { ApiAuthError, ApiCommonError } from '../../../api/types';
 import { AppState, AuthState, BiometricsState } from '../../types';
 
@@ -26,6 +26,7 @@ import isEmptyObject from '../../../util/isEmptyObject';
 import isMnemonicPrivateKey from '../../../util/isMnemonicPrivateKey';
 import { cloneDeep, compact, unique } from '../../../util/iteratees';
 import { getTranslation } from '../../../util/langProvider';
+import { logDebugError } from '../../../util/logs';
 import { clearPoisoningCache, updatePoisoningCacheFromGlobalState } from '../../../util/poisoningHash';
 import { pause } from '../../../util/schedulers';
 import {
@@ -361,6 +362,11 @@ addActionHandler('createAccount', async (global, actions, {
     return;
   }
 
+  if (isImporting) {
+    await refreshImportedAccountsMfa(accounts, password);
+    global = getGlobal();
+  }
+
   if (!isImporting) {
     global = { ...global, appState: AppState.Auth, isAccountSelectorOpen: undefined };
   }
@@ -380,6 +386,24 @@ addActionHandler('createAccount', async (global, actions, {
 
   setGlobal(global);
 });
+
+async function refreshImportedAccountsMfa(
+  accounts: { accountId: string; byChain: Account['byChain'] }[],
+  password: string,
+) {
+  await Promise.all(accounts.map(async (account) => {
+    if (!account.byChain.ton) return;
+
+    try {
+      const result = await callApi('refreshMfaState', account.accountId, password);
+      if (result?.mfa) {
+        account.byChain.ton.mfa = result.mfa;
+      }
+    } catch (err) {
+      logDebugError('refreshImportedAccountsMfa', err);
+    }
+  }));
+}
 
 addActionHandler('createHardwareAccounts', async (global, actions) => {
   const network = selectCurrentNetwork(global);

@@ -14,8 +14,8 @@ extension Api {
         try await bridge.callApi("checkDnsRenewalDraft", accountId, nfts, decoding: ApiDnsRenewalDraft.self)
     }
     
-    public static func submitDnsRenewal(accountId: String, password: String?, nfts: [ApiNft], realFee: BigInt?) async throws -> Any? {
-        try await bridge.callApiRaw("submitDnsRenewal", accountId, password, nfts, realFee)
+    public static func submitDnsRenewal(accountId: String, password: String?, nfts: [ApiNft], realFee: BigInt?) async throws -> [ApiMfaProtectedResult] {
+        try await bridge.callApi("submitDnsRenewal", accountId, password, nfts, realFee, decoding: [ApiMfaProtectedResult].self)
     }
     
     public static func checkDnsChangeWalletDraft(accountId: String, nft: ApiNft, address: String) async throws -> ApiDnsChangeWalletDraft {
@@ -36,5 +36,11 @@ public struct ApiDnsChangeWalletDraft: Decodable, Sendable {
 }
 
 public struct ApiDnsChangeWalletResult: Decodable, Sendable {
-    public let activityId: String
+    public let activityId: String?
+    public let mfaRequestHash: String?
+    public let error: String?
+}
+
+extension ApiDnsChangeWalletResult: MfaProtectedActionResult {
+    public var protectedActionError: String? { error }
 }

@@ -35,11 +35,12 @@ addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { pa
   const {
     promiseId, permissions, proof, dapp,
   } = global.dappConnectRequest!;
+  const shouldRequireMfa = Boolean(global.accounts?.byId?.[accountId]?.byChain?.ton?.mfa);
   if (!await prepareDappOperation(
     accountId,
     DappConnectState.ConfirmHardware,
     updateDappConnectRequest,
-    !!permissions?.isPasswordRequired,
+    Boolean(permissions?.isPasswordRequired) || shouldRequireMfa,
     password,
   )) {
     return;
@@ -56,6 +57,25 @@ addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { pa
     : { signatures: undefined };
 
   if (!handleDappSignatureResult(signingResult, updateDappConnectRequest)) {
+    return;
+  }
+
+  if (shouldRequireMfa) {
+    actions.switchAccount({ accountId });
+
+    const mfaResult = await callApi('createDappConnectMfaRequest', accountId, password);
+    if (!handleDappSignatureResult(mfaResult, updateDappConnectRequest)) {
+      return;
+    }
+
+    global = getGlobal();
+    global = updateDappConnectRequest(global, {
+      state: DappConnectState.ConfirmMfa,
+      isLoading: false,
+      proofSignatures: signingResult.signatures,
+      mfaRequestHash: mfaResult.mfaRequestHash,
+    });
+    setGlobal(global);
     return;
   }
 
@@ -147,6 +167,21 @@ addActionHandler('submitDappTransfer', async (global, actions, { password } = {}
     });
 
   if (!handleDappSignatureResult(signedTransactions, updateCurrentDappTransfer)) {
+    return;
+  }
+
+  if (signedTransactions && typeof signedTransactions === 'object' && 'mfaRequestHash' in signedTransactions) {
+    global = getGlobal();
+    global = updateCurrentDappTransfer(global, {
+      state: TransferState.ConfirmMfa,
+      isLoading: false,
+      mfaRequestHash: signedTransactions.mfaRequestHash,
+    });
+    setGlobal(global);
+
+    await callApi('confirmDappRequestSendTransaction', promiseId, {
+      mfaRequestHash: signedTransactions.mfaRequestHash,
+    });
     return;
   }
 
@@ -410,4 +445,40 @@ addActionHandler('loadExploreSites', async (global, _, { isLandscape, langCode =
 
   global = { ...global, exploreData };
   setGlobal(global);
+});
+
+addActionHandler('updateDappMfaRequestStatus', async (global) => {
+  const hash = global.currentDappTransfer.mfaRequestHash;
+  if (!hash) return;
+  const result = await callApi('fetchMfaRequest', hash);
+
+  if (result?.isConfirmed) {
+    global = getGlobal();
+    global = updateCurrentDappTransfer(global, { state: TransferState.Complete });
+    setGlobal(global);
+  }
+});
+
+addActionHandler('updateDappConnectMfaRequestStatus', async (global, actions) => {
+  const hash = global.dappConnectRequest?.mfaRequestHash;
+  const promiseId = global.dappConnectRequest?.promiseId;
+  const accountId = global.dappConnectRequest?.accountId;
+  const proofSignatures = global.dappConnectRequest?.proofSignatures;
+
+  if (!hash || !promiseId || !accountId) return;
+
+  const result = await callApi('fetchMfaRequest', hash);
+  if (!result?.isConfirmed) return;
+
+  await callApi('confirmDappRequestConnect', promiseId, {
+    accountId,
+    proofSignatures,
+  });
+
+  global = getGlobal();
+  global = clearDappConnectRequest(global);
+  setGlobal(global);
+
+  await pause(GET_DAPPS_PAUSE);
+  actions.getDapps();
 });

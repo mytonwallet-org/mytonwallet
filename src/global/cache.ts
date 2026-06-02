@@ -8,6 +8,7 @@ import type {
   AccountState,
   GlobalState,
   LanguageSource,
+  PortfolioState,
   SavedAddress,
   TokenPeriod,
 } from './types';
@@ -724,6 +725,7 @@ function updateCache(force?: boolean) {
   const global = getGlobalWithoutTemporaryAccount();
 
   const accountsById = global.accounts?.byId || {};
+  const accountIds = Object.keys(accountsById);
   const reducedGlobal: GlobalState = {
     ...INITIAL_STATE,
     ...pick(global, [
@@ -746,9 +748,9 @@ function updateCache(force?: boolean) {
     byAccountId: reduceByAccountId(global),
     settings: {
       ...global.settings,
-      byAccountId: pick(global.settings.byAccountId, Object.keys(accountsById)),
+      byAccountId: pick(global.settings.byAccountId, accountIds),
     },
-    portfolio: reducePortfolio(global.portfolio),
+    portfolio: global.portfolio?.activeRange ? reducePortfolio(global.portfolio, accountIds) : undefined,
   };
 
   const usedTokenSlugs = getUsedTokenSlugs(reducedGlobal);
@@ -832,11 +834,17 @@ function reduceByAccountId(global: GlobalState) {
   }, {} as GlobalState['byAccountId']);
 }
 
-// Persist only the selected range; history bundles are reloaded on open
-function reducePortfolio(portfolio?: GlobalState['portfolio']): GlobalState['portfolio'] {
-  if (!portfolio?.activeRange) return undefined;
+function reducePortfolio(portfolio: PortfolioState, accountIds: string[]): PortfolioState {
+  const netChangeByAccountId = portfolio.netChangeByAccountId
+    ? pick(portfolio.netChangeByAccountId, accountIds)
+    : undefined;
 
-  return { activeRange: portfolio.activeRange };
+  return {
+    activeRange: portfolio.activeRange,
+    netChangeByAccountId: netChangeByAccountId && !isEmptyObject(netChangeByAccountId)
+      ? netChangeByAccountId
+      : undefined,
+  };
 }
 
 function reduceAccountBalances(balances?: AccountState['balances'], tokenSlugs?: string[]) {

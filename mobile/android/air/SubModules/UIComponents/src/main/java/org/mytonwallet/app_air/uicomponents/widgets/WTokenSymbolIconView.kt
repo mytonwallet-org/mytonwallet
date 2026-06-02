@@ -140,7 +140,7 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
         setAsset(
             MApiSwapAsset(
                 slug = MBlockchain.ton.nativeSlug,
-                symbol = "TON",
+                symbol = "GRAM",
                 chain = "ton",
                 decimals = 9
             ), showChain

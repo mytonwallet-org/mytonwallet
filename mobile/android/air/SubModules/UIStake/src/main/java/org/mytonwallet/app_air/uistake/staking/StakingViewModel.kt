@@ -254,13 +254,13 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                     balanceForMax,
                     currentToken.decimals,
                     tokenPrice,
-                    baseCurrency?.decimalsCount
+                    baseCurrency.decimalsCount
                 )
             maxAmountInBaseCurrency.toString(
-                decimals = baseCurrency?.decimalsCount ?: 2,
-                currency = baseCurrency?.sign ?: "",
+                decimals = baseCurrency.decimalsCount,
+                currency = baseCurrency.sign,
                 currencyDecimals = maxAmountInBaseCurrency.smartDecimalsCount(
-                    baseCurrency?.decimalsCount ?: 2
+                    baseCurrency.decimalsCount
                 ),
                 showPositiveSign = false
             )
@@ -329,7 +329,12 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                     passcode = passcode,
                     realFee = realFee
                 )
-                _eventsFlow.tryEmit(VmToVcEvents.SubmitSuccess(result.activityId))
+                val mfaHash = result.mfaRequestHash
+                if (mfaHash != null) {
+                    _eventsFlow.tryEmit(VmToVcEvents.MfaRequested(mfaHash, isStake = true))
+                } else {
+                    _eventsFlow.tryEmit(VmToVcEvents.SubmitSuccess(result.activityId))
+                }
             } catch (e: JSWebViewBridge.ApiError) {
                 e.printStackTrace()
                 _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(e))
@@ -352,7 +357,12 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                     passcode = passcode,
                     realFee = realFee
                 )
-                _eventsFlow.tryEmit(VmToVcEvents.SubmitSuccess(result.activityId))
+                val mfaHash = result.mfaRequestHash
+                if (mfaHash != null) {
+                    _eventsFlow.tryEmit(VmToVcEvents.MfaRequested(mfaHash, isStake = false))
+                } else {
+                    _eventsFlow.tryEmit(VmToVcEvents.SubmitSuccess(result.activityId ?: ""))
+                }
             } catch (e: JSWebViewBridge.ApiError) {
                 e.printStackTrace()
                 _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(e))
@@ -391,8 +401,9 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
     val eventsFlow = _eventsFlow.asSharedFlow()
 
     sealed class VmToVcEvents {
-        data class SubmitSuccess(val activityId: String) : VmToVcEvents()
+        data class SubmitSuccess(val activityId: String?) : VmToVcEvents()
         data class SubmitFailure(val error: JSWebViewBridge.ApiError?) : VmToVcEvents()
+        data class MfaRequested(val requestHash: String, val isStake: Boolean) : VmToVcEvents()
         object InitialState : VmToVcEvents()
     }
 
@@ -544,7 +555,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                     } else {
                         CoinUtils.toDecimalString(
                             amountInBaseCurrency ?: BigInteger.ZERO,
-                            WalletCore.baseCurrency!!.decimalsCount
+                            WalletCore.baseCurrency.decimalsCount
                         )
                     }
                 }

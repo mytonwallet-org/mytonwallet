@@ -173,7 +173,7 @@
   margin-inline-start: 0.25rem;
 
   font-size: 0.8125rem;
-  color: var(--color-gray-3)
+  color: var(--color-gray-3);
 }
 
 .savedAddressAddress {
@@ -322,7 +322,9 @@ textarea.inputStatic {
   }
 }
 
-.infoBox, .burnWarning, .error {
+.infoBox,
+.burnWarning,
+.error {
   align-self: center;
 
   width: 100%;
@@ -345,7 +347,8 @@ textarea.inputStatic {
   margin-top: 0;
 }
 
-.burnWarning, .error {
+.burnWarning,
+.error {
   color: var(--color-transaction-amount-red-text);
   background-color: var(--color-transaction-amount-red-bg);
 }

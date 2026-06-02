@@ -180,13 +180,11 @@ export default function useContentTabs({
     () => {
       const tabIndex = tabs.findIndex((tab) => tab.id === activeContentTab);
 
-      if (tabIndex === -1) {
-        return isLandscape ? ContentTab.Overview : ContentTab.Assets;
-      }
-
-      return tabIndex;
+      // `activeContentTab` can hold a value that is not a visible tab (an overlay section like `Agent`,
+      // or `Assets` while it is shown as a separate panel), so fall back to the first tab by index
+      return tabIndex === -1 ? 0 : tabIndex;
     },
-    [tabs, activeContentTab, isLandscape],
+    [tabs, activeContentTab],
   );
 
   const contentTransitionKey = useMemo(() => {

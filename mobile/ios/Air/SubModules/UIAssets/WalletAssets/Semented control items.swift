@@ -64,7 +64,7 @@ extension DisplayAssetTab {
 }
 
 @MainActor
-final class WalletAssetsTabContextMenuProviders {
+public final class WalletAssetsTabContextMenuProviders {
     private let accountSource: AccountSource
     private let nftsVCManager: NftsVCManager
     private let sourceViewProvider: () -> UIView?
@@ -72,7 +72,7 @@ final class WalletAssetsTabContextMenuProviders {
     private let includesTokenLimitActions: Bool
     private var contextMenuProviders: [DisplayAssetTab: SegmentedControlContextMenuProvider] = [:]
 
-    init(
+    public init(
         accountSource: AccountSource,
         nftsVCManager: NftsVCManager,
         sourceViewProvider: @escaping () -> UIView?,
@@ -86,7 +86,7 @@ final class WalletAssetsTabContextMenuProviders {
         self.includesTokenLimitActions = includesTokenLimitActions
     }
 
-    func provider(for tab: DisplayAssetTab) -> SegmentedControlContextMenuProvider {
+    public func provider(for tab: DisplayAssetTab) -> SegmentedControlContextMenuProvider {
         if let provider = contextMenuProviders[tab] {
             return provider
         }
@@ -135,11 +135,22 @@ func makeCollectiblesMenuConfig(
         let accountId = accountStore.resolveAccountId(source: accountSource)
         let collections = NftStore.getCollections(accountId: accountId)
         let gifts = collections.telegramGiftsCollections
+        let telegramUsernames = IS_GRAM_WALLET
+            ? collections.notTelegramGiftsCollections.first {
+                $0.chain == .ton && $0.address == ApiNft.TELEGRAM_USERNAMES_COLLECTION_ADDRESS
+            }
+            : nil
         let mtwCards = collections.notTelegramGiftsCollections.first {
             $0.chain == .ton && $0.address == MTW_CARDS_COLLECTION
         }
         let notGifts = collections.notTelegramGiftsCollections.filter {
-            $0.chain != .ton || $0.address != MTW_CARDS_COLLECTION
+            if $0.chain == .ton && $0.address == MTW_CARDS_COLLECTION {
+                return false
+            }
+            if IS_GRAM_WALLET && $0.chain == .ton && $0.address == ApiNft.TELEGRAM_USERNAMES_COLLECTION_ADDRESS {
+                return false
+            }
+            return true
         }
         let hasHidden = NftStore.getAccountHasHiddenNfts(accountId: accountId)
 
@@ -150,6 +161,7 @@ func makeCollectiblesMenuConfig(
                 .submenu(
                     ContextMenuSubmenu(
                         title: lang("Telegram Gifts"),
+                        icon: .airBundle("MenuGift"),
                         makePage: {
                             var giftItems: [ContextMenuItem] = [
                                 .back(
@@ -198,6 +210,24 @@ func makeCollectiblesMenuConfig(
             )
         }
 
+        if let telegramUsernames {
+            items.append(
+                .action(
+                    ContextMenuAction(
+                        title: telegramUsernames.name,
+                        icon: .system("at"),
+                        handler: {
+                            AppActions.showAssets(
+                                accountSource: accountSource,
+                                selectedTab: .nftCollectionFilter(.collection(telegramUsernames)),
+                                collectionsFilter: .collection(telegramUsernames)
+                            )
+                        }
+                    )
+                )
+            )
+        }
+
         if let mtwCards {
             items.append(
                 .action(
@@ -216,7 +246,7 @@ func makeCollectiblesMenuConfig(
             )
         }
 
-        if !gifts.isEmpty || mtwCards != nil {
+        if !gifts.isEmpty || telegramUsernames != nil || mtwCards != nil {
             items.append(.separator)
         }
 

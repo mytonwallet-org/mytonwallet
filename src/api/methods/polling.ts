@@ -14,7 +14,7 @@ import type {
   OnApiUpdate,
 } from '../types';
 
-import { IS_CORE_WALLET, IS_STAKING_DISABLED, TONCOIN } from '../../config';
+import { IS_CORE_WALLET, IS_STAKING_DISABLED } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { areDeepEqual } from '../../util/areDeepEqual';
 import { omit } from '../../util/iteratees';
@@ -36,6 +36,7 @@ import { pollingLoop } from '../common/polling/utils';
 import { getTokensCache, loadTokensCache, sendUpdateTokens, tokensPreload, updateTokens } from '../common/tokens';
 import { MINUTE, SEC } from '../constants';
 import { storage } from '../storages';
+import { refreshMfaStateAndNotify } from './mfa';
 import { resolveDataPreloadPromise } from './preload';
 import { tryUpdateStakingCommonData } from './staking';
 import { swapGetAssets } from './swap';
@@ -45,6 +46,7 @@ const LONG_BACKEND_INTERVAL = MINUTE;
 const INCORRECT_TIME_DIFF = 30 * SEC;
 
 const ACCOUNT_CONFIG_INTERVAL = { focused: MINUTE, notFocused: 10 * MINUTE };
+const MFA_INTERVAL = MINUTE;
 
 const MAX_POST_TOKENS = 1500;
 
@@ -160,12 +162,13 @@ async function tryUpdateSwapTokens() {
 
     await tokensPreload.promise;
 
+    // FIXME: TON renaming
     const tokens = assets.reduce((acc: Record<string, ApiSwapAsset>, asset) => {
       acc[asset.slug] = {
         // Fix legacy variable names
         ...omit(asset as any, ['blockchain']) as ApiSwapAsset,
         chain: 'blockchain' in asset ? asset.blockchain as string : asset.chain,
-        tokenAddress: 'contract' in asset && asset.contract !== TONCOIN.symbol
+        tokenAddress: 'contract' in asset && asset.contract !== 'TON'
           ? asset.contract as string
           : asset.tokenAddress,
       };
@@ -238,7 +241,8 @@ export async function setActivePollingAccount(
     const account = await fetchStoredAccount(accountId);
 
     const stopPollingFns = [
-      !IS_CORE_WALLET && setupAccountConfigPolling(accountId, account).stop,
+      !IS_CORE_WALLET ? setupAccountConfigPolling(accountId, account).stop : undefined,
+      doesAccountHaveChain(account, 'ton') ? setupMfaPolling(accountId).stop : undefined,
 
       ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
         if (doesAccountHaveChain(account, chain)) {
@@ -256,9 +260,7 @@ export async function setActivePollingAccount(
 
     stopActiveAccountPolling = () => {
       for (const stopFn of stopPollingFns) {
-        if (stopFn) {
-          stopFn();
-        }
+        stopFn?.();
       }
     };
   }
@@ -312,6 +314,19 @@ function setupAccountConfigPolling(accountId: string, account: ApiAccountAny) {
         }
       } catch (err) {
         logDebugError('setupBackendAccountPolling', err);
+      }
+    },
+  });
+}
+
+function setupMfaPolling(accountId: string) {
+  return pollingLoop({
+    period: MFA_INTERVAL,
+    async poll() {
+      try {
+        await refreshMfaStateAndNotify(accountId);
+      } catch (err) {
+        logDebugError('setupMfaPolling', err);
       }
     },
   });
@@ -418,11 +433,14 @@ function createInactiveAccountsPollingManager() {
   function startAccountPolling(accountId: string, account: ApiAccountAny) {
     if (stopByAccount[accountId]) return;
 
-    const stopFns = (Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
-      if (doesAccountHaveChain(account, chain)) {
-        return chains[chain].setupInactivePolling(accountId, account, onUpdate);
-      }
-    });
+    const stopFns = [
+      doesAccountHaveChain(account, 'ton') ? setupMfaPolling(accountId).stop : undefined,
+      ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
+        if (doesAccountHaveChain(account, chain)) {
+          return chains[chain].setupInactivePolling(accountId, account, onUpdate);
+        }
+      }),
+    ];
 
     stopByAccount[accountId] = () => {
       for (const stopChain of stopFns) {

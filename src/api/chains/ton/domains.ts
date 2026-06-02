@@ -11,7 +11,7 @@ import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/account
 import { getNftSuperCollectionsByCollectionAddress } from '../../common/addresses';
 import { callBackendGet } from '../../common/backend';
 import { TON_GAS } from './constants';
-import { checkMultiTransactionDraft, submitMultiTransfer } from './transfer';
+import { checkMultiTransactionDraft, submitMultiTransferWithMfa } from './transfer';
 
 export async function checkDnsRenewalDraft(accountId: string, nftAddresses: string[]) {
   const account = await fetchStoredChainAccount(accountId, 'ton');
@@ -44,7 +44,7 @@ export async function* submitDnsRenewal(accountId: string, password: string | un
 
     yield {
       addresses: nftBatch,
-      result: await submitMultiTransfer({ accountId, password, messages }),
+      result: await submitMultiTransferWithMfa({ accountId, password, messages }),
     };
   }
 }
@@ -65,7 +65,7 @@ export function submitDnsChangeWallet(
   nftAddress: string,
   address: string,
 ) {
-  return submitMultiTransfer({
+  return submitMultiTransferWithMfa({
     accountId,
     password,
     messages: [makeChangeMessage(nftAddress, address)],

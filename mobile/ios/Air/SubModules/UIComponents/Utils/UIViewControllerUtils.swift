@@ -94,7 +94,11 @@ public extension UIViewController {
                     onOK?()
                 }
             case .apiReturnedError(let error, _):
-                showAlert(error: BridgeCallError.message(BridgeCallErrorMessages(rawValue: error) ?? .serverError, nil), onOK: onOK)
+                if let knownError = BridgeCallErrorMessages(rawValue: error) {
+                    showAlert(error: BridgeCallError.message(knownError, nil), onOK: onOK)
+                } else {
+                    showAlert(error: BridgeCallError.customMessage(error, nil), onOK: onOK)
+                }
             default:
                 showAlert(error: BridgeCallError.message(.serverError, nil), onOK: onOK)
             }

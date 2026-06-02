@@ -20,7 +20,7 @@ import type {
   OnApiUpdate,
 } from '../types';
 
-import { SWAP_API_VERSION, TONCOIN } from '../../config';
+import { SWAP_API_VERSION } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
 import { omitUndefined } from '../../util/iteratees';
@@ -38,7 +38,8 @@ import {
 } from '../common/swap';
 import { ApiServerError } from '../errors';
 import { callHook } from '../hooks';
-import { getBackendAuthToken } from './other';
+import { publishSignedMfaRequest } from './mfa';
+import { getBackendAuthToken, getStoredBackendAuthToken } from './other';
 
 let onUpdate: OnApiUpdate;
 
@@ -89,16 +90,17 @@ export async function swapSubmit(
   transfers: ApiSwapTransfer[],
   historyItem: ApiSwapHistoryItem,
   isGasless?: boolean,
-) {
+): Promise<{ activityId?: string; mfaRequestHash?: string; swapId: string } | { error: string }> {
   const swapId = historyItem.id;
   const tonWallet = await fetchStoredWallet(accountId, 'ton');
+  const tonAccount = await fetchStoredChainAccount(accountId, 'ton');
 
   const { address } = tonWallet;
   const authToken = await getBackendAuthToken(accountId, password);
+  const hasMfa = Boolean(tonAccount.byChain.ton.mfa);
 
   const from = getSwapItemSlug(historyItem, historyItem.from);
   const to = getSwapItemSlug(historyItem, historyItem.to);
-
   const localActivityId = buildLocalTxId(swapId);
   const localSwap: ApiSwapActivity = {
     ...historyItem,
@@ -108,20 +110,23 @@ export async function swapSubmit(
     kind: 'swap',
   };
 
-  onUpdate({
-    type: 'newLocalActivities',
-    accountId,
-    activities: [localSwap],
-  });
+  if (!hasMfa) {
+    onUpdate({
+      type: 'newLocalActivities',
+      accountId,
+      activities: [localSwap],
+    });
+  }
 
   try {
     const transferList = parseSwapTransfers(transfers);
 
-    if (historyItem.from !== TONCOIN.symbol) {
+    // FIXME: TON renaming
+    if (historyItem.from !== 'TON') {
       transferList[0] = await ton.insertMintlessPayload('mainnet', address, historyItem.from, transferList[0]);
     }
 
-    const result = await ton.submitMultiTransfer({
+    const result = await ton.submitMultiTransferWithMfa({
       accountId,
       password,
       messages: transferList,
@@ -129,17 +134,27 @@ export async function swapSubmit(
     });
 
     if ('error' in result) {
-      // Update local activity to show error state
-      onUpdate({
-        type: 'newLocalActivities',
-        accountId,
-        activities: [{ ...localSwap, status: 'failed' }],
-      });
+      if (!hasMfa) {
+        onUpdate({
+          type: 'newLocalActivities',
+          accountId,
+          activities: [{ ...localSwap, status: 'failed' }],
+        });
+      }
 
       await patchSwapItem({
         address, swapId, authToken, error: result.error,
       });
       return result;
+    }
+
+    if ('mfaRequest' in result) {
+      const { mfaRequestHash } = await publishSignedMfaRequest(accountId, 'ton', result.mfaRequest);
+
+      return {
+        swapId,
+        mfaRequestHash,
+      };
     }
 
     delete result.messages[0].stateInit;
@@ -164,19 +179,37 @@ export async function swapSubmit(
 
     void callHook('onSwapCreated', accountId, updatedSwap.timestamp - 1);
 
-    return { activityId: updatedSwap.id };
+    return { activityId: updatedSwap.id, swapId };
   } catch (err: any) {
-    onUpdate({
-      type: 'newLocalActivities',
-      accountId,
-      activities: [{ ...localSwap, status: 'failed' }],
-    });
+    if (!hasMfa) {
+      onUpdate({
+        type: 'newLocalActivities',
+        accountId,
+        activities: [{ ...localSwap, status: 'failed' }],
+      });
+    }
 
     await patchSwapItem({
       address, swapId, authToken, error: errorToString(err),
     });
     throw err;
   }
+}
+
+export async function confirmSwapMfaRequest(accountId: string, swapId: string, txHash: string) {
+  const { address } = await fetchStoredWallet(accountId, 'ton');
+  const authToken = await getStoredBackendAuthToken(accountId);
+
+  if (!authToken) {
+    throw new Error('Missing backend auth token for swap MFA confirmation');
+  }
+
+  await patchSwapItem({
+    address,
+    swapId,
+    authToken,
+    msgHash: txHash,
+  });
 }
 
 function errorToString(err: Error | string) {

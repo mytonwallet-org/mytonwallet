@@ -8,6 +8,7 @@ import type {
   ApiStakingHistory,
   ApiStakingState,
 } from '../types';
+import { ApiCommonError } from '../types';
 
 import { fromDecimal } from '../../util/decimals';
 import { logDebugError } from '../../util/logs';
@@ -16,6 +17,7 @@ import { getTonClient } from '../chains/ton/util/tonCore';
 import { fetchStoredAccount, fetchStoredWallet } from '../common/accounts';
 import { callBackendGet } from '../common/backend';
 import { setStakingCommonCache } from '../common/cache';
+import { publishSignedMfaRequest } from './mfa';
 import { createLocalTransactions } from './transfer';
 
 import { StakingPool } from '../chains/ton/contracts/JettonStaking/StakingPool';
@@ -47,6 +49,14 @@ export async function submitStake(
     return result;
   }
 
+  if (result.mfaRequest) {
+    return publishSignedMfaRequest(accountId, 'ton', result.mfaRequest);
+  }
+
+  if (!result.txId) {
+    return { error: ApiCommonError.Unexpected };
+  }
+
   const [localActivity] = createLocalTransactions(accountId, 'ton', [{
     id: result.txId,
     amount,
@@ -74,6 +84,14 @@ export async function submitUnstake(
   const result = await ton.submitUnstake(accountId, password, tokenAmount, state);
   if ('error' in result) {
     return result;
+  }
+
+  if (result.mfaRequest) {
+    return publishSignedMfaRequest(accountId, 'ton', result.mfaRequest);
+  }
+
+  if (!result.txId) {
+    return { error: ApiCommonError.Unexpected };
   }
 
   const [localActivity] = createLocalTransactions(accountId, 'ton', [{
@@ -144,6 +162,14 @@ export async function submitStakingClaimOrUnlock(
 
   if ('error' in result) {
     return result;
+  }
+
+  if (result.mfaRequest) {
+    return publishSignedMfaRequest(accountId, 'ton', result.mfaRequest);
+  }
+
+  if (!result.txId) {
+    return { error: ApiCommonError.Unexpected };
   }
 
   const [localActivity] = createLocalTransactions(accountId, 'ton', [{

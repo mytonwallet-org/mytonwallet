@@ -1,10 +1,24 @@
 
 import UIKit
+import SwiftUI
 import WalletContext
 
 // Please keep methods in alphabetical order
 
 @MainActor public protocol AppActionsProtocol {
+    static func authorizeProtectedAction<HeaderView: View, Result: MfaProtectedActionResult>(
+        on viewController: UIViewController,
+        account: MAccount,
+        title: String,
+        headerView: HeaderView,
+        passwordAction: @escaping (String) async throws -> Result,
+        ledgerSignData: (() async throws -> SignData)?,
+        ledgerFromAddress: String?,
+        presentationStyle: ProtectedActionPresentationStyle,
+        useBioOnPresent: Bool,
+        completionBehavior: ProtectedActionCompletionBehavior,
+        mfaTitle: String?
+    ) async throws -> Result?
     static func copyString(_ string: String?, toastMessage: String)
     static func lockApp(animated: Bool)
     static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool, historyTag: String?)
@@ -34,6 +48,7 @@ import WalletContext
     static func showHiddenNfts(accountSource: AccountSource) -> ()
     static func showHome(popToRoot: Bool)
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String)
+    static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?)
     static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool)
     static func showNftByAddress(_ nftAddress: String)
     static func showPromotion(_ promotion: ApiPromotion)
@@ -67,6 +82,34 @@ public extension AppActionsProtocol {
         Self.openInBrowser(url, title: title, injectDappConnect: injectDappConnect, historyTag: nil)
     }
 
+    static func authorizeProtectedAction<HeaderView: View, Result: MfaProtectedActionResult>(
+        on viewController: UIViewController,
+        account: MAccount,
+        title: String,
+        headerView: HeaderView,
+        passwordAction: @escaping (String) async throws -> Result,
+        ledgerSignData: (() async throws -> SignData)? = nil,
+        ledgerFromAddress: String? = nil,
+        presentationStyle: ProtectedActionPresentationStyle = .push,
+        useBioOnPresent: Bool = true,
+        completionBehavior: ProtectedActionCompletionBehavior = .popAuth,
+        mfaTitle: String? = nil
+    ) async throws -> Result? {
+        try await Self.authorizeProtectedAction(
+            on: viewController,
+            account: account,
+            title: title,
+            headerView: headerView,
+            passwordAction: passwordAction,
+            ledgerSignData: ledgerSignData,
+            ledgerFromAddress: ledgerFromAddress,
+            presentationStyle: presentationStyle,
+            useBioOnPresent: useBioOnPresent,
+            completionBehavior: completionBehavior,
+            mfaTitle: mfaTitle
+        )
+    }
+
     static func showToast(style: ToastStyle = .standard, icon: ToastIcon? = nil, message: String, duration: Double? = nil,
                           actionTitle: String? = nil, action: (() -> ())? = nil) {
         showToast(style: style, icon: icon, message: message, duration: duration ?? 3, actionTitle: actionTitle, action: action)
@@ -81,6 +124,19 @@ public extension AppActionsProtocol {
 }
 
 private class DummyAppActionProtocolImpl: AppActionsProtocol {
+    static func authorizeProtectedAction<HeaderView: View, Result: MfaProtectedActionResult>(
+        on viewController: UIViewController,
+        account: MAccount,
+        title: String,
+        headerView: HeaderView,
+        passwordAction: @escaping (String) async throws -> Result,
+        ledgerSignData: (() async throws -> SignData)?,
+        ledgerFromAddress: String?,
+        presentationStyle: ProtectedActionPresentationStyle,
+        useBioOnPresent: Bool,
+        completionBehavior: ProtectedActionCompletionBehavior,
+        mfaTitle: String?
+    ) async throws -> Result? { nil }
     static func copyString(_ string: String?, toastMessage: String) { }
     static func lockApp(animated: Bool) { }
     static func openInBrowser(_ url: URL, title: String?, injectDappConnect: Bool, historyTag: String?) { }
@@ -110,6 +166,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showHiddenNfts(accountSource: AccountSource) -> () { }
     static func showHome(popToRoot: Bool) { }
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) { }
+    static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) { }
     static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool) { }
     static func showNftByAddress(_ nftAddress: String) { }
     static func showPromotion(_ promotion: ApiPromotion) { }

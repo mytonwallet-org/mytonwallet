@@ -112,6 +112,7 @@ export default function createConfig(
         DIESEL_ADDRESS: '',
         PROXY_API_BASE_URL: '',
         WALLET_CONNECT_PROJECT_ID: '',
+        MFA_API_BASE_URL: '',
       }),
     ],
 

@@ -100,7 +100,7 @@ export function confirmDappRequestConnect(promiseId: string, data: ApiDappReques
 
 export function confirmDappRequestSendTransaction<T extends DappProtocolType>(
   promiseId: string,
-  data: ApiSignedTransfer<T>[],
+  data: ApiSignedTransfer<T>[] | { mfaRequestHash: string },
 ) {
   dappPromises.resolveDappPromise(promiseId, data);
 }

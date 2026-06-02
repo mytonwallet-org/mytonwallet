@@ -5,8 +5,6 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-import UIPasscode
-import Ledger
 
 private let log = Log("SendConfirmVC")
 private let nftBatchSize = 4
@@ -15,6 +13,10 @@ private let burnChunkDurationSeconds = 30
 class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
 
     let model: SendModel
+    private var awaitingActivity = false
+    private var confirmationSucceeded = false
+    private var pendingLocalActivity: ApiActivity?
+
     public init(model: SendModel) {
         self.model = model
         super.init(nibName: nil, bundle: nil)
@@ -24,9 +26,10 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
     func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .newLocalActivity(let update):
+            guard awaitingActivity, update.accountId == model.account.id else { return }
             if let activity = update.activities.first {
-                Haptics.play(.success)
-                AppActions.showActivityDetails(accountId: model.account.id, activity: activity, context: activityDetailsContext)
+                pendingLocalActivity = activity
+                showPendingActivityIfReady()
             }
         default:
             break
@@ -148,84 +151,59 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
     }
     
     @objc func continuePressed() {
-        let account = model.account
-        if account.isHardware {
-            Task {
-                do {
-                    try await sendLedger()
-                } catch {
-                    log.error("\(error)")
+        view.endEditing(true)
+        Task {
+            do {
+                try await confirmAction()
+            } catch is CancellationError {
+                resetActivityCompletionState()
+            } catch {
+                resetActivityCompletionState()
+                log.error("\(error)")
+                showAlert(error: error) { [weak self] in
+                    self?.dismiss(animated: true)
                 }
             }
-        } else {
-            sendMnemonic()
         }
         Haptics.prepare(.success)
     }
-    
-    func sendMnemonic() {
-        var transferSuccessful = false
-        var transferError: (any Error)? = nil
-        
-        let onAuthTask: (_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void = { [weak self] password, onTaskDone in
-            guard let self else { return }
-            Task {
-                do {
-                    try await self.model.submit(password: password)
-                    transferSuccessful = true
-                } catch {
-                    transferSuccessful = false
-                    transferError = error
-                }
-                onTaskDone()
-            }
-        }
-        let onDone: (String) -> () = { [weak self] _ in
-            guard let self else {
-                return
-            }
-            if transferSuccessful {
-                // handled by wallet core observer
-            } else if let transferError {
-                showAlert(error: transferError) { [weak self] in
-                    guard let self else { return }
-                    dismiss(animated: true)
-                }
-            }
-        }
-        
-        let headerVC = UIHostingController(rootView: SendingHeaderView(model: model))
-        headerVC.view.backgroundColor = .clear
-        
-        UnlockVC.pushAuth(
+
+    private func confirmAction() async throws {
+        resetActivityCompletionState()
+        awaitingActivity = true
+        _ = try await AppActions.authorizeProtectedAction(
             on: self,
+            account: model.account,
             title: lang("Confirm Sending"),
-            customHeaderVC: headerVC,
-            onAuthTask: onAuthTask,
-            onDone: onDone
+            headerView: SendingHeaderView(model: model),
+            passwordAction: { [weak self] password in
+                guard let self else { throw CancellationError() }
+                return try await self.model.submit(password: password)
+            },
+            ledgerSignData: { [weak self] in
+                guard let self else { throw CancellationError() }
+                return try await self.model.makeLedgerPayload()
+            },
+            ledgerFromAddress: model.account.getAddress(chain: model.token.chain),
+            completionBehavior: .keepAuthForReplacement,
+            mfaTitle: lang("Confirm Sending")
         )
+
+        confirmationSucceeded = true
+        showPendingActivityIfReady()
     }
-    
-    func sendLedger() async throws {
-        let account = model.account
-        guard let fromAddress = account.getAddress(chain: model.token.chain) else { return }
-        
-        let signData = try await model.makeLedgerPayload()
-        
-        let signModel = await LedgerSignModel(
-            accountId: model.account.id,
-            fromAddress: fromAddress,
-            signData: signData
-        )
-        let vc = LedgerSignVC(
-            model: signModel,
-            title: lang("Confirm Sending"),
-            headerView: SendingHeaderView(model: self.model)
-        )
-        vc.onDone = { _ in
-            // handled by observer
-        }
-        navigationController?.pushViewController(vc, animated: true)
+
+    private func showPendingActivityIfReady() {
+        guard awaitingActivity, confirmationSucceeded, let activity = pendingLocalActivity else { return }
+        resetActivityCompletionState()
+        Haptics.play(.success)
+        AppActions.showActivityDetails(accountId: model.account.id, activity: activity, context: activityDetailsContext)
+    }
+
+    private func resetActivityCompletionState() {
+        awaitingActivity = false
+        confirmationSucceeded = false
+        pendingLocalActivity = nil
     }
     
     @objc func goBackPressed() {

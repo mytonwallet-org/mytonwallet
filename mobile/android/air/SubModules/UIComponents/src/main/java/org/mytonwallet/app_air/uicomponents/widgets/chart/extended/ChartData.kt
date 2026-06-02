@@ -55,7 +55,7 @@ open class ChartData() {
 
     open fun getFormatter(value: String?): Int {
         if (value.isNullOrEmpty()) return 0
-        if (value.contains("TON")) return FORMATTER_TON
+        if (value.contains("TON") || value.contains("GRAM")) return FORMATTER_TON
         if (value.contains("XTR")) return FORMATTER_XTR
         return 0
     }

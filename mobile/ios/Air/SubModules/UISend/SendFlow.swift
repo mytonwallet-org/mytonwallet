@@ -6,7 +6,7 @@ import WalletContext
 /// Handles differences between send token and send nft flows
 protocol SendFlow: Sendable {
     func validateDraft(context: SendDraftContext) async throws -> SendFlowDraftResult
-    func submit(context: SendSubmitContext, password: String?, explainedFee: ExplainedTransferFee?) async throws
+    func submit(context: SendSubmitContext, password: String?, explainedFee: ExplainedTransferFee?) async throws -> SendFlowSubmitResult
     func ledgerPayload(context: SendSubmitContext, explainedFee: ExplainedTransferFee?) async throws -> SignData
 }
 
@@ -46,6 +46,14 @@ struct SendFlowDraftResult {
     static let noResult = SendFlowDraftResult(draftData: .init(status: .none), explainedFee: nil, requiresMemo: false)
 }
 
+struct SendFlowSubmitResult: Sendable {
+    let mfaRequestHash: String?
+
+    static let submitted = SendFlowSubmitResult(mfaRequestHash: nil)
+}
+
+extension SendFlowSubmitResult: MfaProtectedActionResult {}
+
 private func isAddressDraftError(_ error: ApiAnyDisplayError?) -> Bool {
     guard let error else { return false }
     return [
@@ -55,7 +63,6 @@ private func isAddressDraftError(_ error: ApiAnyDisplayError?) -> Bool {
         .invalidToAddress,
     ].contains(error)
 }
-
 // MARK: - Token
 
 struct TokenSendFlow: SendFlow {
@@ -126,12 +133,13 @@ struct TokenSendFlow: SendFlow {
         )
     }
     
-    func submit(context: SendSubmitContext, password: String?, explainedFee: ExplainedTransferFee?) async throws {
+    func submit(context: SendSubmitContext, password: String?, explainedFee: ExplainedTransferFee?) async throws -> SendFlowSubmitResult {
         let transferOptions = try makeTransferOptions(context: context, password: password, explainedFee: explainedFee)
         let result = try await Api.submitTransfer(chain: context.token.chain, options: transferOptions)
         if let error = result.error {
             throw BridgeCallError.customMessage(error, nil)
         }
+        return SendFlowSubmitResult(mfaRequestHash: result.mfaRequestHash)
     }
     
     func ledgerPayload(context: SendSubmitContext, explainedFee: ExplainedTransferFee?) async throws -> SignData {
@@ -183,7 +191,7 @@ struct NftSendFlow: SendFlow {
         )
     }
     
-    func submit(context: SendSubmitContext, password: String?, explainedFee: ExplainedTransferFee?) async throws {
+    func submit(context: SendSubmitContext, password: String?, explainedFee: ExplainedTransferFee?) async throws -> SendFlowSubmitResult {
         guard let resolved = context.transactionDraft?.resolvedAddress else {
             throw BridgeCallError.customMessage(lang("Address not resolved"), nil)
         }
@@ -201,6 +209,7 @@ struct NftSendFlow: SendFlow {
         if let error = result.error {
             throw BridgeCallError(message: error, payload: nil)
         }
+        return SendFlowSubmitResult(mfaRequestHash: result.mfaRequestHash)
     }
     
     func ledgerPayload(context: SendSubmitContext, explainedFee: ExplainedTransferFee?) async throws -> SignData {

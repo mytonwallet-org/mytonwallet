@@ -326,11 +326,12 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         try await _storeAccounts(accounts: accounts, orderedAccountIds: nextOrderedAccountIds)
         self.accountsById = accountsById
         self.orderedAccountIds = nextOrderedAccountIds
+        await refreshStoredMfaIfPossible(accountIds: accounts.map(\.id), password: passcode)
 
         let primaryAccount = accounts[0]
         _ = try await self.activateAccount(accountId: primaryAccount.id, isNew: true)
         await subscribeNotificationsIfAvailable(account: primaryAccount)
-        return accounts
+        return accounts.map { self.accountsById[$0.id] ?? $0 }
     }
     
     public func importPrivateKey(network: ApiNetwork, privateKey: String, passcode: String) async throws -> MAccount {
@@ -342,9 +343,10 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             byChain: result.byChain,
         )
         try await _storeAccount(account: account)
+        await refreshStoredMfaIfPossible(accountIds: [account.id], password: passcode)
         _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
         await subscribeNotificationsIfAvailable(account: account)
-        return account
+        return self.accountsById[account.id] ?? account
     }
 
     public func importLedgerAccount(accountInfo: ApiLedgerAccountInfo) async throws -> String {
@@ -376,9 +378,10 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
                 byChain: try result.byChain.orThrow("Missing chain data for new wallet version"),
             )
             try await _storeAccount(account: account)
+            await refreshStoredMfaIfPossible(accountIds: [account.id], password: nil)
             _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
             await subscribeNotificationsIfAvailable(account: account)
-            return account
+            return self.accountsById[account.id] ?? account
             
         } else {
             if accountsById[result.accountId] == nil {
@@ -390,6 +393,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
                     byChain: summary.byChain
                 )
                 try await _storeAccount(account: recoveredAccount)
+                await refreshStoredMfaIfPossible(accountIds: [recoveredAccount.id], password: nil)
                 await subscribeNotificationsIfAvailable(account: recoveredAccount)
             }
             let account = try await self.activateAccount(accountId: result.accountId)
@@ -653,12 +657,46 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
 
     public func updateAccountTitle(accountId: String, newTitle: String?) async throws {
         if var account = accountsById[accountId] {
-            account.title = newTitle?.nilIfEmpty
+            account.title = AccountTitle.normalized(newTitle)
             accountsById[accountId] = account
             try await _storeAccount(account: account)
             WalletCoreData.notify(event: .accountNameChanged)
             if notificationsEnabledAccountIds.contains(accountId) {
                 await _subscribeNotifications(account: account, force: true)
+            }
+        }
+    }
+
+    public func updateMfa(accountId: String, mfa: AccountMfa?) async throws {
+        guard var account = accountsById[accountId] else {
+            return
+        }
+        guard var tonChain = account.byChain[ApiChain.ton.rawValue] else {
+            return
+        }
+        if tonChain.mfa == mfa {
+            return
+        }
+        log.info("[mfa] change due to updateMfa: \(mfa != nil ? "set" : "delete", .public)")
+        tonChain.mfa = mfa
+        account.byChain[ApiChain.ton.rawValue] = tonChain
+        accountsById[accountId] = account
+        try await _storeAccount(account: account)
+    }
+
+    public func refreshStoredMfa(accountId: String, password: String? = nil) async throws {
+        let result = try await Api.refreshMfaState(accountId: accountId, password: password)
+        if result.changed || result.mfa != nil {
+            try await updateMfa(accountId: accountId, mfa: result.mfa)
+        }
+    }
+
+    private func refreshStoredMfaIfPossible(accountIds: [String], password: String?) async {
+        for accountId in accountIds {
+            do {
+                try await refreshStoredMfa(accountId: accountId, password: password)
+            } catch {
+                log.error("refreshStoredMfa failed for imported account \(accountId, .public): \(error, .public)")
             }
         }
     }
@@ -893,6 +931,23 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         if let derivation = update.derivation {
             if account.byChain[chain]?.derivation != derivation {
                 account.byChain[chain]?.derivation = derivation
+                didChange = true
+            }
+        }
+        switch update.mfa {
+        case .unchanged:
+            log.info("[mfa] no change due to updateAccount")
+            break
+        case .changed(let mfa):
+            log.info("[mfa] change due to updateAccount")
+            if account.byChain[chain]?.mfa != mfa {
+                account.byChain[chain]?.mfa = mfa
+                didChange = true
+            }
+        case .removed:
+            log.info("[mfa] remove due to updateAccount")
+            if account.byChain[chain]?.mfa != nil {
+                account.byChain[chain]?.mfa = nil
                 didChange = true
             }
         }

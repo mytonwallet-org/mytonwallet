@@ -218,6 +218,7 @@ private struct _BalanceChangeContent: View, Equatable {
             }
             .font(.compactDisplay(size: 17, weight: .medium))
             .opacity(0.8)
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 8)
             .background {
                 ZStack {

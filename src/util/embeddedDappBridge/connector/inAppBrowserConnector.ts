@@ -26,5 +26,5 @@ export function buildInAppBrowserBridgeConnectorCode() {
   ${registerSolanaInjectedWallet.toString()},
   ${registerEvmInjectedWallet.toString()}
 );
-  `;
+`;
 }

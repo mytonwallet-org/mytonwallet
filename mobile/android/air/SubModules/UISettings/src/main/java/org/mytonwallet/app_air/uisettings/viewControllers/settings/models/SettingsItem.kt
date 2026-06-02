@@ -5,7 +5,7 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 data class SettingsItem(
     val identifier: Identifier,
     val icon: Int? = null,
-    val title: String,
+    val title: CharSequence,
     val subtitle: String? = null,
     val value: String? = null,
     val hasTintColor: Boolean,
@@ -22,6 +22,7 @@ data class SettingsItem(
         CONNECTED_APPS,
         LANGUAGE,
         SECURITY,
+        MFA,
         SUBWALLETS,
         WALLET_VERSIONS,
         ASK_A_QUESTION,

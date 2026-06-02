@@ -47,7 +47,6 @@ $profile_name_widget = env_value('IOS_PROFILE_NAME_WIDGET', $config[:profile_nam
 $scheme_widget = env_value('IOS_WIDGET_SCHEME', $config[:scheme_widget])
 $testflight_group = env_value('IOS_TESTFLIGHT_GROUP', $config[:testflight_group])
 $metadata_path = env_value('IOS_METADATA_PATH')
-$version_override = env_value('IOS_VERSION_OVERRIDE')
 $asc_key_id = env_value('APP_STORE_CONNECT_KEY_ID', 'TL49GJ73DP')
 $asc_issuer_id = env_value('APP_STORE_CONNECT_ISSUER_ID', '519080b4-bc5f-4d06-a889-a69254108348')
 $asc_key_path = env_value('APP_STORE_CONNECT_KEY_PATH', './AuthKey.p8')
@@ -75,7 +74,7 @@ def restore_files
 end
 
 def update_version_and_build_number
-  version = $version_override || JSON.parse(File.read($package_json_path))["version"]
+  version = JSON.parse(File.read($package_json_path))["version"]
   production_build_number = 0
   begin
     production_build_number = app_store_build_number(app_identifier: $app_identifier, version: version, initial_build_number: 0, live: true).to_i

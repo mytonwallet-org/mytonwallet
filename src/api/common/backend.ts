@@ -55,7 +55,7 @@ export function getBackendHeaders() {
   return {
     ...getEnvironment().apiHeaders,
     'X-App-ClientID': getClientId(),
-    'X-App-Version': APP_VERSION,
+    ...(APP_VERSION && APP_VERSION !== 'undefined' && { 'X-App-Version': APP_VERSION }),
     'X-App-Env': APP_ENV,
     'X-App-Name': APP_NAME,
   } as Record<string, string>;

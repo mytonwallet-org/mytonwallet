@@ -266,7 +266,7 @@ class StakeDetailView(
         tvlRow.visibility = VISIBLE
         tvlEndLabel.text = tvl.toString(
             decimals = 0,
-            currency = "TON",
+            currency = "GRAM",
             currencyDecimals = 0,
             smartDecimals = false,
         )

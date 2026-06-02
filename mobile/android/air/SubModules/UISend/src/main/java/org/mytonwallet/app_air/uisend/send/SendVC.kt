@@ -70,6 +70,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
@@ -959,8 +960,43 @@ class SendVC(
                     } else {
                         // Send with passcode
                         try {
-                            val id = viewModel.callSend(config, passcode!!).activityId
-                            sentActivityId = ActivityHelpers.getTxIdFromId(id)
+                            val result = viewModel.callSend(config, passcode!!)
+                            val mfaHash = result.mfaRequestHash
+                            if (mfaHash != null) {
+                                val amountStr = CoinUtils.toDecimalString(
+                                    config.request.amountEquivalent.tokenAmount.amountInteger,
+                                    config.request.token.decimals,
+                                )
+                                val token = config.request.token
+                                val recipient = config.resolvedAddress
+                                    ?: config.request.input.destination
+                                val chipText = LocaleController.getString("%amount% to %address%")
+                                    .replace(
+                                        "%amount%",
+                                        "$amountStr ${token.symbol ?: ""}".trim(),
+                                    )
+                                    .replace(
+                                        "%address%",
+                                        recipient.formatStartEndAddress(),
+                                    )
+                                val mfaVC =
+                                    org.mytonwallet.app_air.uicomponents.viewControllers
+                                        .MfaActionConfirmVC(
+                                            context,
+                                            requestHash = mfaHash,
+                                            chip = org.mytonwallet.app_air.uicomponents
+                                                .viewControllers.MfaActionConfirmVC.Chip(
+                                                leading = token,
+                                                text = chipText,
+                                            ),
+                                        )
+                                navigationController?.push(mfaVC, onCompletion = {
+                                    navigationController?.removePrevViewControllerOnly()
+                                })
+                                return@launch
+                            }
+                            val id = result.activityId
+                            sentActivityId = id?.let { ActivityHelpers.getTxIdFromId(it) }
                             // Wait for Pending Activity event...
                             receivedLocalActivities?.firstOrNull { it.getTxHash() == sentActivityId }
                                 ?.let {

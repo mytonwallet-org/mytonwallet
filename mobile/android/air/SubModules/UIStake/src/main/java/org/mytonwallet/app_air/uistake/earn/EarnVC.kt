@@ -111,7 +111,7 @@ class EarnVC(
 
     override var title: String?
         get() = when (tokenSlug) {
-            TONCOIN_SLUG -> "TON"
+            TONCOIN_SLUG -> "GRAM"
             MYCOIN_SLUG -> "MY"
             USDE_SLUG -> "USDe"
             else -> ""

@@ -1,6 +1,8 @@
 $avatarSize: 2.625rem;
 
 .avatar {
+  position: relative;
+
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -18,4 +20,17 @@ $avatarSize: 2.625rem;
   white-space: nowrap;
 
   background: linear-gradient(to bottom, var(--start-color) 0%, var(--end-color) 100%);
+}
+
+.imageWrapper {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
 }

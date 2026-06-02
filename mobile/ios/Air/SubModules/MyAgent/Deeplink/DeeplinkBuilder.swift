@@ -43,7 +43,7 @@ public struct DeeplinkBuilder: Sendable {
 
     private func buildSendToken(intent: Intent, lang: String) async -> IntentResult {
         let toAddr = intent.to ?? ""
-        let tokenQuery = intent.token ?? "TON"
+        let tokenQuery = intent.token ?? "GRAM"
         guard let asset = await tokenResolver.resolve(tokenQuery) else {
             return tokenNotFound(tokenQuery, lang: lang)
         }
@@ -110,7 +110,7 @@ public struct DeeplinkBuilder: Sendable {
                 link += "?" + queryString(params)
             }
 
-            let tokenName = asset?.symbol ?? "TON"
+            let tokenName = asset?.symbol ?? "GRAM"
             var summaryLines = [i18n.t("receive.summary.to", lang: lang, args: ["address": address])]
             if let amount = intent.amount {
                 summaryLines.append(i18n.t("receive.summary.amount", lang: lang, args: ["amount": fmtAmount(amount, token: tokenName)]))

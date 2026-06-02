@@ -151,8 +151,41 @@ public extension ApiNft {
     var isStandalone: Bool { collectionName?.nilIfEmpty == nil }
     var displayName: String { name ?? "NFT" }
     static let TON_DNS_COLLECTION_ADDRESS = "EQC3dNlesgVD8YbAazcauIrXBPfiVhMMr5YYk2in0Mtsz0Bz"
+    static let TELEGRAM_USERNAMES_COLLECTION_ADDRESS = "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
+    static let VIP_DNS_COLLECTION_ADDRESS = "EQBWG4EBbPDv4Xj7xlPwzxd7hSyHMzwwLB5O6rY-0BBeaixS"
+    static let GRAM_DNS_COLLECTION_ADDRESS = "EQAic3zPce496ukFDhbco28FVsKKl2WUX_iJwaL87CBxSiLQ"
+    static let LINKABLE_DNS_COLLECTION_ADDRESSES: Set<String> = [
+        TON_DNS_COLLECTION_ADDRESS,
+        TELEGRAM_USERNAMES_COLLECTION_ADDRESS,
+        VIP_DNS_COLLECTION_ADDRESS,
+        GRAM_DNS_COLLECTION_ADDRESS,
+    ]
     var isTonDns: Bool { collectionAddress == ApiNft.TON_DNS_COLLECTION_ADDRESS }
+    var isLinkableDns: Bool { collectionAddress.map(Self.LINKABLE_DNS_COLLECTION_ADDRESSES.contains) ?? false }
+    var isRenewableDns: Bool { isTonDns }
     var isMtwCard: Bool { metadata?.mtwCardId != nil }
+
+    var fragmentUrl: URL? {
+        guard isOnFragment == true else { return nil }
+        if let fragmentUrl = metadata?.fragmentUrl?.nilIfEmpty, let url = URL(string: fragmentUrl) {
+            return url
+        }
+
+        let nftName = displayName
+        if collectionName?.localizedCaseInsensitiveContains("numbers") == true {
+            let number = String(nftName.filter(\.isNumber))
+            guard !number.isEmpty else { return nil }
+            return URL(string: "https://fragment.com/number/\(number)")
+        }
+
+        let username = nftName.hasPrefix("@") ? String(nftName.dropFirst()) : nftName
+        guard
+            let encodedUsername = username.nilIfEmpty?.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)
+        else {
+            return nil
+        }
+        return URL(string: "https://fragment.com/username/\(encodedUsername)")
+    }
 }
 
 // MARK: Extract colors

@@ -36,6 +36,7 @@ import {
   IS_OPERA_EXTENSION,
   IS_PACKAGED_ELECTRON,
   IS_TELEGRAM_APP,
+  MFA_API_BASE_URL,
   MTW_STATIC_BASE_URL,
   PORTFOLIO_API_URL,
   PROXY_API_BASE_URL,
@@ -102,6 +103,7 @@ const cspConnectSrcHosts = Array.from(new Set([
   EVM_TESTNET_RPC_URL.replace(/^http(s?):/, 'ws$1:'),
   ensureTrailingSlash(IPFS_GATEWAY_BASE_URL),
   ensureTrailingSlash(SSE_BRIDGE_URL),
+  MFA_API_BASE_URL,
   ensureTrailingSlash(PORTFOLIO_API_URL),
 ])).join(' ');
 
@@ -383,8 +385,6 @@ export default function createConfig(
         APP_VERSION: appVersion,
         APP_COMMIT_HASH: appCommitHash ?? '',
         TEST_SESSION: '',
-        TEST_MNEMONIC: '',
-        TEST_PASSWORD: '',
         TONCENTER_MAINNET_URL: '',
         TONCENTER_MAINNET_KEY: '',
         TONCENTER_TESTNET_URL: '',
@@ -417,6 +417,7 @@ export default function createConfig(
         IS_CAPACITOR: 'false',
         IS_AIR_APP: 'false',
         IS_CORE_WALLET: 'false',
+        IS_GRAM_WALLET: 'false',
         IS_TELEGRAM_APP: 'false',
         IS_EXPLORER: 'false',
         SWAP_FEE_ADDRESS: '',
@@ -427,6 +428,10 @@ export default function createConfig(
         MULTISEND_DAPP_URL: '',
         PORTFOLIO_DAPP_URL: '',
         AGENT_API_URL: '',
+        MFA_BOT_URL: '',
+        MFA_API_BASE_URL: '',
+        MFA_MASTER_ADDRESS: '',
+        MFA_EXTENSION_CODE_HASH: '',
       }),
       new ProvidePlugin({
         Buffer: ['buffer', 'Buffer'],

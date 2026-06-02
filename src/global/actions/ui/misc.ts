@@ -565,8 +565,7 @@ addActionHandler('closeQrScanner', (global) => {
   };
 });
 
-addActionHandler('handleQrCode', async (global, actions, { data: rawData }) => {
-  const data = rawData.trim();
+addActionHandler('handleQrCode', async (global, actions, { data }) => {
   const { currentTransfer, currentSwap, currentDomainLinking } = global.currentQrScan || {};
 
   if (currentTransfer) {
@@ -743,6 +742,10 @@ addActionHandler('closeAnyModal', () => {
   closeModal();
 });
 
+addActionHandler('openExplore', (global) => {
+  return openSection(global, 'explore');
+});
+
 addActionHandler('openAgent', (global) => {
   return openSection(global, 'agent');
 });
@@ -757,10 +760,6 @@ addActionHandler('setAgentMeta', (global, actions, payload) => {
 
 addActionHandler('setAgentHints', (global, actions, { hints }) => {
   return { ...global, agentHints: hints };
-});
-
-addActionHandler('openExplore', (global) => {
-  return openSection(global, 'explore');
 });
 
 addActionHandler('closeExplore', (global) => {

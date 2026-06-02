@@ -103,7 +103,7 @@ import WalletContext
         presenter.route(context: context, state: state.onchain)
     }
 
-    func performSwap(context: SwapExecutionContext, state: SwapFlowState) async throws -> ApiActivity? {
+    func performSwap(context: SwapExecutionContext, state: SwapFlowState) async throws -> SwapExecutionResult {
         try await executor.performSwap(
             swapEstimate: state.onchain.swapEstimate,
             confirmation: context.confirmation,
@@ -112,6 +112,5 @@ import WalletContext
             account: context.account,
             passcode: context.passcode
         )
-        return nil
     }
 }

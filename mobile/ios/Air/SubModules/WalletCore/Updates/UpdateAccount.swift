@@ -25,6 +25,7 @@ extension ApiUpdate {
         public var domain: Domain
         public var isMultisig: Bool?
         public var derivation: ApiDerivation?
+        public var mfa: Mfa
 
         public enum Domain: Equatable, Hashable, Decodable, Sendable {
             case unchanged
@@ -43,6 +44,23 @@ extension ApiUpdate {
             }
         }
 
+        public enum Mfa: Equatable, Hashable, Decodable, Sendable {
+            case unchanged
+            case changed(AccountMfa)
+            case removed
+
+            public init(from decoder: Decoder) throws {
+                let container = try decoder.singleValueContainer()
+                if let value = try? container.decode(AccountMfa.self) {
+                    self = .changed(value)
+                } else if (try? container.decode(Bool.self)) == false {
+                    self = .removed
+                } else {
+                    self = .unchanged
+                }
+            }
+        }
+
         private enum CodingKeys: CodingKey {
             case type
             case accountId
@@ -51,6 +69,7 @@ extension ApiUpdate {
             case domain
             case isMultisig
             case derivation
+            case mfa
         }
 
         public init(from decoder: Decoder) throws {
@@ -62,6 +81,7 @@ extension ApiUpdate {
             self.domain = try container.decodeIfPresent(Domain.self, forKey: .domain) ?? .unchanged
             self.isMultisig = try container.decodeIfPresent(Bool.self, forKey: .isMultisig)
             self.derivation = try container.decodeIfPresent(ApiDerivation.self, forKey: .derivation)
+            self.mfa = try container.decodeIfPresent(Mfa.self, forKey: .mfa) ?? .unchanged
         }
     }
 }

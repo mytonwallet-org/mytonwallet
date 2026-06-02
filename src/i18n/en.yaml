@@ -8,6 +8,22 @@ Creating Wallet...: Creating Wallet...
 On the count of three...: On the count of three...
 $back_up_auth: Back Up
 $back_up_security: Back Up
+Confirm with: Confirm with
+Add an extra layer of security for your wallet in TON network.: Add an extra layer of security for your wallet in TON network.
+Sign transfers and important actions with your passcode, then confirm them in Telegram.: Sign transfers and important actions with your passcode, then confirm them in Telegram.
+This helps protect your funds even if your recovery phrase or keys are compromised.: This helps protect your funds even if your recovery phrase or keys are compromised.
+"Connection Fee:": "Connection Fee:"
+Connect Telegram: Connect Telegram
+Telegram will be used to confirm transfers and important actions.: Telegram will be used to confirm transfers and important actions.
+My Telegram Account: My Telegram Account
+Without username: Without username
+Unlink Account: Unlink Account
+An extra security layer requires confirming actions in Telegram after signing.: An extra security layer requires confirming actions in Telegram after signing.
+Confirm Connection: Confirm Connection
+Confirm Disconnection: Confirm Disconnection
+$2fa_security: 2FA with Telegram
+2FA with Telegram: 2FA with Telegram
+Confirm operations in Telegram as a second step.: Confirm operations in Telegram as a second step.
 Passwords must be equal.: Passwords must be equal.
 To protect your wallet as much as possible, use a password with: To protect your wallet as much as possible, use a password with
 $auth_password_rule_8chars: at least 8 characters
@@ -874,6 +890,10 @@ $domain_expire: "**%domain%** expires %days%"
 "%token% Staking": "%token% Staking"
 Add Tab: Add Tab
 Remove Tab: Remove Tab
+$iab_tabs_count:
+  zeroValue: "%1$d tabs"
+  oneValue: "%1$d tab"
+  otherValue: "%1$d tabs"
 $domains_amount %1$d:
   zeroValue: No domains
   oneValue: "%1$d domain"
@@ -1247,7 +1267,7 @@ Standalone: Standalone
 All Telegram Gifts: All Telegram Gifts
 Add Crypto: Add Crypto
 Share QR Code: Share QR Code
-$send_only_ton: Send only Toncoin (TON) or TON-based assets to this address. Sending other tokens will result in loss.
+$send_only_ton: Send only Gram (GRAM) or TON-based assets to this address. Sending other tokens will result in loss.
 $send_only_chain: Send only %chain% (%symbol%) or %chain%-based assets to this address. Sending other tokens will result in loss.
 Buying with card is not supported for this account.: Buying with card is not supported for this account.
 Swapped at: Swapped at
@@ -1509,8 +1529,8 @@ push_activity_swap_completed: Swapped %from_symbol% -> %to_symbol%
 push_activity_swap_failed: Swap %from_symbol% -> %to_symbol% failed
 push_activity_swap_expired: Swap %from_symbol% -> %to_symbol% expired
 push_activity_swap_pending: Swap %from_symbol% -> %to_symbol% %status%
-push_activity_staking_profit: Staking profit %amount% TON
-push_activity_staking_loyalty_profit: Staking loyalty profit %amount% TON
+push_activity_staking_profit: Staking profit %amount% GRAM
+push_activity_staking_loyalty_profit: Staking loyalty profit %amount% GRAM
 push_domain_title_renew: Renew your domain
 push_domain_expired_yesterday: Your domain %domain% expired yesterday. Please renew it as soon as possible to avoid losing access
 push_domain_expired_days_ago: Your domain %domain% expired %days% days ago. Please renew it as soon as possible to avoid losing access
@@ -1531,3 +1551,4 @@ Current allocation across tracked assets: Current allocation across tracked asse
 Limited history: Limited history
 Cumulative profit and loss over time: Cumulative profit and loss over time
 Day-by-day profit and loss: Day-by-day profit and loss
+This action is not supported in explorer mode.: This action is not supported in explorer mode.

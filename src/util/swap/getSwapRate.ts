@@ -1,6 +1,5 @@
 import type { ApiSwapAsset } from '../../api/types';
 
-import { TONCOIN } from '../../config';
 import { Big } from '../../lib/big.js';
 import { formatNumber } from '../formatNumber';
 
@@ -14,7 +13,8 @@ function getCurrencyPriority(symbol: string) {
   if (FIAT.has(symbol)) return 5;
   if (USD.has(symbol)) return 4;
   if (BTC.has(symbol)) return 3;
-  if (symbol === TONCOIN.symbol) return 2;
+  // FIXME: TON renaming
+  if (symbol === 'TON') return 2;
 
   return 1;
 }

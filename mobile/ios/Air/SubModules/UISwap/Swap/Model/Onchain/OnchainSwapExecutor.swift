@@ -9,7 +9,7 @@ import WalletContext
         slippage: Double,
         account: SwapAccountSnapshot,
         passcode: String
-    ) async throws {
+    ) async throws -> SwapExecutionResult {
         guard let swapEstimate else {
             throw BridgeCallError.customMessage("Missing swap estimate", nil)
         }
@@ -53,5 +53,6 @@ import WalletContext
         if let error = result.error {
             throw BridgeCallError(message: error, payload: result)
         }
+        return SwapExecutionResult(activity: nil, swapId: result.swapId, mfaRequestHash: result.mfaRequestHash)
     }
 }

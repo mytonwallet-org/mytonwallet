@@ -15,8 +15,10 @@ struct BridgeInjectionScript {
             window._mtwAir_invokeFunc = function(name, args, resolve, reject) {
                 const invocationId = btoa(Math.random()).substring(0, 12);
                 const timeoutMs = undefined;
-                const timeoutId = timeoutMs ? setTimeout(() => reject(new Error(`bridge timeout for function with name: ${name}`)), timeoutMs) : null;
-                window._mtwAir_promises[invocationId] = { resolve: resolve, reject: reject, timeoutId: timeoutId };
+                const onResolve = typeof resolve === 'function' ? resolve : function() {};
+                const onReject = typeof reject === 'function' ? reject : function() {};
+                const timeoutId = timeoutMs ? setTimeout(() => onReject(new Error(`bridge timeout for function with name: ${name}`)), timeoutMs) : null;
+                window._mtwAir_promises[invocationId] = { resolve: onResolve, reject: onReject, timeoutId: timeoutId };
                 window.webkit.messageHandlers.inAppBrowserHandler.postMessage(JSON.stringify({
                     type: '\(DappConnectMessageType.invokeFunc)',
                     invocationId: invocationId,
@@ -24,20 +26,17 @@ struct BridgeInjectionScript {
                     args: args
                 }));
             };
-            window.open = function(url) {
-                window._mtwAir_invokeFunc('window:open', { url: url });
+            const mtwOriginalWindowOpen = window.open.bind(window);
+            window.open = function(url, target, features) {
+                const openedWindow = mtwOriginalWindowOpen(url, target, features);
+                if (!openedWindow && url) {
+                    window._mtwAir_invokeFunc('window:open', { url: url });
+                }
+                return openedWindow;
             };
             window.close = function() {
                 window._mtwAir_invokeFunc('window:close');
             };
-            window.addEventListener('click', function(e) {
-                const href = e.target.closest('a')?.href;
-                const target = e.target.closest('a')?.target;
-                if (href && (target === '_blank' || !href.startsWith('http'))) {
-                    e.preventDefault();
-                    window._mtwAir_invokeFunc('window:open', { url: href });
-                }
-            }, false);
             window.addEventListener('message', function(e) {
                 try {
                     const message = JSON.parse(e.data);

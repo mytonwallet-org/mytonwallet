@@ -8,6 +8,7 @@ import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
+import org.mytonwallet.app_air.walletcore.TELEGRAM_USERNAMES_COLLECTION
 import org.mytonwallet.app_air.walletcore.TON_DNS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
@@ -280,6 +281,11 @@ data class ApiNft(
             }"
         }
 
+    val isTelegramUsername: Boolean
+        get() {
+            return collectionAddress == TELEGRAM_USERNAMES_COLLECTION
+        }
+
     fun scanUrl(network: MBlockchainNetwork): String {
         val urlBuilder = Uri.Builder()
             .appendPath("nft")
@@ -311,7 +317,7 @@ data class ApiNft(
     }
 
     fun canLinkToAddress(): Boolean {
-        return isTonDns
+        return isTonDns || isTelegramUsername
     }
 
     override fun isSame(comparing: WEquatable<*>): Boolean {

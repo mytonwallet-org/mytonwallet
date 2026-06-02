@@ -71,9 +71,9 @@ describe('getViewAccountUrl', () => {
       hyperliquid: TEST_EVM_ADDRESS,
       base: TEST_EVM_ADDRESS,
       arbitrum: TEST_EVM_ADDRESS,
-      // monad: TEST_EVM_ADDRESS,
-      // polygon: TEST_EVM_ADDRESS,
-      // avalanche: TEST_EVM_ADDRESS,
+      monad: TEST_EVM_ADDRESS,
+      polygon: TEST_EVM_ADDRESS,
+      avalanche: TEST_EVM_ADDRESS,
     })).toBe(
       `https://my.tt/view/?evm=${TEST_EVM_ADDRESS}&solana=${TEST_SOLANA_ADDRESS}`
       + `&ton=${TEST_TON_ADDRESS}&tron=${TEST_TRON_ADDRESS}`,
@@ -95,10 +95,10 @@ describe('getViewAccountUrl', () => {
       ethereum: TEST_EVM_ADDRESS,
       base: TEST_EVM_ADDRESS,
       bnb: TEST_EVM_ADDRESS,
-      // polygon: TEST_EVM_ADDRESS,
+      polygon: TEST_EVM_ADDRESS,
       arbitrum: TEST_EVM_ADDRESS,
-      // monad: TEST_EVM_ADDRESS,
-      // avalanche: TEST_EVM_ADDRESS,
+      monad: TEST_EVM_ADDRESS,
+      avalanche: TEST_EVM_ADDRESS,
       hyperliquid: TEST_EVM_ADDRESS,
     }, true)).toBe(`https://my.tt/view/?evm=${TEST_EVM_ADDRESS}&testnet=true`);
   });

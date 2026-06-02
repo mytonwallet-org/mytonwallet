@@ -8,6 +8,8 @@
 import Foundation
 import WalletContext
 
+private let apiWalletLog = Log("Api+Wallet")
+
 extension Api {
     
     public static func fetchPrivateKey(accountId: String, chain: ApiChain, password: String) async throws -> String {
@@ -37,6 +39,15 @@ extension Api {
     
     public static func confirmDappRequestSendTransaction(promiseId: String, data: [ApiSignedTransfer]) async throws {
         try await bridge.callApiVoid("confirmDappRequestSendTransaction", promiseId, data)
+    }
+
+    public static func confirmDappRequestSendTransactionMfa(promiseId: String, mfaRequestHash: String) async throws {
+        do {
+            try await bridge.callApiVoid("confirmDappRequestSendTransaction", promiseId, ApiDappMfaRequestConfirmation(mfaRequestHash: mfaRequestHash))
+        } catch {
+            apiWalletLog.error("confirmDappRequestSendTransaction MFA failed: \(error, .public)")
+            throw error
+        }
     }
     
     public static func confirmDappRequestSignData(promiseId: String, data: AnyEncodable) async throws {
@@ -72,6 +83,10 @@ public struct ApiDappRequestConfirmation: Encodable, Sendable {
         self.accountId = accountId
         self.proofSignatures = proofSignatures
     }
+}
+
+public struct ApiDappMfaRequestConfirmation: Encodable, Sendable {
+    public var mfaRequestHash: String
 }
 
 public struct ApiGetAddressInfoResult: Decodable, Sendable {

@@ -4,6 +4,7 @@
 
 import type { DieselStatus } from '../../global/types';
 import type { ExplainedTransferFee } from '../../util/fee/transferFee';
+import type { SignedMfaRequest } from '../chains/ton/util/signer';
 import type { ApiAnyDisplayError } from './errors';
 import type { ApiLocalTransactionParams } from './misc';
 
@@ -125,7 +126,11 @@ export interface ApiFetchEstimateDieselResult {
 }
 
 export interface ApiSubmitGasfullTransferResult {
-  txId: string;
+  txId?: string;
+
+  /** This field is required if the wallet uses a MFA extension */
+  mfaRequest?: SignedMfaRequest;
+
   /**
    * The fields that are necessary to add to the local activity (`ApiTransactionActivity`), excluding fields that the
    * method caller can fill by themselves.
@@ -143,6 +148,8 @@ export interface ApiSubmitGaslessTransferResult extends ApiSubmitGasfullTransfer
 export type ApiSubmitNftTransferResult = {
   transfers: { toAddress: string }[];
   msgHashNormalized: string;
+} | {
+  mfaRequest: SignedMfaRequest;
 } | {
   error: string;
 };

@@ -70,9 +70,16 @@ export type PortfolioHistoryBundle = {
 type PortfolioHistoryByRange = Record<ApiPriceHistoryPeriod, PortfolioHistoryBundle>;
 type PortfolioHistoryByBaseCurrency = Record<ApiBaseCurrency, PortfolioHistoryByRange>;
 export type PortfolioHistoryByAccountId = Record<string, PortfolioHistoryByBaseCurrency>;
+export type PortfolioNetChange = {
+  range: ApiPriceHistoryPeriod;
+  baseCurrency: ApiBaseCurrency;
+  amount: number;
+  percent?: number;
+};
 
 export type PortfolioState = {
   historyByAccountId?: PortfolioHistoryByAccountId;
+  netChangeByAccountId?: Record<string, PortfolioNetChange>;
   activeRange?: ApiPriceHistoryPeriod;
   isLoading?: boolean;
   isRefreshing?: boolean;
@@ -226,6 +233,15 @@ export enum TransferState {
   Password,
   ConnectHardware,
   ConfirmHardware,
+  ConfirmMfa,
+  Complete,
+}
+
+export enum RemoveMfaState {
+  None,
+  Confirm,
+  Password,
+  ConfirmMfa,
   Complete,
 }
 
@@ -254,6 +270,7 @@ export enum DomainRenewalState {
   Password,
   ConnectHardware,
   ConfirmHardware,
+  ConfirmMfa,
   Complete,
 }
 
@@ -263,6 +280,7 @@ export enum DomainLinkingState {
   Password,
   ConnectHardware,
   ConfirmHardware,
+  ConfirmMfa,
   Complete,
 }
 
@@ -272,6 +290,7 @@ export enum SwapState {
   Blockchain,
   Password,
   WaitTokens,
+  ConfirmMfa,
   Complete,
   SelectTokenFrom,
   SelectTokenTo,
@@ -313,6 +332,7 @@ export enum DappConnectState {
   Password,
   ConnectHardware,
   ConfirmHardware,
+  ConfirmMfa,
 }
 
 export enum HardwareConnectState {
@@ -330,17 +350,20 @@ export enum StakingState {
   StakePassword,
   StakeConnectHardware,
   StakeConfirmHardware,
+  StakeConfirmMfa,
   StakeComplete,
 
   UnstakeInitial,
   UnstakePassword,
   UnstakeConnectHardware,
   UnstakeConfirmHardware,
+  UnstakeConfirmMfa,
   UnstakeComplete,
 
   ClaimPassword,
   ClaimConnectHardware,
   ClaimConfirmHardware,
+  ClaimConfirmMfa,
   ClaimComplete,
 }
 
@@ -440,6 +463,16 @@ export interface AccountChain {
   domain?: string;
   isMultisig?: true;
   derivation?: ApiDerivation;
+  /** Is set only in hardware accounts */
+  ledgerIndex?: number;
+  mfa?: {
+    address: string;
+    user?: {
+      name: string;
+      username?: string;
+      avatarUrl?: string;
+    };
+  };
 }
 
 export interface Account {
@@ -700,6 +733,7 @@ export type GlobalState = {
      * Every time this field value changes, the `amount` value should be actualized using `preserveMaxTransferAmount`.
      */
     explainedFee?: ExplainedTransferFee;
+    mfaRequestHash?: string;
   };
 
   currentSwap: {
@@ -714,6 +748,7 @@ export type GlobalState = {
     amountOutMin?: string;
     priceImpact?: number;
     activityId?: string;
+    mfaRequestHash?: string;
     error?: string;
     errorType?: SwapErrorType;
     isLoading?: boolean;
@@ -784,6 +819,7 @@ export type GlobalState = {
     shouldHideTransfers?: boolean;
     // Deal with solana b58/b64 issues based on requested method
     isLegacyOutput?: boolean;
+    mfaRequestHash?: string;
   };
 
   currentDappSignData: {
@@ -805,6 +841,7 @@ export type GlobalState = {
     // There's only one commission because the transaction has no change
     realFee?: bigint;
     txId?: string;
+    mfaRequestHash?: string;
   };
 
   currentDomainLinking: {
@@ -817,16 +854,20 @@ export type GlobalState = {
     walletAddressName?: string;
     resolvedWalletAddress?: string;
     txId?: string;
+    mfaRequestHash?: string;
   };
 
   dappConnectRequest?: {
     state: DappConnectState;
     isSse?: boolean;
+    isLoading?: boolean;
     promiseId?: string;
     accountId?: string;
     dapp: StoredDappConnection;
     permissions?: ApiDappPermissions;
     proof?: TonConnectProof;
+    proofSignatures?: string[];
+    mfaRequestHash?: string;
     error?: string;
   };
 
@@ -838,6 +879,7 @@ export type GlobalState = {
     tokenAmount?: bigint;
     fee?: bigint;
     error?: string;
+    mfaRequestHash?: string;
   };
 
   stakingDefault: ApiStakingState;
@@ -910,6 +952,21 @@ export type GlobalState = {
     isSensitiveDataHidden?: true;
     orderedAccountIds?: string[];
     selectedExplorerIds?: Partial<Record<ApiChain, string>>;
+    installMfa?: {
+      requestId: string;
+      user?: {
+        id: string;
+        name: string;
+        username?: string;
+        avatarUrl?: string;
+      };
+      error?: string;
+    };
+
+    removeMfa?: {
+      requestId: string;
+      error?: string;
+    };
   };
 
   dialogs: DialogType[];
@@ -1130,6 +1187,7 @@ export interface ActionPayloads {
   };
   submitTransferConfirm: undefined;
   submitTransfer: { password?: string } | undefined;
+  updateMfaRequestStatus: undefined;
   clearTransferError: undefined;
   cancelTransfer: { shouldReset?: boolean } | undefined;
   showTransferScamWarning: { type: ScamWarningType };
@@ -1205,6 +1263,7 @@ export interface ActionPayloads {
   openPortfolio: { returnTo?: 'settings' } | undefined;
   closePortfolio: undefined;
   loadPortfolioHistory: { range?: ApiPriceHistoryPeriod } | undefined;
+  loadPortfolioNetChange: undefined;
 
   closeAnyModal: undefined;
   submitSignature: { password: string };
@@ -1264,6 +1323,7 @@ export interface ActionPayloads {
   submitStakingClaim: { password?: string } | undefined;
   cancelStakingClaim: undefined;
   openStakingInfoOrStart: undefined;
+  updateStakingMfaRequestStatus: undefined;
 
   // Settings
   openSettings: undefined;
@@ -1316,6 +1376,19 @@ export interface ActionPayloads {
   openSettingsHardwareWallet: undefined;
   apiUpdateWalletVersions: ApiUpdateWalletVersions;
 
+  // tg2fa
+  startMfaRecoveryProcess: { password?: string };
+
+  createInstallMfaRequest: undefined;
+  updateInstallMfaRequest: undefined;
+  clearMfaRequests: undefined;
+  clearInstallMfaError: undefined;
+  submitInstallMfa: { password?: string };
+
+  updateRemoveMfaRequest: undefined;
+  submitRemoveMfa: { password?: string };
+  clearRemoveMfaError: undefined;
+
   // Account Settings
   setCardBackgroundNft: { nft: ApiNft; accountId?: string };
   clearCardBackgroundNft: undefined;
@@ -1358,6 +1431,8 @@ export interface ActionPayloads {
   deleteDapp: { url: string; uniqueId: string };
   loadExploreSites: { isLandscape: boolean; langCode: LangCode | undefined };
   updateDappLastOpenedAt: { url: string };
+  updateDappMfaRequestStatus: undefined;
+  updateDappConnectMfaRequestStatus: undefined;
 
   addSiteToBrowserHistory: { url: string };
   removeSiteFromBrowserHistory: { url: string };
@@ -1395,6 +1470,7 @@ export interface ActionPayloads {
   setSwapScreen: { state: SwapState };
   clearSwapError: undefined;
   submitSwapCex: { password: string };
+  updateSwapMfaRequestStatus: undefined;
   setSwapCexAddress: { toAddress: string };
   addSwapToken: { token: UserSwapToken };
   toggleSwapSettingsModal: { isOpen: boolean };
@@ -1473,6 +1549,7 @@ export interface ActionPayloads {
   submitDomainsRenewal: { password?: string } | undefined;
   clearDomainsRenewalError: undefined;
   cancelDomainsRenewal: undefined;
+  updateDomainsRenewalMfaRequestStatus: undefined;
 
   openDomainLinkingModal: { address: string };
   startDomainLinking: undefined;
@@ -1480,6 +1557,7 @@ export interface ActionPayloads {
   submitDomainLinking: { password?: string } | undefined;
   clearDomainLinkingError: undefined;
   cancelDomainLinking: undefined;
+  updateDomainLinkingMfaRequestStatus: undefined;
 
   checkLinkingAddress: { address?: string };
   setDomainLinkingWalletAddress: { address?: string };

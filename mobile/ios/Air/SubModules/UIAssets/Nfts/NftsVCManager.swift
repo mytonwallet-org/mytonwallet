@@ -59,7 +59,7 @@ public class NftsVCManager {
         }
     }
     
-    func startReordering() {
+    public func startReordering() {
         beginUpdate()
         defer { endUpdate() }
         

@@ -6,7 +6,7 @@ import type {
 } from '../../types';
 import type { TonTransferParams } from './types';
 
-import { DIESEL_ADDRESS, SWAP_FEE_ADDRESS, TONCOIN } from '../../../config';
+import { DIESEL_ADDRESS, SWAP_FEE_ADDRESS } from '../../../config';
 import { assert as originalAssert } from '../../../util/assert';
 import { fromDecimal } from '../../../util/decimals';
 import { getMaxMessagesInTransaction, isTokenTransferPayload } from '../../../util/ton/transfer';
@@ -52,7 +52,8 @@ export async function validateDexSwapTransfers(
 
   assert(mainTransfers.length <= maxSplits, 'Too many main transfers');
 
-  if (request.from === TONCOIN.symbol) {
+  // FIXME: TON renaming
+  if (request.from === 'TON') {
     const maxAmount = fromDecimal(request.fromAmount) + fromDecimal(request.ourFee) + MAX_NETWORK_FEE;
     let sumAmount = 0n;
 

@@ -22,6 +22,7 @@ import Modal from '../ui/Modal';
 import ModalHeader from '../ui/ModalHeader';
 import PasswordForm from '../ui/PasswordForm';
 import Transition from '../ui/Transition';
+import DappMfaConfirm from './DappMfaConfirm';
 import DappTransaction from './DappTransaction';
 import DappTransferComplete from './DappTransferComplete';
 import DappTransferInitial from './DappTransferInitial';
@@ -168,6 +169,13 @@ function DappTransferModal({
       case TransferState.Complete:
         return (
           <DappTransferComplete
+            isActive={isActive}
+            onClose={closeDappTransfer}
+          />
+        );
+      case TransferState.ConfirmMfa:
+        return (
+          <DappMfaConfirm
             isActive={isActive}
             onClose={closeDappTransfer}
           />

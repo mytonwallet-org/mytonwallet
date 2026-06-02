@@ -1,9 +1,10 @@
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 import { IS_CAPACITOR, IS_TELEGRAM_APP } from '../config';
-import { VIBRATE_SUCCESS_END_PAUSE_MS } from './capacitor';
 import { pause } from './schedulers';
 import { getTelegramApp } from './telegram';
+
+const VIBRATE_SUCCESS_END_PAUSE_MS = 1300;
 
 export async function vibrate() {
   if (IS_TELEGRAM_APP) {

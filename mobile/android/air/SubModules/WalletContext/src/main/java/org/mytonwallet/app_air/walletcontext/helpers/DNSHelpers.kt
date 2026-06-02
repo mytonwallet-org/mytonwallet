@@ -1,5 +1,7 @@
 package org.mytonwallet.app_air.walletcontext.helpers
 
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+
 class DNSHelpers {
 
     data class DnsZone(
@@ -74,6 +76,18 @@ class DNSHelpers {
 
         fun isDnsDomain(value: String): Boolean {
             return getDnsDomainZone(value) != null
+        }
+
+        fun telegramAvatarUrl(domain: String?): String? {
+            if (!ApplicationContextHolder.isGramApp) return null
+
+            val normalizedDomain = domain?.trim()?.lowercase() ?: return null
+            val match = getDnsDomainZone(normalizedDomain) ?: return null
+            val isTelegramUsername = match.zone.collectionName == "Telegram Usernames" &&
+                !match.base.contains(".")
+            if (!isTelegramUsername) return null
+
+            return "https://t.me/i/userpic/320/${match.base}.jpg"
         }
     }
 }

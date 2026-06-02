@@ -4,6 +4,7 @@ import com.squareup.moshi.Types
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitMultiTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapBuildRequest
@@ -139,10 +140,14 @@ suspend fun WalletCore.Transfer.swapCexSubmit(
     chain: MBlockchain,
     options: MApiSubmitTransferOptions,
     swapId: String
-): Any = run {
+): ApiSubmitTransferResult = run {
     val moshi = WalletCore.moshi
     val arg = moshi.adapter(MApiSubmitTransferOptions::class.java).toJson(options)
     val args = "[\"${chain.name}\", $arg, ${JSONObject.quote(swapId)}]"
 
-    WalletCore.bridge!!.callApiAsync("swapCexSubmit", args, Any::class.java)
+    WalletCore.bridge!!.callApiAsync(
+        "swapCexSubmit",
+        args,
+        ApiSubmitTransferResult::class.java,
+    )
 }

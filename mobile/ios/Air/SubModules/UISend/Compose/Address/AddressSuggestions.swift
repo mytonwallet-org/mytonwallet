@@ -8,11 +8,11 @@ import Perception
 import OrderedCollections
 
 struct AddressSuggestions: View {
-
+    
     let model: AddressInputModel
-
+    
     @Dependency(\.accountStore) var accountStore
-
+    
     var searchString: String {
         model.textFieldInput.lowercased()
     }
@@ -37,7 +37,7 @@ struct AddressSuggestions: View {
                 return isEmpty || account.matches(regex)
             }
     }
-
+    
     var body: some View {
         WithPerceptionTracking {
             savedAddressesSection
@@ -99,7 +99,7 @@ struct SavedAddressButton: View {
                 }
         }
     }
-
+    
     var _content: some View {
         InsetButtonCell(horizontalPadding: 0, verticalPadding: 0, action: onTap) {
             AccountListCell(accountContext: account, isReordering: false, showCurrentAccountHighlight: false)
@@ -116,7 +116,7 @@ struct SavedAddressButton: View {
                 }
         }
     }
-
+    
     func onTap() {
         model.source = .savedAccount(account.wrappedValue, saveKey: savedAddress.address)
         endEditing()
@@ -145,16 +145,16 @@ struct SavedAddressButton: View {
 }
 
 struct AccountButton: View {
-
+    
     let model: AddressInputModel
     @State var account: AccountContext
-
+    
     var body: some View {
         InsetButtonCell(horizontalPadding: 12, verticalPadding: 10, action: onTap) {
             AccountListCell(accountContext: account, isReordering: false, showCurrentAccountHighlight: false)
         }
     }
-
+    
     func onTap() {
         model.source = .myAccount(account.wrappedValue)
         endEditing()

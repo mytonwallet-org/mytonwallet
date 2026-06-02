@@ -42,6 +42,17 @@ export async function getBackendAuthToken(accountId: string, password: string) {
   return authToken;
 }
 
+export async function getStoredBackendAuthToken(accountId: string) {
+  const { authToken, publicKey, isInitialized } = await fetchStoredWallet(accountId, 'ton');
+  if (!authToken) return undefined;
+
+  if (!isInitialized && publicKey) {
+    return `${authToken}:${publicKey}`;
+  }
+
+  return authToken;
+}
+
 export async function fetchAccountConfigForDebugPurposesOnly() {
   try {
     const [accounts, stateVersion, mnemonicsEncrypted] = await Promise.all([

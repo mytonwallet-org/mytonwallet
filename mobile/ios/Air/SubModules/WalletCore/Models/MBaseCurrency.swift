@@ -25,7 +25,7 @@ public enum MBaseCurrency: String, Equatable, Hashable, Codable, Sendable, Ident
         case .RUB: "₽"
         case .CNY: "¥"
         case .BTC: "BTC"
-        case .TON: "TON"
+        case .TON: "GRAM"
         }
     }
     
@@ -51,7 +51,7 @@ public enum MBaseCurrency: String, Equatable, Hashable, Codable, Sendable, Ident
         case .RUB: lang("Russian Ruble")
         case .CNY: lang("Chinese Yuan")
         case .BTC: lang("Bitcoin")
-        case .TON: lang("Toncoin")
+        case .TON: lang("Gram")
         }
     }
     

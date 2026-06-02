@@ -12,12 +12,14 @@ public struct AccountChain: Equatable, Hashable, Sendable, Codable {
     public var domain: String?
     public var isMultisig: Bool?
     public var derivation: ApiDerivation?
+    public var mfa: AccountMfa?
     
-    public init(address: String, domain: String? = nil, isMultisig: Bool? = nil, derivation: ApiDerivation? = nil) {
+    public init(address: String, domain: String? = nil, isMultisig: Bool? = nil, derivation: ApiDerivation? = nil, mfa: AccountMfa? = nil) {
         self.address = address
         self.domain = domain
         self.isMultisig = isMultisig
         self.derivation = derivation
+        self.mfa = mfa
     }
 }
 

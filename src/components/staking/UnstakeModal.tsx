@@ -41,6 +41,7 @@ import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 import useSyncEffect from '../../hooks/useSyncEffect';
 import { useAmountInputState } from '../ui/hooks/useAmountInputState';
 
+import MfaConfirm from '../common/MfaConfirm';
 import TransactionBanner from '../common/TransactionBanner';
 import TransferResult from '../common/TransferResult';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
@@ -72,6 +73,7 @@ const IS_OPEN_STATES = new Set([
   StakingState.UnstakePassword,
   StakingState.UnstakeConnectHardware,
   StakingState.UnstakeConfirmHardware,
+  StakingState.UnstakeConfirmMfa,
   StakingState.UnstakeComplete,
 ]);
 
@@ -87,6 +89,7 @@ function UnstakeModal({
   isNominators,
   theme,
   amount,
+  mfaRequestHash,
   stakingState,
   isSensitiveDataHidden,
 }: StateProps) {
@@ -97,6 +100,7 @@ function UnstakeModal({
     submitStakingInitial,
     submitStaking,
     fetchStakingHistory,
+    updateStakingMfaRequestStatus,
   } = getActions();
 
   const {
@@ -160,6 +164,11 @@ function UnstakeModal({
   });
 
   useInterval(refreshUnstakeDate, UPDATE_UNSTAKE_DATE_INTERVAL_MS);
+  useInterval(() => {
+    if (state === StakingState.UnstakeConfirmMfa && mfaRequestHash) {
+      updateStakingMfaRequestStatus();
+    }
+  }, state === StakingState.UnstakeConfirmMfa ? 1000 : undefined);
 
   const handleBackClick = useLastCallback(() => {
     if (state === StakingState.UnstakePassword) {
@@ -422,6 +431,17 @@ function UnstakeModal({
             onClose={cancelStaking}
             onTryAgain={handleLedgerConnect}
           />
+        );
+
+      case StakingState.UnstakeConfirmMfa:
+        return (
+          <>
+            <ModalHeader onClose={cancelStaking} />
+            <MfaConfirm
+              onClose={cancelStaking}
+              mfaRequestHash={mfaRequestHash}
+            />
+          </>
         );
 
       case StakingState.UnstakeComplete:

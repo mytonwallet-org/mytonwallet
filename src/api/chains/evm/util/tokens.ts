@@ -21,6 +21,7 @@ export function isZerionNativeFungible(
   const implementation = getZerionFungibleImplementation(fungibleInfo, zerionChain);
 
   return (!!implementation && !implementation.address)
+    || (chain === 'polygon' && implementation?.address === '0x0000000000000000000000000000000000001010') // polygon native token
     || fungibleId === nativeToken.slug
     || (nativeToken.symbol === 'ETH' && fungibleId === 'eth');
 }

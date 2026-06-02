@@ -1,12 +1,52 @@
 {
-  "fill" : "system-dark",
+  "fill" : {
+    "automatic-gradient" : "display-p3:0.28638,0.57959,0.92529,1.00000"
+  },
   "groups" : [
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "display-p3:0.28638,0.57959,0.92529,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "srgb:0.00000,0.00000,0.00000,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "f2.svg",
+          "name" : "f2"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : false,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.25
+      }
+    },
     {
       "layers" : [
         {
-          "glass" : false,
-          "image-name" : "GramAppIcon.png",
-          "name" : "GramAppIcon"
+          "image-name" : "f1.svg",
+          "name" : "f1"
         }
       ],
       "shadow" : {

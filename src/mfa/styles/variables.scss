@@ -1,0 +1,23 @@
+:root {
+  --mfa-background: #F3F4F5;
+  --mfa-background-secondary: #FFFFFF;
+  --mfa-text-primary: #2C333E;
+  --mfa-text-secondary: #8B8F96;
+  --mfa-gray: #616770;
+  --mfa-gray-2: #8B8F96;
+  --mfa-gray-3: #A5A8AD;
+  --mfa-blue: #0088CC;
+  --color-background-first-disabled: #FAFAFA;
+  --color-separator: #2C333E1F;
+
+  &.theme-dark,
+  .component-theme-dark {
+    --mfa-background: #000000;
+    --mfa-background-secondary: #1C1C1E;
+    --mfa-text-primary: #F6F7F8;
+    --mfa-blue: #469CEC;
+    --mfa-gray-3: #626363;
+    --color-background-first-disabled: #141415;
+    --color-separator: #F6F7F81F;
+  }
+}

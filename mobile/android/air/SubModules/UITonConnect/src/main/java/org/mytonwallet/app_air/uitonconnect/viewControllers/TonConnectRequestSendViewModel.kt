@@ -162,7 +162,7 @@ class TonConnectRequestSendViewModel private constructor(
                     try {
                         val account = AccountStore.accountById(update.accountId) ?: return@launch
                         val dappChain = account.dappChain(update.operationChain) ?: return@launch
-                        val signedMessages = WalletCore.call(
+                        val signResult = WalletCore.call(
                             SignDappTransfers(
                                 dappChain = dappChain,
                                 accountId = update.accountId,
@@ -175,6 +175,21 @@ class TonConnectRequestSendViewModel private constructor(
                                 )
                             )
                         )
+                        val mfaHash = (signResult as? Map<*, *>)?.get("mfaRequestHash") as? String
+                        if (mfaHash != null) {
+                            // The transfer is already signed and queued — only Telegram
+                            // approval remains. Mark as confirmed so the request VC's
+                            // teardown (which otherwise calls cancel(promiseId)) does
+                            // not reject the dapp promise.
+                            isConfirmed = true
+                            _eventsFlow.tryEmit(Event.MfaRequested(mfaHash, update.promiseId))
+                            return@launch
+                        }
+                        val signedMessages = when (signResult) {
+                            is org.json.JSONArray -> signResult
+                            is List<*> -> org.json.JSONArray(signResult)
+                            else -> org.json.JSONArray(signResult?.toString().orEmpty())
+                        }
                         WalletCore.call(
                             ConfirmDappRequestSendTransaction(
                                 update.promiseId,
@@ -245,6 +260,11 @@ class TonConnectRequestSendViewModel private constructor(
         ) : Event()
 
         data class OpenDappInBrowser(val url: String) : Event()
+
+        data class MfaRequested(
+            val requestHash: String,
+            val promiseId: String,
+        ) : Event()
     }
 
     private val _eventsFlow =

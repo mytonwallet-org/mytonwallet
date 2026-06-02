@@ -9,12 +9,15 @@ import Foundation
 import WalletContext
 
 private let log = Log("ConfigStore")
+private let configCacheKey = "cache.updateConfig"
 
 public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead of queue for thread safety
 
     public static let shared = ConfigStore()
     
-    private init() {}
+    private init() {
+        _config = Self.loadCachedConfig()
+    }
     
     private let queue = DispatchQueue(label: "org.mytonwallet.app.config_store", attributes: .concurrent)
     
@@ -41,8 +44,10 @@ public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead o
             queue.async(flags: .barrier) {
                 self._config = newValue
                 if let newValue {
+                    Self.saveCachedConfig(newValue)
                     self.handleConfig(newValue)
                 } else {
+                    Self.removeCachedConfig()
                     WalletCoreData.notify(event: .configChanged)
                 }
             }
@@ -96,6 +101,33 @@ public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead o
             self._config = nil
             self._isLimitedOverride = nil
             self._seasonalThemeOverride = nil
+            Self.removeCachedConfig()
         }
+    }
+
+    private static func loadCachedConfig() -> ApiUpdate.UpdateConfig? {
+        guard let data = UserDefaults.standard.data(forKey: configCacheKey) else {
+            return nil
+        }
+        do {
+            return try JSONDecoder().decode(ApiUpdate.UpdateConfig.self, from: data)
+        } catch {
+            log.error("Failed to decode cached updateConfig: \(error, .public)")
+            removeCachedConfig()
+            return nil
+        }
+    }
+
+    private static func saveCachedConfig(_ config: ApiUpdate.UpdateConfig) {
+        do {
+            let data = try JSONEncoder().encode(config)
+            UserDefaults.standard.set(data, forKey: configCacheKey)
+        } catch {
+            log.error("Failed to encode updateConfig cache: \(error, .public)")
+        }
+    }
+
+    private static func removeCachedConfig() {
+        UserDefaults.standard.removeObject(forKey: configCacheKey)
     }
 }

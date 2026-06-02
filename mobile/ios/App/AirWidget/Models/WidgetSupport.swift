@@ -292,8 +292,8 @@ struct ApiTokenPrice: Equatable, Hashable, Codable, Sendable {
 extension ApiToken {
     static let TONCOIN = ApiToken(
         slug: TONCOIN_SLUG,
-        name: "Toncoin",
-        symbol: "TON",
+        name: "Gram",
+        symbol: "GRAM",
         decimals: 9,
         chain: .ton,
         isPopular: true,
@@ -358,7 +358,7 @@ extension ApiToken {
 
     static let STAKED_TON = ApiToken(
         slug: STAKED_TON_SLUG,
-        name: "Staked Toncoin",
+        name: "Staked Gram",
         symbol: "STAKED",
         decimals: 9,
         chain: .ton
@@ -428,7 +428,7 @@ public enum MBaseCurrency: String, Equatable, Hashable, Codable, Sendable, Ident
         case .BTC:
             return "BTC"
         case .TON:
-            return "TON"
+            return "GRAM"
         }
     }
 

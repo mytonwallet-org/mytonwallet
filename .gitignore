@@ -5,6 +5,7 @@ dist-multisend
 dist-push
 dist-giveaways
 dist-air
+dist-mfa
 dist-agent
 *.LICENSE.txt
 MyTonWallet-chrome.zip

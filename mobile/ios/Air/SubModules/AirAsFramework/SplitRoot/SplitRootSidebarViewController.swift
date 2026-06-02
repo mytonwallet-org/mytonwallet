@@ -83,8 +83,10 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         viewModel.onTabTap(tab)
     }
     
-    func focusTemporaryAccount(_ accountId: String) {
-        accountSelector.setSelectionOverride(accountId: accountId, animated: true)
+    func focusAccount(_ accountId: String?, animated: Bool) {
+        accountSelector.setSelectionOverride(accountId: accountId, animated: animated)
+        updateStatusAccountContext.accountId = accountId ?? AccountStore.accountId ?? DUMMY_ACCOUNT.id
+        updateStatusViewState(animated: animated)
     }
     
     private func setupViews() {
@@ -210,7 +212,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
             }
         }
         
-        let accountRegistration = AccountListCell.makeRegistration(showBalance: true, normalBackground: .clear, showCurrentAccountHighlight: false)
+        let accountRegistration = AccountListCell.makeRegistration(showBalance: true, normalBackground: .clear, showCurrentAccountHighlight: true)
         
         let actionRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, _, item in
             cell.accessories = []
@@ -256,13 +258,12 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         snapshot.appendItems(SplitRootTab.visibleTabs.map(Item.tab), toSection: .tabs)
         
         snapshot.appendSections([.accounts])
-        let currentAccountId = AccountStore.accountId
-        let otherAccounts = AccountStore.orderedAccountIds.filter { $0 != currentAccountId }
+        let accounts = AccountStore.orderedAccountIds
         
-        if otherAccounts.count <= 6 {
-            snapshot.appendItems(otherAccounts.map(Item.account), toSection: .accounts)
+        if accounts.count <= 7 {
+            snapshot.appendItems(accounts.map(Item.account), toSection: .accounts)
         } else {
-            snapshot.appendItems(Array(otherAccounts.prefix(5)).map(Item.account), toSection: .accounts)
+            snapshot.appendItems(Array(accounts.prefix(6)).map(Item.account), toSection: .accounts)
             snapshot.appendItems([.walletSettings], toSection: .accounts)
         }
         snapshot.appendItems([.addAccount], toSection: .accounts)
@@ -288,11 +289,11 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     
     private func selectAccount(_ accountId: String) {
         if AccountStore.accountsById[accountId]?.isTemporaryView == true {
-            accountSelector.setSelectionOverride(accountId: accountId, animated: true)
+            focusAccount(accountId, animated: true)
             (splitViewController as? SplitRootViewController)?.showTemporaryViewAccount(accountId: accountId)
             return
         }
-        accountSelector.setSelectionOverride(accountId: nil, animated: true)
+        focusAccount(nil, animated: true)
         (splitViewController as? SplitRootViewController)?.dismissTemporaryViewAccountIfNeeded(animated: true)
         switchAccount(to: accountId)
     }

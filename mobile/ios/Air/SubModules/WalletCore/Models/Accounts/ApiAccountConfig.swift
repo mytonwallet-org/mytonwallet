@@ -36,21 +36,25 @@ public struct ApiCardsInfo: Equatable, Hashable, Codable, Sendable {
 public struct ApiAccountConfig: Equatable, Hashable, Codable, Sendable {
     public var cardsInfo: ApiCardsInfo?
     public var activePromotion: ApiPromotion?
+    public var isMfaEnabled: Bool?
 
     private enum CodingKeys: String, CodingKey {
         case cardsInfo
         case activePromotion
+        case isMfaEnabled
     }
 
-    public init(cardsInfo: ApiCardsInfo? = nil, activePromotion: ApiPromotion? = nil) {
+    public init(cardsInfo: ApiCardsInfo? = nil, activePromotion: ApiPromotion? = nil, isMfaEnabled: Bool? = nil) {
         self.cardsInfo = cardsInfo
         self.activePromotion = activePromotion
+        self.isMfaEnabled = isMfaEnabled
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.cardsInfo = try? container.decodeIfPresent(ApiCardsInfo.self, forKey: .cardsInfo)
         self.activePromotion = try? container.decodeIfPresent(ApiPromotion.self, forKey: .activePromotion)
+        self.isMfaEnabled = try? container.decodeIfPresent(Bool.self, forKey: .isMfaEnabled)
     }
 }
 
@@ -142,3 +146,11 @@ public enum DebugPromotionPreset {
     public static let airAccountConfig = ApiAccountConfig(activePromotion: airPromotion)
 }
 #endif
+
+public enum DebugMfaEnabledOverride {
+    public static let userDefaultsKey = "debug_forceMfaEnabled"
+
+    public static var isEnabled: Bool {
+        UserDefaults.standard.bool(forKey: userDefaultsKey)
+    }
+}

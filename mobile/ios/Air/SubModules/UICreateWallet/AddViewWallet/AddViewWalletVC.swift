@@ -7,7 +7,8 @@ import WalletContext
 public class AddViewWalletVC: CreateWalletBaseVC {
 
     private let introModel: IntroModel
-    
+    private let autofocusesOnAppear: Bool
+
     private var headerView: HeaderView!
     private var addressContainer: UIView!
     private var addressTextView: UITextView!
@@ -15,10 +16,14 @@ public class AddViewWalletVC: CreateWalletBaseVC {
     private var pasteButton: UIButton!
     private var clearButton: UIButton!
     private var continueButton: WButton!
+    private var continueButtonKeyboardConstraint: NSLayoutConstraint!
+    private var continueButtonHiddenConstraint: NSLayoutConstraint!
+    private var continueButtonFrozenConstraint: NSLayoutConstraint?
     private var isSubmitting = false
     
-    public init(introModel: IntroModel) {
+    public init(introModel: IntroModel, autofocusesOnAppear: Bool = true) {
         self.introModel = introModel
+        self.autofocusesOnAppear = autofocusesOnAppear
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -102,13 +107,17 @@ public class AddViewWalletVC: CreateWalletBaseVC {
         clearButton.alpha = 0.8
         addressContainer.addSubview(clearButton)
 
-        continueButton = addBottomButton()
+        continueButton = addBottomButton(bottomConstraint: false)
         continueButton.setTitle(lang("Continue"), for: .normal)
         continueButton.addTarget(self, action: #selector(onContinue), for: .touchUpInside)
         continueButton.isEnabled = false
-        bottomButtonConstraint?.priority = .defaultHigh
-        
+
+        let keyboardGuide = view.keyboardLayoutGuide
+        continueButtonKeyboardConstraint = continueButton.bottomAnchor.constraint(equalTo: keyboardGuide.topAnchor, constant: -16)
+        continueButtonHiddenConstraint = continueButton.topAnchor.constraint(equalTo: view.bottomAnchor, constant: 100)
+
         NSLayoutConstraint.activate([
+            continueButtonHiddenConstraint,
             headerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 0).withPriority(.defaultLow),
             headerView.topAnchor.constraint(greaterThanOrEqualTo: view.topAnchor, constant: 8),
             headerView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 32),
@@ -141,15 +150,65 @@ public class AddViewWalletVC: CreateWalletBaseVC {
         updateActionsVisibility()
     }
     
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        view.endEditing(true)
+        freezeContinueButtonPosition()
+    }
+
+    private func freezeContinueButtonPosition() {
+        guard continueButtonKeyboardConstraint.isActive else { return }
+        let frozenY = continueButton.frame.minY
+        continueButtonKeyboardConstraint.isActive = false
+        continueButtonFrozenConstraint?.isActive = false
+        let frozenConstraint = continueButton.topAnchor.constraint(equalTo: view.topAnchor, constant: frozenY)
+        continueButtonFrozenConstraint = frozenConstraint
+        frozenConstraint.isActive = true
+    }
+
+    private func restoreContinueButtonKeyboardConstraintIfNeeded() {
+        guard !continueButtonHiddenConstraint.isActive else { return }
+        continueButtonFrozenConstraint?.isActive = false
+        continueButtonFrozenConstraint = nil
+        continueButtonKeyboardConstraint.isActive = true
+    }
+
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        if autofocusesOnAppear {
+            focusAddressField()
+        }
+        showContinueButtonIfNeeded()
+    }
+
+    private func showContinueButtonIfNeeded() {
+        guard continueButtonHiddenConstraint.isActive else { return }
+        continueButtonHiddenConstraint.isActive = false
+        continueButtonFrozenConstraint?.isActive = false
+        continueButtonFrozenConstraint = nil
+        continueButtonKeyboardConstraint.isActive = true
+        UIView.animate(withDuration: 0.45, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0) {
+            self.view.layoutIfNeeded()
+        }
+    }
+    
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        restoreContinueButtonKeyboardConstraintIfNeeded()
+    }
+    
+    public func focusAddressField() {
         if addressTextView.text.isEmpty {
             addressTextView.becomeFirstResponder()
         }
     }
     
+    private func getTrimmedInput() -> String {
+        addressTextView?.text.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+    
     private func updateActionsVisibility() {
-        let trimmedValue = addressTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedValue = getTrimmedInput()
         let isEmpty = trimmedValue.isEmpty
         placeholderLabel.isHidden = !addressTextView.text.isEmpty
         pasteButton.isHidden = !isEmpty
@@ -159,7 +218,11 @@ public class AddViewWalletVC: CreateWalletBaseVC {
     
     @objc private func onContinue() {
         guard !isSubmitting else { return }
-        let value = addressTextView.text ?? ""
+        let value = getTrimmedInput()
+        guard !value.isEmpty else {
+            updateActionsVisibility()
+            return
+        }
         isSubmitting = true
         continueButton.showLoading = true
         continueButton.isEnabled = false

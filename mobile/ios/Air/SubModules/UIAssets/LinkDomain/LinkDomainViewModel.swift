@@ -7,6 +7,7 @@ import SwiftNavigation
 @Perceptible
 @MainActor final class LinkDomainViewModel {
     let nftAddress: String
+    let initialNft: ApiNft?
     @PerceptionIgnored
     @AccountContext var account: MAccount
 
@@ -28,9 +29,10 @@ import SwiftNavigation
 
     var onLink: (() -> Void)?
 
-    init(accountSource: AccountSource, nftAddress: String) {
+    init(accountSource: AccountSource, nftAddress: String, nft: ApiNft? = nil) {
         self._account = AccountContext(source: accountSource)
         self.nftAddress = nftAddress
+        self.initialNft = nft
         let linkedAddress = $account.domains.linkedAddressByAddress[nftAddress]?.nilIfEmpty
         self.walletAddress = linkedAddress ?? account.getAddress(chain: nft?.chain) ?? ""
         resolveObserver = observe { [weak self] in
@@ -54,6 +56,8 @@ import SwiftNavigation
 
     var nft: ApiNft? {
         $account.domains.nftsByAddress[nftAddress]
+            ?? initialNft
+            ?? NftStore.getNft(accountId: account.id, nftId: nftAddress)?.nft
     }
 
     var linkedWalletAddress: String? {
@@ -91,7 +95,7 @@ import SwiftNavigation
     var canLink: Bool {
         guard isAddressValid else { return false }
         if let linkedWalletAddress, linkedWalletAddress == normalizedWalletAddress { return false }
-        return !isSubmitting && !isLoadingDraft && realFee != nil && !isInsufficientBalance
+        return !isSubmitting && !isInsufficientBalance
     }
 
     private var normalizedWalletAddress: String {
@@ -99,7 +103,7 @@ import SwiftNavigation
     }
 
     var isButtonLoading: Bool {
-        isSubmitting || isLoadingDraft
+        isSubmitting || isLoadingDraft || realFee == nil
     }
 
     func displayComponents() -> (primary: String?, secondary: String?) {
@@ -124,6 +128,7 @@ import SwiftNavigation
 
     func loadDraft() async {
         guard !isLoadingDraft, let nft else { return }
+        setInitialWalletAddressIfNeeded(for: nft)
         isLoadingDraft = true
         errorMessage = nil
         do {
@@ -137,10 +142,10 @@ import SwiftNavigation
         isLoadingDraft = false
     }
 
-    func submit(password: String?) async throws {
-        guard !isSubmitting, let nft else { return }
+    func submit(password: String?) async throws -> ApiMfaProtectedResult {
+        guard !isSubmitting, let nft else { return ApiMfaProtectedResult() }
         let address = normalizedWalletAddress
-        guard !address.isEmpty else { return }
+        guard !address.isEmpty else { return ApiMfaProtectedResult() }
         isSubmitting = true
         defer { isSubmitting = false }
         let info = try await Api.getAddressInfo(chain: nft.chain, network: account.network, address: address)
@@ -155,7 +160,13 @@ import SwiftNavigation
             address: resolvedAddress,
             realFee: realFee
         )
-        _ = result
+        if let error = result.error {
+            throw BridgeCallError(message: error, payload: result)
+        }
+        return ApiMfaProtectedResult(
+            activityId: result.activityId,
+            mfaRequestHash: result.mfaRequestHash
+        )
     }
 
     func applyScanResult(_ result: ScanResult) {
@@ -205,6 +216,11 @@ import SwiftNavigation
                 }
             }
         }
+    }
+
+    private func setInitialWalletAddressIfNeeded(for nft: ApiNft) {
+        guard normalizedWalletAddress.isEmpty else { return }
+        walletAddress = linkedWalletAddress ?? account.getAddress(chain: nft.chain) ?? ""
     }
 
 }

@@ -326,7 +326,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
 
     case 'updateAccount': {
       const {
-        accountId, chain, domain, address, isMultisig, derivation,
+        accountId, chain, domain, address, isMultisig, derivation, mfa,
       } = update;
       const account = selectAccount(global, accountId);
       if (!account) {
@@ -365,6 +365,9 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       }
       if (derivation !== undefined) {
         chainUpdate.derivation = derivation;
+      }
+      if (mfa !== undefined) {
+        chainUpdate.mfa = mfa || undefined;
       }
       global = updateAccountChain(global, accountId, chain, chainUpdate);
       setGlobal(global);

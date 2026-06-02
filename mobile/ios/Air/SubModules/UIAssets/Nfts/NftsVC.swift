@@ -615,16 +615,18 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                                   point: CGPoint) -> UIContextMenuConfiguration? {
         guard canStartDragOrOpenMenu() else { return nil }
         guard let row = dataSource?.itemIdentifier(for: indexPath) else { return nil }
-        guard case .nft(let nftId) = row, let nft = displayNfts?[nftId]?.nft else { return nil }
+        guard case .nft(let nftId) = row, let displayNft = displayNfts?[nftId] else { return nil }
         
         let menu = UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: nil) { _ in
-            return self.makeNftCellMenu(nft: nft)
+            return self.makeNftCellMenu(displayNft: displayNft)
         }
         return menu
     }
     
-    private func makeNftCellMenu(nft: ApiNft) -> UIMenu {
+    private func makeNftCellMenu(displayNft: DisplayNft) -> UIMenu {
+        let nft = displayNft.nft
         let accountId = account.id
+        let network = account.network
         
         let accountSettings = $account.settings
         let domains = $account.domains
@@ -683,8 +685,8 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                     }
                 }
             }
-            if account.type == .mnemonic, nft.isTonDns, !nft.isOnSale {
-                if domains.expirationByAddress[nft.address] != nil {
+            if account.type == .mnemonic, nft.isLinkableDns, !nft.isOnSale {
+                if nft.isRenewableDns, domains.expirationByAddress[nft.address] != nil {
                     items += UIAction(title: lang("Renew"), image: .airBundle("MenuRenew26")) { _ in
                         AppActions.showRenewDomain(accountSource: .accountId(accountId), nftsToRenew: [nft.address])
                     }
@@ -694,11 +696,21 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                     ? lang("Link to Wallet")
                     : lang("Change Linked Wallet")
                 items += UIAction(title: title, image: .airBundle("MenuLinkToWallet26")) { _ in
-                    AppActions.showLinkDomain(accountSource: .accountId(accountId), nftAddress: nft.address)
+                    AppActions.showLinkDomain(accountSource: .accountId(accountId), nftAddress: nft.address, nft: nft)
                 }
             }
-            items += UIAction(title: lang("Hide"), image: .airBundle("MenuHide26")) { _ in
-                NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
+            if displayNft.isHiddenByUser {
+                items += UIAction(title: lang("Unhide"), image: UIImage(systemName: "eye")) { _ in
+                    NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: false)
+                }
+            } else if nft.isScam == true, !displayNft.isUnhiddenByUser {
+                items += UIAction(title: lang("Not Scam"), image: UIImage(systemName: "checkmark.shield")) { _ in
+                    NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: false)
+                }
+            } else {
+                items += UIAction(title: lang("Hide"), image: .airBundle("MenuHide26")) { _ in
+                    NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
+                }
             }
             if account.supportsBurn, nft.chain.isNftBurnSupported, !nft.isOnSale {
                 items += UIAction(title: lang("Burn"), image: .airBundle("MenuBurn26"), attributes: .destructive) { _ in
@@ -712,7 +724,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
         let openInSection: UIMenu
         do {
             var items: [UIMenuElement] = []
-            if nft.isOnFragment == true, let string = nft.metadata?.fragmentUrl?.nilIfEmpty, let url = URL(string: string) {
+            if let url = nft.fragmentUrl {
                 items += UIAction(title: "Fragment", image: .airBundle("MenuFragment26")) { _ in
                     AppActions.openInBrowser(url)
                 }
@@ -754,7 +766,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                 items.append(collectionAction)
             }
             items += UIAction(title: lang("Share"), image: .airBundle("MenuShare26")) { _ in
-                AppActions.shareUrl(ExplorerHelper.nftUrl(nft))
+                AppActions.shareUrl(ExplorerHelper.viewNftUrl(network: network, nftAddress: nft.address))
             }
             if !openInSection.children.isEmpty {
                 items.append(openInSection)

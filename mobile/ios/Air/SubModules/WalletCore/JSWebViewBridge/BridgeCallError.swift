@@ -27,6 +27,7 @@ public enum BridgeCallError: Error, @unchecked Sendable { // todo: remove Any as
 public enum BridgeCallErrorMessages: String {
     case serverError = "ServerError"
     case invalidMnemonic = "Invalid mnemonic"
+    case domainNotResolved = "DomainNotResolved"
     
     // transaction errors
     case partialTransactionFailure = "PartialTransactionFailure"
@@ -71,6 +72,8 @@ public enum BridgeCallErrorMessages: String {
             return lang("Invalid address")
         case .walletNotInitialized:
             return lang("Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.")
+        case .domainNotResolved:
+            return lang("Domain is not connected to a wallet")
         case .unknown:
             return lang("Please make sure your internet connection is working and try again.")
         }

@@ -36,10 +36,12 @@ public let TON_NFT_MARKETPLACE_TITLE = "Fragment"
 public let MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT = 3
 
 public let LIQUID_POOL = "EQD2_4d91M4TVbEBVyBF8J1UwpMJc361LKVCz6bBlffMW05o"
+public let NOMINATORS_STAKING_POOL = "Ef84o4VJRnlp1wsqSHov1QttqSTQda2Z1vGK-b7EaPQoeJMx"
 public let MYCOIN_STAKING_POOL = "EQC3roTiRRsoLzfYVK7yVVoIZjTEqAjQU3ju7aQ7HWTVL5o5"
 
 public let ALL_STAKING_POOLS: Set<String> = [
   LIQUID_POOL,
+  NOMINATORS_STAKING_POOL,
   MYCOIN_STAKING_POOL,
 ]
 
@@ -65,6 +67,18 @@ public let SUPPORT_USERNAME = "mysupport"
 
 public let MTW_TIPS_CHANNEL_NAME = "MyTonWalletTips"
 public let MTW_TIPS_CHANNEL_NAME_RU = "MyTonWalletTipsRu"
+public let MFA_BOT_URL = "https://t.me/myapp/mfa"
+
+public func buildMfaBotUrl(startApp: String) -> URL? {
+    guard var components = URLComponents(string: MFA_BOT_URL) else {
+        return nil
+    }
+    let appPrefix = IS_GRAM_WALLET ? "g" : "m"
+    components.queryItems = [
+        URLQueryItem(name: "startapp", value: "\(appPrefix)_\(startApp)"),
+    ]
+    return components.url
+}
 
 public let HELP_CENTER_URL = "https://help.mytonwallet.io"
 public let HELP_CENTER_URL_RU = "https://help.mytonwallet.io/ru"

@@ -16,7 +16,7 @@ import WalletContext
     )
     static func insufficientFee(minAmount: BigInt) -> WButtonConfig {
         .init(
-            title: lang("$insufficient_fee", arg1: "\(minAmount.doubleAbsRepresentation(decimals: 9)) TON"),
+            title: lang("$insufficient_fee", arg1: "\(minAmount.doubleAbsRepresentation(decimals: 9)) GRAM"),
             isEnabled: false
         )
     }

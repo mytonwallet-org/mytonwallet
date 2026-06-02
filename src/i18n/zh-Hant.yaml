@@ -8,6 +8,22 @@ Creating Wallet...: 錢包創建中...
 On the count of three...: 數到三...
 $back_up_auth: 備份
 $back_up_security: 備份安全
+$2fa_security: Telegram 2FA
+2FA with Telegram: Telegram 2FA
+Confirm operations in Telegram as a second step.: 在 Telegram 中作為第二步確認操作。
+Confirm with: 透過以下方式確認
+Add an extra layer of security for your wallet in TON network.: 為你在 TON 網路中的錢包加入額外安全層。
+Sign transfers and important actions with your passcode, then confirm them in Telegram.: 使用密碼簽署轉帳和重要操作，然後在 Telegram 中確認。
+This helps protect your funds even if your recovery phrase or keys are compromised.: 即使你的恢復短語或金鑰外洩，這也有助於保護你的資金。
+"Connection Fee:": "連接費用："
+Connect Telegram: 連接 Telegram
+Telegram will be used to confirm transfers and important actions.: Telegram 將用於確認轉帳和重要操作。
+My Telegram Account: 我的 Telegram 帳戶
+Without username: 無使用者名稱
+Unlink Account: 解除綁定帳戶
+An extra security layer requires confirming actions in Telegram after signing.: 額外安全層要求在簽名後於 Telegram 中確認操作。
+Confirm Connection: 確認連接
+Confirm Disconnection: 確認斷開連接
 Passwords must be equal.: 密碼必須相同。
 To protect your wallet as much as possible, use a password with: 為了盡可能保護您的錢包，密碼請遵循下列規則
 $auth_password_rule_8chars: 至少 8 個字元
@@ -874,6 +890,10 @@ $domain_expire: "**%domain%** 將於%days%到期"
 "%token% Staking": "%token% 質押"
 Add Tab: 新增分頁
 Remove Tab: 移除分頁
+$iab_tabs_count:
+  zeroValue: "%1$d 個分頁"
+  oneValue: "%1$d 個分頁"
+  otherValue: "%1$d 個分頁"
 Link Domain: 連結網域
 Domain Linked!: 網域已連結!
 $domains_amount %1$d:
@@ -1243,7 +1263,7 @@ Standalone: 獨立
 All Telegram Gifts: 全部 Telegram 禮物
 Add Crypto: 新增加密貨幣
 Share QR Code: 分享 QR Code
-$send_only_ton: 請僅將 Toncoin (TON) 或 TON 網路資產傳送到此地址。傳送其他代幣會導致損失。
+$send_only_ton: 請僅將 Gram (GRAM) 或 TON 網路資產傳送到此地址。傳送其他代幣會導致損失。
 $send_only_chain: 請僅將 %chain% (%symbol%) 或 %chain% 網路資產傳送到此地址。傳送其他代幣會導致損失。
 Buying with card is not supported for this account.: 此帳戶不支援信用卡購買。
 Swapped at: 兌換時間
@@ -1497,8 +1517,8 @@ push_activity_swap_completed: 兌換 %from_symbol% -> %to_symbol% 已完成
 push_activity_swap_failed: 兌換 %from_symbol% -> %to_symbol% 失敗
 push_activity_swap_expired: 兌換 %from_symbol% -> %to_symbol% 已過期
 push_activity_swap_pending: 兌換 %from_symbol% -> %to_symbol% %status%
-push_activity_staking_profit: 質押收益 %amount% TON
-push_activity_staking_loyalty_profit: 質押忠誠度收益 %amount% TON
+push_activity_staking_profit: 質押收益 %amount% GRAM
+push_activity_staking_loyalty_profit: 質押忠誠度收益 %amount% GRAM
 push_domain_title_renew: 續訂您的網域
 push_domain_expired_yesterday: 您的網域 %domain% 昨天已過期。請盡快續訂，以免失去存取權限
 push_domain_expired_days_ago: 您的網域 %domain% 已於 %days% 天前過期。請盡快續訂，以免失去存取權限
@@ -1519,3 +1539,4 @@ Tracked asset value over time: 追蹤資產價值變化
 Cumulative profit and loss over time: 累計盈虧走勢
 Day-by-day profit and loss: 逐日盈虧
 Current allocation across tracked assets: 目前資產分配
+This action is not supported in explorer mode.: 此操作在瀏覽器模式下不支援。

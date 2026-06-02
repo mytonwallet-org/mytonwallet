@@ -18,8 +18,6 @@ import org.mytonwallet.app_air.uicomponents.image.WActivityImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
-import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
-import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
@@ -46,7 +44,6 @@ class IconView(
     private var failedTransactionDrawable: GradientDrawable? = null
 
     private var abbreviationText: String = ""
-    private var currentSize: Int = viewSize
     private val textPaint = AccountAvatarRenderer.createTextPaint(
         AccountAvatarRenderer.getTextSizeForViewSize(viewSize)
     )
@@ -72,29 +69,10 @@ class IconView(
         activityImageView.clipChildren = clipChildren
     }
 
-    fun setSize(size: Int) {
-        currentSize = size
-        activityImageView.setSize(size)
-        textPaint.textSize = AccountAvatarRenderer.getTextSizeForViewSize(size)
-        requestLayout()
-    }
-
     fun updateTheme() {
         AccountAvatarRenderer.updatePaintTheme(textPaint)
         activityImageView.updateTheme()
         clearCache()
-    }
-
-    fun config(account: MAccount, abbreviationTextSize: Float = 18f.dp) {
-        val address = account.firstAddress ?: ""
-        activityImageView.imageView.background = getCachedGradientDrawable(address.gradientColors)
-        activityImageView.imageView.setPadding(0)
-        activityImageView.imageView.setImageDrawable(null)
-
-        abbreviationText = account.abbreviation
-        textPaint.textSize = abbreviationTextSize
-
-        invalidate()
     }
 
     override fun dispatchDraw(canvas: Canvas) {

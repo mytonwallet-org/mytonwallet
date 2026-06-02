@@ -230,7 +230,7 @@ extension ApiToken {
     }
     
     public var swapIdentifier: String {
-        return symbol == "TON" ? "TON" : (tokenAddress?.nilIfEmpty ?? slug)
+        return slug == TONCOIN_SLUG ? "TON" : (tokenAddress?.nilIfEmpty ?? slug)
     }
     
     public var earnAvailable: Bool {
@@ -330,8 +330,8 @@ extension ApiToken {
     
     public static let TONCOIN = ApiToken(
         slug: TONCOIN_SLUG,
-        name: "Toncoin",
-        symbol: "TON",
+        name: "Gram",
+        symbol: "GRAM",
         decimals: 9,
         chain: .ton,
         cmcSlug: "toncoin"
@@ -380,13 +380,13 @@ extension ApiToken {
         chain: .bnb
     )
 
-//    public static let POLYGON = ApiToken(
-//        slug: POLYGON_SLUG,
-//        name: "Polygon",
-//        symbol: "POL",
-//        decimals: 18,
-//        chain: .polygon
-//    )
+   public static let POLYGON = ApiToken(
+       slug: POLYGON_SLUG,
+       name: "Polygon",
+       symbol: "POL",
+       decimals: 18,
+       chain: .polygon
+   )
 
     public static let ARBITRUM = ApiToken(
         slug: ARBITRUM_SLUG,
@@ -397,21 +397,21 @@ extension ApiToken {
         label: "Arbitrum"
     )
 
-//    public static let MONAD = ApiToken(
-//        slug: MONAD_SLUG,
-//        name: "Monad",
-//        symbol: "MON",
-//        decimals: 18,
-//        chain: .monad
-//    )
-//
-//    public static let AVALANCHE = ApiToken(
-//        slug: AVALANCHE_SLUG,
-//        name: "Avalanche",
-//        symbol: "AVAX",
-//        decimals: 18,
-//        chain: .avalanche
-//    )
+   public static let MONAD = ApiToken(
+       slug: MONAD_SLUG,
+       name: "Monad",
+       symbol: "MON",
+       decimals: 18,
+       chain: .monad
+   )
+
+   public static let AVALANCHE = ApiToken(
+       slug: AVALANCHE_SLUG,
+       name: "Avalanche",
+       symbol: "AVAX",
+       decimals: 18,
+       chain: .avalanche
+   )
 
     public static let HYPERLIQUID = ApiToken(
         slug: HYPERLIQUID_SLUG,
@@ -554,17 +554,17 @@ extension ApiToken {
         priceUsd: 1
     )
 
-//    public static let AVALANCHE_USDT_MAINNET = ApiToken(
-//        slug: AVALANCHE_USDT_MAINNET_SLUG,
-//        name: "Tether USD",
-//        symbol: "USDT",
-//        decimals: 6,
-//        chain: .avalanche,
-//        tokenAddress: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
-//        image: TON_USDT_MAINNET_IMAGE,
-//        label: "ERC-20",
-//        priceUsd: 1
-//    )
+    public static let AVALANCHE_USDT_MAINNET = ApiToken(
+        slug: AVALANCHE_USDT_MAINNET_SLUG,
+        name: "Tether USD",
+        symbol: "USDT",
+        decimals: 6,
+        chain: .avalanche,
+        tokenAddress: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
+        image: TON_USDT_MAINNET_IMAGE,
+        label: "ERC-20",
+        priceUsd: 1
+    )
 
     public static let HYPERLIQUID_USDC_MAINNET = ApiToken(
         slug: HYPERLIQUID_USDC_MAINNET_SLUG,
@@ -580,7 +580,7 @@ extension ApiToken {
 
     public static let STAKED_TON = ApiToken(
         slug: STAKED_TON_SLUG,
-        name: "Staked Toncoin",
+        name: "Staked Gram",
         symbol: "STAKED",
         decimals: 9,
         chain: .ton

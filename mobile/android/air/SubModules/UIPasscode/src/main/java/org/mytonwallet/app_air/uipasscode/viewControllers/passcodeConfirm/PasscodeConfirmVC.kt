@@ -22,7 +22,10 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStrin
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
+import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.api.refreshStoredMfa
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.api.resetAccounts
 import org.mytonwallet.app_air.walletcore.stores.AuthCooldownError
 import org.mytonwallet.app_air.walletcore.stores.AuthStore
@@ -179,6 +182,22 @@ class PasscodeConfirmVC(
             view.lockView()
             isDoingTask = true
             Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "onPasscodeVerified: Running task")
+            // Re-sync MFA state with the server before running protected actions
+            // so a stale local copy doesn't bypass Telegram approval. Best-effort: don't block the task.
+            if (passcodeViewState is PasscodeViewState.CustomHeader) {
+                AccountStore.activeAccountId?.let { accountId ->
+                    WalletCore.scope.launch {
+                        try {
+                            WalletCore.refreshStoredMfa(accountId, passcode)
+                        } catch (t: Throwable) {
+                            Logger.e(
+                                Logger.LogTag.PASSCODE_CONFIRM,
+                                "refreshStoredMfa before protected action failed: $t",
+                            )
+                        }
+                    }
+                }
+            }
             task(passcode)
             if (isTaskAsync) {
                 navigationBar?.fadeOutActions()

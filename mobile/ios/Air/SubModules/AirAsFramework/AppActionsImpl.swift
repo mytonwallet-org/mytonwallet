@@ -1,6 +1,7 @@
 
 import Foundation
 import UIKit
+import SwiftUI
 import UIComponents
 import WalletCore
 import WalletContext
@@ -16,6 +17,7 @@ import UIHome
 import UIToken
 import UIInAppBrowser
 import UIPortfolio
+import UIPasscode
 import UniformTypeIdentifiers
 import Dependencies
 
@@ -87,6 +89,34 @@ private class AppActionsImpl: AppActionsProtocol {
     static func openTipsChannel() {
         let channel = Language.current == .ru ? MTW_TIPS_CHANNEL_NAME_RU : MTW_TIPS_CHANNEL_NAME
         UIApplication.shared.open(URL(string: "https://t.me/\(channel)")!)
+    }
+
+    static func authorizeProtectedAction<HeaderView: View, Result: MfaProtectedActionResult>(
+        on viewController: UIViewController,
+        account: MAccount,
+        title: String,
+        headerView: HeaderView,
+        passwordAction: @escaping (String) async throws -> Result,
+        ledgerSignData: (() async throws -> SignData)?,
+        ledgerFromAddress: String?,
+        presentationStyle: ProtectedActionPresentationStyle,
+        useBioOnPresent: Bool,
+        completionBehavior: ProtectedActionCompletionBehavior,
+        mfaTitle: String?
+    ) async throws -> Result? {
+        try await ProtectedActionPresenter.authorizeProtectedAction(
+            on: viewController,
+            account: account,
+            title: title,
+            headerView: headerView,
+            passwordAction: passwordAction,
+            ledgerSignData: ledgerSignData,
+            ledgerFromAddress: ledgerFromAddress,
+            presentationStyle: presentationStyle,
+            useBioOnPresent: useBioOnPresent,
+            completionBehavior: completionBehavior,
+            mfaTitle: mfaTitle
+        )
     }
     
     static func repeatActivity(accountContext: AccountContext, _ activity: ApiActivity) {
@@ -363,7 +393,11 @@ private class AppActionsImpl: AppActionsProtocol {
     }
 
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) {
-        let vc = LinkDomainVC(accountSource: accountSource, nftAddress: nftAddress)
+        showLinkDomain(accountSource: accountSource, nftAddress: nftAddress, nft: nil)
+    }
+
+    static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) {
+        let vc = LinkDomainVC(accountSource: accountSource, nftAddress: nftAddress, nft: nft)
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
     }
 

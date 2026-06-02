@@ -17,25 +17,18 @@ public class UnlockVC: WViewController {
         on vc: UIViewController,
         title: String,
         customHeaderVC: UIViewController,
+        useBioOnPresent: Bool = true,
         onAuthTask: @escaping (_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void,
         onDone: @escaping (_ passcode: String) -> Void
     ) {
-
-        let unlockVC = UnlockVC(
+        PasscodeAuthPresenter.push(
+            on: vc,
             title: title,
-            replacedTitle: nil,
-            subtitle: nil,
             customHeaderVC: customHeaderVC,
-            animatedPresentation: false,
-            dissmissWhenAuthorized: false,
-            shouldBeThemedLikeHeader: false,
+            useBioOnPresent: useBioOnPresent,
             onAuthTask: onAuthTask,
-            onDone: onDone,
-            cancellable: false,
-            onCancel: nil,
-            useBioOnPresent: true
+            onDone: onDone
         )
-        vc.navigationController?.pushViewController(unlockVC, animated: true)
     }
 
     /// Should be called before auth required actions
@@ -51,59 +44,17 @@ public class UnlockVC: WViewController {
         cancellable: Bool,
         onCancel: (() -> Void)? = nil
     ) {
-
-        guard AuthSupport.accountsSupportAppLock else {
-            onDone(nil)
-            return
-        }
-
-        func _makeUnlockVC(useBioOnPresent: Bool) -> UIViewController {
-            let unlockVC =  UnlockVC(
-                title: title,
-                replacedTitle: replacedTitle,
-                subtitle: subtitle,
-                customHeaderVC: customHeaderVC,
-                dissmissWhenAuthorized: false,
-                onAuthTask: onAuthTask,
-                onDone: onDone,
-                cancellable: cancellable,
-                onCancel: onCancel,
-                useBioOnPresent: useBioOnPresent
-            )
-            if cancellable {
-                let navVC = WNavigationController(rootViewController: unlockVC)
-                navVC.navigationBar.tintColor = AirTintColor
-                return navVC
-            } else {
-                return unlockVC
-            }
-        }
-
-        let canUseBiometric = AppStorageHelper.isBiometricActivated() && BiometricHelper.biometryType != nil
-        if onAuthTask == nil && canUseBiometric {
-            Task { @MainActor [weak vc] in
-                let result = await BiometricHelper.authenticate()
-                switch result {
-                case .success:
-                    let passcode = KeychainHelper.biometricPasscode()
-                    do {
-                        guard try await AuthSupport.verifyPassword(password: passcode) else {
-                            vc?.present(_makeUnlockVC(useBioOnPresent: false), animated: true)
-                            return
-                        }
-                        onDone(passcode)
-                    } catch {
-                        vc?.present(_makeUnlockVC(useBioOnPresent: false), animated: true)
-                    }
-
-                case .canceled, .error, .userDeniedBiometrics:
-                    vc?.present(_makeUnlockVC(useBioOnPresent: false), animated: true)
-                }
-            }
-        } else {
-            // can use bio, but because of `onAuthTask`, first present unlock vc for sure!
-            vc.present(_makeUnlockVC(useBioOnPresent: canUseBiometric), animated: true)
-        }
+        PasscodeAuthPresenter.present(
+            on: vc,
+            title: title,
+            replacedTitle: replacedTitle,
+            subtitle: subtitle,
+            customHeaderVC: customHeaderVC,
+            onAuthTask: onAuthTask,
+            onDone: onDone,
+            cancellable: cancellable,
+            onCancel: onCancel
+        )
     }
 
     /// Should be called before auth required actions
@@ -116,47 +67,14 @@ public class UnlockVC: WViewController {
         customHeaderVC: UIViewController? = nil,
         authTask: (@MainActor (_ passcode: String) async -> Void)? = nil
     ) async -> String? {
-
-        guard AuthSupport.accountsSupportAppLock else {
-            return nil
-        }
-
-        var onAuthTask: ((_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void)? = nil
-        if let authTask {
-            onAuthTask = { passcode, onTaskDone in
-                Task {
-                    await authTask(passcode)
-                    onTaskDone()
-                }
-            }
-        }
-        let lock = NSLock()
-
-        return await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
-            var nillableContinuation: CheckedContinuation<String?, Never>? = continuation
-
-            presentAuth(
-                on: vc,
-                title: title,
-                replacedTitle: replacedTitle,
-                subtitle: subtitle,
-                customHeaderVC: customHeaderVC,
-                onAuthTask: onAuthTask,
-                onDone: { password in
-                    lock.lock()
-                    defer { lock.unlock() }
-                    nillableContinuation?.resume(returning: password)
-                    nillableContinuation = nil
-                },
-                cancellable: true,
-                onCancel: {
-                    lock.lock()
-                    defer { lock.unlock() }
-                    nillableContinuation?.resume(returning: nil)
-                    nillableContinuation = nil
-                }
-            )
-        }
+        await PasscodeAuthPresenter.presentAsync(
+            on: vc,
+            title: title,
+            replacedTitle: replacedTitle,
+            subtitle: subtitle,
+            customHeaderVC: customHeaderVC,
+            authTask: authTask
+        )
     }
 
     private let unlockTitle: String

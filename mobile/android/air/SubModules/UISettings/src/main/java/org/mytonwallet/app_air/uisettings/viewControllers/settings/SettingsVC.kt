@@ -494,7 +494,7 @@ class SettingsVC(context: Context) : WViewController(context),
 
             SettingsItem.Identifier.HELP_CENTER -> {
                 val url = context.getString(BaseR.string.app_help_url)
-                if (url.isNotEmpty()) openUrl(item.title, url)
+                if (url.isNotEmpty()) openUrl(item.title.toString(), url)
             }
 
             SettingsItem.Identifier.USE_RESPONSIBILITY -> {
@@ -529,7 +529,7 @@ class SettingsVC(context: Context) : WViewController(context),
 
             SettingsItem.Identifier.MTW_CARDS_NFT -> {
                 openUrl(
-                    item.title,
+                    item.title.toString(),
                     ExplorerHelpers.getMtwCardsUrl(MBlockchainNetwork.MAINNET)
                 )
             }

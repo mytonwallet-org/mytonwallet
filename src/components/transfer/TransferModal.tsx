@@ -31,6 +31,7 @@ import Modal from '../ui/Modal';
 import Transition from '../ui/Transition';
 import TransferComplete from './TransferComplete';
 import TransferConfirm from './TransferConfirm';
+import TransferConfirmMfa from './TransferConfirmMfa';
 import TransferInitial from './TransferInitial';
 import TransferMultiNftProcess from './TransferMultiNftProcess';
 import TransferPassword from './TransferPassword';
@@ -197,6 +198,24 @@ function TransferModal({
             toAddress={renderedToAddress}
             onClose={handleClose}
           />
+        );
+      case TransferState.ConfirmMfa:
+        return (
+          <TransferConfirmMfa
+            isActive={isActive}
+            onClose={handleClose}
+          >
+            <TransactionBanner
+              tokenIn={selectedToken}
+              imageUrl={nfts?.[0]?.thumbnail}
+              withChainIcon
+              text={isNftTransfer
+                ? (nfts.length > 1 ? lang('%amount% NFTs', { amount: nfts.length }) : nfts[0]?.name || 'NFT')
+                : formatCurrency(toDecimal(amount!, decimals), symbol)}
+              className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
+              secondText={shortenAddress(toAddress!)}
+            />
+          </TransferConfirmMfa>
         );
     }
   }

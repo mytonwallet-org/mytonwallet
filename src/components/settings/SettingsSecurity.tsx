@@ -9,15 +9,19 @@ import { SettingsState } from '../../global/types';
 import {
   ANIMATED_STICKER_BIG_SIZE_PX,
   ANIMATED_STICKER_HUGE_SIZE_PX,
+  APP_ENV,
   APP_NAME,
   AUTO_CONFIRM_DURATION_MINUTES,
   AUTOLOCK_OPTIONS_LIST,
   DEFAULT_AUTOLOCK_OPTION,
   IS_CAPACITOR,
+  IS_GRAM_WALLET,
   PIN_LENGTH,
 } from '../../config';
 import {
+  selectCurrentAccount,
   selectCurrentAccountId,
+  selectCurrentAccountState,
   selectIsAllowSuspiciousActions,
   selectIsBiometricAuthEnabled,
   selectIsMnemonicAccount,
@@ -56,11 +60,15 @@ import BackupPrivateKey from './backup/BackupPrivateKey';
 import BackupSafetyRules from './backup/BackupSafetyRules';
 import BackupSecretWords from './backup/BackupSecretWords';
 import NativeBiometricsToggle from './biometrics/NativeBiometricsToggle';
+import Mfa from './mfa/Mfa';
+import MfaInstalled from './mfa/MfaInstalled';
+import MfaPassword from './mfa/MfaPassword';
 import SettingsHeader from './SettingsHeader';
 
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Settings.module.scss';
 
+import mfaImg from '../../assets/settings/settings_2fa.svg';
 import backupImg from '../../assets/settings/settings_backup.svg';
 import biometricsImg from '../../assets/settings/settings_biometrics.svg';
 
@@ -75,9 +83,13 @@ export const enum SLIDES {
   safetyRules,
   privateKey,
   secretWords,
+  mfa,
+  confirmMfaInstallation,
+  mfaInstalled,
 }
 
 const SWITCH_CONFIRM_PASSCODE_PAUSE_MS = 500;
+const SHOULD_FORCE_SHOW_MFA_IN_DEV = APP_ENV === 'development';
 const CHANGE_PASSWORD_PAUSE_MS = 1500;
 
 interface OwnProps {
@@ -100,6 +112,8 @@ interface StateProps {
   shouldShowBackup: boolean;
   isLoading?: boolean;
   currentAccountId: string;
+  isMfaEnabled: boolean;
+  hasCurrentAccountMfa: boolean;
 }
 
 const INITIAL_CHANGE_PASSWORD_SLIDE = getDoesUsePinPad() ? SLIDES.createNewPin : SLIDES.newPassword;
@@ -121,6 +135,8 @@ function SettingsSecurity({
   onAutoUpdateEnabledToggle,
   isLoading,
   shouldShowBackup,
+  isMfaEnabled,
+  hasCurrentAccountMfa,
 }: OwnProps & StateProps) {
   const {
     setIsPinAccepted,
@@ -298,6 +314,19 @@ function SettingsSecurity({
     setNextKey(undefined);
   });
 
+  const handleOpenMfa = useLastCallback(() => {
+    setCurrentSlide(SLIDES.mfa);
+  });
+
+  const handleOpenInstallConfirmation = useLastCallback(() => {
+    setCurrentSlide(SLIDES.confirmMfaInstallation);
+  });
+
+  const handleOpenMfaInstalled = useLastCallback(() => {
+    setCurrentSlide(SLIDES.mfaInstalled);
+    setNextKey(SLIDES.mfa);
+  });
+
   const handleOpenPrivateKey = useLastCallback(() => {
     setCurrentSlide(SLIDES.privateKey);
     setNextKey(SLIDES.backup);
@@ -438,6 +467,24 @@ function SettingsSecurity({
                   : 'The password will be changed for all your wallets.')
               }
               </p>
+            </>
+          )}
+
+          {(SHOULD_FORCE_SHOW_MFA_IN_DEV || (IS_GRAM_WALLET && isMfaEnabled) || hasCurrentAccountMfa) && (
+            <>
+              <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
+                <div className={buildClassName(styles.item)} onClick={handleOpenMfa}>
+                  <img className={styles.menuIcon} src={mfaImg} alt={lang('2FA with Telegram')} />
+
+                  <span className={styles.textWithBadge}>
+                    {lang('2FA with Telegram')}
+                    <span className={styles.badge}>TON</span>
+                  </span>
+
+                  <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
+                </div>
+              </div>
+              <p className={styles.blockDescription}>{lang('Confirm operations in Telegram as a second step.')}</p>
             </>
           )}
 
@@ -732,6 +779,33 @@ function SettingsSecurity({
             onSubmit={onSettingsClose}
           />
         );
+      case SLIDES.mfa:
+        return (
+          <Mfa
+            isActive={isActive}
+            onBackClick={openSettingsSlide}
+            currentAccountId={currentAccountId}
+            isSlideActive={isSlideActive}
+            openMfaPassword={handleOpenInstallConfirmation}
+            openMfaInstalled={handleOpenMfaInstalled}
+          />
+        );
+      case SLIDES.confirmMfaInstallation:
+        return (
+          <MfaPassword
+            isActive={isActive}
+            onBackClick={handleOpenMfa}
+            openMfaInstalled={handleOpenMfaInstalled}
+            openMfa={handleOpenMfa}
+          />
+        );
+      case SLIDES.mfaInstalled:
+        return (
+          <MfaInstalled
+            isSlideActive={isSlideActive}
+            onClick={handleOpenMfa}
+          />
+        );
     }
   }
 
@@ -761,6 +835,9 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   const isAllowSuspiciousActions = selectIsAllowSuspiciousActions(global, currentAccountId);
   const isMultichainAccount = selectIsMultichainAccount(global, currentAccountId);
   const isMnemonicAccount = selectIsMnemonicAccount(global);
+  const currentAccount = selectCurrentAccount(global);
+  const hasCurrentAccountMfa = Boolean(currentAccount?.byChain.ton?.mfa);
+  const isMfaEnabled = selectCurrentAccountState(global)?.config?.isMfaEnabled ?? false;
 
   return {
     isBiometricAuthEnabled,
@@ -774,5 +851,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     shouldShowBackup: isMnemonicAccount,
     isLoading: global.auth.isLoading,
     currentAccountId,
+    isMfaEnabled,
+    hasCurrentAccountMfa,
   };
 })(SettingsSecurity));

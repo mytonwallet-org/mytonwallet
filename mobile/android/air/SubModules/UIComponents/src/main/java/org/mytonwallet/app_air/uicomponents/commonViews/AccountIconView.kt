@@ -7,17 +7,20 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Shader
-import android.view.View
+import android.widget.FrameLayout
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.image.Content
+import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 @SuppressLint("ViewConstructor")
-class AccountIconView(context: Context, val usage: Usage) : View(context) {
+class AccountIconView(context: Context, val usage: Usage) : FrameLayout(context) {
 
     sealed class Usage {
 
@@ -38,8 +41,13 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
 
     private val textPaint = AccountAvatarRenderer.createTextPaint(usage.textSize)
 
+    private val avatarImageView = WCustomImageView(context).apply {
+        defaultPlaceholder = Content.Placeholder.Color(WColor.Transparent)
+    }
+
     private var gradientColors: IntArray? = null
     private var abbreviationText: String = ""
+    private var avatarUrl: String? = null
     private var currentPadding: Float = 1.5f.dp
     private val ovalRect = RectF()
 
@@ -47,6 +55,8 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
         id = generateViewId()
         isFocusable = false
         isClickable = false
+        setWillNotDraw(false)
+        addView(avatarImageView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         updateTheme()
     }
 
@@ -61,15 +71,24 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
 
     private var accountId: String? = null
 
-    fun config(account: MAccount) {
-        config(account.accountId, account.name, account.firstAddress ?: "")
+    fun config(
+        account: MAccount,
+        useTelegramAvatar: Boolean = ApplicationContextHolder.isGramApp,
+    ) {
+        val avatarUrl = if (useTelegramAvatar) account.telegramAvatarUrl else null
+        config(account.accountId, account.name, account.firstAddress ?: "", avatarUrl)
     }
 
     fun config(savedAddress: MSavedAddress) {
         config(savedAddress.accountId, savedAddress.name, savedAddress.address)
     }
 
-    fun config(accountId: String?, title: CharSequence?, address: String) {
+    fun config(
+        accountId: String?,
+        title: CharSequence?,
+        address: String,
+        avatarUrl: String? = null
+    ) {
         this.accountId = accountId
         gradientColors = address.gradientColors
         abbreviationText = generateAbbreviation(title?.toString(), address)
@@ -86,12 +105,27 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
             is Usage.ViewItem -> 0f
         }
 
+        if (this.avatarUrl != avatarUrl) {
+            this.avatarUrl = avatarUrl
+            avatarImageView.clear()
+            if (avatarUrl != null) {
+                avatarImageView.set(Content.ofUrl(avatarUrl))
+            }
+        }
+
+        updateAvatarPadding()
         updateTheme()
+    }
+
+    private fun updateAvatarPadding() {
+        val pad = currentPadding.toInt()
+        if (avatarImageView.paddingLeft != pad) {
+            avatarImageView.setPadding(pad, pad, pad, pad)
+        }
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-
         drawGradientBackground(canvas)
         drawText(canvas)
         drawBorderIfNeeded(canvas)

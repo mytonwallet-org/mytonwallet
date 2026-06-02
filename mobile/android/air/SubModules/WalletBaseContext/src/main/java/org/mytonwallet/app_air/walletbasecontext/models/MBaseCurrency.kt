@@ -17,7 +17,7 @@ enum class MBaseCurrency(val currencyCode: String) {
             RUB -> "₽"
             CNY -> "¥"
             BTC -> "BTC"
-            TON -> "TON"
+            TON -> "GRAM"
         }
 
     val decimalsCount: Int
@@ -33,7 +33,7 @@ enum class MBaseCurrency(val currencyCode: String) {
             RUB -> "RUB"
             CNY -> "CNY"
             BTC -> "BTC"
-            TON -> "TON"
+            TON -> "GRAM"
         }
 
     val currencyName: String
@@ -43,7 +43,7 @@ enum class MBaseCurrency(val currencyCode: String) {
             RUB -> LocaleController.getString("Russian Ruble")
             CNY -> LocaleController.getString("Chinese Yuan")
             BTC -> LocaleController.getString("Bitcoin")
-            TON -> LocaleController.getString("Toncoin")
+            TON -> LocaleController.getString("Gram")
         }
 
     companion object {

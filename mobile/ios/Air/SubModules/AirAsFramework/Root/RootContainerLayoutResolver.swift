@@ -1,5 +1,4 @@
 import UIKit
-import UIHome
 import WalletContext
 
 @MainActor
@@ -10,20 +9,7 @@ protocol RootContainerLayoutResolving {
 @MainActor
 struct RootContainerLayoutResolver: RootContainerLayoutResolving {
     func buildActiveRootViewController() -> UIViewController {
-        StartupTrace.mark("rootContainer.activeRoot.build", details: "layout=\(shouldUseSplitLayout ? "split" : "tab")")
-        if shouldUseSplitLayout {
-            return RootContainerVC(contentViewController: SplitRootViewController())
-        }
-        return RootContainerVC(contentViewController: HomeTabBarController())
-    }
-    
-    private var shouldUseSplitLayout: Bool {
-        guard UIDevice.current.userInterfaceIdiom == .pad else {
-            return false
-        }
-        let width = UIApplication.shared.sceneKeyWindow?.bounds.width
-            ?? UIApplication.shared.anySceneKeyWindow?.bounds.width
-            ?? UIScreen.main.bounds.width
-        return width >= 700
+        StartupTrace.mark("rootContainer.activeRoot.build", details: "layout=adaptive")
+        return RootContainerVC(contentViewController: AdaptiveRootViewController())
     }
 }

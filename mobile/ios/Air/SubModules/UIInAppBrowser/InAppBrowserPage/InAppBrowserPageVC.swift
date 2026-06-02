@@ -9,32 +9,67 @@ private let log = Log("InAppBrowserPageVC")
 
 protocol InAppBrowserPageDelegate: AnyObject {
     func inAppBrowserPageStateChanged(_ browserPageVC: InAppBrowserPageVC)
+    func inAppBrowserPage(_ browserPageVC: InAppBrowserPageVC, wantsOpenNewPageWith config: InAppBrowserPageConfig)
+    func inAppBrowserPage(_ browserPageVC: InAppBrowserPageVC, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction) -> WKWebView?
+    func inAppBrowserPageWantsClose(_ browserPageVC: InAppBrowserPageVC)
+}
+
+struct InAppBrowserPageState {
+    let id: UUID
+    var url: URL
+    var title: String?
+    var canGoBack: Bool
+    var previewImage: UIImage?
 }
 
 final class InAppBrowserPageVC: WViewController {
-    
-    private(set) var config: InAppBrowserPageConfig {
+
+    var id: UUID { state.id }
+    private(set) var state: InAppBrowserPageState
+    private var config: InAppBrowserPageConfig {
         didSet {
             messageHandler.config = config
         }
     }
     weak var delegate: (any InAppBrowserPageDelegate)?
-    
+
     private let messageHandler: InAppBrowserMessageHandler
-    
+    private let initialWebViewConfiguration: WKWebViewConfiguration?
+    private let loadsInitialRequest: Bool
+
     /// Use WalletCoreData.notify(.openInBrowser(...)) to open a browser window
-    init(config: InAppBrowserPageConfig) {
+    init(
+        config: InAppBrowserPageConfig,
+        webViewConfiguration: WKWebViewConfiguration? = nil,
+        loadsInitialRequest: Bool = true
+    ) {
         self.config = config
+        self.state = InAppBrowserPageState(
+            id: UUID(),
+            url: config.url,
+            title: config.title,
+            canGoBack: false,
+            previewImage: nil
+        )
         self.messageHandler = InAppBrowserMessageHandler(config: config)
+        self.initialWebViewConfiguration = webViewConfiguration
+        self.loadsInitialRequest = loadsInitialRequest
         super.init(nibName: nil, bundle: nil)
+        self.messageHandler.onOpenWindow = { [weak self] url in
+            self?.openNewPage(url: url)
+        }
+        self.messageHandler.onCloseWindow = { [weak self] in
+            guard let self else { return }
+            self.delegate?.inAppBrowserPageWantsClose(self)
+        }
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     // MARK: - View Model and UI Components
-    private(set) var webView: WKWebView? {
+    private var webView: WKWebView? {
         didSet {
             messageHandler.webView = webView
         }
@@ -43,11 +78,11 @@ final class InAppBrowserPageVC: WViewController {
     private var titleObserver: NSKeyValueObservation?
     private var backObserver: NSKeyValueObservation?
     private lazy var downloadManager = DownloadManager(presentingViewController: self)
-    
-    override func didMove(toParent parent: UIViewController?) {
-        super.didMove(toParent: parent)
+
+    isolated deinit {
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "inAppBrowserHandler")
     }
-    
+
     // MARK: - Load and SetupView Functions
     override func loadView() {
         super.loadView()
@@ -57,31 +92,28 @@ final class InAppBrowserPageVC: WViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        webView?.load(URLRequest(url: config.url))
+        if loadsInitialRequest {
+            webView?.load(URLRequest(url: config.url))
+        }
     }
-    
+
     private func setupViews() {
         view.backgroundColor = .air.background
         view.translatesAutoresizingMaskIntoConstraints = false
-        
-        let webViewConfiguration = WKWebViewConfiguration()
-        
-        // make logging possible to get results from js promise
-        let userContentController = WKUserContentController()
-        userContentController.add(messageHandler, name: "inAppBrowserHandler")
-        
-        webViewConfiguration.userContentController = userContentController
+
+        let webViewConfiguration = initialWebViewConfiguration ?? WKWebViewConfiguration()
+        configure(webViewConfiguration)
         webViewConfiguration.allowsInlineMediaPlayback = true
-        
+
         // create web view
         let webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 100, height: 100),
                             configuration: webViewConfiguration)
-        
+
         // while this is preferrable to setting top constraint constant to 60, it caused jittering when dismissing fragment.com - check if support is better in the future
 //        webView.scrollView.contentInset.top = 60
 //        webView.scrollView.verticalScrollIndicatorInsets.top = 60
 //        webView.scrollView.contentInset.bottom = 30
-        
+
         self.webView = webView
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -104,46 +136,54 @@ final class InAppBrowserPageVC: WViewController {
         ])
         webView.clipsToBounds = false
         webView.scrollView.clipsToBounds = false // see comment above
-        
-        if config.injectDappConnect {
-            let bridgeScript = WKUserScript(
-                source: BridgeInjectionScript.source,
-                injectionTime: .atDocumentStart,
-                forMainFrameOnly: true
-            )
-            webView.configuration.userContentController.addUserScript(bridgeScript)
 
-            let tonConnectScript = WKUserScript(
-                source: TonConnectInjectionScript.source,
-                injectionTime: .atDocumentStart,
-                forMainFrameOnly: true
-            )
-            webView.configuration.userContentController.addUserScript(tonConnectScript)
-
-            let evmConnectScript = WKUserScript(
-                source: EvmConnectInjectionScript.source,
-                injectionTime: .atDocumentStart,
-                forMainFrameOnly: true
-            )
-            webView.configuration.userContentController.addUserScript(evmConnectScript)
-
-            let walletConnectScript = WKUserScript(
-                source: WalletConnectInjectionScript.source,
-                injectionTime: .atDocumentEnd,
-                forMainFrameOnly: true
-            )
-            webView.configuration.userContentController.addUserScript(walletConnectScript)
-        }
         delegate?.inAppBrowserPageStateChanged(self)
-        
+
         updateTheme()
     }
-    
-    func setupObservers() {
+
+    private func configure(_ webViewConfiguration: WKWebViewConfiguration) {
+        webViewConfiguration.userContentController = WKUserContentController()
+        let userContentController = webViewConfiguration.userContentController
+        userContentController.add(messageHandler, name: "inAppBrowserHandler")
+
+        guard config.injectDappConnect else { return }
+
+        let bridgeScript = WKUserScript(
+            source: BridgeInjectionScript.source,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        userContentController.addUserScript(bridgeScript)
+
+        let tonConnectScript = WKUserScript(
+            source: TonConnectInjectionScript.source,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        userContentController.addUserScript(tonConnectScript)
+
+        let evmConnectScript = WKUserScript(
+            source: EvmConnectInjectionScript.source,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        userContentController.addUserScript(evmConnectScript)
+
+        let walletConnectScript = WKUserScript(
+            source: WalletConnectInjectionScript.source,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
+        userContentController.addUserScript(walletConnectScript)
+    }
+
+    private func setupObservers() {
         self.urlObserver = webView?.observe(\.url) { [weak self] webView, _ in
             Task { @MainActor in
                 if let self, let url = webView.url {
                     self.config.url = url
+                    self.state.url = url
                     self.delegate?.inAppBrowserPageStateChanged(self)
                 }
             }
@@ -152,6 +192,7 @@ final class InAppBrowserPageVC: WViewController {
             Task { @MainActor in
                 if let self {
                     self.config.title = webView.title
+                    self.state.title = webView.title
                     self.delegate?.inAppBrowserPageStateChanged(self)
                 }
             }
@@ -159,40 +200,90 @@ final class InAppBrowserPageVC: WViewController {
         self.backObserver = webView?.observe(\.canGoBack) { [weak self] webView, _ in
             Task { @MainActor in
                 if let self {
+                    self.state.canGoBack = webView.canGoBack
                     self.delegate?.inAppBrowserPageStateChanged(self)
                 }
             }
         }
     }
-    
+
     private func updateTheme() {
         view.backgroundColor = .air.background
         webView?.backgroundColor = .air.background
         webView?.scrollView.backgroundColor = .air.background
     }
-    
+
     func reload() {
         webView?.reload()
     }
-    
+
+    func navigate(to url: URL) {
+        webView?.load(URLRequest(url: url))
+    }
+
+    func goBackInHistory() {
+        webView?.goBack()
+    }
+
+    func hasOrigin(_ origin: String) -> Bool {
+        state.url.origin == origin
+    }
+
+    func childConfig(url: URL) -> InAppBrowserPageConfig {
+        InAppBrowserPageConfig(
+            url: url,
+            injectDappConnect: config.injectDappConnect,
+            historyTag: config.historyTag
+        )
+    }
+
+    func webViewForWebKitPopup() -> WKWebView? {
+        webView
+    }
+
+    func capturePreview(completion: (() -> Void)? = nil) {
+        guard let webView, webView.bounds.width > 0, webView.bounds.height > 0 else {
+            completion?()
+            return
+        }
+        let snapshotConfiguration = WKSnapshotConfiguration()
+        snapshotConfiguration.rect = webView.bounds
+        snapshotConfiguration.snapshotWidth = NSNumber(value: Double(min(webView.bounds.width, 640)))
+        webView.takeSnapshot(with: snapshotConfiguration) { [weak self] image, _ in
+            Task { @MainActor in
+                guard let self else {
+                    completion?()
+                    return
+                }
+                self.state.previewImage = image
+                self.delegate?.inAppBrowserPageStateChanged(self)
+                completion?()
+            }
+        }
+    }
+
     func openInSafari() {
-        guard UIApplication.shared.canOpenURL(config.url) else { return }
-        UIApplication.shared.open(config.url, options: [:], completionHandler: nil)
+        guard UIApplication.shared.canOpenURL(state.url) else { return }
+        UIApplication.shared.open(state.url, options: [:], completionHandler: nil)
     }
-    
+
     func copyUrl() {
-        UIPasteboard.general.string = config.url.absoluteString
+        UIPasteboard.general.string = state.url.absoluteString
     }
-    
+
     func share() {
-        let activityViewController = UIActivityViewController(activityItems: [config.url], applicationActivities: nil)
+        let activityViewController = UIActivityViewController(activityItems: [state.url], applicationActivities: nil)
         activityViewController.excludedActivityTypes = [.assignToContact, .print]
         presentActivityViewController(activityViewController, sourceView: webView)
+    }
+
+    private func openNewPage(url: URL) {
+        delegate?.inAppBrowserPage(self, wantsOpenNewPageWith: childConfig(url: url))
     }
 }
 
 extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
-    
+
     // Fetches the first declared favicon href from the page, falling back to /favicon.ico.
     private static let fetchFaviconScript = """
         (function() {
@@ -219,32 +310,32 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
             }
         }
     }
-    
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
     }
-    
+
     func webView(_ webView: WKWebView,
                         didFailProvisionalNavigation navigation: WKNavigation!,
                         withError error: any Error) {
     }
-    
+
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async -> WKNavigationResponsePolicy {
         if downloadManager.handleNavigationResponse(navigationResponse, webView: webView) {
             return .cancel
         }
         return .allow
     }
-    
+
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
 
         guard let url = navigationAction.request.url else {
             return .cancel
         }
-        
+
         let allowedSchemes = ["itms-appss", "itms-apps", "tel", "sms", "mailto", "geo", "tg", SELF_PROTOCOL_SCHEME]
         var shouldStart = true
         var shouldDismiss = false
-        
+
         if let scheme = url.scheme, allowedSchemes.contains(scheme) {
             webView.stopLoading()
             openSystemUrl(url)
@@ -253,7 +344,7 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
                 shouldDismiss = true
             }
         }
-        
+
         if WalletContextManager.delegate?.handleDeeplink(url: url) ?? false {
             shouldStart = false
             shouldDismiss = true
@@ -266,9 +357,9 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
             }
         }
         if shouldStart {
-            // Handle links with target="_blank"
-            if navigationAction.targetFrame == nil {
-                openSystemUrl(url)
+            let scheme = url.scheme?.lowercased()
+            if navigationAction.targetFrame == nil, scheme == "http" || scheme == "https" {
+                openNewPage(url: url)
                 return .cancel
             } else {
                 return .allow
@@ -277,10 +368,18 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
             return .cancel
         }
     }
-    
+
     private func openSystemUrl(_ url: URL) {
         if UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url, options: [:])
         }
+    }
+
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        delegate?.inAppBrowserPage(self, createWebViewWith: configuration, for: navigationAction)
+    }
+
+    func webViewDidClose(_ webView: WKWebView) {
+        delegate?.inAppBrowserPageWantsClose(self)
     }
 }

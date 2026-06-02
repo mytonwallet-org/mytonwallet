@@ -11,6 +11,7 @@ struct AccountTypePickerView: View {
 
     var network: ApiNetwork
     var onHeightChange: (CGFloat) -> ()
+    var onViewAddress: () -> ()
 
     @Environment(\.dismiss) var dismiss
 
@@ -62,7 +63,7 @@ struct AccountTypePickerView: View {
                             icon: "ViewIcon30",
                             title: lang("View Any Address"),
                             subtitle: lang("Watch wallet in read-only mode"),
-                            onTap: onView
+                            onTap: onViewAddress
                         )
                     }
                     .padding(.top, 24)
@@ -169,12 +170,5 @@ struct AccountTypePickerView: View {
                 }
             }, cancellable: true)
         }
-    }
-
-    func onView() {
-        dismiss()
-        let vc = AddViewWalletVC(introModel: IntroModel(network: network, password: nil))
-        let navVC = WNavigationController(rootViewController: vc)
-        topViewController()?.present(navVC, animated: true)
     }
 }

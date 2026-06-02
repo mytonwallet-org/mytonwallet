@@ -22,8 +22,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.api.refreshStoredMfaIfPossible
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.importNewWalletVersion
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -245,6 +247,7 @@ class WalletVersionsVC(context: Context) : WViewController(context),
                 importedAt = importedAccount.importedAt
             )
             AirPushNotifications.subscribe(importedAccount, ignoreIfLimitReached = true)
+            WalletCore.refreshStoredMfaIfPossible(listOf(importedAccountId), null)
             WalletCore.activateAccount(
                 accountId = importedAccountId,
                 notifySDK = true

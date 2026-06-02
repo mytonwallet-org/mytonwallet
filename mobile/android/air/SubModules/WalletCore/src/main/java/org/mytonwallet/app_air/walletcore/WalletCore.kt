@@ -53,6 +53,13 @@ val TESTNET_SLUGS = setOf(TON_USDT_TESTNET_SLUG, TRON_USDT_TESTNET_SLUG)
 
 const val TON_CHAIN = "ton"
 
+const val MFA_BOT_URL = "https://t.me/myapp/mfa"
+
+fun buildMfaStartParam(id: String): String {
+    val appPrefix = if (ApplicationContextHolder.isGramApp) "g" else "m"
+    return "${appPrefix}_$id"
+}
+
 const val TONCOIN_SLUG = "toncoin"
 const val MYCOIN_SLUG = "ton-eqcfvnlrbn"
 const val USDE_SLUG = "ton-eqaib6kmdf"
@@ -84,6 +91,7 @@ const val HYPERLIQUID_SLUG = "hyperliquid"
 const val HYPERLIQUID_USDC_MAINNET_SLUG = "hyperliquid-0xb88339cb"
 const val VIRTUAL_STAKING_SLUG_PREFIX = "staking-"
 const val TON_DNS_COLLECTION = "EQC3dNlesgVD8YbAazcauIrXBPfiVhMMr5YYk2in0Mtsz0Bz"
+const val TELEGRAM_USERNAMES_COLLECTION = "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
 const val MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"
 
 val STAKING_SLUGS = setOf(
@@ -227,8 +235,8 @@ fun getTrustedUsdtTokens(network: MBlockchainNetwork?): Set<String> {
     } ?: TRUSTED_USDT_TOKENS.values.flatten().toSet()
 }
 
-val DEFAULT_SWAP_VERSION = 3
-val MAX_PRICE_IMPACT_VALUE = 5.0
+const val DEFAULT_SWAP_VERSION = 3
+const val MAX_PRICE_IMPACT_VALUE = 5.0
 
 object WalletCore {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

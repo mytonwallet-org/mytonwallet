@@ -14,6 +14,8 @@ import org.mytonwallet.app_air.walletcore.WalletCore.notifyEvent
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.removeAccount
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
+import org.mytonwallet.app_air.walletcore.TON_CHAIN
+import org.mytonwallet.app_air.walletcore.models.AccountMfa
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
@@ -21,6 +23,7 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MultiWalletSupport
 import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.MUpdateStaking
+import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdate
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 
@@ -67,6 +70,9 @@ object AccountStore : IStore {
 
     var walletVersionsData: ApiUpdate.ApiUpdateWalletVersions? = null
 
+    val isCurrentVersionW5: Boolean
+        get() = walletVersionsData?.currentVersion == "W5"
+
     val stakingData: MUpdateStaking?
         get() {
             activeAccountId?.let {
@@ -79,7 +85,7 @@ object AccountStore : IStore {
         if (activeAccount?.byChain?.containsKey(chain.name) != true) return false
         val multiWalletSupport = chain.multiWalletSupport ?: return false
         return if (chain == MBlockchain.ton && multiWalletSupport == MultiWalletSupport.VERSION) {
-            walletVersionsData?.currentVersion == "W5"
+            isCurrentVersionW5
         } else {
             true
         }
@@ -158,6 +164,18 @@ object AccountStore : IStore {
             val existing = byChain[chain]
             if (existing != null && existing.derivation != newDerivation) {
                 byChain[chain] = existing.copy(derivation = newDerivation)
+                didChange = true
+            }
+        }
+
+        update.mfa?.let { mfaUpdate ->
+            val existing = byChain[chain] ?: return@let
+            val newMfa = when (mfaUpdate) {
+                is MfaUpdate.Set -> mfaUpdate.value
+                MfaUpdate.Clear -> null
+            }
+            if (existing.mfa != newMfa) {
+                byChain[chain] = existing.copy(mfa = newMfa)
                 didChange = true
             }
         }
@@ -271,6 +289,18 @@ object AccountStore : IStore {
         Handler(Looper.getMainLooper()).post {
             notifyEvent(WalletEvent.TemporaryAccountSaved(account.accountId))
             notifyEvent(WalletEvent.AccountChangedInApp(true))
+        }
+    }
+
+    fun updateMfa(accountId: String, mfa: AccountMfa?) {
+        val account = accountById(accountId) ?: return
+        val byChain = account.byChain.toMutableMap()
+        val ton = byChain[TON_CHAIN] ?: return
+        if (ton.mfa == mfa) return
+        byChain[TON_CHAIN] = ton.copy(mfa = mfa)
+        updateAccountByChain(accountId, byChain)
+        if (activeAccountId == accountId) {
+            activeAccount?.byChain = byChain
         }
     }
 

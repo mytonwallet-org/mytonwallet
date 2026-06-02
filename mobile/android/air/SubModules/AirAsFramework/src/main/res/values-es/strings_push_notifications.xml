@@ -29,8 +29,8 @@
   <string name="push_activity_swap_failed">Intercambio %1$s -> %2$s fallido</string>
   <string name="push_activity_swap_expired">Intercambio %1$s -> %2$s caducado</string>
   <string name="push_activity_swap_pending">Intercambio %1$s -> %2$s %3$s</string>
-  <string name="push_activity_staking_profit">Recompensa de staking %1$s TON</string>
-  <string name="push_activity_staking_loyalty_profit">Recompensa de lealtad de staking %1$s TON</string>
+  <string name="push_activity_staking_profit">Recompensa de staking %1$s GRAM</string>
+  <string name="push_activity_staking_loyalty_profit">Recompensa de lealtad de staking %1$s GRAM</string>
   <string name="push_domain_title_renew">Renueva tu dominio</string>
   <string name="push_domain_expired_yesterday">Tu dominio %1$s venció ayer. Renuévalo lo antes posible para evitar perder el acceso</string>
   <string name="push_domain_expired_days_ago">Tu dominio %1$s venció hace %2$s días. Renuévalo lo antes posible para evitar perder el acceso</string>

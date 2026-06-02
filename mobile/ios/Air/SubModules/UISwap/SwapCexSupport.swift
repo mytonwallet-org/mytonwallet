@@ -9,7 +9,7 @@ enum SwapCexSupport {
         params: ApiSwapCexCreateTransactionParams,
         shouldTransfer: Bool,
         passcode: String
-    ) async throws -> ApiActivity? {
+    ) async throws -> SwapExecutionResult {
         let createResult = try await Api.swapCexCreateTransaction(accountId: accountId, password: passcode, params: params)
         if shouldTransfer {
             
@@ -45,9 +45,9 @@ enum SwapCexSupport {
             if let error = result.error {
                 throw BridgeCallError(message: error, payload: result)
             }
-            return nil
+            return SwapExecutionResult(activity: nil, swapId: createResult.swap.id, mfaRequestHash: result.mfaRequestHash)
         } else {
-            return createResult.activity
+            return SwapExecutionResult(activity: createResult.activity, swapId: nil, mfaRequestHash: nil)
         }
     }
 }

@@ -129,8 +129,8 @@ jobs:
             echo "android-only=false" >> "$GITHUB_OUTPUT"
             echo "ios-only=false" >> "$GITHUB_OUTPUT"
             echo "electron-changed=true" >> "$GITHUB_OUTPUT"
-            echo 'android-variants=["mytonwallet"]' >> "$GITHUB_OUTPUT"
-            echo 'ios-variants=["mytonwallet"]' >> "$GITHUB_OUTPUT"
+            echo 'android-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
+            echo 'ios-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
             echo "Production release — building automatic platform variants"
             exit 0
           fi
@@ -156,8 +156,8 @@ jobs:
           echo "android-only=$ANDROID_ONLY" >> "$GITHUB_OUTPUT"
           echo "ios-only=$IOS_ONLY" >> "$GITHUB_OUTPUT"
           echo "electron-changed=$ELECTRON_CHANGED" >> "$GITHUB_OUTPUT"
-          echo 'android-variants=["mytonwallet"]' >> "$GITHUB_OUTPUT"
-          echo 'ios-variants=["mytonwallet"]' >> "$GITHUB_OUTPUT"
+          echo 'android-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
+          echo 'ios-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
           echo "Changed files:"
           echo "$CHANGED"
           echo "android-only=$ANDROID_ONLY, ios-only=$IOS_ONLY, electron-changed=$ELECTRON_CHANGED"
@@ -821,8 +821,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          sudo xcode-select --switch /Applications/Xcode_26.1.app/Contents/Developer
-          export DEVELOPER_DIR=/Applications/Xcode_26.1.app/Contents/Developer
+          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+          export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
           xcodebuild -version
           xcodebuild -showsdks
           xcodebuild -downloadPlatform iOS || true

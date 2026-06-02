@@ -61,7 +61,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.boldSubstring
+import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -542,7 +544,57 @@ class SwapVC(
             is SwapViewModel.Event.ClearEstimateLayout -> {
                 estLayout.setEstimated(null, null)
             }
+
+            is SwapViewModel.Event.MfaRequested -> {
+                presentMfaConfirm(event)
+            }
         }
+    }
+
+    private fun presentMfaConfirm(event: SwapViewModel.Event.MfaRequested) {
+        val req = event.estimate.request
+        val from = req.tokenToSend
+        val to = req.tokenToReceive
+        val fromAmountStr = event.estimate.dex?.fromAmount
+            ?.stripTrailingZeros()?.toPlainString().orEmpty()
+        val toAmountStr = event.estimate.dex?.toAmount
+            ?.stripTrailingZeros()?.toPlainString().orEmpty()
+        val chipText = listOf(
+            "$fromAmountStr ${from.symbol ?: ""}".trim(),
+            "→",
+            "$toAmountStr ${to.symbol ?: ""}".trim(),
+        ).joinToString(" ")
+        val swapId = event.swapId
+        val accountId = AccountStore.activeAccountId
+        val mfaVC = org.mytonwallet.app_air.uicomponents.viewControllers.MfaActionConfirmVC(
+            context,
+            requestHash = event.requestHash,
+            chip = org.mytonwallet.app_air.uicomponents.viewControllers
+                .MfaActionConfirmVC.Chip(leading = from, text = chipText),
+            onConfirmed = { txHash ->
+                if (swapId != null && accountId != null && !txHash.isNullOrBlank()) {
+                    WalletCore.scope.launch {
+                        try {
+                            WalletCore.call(
+                                ApiMethod.Swap.ConfirmSwapMfaRequest(
+                                    accountId,
+                                    swapId,
+                                    txHash,
+                                )
+                            )
+                        } catch (t: Throwable) {
+                            Logger.e(
+                                Logger.LogTag.ACCOUNT,
+                                "confirmSwapMfaRequest failed for swapId=$swapId: $t",
+                            )
+                        }
+                    }
+                }
+            },
+        )
+        navigationController?.push(mfaVC, onCompletion = {
+            navigationController?.removePrevViewControllerOnly()
+        })
     }
 
     override fun insetsUpdated() {

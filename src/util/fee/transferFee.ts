@@ -116,13 +116,13 @@ export function isBalanceSufficientForTransfer({
   fullFee,
   canTransferFullBalance,
 }: BalanceSufficientForTransferInput) {
-  if (transferAmount === undefined || tokenBalance === undefined || nativeTokenBalance === undefined || !fullFee) {
+  if (transferAmount === undefined || tokenBalance === undefined || nativeTokenBalance === undefined) {
     return undefined;
   }
 
   const isFullTokenTransfer = transferAmount === tokenBalance && canTransferFullBalance;
-  const tokenRequiredAmount = (fullFee.token ?? 0n) + (isFullTokenTransfer ? 0n : transferAmount);
-  const nativeTokenRequiredAmount = fullFee.native ?? 0n;
+  const tokenRequiredAmount = (fullFee?.token ?? 0n) + (isFullTokenTransfer ? 0n : transferAmount);
+  const nativeTokenRequiredAmount = fullFee?.native ?? 0n;
 
   return tokenRequiredAmount <= tokenBalance && nativeTokenRequiredAmount <= nativeTokenBalance;
 }

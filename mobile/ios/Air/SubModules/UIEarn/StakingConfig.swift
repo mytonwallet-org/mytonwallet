@@ -34,7 +34,7 @@ public extension StakingConfig {
         id: "ton",
         baseToken: .TONCOIN,
         stakedToken: .STAKED_TON,
-        displayTitle: "TON",
+        displayTitle: ApiToken.TONCOIN.symbol,
         explainTitle: lang("Why this is safe"),
         explainContent: [
             lang("$safe_staking_description1"),

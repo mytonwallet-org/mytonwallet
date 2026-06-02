@@ -1,0 +1,7 @@
+{
+  "$title": "MFA Extension",
+  "$confirmation-title": "Please confirm action",
+  "$confirmed": "Confirmed!",
+  "$install-confirmation-title": "Confirm installation of the extension",
+  "Go Back": "Go Back"
+}

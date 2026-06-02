@@ -67,7 +67,8 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
         isNftBurn: Boolean,
         comment: String?,
         passcode: String,
-        onSent: () -> Unit
+        onSent: () -> Unit,
+        onMfaRequested: (String) -> Unit = {},
     ) {
         if (resolvedAddress == null)
             return
@@ -82,11 +83,16 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
                 fee = feeValue ?: BigInteger.ZERO,
                 isNftBurn = isNftBurn
             )
-        ) { _, err ->
+        ) { result, err ->
             if (err != null) {
                 delegate.get()?.showError(err.parsed)
             } else {
-                onSent()
+                val mfaHash = result?.mfaRequestHash
+                if (mfaHash != null) {
+                    onMfaRequested(mfaHash)
+                } else {
+                    onSent()
+                }
             }
         }
     }

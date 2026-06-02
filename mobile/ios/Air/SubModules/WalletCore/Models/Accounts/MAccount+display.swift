@@ -37,6 +37,36 @@ public extension MAccount {
             return .sixCharacters(first, last)
         }
     }
+
+    var telegramAvatarUrl: URL? {
+        guard
+            IS_GRAM_WALLET,
+            let domain = byChain[ApiChain.ton.rawValue]?.domain?.nilIfEmpty,
+            let username = Self.telegramUsername(fromDomain: domain)
+        else {
+            return nil
+        }
+
+        return URL(string: "https://t.me/i/userpic/320/\(username).jpg")
+    }
+
+    private static func telegramUsername(fromDomain domain: String) -> String? {
+        let domain = domain.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard domain.hasSuffix(".t.me") else { return nil }
+
+        let username = String(domain.dropLast(".t.me".count))
+        guard
+            !username.contains("."),
+            username.range(
+                of: #"^[-_\da-z]{4,32}$"#,
+                options: [.regularExpression, .caseInsensitive]
+            ) != nil
+        else {
+            return nil
+        }
+
+        return username
+    }
     
     struct AddressLine: Equatable, Hashable {
         public var isTestnet: Bool

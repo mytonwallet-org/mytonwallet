@@ -30,6 +30,10 @@ public final class WNavigationBarButton {
     }
 
     public func setImage(_ image: UIImage?) {
+        if var configuration = view.configuration {
+            configuration.image = image
+            view.configuration = configuration
+        }
         view.setImage(image, for: .normal)
     }
 
@@ -42,7 +46,9 @@ public final class WNavigationBarButton {
         btn.setImage(icon, for: .normal)
         btn.setTitle(text, for: .normal)
         btn.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
-        if let tintColor {
+        if IOS_26_MODE_ENABLED {
+            btn.tintColor = tintColor ?? .label
+        } else if let tintColor {
             btn.tintColor = tintColor
         }
         btn.translatesAutoresizingMaskIntoConstraints = false
@@ -51,7 +57,7 @@ public final class WNavigationBarButton {
 }
 
 extension UIBarButtonItem {
-    
+
     /// Legacy OS: bold localized "Done", modern OS: Blue circle checkmark
     public static func doneButtonItem(action: @escaping () -> Void) -> UIBarButtonItem {
         if #available(iOS 26, iOSApplicationExtension 26, *) {
@@ -59,7 +65,7 @@ extension UIBarButtonItem {
         }
         return legacyButtonItem(title: lang("Done"), style: .done, action: action)
     }
-    
+
     /// Legacy OS: plain localized "Cancel", modern OS: while ellipse with a text
     public static func cancelTextButtonItem(action: @escaping () -> Void) -> UIBarButtonItem {
         let title = lang("Cancel")
@@ -75,11 +81,11 @@ extension UIBarButtonItem {
         }
         return legacyButtonItem(title: text, style: .done, action: action)
     }
-    
+
     public func asSingleItemGroup() -> UIBarButtonItemGroup {
         UIBarButtonItemGroup(barButtonItems: [self], representativeItem: nil)
     }
-        
+
     static private func legacyButtonItem(title: String?, style: UIBarButtonItem.Style, action: @escaping () -> Void) -> UIBarButtonItem {
         let wrapper = BarButtonItemClosure(action: action)
         let item = UIBarButtonItem(
@@ -97,7 +103,7 @@ extension UIBarButtonItem {
         objc_setAssociatedObject(item, &closureWrapperKey, wrapper, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         return item
     }
-    
+
     private class BarButtonItemClosure {
         private let action: () -> Void
 

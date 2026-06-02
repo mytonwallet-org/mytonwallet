@@ -83,9 +83,9 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         collectionView.delegate = self
         collectionView.delaysContentTouches = false
         collectionView.showsVerticalScrollIndicator = false
-        collectionView.contentInsetAdjustmentBehavior = .scrollableAxes
+        collectionView.contentInsetAdjustmentBehavior = layoutMode.isCompact ? .never : .scrollableAxes
 
-        if case .compact = layoutMode {
+        if layoutMode.isCompact {
             collectionView.bounces = false
             collectionView.isScrollEnabled = false
             collectionView.showsHorizontalScrollIndicator = false

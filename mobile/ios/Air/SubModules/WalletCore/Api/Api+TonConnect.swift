@@ -35,7 +35,23 @@ extension Api {
     }
     
     public static func signDappTransfers(dappChain: ApiDappSessionChain, accountId: String, messages: [ApiTransferToSign], options: ApiSignTransfersOptions?) async throws -> [ApiSignedTransfer] {
-        try await bridge.callApi("signDappTransfers", dappChain, accountId, messages, options, decoding: [ApiSignedTransfer].self)
+        let result = try await signDappTransfersProtected(
+            dappChain: dappChain,
+            accountId: accountId,
+            messages: messages,
+            options: options
+        )
+        if let mfaRequestHash = result.mfaRequestHash {
+            throw BridgeCallError.customMessage("Telegram confirmation is required: \(mfaRequestHash)", result)
+        }
+        if let error = result.error {
+            throw BridgeCallError(message: error, payload: result)
+        }
+        return try result.signedTransfers.orThrow()
+    }
+
+    public static func signDappTransfersProtected(dappChain: ApiDappSessionChain, accountId: String, messages: [ApiTransferToSign], options: ApiSignTransfersOptions?) async throws -> ApiSignDappTransfersResult {
+        try await bridge.callApi("signDappTransfers", dappChain, accountId, messages, options, decoding: ApiSignDappTransfersResult.self)
     }
     
     /**
@@ -60,6 +76,42 @@ public struct ApiSignTransfersOptions: Encodable, Sendable {
         self.validUntil = validUntil
         self.isLegacyOutput = isLegacyOutput
     }
+}
+
+public struct ApiSignDappTransfersResult: Decodable, Sendable {
+    public let signedTransfers: [ApiSignedTransfer]?
+    public let mfaRequestHash: String?
+    public let error: String?
+
+    enum CodingKeys: String, CodingKey {
+        case mfaRequestHash
+        case error
+    }
+
+    public init(from decoder: Decoder) throws {
+        if let signedTransfers = try? [ApiSignedTransfer](from: decoder) {
+            self.signedTransfers = signedTransfers
+            self.mfaRequestHash = nil
+            self.error = nil
+            return
+        }
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.signedTransfers = nil
+        self.mfaRequestHash = try container.decodeIfPresent(String.self, forKey: .mfaRequestHash)
+        self.error = try container.decodeIfPresent(String.self, forKey: .error)
+        guard self.mfaRequestHash != nil || self.error != nil else {
+            throw DecodingError.dataCorrupted(
+                .init(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Expected signed transfers, MFA request hash, or error"
+                )
+            )
+        }
+    }
+}
+
+extension ApiSignDappTransfersResult: MfaProtectedActionResult {
+    public var protectedActionError: String? { error }
 }
 
 public struct ApiSseConnectionParams: Encodable {

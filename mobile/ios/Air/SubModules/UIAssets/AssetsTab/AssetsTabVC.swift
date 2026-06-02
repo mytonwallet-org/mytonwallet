@@ -41,6 +41,28 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         super.init(nibName: nil, bundle: nil)
     }
 
+    public static func canShow(accountSource: AccountSource, tab: DisplayAssetTab) -> Bool {
+        let tabsViewModel = WalletAssetsViewModel(accountSource: accountSource)
+        return hasDisplayTab(tab, in: tabsViewModel.displayTabs)
+    }
+
+    public func canShow(accountSource: AccountSource, tab: DisplayAssetTab) -> Bool {
+        let accountIdProvider = AccountIdProvider(source: accountSource)
+        return accountIdProvider.accountId == self.accountIdProvider.accountId && Self.hasDisplayTab(tab, in: tabsViewModel.displayTabs)
+    }
+
+    @discardableResult
+    public func show(accountSource: AccountSource, tab: DisplayAssetTab, animated: Bool) -> Bool {
+        guard canShow(accountSource: accountSource, tab: tab) else { return false }
+        loadViewIfNeeded()
+        guard let segmentedController,
+              let index = segmentedController.model.getItemIndexById(itemId: tab.segmentedControlItemId) else {
+            return false
+        }
+        segmentedController.handleSegmentChange(to: index, animated: animated)
+        return true
+    }
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -143,6 +165,11 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         return displayTabs.contains(where: { $0.segmentedControlItemId == requestedItemId })
             ? requestedItemId
             : displayTabs.first?.segmentedControlItemId
+    }
+
+    private static func hasDisplayTab(_ tab: DisplayAssetTab, in displayTabs: [DisplayAssetTab]) -> Bool {
+        let itemId = tab.segmentedControlItemId
+        return displayTabs.contains { $0.segmentedControlItemId == itemId }
     }
 
     private func makeSegmentedItems(displayTabs: [DisplayAssetTab]) -> [SegmentedControlItem] {

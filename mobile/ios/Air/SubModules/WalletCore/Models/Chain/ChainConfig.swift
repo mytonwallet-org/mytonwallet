@@ -153,9 +153,9 @@ private let DEFAULT_CHAIN_ORDER: [ApiChain] = [
     .hyperliquid,
     .base,
     .arbitrum,
-//    .monad,
-//    .polygon,
-//    .avalanche,
+   .monad,
+   .polygon,
+   .avalanche,
 ]
 private let GRAM_CHAIN_ORDER: [ApiChain] = [
     .ton,
@@ -166,9 +166,9 @@ private let GRAM_CHAIN_ORDER: [ApiChain] = [
     .hyperliquid,
     .base,
     .arbitrum,
-//    .monad,
-//    .polygon,
-//    .avalanche,
+   .monad,
+   .polygon,
+   .avalanche,
 ]
 private var CHAIN_ORDER: [ApiChain] {
     IS_GRAM_WALLET ? GRAM_CHAIN_ORDER : DEFAULT_CHAIN_ORDER
@@ -773,25 +773,25 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
             .testnet: 97,
         ]
     ),
-//    .polygon: makeEvmChainConfig(
-//        title: "Polygon",
-//        nativeToken: .POLYGON,
-//        buySwapAmountIn: "100",
-//        defaultEnabledSlugs: [],
-//        crosschainSwapSlugs: [POLYGON_SLUG],
-//        tokenInfo: [
-//            .POLYGON,
-//        ],
-//        explorerId: "polygonscan",
-//        explorerName: "Polygonscan",
-//        explorerMainnetUrl: "https://polygonscan.com/",
-//        explorerTestnetUrl: "https://testnet.polygonscan.com/",
-//        isNftSupported: true,
-//        walletConnectChainIds: [
-//            .mainnet: 137,
-//            .testnet: 80002,
-//        ]
-//    ),
+   .polygon: makeEvmChainConfig(
+       title: "Polygon",
+       nativeToken: .POLYGON,
+       buySwapAmountIn: "100",
+       defaultEnabledSlugs: [],
+       crosschainSwapSlugs: [POLYGON_SLUG],
+       tokenInfo: [
+           .POLYGON,
+       ],
+       explorerId: "polygonscan",
+       explorerName: "Polygonscan",
+       explorerMainnetUrl: "https://polygonscan.com/",
+       explorerTestnetUrl: "https://testnet.polygonscan.com/",
+       isNftSupported: true,
+       walletConnectChainIds: [
+           .mainnet: 137,
+           .testnet: 80002,
+       ]
+   ),
     .arbitrum: makeEvmChainConfig(
         title: "Arbitrum",
         nativeToken: .ARBITRUM,
@@ -811,48 +811,48 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
             .testnet: 421614,
         ]
     ),
-//    .monad: makeEvmChainConfig(
-//        title: "Monad",
-//        nativeToken: .MONAD,
-//        buySwapAmountIn: "10",
-//        isOnRampSupported: false,
-//        isOffRampSupported: false,
-//        defaultEnabledSlugs: [],
-//        crosschainSwapSlugs: [MONAD_SLUG],
-//        tokenInfo: [
-//            .MONAD,
-//        ],
-//        explorerId: "monadscan",
-//        explorerName: "Monadscan",
-//        explorerMainnetUrl: "https://monadscan.com/",
-//        explorerTestnetUrl: "https://testnet.monadscan.com/",
-//        isNftSupported: true,
-//        walletConnectChainIds: [
-//            .mainnet: 143,
-//            .testnet: 10143,
-//        ]
-//    ),
-//    .avalanche: makeEvmChainConfig(
-//        title: "Avalanche",
-//        nativeToken: .AVALANCHE,
-//        buySwapAmountIn: "0.1",
-//        usdtSlug: AVALANCHE_USDT_MAINNET_SLUG,
-//        defaultEnabledSlugs: [],
-//        crosschainSwapSlugs: [AVALANCHE_SLUG],
-//        tokenInfo: [
-//            .AVALANCHE,
-//            .AVALANCHE_USDT_MAINNET,
-//        ],
-//        explorerId: "snowtrace",
-//        explorerName: "Snowtrace",
-//        explorerMainnetUrl: "https://snowtrace.io/",
-//        explorerTestnetUrl: "https://testnet.snowtrace.io/",
-//        isNftSupported: true,
-//        walletConnectChainIds: [
-//            .mainnet: 43114,
-//            .testnet: 43113,
-//        ]
-//    ),
+   .monad: makeEvmChainConfig(
+       title: "Monad",
+       nativeToken: .MONAD,
+       buySwapAmountIn: "10",
+       isOnRampSupported: false,
+       isOffRampSupported: false,
+       defaultEnabledSlugs: [],
+       crosschainSwapSlugs: [MONAD_SLUG],
+       tokenInfo: [
+           .MONAD,
+       ],
+       explorerId: "monadscan",
+       explorerName: "Monadscan",
+       explorerMainnetUrl: "https://monadscan.com/",
+       explorerTestnetUrl: "https://testnet.monadscan.com/",
+       isNftSupported: true,
+       walletConnectChainIds: [
+           .mainnet: 143,
+           .testnet: 10143,
+       ]
+   ),
+   .avalanche: makeEvmChainConfig(
+       title: "Avalanche",
+       nativeToken: .AVALANCHE,
+       buySwapAmountIn: "0.1",
+       usdtSlug: AVALANCHE_USDT_MAINNET_SLUG,
+       defaultEnabledSlugs: [],
+       crosschainSwapSlugs: [AVALANCHE_SLUG],
+       tokenInfo: [
+           .AVALANCHE,
+           .AVALANCHE_USDT_MAINNET,
+       ],
+       explorerId: "snowtrace",
+       explorerName: "Snowtrace",
+       explorerMainnetUrl: "https://snowtrace.io/",
+       explorerTestnetUrl: "https://testnet.snowtrace.io/",
+       isNftSupported: true,
+       walletConnectChainIds: [
+           .mainnet: 43114,
+           .testnet: 43113,
+       ]
+   ),
     .hyperliquid: makeEvmChainConfig(
         title: "Hyperliquid",
         nativeToken: .HYPERLIQUID,

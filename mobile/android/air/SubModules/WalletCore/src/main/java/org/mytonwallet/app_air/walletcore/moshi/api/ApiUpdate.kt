@@ -10,6 +10,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
+import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdate
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
 import java.math.BigInteger
@@ -171,7 +172,9 @@ sealed class ApiUpdate {
         /** `false` means that the account has no domain; `undefined` means that the domain has not changed */
         val domain: String?,
         val isMultisig: Boolean?,
-        val derivation: ApiDerivation?
+        val derivation: ApiDerivation?,
+        /** `false` means the MFA was removed; absent means it has not changed */
+        val mfa: MfaUpdate?
     ) : ApiUpdate()
 
     // NOTICE: Do NOT forget to add new sub-types to MoshiBuilder file to prevent minification issues.

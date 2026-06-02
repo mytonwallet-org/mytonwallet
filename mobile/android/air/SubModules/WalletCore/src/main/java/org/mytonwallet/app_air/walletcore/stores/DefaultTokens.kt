@@ -68,7 +68,7 @@ internal object DefaultTokens {
     }
 
     private fun buildDefaultTokens(): Map<String, MToken> = listOf(
-        token(TONCOIN_SLUG, "Toncoin", "TON", 9, "ton", cmcSlug = "toncoin"),
+        token(TONCOIN_SLUG, "Gram", "GRAM", 9, "ton", cmcSlug = "toncoin"),
         token(TRON_SLUG, "TRON", "TRX", 6, "tron", cmcSlug = "tron"),
         token(SOLANA_SLUG, "Solana", "SOL", 9, "solana", cmcSlug = "solana"),
         token(MYCOIN_SLUG, "MyTonWallet Coin", "MY", 9, "ton"),
@@ -77,7 +77,7 @@ internal object DefaultTokens {
             tokenAddress = "EQAIb6KmdfdDR7CN1GBqVJuP25iCnLKCvBlJ07Evuu2dzP5f",
             image = USDE_IMAGE,
         ),
-        token(STAKE_SLUG, "Staked Toncoin", "STAKED", 9, "ton"),
+        token(STAKE_SLUG, "Staked Gram", "STAKED", 9, "ton"),
         token(STAKED_MYCOIN_SLUG, "Staked MyTonWallet Coin", "stMY", 9, "ton"),
         token(
             STAKED_USDE_SLUG, "Ethena tsUSDe", "tsUSDe", 6, "ton",

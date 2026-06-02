@@ -53,8 +53,9 @@ export function swapItemToActivity(swap: ApiSwapHistoryItem): ApiSwapActivity {
   };
 }
 
+// FIXME: TON renaming
 export function getSwapItemSlug(item: ApiSwapHistoryItem, asset: string) {
-  if (asset === TONCOIN.symbol) {
+  if (asset === 'TON') {
     return TONCOIN.slug;
   }
   if (item.cex) {
@@ -122,10 +123,11 @@ async function swapReplaceCexActivities(
 
     const hashes = activities.map(({ id }) => parseTxId(id).hash);
 
+    // FIXME: TON renaming
     const swaps = await swapGetHistory(address, {
       fromTimestamp: fromTime,
       toTimestamp: toTime,
-      asset: slug ? getTokenBySlug(slug)?.tokenAddress ?? TONCOIN.symbol : undefined,
+      asset: slug ? getTokenBySlug(slug)?.tokenAddress ?? 'TON' : undefined,
       hashes,
       isCex: true,
     });

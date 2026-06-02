@@ -27,6 +27,7 @@ export interface AccountRowContentProps {
   suffixIcon?: TeactNode;
   className?: string;
   avatarClassName?: string;
+  avatarUrl?: string;
   onClick?: (accountId: string) => void;
 }
 
@@ -48,6 +49,7 @@ function AccountRowContent({
   suffixIcon,
   className,
   avatarClassName,
+  avatarUrl,
   onClick,
 }: AccountRowContentProps) {
   const handleClick = useLastCallback(() => {
@@ -80,6 +82,7 @@ function AccountRowContent({
         isSensitiveDataHidden={isSensitiveDataHidden}
         suffixIcon={suffixIcon}
         avatarClassName={avatarClassName}
+        avatarUrl={avatarUrl}
       />
     </div>
   );

@@ -292,7 +292,7 @@ private enum AgentHintsSectionPreviewData {
         AgentHint(
             id: "preview-0",
             title: "Check the crypto market",
-            subtitle: "including TON and major tokens",
+            subtitle: "including GRAM and major tokens",
             prompt: "Give me a quick crypto market overview."
         ),
         AgentHint(
@@ -304,7 +304,7 @@ private enum AgentHintsSectionPreviewData {
         AgentHint(
             id: "preview-2",
             title: "Show me staking options",
-            subtitle: "for TON and MY rewards",
+            subtitle: "for GRAM and MY rewards",
             prompt: "Explain staking in MyTonWallet."
         )
     ]
