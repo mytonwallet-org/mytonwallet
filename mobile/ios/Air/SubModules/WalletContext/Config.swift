@@ -67,7 +67,7 @@ public let SUPPORT_USERNAME = "mysupport"
 
 public let MTW_TIPS_CHANNEL_NAME = "MyTonWalletTips"
 public let MTW_TIPS_CHANNEL_NAME_RU = "MyTonWalletTipsRu"
-public let MFA_BOT_URL = "https://t.me/myapp/mfa"
+public let MFA_BOT_URL = "https://t.me/tgmfabot/auth"
 
 public func buildMfaBotUrl(startApp: String) -> URL? {
     guard var components = URLComponents(string: MFA_BOT_URL) else {

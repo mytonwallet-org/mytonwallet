@@ -105,8 +105,13 @@ export function fetchMetadata(network: ApiNetwork, addresses: string[]): Promise
 export function callToncenterV3<T = any>(network: ApiNetwork, path: string, data?: AnyLiteral) {
   const url = `${NETWORK_CONFIG[network].toncenterUrl}/api/v3${path}`;
 
-  return fetchJson(url, data, {
+  // Keep the WebView HTTP cache from storing or replaying toncenter responses.
+  // The unique `_` changes the cache key (reliable, as the `cache` directive is
+  // honored inconsistently); `no-store` also prevents storing. toncenter
+  // ignores unknown query params.
+  return fetchJson(url, { ...data, _: Date.now() }, {
     headers: getToncenterHeaders(network),
+    cache: 'no-store',
   }) as Promise<T>;
 }
 
