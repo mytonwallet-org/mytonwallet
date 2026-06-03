@@ -53,7 +53,7 @@ val TESTNET_SLUGS = setOf(TON_USDT_TESTNET_SLUG, TRON_USDT_TESTNET_SLUG)
 
 const val TON_CHAIN = "ton"
 
-const val MFA_BOT_URL = "https://t.me/myapp/mfa"
+const val MFA_BOT_URL = "https://t.me/tgmfabot/auth"
 
 fun buildMfaStartParam(id: String): String {
     val appPrefix = if (ApplicationContextHolder.isGramApp) "g" else "m"

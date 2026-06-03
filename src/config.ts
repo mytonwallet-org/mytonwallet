@@ -965,8 +965,8 @@ export const UNKNOWN_TOKEN = {
 
 export const DEFAULT_CHAIN: ApiChain = 'ton';
 
-export const MFA_BOT_URL = process.env.MFA_BOT_URL || 'https://t.me/myapp/mfa';
+export const MFA_BOT_URL = process.env.MFA_BOT_URL || 'https://t.me/tgmfabot/auth';
 export const MFA_API_BASE_URL = process.env.MFA_API_BASE_URL || 'https://mfa-server.mytonwallet.org';
 export const MFA_MASTER_ADDRESS = 'UQCIoyc951J4hQwboW1-Gbt0kK0z920N2y8GbNXqCzWqe2ds';
-export const MFA_EXTENSION_CODE_HASH = '965842606d7687512b10d41677b4fef3fc8260fe3f2346174661f47fcded3067';
+export const MFA_EXTENSION_CODE_HASH = '701eede652337f699550cc51cb15263259aae6fc6eba976237945f142dda982d';
 export const DEFAULT_ACCENT_COLOR_INDEX = IS_GRAM_WALLET ? 5 : undefined;
