@@ -104,7 +104,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         }
         return .init(
             expirationDays: expirationDays,
-            canRenew: account.type == .mnemonic
+            canRenew: !account.isView
         )
     }
 
@@ -685,12 +685,12 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                     }
                 }
             }
-            if account.type == .mnemonic, nft.isLinkableDns, !nft.isOnSale {
-                if nft.isRenewableDns, domains.expirationByAddress[nft.address] != nil {
-                    items += UIAction(title: lang("Renew"), image: .airBundle("MenuRenew26")) { _ in
-                        AppActions.showRenewDomain(accountSource: .accountId(accountId), nftsToRenew: [nft.address])
-                    }
+            if !account.isView, nft.isRenewableDns, domains.expirationByAddress[nft.address] != nil {
+                items += UIAction(title: lang("Renew"), image: .airBundle("MenuRenew26")) { _ in
+                    AppActions.showRenewDomain(accountSource: .accountId(accountId), nftsToRenew: [nft.address])
                 }
+            }
+            if account.type != .view, nft.isLinkableDns, !nft.isOnSale {
                 let linkedAddress = domains.linkedAddressByAddress[nft.address]?.nilIfEmpty
                 let title = linkedAddress == nil
                     ? lang("Link to Wallet")
@@ -1004,13 +1004,13 @@ extension NftsVC {
             if expireInDays < 0 {
                 text = lang("$domain_was_expired", arg1: domainName)
             } else {
-                text = lang("$domain_expire", arg1: domainName, arg2: lang("$in_days", arg1: expireInDays))
+                text = lang("$domain_expire", arg1: domainName, arg2: langRelativeDays(expireInDays))
             }
         } else if expireInDays < 0 {
             let expiredCount = domains.expiredForRenewalWarning(in: nftsForRenewal).count
             text = lang("$domains_was_expired", arg1: expiredCount)
         } else {
-            text = lang("$domains_expire", arg1: lang("$in_days", arg1: expireInDays), arg2: nftsForRenewal.count)
+            text = lang("$domains_expire", arg1: langRelativeDays(expireInDays), arg2: nftsForRenewal.count)
         }
 
         return .init(

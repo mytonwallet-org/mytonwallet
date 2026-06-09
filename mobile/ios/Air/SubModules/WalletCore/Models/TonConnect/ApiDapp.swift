@@ -7,7 +7,14 @@
 
 import Foundation
 
-public struct ApiDapp: Equatable, Hashable, Codable, Sendable {
+public enum ApiDappUrlTrustStatus: String, Codable, Equatable, Hashable, Sendable {
+    case verified
+    case unknown
+    case invalid
+    case dangerous
+}
+
+public struct ApiDapp: Equatable, Hashable, Sendable {
     
     public let url: String
     public let name: String
@@ -15,17 +22,66 @@ public struct ApiDapp: Equatable, Hashable, Codable, Sendable {
     public let manifestUrl: String?
     
     public let connectedAt: Int?
-    public let isUrlEnsured: Bool?
+    public let urlTrustStatus: ApiDappUrlTrustStatus?
     public let sse: ApiSseOptions?
     
-    public init(url: String, name: String, iconUrl: String, manifestUrl: String? = nil, connectedAt: Int?, isUrlEnsured: Bool?, sse: ApiSseOptions?) {
+    public init(
+        url: String,
+        name: String,
+        iconUrl: String,
+        manifestUrl: String? = nil,
+        connectedAt: Int?,
+        urlTrustStatus: ApiDappUrlTrustStatus?,
+        sse: ApiSseOptions?
+    ) {
         self.url = url
         self.name = name
         self.iconUrl = iconUrl
         self.manifestUrl = manifestUrl
         self.connectedAt = connectedAt
-        self.isUrlEnsured = isUrlEnsured
+        self.urlTrustStatus = urlTrustStatus
         self.sse = sse
+    }
+}
+
+extension ApiDapp: Codable {
+    enum CodingKeys: String, CodingKey {
+        case url
+        case name
+        case iconUrl
+        case manifestUrl
+        case connectedAt
+        case urlTrustStatus
+        case isUrlEnsured
+        case sse
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        url = try c.decode(String.self, forKey: .url)
+        name = try c.decode(String.self, forKey: .name)
+        iconUrl = try c.decode(String.self, forKey: .iconUrl)
+        manifestUrl = try c.decodeIfPresent(String.self, forKey: .manifestUrl)
+        connectedAt = try c.decodeIfPresent(Int.self, forKey: .connectedAt)
+        sse = try c.decodeIfPresent(ApiSseOptions.self, forKey: .sse)
+        if let trust = try c.decodeIfPresent(String.self, forKey: .urlTrustStatus) {
+            urlTrustStatus = ApiDappUrlTrustStatus(rawValue: trust) ?? .unknown
+        } else if let legacy = try c.decodeIfPresent(Bool.self, forKey: .isUrlEnsured) {
+            urlTrustStatus = legacy ? .verified : .unknown
+        } else {
+            urlTrustStatus = nil
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(url, forKey: .url)
+        try c.encode(name, forKey: .name)
+        try c.encode(iconUrl, forKey: .iconUrl)
+        try c.encodeIfPresent(manifestUrl, forKey: .manifestUrl)
+        try c.encodeIfPresent(connectedAt, forKey: .connectedAt)
+        try c.encodeIfPresent(urlTrustStatus, forKey: .urlTrustStatus)
+        try c.encodeIfPresent(sse, forKey: .sse)
     }
 }
 
@@ -40,6 +96,14 @@ extension ApiDapp {
     public var displayUrl: String {
         url.replacing(/^https:\/\//, with: "")
     }
+    
+    public var resolvedUrlTrustStatus: ApiDappUrlTrustStatus {
+        urlTrustStatus ?? .unknown
+    }
+
+    public var shouldShowUrlTrustStatusWarning: Bool {
+        resolvedUrlTrustStatus != .verified
+    }
 }
 
 // MARK: Sample data
@@ -52,7 +116,7 @@ extension ApiDapp {
             iconUrl: "https://static.mytonwallet.org/explore-icons/mtwcards.webp",
             manifestUrl: "https://static.mytonwallet.org/explore-icons/mtwcards.webp",
             connectedAt: nil,
-            isUrlEnsured: nil,
+            urlTrustStatus: nil,
             sse: nil,
         )
     
@@ -62,7 +126,7 @@ extension ApiDapp {
                     iconUrl: "https://static.mytonwallet.org/explore-icons/mtwcards.webp",
                     manifestUrl: "https://fragment.com/tonconnect-manifest.json",
                     connectedAt: nil,
-                    isUrlEnsured: nil,
+                    urlTrustStatus: nil,
                     sse: nil),
             
             ApiDapp(url: "https://app.storm.tg",
@@ -70,7 +134,7 @@ extension ApiDapp {
                     iconUrl: "https://static.mytonwallet.org/explore-icons/storm.jpg",
                     manifestUrl: "https://fragment.com/tonconnect-manifest.json",
                     connectedAt: nil,
-                    isUrlEnsured: nil,
+                    urlTrustStatus: nil,
                     sse: nil),
             
             ApiDapp(url: "https://app.upscale.trade",
@@ -78,7 +142,7 @@ extension ApiDapp {
                     iconUrl: "https://static.mytonwallet.org/explore-icons/upscale.png",
                     manifestUrl: "https://fragment.com/tonconnect-manifest.json",
                     connectedAt: nil,
-                    isUrlEnsured: nil,
+                    urlTrustStatus: nil,
                     sse: nil),
             
             ApiDapp(url: "https://app.bidask.finance",
@@ -86,7 +150,7 @@ extension ApiDapp {
                     iconUrl: "https://static.mytonwallet.org/explore-icons/bidask.png",
                     manifestUrl: "https://fragment.com/tonconnect-manifest.json",
                     connectedAt: nil,
-                    isUrlEnsured: nil,
+                    urlTrustStatus: nil,
                     sse: nil),
             
             ApiDapp(url: "https://app.hipo.finance",
@@ -94,7 +158,7 @@ extension ApiDapp {
                     iconUrl: "https://static.mytonwallet.org/explore-icons/hipo_dark.png",
                     manifestUrl: "https://fragment.com/tonconnect-manifest.json",
                     connectedAt: nil,
-                    isUrlEnsured: nil,
+                    urlTrustStatus: nil,
                     sse: nil),
         ]
     

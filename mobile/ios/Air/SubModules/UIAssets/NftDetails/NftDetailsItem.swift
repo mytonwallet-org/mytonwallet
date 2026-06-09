@@ -62,7 +62,7 @@ extension NftDetailsItem.TonDomain {
         if expirationDays < 0 {
             return lang("Expired")
         } else {
-            let daysText = lang("$in_days", arg1: expirationDays)
+            let daysText = langRelativeDays(expirationDays)
             return lang("$one_domain_expires %days%", arg1: daysText)
         }
     }

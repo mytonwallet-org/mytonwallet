@@ -23,7 +23,7 @@ type OwnProps = {
   message: TeactNode;
   emoji?: EmojiIcon;
   size?: 'small' | 'medium';
-  type?: 'hint' | 'warning';
+  type?: 'hint' | 'warning' | 'danger';
   direction?: 'top' | 'bottom';
   iconClassName?: string;
   tooltipClassName?: string;
@@ -50,7 +50,7 @@ const IconWithTooltip: FC<OwnProps> = ({
     isOpen,
     withShouldRender: true,
   });
-  const colorClassName = type === 'warning' && styles[`color-${type}`];
+  const colorClassName = type && type !== 'hint' && styles[`color-${type}`];
 
   const iconRef = useRef<HTMLDivElement>();
   const tooltipRef = useRef<HTMLDivElement>();
@@ -156,7 +156,7 @@ const IconWithTooltip: FC<OwnProps> = ({
         className={buildClassName(
           commonClassName,
           styles.fontIcon,
-          type === 'warning' ? 'icon-exclamation' : 'icon-question',
+          ['warning', 'danger'].includes(type) ? 'icon-exclamation' : 'icon-question',
         )}
         data-tooltip-key={randomTooltipKey}
         onClick={onClick}

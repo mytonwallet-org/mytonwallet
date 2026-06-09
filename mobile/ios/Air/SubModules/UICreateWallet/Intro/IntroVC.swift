@@ -13,9 +13,11 @@ import WalletContext
 public class IntroVC: CreateWalletBaseVC {
 
     let introModel: IntroModel
+    private let showsCloseButton: Bool
     
-    public init(introModel: IntroModel) {
+    public init(introModel: IntroModel, showsCloseButton: Bool = false) {
         self.introModel = introModel
+        self.showsCloseButton = showsCloseButton
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -31,6 +33,9 @@ public class IntroVC: CreateWalletBaseVC {
     private var hostingController: UIHostingController<IntroView>!
     
     func setupViews() {
+        if showsCloseButton {
+            addCloseNavigationItemIfNeeded()
+        }
         
         hostingController = addHostingController(makeView(), constraints: .fill)
         

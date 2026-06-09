@@ -4,7 +4,7 @@
  * Types specific to the WalletConnect v2 protocol adapter.
  */
 
-import type { ProposalTypes } from '@walletconnect/types';
+import type { ProposalTypes, Verify } from '@walletconnect/types';
 
 import type { ApiChain, ApiNetwork, EVMChain } from '../../../types';
 
@@ -56,11 +56,13 @@ export interface WalletConnectNamespaces {
 // =============================================================================
 
 /**
- * WalletConnect session proposal event data.
+ * WalletConnect session proposal event data (includes Verify API context when present).
  */
 export interface WalletConnectSessionProposal {
   id: number;
   params: ProposalTypes.Struct;
+  /** Present for relay sessions (WalletKit); omitted for extension/in-app synthetic proposals. */
+  verifyContext?: Verify.Context;
 }
 
 export interface WalletConnectSignRequest {

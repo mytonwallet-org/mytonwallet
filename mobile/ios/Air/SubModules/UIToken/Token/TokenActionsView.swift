@@ -14,7 +14,8 @@ class TokenActionsView: WTouchPassStackView {
     static let usesSplitHomeActionStyle = UIDevice.current.userInterfaceIdiom == .pad
     static let rowHeight: CGFloat = usesSplitHomeActionStyle ? WActionTileButton.sideLength : WScalableButton.preferredHeight
     
-    let accountContext: AccountContext
+    private let accountContext: AccountContext
+    
     var token: ApiToken?
     
     init(accountContext: AccountContext, token: ApiToken?) {
@@ -28,14 +29,7 @@ class TokenActionsView: WTouchPassStackView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    var lastLayoutWidth: CGFloat = 0 {
-        didSet {
-            if oldValue != lastLayoutWidth {
-                updateSpacing()
-            }
-        }
-    }
-    
+    private var addButton: UIView!
     private var swapButton: UIView!
     private var earnButton: UIView!
     private var sendButton: UIView!
@@ -56,7 +50,7 @@ class TokenActionsView: WTouchPassStackView {
         
         var buttons: [UIView] = []
         
-        let addButton = makeButton(
+        addButton = makeButton(
             title: lang("Fund"),
             image: .airBundle(Self.usesSplitHomeActionStyle ? "DepositIconLarge" : "AddIconBold"),
             onTap: { [weak self] in self?.addPressed() },
@@ -123,19 +117,15 @@ class TokenActionsView: WTouchPassStackView {
         }
     }
     
-    func set(actionsVisibleHeight: CGFloat) {
-        let actionButtonAlpha = actionsVisibleHeight < Self.rowHeight ? actionsVisibleHeight / Self.rowHeight : 1
-
-        if Self.usesSplitHomeActionStyle {
-            for button in arrangedSubviews {
-                button.alpha = actionButtonAlpha
-                button.transform = CGAffineTransform(scaleX: actionButtonAlpha, y: actionButtonAlpha)
-            }
+    var fundAvailable: Bool {
+        get {
+            return !addButton.isHidden
         }
-
-        heightConstraint.constant = actionsVisibleHeight
+        set {
+            addButton.isHidden = !newValue
+            updateSpacing()
+        }
     }
-    
     var swapAvailable: Bool {
         get {
             return !swapButton.isHidden
@@ -162,6 +152,10 @@ class TokenActionsView: WTouchPassStackView {
             earnButton.isHidden = !newValue
             updateSpacing()
         }
+    }
+
+    var hasVisibleActions: Bool {
+        fundAvailable || sendAvailable || swapAvailable || earnAvailable
     }
     
     func addPressed() {

@@ -155,6 +155,8 @@ Activity Details: Aktivitätsdetails
 No activities found: Keine Aktivitäten gefunden
 Comment Copied: Der Kommentar wurde kopiert
 Copy Text: Text kopieren
+Copy Description: Beschreibung kopieren
+Description Copied: Beschreibung kopiert
 Message Copied: Nachricht kopiert
 Sender: Absender
 Recipient: Empfänger
@@ -285,6 +287,7 @@ Unexpected: Unerwarteter Fehler
 You can save this address for quick access while sending.: Sie können diese Adresse speichern, um schnellen Zugriff beim Senden zu haben.
 Stake Again: Erneut staken
 Earned: Verdient
+$staking_history_earned: Verdient
 Select wallet to use on this app: Wählen Sie die Brieftasche aus, die Sie für diese App verwenden möchten.
 Connect: Verbinden
 Payload: Nutzlast
@@ -872,6 +875,10 @@ Remember for %1$d minutes: Für %1$d Minuten merken
 Preview: Vorschau
 $preview_not_guaranteed: Das Vorschauergebnis ist **nicht garantiert** und kann **vom Dienst manipuliert** werden.
 Unverified Source: Unbestätigte Quelle
+DappurlTrustStatusInvalidTitle: Domain mismatch
+$DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
+DappurlTrustStatusDangerousTitle: Potentially malicious site
+$DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
 $reopen_in_iab: Bitte verwenden Sie MyTonWallet %mobileAppButton% oder %browserExtensionButton%, um diese Warnung zu vermeiden.
 $reopen_in_iab_explore: Bitte verwenden Sie beim Durchsuchen von Apps den Bereich %exploreTab%, um diese Warnung zu vermeiden.
 MyTonWallet Browser: MyTonWallet Browser
@@ -927,8 +934,8 @@ $domains_expire:
   oneValue: "**%domain% Domain** läuft %days% ab"
   otherValue: "**%domain% Domains** laufen %days% ab"
 $in_days:
-  zeroValue: heute
-  oneValue: morgen
+  zeroValue: in %1$d Tagen
+  oneValue: in %1$d Tag
   otherValue: in %1$d Tagen
 $domain_was_expired: "**%domain%** ist abgelaufen"
 $domains_was_expired:
@@ -1083,6 +1090,7 @@ Choose Wallet: Wallet auswählen
 Wallet to use on %host%: Wallet für %host%
 Selected Wallet: Ausgewählte Wallet
 Connect Wallet: Wallet verbinden
+Connect Anyway: Trotzdem verbinden
 Insufficient Fee: Unzureichende Gebühr
 Waiting for a View deeplink to display a wallet address.: Warten auf einen View-Deeplink zum Anzeigen einer Wallet-Adresse.
 Adding wallets is not available in explorer mode: Das Hinzufügen von Wallets ist im Explorer-Modus nicht verfügbar
@@ -1562,3 +1570,5 @@ Cumulative profit and loss over time: Kumulierter Gewinn und Verlust im Zeitverl
 Day-by-day profit and loss: Tägliche Gewinne und Verluste
 Current allocation across tracked assets: Aktuelle Verteilung der verfolgten Vermögenswerte
 This action is not supported in explorer mode.: Diese Aktion wird im Explorer-Modus nicht unterstützt.
+$relative_today: heute
+$relative_tomorrow: morgen

@@ -162,7 +162,7 @@ class WDomainExpirationBannerView(context: Context) :
                     .toProcessedSpannableStringBuilder()
             }
         } else {
-            val inDays = LocaleController.getPluralOrFormat("\$in_days", minDays)
+            val inDays = LocaleController.getRelativeDays(minDays)
             if (count == 1) {
                 LocaleController.getString("\$domain_expire")
                     .replace("%domain%", iconNfts.firstOrNull()?.name ?: "")

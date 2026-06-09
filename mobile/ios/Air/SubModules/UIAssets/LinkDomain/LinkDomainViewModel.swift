@@ -144,15 +144,9 @@ import SwiftNavigation
 
     func submit(password: String?) async throws -> ApiMfaProtectedResult {
         guard !isSubmitting, let nft else { return ApiMfaProtectedResult() }
-        let address = normalizedWalletAddress
-        guard !address.isEmpty else { return ApiMfaProtectedResult() }
         isSubmitting = true
         defer { isSubmitting = false }
-        let info = try await Api.getAddressInfo(chain: nft.chain, network: account.network, address: address)
-        if let error = info.error?.nilIfEmpty {
-            throw BridgeCallError(message: error, payload: nil)
-        }
-        let resolvedAddress = info.resolvedAddress?.nilIfEmpty ?? address
+        let resolvedAddress = try await resolvedSubmissionAddress(for: nft)
         let result = try await Api.submitDnsChangeWallet(
             accountId: account.id,
             password: password,
@@ -166,6 +160,17 @@ import SwiftNavigation
         return ApiMfaProtectedResult(
             activityId: result.activityId,
             mfaRequestHash: result.mfaRequestHash
+        )
+    }
+
+    func makeLedgerPayload() async throws -> SignData {
+        guard let nft else { throw CancellationError() }
+        let resolvedAddress = try await resolvedSubmissionAddress(for: nft)
+        return .linkDomain(
+            accountId: account.id,
+            nft: nft,
+            address: resolvedAddress,
+            realFee: realFee
         )
     }
 
@@ -221,6 +226,16 @@ import SwiftNavigation
     private func setInitialWalletAddressIfNeeded(for nft: ApiNft) {
         guard normalizedWalletAddress.isEmpty else { return }
         walletAddress = linkedWalletAddress ?? account.getAddress(chain: nft.chain) ?? ""
+    }
+
+    private func resolvedSubmissionAddress(for nft: ApiNft) async throws -> String {
+        let address = normalizedWalletAddress
+        guard !address.isEmpty else { throw BridgeCallError.message(.invalidAddress, nil) }
+        let info = try await Api.getAddressInfo(chain: nft.chain, network: account.network, address: address)
+        if let error = info.error?.nilIfEmpty {
+            throw BridgeCallError(message: error, payload: nil)
+        }
+        return info.resolvedAddress?.nilIfEmpty ?? address
     }
 
 }

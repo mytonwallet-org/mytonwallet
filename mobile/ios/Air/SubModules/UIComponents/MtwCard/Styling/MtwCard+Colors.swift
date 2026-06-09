@@ -37,7 +37,7 @@ public func getInverseForegroundGradientColors(cardType: ApiMtwCardType?) -> [Co
     return nil
 }
 
-public func getSecondaryForegrundColor(nft: ApiNft?) -> Color {
+public func getSecondaryForegroundColor(nft: ApiNft?) -> Color {
     switch nft?.metadata?.mtwCardType {
     case .black: Color(UIColor(hex: "#ABACAD"))
     case .platinum: Color(UIColor(hex: "#DEDEE0"))

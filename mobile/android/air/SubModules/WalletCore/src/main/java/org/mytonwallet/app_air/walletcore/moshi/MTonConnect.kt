@@ -31,6 +31,19 @@ interface IDapp {
     val iconUrl: String?
 }
 
+enum class ApiDappUrlTrustStatus(val rawValue: String) {
+    VERIFIED("verified"),
+    UNKNOWN("unknown"),
+    INVALID("invalid"),
+    DANGEROUS("dangerous");
+
+    companion object {
+        fun from(rawValue: String?): ApiDappUrlTrustStatus {
+            return entries.firstOrNull { it.rawValue == rawValue } ?: UNKNOWN
+        }
+    }
+}
+
 @JsonClass(generateAdapter = true)
 data class ApiDapp(
     override val url: String?,
@@ -38,13 +51,28 @@ data class ApiDapp(
     override val iconUrl: String?,
     val manifestUrl: String?,
     val connectedAt: Long?,
-    val isUrlEnsured: Boolean?,
+    val urlTrustStatus: String? = null,
+    @Json(name = "isUrlEnsured")
+    val legacyUrlEnsured: Boolean? = null,
     val sse: ApiSseOptions? = null
 ) : IDapp {
     val host: String? = try {
         url?.toUri()?.host
     } catch (_: Throwable) {
         null
+    }
+
+    val resolvedUrlTrustStatus: ApiDappUrlTrustStatus
+        get() {
+            val resolved = urlTrustStatus ?: when (legacyUrlEnsured) {
+                true -> ApiDappUrlTrustStatus.VERIFIED.rawValue
+                else -> ApiDappUrlTrustStatus.UNKNOWN.rawValue
+            }
+            return ApiDappUrlTrustStatus.from(resolved)
+        }
+
+    fun shouldShowurlTrustStatusWarning(): Boolean {
+        return resolvedUrlTrustStatus != ApiDappUrlTrustStatus.VERIFIED
     }
 }
 

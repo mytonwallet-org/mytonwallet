@@ -18,6 +18,7 @@ final class CustomFontsProvider {
         isRegistered = true
 
         registerFont(named: "Nunito-ExtraBold", withExtension: "ttf")
+        registerFont(named: "CalSans-Regular", withExtension: "ttf")
         registerFont(named: "SFCompactDisplayMedium", withExtension: "otf")
         registerFont(named: "SFCompactRoundedBold", withExtension: "otf")
         registerFont(named: "SFCompactRoundedSemibold", withExtension: "otf")

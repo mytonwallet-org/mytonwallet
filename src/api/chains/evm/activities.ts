@@ -1,5 +1,3 @@
-import { getAddress } from 'ethers';
-
 import type { ApiActivity, ApiFetchActivitySliceOptions, ApiNetwork, EVMChain } from '../../types';
 import type { ZerionNftTransfer, ZerionTokenTransfer, ZerionTransaction, ZerionTransactionsResponse } from './types';
 
@@ -16,6 +14,7 @@ import { fetchStoredWallet } from '../../common/accounts';
 import { updateActivityMetadata } from '../../common/helpers';
 import { getTokenBySlug } from '../../common/tokens';
 import { SEC } from '../../constants';
+import { normalizeAddress } from './address';
 import { getApiChainByZerionChain, getEvmApiUrl, getZerionChainByApiChain } from './constants';
 
 export async function fetchActivitySlice(
@@ -54,7 +53,7 @@ export async function getTokenActivitySlice(
   limit?: number,
   isCrossChain?: boolean,
 ): Promise<{ activities: ApiActivity[]; hasMore: boolean }> {
-  const checksumAddress = getAddress(address);
+  const checksumAddress = normalizeAddress(address);
 
   const txs = await fetchEvmTxs({
     chain,
@@ -241,12 +240,12 @@ function transformUnknownTx(
     kind: 'transaction',
     timestamp: new Date(tx.attributes.mined_at).getTime(),
     comment: undefined,
-    fromAddress: tx.attributes.sent_from,
-    toAddress: tx.attributes.sent_to,
+    fromAddress: normalizeAddress(tx.attributes.sent_from),
+    toAddress: normalizeAddress(tx.attributes.sent_to),
     amount: 0n,
     slug: getChainConfig(chain).nativeToken.slug,
     isIncoming: tx.attributes.sent_from !== address,
-    normalizedAddress: address,
+    normalizedAddress: normalizeAddress(address),
     fee: BigInt(tx.attributes.fee.quantity.int),
     type: 'callContract',
     shouldHide: false,
@@ -266,14 +265,14 @@ function transformEvmSwap(
   const inAsset = tx.attributes.transfers.find((e) =>
     e.direction === 'in'
     && 'fungible_info' in e
-    && getAddress(e.recipient) === address,
+    && normalizeAddress(e.recipient) === address,
   ) as ZerionTokenTransfer
   || undefined;
 
   const outAsset = tx.attributes.transfers.find((e) =>
     e.direction === 'out'
     && 'fungible_info' in e
-    && getAddress(e.sender) === address,
+    && normalizeAddress(e.sender) === address,
   ) as ZerionTokenTransfer
   || undefined;
 
@@ -300,7 +299,7 @@ function transformEvmSwap(
     id: tx.attributes.hash,
     kind: 'swap',
     comment: undefined,
-    fromAddress: address,
+    fromAddress: normalizeAddress(address),
     timestamp: new Date(tx.attributes.mined_at).getTime(),
     from: outToken.slug,
     fromAmount: toDecimal(BigInt(outAsset.quantity.int || 0), outToken.decimals),
@@ -336,12 +335,12 @@ function transformEvmTransfer(
     kind: 'transaction',
     timestamp: new Date(tx.attributes.mined_at).getTime(),
     comment: undefined,
-    fromAddress: transfer.sender.toLowerCase(),
-    toAddress: transfer.recipient.toLowerCase(),
+    fromAddress: normalizeAddress(transfer.sender),
+    toAddress: normalizeAddress(transfer.recipient),
     amount: isIncoming ? BigInt(transfer.quantity.int) : -BigInt(transfer.quantity.int),
     slug,
     isIncoming,
-    normalizedAddress: address.toLowerCase(),
+    normalizedAddress: normalizeAddress(address),
     fee: BigInt(tx.attributes.fee.quantity.int),
     status: 'completed',
   });
@@ -358,18 +357,18 @@ function transformEvmNftTransfer(
     kind: 'transaction',
     timestamp: new Date(tx.attributes.mined_at).getTime(),
     comment: undefined,
-    fromAddress: transfer.sender.toLowerCase(),
-    toAddress: transfer.recipient.toLowerCase(),
+    fromAddress: normalizeAddress(transfer.sender),
+    toAddress: normalizeAddress(transfer.recipient),
     amount: 0n,
     slug: getChainConfig(chain).nativeToken.slug,
     isIncoming: transfer.direction === 'in',
-    normalizedAddress: address.toLowerCase(),
+    normalizedAddress: normalizeAddress(address),
     fee: BigInt(tx.attributes.fee.quantity.int),
     status: 'completed',
     nft: {
       chain,
       index: 0,
-      address: transfer.nft_info.contract_address,
+      address: normalizeAddress(transfer.nft_info.contract_address),
       image: transfer.nft_info.content?.preview?.url || '',
       thumbnail: transfer.nft_info.content?.preview?.url || '',
       name: transfer.nft_info.name,
@@ -388,7 +387,7 @@ export function transformEvmTxToUnified(
   tx: ZerionTransaction,
   address: string,
 ): ApiActivity {
-  address = getAddress(address);
+  address = normalizeAddress(address);
 
   if (tx.attributes.transfers.length > 1) {
     try {
@@ -400,8 +399,8 @@ export function transformEvmTxToUnified(
 
   const transfer = tx.attributes.transfers.find((e) =>
     e.direction === 'in'
-      ? getAddress(e.recipient) === address
-      : getAddress(e.sender) === address,
+      ? normalizeAddress(e.recipient) === address
+      : normalizeAddress(e.sender) === address,
   );
 
   if (!transfer) {

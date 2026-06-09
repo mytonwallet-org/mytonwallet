@@ -30,6 +30,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
+import org.mytonwallet.app_air.walletcore.moshi.ApiDappUrlTrustStatus
 
 class ConnectedAppsCell(context: Context) :
     WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
@@ -255,12 +256,15 @@ class ConnectedAppsCell(context: Context) :
         subtitleLabel.text = exploreSite.url?.toUri()?.host
         subtitleLabel.gravity = Gravity.CENTER_VERTICAL
 
-        if (exploreSite.isUrlEnsured != true) {
+        if (exploreSite.shouldShowurlTrustStatusWarning()) {
             val warningIcon = context.getDrawableCompat(
                 org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning
             )
             warningIcon?.let { drawable ->
                 drawable.setBounds(0, 0, 14.dp, 14.dp)
+                if (exploreSite.resolvedUrlTrustStatus == ApiDappUrlTrustStatus.DANGEROUS) {
+                    drawable.setTint(WColor.Red.color)
+                }
                 subtitleLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(
                     drawable, null, null, null
                 )

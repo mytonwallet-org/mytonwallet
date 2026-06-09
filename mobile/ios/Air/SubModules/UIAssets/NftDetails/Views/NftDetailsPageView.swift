@@ -1,6 +1,7 @@
 import ContextMenuKit
 import UIKit
 import WalletContext
+import WalletCore
 import UIComponents
 
 protocol NftDetailsPageViewDelegate: NftDetailsActionsDelegate {
@@ -19,6 +20,7 @@ class NftDetailsPageView: UIView {
     private var contentColor: NftDetailsContentPalette?
     private var isExpanded: Bool
     private var toolbarMenuInteractions: [ContextMenuInteraction] = []
+    private var descriptionMenuInteraction: ContextMenuInteraction?
 
     struct LayoutGeometry: Equatable {
         let stackMargin: CGFloat = 16
@@ -150,6 +152,19 @@ class NftDetailsPageView: UIView {
             let tile = NftDetailsDescriptionTile()
             tile.titleText = lang("Description").lowercased()
             tile.bodyText = description
+            let interaction = ContextMenuInteraction(
+                triggers: [.longPress],
+                sourcePortal: ContextMenuSourcePortal(
+                    mask: .roundedAttachmentRect(
+                        cornerRadius: NftDetailsDescriptionTile.cornerRadius,
+                        cornerCurve: .continuous
+                    )
+                )
+            ) { [description] _ in
+                Self.makeDescriptionMenuConfiguration(description: description)
+            }
+            interaction.attach(to: tile)
+            descriptionMenuInteraction = interaction
             stackView.addArrangedSubview(tile)
             stackView.setCustomSpacing(28, after: tile)
         }
@@ -210,6 +225,26 @@ class NftDetailsPageView: UIView {
         if isExpanded, rect.contains(gr.location(in: self)) {
             delegate?.pageDidRequestFullScreenPreview()
         }
+    }
+
+    private static func makeDescriptionMenuConfiguration(description: String) -> ContextMenuConfiguration {
+        ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: [
+                .action(
+                    ContextMenuAction(
+                        title: lang("Copy Description"),
+                        icon: .airBundle("SendCopy"),
+                        handler: {
+                            UIPasteboard.general.string = description
+                            AppActions.showToast(icon: .animatedCopy, message: lang("Description Copied"))
+                            Haptics.play(.lightTap)
+                        }
+                    )
+                ),
+            ]),
+            backdrop: .defaultBlurred(),
+            style: ContextMenuStyle(minWidth: 220.0, maxWidth: 280.0)
+        )
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {

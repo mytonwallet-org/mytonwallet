@@ -136,6 +136,16 @@ object LocaleController {
         return getPluralOrFormat(key, amount)
     }
 
+    // `$in_days` is a pure plural ("in N days"). `today`/`tomorrow` are handled separately because
+    // the CLDR `one` plural category (e.g. ru/uk: 1, 21, 31, 61...) cannot isolate exactly 1 day.
+    fun getRelativeDays(amount: Int): String {
+        return when (amount) {
+            0 -> getString("\$relative_today")
+            1 -> getString("\$relative_tomorrow")
+            else -> getPlural(amount, "\$in_days")
+        }
+    }
+
     fun getPluralWord(amount: Int, key: String): String {
         return getPluralOrFormat(key, amount, "")
     }

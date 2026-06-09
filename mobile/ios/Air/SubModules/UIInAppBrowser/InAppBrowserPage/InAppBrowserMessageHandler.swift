@@ -114,8 +114,8 @@ private struct InAppBrowserFunctionResponse<T: Encodable>: Encodable {
 
     private func makeDappRequest(accountId: String?) -> ApiDappRequest? {
         guard let accountId, let origin = config.url.origin else { return nil }
-        let isUrlEnsured = webView?.hasOnlySecureContent
-        return ApiDappRequest(url: origin, isUrlEnsured: isUrlEnsured, accountId: accountId, identifier: JSBRIDGE_IDENTIFIER, sseOptions: nil)
+        let urlTrustStatus: ApiDappUrlTrustStatus? = (webView?.hasOnlySecureContent).map { $0 ? .verified : .unknown }
+        return ApiDappRequest(url: origin, urlTrustStatus: urlTrustStatus, accountId: accountId, identifier: JSBRIDGE_IDENTIFIER, sseOptions: nil)
     }
 
     private func handleWindowOpen(_ url: URL) {

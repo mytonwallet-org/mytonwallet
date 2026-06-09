@@ -81,38 +81,26 @@ class SettingsHeaderView: WTouchPassView {
         
     lazy var headerTouchTarget: UIView = {
         
-        class HeaderTouchTarget: NavigationHeader2 {
-            var onWindowMoved: (() -> Void)?
-            var onSizeChanged: (() -> Void)?
-            var prevSize: CGSize?
-
-            override func didMoveToWindow() {
-                super.didMoveToWindow()
-                if window != nil {
-                    onWindowMoved?()
-                }
-            }
-            
-            override func layoutSubviews() {
-                super.layoutSubviews()
-                if prevSize != bounds.size {
-                    prevSize = bounds.size
-                    onSizeChanged?()
-                }
-            }
-        }
+        let view = NavigationHeader2()
         
-        let view = HeaderTouchTarget()
-        view.onWindowMoved = { [weak self] in
-            guard let self else { return }
+        view.onMovedToWindow = { [weak self] window in
+            guard let self, window != nil else { return }
             self.updateWithLastScrollOffset()
         }
+        
         view.onSizeChanged = { [weak self] in
             guard let self else { return }
             self.updateWithLastScrollOffset()
         }
         
-        view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(headerTouched)))
+        view.onTap = { [weak self] recognizer in
+            guard let self else { return }
+            if isCollapsed {
+                let location = recognizer.location(in: titleStack)
+                titleStack.handleTouchAt(location: location)
+            }
+        }
+        
         return view
     }()
     
@@ -302,13 +290,6 @@ class SettingsHeaderView: WTouchPassView {
     func updateBalance() {
         updateTitle()
         updateAddresses()
-    }
-    
-    @objc private func headerTouched(recognizer: UIGestureRecognizer) {
-        if isCollapsed {
-            let location = recognizer.location(in: titleStack)
-            titleStack.handleTouchAt(location: location)
-        }
     }
     
     fileprivate func updateWithLastScrollOffset() {
