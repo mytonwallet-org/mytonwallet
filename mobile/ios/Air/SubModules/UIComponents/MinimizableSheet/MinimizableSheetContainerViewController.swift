@@ -711,7 +711,10 @@ open class MinimizableSheetContainerViewController: UIViewController {
     private func scrollViewForPanLocation(_ gesture: UIPanGestureRecognizer) -> UIScrollView? {
         let point = gesture.location(in: sheetContentHostView)
         guard let hitView = sheetContentHostView.hitTest(point, with: nil) else { return nil }
-        return hitView.nearestAncestorScrollView()
+        let scrollViews = hitView.ancestorScrollViews(inside: sheetContentHostView)
+        return scrollViews.first(where: { !isScrollViewAtTop($0) })
+            ?? scrollViews.first(where: { $0.isDragging || $0.isDecelerating })
+            ?? scrollViews.first
     }
 
     private func isScrollViewAtTop(_ scrollView: UIScrollView) -> Bool {
@@ -869,15 +872,19 @@ extension UIViewController {
 
 private extension UIView {
 
-    func nearestAncestorScrollView() -> UIScrollView? {
+    func ancestorScrollViews(inside rootView: UIView) -> [UIScrollView] {
+        var scrollViews: [UIScrollView] = []
         var current: UIView? = self
         while let view = current {
             if let scrollView = view as? UIScrollView {
-                return scrollView
+                scrollViews.append(scrollView)
+            }
+            if view === rootView {
+                break
             }
             current = view.superview
         }
-        return nil
+        return scrollViews
     }
 }
 

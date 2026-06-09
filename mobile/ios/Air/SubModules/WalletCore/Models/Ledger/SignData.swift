@@ -27,6 +27,19 @@ public enum SignData: Sendable {
          realFee: BigInt?,
          isNftBurn: Bool?,
      )
+
+    case linkDomain(
+        accountId: String,
+        nft: ApiNft,
+        address: String,
+        realFee: BigInt?
+    )
+
+    case renewDomains(
+        accountId: String,
+        nfts: [ApiNft],
+        realFee: BigInt?
+    )
     
     case staking(
         isStaking: Bool,

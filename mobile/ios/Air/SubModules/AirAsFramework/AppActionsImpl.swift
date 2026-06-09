@@ -403,7 +403,7 @@ private class AppActionsImpl: AppActionsProtocol {
 
     static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool) {
         let accountId = accountContext.account.id
-        let nftVC = NftDetailsVC(accountId: accountId, nft: nft, isExpanded: isExpanded)
+        let nftVC = NftDetailsVC(accountId: accountId, nft: nft, isExpanded: isExpanded, showOnlySelectedIfMissingFromAccount: true)
         let nav = WNavigationController(rootViewController: nftVC)
         nav.modalPresentationStyle = .overFullScreen
         topViewController()?.present(nav, animated: true)

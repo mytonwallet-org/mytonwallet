@@ -16,7 +16,7 @@ class HolderConnectedAppsCell(
             item.app,
             item.isLastItem,
             onDisconnect = { onDisconnect.invoke(item) },
-            onWarning = if (item.app.isUrlEnsured != true) {
+            onWarning = if (item.app.shouldShowurlTrustStatusWarning()) {
                 { onWarning.invoke(item) }
             } else null
         )

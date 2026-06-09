@@ -299,8 +299,8 @@ private struct DappCellContent: View {
                     .foregroundStyle(Color.air.primaryLabel)
                     .lineLimit(1)
                 HStack(spacing: 4) {
-                    if dapp.isUrlEnsured != true {
-                        DappOriginWarning()
+                    if dapp.shouldShowUrlTrustStatusWarning {
+                        DappOriginWarning(urlTrustStatus: dapp.resolvedUrlTrustStatus)
                     }
                     Text(dapp.displayUrl)
                         .foregroundStyle(Color.air.secondaryLabel)

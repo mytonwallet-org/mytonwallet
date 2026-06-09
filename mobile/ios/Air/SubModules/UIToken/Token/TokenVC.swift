@@ -6,6 +6,8 @@
 //
 
 import UIKit
+import SwiftUI
+import Perception
 import UIActivityList
 import UIComponents
 import WalletCore
@@ -14,7 +16,7 @@ import WalletContext
 private let log = Log("TokenVC")
 
 @MainActor
-public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtocol {
+public class TokenVC: ActivityListViewController {
 
     private var tokenVM: TokenVM!
 
@@ -23,8 +25,7 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
     private let isInModal: Bool
     private var accountContext: AccountContext { $account }
 
-    private var headerBlurView: WBlurView!
-    private let bottomSeparatorView = UIView()
+    private var legacyNavBackground: LegacyNavBackground?
 
     public init(accountSource: AccountSource, token: ApiToken, isInModal: Bool) async {
         self._account = AccountContext(source: accountSource)
@@ -49,19 +50,14 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
         fatalError("init(coder:) has not been implemented")
     }
 
-    private lazy var navigationTitleView: UILabel = {
-        let label = UILabel()
-        label.font = .systemFont(ofSize: 17, weight: .semibold)
-        label.text = token.name
-        label.textAlignment = .center
-        label.alpha = 0
-        return label
-    }()
+    private let navigationHeader = NavigationHeader2()
 
-    private lazy var expandableContentView = TokenExpandableContentView(
-        accountContext: accountContext,
-        isInModal: isInModal
-    )
+    private lazy var expandableContentView = TokenExpandableContentView(accountContext: accountContext)
+    
+    private let actionsCustomSectionID = "actions"
+    private var actionsCustomSectionCellRegistration: UICollectionView.CellRegistration<TokenActionsCell, Row>!
+    private var actionsCustomSectionDescriptor: CustomSectionDescriptor!
+
     private let chartCustomSectionID = "chart"
     private var chartCustomSectionCellRegistration: UICollectionView.CellRegistration<TokenChartCell, Row>!
     private var chartCustomSectionDescriptor: CustomSectionDescriptor!
@@ -71,18 +67,22 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
     }
 
     public override var headerPlaceholderHeight: CGFloat {
-        expandableContentView.expandedHeight + 32
+        expandableContentView.metrics.headerPlaceholderHeight
     }
 
-    private var tokenChartCell: TokenChartCell? = nil
-    private var chartCustomSectionHeight: CGFloat {
-        return 56 + (tokenChartCell?.height ??
-            (AppStorageHelper.isTokenChartExpanded ? TokenExpandableChartView.expandedHeight : TokenExpandableChartView.collapsedHeight)
+    public override var customSections: [CustomSectionDescriptor] { [actionsCustomSectionDescriptor, chartCustomSectionDescriptor] }
+    
+    private func configureActionsCustomSection(cell: TokenActionsCell) {
+        cell.setup(accountContext: accountContext, token: token)
+        cell.configure(
+            token: token,
+            fundAvailable: !account.isView,
+            sendAvailable: account.supportsSend,
+            swapAvailable: account.supportsSwap,
+            earnAvailable: account.supportsEarn && token.earnAvailable
         )
     }
-    public override var customSections: [CustomSectionDescriptor] { [chartCustomSectionDescriptor] }
     private func configureChartCustomSection(cell: TokenChartCell) {
-        tokenChartCell = cell
         cell.setup(onHeightChange: { [weak self] in
             self?.updateHeaderHeight()
         })
@@ -93,6 +93,14 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
         }
     }
     private func configureCustomSections() {
+        actionsCustomSectionCellRegistration = UICollectionView.CellRegistration<TokenActionsCell, Row> { [unowned self] cell, _, _ in
+            cell.backgroundColor = .clear
+            configureActionsCustomSection(cell: cell)
+        }
+        actionsCustomSectionDescriptor = CustomSectionDescriptor(id: actionsCustomSectionID) { [unowned self] collectionView, indexPath in
+            collectionView.dequeueConfiguredReusableCell(using: actionsCustomSectionCellRegistration, for: indexPath, item: .custom(actionsCustomSectionID))
+        }
+
         chartCustomSectionCellRegistration = UICollectionView.CellRegistration<TokenChartCell, Row> { [unowned self] cell, _, _ in
             cell.backgroundColor = .clear
             configureChartCustomSection(cell: cell)
@@ -108,18 +116,31 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
     }
 
     private func setupViews() {
-        navigationItem.titleView = navigationTitleView
-        updateNavigationMenu()
-        if !IOS_26_MODE_ENABLED {
-            configureNavigationItemWithTransparentBackground()
+        navigationHeader.setTitle(token.name)
+        navigationHeader.viewToRedirectTouchesTo = expandableContentView
+        navigationHeader.onSizeChanged = { [weak self] in
+            self?.updateScroll()
         }
+        navigationHeader.onMovedToWindow = { [weak self] window in
+            if window != nil {
+                self?.updateScroll()
+            }
+        }
+        navigationItem.titleView = navigationHeader
         
+        updateNavigationMenu()
         navigationController?.setNavigationBarHidden(false, animated: false)
 
         super.setupCollectionView(collectionViewBottomConstraint: 0)
         UIView.performWithoutAnimation {
             applySnapshot(makeSnapshot(), animatingDifferences: false)
             updateSkeletonState()
+        }
+
+        if !IOS_26_MODE_ENABLED {
+            configureNavigationItemWithTransparentBackground()
+            legacyNavBackground = LegacyNavBackground()
+            legacyNavBackground?.addTo(view)
         }
 
         view.addSubview(expandableContentView)
@@ -129,38 +150,7 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
             expandableContentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
 
-        headerBlurView = WBlurView()
-        headerBlurView.alpha = 0
-        headerBlurView.isUserInteractionEnabled = false
-        view.addSubview(headerBlurView)
-        NSLayoutConstraint.activate([
-            headerBlurView.topAnchor.constraint(equalTo: view.topAnchor),
-            headerBlurView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            headerBlurView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            headerBlurView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-        ])
-
-        bottomSeparatorView.translatesAutoresizingMaskIntoConstraints = false
-        bottomSeparatorView.isUserInteractionEnabled = false
-        bottomSeparatorView.backgroundColor = UIColor { .air.separator.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.8 : 0.2) }
-        bottomSeparatorView.alpha = 0
-        view.addSubview(bottomSeparatorView)
-        NSLayoutConstraint.activate([
-            bottomSeparatorView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bottomSeparatorView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottomSeparatorView.bottomAnchor.constraint(equalTo: headerBlurView.bottomAnchor),
-            bottomSeparatorView.heightAnchor.constraint(equalToConstant: 0.333),
-        ])
-
-        if IOS_26_MODE_ENABLED {
-            headerBlurView.isHidden = true
-            bottomSeparatorView.isHidden = true
-        }
-
         view.backgroundColor = isInModal ? .air.sheetBackground : .air.groupedBackground
-        navigationTitleView.textColor = UIColor.label
-
-        updateSensitiveData()
     }
 
     public override func viewIsAppearing(_ animated: Bool) {
@@ -176,12 +166,10 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
 
     private func updateSafeAreaInsets() {
         collectionView.contentInset.bottom = view.safeAreaInsets.bottom + 16
-        guard headerBlurView != nil else { return }
-        scrollViewDidScroll(collectionView)
-    }
-
-    public func updateSensitiveData() {
-        expandableContentView.updateSensitiveData()
+        
+        if !IOS_26_MODE_ENABLED {
+            scrollViewDidScroll(collectionView)
+        }
     }
 
     public override func updateSkeletonViewMask() {
@@ -200,15 +188,29 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
     }
 
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        if collectionView.contentSize.height > collectionView.frame.height {
-            let requiredInset = collectionView.frame.height + TokenExpandableContentView.requiredScrollOffset - collectionView.contentSize.height
-            collectionView.contentInset.bottom = max(view.safeAreaInsets.bottom + 16, requiredInset)
-        }
+        let automaticTopInset = scrollView.adjustedContentInset.top - scrollView.contentInset.top
+        let safeBottom = view.safeAreaInsets.bottom
+        let fullScrollRange = expandableContentView.metrics.fullScrollRange
+        let requiredBottomInset = fullScrollRange
+            - collectionView.contentSize.height
+            + collectionView.frame.height
+            - automaticTopInset
+            - safeBottom
+        collectionView.contentInset.bottom = max(safeBottom + 16, requiredBottomInset)
     }
 
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        let scrollOffset = scrollOffset(for: scrollView)
-        expandableContentView.update(scrollOffset: scrollOffset)
+        updateScroll()
+    }
+    
+    private func updateScroll() {
+        let scrollOffset = scrollOffset(for: collectionView)
+
+        if navigationHeader.window != nil {
+            let navBarShift = navigationHeader.distanceFromNavigationBarBottomToContentCenter
+            expandableContentView.update(scrollOffset: scrollOffset, navBarShift: navBarShift)
+        }
+        
         updateNavigationBarChrome(scrollOffset: scrollOffset)
         updateVisibleActivityNftAnimationPlayback()
     }
@@ -218,19 +220,18 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
                                           targetContentOffset: UnsafeMutablePointer<CGPoint>) {
         let automaticTopInset = scrollView.adjustedContentInset.top - scrollView.contentInset.top
         let realTargetY = targetContentOffset.pointee.y + automaticTopInset
-        let currentScrollOffset = scrollOffset(for: scrollView)
-        // snap to views
-        if realTargetY > 0 && collectionView.contentSize.height > collectionView.frame.height {
-            if realTargetY < expandableContentView.actionsOffset + 30 {
-                let isGoingDown = realTargetY > currentScrollOffset
-                let isStopped = realTargetY == currentScrollOffset
-                if isGoingDown || (isStopped && realTargetY >= expandableContentView.actionsOffset / 2) {
-                    targetContentOffset.pointee.y = expandableContentView.actionsOffset - automaticTopInset - 4 // matching home screen
-                } else {
-                    targetContentOffset.pointee.y = -automaticTopInset
+        let metrics = expandableContentView.metrics
+        let fullScrollRange = metrics.fullScrollRange
+        let isScrollable = collectionView.contentSize.height
+            + scrollView.adjustedContentInset.top
+            + scrollView.adjustedContentInset.bottom > collectionView.frame.height
+        if realTargetY > 0 && isScrollable {
+            if realTargetY < fullScrollRange {
+                var isGoingDown = targetContentOffset.pointee.y > scrollView.contentOffset.y
+                if abs(velocity.y) < 5 {
+                    isGoingDown = realTargetY < fullScrollRange * metrics.collapseThreshold
                 }
-            } else if realTargetY < expandableContentView.actionsOffset + actionsRowHeight {
-                targetContentOffset.pointee.y = expandableContentView.actionsOffset + actionsRowHeight - automaticTopInset
+                targetContentOffset.pointee.y = (isGoingDown ? 0 : metrics.adjustedFullScrollRange) - automaticTopInset
             }
         }
     }
@@ -240,10 +241,19 @@ public class TokenVC: ActivityListViewController, Sendable, WSensitiveDataProtoc
     }
 
     private func updateNavigationBarChrome(scrollOffset: CGFloat) {
-        let progress = min(1, max(0, (scrollOffset - 260) / 16))
-        headerBlurView.alpha = progress
-        bottomSeparatorView.alpha = progress
-        navigationTitleView.alpha = min(1, max(0, (30 - scrollOffset) / 14 + 1))
+        let expansionProgress = expandableContentView.metrics.getExpansionProgress(from: scrollOffset, clamped: false)
+        
+        if let cell = visibleCustomSectionCell(id: actionsCustomSectionID) as? TokenActionsCell {
+            cell.reduceButtonHeightFor(expandableContentView.metrics.adjustedFullScrollRange - scrollOffset)
+        }
+
+        if let lnb = legacyNavBackground {
+            let progress = expansionProgress < 0 ? 1.0 : 0
+            lnb.headerBlurView.alpha = progress
+            lnb.bottomSeparatorView.alpha = progress
+        }
+        
+        navigationHeader.visibilityAlpha = min(1, max(0, (30 - scrollOffset) / 14 + 1))
     }
 
     private func updateNavigationMenu() {
@@ -296,6 +306,7 @@ extension TokenVC: TokenVMDelegate {
     }
     func stateChanged() {
         expandableContentView.configure(token: token)
+        reconfigureCustomSection(id: actionsCustomSectionID)
         reconfigureCustomSection(id: chartCustomSectionID)
     }
     func accountChanged() {
@@ -321,3 +332,35 @@ extension TokenVC: ActivityListViewModelDelegate {
         super.transactionsUpdated(accountChanged: false, isUpdateEvent: false)
     }
 }
+
+@MainActor
+private struct LegacyNavBackground {
+    let headerBlurView = WBlurView()
+    let bottomSeparatorView = UIView()
+    
+    func addTo(_ view: UIView) {
+        headerBlurView.alpha = 0
+        headerBlurView.isUserInteractionEnabled = false
+        headerBlurView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(headerBlurView)
+        NSLayoutConstraint.activate([
+            headerBlurView.topAnchor.constraint(equalTo: view.topAnchor),
+            headerBlurView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerBlurView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerBlurView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+        ])
+
+        bottomSeparatorView.translatesAutoresizingMaskIntoConstraints = false
+        bottomSeparatorView.isUserInteractionEnabled = false
+        bottomSeparatorView.backgroundColor = UIColor { .air.separator.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.8 : 0.2) }
+        bottomSeparatorView.alpha = 0
+        view.addSubview(bottomSeparatorView)
+        NSLayoutConstraint.activate([
+            bottomSeparatorView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bottomSeparatorView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomSeparatorView.bottomAnchor.constraint(equalTo: headerBlurView.bottomAnchor),
+            bottomSeparatorView.heightAnchor.constraint(equalToConstant: 0.333),
+        ])
+    }
+}
+

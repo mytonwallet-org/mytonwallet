@@ -67,9 +67,10 @@ extension DecimalAmount {
     ) -> NSAttributedString {
         let string = format.format(self)
         let len = (string as NSString).length
+        let nsString = string as NSString
         let at = NSMutableAttributedString(string: string)
         
-        let symbolRange = (string as NSString).range(of: symbol ?? "???")
+        let symbolRange = nsString.range(of: symbol ?? "???")
         
         let numberRange: NSRange = if symbolRange.location == NSNotFound {
             NSRange(location: 0, length: len)
@@ -79,7 +80,22 @@ extension DecimalAmount {
             NSRange(location: 0, length: symbolRange.lowerBound)
         }
         
-        let dotRange = (string as NSString).range(of: ".", range: numberRange)
+        let dotRange = nsString.range(of: ".", range: numberRange)
+        
+        let trailingSymbolRange: NSRange? = {
+            guard symbolRange.location != NSNotFound,
+                  symbolRange.location > 0,
+                  dotRange.location == NSNotFound else {
+                return nil
+            }
+            var location = symbolRange.location
+            while location > 0,
+                  let scalar = UnicodeScalar(Int(nsString.character(at: location - 1))),
+                  CharacterSet.whitespaces.contains(scalar) {
+                location -= 1
+            }
+            return NSRange(location: location, length: symbolRange.upperBound - location)
+        }()
         
         let integerRange: NSRange = {
             let lo = if symbolRange.location == 0 {
@@ -89,6 +105,8 @@ extension DecimalAmount {
             }
             let hi = if dotRange.location != NSNotFound {
                 dotRange.location
+            } else if let trailingSymbolRange {
+                trailingSymbolRange.location
             } else if symbolRange.location != NSNotFound, symbolRange.location > 0 {
                 symbolRange.location
             } else {
@@ -124,12 +142,12 @@ extension DecimalAmount {
             at.addAttributes([
                 .foregroundColor: symbolColor,
                 .font: symbolFont
-            ], range: symbolRange)
+            ], range: trailingSymbolRange ?? symbolRange)
         } else if symbolRange.location != NSNotFound && fractionRange.location == NSNotFound {
             at.addAttributes([
                 .foregroundColor: fractionColor,
                 .font: fractionFont
-            ], range: symbolRange)
+            ], range: trailingSymbolRange ?? symbolRange)
         }
         return at
     }

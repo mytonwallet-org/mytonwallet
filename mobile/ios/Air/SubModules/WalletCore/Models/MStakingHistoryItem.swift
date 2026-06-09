@@ -19,7 +19,7 @@ public struct MStakingHistoryItem: Equatable, Hashable, Encodable, Identifiable,
         public var localized: String {
             switch self {
             case .profit:
-                return lang("Earned")
+                return lang("$staking_history_earned")
             case .staked:
                 return lang("Staked")
             case .unstaked:

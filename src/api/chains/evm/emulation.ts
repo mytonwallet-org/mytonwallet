@@ -1,4 +1,4 @@
-import { getAddress, Transaction } from 'ethers';
+import { Transaction } from 'ethers';
 
 import type { ApiDappTransfer, ApiEmulationResult, ApiNetwork, EVMChain } from '../../types';
 import type { AlchemyAssetChange, AlchemyAssetChangesResponse, EvmTokenOperation } from './types';
@@ -13,6 +13,7 @@ import { updateTokensMetadataByAddress } from './util/metadata';
 import { updateActivityMetadata } from '../../common/helpers';
 import { getTokenBySlug } from '../../common/tokens';
 import { buildTokenSlug } from '../../methods';
+import { normalizeAddress } from './address';
 import { EVM_RPC_URLS } from './constants';
 
 function normalizeHexTx(rawTx: string): string {
@@ -97,7 +98,7 @@ function isWrongSigner(tx: Transaction, accountAddress: string): boolean {
     return false;
   }
   try {
-    return getAddress(from) !== getAddress(accountAddress);
+    return normalizeAddress(from) !== normalizeAddress(accountAddress);
   } catch {
     return true;
   }
@@ -106,9 +107,9 @@ function isWrongSigner(tx: Transaction, accountAddress: string): boolean {
 function resolveFromAddress(tx: Transaction, accountAddress: string): string {
   const raw = tx.from ?? undefined;
   if (raw === undefined) {
-    return getAddress(accountAddress);
+    return normalizeAddress(accountAddress);
   }
-  return getAddress(raw);
+  return normalizeAddress(raw);
 }
 
 function isPlainNativeTransfer(tx: Transaction): boolean {
@@ -145,7 +146,7 @@ export async function parseTransactionForPreview(
   const feeForActivity = networkFee > 0n ? networkFee : maxFeeFromSerializedTx(tx);
 
   if (!isDangerousMeta && isPlainNativeTransfer(tx)) {
-    const toAddr = getAddress(tx.to!);
+    const toAddr = normalizeAddress(tx.to!);
     const amount = tx.value ?? 0n;
 
     transfers.push(getFakeTransfer(chain, rawTx, false));
@@ -300,8 +301,8 @@ export async function parseTokenOperation(
 
     assets.push(change.contractAddress || nativeSlug);
 
-    const isIncoming = getAddress(change.to) === userAddress;
-    const isOutgoing = getAddress(change.from) === userAddress;
+    const isIncoming = normalizeAddress(change.to) === userAddress;
+    const isOutgoing = normalizeAddress(change.from) === userAddress;
 
     if (isIncoming) {
       const current = changes.get(change.contractAddress || nativeSlug) || 0n;

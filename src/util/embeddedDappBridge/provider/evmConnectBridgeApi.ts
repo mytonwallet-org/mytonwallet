@@ -141,7 +141,7 @@ export function buildEvmConnectBridgeApi(pageUrl: string): BrowserEvmConnectBrid
 function buildDappRequest(origin: string) {
   return {
     url: origin,
-    isUrlEnsured: true,
+    urlTrustStatus: 'verified' as const,
     accountId: getGlobal().currentAccountId,
   };
 }

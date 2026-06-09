@@ -56,9 +56,15 @@ open class NavigationHeader2: UILabel {
     private var centerYConstraint: NSLayoutConstraint!
     private var widthConstraint: NSLayoutConstraint!
     private var heightConstraint: NSLayoutConstraint!
+    private var tapRecognizer: UITapGestureRecognizer?
+    private var prevSize: CGSize?
+    private var _visibilityAlpha: CGFloat? = nil
 
     public private(set) var contentView: UIView?
-    
+    public weak var viewToRedirectTouchesTo: UIView?
+    public var onMovedToWindow: ((UIWindow?) -> Void)?
+    public var onSizeChanged: (() -> Void)?
+
     override public init(frame: CGRect) {
         super.init(frame: frame)
 
@@ -69,6 +75,47 @@ open class NavigationHeader2: UILabel {
 
     @available(*, unavailable)
     required public init?(coder: NSCoder) { fatalError() }
+    
+    public var distanceFromNavigationBarBottomToContentCenter: CGFloat {
+        guard let navBar = navigationBar else { return contentHeight / 2 }
+        return navBar.bounds.maxY - convert(bounds.center, to: navBar).y
+    }
+        
+    /// In fact this sets UILabel of standard font size as the content view.
+    public func setTitle(_ title: String) {
+        
+        if let oldLabel = contentView as? UILabel {
+            oldLabel.text = title
+            setNeedsLayout()
+            return
+        }
+        
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 17, weight: .semibold)
+        label.text = title
+        label.textColor = .label
+        label.numberOfLines = 1
+        setContentView(label)
+    }
+    
+    /// Set this to override UIKit's alpha auto0management (e.g. scroll-driven fades or during transitions).
+    /// Set to nil to restore normal UIKit control.
+    public var visibilityAlpha: CGFloat? {
+        get { _visibilityAlpha }
+        set {
+            _visibilityAlpha = newValue
+            super.alpha = newValue ?? 1.0
+        }
+    }
+    
+    override public var alpha: CGFloat {
+        get { super.alpha }
+        set {
+            // When we own the alpha, ignore UIKit's writes (transitions, bar animations)
+            guard _visibilityAlpha == nil else { return }
+            super.alpha = newValue
+        }
+    }
 
     public func setContentView(_ view: UIView) {
         guard contentView !== view else { return }
@@ -93,40 +140,84 @@ open class NavigationHeader2: UILabel {
         
         setNeedsLayout()
     }
-            
+    
+    /// Common case: taping on transparent header for proxing to a scrolled controls underneath.
+    public var onTap: ((UITapGestureRecognizer) -> Void)? {
+        didSet {
+            if onTap == nil {
+                if let tapRecognizer {
+                    removeGestureRecognizer(tapRecognizer)
+                    self.tapRecognizer = nil
+                }
+            } else {
+                if oldValue == nil {
+                    let g = UITapGestureRecognizer(target: self, action: #selector(onTap(_:)))
+                    addGestureRecognizer(g)
+                    tapRecognizer = g
+                }
+            }
+        }
+    }
+    
+    @objc private func onTap(_ recognizer: UITapGestureRecognizer) {
+        guard let onTap else {
+            assertionFailure()
+            return
+        }
+        onTap(recognizer)
+    }
+    
+    open override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if let view = viewToRedirectTouchesTo, view.isUserInteractionEnabled {
+            let local = convert(point, to: view)
+            if let v = view.hitTest(local, with: event) {
+                return v
+            }
+        }
+        return super.hitTest(point, with: event)
+    }
+                    
     open override var intrinsicContentSize: CGSize {
         CGSize(width: UIView.layoutFittingExpandedSize.width, height: contentHeight)
     }
         
     open override func sizeThatFits(_ size: CGSize) -> CGSize {
-        return CGSize(width: 1000, height: contentHeight)
+        return CGSize(width: 2000, height: contentHeight)
     }
             
     open override func didMoveToWindow() {
         super.didMoveToWindow()
         layoutContent()
+        onMovedToWindow?(window)
     }
 
     open override func layoutSubviews() {
         super.layoutSubviews()
         layoutContent()
+        
+        if prevSize != bounds.size {
+            prevSize = bounds.size
+            onSizeChanged?()
+        }
+    }
+    
+    private var navigationBar: UINavigationBar? {
+        var ancestor = superview
+        while let view = ancestor {
+            if let n = view as? UINavigationBar {
+                return n
+            }
+            ancestor = view.superview
+        }
+        return nil
     }
     
     private func layoutContent() {
-        let navBar: UIView? = {
-            var ancestor = superview
-            while let view = ancestor {
-                if view is UINavigationBar { return view }
-                ancestor = view.superview
-            }
-            return nil
-        }()
-        
-        guard let navBar, let contentView, bounds.width > 0 else { return }
+        guard let navBar = navigationBar, let contentView, bounds.width > 0 else { return }
         
         let contentSize = contentView.intrinsicContentSize
         let width = min(bounds.width, ceil(contentSize.width))
-        let navMidInContainer = navBar.convert(CGPoint(x: navBar.bounds.midX, y: 0), to: self).x
+        let navMidInContainer = navBar.convert(CGPoint(x: navBar.bounds.inset(by: navBar.safeAreaInsets).midX, y: 0), to: self).x
         let offset = navMidInContainer - bounds.midX
         let halfSlack = max(0, bounds.width - width) / 2
         centerXConstraint.constant = offset.clamped(to: -halfSlack...halfSlack)

@@ -14,10 +14,10 @@ enum ConnectDappViewOrPlaceholderContent {
 }
 
 struct ConnectDappViewOrPlaceholder: View {
-    
+
     let viewModel: ConnectViewModel
     var onHeightChange: (CGFloat) -> ()
-    
+
     var body: some View {
         WithPerceptionTracking {
             switch content {
@@ -34,7 +34,7 @@ struct ConnectDappViewOrPlaceholder: View {
             onHeightChange(height)
         }
     }
-    
+
     var content: ConnectDappViewOrPlaceholderContent {
         if let update = viewModel.update {
             return .connectDapp(ConnectDappView(viewModel: viewModel, update: update))
@@ -48,10 +48,10 @@ struct ConnectDappViewOrPlaceholder: View {
 }
 
 struct ConnectDappView: View {
-    
+
     let viewModel: ConnectViewModel
     var update: ApiUpdate.DappConnect
-    
+
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: 24) {
@@ -72,9 +72,9 @@ struct ConnectDappView: View {
 }
 
 private struct HeaderView: View {
-    
+
     var dapp: ApiDapp
-    
+
     var body: some View {
         VStack(spacing: 12) {
             VStack(spacing: 16) {
@@ -83,8 +83,8 @@ private struct HeaderView: View {
                     Text(lang("$connect_dapp_title", arg1: dapp.name))
                         .airFont24h32(weight: .semibold)
                     HStack {
-                        if dapp.isUrlEnsured != true {
-                            DappOriginWarning()
+                        if dapp.shouldShowUrlTrustStatusWarning {
+                            DappOriginWarning(urlTrustStatus: dapp.resolvedUrlTrustStatus)
                                 .offset(y: 1)
                         }
                         Text(dapp.displayUrl)
@@ -101,9 +101,9 @@ private struct HeaderView: View {
 }
 
 private struct SelectSection: View {
-    
+
     let viewModel: ConnectViewModel
-    
+
     var body: some View {
         WithPerceptionTracking {
             InsetSection {
@@ -123,17 +123,21 @@ private struct SelectSection: View {
 }
 
 private struct ConnectButton: View {
-    
+
     let viewModel: ConnectViewModel
-    
+
     var body: some View {
         WithPerceptionTracking {
             Button(action: viewModel.onConnectWallet) {
-                Text(lang("Connect Wallet"))
+                Text(lang(isDangerous ? "Connect Anyway" : "Connect Wallet"))
             }
             .disabled(viewModel.isDisabled)
-            .buttonStyle(.airPrimary)
+            .buttonStyle(isDangerous ? WUIButtonStyle(style: .destructive) : .airPrimary)
             .padding(.horizontal, 30)
         }
+    }
+
+    var isDangerous: Bool {
+        viewModel.update?.dapp.resolvedUrlTrustStatus == .dangerous
     }
 }

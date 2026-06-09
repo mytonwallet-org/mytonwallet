@@ -33,7 +33,7 @@ function DappInfo({
 }: OwnProps) {
   const lang = useLang();
 
-  const { name, iconUrl, url, isUrlEnsured } = dapp || {};
+  const { name, iconUrl, url, urlTrustStatus } = dapp || {};
   const host = useMemo(() => url ? new URL(url).host : undefined, [url]);
 
   const shouldShowDisconnect = Boolean(onDisconnect && url);
@@ -55,8 +55,8 @@ function DappInfo({
     );
   }
 
-  const warningIconJsx = !isUrlEnsured && (
-    <DappHostWarning url={url} iconClassName={styles.dappHostWarningIcon} />
+  const warningIconJsx = urlTrustStatus !== 'verified' && (
+    <DappHostWarning url={url} urlTrustStatus={urlTrustStatus} iconClassName={styles.dappHostWarningIcon} />
   );
 
   return (

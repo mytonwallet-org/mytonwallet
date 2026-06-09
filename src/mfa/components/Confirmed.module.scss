@@ -8,10 +8,11 @@
 }
 
 .description {
-  margin-top: 1.25rem;
-  text-align: center;
-
   display: flex;
   flex-direction: column;
   gap: 1.375rem;
+
+  margin-top: 1.25rem;
+
+  text-align: center;
 }

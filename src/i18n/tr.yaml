@@ -155,6 +155,8 @@ Activity Details: Aktivite Detayları
 No activities found: Aktivite bulunamadı
 Comment Copied: Açıklama kopyalandı
 Copy Text: Metni kopyala
+Copy Description: Açıklamayı kopyala
+Description Copied: Açıklama kopyalandı
 Message Copied: Mesaj kopyalandı
 Sender: Gönderici
 Recipient: Alıcı
@@ -285,6 +287,7 @@ Unexpected: Beklenmedik hata
 You can save this address for quick access while sending.: Gönderirken hızlı erişim için bu adresi kaydedebilirsiniz.
 Stake Again: Yeniden stake edin
 Earned: Kazanıldı
+$staking_history_earned: Kazanıldı
 Select wallet to use on this app: Bu uygulama üzerinde kullanılacak cüzdanı seçin
 Connect: Bağlan
 Payload: Yük
@@ -868,6 +871,10 @@ Remember for %1$d minutes: "%1$d dakika boyunca hatırla"
 Preview: Önizleme
 $preview_not_guaranteed: Önizleme sonucu **garanti edilmez** ve hizmet tarafından **sahte olabilir**.
 Unverified Source: Doğrulanmamış Kaynak
+DappurlTrustStatusInvalidTitle: Domain mismatch
+$DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
+DappurlTrustStatusDangerousTitle: Potentially malicious site
+$DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
 $reopen_in_iab: Lütfen bu uyarıdan kaçınmak için MyTonWallet %mobileAppButton% veya %browserExtensionButton% kullanın.
 $reopen_in_iab_explore: Bu uyarıdan kaçınmak için uygulamalara göz atarken lütfen %exploreTab% bölümünü kullanın.
 MyTonWallet Browser: MyTonWallet Tarayıcısı
@@ -923,8 +930,8 @@ $domains_expire:
   oneValue: "**%domain% alan adı** %days% sona eriyor"
   otherValue: "**%domain% alan adı** %days% sona eriyor"
 $in_days:
-  zeroValue: bugün
-  oneValue: yarın
+  zeroValue: "%1$d gün içinde"
+  oneValue: "%1$d gün içinde"
   otherValue: "%1$d gün içinde"
 $domain_was_expired: "**%domain%** süresi doldu"
 $domains_was_expired:
@@ -1079,6 +1086,7 @@ Choose Wallet: Cüzdan seç
 Wallet to use on %host%: '%host% için cüzdan'
 Selected Wallet: Seçili cüzdan
 Connect Wallet: Cüzdanı bağla
+Connect Anyway: Yine de bağlan
 Insufficient Fee: Yetersiz ücret
 Waiting for a View deeplink to display a wallet address.: Bir cüzdan adresi görüntülemek için bir View deeplink'i bekleniyor.
 Adding wallets is not available in explorer mode: Cüzdan eklemek, kaşif modunda kullanılamaz
@@ -1554,3 +1562,5 @@ Cumulative profit and loss over time: Zaman içinde kümülatif kâr ve zarar
 Day-by-day profit and loss: Günden güne kâr ve zarar
 Current allocation across tracked assets: İzlenen varlıklar arasındaki mevcut dağılım
 This action is not supported in explorer mode.: Bu işlem kaşif modunda desteklenmiyor.
+$relative_today: bugün
+$relative_tomorrow: yarın

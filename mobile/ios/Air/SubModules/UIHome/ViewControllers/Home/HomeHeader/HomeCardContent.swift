@@ -155,6 +155,7 @@ private struct _BalanceChange: View {
 private struct _BalanceChangeContent: View, Equatable {
     let text: String?
     let nft: ApiNft?
+    let isPositive: Bool
     let onTap: () -> Void
     
     init(
@@ -167,10 +168,15 @@ private struct _BalanceChangeContent: View, Equatable {
         self.text = Self.makeText(balance: balance, balance24h: balance24h, balanceChange: balanceChange)
         self.nft = nft
         self.onTap = onTap
+        if let balance, let balance24h, balance.amount > 0, balance24h.amount > 0 {
+            self.isPositive = balance.amount > balance24h.amount
+        } else {
+            self.isPositive = false
+        }
     }
     
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.text == rhs.text && lhs.nft == rhs.nft
+        lhs.text == rhs.text && lhs.nft == rhs.nft && lhs.isPositive == rhs.isPositive
     }
 
     var body: some View {
@@ -185,7 +191,6 @@ private struct _BalanceChangeContent: View, Equatable {
                 placeholderView()
             }
         }
-        .foregroundStyle(getSecondaryForegrundColor(nft: nft))
         .backportGeometryGroup()
     }
     
@@ -210,20 +215,23 @@ private struct _BalanceChangeContent: View, Equatable {
     }
     
     private func mainView(_ text: String) -> some View {
-        Button(action: onTap) {
+        let baseColor = isPositive ? .air.positiveBalance : getSecondaryForegroundColor(nft: nft)
+        let textColor = isPositive ? baseColor : baseColor.opacity(0.8)
+        let bgColor = baseColor.opacity(isPositive ? 0.16 : 0.10)
+        return Button(action: onTap) {
             HStack(spacing: 4) {
                 Text(text)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .semibold))
             }
             .font(.compactDisplay(size: 17, weight: .medium))
-            .opacity(0.8)
+            .foregroundStyle(textColor)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 8)
             .background {
                 ZStack {
                     BackgroundBlur(radius: 12)
-                    Capsule().opacity(0.10)
+                    Capsule().fill(bgColor)
                 }
                 .clipShape(.capsule)
                 .frame(height: 26)
@@ -282,7 +290,7 @@ private struct _AddressLineContent: View {
     var body: some View {
         HStack(spacing: 8) {
             if isTemporary {
-                AddViewButton(accountId: accountId, foregroundStyle: getSecondaryForegrundColor(nft: nft))
+                AddViewButton(accountId: accountId, foregroundStyle: getSecondaryForegroundColor(nft: nft))
                     .padding(.vertical, -6)
             }
             MtwCardAddressLine(addressLine: addressLine, style: .homeCard, gradient: MtwCardCenteredGradient(nft: nft))

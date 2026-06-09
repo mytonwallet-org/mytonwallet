@@ -5,6 +5,7 @@
 	<key>UIAppFonts</key>
 	<array>
 		<string>AirModules_WalletContext.bundle/Nunito-ExtraBold.ttf</string>
+		<string>AirModules_WalletContext.bundle/CalSans-Regular.ttf</string>
 		<string>AirModules_WalletContext.bundle/SFCompactDisplayMedium.otf</string>
 		<string>AirModules_WalletContext.bundle/SFCompactRoundedBold.otf</string>
 		<string>AirModules_WalletContext.bundle/SFCompactRoundedSemibold.otf</string>

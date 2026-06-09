@@ -227,8 +227,12 @@ function DappConnectModal({
         <div className={modalStyles.transitionContent}>
           <span className={buildClassName(styles.accountSelectorTitle, styles.accountSelectorTitle_2)}>
             {lang('Wallet to use on %host%', { host: dappHost })}
-            {!dapp?.isUrlEnsured && (
-              <DappHostWarning url={dapp?.url} iconClassName={styles.dappLargePreviewHostWarning} />
+            {dapp?.urlTrustStatus !== 'verified' && (
+              <DappHostWarning
+                url={dapp?.url}
+                urlTrustStatus={dapp?.urlTrustStatus}
+                iconClassName={styles.dappLargePreviewHostWarning}
+              />
             )}
           </span>
           <div className={styles.accountList}>
@@ -284,8 +288,12 @@ function DappConnectModal({
           <span className={styles.dappLargePreviewName}>{lang('$connect_dapp_title', { name: dapp?.name })}</span>
           <span className={styles.dappLargePreviewHost}>
             {dappHost}
-            {!dapp?.isUrlEnsured && (
-              <DappHostWarning url={dapp?.url} iconClassName={styles.dappLargePreviewHostWarning} />
+            {dapp?.urlTrustStatus !== 'verified' && (
+              <DappHostWarning
+                url={dapp?.url}
+                urlTrustStatus={dapp?.urlTrustStatus}
+                iconClassName={styles.dappLargePreviewHostWarning}
+              />
             )}
           </span>
           <p className={styles.dappLargePreviewDescription}>{lang('$connect_dapp_description')}</p>
@@ -295,11 +303,12 @@ function DappConnectModal({
         <div className={styles.footer}>
           <Button
             isPrimary
+            isDestructive={dapp?.urlTrustStatus === 'dangerous'}
             isDisabled={isViewMode}
             className={modalStyles.buttonFullWidth}
             onClick={handleSubmit}
           >
-            {lang('Connect Wallet')}
+            {lang(dapp?.urlTrustStatus === 'dangerous' ? 'Connect Anyway' : 'Connect Wallet')}
           </Button>
         </div>
       </div>

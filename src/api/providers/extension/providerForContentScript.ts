@@ -68,7 +68,7 @@ createExtensionInterface(CONTENT_SCRIPT_PORT, (
 
     const method = adapterMethod.bind(adapter);
 
-    const request: ApiDappRequest = { url: origin, isUrlEnsured: true };
+    const request: ApiDappRequest = { url: origin, urlTrustStatus: 'verified' };
 
     // @ts-ignore
     return method(...[request].concat(args));

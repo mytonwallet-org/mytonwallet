@@ -16,16 +16,23 @@
 import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
 import { WalletKit } from '@reown/walletkit';
 import { Core } from '@walletconnect/core';
-import type { SessionTypes } from '@walletconnect/types';
+import type { SessionTypes, Verify } from '@walletconnect/types';
 import { buildApprovedNamespaces, getSdkError } from '@walletconnect/utils';
-import { getAddress, Transaction } from 'ethers';
+import { Transaction } from 'ethers';
 
 import type {
   confirmDappRequestConnect,
   confirmDappRequestSendTransaction,
   confirmDappRequestSignData,
 } from '../../../methods';
-import type { ApiChain, ApiDappRequest, ApiNetwork, EVMChain, OnApiUpdate } from '../../../types';
+import type {
+  ApiChain,
+  ApiDappRequest,
+  ApiDappurlTrustStatusStatus,
+  ApiNetwork,
+  EVMChain,
+  OnApiUpdate,
+} from '../../../types';
 import type { DappProtocolError } from '../../errors';
 import type { StoredDappConnection } from '../../storage';
 import type {
@@ -56,7 +63,6 @@ import {
   EVM_CHAIN_IDS,
   getEip155Caip2ForEvmChain,
   namespacesToSessionChains,
-  type WalletConnectSessionProposal,
 } from './types';
 
 import {
@@ -188,7 +194,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
    * Handle incoming session proposal from dApp.
    * This is called when a dApp scans QR code or follows deep link.
    */
-  private handleSessionProposal = async (proposal: WalletConnectSessionProposal) => {
+  private handleSessionProposal = async (proposal: WalletKitTypes.SessionProposal) => {
     let dappUniqueId = '';
     let dappAccountId = '';
     let dappUrl = '';
@@ -424,7 +430,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         const account = await fetchStoredChainAccount(byTopic.accountId, namespace.chain);
         const walletAddress = account.byChain[namespace.chain].address;
 
-        if (getAddress(from) !== walletAddress) {
+        if (chains['ethereum'].normalizeAddress(from) !== walletAddress) {
           await this.walletKit.respondSessionRequest({
             topic,
             response: {
@@ -459,7 +465,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         const account = await fetchStoredChainAccount(byTopic.accountId, namespace.chain);
         const walletAddress = account.byChain[namespace.chain].address;
 
-        if (getAddress(from) !== walletAddress) {
+        if (chains['ethereum'].normalizeAddress(from) !== walletAddress) {
           await this.walletKit.respondSessionRequest({
             topic,
             response: {
@@ -495,7 +501,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         const account = await fetchStoredChainAccount(byTopic.accountId, namespace.chain);
         const walletAddress = account.byChain[namespace.chain].address;
 
-        if (getAddress(from) !== walletAddress) {
+        if (chains['ethereum'].normalizeAddress(from) !== walletAddress) {
           await this.walletKit.respondSessionRequest({
             topic,
             response: {
@@ -634,6 +640,11 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
       let chains = await getAccountChains(message, network, accountId, message.requestedChains);
 
+      const urlTrustStatus = request.urlTrustStatus
+        ?? (message.transport === 'relay'
+          ? urlTrustStatusStatusFromWalletConnectVerify(message.protocolData.verifyContext)
+          : 'verified');
+
       let dapp: StoredDappConnection = {
         name: message.protocolData.params.proposer.metadata.name,
         iconUrl: message.protocolData.params.proposer.metadata.icons[0],
@@ -642,7 +653,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         url: message.protocolData.params.proposer.metadata.url,
         connectedAt: Date.now(),
         wcPairingTopic: message.protocolData.params.pairingTopic,
-        ...(request.isUrlEnsured && { isUrlEnsured: true }),
+        urlTrustStatus,
       };
 
       const uniqueId = getDappConnectionUniqueId(dapp);
@@ -1665,7 +1676,7 @@ async function resolveWalletConnectEvmSerializedTx(options: {
       return raw;
     }
 
-    const fromAddr = getAddress(signerAddress);
+    const fromAddr = chains['ethereum'].normalizeAddress(signerAddress);
     const updated = tx.clone();
     let provider: ReturnType<typeof getEvmProvider> | undefined;
 
@@ -1834,4 +1845,22 @@ function formatConnectError(id: number, error: unknown): {
       message,
     },
   };
+}
+
+function urlTrustStatusStatusFromWalletConnectVerify(verifyContext?: Verify.Context): ApiDappurlTrustStatusStatus {
+  if (!verifyContext?.verified) {
+    return 'unknown';
+  }
+  const { isScam, validation } = verifyContext.verified;
+  if (isScam) {
+    return 'dangerous';
+  }
+  if (validation === 'VALID') {
+    // We cannot proof that the dApp is REALLY safe - os ignore WalletConnect VALID label for now
+    return 'unknown';
+  }
+  if (validation === 'INVALID') {
+    return 'invalid';
+  }
+  return 'unknown';
 }

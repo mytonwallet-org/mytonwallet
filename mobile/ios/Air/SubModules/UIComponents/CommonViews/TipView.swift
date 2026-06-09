@@ -9,6 +9,7 @@ public struct TipView<Content: View>: View {
     public enum Kind {
         case info
         case warning
+        case danger
     }
     
     var title: String
@@ -133,6 +134,13 @@ public struct TipView<Content: View>: View {
                 .resizable()
                 .frame(width: 36, height: 36)
                 .foregroundStyle(.orange)
+                .padding(4)
+
+        case .danger:
+            Image(systemName: "exclamationmark.circle.fill")
+                .resizable()
+                .frame(width: 36, height: 36)
+                .foregroundStyle(Color.air.error)
                 .padding(4)
         }
     }

@@ -5,7 +5,7 @@
  * multiple protocols while maintaining backward compatibility.
  */
 
-import type { ApiChain, ApiNetwork } from '../types';
+import type { ApiChain, ApiDappurlTrustStatusStatus, ApiNetwork } from '../types';
 import type { ApiSseOptions } from '../types/storage';
 import type { DappMetadata, DappSessionChain } from './types';
 import { DappProtocolType } from './types';
@@ -35,8 +35,8 @@ export interface StoredDappConnection {
   // --- Session fields ---
   /** When the connection was established (Unix timestamp ms) */
   connectedAt: number;
-  /** Whether the URL was verified */
-  isUrlEnsured?: boolean;
+  /** Domain trust level (WalletConnect Verify, trusted bridge origin, etc.). */
+  urlTrustStatus?: ApiDappurlTrustStatusStatus;
 
   // --- Protocol-specific data ---
   /** SSE options for TON Connect SSE connections */
@@ -82,19 +82,38 @@ export function isLegacyConnection(connection: StoredDappConnection): boolean {
   return connection.protocolType === undefined;
 }
 
+const URL_TRUST_STATUSES: ReadonlySet<ApiDappurlTrustStatusStatus> = new Set([
+  'verified',
+  'unknown',
+  'invalid',
+  'dangerous',
+]);
+
+type StoredDappConnectionWithLegacy = StoredDappConnection & { isUrlEnsured?: boolean };
+
+function normalizeStoredDappurlTrustStatus(connection: StoredDappConnectionWithLegacy): StoredDappConnection {
+  const { isUrlEnsured: _legacy, ...rest } = connection;
+  let urlTrustStatus = rest.urlTrustStatus;
+
+  if (!urlTrustStatus || !URL_TRUST_STATUSES.has(urlTrustStatus)) {
+    urlTrustStatus = _legacy === true ? 'verified' : 'unknown';
+  }
+
+  return { ...rest, urlTrustStatus };
+}
+
 /**
  * Migrate a legacy connection to the new format.
  * All legacy connections are assumed to be TON Connect.
  */
 export function migrateLegacyConnection(connection: StoredDappConnection): StoredDappConnection {
-  if (!isLegacyConnection(connection)) {
-    return connection;
+  let next: StoredDappConnectionWithLegacy = { ...connection };
+
+  if (isLegacyConnection(connection)) {
+    next = { ...next, protocolType: DappProtocolType.TonConnect };
   }
 
-  return {
-    ...connection,
-    protocolType: DappProtocolType.TonConnect,
-  };
+  return normalizeStoredDappurlTrustStatus(next);
 }
 
 // =============================================================================

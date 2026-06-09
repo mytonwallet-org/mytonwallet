@@ -687,7 +687,7 @@ sealed class ApiMethod<T> {
             @JsonClass(generateAdapter = true)
             data class DAppArg(
                 val url: String,
-                val isUrlEnsured: Boolean,
+                val urlTrustStatus: String = "verified",
                 var accountId: String,
             )
 

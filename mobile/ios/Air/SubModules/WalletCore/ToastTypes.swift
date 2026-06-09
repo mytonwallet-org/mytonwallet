@@ -1,8 +1,8 @@
-public enum ToastStyle {
+public enum ToastStyle: Equatable {
     case standard, large
 }
 
-public enum ToastIcon {
+public enum ToastIcon: Equatable {
     case animatedCopy
     case symbolImage(String)
 }

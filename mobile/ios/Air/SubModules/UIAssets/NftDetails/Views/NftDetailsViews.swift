@@ -128,6 +128,8 @@ class NftDetailsLabel: UILabel, NftDetailsContentColorConsumer {
 // MARK: - NftDetailsDescriptionTile
 
 final class NftDetailsDescriptionTile: UIView, NftDetailsContentColorConsumer {
+    static let cornerRadius: CGFloat = 26
+
     private let backgroundView = ThinGlassView()
     private let titleLabel = UILabel()
     private let bodyLabel = UILabel()
@@ -152,6 +154,7 @@ final class NftDetailsDescriptionTile: UIView, NftDetailsContentColorConsumer {
     }
     
     private func setup() {
+        backgroundView.cornerRadius = Self.cornerRadius
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(backgroundView)
         
