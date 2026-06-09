@@ -327,7 +327,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
 //    let request = ApiUpdate.DappSendTransactions(
 //        promiseId: "",
 //        accountId: "",
-//        dapp: ApiDapp(url: "https://dedust.io", name: "Dedust", iconUrl: "https://files.readme.io/681e2e6-dedust_1.png", manifestUrl: "", connectedAt: nil, isUrlEnsured: nil, sse: nil),
+//        dapp: ApiDapp(url: "https://dedust.io", name: "Dedust", iconUrl: "https://files.readme.io/681e2e6-dedust_1.png", manifestUrl: "", connectedAt: nil, urlTrustStatus: nil, sse: nil),
 //        transactions: [
 //            ApiDappTransfer(
 //                toAddress: "tkffadjklfadsjfalkdjfd;alljfdasfo",

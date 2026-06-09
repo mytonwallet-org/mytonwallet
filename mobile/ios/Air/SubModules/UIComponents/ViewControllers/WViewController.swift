@@ -247,12 +247,36 @@ open class WViewController: UIViewController {
     }
 
     // MARK: - Toast
+    
     private var toastView: ToastView? = nil
     private var toastHider: DispatchWorkItem?
-        
+    private var currentToastIdentity: ToastIdentity?
+
+    /// Note this does not include action handler, because it is not equatable.
+    /// In practice this should be fine - things like this are not going to be updated.
+    private struct ToastIdentity: Equatable {
+        let style: ToastStyle
+        let icon: ToastIcon?
+        let message: String
+        let actionTitle: String?
+    }
+
     public func showToast(style: ToastStyle = .standard, icon: ToastIcon? = nil, message: String, duration: Double,
                           actionTitle: String? = nil, action: (() -> ())? = nil) {
-        hideToastView()
+        let identity = ToastIdentity(style: style, icon: icon, message: message, actionTitle: actionTitle)
+
+        if let toastView {
+            if currentToastIdentity != identity {
+                currentToastIdentity = identity
+                toastView.update(style: style, icon: icon, message: message, actionTitle: actionTitle, action: action)
+            } else {
+                toastView.replayIcon()
+            }
+            rescheduleToastHider(duration: duration)
+            return
+        }
+
+        currentToastIdentity = identity
         
         let toastView = ToastView(style: style, icon: icon, message: message, actionTitle: actionTitle, action: action) { [weak self] in
             self?.toastHider?.perform()
@@ -274,6 +298,10 @@ open class WViewController: UIViewController {
             self.view.layoutIfNeeded()
         }
         
+        rescheduleToastHider(duration: duration)
+    }
+
+    private func rescheduleToastHider(duration: Double) {
         toastHider?.cancel()
         let toastHider = DispatchWorkItem { [weak self] in
             guard let self else {return}
@@ -282,8 +310,9 @@ open class WViewController: UIViewController {
         self.toastHider = toastHider
         DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: toastHider)
     }
-    
+
     private func hideToastView() {
+        currentToastIdentity = nil
         guard let toastView else {
             return
         }

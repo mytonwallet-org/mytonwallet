@@ -13,7 +13,7 @@ import {
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
-import { getCountDaysToDate } from '../../../../util/dateFormat';
+import { formatRelativeDays, getCountDaysToDate } from '../../../../util/dateFormat';
 import { getDomainsExpirationDate, isRenewableDnsNft } from '../../../../util/dns';
 import { compact } from '../../../../util/iteratees';
 
@@ -79,7 +79,7 @@ function NftSelectionHeader({
         description: dnsExpireInDays && dnsExpireInDays < 0
           ? (tonDnsMultiSelected ? '$expired_many' : 'Expired')
           : lang(tonDnsMultiSelected ? '$multiple_domains_expire %days%' : '$one_domain_expires %days%', {
-            days: lang('$in_days', dnsExpireInDays),
+            days: formatRelativeDays(lang, dnsExpireInDays!),
           }) as string,
       } satisfies DropdownItem<MenuHandler>,
       !IS_CORE_WALLET && {

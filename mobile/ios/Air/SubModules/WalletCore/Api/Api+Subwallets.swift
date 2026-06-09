@@ -1,5 +1,6 @@
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 extension Api {
     public static func getWalletVariants(

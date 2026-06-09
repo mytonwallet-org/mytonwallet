@@ -34,7 +34,7 @@ class TonConnectInjectedInterface(
 ) {
     val origin = uri.scheme + "://" + uri.host
     private val dApp =
-        ApiMethod.DApp.Inject.DAppArg(url = origin, isUrlEnsured = true, accountId = accountId)
+        ApiMethod.DApp.Inject.DAppArg(url = origin, urlTrustStatus = "verified", accountId = accountId)
 
     private fun sendInvokeError(invocationId: String, error: String? = "An error occurred!") {
         sendInvokeResponse(

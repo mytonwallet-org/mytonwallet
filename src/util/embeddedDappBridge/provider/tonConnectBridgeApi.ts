@@ -268,7 +268,7 @@ function verifyConnectRequest(request: ConnectRequest) {
 function buildDappRequest(origin: string) {
   return {
     url: origin,
-    isUrlEnsured: true,
+    urlTrustStatus: 'verified' as const,
     accountId: getGlobal().currentAccountId,
   };
 }

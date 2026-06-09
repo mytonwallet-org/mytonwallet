@@ -13,7 +13,7 @@ struct DappHeaderView: View {
     var customTokenBalance: BigInt? = nil
     var customToken: ApiToken? = nil
     
-    var showWarning: Bool { dapp.isUrlEnsured != true }
+    var showWarning: Bool { dapp.shouldShowUrlTrustStatusWarning }
     
     var body: some View {
         WithPerceptionTracking {
@@ -97,20 +97,20 @@ struct DappHeaderView: View {
 
     @ViewBuilder
     var transfer: some View {
-        let dapp = Text(dapp.displayUrl)
+        let dappUrlText = Text(dapp.displayUrl)
             .foregroundColor(.white.opacity(0.75))
         if showWarning {
             let warning = Text(Image(systemName: "exclamationmark.circle.fill"))
-                .foregroundColor(Color.orange)
+                .foregroundColor(dapp.resolvedUrlTrustStatus == .dangerous ? Color.air.error : .orange)
                 .fontWeight(.bold)
-            Text("\(dapp) \(warning)")
+            Text("\(dappUrlText) \(warning)")
                 .imageScale(.small)
                 .contentShape(.rect)
                 .onTapGesture {
-                    showDappOriginWarningTip()
+                    showDappOriginWarningTip(urlTrustStatus: self.dapp.resolvedUrlTrustStatus)
                 }
         } else {
-            Text("\(dapp)")
+            Text("\(dappUrlText)")
         }
     }
 }

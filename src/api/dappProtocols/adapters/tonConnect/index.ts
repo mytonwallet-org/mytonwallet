@@ -1108,7 +1108,7 @@ function buildDappConnection(
     }],
     url,
     connectedAt: Date.now(),
-    ...(request.isUrlEnsured && { isUrlEnsured: true }),
+    urlTrustStatus: request.urlTrustStatus ?? 'unknown',
     ...('sseOptions' in request && {
       sse: request.sseOptions,
     }),

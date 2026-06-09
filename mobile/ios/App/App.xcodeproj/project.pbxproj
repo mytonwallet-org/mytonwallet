@@ -64,6 +64,7 @@
 		58F632092EB8CDFA00A90B79 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 585CF17A2E6E1CE100A5804F /* AppIcon.icon */; };
 		58F6320A2EB8CDFA00A90B79 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		58F6320B2EB8CDFA00A90B79 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */; };
+		58F9CCB92FD1970A0054DAD3 /* WalletCoreTypes in Frameworks */ = {isa = PBXBuildFile; productRef = 58F9CCB82FD1970A0054DAD3 /* WalletCoreTypes */; };
 		59A4C2E82F4D1001009A1B2C /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
 		59A4C2E92F4D1001009A1B2C /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
 		59A4C2EA2F4D1001009A1B2C /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
@@ -102,6 +103,12 @@
 		59D100032F90000100FACE01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
 		59D100042F90000100FACE01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
 		59D100052F90000100FACE01 /* diamond.tgs in Resources */ = {isa = PBXBuildFile; fileRef = 59D1000A2F90000100FACE01 /* diamond.tgs */; };
+		59E000052FA0000100BEEF01 /* WalletResources in Frameworks */ = {isa = PBXBuildFile; productRef = 59E0000A2FA0000100BEEF01 /* WalletResources */; };
+		59E000062FA0000100BEEF01 /* WalletResources in Frameworks */ = {isa = PBXBuildFile; productRef = 59E0000B2FA0000100BEEF01 /* WalletResources */; };
+		59E000072FA0000100BEEF01 /* WalletResources in Frameworks */ = {isa = PBXBuildFile; productRef = 59E0000C2FA0000100BEEF01 /* WalletResources */; };
+		59E000082FA0000100BEEF01 /* WalletResources in Frameworks */ = {isa = PBXBuildFile; productRef = 59E0000D2FA0000100BEEF01 /* WalletResources */; };
+		59E000092FA0000100BEEF01 /* WalletResources in Frameworks */ = {isa = PBXBuildFile; productRef = 59E0000E2FA0000100BEEF01 /* WalletResources */; };
+		59E002012FA2000100BEEF01 /* WalletCoreTypes in Frameworks */ = {isa = PBXBuildFile; productRef = 59E002022FA2000100BEEF01 /* WalletCoreTypes */; };
 		5A31C303501E34B6ECF0848B /* AirAsFramework in Frameworks */ = {isa = PBXBuildFile; productRef = 753F88850EDD2EDED1236C11 /* AirAsFramework */; };
 		5AE429864DBD1B9726792ABC /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		64B5317D60F6C186CD8F8DFA /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 585CF17A2E6E1CE100A5804F /* AppIcon.icon */; };
@@ -330,6 +337,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5864B2ED2F6C04B00083626C /* AirAsFramework in Frameworks */,
+				59E000052FA0000100BEEF01 /* WalletResources in Frameworks */,
 				F0B41E894369BE4E4690BA34 /* Pods_MyTonWallet.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -338,6 +346,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				58F9CCB92FD1970A0054DAD3 /* WalletCoreTypes in Frameworks */,
 				582009C92E820AD20010E2B5 /* SwiftUI.framework in Frameworks */,
 				582009C82E820AD20010E2B5 /* WidgetKit.framework in Frameworks */,
 			);
@@ -348,6 +357,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5864B2EB2F6C04A60083626C /* AirAsFramework in Frameworks */,
+				59E000062FA0000100BEEF01 /* WalletResources in Frameworks */,
 				0A5CBED435F033B692B7658D /* Pods_MyTonWallet_NoExtensions.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -357,6 +367,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5864B2E92F6C049D0083626C /* AirAsFramework in Frameworks */,
+				59E000072FA0000100BEEF01 /* WalletResources in Frameworks */,
 				A2F6C8F58E74FF70AA316904 /* FirebaseCore in Frameworks */,
 				DEC5F7D0F4B76E59868A6B79 /* FirebaseMessaging in Frameworks */,
 			);
@@ -367,6 +378,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				59C000132F81000100ABCD01 /* AirAsFramework in Frameworks */,
+				59E000082FA0000100BEEF01 /* WalletResources in Frameworks */,
 				C4D16308205C59A627997B13 /* FirebaseCore in Frameworks */,
 				67EFEAD7CE812E8CF3664678 /* FirebaseMessaging in Frameworks */,
 			);
@@ -378,6 +390,7 @@
 			files = (
 				59C000152F81000100ABCD01 /* SwiftUI.framework in Frameworks */,
 				59C000162F81000100ABCD01 /* WidgetKit.framework in Frameworks */,
+				59E002012FA2000100BEEF01 /* WalletCoreTypes in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -386,6 +399,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5A31C303501E34B6ECF0848B /* AirAsFramework in Frameworks */,
+				59E000092FA0000100BEEF01 /* WalletResources in Frameworks */,
 				71798E4B19FC45A9B531DC7F /* Pods_MyTonWallet_Preview.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -600,6 +614,7 @@
 			name = MyTonWallet;
 			packageProductDependencies = (
 				5864B2EC2F6C04B00083626C /* AirAsFramework */,
+				59E0000A2FA0000100BEEF01 /* WalletResources */,
 			);
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* MyTonWallet.app */;
@@ -623,6 +638,9 @@
 				588AD21B2E83CE6500588415 /* SharedUI */,
 			);
 			name = AirWidgetExtension;
+			packageProductDependencies = (
+				58F9CCB82FD1970A0054DAD3 /* WalletCoreTypes */,
+			);
 			productName = AirWidgetExtension;
 			productReference = 582009C72E820AD20010E2B5 /* AirWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -646,6 +664,7 @@
 			name = MyTonWallet_NoExtensions;
 			packageProductDependencies = (
 				5864B2EA2F6C04A60083626C /* AirAsFramework */,
+				59E0000B2FA0000100BEEF01 /* WalletResources */,
 			);
 			productName = App;
 			productReference = 58F631D32EB8CD8D00A90B79 /* MyTonWallet_NoExtensions.app */;
@@ -667,6 +686,7 @@
 			name = MyTonWallet_AirOnly;
 			packageProductDependencies = (
 				5864B2E82F6C049D0083626C /* AirAsFramework */,
+				59E0000C2FA0000100BEEF01 /* WalletResources */,
 				25561833DFEA1EB541CE6CFA /* FirebaseCore */,
 				238EDAED8A39AE9B0BC5976B /* FirebaseMessaging */,
 			);
@@ -692,6 +712,7 @@
 			name = GramWallet;
 			packageProductDependencies = (
 				59C0003D2F81000100ABCD01 /* AirAsFramework */,
+				59E0000D2FA0000100BEEF01 /* WalletResources */,
 				2F4105E6D6E2A708EB52003A /* FirebaseCore */,
 				F9BE5EF7B8C92B9D9B26DF89 /* FirebaseMessaging */,
 			);
@@ -717,6 +738,9 @@
 				588AD21B2E83CE6500588415 /* SharedUI */,
 			);
 			name = GramWalletWidgetExtension;
+			packageProductDependencies = (
+				59E002022FA2000100BEEF01 /* WalletCoreTypes */,
+			);
 			productName = GramWalletWidgetExtension;
 			productReference = 59C000292F81000100ABCD01 /* GramWalletWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -740,6 +764,7 @@
 			name = MyTonWallet_Preview;
 			packageProductDependencies = (
 				753F88850EDD2EDED1236C11 /* AirAsFramework */,
+				59E0000E2FA0000100BEEF01 /* WalletResources */,
 			);
 			productName = MyTonWallet_Preview;
 			productReference = 47944749FD2D0A00CA7F241E /* MyTonWallet_Preview.app */;
@@ -1868,9 +1893,37 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = AirAsFramework;
 		};
+		58F9CCB82FD1970A0054DAD3 /* WalletCoreTypes */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletCoreTypes;
+		};
 		59C0003D2F81000100ABCD01 /* AirAsFramework */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AirAsFramework;
+		};
+		59E0000A2FA0000100BEEF01 /* WalletResources */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletResources;
+		};
+		59E0000B2FA0000100BEEF01 /* WalletResources */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletResources;
+		};
+		59E0000C2FA0000100BEEF01 /* WalletResources */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletResources;
+		};
+		59E0000D2FA0000100BEEF01 /* WalletResources */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletResources;
+		};
+		59E0000E2FA0000100BEEF01 /* WalletResources */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletResources;
+		};
+		59E002022FA2000100BEEF01 /* WalletCoreTypes */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletCoreTypes;
 		};
 		753F88850EDD2EDED1236C11 /* AirAsFramework */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -1,4 +1,5 @@
 import AppIntents
+import WalletCoreTypes
 
 struct TokenWithChartWidgetConfiguration: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Rate with Chart"

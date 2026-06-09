@@ -14,6 +14,7 @@ Sign transfers and important actions with your passcode, then confirm them in Te
 This helps protect your funds even if your recovery phrase or keys are compromised.: This helps protect your funds even if your recovery phrase or keys are compromised.
 "Connection Fee:": "Connection Fee:"
 Connect Telegram: Connect Telegram
+Add in Gram Wallet: Add in Gram Wallet
 Telegram will be used to confirm transfers and important actions.: Telegram will be used to confirm transfers and important actions.
 My Telegram Account: My Telegram Account
 Without username: Without username
@@ -153,6 +154,8 @@ Activity Details: Activity Details
 No activities found: No activities found
 Comment Copied: Comment Copied
 Copy Text: Copy Text
+Copy Description: Copy Description
+Description Copied: Description Copied
 Message Copied: Message Copied
 Sender: Sender
 Recipient: Recipient
@@ -281,6 +284,7 @@ Unexpected: Unexpected error
 You can save this address for quick access while sending.: You can save this address for quick access while sending.
 Stake Again: Stake Again
 Earned: Earned
+$staking_history_earned: Earned
 Select wallet to use on this app: Select wallet to use on this app
 Connect: Connect
 Already Connected: Already Connected
@@ -864,6 +868,10 @@ Remember for %1$d minutes: Remember for %1$d minutes
 Preview: Preview
 $preview_not_guaranteed: Preview result **is not guaranteed** and **can be forged** by the service.
 Unverified Source: Unverified Source
+DappurlTrustStatusInvalidTitle: Domain mismatch
+$DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
+DappurlTrustStatusDangerousTitle: Potentially malicious site
+$DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
 $reopen_in_iab: Please, use MyTonWallet %mobileAppButton% or %browserExtensionButton% to avoid this warning.
 $reopen_in_iab_explore: Please use the %exploreTab% section when browsing apps to avoid this warning.
 MyTonWallet Browser: MyTonWallet Browser
@@ -917,8 +925,8 @@ $domains_expire:
   oneValue: "**%domain% domain** expires %days%"
   otherValue: "**%domain% domains** expire %days%"
 $in_days:
-  zeroValue: today
-  oneValue: tomorrow
+  zeroValue: in %1$d days
+  oneValue: in %1$d day
   otherValue: in %1$d days
 $domain_was_expired: "**%domain%** is expired"
 $domains_was_expired:
@@ -1076,6 +1084,7 @@ Choose Wallet: Choose Wallet
 Wallet to use on %host%: Wallet to use on %host%
 Selected Wallet: Selected Wallet
 Connect Wallet: Connect Wallet
+Connect Anyway: Connect Anyway
 Insufficient Fee: Insufficient Fee
 Waiting for a View deeplink to display a wallet address.: Waiting for a View deeplink to display a wallet address.
 Adding wallets is not available in explorer mode: Adding wallets is not available in explorer mode
@@ -1552,3 +1561,5 @@ Limited history: Limited history
 Cumulative profit and loss over time: Cumulative profit and loss over time
 Day-by-day profit and loss: Day-by-day profit and loss
 This action is not supported in explorer mode.: This action is not supported in explorer mode.
+$relative_today: today
+$relative_tomorrow: tomorrow

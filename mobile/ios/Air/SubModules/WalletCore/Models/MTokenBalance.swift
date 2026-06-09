@@ -8,6 +8,7 @@
 import Foundation
 import OrderedCollections
 import WalletContext
+import WalletCoreTypes
 
 public struct MTokenBalance: Equatable, Hashable, Sendable {
     public let tokenSlug: String

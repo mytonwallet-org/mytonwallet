@@ -43,6 +43,22 @@ public struct MtwCardAddressLine: View {
             showComma: true,
             showAccessories: false,
         )
+        public static let search = Style(
+            font: .system(size: 12, weight: .regular),
+            textOpacity: 1,
+            accountTypeIconSpacing: 4,
+            largeAccountTypeIcon: false,
+            fullcolorChainIcons: false,
+            chainIconWidth: 13,
+            chainIconSpacing: 0,
+            chainSpacing: 3,
+            singlechainAddressCount: 6,
+            multichainEndCount: 6,
+            multichainAddressCount: 2,
+            maxChainCount: 3,
+            showComma: true,
+            showAccessories: false,
+        )
         public static let card = Style(
             font: .compactDisplay(size: 11, weight: .medium),
             textOpacity: 1,

@@ -1,0 +1,126 @@
+---
+description: For tasks working with data from global state. Information about adding new actions, action types, selectors and reducers. Important withGlobal limitations
+globs:
+alwaysApply: false
+---
+## Global State Overview
+
+We use TeactN for a lightweight global store. All state lives under `src/global/`.
+
+### 1. Folder Structure
+
+* `actions/`: Action handlers grouped by domain (`api/`, `apiUpdates/`, `ui/`).
+* `selectors/`: Pure read functions; do not allocate new arrays/objects.
+* `reducers/`: Domain reducers (used inside action handlers when needed).
+* `types.ts`: Global state and action payload types.
+* `cache.ts`: LocalStorage cache, migrations, and throttled persistence.
+* `index.ts`: Typed TeactN bindings: `getGlobal`, `setGlobal`, `getActions`, `addActionHandler`, `withGlobal`.
+
+### 2. Actions
+
+* Register handlers via `addActionHandler('actionName', (global, actions, payload) => newGlobal)`.
+* Use `getActions()` in components to dispatch, e.g. `const { openSettings } = getActions();` then `openSettings()`.
+* Handlers can be sync (return new state) or async (call `setGlobal(newState)` when ready).
+* Keep `ui` actions synchronous and side-effect light.
+
+### 3. Multi-Tab Support
+
+Some helpers handle multi-tab behavior internally (e.g., caching and beforeunload hooks).
+
+### 4. Selectors & Reducers
+
+* If logic takes more than one line, create a selector/reducer in the appropriate domain file.
+* Selectors must be pure and avoid allocations to preserve memoization.
+
+### 5. Data Constraints
+
+* Global is serializable; avoid non-serializable structures.
+* Update `cache.ts` migrations whenever cached types change; bump `STATE_VERSION` accordingly.
+
+---
+
+## Component Guidelines
+
+### 1. Accessing Global in Components
+
+* Use `withGlobal` HOC to inject state: `export default memo(withGlobal<OwnProps>((global, ownProps) => ({ ... }))(Component));`
+* Use `getGlobal` only in hooks/utilities for one-off reads. Not reactive.
+* Use `getActions` inside components to obtain dispatchers. Call it near the top of the component.
+
+### 2. Performance
+
+* Wrap with `memo` to minimize re-renders.
+* Do not create new arrays/objects in `withGlobal` mappers; pass IDs or primitives and compute inside the component with `useMemo`.
+
+### 3. Example Component
+
+```ts
+import React, { memo } from '../../lib/teact/teact';
+import { withGlobal } from '../../global';
+
+type OwnProps = { id: string };
+type StateProps = { someValue?: string; otherValue?: number; thirdValue: boolean };
+
+const Component = ({ id, someValue, otherValue, thirdValue }: OwnProps & StateProps) => {
+  return null;
+};
+
+export default memo(
+  withGlobal<OwnProps>((global, { id }): StateProps => {
+    const { otherValue } = selectTabState(global); // example
+    const someValue = selectSomeValue(global, id);
+    const thirdValue = Boolean(global.rawValue);
+    return { someValue, otherValue, thirdValue };
+  })(Component),
+);
+```
+
+---
+
+## Component Guidelines
+
+### 1. Accessing Global in Components
+
+* **Use** `withGlobal` (a `mapStateToProps` helper) to pull in state.
+* **Avoid** the experimental `useSelector` API.
+* **Use** `getGlobal` **only** inside hooks for one-off reads (it's non-reactive).
+
+### 2. Performance
+
+* Wrap `withGlobal` in `memo` so the component re-renders only on real data changes.
+* **Don't** return new arrays or objects inside `withGlobal`; that defeats memoization.
+* If you need to filter or map a list, **pass IDs as props** and do the heavy work in a `useMemo` hook.
+
+### 3. Example Component
+
+```ts
+type OwnProps = { id: string };
+type StateProps = {
+  someValue?: string;
+  otherValue?: number;
+  thirdValue: boolean;
+};
+
+const Component = ({
+  id,
+  someValue,
+  otherValue,
+  thirdValue,
+}: OwnProps & StateProps) => {
+  // component logic...
+};
+
+export default memo(
+  withGlobal<OwnProps>((global, { id }) => {
+    const { otherValue } = selectTabState(global);
+    const someValue  = selectSomeValue(global, id);
+    const thirdValue = Boolean(global.rawValue);
+
+    return {
+      someValue,
+      otherValue,
+      thirdValue,
+    };
+  })(Component);
+);
+```

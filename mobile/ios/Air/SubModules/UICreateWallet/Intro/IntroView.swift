@@ -66,7 +66,7 @@ struct IntroView: View {
 
     var title: some View {
         Text(APP_NAME)
-            .font(.nunito(size: 32))
+            .font(IS_GRAM_WALLET ? .system(size: 32, weight: .semibold) : .calSans(size: 32))
             .accessibilityAddTraits(.isHeader)
     }
     

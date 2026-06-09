@@ -29,7 +29,14 @@
           "glass" : true,
           "hidden" : false,
           "image-name" : "f2.svg",
-          "name" : "f2"
+          "name" : "f2",
+          "position" : {
+            "scale" : 1.1,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         }
       ],
       "shadow" : {
@@ -46,13 +53,28 @@
       "layers" : [
         {
           "image-name" : "f1.svg",
-          "name" : "f1"
+          "name" : "f1",
+          "position" : {
+            "scale" : 1.1,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         }
       ],
+      "position" : {
+        "scale" : 1,
+        "translation-in-points" : [
+          0,
+          0
+        ]
+      },
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5
       },
+      "specular" : true,
       "translucency" : {
         "enabled" : true,
         "value" : 0.5

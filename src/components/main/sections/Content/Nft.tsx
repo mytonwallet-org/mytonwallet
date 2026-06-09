@@ -10,7 +10,7 @@ import { type IAnchorPosition } from '../../../../global/types';
 import { TON_DNS_RENEWAL_NFT_WARNING_DAYS } from '../../../../config';
 import buildClassName from '../../../../util/buildClassName';
 import { getChainTitle } from '../../../../util/chain';
-import { getCountDaysToDate } from '../../../../util/dateFormat';
+import { formatRelativeDays, getCountDaysToDate } from '../../../../util/dateFormat';
 import { stopEvent } from '../../../../util/domEvents';
 import { vibrate } from '../../../../util/haptics';
 import { shortenAddress } from '../../../../util/shortenAddress';
@@ -249,7 +249,7 @@ function Nft({
       >
         {dnsExpireInDays! < 0
           ? 'Expired'
-          : lang('$one_domain_expires %days%', { days: lang('$in_days', dnsExpireInDays) })}
+          : lang('$one_domain_expires %days%', { days: formatRelativeDays(lang, dnsExpireInDays!) })}
       </button>
     );
   }

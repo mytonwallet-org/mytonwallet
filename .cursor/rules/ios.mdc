@@ -1,0 +1,148 @@
+---
+globs: *.swift,mobile/ios/*
+alwaysApply: false
+---
+## Build instructions for agents
+- Workspace: `mobile/ios/App/App.xcworkspace` (from repo root)
+- When opening PRs, create them ready for review unless the user explicitly asks for a draft.
+- Prefer MCP Xcode build tools; set session defaults before building (workspace path, scheme, simulator if needed).
+- Prefer MCP over raw `xcodebuild`: MCP cleans up build output, while default `xcodebuild` output is too noisy. If you have to use `xcodebuild` directly, pipe output to `xcbeautify -q`.
+- Default to the smallest relevant workspace scheme. If changes are limited to one SwiftPM module or feature, build that module scheme first (`UIEarn`, `UIHome`, `UISend`, `UISwap`, `UITransaction`, `UIComponents`, etc.) instead of the full app to keep iteration fast.
+- Use `MyTonWallet_AirOnly` for full-app validation when changes span multiple modules, touch app-shell integration, or when the user explicitly asks for it.
+- Fallback CLI full-app build command: `xcodebuild -workspace mobile/ios/App/App.xcworkspace -scheme MyTonWallet_AirOnly -configuration Debug -destination 'generic/platform=iOS Simulator' build | xcbeautify -q`
+- Package tests are exposed through the workspace via the `MyTonWallet_AirOnly` scheme and the `AirTests` test plan. Discover plans with `xcodebuild -workspace mobile/ios/App/App.xcworkspace -scheme MyTonWallet_AirOnly -showTestPlans`. Run all package tests with `xcodebuild -workspace mobile/ios/App/App.xcworkspace -scheme MyTonWallet_AirOnly -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -testPlan AirTests test | xcbeautify -q`; run a target subset with `-testPlan AirTests -only-testing:WalletContextTests` or `-testPlan AirTests -only-testing:WalletCoreTests`.
+- Current iOS test coverage is limited, builds are fairly slow, and most work is UI-heavy. Do not run tests after every normal change. Run tests before creating a PR, when changing tested logic, when investigating a test failure, or when the user explicitly asks. Do not mention skipped or unrun tests in routine responses.
+- Do **not** pass `-sdk iphonesimulator` for this workspace: forcing SDK can cause Swift macro dependency resolution to load incompatible `swift-syntax` prebuilts (`PerceptionMacros`/`SwiftSyntax*` "SDK does not match" errors) in CLI builds.
+- Always build through `App.xcworkspace`, not `MyTonWalletAir.xcodeproj`.
+
+## Debug helpers
+- Debug builds support bypassing the native app lock for UI/testing flows behind the lockscreen.
+- Launch-time override: set `BYPASS_LOCKSCREEN=1` in the app environment.
+- Persisted override: toggle it in `DebugView`; it is backed by `UserDefaults.standard` key `debug_bypassLockscreen`.
+- This bypass is debug-only and must not be relied on for release/TestFlight behavior.
+
+## App targets
+- `MyTonWallet_AirOnly`: app without legacy Capacitor; prefer this when you need a full-app build.
+- `MyTonWallet`: full app including legacy Capacitor portion; use only when explicitly required.
+- `MyTonWallet_NoExtensions`: full app without extensions, not relevant for us.
+- `MyTonWallet_Preview`: secondary beta app with the full web/Capacitor portion, no app group or widgets, and bundle id `org.mytonwallet.app.preview`.
+
+## Feature modules
+- UI feature schemes (e.g., `UIEarn`, `UIHome`, `UISend`, `UISwap`, `UITransaction`, `UIComponents`, etc.) are the default choice when work is isolated to that area because they build faster and cut iteration time.
+- **Important**: Always build feature module schemes through the workspace (`App.xcworkspace`), not directly through the project (`MyTonWalletAir.xcodeproj`). The workspace resolves SPM dependencies correctly.
+
+## Architecture notes
+- Native Air app lives under `mobile/ios/Air`; classic Capacitor shell is in `mobile/ios/App`.
+- Core logic (TON, business rules) runs in the JS SDK loaded into a hidden `WKWebView` via `WalletCore/JSWebViewBridge`; the JS bundle resides in `App/public`.
+- Swift-to-JS calls use static wrappers in `WalletCore/Api/Api+*.swift` (`Api.bridge.callApi`/`callApiVoid`), covering accounts, swaps, staking, dapps, etc.
+- JS-to-Swift updates arrive via `ApiUpdate` models in `WalletCore/Updates` (e.g., `updateAccount`, `updateBalances`, `updateTokens`) and are dispatched through `WalletCoreData.notify` to stores/observers.
+- When touching a feature, prefer building its UI module scheme rather than the full app to avoid unrelated dependencies and keep iteration fast.
+
+### Concurrency / MainActor
+- In `@MainActor` types or methods, `Task { ... }` inherits the current actor context. That task body is already main-actor isolated, so UIKit/SwiftUI updates are allowed directly.
+- Because of that inheritance, wrapping code in `await MainActor.run { ... }` inside such a task is usually redundant and should be avoided.
+- Overusing `MainActor.run` adds noise and can hide true isolation boundaries.
+- Use `await MainActor.run` only when you must hop to main actor from a context that is not main-actor isolated (for example `Task.detached`, explicitly nonisolated code, or background completion handlers).
+- Example:
+```swift
+// implicitly @MainActor because it's a subclass of @MainActor UIViewController
+class MyViewController: UIViewController {
+    // implicitly @MainActor because it's a method on @MainActor class
+    func myFunction() {
+        Task { // this Task inherits the current actor context, i.e. MainActor
+            let value = try await foo()
+            // after await this Task is still on MainActor
+            // UI code can be called directly here, without await MainActor.run
+            let vc = ExampleViewController(value: value)
+            present(vc, animated: true)
+        }
+    }
+}
+```
+
+### Navigation & AppActions
+- `WalletCore/AppActions.swift` defines `AppActionsProtocol`; a global `AppActions` variable is set at launch via `configureAppActions()` to the concrete `AppActionsImpl`.
+- `AppActionsImpl` (`Air/SubModules/AirAsFramework/AppActionsImpl.swift`) centralizes navigation and UX helpers on the main actor: it locates the active `HomeTabBarController` (`tabVC`), chooses between presenting modally (`WNavigationController`) or pushing on the current navigation stack (`pushIfNeeded`), and routes to feature view controllers (UI* modules) for send/swap/earn/assets/tokens, etc.
+- Features call `AppActions.*` instead of instantiating/presenting controllers directly, keeping modules decoupled from the app shell and navigation wiring.
+
+### Stores & persistence (WalletCore/Stores)
+- Stores are singletons (`AccountStore`, `BalanceStore`, `TokenStore`, plus Activities/Nfts/Staking, etc.) using `@Perceptible` + `UnfairLock` and observe `WalletCoreData` events.
+- `AccountStore`: source of truth for accounts/current account, GRDB-backed; observes DB for account list/current id, activates accounts via `Api.activateAccount`, persists ordering and current selection.
+- `BalanceStore`: in-memory balances per account + derived `MAccountBalanceData`; loads/saves via `GlobalStorage`, reacts to updates/events to recalc totals and cache asynchronously.
+- `TokenStore`: tokens catalog, base currency, swap assets/pairs; loads from `AppStorageHelper`/shared cache, processes `updateTokens`/`updateCurrencyRates` events, and persists rates/tokens.
+- Other stores (Activities, Staking, Nfts, Config, etc.) follow the same pattern: listen to `WalletCoreData.notify` events and keep cached state in sync with local storage/DB for their slice of the model.
+- When you need account-scoped data (balances, staking, NFTs, settings), use `AccountContext` instead of reading stores directly; screens can target a non-current account.
+- Prefer the property wrapper form: `@AccountContext var account: MAccount`. Use `account` for the `MAccount` value, `$account` for context access (`$account.balances`, `$account.accountId`, `$account.stakingData`), and pass the same instance to child VMs via `_account` to avoid creating new contexts.
+- When you need an account id and already have the wrapped account, prefer `account.id` over `$account.accountId` for brevity.
+- `@PerceptionIgnored` is not needed for stored let properties, but property wrappers like `@AccountContext` should always be marked `@PerceptionIgnored` when used inside `@Perceptible` types.
+
+### State/Perception
+- `@Perceptible` is a backport of Swift’s `Observable`; use `@Perception.Bindable` where you would use `@Bindable`.
+- Views that read perceptible state must wrap access in `WithPerceptionTracking { … }` to subscribe.
+- Use `observe { … }` (from SwiftNavigation) to watch perceptible state: it runs immediately and then re-runs whenever state accessed in the closure changes.
+- In `NSObject` subclasses (e.g. views/view controllers), `observe { … }` is auto-managed via associated objects, so you do not need to store the returned `ObserveToken`. In non-`NSObject` types (e.g. view models), keep the `ObserveToken` as an instance var (canceled automatically on deinit; no manual cancel needed).
+- `Perceptions { … }` is available as a backport of `Observations { … }` (same semantics).
+- If unsure, refer to docs: Perception (https://github.com/pointfreeco/swift-perception) and SwiftNavigation (https://github.com/pointfreeco/swift-navigation).
+
+### Localization
+- Strings live in `src/i18n/*.yaml`. Only modify when instructed.
+- After changing localizations, run `npm run mobile:build:sdk` to rebuild the JS SDK consumed by Air.
+
+### Xcode Previews
+- Use Xcode previews for UI work; always wrap in `#if DEBUG` and iOS 18 availability check.
+- Present view controllers via helpers, e.g.:
+```
+#if DEBUG
+@available(iOS 18, *)
+#Preview {
+    let vc = ...
+    previewSheet(vc) // or previewNc(vc)
+}
+#endif
+```
+
+### Theming
+- SwiftUI colors: prefer `Color.air.*` (e.g., `Color.air.primaryLabel`, `Color.air.secondaryLabel`).
+- UIKit colors: prefer `UIColor.air.*` for palette colors and system colors like `UIColor.label` where appropriate.
+
+### Comments
+- Keep code self-explanatory; avoid explanatory comments that repeat code. Remove stale/duplicated comments when tidying.
+- No new comments should be added except when explicitly requested.
+
+### SwiftUI code organization
+- Place computed properties with more logic (e.g., gradients or derived styles) below `body`, keep simple stored properties near the top.
+
+### Naming
+- For private file-scoped constants, avoid redundant type/context prefixes; keep names short and local.
+
+### Amounts & formatting
+- Prefer the fixed-point wrappers over passing raw `BigInt` + decimals: `TokenAmount` (`DecimalAmount<ApiToken>`), `BaseCurrencyAmount` (`DecimalAmount<MBaseCurrency>`), or `AnyDecimalAmount` when you must construct ad-hoc (avoid if a typed backing exists). The `Backing` supplies decimals, symbol, and currency placement via `DecimalBackingType`.
+- `DecimalAmount` stores the integer amount plus backing metadata, and offers helpers: `fromDouble`, `doubleValue`, `convertTo` (with exchange rate and target backing), `switchKeepingDecimalValue` (rebase decimals without changing the numeric value), and display rounding (`roundedForDisplay`, `roundedForSwap`).
+- Formatting: use `DecimalAmountFormatStyle` (or `formatted(...)` convenience) to render strings. Options include adaptive presets (`AdaptivePreset.defaultAdaptive/compact/baseCurrencyEquivalent/baseCurrencyPrice/baseCurrencyHighPrecision`), `maxDecimals`, sign flags, `roundUp`, `precision` (fee prefixes), and `showSymbol`. It funnels through `formatBigIntText`, respecting backing decimals and symbol placement.
+- Attributed formatting: `formatAttributed(...)` splits integer/fraction/symbol ranges and applies fonts/colors; use `AmountText` (SwiftUI) or call `formatAttributed` directly in UIKit (e.g., `WAnimatedAmountLabel`, activity rows).
+- Backing specifics: `ApiToken` backs token amounts (`displaySymbol` from `symbol`, currency on the right); `MBaseCurrency` backs fiat amounts (`decimalsCount`, `sign`, `forceCurrencyToRight` for ₽). `AnyDecimalBackingType` exists for edge cases but typed backings are preferred.
+
+## Swift / SwiftUI / UIKit best practices
+
+### UIKit table/collection views
+- Always use `UITableViewDiffableDataSource` / `UICollectionViewDiffableDataSource` instead of manual `numberOfRows`/`cellForRowAt` implementations.
+- Define `Section` and `Item` enums for diffable identifiers; build snapshots declaratively based on state.
+- This eliminates brittle manual row counting and index arithmetic.
+- For cell selection, prefer implementing `collectionView(_:didSelectItemAt:)` / `tableView(_:didSelectRowAt:)` delegate methods rather than using `Button` actions or closures in SwiftUI cell content. This keeps selection handling consistent with UIKit patterns and avoids nested button interactions.
+- When using `UICollectionLayoutListConfiguration`, set `configuration.backgroundColor = .clear` and `collectionView.backgroundColor = .clear` so the view controller's background color shows through. The view background should use `isModal ? UIColor.air.sheetBackground : UIColor.air.groupedBackground`.
+- When using `UIHostingConfiguration`, set background via `.background` on the configuration; do not set `cell.backgroundConfiguration = nil` (it can crash).
+
+### SwiftUI transitions & animations
+- Transitions apply only when a view is inserted/removed based on identity. Changing a `Text`’s content without changing its identity won’t trigger a transition; wrap changing content in a container whose identity changes, or toggle the view’s presence with `if`/`else` to use transitions.
+- A transition defines the appearance/disappearance; an animation drives the interpolation. Use `.transition(...)` on the view being inserted/removed and pair it with `.animation(_, value:)` on a parent that observes the state change.
+- Identity comes from the view tree structure and `id`. If you need a transition, ensure the view is conditionally included or has a changing `id`.
+
+### Animation curves
+- Use SwiftUI's standard curves: `.default`, `.spring` or `.smooth`. Avoid other curves unless explicitly requested.
+
+### SwiftUI layout
+- Prefer `.frame(maxWidth: .infinity, alignment: .leading)` on the content that should expand rather than using `Spacer()` in `HStack`/`VStack`. This makes the layout intent clearer and avoids unnecessary spacer views.
+
+### URL building
+- Use `URLComponents` with `URLQueryItem` for building URLs with query parameters - it handles percent encoding automatically.
+- Avoid manual string concatenation or deprecated `CFURLCreateStringByAddingPercentEscapes`.

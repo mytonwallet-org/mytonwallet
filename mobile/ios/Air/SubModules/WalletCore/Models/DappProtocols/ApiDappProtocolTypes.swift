@@ -1,5 +1,6 @@
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 public enum ApiDappProtocolType: String, Codable, Sendable {
     case tonConnect = "tonConnect"

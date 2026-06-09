@@ -1,0 +1,109 @@
+---
+description: Rules for using the API layer (initApi/callApi), API methods, and folder structure
+globs:
+alwaysApply: false
+---
+## API Usage Guide
+
+### 1. Overview
+
+* The app talks to the background API via `initApi` and `callApi` from `src/api/`.
+* Default transport is the Web Worker provider (`src/api/providers/worker/connector.ts`). In extension contexts there are also provider variants.
+* Public entry:
+  - `initApi(onUpdate, initArgs)` — initialize API with an update callback and init args.
+  - `callApi(methodName, ...args)` — invoke API method by name. Returns a Promise (or value in direct mode). Never throws; use `callApiWithThrow` only when you need exceptions.
+
+### 2. Initialization
+
+* Initialize once after app boot:
+  - In `src/index.tsx` we call `getActions().initApi()` which wraps `initApi(actions.apiUpdate, {...})`.
+* Do not call `initApi` from multiple tabs unnecessarily; see `index.tsx` check for Ledger extension tab.
+
+### 3. Calling Methods
+
+* Import `callApi` from `src/api` in actions/components that need API calls.
+* Prefer calling from global actions (under `src/global/actions/api/`) rather than directly from UI, unless trivial (e.g., password verification in a form).
+* `callApi` returns `undefined` on transport errors. Always handle `undefined` and error branches from returned unions.
+* Use specific method names defined in `src/api/methods/` (see section 5). Match argument order exactly.
+* When you need an exception on failure (e.g., for health checks), use `callApiWithThrow` from `providers/worker/connector`.
+
+Examples:
+
+```ts
+import { callApi } from '../../api';
+
+// Check transfer draft (TON)
+const draft = await callApi('checkTransactionDraft', 'ton', {
+  accountId,
+  toAddress,
+  amount,
+});
+if (!draft || draft.error) { /* handle */ }
+
+// Submit transfer (TRON)
+const result = await callApi('submitTransfer', 'tron', options);
+if (!result || 'error' in result) { /* handle */ }
+```
+
+### 4. Updates from API
+
+* `initApi` wires background updates to the UI via an `onUpdate` callback (`actions.apiUpdate`).
+* Update types live in `src/api/types/updates.ts` and include balances, activities, dapps events, staking, etc.
+* Avoid polling from UI; prefer listening to updates. Use provided `tryUpdate*` methods when explicit refresh is needed.
+
+### 5. API Methods Structure (`src/api/methods/`)
+
+* Group by domain:
+  - `auth.ts`, `accounts.ts`, `wallet.ts`
+  - `transactions.ts`, `nfts.ts`, `domains.ts`, `staking.ts`, `tokens.ts`, `swap.ts`
+  - `notifications.ts`, `prices.ts`, `preload.ts`, `other.ts`
+  - `dapps.ts`, `tonConnect.ts`
+  - `polling.ts` (init/refresh helpers)
+* All exported functions are available via `callApi` (see type union in `src/api/types/methods.ts`).
+* TON/TRON chain-specific logic lives under `src/api/chains/` and is called internally by methods.
+
+Naming/args rules:
+* Use clear verb-based names; prefer `checkX`, `submitX`, `fetchX`, `getX`, `initX`, `tryUpdateX`.
+* For chain-sensitive calls shared across chains, first arg is the chain: `'ton' | 'tron'`.
+* For account-scoped calls, pass `accountId` explicitly as the first or second argument (see existing signatures) — do not assume global state inside methods.
+* Return narrow, typed results; for union results include `{ error: ... }` branch where appropriate.
+
+### 6. Providers
+
+* Worker provider (`src/api/providers/worker/connector.ts`) is default:
+  - `callApi` logs and returns `undefined` on transport errors; handle defensively.
+  - `callApiWithThrow` is available for strict flows.
+* Direct provider (`src/api/providers/direct/connector.ts`) is helpful for tests/local runs; same method names map to local functions.
+* Extension providers expose a subset for page scripts and content scripts (`src/api/providers/extension/*`).
+
+### 7. TonConnect and Bridge prefixes
+
+* Some contexts prefix method names, e.g., `tonConnect_*` in direct provider and `tonConnect:` for embedded bridges. These are routed to `src/api/tonConnect` implementations.
+* In app code, you usually call first-class methods like `signTransfers`, `signData`, `connect`, not prefixed names.
+
+### 8. Error Handling & UX
+
+* Never assume `callApi` success; check for `undefined` (transport), `'error' in result` (business), and optional fields.
+* When using password-gated methods, validate password with `verifyPassword` first (returns boolean).
+* For long-running flows: show progress, and prefer background `void callApi(...)` if you don’t need the result.
+
+### 9. Performance & Concurrency
+
+* Do not call heavy methods on every keystroke. Debounce or gate by submit.
+* Use provided batch APIs where available (e.g., `checkMultiTransactionDraft`, swap build/estimate APIs).
+* Avoid redundant parallel calls with identical params; centralize in global actions to reuse results.
+
+### 10. Adding a New API Method
+
+1. Implement in `src/api/methods/<domain>.ts` with a clear name and typed signature.
+2. Export it from `src/api/methods/index.ts`.
+3. If shared between chains, accept `chain` as the first parameter and route internally.
+4. Return typed result; include `{ error }` branch if the operation can fail business-wise.
+5. If it emits UI updates, send them via the provided `onUpdate` mechanism.
+6. If it changes cached state or relies on config, update related caches/migrations accordingly.
+
+### 11. Testing & Debug
+
+* You can switch to direct provider (commented in `src/api/index.ts`) to run methods in-process.
+* Worker health checks can trigger `requestReconnectApi` updates; handle them at the app level.
+

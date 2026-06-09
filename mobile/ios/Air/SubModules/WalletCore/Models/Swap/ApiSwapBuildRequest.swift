@@ -1,5 +1,6 @@
 
 import Foundation
+import WalletCoreTypes
 
 public struct ApiSwapBuildRequest: Codable, Sendable {
     public let from: String

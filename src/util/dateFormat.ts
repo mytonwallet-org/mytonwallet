@@ -120,6 +120,15 @@ export function getCountDaysToDate(datetime: string | number | Date) {
   return Math.ceil((date.getTime() - today.getTime()) / DAY);
 }
 
+// `$in_days` is a pure plural ("in N days"). `today`/`tomorrow` are handled separately because
+// the CLDR `one` plural category (e.g. ru/uk: 1, 21, 31, 61...) cannot isolate exactly 1 day.
+export function formatRelativeDays(lang: LangFn, days: number, format?: 'i') {
+  if (days === 0) return lang('$relative_today');
+  if (days === 1) return lang('$relative_tomorrow');
+
+  return lang('$in_days', days, format);
+}
+
 export function getDayStart(datetime: number | Date) {
   const date = new Date(datetime);
   date.setHours(0, 0, 0, 0);

@@ -109,6 +109,19 @@ struct DebugView: View {
                     }
 
                     Section {
+                        Button("Force Intro") {
+                            log.info("Force Intro")
+                            dismiss()
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(250))
+                                AirDebugActions.forceIntro()
+                            }
+                        }
+                    } footer: {
+                        Text("Launches the intro flow for testing with existing accounts.")
+                    }
+
+                    Section {
                         Toggle("Force enable MFA", isOn: $forceMfaEnabled)
 
                         Picker("Is Limited Override", selection: $isLimitedOverride) {

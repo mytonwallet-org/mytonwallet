@@ -4,7 +4,6 @@ final class NftDetailMainScrollView: UIScrollView {
 
     weak var contentViewToRedirect: UIView?
     weak var headerViewToRedirect: UIView?
-    weak var pagerView: UIView?
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         if let headerViewToRedirect, headerViewToRedirect.isUserInteractionEnabled {

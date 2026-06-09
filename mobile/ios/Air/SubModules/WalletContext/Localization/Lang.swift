@@ -21,6 +21,16 @@ public func lang(_ keyAndDefault: String, arg1: any CVarArg, arg2: any CVarArg, 
     return String(format: lang(keyAndDefault), arg1, arg2, arg3)
 }
 
+// `$in_days` is a pure plural ("in N days"). `today`/`tomorrow` are handled separately because
+// the CLDR `one` plural category (e.g. ru/uk: 1, 21, 31, 61...) cannot isolate exactly 1 day.
+public func langRelativeDays(_ days: Int) -> String {
+    switch days {
+    case 0: return lang("$relative_today")
+    case 1: return lang("$relative_tomorrow")
+    default: return lang("$in_days", arg1: days)
+    }
+}
+
 public func langMd(_ keyAndDefault: String) -> LocalizedStringKey {
     LocalizedStringKey(lang(keyAndDefault))
 }

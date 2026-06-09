@@ -14,6 +14,7 @@ public enum WButtonStyle {
     case clearBackground
     case destructive
     case thickCapsule
+    case thickDestructiveCapsule
 }
 
 public class WButton: WBaseButton {
@@ -21,6 +22,16 @@ public class WButton: WBaseButton {
     public static let defaultHeight: CGFloat = 50
     static let borderRadius: CGFloat = 12
     public static let font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+    public static let capsuleFont = UIFont.systemFont(ofSize: 17, weight: .medium)
+
+    public static func font(for style: WButtonStyle) -> UIFont {
+        switch style {
+        case .thickCapsule, .thickDestructiveCapsule:
+            capsuleFont
+        default:
+            font
+        }
+    }
 
     public private(set) var style = WButtonStyle.primary
 
@@ -50,22 +61,10 @@ public class WButton: WBaseButton {
                 configuration = config
                 
             case .thickCapsule:
-                var config = UIButton.Configuration.glass()
-                config.cornerStyle = .capsule
-                config.titleLineBreakMode = .byTruncatingTail
-                config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-                    var outgoing = incoming
-                    outgoing.font = UIFont.systemFont(ofSize: 17, weight: .medium)
-                    return outgoing
-                }
-                config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
-                configuration = config
-                configurationUpdateHandler = { button in
-                    guard var updated = button.configuration else { return }
-                    updated.baseBackgroundColor = button.isEnabled ? nil : .air.secondaryFill
-                    button.configuration = updated
-                }
-                setNeedsUpdateConfiguration()
+                setupThickGlassCapsule(enabledForeground: nil)
+
+            case .thickDestructiveCapsule:
+                setupThickGlassCapsule(enabledForeground: destructiveColor)
             }
             
         } else {
@@ -73,16 +72,10 @@ public class WButton: WBaseButton {
             // setting configuration to .none on interface builder makes text disappear
             switch style {
             case .thickCapsule:
-                var config = UIButton.Configuration.filled()
-                config.cornerStyle = .capsule
-                config.titleLineBreakMode = .byTruncatingTail
-                config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-                    var outgoing = incoming
-                    outgoing.font = UIFont.systemFont(ofSize: 17, weight: .medium)
-                    return outgoing
-                }
-                config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
-                configuration = config
+                setupThickCapsule(enabledForeground: .tintColor)
+
+            case .thickDestructiveCapsule:
+                setupThickCapsule(enabledForeground: destructiveColor, disabledForeground: .air.secondaryLabel)
                 
             default:
                 configuration = .none
@@ -107,7 +100,55 @@ public class WButton: WBaseButton {
     }
     
     private var destructiveColor: UIColor { .air.error }
-    
+
+    private func applyThickCapsuleAppearance(to config: inout UIButton.Configuration) {
+        config.cornerStyle = .capsule
+        config.titleLineBreakMode = .byTruncatingTail
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = WButton.font(for: self.style)
+            return outgoing
+        }
+        config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
+    }
+
+    @available(iOS 26, *)
+    private func setupThickGlassCapsule(enabledForeground: UIColor?) {
+        var config = UIButton.Configuration.glass()
+        applyThickCapsuleAppearance(to: &config)
+        configuration = config
+        configurationUpdateHandler = { button in
+            guard var updated = button.configuration else { return }
+            updated.baseForegroundColor = button.isEnabled ? enabledForeground : nil
+            button.configuration = updated
+        }
+        setNeedsUpdateConfiguration()
+    }
+
+    private func setupThickCapsule(enabledForeground: UIColor, disabledForeground: UIColor = .tintColor) {
+        var config = UIButton.Configuration.filled()
+        applyThickCapsuleAppearance(to: &config)
+        configuration = config
+        configurationUpdateHandler = { button in
+            guard var updated = button.configuration else { return }
+            if button.isHighlighted {
+                updated.background.backgroundColor = .air.highlight
+            } else {
+                let color = UIColor.air.secondaryFill
+                updated.background.backgroundColor = button.isEnabled ? color : color.withAlphaComponent(0.9)
+            }
+            updated.baseForegroundColor = button.isEnabled ? enabledForeground : disabledForeground
+            button.configuration = updated
+        }
+        setNeedsUpdateConfiguration()
+
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOffset = CGSize(width: 0, height: 2)
+        layer.shadowRadius = 8
+        layer.shadowOpacity = 0.12
+        layer.masksToBounds = false
+    }
+
     private func updateTheme() {
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             tintColor = .tintColor
@@ -125,9 +166,8 @@ public class WButton: WBaseButton {
                 backgroundColor = isEnabled ? accentColor.withAlphaComponent(0.15) : .clear
                 tintColor = isEnabled ? .tintColor : accentColor.withAlphaComponent(0.5)
 
-            case .thickCapsule:
-                backgroundColor = .air.secondaryFill
-                tintColor = .tintColor
+            case .thickCapsule, .thickDestructiveCapsule:
+                setNeedsUpdateConfiguration()
 
             case .clearBackground:
                 backgroundColor = .clear
@@ -148,8 +188,8 @@ public class WButton: WBaseButton {
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             //
         } else {
-            if style == .thickCapsule {
-                layer.cornerRadius = min(bounds.height, bounds.width) / 2
+            if style == .thickCapsule || style == .thickDestructiveCapsule {
+                layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath
             }
         }
     }
@@ -172,7 +212,14 @@ public class WButton: WBaseButton {
     private func createLoadingView() -> WActivityIndicator {
         let indicator = WActivityIndicator()
         indicator.translatesAutoresizingMaskIntoConstraints = false
-        indicator.tintColor = (style == .secondary || style == .thickCapsule) ? .tintColor : .white
+        indicator.tintColor = switch style {
+        case .secondary, .thickCapsule:
+            .tintColor
+        case .thickDestructiveCapsule:
+            isEnabled ? .air.error : .air.secondaryLabel
+        default:
+            .white
+        }
         addSubview(indicator)
         NSLayoutConstraint.activate([
             indicator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),

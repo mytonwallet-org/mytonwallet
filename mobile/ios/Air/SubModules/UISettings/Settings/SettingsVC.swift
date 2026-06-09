@@ -118,6 +118,9 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         collectionView.allowsSelection = true
         collectionView.contentInset.top = settingsHeaderView.layoutGeometry.scrollTopContentInset
         collectionView.backgroundColor = .air.groupedBackground
+        if #available(iOS 26, iOSApplicationExtension 26, *) {
+            collectionView.topEdgeEffect.style = .soft
+        }
 
         let listCellRegistration = AccountListCell.makeRegistration()
         

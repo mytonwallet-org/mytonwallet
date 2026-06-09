@@ -6,89 +6,30 @@ import WalletContext
 import SwiftUI
 import Perception
 
-@MainActor let actionsRowHeight: CGFloat = TokenActionsView.rowHeight
-
 @MainActor
 final class TokenExpandableContentView: WTouchPassView {
 
-    private static let expandedBalanceOffsetBase: CGFloat = 139 - 53
-    private static let balanceToActionsSpacing: CGFloat = 40 + 16
-    public static let requiredScrollOffset: CGFloat = expandedBalanceOffsetBase + balanceToActionsSpacing + actionsRowHeight // after actions section
+    private var token: ApiToken? = nil
+    
+    let metrics = Metrics()
 
-    private let navHeight = CGFloat(1048)
-    private var token: ApiToken? = nil {
-        didSet {
-            actionsView.token = token
-        }
-    }
-
-    // layout constants
-    let iconOffset: CGFloat = 15 - 53
-    let iconSize: CGFloat = 60
-    var balanceExpandedOffset: CGFloat { Self.expandedBalanceOffsetBase }
-    var balanceCollapsedOffset: CGFloat { -12 + (isInModal ? 6 : 0)  - 53 }
-    var belowNavbarPadding: CGFloat { (IOS_26_MODE_ENABLED ? (isInModal ? 16 : 10) : 0) }
-    var actionsOffset: CGFloat { balanceExpandedOffset + Self.balanceToActionsSpacing }
-    var expandedHeight: CGFloat { actionsOffset + actionsRowHeight + 16 }
-
-    let iconScrollModifier = 0.85
-    let balanceScrollModifier = 0.8
-
-    private let isInModal: Bool
     @AccountContext private var account: MAccount
 
-    init(accountContext: AccountContext,
-         isInModal: Bool) {
+    init(accountContext: AccountContext) {
         self._account = accountContext
-        self.isInModal = isInModal
-        super.init(frame: .zero)
+        super.init(frame: .fromSize(width: 200, height: 100))
         setupViews()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
 
-    // MARK: Sticky Views
-
     private let balanceModel = TokenHeaderBalanceModel()
+    private lazy var balanceHostingView: HostingView = HostingView { TokenHeaderBalanceView(model: balanceModel) }
 
-    private lazy var balanceHostingView: HostingView = HostingView {
-        TokenHeaderBalanceView(model: balanceModel)
-    }
-
-    private var stickyViewTopConstraint: NSLayoutConstraint!
-    private var stickyViewHeightConstraint: NSLayoutConstraint!
-    private var balanceStackTopConstraint: NSLayoutConstraint!
-    private var iconTopConstraint: NSLayoutConstraint?
-    private var actionsTopConstraint: NSLayoutConstraint?
-
-    private lazy var stickyStackView: WTouchPassView = {
-        let v = WTouchPassView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.addSubview(balanceHostingView)
-        balanceStackTopConstraint = balanceHostingView.topAnchor.constraint(equalTo: v.topAnchor, constant: balanceExpandedOffset)
-        NSLayoutConstraint.activate([
-            balanceHostingView.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            balanceHostingView.trailingAnchor.constraint(equalTo: v.trailingAnchor),
-            balanceStackTopConstraint,
-        ])
-        return v
-    }()
-
-    private lazy var stickyView: WTouchPassView = {
-        let v = WTouchPassView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.addSubview(stickyStackView)
-        NSLayoutConstraint.activate([
-            stickyStackView.leftAnchor.constraint(equalTo: v.layoutMarginsGuide.leftAnchor),
-            stickyStackView.rightAnchor.constraint(equalTo: v.layoutMarginsGuide.rightAnchor),
-            stickyStackView.topAnchor.constraint(equalTo: v.topAnchor),
-            stickyStackView.bottomAnchor.constraint(equalTo: v.bottomAnchor)
-        ])
-        return v
-    }()
-
-    // MARK: Content Views
+    private var iconTopConstraint: NSLayoutConstraint!
+    private var balanceCenterConstraint: NSLayoutConstraint!
+    private var balanceHeightConstraint: NSLayoutConstraint!
 
     private lazy var iconView: IconView = {
         let v = IconView(size: 60)
@@ -104,76 +45,38 @@ final class TokenExpandableContentView: WTouchPassView {
         return v
     }()
 
-    private lazy var actionsView: TokenActionsView = TokenActionsView(accountContext: _account, token: token)
+    private func setupViews() {
+        translatesAutoresizingMaskIntoConstraints = false
 
-    private lazy var contentView: WTouchPassView = {
-        let v = WTouchPassView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-
-        v.addSubview(iconBlurView)
+        addSubview(iconBlurView)
         iconBlurView.addSubview(iconView)
+        iconTopConstraint = iconView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: metrics.iconTopExpanded)
 
-        v.addSubview(actionsView)
-        iconTopConstraint = iconView.topAnchor.constraint(equalTo: v.safeAreaLayoutGuide.topAnchor, constant: navHeight + iconOffset)
-        actionsTopConstraint = actionsView.topAnchor.constraint(equalTo: v.safeAreaLayoutGuide.topAnchor, constant: navHeight + actionsOffset)
+        addSubview(balanceHostingView)
+        balanceCenterConstraint = balanceHostingView.centerYAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor)
+        balanceHeightConstraint = balanceHostingView.heightAnchor.constraint(equalToConstant: metrics.balanceHostingExpandedHeight)
+
         NSLayoutConstraint.activate([
-
-            iconTopConstraint!,
-            iconView.centerXAnchor.constraint(equalTo: v.layoutMarginsGuide.centerXAnchor),
+            iconTopConstraint,
+            iconView.centerXAnchor.constraint(equalTo: layoutMarginsGuide.centerXAnchor),
 
             iconBlurView.leadingAnchor.constraint(equalTo: iconView.leadingAnchor, constant: -50),
             iconBlurView.trailingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 50),
             iconBlurView.topAnchor.constraint(equalTo: iconView.topAnchor, constant: -50),
             iconBlurView.bottomAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 50),
 
-            actionsTopConstraint!,
-            actionsView.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -16),
-        ])
-        if TokenActionsView.usesSplitHomeActionStyle {
-            NSLayoutConstraint.activate([
-                actionsView.centerXAnchor.constraint(equalTo: v.layoutMarginsGuide.centerXAnchor),
-            ])
-        } else {
-            NSLayoutConstraint.activate([
-                actionsView.leftAnchor.constraint(equalTo: v.leftAnchor, constant: S.insetSectionHorizontalMargin),
-                actionsView.rightAnchor.constraint(equalTo: v.rightAnchor, constant: -S.insetSectionHorizontalMargin),
-            ])
-        }
-        return v
-    }()
-
-    func setupViews() {
-        translatesAutoresizingMaskIntoConstraints = false
-
-        addSubview(contentView)
-        addSubview(stickyView)
-
-        stickyViewTopConstraint = stickyView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: S.headerTopAdjustment)
-        stickyViewHeightConstraint = stickyView.heightAnchor.constraint(equalToConstant: 100)
-        let contentViewBottomConstraint = contentView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        contentViewBottomConstraint.priority = .defaultHigh
-
-        NSLayoutConstraint.activate([
-            bottomAnchor.constraint(greaterThanOrEqualTo: stickyView.bottomAnchor),
-
-            stickyViewTopConstraint,
-            stickyViewHeightConstraint,
-            stickyView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stickyView.trailingAnchor.constraint(equalTo: trailingAnchor),
-
-            contentView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            contentView.topAnchor.constraint(equalTo: topAnchor, constant: -1000),
-            contentViewBottomConstraint,
+            balanceCenterConstraint,
+            balanceHeightConstraint,
+            balanceHostingView.leadingAnchor.constraint(equalTo: layoutMarginsGuide.leadingAnchor),
+            balanceHostingView.trailingAnchor.constraint(equalTo: layoutMarginsGuide.trailingAnchor),
+            
+            bottomAnchor.constraint(greaterThanOrEqualTo: balanceHostingView.bottomAnchor),
         ])
     }
-
+    
     func configure(token: ApiToken) {
         self.token = token
         iconView.config(with: token, isStaking: false, shouldShowChain: true)
-        actionsView.sendAvailable = account.supportsSend
-        actionsView.swapAvailable = account.supportsSwap
-        actionsView.earnAvailable = account.supportsEarn && token.earnAvailable
         let walletTokens = $account.walletTokens
         let walletToken = walletTokens?.first { $0.tokenSlug == token.slug }
         balanceModel.token = token
@@ -182,34 +85,52 @@ final class TokenExpandableContentView: WTouchPassView {
         balanceModel.baseCurrencyAmount = BaseCurrencyAmount.fromDouble(baseCurrencyValue, TokenStore.baseCurrency)
     }
 
-    func update(scrollOffset: CGFloat) {
-        stickyViewHeightConstraint.constant = scrollOffset <= 0 ? 112 : max(38, 112 - scrollOffset)
-
-        let iconScrollModifier = scrollOffset > 0 ? iconScrollModifier : 1
-        let balanceScrollModifier = scrollOffset > 0 ? balanceScrollModifier : 1
-
-        // icon
-        iconTopConstraint?.constant = max(navHeight - 165, navHeight + iconOffset - scrollOffset * iconScrollModifier)
+    func update(scrollOffset: CGFloat, navBarShift: CGFloat) {
+        guard bounds.width > 0 else { return }
+        
+        let m = metrics
+        let expansionProgress = m.getExpansionProgress(from: scrollOffset, clamped: true)
+        let positionalOffset = max(0, scrollOffset)
+        
+        iconTopConstraint.constant = max(m.iconTopCollapsed, m.iconTopExpanded - positionalOffset * m.iconScrollModifier)
         let blurProgress = 1 - min(1, max(0, (150 - scrollOffset) / 150))
         iconBlurView.blurRadius = blurProgress * 30
         iconView.alpha = min(1, max(0, (180 - scrollOffset) / 40))
-
-        // balance stack + equvialent
-        let expansionProgress = min(1, max(0, (balanceExpandedOffset - balanceCollapsedOffset - scrollOffset * balanceScrollModifier ) / (balanceExpandedOffset - balanceCollapsedOffset)))
-        balanceStackTopConstraint.constant = max(balanceCollapsedOffset, balanceExpandedOffset - scrollOffset * balanceScrollModifier) // multiplier visually compensates for the  gap below collapsing views
+        
+        balanceCenterConstraint.constant = interpolate(from: 0, to: m.balanceExpandedCenterY, progress: expansionProgress) - navBarShift
+        balanceHeightConstraint.constant = interpolate(
+            from: m.balanceHostingExpandedHeight,
+            to: m.balanceHostingCollapsedHeight,
+            progress: 1 - expansionProgress
+        )
         balanceModel.expansionProgress = expansionProgress
-
-        // actions
-        let actionsTopMargin = actionsOffset - scrollOffset
-        actionsTopConstraint?.constant = navHeight + max(belowNavbarPadding, actionsTopMargin)
-        let actionsVisibleHeight = min(actionsRowHeight, max(0, actionsRowHeight + actionsTopMargin - belowNavbarPadding))
-        actionsView.set(actionsVisibleHeight: actionsVisibleHeight)
-
-        contentView.isHidden = actionsVisibleHeight == 0
     }
+}
 
-    func updateSensitiveData() {
-        balanceHostingView.setNeedsLayout()
+extension TokenExpandableContentView {
+    struct Metrics {
+        let iconTopExpanded: CGFloat = 12
+        let iconTopCollapsed: CGFloat = -117
+        let iconScrollModifier: CGFloat = 0.85
+        
+        let balanceExpandedCenterY = 162.0
+        var balanceHostingExpandedHeight: CGFloat { 74 }
+        var balanceHostingCollapsedHeight: CGFloat { 44 }
+        
+        let collapseThreshold: CGFloat = 0.5
+                
+        var fullScrollRange: CGFloat { 188 }
+
+        /// adjust top cells top gap at collapsed state
+        var adjustedFullScrollRange: CGFloat { fullScrollRange - 4 }
+
+        var headerPlaceholderHeight: CGFloat { 164 }
+        
+        func getExpansionProgress(from scrollOffset: CGFloat, clamped: Bool) -> CGFloat {
+            let positionalOffset = max(0, scrollOffset)
+            let expansionProgress = interpolate(from: 1, to: 0, progress: positionalOffset / adjustedFullScrollRange)
+            return clamped ? clamp(expansionProgress, min: 0, max: 1) : expansionProgress
+        }
     }
 }
 
@@ -221,23 +142,18 @@ private final class TokenHeaderBalanceModel {
     var expansionProgress: CGFloat = 1
 }
 
-private let primaryFontSize: CGFloat = 40
-
 private struct TokenHeaderBalanceView: View {
     let model: TokenHeaderBalanceModel
 
+    private let primaryFontSize: CGFloat = 40
     private var collapseProgress: CGFloat { 1 - model.expansionProgress }
     private var balanceScale: CGFloat { interpolate(from: 1, to: 17.0 / primaryFontSize, progress: collapseProgress) }
     private var equivalentScale: CGFloat { interpolate(from: 1, to: 13.0 / 17.0, progress: collapseProgress) }
-    private var spacing: CGFloat { interpolate(from: expandedSpacing, to: collapsedSpacing, progress: collapseProgress) }
-    private var bottomPadding: CGFloat { interpolate(from: 12, to: targetBottomPadding, progress: collapseProgress) }
-
-    private let targetBottomPadding: CGFloat = IOS_26_MODE_ENABLED ? 48 : 44
-    private let expandedSpacing: CGFloat = 5
-    private let collapsedSpacing: CGFloat = -2
+    private var spacing: CGFloat { interpolate(from: 5, to: -1, progress: collapseProgress) }
+    private var bottomPadding: CGFloat { interpolate(from: 0, to: 24, progress: collapseProgress) }
 
     var body: some View {
-        WithPerceptionTracking {
+        return WithPerceptionTracking {
             VStack(spacing: spacing) {
                 balanceView
                     .minimumScaleFactor(0.1)
@@ -246,12 +162,11 @@ private struct TokenHeaderBalanceView: View {
                     .minimumScaleFactor(0.1)
                     .scaleEffect(equivalentScale, anchor: .top)
             }
-            .frame(height: 74)
             .frame(minWidth: 300, maxWidth: 300)
-            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 24)
             .padding(.bottom, bottomPadding)
-            .frame(maxHeight: .infinity, alignment: .bottom)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
     }
 
@@ -264,7 +179,7 @@ private struct TokenHeaderBalanceView: View {
             AmountText(
                 amount: amount,
                 format: .init(maxDecimals: decimalsCount, showMinus: false, roundHalfUp: false, precision: .exact),
-                integerFont: .compactRounded(ofSize: 40, weight: .bold),
+                integerFont: .compactRounded(ofSize: primaryFontSize, weight: .bold),
                 fractionFont: .compactRounded(ofSize: 33, weight: .bold),
                 symbolFont: .compactRounded(ofSize: 35, weight: .bold),
                 integerColor: UIColor.label,

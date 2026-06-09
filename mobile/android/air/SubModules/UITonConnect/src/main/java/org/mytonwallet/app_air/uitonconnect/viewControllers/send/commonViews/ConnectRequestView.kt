@@ -3,12 +3,16 @@ package org.mytonwallet.app_air.uitonconnect.viewControllers.send.commonViews
 import android.content.Context
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import android.text.TextUtils
+import android.text.method.LinkMovementMethod
+import android.text.style.ClickableSpan
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import androidx.core.text.buildSpannedString
+import androidx.core.text.inSpans
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import androidx.core.view.doOnLayout
 import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
@@ -16,6 +20,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
@@ -28,7 +33,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
+import org.mytonwallet.app_air.walletcore.moshi.ApiDappUrlTrustStatus
+import kotlin.math.roundToInt
 
 class ConnectRequestView(context: Context) : WView(context), WThemedView, SkeletonContainer {
     companion object {
@@ -95,7 +104,7 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
 
         addView(imageView, LayoutParams(80.dp, 80.dp))
         addView(titleTextView, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
-        addView(linkTextView, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
+        addView(linkTextView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(infoTextView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
 
         addView(skeletonView, LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
@@ -118,8 +127,7 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
             toEnd(titleTextView)
 
             topToBottom(linkTextView, titleTextView, 9f)
-            toStart(linkTextView)
-            toEnd(linkTextView)
+            toCenterX(linkTextView)
 
             topToBottom(infoTextView, linkTextView, 10f)
             toCenterX(infoTextView)
@@ -130,14 +138,19 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
         updateTheme()
     }
 
+    var onWarningClick: (() -> Unit)? = null
+
     fun configure(dApp: ApiDapp?) {
-        infoTextView.text = LocaleController.getString("Connected apps can only see your wallet address and will not be able to move your assets without permission.")
+        infoTextView.text =
+            LocaleController.getString("Connected apps can only see your wallet address and will not be able to move your assets without permission.")
         dApp?.let {
             if (isShowingSkeleton) {
                 hideSkeleton()
             }
-            titleTextView.text = LocaleController.getFormattedString("Connect to %1$@?", listOf(dApp.name ?: "dApp"))
-            linkTextView.text = dApp.host
+            titleTextView.text =
+                LocaleController.getFormattedString("Connect to %1$@?", listOf(dApp.name ?: "dApp"))
+            linkTextView.text = buildDappAddressLabel(dApp)
+            linkTextView.movementMethod = LinkMovementMethod.getInstance()
             dApp.iconUrl?.let { iconUrl ->
                 imageView.set(Content.ofUrl(iconUrl))
             } ?: run {
@@ -145,6 +158,37 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
             }
         } ?: run {
             showSkeleton()
+        }
+    }
+
+    private fun buildDappAddressLabel(dApp: ApiDapp): CharSequence {
+        return buildSpannedString {
+            append(dApp.host ?: "")
+
+            if (dApp.shouldShowurlTrustStatusWarning()) {
+                context.getDrawableCompat(
+                    if (dApp.resolvedUrlTrustStatus == ApiDappUrlTrustStatus.DANGEROUS)
+                        org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning_red_14
+                    else
+                        org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning_14
+                )?.let { drawable ->
+                    val size = adaptiveFontSize().dp.roundToInt()
+                    drawable.setBounds(0, 0, size, size)
+
+                    inSpans(WSpacingSpan(4.dp)) { append(" ") }
+                    inSpans(
+                        VerticalImageSpan(
+                            drawable,
+                            verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
+                        ),
+                        object : ClickableSpan() {
+                            override fun onClick(widget: View) {
+                                onWarningClick?.invoke()
+                            }
+                        }
+                    ) { append(" ") }
+                }
+            }
         }
     }
 
@@ -181,6 +225,7 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
             2 to SKELETON_RADIUS
         )
         skeletonView.doOnLayout {
+            if (!isShowingSkeleton) return@doOnLayout
             skeletonView.applyMask(skeletonViews, radiusMap)
             skeletonView.startAnimating()
         }

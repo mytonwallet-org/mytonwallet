@@ -123,7 +123,9 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
                 val dappUrl = item.app.url ?: return
                 lateinit var dialog: WDialog
 
-                val warningText = DappWarningPopupHelpers.reopenInIabWarningText {
+                val warningContent = DappWarningPopupHelpers.warningContent(
+                    item.app.resolvedUrlTrustStatus
+                ) {
                     dialog.dismiss()
                     connectedAppsViewModel.deleteConnectedApp(item.app)
                     WalletCore.notifyEvent(WalletEvent.OpenUrl(dappUrl))
@@ -131,8 +133,8 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
 
                 @Suppress("AssignedValueIsNeverRead")
                 dialog = showAlert(
-                    LocaleController.getString("Warning"),
-                    warningText,
+                    warningContent.title.toString(),
+                    warningContent.text,
                     allowLinkInText = true
                 )
             }

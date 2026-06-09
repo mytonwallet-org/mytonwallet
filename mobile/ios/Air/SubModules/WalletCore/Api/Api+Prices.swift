@@ -1,6 +1,7 @@
 
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 extension Api {
     

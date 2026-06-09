@@ -3,6 +3,7 @@ import GRDB
 import Foundation
 import WalletContext
 import OrderedCollections
+import WalletCoreTypes
 
 private let log = Log("ActivityStore")
 private let TX_AGE_TO_PLAY_SOUND = 60.0 // 1 min

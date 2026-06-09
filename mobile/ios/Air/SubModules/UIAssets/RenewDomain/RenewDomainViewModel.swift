@@ -104,4 +104,13 @@ import Dependencies
         }
         return ApiMfaProtectedResult(activityIds: activityIds)
     }
+
+    func makeLedgerPayload() async throws -> SignData {
+        guard !nfts.isEmpty else { throw CancellationError() }
+        return .renewDomains(
+            accountId: account.id,
+            nfts: nfts,
+            realFee: realFee
+        )
+    }
 }

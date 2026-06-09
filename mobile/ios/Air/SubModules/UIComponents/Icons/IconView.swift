@@ -607,7 +607,13 @@ public class IconView: UIView {
         imageView.kf.setImage(
             with: avatarURL,
             placeholder: nil,
-            options: [.transition(.fade(0.2)), .keepCurrentImageWhileLoading, .alsoPrefetchToMemory, .cacheOriginalImage]
+            options: [
+                .processor(SVGImageProcessor.default),
+                .transition(.fade(0.2)),
+                .keepCurrentImageWhileLoading,
+                .alsoPrefetchToMemory,
+                .cacheOriginalImage,
+            ]
         ) { [weak self] result in
             guard let self, self.cachedAccountAvatarURL == avatarURL else { return }
             switch result {

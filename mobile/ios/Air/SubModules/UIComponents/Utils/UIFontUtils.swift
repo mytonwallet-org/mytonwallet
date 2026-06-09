@@ -38,6 +38,11 @@ public extension Font {
         return Font(font)
     }
     
+    static func calSans(size: CGFloat) -> Font {
+        let font = UIFont(name: "CalSans-Regular", size: size)!
+        return Font(font)
+    }
+    
     static func compactDisplay(size: CGFloat, weight: CompactDisplayWeight) -> Font {
         switch weight {
         case .medium: Font(UIFont(name: "SFCompactDisplay-Medium", size: size)!)

@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import GRDB
 import WalletContext
@@ -9,10 +10,13 @@ private let log = Log("RecentSearchStore")
 public final class RecentSearchStore: WalletCoreData.EventsObserver {
 
     public static let shared = RecentSearchStore()
-
     private static let maxItemsPerTag = 10
 
-    public var onLoaded: (() -> Void)?
+    private let onLoadedSubject = PassthroughSubject<Void, Never>()
+    
+    public var onLoaded: AnyPublisher<Void, Never> {
+        onLoadedSubject.eraseToAnyPublisher()
+    }
 
     private var cachedAccountId: String?
     private var isLoaded: Bool = false
@@ -123,7 +127,7 @@ public final class RecentSearchStore: WalletCoreData.EventsObserver {
                 if self.cachedAccountId == accountId {
                     self.items = loaded
                     self.isLoaded = true
-                    self.onLoaded?()
+                    self.onLoadedSubject.send()
                 }
             } catch {
                 log.error("loadForAccount failed: \(error, .public)")

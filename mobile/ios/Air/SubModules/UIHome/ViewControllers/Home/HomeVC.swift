@@ -12,6 +12,7 @@ import WalletCore
 import WalletContext
 import UIAssets
 import UISettings
+import ContextMenuKit
 import Perception
 import SwiftUI
 import Dependencies
@@ -68,6 +69,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
                                                                 delegate: self)
     private var headerBlurView: WBlurView!
     private let bottomSeparatorView = UIView()
+    private var titleMenuInteraction: ContextMenuInteraction?
+    private var isHeaderContextMenuActive = false
 
     private var windowSafeAreaGuide = UILayoutGuide()
     private var windowSafeAreaGuideContraint: NSLayoutConstraint!
@@ -163,6 +166,21 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             let header = NavigationHeader2()
             let g = UITapGestureRecognizer(target: self, action: #selector(onHeaderTap(_:)))
             header.addGestureRecognizer(g)
+            let titleMenuInteraction = ContextMenuInteraction(
+                triggers: [.longPress],
+                activationHitTestProvider: { [weak self] sourceView, point in
+                    self?.isPointInUpdateStatusView(point, from: sourceView) ?? false
+                },
+                onWillPresent: { [weak self] in self?.isHeaderContextMenuActive = true },
+                onDidDismiss: { [weak self] in self?.isHeaderContextMenuActive = false }
+            ) { [weak self] _ in
+                self?.makeTitleMenuConfiguration() ?? ContextMenuConfiguration(
+                    rootPage: ContextMenuPage(items: []),
+                    backdrop: .none
+                )
+            }
+            titleMenuInteraction.attach(to: header)
+            self.titleMenuInteraction = titleMenuInteraction
             return header
         }()
 
@@ -276,7 +294,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             updateNavigationItem()
         }
 
-        let spacing: CGFloat = IOS_26_MODE_ENABLED ? -124 : -100
+        let spacing: CGFloat = IOS_26_MODE_ENABLED ? -112 : -100
         NSLayoutConstraint.activate([
             balanceHeaderView.updateStatusView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor,
                                                 constant: spacing)
@@ -642,13 +660,37 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
     @objc private func onHeaderTap(_ recognizer: UITapGestureRecognizer) {
         guard recognizer.state == .ended else { return }
+        guard !isHeaderContextMenuActive else { return }
+        guard let sourceView = recognizer.view else { return }
 
-        if let targetView = balanceHeaderView.updateStatusView {
-            let ptAtTarget = recognizer.location(in: targetView)
-            if targetView.bounds.insetBy(dx: -10, dy: -10).contains(ptAtTarget) {
-                AppActions.showWalletSettings()
-            }
+        if isPointInUpdateStatusView(recognizer.location(in: sourceView), from: sourceView) {
+            AppActions.showWalletSettings()
         }
+    }
+
+    private func isPointInUpdateStatusView(_ point: CGPoint, from sourceView: UIView) -> Bool {
+        guard let targetView = balanceHeaderView.updateStatusView else { return false }
+        let ptAtTarget = sourceView.convert(point, to: targetView)
+        return targetView.bounds.insetBy(dx: -10, dy: -10).contains(ptAtTarget)
+    }
+
+    private func makeTitleMenuConfiguration() -> ContextMenuConfiguration {
+        ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: [
+                .action(
+                    ContextMenuAction(
+                        title: lang("Rename"),
+                        icon: .system("pencil.line"),
+                        handler: { [weak self] in
+                            guard let self else { return }
+                            AppActions.showRenameAccount(accountId: homeVM.account.id)
+                        }
+                    )
+                )
+            ]),
+            backdrop: .none,
+            style: ContextMenuStyle(minWidth: 180)
+        )
     }
 
     private func updateNavigationItem() {

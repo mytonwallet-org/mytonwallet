@@ -224,7 +224,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-308';
+export const LANG_CACHE_NAME = 'mtw-lang-309';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',

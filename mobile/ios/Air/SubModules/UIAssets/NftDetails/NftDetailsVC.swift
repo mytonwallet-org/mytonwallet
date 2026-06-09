@@ -53,7 +53,7 @@ public class NftDetailsVC: NftDetailsBaseVC {
             let tonDomain = domains.expirationDays(for: nft).map {
                 NftDetailsItem.TonDomain(
                     expirationDays: $0,
-                    canRenew: accountType == .mnemonic && !nft.isOnSale
+                    canRenew: accountType != .view && !nft.isOnSale
                 )
             }
 
@@ -206,7 +206,7 @@ public class NftDetailsVC: NftDetailsBaseVC {
                     let accountId = self.accountId
                     let displayNft = NftStore.getNft(accountId: accountId, nftId: nft.id)
                     var items: [ContextMenuItem] = []
-                    if nft.isLinkableDns && !nft.isOnSale && accountType == .mnemonic {
+                    if nft.isLinkableDns && !nft.isOnSale && accountType != .view {
                         let linkedAddress = accountContext.domains.linkedAddressByAddress[nft.address]?.nilIfEmpty
                         let title = linkedAddress == nil ? lang("Link to Wallet") : lang("Change Linked Wallet")
                         items.append(
@@ -317,7 +317,7 @@ public class NftDetailsVC: NftDetailsBaseVC {
                             .action(
                                 ContextMenuAction(
                                     title: "TON Domains",
-                                    icon: .airBundle("MenuTonDomains26"),
+                                    icon: .airBundle("MenuTonDomains26", renderingMode: .original),
                                     handler: {
                                         AppActions.openInBrowser(url)
                                     }

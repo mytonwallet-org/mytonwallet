@@ -27,17 +27,12 @@ final class ExploreSearch: HostingView {
         if let frame = viewModel.frame, frame.contains(point) {
             return contentView
         }
-        if !viewModel.string.isEmpty,
+        if viewModel.isActive,
            let frame = viewModel.clearButtonFrame,
            frame.contains(point) {
             return contentView
         }
         return nil
-    }
-
-    func close() {
-        viewModel.string = ""
-        endEditing(true)
     }
 }
 
@@ -79,7 +74,7 @@ private struct ExploreSearchView: View {
         return EdgeInsets(top: v,
                           leading: viewModel.isActive ? 16 : 12,
                           bottom: v,
-                          trailing: viewModel.isActive ? 20 : 16)
+                          trailing: viewModel.isActive ? 16 : 12)
     }
 
     private var searchBarHeight: CGFloat {
@@ -91,25 +86,47 @@ private struct ExploreSearchView: View {
         WithPerceptionTracking {
             HStack(spacing: 6) {
                 searchField
-                if !viewModel.string.isEmpty {
-                    clearButton
+                if viewModel.isActive {
+                    cancelButton
                         .transition(.scale.combined(with: .opacity))
                 }
             }
+            .animation(.smooth(duration: 0.2), value: viewModel.isActive)
             .animation(.smooth(duration: 0.2), value: viewModel.string.isEmpty)
             .frame(maxWidth: .infinity, alignment: viewModel.isActive ? .leading : .center)
             .padding(Metrics.outerPadding)
-            .onChange(of: isFocused) { isFocused in
-                withAnimation(.smooth(duration: isFocused ? 0.25 : 0.2)) {
-                    viewModel.isActive = isFocused
-                }
-                viewModel.onActiveChange(isFocused)
+            .onChange(of: isFocused) { _ in
+                updateActiveState()
             }
             .onChange(of: viewModel.string) { string in
                 viewModel.onChange(string)
+                updateActiveState()
             }
             .onSubmit { viewModel.onSubmit(viewModel.string) }
         }
+    }
+
+    /// Search (active) mode transitions:
+    /// - gaining focus enters search mode;
+    /// - losing focus while the stripped input is empty exits it;
+    /// - losing focus while the input is non-empty keeps search mode (e.g. keyboard dismissed by
+    ///   scrolling results or switching tabs);
+    /// - clearing the input while unfocused (cancel button / clear-after-submit) exits it.
+    private func updateActiveState() {
+        let isEmpty = viewModel.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let newActive: Bool
+        if isFocused {
+            newActive = true
+        } else if isEmpty {
+            newActive = false
+        } else {
+            newActive = viewModel.isActive
+        }
+        guard newActive != viewModel.isActive else { return }
+        withAnimation(.smooth(duration: newActive ? 0.25 : 0.2)) {
+            viewModel.isActive = newActive
+        }
+        viewModel.onActiveChange(newActive)
     }
 
     @ViewBuilder
@@ -121,7 +138,7 @@ private struct ExploreSearchView: View {
 
             @Perception.Bindable var vm = viewModel
             
-            let searchFieldContent = HStack {
+            let searchFieldContent = HStack(spacing: 4) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(viewModel.isActive ? .secondary : Color.air.primaryLabel)
                 TextField(
@@ -137,6 +154,10 @@ private struct ExploreSearchView: View {
                     .keyboardType(.webSearch)
                     .submitLabel(.go)
                     .frame(height: 42)
+                if !viewModel.string.isEmpty {
+                    inlineClearButton
+                        .transition(.scale.combined(with: .opacity))
+                }
             }
             .frame(maxWidth: viewModel.isActive ? .infinity : nil, alignment: .leading)
             .padding(searchFieldPadding)
@@ -160,11 +181,12 @@ private struct ExploreSearchView: View {
     }
 
     @ViewBuilder
-    private var clearButton: some View {
+    private var cancelButton: some View {
         WithPerceptionTracking {
             let size = searchBarHeight
             let buttonContent = Button {
                 viewModel.string = ""
+                isFocused = false
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 17, weight: .medium))
@@ -187,6 +209,23 @@ private struct ExploreSearchView: View {
                     .clipShape(Circle())
                     .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }, action: { viewModel.clearButtonFrame = $0 })
             }
+        }
+    }
+
+    @ViewBuilder
+    private var inlineClearButton: some View {
+        WithPerceptionTracking {
+            Button {
+                viewModel.string = ""
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 17))
+                    .foregroundStyle(.primary)
+                    .padding(10)
+                    .contentShape(Circle())
+                    .padding(-10)
+            }
+            .buttonStyle(.plain)
         }
     }
 }

@@ -103,6 +103,9 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         collectionView.isScrollEnabled = false
         collectionView.delaysContentTouches = false
         collectionView.accessibilityIdentifier = "collectionView"
+        if #available(iOS 26, iOSApplicationExtension 26, *) {
+            collectionView.topEdgeEffect.style = .soft
+        }
 
         skeletonView.translatesAutoresizingMaskIntoConstraints = false
         skeletonView.backgroundColor = .clear

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import WalletCoreTypes
 
 public struct ApiSwapHistoryItem: Codable, Sendable {
     public let id: String

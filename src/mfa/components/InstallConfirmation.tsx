@@ -36,8 +36,7 @@ function InstallConfirmation({ installRequest, isActive, reqId, onConfirm }: Own
   const onConfirmClicked = useLastCallback(() => {
     setLoading();
 
-    const { id, first_name, username, photo_url } = getTelegramApp()!.initDataUnsafe.user!;
-    confirmInstallRequest(reqId!, { id: String(id), name: first_name, username, avatarUrl: photo_url }).then(() => {
+    confirmInstallRequest(reqId!, getTelegramApp()!.initData).then(() => {
       onConfirm();
     }).catch((err) => {
       alert(`ERROR: ${err}`);

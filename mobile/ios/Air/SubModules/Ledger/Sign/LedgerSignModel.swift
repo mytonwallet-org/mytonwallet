@@ -131,6 +131,39 @@ public final class LedgerSignModel: LedgerBaseModel, Sendable {
             } catch {
                 throw error
             }
+
+        case let .linkDomain(accountId, nft, address, realFee):
+            do {
+                let result = try await Api.submitDnsChangeWallet(
+                    accountId: accountId,
+                    password: nil,
+                    nft: nft,
+                    address: address,
+                    realFee: realFee
+                )
+                if let error = result.error {
+                    throw BridgeCallError(message: error, payload: result)
+                }
+            } catch {
+                throw error
+            }
+
+        case let .renewDomains(accountId, nfts, realFee):
+            do {
+                let result = try await Api.submitDnsRenewal(
+                    accountId: accountId,
+                    password: nil,
+                    nfts: nfts,
+                    realFee: realFee
+                )
+                for entry in result {
+                    if let error = entry.error {
+                        throw BridgeCallError(message: error, payload: result)
+                    }
+                }
+            } catch {
+                throw error
+            }
             
         case .staking(isStaking: let isStaking, accountId: let accountId, amount: let amount, stakingState: let stakingState, realFee: let realFee):
             do {

@@ -5,6 +5,7 @@ import WalletContext
 import Perception
 import Dependencies
 import SwiftNavigation
+import WalletCoreTypes
 
 /// Provides token for `tokenSlug`. If token with that slug is deleted, falls back to native token.
 @propertyWrapper @Perceptible @MainActor

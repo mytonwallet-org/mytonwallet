@@ -1,5 +1,6 @@
 import WidgetKit
 import UIKit
+import WalletCoreTypes
 
 public struct TokenWithChartWidgetTimelineEntry: TimelineEntry {
     public var date: Date

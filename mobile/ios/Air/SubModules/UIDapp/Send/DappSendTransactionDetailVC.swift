@@ -62,7 +62,7 @@ class DappSendTransactionDetailVC: WViewController {
 //    let request = ApiUpdate.DappSendTransactions(
 //        promiseId: "",
 //        accountId: "",
-//        dapp: ApiDapp(url: "dedust.io", name: "Dedust", iconUrl: "https://files.readme.io/681e2e6-dedust_1.png", manifestUrl: "", connectedAt: nil, isUrlEnsured: nil, sse: nil),
+//        dapp: ApiDapp(url: "dedust.io", name: "Dedust", iconUrl: "https://files.readme.io/681e2e6-dedust_1.png", manifestUrl: "", connectedAt: nil, urlTrustStatus: nil, sse: nil),
 //        transactions: [
 //            ApiDappTransfer(
 //                toAddress: "tkfjkdfajlkfadjaflskdhdhladmfdfo",

@@ -7,7 +7,7 @@ Default usage:
 
 Custom paths:
     python3 mobile/ios/Air/scripts/find_unused_assets.py \
-        --assets mobile/ios/Air/SubModules/WalletContext/Resources/Assets.xcassets \
+        --assets mobile/ios/Air/SubModules/WalletResources/Resources/Assets.xcassets \
         --scan-root mobile/ios/Air/SubModules \
         --scan-root mobile/ios/Air/App
 """
@@ -222,7 +222,7 @@ def find_asset_usage(
 def build_parser() -> argparse.ArgumentParser:
     script_dir = Path(__file__).resolve().parent
     air_root = script_dir.parent
-    default_assets = air_root / "SubModules/WalletContext/Resources/Assets.xcassets"
+    default_assets = air_root / "SubModules/WalletResources/Resources/Assets.xcassets"
 
     parser = argparse.ArgumentParser(description="Find unused names in an .xcassets catalog.")
     parser.add_argument(

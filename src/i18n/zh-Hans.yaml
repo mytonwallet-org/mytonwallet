@@ -17,6 +17,7 @@ Sign transfers and important actions with your passcode, then confirm them in Te
 This helps protect your funds even if your recovery phrase or keys are compromised.: 即使你的助记词或密钥泄露，这也有助于保护你的资金。
 "Connection Fee:": "连接费用："
 Connect Telegram: 连接 Telegram
+Add in Gram Wallet: 在 Gram Wallet 中添加
 Telegram will be used to confirm transfers and important actions.: Telegram 将用于确认转账和重要操作。
 My Telegram Account: 我的 Telegram 账户
 Without username: 无用户名
@@ -154,6 +155,8 @@ Activity Details: 活动详情
 No activities found: 未找到活动
 Comment Copied: 留言栏已复制
 Copy Text: 复制文本
+Copy Description: 复制描述
+Description Copied: 描述已复制
 Message Copied: 消息已复制
 Sender: 发送者
 Recipient: 接收者
@@ -282,6 +285,7 @@ Earning: 赚取中
 You can save this address for quick access while sending.: 您可以保存此地址以便在发送时快速访问。
 Stake Again: 再次质押
 Earned: 获得
+$staking_history_earned: 获得
 Select wallet to use on this app: 选择在此应用上使用的钱包
 Connect: 连接
 Payload: 有效载荷
@@ -864,6 +868,10 @@ Remember for %1$d minutes: 记住 %1$d 分钟
 Preview: 预览
 $preview_not_guaranteed: 预览结果**不受保证**，且**可能被服务伪造**。
 Unverified Source: 未经验证的来源
+DappurlTrustStatusInvalidTitle: Domain mismatch
+$DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
+DappurlTrustStatusDangerousTitle: Potentially malicious site
+$DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
 $reopen_in_iab: 请使用 MyTonWallet %mobileAppButton% 或 %browserExtensionButton% 以避免此警告。
 $reopen_in_iab_explore: 浏览应用时，请使用 %exploreTab% 栏目以避免此警告。
 MyTonWallet Browser: MyTonWallet 浏览器
@@ -918,8 +926,8 @@ $domains_expire:
   oneValue: "**%domain%个域名** 将于%days%到期"
   otherValue: "**%domain%个域名** 将于%days%到期"
 $in_days:
-  zeroValue: 今天
-  oneValue: 明天
+  zeroValue: "%1$d天后"
+  oneValue: "%1$d天后"
   otherValue: "%1$d天后"
 $domain_was_expired: "**%domain%** 已过期"
 $domains_was_expired:
@@ -1074,6 +1082,7 @@ Choose Wallet: 选择钱包
 Wallet to use on %host%: 用于 %host% 的钱包
 Selected Wallet: 已选钱包
 Connect Wallet: 连接钱包
+Connect Anyway: 仍要连接
 Insufficient Fee: 手续费不足
 Waiting for a View deeplink to display a wallet address.: 正在等待查看深层链接以显示钱包地址。
 Adding wallets is not available in explorer mode: 在浏览器模式下无法添加钱包
@@ -1549,3 +1558,5 @@ Cumulative profit and loss over time: 累计盈亏走势
 Day-by-day profit and loss: 逐日盈亏
 Current allocation across tracked assets: 当前资产分配
 This action is not supported in explorer mode.: 此操作在浏览器模式下不受支持。
+$relative_today: 今天
+$relative_tomorrow: 明天

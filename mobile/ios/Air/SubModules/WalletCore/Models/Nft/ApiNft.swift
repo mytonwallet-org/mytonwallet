@@ -3,6 +3,7 @@ import Foundation
 import WalletContext
 import Kingfisher
 import OrderedCollections
+import WalletCoreTypes
 
 // Generated based on TypeScript definition. Do not edit manually.
 public struct ApiNft: Equatable, Hashable, Codable, Sendable {

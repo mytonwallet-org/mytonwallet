@@ -17,6 +17,7 @@ import SwiftNavigation
     private var resolveTask: Task<Void, any Error>?
 
     var walletAddress: String = ""
+    var selectedWalletAccount: MAccount?
     var walletAddressName: String?
     var resolvedWalletAddress: String?
     var isAddressFocused = false
@@ -35,6 +36,7 @@ import SwiftNavigation
         self.initialNft = nft
         let linkedAddress = $account.domains.linkedAddressByAddress[nftAddress]?.nilIfEmpty
         self.walletAddress = linkedAddress ?? account.getAddress(chain: nft?.chain) ?? ""
+        self.selectedWalletAccount = matchingImportedWallet(for: self.walletAddress, chain: nft?.chain)
         resolveObserver = observe { [weak self] in
             guard let self else { return }
             _ = (self.walletAddress, self.account.network)
@@ -110,6 +112,10 @@ import SwiftNavigation
         let input = normalizedWalletAddress
         guard !input.isEmpty else { return (nil, nil) }
 
+        if let selectedWalletAccount, let chain = nft?.chain, importedWallet(selectedWalletAccount, matches: input, chain: chain) {
+            return (selectedWalletAccount.displayName, formatStartEndAddress(selectedWalletAccount.getAddress(chain: chain) ?? input))
+        }
+
         let resolved = resolvedWalletAddress?.nilIfEmpty
         let name = walletAddressName?.nilIfEmpty
 
@@ -132,7 +138,7 @@ import SwiftNavigation
         isLoadingDraft = true
         errorMessage = nil
         do {
-            let address = account.getAddress(chain: nft.chain) ?? walletAddress
+            let address = normalizedWalletAddress.nilIfEmpty ?? account.getAddress(chain: nft.chain) ?? ""
             let result = try await Api.checkDnsChangeWalletDraft(accountId: account.id, nft: nft, address: address)
             realFee = result.realFee
         } catch {
@@ -142,17 +148,17 @@ import SwiftNavigation
         isLoadingDraft = false
     }
 
+    func selectWalletAccount(_ account: MAccount) {
+        guard let chain = nft?.chain, let address = account.getAddress(chain: chain) else { return }
+        selectedWalletAccount = account
+        walletAddress = address
+    }
+
     func submit(password: String?) async throws -> ApiMfaProtectedResult {
         guard !isSubmitting, let nft else { return ApiMfaProtectedResult() }
-        let address = normalizedWalletAddress
-        guard !address.isEmpty else { return ApiMfaProtectedResult() }
         isSubmitting = true
         defer { isSubmitting = false }
-        let info = try await Api.getAddressInfo(chain: nft.chain, network: account.network, address: address)
-        if let error = info.error?.nilIfEmpty {
-            throw BridgeCallError(message: error, payload: nil)
-        }
-        let resolvedAddress = info.resolvedAddress?.nilIfEmpty ?? address
+        let resolvedAddress = try await resolvedSubmissionAddress(for: nft)
         let result = try await Api.submitDnsChangeWallet(
             accountId: account.id,
             password: password,
@@ -166,6 +172,17 @@ import SwiftNavigation
         return ApiMfaProtectedResult(
             activityId: result.activityId,
             mfaRequestHash: result.mfaRequestHash
+        )
+    }
+
+    func makeLedgerPayload() async throws -> SignData {
+        guard let nft else { throw CancellationError() }
+        let resolvedAddress = try await resolvedSubmissionAddress(for: nft)
+        return .linkDomain(
+            accountId: account.id,
+            nft: nft,
+            address: resolvedAddress,
+            realFee: realFee
         )
     }
 
@@ -185,7 +202,14 @@ import SwiftNavigation
     private func resolveAddress() {
         resolveTask?.cancel()
         let address = normalizedWalletAddress
+        selectedWalletAccount = matchingImportedWallet(for: address, chain: nft?.chain)
         guard !address.isEmpty else {
+            walletAddressName = nil
+            resolvedWalletAddress = nil
+            isResolvingAddress = false
+            return
+        }
+        if selectedWalletAccount != nil {
             walletAddressName = nil
             resolvedWalletAddress = nil
             isResolvingAddress = false
@@ -219,8 +243,38 @@ import SwiftNavigation
     }
 
     private func setInitialWalletAddressIfNeeded(for nft: ApiNft) {
-        guard normalizedWalletAddress.isEmpty else { return }
+        guard normalizedWalletAddress.isEmpty else {
+            selectedWalletAccount = matchingImportedWallet(for: normalizedWalletAddress, chain: nft.chain)
+            return
+        }
         walletAddress = linkedWalletAddress ?? account.getAddress(chain: nft.chain) ?? ""
+        selectedWalletAccount = matchingImportedWallet(for: walletAddress, chain: nft.chain)
+    }
+
+    private func matchingImportedWallet(for value: String, chain: ApiChain?) -> MAccount? {
+        let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let chain, !value.isEmpty else { return nil }
+        let accountsById = AccountStore.accountsById
+        return AccountStore.orderedAccountIds.compactMap { accountsById[$0] }.first { account in
+            account.network == self.account.network && importedWallet(account, matches: value, chain: chain)
+        }
+    }
+
+    private func importedWallet(_ account: MAccount, matches value: String, chain: ApiChain) -> Bool {
+        guard let chainInfo = account.getChainInfo(chain: chain) else { return false }
+        if chainInfo.address == value { return true }
+        if chainInfo.domain?.caseInsensitiveCompare(value) == .orderedSame { return true }
+        return false
+    }
+
+    private func resolvedSubmissionAddress(for nft: ApiNft) async throws -> String {
+        let address = normalizedWalletAddress
+        guard !address.isEmpty else { throw BridgeCallError.message(.invalidAddress, nil) }
+        let info = try await Api.getAddressInfo(chain: nft.chain, network: account.network, address: address)
+        if let error = info.error?.nilIfEmpty {
+            throw BridgeCallError(message: error, payload: nil)
+        }
+        return info.resolvedAddress?.nilIfEmpty ?? address
     }
 
 }

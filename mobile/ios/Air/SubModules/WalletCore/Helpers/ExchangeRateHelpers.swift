@@ -7,6 +7,7 @@
 
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 public struct SwapRate {
     public let fromToken: ApiToken

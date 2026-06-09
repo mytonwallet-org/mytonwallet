@@ -7,7 +7,7 @@ SDK_OUTPUT_CLEAN=0 IS_GRAM_WALLET=1 webpack --config webpack-air.config.ts
 
 bash ./deploy/copy_to_dist.sh
 
-IOS_TARGET="mobile/ios/Air/SubModules/WalletContext/Resources/JS"
+IOS_TARGET="mobile/ios/Air/SubModules/WalletResources/Resources/JS"
 ANDROID_MYTONWALLET_TARGET="mobile/android/app/src/mytonwallet/assets/js"
 ANDROID_GRAM_TARGET="mobile/android/app/src/gram/assets/js"
 

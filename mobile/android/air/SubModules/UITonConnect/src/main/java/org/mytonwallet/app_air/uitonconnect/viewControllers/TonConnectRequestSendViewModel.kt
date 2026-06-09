@@ -274,7 +274,9 @@ class TonConnectRequestSendViewModel private constructor(
     private fun buildUiItems(tokens: Tokens): List<BaseListItem> {
         val uiItems = mutableListOf<BaseListItem>(
             TonConnectItem.SendRequestHeader(update, {
-                val warningText = DappWarningPopupHelpers.reopenInIabWarningText {
+                val warningContent = DappWarningPopupHelpers.warningContent(
+                    update.dapp.resolvedUrlTrustStatus
+                ) {
                     WalletCore.call(
                         ApiMethod.DApp.DeleteDapp(
                             update.accountId,
@@ -292,8 +294,8 @@ class TonConnectRequestSendViewModel private constructor(
 
                 _eventsFlow.tryEmit(
                     Event.ShowWarningAlert(
-                        LocaleController.getString("Warning"),
-                        warningText,
+                        warningContent.title.toString(),
+                        warningContent.text,
                         allowLinkInText = true
                     )
                 )

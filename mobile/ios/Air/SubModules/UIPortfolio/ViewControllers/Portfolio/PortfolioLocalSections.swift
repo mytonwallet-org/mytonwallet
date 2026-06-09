@@ -25,6 +25,50 @@ struct PortfolioInsightCardModel: Equatable, Identifiable {
     let emptyText: String?
 }
 
+enum PortfolioInsightCardMetrics {
+    static let headerHeight = CGFloat(39)
+    static let defaultContentHeight = CGFloat(192)
+    static let defaultTotalHeight = headerHeight + defaultContentHeight
+    static let contentVerticalPadding = CGFloat(16)
+    static let barrelWidth = CGFloat(80)
+    static let barrelHeight = CGFloat(160)
+
+    static func totalHeight(for cards: [PortfolioInsightCardModel]) -> CGFloat {
+        cards
+            .map { totalHeight(forVisibleSegmentCount: visibleSegmentCount(in: $0)) }
+            .max() ?? defaultTotalHeight
+    }
+
+    static func contentHeight(forTotalHeight totalHeight: CGFloat) -> CGFloat {
+        max(defaultContentHeight, totalHeight - headerHeight)
+    }
+
+    static func legendRowHeight(segmentCount: Int) -> CGFloat {
+        segmentCount > 4 ? 17 : 20
+    }
+
+    static func legendRowSpacing(segmentCount: Int) -> CGFloat {
+        segmentCount > 4 ? 3 : 8
+    }
+
+    private static func totalHeight(forVisibleSegmentCount segmentCount: Int) -> CGFloat {
+        headerHeight + max(defaultContentHeight, legendHeight(segmentCount: segmentCount) + contentVerticalPadding * 2)
+    }
+
+    private static func legendHeight(segmentCount: Int) -> CGFloat {
+        guard segmentCount > 0 else {
+            return 0
+        }
+
+        return CGFloat(segmentCount) * legendRowHeight(segmentCount: segmentCount)
+            + CGFloat(segmentCount - 1) * legendRowSpacing(segmentCount: segmentCount)
+    }
+
+    private static func visibleSegmentCount(in card: PortfolioInsightCardModel) -> Int {
+        card.segments.filter { $0.value > 0 }.count
+    }
+}
+
 struct PortfolioOverviewSectionView: View {
     let accountContext: AccountContext
     let overview: PortfolioOverviewModel
@@ -117,11 +161,16 @@ struct PortfolioOverviewSectionView: View {
 
 struct PortfolioInsightCardView: View {
     let card: PortfolioInsightCardModel
+    let height: CGFloat
 
     private var displayedSegments: [PortfolioInsightSegment] {
         card.segments
             .filter { $0.value > 0 }
             .sorted { $0.value < $1.value }
+    }
+
+    private var contentHeight: CGFloat {
+        PortfolioInsightCardMetrics.contentHeight(forTotalHeight: height)
     }
 
     var body: some View {
@@ -143,7 +192,10 @@ struct PortfolioInsightCardView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     PortfolioInsightBarrelView(segments: displayedSegments)
-                        .frame(width: 80, height: 160)
+                        .frame(
+                            width: PortfolioInsightCardMetrics.barrelWidth,
+                            height: PortfolioInsightCardMetrics.barrelHeight
+                        )
 
                     PortfolioInsightLegendView(
                         segments: displayedSegments,
@@ -153,12 +205,12 @@ struct PortfolioInsightCardView: View {
                 }
             }
             .padding(.horizontal, 24)
-            .padding(.vertical, 16)
-            .frame(maxWidth: .infinity, minHeight: 192, maxHeight: 192, alignment: .leading)
+            .padding(.vertical, PortfolioInsightCardMetrics.contentVerticalPadding)
+            .frame(maxWidth: .infinity, minHeight: contentHeight, maxHeight: contentHeight, alignment: .leading)
             .background(Color.air.groupedItem)
             .clipShape(.rect(cornerRadius: 26, style: .continuous))
         }
-        .frame(maxWidth: .infinity, minHeight: 231, maxHeight: 231, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .topLeading)
     }
 }
 
@@ -337,11 +389,11 @@ private struct PortfolioInsightLegendView: View {
     }
 
     private var rowHeight: CGFloat {
-        segments.count > 4 ? 17 : 20
+        PortfolioInsightCardMetrics.legendRowHeight(segmentCount: segments.count)
     }
 
     private var rowSpacing: CGFloat {
-        segments.count > 4 ? 3 : 8
+        PortfolioInsightCardMetrics.legendRowSpacing(segmentCount: segments.count)
     }
 
     private var titleFont: Font {

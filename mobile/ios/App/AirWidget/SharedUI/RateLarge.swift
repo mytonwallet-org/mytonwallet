@@ -1,4 +1,5 @@
 import SwiftUI
+import WalletCoreTypes
 
 struct RateLarge: View {
     var rate: BaseCurrencyAmount

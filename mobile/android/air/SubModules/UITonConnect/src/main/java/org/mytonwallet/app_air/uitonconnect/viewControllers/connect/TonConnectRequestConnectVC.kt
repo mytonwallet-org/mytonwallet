@@ -17,7 +17,9 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.DappWarningPopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
@@ -34,8 +36,10 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.moshi.ApiDappUrlTrustStatus
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -139,6 +143,8 @@ class TonConnectRequestConnectVC(
         updateButtonState()
         updateHeaderView()
         updateAccountView()
+
+        requestView.onWarningClick = { showTrustStatusWarning() }
 
         buttonView.setOnClickListener {
             val update = update ?: return@setOnClickListener
@@ -408,6 +414,32 @@ class TonConnectRequestConnectVC(
         val isEnabled = isSelectedWalletConnectable()
         buttonView.isEnabled = isEnabled
         buttonView.alpha = if (isEnabled) 1.0f else 0.5f
+
+        val isDangerous =
+            update?.dapp?.resolvedUrlTrustStatus == ApiDappUrlTrustStatus.DANGEROUS
+        buttonView.type = if (isDangerous) WButton.Type.DESTRUCTIVE else WButton.Type.PRIMARY
+        buttonView.text = LocaleController.getString(
+            if (isDangerous) "Connect Anyway" else "Connect Wallet"
+        )
+    }
+
+    private fun showTrustStatusWarning() {
+        val dapp = update?.dapp ?: return
+        lateinit var dialog: WDialog
+        val warningContent = DappWarningPopupHelpers.warningContent(
+            dapp.resolvedUrlTrustStatus
+        ) {
+            dialog.dismiss()
+            dapp.url?.let { url ->
+                WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
+            }
+        }
+        @Suppress("AssignedValueIsNeverRead")
+        dialog = showAlert(
+            warningContent.title.toString(),
+            warningContent.text,
+            allowLinkInText = true
+        )
     }
 
     private fun updateHeaderView() {

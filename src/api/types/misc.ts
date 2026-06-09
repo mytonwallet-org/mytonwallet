@@ -300,9 +300,13 @@ export interface ApiDappPermissions {
   isPasswordRequired?: boolean;
 }
 
+/** Domain / origin trust for dApp connections (WalletConnect Verify, in-app origin, etc.). */
+export type ApiDappurlTrustStatusStatus = 'verified' | 'unknown' | 'invalid' | 'dangerous';
+
 export type ApiDappRequest = {
   url: string | undefined; // `undefined` is a special case for SSE connect request
-  isUrlEnsured?: boolean;
+  /** When set, overrides default trust inference for this connect request. */
+  urlTrustStatus?: ApiDappurlTrustStatusStatus;
   accountId?: string;
   identifier?: string;
   sseOptions?: ApiSseOptions;

@@ -70,7 +70,7 @@ private struct NftRenewDomainWarningStatesPreview: View {
             title: "Single expiring today",
             content: .init(
                 addresses: ["preview-single-today"],
-                text: lang("$domain_expire", arg1: "soon.ton", arg2: lang("$in_days", arg1: 0))
+                text: lang("$domain_expire", arg1: "soon.ton", arg2: langRelativeDays(0))
             )
         ),
         .init(
@@ -80,7 +80,7 @@ private struct NftRenewDomainWarningStatesPreview: View {
                 text: lang(
                     "$domain_expire",
                     arg1: "a-very-long-domain-name-for-preview.ton",
-                    arg2: lang("$in_days", arg1: 1)
+                    arg2: langRelativeDays(1)
                 )
             )
         ),
@@ -95,7 +95,7 @@ private struct NftRenewDomainWarningStatesPreview: View {
             title: "Multiple expiring",
             content: .init(
                 addresses: ["preview-multiple-expiring-1", "preview-multiple-expiring-2"],
-                text: lang("$domains_expire", arg1: lang("$in_days", arg1: 5), arg2: 2)
+                text: lang("$domains_expire", arg1: langRelativeDays(5), arg2: 2)
             )
         ),
         .init(

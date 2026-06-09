@@ -7,6 +7,7 @@
 
 import Foundation
 import WalletContext
+import WalletCoreTypes
 
 private let apiSwapLog = Log("Api+Swap")
 

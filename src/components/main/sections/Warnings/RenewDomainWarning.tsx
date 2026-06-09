@@ -5,7 +5,7 @@ import type { ApiNft } from '../../../../api/types';
 
 import { selectCurrentAccountState } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
-import { getCountDaysToDate } from '../../../../util/dateFormat';
+import { formatRelativeDays, getCountDaysToDate } from '../../../../util/dateFormat';
 import { filterExpiringDomains, getDnsExpirationDate, getDomainsExpirationDate } from '../../../../util/dns';
 import { stopEvent } from '../../../../util/domEvents';
 
@@ -102,7 +102,7 @@ function RenewDomainWarning({ orderedAddresses, byAddress, dnsExpiration }: Stat
         ? lang('$domain_was_expired', { domain: nftForRenewal[0].name })
         : lang('$domain_expire', {
           domain: nftForRenewal[0].name,
-          days: lang('$in_days', expireInDays, 'i'),
+          days: formatRelativeDays(lang, expireInDays, 'i'),
         });
     }
 
@@ -110,7 +110,7 @@ function RenewDomainWarning({ orderedAddresses, byAddress, dnsExpiration }: Stat
       ? lang('$domains_was_expired', { domain: expiredDomains.length }, undefined, expiredDomains.length)
       : lang('$domains_expire', {
         domain: nftForRenewal.length,
-        days: lang('$in_days', expireInDays, 'i'),
+        days: formatRelativeDays(lang, expireInDays, 'i'),
       }, undefined, nftForRenewal.length);
   }
 

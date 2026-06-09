@@ -52,7 +52,7 @@ struct MfaConfirmHeaderView: View {
 
             HStack(spacing: -28) {
                 MfaAccountAvatarView(account: account, size: 80)
-                MfaUserAvatarView(user: user, size: 80)
+                MfaUserAvatarView(user: user, size: 80, showsOuterStroke: true)
             }
 
             Text(title)

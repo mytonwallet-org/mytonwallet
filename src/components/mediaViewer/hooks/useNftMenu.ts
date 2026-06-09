@@ -9,6 +9,7 @@ import {
   IS_CORE_WALLET,
   MTW_CARDS_COLLECTION,
 } from '../../../config';
+import { formatRelativeDays } from '../../../util/dateFormat';
 import { isDotTonDomainNft, isLinkableDnsNft, isRenewableDnsNft } from '../../../util/dns';
 import { compact } from '../../../util/iteratees';
 import { openUrl } from '../../../util/openUrl';
@@ -329,7 +330,7 @@ export default function useNftMenu({
         ...RENEW_ITEM,
         description: dnsExpireInDays < 0
           ? 'Expired'
-          : lang('$one_domain_expires %days%', { days: lang('$in_days', dnsExpireInDays) }),
+          : lang('$one_domain_expires %days%', { days: formatRelativeDays(lang, dnsExpireInDays) }),
       },
       getMarketplaceItem(nft.chain),
       getExplorerItem(nft.chain),

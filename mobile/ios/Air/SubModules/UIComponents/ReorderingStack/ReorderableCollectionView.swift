@@ -765,7 +765,7 @@ private extension UIPreviewParameters {
 
 // MARK: - ReorderableCell
 
-public struct ReorderableCellState: OptionSet, Sendable {
+public struct ReorderableCellState: OptionSet, Sendable, Equatable {
     public let rawValue: Int
     
     public init(rawValue: Int) {

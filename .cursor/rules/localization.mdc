@@ -1,0 +1,62 @@
+---
+description: For tasks requiring translated strings or applying i18n to values
+globs:
+alwaysApply: false
+---
+# Localization Guide
+
+Our i18n uses YAML source files in `src/i18n/*.yaml`, compiled to JSON (`src/i18n/*.json`) consumed by `langProvider`.
+
+**1. Getting Strings**
+
+```ts
+import useLang from '../../hooks/useLang';
+const lang = useLang();
+
+// Simple
+lang('Key');
+
+// Substitutions
+lang('Copied');
+lang('Address was copied!');
+lang('Share this URL to receive %token%', 'TON');
+lang('Pay fee with %stars_symbol%', '⭐');
+
+// Plurals (value or explicit pluralValue)
+lang('Items', 3);
+lang('Items', undefined, 'i', 3); // with number formatting
+
+// JSX tokens
+lang('More about %app_name%', { app_name: <strong>MyTonWallet</strong> });
+```
+
+Notes:
+- Values can be primitives, arrays (treated positionally like `%1$s`), or an object for JSX tokens (`%name%`).
+- `lang.isRtl`, `lang.code`, and `lang.langName` are available for UI tweaks.
+
+**2. Adding/Updating Keys**
+
+1. Add English strings to `src/i18n/en.yaml`.
+   - Use `%name%` for named tokens, `%1$s` for positional.
+   - Keep keys human-readable and consistent with existing ones.
+2. Run:
+   - `npm run i18n:find-missing` to detect missing keys across locales.
+   - `npm run i18n:update` to merge `dev/locales/input.yaml` into YAML files.
+3. Bump `LANG_CACHE_NAME` in `src/config.ts` when changing many keys to invalidate caches.
+
+**3. Outside Components**
+
+Use `getTranslation` from `src/util/langProvider`:
+
+```ts
+import { getTranslation } from '../../util/langProvider';
+getTranslation('Copied');
+```
+
+Prefer passing already-resolved strings into actions, e.g. `actions.showToast({ message: lang('Copied') })`.
+
+**4. Do/Don’t**
+
+- Do reuse existing keys if wording matches.
+- Don’t build strings with concatenation; add a proper key.
+- Do keep punctuation in the translation, not in the code.

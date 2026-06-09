@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="web_permission_prompt">Allow %1$s to use your %2$s?</string>
+    <string name="web_permission_allow">Allow</string>
+    <string name="web_permission_deny">Don\'t allow</string>
+    <string name="web_permission_camera">camera</string>
+    <string name="web_permission_microphone">microphone</string>
+    <string name="web_permission_location">location</string>
+    <string name="web_permission_device_features">device features</string>
+    <string name="web_permission_this_site">this site</string>
+</resources>

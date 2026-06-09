@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.ApiDappUrlTrustStatus
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -162,9 +163,12 @@ class CellHeaderSendRequest(context: Context) : WView(context) {
                 append(update.dapp.host ?: "")
             }
 
-            if (update.dapp.isUrlEnsured != true) {
+            if (update.dapp.shouldShowurlTrustStatusWarning()) {
                 ApplicationContextHolder.applicationContext.getDrawableCompat(
-                    org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning_14
+                    if (update.dapp.resolvedUrlTrustStatus == ApiDappUrlTrustStatus.DANGEROUS)
+                        org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning_red_14
+                    else
+                        org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning_14
                 )?.let { drawable ->
                     val width = 14.dp
                     val height = 14.dp

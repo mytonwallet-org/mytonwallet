@@ -42,10 +42,6 @@ public final class RenewDomainVC: WViewController {
 
     private func renewPressed() {
         guard viewModel.canRenew, !viewModel.nfts.isEmpty else { return }
-        if viewModel.account.isHardware {
-            AppActions.showError(error: BridgeCallError.message(.unsupportedHardwareContract, nil))
-            return
-        }
         Task {
             do {
                 _ = try await AppActions.authorizeProtectedAction(
@@ -57,6 +53,11 @@ public final class RenewDomainVC: WViewController {
                         guard let self else { return ApiMfaProtectedResult() }
                         return try await self.viewModel.submit(password: passcode)
                     },
+                    ledgerSignData: { [weak self] in
+                        guard let self else { throw CancellationError() }
+                        return try await self.viewModel.makeLedgerPayload()
+                    },
+                    ledgerFromAddress: viewModel.account.getAddress(chain: .ton),
                     mfaTitle: lang("Confirm Renewing")
                 )
                 let message = viewModel.nfts.count > 1

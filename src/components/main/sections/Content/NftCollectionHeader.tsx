@@ -16,7 +16,7 @@ import {
 import { selectCurrentAccountState, selectIsCurrentAccountViewMode } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
-import { getCountDaysToDate } from '../../../../util/dateFormat';
+import { formatRelativeDays, getCountDaysToDate } from '../../../../util/dateFormat';
 import { getDomainsExpirationDate } from '../../../../util/dns';
 import { compact } from '../../../../util/iteratees';
 import { openUrl } from '../../../../util/openUrl';
@@ -134,7 +134,7 @@ function NftCollectionHeader({
         description: dnsExpireInDays && dnsExpireInDays < 0
           ? (collectionNfts.length > 1 ? '$expired_many' : 'Expired')
           : lang(collectionNfts.length > 1 ? '$multiple_domains_expire %days%' : '$one_domain_expires %days%', {
-            days: lang('$in_days', dnsExpireInDays),
+            days: formatRelativeDays(lang, dnsExpireInDays!),
           }) as string,
       } satisfies DropdownItem<MenuHandler>,
       !IS_CORE_WALLET && {

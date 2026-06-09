@@ -1,7 +1,7 @@
 .infoBlock {
   display: flex;
-  align-items: center;
   gap: 1rem;
+  align-items: center;
 
   padding: 1rem 0.5rem;
   border-radius: 1rem;
@@ -21,33 +21,33 @@
 }
 
 .infoText {
-  text-wrap: wrap;
   margin-bottom: 0;
-  text-align: left;
 
-  font-weight: 500;
   font-size: 1rem;
+  font-weight: 500;
   line-height: 1.25rem;
+  text-align: left;
+  text-wrap: wrap;
 }
 
 .title {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+
   margin: 1.5rem 0;
 
   font-size: 1.75rem;
   font-weight: 800;
   line-height: 2.5rem;
   color: var(--color-black);
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
 }
 
 .title span {
   display: flex;
-  align-items: center;
   gap: 0.25rem;
+  align-items: center;
 }
 
 .avatars {
@@ -57,9 +57,9 @@
 }
 
 .avatar {
-  border-radius: 6.25rem;
-  height: 5rem;
   width: 5rem;
+  height: 5rem;
+  border-radius: 6.25rem;
   font-size: 2.1875rem;
 }
 

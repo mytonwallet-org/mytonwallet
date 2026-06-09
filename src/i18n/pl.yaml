@@ -18,6 +18,7 @@ Sign transfers and important actions with your passcode, then confirm them in Te
 This helps protect your funds even if your recovery phrase or keys are compromised.: To pomaga chronić środki nawet wtedy, gdy fraza odzyskiwania lub klucze zostaną przejęte.
 "Connection Fee:": "Opłata za połączenie:"
 Connect Telegram: Połącz Telegram
+Add in Gram Wallet: Dodaj w Gram Wallet
 Telegram will be used to confirm transfers and important actions.: Telegram będzie używany do potwierdzania przelewów i ważnych działań.
 My Telegram Account: Moje konto Telegram
 Without username: Bez nazwy użytkownika
@@ -157,6 +158,8 @@ Activity Details: Szczegóły aktywności
 No activities found: Nie znaleziono aktywności
 Comment Copied: Komentarz został skopiowany
 Copy Text: Kopiuj tekst
+Copy Description: Kopiuj opis
+Description Copied: Opis skopiowany
 Message Copied: Wiadomość skopiowana
 Sender: Nadawca
 Recipient: Odbiorca
@@ -287,6 +290,7 @@ Unexpected: Nieoczekiwany
 You can save this address for quick access while sending.: Możesz zapisać ten adres, aby szybko się do niego dostać podczas wysyłania.
 Stake Again: Zastaw ponownie
 Earned: Zarobione
+$staking_history_earned: Zarobione
 Select wallet to use on this app: Wybierz portfel, którego chcesz używać w tej aplikacji
 Connect: Połącz
 Payload: Ładunek
@@ -878,6 +882,10 @@ Remember for %1$d minutes: Zapamiętaj na %1$d minut
 Preview: Podgląd
 $preview_not_guaranteed: Wynik podglądu **nie jest gwarantowany** i **może zostać sfałszowany** przez usługę.
 Unverified Source: Niezweryfikowane źródło
+DappurlTrustStatusInvalidTitle: Domain mismatch
+$DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
+DappurlTrustStatusDangerousTitle: Potentially malicious site
+$DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
 $reopen_in_iab: Proszę użyć MyTonWallet %mobileAppButton% lub %browserExtensionButton%, aby uniknąć tego ostrzeżenia.
 $reopen_in_iab_explore: Podczas przeglądania aplikacji używaj sekcji %exploreTab%, aby uniknąć tego ostrzeżenia.
 MyTonWallet Browser: przeglądarce MyTonWallet
@@ -937,8 +945,8 @@ $domains_expire:
   fewValue: "**%domain% domeny** wygasną %days%"
   manyValue: "**%domain% domeny** wygasną %days%"
 $in_days:
-  zeroValue: dziś
-  oneValue: jutro
+  zeroValue: za %1$d dni
+  oneValue: za %1$d dzień
   fewValue: za %1$d dni
   manyValue: za %1$d dni
 $domain_was_expired: "**%domain%** wygasł"
@@ -1097,6 +1105,7 @@ Choose Wallet: Wybierz portfel
 Wallet to use on %host%: Portfel dla %host%
 Selected Wallet: Wybrany portfel
 Connect Wallet: Połącz portfel
+Connect Anyway: Połącz mimo to
 Insufficient Fee: Niewystarczająca opłata
 Waiting for a View deeplink to display a wallet address.: Oczekiwanie na deeplink View do wyświetlenia adresu portfela.
 Adding wallets is not available in explorer mode: Dodawanie portfeli jest niedostępne w trybie eksplorera
@@ -1584,3 +1593,5 @@ Cumulative profit and loss over time: Skumulowane zyski i straty w czasie
 Day-by-day profit and loss: Zyski i straty z dnia na dzień
 Current allocation across tracked assets: Bieżąca alokacja śledzonych aktywów
 This action is not supported in explorer mode.: Ta akcja nie jest obsługiwana w trybie eksplorera.
+$relative_today: dziś
+$relative_tomorrow: jutro

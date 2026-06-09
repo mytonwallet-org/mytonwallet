@@ -33,7 +33,7 @@ public struct OpenButtonStyle: PrimitiveButtonStyle {
             paddings = .init(width: 16, height: 8)
         case .small:
             fontSize = 14
-            paddings = .init(width: 12, height: 6)
+            paddings = .init(width: 12, height: 4)
         }
     }
 

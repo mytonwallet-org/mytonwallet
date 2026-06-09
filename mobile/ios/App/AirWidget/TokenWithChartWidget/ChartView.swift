@@ -1,5 +1,6 @@
 import SwiftUI
 import WidgetKit
+import WalletCoreTypes
 
 struct ChartView: View {
     var token: ApiToken

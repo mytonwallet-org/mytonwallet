@@ -34,6 +34,8 @@ struct MfaView: View {
                 Task {
                     await model.primaryAction(mfa: mfa)
                 }
+            } onAddInGramWallet: {
+                UIApplication.shared.open(URL(string: "https://apps.apple.com/us/app/gram-wallet/id6763345750")!)
             }
             .onReceive(pollingTimer) { _ in
                 Task {
@@ -70,8 +72,16 @@ private struct MfaScreenState {
         canInstallMfa && isWalletSupported && hasInstallBalance
     }
 
+    var shouldShowAddInGramWalletButton: Bool {
+        !isConfigured && !canInstallMfa && !isWaitingForTelegramInstall && !isWaitingForTelegramRemoval
+    }
+
     var shouldShowFooter: Bool {
-        isConfigured || canInstallMfa || isWaitingForTelegramInstall || isWaitingForTelegramRemoval
+        isConfigured || canInstallMfa || isWaitingForTelegramInstall || isWaitingForTelegramRemoval || shouldShowAddInGramWalletButton
+    }
+
+    var shouldShowConnectionFee: Bool {
+        !shouldShowAddInGramWalletButton
     }
 
     var isPrimaryActionLoading: Bool {
@@ -118,6 +128,7 @@ private struct MfaScreenState {
 private struct MfaScreen: View {
     let state: MfaScreenState
     let onPrimaryAction: () -> Void
+    let onAddInGramWallet: () -> Void
 
     private let installBenefits: [MfaBenefit] = [
         .init(
@@ -181,20 +192,29 @@ private struct MfaScreen: View {
     private var footer: some View {
         if state.shouldShowFooter {
             VStack(spacing: 12) {
-                Text("Connection Fee: 0.15 TON")
-                    .font(.system(size: 14))
-                    .foregroundStyle(state.feeTextColor)
-
-                Button(action: onPrimaryAction) {
-                    Text(state.primaryButtonTitle)
+                if state.shouldShowConnectionFee {
+                    Text("Connection Fee: 0.15 TON")
+                        .font(.system(size: 14))
+                        .foregroundStyle(state.feeTextColor)
                 }
-                .buttonStyle(
-                    state.isConfigured
-                        ? WUIButtonStyle(style: .destructive)
-                        : WUIButtonStyle(style: .primary)
-                )
-                .environment(\.isLoading, state.isPrimaryActionLoading)
-                .disabled(!state.isPrimaryActionEnabled)
+
+                if state.shouldShowAddInGramWalletButton {
+                    Button(action: onAddInGramWallet) {
+                        Text(lang("Add in Gram Wallet"))
+                    }
+                    .buttonStyle(WUIButtonStyle(style: .primary))
+                } else {
+                    Button(action: onPrimaryAction) {
+                        Text(state.primaryButtonTitle)
+                    }
+                    .buttonStyle(
+                        state.isConfigured
+                            ? WUIButtonStyle(style: .destructive)
+                            : WUIButtonStyle(style: .primary)
+                    )
+                    .environment(\.isLoading, state.isPrimaryActionLoading)
+                    .disabled(!state.isPrimaryActionEnabled)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -321,62 +341,6 @@ struct MfaAccountAvatarView: View {
     }
 }
 
-struct MfaUserAvatarView: View {
-    let user: AccountMfa.User?
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            telegramFallback
-
-            if let avatarUrl {
-                AsyncImage(url: avatarUrl) { phase in
-                    if case .success(let image) = phase {
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        EmptyView()
-                    }
-                }
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-    }
-
-    private var telegramFallback: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(UIColor(hex: "EAF8FF")),
-                            Color(UIColor(hex: "CFEFFF")),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            Image.airBundle("TelegramLogo20")
-                .resizable()
-                .interpolation(.high)
-                .scaledToFit()
-                .frame(width: size * 0.5, height: size * 0.5)
-        }
-    }
-
-    private var avatarUrl: URL? {
-        guard let avatarUrlString = user?.avatarUrl?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .nilIfEmpty
-        else {
-            return nil
-        }
-        return URL(string: avatarUrlString)
-    }
-}
-
 struct MfaSettingsRowIcon: View {
     var body: some View {
         Image.airBundle("MfaSettingsIcon")
@@ -399,7 +363,8 @@ struct MfaSettingsRowIcon: View {
             isWaitingForTelegramInstall: false,
             isWaitingForTelegramRemoval: false
         ),
-        onPrimaryAction: {}
+        onPrimaryAction: {},
+        onAddInGramWallet: {}
     )
 }
 
@@ -415,7 +380,8 @@ struct MfaSettingsRowIcon: View {
             isWaitingForTelegramInstall: false,
             isWaitingForTelegramRemoval: false
         ),
-        onPrimaryAction: {}
+        onPrimaryAction: {},
+        onAddInGramWallet: {}
     )
 }
 
@@ -434,7 +400,8 @@ struct MfaSettingsRowIcon: View {
             isWaitingForTelegramInstall: false,
             isWaitingForTelegramRemoval: false
         ),
-        onPrimaryAction: {}
+        onPrimaryAction: {},
+        onAddInGramWallet: {}
     )
 }
 #endif

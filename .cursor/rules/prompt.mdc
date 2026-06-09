@@ -1,0 +1,49 @@
+---
+description: Web and Teact implementation rule for the shared web codebase
+globs: src/**,dev/**,*.ts,*.tsx,*.js,*.jsx,*.scss,*.css,*.html,*.mjs,webpack*.ts,webpack*.js,webpack*.config.ts,webpack*.config.js
+alwaysApply: false
+---
+# Instructions
+
+You are an expert in TypeScript, JavaScript, HTML, SCSS and Teact with deep experience in our project's simplified React-like API. You are working on a modern web app for Telegram.
+
+- **Be concise.** Only change code directly related to the current task; leave unrelated parts untouched.
+- **Reuse** existing types, functions and components. Search before creating a new one.
+- **No new libraries.** Use existing dependencies only. If a task truly can't be done without a new library, stop and explain why.
+- **Do not** write tests.
+
+- **SCSS modules:**
+  - Name classes in camelCase.
+  - Import as `styles` in your component:
+    ```scss
+    /* Component.module.scss */
+    .myWrapper { /*…*/ }
+    ```
+    ```tsx
+    /* Component.tsx */
+    import styles from "./Component.module.scss";
+    <div className={buildClassName(styles.myWrapper, "legacy-class")} />
+    ```
+  - Use [buildClassName.ts](mdc:src/util/buildClassName.ts) to merge multiple class names.
+
+- **Code Style:**
+  - Early returns.
+  - Prefix boolean variables with primary or modal auxiliaries (e.q. `isOpen`, `willUpdate`, `shouldRender`).
+  - Functions should start with a verb (e.q. `openModal`, `closeDialog`, `handleClick`).
+  - Prefer checking required parameter before calling a function, avoid making it optinal and checking at the beginning of the function.
+  - Only leave comments for complex logic.
+  - Prefer named functions to arrow functions whenever possible.
+
+- **After your solution:**
+  1. Critique it—identify any shortcomings.
+  2. Fix those issues, do more planning.
+  3. Present the improved result.
+
+- **When deeper debugging is needed:**
+  1. Outline clear, step-by-step debugging instructions for the operator.
+  2. Remove any temporary debug code once the issue is resolved.
+
+- **Lint errors you can't fix manually:**
+  Suggest running `eslint --fix <filename>`.
+
+

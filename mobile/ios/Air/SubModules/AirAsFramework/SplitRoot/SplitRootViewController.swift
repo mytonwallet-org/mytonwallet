@@ -329,33 +329,35 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         }
 
         let sidebarFrame = view.convert(sidebarNavigationController.view.bounds, from: sidebarNavigationController.view)
-        let leftGap = sidebarFrame.minX - view.bounds.minX
-        let rightGap = view.bounds.maxX - sidebarFrame.maxX
+        let isSidebarOnTrailingEdge = sidebarFrame.midX > view.bounds.midX
+        let isRightToLeft = view.effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let outerGap = isSidebarOnTrailingEdge
+            ? view.bounds.maxX - sidebarFrame.maxX
+            : sidebarFrame.minX - view.bounds.minX
+        guard outerGap > 1 else {
+            hideSidebarEdgeCovers()
+            return
+        }
+
         let targetFrame: CGRect
         let direction: EdgeGradientView.Direction
-        let solidEdgeLength: CGFloat
 
-        if leftGap > 1 {
+        if isSidebarOnTrailingEdge {
+            targetFrame = CGRect(
+                x: view.bounds.maxX - outerGap - sidebarEdgeFadeWidth,
+                y: view.bounds.minY,
+                width: outerGap + sidebarEdgeFadeWidth,
+                height: view.bounds.height
+            )
+            direction = isRightToLeft ? .leading : .trailing
+        } else {
             targetFrame = CGRect(
                 x: view.bounds.minX,
                 y: view.bounds.minY,
-                width: leftGap + sidebarEdgeFadeWidth,
+                width: outerGap + sidebarEdgeFadeWidth,
                 height: view.bounds.height
             )
-            direction = .leading
-            solidEdgeLength = leftGap
-        } else if rightGap > 1 {
-            targetFrame = CGRect(
-                x: view.bounds.maxX - rightGap - sidebarEdgeFadeWidth,
-                y: view.bounds.minY,
-                width: rightGap + sidebarEdgeFadeWidth,
-                height: view.bounds.height
-            )
-            direction = .trailing
-            solidEdgeLength = rightGap
-        } else {
-            hideSidebarEdgeCovers()
-            return
+            direction = isRightToLeft ? .trailing : .leading
         }
 
         for (navigationController, edgeCoverView, color) in sidebarEdgeCoverEntries {
@@ -365,7 +367,7 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
             }
             edgeCoverView.color = color.withAlphaComponent(0.8)
             edgeCoverView.direction = direction
-            edgeCoverView.solidEdgeLength = solidEdgeLength
+            edgeCoverView.solidEdgeLength = outerGap
             edgeCoverView.frame = navigationController.view.convert(targetFrame, from: view)
             edgeCoverView.isHidden = false
             navigationController.view.bringSubviewToFront(edgeCoverView)
