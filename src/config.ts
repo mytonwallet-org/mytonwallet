@@ -75,7 +75,7 @@ export const DEBUG_ALERT_MSG = 'Shoot!\nSomething went wrong, please see the err
 export const PIN_LENGTH = 4;
 export const NATIVE_BIOMETRICS_USERNAME = IS_CORE_WALLET ? 'TonWallet' : 'MyTonWallet';
 export const NATIVE_BIOMETRICS_SERVER = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mytonwallet.app';
-export const NATIVE_BIOMETRICS_PROMPT_KEY = 'confirm an action in My Wallet';
+export const NATIVE_BIOMETRICS_PROMPT_KEY = 'confirm an action in MyTonWallet';
 
 /** If `true`, the app supports only TON-specific mnemonics */
 export const IS_TON_MNEMONIC_ONLY = IS_CORE_WALLET;
@@ -969,4 +969,3 @@ export const MFA_BOT_URL = process.env.MFA_BOT_URL || 'https://t.me/tgmfabot/aut
 export const MFA_API_BASE_URL = process.env.MFA_API_BASE_URL || 'https://mfa-server.mytonwallet.org';
 export const MFA_MASTER_ADDRESS = 'UQCIoyc951J4hQwboW1-Gbt0kK0z920N2y8GbNXqCzWqe2ds';
 export const MFA_EXTENSION_CODE_HASH = '701eede652337f699550cc51cb15263259aae6fc6eba976237945f142dda982d';
-export const DEFAULT_ACCENT_COLOR_INDEX = IS_GRAM_WALLET ? 5 : undefined;

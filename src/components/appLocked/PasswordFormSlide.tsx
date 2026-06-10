@@ -73,6 +73,7 @@ function PasswordFormSlide({
         containerClassName={buildClassName(styles.passwordFormContent, 'custom-scroll')}
         pinPadClassName={styles.pinPadContent}
         inputWrapperClassName={styles.passwordInputWrapper}
+        errorClassName={styles.passwordError}
         submitLabel={lang('Unlock')}
         noAutoConfirm
         onSubmit={handleSubmitPassword}

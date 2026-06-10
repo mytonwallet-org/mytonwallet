@@ -82,13 +82,13 @@ struct DappHeaderView: View {
         }
     }
     
-    var title: some View {
+    private var title: some View {
         Text(dapp.name)
             .font(.system(size: 16, weight: .medium))
             .frame(minHeight: 22)
     }
     
-    var icon: some View {
+    private var icon: some View {
         DappIcon(iconUrl: dapp.iconUrl)
             .frame(width: 40, height: 40)
             .background(Color.air.secondaryFill)
@@ -96,7 +96,7 @@ struct DappHeaderView: View {
     }
 
     @ViewBuilder
-    var transfer: some View {
+    private var transfer: some View {
         let dappUrlText = Text(dapp.displayUrl)
             .foregroundColor(.white.opacity(0.75))
         if showWarning {
@@ -115,7 +115,7 @@ struct DappHeaderView: View {
     }
 }
 
-struct AngledArea: Shape {
+private struct AngledArea: Shape {
     
     var x: CGFloat
     var radiusMultiplier: CGFloat
@@ -136,7 +136,7 @@ struct AngledArea: Shape {
     }
 }
 
-struct HeaderLine: Shape {
+private struct HeaderLine: Shape {
     nonisolated func path(in rect: CGRect) -> Path {
         Path {
             let h = rect.height

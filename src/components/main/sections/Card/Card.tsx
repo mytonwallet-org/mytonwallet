@@ -352,7 +352,7 @@ function Card({
             maskClassName={styles.blurred}
           >
             <div
-              className={buildClassName(styles.change, 'rounded-font')}
+              className={buildClassName(styles.change, changePrefix === 'up' && styles.positive, 'rounded-font')}
               role="button"
               tabIndex={0}
               onClick={() => switchToPortfolio()}

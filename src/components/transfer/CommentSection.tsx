@@ -25,7 +25,6 @@ interface OwnProps {
   binPayload?: string;
   stateInit?: string;
   chain?: ApiChain;
-  isStatic?: boolean;
   isReadonly?: boolean;
   isCommentRequired?: boolean;
   isEncryptedCommentSupported: boolean;
@@ -38,7 +37,6 @@ function CommentSection({
   binPayload,
   stateInit,
   chain,
-  isStatic,
   isReadonly,
   isCommentRequired,
   isEncryptedCommentSupported,
@@ -110,7 +108,6 @@ function CommentSection({
   return (
     <Input
       wrapperClassName={styles.commentInputWrapper}
-      className={isStatic ? styles.inputStatic : undefined}
       label={renderCommentLabel()}
       placeholder={isCommentRequired ? lang('Required') : lang('Optional')}
       value={comment}

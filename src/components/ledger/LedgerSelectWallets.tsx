@@ -6,7 +6,7 @@ import { getActions, withGlobal } from '../../global';
 import type { ApiChain, ApiLedgerWalletInfo } from '../../api/types';
 import type { Account } from '../../global/types';
 
-import { TOKEN_CUSTOM_STYLES } from '../../config';
+import { IS_GRAM_WALLET, TOKEN_CUSTOM_STYLES } from '../../config';
 import { selectNetworkAccounts } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { getChainConfig } from '../../util/chain';
@@ -133,6 +133,7 @@ function LedgerSelectWallets({
         key={address}
         className={buildClassName(
           styles.account,
+          IS_GRAM_WALLET && 'gram',
           isConnected && styles.account_connected,
           isSelected && styles.account_current,
         )}

@@ -41,10 +41,15 @@
   color: var(--color-card-text);
   text-align: left;
 
-  background-image: url('../../assets/account_button_bg.jpg'), linear-gradient(125deg, #{v.$defaultCardGradient});
   background-clip: padding-box, padding-box;
   background-origin: border-box;
   background-size: cover, cover;
+
+  @include mixins.card-image("../../assets/", "account_button_bg", v.$defaultCardGradient);
+
+  &:global(.gram) {
+    @include mixins.card-image("../../assets/", "account_button_gram_bg", v.$gramCardGradient);
+  }
 
   &::after {
     content: '';
@@ -97,10 +102,6 @@
     &:nth-child(2) {
       grid-column-end: 6;
     }
-  }
-
-  @media (min-resolution: 1.5dppx) {
-    background-image: url('../../assets/account_button_bg@2x.jpg'), linear-gradient(125deg, #{v.$defaultCardGradient});
   }
 
   &.customCard {

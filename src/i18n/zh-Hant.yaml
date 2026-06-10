@@ -837,7 +837,7 @@ $receive_action: 接收
 Change Palette: 更改調色板
 Palette: 調色板
 Unlock New Palettes: 解鎖新調色板
-Get a unique My Wallet Card to unlock new palettes.: 獲取獨特的 My Wallet 卡片以解鎖新的調色板。
+Get a unique MyTonWallet Card to unlock new palettes.: 獲取獨特的 MyTonWallet 卡片以解鎖新的調色板。
 Mint Cards: 鑄造卡片
 Card has been upgraded!: 卡片已升級！
 $mint_card_result: NFT 卡片將在一分鐘內**鑄造**並**自動安裝**。
@@ -872,9 +872,9 @@ DappurlTrustStatusInvalidTitle: Domain mismatch
 $DappurlTrustStatusInvalidHelp: The origin does not match this application's verified domain. Only continue if you trust this site.
 DappurlTrustStatusDangerousTitle: Potentially malicious site
 $DappurlTrustStatusDangerousHelp: This domain was flagged as dangerous by security checks. Connecting may put your funds at risk. Only continue if you are absolutely sure.
-$reopen_in_iab: 請使用 My Wallet %mobileAppButton% 或 %browserExtensionButton% 以避免此警告。
+$reopen_in_iab: 請使用 MyTonWallet %mobileAppButton% 或 %browserExtensionButton% 以避免此警告。
 $reopen_in_iab_explore: 瀏覽應用程式時，請使用 %exploreTab% 專區以避免此警告。
-My Wallet Browser: My Wallet 瀏覽器
+MyTonWallet Browser: MyTonWallet 瀏覽器
 mobile app: 行動應用程式
 browser extension: 瀏覽器擴充功能
 Exit all wallets: 退出所有錢包
@@ -1053,9 +1053,9 @@ Customize Wallet: 自訂錢包
 "Select the card stored in this wallet:": 選擇此錢包中儲存的卡片：
 This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: 此卡片將安裝於該錢包，並顯示在主畫面及錢包列表中。
 Get More Cards: 獲取更多卡片
-Browse My Wallet Cards available for purchase.: 瀏覽可購買的 My Wallet 卡片。
+Browse MyTonWallet Cards available for purchase.: 瀏覽可購買的 MyTonWallet 卡片。
 You don’t have any cards to customize yet: 您目前沒有可自訂的卡片。
-My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: My Wallet 卡片可安裝於錢包，並顯示於主畫面與錢包列表中。
+MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet 卡片可安裝於錢包，並顯示於主畫面與錢包列表中。
 Get First Card: 獲取第一張卡片
 Palette and Card: 調色盤與卡片
 Customize the wallet's home screen and color accents the way you like.: 依照您的喜好自訂錢包主畫面與顏色強調。
@@ -1089,7 +1089,7 @@ Adding wallets is not available in explorer mode: 在瀏覽器模式下無法新
 $explorer_mode_warning: "瀏覽器模式：正在等待檢視深層連結以開啟地址"
 This command is not supported in explorer mode: 此命令在瀏覽器模式下不支援
 $saved_addresses_header: 已儲存
-confirm an action in My Wallet: 在 My Wallet 中確認操作
+confirm an action in MyTonWallet: 在 MyTonWallet 中確認操作
 Timed out waiting for account to be ready: 等待帳戶準備就緒逾時
 $connected_apps:
   otherValue: "%1$d 已連接"
@@ -1152,7 +1152,7 @@ $agent_consent_debug_reset_button: 重置助手同意狀態
 $agent_consent_debug_reset_footer: 下次開啟助手分頁時再次顯示助手同意畫面。
 Clear Chat: 清除聊天
 Unsupported link: 此連結不受支援
-My Wallet Features: My Wallet 功能
+MyTonWallet Features: MyTonWallet 功能
 Notifications: 通知
 Wrong passcode, please try again: 密碼錯誤，請重試。
 Use biometric authentication or create a passcode to protect it.: 使用生物識別認證或建立密碼進行保護。
@@ -1262,7 +1262,7 @@ Screen Recording: 螢幕錄影
 Disable Screen Record Warning: 關閉螢幕錄影警告
 I Understand, Proceed: 我了解，繼續
 Waiting for Network: 等候網路
-My Wallet: 我的錢包
+MyTonWallet: MyTonWallet
 $no_activity_history: |
   這個錢包目前沒有
   交易紀錄。
@@ -1343,7 +1343,7 @@ Swap is not supported on this account.: 此帳戶不支援兌換。
 "%1$@ will be returned": "%1$@ 將退回"
 Connecting your wallet: 正在連線錢包
 Action is not possible on a view-only wallet.: 只讀錢包無法執行此動作。
-Logged in with My Wallet: 已透過 My Wallet 登入
+Logged in with MyTonWallet: 已透過 MyTonWallet 登入
 You have no apps connected to this wallet.: 這個錢包沒有已連線的應用程式。
 Asset: 資產
 Sent to: 已傳送至
@@ -1384,7 +1384,7 @@ Confirm Actions:
 "Install Palette": 安裝調色盤
 Ledger: Ledger
 "Moving to staking balance": 正移至質押餘額
-My Wallet uses biometric authentication to unlock and authorize transactions: My Wallet 使用生物辨識來解鎖並授權交易
+MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet 使用生物辨識來解鎖並授權交易
 "Network error": 網路錯誤
 "No Camera Access": 無法使用相機
 "Not all transactions were sent successfully.": 部分交易未成功送出。
@@ -1481,7 +1481,7 @@ Use 6-digit Passcode: 使用六位 PIN 碼
 Authorize %token% Fee: 授權 %token% 手續費
 Awaiting Previous Fee: 等候前一筆手續費
 Lock: 鎖定
-My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: My Wallet 卡片可安裝至錢包，並顯示在主畫面與錢包列表。
+MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: MyTonWallet 卡片可安裝至錢包，並顯示在主畫面與錢包列表。
 Receive: 收款
 Scan: 掃描
 

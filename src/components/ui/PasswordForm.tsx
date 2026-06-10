@@ -65,6 +65,7 @@ interface OwnProps {
   children?: TeactNode;
   noAnimatedIcon?: boolean;
   inputWrapperClassName?: string;
+  errorClassName?: string;
   noAutoConfirm?: boolean;
   onCancel?: NoneToVoidFunction;
   onUpdate: NoneToVoidFunction;
@@ -146,6 +147,7 @@ function PasswordForm({
   isFullWidthButton,
   noAnimatedIcon,
   inputWrapperClassName,
+  errorClassName,
   isAutoConfirmEnabled,
   noAutoConfirm,
   onUpdate,
@@ -458,6 +460,7 @@ function PasswordForm({
           isRequired
           id="first-password"
           wrapperClassName={inputWrapperClassName}
+          errorClassName={errorClassName}
           inputMode={isPasswordNumeric ? 'numeric' : undefined}
           error={error ? lang(error) : localError}
           placeholder={lang(placeholder)}
@@ -494,8 +497,8 @@ function PasswordForm({
 
       {!withConfirmScreenOnly && (isBiometricAuthEnabled ? renderBiometricPrompt() : renderPasswordForm())}
 
-      {shouldSuggestLogout && operationType === 'unlock' && (
-        <div className={styles.logOutWrapper}>
+      {operationType === 'unlock' && (
+        <div className={buildClassName(styles.logOutWrapper, !shouldSuggestLogout && styles.logOutWrapperHidden)}>
           {lang('Can\'t confirm?')}
           <span
             role="button"

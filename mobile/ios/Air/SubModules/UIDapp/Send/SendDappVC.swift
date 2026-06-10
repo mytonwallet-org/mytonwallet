@@ -58,6 +58,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         navigationItem.title = makeNavigationTitle()
         withAnimation {
             self.hostingController?.rootView = makeView()
+            self.bottomPanel.isHidden = false
         }
         updateSendButtonState(animated: true)
     }
@@ -132,7 +133,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         return lbl
     }()
     
-    private lazy var contentView = {
+    private lazy var bottomPanel = {
         var constraints = [NSLayoutConstraint]()
         
         let v = UIView()
@@ -171,17 +172,17 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         }
 
         hostingController = addHostingController(makeView(), constraints: .fill)
-        
-        view.addSubview(contentView)
-        NSLayoutConstraint.activate([
-            contentView.heightAnchor.constraint(equalToConstant: 136),
-            contentView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor).withPriority(.init(500)),
-            contentView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            contentView.rightAnchor.constraint(equalTo: view.rightAnchor)
-        ])
 
-        updateTheme()
-        
+        view.addSubview(bottomPanel)
+        NSLayoutConstraint.activate([
+            bottomPanel.heightAnchor.constraint(equalToConstant: 136),
+            bottomPanel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor).withPriority(.init(500)),
+            bottomPanel.leftAnchor.constraint(equalTo: view.leftAnchor),
+            bottomPanel.rightAnchor.constraint(equalTo: view.rightAnchor)
+        ])
+        bottomPanel.isHidden = request == nil
+
+        updateTheme()        
         updateSendButtonState()
 
         // This VC is the root of a presented navigation controller, so the sheet (and its swipe-to-dismiss)
@@ -319,45 +320,147 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
 
 
 #if DEBUG
+
+@available(iOS 18, *)
+private enum SendDappPreview {
+
+    static let dapp = ApiDapp(
+        url: "https://dedust.io",
+        name: "Dedust",
+        iconUrl: "https://files.readme.io/681e2e6-dedust_1.png",
+        manifestUrl: "",
+        connectedAt: nil,
+        urlTrustStatus: nil,
+        sse: nil
+    )
+
+    static let transfer1 = ApiDappTransfer(
+        toAddress: "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
+        amount: 123456789,
+        rawPayload: "adfsljhfdajlhfdasjkfhkjlhfdjkashfjadhkjdashfkjhafjfadshljkfahdsfadsjk",
+        isScam: false,
+        isDangerous: true,
+        normalizedAddress: "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
+        displayedToAddress: "EQCxE6...sDs",
+        networkFee: 132456
+    )
+
+    static let transfer2 = ApiDappTransfer(
+        toAddress: "EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2",
+        amount: 456789000,
+        rawPayload: "bbbsljhfdajlhfdasjkfhkjlhfdjkashfjadhkjdashfkjhafjfadshljkfahdsfadsjk",
+        isScam: true,
+        isDangerous: true,
+        normalizedAddress: "EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2",
+        displayedToAddress: "EQDtFp...q2",
+        networkFee: 98765
+    )
+
+    static let activity1 = ApiActivity.transaction(ApiTransactionActivity(
+        id: "d",
+        kind: "transaction",
+        externalMsgHashNorm: nil,
+        timestamp: 0,
+        amount: -123456789,
+        fromAddress: "foo",
+        toAddress: "bar",
+        comment: nil,
+        encryptedComment: nil,
+        fee: 12345,
+        slug: TON_USDT_SLUG,
+        isIncoming: false,
+        normalizedAddress: nil,
+        type: nil,
+        metadata: nil,
+        nft: nil,
+        status: .confirmed
+    ))
+
+    static let activity2 = ApiActivity.transaction(ApiTransactionActivity(
+        id: "d2",
+        kind: "transaction",
+        externalMsgHashNorm: nil,
+        timestamp: 0,
+        amount: -456789,
+        fromAddress: "foo",
+        toAddress: "bar",
+        comment: nil,
+        encryptedComment: nil,
+        fee: 12345,
+        slug: TON_USDT_SLUG,
+        isIncoming: false,
+        normalizedAddress: nil,
+        type: .callContract,
+        metadata: nil,
+        nft: nil,
+        status: .confirmed
+    ))
+
+    static func makeRequest(transfers: [ApiDappTransfer], activities: [ApiActivity]) -> ApiUpdate.DappSendTransactions {
+        ApiUpdate.DappSendTransactions(
+            promiseId: "",
+            accountId: "",
+            dapp: dapp,
+            transactions: transfers,
+            emulation: Emulation(activities: activities, realFee: 123456),
+            shouldHideTransfers: nil
+        )
+    }
+}
+
+@available(iOS 18, *)
+private class SheetPreviewContainer: UIViewController {
+    private let content: UIViewController
+
+    init(_ vc: UIViewController) {
+        content = WNavigationController(rootViewController: vc)
+        super.init(nibName: nil, bundle: nil)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemGroupedBackground
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard presentedViewController == nil else { return }
+        if let sheet = content.sheetPresentationController {
+            sheet.detents = [.large()]
+        }
+        present(content, animated: false)
+    }
+}
+
+// MARK: - Preview:
+
+// Preview has quirks: it keeps the previous preview content after switching
+// So here is a dirty solution: Uncomment the variant you need, keep the others commented out.
+
+@available(iOS 18, *)
+#Preview("Placeholder") {
+    SheetPreviewContainer(
+        SendDappVC(placeholderAccountId: nil, isWaitingForRequest: false)
+    )
+}
+
 //@available(iOS 18, *)
-//#Preview {
-//    let activity1 = ApiActivity.transaction(ApiTransactionActivity(id: "d", kind: "transaction", timestamp: 0, amount: -123456789, fromAddress: "foo", toAddress: "bar", comment: nil, encryptedComment: nil, fee: 12345, slug: TON_USDT_SLUG, isIncoming: false, normalizedAddress: nil, externalMsgHashNorm: nil, shouldHide: nil, type: nil, metadata: nil, nft: nil, isPending: nil))
-//    let activity2 = ApiActivity.transaction(ApiTransactionActivity(id: "d2", kind: "transaction", timestamp: 0, amount: -456789, fromAddress: "foo", toAddress: "bar", comment: nil, encryptedComment: nil, fee: 12345, slug: TON_USDT_SLUG, isIncoming: false, normalizedAddress: nil, externalMsgHashNorm: nil, shouldHide: nil, type: .callContract, metadata: nil, nft: nil, isPending: nil))
-//
-//    let request = ApiUpdate.DappSendTransactions(
-//        promiseId: "",
-//        accountId: "",
-//        dapp: ApiDapp(url: "https://dedust.io", name: "Dedust", iconUrl: "https://files.readme.io/681e2e6-dedust_1.png", manifestUrl: "", connectedAt: nil, urlTrustStatus: nil, sse: nil),
-//        transactions: [
-//            ApiDappTransfer(
-//                toAddress: "tkffadjklfadsjfalkdjfd;alljfdasfo",
-//                amount: 123456789,
-//                rawPayload: "adfsljhfdajlhfdasjkfhkjlhfdjkashfjadhkjdashfkjhafjfadshljkfahdsfadsjk",
-//                isScam: false,
-//                isDangerous: true,
-//                normalizedAddress: "bar",
-//                displayedToAddress: "fkkfkf",
-//                networkFee: 132456
-//            ),
-//            ApiDappTransfer(
-//                toAddress: "tkffadjklfadsjfalkdjfd;alljfdasfo",
-//                amount: 123456789,
-//                rawPayload: "adfsljhfdajlhfdasjkfhkjlhfdjkashfjadhkjdashfkjhafjfadshljkfahdsfadsjk",
-//                isScam: true,
-//                isDangerous: true,
-//                normalizedAddress: "bar",
-//                displayedToAddress: "fkkfkf",
-//                networkFee: 132456
-//            ),
-//        ],
-//        emulation: Emulation(
-//            activities: [activity1, activity2],
-//            realFee: 123456
-//        )
+//#Preview("Send — Single Transaction") {
+//    let request = SendDappPreview.makeRequest(
+//        transfers: [SendDappPreview.transfer1],
+//        activities: [SendDappPreview.activity1]
 //    )
-//    
-//    let vc = SendDappVC(request: request, onCancel: {})
-//    let nc = WNavigationController(rootViewController: vc)
-//    nc
+//    return SheetPreviewContainer(SendDappVC(request: request, onCancel: {}))
 //}
+
+//@available(iOS 18, *)
+//#Preview("Send — Multiple Transactions") {
+//    let request = SendDappPreview.makeRequest(
+//        transfers: [SendDappPreview.transfer1, SendDappPreview.transfer2],
+//        activities: [SendDappPreview.activity1, SendDappPreview.activity2]
+//    )
+//    return SheetPreviewContainer(SendDappVC(request: request, onCancel: {}))
+//}
+
 #endif

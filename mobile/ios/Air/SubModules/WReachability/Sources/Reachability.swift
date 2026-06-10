@@ -32,7 +32,7 @@ public final class Reachability {
         currentConnection
     }
 
-    private let monitorQueue = DispatchQueue(label: "org.mywallet.reachability")
+    private let monitorQueue = DispatchQueue(label: "org.mytonwallet.reachability")
     private var monitor: NWPathMonitor?
     private var currentConnection: Connection = .unavailable
     private var notifierRunning = false

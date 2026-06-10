@@ -215,12 +215,17 @@
   text-align: left;
 
   opacity: 0.84;
-  background-image: url('../../assets/account_button_bg.jpg'), linear-gradient(125deg, #{v.$defaultCardGradient});
   background-clip: padding-box, padding-box;
   background-origin: border-box;
   background-size: cover, cover;
 
   transition: opacity 200ms;
+
+  @include mixins.card-image("../../assets/", "account_button_bg", v.$defaultCardGradient);
+
+  &:global(.gram) {
+    @include mixins.card-image("../../assets/", "account_button_gram_bg", v.$gramCardGradient);
+  }
 
   &_connected {
     cursor: not-allowed;
@@ -242,10 +247,6 @@
     &:nth-child(2) {
       grid-column-end: 6;
     }
-  }
-
-  @media (min-resolution: 1.5dppx) {
-    background-image: url('../../assets/account_button_bg@2x.jpg'), linear-gradient(125deg, #{v.$defaultCardGradient});
   }
 }
 

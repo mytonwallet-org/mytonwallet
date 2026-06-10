@@ -1,0 +1,21 @@
+// Card background: base JPG + @2x retina, plus an AVIF image-set behind @supports.
+// `$dir` is relative to the consuming module - css-loader resolves url() from there.
+
+@mixin card-image($dir, $name, $gradient) {
+  background-image: url("#{$dir}#{$name}.jpg"), linear-gradient(125deg, #{$gradient});
+
+  @media (min-resolution: 1.5dppx) {
+    background-image: url("#{$dir}#{$name}@2x.jpg"), linear-gradient(125deg, #{$gradient});
+  }
+
+  @supports (background-image: image-set(url("#{$dir}#{$name}.avif") type("image/avif"))) {
+    background-image:
+      image-set(
+        url("#{$dir}#{$name}.avif") type("image/avif") 1x,
+        url("#{$dir}#{$name}@2x.avif") type("image/avif") 2x,
+        url("#{$dir}#{$name}.jpg") type("image/jpeg") 1x,
+        url("#{$dir}#{$name}@2x.jpg") type("image/jpeg") 2x
+      ),
+      linear-gradient(125deg, #{$gradient});
+  }
+}

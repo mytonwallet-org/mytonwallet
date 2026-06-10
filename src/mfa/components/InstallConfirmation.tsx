@@ -19,6 +19,9 @@ import UniversalButton from './UniversalButton';
 import commonStyles from './_common.module.scss';
 import styles from './InstallConfirmation.module.scss';
 
+import benefitTelegramImg from '../../assets/settings/mfa/benefit_telegram.svg';
+import benefitTonImg from '../../assets/settings/mfa/benefit_ton.svg';
+
 interface OwnProps {
   isActive: boolean;
   installRequest?: ApiInstallRequest;
@@ -107,7 +110,7 @@ function InstallConfirmation({ installRequest, isActive, walletApp, reqId, onCon
 
       <div className={styles.benefits}>
         <div className={buildClassName(styles.block, styles.benefitBlock)}>
-          <i className={buildClassName('icon-key', styles.benefitIcon)} aria-hidden />
+          <img src={benefitTelegramImg} alt="" className={styles.benefitIcon} />
 
           <div className={styles.benefitText}>
             {lang('We’ll ask you to confirm actions with Telegram after entering your passcode in %app_name%.', {
@@ -117,7 +120,7 @@ function InstallConfirmation({ installRequest, isActive, walletApp, reqId, onCon
         </div>
 
         <div className={buildClassName(styles.block, styles.benefitBlock)}>
-          <i className={buildClassName('icon-key', styles.benefitIcon)} aria-hidden />
+          <img src={benefitTonImg} alt="" className={styles.benefitIcon} />
 
           <div className={styles.benefitText}>
             {lang('2FA applies only to actions involving TON assets.')}
